@@ -21,8 +21,10 @@ const DISMISS_KEY = 'varve-demo-banner-dismissed';
 const LIMITATIONS = [
   'Files are stored in this browser only. Clearing site data deletes them; there is no cloud account or upload.',
   'The demo runs the WASM engine, not the native desktop engine — expect slower rendering on large documents.',
-  'Native PDF/print, native menus, and auto-updates are desktop-only.',
-  'Background removal and image upscaling use smaller on-device models in the browser.',
+  'Export gives you PNG, JPEG, WebP, and SVG. PDF, CMYK, bleed, and colour-managed print output are desktop-only — a browser has no print pipeline.',
+  'Background removal, upscaling, and visual search are desktop-only. They run on-device, and a browser tab is the wrong place for the download and the compute.',
+  'The demo covers the Design, Draw, and Photo workspaces. Print, Motion, Codegen, Logo, and Email are in the desktop app.',
+  'Native menus and auto-updates are desktop-only.',
   'Best experienced on a desktop browser (Chrome, Edge, Firefox, Safari — recent versions).',
 ] as const;
 
