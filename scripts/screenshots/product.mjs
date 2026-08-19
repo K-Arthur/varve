@@ -72,7 +72,13 @@ async function startServer() {
     ['--filter', '@varve/desktop', 'exec', 'vite', '--port', String(PORT), '--strictPort'],
     {
       cwd: ROOT,
-      env: { ...process.env },
+      // Inference scenes need crossOriginIsolated: it gates SharedArrayBuffer
+      // (threaded WASM) and raises the safe-model ceiling from 50 MB to
+      // 400 MB, which IS-Net at 178 MB sits well above.
+      env: {
+        ...process.env,
+        ...(process.env.VARVE_SHOT_MODELS ? { VARVE_CROSS_ORIGIN_ISOLATION: '1' } : {}),
+      },
       stdio: 'ignore',
       detached: false,
     },
@@ -1041,6 +1047,15 @@ try {
     });
     await ctx.addInitScript(SEED_FIRST_RUN_STATE);
     const page = await ctx.newPage();
+    // A scene that stalls (inference in particular) reports only the UI text
+    // it got stuck on, which cannot distinguish "still working" from "threw
+    // and the spinner never cleared". VARVE_SHOT_DEBUG surfaces the console.
+    if (process.env.VARVE_SHOT_DEBUG) {
+      page.on('console', (msg) => {
+        console.log(`  [${scene.id}:${msg.type()}] ${msg.text().slice(0, 300)}`);
+      });
+      page.on('pageerror', (err) => console.log(`  [${scene.id}:pageerror] ${String(err).slice(0, 300)}`));
+    }
     try {
       await page.emulateMedia({
         colorScheme: scene.theme,
