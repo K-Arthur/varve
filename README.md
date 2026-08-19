@@ -47,8 +47,14 @@ WASM for the browser. No account, no forced cloud sync, no feature paywall.
 - **Typography** — paragraph/character styling, OpenType features, variable fonts, text-on-path
 - **Motion** (alpha) — timeline with keyframes, easing, auto-keyframe assist
 - **Print production** (desktop) — CMYK via ICC profiles, PDF/X export, crop/registration marks
-- **Export** — SVG, React, Flutter, SwiftUI, Lottie/CSS/SVG animation — computed locally, no network round-trip
-- **Images and local intelligence** — adjustments, effects, raster-to-vector trace, background removal, optional on-device enhancement, palette extraction, and asset search
+- **Export** — SVG, React, Svelte, Vue, Flutter, SwiftUI, email HTML,
+  Web Components, Tailwind, Lottie/CSS/SVG animation — computed locally,
+  no network round-trip
+- **Images and local intelligence** — adjustments, effects, raster-to-vector
+  trace, background removal, optional on-device enhancement, palette
+  extraction, object selection, depth blur, and asset search
+- **Email design** (desktop) — visual email authoring, preview, and
+  multi-format export (HTML, plain text) with preflight diagnostics
 
 **Not yet implemented:** real-time collaboration exists only as UI scaffolding.
 The WASM/browser build exists for development — the supported product path is
@@ -212,8 +218,9 @@ The Rust engine computes a scene and emits a compact render IR; the webview
 replays it to Canvas2D or WebGPU. See
 [ADR-0001](docs/adr/0001-native-render-in-tauri-webview.md) for the
 rationale and [docs/architecture/render-pipeline.md](docs/architecture/render-pipeline.md)
-for the full pipeline. A hosted browser editor is not currently deployed;
-the WASM target is used by the browser compatibility build and test harness.
+for the full pipeline. A bounded browser demo is hosted at
+[varve.studio/try](https://varve.studio/try/) with honest capability
+messaging; the full product path is the native desktop application.
 
 | Package | Purpose |
 |---|---|
@@ -221,7 +228,7 @@ the WASM target is used by the browser compatibility build and test harness.
 | `@varve/editor` | Editor shell, canvas, layers, inspector, tools, shortcuts |
 | `@varve/engine` | WASM/native/stub engine facade with IR-replay renderer |
 | `@varve/scene` | Immutable document model with ops |
-| `@varve/codegen` | SVG/React/Svelte/Flutter/SwiftUI code export |
+| `@varve/codegen` | SVG, React, Svelte, Vue, Flutter, SwiftUI, Web Components, email HTML, and more |
 | `@varve/platform` | Platform abstraction (Tauri/web/memory) |
 
 ```
@@ -335,9 +342,12 @@ the document format can still change — see
 <details>
 <summary><strong>Does Varve work in a browser?</strong></summary>
 <br>
-A WASM/browser build exists for compatibility and development, but there is
-no hosted browser editor today. The supported product path is the native
-desktop application.
+A bounded browser demo is available at
+<a href="https://varve.studio/try/">varve.studio/try</a> — no download
+required. It runs a curated sample document with honest capability messaging
+about what the browser build can and cannot do. The full product experience
+is the native desktop application; the WASM target also supports the browser
+compatibility build and test harness.
 </details>
 
 <details>
