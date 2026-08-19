@@ -92,6 +92,9 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
     }
 
     expect(meta.description, `${route}: description`).toBeTruthy();
+    if (meta.description === null) {
+      throw new Error(`${route}: description is missing`);
+    }
     expect(meta.description.length, `${route}: description length`).toBeLessThanOrEqual(320);
 
     expect(meta.robots, `${route}: robots`).toBe('index, follow');
@@ -166,7 +169,9 @@ test('sitemap.xml enumerates every real page and excludes 404/alias/demo routes'
   const res = await request.get('/sitemap.xml');
   expect(res.status()).toBe(200);
   const xml = await res.text();
-  const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)]
+    .map((m) => m[1])
+    .filter((url): url is string => typeof url === 'string');
   expect(urls.length, 'sitemap has entries').toBeGreaterThanOrEqual(ROUTES.length);
 
   for (const url of urls) {
