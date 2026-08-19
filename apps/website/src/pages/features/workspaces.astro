@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import FeatureVisual from '../../components/FeatureVisual.astro';
 ---
 
 <Layout
@@ -36,6 +37,11 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Codegen</strong> — design-to-code and design audit output.</li>
         </ul>
       </section>
+
+      <FeatureVisual
+        scene="workspaces"
+        caption="The Print workspace on a poster document — the switcher sits in the menubar, and the left panel carries the Masters, Pages, and Spreads controls print work needs."
+      />
 
       <section class="feature-section">
         <h2>Customize once, remembered per mode</h2>

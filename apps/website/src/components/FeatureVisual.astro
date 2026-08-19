@@ -1,0 +1,83 @@
+---
+/**
+ * FeatureVisual — one product screenshot on a feature page, resolved from the
+ * screenshot manifest (apps/website/src/data/screenshot-manifest.json).
+ *
+ * Feature pages used to hardcode `/screenshots/<file>.png` with a hand-written
+ * alt and caption. That kept working only as long as nobody re-cropped or
+ * renamed a scene: the file reference is validated, but the prose beside it is
+ * not, so a scene could start showing something else while the page kept
+ * describing the old capture. Taking `scene` instead of a path means the alt
+ * text and caption always come from whatever the pipeline actually captured.
+ *
+ * A scene that was skipped renders nothing at all, rather than a broken image.
+ */
+import manifest from '../data/screenshot-manifest.json';
+import { sitePath } from '../lib/siteUrl';
+
+interface Props {
+  /** Scene id in the manifest, e.g. "workspaces". */
+  scene: string;
+  /** Override the manifest caption when a page needs more specific framing. */
+  caption?: string;
+}
+
+type ScreenshotScene = {
+  file: string;
+  alt: string;
+  caption: string;
+  width?: number;
+  height?: number;
+  status?: string;
+};
+
+const { scene, caption } = Astro.props;
+const scenes = (manifest as { scenes: Record<string, ScreenshotScene> }).scenes;
+const shot = scenes[scene]?.status === 'captured' ? scenes[scene] : null;
+---
+
+{
+  shot && (
+    <figure class="feature-visual">
+      <img
+        src={sitePath(`/screenshots/${shot.file}`)}
+        alt={shot.alt}
+        width={shot.width ?? 1440}
+        height={shot.height ?? 900}
+        loading="lazy"
+        decoding="async"
+      />
+      {(caption ?? shot.caption) && <figcaption>{caption ?? shot.caption}</figcaption>}
+    </figure>
+  )
+}
+
+<style>
+  .feature-visual {
+    margin: -1rem 0 3rem;
+  }
+
+  .feature-visual img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    box-shadow: var(--elevation-shadow-raised);
+  }
+
+  /* Panel crops are tall and narrow; letting them run the full column width
+     blows them up well past 1:1 and softens the type they exist to show. */
+  .feature-visual img[width='320'] {
+    max-width: 320px;
+    margin: 0 auto;
+  }
+
+  .feature-visual figcaption {
+    margin-top: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-align: center;
+  }
+</style>

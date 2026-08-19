@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import StatusPill from '../../components/StatusPill.astro';
+import FeatureVisual from '../../components/FeatureVisual.astro';
 ---
 
 <Layout
@@ -55,6 +56,12 @@ import StatusPill from '../../components/StatusPill.astro';
           detected faces in frame with a non-destructive crop.
         </p>
       </section>
+
+      <FeatureVisual
+        scene="image-tools"
+        caption="Object Selection and Background Removal sit in the image tools inspector, beside Enhance, Vectorize and Depth Blur. Each runs on-device."
+      />
+
 
       <section class="feature-section">
         <h2>In development</h2>
