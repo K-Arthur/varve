@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import FeatureVisual from '../../components/FeatureVisual.astro';
 ---
 
 <Layout
@@ -43,6 +44,11 @@ import { sitePath } from '../../lib/siteUrl';
           background coverage easy to spot before export.
         </p>
       </section>
+
+      <FeatureVisual
+        scene="print-production"
+        caption="The dashed guide sits outside the trim edge, with per-edge bleed values in the Page Print inspector."
+      />
 
       <section class="feature-section">
         <h2>Print-aware export</h2>

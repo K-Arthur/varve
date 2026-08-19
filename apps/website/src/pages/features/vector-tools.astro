@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import FeatureVisual from '../../components/FeatureVisual.astro';
 ---
 
 <Layout title="Vector Tools" description="Varve's vector design tools: shapes, pen and pencil with bezier handles, boolean operations, node editing, layers, groups, and frames.">
@@ -45,8 +46,14 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Layers:</strong> Virtualized layer tree with search, filter, thumbnails, drag-to-reorder, inline rename</li>
           <li><strong>Groups and frames:</strong> Group/ungroup, spatial containers with flex and grid auto-layout</li>
           <li><strong>Snapping:</strong> Sticky snap to edges, centers, and other objects with configurable thresholds</li>
+          <li><strong>Image trace:</strong> Convert a raster image to editable paths locally, in black and white, greyscale, colour, or pixel-art modes</li>
         </ul>
       </section>
+
+      <FeatureVisual
+        scene="vectorize"
+        caption="Tracing an imported image into editable paths. Mode, colour count, and path fitting are set before the trace runs; the result lands on the canvas as ordinary vector paths."
+      />
 
       <section class="feature-section">
         <h2>Technical Depth</h2>

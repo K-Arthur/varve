@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import manifest from '../../data/screenshot-manifest.json';
+import FeatureVisual from '../../components/FeatureVisual.astro';
 
 type ScreenshotScene = {
   file: string;
@@ -74,7 +75,7 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
           <li><strong>Native CMYK in PDF export:</strong> authored CMYK channels are emitted directly with pure-K preserved — no CMYK→RGB→CMYK round trip turning black into a four-color build</li>
           <li><strong>ICC profiles:</strong> Bundled RGB and CMYK profiles (sRGB, Fogra39, GRACoL, SWOP) with rendering intents</li>
           <li><strong>Blend modes:</strong> 18 CSS blend modes plus 4 non-separable modes (hue, saturation, color, luminosity)</li>
-          <li><strong>Effects:</strong> Drop shadow, inner shadow, layer blur (GPU-accelerated up to 32px, software beyond), background blur, outer and inner glow</li>
+          <li><strong>Effects:</strong> Drop shadow, inner shadow, layer blur (GPU-accelerated up to 32px, software beyond), background blur, outer and inner glow, glass material, chromatic aberration, and glitch</li>
           <li><strong>Adjustment layers:</strong> Curves (Catmull-Rom spline), levels, selective color (9 targets), HSL, exposure — with per-target scoping</li>
           <li><strong>Halftone screening:</strong> AM (clustered-dot, 5 dot shapes) and FM (Floyd-Steinberg + Bayer) with standard CMYK angles</li>
           <li><strong>Soft proofing:</strong> CMYK simulation overlay for previewing print output on screen</li>
@@ -82,6 +83,11 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
           <li><strong>Retouching tools:</strong> Clone stamp, healing brush, spot heal, patch tool</li>
         </ul>
       </section>
+
+      <FeatureVisual
+        scene="effects"
+        caption="Effects stack per layer and stay non-destructive — each one keeps its own offset, blur, spread, opacity, and blend mode."
+      />
 
       <section class="feature-section">
         <h2>Print Preview, Honestly</h2>
