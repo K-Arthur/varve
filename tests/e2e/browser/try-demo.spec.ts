@@ -207,6 +207,41 @@ test.describe('browser demo (/try)', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(before + 1, { timeout: 15000 });
   });
 
+  // Regression: the recovery prompt used to be appended to <body> with no
+  // styles. Because #root already fills 100dvh inside an overflow:hidden
+  // body, it laid out *below the fold* — present in the DOM, impossible to
+  // see or click. Assert it lands inside the viewport, not merely that it
+  // exists.
+  test('stale-asset recovery prompt is visible inside the viewport', async ({ page }) => {
+    await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await dismissRecoveryDialog(page);
+
+    // Simulate the post-deploy state: a hashed chunk the shell references is gone.
+    await page.evaluate(() => {
+      const script = document.createElement('script');
+      script.src = '/assets/chunk-removed-by-a-deploy.js';
+      document.head.appendChild(script);
+    });
+
+    const banner = page.locator('.varve-stale-asset-banner');
+    await expect(banner).toBeVisible({ timeout: 10000 });
+
+    const viewport = page.viewportSize();
+    const box = await banner.boundingBox();
+    expect(box).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width);
+
+    // Both controls are reachable, and dismissing removes the prompt.
+    await expect(banner.getByRole('button', { name: /reload demo/i })).toBeVisible();
+    await banner.getByRole('button', { name: /dismiss update notice/i }).click();
+    await expect(banner).toHaveCount(0);
+  });
+
   test('demo attaches screenshots for visual inspection', async ({ page }) => {
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.layers-panel', { timeout: 60000 });
