@@ -13,7 +13,7 @@
  * Result:
  *   apps/website/dist/try/  — the demo app at the /try/ sub-path
  */
-import { cpSync, existsSync, mkdirSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const repoRoot = join(import.meta.dirname, '..', '..');
@@ -53,5 +53,35 @@ const wasmDir = join(demoDest, 'wasm');
 if (!existsSync(wasmDir)) {
   console.warn('[stage-demo] wasm/ directory missing — WASM features will not work');
 }
+
+// Size budget. GitHub Pages refuses to publish a site over 1 GB, and this
+// script copies whatever the build left behind — so a machine with a warm ONNX
+// model cache used to stage ~700 MB without a word (Vite copies public/
+// wholesale, and public/models is gitignored, so CI and a developer's laptop
+// produce very different artifacts). Failing here is much cheaper than a
+// deploy that either breaks the size cap or quietly ships hundreds of
+// megabytes of models the demo cannot even use.
+const BUDGET_MB = 120;
+
+function dirSizeBytes(dir) {
+  let total = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    total += entry.isDirectory() ? dirSizeBytes(full) : statSync(full).size;
+  }
+  return total;
+}
+
+const stagedMb = dirSizeBytes(demoDest) / 1024 / 1024;
+if (stagedMb > BUDGET_MB) {
+  console.error(
+    `[stage-demo] Staged demo is ${stagedMb.toFixed(1)} MB, over the ${BUDGET_MB} MB budget.\n` +
+      `The demo withholds on-device inference, so models/ and ort-wasm/ should have been\n` +
+      `pruned by the demo-asset-prune Vite plugin. Rebuild with:\n` +
+      `  pnpm --filter @varve/desktop build:try`,
+  );
+  process.exit(1);
+}
+console.log(`[stage-demo] Staged demo is ${stagedMb.toFixed(1)} MB (budget ${BUDGET_MB} MB)`);
 
 console.log('[stage-demo] Done');
