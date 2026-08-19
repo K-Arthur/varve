@@ -1,9 +1,3 @@
-<p align="center">
-  <img src="docs/brand/github-repository-icon.png" alt="Varve app icon" width="96"><br><br>
-  <img src="packages/ui/src/icons/varve-wordmark.svg#gh-light-mode-only" alt="Varve" width="340">
-  <img src="packages/ui/src/icons/varve-wordmark-dark.svg#gh-dark-mode-only" alt="Varve" width="340">
-</p>
-
 <h1 align="center">Varve</h1>
 <p align="center"><strong>Local-first design software for vector, layout, typography, motion, prototyping, and print — one application, no subscription, no cloud account.</strong></p>
 
