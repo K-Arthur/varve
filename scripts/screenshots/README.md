@@ -10,11 +10,17 @@ deterministic states.
 |---|---|
 | `pnpm screenshots:product` | Capture every scene into `docs/screenshots/product/`, sync a copy into `apps/website/public/screenshots/`, and rewrite `apps/website/src/data/screenshot-manifest.json` |
 | `pnpm screenshots:og` | Render the 1200x630 social-card image from `scripts/screenshots/og-template.html` into `apps/website/public/og-image.png` |
+| `pnpm screenshots:workflow` | Record a 10-20s deterministic editing workflow as WebM (+ optional MP4 via ffmpeg) |
 | `pnpm screenshots:website` | Build the website and validate the manifest (fails on broken/missing references) |
-| `pnpm screenshots:update` | Capture + OG + build + strict validation (fails if any scene cannot be captured) |
+| `pnpm screenshots:update` | Capture + OG + workflow + build + strict validation (fails if any scene cannot be captured) |
 
 Targeted capture: `pnpm screenshots:product -- --scenes workspace,vector`
 Strict mode: `pnpm screenshots:product -- --strict` (exit non-zero on any skip)
+
+Every run prints `this run: N scene(s) attempted` and fails when `N` is zero.
+The manifest totals printed beside it describe stored state, not the run — a
+run that captured nothing still reports a manifest full of captured scenes,
+so the per-run tally is the line to read.
 
 ## Source of truth
 
@@ -66,16 +72,39 @@ modes and a real type hierarchy.
 | `motion` | dark | timeline | Timeline panel with a real position keyframe |
 | `palette-inspector` | light | full | Palette Inspector open on a real imported photo |
 | `enhance-dialog-auto` | light | full | Enhance dialog, Auto mode, on a real degraded photo |
+| `export` | light | full | Advanced export dialog: destination, filename template, formats |
+| `print-production` | light | full | Bleed guides on canvas and the Page Print inspector |
+| `vectorize` | light | full | Vectorize dialog in colour mode on an imported photo |
+| `image-tools` | light | inspectorTall | Enhance, Vectorize, Object Selection, Background Removal, Depth Blur |
+| `workspaces` | light | full | Print workspace active — Masters, Pages, and Spreads panels |
 
 Detail scenes are cropped **at capture time** (`clip`), because the website
 shows them at roughly a third of the page width where a scaled-down full
 window is an unreadable smear.
+
+`SCENES` in `product.mjs` is the source of truth for what exists. A newly
+added scene seeds its own manifest entry, and an entry whose scene has been
+removed is pruned along with its files on the next full run — so the manifest
+stays a generated view rather than something to hand-edit.
 
 Scenes that cannot be produced are recorded as `skipped` with a reason, and
 any previous output file is **deleted** — never silently replaced by an older
 screenshot. The motion scene authors a real position keyframe through the
 application's keyboard shortcut before capture, so the timeline screenshot
 does not claim more than the fixture actually demonstrates.
+
+Two scenes have non-obvious preconditions worth keeping in mind when editing
+them:
+
+- **`print-production`** needs bleed guides toggled on (`Ctrl+Shift+2`).
+  `bleedGuidesVisible` defaults to `false`, and `CanvasOverlays` only mounts
+  `PagePrintOverlays` while it is on — so setting bleed values without the
+  toggle renders nothing at all. The scene also places its rectangle
+  numerically so the artwork crosses the trim edge, because a bleed guide
+  around artwork that stops short of the trim does not show what bleed is for.
+- **`vectorize`** switches to colour mode. The dialog opens on the B&W "crisp
+  black logo" preset, which is right for line art and wrong for a photograph —
+  it traces the fixture into hundreds of paths and raises a complexity warning.
 
 The `palette-inspector` and `enhance-dialog-auto` scenes are the two
 exceptions to "committed document fixtures rather than scripted drawing"
@@ -86,6 +115,82 @@ through the application's own image-import input (`#file-import-input`) —
 see `fixtures/PROVENANCE.md` for its source, license, and the deterministic
 transform used to produce the degraded variant `enhance-dialog-auto` needs to
 show a real recommendation instead of "no restoration needed."
+
+## Workflow video
+
+A deterministic workflow video (10-20 seconds) demonstrates a real editing
+flow — opening a document, selecting a shape, editing Bézier handles, and
+opening the export dialog. The video is recorded by Playwright's built-in
+video recording (`recordVideo` option) against the same seeded demo documents
+used for screenshots.
+
+### Recording
+
+```bash
+pnpm screenshots:workflow    # record + transcode to WebM/MP4
+pnpm screenshots:workflow -- --no-mp4  # skip ffmpeg transcode
+```
+
+The script (`scripts/screenshots/workflow.mjs`):
+
+1. Launches the dev server and opens the editor (same as `screenshots:product`);
+2. Loads the poster demo document and fits it — this is the setup, and it is
+   trimmed off the delivered cut;
+3. Records a scripted sequence: select the headline → select the `Contour`
+   path → enter node edit mode → exit → select the page → open the export
+   dialog → close → fit-all;
+4. Writes the trimmed WebM to `docs/screenshots/product/workflow.webm`;
+5. Writes a trimmed MP4 alongside it via `ffmpeg` when available;
+6. Copies both to `apps/website/public/screenshots/` for the website.
+
+Node editing is demonstrated on the poster's `Contour` layer because it is an
+actual Bézier path. Driving the same sequence through a text layer moves the
+headline instead of editing nodes, which is not what the mode does.
+
+### Trimming
+
+The application's cold start (splash, file browser, New-document dialog) is
+recorded but cut. The trim point is **measured at runtime** — the script marks
+the moment the document is loaded and fitted, and trims to that offset — so it
+tracks real load time on the machine doing the recording instead of a
+hardcoded guess that silently rots.
+
+Trimming re-encodes rather than stream-copies, so the cut lands on the exact
+frame rather than the nearest keyframe.
+
+### Budget
+
+- Target: 10-20 seconds, under 5 MB (WebM), under 10 MB (MP4).
+- The recorder **fails** above 20 seconds and warns below 10, so a sequence
+  that grows gets re-cut rather than shipped long.
+- The validation script warns at 5 MB and fails at 10 MB for any single
+  video asset.
+- Without `ffmpeg` the untrimmed WebM ships with a warning and no MP4 is
+  produced — the cut then opens on the application's cold start.
+
+### Where the video can actually be embedded
+
+The website can embed `workflow.webm` / `workflow.mp4` directly, because it
+serves them itself.
+
+**The repository README cannot.** GitHub strips `<video>` elements from
+rendered Markdown, and a `src` pointing at a file in the repository will not
+play — GitHub only plays video served from `githubusercontent.com`. Getting
+that URL is a manual, owner-only step: drag the file into a GitHub web editor
+(README, issue, release, or discussion), which uploads it and returns a
+`githubusercontent.com` link to paste in. That link is what the README would
+have to reference, so it cannot be generated by this pipeline.
+
+Until then the README uses still screenshots, which render everywhere with no
+upload step and no motion-accessibility caveats.
+
+### Accessibility
+
+The workflow video must not convey essential information that isn't also
+available in the surrounding text or screenshots. Alt text on the `<video>`
+element describes the workflow shown. The website respects
+`prefers-reduced-motion` and hides the video for users who prefer reduced
+motion.
 
 ## Determinism
 
@@ -110,6 +215,11 @@ show a real recommendation instead of "no restoration needed."
 - manifest dimensions match the files;
 - skipped entries carry a reason;
 - every `/screenshots/` reference in docs/README/website sources resolves to a
-  captured entry (no stale paths, no orphan files).
+  captured entry (no stale paths, no orphan files);
+- individual PNG file size stays under 2 MB (warn at 1 MB);
+- total captured PNG set stays under 10 MB (warn at 5 MB);
+- no orphan PNGs in `public/screenshots/` or `docs/screenshots/product/`;
+- workflow video files (`.webm`, `.mp4`) pass budget checks (warn 5 MB, fail 10 MB)
+  and exist in both output directories when present.
 
 A Vitest mirror runs in `pnpm test:website` (`src/test/screenshots.test.ts`).
