@@ -29,6 +29,7 @@ const MIME = {
   '.txt': 'text/plain',
   '.woff2': 'font/woff2',
   '.woff': 'font/woff',
+  '.wasm': 'application/wasm',
 };
 
 if (!fs.existsSync(path.join(root, 'index.html'))) {
