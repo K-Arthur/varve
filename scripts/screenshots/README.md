@@ -83,28 +83,37 @@ Detail scenes are cropped **at capture time** (`clip`), because the website
 shows them at roughly a third of the page width where a scaled-down full
 window is an unreadable smear.
 
-### Feature pages still without a scene
+### Model-dependent scenes
 
-These are not oversights. Each one's result depends on a model that is
-downloaded on demand, so a capture run would either block on a network fetch
-or screenshot a "download this model" prompt — neither of which shows the
-feature:
+`background-removal` and `depth-blur` run real on-device inference. They need
+their model files present in `apps/desktop/public/models/`, which the dev
+server serves at `/models/<filename>`. That directory is gitignored, so the
+models are a **local prerequisite, not a committed asset** — a checkout
+without them skips these two scenes with a reason rather than failing.
+
+`apps/desktop/public/models/manifest.json` is the source of truth: each entry
+carries the `filename`, the `localPath` the loader requests, and a pinned
+`sha256`. Stage a model by copying it in and verifying that checksum. Never
+serve a file whose hash does not match the manifest — the pinned hash is the
+only provenance guarantee these binaries have.
+
+Inference here runs on CPU through WASM in headless Chromium, with no GPU
+acceleration, so it takes **minutes rather than seconds**. Both scenes allow
+ten minutes before giving up; that ceiling exists to catch a genuinely stuck
+run, not to bound normal work.
+
+Still without a scene:
 
 | Feature page | Blocked on |
 |---|---|
-| `background-removal` | segmentation model (`ModelDownloadDialog`) |
-| `object-selection` | segmentation model |
-| `depth-aware-effects` | depth model (`ensureDepthModelDownloaded`) |
-| `asset-search` | text/image encoder for the embedding index |
-| `asset-similarity` | image encoder for the embedding index |
+| `object-selection` | SAM2 encoder — the only local copy fails the manifest checksum, so it is not served |
+| `asset-search` | an embedding index built over a document's assets |
+| `asset-similarity` | the same index |
 
-The `image-tools` scene covers the **entry points** for the first three — the
-inspector sections a user opens to reach them — which is capturable without a
-model and honest about what it shows. `local-first` has no single panel that
-depicts it; its evidence is the absence of an account, not a screen.
-
-Capturing the model-dependent results properly needs a fixture strategy for
-pre-seeded model assets, so a run stays offline and deterministic.
+The `image-tools` scene covers the **entry points** for these — the inspector
+sections a user opens to reach them — which is capturable without a model and
+honest about what it shows. `local-first` has no single panel that depicts it;
+its evidence is the absence of an account, not a screen.
 
 `SCENES` in `product.mjs` is the source of truth for what exists. A newly
 added scene seeds its own manifest entry, and an entry whose scene has been

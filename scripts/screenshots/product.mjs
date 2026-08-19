@@ -281,6 +281,36 @@ async function openCleanEditor(page, { print = false } = {}) {
   }
 }
 
+/** Opens the image-tools ("Adjustments") tab for a selected image node. */
+async function openImageToolsTab(page) {
+  const tab = page.getByRole('tab', { name: /^Adjustments/i });
+  if (!(await tab.isVisible({ timeout: 5000 }).catch(() => false))) {
+    throw new Error('image tools tab unavailable for the selected image');
+  }
+  await tab.click();
+  await page.locator('.insp-disclosure').first().waitFor({ state: 'visible', timeout: 15000 });
+}
+
+/**
+ * Expands one inspector disclosure and scrolls it to the top of the panel.
+ * These sections collapse by default and sit below a long stack, so a capture
+ * without this lands on whatever happens to be in the crop instead.
+ */
+async function expandSection(page, titleRe) {
+  const section = page.locator('.insp-disclosure').filter({ hasText: titleRe });
+  if (!(await section.isVisible({ timeout: 10000 }).catch(() => false))) {
+    throw new Error(`inspector section ${titleRe} not present`);
+  }
+  const trigger = section.getByRole('button', { name: titleRe }).first();
+  if ((await trigger.getAttribute('aria-expanded')) === 'false') {
+    await trigger.click();
+    await page.waitForTimeout(500);
+  }
+  await section.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  await page.waitForTimeout(400);
+  return section;
+}
+
 async function parkMouse(page) {
   await page.mouse.move(4, 4);
   await page.evaluate(() => document.activeElement?.blur?.());
@@ -727,6 +757,79 @@ const SCENES = [
     },
   },
   {
+    id: 'background-removal',
+    requiresEnv: 'VARVE_SHOT_MODELS',
+    file: 'background-removal-light.png',
+    theme: 'light',
+    feature: 'background-removal',
+    alt: 'The Varve background removal inspector after generating a cutout mask on an imported photo, with the mask shown on a checkerboard and confidence reported before applying',
+    caption: 'Generate a cutout locally, review the mask on a checkerboard, then apply it.',
+    async run(page) {
+      await openCleanEditor(page);
+      await importImage(page, 'earth.jpg');
+      await selectImageNode(page);
+      await fitContent(page);
+      await openImageToolsTab(page);
+      const section = await expandSection(page, /^Background Removal/);
+      // Default is Fast, a local heuristic that applies straight away without
+      // a review step. Auto runs IS-Net General Use — the real cutout model,
+      // and the mode whose mask is worth reviewing before applying.
+      const method = section.getByRole('combobox').first();
+      await method.click();
+      const auto = page.getByRole('option', { name: /auto/i }).first();
+      if (!(await auto.isVisible({ timeout: 5000 }).catch(() => false))) {
+        throw new Error('background removal method list has no Auto option');
+      }
+      await auto.click();
+      await page.waitForTimeout(1500);
+      const create = section.getByRole('button', {
+        name: /remove background from image|re-apply background removal/i,
+      });
+      if (!(await create.isVisible({ timeout: 8000 }).catch(() => false))) {
+        throw new Error('background removal has no preview action for the selected image');
+      }
+      await create.click();
+      // Inference runs in a worker; the review panel is the completion signal.
+      const review = section.getByText(/review mask before applying/i);
+      if (!(await review.isVisible({ timeout: 600000 }).catch(() => false))) {
+        // Report what the panel actually says: "no preview appeared" is not
+        // enough to tell a model failure from a changed label.
+        const state = (await section.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 240);
+        throw new Error(`background removal produced no mask preview to review — panel read: ${state}`);
+      }
+      await page.waitForTimeout(1200);
+    },
+  },
+  {
+    id: 'depth-blur',
+    requiresEnv: 'VARVE_SHOT_MODELS',
+    file: 'depth-blur-light.png',
+    theme: 'light',
+    feature: 'depth-aware-effects',
+    alt: 'The Varve Depth Blur inspector showing a generated depth map preview for a photo, with blur amount, focal distance and transition range controls',
+    caption: 'A depth map computed on-device drives a non-destructive lens blur.',
+    async run(page) {
+      await openCleanEditor(page);
+      await importImage(page, 'earth.jpg');
+      await selectImageNode(page);
+      await fitContent(page);
+      await openImageToolsTab(page);
+      const section = await expandSection(page, /^Depth Blur/);
+      const generate = section.getByRole('button', { name: /generate depth map/i });
+      if (!(await generate.isVisible({ timeout: 8000 }).catch(() => false))) {
+        throw new Error('Depth Blur offers no "Generate Depth Map" action — model likely missing');
+      }
+      await generate.click();
+      const preview = section.getByLabel(/depth map preview/i);
+      // CPU/WASM inference in headless Chromium: minutes, not seconds.
+      if (!(await preview.isVisible({ timeout: 600000 }).catch(() => false))) {
+        const state = (await section.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 240);
+        throw new Error(`depth map never rendered — panel read: ${state}`);
+      }
+      await page.waitForTimeout(1200);
+    },
+  },
+  {
     id: 'image-tools',
     file: 'image-tools-panel-light.png',
     theme: 'light',
@@ -878,6 +981,7 @@ const browser = await chromium.launch();
 const server = await startServer();
 let failures = 0;
 let ranThisRun = 0;
+let optedOut = 0;
 
 /**
  * One throwaway load before the scene loop.
@@ -908,6 +1012,23 @@ await warmUp();
 try {
   for (const scene of SCENES) {
     if (onlyScenes.size > 0 && !onlyScenes.has(scene.id)) continue;
+    // Scenes that need on-device inference are opt-in. Their models are a
+    // local prerequisite (gitignored), and inference runs on CPU through WASM
+    // in headless Chromium, so a default run must neither block on them nor
+    // fail --strict for skipping them. Opting out drops the manifest entry
+    // entirely rather than leaving a permanent "skipped" record behind.
+    if (scene.requiresEnv && !process.env[scene.requiresEnv]) {
+      if (manifest.scenes[scene.id]) {
+        const stale = manifest.scenes[scene.id];
+        if (stale.file) {
+          for (const dir of [OUT_DIR, PUBLIC_DIR]) rmSync(join(dir, stale.file), { force: true });
+        }
+        delete manifest.scenes[scene.id];
+      }
+      optedOut++;
+      console.log(`skipping ${scene.id} (set ${scene.requiresEnv}=1 to capture it)`);
+      continue;
+    }
     // SCENES is the source of truth for what exists; the manifest is a
     // generated view of it, so a newly added scene seeds its own entry
     // rather than requiring a hand-edit of a file marked "do not hand-edit".
@@ -1006,8 +1127,12 @@ try {
 // Reported separately from the manifest totals below: a run that captures
 // nothing still leaves a manifest full of previously-captured scenes, which
 // reads like success unless this run's own tally is shown.
-console.log(`this run: ${ranThisRun} scene(s) attempted`);
-if (ranThisRun === 0) {
+console.log(
+  `this run: ${ranThisRun} scene(s) attempted${optedOut > 0 ? `, ${optedOut} opted out` : ''}`,
+);
+// Opting out is a deliberate choice, not a mis-typed filter — only an empty
+// run with nothing opted out means the selection matched nothing.
+if (ranThisRun === 0 && optedOut === 0) {
   console.error('FAIL no scenes ran — check the --scenes filter');
   failures++;
 }
