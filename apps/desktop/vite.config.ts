@@ -111,7 +111,28 @@ export default defineConfig({
   base: process.env.VITE_BASE_URL ?? '/',
   plugins: [react(), ortWasmDevPlugin(), demoCspPlugin()],
   clearScreen: false,
-  server: { port: 1420, strictPort: true },
+  server: {
+    port: 1420,
+    strictPort: true,
+    // Opt-in cross-origin isolation. Without it `crossOriginIsolated` is
+    // false, which costs on-device inference twice over: SharedArrayBuffer is
+    // unavailable so ONNX Runtime cannot use threaded WASM, and
+    // RuntimeCapabilities caps a safe model at 50 MB instead of 400 MB — which
+    // rules out IS-Net (178 MB) entirely.
+    //
+    // Off by default because COEP require-corp blocks any cross-origin
+    // subresource that does not opt in, which would change how the ordinary
+    // dev server loads third-party assets. The screenshot harness turns it on
+    // for the scenes that actually run inference.
+    ...(process.env.VARVE_CROSS_ORIGIN_ISOLATION === '1'
+      ? {
+          headers: {
+            'Cross-Origin-Opener-Policy': 'same-origin',
+            'Cross-Origin-Embedder-Policy': 'require-corp',
+          },
+        }
+      : {}),
+  },
   optimizeDeps: {
     exclude: ['fast-check'],
   },

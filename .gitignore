@@ -154,3 +154,8 @@ apps/desktop/public/models/*.onnx
 # YuNet is a bundled, checksum-pinned model used by face-aware crop and must
 # remain in the release payload; all other top-level ONNX files are downloads.
 !apps/desktop/public/models/yunet-face-detect.onnx
+
+# Browser-demo build output (apps/desktop/dist-try) — the bare `dist` rule
+# above does not match it, and a warm local ONNX model cache makes this
+# directory ~700 MB. Never commit it.
+apps/desktop/dist-try/
