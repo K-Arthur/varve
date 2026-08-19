@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-08-19T18:59:35.536Z",
+  "generatedAt": "2026-08-19T19:09:12.761Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -43,9 +43,9 @@
       "feature": "typography",
       "theme": "light",
       "status": "captured",
+      "lastValidatedAgainst": null,
       "width": 832,
-      "height": 620,
-      "lastValidatedAgainst": null
+      "height": 620
     },
     "motion": {
       "file": "motion-dark.png",
@@ -71,14 +71,14 @@
     },
     "typography-panel": {
       "file": "typography-panel-light.png",
-      "alt": "The Varve properties inspector showing typography controls: font family, weight, size, line height and letter spacing",
+      "alt": "The Varve properties inspector showing typography controls: font family, weight, style, size, line height and letter spacing",
       "caption": "Type controls for the selected text",
       "feature": "typography",
       "theme": "light",
       "status": "captured",
+      "lastValidatedAgainst": null,
       "width": 320,
-      "height": 620,
-      "lastValidatedAgainst": null
+      "height": 722
     },
     "layers": {
       "file": "layers-light.png",
@@ -165,6 +165,17 @@
       "theme": "light",
       "width": 320,
       "height": 722,
+      "status": "captured",
+      "lastValidatedAgainst": null
+    },
+    "effects": {
+      "file": "effects-light.png",
+      "alt": "The Varve Effects inspector with a drop shadow added to the selected shape on a poster, showing offset, blur, spread, opacity and blend-mode controls",
+      "caption": "Stackable, non-destructive effects — drop shadow, blurs, glows, glitch and more.",
+      "feature": "effects",
+      "theme": "light",
+      "width": 1440,
+      "height": 900,
       "status": "captured",
       "lastValidatedAgainst": null
     }

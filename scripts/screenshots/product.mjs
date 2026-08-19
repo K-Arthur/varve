@@ -386,8 +386,32 @@ const SCENES = [
     async run(page) {
       await openCleanEditor(page);
       await openDemoDocument(page, 'type');
+      // Select only to drive the fit, then drop the selection: the floating
+      // quick bar anchors under the selected node and covers the body
+      // paragraph this scene is meant to show.
       await selectLayer(page, /subhead/i);
       await fitContent(page);
+      // Escape exits the tool but keeps the selection, so clear it by
+      // clicking empty canvas above/left of the specimen card.
+      await page.keyboard.press('v');
+      const canvasBox = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
+      if (!canvasBox) throw new Error('canvas bounding box unavailable');
+      const quickBar = page.locator('.selection-quick-bar');
+      // SelectTool deselects on a click that lands on empty canvas, so aim
+      // well clear of both the fitted artwork and the floating toolbar
+      // (bottom-centre). The document's own top-left corner is not empty —
+      // clicking there just selects the frame and keeps the bar up.
+      for (const [dx, dy] of [
+        [canvasBox.width - 18, canvasBox.height - 18],
+        [18, canvasBox.height - 18],
+      ]) {
+        await page.mouse.click(canvasBox.x + dx, canvasBox.y + dy);
+        await page.waitForTimeout(600);
+        if (!(await quickBar.isVisible({ timeout: 1000 }).catch(() => false))) break;
+      }
+      if (await quickBar.isVisible({ timeout: 1000 }).catch(() => false)) {
+        throw new Error('selection quick bar still visible — it would cover the specimen text');
+      }
     },
   },
   {
@@ -395,14 +419,32 @@ const SCENES = [
     file: 'typography-panel-light.png',
     theme: 'light',
     feature: 'typography',
-    clip: CROP.inspector,
-    alt: 'The Varve properties inspector showing typography controls: font family, weight, size, line height and letter spacing',
+    clip: CROP.inspectorTall,
+    alt: 'The Varve properties inspector showing typography controls: font family, weight, style, size, line height and letter spacing',
     caption: 'Type controls for the selected text',
     async run(page) {
       await openCleanEditor(page);
       await openDemoDocument(page, 'type');
       await selectLayer(page, /subhead/i);
       await fitContent(page);
+      // Typography is order 300 in the section registry, so it renders well
+      // below the fold — an unscrolled inspector crop shows Position & Size
+      // and Fill instead, which is not what this scene claims to show.
+      const typography = page.locator('.insp-disclosure').filter({ hasText: /^Typography/ });
+      if (!(await typography.isVisible({ timeout: 8000 }).catch(() => false))) {
+        throw new Error('Typography section not present for the selected text node');
+      }
+      await typography.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+      await page.waitForTimeout(600);
+      // Assert the controls the alt text promises are really on screen.
+      // NumberField renders its label with the unit appended ("Size (px)"),
+      // so these match on prefix rather than exact text.
+      for (const label of [/^Font$/, /^Weight$/, /^Size \(/, /^Line height/, /^Letter spacing/]) {
+        const row = typography.getByText(label).first();
+        if (!(await row.isVisible({ timeout: 3000 }).catch(() => false))) {
+          throw new Error(`Typography control ${label} not visible in the captured crop`);
+        }
+      }
     },
   },
   {
@@ -622,6 +664,66 @@ const SCENES = [
       // Colour mode re-runs the trace preview; capturing before it settles
       // would show the previous mode's result under the new mode's controls.
       await page.waitForTimeout(2500);
+    },
+  },
+  {
+    id: 'effects',
+    file: 'effects-light.png',
+    theme: 'light',
+    feature: 'effects',
+    // The shadow itself stays subtle on canvas: the Disc is a Multiply layer
+    // at 85% and the shadow sits at 0.3 opacity, so the alt text describes
+    // the controls rather than claiming a visible effect on the artwork.
+    alt: 'The Varve Effects inspector with a drop shadow added to the selected shape on a poster, showing offset, blur, spread, opacity and blend-mode controls',
+    caption: 'Stackable, non-destructive effects — drop shadow, blurs, glows, glitch and more.',
+    async run(page) {
+      await openCleanEditor(page);
+      await openDemoDocument(page, 'poster');
+      // Select then fit, never the reverse: selecting a layer zooms to it, so
+      // a fit followed by a select lands at ~364% with the disc filling the
+      // canvas — where a drop shadow is off-screen rather than demonstrated.
+      await selectLayer(page, /disc/i);
+      await fitContent(page);
+      const appearance = page.getByRole('tab', { name: /^Appearance/i });
+      if (!(await appearance.isVisible({ timeout: 5000 }).catch(() => false))) {
+        throw new Error('Appearance tab unavailable for the selected shape');
+      }
+      await appearance.click();
+      await page.waitForTimeout(500);
+      const effects = page.locator('.insp-disclosure').filter({ hasText: /^Effects/ });
+      if (!(await effects.isVisible({ timeout: 8000 }).catch(() => false))) {
+        throw new Error('Effects section not present for the selected shape');
+      }
+      await effects.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+      await page.waitForTimeout(400);
+      // Add a real drop shadow rather than screenshotting an empty section:
+      // 'dropShadow' is the default in the "New effect type" select, and the
+      // newly added row starts expanded so its controls are on screen.
+      const addBtn = effects.locator('.insp-fill-add button').first();
+      await addBtn.click({ timeout: 5000 });
+      await page.waitForTimeout(1200);
+      await effects.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+      await page.waitForTimeout(600);
+      const removeBtn = effects.getByRole('button', { name: /remove effect/i });
+      if ((await removeBtn.count()) === 0) {
+        throw new Error('no effect row after Add — the section would show an empty state');
+      }
+      // The default 0/4/8 shadow is invisible on an A3 poster viewed whole.
+      // Scale it to the artwork so the canvas actually shows the effect the
+      // panel is describing.
+      for (const [label, value] of [
+        [/^Y$/, '28'],
+        [/^Blur$/, '48'],
+      ]) {
+        const field = effects.getByLabel(label).first();
+        if (!(await field.isVisible({ timeout: 4000 }).catch(() => false))) {
+          throw new Error(`drop shadow field ${label} not available`);
+        }
+        await field.fill(value);
+        await field.press('Enter');
+        await page.waitForTimeout(400);
+      }
+      await page.waitForTimeout(800);
     },
   },
   {
