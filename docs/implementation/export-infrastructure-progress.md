@@ -3,7 +3,7 @@
 Status: **In progress** — Inspector information architecture and the core static-export option handoff are complete; advanced encoder controls remain staged work.
 Updated: 2026-08-02
 
-This document tracks the repository-wide audit and staged rebuild of Strata's
+This document tracks the repository-wide audit and staged rebuild of Varve's
 export infrastructure. It is the single source of truth for the export
 architecture map, known defects, target architecture, migration strategy, and
 milestone verification.
@@ -12,7 +12,7 @@ milestone verification.
 
 ## 1. Executive summary of the current state
 
-Strata has a **working but shallow export system** organized as:
+Varve has a **working but shallow export system** organized as:
 
 ```
 ExportDialog.tsx ──► ExportLayer.tsx ──► ExportService.run() ──► exportSaveAdapter.ts
@@ -21,7 +21,7 @@ ExportDialog.tsx ──► ExportLayer.tsx ──► ExportService.run() ──�
                                              └─► SpecPanel/export.ts (raster + vector + PDF)
                                              └─► export/compositor.ts (capability-driven flatten)
                                              └─► @varve/codegen (SVG / Tailwind / Flutter / SwiftUI)
-                                             └─► strata-print (Rust: PDF screen / PDF-X1a / PDF-X4)
+                                             └─► varve-print (Rust: PDF screen / PDF-X1a / PDF-X4)
 ```
 
 Supported formats today:
@@ -32,8 +32,8 @@ Supported formats today:
 | GIF (timeline) | `engine/gifExport.ts` TS encoder | Works |
 | MP4 / WebM (timeline) | WebCodecs / MediaRecorder / image-sequence | Works (Chromium) |
 | SVG | `@varve/codegen/svg.ts` scene→SVG (+ subtree raster fallback) | Works with limits |
-| PDF (screen) | Rust `strata_print::export_pdf`; browser fallback `makeSimpleImagePdf` | Works; browser output is a raster-backed PDF |
-| PDF/X-1a / PDF/X-4 | Rust `strata_print::cmyk::{export_pdfx1a, export_pdfx4}` | Works on desktop; capability-gated on web |
+| PDF (screen) | Rust `varve_print::export_pdf`; browser fallback `makeSimpleImagePdf` | Works; browser output is a raster-backed PDF |
+| PDF/X-1a / PDF/X-4 | Rust `varve_print::cmyk::{export_pdfx1a, export_pdfx4}` | Works on desktop; capability-gated on web |
 | AVIF | none | **Advertised, throws at runtime** |
 | React / Flutter / SwiftUI / CSS | `@varve/codegen` | Works (semantic, not pixel-exact) |
 | `.strata-package.zip` | `packageExport.ts` + `DocumentCodec` | Works |
@@ -68,7 +68,7 @@ model. Details below.
 |------|--------------|---------|
 | Flat `replayIr` on OffscreenCanvas | `render/renderWorker.ts` + `workerHost.ts` | Editor preview |
 | `replayStructuredScene` | Scene-graph superset of `replayIr` (frames clip, group blend isolation, masks w/ invert/feather/density) | Raster + SVG-flatten export |
-| `strata-print` native PDF | Re-emits PDF operators from `SceneNode` (no IR) | PDF export (desktop) |
+| `varve-print` native PDF | Re-emits PDF operators from `SceneNode` (no IR) | PDF export (desktop) |
 | `@varve/codegen/svg.ts` | Scene→SVG serializer | SVG export |
 
 Preview and export **share `replayIr` as the leaf painter but not the
@@ -80,18 +80,18 @@ different in preview vs export. This is intentional and documented
 
 | Crate | Export-relevant surface |
 |-------|-------------------------|
-| `strata-core` | Scene model only; no encoders |
-| `strata-engine` | `build_render_ir` / `build_render_ir_flat` |
-| `strata-bridge` | `IpcSceneNode` wire conversion |
-| `strata-sync` | SQLite `DocumentStore`; SCHEMA_VERSION 1; save/load; no export storage |
-| `strata-print` | `export_pdf`, `cmyk::export_pdfx1a/x4`, `outline.rs`, `subset.rs`, `marks.rs`, `resources.rs` (`ExportManifest`), `shaper.rs` |
-| `strata-colour` | ICC/CMYK science: `rgb_to_cmyk_icc`, `IccEngine` (tintbox), bundled profiles; WASM bindings |
-| `strata-trace` / `strata-wasm` | Raster→vector tracing; IR JSON |
+| `varve-core` | Scene model only; no encoders |
+| `varve-engine` | `build_render_ir` / `build_render_ir_flat` |
+| `varve-bridge` | `IpcSceneNode` wire conversion |
+| `varve-sync` | SQLite `DocumentStore`; SCHEMA_VERSION 1; save/load; no export storage |
+| `varve-print` | `export_pdf`, `cmyk::export_pdfx1a/x4`, `outline.rs`, `subset.rs`, `marks.rs`, `resources.rs` (`ExportManifest`), `shaper.rs` |
+| `varve-colour` | ICC/CMYK science: `rgb_to_cmyk_icc`, `IccEngine` (tintbox), bundled profiles; WASM bindings |
+| `varve-trace` / `varve-wasm` | Raster→vector tracing; IR JSON |
 | Desktop `lib.rs` | `write_binary_file`, `export_node_pdf`, `export_pdfx1a/x4`, `export_pdf_with_options`, `outline_text`, `shape_text_command`, `list_printers`, `print_pdf`, `cancel_print_job` |
 
 ### 2.4 Persistence / platform
 
-- **Docs:** SQLite (`strata-sync`) on desktop; IndexedDB `strata-home` on web; `.strata` JSON text file for disk save.
+- **Docs:** SQLite (`varve-sync`) on desktop; IndexedDB `strata-home` on web; `.strata` JSON text file for disk save.
 - **Document schema:** `packages/scene/src/version.ts` `CURRENT_DOCUMENT_VERSION = '2.10'`; `migrateDocumentDetailed`; `DocumentCodec` is the single normalize/migrate boundary.
 - **Export settings:** `localStorage['strata-editor-settings']` (`settings.ts`).
 - **Per-node export presets:** `SceneNode.presets?: ExportPreset[]`; document defaults `Document.exportDefaults?: Partial<ExportSettings>`.
@@ -107,13 +107,13 @@ different in preview vs export. This is intentional and documented
 | D2 | **Export settings are write-only.** `settings.export.*` defaults (format, scale, ICC, bleed, template, intent) are read only by `ExportSettingsTab.tsx`; `ExportDialog` never reads them. | grep; `ExportDialog.tsx:181` hardcodes `'{name}{suffix}.{ext}'` | High |
 | D3 | ~~**`pdf-x1a`/`pdf-x4` are advertise-but-throw in TS.**~~ **FIXED (M8).** `renderJob` now calls `exportNodeAsPdfX`, which invokes the `export_pdfx1a`/`export_pdfx4` Tauri commands. The old throw also mis-reported "requires the desktop app" *on desktop*, because it called `capabilitiesForFormat()` without a platform (defaulting to `'web'`). Still desktop-only by contract; web throws rather than emitting an invalid press file. | `exportService.ts:237`; `SpecPanel/export.ts` `exportNodeAsPdfX` | ~~High~~ Fixed |
 | D4 | ~~**Batch export Cancel is cosmetic.**~~ **FIXED (M5/M11).** `AbortSignal` reaches `ExportService.run`; abort errors are no longer converted into failed outputs, and executor progress is driven by real stage transitions. | `ExportLayer.tsx`; `exportService.ts` | ~~High~~ Fixed |
-| D5 | **PDF image manifest is defined but never wired.** `ExportManifest` exists on both sides (`strata-print/resources.rs:49`, `engine/iccImageConverter.ts:194`, `editor/export/resourceCollector.ts:38`) but no editor call passes `manifest_json`. Any image fill reaching the native vector PDF path resolves to a **checkerboard placeholder**. | `strata-print/lib.rs:1149`; `SpecPanel/export.ts:424` | High |
+| D5 | **PDF image manifest is defined but never wired.** `ExportManifest` exists on both sides (`varve-print/resources.rs:49`, `engine/iccImageConverter.ts:194`, `editor/export/resourceCollector.ts:38`) but no editor call passes `manifest_json`. Any image fill reaching the native vector PDF path resolves to a **checkerboard placeholder**. | `varve-print/lib.rs:1149`; `SpecPanel/export.ts:424` | High |
 | D6 | **Three-way accelerator mismatch for Export.** Native menu: `export`=Ctrl+E, `exportSvg`=Ctrl+Shift+E; shortcut registry: `exportSvg`=Ctrl+Alt+E, `export`=Ctrl+Shift+E; help article claims Ctrl+E opens Export. | `menu/defs.ts:132-146`; `ShortcutManager.ts:33-42`; `packages/help/src/content/export.ts:8` | Medium |
 | D7 | **Duplicate extension maps (3x).** `exportSaveAdapter.ts FORMAT_EXTENSIONS`, `ExportDialog.buildJobs` inline switch, `DestinationPicker` inline switch. | `exportSaveAdapter.ts:12`; `ExportDialog.tsx:139`; `DestinationPicker.tsx:38` | Low |
 | D8 | **Duplicate whole-document SVG export.** `createActionHandlers.exportSvg` uses legacy `exportDocumentToSvg` + anchor download, bypassing ExportService and the save picker; File menu "Export…" is per-node. | `createActionHandlers.ts:93` | Medium |
 | D9 | ~~**`ExportPresetPanel.tsx` is dead code**~~ **FIXED (M8).** Its behavior was folded into `AssetExportControls` (now live in the Inspector's Export tab) and the orphaned file + CSS deleted. Note: the first port narrowed "add setting" to 5 quick-export formats, dropping the panel's print/codegen formats and suffix editing; both were restored in the same milestone — see the redesign plan's §C2b. `addPreset/updatePreset/removePreset` now have a real UI consumer and direct reducer tests. | `AssetExportControls.tsx`; `exportPresets.context.test.tsx` | ~~Medium~~ Fixed |
 | D10 | **Print preflight split-brain.** `runPrintPreflight` (scene, 427 lines) has no editor caller; the UI uses `runCombinedPreflight`. | `PreflightWarnings.tsx:14,56` | Low |
-| D11 | **Three PDF writers.** Hand-rolled `makeSimpleImagePdf` (browser fallback), `rasterizeSubtreeToPdfViaPrintEngine` (no manifest → D5), Rust `strata-print`. | `SpecPanel/export.ts:241,424` | Medium |
+| D11 | **Three PDF writers.** Hand-rolled `makeSimpleImagePdf` (browser fallback), `rasterizeSubtreeToPdfViaPrintEngine` (no manifest → D5), Rust `varve-print`. | `SpecPanel/export.ts:241,424` | Medium |
 | D12 | **`composeFlattenedExportSnapshot` (whole-doc) and `resourceCollector.ts` (ExportManifest) are unused.** | grep importers | Low |
 | D13 | **Stale E2E test** driving a removed export dialog UI. | `tests/e2e/canvas/upscale-export-verification.spec.ts:37` | Low |
 | D14 | **Home-app "Export" is a no-op.** | `packages/home/src/HomeShell.tsx:876` | Low |
@@ -334,7 +334,7 @@ Gate results per milestone:
 | M6 | editor + scene clean | Biome clean | 133/133 (focused) | pre-commit audit-health pass |
 | M7 | scene clean | Biome clean | 115/115 `scene/src/export` | pre-commit audit-health pass |
 | M8 | editor clean | Biome clean | ExportDialog 12/12; AssetExportControls 11/12 (pre-existing tooltip-title failure); full typecheck 15/15 + E2E tsconfig exit 0 | **export-settings E2E 4/4**; export.spec 5/5; pre-commit audit-health pass |
-| M9 | editor + scene clean; E2E tsconfig exit 0 | Biome clean (touched; only pre-existing DestinationPicker warning) | Export 48/48; exportService 8/8; scene export 115/115; bgRemovalFeatures 31/31 | **export-workspace E2E 3/3**; export.spec 5/5; export-settings 4/4; Rust pdfx 4/4; strata-print 131/131; strata-colour 70/70; audit:emoji clean; audit:tokens 123/123 |
+| M9 | editor + scene clean; E2E tsconfig exit 0 | Biome clean (touched; only pre-existing DestinationPicker warning) | Export 48/48; exportService 8/8; scene export 115/115; bgRemovalFeatures 31/31 | **export-workspace E2E 3/3**; export.spec 5/5; export-settings 4/4; Rust pdfx 4/4; varve-print 131/131; varve-colour 70/70; audit:emoji clean; audit:tokens 123/123 |
 | M11a | 16 packages + E2E clean | Biome clean on touched files | **10,879/10,879** full suite; focused export 32/32 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
 | M11b | 16 packages + E2E clean | Biome clean on touched files | **10,881/10,881** full suite before final cancel-case assertion; final focused export 31/31 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
 | M11c | 16 packages + E2E clean | Biome clean on touched files | **10,885/10,885** full suite; focused platform/export 30/30 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |

@@ -130,7 +130,7 @@ if (platform.os === 'windows') {
 **Layout**:
 ```
 ┌─────────────────────────────────────────────┐
-│ Strata - [Document] □ □ ×    (native)      │
+│ Varve - [Document] □ □ ×    (native)      │
 ├─────────────────────────────────────────────┤
 │ File | Edit | View | Object | Help          │ (custom)
 ├─────────────────────────────────────────────┤
@@ -239,7 +239,7 @@ if (platform.os === 'linux') {
 **Layout (Right Controls)**:
 ```
 ┌─────────────────────────────────────────────┐
-│ Strata  File|Edit|View|Object|Help  □ □ ×  │
+│ Varve  File|Edit|View|Object|Help  □ □ ×  │
 ├─────────────────────────────────────────────┤
 │                                             │
 │              Canvas Content                 │
@@ -250,7 +250,7 @@ if (platform.os === 'linux') {
 **Layout (Left Controls)**:
 ```
 ┌─────────────────────────────────────────────┐
-│ × □ □  File|Edit|View|Object|Help  Strata   │
+│ × □ □  File|Edit|View|Object|Help  Varve   │
 ├─────────────────────────────────────────────┤
 │                                             │
 │              Canvas Content                 │

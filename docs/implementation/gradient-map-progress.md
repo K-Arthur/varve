@@ -51,7 +51,7 @@ Status legend: `[x]` done, `[~]` in progress, `[ ]` planned.
 - Analytical conversions in `shared/colorConversion.ts`: sRGB gamma, XYZ D65, Bradford, Lab, Oklab, Oklch, gamut-map, `managedColorToRgba`.
 - `relativeLuminance` (WCAG BT.709) in `shared/contrast.ts:26`; Oklab L available via `linearSrgbToOklab`.
 - Engine `rgba()` conversion at `engine/replay.ts:198`.
-- Print conversion in `crates/strata-colour` (analytical + ICC); no TS ICC in webview.
+- Print conversion in `crates/varve-colour` (analytical + ICC); no TS ICC in webview.
 
 ### 1.5 Persistence / migration / assets
 
@@ -102,8 +102,8 @@ Status legend: `[x]` done, `[~]` in progress, `[ ]` planned.
 
 ## 4. Rendering-path gaps (pre-existing)
 
-1. `interpolationSpace` dropped on native/wasm IR path (`crates/strata-core/src/scene.rs` + `strata-bridge` lack the field) — **out of scope** (stub default `oklab` matches ours).
-2. Print `sample_gradient` is sRGB-only; gradient-map adjustments are NOT rendered by `strata-print` (PDF-flattened via webview raster instead) — acceptable; documented in `strata-print/src/lib.rs:1622-1628`.
+1. `interpolationSpace` dropped on native/wasm IR path (`crates/varve-core/src/scene.rs` + `varve-bridge` lack the field) — **out of scope** (stub default `oklab` matches ours).
+2. Print `sample_gradient` is sRGB-only; gradient-map adjustments are NOT rendered by `varve-print` (PDF-flattened via webview raster instead) — acceptable; documented in `varve-print/src/lib.rs:1622-1628`.
 3. `diamond` gradient fill approximated as radial — unrelated.
 4. `flattenForExport.ts` uses a reduced mini-renderer for adjustment-only flatten; SVG/PDF/raster exports use the real engine. Gradient maps behave through both.
 
