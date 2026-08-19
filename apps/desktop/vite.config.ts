@@ -65,8 +65,13 @@ function ortWasmDevPlugin() {
  * 'unsafe-inline' is required by the boot-fallback/theme inline scripts that
  * run before React; 'wasm-unsafe-eval' + blob: are required by the WASM
  * engine loader (fetches the glue as text, imports it from a blob: URL, and
- * instantiates the binary). frame-ancestors 'none' prevents the demo from
- * being embedded elsewhere.
+ * instantiates the binary).
+ *
+ * frame-ancestors is deliberately absent: browsers ignore it when it arrives
+ * in a meta tag, and every page load logged a console error saying so. It
+ * needs a real response header, which GitHub Pages cannot set — so the demo
+ * guards against embedding in script instead (see frameGuard.ts). Anything
+ * else here that only works as a header would be equally decorative.
  */
 const DEMO_CSP = [
   "default-src 'self'",
@@ -76,7 +81,7 @@ const DEMO_CSP = [
   "img-src 'self' data: blob:",
   "font-src 'self'",
   "connect-src 'self' blob:",
-  "frame-ancestors 'none'",
+
   "base-uri 'self'",
   "form-action 'self'",
 ].join('; ');

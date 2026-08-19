@@ -18,6 +18,7 @@ import { App } from './App';
 import { applyDemoCapabilities } from './demo/demoCapabilities';
 import { demoMode } from './demo/demoMode';
 import { suppressFirstRunOnboarding } from './demo/demoOnboarding';
+import { installFrameGuard } from './demo/frameGuard';
 import { installStaleAssetGuard } from './demo/staleAssetGuard';
 import { initCspDiagnostics } from './security/cspDiagnostics';
 import { dismissBootFallback } from './startup/revealMainWindow';
@@ -71,6 +72,7 @@ async function bootstrap() {
   // old hashed chunks; a reload gets the fresh shell). No-op elsewhere.
   const demo = demoMode();
   if (demo.active && !isPanelWindow) {
+    installFrameGuard();
     installStaleAssetGuard();
     // Declare what the demo withholds before the editor mounts, so the first
     // render already has the right workspace tabs and affordances rather than

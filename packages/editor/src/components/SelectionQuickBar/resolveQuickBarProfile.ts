@@ -101,9 +101,7 @@ function imageProfile(node: ShapeNode, input: ResolveQuickBarInput): QuickBarPro
   const inference = !isCapabilityRestricted('inference');
   const actions: QuickBarAction[] = [
     action('crop', 'Crop'),
-    ...(inference
-      ? [action('removeBg', 'Remove background'), action('upscale', 'Enhance')]
-      : []),
+    ...(inference ? [action('removeBg', 'Remove background'), action('upscale', 'Enhance')] : []),
     action('vectorize', 'Vectorize'),
     action('flipH', 'Flip horizontal'),
     action('flipV', 'Flip vertical'),

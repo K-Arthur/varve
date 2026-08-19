@@ -15,7 +15,6 @@ import {
 import type { Engine } from '@varve/engine';
 import { getFontRegistry } from '@varve/engine';
 import type { Document, ExportBatch, ExportFormat, ExportJob } from '@varve/scene';
-import { isExportFormatRestricted, RESTRICTION_MESSAGES } from './capabilities/restrictions';
 import {
   capabilitiesForFormat,
   type ExportFinding,
@@ -23,6 +22,7 @@ import {
   type PlatformKind,
   runExportPreflight,
 } from '@varve/scene/export';
+import { isExportFormatRestricted, RESTRICTION_MESSAGES } from './capabilities/restrictions';
 import {
   exportNodeAsPdf,
   exportNodeAsPdfX,
