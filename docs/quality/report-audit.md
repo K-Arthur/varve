@@ -32,7 +32,7 @@ enforces `noExplicitAny: error` is false (it's `warn`/`off`).
 
 ### 1.1 What tool produced this report
 
-Nothing in the Strata repository's own scripts (`scripts/audit-architecture.mjs`,
+Nothing in the Varve repository's own scripts (`scripts/audit-architecture.mjs`,
 `scripts/audit-health.mjs`) computes a composite score, a "churn surface," or a "test gap
 percentage" — those terms do not appear anywhere in this codebase outside unrelated English usage
 ("UI churn," "schema churn"). The repo's real tools only produce boolean/count CI gates, not a
