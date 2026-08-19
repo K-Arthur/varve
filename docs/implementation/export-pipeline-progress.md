@@ -35,7 +35,7 @@ Rationale (also documented in `packages/engine/src/exportPipeline/pipeline.ts`):
 | Dither after colour conversion | after | error diffusion in the source space would be wrong after conversion |
 | Single resize pass | yes | vector content re-renders at target; the explicit resize stage only acts when a caller supplies target dimensions |
 | Alpha convention | premultiplied internally | W3C compositing §5; hidden RGB under transparent pixels never leaks |
-| Working space default | `srgb` (perceptual) | matches the rest of Strata's compositing and browser `drawImage`; `linear-srgb` is the documented advanced option |
+| Working space default | `srgb` (perceptual) | matches the rest of Varve's compositing and browser `drawImage`; `linear-srgb` is the documented advanced option |
 | Metadata at encode | yes | applied to encoded bytes, never to pixels |
 
 ---
@@ -53,7 +53,7 @@ Rationale (also documented in `packages/engine/src/exportPipeline/pipeline.ts`):
 | Metadata policies | none (canvas encodes metadata-free bytes) | `MetadataPolicy` resolution, PNG tEXt/iTXt/iCCP chunk writer/stripper, deterministic mode |
 | EXIF orientation | none | `parseExifOrientation` + `applyExifOrientation` with apply-once invariant |
 | PDF/X-1a actual CMYK | fills emitted RGB (hardcoded) | ICC profile threaded end-to-end; real `rgb_to_cmyk_icc` fills; embedded output-intent ICC stream |
-| Colour WASM | never built/deployed | still not deployed — `strata-colour` is wasm-ready and `just wasm-build-colour` documents the build; deployment deferred (see §10 item 9) |
+| Colour WASM | never built/deployed | still not deployed — `varve-colour` is wasm-ready and `just wasm-build-colour` documents the build; deployment deferred (see §10 item 9) |
 | SVG minify | option existed, ignored per-node | `exportNodeToSvg({ minify })` honored |
 | AVIF advertising | offered in Settings despite no encoder | removed from settings; persisted `avif` default sanitized |
 
@@ -78,9 +78,9 @@ Rationale (also documented in `packages/engine/src/exportPipeline/pipeline.ts`):
 | `src/metadata/exif.ts` | @varve/engine | JPEG/TIFF EXIF orientation parse + pixel transform |
 | `src/metadata/policy.ts` | @varve/engine | policy → metadata content resolution, PNG entries |
 | `src/metadata/metadata.test.ts` | @varve/engine | metadata/EXIF/PNG tests |
-| `crates/strata-colour/src/profiles.rs` | strata-colour | `PrintProfile::parse`, `icc_bytes`, `output_condition_identifier` |
-| `crates/strata-print/src/cmyk.rs` | strata-print | profile threading, embedded output-intent profile, new tests |
-| `crates/strata-print/src/lib.rs` | strata-print | `shape_to_pdf_content` accepts use_cmyk/profile |
+| `crates/varve-colour/src/profiles.rs` | varve-colour | `PrintProfile::parse`, `icc_bytes`, `output_condition_identifier` |
+| `crates/varve-print/src/cmyk.rs` | varve-print | profile threading, embedded output-intent profile, new tests |
+| `crates/varve-print/src/lib.rs` | varve-print | `shape_to_pdf_content` accepts use_cmyk/profile |
 | `apps/desktop/src-tauri/src/lib.rs` | desktop | `PdfXOptions.to_pdf_options` resolves the ICC profile |
 | `src/components/SpecPanel/export.ts` | @varve/editor | raster export honors pipeline + metadata |
 | `src/exportService.ts` | @varve/editor | executor maps legacy raster options → canonical pipeline |
@@ -161,9 +161,9 @@ Rationale (also documented in `packages/engine/src/exportPipeline/pipeline.ts`):
 | `npx vitest run packages/engine/src/exportPipeline packages/engine/src/metadata` | 62 passed |
 | `npx vitest run packages/editor/src/exportService.test.ts packages/editor/src/components/SpecPanel` | 79 passed |
 | `npx vitest run packages/codegen/src/codegen.test.ts` | 37 passed |
-| `cargo test -p strata-print` | 134 passed |
-| `cargo test -p strata-colour` | 72 passed |
-| `cargo clippy -p strata-print -p strata-colour -- -D warnings` | clean |
+| `cargo test -p varve-print` | 134 passed |
+| `cargo test -p varve-colour` | 72 passed |
+| `cargo clippy -p varve-print -p varve-colour -- -D warnings` | clean |
 | `pnpm --filter @varve/{scene,engine,shared,editor,codegen} typecheck` | 0 errors |
 | `npx biome check` on all touched files | clean |
 | `pnpm audit:emoji` | clean |
@@ -192,8 +192,8 @@ silent gap — nothing here is presented in the UI as if it worked):
 7. **Exposure `^2.2` approximation** in `filterCompositor` (pre-existing,
    unrelated to export; tracked separately).
 8. **TIFF/AVIF encoders** — still absent; capability-gated off everywhere.
-9. **Colour WASM deployment** — `strata-colour` is wasm-ready (`just wasm-build-colour`
-   produces `apps/desktop/public/wasm/strata_colour_bg.wasm`), but the build tooling
+9. **Colour WASM deployment** — `varve-colour` is wasm-ready (`just wasm-build-colour`
+   produces `apps/desktop/public/wasm/varve_colour_bg.wasm`), but the build tooling
    (wasm-pack) was not installable on the dev machine during this session. The web
    ICC path therefore still uses the analytical fallback; desktop print uses the
    real tintbox engine. Deployment is a build/infra step, not a correctness gap in

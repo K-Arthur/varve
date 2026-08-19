@@ -330,7 +330,7 @@ linuxdeploy aborts.
 
 **Fixed** by setting `NO_STRIP=1` in `justfile` (`package-linux`,
 `package-appimage`) and in `release.yml`'s Tauri build step. The cost is
-negligible: the Strata binary is already stripped by
+negligible: the Varve binary is already stripped by
 `[profile.release] strip = true`, and distro libraries ship stripped.
 
 Worth noting what this *also* proves: the AppImage bundler copies **this host's**

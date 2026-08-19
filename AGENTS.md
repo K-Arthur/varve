@@ -386,7 +386,7 @@ git log --oneline -3
 | Home/Workspace System | `docs/plans/archived/projects-home-workspace-completed.md` |
 | Packaging (0.11) | `docs/plans/session-04-packaging.md` |
 | Loading Experience System | `docs/architecture/loading-system.md`, `docs/audits/loading-experience-audit.md` |
-| Marketing Website | `apps/website/` - Astro 5 static site, 42 pages, GitHub Pages deploy. See `docs/plans/website-progress-tracker.md` |
+| Marketing Website | `apps/website/` - Astro 7 static site, 42 pages, GitHub Pages deploy. See `docs/plans/website-progress-tracker.md` |
 | CI/CD pipeline memory (local, gitignored) | `GITHUB_PIPELINE_MEMORY.md` — session-survivable tracker for billing blocks, run classifications, and tooling state |
 
 ## Application Icon (cross-platform)
@@ -572,7 +572,7 @@ See `docs/architecture/text-pipeline.md`.
 | App | Status | Contents |
 |---|---|---|
 | `apps/desktop` | **Built** | Tauri 2 app with Vite+React frontend; `build:try` produces the public browser demo at `/try/` |
-| `apps/website` | **Built** | Astro 5 static marketing site, GitHub Pages deploy (see `docs/release/website.md`) |
+| `apps/website` | **Built** | Astro 7 static marketing site, GitHub Pages deploy (see `docs/release/website.md`) |
 
 ## Release signing (code-signing pipeline)
 

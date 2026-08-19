@@ -4,7 +4,7 @@
  * Every workspace declares `onboarding.tips` — four authored, workspace-
  * specific hints each ("Use Frame (F) to create artboards…", "Switch to
  * Prototype mode…"). Until now nothing read that field: `WorkspaceConfig`
- * carried roughly 28 authored tips across the seven built-in workspaces and
+ * carried roughly 28 authored tips across the eight built-in workspaces and
  * the user was never shown any of them, while the Did-You-Know surface drew
  * only from the global, workspace-blind `TIPS` list. That is the same
  * decorative-config problem workspace invariant 9 exists to prevent.

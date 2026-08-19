@@ -48,7 +48,7 @@ Fixes shipped in this milestone:
 - **Features**:
   - Custom drag region with `data-tauri-drag-region`
   - Window controls (minimize, maximize, close) using Tauri window API
-  - Strata icon and title display
+  - Varve icon and title display
   - CSS tokens: `--topbar-height`, `--elevation-surface-default`, `--color-border-subtle`
 - **Integration**: Mounted in `apps/desktop/src/App.tsx` above both Home and Editor surfaces
 
