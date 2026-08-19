@@ -1,5 +1,6 @@
 import type { Platform } from '@varve/platform';
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
+import { isWorkspaceModeAllowed } from '../capabilities/restrictions';
 import { loadSettings, updateSettings } from '../settings';
 import type { ToolId } from '../tools/types';
 import { emitWorkspaceReset } from '../workspace/workspaceResetEvents';
@@ -152,6 +153,11 @@ export function useWorkspaceMode(
     (mode: WorkspaceMode, options?: { force?: boolean }): Promise<boolean> => {
       if (workspaceSwitchInProgressRef.current) return Promise.resolve(false);
       if (mode === state.workspaceMode) return Promise.resolve(false);
+      // A deployment may expose only some workspaces. This is the one place
+      // every route into a switch converges — tabs, shortcuts, the command
+      // palette, deep links, action handlers — so refusing here is enough;
+      // hiding the tab alone would leave the other routes open.
+      if (!isWorkspaceModeAllowed(mode)) return Promise.resolve(false);
       workspaceSwitchInProgressRef.current = true;
       try {
         if (!options?.force) {

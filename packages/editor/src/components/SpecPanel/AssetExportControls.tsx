@@ -1,4 +1,5 @@
 import { exportNodeToSvg } from '@varve/codegen';
+import { isCapabilityRestricted } from '../../capabilities/restrictions';
 import { createEngine, type Engine } from '@varve/engine';
 import type { Platform } from '@varve/platform';
 import type {
@@ -65,6 +66,16 @@ const QUICK_FORMATS: {
   { value: 'svg', label: 'SVG' },
   { value: 'pdf', label: 'PDF' },
 ];
+
+/**
+ * The formats this deployment actually offers. PDF goes through the print
+ * pipeline, which a browser-only deployment does not have — offering it and
+ * then failing the export would be worse than not offering it.
+ */
+function availableQuickFormats(): typeof QUICK_FORMATS {
+  if (!isCapabilityRestricted('printProduction')) return QUICK_FORMATS;
+  return QUICK_FORMATS.filter((f) => f.value !== 'pdf');
+}
 
 const SCALES = [1, 2, 3];
 
@@ -277,7 +288,9 @@ export function AssetExportControls({
 
   const visibleFormats = useMemo(
     () =>
-      QUICK_FORMATS.filter((entry) => formatSupportedOnPlatform(entry.value, platformKindValue)),
+      availableQuickFormats().filter((entry) =>
+        formatSupportedOnPlatform(entry.value, platformKindValue),
+      ),
     [platformKindValue],
   );
 

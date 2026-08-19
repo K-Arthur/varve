@@ -1,6 +1,7 @@
 // COMPLEXITY: 275 cyclo (over ceiling 200) — see Phase 5 of architecture-health-remediation-2026-07-26.md
 
 import { VARVE_URLS } from '@varve/shared';
+import { isCapabilityRestricted } from './capabilities/restrictions';
 import {
   AlertDialog,
   FloatingPortal,
@@ -247,9 +248,11 @@ function buildMenus(
         return !hasSelection;
       case 'toolCrop':
       case 'extractPalette':
-      case 'batchBgRemove':
       case 'imageTrace':
         return !hasSelection;
+      case 'batchBgRemove':
+        // On-device inference; a deployment can withhold it entirely.
+        return !hasSelection || isCapabilityRestricted('inference');
       case 'createMaster':
         return currentPageIsMaster;
       case 'applyMaster':

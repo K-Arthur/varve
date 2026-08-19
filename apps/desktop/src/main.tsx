@@ -15,7 +15,9 @@ import { AuxiliaryRoot } from '@varve/editor/auxiliary';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { applyDemoCapabilities } from './demo/demoCapabilities';
 import { demoMode } from './demo/demoMode';
+import { suppressFirstRunOnboarding } from './demo/demoOnboarding';
 import { installStaleAssetGuard } from './demo/staleAssetGuard';
 import { initCspDiagnostics } from './security/cspDiagnostics';
 import { dismissBootFallback } from './startup/revealMainWindow';
@@ -70,6 +72,11 @@ async function bootstrap() {
   const demo = demoMode();
   if (demo.active && !isPanelWindow) {
     installStaleAssetGuard();
+    // Declare what the demo withholds before the editor mounts, so the first
+    // render already has the right workspace tabs and affordances rather than
+    // showing then retracting them.
+    applyDemoCapabilities(demo);
+    suppressFirstRunOnboarding();
   }
 
   createRoot(root).render(

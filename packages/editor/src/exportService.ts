@@ -15,6 +15,7 @@ import {
 import type { Engine } from '@varve/engine';
 import { getFontRegistry } from '@varve/engine';
 import type { Document, ExportBatch, ExportFormat, ExportJob } from '@varve/scene';
+import { isExportFormatRestricted, RESTRICTION_MESSAGES } from './capabilities/restrictions';
 import {
   capabilitiesForFormat,
   type ExportFinding,
@@ -447,6 +448,12 @@ export const ExportService = {
       assertNotAborted(signal);
       const jobStarted = performance.now();
       try {
+        // A deployment may withhold print production (the browser demo has no
+        // print pipeline). Fail the job rather than the batch, so a mixed
+        // selection still delivers its PNG/SVG output.
+        if (isExportFormatRestricted(job.format)) {
+          throw new Error(RESTRICTION_MESSAGES.printProduction);
+        }
         emit('rendering', job.fileName);
         const rendered = await renderJob(job, context);
         assertNotAborted(signal);

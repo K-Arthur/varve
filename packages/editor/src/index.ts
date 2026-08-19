@@ -21,7 +21,24 @@ export {
   type DirtyMergeResult,
   mergeDirtyRects,
 } from './canvas/dirtyRegionMerge';
+export type {
+  CapabilityRestrictions,
+  RestrictedCapability,
+} from './capabilities/restrictions';
+export {
+  isCapabilityRestricted,
+  RESTRICTION_MESSAGES,
+  setCapabilityRestrictions,
+} from './capabilities/restrictions';
 export { ErrorBoundary } from './components/ErrorBoundary';
+// Onboarding state — exposed so a host can declare first-run already handled
+// (the browser demo explains itself through its own banner).
+export type { OnboardingStore } from './onboard/onboardingStore';
+export {
+  loadOnboardingState,
+  markOnboardingComplete,
+  saveOnboardingState,
+} from './onboard/onboardingStore';
 export { SettingsProvider } from './components/Settings/SettingsContext';
 export type { SettingsDialogProps } from './components/Settings/SettingsDialog';
 export { SettingsDialog } from './components/Settings/SettingsDialog';
