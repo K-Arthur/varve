@@ -26,20 +26,12 @@ export type {
   RestrictedCapability,
 } from './capabilities/restrictions';
 export {
+  getCapabilityRestrictions,
   isCapabilityRestricted,
   RESTRICTION_MESSAGES,
   setCapabilityRestrictions,
 } from './capabilities/restrictions';
 export { ErrorBoundary } from './components/ErrorBoundary';
-// Onboarding state — exposed so a host can declare first-run already handled
-// (the browser demo explains itself through its own banner).
-export { CHECKLIST_ITEMS } from './onboard/OnboardingChecklist/OnboardingChecklist';
-export type { OnboardingStore } from './onboard/onboardingStore';
-export {
-  loadOnboardingState,
-  markOnboardingComplete,
-  saveOnboardingState,
-} from './onboard/onboardingStore';
 export { SettingsProvider } from './components/Settings/SettingsContext';
 export type { SettingsDialogProps } from './components/Settings/SettingsDialog';
 export { SettingsDialog } from './components/Settings/SettingsDialog';
@@ -70,6 +62,15 @@ export {
   setLifecycleCommitHook,
   setLifecycleFinalizeHandler,
 } from './lifecycle';
+// Onboarding state — exposed so a host can declare first-run already handled
+// (the browser demo explains itself through its own banner).
+export { CHECKLIST_ITEMS } from './onboard/OnboardingChecklist/OnboardingChecklist';
+export type { OnboardingStore } from './onboard/onboardingStore';
+export {
+  loadOnboardingState,
+  markOnboardingComplete,
+  saveOnboardingState,
+} from './onboard/onboardingStore';
 export type { PackageExportResult, PackageManifest } from './packageExport';
 export { buildPackageExport } from './packageExport';
 export type {

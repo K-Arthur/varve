@@ -296,7 +296,13 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               <strong>Or try it right now</strong> — no download required.
               The full editor runs in your browser with the WASM engine.
             </p>
-            <a href={sitePath('/try/')} class="try-browser-link" target="_blank" rel="noopener noreferrer">
+            <a
+              href={sitePath('/try/')}
+              class="try-browser-link"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-analytics-demo-launch
+            >
               Try Varve in your browser
             </a>
           </div>

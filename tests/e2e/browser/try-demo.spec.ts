@@ -242,6 +242,44 @@ test.describe('browser demo (/try)', () => {
     await expect(banner).toHaveCount(0);
   });
 
+  // The demo exposes only the three workspaces that genuinely work in a
+  // browser. Print has no printers to talk to, Motion cannot hold a frame
+  // budget in a tab, and Codegen/Logo/Email are narrow power-user surfaces.
+  test('offers only the primary workspaces, and withheld ones stay unreachable', async ({
+    page,
+  }) => {
+    await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await dismissRecoveryDialog(page);
+
+    const tabs = page.locator('.workspace-tabs__tab');
+    await expect(tabs).toHaveCount(3);
+    const labels = (await tabs.evaluateAll((els) =>
+      els.map((el) => el.getAttribute('data-mode')),
+    )) as string[];
+    expect(labels.sort()).toEqual(['design', 'drawing', 'image']);
+
+    // Not merely hidden: the overflow menu must not carry them either.
+    for (const mode of ['print', 'motion', 'codegen', 'logo', 'email']) {
+      await expect(page.locator(`.workspace-tabs [data-mode="${mode}"]`)).toHaveCount(0);
+    }
+  });
+
+  // Every visitor is a first-time user, so any first-run surface fires on every
+  // single load. Three of them used to stack over the sample document.
+  test('opens straight onto the sample document with nothing covering it', async ({ page }) => {
+    await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await dismissRecoveryDialog(page);
+    await expect(page.getByRole('treeitem')).toHaveCount(10, { timeout: 30000 });
+
+    // No welcome dialog, no missing-font dialog, no getting-started checklist.
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+    await expect(page.getByText('Welcome to Varve')).toBeHidden();
+    await expect(page.getByText(/missing fonts/i)).toHaveCount(0);
+    await expect(page.locator('.onboarding-checklist--open')).toHaveCount(0);
+  });
+
   test('demo attaches screenshots for visual inspection', async ({ page }) => {
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.layers-panel', { timeout: 60000 });

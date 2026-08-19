@@ -64,6 +64,38 @@
           host.appendChild(box);
         }
 
+        // Unsupported browser.
+        //
+        // Distinct from a boot failure: nothing went wrong, the browser simply
+        // cannot run this app. Without it, a browser with no WebAssembly gets
+        // the generic "Varve could not start" after a 20s wait, which reads as
+        // a bug in Varve rather than a browser that predates the platform we
+        // need. The <script nomodule> below covers the other half — a browser
+        // that ignores type="module" never runs any of our code at all.
+        window.__varveShowUnsupported = function (reason) {
+          if (reported) return;
+          reported = true;
+          var host = document.getElementById('varve-boot-fallback');
+          if (!host) return;
+          var box = document.createElement('div');
+          box.className = 'boot-error';
+          box.setAttribute('role', 'alert');
+          box.innerHTML =
+            '<h1>This browser cannot run Varve</h1>' +
+            '<p class="boot-error-kind"></p>' +
+            '<p class="boot-error-hint">Varve needs a current version of Chrome, Edge, ' +
+            'Firefox, or Safari. The desktop app has no such requirement — ' +
+            '<a class="boot-error-link" href="https://varve.studio/download">' +
+            'download it for macOS, Windows, or Linux</a>.</p>';
+          box.querySelector('.boot-error-kind').textContent = reason;
+          host.textContent = '';
+          host.appendChild(box);
+        };
+
+        if (typeof WebAssembly === 'undefined') {
+          window.__varveShowUnsupported('WebAssembly is not available in this browser.');
+        }
+
         window.addEventListener('error', function (event) {
           showBootError(
             'Script error',
@@ -233,5 +265,12 @@
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script nomodule>
+      // Runs only in browsers that do not understand type="module", which
+      // therefore never load the app at all. Plain ES5 on purpose.
+      if (window.__varveShowUnsupported) {
+        window.__varveShowUnsupported('This browser does not support JavaScript modules.');
+      }
+    </script>
   </body>
 </html>

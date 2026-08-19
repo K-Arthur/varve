@@ -75,7 +75,13 @@ const versionLabel = release.hasRelease && release.version
 
     <div class="nav-actions">
       <ThemeToggle />
-      <a href={sitePath('/try/')} class="nav-try-cta" target="_blank" rel="noopener noreferrer">
+      <a
+        href={sitePath('/try/')}
+        class="nav-try-cta"
+        target="_blank"
+        rel="noopener noreferrer"
+        data-analytics-demo-launch
+      >
         Try
       </a>
       <DownloadCTA variant="primary" size="compact" label="Download" class="nav-download-cta" />

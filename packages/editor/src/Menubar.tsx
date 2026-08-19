@@ -1,7 +1,6 @@
 // COMPLEXITY: 275 cyclo (over ceiling 200) — see Phase 5 of architecture-health-remediation-2026-07-26.md
 
 import { VARVE_URLS } from '@varve/shared';
-import { isCapabilityRestricted } from './capabilities/restrictions';
 import {
   AlertDialog,
   FloatingPortal,
@@ -11,9 +10,9 @@ import {
   VarveLogo,
 } from '@varve/ui';
 import { getTheme, setTheme, type Theme } from '@varve/ui/tokens';
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
+import { isCapabilityRestricted } from './capabilities/restrictions';
 import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/ArchiveDialog';
 import { OfflineBanner } from './components/OfflineBanner';
 import { WorkspaceTabs } from './components/WorkspaceTabs';

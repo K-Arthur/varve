@@ -1,5 +1,4 @@
 import { exportNodeToSvg } from '@varve/codegen';
-import { isCapabilityRestricted } from '../../capabilities/restrictions';
 import { createEngine, type Engine } from '@varve/engine';
 import type { Platform } from '@varve/platform';
 import type {
@@ -26,6 +25,7 @@ import {
 } from '@varve/scene/export';
 import { CopyButton, Icon, Select, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isCapabilityRestricted } from '../../capabilities/restrictions';
 import { composeFlattenedRasterAssetsForNode } from '../../export/compositor';
 import { runBatchPreflight } from '../../exportService';
 import { suggestExportFormat } from '../../intelligence/exportAdvisor';
