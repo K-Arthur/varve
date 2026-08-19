@@ -10,24 +10,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 build a tag that has no matching section. Write for someone deciding whether to install the
 update, not for someone reading the commit log.
 
-## [0.1.2] - 2026-08-14
-
-This release improves editor reliability and completes the first production
-resilience pass for the application, website, and release pipeline.
-
-### Fixed
-
-- Settings dropdowns now render above native dialogs and Export, Performance,
-  Appearance, and theme changes apply immediately.
-- Content-Aware Fill preview sizing and Fit, 1:1, Center, zoom, keyboard, and
-  crop interactions now behave consistently.
-- Palette extraction accepts a user-selected count from 3 through 32 colors.
-- Browser update synchronization, Linux browser chrome detection, menubar
-  navigation, and React 19 tooltip refs are hardened.
-- GitHub Actions now have stronger workflow validation, concurrency controls,
-  cache/log diagnostics, and failure reports.
-- GitHub Pages builds use the correct `/varve/` project-site base path.
-
 ## [Unreleased]
 
 ### Added
@@ -51,7 +33,7 @@ resilience pass for the application, website, and release pipeline.
   parity is bit-exact with the trusted PyTorch reference — 98.9 dB on the
   official GoPro test subset). Deblur runs through the same shared
   native→worker provider chain as Denoise, with adaptive tiling that
-  keeps tiles single-shot up to 1280 px because NAFNet’s global
+  keeps tiles single-shot up to 1280 px because NAFNet's global
   receptive field makes small tiles visibly seamed. The dialog opens in
   Auto/Recommended mode: a cheap classical analysis (noise, blur, JPEG
   blockiness, resolution) proposes a restoration in human terms with a
@@ -71,7 +53,6 @@ resilience pass for the application, website, and release pipeline.
   removal remains unavailable by design: no model passed the
   design-content corpus (SCUNet destroys 1px line patterns; the only
   JPEG-trained NAFNet checkpoint was rejected on provenance).
-
 - **Natural-language asset search** — the Asset Browser search field now
   combines filename, OCR, tags, and metadata with an optional local visual
   lane. Describe what you remember ("orange sunset over mountains") and
@@ -85,7 +66,6 @@ resilience pass for the application, website, and release pipeline.
   text models plus tokenizer download explicitly, verify SHA-256, and
   filename/OCR/metadata search keeps working without them. See
   `docs/architecture/asset-search-system.md` and ADR-0221.
-
 - **Object Selection** — select an image and use the Select Object tool
   (or the Adjustments tab) to prompt a local SAM2-Hiera-Tiny model with
   positive/negative points and drag boxes. The preview is transient until
@@ -124,6 +104,90 @@ resilience pass for the application, website, and release pipeline.
   extracted colours as document swatches or colour variables. Analysis is
   bounded, cancellable, worker-backed when available, and does not upload
   image pixels or add derived analysis data to the document schema.
+- **Email workspace** (desktop) — a new workspace mode
+  (Ctrl+Shift+7) for visual email authoring with a dedicated IR, HTML and
+  plain-text compilers, embedded-asset packaging, URL preflight diagnostics,
+  and multi-provider output. Template types, preview, and export are
+  available today; rendering fidelity depends on the recipient's email
+  client.
+- **Browser demo** — a bounded public demo at `/try/` runs a curated sample
+  poster document in WASM with honest capability messaging, stale-asset
+  recovery, and a desktop CTA. See `docs/architecture/browser-demo.md`.
+- **Auto-layout improvements** — drag-to-reorder children within a flex
+  frame, "Add Auto Layout" command to wrap a selection, per-axis child
+  sizing (width/height, fit/hug/absolute), grid hug sizing, and
+  double-click a resize edge to reset that axis to Hug.
+- **OS file associations** — `.varve` and `.strata` files register with
+  the operating system's "Open With" on Linux, macOS, and Windows so
+  double-clicking a document opens it in Varve.
+- **Onboarding** — canvas empty-state shortcuts, micro-hints for new
+  tools, learning preferences, and a What's New dialog that surfaces
+  recent changes.
+- **Workspace mode redesign** — the mode picker now uses per-mode accent
+  colours, elevated depth, and improved hover states for faster switching.
+- **Contact channels** — canonical contact and security surfaces in both
+  the application and the website (`support@varve.studio`,
+  `security@varve.studio`, GitHub Private Vulnerability Reporting).
+- **Paint tools** — smudge worker, textured brush paths, alpha lock, and
+  grain controls wired into the paint inspector.
+
+### Changed
+
+- **Windows installer shrunk ~75%** — the NSIS installer now bootstraps
+  WebView2 via the Microsoft-provided `downloadBootstrapper` instead of
+  bundling it, and the bundled ORT WASM runtime was trimmed.
+- **Licensing** — eight engine crates (`varve-core`, `varve-colour`,
+  `varve-trace`, `varve-layout`, `varve-media`, `varve-effects`,
+  `varve-upscale`, `varve-bgremove`) are now published under **MIT OR
+  Apache-2.0** for ecosystem reuse and grant eligibility.
+- **Brand cleanup** — remaining Strata references in export identifiers,
+  wordmark SVGs, product screenshots, and website copy have been corrected
+  to Varve.
+- **Render resource management** — adaptive image fidelity policy and
+  pressure-signal integration improve frame pacing under memory pressure.
+- **Marketing website** — comparison page, feature screenshots, SEO
+  metadata, download-page troubleshooting, and download funnel with
+  platform recommendation.
+
+### Fixed
+
+- **Accessibility** — dialog touch targets, `focus-visible` outlines,
+  keyboard navigation in RecoveryDialog, `aria-disabled` on inactive
+  buttons, and error-boundary auto-focus.
+- **Canvas performance** — `getBoundingClientRect` is now cached in the
+  input-pipeline hot path instead of called on every pointer-move.
+- **Layout engine** — flex bugs repaired (recursive hug sizing, per-axis
+  child sizing, frame own-size reflow, grid hug sizing).
+- **Motion playback** — hardened sampler and prototype runtime against
+  edge cases that could stall or crash.
+- **Popover and Select** — portaled custom Select no longer leaks
+  outside-click closures; submenus position correctly.
+- **Multi-selection** — Ctrl+drag preserves the existing selection when
+  the target is already selected.
+- **Panel styling** — previously unstyled surfaces (ErrorBoundary,
+  AdjustmentEditor, Design Audit panels, VariablePanel headers) now
+  receive consistent design-token styling.
+- **Branding** — stale `.strata` references replaced with `.varve` in
+  user-facing code and current-state docs; export identifiers no longer
+  emit Strata names.
+
+## [0.1.2] - 2026-08-16
+
+This release improves editor reliability and completes the first production
+resilience pass for the application, website, and release pipeline.
+
+### Fixed
+
+- Settings dropdowns now render above native dialogs and Export, Performance,
+  Appearance, and theme changes apply immediately.
+- Content-Aware Fill preview sizing and Fit, 1:1, Center, zoom, keyboard, and
+  crop interactions now behave consistently.
+- Palette extraction accepts a user-selected count from 3 through 32 colors.
+- Browser update synchronization, Linux browser chrome detection, menubar
+  navigation, and React 19 tooltip refs are hardened.
+- GitHub Actions now have stronger workflow validation, concurrency controls,
+  cache/log diagnostics, and failure reports.
+- GitHub Pages builds use the correct `/varve/` project-site base path.
 
 ## [0.1.1] - 2026-08-11
 
