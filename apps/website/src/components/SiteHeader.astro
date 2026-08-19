@@ -543,6 +543,13 @@ const versionLabel = release.hasRelease && release.version
       display: none;
     }
 
+    /* The browser-demo entry remains available in the mobile menu/download
+       funnel; hiding the compact desktop pill keeps the persistent header
+       within a 320px viewport alongside the theme toggle and menu button. */
+    :global(.nav-try-cta) {
+      display: none;
+    }
+
     .site-nav {
       padding: 0.55rem 1rem;
     }
@@ -561,6 +568,7 @@ const versionLabel = release.hasRelease && release.version
          and the open state's visibility change happens after the slide
          transition starts, so the animation is unaffected. */
       visibility: hidden;
+      overflow: hidden;
     }
 
     .mobile-nav-panel[aria-hidden='false'] {

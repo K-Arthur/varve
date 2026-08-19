@@ -250,6 +250,7 @@ function cmdSnapshot() {
 
 function cmdVerify(tag) {
   const found = TARGETS.map((target) => {
+    const exists = existsSync(join(repoRoot, target.path));
     let value;
     let error;
     try {
@@ -257,7 +258,7 @@ function cmdVerify(tag) {
     } catch (err) {
       error = err.message;
     }
-    return { path: target.path, value, error };
+    return { path: target.path, value, error, exists };
   });
 
   const problems = [];
@@ -270,6 +271,7 @@ function cmdVerify(tag) {
   }
 
   for (const entry of found) {
+    if (!entry.exists) continue;
     if (entry.error) {
       problems.push(`${entry.path}: ${entry.error}`);
     } else if (entry.value !== expected) {

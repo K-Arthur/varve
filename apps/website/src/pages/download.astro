@@ -668,32 +668,38 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
             <h2>After you install</h2>
             <ol class="install-steps">
               <li>
-                <strong>Open the app.</strong>
-                <ul class="install-commands">
-                  {available.map((p) => {
-                    const command = primaryInstallCommand(p);
-                    return command ? (
-                      <li>
-                        <span>{p.label}:</span> <code class="code-block">{command}</code>
-                      </li>
-                    ) : null;
-                  })}
-                </ul>
+                <div class="install-step-content">
+                  <strong>Open the app.</strong>
+                  <ul class="install-commands">
+                    {available.map((p) => {
+                      const command = primaryInstallCommand(p);
+                      return command ? (
+                        <li>
+                          <span>{p.label}:</span> <code class="code-block">{command}</code>
+                        </li>
+                      ) : null;
+                    })}
+                  </ul>
+                </div>
               </li>
               <li>
-                <strong>First launch.</strong> Varve opens a welcome screen where you can start a
-                new document, open a recent file, or load the sample document. If your operating
-                system blocks the app (unsigned build), the platform notes above say exactly what
-                to click — and verify the checksum first.
+                <div class="install-step-content">
+                  <strong>First launch.</strong> Varve opens a welcome screen where you can start a
+                  new document, open a recent file, or load the sample document. If your operating
+                  system blocks the app (unsigned build), the platform notes above say exactly what
+                  to click — and verify the checksum first.
+                </div>
               </li>
               <li>
-                <strong>Make your first project.</strong> Open the{' '}
-                <a href={sitePath('/samples/varve-poster.varve')} download>
-                  sample poster document
-                </a>{' '}
-                (a small <code>.varve</code> file showing a complete poster project), follow the{' '}
-                <a href={sitePath('/docs/getting-started/first-project')}>first-project guide</a>,
-                or take the <a href={sitePath('/docs/getting-started')}>getting started tour</a>.
+                <div class="install-step-content">
+                  <strong>Make your first project.</strong> Open the{' '}
+                  <a href={sitePath('/samples/varve-poster.varve')} download>
+                    sample poster document
+                  </a>{' '}
+                  (a small <code>.varve</code> file showing a complete poster project), follow the{' '}
+                  <a href={sitePath('/docs/getting-started/first-project')}>first-project guide</a>,
+                  or take the <a href={sitePath('/docs/getting-started')}>getting started tour</a>.
+                </div>
               </li>
             </ol>
           </div>
@@ -750,7 +756,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     padding: 1rem 1.5rem;
     margin-bottom: 2rem;
     border-radius: 8px;
-    background: color-mix(in oklab, var(--accent-primary) 6%, var(--surface-base));
+    background: var(--surface-accent-soft);
     border: 1px solid color-mix(in oklab, var(--accent-primary) 20%, transparent);
   }
 
@@ -1125,7 +1131,11 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     font-size: 0.875rem;
   }
 
-  .install-steps > li > strong {
+  .install-step-content {
+    min-width: 0;
+  }
+
+  .install-step-content > strong {
     color: var(--text-primary);
     padding-top: 0.25rem;
   }
@@ -1185,6 +1195,15 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   }
 
   @media (max-width: 720px) {
+    .try-browser-banner {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .try-browser-link {
+      justify-content: center;
+    }
+
     .quick-download {
       padding: 1.5rem;
     }
