@@ -134,10 +134,14 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
     display: inline;
   }
 
+  /* Asymmetric clip-path: tight at the top (hides the previous phrase's tail)
+     and generous at the bottom (0.25em room for descenders like g, p, y).
+     overflow:hidden is NOT used because it clips at the padding box and
+     cuts descenders. */
   .hero-phrase-rotor {
     position: absolute;
     inset: 0;
-    overflow: hidden;
+    clip-path: inset(0 0 -0.25em 0);
   }
 
   .hero-phrase-track {

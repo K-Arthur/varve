@@ -6,10 +6,10 @@ import {
   type EmailProfile,
   type EmailSemanticKind,
 } from '@varve/scene';
-import { Button, Input, Select, TextArea } from '@varve/ui';
+import { Button, CopyButton, Input, Select, TextArea } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
-import { saveExportBytes } from '../../../exportSaveAdapter';
+import { createBufferedExportArchive, saveExportBytes } from '../../../exportSaveAdapter';
 
 const KIND_OPTIONS = [
   'auto',
@@ -57,6 +57,7 @@ export function EmailPanel() {
   const semantics = state.document.emailSemantics;
   const semantic = node ? (semantics?.nodes[node.id] ?? DEFAULT_EMAIL_SEMANTIC) : undefined;
   const [previewMode, setPreviewMode] = useState<'preview' | 'code'>('preview');
+  const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop');
   const [showSamples, setShowSamples] = useState(false);
 
   const compilation = useMemo(() => {
@@ -77,13 +78,14 @@ export function EmailPanel() {
     state.document,
   ]);
   const output: EmailHtmlExportResult | null = compilation?.output ?? null;
+  const outputWarnings = output?.warnings ?? [];
+  const hasErrors = Boolean(
+    compilation?.ir.diagnostics.some((diagnostic) => diagnostic.severity === 'error') ||
+      outputWarnings.some((warning) => warning.severity === 'error'),
+  );
 
   const exportEmail = async () => {
-    if (
-      !compilation ||
-      compilation.ir.diagnostics.some((diagnostic) => diagnostic.severity === 'error')
-    )
-      return;
+    if (!compilation || hasErrors) return;
     const baseName =
       state.document.name.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-|-$/g, '') ||
       'email-template';
@@ -127,6 +129,40 @@ export function EmailPanel() {
         `.${asset.filename.split('.').pop() ?? 'bin'}`,
       );
     }
+  };
+
+  const exportEmailPackage = async () => {
+    if (!compilation || hasErrors) return;
+    const baseName =
+      state.document.name.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-|-$/g, '') ||
+      'email-template';
+    const encoder = new TextEncoder();
+    const archive = createBufferedExportArchive(editor.platform);
+    await archive.saveFile('email.html', encoder.encode(output?.html ?? ''));
+    await archive.saveFile('email.txt', encoder.encode(output?.plainText ?? ''));
+    await archive.saveFile(
+      'manifest.json',
+      encoder.encode(
+        JSON.stringify(
+          {
+            format: 'varve-email-package',
+            version: 1,
+            provider: compilation.ir.settings.provider,
+            compatibilityProfile: compilation.ir.settings.compatibilityProfile,
+            assets: compilation.ir.assets,
+            diagnostics: compilation.ir.diagnostics,
+          },
+          null,
+          2,
+        ),
+      ),
+    );
+    for (const asset of compilation.ir.assets) {
+      if (!asset.dataUrl) continue;
+      const bytes = decodeDataUrl(asset.dataUrl);
+      if (bytes) await archive.saveFile(`assets/${asset.filename}`, bytes);
+    }
+    await archive.flush(baseName);
   };
 
   const updateProfile = (patch: Partial<EmailProfile>) => {
@@ -303,8 +339,13 @@ export function EmailPanel() {
 
         <section className="email-panel__group" aria-labelledby="email-output-heading">
           <div className="email-panel__heading-row">
-            <h3 id="email-output-heading">Browser preview</h3>
             <div>
+              <h3 id="email-output-heading">Preview &amp; code</h3>
+              <p className="email-panel__ownership-note">
+                Generated output is read-only; edit the design or add a preserved custom HTML block.
+              </p>
+            </div>
+            <div className="email-panel__button-row">
               <Button
                 size="sm"
                 variant={previewMode === 'preview' ? 'primary' : 'secondary'}
@@ -319,8 +360,28 @@ export function EmailPanel() {
               >
                 Code
               </Button>
+              {output && <CopyButton value={output.html} label="Copy generated email HTML" />}
             </div>
           </div>
+          {previewMode === 'preview' && (
+            <fieldset className="email-panel__viewport-controls">
+              <legend className="varve-visually-hidden">Preview viewport</legend>
+              <Button
+                size="sm"
+                variant={previewViewport === 'desktop' ? 'primary' : 'secondary'}
+                onClick={() => setPreviewViewport('desktop')}
+              >
+                Desktop
+              </Button>
+              <Button
+                size="sm"
+                variant={previewViewport === 'mobile' ? 'primary' : 'secondary'}
+                onClick={() => setPreviewViewport('mobile')}
+              >
+                Mobile
+              </Button>
+            </fieldset>
+          )}
           <label className="varve-checkbox">
             <input
               type="checkbox"
@@ -330,17 +391,23 @@ export function EmailPanel() {
             Preview sample values
           </label>
           {output && previewMode === 'preview' && (
-            <iframe
-              title="Email browser preview"
-              sandbox=""
-              srcDoc={output.html}
-              className="email-panel__preview"
-            />
+            <div
+              className={`email-panel__preview-frame email-panel__preview-frame--${previewViewport}`}
+            >
+              <iframe
+                title="Email browser preview"
+                sandbox=""
+                srcDoc={output.html}
+                className="email-panel__preview"
+              />
+            </div>
           )}
           {output && previewMode === 'code' && (
-            <pre className="email-panel__code">
-              <code>{output.html}</code>
-            </pre>
+            <section aria-label="Generated email HTML (read-only)">
+              <pre className="email-panel__code">
+                <code>{output.html}</code>
+              </pre>
+            </section>
           )}
           {output && (
             <p className="email-panel__plain-text">
@@ -353,20 +420,47 @@ export function EmailPanel() {
                 <li
                   key={`${diagnostic.code}-${diagnostic.sourceNodeId ?? diagnostic.sourceVariableId ?? ''}`}
                 >
-                  {diagnostic.severity}: {diagnostic.message}
+                  <button
+                    type="button"
+                    className="email-panel__diagnostic"
+                    disabled={!diagnostic.sourceNodeId}
+                    onClick={() => {
+                      if (
+                        diagnostic.sourceNodeId &&
+                        state.document.nodes[diagnostic.sourceNodeId]
+                      ) {
+                        editor.setSelection(diagnostic.sourceNodeId);
+                        editor.revealSelection({ nodeId: diagnostic.sourceNodeId });
+                      }
+                    }}
+                  >
+                    <span>{diagnostic.severity}</span>: {diagnostic.message}
+                  </button>
                 </li>
               ))}
             </ul>
           )}
+          {outputWarnings.length > 0 && (
+            <ul className="email-panel__diagnostics" aria-label="Email emission warnings">
+              {outputWarnings.map((warning, index) => (
+                <li key={`${warning.code}-${warning.sourceNodeId ?? index}`}>
+                  <span className="email-panel__diagnostic email-panel__diagnostic--static">
+                    {warning.severity}: {warning.message}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Button size="sm" onClick={() => void exportEmail()} disabled={!compilation || hasErrors}>
+            Export HTML, text, and manifest
+          </Button>
           <Button
             size="sm"
-            onClick={() => void exportEmail()}
-            disabled={
-              !compilation ||
-              compilation.ir.diagnostics.some((diagnostic) => diagnostic.severity === 'error')
-            }
+            variant="secondary"
+            onClick={() => void exportEmailPackage()}
+            disabled={!compilation || hasErrors}
           >
-            Export HTML, text, and manifest
+            Export package (.zip)
           </Button>
         </section>
       </div>
@@ -574,11 +668,16 @@ function CustomHtmlEditor({ nodeId, enabled }: { nodeId: string; enabled: boolea
     }));
   return (
     <div className="email-panel__link">
-      <h4>Custom HTML block</h4>
+      <h4>Custom HTML block · preserved source</h4>
+      <p className="email-panel__ownership-note">
+        This block is user-authored and survives design recompilation. Scripts, event handlers,
+        unsafe URLs, unsupported tags, and oversized input are rejected before preview/export.
+      </p>
       <TextArea
         label="Email-safe HTML"
         rows={8}
         value={code}
+        spellCheck={false}
         onChange={(event) => setCode(event.target.value)}
       />
       <Button size="sm" onClick={save}>
