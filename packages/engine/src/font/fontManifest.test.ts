@@ -117,6 +117,31 @@ describe('buildDocumentFontManifest', () => {
     const manifest = buildDocumentFontManifest(doc, catalog);
     expect(manifest.fonts).toHaveLength(1);
   });
+
+  it('preserves an applied replacement when rebuilding from the substituted document', () => {
+    const catalog = catalogWith([makeEntry('Inter', 'Regular')]);
+    const doc = docWith({
+      t1: { id: 't1', kind: 'text', text: 'Hello', fontFamily: 'Inter' },
+    });
+
+    const manifest = buildDocumentFontManifest(doc, catalog, {
+      previousReplacements: [
+        {
+          original: 'Missing Display',
+          replacement: 'Inter',
+          applyToAll: true,
+          preserveOriginalReference: true,
+        },
+      ],
+    });
+
+    expect(manifest.fonts[0]).toMatchObject({
+      familyName: 'Inter',
+      status: 'substituted',
+      substituteFor: 'Missing Display',
+    });
+    expect(manifest.replacements).toHaveLength(1);
+  });
 });
 
 describe('resolveManifestAgainstCatalog', () => {
@@ -171,5 +196,46 @@ describe('resolveManifestAgainstCatalog', () => {
     expect(resolved.fonts[0]!.status).toBe('substituted');
     expect(resolved.fonts[0]!.familyName).toBe('Arial');
     expect(resolved.fonts[0]!.substituteFor).toBe('Helvetica');
+  });
+
+  it('does not silently restore the original family in manifest metadata', () => {
+    const manifest: FontManifest = {
+      version: 1,
+      fonts: [
+        {
+          familyName: 'Arial',
+          identity: {
+            contentHash: 'arial',
+            postScriptName: 'Arial-Regular',
+            familyName: 'Arial',
+            subfamilyName: 'Regular',
+            fullName: 'Arial Regular',
+          },
+          source: 'system',
+          embeddingRights: 'installable',
+          status: 'substituted',
+          substituteFor: 'Missing Display',
+        },
+      ],
+      replacements: [
+        {
+          original: 'Missing Display',
+          replacement: 'Arial',
+          applyToAll: true,
+          preserveOriginalReference: true,
+        },
+      ],
+    };
+
+    const resolved = resolveManifestAgainstCatalog(
+      manifest,
+      catalogWith([makeEntry('Missing Display', 'Regular'), makeEntry('Arial', 'Regular')]),
+    );
+
+    expect(resolved.fonts[0]).toMatchObject({
+      familyName: 'Arial',
+      status: 'substituted',
+      substituteFor: 'Missing Display',
+    });
   });
 });

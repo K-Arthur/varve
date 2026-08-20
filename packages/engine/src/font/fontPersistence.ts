@@ -32,9 +32,12 @@ export function attachFontManifestToDocument(
   doc: UsageDocument,
   catalog: FontCatalog,
 ): FontPersistenceResult {
+  const previousReplacements = (doc as UsageDocument & { fontManifest?: FontManifest }).fontManifest
+    ?.replacements;
   const manifest = buildDocumentFontManifest(doc, catalog, {
     autoSubstitute: false,
     missingSource: 'missing',
+    previousReplacements,
   });
 
   return {

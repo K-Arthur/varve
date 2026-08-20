@@ -70,6 +70,12 @@ export interface BuildManifestOptions {
    * Source kind to assign to missing/unresolved references.
    */
   missingSource?: FontSourceKind;
+  /**
+   * Previously applied substitutions to preserve across a rebuild. The
+   * document stores the replacement family in its text runs; this history is
+   * what keeps the original family recoverable in the manifest.
+   */
+  previousReplacements?: FontReplacement[];
 }
 
 // ---------------------------------------------------------------------------
@@ -103,7 +109,7 @@ export function buildDocumentFontManifest(
   }
 
   const entries: FontManifestEntry[] = [];
-  const replacements: FontReplacement[] = [];
+  const replacements: FontReplacement[] = [...(opts.previousReplacements ?? [])];
   const seen = new Set<string>();
 
   for (const u of usage.values()) {
@@ -116,11 +122,17 @@ export function buildDocumentFontManifest(
     const missing = missingMap.get(key);
 
     if (catalogEntry) {
+      const appliedReplacement = findReplacementForFamily(replacements, family);
       entries.push(
         catalogEntryToManifest(catalogEntry, {
           requestedWeight: u.weight,
           requestedStyle: u.style,
-          status: embeddingAllowed(catalogEntry.embeddingRights) ? 'available' : 'restricted',
+          status: appliedReplacement
+            ? 'substituted'
+            : embeddingAllowed(catalogEntry.embeddingRights)
+              ? 'available'
+              : 'restricted',
+          substituteFor: appliedReplacement?.original,
         }),
       );
       continue;
@@ -138,7 +150,7 @@ export function buildDocumentFontManifest(
           substituteFor: family,
         }),
       );
-      replacements.push({
+      addReplacement(replacements, {
         original: family,
         replacement: sub.familyName,
         applyToAll: true,
@@ -225,23 +237,29 @@ export function resolveManifestAgainstCatalog(
     }
 
     if (entry.substituteFor) {
-      // A previously substituted font: check if the original is now available.
-      const originalEntry = findBestCatalogEntry(
+      // A previously substituted font still appears in the document under
+      // the replacement family. Re-resolve that actual family; the presence
+      // of the original on this machine must not silently rewrite the
+      // manifest because the text nodes have not been restored.
+      const replacementEntry = findBestCatalogEntry(
         catalog,
-        entry.substituteFor,
+        entry.familyName,
         entry.requestedWeight,
         entry.requestedStyle,
       );
-      if (originalEntry) {
+      if (replacementEntry) {
         updated.push(
-          catalogEntryToManifest(originalEntry, {
+          catalogEntryToManifest(replacementEntry, {
             requestedWeight: entry.requestedWeight,
             requestedStyle: entry.requestedStyle,
-            status: embeddingAllowed(originalEntry.embeddingRights) ? 'available' : 'restricted',
+            status: embeddingAllowed(replacementEntry.embeddingRights)
+              ? 'substituted'
+              : 'restricted',
+            substituteFor: entry.substituteFor,
           }),
         );
       } else {
-        updated.push({ ...entry });
+        updated.push({ ...entry, status: 'missing' });
       }
       continue;
     }
@@ -342,6 +360,27 @@ function catalogEntryToManifest(
     status: overrides.status,
     substituteFor: overrides.substituteFor,
   };
+}
+
+function findReplacementForFamily(
+  replacements: FontReplacement[],
+  family: string,
+): FontReplacement | undefined {
+  const key = family.toLowerCase();
+  return replacements.find((replacement) => replacement.replacement.toLowerCase() === key);
+}
+
+function addReplacement(replacements: FontReplacement[], replacement: FontReplacement): void {
+  const existingIndex = replacements.findIndex(
+    (existing) =>
+      existing.original.toLowerCase() === replacement.original.toLowerCase() &&
+      existing.replacement.toLowerCase() === replacement.replacement.toLowerCase(),
+  );
+  if (existingIndex >= 0) {
+    replacements[existingIndex] = replacement;
+    return;
+  }
+  replacements.push(replacement);
 }
 
 function buildStubEntry(family: string, source: FontSourceKind): FontCatalogEntry {

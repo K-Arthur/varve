@@ -1,9 +1,5 @@
 import { getFontRegistry } from '@varve/engine';
-import {
-  buildDocumentFontManifest,
-  FontCatalog,
-  resolveManifestAgainstCatalog,
-} from '@varve/engine/font';
+import { attachFontManifestToDocument, FontCatalog } from '@varve/engine/font';
 import {
   contentHash,
   displayNameFromPath,
@@ -57,7 +53,14 @@ export function usePersistence(
   ) => { zoom: number; pan: { x: number; y: number } } | null,
 ): PersistenceAPI {
   const serializeDocument = useCallback(() => {
-    return DocumentCodec.encode(stateRef.current.document);
+    const doc = stateRef.current.document;
+    const { manifest } = attachFontManifestToDocument(
+      { nodes: doc.nodes, styles: doc.styles, fontManifest: doc.fontManifest } as Parameters<
+        typeof attachFontManifestToDocument
+      >[0],
+      buildCatalogFromRegistry(),
+    );
+    return DocumentCodec.encode({ ...doc, fontManifest: manifest });
   }, [stateRef]);
 
   /**
@@ -574,13 +577,10 @@ export function resolveFontManifest(doc: Document): Document {
 
   const catalog = buildCatalogFromRegistry();
 
-  if (doc.fontManifest) {
-    const resolved = resolveManifestAgainstCatalog(doc.fontManifest, catalog);
-    return { ...doc, fontManifest: resolved };
-  }
-
-  const manifest = buildDocumentFontManifest(
-    { nodes: doc.nodes, styles: doc.styles } as Parameters<typeof buildDocumentFontManifest>[0],
+  const { manifest } = attachFontManifestToDocument(
+    { nodes: doc.nodes, styles: doc.styles, fontManifest: doc.fontManifest } as Parameters<
+      typeof attachFontManifestToDocument
+    >[0],
     catalog,
   );
   return { ...doc, fontManifest: manifest };
@@ -589,9 +589,18 @@ export function resolveFontManifest(doc: Document): Document {
 /** Check if a document contains any text nodes that reference fonts. */
 function hasTextNodes(doc: Document): boolean {
   for (const node of Object.values(doc.nodes)) {
-    if (node.kind === 'text' && node.fontFamily) {
+    if (node.kind !== 'text') continue;
+    if (node.fontFamily) return true;
+    if (
+      node.richText?.paragraphs.some((paragraph) =>
+        paragraph.runs.some((run) => Boolean(run.format?.fontFamily)),
+      )
+    ) {
       return true;
     }
+  }
+  for (const style of Object.values(doc.styles ?? {})) {
+    if (style.type === 'text' && 'fontFamily' in style && style.fontFamily) return true;
   }
   return false;
 }

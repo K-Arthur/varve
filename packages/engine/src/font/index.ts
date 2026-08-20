@@ -94,7 +94,12 @@ export type {
 } from './fontProviders';
 // Provider system
 export { FontProviderRegistry, FontsourceProvider, GoogleFontsProvider } from './fontProviders';
-export type { FontReplacement, FontSubstitute, MissingFontInfo } from './fontResolver';
+export type {
+  FontReplacement,
+  FontSubstitute,
+  MissingFontInfo,
+  ResolverDocument,
+} from './fontResolver';
 // Missing font resolution
 export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
 // Tauri filesystem font storage adapter
