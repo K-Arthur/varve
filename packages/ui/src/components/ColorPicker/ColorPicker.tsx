@@ -225,10 +225,7 @@ export function ColorPicker({
   });
   useEffect(() => {
     const previous = previousSpaceInputsRef.current;
-    if (
-      previous.colorSpace !== value.space ||
-      previous.documentColorMode !== documentColorMode
-    ) {
+    if (previous.colorSpace !== value.space || previous.documentColorMode !== documentColorMode) {
       setSpace(initialSpace(valueRef.current, documentColorMode));
     }
     previousSpaceInputsRef.current = {
@@ -637,8 +634,7 @@ export function ColorPicker({
   // `bitDepth` is the output precision requested by the host. The incoming
   // value can still be a legacy uint8 color, so decode alpha using its own
   // storage depth before presenting it as a normalized slider value.
-  const sourceBitDepth: BitDepth =
-    'bitDepth' in value && value.bitDepth ? value.bitDepth : 'uint8';
+  const sourceBitDepth: BitDepth = 'bitDepth' in value && value.bitDepth ? value.bitDepth : 'uint8';
   const alphaVal = normalizeChannel(value.a, sourceBitDepth);
 
   const contrastInfo = useMemo(() => {
