@@ -15,11 +15,20 @@
  */
 
 import type { AreaSelection } from '@varve/engine';
-import type { BrushPreset, RasterLayerNode, SmudgeState } from '@varve/scene';
+import type {
+  BrushPreset,
+  RasterLayerNode,
+  RasterTile,
+  SmudgeState,
+  StrokeDabSession,
+  StrokePoint,
+} from '@varve/scene';
 import {
   compositeSmudgeDab,
   createSmudgeState,
+  createStrokeDabSession,
   defaultBrushPreset,
+  flattenTilesForSampling,
   generateDabs,
   type SmudgeOptions as SmudgeEngineOptions,
   smoothStrokePoints,
@@ -38,6 +47,16 @@ import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './
  * the foreground into the reservoir on every pickup.
  */
 export type SmudgeMode = 'sampling' | 'mixing' | 'fingerpaint';
+
+/** Stable 32-bit hash so a stroke's jitter is reproducible from its identity. */
+function hashSeed(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
 
 function engineMode(mode: SmudgeMode): SmudgeEngineOptions['mode'] {
   switch (mode) {
@@ -68,6 +87,22 @@ export class SmudgeTool extends BaseTool {
    */
   private smudgeState: SmudgeState | null = null;
   private strokeForeground: [number, number, number, number] = [0, 0, 0, 255];
+  /**
+   * Preset frozen at pointer-down. Smudge is unusually sensitive to this:
+   * strength drives both how much pigment moves and how fast the reservoir
+   * empties, so changing it mid-stroke would retroactively alter the trail.
+   */
+  private strokePreset: BrushPreset | null = null;
+  /**
+   * Spacing, arc length and jitter carried across flushes. Without it every
+   * batch restarts spacing, and a smudge dab both picks up and deposits — so a
+   * density spike at a batch boundary is directly visible as a blotch.
+   */
+  private dabSession: StrokeDabSession | null = null;
+  private lastSmoothed: StrokePoint | null = null;
+  /** Read-only composite for sample-all-layers, built once per stroke. */
+  private strokeSampleTiles: Map<string, RasterTile> | null = null;
+  private sampleAllLayers = false;
 
   onSettingsChange?: (settings: {
     presetId: string;
@@ -179,8 +214,12 @@ export class SmudgeTool extends BaseTool {
     this.rasterNodeId = rasterNodeId;
     this.strokeAreaSelection = ctx.areaSelection ?? null;
     this.strokeForeground = [...ctx.foregroundColor];
+    this.strokePreset = { ...this.preset, dynamics: [...this.preset.dynamics] };
     this.smudgeState = createSmudgeState(this.engineOptions());
     this.strokeGeneration++;
+    this.dabSession = createStrokeDabSession(hashSeed(`${rasterNodeId}#${this.strokeGeneration}`));
+    this.lastSmoothed = null;
+    this.strokeSampleTiles = this.sampleAllLayers ? this.flattenVisibleStack(ctx) : null;
 
     const pressure = e.pressure > 0 ? e.pressure : 0.5;
     const avgTilt = (Math.abs(e.tiltX ?? 0) + Math.abs(e.tiltY ?? 0)) / 2;
@@ -309,7 +348,32 @@ export class SmudgeTool extends BaseTool {
       foreground: this.strokeForeground,
       initialLoad: 1,
       coverage,
+      sampleTiles: this.strokeSampleTiles,
     };
+  }
+
+  /** Sample the whole visible stack rather than the target layer alone. */
+  setSampleAllLayers(enabled: boolean): void {
+    this.sampleAllLayers = enabled;
+  }
+
+  get samplesAllLayers(): boolean {
+    return this.sampleAllLayers;
+  }
+
+  /**
+   * Read-only composite of the visible raster layers, bottom-up. Built once per
+   * stroke so the stroke cannot sample its own output part-way through.
+   */
+  private flattenVisibleStack(ctx: ToolContext): Map<string, RasterTile> | null {
+    const layers: Array<{ tiles: Map<string, RasterTile>; opacity?: number; visible?: boolean }> =
+      [];
+    for (const node of Object.values(ctx.document.nodes)) {
+      if ((node as { kind?: string }).kind !== 'rasterLayer') continue;
+      const raster = node as unknown as RasterLayerNode;
+      layers.push({ tiles: raster.tiles, opacity: raster.opacity, visible: raster.visible });
+    }
+    return layers.length > 0 ? flattenTilesForSampling(layers) : null;
   }
 
   private flushDabs(ctx: ToolContext): void {
@@ -319,12 +383,15 @@ export class SmudgeTool extends BaseTool {
     const pts = this.strokePoints;
     if (pts.length < 2) return;
 
-    const smoothed = smoothStrokePoints(pts, this.preset.smoothing);
-    const dabs = generateDabs(smoothed, this.preset);
-    if (dabs.length === 0) return;
-
+    const preset = this.strokePreset ?? this.preset;
+    const session = this.dabSession;
     const state = this.smudgeState;
-    if (!state) return;
+    if (!session || !state) return;
+
+    const smoothed = smoothStrokePoints(pts, preset.smoothing, this.lastSmoothed);
+    this.lastSmoothed = smoothed[smoothed.length - 1] ?? this.lastSmoothed;
+    const dabs = generateDabs(smoothed, preset, { session });
+    if (dabs.length === 0) return;
 
     ctx.updateNode(rasterNodeId, (node) => {
       let updated = node as RasterLayerNode;
@@ -338,8 +405,23 @@ export class SmudgeTool extends BaseTool {
     this.strokePoints = [pts[pts.length - 1]!];
   }
 
+  /**
+   * Preview the predicted tail of the stroke.
+   *
+   * Smudge deposits the pigment it is carrying, never the foreground colour —
+   * previewing predicted dabs in the foreground colour showed paint that would
+   * never appear, which is worse than showing nothing. The reservoir is what
+   * the next dabs will actually lay down, so that is what is drawn; an empty
+   * reservoir (a pure smudge that has not picked anything up yet) draws
+   * nothing at all.
+   */
   private renderPredictedPreview(ctx: ToolContext, predictedEvents: NormalizedInputEvent[]): void {
     if (predictedEvents.length === 0) return;
+    const state = this.smudgeState;
+    if (!state || state.load <= 0.01) {
+      this.previewCanvas.clear();
+      return;
+    }
 
     const canvas = ctx.canvasElement;
     if (!canvas) return;
@@ -347,7 +429,8 @@ export class SmudgeTool extends BaseTool {
     this.previewCanvas.ensureSize(canvas.width, canvas.height);
     this.previewCanvas.clear();
 
-    const pts: import('@varve/scene').StrokePoint[] = [];
+    const preset = this.strokePreset ?? this.preset;
+    const pts: StrokePoint[] = [];
     for (const ev of predictedEvents) {
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
       const local = rasterLocalPoint(ctx, this.rasterNodeId, world);
@@ -357,12 +440,20 @@ export class SmudgeTool extends BaseTool {
     }
 
     if (pts.length < 2) return;
-    const smoothed = smoothStrokePoints(pts, this.preset.smoothing);
-    const dabs = generateDabs(smoothed, this.preset);
+    // A throwaway session: predicted dabs must never advance the real stroke's
+    // spacing or jitter, or the committed stroke would depend on prediction.
+    const preview = createStrokeDabSession(0);
+    const smoothed = smoothStrokePoints(pts, preset.smoothing);
+    const dabs = generateDabs(smoothed, preset, { session: preview });
     if (dabs.length === 0) return;
 
-    const color: [number, number, number, number] = ctx.foregroundColor;
-    this.previewCanvas.drawPredictedDabs(dabs, color);
+    const carried: [number, number, number, number] = [
+      Math.round(state.r),
+      Math.round(state.g),
+      Math.round(state.b),
+      Math.round(state.a * state.load),
+    ];
+    this.previewCanvas.drawPredictedDabs(dabs, carried);
   }
 
   private updatePreview(ctx: ToolContext): void {
