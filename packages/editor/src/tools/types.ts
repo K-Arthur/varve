@@ -259,6 +259,15 @@ export interface ToolContext {
   getTrimapData?: (nodeId: string) => { data: Uint8Array; width: number; height: number } | null;
   setTrimapPreview?: (trimap: Uint8Array, width: number, height: number) => void;
   commitTrimapEdit?: (trimap: Uint8Array) => void;
+  /**
+   * The mask the user has explicitly chosen to edit, or null for layer pixels.
+   *
+   * Explicit rather than inferred: deciding between "paint the layer" and
+   * "paint its mask" from whichever thumbnail was clicked most recently leaves
+   * the UI unable to state what a stroke will do.
+   */
+  maskEditTarget?: { nodeId: NodeId; maskId: string } | null;
+  setMaskEditTarget?: (target: { nodeId: NodeId; maskId: string } | null) => void;
   /** Commit a raster mask as a native RasterMaskAsset. */
   commitRasterMask?: (
     nodeId: string,
