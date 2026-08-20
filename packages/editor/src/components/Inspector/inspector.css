@@ -4002,10 +4002,6 @@
 .email-preflight__item-button {
   cursor: pointer;
 }
-.email-preflight__item-button:hover .email-preflight__message,
-.email-preflight__item-button:focus-visible .email-preflight__message {
-  text-decoration: underline;
-}
 .email-preflight__severity {
   font-weight: var(--font-weight-medium);
   /* Severity is carried by the word as well as the colour, so the ranking
@@ -4013,6 +4009,10 @@
 }
 .email-preflight__message {
   color: var(--color-text-default);
+}
+.email-preflight__fix {
+  grid-column: 2;
+  color: var(--color-text-muted);
 }
 .email-preflight__severity--error {
   color: var(--color-feedback-danger);
@@ -4023,9 +4023,9 @@
 .email-preflight__severity--info {
   color: var(--color-feedback-info);
 }
-.email-preflight__fix {
-  grid-column: 2;
-  color: var(--color-text-muted);
+.email-preflight__item-button:hover .email-preflight__message,
+.email-preflight__item-button:focus-visible .email-preflight__message {
+  text-decoration: underline;
 }
 
 /* ── Selected-node email output ──────────────────────────────────────────── */
