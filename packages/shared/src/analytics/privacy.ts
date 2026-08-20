@@ -91,6 +91,8 @@ const VALUE_SETS: Record<string, readonly string[]> = {
   packageType: ['appimage', 'deb', 'rpm', 'dmg', 'nsis', 'unknown'],
   releaseChannel: ['beta', 'stable', 'prerelease'],
   destination: ['github', 'docs', 'community'],
+  channel: ['general', 'support', 'feedback', 'security', 'privacy', 'press', 'partnerships'],
+  entry: ['website', 'direct'],
 };
 
 const EVENT_FIELDS: {
