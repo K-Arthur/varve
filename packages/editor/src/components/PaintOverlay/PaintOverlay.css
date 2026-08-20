@@ -1,0 +1,55 @@
+.paint-overlay {
+  position: absolute;
+  inset: 0;
+  /* Chrome, not artwork: it must never intercept a brush stroke. */
+  pointer-events: none;
+}
+
+.paint-overlay__symmetry line {
+  stroke: var(--color-accent);
+  stroke-width: 1;
+  stroke-dasharray: 6 4;
+  opacity: 0.6;
+}
+
+.paint-overlay__origin {
+  fill: var(--color-surface-raised);
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+}
+
+.paint-overlay__clone line {
+  stroke: var(--color-accent);
+  stroke-width: 1;
+  opacity: 0.75;
+}
+
+.paint-overlay__clone-source {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+}
+
+.paint-overlay__badge {
+  position: absolute;
+  inset-block-end: var(--space-3);
+  inset-inline-start: 50%;
+  z-index: var(--z-overlay);
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  color: var(--color-text-primary-on-overlay);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  background: var(--color-surface-overlay);
+  border: var(--border-micro);
+  border-radius: var(--radius-full);
+  box-shadow: var(--elevation-shadow-overlay);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.paint-overlay__badge.is-blocked {
+  color: var(--color-text-on-danger, var(--color-text-primary-on-overlay));
+  background: var(--color-danger-surface, var(--color-surface-overlay));
+  border-color: var(--color-danger, var(--color-border-default));
+}
