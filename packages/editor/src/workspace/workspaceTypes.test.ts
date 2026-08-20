@@ -264,6 +264,17 @@ describe('workspaceTypes', () => {
     expect(getHiddenTools('design').has('booleanUnion')).toBe(false);
   });
 
+  it('keeps recovery tools visible in every workspace', () => {
+    const recoveryTools = ['select', 'hand', 'zoom'] as const;
+
+    for (const mode of ALL_WORKSPACE_MODES) {
+      const visible = getVisibleToolbarToolIds(getWorkspaceConfig(mode));
+      for (const toolId of recoveryTools) {
+        expect(visible.has(toolId), `${mode} must keep ${toolId} reachable`).toBe(true);
+      }
+    }
+  });
+
   it('falls back from a hidden tool without activating command-only flyout members', () => {
     expect(resolveWorkspaceTool(getWorkspaceConfig('design'), 'paint')).toBe('select');
     expect(resolveWorkspaceTool(getWorkspaceConfig('design'), 'booleanUnion')).toBe('select');

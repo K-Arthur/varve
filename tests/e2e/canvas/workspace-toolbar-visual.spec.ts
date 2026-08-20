@@ -37,8 +37,30 @@ test.describe('workspace toolbar visual QA', () => {
       const toolbar = page.locator('[data-testid="toolbar"]');
       await expect(toolbar).toBeVisible();
       await expect(toolbar.locator('[data-tool="select"]')).toBeVisible();
+      if (mode === 'codegen') {
+        // Codegen renders a workflow panel in the same canvas grid area. The
+        // recovery toolbar must remain above that panel and pointer-accessible.
+        const select = toolbar.locator('[data-tool="select"]');
+        await select.click();
+        await expect(select).toHaveAttribute('aria-pressed', 'true');
+        await page.screenshot({ path: testInfo.outputPath('workspace-codegen-full.png') });
+      }
       await toolbar.screenshot({ path: testInfo.outputPath(`toolbar-${mode}.png`) });
     }
+  });
+
+  test('keeps recovery tools visible and reachable at a narrow width', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 640, height: 700 });
+    await navigateToEditor(page);
+
+    const toolbar = page.locator('[data-testid="toolbar"]');
+    await expect(toolbar).toBeVisible();
+    for (const toolId of ['select', 'hand', 'zoom']) {
+      await expect(toolbar.locator(`[data-tool="${toolId}"]`)).toBeVisible();
+    }
+    await toolbar.screenshot({ path: testInfo.outputPath('toolbar-design-narrow.png') });
   });
 
   test('captures the searchable customization dialog and a customized toolbar', async ({
