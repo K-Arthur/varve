@@ -26,7 +26,13 @@ import type { AnimatedAssetMetadata, MediaFillSettings, RasterColorEncoding } fr
 
 export type { AnimatedAssetMetadata, MediaFillSettings } from '@varve/shared';
 
-import type { BleedConfig, ManagedColor, SafeAreaConfig, SlugConfig } from './colorManagement';
+import type {
+  BleedConfig,
+  GradientInterpolationSpace,
+  ManagedColor,
+  SafeAreaConfig,
+  SlugConfig,
+} from './colorManagement';
 import type { ExportPreset } from './export-types';
 import type { VariableModifier } from './modifiers';
 import type { TableModel } from './table';
@@ -53,7 +59,7 @@ export {
   validateIsometricGrid,
 } from './gridTypes';
 
-export type { ManagedColor };
+export type { GradientInterpolationSpace, ManagedColor };
 
 export type NodeId = string;
 
@@ -498,9 +504,6 @@ export type Effect = EffectVariant & {
 };
 
 export type GradientType = 'linear' | 'radial' | 'angular' | 'diamond';
-
-/** Supported color spaces for gradient stop interpolation. */
-export type GradientInterpolationSpace = 'srgb' | 'linear-srgb' | 'oklab' | 'oklch' | 'hsl';
 
 /**
  * A gradient may either pin its interpolation space or inherit the document

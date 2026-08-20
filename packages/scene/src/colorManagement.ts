@@ -305,6 +305,9 @@ export type ManagedColor =
   | RegistrationColor
   | UnresolvedColor;
 
+/** Stable identifiers for the color coordinate systems used by gradients. */
+export type GradientInterpolationSpace = 'srgb' | 'linear-srgb' | 'oklab' | 'oklch' | 'hsl';
+
 // ── Spot Color Definition ───────────────────────────────────────────────────
 
 /**
@@ -550,7 +553,7 @@ export interface ColorConfig {
    * document setting. Legacy gradients without interpolation metadata remain
    * encoded-sRGB for backward-compatible rendering.
    */
-  defaultGradientInterpolation?: import('./types').GradientInterpolationSpace;
+  defaultGradientInterpolation?: GradientInterpolationSpace;
 }
 
 // ── Built-in Profile Registry ───────────────────────────────────────────────
