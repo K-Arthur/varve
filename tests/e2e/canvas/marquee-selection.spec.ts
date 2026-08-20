@@ -28,6 +28,20 @@ test.describe('pixel marquee selection', () => {
     await marquee.click();
     await expect(marquee).toHaveAttribute('aria-pressed', 'true');
     await toolbar.screenshot({ path: testInfo.outputPath('marquee-toolbar.png') });
+    const options = page.locator('[data-testid="marquee-options"]');
+    await expect(options).toBeVisible();
+    await expect(options.getByRole('button', { name: 'replace selection' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await options.getByLabel('Selection style').selectOption('fixed-ratio');
+    await expect(options.getByLabel('Selection ratio')).toBeVisible();
+    await options.getByLabel('Selection style').selectOption('normal');
+    await options.getByLabel('Selection feather').fill('6');
+    await options.getByLabel('Anti-alias selection edges').check();
+    await page.screenshot({ path: testInfo.outputPath('marquee-options.png') });
+    await page.getByRole('button', { name: 'Tool options' }).click();
+    await expect(options).toBeHidden();
 
     const surface = page.locator('.editor-canvas');
     const box = await surface.boundingBox();
@@ -58,5 +72,22 @@ test.describe('pixel marquee selection', () => {
       'Rectangular selection',
       { timeout: 5000 },
     );
+
+    await toolbar.getByRole('button', { name: 'Pixel selection menu' }).click();
+    await expect(page.getByRole('menu')).toBeVisible();
+    await page.getByRole('menuitem', { name: 'Elliptical Marquee' }).click();
+    const ellipse = toolbar.locator('[data-tool="ellipseMarquee"]');
+    await expect(ellipse).toHaveAttribute('aria-pressed', 'true');
+    await expect(options).toContainText('Elliptical marquee');
+
+    await page.mouse.move(box.x + box.width * 0.78, box.y + box.height * 0.2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.64);
+    await page.mouse.up();
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      'Elliptical selection',
+      { timeout: 5000 },
+    );
+    await page.screenshot({ path: testInfo.outputPath('ellipse-selection.png') });
   });
 });
