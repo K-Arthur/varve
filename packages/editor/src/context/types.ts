@@ -721,6 +721,11 @@ export interface EditorContextValue {
   setSelectedFill: (color: import('@varve/scene').ManagedColor) => void;
   setSelectedFills: (fills: Fill[]) => void;
   updateSelectedFillAt: (index: number, fill: Fill) => void;
+  /** Merge a gradient into the fill at `index` for every selected node, preserving other fill fields. */
+  updateSelectedFillGradientAt: (
+    index: number,
+    gradient: import('@varve/scene').GradientFill,
+  ) => void;
   addSelectedFill: (fill: Fill) => void;
   removeSelectedFillAt: (index: number) => void;
   reorderSelectedFill: (from: number, to: number) => void;
@@ -1317,6 +1322,9 @@ export interface EditorContextValue {
    */
   setDocumentWorkingSpace: (space: import('@varve/scene').WorkingSpace) => void;
   setDocumentBlendEvaluationSpace: (space: import('@varve/shared').BlendEvaluationSpace) => void;
+  setDocumentGradientInterpolation: (
+    space: import('@varve/scene').GradientInterpolationSpace,
+  ) => void;
 
   // Soft proofing
   /** Persisted proof configuration (document print intent). */

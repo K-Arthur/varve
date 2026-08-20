@@ -341,6 +341,19 @@ function FillRow({
   const opacityRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.opacity ?? 1);
   const blendRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.blendMode ?? 'normal');
 
+  // Gradient interpolation/hue are sub-fields; surface "Mixed" across the
+  // selection without forcing a value when merely opening the control.
+  const interpRaw = commonValue(
+    nodes,
+    (n) => resolveNodeFills(n)[index]?.gradient?.interpolationSpace,
+  );
+  const hueRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.gradient?.hueInterpolation);
+  const gradientInterpMixed = isMixed(interpRaw);
+  const gradientHueMixed = isMixed(hueRaw);
+  const representativeGradient =
+    fill?.gradient ?? (nodes[0] ? resolveNodeFills(nodes[0])[index]?.gradient : undefined);
+  const allGradients = !isMixed(typeRaw) && typeRaw === 'gradient';
+
   const visible = isMixed(visibleRaw) ? true : visibleRaw;
   const swatchBg = fillSwatchBg(fill);
 
@@ -368,6 +381,7 @@ function FillRow({
               },
               { position: 1, color: { space: 'rgb' as const, r: 37, g: 99, b: 235, a: 255 } },
             ],
+            interpolationSource: 'document',
           },
         });
       } else if (newType === 'image') {
@@ -564,13 +578,18 @@ function FillRow({
         </button>
       </div>
 
-      {fill.type === 'gradient' && fill.gradient && (
+      {allGradients && representativeGradient && (
         <GradientEditor
-          gradient={fill.gradient}
-          onChange={(g: GradientFill) => patch({ gradient: g })}
+          gradient={representativeGradient}
+          onChange={(g: GradientFill) => editor.updateSelectedFillGradientAt(index, g)}
           onEditStart={onEditStart}
           onEditEnd={onEditEnd}
           documentColorMode={editor.documentColorMode}
+          documentGradientInterpolation={
+            editor.state.document.colorConfig?.defaultGradientInterpolation ?? 'oklab'
+          }
+          mixedInterpolationSpace={gradientInterpMixed}
+          mixedHue={gradientHueMixed}
         />
       )}
 
