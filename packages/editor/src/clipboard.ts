@@ -18,6 +18,29 @@ import type { Affine } from '@varve/shared';
 
 const VARVE_MIME = 'application/vnd.varve+json';
 const LEGACY_MIME = 'application/vnd.strata+json';
+/**
+ * Chromium refuses a ClipboardItem containing any non-standard MIME type
+ * unless it carries the `web ` prefix, and rejects the *whole* write if one
+ * entry is invalid. So the unprefixed item below always threw there, dropping
+ * copy into the text-only fallback — which writes node names, not nodes. Copy
+ * appeared to work and paste silently did nothing.
+ *
+ * The prefixed write is attempted first and the unprefixed one kept as a
+ * fallback: WebKitGTK, where the desktop app runs, accepts the plain type and
+ * is not guaranteed to accept the prefixed one.
+ */
+const WEB_VARVE_MIME = `web ${VARVE_MIME}`;
+const WEB_LEGACY_MIME = `web ${LEGACY_MIME}`;
+
+/** Every type a Varve payload may arrive under, prefixed or not. */
+function isVarvePayloadType(type: string): boolean {
+  return (
+    type === VARVE_MIME ||
+    type === LEGACY_MIME ||
+    type === WEB_VARVE_MIME ||
+    type === WEB_LEGACY_MIME
+  );
+}
 
 export interface ClipboardData {
   nodes: SceneNode[];
@@ -68,16 +91,32 @@ export async function writeClipboard(
     const json = JSON.stringify(data);
     const blob = new Blob([json], { type: VARVE_MIME });
     const textBlob = new Blob([nodes.map((n) => n.name).join('\n')], { type: 'text/plain' });
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        [VARVE_MIME]: blob,
-        [LEGACY_MIME]: blob,
-        'text/plain': textBlob,
-      }),
-    ]);
-    return true;
+    try {
+      // Each blob's own type must equal its key — Chromium rejects the write
+      // outright when they differ, and rejecting one entry rejects the item.
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [WEB_VARVE_MIME]: new Blob([json], { type: WEB_VARVE_MIME }),
+          [WEB_LEGACY_MIME]: new Blob([json], { type: WEB_LEGACY_MIME }),
+          'text/plain': textBlob,
+        }),
+      ]);
+      return true;
+    } catch {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [VARVE_MIME]: blob,
+          [LEGACY_MIME]: new Blob([json], { type: LEGACY_MIME }),
+          'text/plain': textBlob,
+        }),
+      ]);
+      return true;
+    }
   } catch {
     try {
+      // Last resort only. This carries names, not nodes, so an in-app paste
+      // cannot reconstruct anything from it — it exists so that pasting into
+      // a text editor still yields something meaningful.
       await navigator.clipboard.writeText(JSON.stringify(nodes.map((n) => n.name)));
       return true;
     } catch {
@@ -90,7 +129,7 @@ export async function readClipboard(): Promise<ClipboardData | null> {
   try {
     const items = await navigator.clipboard.read();
     for (const item of items) {
-      const mime = item.types.find((t) => t === VARVE_MIME || t === LEGACY_MIME);
+      const mime = item.types.find(isVarvePayloadType);
       if (mime) {
         const blob = await item.getType(mime);
         const text = await blob.text();
@@ -124,7 +163,7 @@ export async function readClipboardUnified(): Promise<UnifiedClipboardResult> {
     const items = await navigator.clipboard.read();
     for (const item of items) {
       for (const type of item.types) {
-        if (type === VARVE_MIME || type === LEGACY_MIME) {
+        if (isVarvePayloadType(type)) {
           const blob = await item.getType(type);
           const text = await blob.text();
           const parsed = JSON.parse(text) as ClipboardData;

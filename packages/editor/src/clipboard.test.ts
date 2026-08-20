@@ -330,7 +330,9 @@ describe('readFromClipboardEvent', () => {
       await expect(
         writeClipboard([node], { [maskAsset.id]: maskAsset }, { [imageAsset.id]: imageAsset }),
       ).resolves.toBe(true);
-      const strataBlob = await written?.[0]?.getType('application/vnd.strata+json');
+      // The primary write uses Chromium's `web `-prefixed custom formats;
+      // the unprefixed pair is the fallback for engines that reject those.
+      const strataBlob = await written?.[0]?.getType('web application/vnd.strata+json');
       expect(strataBlob).toBeDefined();
       const payload = JSON.parse(await strataBlob!.text());
       expect(payload.assets).toEqual({ [imageAsset.id]: imageAsset });
@@ -387,7 +389,7 @@ describe('readFromClipboardEvent', () => {
       await expect(writeClipboard([node], undefined, undefined, undefined, anchor)).resolves.toBe(
         true,
       );
-      const blob = await written?.[0]?.getType('application/vnd.varve+json');
+      const blob = await written?.[0]?.getType('web application/vnd.varve+json');
       expect(blob).toBeDefined();
       const payload = JSON.parse(await blob!.text());
       expect(payload.worldAnchor).toEqual(anchor);
