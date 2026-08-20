@@ -6,6 +6,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SemanticSearchTab } from './SemanticSearchTab';
 
 const {
   mockListAllModels,
@@ -92,7 +93,6 @@ const ENTRIES = [
 
 async function renderTab() {
   mockListAllModels.mockReturnValue(ENTRIES);
-  const { SemanticSearchTab } = await import('./SemanticSearchTab');
   return render(<SemanticSearchTab />);
 }
 
@@ -103,7 +103,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.resetModules();
+  // Static import — no need for vi.resetModules()
 });
 
 describe('SemanticSearchTab', () => {
