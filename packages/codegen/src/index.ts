@@ -38,6 +38,7 @@ export {
   getEmailProviderAdapter,
   mailchimpEmailProvider,
 } from './email-provider';
+export type { EmailHtmlSanitizeOptions } from './email-security';
 export {
   appendTrackingParams,
   sanitizeEmailCss,

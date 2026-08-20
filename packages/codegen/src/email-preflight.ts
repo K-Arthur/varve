@@ -1,10 +1,11 @@
-import type { EmailDiagnostic, EmailSemanticMap } from '@varve/scene';
+import type { EmailDiagnostic, EmailSemanticMap, MailchimpEditableRegion } from '@varve/scene';
 import type { EmailDocumentIr, EmailIrNode } from './email-ir-types';
 import { sanitizeEmailCss, sanitizeEmailHtml, validateEmailUrl } from './email-security';
 
 export function runEmailPreflight(
   ir: EmailDocumentIr,
   semantics?: EmailSemanticMap,
+  mailchimpRegions?: MailchimpEditableRegion[],
 ): EmailDiagnostic[] {
   const diagnostics: EmailDiagnostic[] = [...(semantics?.diagnostics ?? [])];
   for (const [nodeId, link] of Object.entries(semantics?.nodeLinks ?? {})) {
@@ -72,7 +73,15 @@ export function runEmailPreflight(
     }
   }
   for (const node of ir.nodes)
-    inspectNode(node, diagnostics, ir.settings.compatibilityProfile, false, ir.assets);
+    inspectNode(
+      node,
+      diagnostics,
+      ir.settings.compatibilityProfile,
+      false,
+      false,
+      ir.assets,
+      ir.settings.provider === 'mailchimp',
+    );
   for (const asset of ir.assets) {
     if (!asset.remoteUrl && !asset.dataUrl && !asset.filename) {
       diagnostics.push({
@@ -97,6 +106,16 @@ export function runEmailPreflight(
         });
       }
     }
+    inspectMailchimpRegions(ir, diagnostics, mailchimpRegions ?? []);
+  }
+  if (ir.settings.plainTextOverride !== undefined) {
+    diagnostics.push({
+      severity: 'info',
+      code: 'MANUAL_PLAIN_TEXT_OVERRIDE',
+      message: 'The exported plain-text version is manually authored and will not be regenerated.',
+      category: 'accessibility',
+      suggestedFix: 'Review the plain-text version after changing the visual design.',
+    });
   }
   return diagnostics;
 }
@@ -106,7 +125,9 @@ function inspectNode(
   diagnostics: EmailDiagnostic[],
   profile: EmailDocumentIr['settings']['compatibilityProfile'],
   linkedAncestor: boolean,
+  editableAncestor: boolean,
   assets: EmailDocumentIr['assets'],
+  allowMailchimpAttributes: boolean,
 ): void {
   const hasInlineLink = Boolean(
     node.content?.runs?.some((run) => Boolean(run.link)) || node.image?.link,
@@ -204,8 +225,19 @@ function inspectNode(
       suggestedFix: 'Keep either the whole node linked or link individual text ranges.',
     });
   }
+  const editable = Boolean(node.providerAttributes?.['mc:edit']);
+  if (editableAncestor && editable) {
+    diagnostics.push({
+      severity: 'error',
+      code: 'NESTED_MAILCHIMP_EDITABLE_REGION',
+      message: `Mailchimp editable region "${node.name}" is nested inside another editable region.`,
+      sourceNodeId: node.sourceNodeId,
+      category: 'provider',
+      suggestedFix: 'Keep editable regions as non-overlapping scopes.',
+    });
+  }
   if (node.kind === 'custom-html' && node.content?.html) {
-    const sanitized = sanitizeEmailHtml(node.content.html);
+    const sanitized = sanitizeEmailHtml(node.content.html, { allowMailchimpAttributes });
     if (sanitized.removed.length > 0) {
       diagnostics.push({
         severity: 'warning',
@@ -240,7 +272,76 @@ function inspectNode(
     });
   }
   for (const child of node.children)
-    inspectNode(child, diagnostics, profile, linkedAncestor || Boolean(node.link), assets);
+    inspectNode(
+      child,
+      diagnostics,
+      profile,
+      linkedAncestor || Boolean(node.link),
+      editableAncestor || editable,
+      assets,
+      allowMailchimpAttributes,
+    );
+}
+
+function inspectMailchimpRegions(
+  ir: EmailDocumentIr,
+  diagnostics: EmailDiagnostic[],
+  regions: MailchimpEditableRegion[],
+): void {
+  const seen = new Map<string, MailchimpEditableRegion>();
+  for (const region of regions) {
+    if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(region.id)) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'INVALID_MAILCHIMP_REGION_ID',
+        message: `Mailchimp editable region "${region.name}" has an unsafe or invalid stable ID.`,
+        sourceNodeId: region.nodeId,
+        category: 'provider',
+        suggestedFix:
+          'Use a stable ID beginning with a letter and containing only letters, numbers, _ or -.',
+      });
+    }
+    const previous = seen.get(region.id);
+    if (previous) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'DUPLICATE_MAILCHIMP_REGION_ID',
+        message: `Mailchimp editable region ID "${region.id}" is used more than once.`,
+        sourceNodeId: region.nodeId,
+        category: 'provider',
+        suggestedFix: `Choose a different ID from region "${previous.name}".`,
+      });
+    }
+    seen.set(region.id, region);
+    if (!ir.nodes.some((node) => containsSourceNode(node, region.nodeId))) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'MISSING_MAILCHIMP_REGION_NODE',
+        message: `Mailchimp editable region "${region.id}" points to a missing scene node.`,
+        sourceNodeId: region.nodeId,
+        category: 'provider',
+        suggestedFix: 'Remove the stale region or attach it to an existing email node.',
+      });
+    }
+    if (region.type === 'repeat' && !region.repeatPattern?.trim()) {
+      diagnostics.push({
+        severity: 'info',
+        code: 'MAILCHIMP_REPEAT_USES_REGION_ID',
+        message: `Repeatable region "${region.id}" uses its stable ID as the repeat group name.`,
+        sourceNodeId: region.nodeId,
+        category: 'provider',
+        suggestedFix:
+          'Set an explicit repeat pattern when multiple repeatable layouts share a group.',
+      });
+    }
+  }
+}
+
+function containsSourceNode(node: EmailIrNode, sourceNodeId: string): boolean {
+  return (
+    node.sourceNodeId === sourceNodeId ||
+    node.children.some((child) => containsSourceNode(child, sourceNodeId))
+  );
 }
 
 function isLocalImageReference(src: string): boolean {

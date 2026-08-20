@@ -43,6 +43,9 @@ export interface EmailHtmlExportOptions {
 
   /** Internal compiler capture used to produce stable source mappings. */
   _sourceMapCapture?: EmailSourceMapCapture;
+
+  /** Internal provider context used for custom provider-template attributes. */
+  _provider?: 'generic' | 'mailchimp';
 }
 
 export interface EmailHtmlExportResult {
@@ -88,7 +91,11 @@ export function emitEmailHtml(
     nextMarkerId: 0,
     sourceNodeIds: new Map(),
   };
-  const emissionOptions = { ...resolvedOptions, _sourceMapCapture: sourceMapCapture };
+  const emissionOptions = {
+    ...resolvedOptions,
+    _sourceMapCapture: sourceMapCapture,
+    _provider: settings.provider,
+  };
   const sanitizedCss = settings.customCss
     ? sanitizeEmailCss(settings.customCss)
     : { css: '', removed: [] as string[] };
@@ -246,7 +253,7 @@ function emitNodeContent(
     case 'spacer':
       return emitSpacer(node, indent, depth);
     case 'custom-html':
-      return emitCustomHtml(node, indent, depth, warnings);
+      return emitCustomHtml(node, indent, depth, warnings, opts);
     case 'preheader':
       return emitPreheader(node, indent, depth, warnings);
     default:
@@ -591,13 +598,16 @@ function emitCustomHtml(
   indent: string,
   depth: number,
   warnings: EmailIrWarning[],
+  opts: EmailHtmlExportOptions,
 ): string {
   const pad = indent.repeat(depth);
   const html = node.content?.html;
 
   if (!html) return '';
 
-  const sanitized = sanitizeEmailHtml(html);
+  const sanitized = sanitizeEmailHtml(html, {
+    allowMailchimpAttributes: opts._provider === 'mailchimp',
+  });
   for (const removed of sanitized.removed) {
     warnings.push({
       severity: 'warning',

@@ -132,7 +132,11 @@ export function compileEmail(
     diagnostics: [],
   };
   const draftWithText: EmailDocumentIr = { ...draftIr, plainText: emitEmailPlainText(draftIr) };
-  const preflight = runEmailPreflight(draftWithText, emailSemantics);
+  const preflight = runEmailPreflight(
+    draftWithText,
+    emailSemantics,
+    emailProfile?.providerSettings?.mailchimp?.editableRegions,
+  );
   const ir: EmailDocumentIr = {
     ...draftWithText,
     diagnostics: preflight.map((diagnostic) => ({
@@ -269,11 +273,33 @@ function compileNode(
     hideOnDesktop: semanticMeta?.hideOnDesktop,
     rasterFallback,
     compatibility,
-    providerAttributes:
-      settings.provider === 'mailchimp' && semanticMeta?.editableRegion
-        ? { 'mc:edit': semanticMeta.editableRegion }
-        : undefined,
+    providerAttributes: resolveProviderAttributes(
+      doc,
+      settings.provider,
+      sourceNodeId,
+      semanticMeta?.editableRegion,
+    ),
   };
+}
+
+function resolveProviderAttributes(
+  doc: Document,
+  provider: 'generic' | 'mailchimp',
+  sourceNodeId: string,
+  semanticEditableRegion?: string,
+): Record<string, string> | undefined {
+  if (provider !== 'mailchimp') return undefined;
+  const region = doc.emailProfile?.providerSettings?.mailchimp?.editableRegions?.find(
+    (candidate) => candidate.nodeId === sourceNodeId,
+  );
+  const editId = region?.id ?? semanticEditableRegion;
+  if (!editId) return undefined;
+  const attributes: Record<string, string> = { 'mc:edit': editId };
+  if (region?.name) attributes['mc:label'] = region.name;
+  if (region?.type === 'repeat') {
+    attributes['mc:repeatable'] = region.repeatPattern?.trim() || region.id;
+  }
+  return attributes;
 }
 
 // ── Semantic Kind Resolution ──────────────────────────────────────────────────

@@ -1,4 +1,10 @@
-import { compileEmail, type EmailHtmlExportResult, emitEmailHtml, sceneToIR } from '@varve/codegen';
+import {
+  compileEmail,
+  type EmailHtmlExportResult,
+  type EmailIrAsset,
+  emitEmailHtml,
+  sceneToIR,
+} from '@varve/codegen';
 import {
   DEFAULT_EMAIL_PROFILE,
   DEFAULT_EMAIL_SEMANTIC,
@@ -110,7 +116,14 @@ export function EmailPanel() {
       `${baseName}.manifest.json`,
       encoder.encode(
         JSON.stringify(
-          { assets: compilation.ir.assets, diagnostics: compilation.ir.diagnostics },
+          {
+            format: 'varve-email-export',
+            version: 1,
+            provider: compilation.ir.settings.provider,
+            compatibilityProfile: compilation.ir.settings.compatibilityProfile,
+            assets: exportAssetManifest(compilation.ir.assets),
+            diagnostics: compilation.ir.diagnostics,
+          },
           null,
           2,
         ),
@@ -124,7 +137,7 @@ export function EmailPanel() {
       if (!bytes) continue;
       await saveExportBytes(
         editor.platform,
-        asset.filename,
+        `assets/${asset.filename}`,
         bytes,
         asset.mimeType,
         `.${asset.filename.split('.').pop() ?? 'bin'}`,
@@ -150,7 +163,7 @@ export function EmailPanel() {
             version: 1,
             provider: compilation.ir.settings.provider,
             compatibilityProfile: compilation.ir.settings.compatibilityProfile,
-            assets: compilation.ir.assets,
+            assets: exportAssetManifest(compilation.ir.assets),
             diagnostics: compilation.ir.diagnostics,
           },
           null,
@@ -697,4 +710,14 @@ function decodeDataUrl(dataUrl: string): Uint8Array | null {
   } catch {
     return null;
   }
+}
+
+function exportAssetManifest(assets: EmailIrAsset[]) {
+  return assets.map((asset) => {
+    const { dataUrl, ...metadata } = asset;
+    return {
+      ...metadata,
+      ...(dataUrl ? { packagePath: `assets/${asset.filename}` } : {}),
+    };
+  });
 }

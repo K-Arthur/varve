@@ -6,7 +6,7 @@ import { emitEmailHtml } from './email-html';
 import type { EmailDocumentIr, EmailIrNode } from './email-ir-types';
 import { emitEmailPlainText } from './email-plain-text';
 import { runEmailPreflight } from './email-preflight';
-import { sanitizeEmailHtml, validateEmailUrl } from './email-security';
+import { sanitizeEmailCss, sanitizeEmailHtml, validateEmailUrl } from './email-security';
 import { sceneToIR } from './ir-converter';
 import type { IRDocument, SemanticNode } from './ir-types';
 
@@ -107,6 +107,25 @@ describe('email security', () => {
     expect(result.html).not.toContain('<iframe');
     expect(result.removed.length).toBeGreaterThan(0);
   });
+
+  it('preserves only documented Mailchimp attributes when explicitly enabled', () => {
+    const result = sanitizeEmailHtml(
+      '<div mc:edit="body" mc:repeatable="content" onclick="bad()">Copy</div>',
+      { allowMailchimpAttributes: true },
+    );
+    expect(result.html).toContain('mc:edit="body"');
+    expect(result.html).toContain('mc:repeatable="content"');
+    expect(result.html).not.toContain('onclick');
+  });
+
+  it('keeps safe custom media queries intact during sanitization', () => {
+    const result = sanitizeEmailCss(
+      '@media only screen and (max-width: 480px) { .copy { color: red; } }',
+    );
+    expect(result.css).toContain('@media only screen');
+    expect(result.css).toContain('.copy');
+    expect(result.css).toContain('color: red');
+  });
 });
 
 describe('email output', () => {
@@ -121,6 +140,48 @@ describe('email output', () => {
     expect(result.remainingCss).toContain('padding: 2px');
     expect(result.remainingCss).not.toContain('.copy { color: red');
     expect(result.inlinedRules).toBe(1);
+  });
+
+  it('emits stable Mailchimp editable and repeatable region attributes', () => {
+    const ir = fixture({
+      settings: {
+        ...fixture().settings,
+        provider: 'mailchimp',
+      },
+      nodes: [
+        {
+          id: 'mailchimp-copy',
+          sourceNodeId: 'copy-1',
+          kind: 'paragraph',
+          name: 'Body copy',
+          children: [],
+          styles: {},
+          content: { type: 'text', text: 'Body' },
+          compatibility: 'native',
+          providerAttributes: {
+            'mc:edit': 'body_copy',
+            'mc:label': 'Body copy',
+            'mc:repeatable': 'content',
+          },
+        },
+      ],
+    });
+    const output = emitEmailHtml(ir);
+    expect(output.html).toContain('mc:edit="body_copy"');
+    expect(output.html).toContain('mc:label="Body copy"');
+    expect(output.html).toContain('mc:repeatable="content"');
+    const diagnostics = runEmailPreflight(ir, undefined, [
+      {
+        id: 'body_copy',
+        name: 'Body copy',
+        type: 'repeat',
+        nodeId: 'copy-1',
+        repeatPattern: 'content',
+      },
+    ]);
+    expect(
+      diagnostics.some((diagnostic) => diagnostic.code === 'INVALID_MAILCHIMP_REGION_ID'),
+    ).toBe(false);
   });
 
   it('compiles a plain text node with its range links into Email IR', () => {
