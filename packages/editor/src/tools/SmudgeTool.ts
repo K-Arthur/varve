@@ -1,22 +1,27 @@
 /**
  * SmudgeTool — drags existing pixels in the direction of motion.
  *
- * Unlike PaintTool which deposits new color, SmudgeTool displaces existing
- * pixel data. Settings are shared with PaintTool via the BrushSection UI.
+ * Unlike PaintTool which deposits new colour, SmudgeTool transports colour
+ * that is already on the canvas. Settings are shared with PaintTool via the
+ * BrushSection UI.
  *
  * Architecture:
  * - Reuses the same brush preset model as PaintTool (radius, hardness, spacing)
- * - Adds smudgeStrength (0-1) controlling how far pixels are dragged per frame
- * - Uses `compositeSmudgeDabOnNode` from @varve/scene for tile-level compositing
+ * - Carries a per-stroke pigment reservoir, so smudging picks colour up, moves
+ *   it, and lays it back down with a trail that fades — rather than displacing
+ *   pixels by a fixed offset, which produced a uniform smear with no falloff
+ * - Uses `compositeSmudgeDab` from @varve/scene for tile-level compositing
  * - Requires an existing raster layer to smudge (creates one if needed)
  */
 
 import type { AreaSelection } from '@varve/engine';
-import type { BrushPreset, RasterLayerNode } from '@varve/scene';
+import type { BrushPreset, RasterLayerNode, SmudgeState } from '@varve/scene';
 import {
-  compositeSmudgeDabOnNode,
+  compositeSmudgeDab,
+  createSmudgeState,
   defaultBrushPreset,
   generateDabs,
+  type SmudgeOptions as SmudgeEngineOptions,
   smoothStrokePoints,
   strokePoint,
 } from '@varve/scene';
@@ -27,7 +32,23 @@ import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from '.
 import { selectionCoverageForDab } from './selectionCoverage';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
+/**
+ * UI-facing smudge modes. `sampling` moves only existing pigment, `mixing`
+ * starts the brush loaded with the foreground colour, and `fingerpaint` folds
+ * the foreground into the reservoir on every pickup.
+ */
 export type SmudgeMode = 'sampling' | 'mixing' | 'fingerpaint';
+
+function engineMode(mode: SmudgeMode): SmudgeEngineOptions['mode'] {
+  switch (mode) {
+    case 'fingerpaint':
+      return 'fingerPaint';
+    case 'mixing':
+      return 'loaded';
+    default:
+      return 'pure';
+  }
+}
 
 export class SmudgeTool extends BaseTool {
   id = 'smudge' as const;
@@ -39,6 +60,14 @@ export class SmudgeTool extends BaseTool {
   private transactionOpen = false;
   private previewCanvas = new PreviewCanvas();
   private strokeAreaSelection: AreaSelection | null = null;
+  private mode: SmudgeMode = 'sampling';
+  /**
+   * Reservoir carried by the brush for the current stroke. Created at
+   * pointer-down and discarded at pointer-up, so a new stroke always starts
+   * with a clean brush rather than whatever the last one was holding.
+   */
+  private smudgeState: SmudgeState | null = null;
+  private strokeForeground: [number, number, number, number] = [0, 0, 0, 255];
 
   onSettingsChange?: (settings: {
     presetId: string;
@@ -73,6 +102,7 @@ export class SmudgeTool extends BaseTool {
     smoothing: number;
     spacing: number;
     smudgeStrength: number;
+    smudgeMode?: SmudgeMode;
   }): void {
     this.preset.id = settings.presetId;
     this.preset.radius = settings.radius;
@@ -82,6 +112,12 @@ export class SmudgeTool extends BaseTool {
     this.preset.smoothing = settings.smoothing;
     this.preset.spacing = settings.spacing;
     this.preset.smudgeStrength = settings.smudgeStrength;
+    if (settings.smudgeMode) this.mode = settings.smudgeMode;
+  }
+
+  /** Current reservoir contents, for tool-options readouts and tests. */
+  getSmudgeState(): Readonly<SmudgeState> | null {
+    return this.smudgeState;
   }
 
   getSettings(): {
@@ -142,6 +178,8 @@ export class SmudgeTool extends BaseTool {
     }
     this.rasterNodeId = rasterNodeId;
     this.strokeAreaSelection = ctx.areaSelection ?? null;
+    this.strokeForeground = [...ctx.foregroundColor];
+    this.smudgeState = createSmudgeState(this.engineOptions());
     this.strokeGeneration++;
 
     const pressure = e.pressure > 0 ? e.pressure : 0.5;
@@ -259,6 +297,21 @@ export class SmudgeTool extends BaseTool {
     pts.push(sp);
   }
 
+  /** Engine options for the current settings snapshot. */
+  private engineOptions(coverage: import('@varve/scene').CoverageMask | null = null) {
+    return {
+      mode: engineMode(this.mode),
+      strength: this.preset.smudgeStrength,
+      // Pickup is derived from strength so one artist-facing control drives
+      // both how much moves and how long the trail is, rather than exposing a
+      // second knob whose interaction with the first is hard to predict.
+      pickup: Math.max(0.05, Math.min(1, this.preset.smudgeStrength * 0.7)),
+      foreground: this.strokeForeground,
+      initialLoad: 1,
+      coverage,
+    };
+  }
+
   private flushDabs(ctx: ToolContext): void {
     const rasterNodeId = this.rasterNodeId;
     if (!rasterNodeId) return;
@@ -270,22 +323,14 @@ export class SmudgeTool extends BaseTool {
     const dabs = generateDabs(smoothed, this.preset);
     if (dabs.length === 0) return;
 
-    const first = smoothed[0]!;
-    const last = smoothed[smoothed.length - 1]!;
-    const direction = Math.atan2(last.y - first.y, last.x - first.x);
+    const state = this.smudgeState;
+    if (!state) return;
 
     ctx.updateNode(rasterNodeId, (node) => {
-      const raster = node as RasterLayerNode;
-      let updated = raster;
+      let updated = node as RasterLayerNode;
       for (const dab of dabs) {
         const coverage = selectionCoverageForDab(ctx, rasterNodeId, dab, this.strokeAreaSelection);
-        updated = compositeSmudgeDabOnNode(
-          updated,
-          dab,
-          direction,
-          this.preset.smudgeStrength,
-          coverage,
-        );
+        updated = compositeSmudgeDab(updated, dab, state, this.engineOptions(coverage));
       }
       return updated;
     });
