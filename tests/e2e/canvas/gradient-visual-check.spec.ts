@@ -46,7 +46,10 @@ test('hue slider interactive', async ({ page }) => {
       const trackBox = await track.boundingBox();
       if (trackBox) {
         // Click at 75% of the track (yellow/green area)
-        await page.mouse.click(trackBox.x + trackBox.width * 0.75, trackBox.y + trackBox.height / 2);
+        await page.mouse.click(
+          trackBox.x + trackBox.width * 0.75,
+          trackBox.y + trackBox.height / 2,
+        );
         await page.waitForTimeout(500);
       }
     }
