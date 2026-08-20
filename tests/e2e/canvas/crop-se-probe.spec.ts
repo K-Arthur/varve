@@ -96,7 +96,7 @@ test.describe('crop se handle probe', () => {
         computedTop: win ? getComputedStyle(win).top : null,
         offsetParentTag: par?.tagName ?? null,
         offsetParentCls: par?.className?.toString().slice(0, 60) ?? null,
-        offsetParentRect: par ? rect('.' + (par.className?.toString().split(' ')[0] ?? '')) : null,
+        offsetParentRect: par ? rect(`.${par.className?.toString().split(' ')[0] ?? ''}`) : null,
         toolbar: rect('.floating-toolbar [role="toolbar"]'),
       };
     });

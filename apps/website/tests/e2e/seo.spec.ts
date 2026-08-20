@@ -109,7 +109,7 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
     const canonicalPath = canonical.pathname;
     expect(
       canonicalPath.indexOf(routeSuffix) === canonicalPath.length - routeSuffix.length ||
-        (routeSuffix === '/' && canonicalPath === canonicalPath.replace(/\/+$/, '') + '/'),
+        (routeSuffix === '/' && canonicalPath === `${canonicalPath.replace(/\/+$/, '')}/`),
       `${route}: canonical path ends with visited route`,
     ).toBe(true);
 
