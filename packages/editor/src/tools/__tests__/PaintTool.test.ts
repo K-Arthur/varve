@@ -152,30 +152,73 @@ describe('PaintTool', () => {
     expect(ctx.commitTransaction).toHaveBeenCalledOnce();
   });
 
-  it('defers commit until worker dab batches settle', async () => {
-    const resolvers: Array<(result: DabResult) => void> = [];
+  it('defers commit until worker dab batches settle', () => {
+    const settlers: Array<() => void> = [];
     const worker = {
       isUsingWorker: true,
-      generateDabs: vi.fn(() => new Promise<DabResult>((resolve) => resolvers.push(resolve))),
+      beginStroke: vi.fn(),
+      appendPoints: vi.fn(),
+      endStroke: vi.fn((_id: string, _gen: number, onSettled?: () => void) => {
+        if (onSettled) settlers.push(onSettled);
+      }),
       cancelStroke: vi.fn(),
       destroy: vi.fn(),
+      onBatch: null,
     } as unknown as BrushWorkerHost;
     tool.setWorkerHost(worker);
 
     const down = makePointerEvent(100, 200);
-    const move = makePointerEvent(110, 200);
+    const move = makePointerEvent(140, 200);
     tool.onPointerDown(down, ctx);
     tool.onPointerMove(move, ctx);
     tool.onPointerUp(move, ctx);
 
-    expect(resolvers).toHaveLength(2);
+    expect(settlers).toHaveLength(1);
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
-    resolvers[0]!({ dabs: [], bounds: { x: 0, y: 0, w: 0, h: 0 } });
-    await Promise.resolve();
-    expect(ctx.commitTransaction).not.toHaveBeenCalled();
-    resolvers[1]!({ dabs: [], bounds: { x: 0, y: 0, w: 0, h: 0 } });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    settlers[0]!();
     expect(ctx.commitTransaction).toHaveBeenCalledOnce();
+  });
+
+  it('cancels the generation that is actually in flight', () => {
+    const worker = {
+      isUsingWorker: true,
+      beginStroke: vi.fn(),
+      appendPoints: vi.fn(),
+      endStroke: vi.fn(),
+      cancelStroke: vi.fn(),
+      destroy: vi.fn(),
+      onBatch: null,
+    } as unknown as BrushWorkerHost;
+    tool.setWorkerHost(worker);
+
+    tool.onPointerDown(makePointerEvent(100, 200), ctx);
+    const started = (worker.beginStroke as ReturnType<typeof vi.fn>).mock.calls[0];
+    tool.onDragCancel(ctx);
+
+    const cancelled = (worker.cancelStroke as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(cancelled?.[0]).toBe(started?.[0]);
+    expect(cancelled?.[1]).toBe(started?.[1]);
+  });
+
+  it('snapshots the brush preset for the duration of a stroke', () => {
+    const appended: unknown[] = [];
+    const worker = {
+      isUsingWorker: true,
+      beginStroke: vi.fn((_id: string, _gen: number, preset: unknown) => appended.push(preset)),
+      appendPoints: vi.fn(),
+      endStroke: vi.fn((_id: string, _gen: number, onSettled?: () => void) => onSettled?.()),
+      cancelStroke: vi.fn(),
+      destroy: vi.fn(),
+      onBatch: null,
+    } as unknown as BrushWorkerHost;
+    tool.setWorkerHost(worker);
+
+    tool.onPointerDown(makePointerEvent(100, 200), ctx);
+    const snapshot = appended[0] as { radius: number };
+    const radiusAtStart = snapshot.radius;
+    // Changing settings mid-stroke must not retroactively alter the stroke.
+    tool.updatePresetFromSettings({ ...tool.getSettings(), radius: radiusAtStart + 40 });
+    expect(snapshot.radius).toBe(radiusAtStart);
   });
 
   it('onPointerUp sets draft to null', () => {

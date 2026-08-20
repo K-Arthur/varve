@@ -343,7 +343,7 @@ export function generateDabs(
       const sample = interpolatePoints(prev, current, t);
       sample.direction = direction;
       const arc = baseArc + lengthSoFar + travelled;
-      const denom = session ? baseArc + totalLength : totalLength;
+      const denom = session ? sessionLengthReference(session, preset) : totalLength;
       const strokeT = denom > 0 ? Math.min(1, arc / denom) : 0;
       dabs.push(makeDab(sample, preset, strokeT, arc, rng));
       lastDabPoint = sample;
@@ -430,16 +430,45 @@ export interface StrokeDabSession {
   lastPoint: StrokePoint | null;
   /** True once at least one dab has been emitted for this stroke. */
   started: boolean;
+  /**
+   * Arc length that `strokeT` reaches 1.0 at.
+   *
+   * A live stroke does not know how long it will end up being, so "fraction of
+   * the whole stroke" is not computable while painting. Anchoring `strokeT` to
+   * a fixed reference length instead keeps it a deterministic function of
+   * distance travelled, which is what makes a `stroke`-input dynamics mapping
+   * (taper, fade) produce the same result no matter how the pointer events
+   * happened to be chunked. Replaying a stroke whose total length is already
+   * known can pass that total instead.
+   */
+  lengthReference: number;
 }
 
-export function createStrokeDabSession(seed: number): StrokeDabSession {
+/**
+ * Distance, in brush diameters, over which `strokeT` ramps 0→1 for a live
+ * stroke. Long enough that a normal stroke shows a gradual fade rather than
+ * saturating within the first few dabs.
+ */
+export const STROKE_FADE_DIAMETERS = 50;
+
+export function createStrokeDabSession(
+  seed: number,
+  options: { lengthReference?: number } = {},
+): StrokeDabSession {
   return {
     rng: createBrushRng(seed),
     spacingCarry: 0,
     arcLength: 0,
     lastPoint: null,
     started: false,
+    lengthReference: options.lengthReference ?? 0,
   };
+}
+
+/** Reference length for a session, falling back to the preset-derived fade. */
+function sessionLengthReference(session: StrokeDabSession, preset: BrushPreset): number {
+  if (session.lengthReference > 0) return session.lengthReference;
+  return Math.max(1, preset.radius * 2 * STROKE_FADE_DIAMETERS);
 }
 
 function makeDab(
