@@ -74,7 +74,8 @@ export function EmailNodeCompatibility({ ir, nodeId }: EmailNodeCompatibilityPro
           <div>
             <dt>Columns</dt>
             <dd>
-              {columns} · {compiled.children.map((column) => `${column.width ?? '?'}px`).join(' + ')}
+              {columns} ·{' '}
+              {compiled.children.map((column) => `${column.width ?? '?'}px`).join(' + ')}
             </dd>
           </div>
         )}

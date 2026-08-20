@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import type { EmailDocumentIr, EmailIrNode } from '@varve/codegen';
 import { render, screen } from '@testing-library/react';
+import type { EmailDocumentIr, EmailIrNode } from '@varve/codegen';
 import { describe, expect, it } from 'vitest';
 import { EmailNodeCompatibility } from './EmailNodeCompatibility';
 
