@@ -7,15 +7,20 @@ import { openMockupsWithSelection } from '../mockup/mockupActions';
 import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
 import { registerThumbnailActions } from '../thumbnail/thumbnailCommands';
 import { type ActionCategory, getActionRegistry } from './ActionRegistry';
+import { type ActionHandlerCallbacks, createActionHandlers } from './createActionHandlers';
 
 /**
  * Commands that run on-device inference. A deployment that withholds it must
  * not list them in the command palette: the guards downstream make them safe,
  * but a searchable command that does nothing when chosen is its own defect.
+ *
+ * Declared after the imports: bundlers hoist imports above any statement that
+ * precedes them, so a module-level const sitting above one is initialised only
+ * after every import's side effects have run. This module sits in an import
+ * cycle, so that ordering left a window where re-entry read the binding in its
+ * temporal dead zone and the whole app failed to start.
  */
 const INFERENCE_COMMANDS: ReadonlySet<string> = new Set(['batchBgRemove', 'upscaleImage']);
-
-import { type ActionHandlerCallbacks, createActionHandlers } from './createActionHandlers';
 
 function categoryFromShortcut(cat: string): ActionCategory {
   const lc = cat.toLowerCase();
