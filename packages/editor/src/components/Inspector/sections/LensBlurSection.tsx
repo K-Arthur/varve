@@ -22,10 +22,57 @@ import { FieldRow } from '../controls/FieldRow';
 
 const DEPTH_MODEL_ID = 'depth-anything-v2-small';
 
-function loadImageToImageData(src: string): Promise<ImageData> {
+/**
+ * Reject if `promise` has not settled within `ms`.
+ *
+ * Every await before `host.infer` was unbounded, and `infer`'s own 120s
+ * timeout only covers the worker round trip. A stalled image decode or model
+ * lookup therefore left "Generating depth map…" on screen indefinitely with
+ * no error. Each phase now has a bounded wait and the user can cancel the
+ * worker-backed phase explicitly.
+ */
+function withPhaseTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      callback();
+    };
+    const onAbort = () => finish(() => reject(new Error('cancelled')));
+    const timer = setTimeout(
+      () => finish(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`))),
+      ms,
+    );
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+    signal?.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (value) => finish(() => resolve(value)),
+      (err) => finish(() => reject(err)),
+    );
+  });
+}
+
+function loadImageToImageData(src: string, signal?: AbortSignal): Promise<ImageData> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => {
+    const cleanup = () => {
+      signal?.removeEventListener('abort', onAbort);
+      img.onload = null;
+      img.onerror = null;
+    };
+    const resolveOnce = () => {
+      cleanup();
       const canvas = document.createElement('canvas');
       canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
@@ -37,8 +84,22 @@ function loadImageToImageData(src: string): Promise<ImageData> {
       ctx.drawImage(img, 0, 0);
       resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
     };
-    img.onerror = () => reject(new Error('Failed to load image'));
+    const rejectOnce = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+    const onAbort = () => {
+      img.src = '';
+      rejectOnce(new Error('cancelled'));
+    };
+    img.onload = resolveOnce;
+    img.onerror = () => rejectOnce(new Error('Failed to load image'));
     img.crossOrigin = 'anonymous';
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+    signal?.addEventListener('abort', onAbort, { once: true });
     img.src = src;
   });
 }
@@ -148,7 +209,9 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
   const [pickFromCanvas, setPickFromCanvas] = useState(false);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const heatmapCanvasRef = useRef<HTMLCanvasElement>(null);
-  const sourceGenerationRef = useRef(0);
+  /** Monotonic id of the latest generate run; only the latest may write state. */
+  const generateRunRef = useRef(0);
+  const generateAbortRef = useRef<AbortController | null>(null);
 
   const blurAmountId = useId();
   const focalDepthId = useId();
@@ -168,7 +231,14 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
     existingDepthEffect?.type === 'depthBlur' ? existingDepthEffect.depthMapId : undefined;
 
   useEffect(() => {
-    sourceGenerationRef.current += 1;
+    return () => {
+      generateRunRef.current += 1;
+      const controller = generateAbortRef.current;
+      if (!controller) return;
+      controller.abort();
+      getInferenceWorkerHost().dispose();
+      generateAbortRef.current = null;
+    };
   }, [src, node?.id]);
 
   useEffect(() => {
@@ -248,7 +318,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
     for (let i = 0; i < preview.length; i++) preview[i] = Math.round(depthData.values[i]! * 255);
     const heatmap = depthToHeatmapImageData(preview, depthData.width, depthData.height);
     ctx.putImageData(heatmap, 0, 0);
-  }, [depthData]);
+  }, [depthData, pickFocus, previewDepth]);
 
   useEffect(() => {
     let cancelled = false;
@@ -295,31 +365,55 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
 
   const handleGenerateDepth = useCallback(async () => {
     if (!src) return;
-    const generation = sourceGenerationRef.current;
+    // Guard on "a newer generate superseded me", not on "the source-generation
+    // ref moved". That ref is bumped by an effect keyed on [src, node.id], so a
+    // re-render during inference could bump it while this run was still the
+    // only one in flight — and both the success and failure paths then returned
+    // without touching state, stranding the panel on "Generating depth map…"
+    // with no error. A newer run always writes state itself, so deferring to it
+    // is safe; deferring to a bare ref bump was not.
+    const runId = ++generateRunRef.current;
     const nodeAtStart = node;
     const sourceAssetIdAtStart = sourceAssetId;
+    const controller = new AbortController();
+    generateAbortRef.current = controller;
     setDepthState('generating');
     setInferenceError(null);
     try {
-      const imageData = await loadImageToImageData(src);
-      const loader = getModelLoader();
-      const modelPath = await loader.getModelPath(DEPTH_MODEL_ID);
+      const imageData = await withPhaseTimeout(
+        loadImageToImageData(src, controller.signal),
+        30_000,
+        'Loading the source image',
+        controller.signal,
+      );
+      const loader = getModelLoader(controller.signal);
+      const modelPath = await withPhaseTimeout(
+        loader.getModelPath(DEPTH_MODEL_ID, controller.signal),
+        30_000,
+        'Resolving the depth model',
+        controller.signal,
+      );
       if (!modelPath) throw new Error('Depth model not downloaded');
 
       const host = getInferenceWorkerHost();
-      const result = await host.infer(
-        {
-          type: 'infer',
-          modelType: 'depth',
-          modelPath,
-          modelId: DEPTH_MODEL_ID,
-          imageData,
-          params: {},
-          reuseSession: true,
-        },
-        { timeoutMs: 120_000 },
+      const result = await withPhaseTimeout(
+        host.infer(
+          {
+            type: 'infer',
+            modelType: 'depth',
+            modelPath,
+            modelId: DEPTH_MODEL_ID,
+            imageData,
+            params: {},
+            reuseSession: true,
+          },
+          { timeoutMs: 900_000, signal: controller.signal },
+        ),
+        900_000,
+        'Running depth inference',
+        controller.signal,
       );
-      if (generation !== sourceGenerationRef.current) return;
+      if (runId !== generateRunRef.current) return;
 
       // Different verified exports use `output` or `predicted_depth`; accept
       // both names but reject an unknown tensor rather than attaching garbage.
@@ -357,12 +451,33 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       setDepthResource(resource);
       setDepthState('ready');
     } catch (err) {
-      if (generation !== sourceGenerationRef.current) return;
+      if (runId !== generateRunRef.current) return;
+      if (controller.signal.aborted) {
+        setInferenceError('Depth generation cancelled');
+        setDepthState('idle');
+        return;
+      }
       const msg = err instanceof Error ? err.message : 'Depth inference failed';
       setInferenceError(msg);
       setDepthState('error');
+    } finally {
+      if (generateAbortRef.current === controller) generateAbortRef.current = null;
     }
   }, [node, sourceAsset?.hash, sourceAssetId, src]);
+
+  const handleCancelGenerate = useCallback(() => {
+    const controller = generateAbortRef.current;
+    if (!controller) return;
+    generateRunRef.current += 1;
+    controller.abort();
+    // ONNX Runtime's session.run has no portable AbortSignal hook. Disposing
+    // the host terminates the worker, which is the only reliable way to stop a
+    // long INT8 WASM inference instead of merely abandoning its Promise.
+    getInferenceWorkerHost().dispose();
+    generateAbortRef.current = null;
+    setDepthState('idle');
+    setInferenceError('Depth generation cancelled');
+  }, []);
 
   const handleRegenerate = useCallback(() => {
     setDepthData(null);
@@ -619,9 +734,14 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
         )}
 
         {depthState === 'generating' && (
-          <p className="insp-hint" role="status">
-            Generating depth map… (this may take a moment)
-          </p>
+          <div className="insp-actions">
+            <p className="insp-hint" role="status">
+              Generating depth map… (this may take a moment)
+            </p>
+            <Button type="button" variant="ghost" size="sm" onClick={handleCancelGenerate}>
+              Cancel
+            </Button>
+          </div>
         )}
 
         {inferenceError && (

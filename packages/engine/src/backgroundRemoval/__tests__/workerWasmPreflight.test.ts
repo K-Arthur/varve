@@ -118,6 +118,38 @@ describe('worker.ts WASM memory preflight', () => {
     expect(postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
   });
 
+  it('keeps U²-Net on WASM when WebGPU is available but lacks MaxPool ceil_mode', async () => {
+    mockCapabilities(['webgpu', 'wasm'], true);
+    mockCreate.mockResolvedValue({
+      inputNames: ['input.1'],
+      outputNames: ['1959'],
+      run: vi.fn().mockResolvedValue({
+        '1959': {
+          data: new Float32Array(320 * 320),
+          dims: [1, 1, 320, 320],
+          dispose: vi.fn(),
+        },
+      }),
+    });
+    const { postMessage, handler } = await loadWorkerWithStubbedSelf();
+
+    await handler({
+      data: {
+        type: 'infer',
+        requestId: 'req-u2-wasm',
+        imageData: new ImageData(4, 4),
+        modelPath: 'blob:model',
+        modelId: 'u2netp',
+        method: 'ai-balanced',
+      },
+    } as unknown as MessageEvent);
+
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(mockCreate).toHaveBeenCalledWith('blob:model', { executionProviders: ['wasm'] });
+    expect(postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
+  });
+
   it('does not gate when an accelerated provider is available, even for BiRefNet', async () => {
     mockCapabilities(['webgpu', 'wasm'], false);
     mockCreate.mockResolvedValue({
