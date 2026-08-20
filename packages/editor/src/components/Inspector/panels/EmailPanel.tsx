@@ -86,6 +86,8 @@ export function EmailPanel() {
   ]);
   const output: EmailHtmlExportResult | null = compilation?.output ?? null;
   const outputWarnings = output?.warnings ?? [];
+  const selectedSourceMap =
+    node && output ? output.sourceMap.find((entry) => entry.sourceNodeId === node.id) : undefined;
   const hasErrors = Boolean(
     compilation?.ir.diagnostics.some((diagnostic) => diagnostic.severity === 'error') ||
       outputWarnings.some((warning) => warning.severity === 'error'),
@@ -418,9 +420,20 @@ export function EmailPanel() {
           )}
           {output && previewMode === 'code' && (
             <section aria-label="Generated email HTML (read-only)">
-              <pre className="email-panel__code">
-                <code>{output.html}</code>
-              </pre>
+              <EmailCodeEditor
+                label="Generated email HTML"
+                language="markup"
+                value={output.html}
+                readOnly
+                minRows={14}
+                sourceRange={selectedSourceMap}
+              />
+              {selectedSourceMap && (
+                <p className="email-panel__ownership-note">
+                  Selected node mapped to generated HTML lines {selectedSourceMap.startLine}–
+                  {selectedSourceMap.endLine}.
+                </p>
+              )}
             </section>
           )}
           {output && (
