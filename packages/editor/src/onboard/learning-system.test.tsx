@@ -89,11 +89,19 @@ describe('OnboardingStore', () => {
 
 // ── SpotlightOverlay viewport clamping ───────────────────────────────
 describe('SpotlightOverlay viewport clamping', () => {
+  const origRAF = window.requestAnimationFrame;
   beforeEach(() => {
     vi.useFakeTimers();
+    // Flush requestAnimationFrame immediately so the SpotlightOverlay
+    // focus effect completes under fake timers.
+    window.requestAnimationFrame = (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    };
   });
 
   afterEach(() => {
+    window.requestAnimationFrame = origRAF;
     vi.useRealTimers();
   });
 
@@ -715,6 +723,17 @@ describe('WelcomeDialog', () => {
 
 // ── Accessibility ────────────────────────────────────────────────────
 describe('Accessibility', () => {
+  const origRAF = window.requestAnimationFrame;
+  beforeEach(() => {
+    window.requestAnimationFrame = (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    };
+  });
+  afterEach(() => {
+    window.requestAnimationFrame = origRAF;
+  });
+
   it('SpotlightOverlay has dialog role and aria attributes', async () => {
     const { SpotlightOverlay } = await import('../components/Onboarding/SpotlightOverlay');
     const step = {
