@@ -185,8 +185,14 @@ jobs:
         run: node scripts/secret-scan.mjs --dir apps/website/dist
 
       # ── Browser demo (/try/) build + staging ────────────────────────────
+      # The demo counts launches only for visitors who opt in — the analytics
+      # client drops any event whose category is not 'granted', and the demo
+      # default is 'unknown'. Without this domain the bundle stays entirely
+      # network-silent (no-op provider), which is what a local build gets.
       - name: Build browser demo
         run: pnpm --filter @varve/desktop build:try
+        env:
+          VITE_VARVE_ANALYTICS_DOMAIN: ${{ env.ANALYTICS_DOMAIN }}
 
       - name: Stage demo into website dist
         run: node scripts/website/stage-demo.mjs
