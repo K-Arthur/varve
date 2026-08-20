@@ -435,13 +435,19 @@ function compositeBrushDabOnPixels(
         ? resolveGrainValueSync(grain.grainId, layerX, layerY, {
             scale: grain.scale,
             rotation: grain.rotation,
-            offsetX: 0,
-            offsetY: 0,
+            offsetX: grain.offsetX,
+            offsetY: grain.offsetY,
             contrast: grain.contrast,
             invert: grain.invert,
-            anchor: 'canvas',
+            anchor: grain.anchor,
             strokeT: grain.strokeT,
             seed: 0,
+            dabX: grain.dabX,
+            dabY: grain.dabY,
+            strokeDistance: grain.strokeDistance,
+            direction: grain.direction,
+            followDirection: grain.followDirection,
+            wrap: grain.wrap,
           })
         : 1;
 

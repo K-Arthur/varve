@@ -401,13 +401,30 @@ export {
   DEFAULT_GRADIENT_LUT_SIZE,
   interpolateGradientMapColor,
 } from './gradientMap';
-export type { GrainAnchor, GrainSampleParams } from './grainSampler';
+export type { GrainAnchor, GrainResolution, GrainSampleParams } from './grainSampler';
 export {
+  grainTextureCoords,
+  isProceduralGrain,
+  prepareGrain,
+  PROCEDURAL_GRAIN_ID,
+  resolveGrainDetailed,
+  resolveGrainPlane,
   resolveGrainValue,
   resolveGrainValueSync,
-  sampleImageGrain,
+  sampleGrainPlane,
   sampleProceduralGrain,
+  shapeGrainValue,
 } from './grainSampler';
+export type { GrainPlane, GrainSource, GrainWrapMode } from './grainTexture';
+export {
+  decodeGrainPlane,
+  DEFAULT_GRAIN_CACHE_BYTES,
+  getGrainTextureCache,
+  GrainTextureCache,
+  MAX_GRAIN_DIMENSION,
+  resetGrainTextureCache,
+  samplePlane,
+} from './grainTexture';
 export type {
   HalftoneChannel,
   HalftoneDotShape,
