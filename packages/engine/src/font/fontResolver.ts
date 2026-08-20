@@ -243,7 +243,7 @@ export class FontResolver {
     for (const node of Object.values(doc.nodes)) {
       if (node.kind !== 'text') continue;
 
-      for (const reference of getFontFamiliesFromNode(node)) {
+      for (const reference of getFontFamiliesFromNode(node as ResolverTextNode)) {
         const family = reference.family;
         const key = family.toLowerCase();
         const entry = catalog
