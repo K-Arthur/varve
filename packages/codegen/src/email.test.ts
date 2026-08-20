@@ -253,6 +253,33 @@ describe('email output', () => {
     );
   });
 
+  it('returns deterministic source mappings into the final HTML', () => {
+    const ir = fixture({
+      nodes: [
+        {
+          id: 'email-heading',
+          sourceNodeId: 'heading-1',
+          kind: 'heading',
+          name: 'Welcome',
+          children: [],
+          styles: { color: '#111111' },
+          content: { type: 'text', text: 'Welcome' },
+          headingLevel: 1,
+          compatibility: 'native',
+        },
+      ],
+    });
+    const output = emitEmailHtml(ir);
+    const entry = output.sourceMap.find((item) => item.sourceNodeId === 'heading-1');
+    expect(entry).toBeDefined();
+    if (!entry) throw new Error('expected a heading source map entry');
+    expect(output.html).not.toContain('\u0000');
+    expect(output.html.slice(entry.startOffset, entry.endOffset)).toContain('Welcome');
+    expect(entry.startLine).toBeGreaterThan(1);
+    expect(entry.startColumn).toBeGreaterThan(0);
+    expect(emitEmailHtml(ir).sourceMap).toEqual(output.sourceMap);
+  });
+
   it('preflights missing alt text and invalid links', () => {
     const ir = fixture({
       nodes: [

@@ -306,3 +306,18 @@ export interface EmailIrDiagnostic {
 
   profile?: 'conservative' | 'modern' | 'provider-specific';
 }
+
+/**
+ * Stable mapping from generated HTML back to a source Varve node.
+ * Offsets are UTF-16 string offsets into the final emitted HTML. Lines and
+ * columns are one-based and are provided for editor integrations.
+ */
+export interface EmailSourceMapEntry {
+  sourceNodeId: string;
+  startOffset: number;
+  endOffset: number;
+  startLine: number;
+  startColumn: number;
+  endLine: number;
+  endColumn: number;
+}
