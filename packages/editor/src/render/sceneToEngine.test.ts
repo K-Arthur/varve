@@ -7,6 +7,7 @@
 import {
   addNode,
   addRasterMaskAsset,
+  colorConfigWithDefaults,
   createDocument,
   DocumentCodec,
   makeFrameNode,
@@ -139,10 +140,11 @@ describe('scene gradient interpolation resolution', () => {
 
   it('resolves document-inherited gradients before they reach the engine', () => {
     const node = gradientNode({ interpolationSource: 'document' });
+    const base = createDocument('Inherited');
     const doc = {
-      ...createDocument('Inherited'),
+      ...base,
       colorConfig: {
-        ...createDocument('Inherited').colorConfig,
+        ...colorConfigWithDefaults(base.colorConfig),
         defaultGradientInterpolation: 'oklch' as const,
       },
     };
