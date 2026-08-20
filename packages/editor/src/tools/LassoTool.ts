@@ -11,9 +11,16 @@
  * Research basis: Figma, Photoshop, GIMP lasso selection tools.
  */
 
-import { isInIsolatedSubtree, walkNodes } from '@varve/scene';
+import { buildParentIndexMap, isInIsolatedSubtree, walkNodes } from '@varve/scene';
+import { nodeWorldBounds } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import { type Point2D, polygonIntersectsBounds, simplifyPolygon } from './lassoGeometry';
+import { isMarqueeSelectableNode } from './marqueeGeometry';
+import {
+  commitNodeSelectionOperation,
+  type SelectionOperation,
+  selectionOperationFromModifiers,
+} from './selectionOperations';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -25,7 +32,7 @@ const MIN_POINTS = 3;
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type LassoToolMode = 'freehand' | 'polygonal';
-export type SelectionOp = 'replace' | 'add' | 'subtract' | 'intersect';
+export type { SelectionOperation as SelectionOp } from './selectionOperations';
 
 type LassoState =
   | { kind: 'idle' }
@@ -228,60 +235,18 @@ export class LassoTool extends BaseTool {
 
   private applySelection(polygon: Point2D[], ctx: ToolContext): void {
     const intersectingIds = this.findIntersectingNodes(ctx, polygon);
-    if (intersectingIds.length === 0) {
-      const op = this.resolveOperation(ctx);
-      if (op === 'replace') ctx.setSelection(null);
-      return;
-    }
-
     const op = this.resolveOperation(ctx);
-    this.applySelectionOp(intersectingIds, op, ctx);
+    const next = commitNodeSelectionOperation(ctx, intersectingIds, op);
 
     ctx.announceSelection(
-      intersectingIds
+      next
         .map((id) => ctx.getNode(id))
         .filter((n): n is import('@varve/scene').SceneNode => n !== undefined),
     );
   }
 
-  private resolveOperation(ctx: ToolContext): SelectionOp {
-    if (ctx.shiftKey && ctx.altKey) return 'intersect';
-    if (ctx.altKey) return 'subtract';
-    if (ctx.shiftKey) return 'add';
-    return 'replace';
-  }
-
-  private applySelectionOp(ids: string[], op: SelectionOp, ctx: ToolContext): void {
-    switch (op) {
-      case 'replace': {
-        ctx.setSelection(ids[0] ?? null);
-        for (const id of ids.slice(1)) ctx.toggleSelection(id, true);
-        break;
-      }
-      case 'add': {
-        ids.forEach((id) => {
-          if (!ctx.isSelected(id)) ctx.toggleSelection(id, true);
-        });
-        break;
-      }
-      case 'subtract': {
-        ids.forEach((id) => {
-          if (ctx.isSelected(id)) ctx.toggleSelection(id, false);
-        });
-        break;
-      }
-      case 'intersect': {
-        const currentSet = new Set(ctx.selection);
-        const keep = ids.filter((id) => currentSet.has(id));
-        if (keep.length > 0) {
-          ctx.setSelection(keep[0] ?? null);
-          for (const id of keep.slice(1)) ctx.toggleSelection(id, true);
-        } else {
-          ctx.setSelection(null);
-        }
-        break;
-      }
-    }
+  private resolveOperation(ctx: ToolContext): SelectionOperation {
+    return selectionOperationFromModifiers(ctx);
   }
 
   private findIntersectingNodes(ctx: ToolContext, polygon: Point2D[]): string[] {
@@ -294,14 +259,13 @@ export class LassoTool extends BaseTool {
     const intersecting: string[] = [];
     const contentRoot = page.contentRoot;
     const entries = walkNodes(doc, [contentRoot]);
+    const parentIndex = buildParentIndexMap(doc);
 
-    for (const [nodeId, entry] of entries) {
-      const node = entry.node;
-
-      if (node.locked || node.visible === false) continue;
+    for (const [nodeId] of entries) {
+      if (!isMarqueeSelectableNode(doc, nodeId, parentIndex)) continue;
       if (ctx.isolatedNodeId && !isInIsolatedSubtree(nodeId, ctx.isolatedNodeId, doc)) continue;
 
-      const bounds = ctx.nodeWorldBounds(node);
+      const bounds = nodeWorldBounds(doc, nodeId, parentIndex);
       if (!bounds) continue;
 
       if (polygonIntersectsBounds(polygon, bounds)) {

@@ -33,8 +33,18 @@ import { executeNudge, type NudgeDirection } from '../commands/nudge';
 import { nodeWorldBounds, nodeWorldTransform, worldToParent } from '../scene/world';
 import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
-
 import { interactionSession } from './InteractionContext';
+import {
+  isMarqueeSelectableNode,
+  marqueeRectContainsRect,
+  marqueeRectsIntersect,
+  normalizeMarqueeRect,
+} from './marqueeGeometry';
+import {
+  commitNodeSelectionOperation,
+  marqueeUsesContainment,
+  selectionOperationFromModifiers,
+} from './selectionOperations';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 /** Long-press duration threshold for touch/stylus deep-selection menu (ms). */
@@ -315,7 +325,7 @@ export class SelectTool extends BaseTool {
     const interaction = interactionSession.freeze();
 
     if (this.marqueeActive) {
-      const rect = this.computeDragRect(ctx);
+      const rect = this.computeMarqueeRect();
       ctx.setDraft({ kind: 'rect', x: rect.x, y: rect.y, w: rect.w, h: rect.h });
     } else {
       if (interaction.altKey && !this.hasDuplicated) {
@@ -440,26 +450,23 @@ export class SelectTool extends BaseTool {
     ctx.setDropTargetFrame(null);
     if (this.marqueeActive) {
       ctx.setDraft(null);
-      const rect = this.computeDragRect(ctx);
+      const rect = this.computeMarqueeRect();
       // Marquee modifier modes:
       //   No modifier: replace selection based on containment preference
       //   Shift: additive (add to selection)
       //   Alt: subtract (remove from selection)
       //   Shift+Alt: intersect (keep only nodes in both selection and marquee)
-      //   Ctrl/Alt also toggles containment mode via loadSettings
+      //   Ctrl/Cmd: temporarily toggle containment, independently of the op
       const prefContainment = loadSettings().layers.marqueeContainment;
-      const useContainment = ctx.altKey && !ctx.shiftKey ? !prefContainment : prefContainment;
-      const isAdd = ctx.shiftKey && !ctx.altKey;
-      const isSubtract = ctx.altKey && !ctx.shiftKey;
-      const isIntersect = ctx.shiftKey && ctx.altKey;
+      const useContainment = marqueeUsesContainment(prefContainment, ctx);
+      const operation = selectionOperationFromModifiers(ctx);
       const entries = walkNodes(ctx.document, activePageNodes(ctx.document));
       const ordered = [...entries.values()].reverse();
       const marqueeIds: string[] = [];
       const parentIndex = buildParentIndexMap(ctx.document);
-      for (const entry of ordered) {
+      for (const entry of rect.w > 0 && rect.h > 0 ? ordered : []) {
         if (!entry) continue;
-        const node = entry.node;
-        if (node.locked || !node.visible) continue;
+        if (!isMarqueeSelectableNode(ctx.document, entry.nodeId, parentIndex)) continue;
         if (
           ctx.isolatedNodeId !== undefined &&
           !isInIsolatedSubtree(entry.nodeId, ctx.isolatedNodeId, ctx.document)
@@ -468,40 +475,17 @@ export class SelectTool extends BaseTool {
         const bbox = nodeWorldBounds(ctx.document, entry.nodeId, parentIndex);
         if (bbox) {
           const hit = useContainment
-            ? rectContains(rect, [bbox.x, bbox.y]) &&
-              rectContains(rect, [bbox.x + bbox.w, bbox.y + bbox.h])
-            : rectsIntersect(rect, bbox);
+            ? marqueeRectContainsRect(rect, bbox)
+            : marqueeRectsIntersect(rect, bbox);
           if (hit) marqueeIds.push(entry.nodeId);
         }
       }
-      if (marqueeIds.length > 0) {
-        if (isIntersect) {
-          const currentSet = new Set(ctx.selection);
-          const keep = marqueeIds.filter((id) => currentSet.has(id));
-          if (keep.length > 0) {
-            ctx.setSelection(keep[0] ?? null);
-            keep.slice(1).forEach((id) => {
-              ctx.toggleSelection(id, true);
-            });
-          } else {
-            ctx.setSelection(null);
-          }
-        } else if (isSubtract) {
-          const currentSet = new Set(ctx.selection);
-          marqueeIds.forEach((id) => {
-            if (currentSet.has(id)) ctx.toggleSelection(id, false);
-          });
-        } else {
-          if (!isAdd) ctx.setSelection(null);
-          for (const id of marqueeIds) {
-            if (!ctx.isSelected(id)) ctx.toggleSelection(id, true);
-          }
-        }
-        const marqueeSelectedNodes = marqueeIds
+      const nextSelection = commitNodeSelectionOperation(ctx, marqueeIds, operation);
+      ctx.announceSelection(
+        nextSelection
           .map((id) => ctx.getNode(id))
-          .filter((n): n is import('@varve/scene').SceneNode => Boolean(n));
-        ctx.announceSelection(marqueeSelectedNodes);
-      }
+          .filter((n): n is import('@varve/scene').SceneNode => Boolean(n)),
+      );
     } else {
       // Commit transaction for move gesture
       if (this.isMoveGesture) {
@@ -594,6 +578,23 @@ export class SelectTool extends BaseTool {
     this.initialPositions.clear();
     this.hasDuplicated = false;
     interactionSession.reset();
+  }
+
+  /**
+   * Object marquee modifiers are selection-operation modifiers. Reusing
+   * BaseTool.computeDragRect here would make Shift constrain to a square and
+   * Alt draw from centre, colliding with add/subtract semantics. Geometry is
+   * therefore always the normalized pointer-to-pointer rectangle.
+   */
+  private computeMarqueeRect(): { x: number; y: number; w: number; h: number } {
+    return (
+      normalizeMarqueeRect(this.drag.startWorld, this.drag.currentWorld) ?? {
+        x: 0,
+        y: 0,
+        w: 0,
+        h: 0,
+      }
+    );
   }
 
   override onDragCancel(ctx: ToolContext): void {
@@ -973,13 +974,6 @@ function isTransparentOrEmptyFill(node: import('@varve/scene').SceneNode): boole
   }
   // No fills array and no fill field = stroke-only, treat as transparent
   return true;
-}
-
-function rectsIntersect(
-  a: { x: number; y: number; w: number; h: number },
-  b: { x: number; y: number; w: number; h: number },
-): boolean {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
 /** F: Check if a world-space point is near any segment of a path node. */
