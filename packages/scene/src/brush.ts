@@ -74,6 +74,19 @@ export interface BrushPreset {
   grainContrast: number;
   /** Invert grain. */
   grainInvert: boolean;
+  /**
+   * Where the grain texture lives. 'layer' keeps it still while the viewport
+   * moves; 'brush' makes every dab stamp the same texels; 'stroke' slides it
+   * along the stroke.
+   */
+  grainAnchor: 'brush' | 'canvas' | 'stroke' | 'layer';
+  /** Texture offset in layer pixels. */
+  grainOffsetX: number;
+  grainOffsetY: number;
+  /** Rotate the texture with the stroke direction. */
+  grainFollowDirection: boolean;
+  /** Edge behaviour outside the texture rectangle. */
+  grainWrap: 'repeat' | 'mirror' | 'clamp';
   /** Smudge strength (0-1). How much paint is dragged per dab. */
   smudgeStrength: number;
   /** Wet paint enabled. */
@@ -118,6 +131,11 @@ export function defaultBrushPreset(id: string, name: string): BrushPreset {
     grainRotation: 0,
     grainContrast: 1,
     grainInvert: false,
+    grainAnchor: 'layer',
+    grainOffsetX: 0,
+    grainOffsetY: 0,
+    grainFollowDirection: false,
+    grainWrap: 'repeat',
     smudgeStrength: 0.5,
     wetEnabled: false,
     wetEdge: false,
@@ -178,6 +196,16 @@ export interface BrushDab {
     contrast: number;
     invert: boolean;
     strokeT: number;
+    anchor: 'brush' | 'canvas' | 'stroke' | 'layer';
+    offsetX: number;
+    offsetY: number;
+    followDirection: boolean;
+    wrap: 'repeat' | 'mirror' | 'clamp';
+    /** Dab centre and arc length, so anchoring is resolvable per pixel. */
+    dabX: number;
+    dabY: number;
+    strokeDistance: number;
+    direction: number;
   };
 }
 
@@ -524,6 +552,15 @@ function makeDab(
           contrast: preset.grainContrast,
           invert: preset.grainInvert,
           strokeT,
+          anchor: preset.grainAnchor,
+          offsetX: preset.grainOffsetX,
+          offsetY: preset.grainOffsetY,
+          followDirection: preset.grainFollowDirection,
+          wrap: preset.grainWrap,
+          dabX: point.x + jx,
+          dabY: point.y + jy,
+          strokeDistance,
+          direction: point.direction,
         }
       : undefined,
   };
@@ -801,6 +838,18 @@ export function validateBrushPreset(preset: unknown): BrushPreset | null {
     grainRotation: (p.grainRotation as number) ?? fallback.grainRotation,
     grainContrast: Math.max(0, (p.grainContrast as number) ?? fallback.grainContrast),
     grainInvert: typeof p.grainInvert === 'boolean' ? p.grainInvert : fallback.grainInvert,
+    grainAnchor: isGrainAnchor(p.grainAnchor) ? p.grainAnchor : fallback.grainAnchor,
+    grainOffsetX: Number.isFinite(p.grainOffsetX)
+      ? (p.grainOffsetX as number)
+      : fallback.grainOffsetX,
+    grainOffsetY: Number.isFinite(p.grainOffsetY)
+      ? (p.grainOffsetY as number)
+      : fallback.grainOffsetY,
+    grainFollowDirection:
+      typeof p.grainFollowDirection === 'boolean'
+        ? p.grainFollowDirection
+        : fallback.grainFollowDirection,
+    grainWrap: isGrainWrap(p.grainWrap) ? p.grainWrap : fallback.grainWrap,
     smudgeStrength: clampUnit(p.smudgeStrength as number | undefined, fallback.smudgeStrength),
     wetEnabled: typeof p.wetEnabled === 'boolean' ? p.wetEnabled : fallback.wetEnabled,
     wetEdge: typeof p.wetEdge === 'boolean' ? p.wetEdge : fallback.wetEdge,
@@ -812,6 +861,14 @@ export function validateBrushPreset(preset: unknown): BrushPreset | null {
     blendMode: typeof p.blendMode === 'string' ? p.blendMode : fallback.blendMode,
   };
   return result;
+}
+
+function isGrainAnchor(v: unknown): v is BrushPreset['grainAnchor'] {
+  return v === 'brush' || v === 'canvas' || v === 'stroke' || v === 'layer';
+}
+
+function isGrainWrap(v: unknown): v is BrushPreset['grainWrap'] {
+  return v === 'repeat' || v === 'mirror' || v === 'clamp';
 }
 
 function clampUnit(val: number | undefined, fallback: number): number {
