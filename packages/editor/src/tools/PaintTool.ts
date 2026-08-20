@@ -16,13 +16,27 @@
  */
 import type { AreaSelection } from '@varve/engine';
 import type { BrushDab, BrushPreset, RasterLayerNode, WetPaintManager } from '@varve/scene';
-import { compositeDabOnNode, defaultBrushPreset, eraseDabOnNode, strokePoint } from '@varve/scene';
+import {
+  compositeDabOnNode,
+  defaultBrushPreset,
+  eraseDabOnNode,
+  maskValueFromColor,
+  strokePoint,
+} from '@varve/scene';
 import { BrushWorkerHost, type StrokeBatchEvent } from '../render/brushWorkerHost';
 import { getPaintProfiler } from '../render/paintProfiler';
 import { BaseTool } from './BaseTool';
 import { collectSourceEvents } from './inputNormalizer';
 import { normalizePressure, normalizeTilt } from './pointerDynamics';
 import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
+import {
+  beginMaskPaintSession,
+  commitMaskPaintSession,
+  encodeMaskRgba,
+  type MaskPaintSession,
+  paintMaskDab,
+} from './maskPaintSession';
+import { resolvePaintTarget } from './paintTarget';
 import { selectionCoverageForDab } from './selectionCoverage';
 import { resolveSymmetryTransforms, type SymmetrySettings, transformStrokePoint } from './symmetry';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
@@ -68,6 +82,10 @@ interface PaintStrokeSession {
   areaSelection: AreaSelection | null;
   eraser: boolean;
   wet: boolean;
+  /** Set when this stroke paints a mask rather than layer pixels. */
+  mask: MaskPaintSession | null;
+  /** Mask coverage the brush paints towards, from the foreground luminance. */
+  maskValue: number;
   branches: SymmetryBranch[];
   /** True when this stroke created its own raster layer. */
   ownsLayer: boolean;
@@ -94,6 +112,13 @@ export class PaintTool extends BaseTool {
   private lastStrokeBounds: { x: number; y: number; w: number; h: number } | null = null;
   private wetPaint: WetPaintManager | null = null;
   private onWetDeposit: (() => void) | null = null;
+  /**
+   * Decodes a stored mask PNG. Injectable because decoding needs a canvas and
+   * an already-loaded image, which the editor owns and headless callers do not.
+   */
+  private decodeMask: (
+    dataUrl: string,
+  ) => { data: Uint8ClampedArray; width: number; height: number } | null = () => null;
 
   onSettingsChange?: (settings: BrushToolSettings) => void;
 
@@ -128,6 +153,13 @@ export class PaintTool extends BaseTool {
   setWetPaint(manager: WetPaintManager | null, onDeposit?: () => void): void {
     this.wetPaint = manager;
     this.onWetDeposit = onDeposit ?? null;
+  }
+
+  /** Supply the mask decoder used when a stroke targets a layer mask. */
+  setMaskDecoder(
+    decode: (dataUrl: string) => { data: Uint8ClampedArray; width: number; height: number } | null,
+  ): void {
+    this.decodeMask = decode;
   }
 
   /** Enable or disable wet media for subsequent strokes. */
@@ -213,7 +245,39 @@ export class PaintTool extends BaseTool {
     this.ctxRef = ctx;
     ctx.beginTransaction();
 
-    const rasterNodeId = this.findOrCreateRasterLayer(ctx);
+    // One resolver decides where paint goes, so a refusal can be explained
+    // rather than looking like the tool is broken.
+    const target = resolvePaintTarget({
+      document: ctx.document as never,
+      selection: ctx.selection,
+      maskEditTarget: ctx.maskEditTarget ?? null,
+      fallbackLayerId: findEditableRasterLayer(ctx),
+    });
+
+    let maskSession: MaskPaintSession | null = null;
+    let rasterNodeId: string | null = null;
+
+    if (target.kind === 'rasterMask') {
+      maskSession = beginMaskPaintSession(ctx, target.nodeId, this.decodeMask);
+      if (!maskSession) {
+        ctx.announce('That mask could not be opened for painting.');
+        ctx.abortTransaction();
+        return { consumed: false };
+      }
+      rasterNodeId = target.nodeId;
+    } else if (target.kind === 'rasterLayer') {
+      rasterNodeId = target.nodeId;
+      this.lastOwnedLayer = false;
+    } else {
+      if (!target.canCreateLayer) {
+        // Locked or hidden: say why instead of silently doing nothing.
+        ctx.announce(target.reason);
+        ctx.abortTransaction();
+        return { consumed: false };
+      }
+      rasterNodeId = this.findOrCreateRasterLayer(ctx);
+    }
+
     if (!rasterNodeId) {
       ctx.abortTransaction();
       return { consumed: false };
@@ -233,7 +297,11 @@ export class PaintTool extends BaseTool {
       alphaLock: this.alphaLock,
       areaSelection: ctx.areaSelection ?? null,
       eraser: this.eraserMode,
-      wet: !this.eraserMode && preset.wetEnabled,
+      wet: !this.eraserMode && preset.wetEnabled && !maskSession,
+      mask: maskSession,
+      // Painting a mask sets coverage, not colour: white reveals, black
+      // conceals. An eraser on a mask reveals, mirroring its meaning on pixels.
+      maskValue: this.eraserMode ? 1 : maskValueFromColor(ctx.foregroundColor),
       branches,
       ownsLayer: this.lastOwnedLayer,
       transactionOpen: true,
@@ -414,6 +482,21 @@ export class PaintTool extends BaseTool {
     const { alphaLock, eraser, color, areaSelection, rasterNodeId } = session;
     const profiler = getPaintProfiler();
     const compositeStart = profiler.enabled ? nowMs() : 0;
+
+    if (session.mask) {
+      // Mask strokes accumulate in their own coverage plane and are committed
+      // once at pointer-up, so undo restores mask pixels without touching the
+      // content underneath.
+      for (const dab of batch.dabs) {
+        const coverage = selectionCoverageForDab(ctx, rasterNodeId, dab, areaSelection);
+        paintMaskDab(session.mask, dab, session.maskValue, coverage);
+      }
+      if (profiler.enabled) profiler.compositeTook(nowMs() - compositeStart);
+      session.dabCount += batch.dabs.length;
+      this.growDirty(session, batch.dabs);
+      return;
+    }
+
     let deposited = false;
     ctx.updateNode(rasterNodeId, (node) => {
       let updated = node as RasterLayerNode;
@@ -554,6 +637,17 @@ export class PaintTool extends BaseTool {
         w: session.dirty.maxX - session.dirty.minX,
         h: session.dirty.maxY - session.dirty.minY,
       };
+    }
+    if (session.mask) {
+      const committed = commitMaskPaintSession(ctx, session.mask, encodeMaskRgba);
+      if (!committed) {
+        // Nothing was painted (or encoding failed): do not leave an empty
+        // entry in history for the user to undo past.
+        if (session.transactionOpen) ctx.abortTransaction();
+        ctx.setDraft(null);
+        this.lastSamplePoint = null;
+        return;
+      }
     }
     if (session.transactionOpen) ctx.commitTransaction();
     ctx.setDraft(null);
