@@ -16,9 +16,13 @@
 import {
   CHECKLIST_ITEMS,
   loadOnboardingState,
+  MICRO_HINTS,
   markOnboardingComplete,
   saveOnboardingState,
+  TIPS,
+  workspaceTips,
 } from '@varve/editor';
+import { DEMO_WORKSPACE_MODES } from './demoCapabilities';
 
 export function suppressFirstRunOnboarding(): void {
   try {
@@ -30,6 +34,16 @@ export function suppressFirstRunOnboarding(): void {
     saveOnboardingState({
       ...markOnboardingComplete(state),
       checklistProgress: CHECKLIST_ITEMS.map((item) => item.id),
+      // Contextual micro-hints are first-run guidance too.
+      dismissedMicroHints: MICRO_HINTS.map((hint) => hint.id),
+      // Did-You-Know tips surface on idle, so they arrive a good half-minute
+      // after the visitor lands, well after any check that only looks at the
+      // first paint. Both the general registry and the per-workspace tips,
+      // whose ids are synthesised from the workspace and the tip text.
+      dismissedTips: [
+        ...TIPS.map((tip) => tip.id),
+        ...DEMO_WORKSPACE_MODES.flatMap((mode) => workspaceTips(mode).map((tip) => tip.id)),
+      ],
     });
   } catch {
     // localStorage throws in strict privacy modes. The dialog reappearing is a
