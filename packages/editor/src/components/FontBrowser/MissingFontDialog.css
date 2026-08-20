@@ -20,8 +20,8 @@
 .missing-font-dialog__content {
   display: flex;
   flex-direction: column;
-  width: min(480px, 90vw);
-  max-height: 70vh;
+  width: min(600px, 92vw);
+  max-height: 78vh;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
@@ -44,11 +44,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  padding: 0;
-  background: none;
-  border: none;
+  min-width: 3rem;
+  min-height: 1.75rem;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
@@ -76,6 +76,14 @@
 .missing-font-dialog__count {
   font-weight: var(--font-weight-regular);
   color: var(--color-text-muted);
+}
+
+.missing-font-dialog__description {
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.55;
 }
 
 /* ---------- Font list ---------- */
@@ -141,6 +149,14 @@
 .missing-font-dialog__item-nodes {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
+}
+
+.missing-font-dialog__item-reference {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---------- Substitute selector ---------- */
