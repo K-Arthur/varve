@@ -42,6 +42,7 @@ export function beginStroke(
   generation: number,
   preset: BrushPreset,
   jitterSeed: number,
+  options: { lengthReference?: number } = {},
 ): StrokeEngineState {
   return {
     strokeId,
@@ -49,7 +50,7 @@ export function beginStroke(
     // Freeze the preset for the stroke's lifetime: changing brush size or
     // grain mid-stroke must not produce a stroke built from two brushes.
     preset: { ...preset, dynamics: [...preset.dynamics] },
-    session: createStrokeDabSession(jitterSeed),
+    session: createStrokeDabSession(jitterSeed, options),
     lastSmoothed: null,
     dabCount: 0,
   };
