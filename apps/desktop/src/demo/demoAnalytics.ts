@@ -44,13 +44,18 @@ export function readDemoAnalyticsChoice(): DemoAnalyticsChoice {
  * Count one demo launch. Safe to call unconditionally: without consent the
  * client drops it, and without a configured domain there is nowhere to send it.
  */
-export function trackDemoLaunched(): void {
+export async function trackDemoLaunched(): Promise<void> {
   try {
     if (sessionStorage.getItem(LAUNCH_KEY) === '1') return;
-    const sent = getDesktopAnalytics().track('browser_demo_launched', { entry: 'direct' });
+    const analytics = getDesktopAnalytics();
+    const accepted = analytics.track('browser_demo_launched', { entry: 'direct' });
     // Only mark it counted if it was actually accepted, so granting consent
     // later in the same visit still records the launch.
-    if (sent) sessionStorage.setItem(LAUNCH_KEY, '1');
+    if (!accepted) return;
+    sessionStorage.setItem(LAUNCH_KEY, '1');
+    // A demo visit can be shorter than the desktop flush interval. Flush the
+    // one launch now so an accepted event is not left in memory until unload.
+    await analytics.flush();
   } catch {
     // Never let measurement break the demo.
   }
@@ -62,11 +67,11 @@ export function trackDemoLaunched(): void {
  * Granting also counts the launch that consent was not yet available for, so
  * opting in mid-visit is not silently lost.
  */
-export function setDemoAnalyticsChoice(choice: 'granted' | 'denied'): void {
+export async function setDemoAnalyticsChoice(choice: 'granted' | 'denied'): Promise<void> {
   try {
     const next = updateSettings({ privacy: { usageAnalytics: choice } });
     updateDesktopAnalyticsConsent(next.privacy);
-    if (choice === 'granted') trackDemoLaunched();
+    if (choice === 'granted') await trackDemoLaunched();
   } catch {
     // A visitor who cannot persist a choice keeps the default: no tracking.
   }

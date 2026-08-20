@@ -32,6 +32,8 @@ interface LottieKS {
   a: LottieProp;
   sw?: LottieProp;
   rd?: LottieProp;
+  fc?: LottieProp;
+  sc?: LottieProp;
 }
 
 interface LottieLayer {
@@ -79,6 +81,49 @@ function valueToLottie(value: unknown, property: string): number {
     return value;
   }
   return Number(value) ?? 0;
+}
+
+function colorToLottieRgb(color: unknown): [number, number, number] {
+  if (!color || typeof color !== 'object') return [0, 0, 0];
+  const c = color as Record<string, unknown>;
+  if (typeof c.r === 'number' && typeof c.g === 'number' && typeof c.b === 'number') {
+    return [c.r / 255, c.g / 255, c.b / 255];
+  }
+  return [0, 0, 0];
+}
+
+function buildColorKeyframes(
+  keyframes: AnimationKeyframe[],
+  _property: string,
+  totalFrames: number,
+  defaultEasing: EasingDefinition,
+): LottieKF[] {
+  const result: LottieKF[] = [];
+  for (let i = 0; i < keyframes.length; i++) {
+    const kf = keyframes[i];
+    if (!kf) continue;
+    const frameTime = Math.round(kf.progress * totalFrames);
+    const rgb = colorToLottieRgb(kf.value);
+    const entry: LottieKF = { t: frameTime, s: rgb };
+
+    if (i < keyframes.length - 1) {
+      const nextKf = keyframes[i + 1];
+      const easing = nextKf ? (nextKf.easing ?? defaultEasing) : defaultEasing;
+      entry.o = easingToLottieHandles(easing).o;
+    } else {
+      entry.o = { x: [0], y: [0] };
+    }
+
+    if (i > 0) {
+      const easing = kf.easing ?? defaultEasing;
+      entry.i = easingToLottieHandles(easing).i;
+    } else {
+      entry.i = { x: [0], y: [0] };
+    }
+
+    result.push(entry);
+  }
+  return result;
 }
 
 function buildLottieKeyframes(
@@ -342,6 +387,26 @@ export function timelineToLottieJSON(
         ks.r = {
           a: 1,
           k: buildLottieKeyframes(
+            track.keyframes,
+            track.property,
+            totalFrames,
+            timeline.defaultEasing ?? { kind: 'linear' },
+          ),
+        };
+      } else if (propName === 'fill' || propName.startsWith('fill.')) {
+        ks.fc = {
+          a: 1,
+          k: buildColorKeyframes(
+            track.keyframes,
+            track.property,
+            totalFrames,
+            timeline.defaultEasing ?? { kind: 'linear' },
+          ),
+        };
+      } else if (propName === 'stroke' || propName.startsWith('stroke.')) {
+        ks.sc = {
+          a: 1,
+          k: buildColorKeyframes(
             track.keyframes,
             track.property,
             totalFrames,

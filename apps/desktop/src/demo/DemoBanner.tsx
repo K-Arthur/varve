@@ -58,7 +58,7 @@ export function DemoBanner({ config }: DemoBannerProps) {
   }, []);
 
   const choose = (choice: 'granted' | 'denied') => {
-    setDemoAnalyticsChoice(choice);
+    void setDemoAnalyticsChoice(choice);
     setAnalyticsChoice(choice);
   };
 

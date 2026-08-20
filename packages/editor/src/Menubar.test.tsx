@@ -3,10 +3,12 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setCapabilityRestrictions } from './capabilities/restrictions';
 import { Menubar } from './components/Menubar';
 
 let mockWorkspaceMode = 'design';
 let mockLogoPanelVisible = false;
+let mockSelection: string[] = [];
 
 vi.mock('./context', () => ({
   useEditor: () => ({
@@ -21,7 +23,7 @@ vi.mock('./context', () => ({
       snapEnabled: true,
       softProofEnabled: false,
       tool: 'select',
-      selection: [],
+      selection: mockSelection,
       workspaceMode: mockWorkspaceMode,
       logoPanelVisible: mockLogoPanelVisible,
       colorBlindnessView: 'none',
@@ -302,6 +304,8 @@ vi.mock('@varve/codegen', () => ({
 
 afterEach(() => {
   cleanup();
+  mockSelection = [];
+  setCapabilityRestrictions(null);
 });
 
 describe('Menubar dropdown portal', () => {
@@ -501,6 +505,34 @@ describe('Menubar disabled states', () => {
     const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
     const bringFront = within(menu).getByRole('menuitem', { name: /Bring to Front/ });
     expect(bringFront).toBeDisabled();
+  });
+
+  it('disables withheld demo workspaces and background removal', async () => {
+    setCapabilityRestrictions({
+      restricted: new Set(['inference', 'printProduction']),
+      workspaceModes: ['design', 'drawing', 'image'],
+      upgradeUrl: 'https://varve.studio/download',
+    });
+    mockSelection = ['node-1'];
+    const user = userEvent.setup();
+    render(<Menubar />);
+
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
+    const viewMenu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    expect(
+      within(viewMenu).getByRole('menuitemradio', { name: /Workspace: Design/ }),
+    ).not.toBeDisabled();
+    expect(
+      within(viewMenu).getByRole('menuitemradio', { name: /Workspace: Print/ }),
+    ).toBeDisabled();
+    expect(
+      within(viewMenu).getByRole('menuitemradio', { name: /Workspace: Motion/ }),
+    ).toBeDisabled();
+
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Object' }));
+    const objectMenu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    expect(within(objectMenu).getByRole('menuitem', { name: /Remove Background/ })).toBeDisabled();
   });
 });
 
