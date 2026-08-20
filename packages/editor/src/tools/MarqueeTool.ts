@@ -38,10 +38,9 @@ export class MarqueeTool extends BaseTool {
   }
 
   override onActivate(ctx: ToolContext): void {
-    // A pixel-area selection is a different user-facing domain from node
-    // selection. Clear node ids on entry so transform handles cannot be
-    // mistaken for the raster selection boundary.
-    ctx.setSelection(null);
+    // Keep the selected raster target available for painting and mask
+    // commands. SelectionOverlay hides node handles while this tool is active,
+    // so the two domains are never presented as one visual selection.
     ctx.setDraft(null);
   }
 

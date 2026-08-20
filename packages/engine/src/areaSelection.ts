@@ -7,6 +7,8 @@
  * bounded alpha mask.
  */
 
+import { applyAffine } from '@varve/shared';
+
 export type AreaSelectionOperation = 'replace' | 'add' | 'subtract' | 'intersect';
 
 export type AreaSelectionStyle = 'normal' | 'fixed-ratio' | 'fixed-size';
@@ -66,10 +68,31 @@ export interface PolygonSelectionShape {
   antialias: boolean;
 }
 
+/**
+ * Ephemeral decoded mask selection. The pixel data is session state, not
+ * document content; inverseTransform maps document points to the mask's
+ * target-local coordinate system.
+ */
+export interface RasterMaskSelectionShape {
+  kind: 'raster-mask';
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  width: number;
+  height: number;
+  data: Uint8Array;
+  transform: readonly [number, number, number, number, number, number];
+  inverseTransform: readonly [number, number, number, number, number, number];
+  feather: number;
+  antialias: boolean;
+}
+
 export type AreaSelectionShape =
   | RectangleSelectionShape
   | EllipseSelectionShape
-  | PolygonSelectionShape;
+  | PolygonSelectionShape
+  | RasterMaskSelectionShape;
 
 export type AreaSelectionExpression =
   | { kind: 'shape'; shape: AreaSelectionShape }
@@ -136,6 +159,23 @@ export function createAreaSelection(
   if (shape.kind === 'rectangle' || shape.kind === 'ellipse') {
     if (![shape.x, shape.y, shape.w, shape.h].every(Number.isFinite)) return null;
     normalized = normalizeRectShape(shape);
+  } else if (shape.kind === 'raster-mask') {
+    if (
+      ![shape.x, shape.y, shape.w, shape.h, shape.width, shape.height].every(Number.isFinite) ||
+      !Number.isInteger(shape.width) ||
+      !Number.isInteger(shape.height) ||
+      shape.width <= 0 ||
+      shape.height <= 0 ||
+      shape.data.length !== shape.width * shape.height
+    ) {
+      return null;
+    }
+    normalized = {
+      ...shape,
+      data: new Uint8Array(shape.data),
+      feather: finiteNonNegative(shape.feather),
+      antialias: Boolean(shape.antialias),
+    };
   } else {
     if (
       shape.points.length < 3 ||
@@ -223,6 +263,7 @@ export function areaSelectionBounds(expression: AreaSelectionExpression): {
       const y = Math.min(...ys);
       return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
     }
+    if (shape.kind === 'raster-mask') return { x: shape.x, y: shape.y, w: shape.w, h: shape.h };
     return { x: shape.x, y: shape.y, w: shape.w, h: shape.h };
   }
 
@@ -305,6 +346,23 @@ function shapeCoverage(shape: AreaSelectionShape, point: SelectionPoint): number
     const nx = (point.x - (shape.x + rx)) / rx;
     const ny = (point.y - (shape.y + ry)) / ry;
     return smoothCoverage((1 - Math.hypot(nx, ny)) * Math.min(rx, ry), shape.feather);
+  }
+
+  if (shape.kind === 'raster-mask') {
+    const local = applyAffine(shape.inverseTransform, [point.x, point.y]);
+    const nx = ((local[0] - shape.x) / shape.w) * shape.width;
+    const ny = ((local[1] - shape.y) / shape.h) * shape.height;
+    if (nx < 0 || ny < 0 || nx >= shape.width || ny >= shape.height) return 0;
+    const x0 = Math.floor(nx);
+    const y0 = Math.floor(ny);
+    const x1 = Math.min(shape.width - 1, x0 + 1);
+    const y1 = Math.min(shape.height - 1, y0 + 1);
+    const tx = nx - x0;
+    const ty = ny - y0;
+    const at = (x: number, y: number) => shape.data[y * shape.width + x]! / 255;
+    const top = at(x0, y0) * (1 - tx) + at(x1, y0) * tx;
+    const bottom = at(x0, y1) * (1 - tx) + at(x1, y1) * tx;
+    return top * (1 - ty) + bottom * ty;
   }
 
   const inside = pointInPolygon(point, shape.points);

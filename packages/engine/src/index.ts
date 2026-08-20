@@ -56,6 +56,7 @@ export type {
   EllipseSelectionShape,
   PolygonSelectionShape,
   RasterizeAreaSelectionOptions,
+  RasterMaskSelectionShape,
   RectangleSelectionShape,
   SelectionPoint,
 } from './areaSelection';
