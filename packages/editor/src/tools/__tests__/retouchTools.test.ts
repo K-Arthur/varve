@@ -241,3 +241,32 @@ describe('HealingBrushTool', () => {
     expect(ctx.abortTransaction).toHaveBeenCalledOnce();
   });
 });
+
+describe('CloneStampTool sample-all-layers', () => {
+  it('samples only the target layer by default', () => {
+    const { ctx, current } = makeCtx(makeSplitLayer());
+    const tool = new CloneStampTool();
+    tool.setOptions({ brushSize: 20, hardness: 1 });
+    expect(tool.getOptions().sampleAllLayers).toBe(false);
+
+    tool.onPointerDown(ptr(20, 40, { altKey: true }), ctx);
+    tool.onPointerDown(ptr(90, 40), ctx);
+    tool.onPointerUp(ptr(90, 40), ctx);
+    expect(pixelAt(current(), 90, 40)).toMatchObject({ r: 255, b: 0 });
+  });
+
+  it('samples the visible stack when asked, and still deposits on one layer', () => {
+    const { ctx, current } = makeCtx(makeSplitLayer());
+    const tool = new CloneStampTool();
+    tool.setOptions({ brushSize: 20, hardness: 1, sampleAllLayers: true });
+
+    tool.onPointerDown(ptr(20, 40, { altKey: true }), ctx);
+    tool.onPointerDown(ptr(90, 40), ctx);
+    tool.onPointerUp(ptr(90, 40), ctx);
+
+    // Only one raster layer exists here, so the composite equals it — the
+    // point is that deposits still land on the active layer alone.
+    expect(pixelAt(current(), 90, 40)).toMatchObject({ r: 255, b: 0 });
+    expect(ctx.commitTransaction).toHaveBeenCalledOnce();
+  });
+});

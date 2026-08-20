@@ -15,6 +15,7 @@ import type { BrushDab, RasterLayerNode, RasterTile } from '@varve/scene';
 import {
   compositeCloneDabOnNode,
   defaultBrushPreset,
+  flattenTilesForSampling,
   generateDabs,
   snapshotTiles,
   strokePoint,
@@ -31,6 +32,13 @@ export interface CloneStampOptions {
   flow: number;
   spacing: number;
   aligned: boolean;
+  /**
+   * Sample the flattened visible stack rather than the target layer alone.
+   *
+   * The composite is only ever read; deposits still land on the active layer,
+   * so sampling several layers never bakes them into one.
+   */
+  sampleAllLayers: boolean;
 }
 
 interface CloneSession {
@@ -58,6 +66,7 @@ export class CloneStampTool extends BaseTool {
     flow: 1,
     spacing: 0.15,
     aligned: true,
+    sampleAllLayers: false,
   };
 
   setOptions(opts: Partial<CloneStampOptions>): void {
@@ -114,7 +123,9 @@ export class CloneStampTool extends BaseTool {
     ctx.beginTransaction();
     this.session = {
       rasterNodeId,
-      sourceTiles: snapshotTiles(node),
+      sourceTiles: this.options.sampleAllLayers
+        ? this.flattenVisibleStack(ctx, node)
+        : snapshotTiles(node),
       // Aligned mode locks the source-to-cursor offset at stroke start and
       // keeps it for the whole stroke; non-aligned restarts from the source
       // point on every stroke.
@@ -171,6 +182,24 @@ export class CloneStampTool extends BaseTool {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Read-only composite of the visible raster layers, bottom-up.
+   *
+   * Built once per stroke, like the single-layer snapshot, so the stroke cannot
+   * sample its own output part-way through.
+   */
+  private flattenVisibleStack(ctx: ToolContext, target: RasterLayerNode): Map<string, RasterTile> {
+    const layers: Array<{ tiles: Map<string, RasterTile>; opacity?: number; visible?: boolean }> =
+      [];
+    for (const node of Object.values(ctx.document.nodes)) {
+      if ((node as { kind?: string }).kind !== 'rasterLayer') continue;
+      const raster = node as unknown as RasterLayerNode;
+      layers.push({ tiles: raster.tiles, opacity: raster.opacity, visible: raster.visible });
+    }
+    if (layers.length === 0) return snapshotTiles(target);
+    return flattenTilesForSampling(layers);
   }
 
   private createTarget(ctx: ToolContext, e: PointerEvent): string | null {

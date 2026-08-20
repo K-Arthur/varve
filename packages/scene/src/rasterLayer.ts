@@ -3,6 +3,7 @@ import { resolveGrainValueSync } from '@varve/engine';
 import type { BrushDab } from './brush';
 import { type CoverageMask, sampleCoverage } from './paintCoverage';
 import type { RasterLayerNode, RasterTile } from './types';
+import { wetEdgeDarkening } from './wetPaint';
 
 export type { BrushDab };
 
@@ -383,6 +384,14 @@ export interface DabCompositeOptions {
   alphaLock?: boolean;
   /** Selection / clipping coverage in layer pixel space. Null = unrestricted. */
   coverage?: CoverageMask | null;
+  /**
+   * Wet-edge darkening, as watercolour pooling at a stroke's rim.
+   *
+   * Expressed as a fraction of the tip radius plus a darkening amount, both in
+   * brush-relative units — so the effect is identical at any zoom, which is the
+   * usual way a wet edge goes wrong.
+   */
+  wetEdge?: { size: number; darken: number } | null;
 }
 
 export type DabCompositeArg = boolean | DabCompositeOptions;
@@ -390,9 +399,14 @@ export type DabCompositeArg = boolean | DabCompositeOptions;
 function normalizeCompositeOptions(arg: DabCompositeArg | undefined): {
   alphaLock: boolean;
   coverage: CoverageMask | null;
+  wetEdge: { size: number; darken: number } | null;
 } {
-  if (typeof arg === 'boolean') return { alphaLock: arg, coverage: null };
-  return { alphaLock: arg?.alphaLock ?? false, coverage: arg?.coverage ?? null };
+  if (typeof arg === 'boolean') return { alphaLock: arg, coverage: null, wetEdge: null };
+  return {
+    alphaLock: arg?.alphaLock ?? false,
+    coverage: arg?.coverage ?? null,
+    wetEdge: arg?.wetEdge ?? null,
+  };
 }
 
 function compositeBrushDabOnPixels(
@@ -411,6 +425,7 @@ function compositeBrushDabOnPixels(
   tileOriginX = 0,
   tileOriginY = 0,
   coverage: CoverageMask | null = null,
+  wetEdge: { size: number; darken: number } | null = null,
 ): boolean {
   const size = Math.ceil(dabRadius * 2);
   const offsetX = Math.round(dabX - dabRadius);
@@ -460,6 +475,17 @@ function compositeBrushDabOnPixels(
 
       let effectiveAlpha =
         maskValue * dabOpacity * dabFlow * srcAlpha * grainValue * selectionValue;
+
+      // Wet edge: pigment pools towards the rim of the dab. Measured against
+      // the tip radius, so zooming the canvas cannot change its strength.
+      let edgeDarken = 0;
+      if (wetEdge && wetEdge.darken > 0 && dabRadius > 0) {
+        const dx = px - dabX;
+        const dy = py - dabY;
+        const distRatio = Math.sqrt(dx * dx + dy * dy) / dabRadius;
+        edgeDarken = wetEdgeDarkening(distRatio, wetEdge.size, wetEdge.darken);
+        if (edgeDarken > 0) effectiveAlpha = Math.min(1, effectiveAlpha * (1 + edgeDarken));
+      }
       if (alphaLock) {
         if (destAlpha <= 0) continue;
         effectiveAlpha *= destAlpha;
@@ -467,10 +493,13 @@ function compositeBrushDabOnPixels(
       if (effectiveAlpha <= 0) continue;
       wrote = true;
 
-      // Premultiplied source
-      const srcR = (color[0]! / 255) * effectiveAlpha;
-      const srcG = (color[1]! / 255) * effectiveAlpha;
-      const srcB = (color[2]! / 255) * effectiveAlpha;
+      // Premultiplied source. The wet edge also deepens the pigment itself,
+      // not just its coverage — a rim that is only more opaque reads as a
+      // harder edge rather than a wetter one.
+      const tone = edgeDarken > 0 ? 1 - edgeDarken * 0.5 : 1;
+      const srcR = ((color[0]! * tone) / 255) * effectiveAlpha;
+      const srcG = ((color[1]! * tone) / 255) * effectiveAlpha;
+      const srcB = ((color[2]! * tone) / 255) * effectiveAlpha;
       const srcA = effectiveAlpha;
 
       if (blendMode === 'normal' || blendMode === 'source-over') {
@@ -530,7 +559,7 @@ export function compositeDabOnNode(
   color: readonly [number, number, number, number],
   options: DabCompositeArg = false,
 ): RasterLayerNode {
-  const { alphaLock, coverage } = normalizeCompositeOptions(options);
+  const { alphaLock, coverage, wetEdge } = normalizeCompositeOptions(options);
   const brushShape = dab.shape ?? 'circle';
   const brushMask = createBrushMask(dab.radius, dab.hardness, brushShape, dab.angle, dab.roundness);
   const dabDiameter = Math.ceil(dab.radius * 2);
@@ -575,6 +604,7 @@ export function compositeDabOnNode(
       tileOriginX,
       tileOriginY,
       coverage,
+      wetEdge,
     );
 
     // A brand-new tile that received nothing (fully masked out by a selection)
