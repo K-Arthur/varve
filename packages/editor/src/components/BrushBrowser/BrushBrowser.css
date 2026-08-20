@@ -1,8 +1,11 @@
 .brush-browser {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-2);
+  min-block-size: 0;
   min-inline-size: 0;
+  overflow: hidden;
   padding: var(--space-2);
   color: var(--color-text-primary);
 }
@@ -42,11 +45,15 @@
 
 .brush-browser__grid {
   display: grid;
+  flex: 1 1 auto;
   grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
   gap: var(--space-2);
+  min-block-size: 0;
   margin: 0;
   padding: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   list-style: none;
 }
 
@@ -151,4 +158,26 @@
   font-size: var(--font-size-xs);
   background: var(--color-surface-sunken);
   border-radius: var(--radius-sm);
+}
+
+/* Tool options are portaled out of the toolbar. When the library is present,
+ * make the brush grid the scroll owner so the search/filter controls remain
+ * reachable while a large imported library is browsed. */
+.tool-options__popover:has(.brush-library-panel) {
+  display: flex;
+  flex-direction: column;
+}
+
+.tool-options__popover:has(.brush-library-panel) > .tool-options__content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.tool-options__popover:has(.brush-library-panel) .brush-library-panel {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: hidden;
 }

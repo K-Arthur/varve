@@ -12,6 +12,13 @@ import { navigateToEditor } from '../shared';
 
 const VIEWPORT = { width: 1440, height: 900 };
 
+function importedBrushPreset(id: string, name: string) {
+  // The importer fills omitted optional fields from the canonical default.
+  // Keeping this fixture local avoids pulling the native/worker scene graph
+  // into Playwright's Node-side test loader.
+  return { id, name, shape: 'circle', radius: 10 };
+}
+
 async function switchToPhotoWorkspace(page: import('@playwright/test').Page): Promise<void> {
   const photo = page.locator('.workspace-tabs__tab[aria-label="Photo workspace"]');
   if (!(await photo.isVisible().catch(() => false))) {
@@ -48,6 +55,20 @@ async function openToolOptions(page: import('@playwright/test').Page) {
   return page.locator('.tool-options__popover');
 }
 
+async function contentCanvasHash(page: import('@playwright/test').Page): Promise<string> {
+  return page.locator('canvas.editor-canvas__content-layer').evaluate((canvas) => {
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('content canvas 2D context unavailable');
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let hash = 2166136261;
+    for (const pixel of pixels) {
+      hash ^= pixel;
+      hash = Math.imul(hash, 16777619);
+    }
+    return `${canvas.width}x${canvas.height}:${hash >>> 0}`;
+  });
+}
+
 test.describe('paint UI in the running app', () => {
   test('brush browser renders, searches and filters', async ({ page }, testInfo) => {
     const consoleErrors: string[] = [];
@@ -64,7 +85,7 @@ test.describe('paint UI in the running app', () => {
 
     const browser = popover.locator('.brush-browser');
     await expect(browser).toBeVisible({ timeout: 30000 });
-    await popover.screenshot({ path: testInfo.outputPath('brush-browser.png') });
+    await page.screenshot({ path: testInfo.outputPath('brush-browser.png'), fullPage: false });
 
     // Every brush is a named button, so it is reachable without sight.
     const roundBrush = browser.getByRole('button', { name: 'Round', exact: true });
@@ -82,12 +103,68 @@ test.describe('paint UI in the running app', () => {
     await browser.getByLabel('Search brushes').fill('airbrush');
     await expect(browser.getByRole('button', { name: 'Airbrush', exact: true })).toBeVisible();
     await expect(browser.getByRole('button', { name: 'Round', exact: true })).toHaveCount(0);
-    await browser.screenshot({ path: testInfo.outputPath('brush-browser-search.png') });
+    await page.screenshot({ path: testInfo.outputPath('brush-browser-search.png') });
 
     // An empty result explains itself rather than showing a blank grid.
     await browser.getByLabel('Search brushes').fill('zzzznotabrush');
     await expect(browser.getByText(/No brushes match/)).toBeVisible();
-    await browser.screenshot({ path: testInfo.outputPath('brush-browser-empty.png') });
+    await page.screenshot({ path: testInfo.outputPath('brush-browser-empty.png') });
+  });
+
+  test('large brush libraries scroll inside the brush grid', async ({ page }, testInfo) => {
+    await page.setViewportSize(VIEWPORT);
+    await navigateToEditor(page);
+    await switchToPhotoWorkspace(page);
+    await activatePaint(page);
+
+    const popover = await openToolOptions(page);
+    const browser = popover.locator('.brush-browser');
+    await expect(browser).toBeVisible({ timeout: 30000 });
+
+    // Use the real import path so this covers the same persisted-library
+    // shape users get when they install a substantial brush pack.
+    const presets = Array.from({ length: 120 }, (_, index) =>
+      importedBrushPreset(
+        `scroll-test-${index}`,
+        `Library Brush ${String(index).padStart(3, '0')}`,
+      ),
+    );
+    const file = popover.locator('input[type="file"]');
+    await file.setInputFiles({
+      name: 'large-library.varvebrush',
+      mimeType: 'application/json',
+      buffer: Buffer.from(
+        JSON.stringify({ format: 'varve-brush', version: 1, presets, resources: [] }),
+      ),
+    });
+
+    await expect(popover.getByText('Imported 120 brushes.')).toBeVisible({ timeout: 30000 });
+    const grid = browser.locator('.brush-browser__grid');
+    await expect(grid).toBeVisible();
+    await expect
+      .poll(async () =>
+        grid.evaluate((element) => ({
+          clientHeight: element.clientHeight,
+          scrollHeight: element.scrollHeight,
+        })),
+      )
+      .toEqual(expect.objectContaining({ clientHeight: expect.any(Number) }));
+
+    const before = await grid.evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      scrollTop: element.scrollTop,
+    }));
+    expect(before.scrollHeight).toBeGreaterThan(before.clientHeight);
+
+    await grid.hover();
+    await page.mouse.wheel(0, 1200);
+    await expect.poll(() => grid.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+
+    const lastBrush = browser.getByRole('button', { name: 'Library Brush 119', exact: true });
+    await lastBrush.scrollIntoViewIfNeeded();
+    await expect(lastBrush).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('brush-browser-large-scroll.png') });
   });
 
   test('a brush can be favourited and edited', async ({ page }, testInfo) => {
@@ -105,7 +182,7 @@ test.describe('paint UI in the running app', () => {
 
     await browser.getByRole('tab', { name: 'Favorites' }).click();
     await expect(browser.getByRole('button', { name: 'Round', exact: true })).toBeVisible();
-    await browser.screenshot({ path: testInfo.outputPath('brush-browser-favorites.png') });
+    await page.screenshot({ path: testInfo.outputPath('brush-browser-favorites.png') });
 
     // Editing a built-in opens the editor on a copy.
     await browser.getByRole('button', { name: 'Edit a copy of Round' }).click();
@@ -113,7 +190,7 @@ test.describe('paint UI in the running app', () => {
     await expect(editor).toBeVisible();
     await expect(editor.getByText(/Built-in brushes cannot be changed/)).toBeVisible();
     await expect(editor.locator('.brush-editor__preview img')).toBeVisible();
-    await editor.screenshot({ path: testInfo.outputPath('brush-editor.png') });
+    await page.screenshot({ path: testInfo.outputPath('brush-editor.png') });
 
     // The live preview responds to a parameter change without touching the doc.
     const before = await editor.locator('.brush-editor__preview img').getAttribute('src');
@@ -127,7 +204,7 @@ test.describe('paint UI in the running app', () => {
     await expect
       .poll(async () => editor.locator('.brush-editor__preview img').getAttribute('src'))
       .not.toBe(before);
-    await editor.screenshot({ path: testInfo.outputPath('brush-editor-edited.png') });
+    await page.screenshot({ path: testInfo.outputPath('brush-editor-edited.png') });
   });
 
   test('painting a stroke reaches the canvas', async ({ page }, testInfo) => {
@@ -139,6 +216,12 @@ test.describe('paint UI in the running app', () => {
     const surface = page.locator('.editor-canvas');
     const box = await surface.boundingBox();
     if (!box) throw new Error('editor canvas surface not found');
+
+    // Wait for the initial blank frame before taking the oracle baseline. A
+    // screenshot alone can pass while the document has only created a layer;
+    // the content canvas must actually change after the stroke.
+    await page.waitForTimeout(750);
+    const before = await contentCanvasHash(page);
 
     const y = box.y + box.height * 0.5;
     await page.mouse.move(box.x + box.width * 0.3, y);
@@ -152,7 +235,7 @@ test.describe('paint UI in the running app', () => {
     }
     await page.mouse.up();
 
-    await page.waitForTimeout(500);
+    await expect.poll(() => contentCanvasHash(page), { timeout: 10000 }).not.toBe(before);
     await surface.screenshot({ path: testInfo.outputPath('painted-stroke.png') });
   });
 });
