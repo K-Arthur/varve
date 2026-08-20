@@ -199,16 +199,11 @@ function mergeGroup(
     const bindings = (candidate as unknown as { bindings?: Record<string, { variableId: string }> })
       .bindings;
     if (bindings) {
-      const remappedBindings = Object.fromEntries(
-        Object.entries(bindings)
-          .map(([key, binding]) => [
-            key,
-            { ...binding, variableId: maps.variableIds.get(binding.variableId) },
-          ])
-          .filter((entry): entry is [string, { variableId: string }] =>
-            Boolean(entry[1].variableId),
-          ),
-      );
+      const remappedBindings: Record<string, { variableId: string }> = {};
+      for (const [key, binding] of Object.entries(bindings)) {
+        const variableId = maps.variableIds.get(binding.variableId);
+        if (variableId) remappedBindings[key] = { ...binding, variableId };
+      }
       if (Object.keys(remappedBindings).length > 0) {
         (candidate as unknown as { bindings: Record<string, { variableId: string }> }).bindings =
           remappedBindings;
