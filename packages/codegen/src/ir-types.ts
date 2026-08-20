@@ -181,6 +181,10 @@ export interface ColorStop {
 export interface GradientSpec {
   type: 'linear' | 'radial' | 'conic' | 'diamond' | 'angular';
   stops: ColorStop[];
+  /** Concrete interpolation space after document inheritance is resolved. */
+  interpolationSpace?: 'srgb' | 'linear-srgb' | 'oklab' | 'oklch' | 'hsl';
+  /** Hue path for cylindrical interpolation spaces. */
+  hueInterpolation?: 'shorter' | 'longer' | 'increasing' | 'decreasing';
   rotation?: number;
   cx?: number;
   cy?: number;
