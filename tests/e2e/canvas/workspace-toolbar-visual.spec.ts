@@ -91,6 +91,13 @@ test.describe('workspace toolbar visual QA', () => {
     await expect(menu.getByRole('menuitem', { name: 'Vector' })).toBeVisible();
     await expect(menu.getByRole('menuitem', { name: 'Layout' })).toBeVisible();
 
+    await menu.getByRole('menuitem', { name: 'Vector' }).click();
+    const vectorMenu = page.getByRole('menu', { name: 'Vector submenu' });
+    await expect(vectorMenu.getByRole('menuitem', { name: 'Pen' })).toBeVisible();
+    await vectorMenu.getByRole('menuitem', { name: 'Pen' }).click();
+    await expect(toolbar.locator('[data-tool="pen"]')).toBeVisible();
+    await expect(toolbar.locator('[data-tool="pen"]')).toHaveAttribute('aria-pressed', 'true');
+
     await toolbar.screenshot({ path: testInfo.outputPath('toolbar-category-overflow.png') });
     await page.screenshot({ path: testInfo.outputPath('toolbar-category-menu.png') });
   });
