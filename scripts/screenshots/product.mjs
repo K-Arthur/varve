@@ -983,7 +983,30 @@ const SCENES = [
 /* ------------------------------------------------------------------ */
 
 const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
-const browser = await chromium.launch();
+/**
+ * Chromium exposes `navigator.gpu` on a secure context by default, but with no
+ * adapter behind it — and the inference paths ask for a *hardware* adapter
+ * (`requireHardwareAdapter: true`), so they get nothing and fall back to CPU
+ * WASM, where a depth pass does not finish in any time a capture can wait for.
+ *
+ * Routing ANGLE through Vulkan surfaces the real GPU in headless: on an AMD
+ * iGPU this reports vendor "amd", architecture "rdna-2". SwiftShader also
+ * yields an adapter, but a software one the hardware check rejects — so the
+ * Vulkan flags are the ones that matter, not merely "some adapter".
+ *
+ * Only for model runs. GPU rasterization can shift canvas output subtly, and
+ * the ordinary scenes are a committed visual baseline that should not move
+ * because a capture host happens to have a GPU.
+ */
+const GPU_ARGS = [
+  '--enable-unsafe-webgpu',
+  '--ignore-gpu-blocklist',
+  '--enable-features=Vulkan',
+  '--use-angle=vulkan',
+];
+const browser = await chromium.launch(
+  process.env.VARVE_SHOT_MODELS ? { args: GPU_ARGS } : {},
+);
 const server = await startServer();
 let failures = 0;
 let ranThisRun = 0;
@@ -1055,6 +1078,13 @@ try {
         console.log(`  [${scene.id}:${msg.type()}] ${msg.text().slice(0, 300)}`);
       });
       page.on('pageerror', (err) => console.log(`  [${scene.id}:pageerror] ${String(err).slice(0, 300)}`));
+      // Inference runs in a Web Worker, and a worker's console does not reach
+      // the page's console event — so the one place an ONNX failure reports
+      // itself was invisible to every run above.
+      page.on('worker', (worker) => {
+        console.log(`  [${scene.id}:worker] started ${worker.url().split('/').pop()}`);
+        worker.on('close', () => console.log(`  [${scene.id}:worker] closed`));
+      });
     }
     try {
       await page.emulateMedia({
@@ -1112,6 +1142,16 @@ try {
         rmSync(join(dir, scene.file), { force: true });
       }
       console.error(`SKIPPED ${scene.id}: ${entry.reason}`);
+      // A skip reports the text it gave up on, which is rarely enough to tell
+      // what the UI was actually showing. Keep the frame under VARVE_SHOT_DEBUG
+      // so a failure can be looked at rather than only read about.
+      if (process.env.VARVE_SHOT_DEBUG) {
+        const debugPath = join(OUT_DIR, `debug-${scene.id}.png`);
+        await page
+          .screenshot({ path: debugPath })
+          .then(() => console.error(`  wrote ${debugPath}`))
+          .catch(() => undefined);
+      }
       if (strict) failures++;
     } finally {
       await ctx.close();
