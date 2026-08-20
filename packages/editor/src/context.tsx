@@ -2663,8 +2663,9 @@ export function EditorProvider({
       // Clear the resolved-color cache on theme switch (gridRenderer).
       // Uses global to avoid adding an import to this hub file.
       if (typeof window !== 'undefined') {
-        (window as unknown as { __clearResolvedColorCache?: () => void })
-          .__clearResolvedColorCache?.();
+        (
+          window as unknown as { __clearResolvedColorCache?: () => void }
+        ).__clearResolvedColorCache?.();
       }
       patch({ themeRevision: stateRef.current.themeRevision + 1 });
     });
