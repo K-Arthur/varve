@@ -85,13 +85,8 @@ function finiteNonNegative(value: number): number {
 }
 
 function normalizeRectShape(
-  shape: Omit<RectangleSelectionShape, 'x' | 'y' | 'w' | 'h'> & {
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  },
-): RectangleSelectionShape {
+  shape: RectangleSelectionShape | EllipseSelectionShape,
+): RectangleSelectionShape | EllipseSelectionShape {
   const x2 = shape.x + shape.w;
   const y2 = shape.y + shape.h;
   return {

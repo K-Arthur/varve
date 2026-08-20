@@ -812,6 +812,7 @@ export function CanvasArea({
     accentColorRef,
     sunkenColorRef,
     draft,
+    areaSelection: state.areaSelection ?? null,
     dropTargetFrameId,
     maskDropTargetId,
   });
