@@ -14,6 +14,12 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Motion/prototyping P1-P3 improvements** — timeline virtualization (only
+  visible tracks rendered), Lottie fill/stroke color keyframe export, motion
+  path drag-to-edit on canvas, prototype `startAnimation`/`stopAnimation`
+  playback wiring, prototype interaction section UI for Play/Stop animation
+  actions, and prototype click-through E2E test. 413 tests pass across 31
+  files.
 - **Figma REST JSON import** — official Figma file JSON (REST API or plugin
   export) is now a first-class import source. A bounded source normalizer
   (`figma/source.ts`) enforces 64 MB / 100k node / 256 depth limits, then
@@ -128,8 +134,24 @@ update, not for someone reading the commit log.
 - **Contact channels** — canonical contact and security surfaces in both
   the application and the website (`support@varve.studio`,
   `security@varve.studio`, GitHub Private Vulnerability Reporting).
-- **Paint tools** — smudge worker, textured brush paths, alpha lock, and
-  grain controls wired into the paint inspector.
+- **Paint tools** — raster brush system with a Brush Browser (portable
+  brush packages, deterministic previews) and Brush Editor (size, flow,
+  hardness, spacing, scatter, texture, grain). Wet-media lifecycle
+  (wet-edge blending, sample-all-layers clone), real smudge transport with
+  vector-pressure support, symmetry guides, clone source markers, alpha
+  lock, and mask painting on raster layers. The paint inspector wires
+  presets and per-stroke settings to the worker pipeline. See
+  `docs/architecture/paint-system.md`.
+- **Gradient map adjustments** — a non-destructive gradient-map adjustment
+  layer remaps tonal values through a user-editable colour gradient with a
+  built-in preset browser. Affects vector and raster content; export
+  preflight flattens to raster for SVG/PDF targets. See
+  `packages/scene/src/gradientPresets.ts` for the preset model.
+- **Selection improvements** — object marquee with configurable shape modes
+  (rectangle, ellipse, lasso), area-aware selection commands (select all
+  in area, deselect, toggle), hierarchy navigation (select parent/child),
+  select-similar expansion, and indexed geometry for fast broad-phase
+  overlap. Raster masks can now be bridged from area selections.
 
 ### Changed
 
