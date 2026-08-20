@@ -74,3 +74,23 @@ describe('createBootManager', () => {
     expect(changes).toEqual(['init->home_ready', 'home_ready->editor_ready']);
   });
 });
+
+describe('boot without Home', () => {
+  it('completes startup when the editor opens directly', () => {
+    // The browser demo seeds a document and mounts the editor without ever
+    // showing Home. Rejecting this transition left the branded loader over a
+    // fully mounted editor — invisible in Chromium, which fired home_ready
+    // regardless, and a permanent loading screen in WebKit.
+    const boot = createBootManager();
+    boot.markEditorReady();
+    expect(boot.state()).toBe('editor_ready');
+    expect(boot.isStartupComplete()).toBe(true);
+  });
+
+  it('still refuses to go backwards once the editor is ready', () => {
+    const boot = createBootManager();
+    boot.markEditorReady();
+    boot.markHomeReady();
+    expect(boot.state()).toBe('editor_ready');
+  });
+});
