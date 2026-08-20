@@ -3,9 +3,9 @@
  * AnimatedText — vertical ticker phrase rotation for the hero line.
  *
  * The accessible text ("One canvas.") is always present as a plain span;
- * a decorative, aria-hidden rotor stacks all phrases in a vertical track
- * and slides it up by one row each cycle. An overflow:hidden container clips
- * the track so only one phrase is ever visible — no overlap is possible.
+ * a decorative, aria-hidden rotor changes one visual phrase element at a time
+ * with a restrained fade and vertical drift. Only one phrase element exists
+ * in the painted layer, so overlap and clipping are impossible.
  *
  * - Reserves its box (min-width set to the widest phrase at runtime, height
  *   from the in-flow static span) so nothing shifts layout.
@@ -39,9 +39,9 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
 <span class="hero-phrase" data-animated-phrase>
   <span class="hero-phrase-static">{staticText}</span>
   <span class="hero-phrase-rotor" aria-hidden="true">
-    <span class="hero-phrase-track">
-      {phrases.map((phrase) => <span class="hero-phrase-item">{phrase}</span>)}
-      <span class="hero-phrase-item hero-phrase-item--loop">{phrases[0]}</span>
+    <span class="hero-phrase-current">{phrases[0] ?? staticText}</span>
+    <span class="hero-phrase-source" hidden>
+      {phrases.map((phrase) => <span class="hero-phrase-source-item">{phrase}</span>)}
     </span>
   </span>
 </span>
@@ -49,17 +49,18 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
 <script>
   import { prefersMotion } from '../lib/motion';
 
-  /** Transition duration in ms — must match the CSS transition duration. */
-  const TRANSITION_MS = 700;
-  /** Full cycle interval (hold time between slides). */
-  const CYCLE_MS = 3000;
+  /** Half of the full phrase transition. */
+  const TRANSITION_MS = 260;
+  /** Hold time between phrase transitions. */
+  const CYCLE_MS = 3400;
 
   const hosts = [...document.querySelectorAll<HTMLElement>('[data-animated-phrase]')];
   for (const host of hosts) {
     if (!prefersMotion()) continue;
-    const items = [...host.querySelectorAll<HTMLElement>('.hero-phrase-item')];
+    const current = host.querySelector<HTMLElement>('.hero-phrase-current');
+    const sourceItems = [...host.querySelectorAll<HTMLElement>('.hero-phrase-source-item')];
     const staticEl = host.querySelector<HTMLElement>('.hero-phrase-static');
-    if (items.length > 1 && staticEl) {
+    if (sourceItems.length > 1 && current && staticEl) {
       const start = (): void => {
         // Reserve the widest phrase so rotation never shifts the layout.
         const probe = document.createElement('span');
@@ -67,41 +68,25 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
         probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;';
         host.appendChild(probe);
         let widest = staticEl.getBoundingClientRect().width;
-        for (const item of items) {
-          probe.textContent = item.textContent ?? '';
+        const phrases = sourceItems.map((item) => item.textContent ?? '');
+        for (const phrase of phrases) {
+          probe.textContent = phrase;
           widest = Math.max(widest, probe.getBoundingClientRect().width);
         }
         probe.remove();
         host.style.minWidth = `${Math.ceil(widest)}px`;
         host.classList.add('is-rotating');
 
-        const track = host.querySelector<HTMLElement>('.hero-phrase-track');
-        if (!track) return;
-
-        // Measure one item's height — all are identical (same font, same line).
-        const itemHeight = items[0]?.getBoundingClientRect().height ?? 0;
-        if (itemHeight === 0) return;
-
         let index = 0;
-        // Last item is the duplicate of phrase[0] (for seamless loop reset).
-        const lastIndex = items.length - 1;
-
         const timer = window.setInterval(() => {
-          index++;
-          track.style.transform = `translateY(-${(index * itemHeight).toFixed(1)}px)`;
-
-          // When we reach the duplicate first phrase, snap back to 0
-          // without a transition so the loop is seamless.
-          if (index >= lastIndex) {
-            const snap = (): void => {
-              track.style.transition = 'none';
-              index = 0;
-              track.style.transform = 'translateY(0)';
-              void track.offsetHeight;
-              track.style.transition = '';
-            };
-            setTimeout(snap, TRANSITION_MS);
-          }
+          current.classList.add('is-leaving');
+          window.setTimeout(() => {
+            index = (index + 1) % phrases.length;
+            current.textContent = phrases[index] ?? '';
+            current.classList.remove('is-leaving');
+            current.classList.add('is-entering');
+            requestAnimationFrame(() => current.classList.remove('is-entering'));
+          }, TRANSITION_MS);
         }, CYCLE_MS);
 
         (host as HTMLElement & { __varvePhraseTimer?: number }).__varvePhraseTimer = timer;
@@ -134,29 +119,30 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
     display: inline;
   }
 
-  /* Asymmetric clip-path: tight at the top (hides the previous phrase's tail)
-     and generous at the bottom (0.25em room for descenders like g, p, y).
-     overflow:hidden is NOT used because it clips at the padding box and
-     cuts descenders. */
+  /* The rotor has no clipping mask: it contains one painted phrase element,
+     so there is no adjacent row to leak into the line box. */
   .hero-phrase-rotor {
     position: absolute;
     inset: 0;
-    clip-path: inset(0 0 -0.25em 0);
+    overflow: visible;
+    pointer-events: none;
   }
 
-  .hero-phrase-track {
-    display: flex;
-    flex-direction: column;
-    transition: transform var(--duration-normal, 0.7s) var(--ease-default, cubic-bezier(0.16, 1, 0.3, 1));
-    will-change: transform;
-  }
-
-  .hero-phrase-item {
-    display: flex;
+  .hero-phrase-current {
+    display: none;
+    position: absolute;
+    inset: 0;
     align-items: center;
     justify-content: center;
     white-space: nowrap;
-    flex-shrink: 0;
+    will-change: opacity, transform;
+    transition:
+      opacity 0.52s cubic-bezier(0.32, 0.72, 0, 1),
+      transform 0.52s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .hero-phrase-source {
+    display: none;
   }
 
   /* Animation runs only when the rotor is enabled by JS AND motion is
@@ -164,6 +150,22 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
   @media (prefers-reduced-motion: no-preference) {
     html:not([data-motion='static']) .hero-phrase.is-rotating .hero-phrase-static {
       opacity: 0;
+    }
+
+    html:not([data-motion='static']) .hero-phrase.is-rotating .hero-phrase-current {
+      display: flex;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    html:not([data-motion='static']) .hero-phrase.is-rotating .hero-phrase-current.is-leaving {
+      opacity: 0;
+      transform: translateY(-0.18em);
+    }
+
+    html:not([data-motion='static']) .hero-phrase.is-rotating .hero-phrase-current.is-entering {
+      opacity: 0;
+      transform: translateY(0.18em);
     }
   }
 
@@ -180,7 +182,8 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
       opacity: 1 !important;
     }
 
-    .hero-phrase-rotor {
+    .hero-phrase-rotor,
+    .hero-phrase-current {
       display: none;
     }
   }
