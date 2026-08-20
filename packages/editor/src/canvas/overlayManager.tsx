@@ -72,15 +72,22 @@ function traceAreaSelectionBoundary(
       Math.PI * 2,
     );
   } else if (shape.kind === 'raster-mask') {
-    const corners = [
-      applyAffine(shape.transform, [shape.x, shape.y]),
-      applyAffine(shape.transform, [shape.x + shape.w, shape.y]),
-      applyAffine(shape.transform, [shape.x + shape.w, shape.y + shape.h]),
-      applyAffine(shape.transform, [shape.x, shape.y + shape.h]),
-    ];
-    ctx.moveTo(corners[0]![0], corners[0]![1]);
-    for (const corner of corners.slice(1)) ctx.lineTo(corner[0], corner[1]);
-    ctx.closePath();
+    if (shape.boundary.length > 0) {
+      for (const segment of shape.boundary) {
+        ctx.moveTo(segment.from.x, segment.from.y);
+        ctx.lineTo(segment.to.x, segment.to.y);
+      }
+    } else {
+      const corners = [
+        applyAffine(shape.transform, [shape.x, shape.y]),
+        applyAffine(shape.transform, [shape.x + shape.w, shape.y]),
+        applyAffine(shape.transform, [shape.x + shape.w, shape.y + shape.h]),
+        applyAffine(shape.transform, [shape.x, shape.y + shape.h]),
+      ];
+      ctx.moveTo(corners[0]![0], corners[0]![1]);
+      for (const corner of corners.slice(1)) ctx.lineTo(corner[0], corner[1]);
+      ctx.closePath();
+    }
   } else {
     const first = shape.points[0];
     if (!first) return;
