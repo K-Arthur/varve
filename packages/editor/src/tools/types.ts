@@ -15,51 +15,9 @@ import type { Document, NodeId, SceneNode } from '@varve/scene';
 import type { Camera } from '@varve/shared';
 import type { NormalizedInputEvent } from './inputNormalizer';
 
-export type ToolId =
-  | 'select'
-  | 'frame'
-  | 'rect'
-  | 'ellipse'
-  | 'polygon'
-  | 'star'
-  | 'line'
-  | 'arrow'
-  | 'pen'
-  | 'pencil'
-  | 'nodeEdit'
-  | 'text'
-  | 'hand'
-  | 'zoom'
-  | 'scale'
-  | 'image'
-  | 'slice'
-  | 'eyedropper'
-  | 'inspect'
-  | 'booleanUnion'
-  | 'booleanSubtract'
-  | 'booleanIntersect'
-  | 'booleanExclude'
-  | 'cloneStamp'
-  | 'healBrush'
-  | 'spotHeal'
-  | 'patch'
-  | 'refineMask'
-  | 'trimapEdit'
-  | 'crop'
-  | 'paint'
-  | 'eraser'
-  | 'smudge'
-  | 'sam2Segment'
-  | 'shape'
-  | 'connector'
-  | 'comment'
-  | 'backgroundRemoval'
-  | 'clone'
-  | 'contentAwareFill'
-  | 'lasso'
-  | 'table'
-  | 'warp'
-  | 'page';
+import type { ToolId } from './toolRegistry';
+
+export type { ToolId } from './toolRegistry';
 
 export type MaskPreviewMode =
   | 'checkerboard'

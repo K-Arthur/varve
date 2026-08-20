@@ -182,6 +182,11 @@ describe('workspaceStore — effective configuration', () => {
     expect(loadWorkspacePreferences().design.toolbarToolOverrides?.booleanExclude).toBe(false);
   });
 
+  it('does not persist redundant visibility overrides', () => {
+    const prefs = setToolbarToolOverride(getWorkspacePreferences(), 'design', 'booleanUnion', true);
+    expect(prefs.design.toolbarToolOverrides?.booleanUnion).toBeUndefined();
+  });
+
   it('still rejects overrides for tools the workspace does not declare', () => {
     setWorkspacePreferences(
       setToolbarToolOverride(getWorkspacePreferences(), 'design', 'notATool', false),

@@ -7,6 +7,7 @@ import {
   getHiddenTools,
   getVisibleInspectorTabs,
   getVisibleStatusSections,
+  getVisibleToolbarToolIds,
   getWorkspaceConfig,
   isValidWorkspaceConfig,
   WORKSPACE_CONFIGS,
@@ -254,6 +255,12 @@ describe('workspaceTypes', () => {
     const hidden = getHiddenTools('image');
     expect(hidden.has('cloneStamp')).toBe(false);
     expect(hidden.has('healBrush')).toBe(false);
+  });
+
+  it('counts flyout members as visible tools', () => {
+    const visible = getVisibleToolbarToolIds(getWorkspaceConfig('design'));
+    expect(visible.has('booleanUnion')).toBe(true);
+    expect(getHiddenTools('design').has('booleanUnion')).toBe(false);
   });
 
   // ─── Derived tip suppression ─────────────────────────────────────────────

@@ -18,6 +18,7 @@
 
 import type { WorkspaceMode } from '@varve/shared';
 import type { IconName } from '@varve/ui';
+import { getRegisteredToolIds } from '../tools/toolRegistry';
 import type { ToolId } from '../tools/types';
 
 // ---------------------------------------------------------------------------
@@ -1168,53 +1169,64 @@ export const DEPRECATED_TAB_FALLBACKS: Record<string, InspectorTabId> = {
   spec: 'export',
 };
 
-/** Get tools that should be hidden in a given mode. */
-export function getHiddenTools(mode: WorkspaceMode): Set<ToolId> {
-  const config = getWorkspaceConfig(mode);
-  const toolbarToolIds = new Set(config.toolbar.tools.map((t) => t.toolId));
-  // Tools in the full tool set that aren't in the mode's toolbar are hidden
-  const ALL_TOOLS: ToolId[] = [
-    'select',
-    'frame',
-    'rect',
-    'ellipse',
-    'polygon',
-    'star',
-    'line',
-    'arrow',
-    'pen',
-    'pencil',
-    'nodeEdit',
-    'text',
-    'hand',
-    'zoom',
-    'scale',
-    'image',
-    'slice',
-    'eyedropper',
-    'inspect',
-    'booleanUnion',
-    'booleanSubtract',
-    'booleanIntersect',
-    'booleanExclude',
-    'cloneStamp',
-    'healBrush',
-    'spotHeal',
-    'patch',
-    'refineMask',
-    'trimapEdit',
-    'crop',
-    'paint',
-    'eraser',
-    'smudge',
-    'lasso',
-    'page',
-  ];
-  const hidden = new Set<ToolId>();
-  for (const id of ALL_TOOLS) {
-    if (!toolbarToolIds.has(id)) hidden.add(id);
+/** Return the unique tools reachable from a toolbar, including flyout members. */
+export function getToolbarToolIds(toolbar: ToolbarConfig): ToolId[] {
+  const seen = new Set<ToolId>();
+  const ids: ToolId[] = [];
+  for (const item of toolbar.tools) {
+    if (!seen.has(item.toolId)) {
+      seen.add(item.toolId);
+      ids.push(item.toolId);
+    }
   }
-  return hidden;
+  for (const flyout of toolbar.flyouts ?? []) {
+    for (const toolId of flyout.tools) {
+      if (!seen.has(toolId)) {
+        seen.add(toolId);
+        ids.push(toolId);
+      }
+    }
+  }
+  return ids;
+}
+
+/** The effective toolbar's visible main-row and flyout members as one set. */
+export function getVisibleToolbarToolIds(config: WorkspaceConfig): Set<ToolId> {
+  return new Set(getToolbarToolIds(config.toolbar));
+}
+
+/**
+ * Presentation-only workspace visibility predicate.
+ *
+ * The config argument is intentionally explicit at the implementation seam:
+ * callers that have user preferences must pass the effective config. The
+ * default keeps the legacy built-in-only call useful for static documentation
+ * and tests without pretending it includes preferences.
+ */
+export function isToolVisibleInWorkspace(toolId: ToolId, config: WorkspaceConfig): boolean {
+  return getVisibleToolbarToolIds(config).has(toolId);
+}
+
+/**
+ * Resolve the active tool after a workspace presentation change. A visible
+ * tool is preserved; a hidden tool falls back to the destination default,
+ * then to Select, then to the first reachable member of a malformed config.
+ */
+export function resolveWorkspaceTool(config: WorkspaceConfig, currentTool: ToolId): ToolId {
+  const visible = getVisibleToolbarToolIds(config);
+  if (visible.has(currentTool)) return currentTool;
+  if (config.defaultTool && visible.has(config.defaultTool)) return config.defaultTool;
+  if (visible.has('select')) return 'select';
+  return getToolbarToolIds(config.toolbar)[0] ?? 'select';
+}
+
+/** Get tools hidden from the toolbar, including tools hidden from flyouts. */
+export function getHiddenTools(
+  mode: WorkspaceMode,
+  config: WorkspaceConfig = getWorkspaceConfig(mode),
+): Set<ToolId> {
+  const visible = getVisibleToolbarToolIds(config);
+  return new Set(getRegisteredToolIds().filter((id) => !visible.has(id)));
 }
 
 /** Check if a mode config is valid (has required fields). */

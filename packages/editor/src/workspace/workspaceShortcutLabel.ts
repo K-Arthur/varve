@@ -9,7 +9,7 @@
  */
 import { formatShortcut, getEffectiveBinding } from '../shortcuts/ShortcutManager';
 import { toolShortcutId } from '../shortcuts/toolShortcutLabel';
-import { getHiddenTools, type WorkspaceMode } from './workspaceTypes';
+import { getHiddenTools, type WorkspaceConfig, type WorkspaceMode } from './workspaceTypes';
 
 const WORKSPACE_SHORTCUT_IDS: Record<WorkspaceMode, string> = {
   design: 'workspaceDesign',
@@ -38,9 +38,9 @@ export function workspaceShortcutLabel(mode: WorkspaceMode): string {
  * replaces `WorkspaceConfig.shortcuts.disabled`, a hand-maintained list that
  * was empty in every built-in workspace and so suppressed nothing.
  */
-export function suppressedTipShortcutIds(mode: WorkspaceMode): string[] {
+export function suppressedTipShortcutIds(mode: WorkspaceMode, config?: WorkspaceConfig): string[] {
   const ids: string[] = [];
-  for (const tool of getHiddenTools(mode)) {
+  for (const tool of getHiddenTools(mode, config)) {
     const id = toolShortcutId(tool);
     if (id) ids.push(id);
   }

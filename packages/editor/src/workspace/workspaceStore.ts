@@ -20,6 +20,7 @@ import type { ToolId } from '../tools/types';
 import { ESSENTIAL_TOOL_IDS } from './toolLabels';
 import {
   ALL_WORKSPACE_MODES,
+  getToolbarToolIds,
   getWorkspaceConfig,
   type InspectorTabId,
   isValidWorkspaceConfig,
@@ -134,19 +135,18 @@ function sanitizePreference(
   // lives only in a flyout are legitimate customization targets, and rejecting
   // them here is what previously made those overrides unsavable.
   const baseToolbar = getWorkspaceConfig(mode).toolbar;
-  const baseToolIds = new Set<string>(
-    base
-      ? [
-          ...baseToolbar.tools.map((t) => t.toolId),
-          ...(baseToolbar.flyouts ?? []).flatMap((f) => f.tools),
-        ]
-      : [],
-  );
+  const baseToolIds = new Set<string>(getToolbarToolIds(baseToolbar));
+  const baseVisibleToolIds = new Set<string>(getToolbarToolIds(baseToolbar));
   const toolRaw = pref.toolbarToolOverrides;
   const cleanTools: Partial<Record<string, boolean>> = {};
   if (toolRaw && typeof toolRaw === 'object') {
     for (const [toolId, val] of Object.entries(toolRaw)) {
-      if (baseToolIds.has(toolId) && typeof val === 'boolean') {
+      if (!baseToolIds.has(toolId) || typeof val !== 'boolean') continue;
+      // Persist only sparse differences from the built-in composition. This
+      // lets a newly-added default tool appear for existing users while still
+      // preserving an explicit hide/show choice for known tools.
+      if (ESSENTIAL_TOOL_IDS.has(toolId as ToolId) && val === false) continue;
+      if (baseVisibleToolIds.has(toolId) !== val) {
         cleanTools[toolId] = val;
       }
     }
@@ -468,34 +468,26 @@ export function getEffectiveWorkspaceConfig(
     };
   }
 
-  // Toolbar tool overrides — filter tools by visibility
-  if (modePrefs.toolbarToolOverrides && Object.keys(modePrefs.toolbarToolOverrides).length > 0) {
-    // Selection, hand and zoom remain available as recovery/navigation tools.
-    // Customization may reduce clutter, but must not strand the user without
-    // a way to select objects or navigate the canvas.
-    const overrides = modePrefs.toolbarToolOverrides;
-    const visible = (toolId: ToolId): boolean =>
-      overrides[toolId] !== false || ESSENTIAL_TOOL_IDS.has(toolId);
-    // Flyout members are filtered with the same rule. Without this a hidden
-    // boolean operation or shape stayed in its flyout, so the override applied
-    // to the main row only and customization looked broken for exactly the
-    // tools that live in a flyout.
-    result = {
-      ...result,
-      toolbar: {
-        ...result.toolbar,
-        tools: result.toolbar.tools.filter((t) => visible(t.toolId)),
-        ...(result.toolbar.flyouts
-          ? {
-              flyouts: result.toolbar.flyouts.map((flyout) => ({
-                ...flyout,
-                tools: flyout.tools.filter(visible),
-              })),
-            }
-          : {}),
-      },
-    };
-  }
+  // Toolbar tool overrides — filter the main row and flyouts together. Empty
+  // flyouts are removed here so every consumer of the effective config sees
+  // the same reachable set, even if it does not call composeToolbar.
+  const overrides = modePrefs.toolbarToolOverrides ?? {};
+  const visible = (toolId: ToolId): boolean =>
+    overrides[toolId] !== false || ESSENTIAL_TOOL_IDS.has(toolId);
+  result = {
+    ...result,
+    toolbar: {
+      ...result.toolbar,
+      tools: result.toolbar.tools.filter((item) => visible(item.toolId)),
+      ...(result.toolbar.flyouts
+        ? {
+            flyouts: result.toolbar.flyouts
+              .map((flyout) => ({ ...flyout, tools: flyout.tools.filter(visible) }))
+              .filter((flyout) => flyout.tools.length > 0),
+          }
+        : {}),
+    },
+  };
 
   return result;
 }
@@ -612,10 +604,18 @@ export function setToolbarToolOverride(
   toolId: string,
   visible: boolean,
 ): WorkspacePreferences {
+  const baseToolbar = getWorkspaceConfig(mode).toolbar;
+  const declared = new Set(getToolbarToolIds(baseToolbar));
+  if (!declared.has(toolId as ToolId)) return prefs;
+  const canonicalId = toolId as ToolId;
+  if (ESSENTIAL_TOOL_IDS.has(canonicalId) && !visible) return prefs;
+
   const updated = { ...prefs };
   const modePrefs = { ...updated[mode] };
   const toolOverrides = { ...(modePrefs.toolbarToolOverrides ?? {}) };
-  toolOverrides[toolId] = visible;
+  const builtInVisible = getToolbarToolIds(baseToolbar).includes(canonicalId);
+  if (visible === builtInVisible) delete toolOverrides[canonicalId];
+  else toolOverrides[canonicalId] = visible;
   modePrefs.toolbarToolOverrides = toolOverrides;
   modePrefs.customized = true;
   modePrefs.lastCustomized = Date.now();
