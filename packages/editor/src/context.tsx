@@ -4579,10 +4579,11 @@ export function EditorProvider({
               next[index] = {
                 ...existing,
                 type: 'gradient',
-                gradient: {
-                  ...(existing.type === 'gradient' && existing.gradient ? existing.gradient : {}),
-                  ...gradient,
-                },
+                // The editor sends the complete GradientFill. Replace its
+                // metadata rather than merging so switching from document
+                // inheritance to a pinned space also removes the old source
+                // marker (and vice versa).
+                gradient,
               };
             } else {
               next.push({
@@ -9481,6 +9482,8 @@ export function EditorProvider({
                     updateDoc={updateDoc}
                     prototypeRuntimeRef={prototypeRuntimeRef}
                     smRuntimeRef={smRuntimeRef}
+                    playTimeline={motionValue?.playTimeline}
+                    stopTimeline={motionValue?.stopTimeline}
                     onReady={setProtoValue}
                   >
                     {children}
