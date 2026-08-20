@@ -80,9 +80,10 @@ The baseline defects above were subsequently addressed in the semantic compiler,
 HTML emitter, preflight checks, provider interface, and Email inspector. The
 follow-up implementation adds regression coverage for a real Varve flex row,
 responsive table-cell output, text-range links, linked-container behavior,
-local-image rejection, sandboxed desktop/mobile preview controls, and the
-read-only generated-code ownership boundary. See
+local-image rejection, sandboxed desktop/mobile preview controls, the
+read-only generated-code ownership boundary, source maps, safe CSS inlining, and
+Mailchimp editable-region diagnostics. See
 `docs/architecture/email-template-system.md` for the current guarantees and
 remaining limits; the matrix above intentionally remains the historical audit
-record rather than claiming that deferred IDE, source-map, or compatibility-DB
-work is complete.
+record rather than claiming that deferred compatibility-DB, import, or exact
+client-rendering work is complete.
