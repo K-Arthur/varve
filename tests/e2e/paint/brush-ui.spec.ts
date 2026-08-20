@@ -57,15 +57,16 @@ async function openToolOptions(page: import('@playwright/test').Page) {
 
 async function contentCanvasHash(page: import('@playwright/test').Page): Promise<string> {
   return page.locator('canvas.editor-canvas__content-layer').evaluate((canvas) => {
-    const context = canvas.getContext('2d');
+    const contentCanvas = canvas as HTMLCanvasElement;
+    const context = contentCanvas.getContext('2d');
     if (!context) throw new Error('content canvas 2D context unavailable');
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    const pixels = context.getImageData(0, 0, contentCanvas.width, contentCanvas.height).data;
     let hash = 2166136261;
     for (const pixel of pixels) {
       hash ^= pixel;
       hash = Math.imul(hash, 16777619);
     }
-    return `${canvas.width}x${canvas.height}:${hash >>> 0}`;
+    return `${contentCanvas.width}x${contentCanvas.height}:${hash >>> 0}`;
   });
 }
 
