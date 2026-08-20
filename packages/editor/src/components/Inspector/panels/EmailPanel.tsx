@@ -10,6 +10,7 @@ import { Button, CopyButton, Input, Select, TextArea } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { createBufferedExportArchive, saveExportBytes } from '../../../exportSaveAdapter';
+import { EmailCodeEditor } from './EmailCodeEditor';
 
 const KIND_OPTIONS = [
   'auto',
@@ -278,12 +279,12 @@ export function EmailPanel() {
             value={profile.direction}
             onChange={(value) => updateProfile({ direction: value as EmailProfile['direction'] })}
           />
-          <TextArea
+          <EmailCodeEditor
             label="Custom email CSS"
-            hint="Validated to an email-safe property and selector subset."
-            rows={4}
+            language="css"
             value={profile.customCss ?? ''}
-            onChange={(event) => updateProfile({ customCss: event.target.value || undefined })}
+            onChange={(value) => updateProfile({ customCss: value || undefined })}
+            minRows={6}
           />
           <TextArea
             label="Manual plain-text override"
@@ -673,12 +674,12 @@ function CustomHtmlEditor({ nodeId, enabled }: { nodeId: string; enabled: boolea
         This block is user-authored and survives design recompilation. Scripts, event handlers,
         unsafe URLs, unsupported tags, and oversized input are rejected before preview/export.
       </p>
-      <TextArea
+      <EmailCodeEditor
         label="Email-safe HTML"
-        rows={8}
+        language="markup"
         value={code}
-        spellCheck={false}
-        onChange={(event) => setCode(event.target.value)}
+        onChange={setCode}
+        minRows={10}
       />
       <Button size="sm" onClick={save}>
         Save custom block
