@@ -105,6 +105,37 @@ function fixture(): string {
   });
 }
 
+function nextFuzzValue(state: { value: number }): number {
+  state.value = (state.value * 1_664_525 + 1_013_904_223) >>> 0;
+  return state.value;
+}
+
+function malformedFigmaCorpusEntry(seed: number): string {
+  const state = { value: seed >>> 0 };
+  const random = () => nextFuzzValue(state);
+  const pageChildren = Array.from({ length: random() % 5 }, (_, index) => ({
+    id: index % 2 === 0 ? `fuzz:${seed}:${index}` : null,
+    type: index % 3 === 0 ? 'FRAME' : index % 3 === 1 ? 'UNKNOWN_FUTURE_NODE' : 42,
+    name: index % 2 === 0 ? `fuzz-${random()}` : { invalid: true },
+    children: index % 2 === 0 ? [] : random() % 3 === 0 ? null : [{ type: 'RECTANGLE' }],
+    opacity: random() % 4 === 0 ? 'not-a-number' : random() / 0xffffffff,
+    absoluteBoundingBox: random() % 3 === 0 ? { x: Infinity, width: -1 } : undefined,
+  }));
+  return JSON.stringify({
+    name: `fuzz-${seed}`,
+    document: {
+      type: seed % 7 === 0 ? 'DOCUMENT' : seed % 7 === 1 ? 'BROKEN_DOCUMENT' : null,
+      children:
+        seed % 5 === 0
+          ? [{ type: 'CANVAS', id: `page:${seed}`, children: pageChildren }]
+          : seed % 5 === 1
+            ? pageChildren
+            : null,
+    },
+    variables: seed % 4 === 0 ? { [`var:${seed}`]: { type: 'UNKNOWN', valuesByMode: null } } : null,
+  });
+}
+
 describe('Figma JSON importer', () => {
   it('recognizes official REST file JSON but not opaque binary .fig bytes', () => {
     expect(isFigmaJsonSource(fixture())).toBe(true);
@@ -189,6 +220,18 @@ describe('Figma JSON importer', () => {
       },
     });
     expect(() => decodeFigmaSource(data)).toThrow(/depth/i);
+  });
+
+  it('survives a deterministic malformed JSON corpus without non-error escapes', () => {
+    for (let seed = 0; seed < 256; seed += 1) {
+      const data = malformedFigmaCorpusEntry(seed);
+      expect(() => isFigmaJsonSource(data)).not.toThrow();
+      try {
+        decodeFigmaSource(data);
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+      }
+    }
   });
 
   it('routes through ImportService with a partial fidelity report', async () => {
