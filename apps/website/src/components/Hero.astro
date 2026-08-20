@@ -136,18 +136,15 @@ import { PRODUCT_STATUS } from '@varve/shared';
       <h1 id="hero-title" class="hero-title">
         <span class="hero-title-main" data-line="current">Design locally.</span>
         <span class="hero-title-main" data-line="classic">Varve &mdash; design across disciplines.</span>
-        <span class="hero-title-line hero-title-line--current" data-line="current">No account. No subscription.</span>
+        <span class="hero-title-line hero-title-line--current" data-line="current">
+          <AnimatedText staticText="No account." phrases={['No account.', 'No subscription.', 'Works offline.', 'Yours to keep.']} />
+        </span>
         <span class="hero-title-line hero-title-line--classic" data-line="classic"><AnimatedText staticText="One canvas." /></span>
       </h1>
       <p class="hero-subtitle">
         <span class="hero-sub-line" data-line="current">One application for vector, layout, typography, motion, and print &mdash; with native Linux performance, local files, and a source-available license that converts to MIT.</span>
         <span class="hero-sub-line" data-line="classic">Vector, layout, typography, motion, prototyping, and print production in one application &mdash; no subscription, no account, and core editing that works offline. Optional online services are explicit.</span>
       </p>
-    </div>
-
-    <div class="hero-switch-dots" role="group" aria-label="Headline variant">
-      <button type="button" class="hero-dot is-active" data-switch-to="current" aria-pressed="true" aria-label="Current headline">Current</button>
-      <button type="button" class="hero-dot" data-switch-to="classic" aria-pressed="false" aria-label="Original headline">Original</button>
     </div>
 
     <div class="hero-ctas">
@@ -227,12 +224,11 @@ import { PRODUCT_STATUS } from '@varve/shared';
 
   /**
    * Headline variant switcher — alternates between the current and original
-   * hero copy. The original line keeps its rotating phrase rotor. The dots
-   * allow manual switching; auto-advance runs on a timer (only when motion is
-   * allowed) and pauses while the visitor is engaged with the hero.
+   * hero copy on a timer (motion allowed). Each variant's emphasis line is a
+   * rotating phrase rotor. Auto-advance pauses while the pointer is over the
+   * hero.
    */
   const switcher = document.querySelector<HTMLElement>('[data-hero-switch]');
-  const dots = [...document.querySelectorAll<HTMLButtonElement>('[data-switch-to]')];
   if (switcher) {
     const VARIANTS = ['current', 'classic'] as const;
     type Variant = (typeof VARIANTS)[number];
@@ -240,20 +236,11 @@ import { PRODUCT_STATUS } from '@varve/shared';
     let timer = 0;
     let swapping = false;
 
-    const syncDots = (): void => {
-      for (const d of dots) {
-        const on = d.dataset.switchTo === active;
-        d.classList.toggle('is-active', on);
-        d.setAttribute('aria-pressed', String(on));
-      }
-    };
-
     const apply = (next: Variant): void => {
       if (next === active || swapping) return;
       const doSwap = (): void => {
         active = next;
         switcher.dataset.active = next;
-        syncDots();
       };
       if (prefersMotion()) {
         swapping = true;
@@ -284,19 +271,10 @@ import { PRODUCT_STATUS } from '@varve/shared';
       }
     };
 
-    for (const d of dots) {
-      d.addEventListener('click', () => {
-        apply(d.dataset.switchTo as Variant);
-        startTimer();
-      });
-    }
-
+    // Pause auto-switch while the visitor is reading the hero.
     switcher.addEventListener('pointerenter', stopTimer, { passive: true });
     switcher.addEventListener('pointerleave', startTimer, { passive: true });
-    switcher.addEventListener('focusin', stopTimer);
-    switcher.addEventListener('focusout', startTimer);
 
-    syncDots();
     startTimer();
   }
 </script>
@@ -628,41 +606,6 @@ import { PRODUCT_STATUS } from '@varve/shared';
     transition: opacity 0.28s var(--ease-default);
   }
   .hero-switch.is-swapping { opacity: 0; }
-
-  .hero-switch-dots {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: center;
-    margin: -0.75rem 0 1.75rem;
-  }
-
-  .hero-dot {
-    font: inherit;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    background: color-mix(in oklab, var(--surface-card) 55%, transparent);
-    border: 1px solid var(--border-default);
-    border-radius: 9999px;
-    padding: 0.32rem 0.9rem;
-    cursor: pointer;
-    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-  }
-  .hero-dot:hover {
-    color: var(--text-secondary);
-    border-color: var(--border-strong);
-  }
-  .hero-dot.is-active {
-    color: var(--text-primary);
-    border-color: var(--border-accent);
-    background: color-mix(in oklab, var(--accent-primary) 12%, transparent);
-  }
-  .hero-dot:focus-visible {
-    outline: 2px solid var(--accent-primary);
-    outline-offset: 2px;
-  }
 
   @media (prefers-reduced-motion: reduce) {
     .hero-switch { transition: none; }

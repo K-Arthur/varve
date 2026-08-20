@@ -47,8 +47,9 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
 <script>
   import { prefersMotion } from '../lib/motion';
 
-  const host = document.querySelector<HTMLElement>('[data-animated-phrase]');
-  if (host && prefersMotion()) {
+  const hosts = [...document.querySelectorAll<HTMLElement>('[data-animated-phrase]')];
+  for (const host of hosts) {
+    if (!prefersMotion()) continue;
     const items = [...host.querySelectorAll<HTMLElement>('.hero-phrase-item')];
     const staticEl = host.querySelector<HTMLElement>('.hero-phrase-static');
     if (items.length > 1 && staticEl) {
