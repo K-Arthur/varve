@@ -3007,7 +3007,9 @@
 }
 .gradient-editor__stop--selected {
   border: 2px solid var(--color-interactive-default);
-  box-shadow: 0 0 0 2px var(--color-interactive-default), 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-shadow:
+    0 0 0 2px var(--color-interactive-default),
+    0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .gradient-editor__stop--idle {
   border: 2px solid var(--elevation-surface-overlay);
@@ -3204,7 +3206,9 @@
 }
 .gradient-editor__stop--selected {
   border: 2px solid var(--color-interactive-default);
-  box-shadow: 0 0 0 2px var(--color-interactive-default), 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-shadow:
+    0 0 0 2px var(--color-interactive-default),
+    0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .gradient-editor__stop--idle {
   border: 2px solid var(--elevation-surface-overlay);
@@ -4007,6 +4011,9 @@
   /* Severity is carried by the word as well as the colour, so the ranking
      survives for anyone who cannot separate these hues. */
 }
+.email-preflight__message {
+  color: var(--color-text-default);
+}
 .email-preflight__severity--error {
   color: var(--color-feedback-danger);
 }
@@ -4015,9 +4022,6 @@
 }
 .email-preflight__severity--info {
   color: var(--color-feedback-info);
-}
-.email-preflight__message {
-  color: var(--color-text-default);
 }
 .email-preflight__fix {
   grid-column: 2;
