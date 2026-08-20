@@ -65,6 +65,7 @@ export {
   combineAreaSelections,
   createAreaSelection,
   DEFAULT_AREA_SELECTION_SETTINGS,
+  invertAreaSelection,
   rasterizeAreaSelection,
 } from './areaSelection';
 export type {

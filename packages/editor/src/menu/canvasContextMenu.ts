@@ -272,16 +272,7 @@ export function buildCanvasContextMenuItems({
       label: 'Select All',
       onAction: () => {
         record('selectAll');
-        const nodes = editor.rootNodes();
-        if (nodes.length === 0) {
-          closeMenu();
-          return;
-        }
-        editor.setSelection(nodes[0]?.id ?? null);
-        for (let i = 1; i < nodes.length; i++) {
-          const n = nodes[i];
-          if (n) editor.toggleSelection(n.id, true);
-        }
+        getActionRegistry().get('selectAll')?.handler();
         closeMenu();
       },
     } satisfies MenuEntry,
