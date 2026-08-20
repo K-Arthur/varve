@@ -141,12 +141,19 @@ test.describe('browser demo (/try)', () => {
   test('demo banner limitations disclosure is keyboard accessible', async ({ page }) => {
     await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.varve-demo-banner', { timeout: 60000 });
+    // Wait for the editor to finish mounting before touching focus. The canvas
+    // claims focus as it mounts, so focusing the summary any earlier is a race
+    // the test loses in Firefox and happens to win in Chromium — which read as
+    // a Firefox accessibility bug until the settle was added.
+    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await expect(page.getByRole('treeitem').first()).toBeVisible({ timeout: 30000 });
 
     const summary = page.locator('.varve-demo-banner__limits summary');
     await expect(summary).toBeVisible();
 
-    // Toggle via keyboard: Enter opens, Escape (or second Enter) closes.
+    // Toggle via keyboard: Enter opens, a second Enter closes.
     await summary.focus();
+    await expect(summary).toBeFocused();
     await page.keyboard.press('Enter');
     const list = page.locator('.varve-demo-banner__limits ul');
     await expect(list).toBeVisible();
