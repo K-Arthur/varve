@@ -112,6 +112,7 @@ export * from './richTextIndex';
 export * from './richTextOps';
 export * from './paintCoverage';
 export * from './retouchRaster';
+export * from './smudge';
 export * from './strokeEngine';
 export * from './selectionSet';
 export * from './sha256';
