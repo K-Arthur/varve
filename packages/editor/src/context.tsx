@@ -259,6 +259,7 @@ import {
   setDocumentBitDepth as setDocumentBitDepthDoc,
   setDocumentBlendEvaluationSpace as setDocumentBlendEvaluationSpaceDoc,
   setDocumentProofConfig as setDocumentProofConfigDoc,
+  setDocumentGradientInterpolation as setDocumentGradientInterpolationDoc,
   setDocumentWorkingSpace as setDocumentWorkingSpaceDoc,
   setFacingPagesEnabled as setFacingPagesEnabledDoc,
   setLiveTraceError as setLiveTraceErrorDoc,
@@ -4562,6 +4563,42 @@ export function EditorProvider({
         });
       },
 
+      updateSelectedFillGradientAt: (index, gradient) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            const current = resolveNodeFills(node);
+            const next = [...current];
+            if (index >= 0 && index < next.length) {
+              const existing = next[index];
+              if (!existing) continue;
+              next[index] = {
+                ...existing,
+                type: 'gradient',
+                gradient: {
+                  ...(existing.type === 'gradient' && existing.gradient ? existing.gradient : {}),
+                  ...gradient,
+                },
+              };
+            } else {
+              next.push({
+                type: 'gradient',
+                gradient,
+                opacity: 1,
+                blendMode: 'normal',
+                visible: true,
+              });
+            }
+            nodes[id] = { ...node, fills: next } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
       addSelectedFill: (fill) => {
         const sel = state.selection;
         if (sel.length === 0) return;
@@ -7884,6 +7921,9 @@ export function EditorProvider({
       setDocumentBlendEvaluationSpace: (space) => {
         updateDoc((doc) => setDocumentBlendEvaluationSpaceDoc(doc, space));
       },
+      setDocumentGradientInterpolation: (space) => {
+        updateDoc((doc) => setDocumentGradientInterpolationDoc(doc, space));
+      },
 
       // F2/A8 — session (tab) management -----------------------------------
 
@@ -9257,6 +9297,7 @@ export function EditorProvider({
       setSelectedFill: value.setSelectedFill,
       setSelectedFills: value.setSelectedFills,
       updateSelectedFillAt: value.updateSelectedFillAt,
+      updateSelectedFillGradientAt: value.updateSelectedFillGradientAt,
       addSelectedFill: value.addSelectedFill,
       removeSelectedFillAt: value.removeSelectedFillAt,
       reorderSelectedFill: value.reorderSelectedFill,
