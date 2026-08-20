@@ -39,26 +39,6 @@ export function BrushSection({ tool, sectionId }: BrushSectionProps) {
 
   const heading = isPencil ? 'Pencil' : isEraser ? 'Eraser' : isSmudge ? 'Smudge' : 'Brush';
 
-  // The pencil tool draws vector strokes: preset/radius/opacity/flow/hardness/
-  // spacing are raster-brush concepts that don't apply. Only stroke
-  // stabilization (smoothing) carries over — it drives PencilTool's stabilizer.
-  if (isPencil) {
-    return (
-      <DisclosureSection title={heading} sectionId={sectionId}>
-        <NumberField
-          label="Stabilization"
-          value={Math.round(brushSettings.smoothing * 100)}
-          min={0}
-          max={100}
-          step={1}
-          shiftStep={10}
-          unit="%"
-          onChange={(v) => setBrushSetting('smoothing', v / 100)}
-        />
-      </DisclosureSection>
-    );
-  }
-
   const handlePresetChange = useCallback(
     (presetId: string) => {
       if (!presetId) return;
@@ -85,6 +65,26 @@ export function BrushSection({ tool, sectionId }: BrushSectionProps) {
     },
     [setBrushSetting],
   );
+
+  // The pencil tool draws vector strokes: preset/radius/opacity/flow/hardness/
+  // spacing are raster-brush concepts that don't apply. Only stroke
+  // stabilization (smoothing) carries over — it drives PencilTool's stabilizer.
+  if (isPencil) {
+    return (
+      <DisclosureSection title={heading} sectionId={sectionId}>
+        <NumberField
+          label="Stabilization"
+          value={Math.round(brushSettings.smoothing * 100)}
+          min={0}
+          max={100}
+          step={1}
+          shiftStep={10}
+          unit="%"
+          onChange={(v) => setBrushSetting('smoothing', v / 100)}
+        />
+      </DisclosureSection>
+    );
+  }
 
   return (
     <DisclosureSection title={heading} sectionId={sectionId}>

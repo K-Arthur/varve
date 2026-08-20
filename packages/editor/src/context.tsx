@@ -7544,6 +7544,18 @@ export function EditorProvider({
           let doc = s.document;
           const newIds: NodeId[] = [];
           const resourceImports: ImportedResourceSet[] = [];
+          const selectedContainerId: NodeId | null =
+            s.selection.length === 1
+              ? (() => {
+                  const selected = s.document.nodes[s.selection[0]!];
+                  return selected &&
+                    !selected.locked &&
+                    selected.visible !== false &&
+                    (selected.kind === 'frame' || selected.kind === 'group')
+                    ? selected.id
+                    : null;
+                })()
+              : null;
           let batchIndex = 0;
           for (const { node, sourceDoc, position } of items) {
             // Cascade positionless items from the viewport centre so a
@@ -7591,6 +7603,28 @@ export function EditorProvider({
                     },
                   };
                 }
+              }
+            }
+            // File-picker imports honour a selected frame/group as their
+            // destination, matching paste and canvas-drop behaviour. The
+            // importer initially attaches roots to the active page so it can
+            // remain document-scoped; rebase the imported world transform
+            // before reparenting so translated/rotated containers do not
+            // teleport their new children.
+            if (selectedContainerId && doc.nodes[selectedContainerId]) {
+              const parent = doc.nodes[selectedContainerId];
+              const importedWorld = nodeWorldTransform(doc, inserted.rootId);
+              const parentWorld = nodeWorldTransform(doc, selectedContainerId);
+              const localTransform = multiplyAffine(invertAffine(parentWorld), importedWorld);
+              const toIndex = isContainer(parent) ? parent.children.length : -1;
+              if (toIndex >= 0) {
+                doc = reparentNodeDoc(
+                  doc,
+                  inserted.rootId,
+                  selectedContainerId,
+                  toIndex,
+                  localTransform,
+                );
               }
             }
             newIds.push(inserted.rootId);

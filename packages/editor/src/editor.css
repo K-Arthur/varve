@@ -2138,7 +2138,7 @@ input[type="number"] {
 }
 .history-panel__marker--branch {
   background: color-mix(in oklab, var(--color-feedback-info) 14%, transparent);
-  color: var(--color-feedback-info);
+  color: var(--color-text-primary);
 }
 .history-panel__marker--pinned {
   background: var(--elevation-surface-sunken);
