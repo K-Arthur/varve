@@ -219,3 +219,64 @@ describe('brush tip hardness', () => {
     expect(px(hard, 40 + 8, 40)!.a).toBeGreaterThan(px(soft, 40 + 8, 40)!.a);
   });
 });
+
+describe('wet edge', () => {
+  const wetDab = () => dab({ x: 40, y: 40, radius: 16, hardness: 1, opacity: 0.6 });
+
+  it('darkens the rim relative to the centre', () => {
+    const node = makeRasterLayerNode('n', { width: TILE_SIZE, height: TILE_SIZE });
+    const out = compositeDabOnNode(node, wetDab(), RED, {
+      wetEdge: { size: 0.3, darken: 0.6 },
+    });
+    const centre = px(out, 40, 40)!;
+    const rim = px(out, 40 + 14, 40)!;
+    // Pigment pools at the rim: more coverage and a deeper tone.
+    expect(rim.a).toBeGreaterThan(centre.a);
+    expect(rim.r).toBeLessThan(centre.r);
+  });
+
+  it('leaves the dab unchanged when the effect is off', () => {
+    const node = makeRasterLayerNode('n', { width: TILE_SIZE, height: TILE_SIZE });
+    const plain = compositeDabOnNode(node, wetDab(), RED);
+    const zeroed = compositeDabOnNode(node, wetDab(), RED, { wetEdge: { size: 0.3, darken: 0 } });
+    expect(px(zeroed, 40 + 14, 40)).toEqual(px(plain, 40 + 14, 40));
+  });
+
+  it('does not affect the interior of the dab', () => {
+    const node = makeRasterLayerNode('n', { width: TILE_SIZE, height: TILE_SIZE });
+    const plain = compositeDabOnNode(node, wetDab(), RED);
+    const wet = compositeDabOnNode(node, wetDab(), RED, { wetEdge: { size: 0.2, darken: 0.8 } });
+    expect(px(wet, 40, 40)).toEqual(px(plain, 40, 40));
+  });
+
+  it('is measured against the tip radius, so zoom cannot change it', () => {
+    // Two dabs of different radii show the same relative rim darkening at the
+    // same fraction of their radius — the effect is brush-relative, not
+    // canvas-relative, which is how a wet edge usually goes wrong.
+    const node = makeRasterLayerNode('n', { width: TILE_SIZE, height: TILE_SIZE });
+    const edge = { size: 0.25, darken: 0.6 };
+    const small = compositeDabOnNode(
+      node,
+      dab({ x: 32, y: 32, radius: 10, hardness: 1, opacity: 0.6 }),
+      RED,
+      { wetEdge: edge },
+    );
+    const large = compositeDabOnNode(
+      node,
+      dab({ x: 32, y: 32, radius: 20, hardness: 1, opacity: 0.6 }),
+      RED,
+      { wetEdge: edge },
+    );
+    const smallRim = px(small, 32 + 9, 32)!;
+    const largeRim = px(large, 32 + 18, 32)!;
+    expect(Math.abs(smallRim.a - largeRim.a)).toBeLessThanOrEqual(6);
+  });
+
+  it('still respects alpha lock at the rim', () => {
+    const out = compositeDabOnNode(layerFilled(0, 0, 255, 120), wetDab(), RED, {
+      alphaLock: true,
+      wetEdge: { size: 0.3, darken: 0.8 },
+    });
+    expect(px(out, 40 + 14, 40)!.a).toBe(120);
+  });
+});

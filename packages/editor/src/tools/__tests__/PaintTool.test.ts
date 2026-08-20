@@ -603,7 +603,10 @@ describe('PaintTool mask painting', () => {
       locked: true,
     };
     const ctx = makeCtx({
-      document: { nodes: { r1: locked }, rootChildren: ['r1'] } as unknown as ToolContext['document'],
+      document: {
+        nodes: { r1: locked },
+        rootChildren: ['r1'],
+      } as unknown as ToolContext['document'],
       selection: ['r1'],
       getNode: (id: string) => (id === 'r1' ? (locked as never) : undefined),
     });

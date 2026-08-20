@@ -49,7 +49,11 @@ export function createMaskPlane(width: number, height: number, fill = 255): Mask
 }
 
 /** Read an RGBA mask asset into a coverage plane, using its alpha channel. */
-export function maskPlaneFromRgba(rgba: Uint8ClampedArray, width: number, height: number): MaskPlane {
+export function maskPlaneFromRgba(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+): MaskPlane {
   const plane = createMaskPlane(width, height, 0);
   for (let i = 0, p = 3; i < plane.data.length; i++, p += 4) {
     plane.data[i] = rgba[p] ?? 0;

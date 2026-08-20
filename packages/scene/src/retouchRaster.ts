@@ -18,7 +18,15 @@ import { createBrushDabMask, makeTileKey, TILE_SIZE, tilesForBounds } from './ra
 import type { RasterLayerNode, RasterTile } from './types';
 
 export interface RetouchOptions {
-  /** Tiles to sample from — normally a snapshot taken at stroke start. */
+  /**
+   * Tiles to sample from — normally a snapshot taken at stroke start.
+   *
+   * For "sample all layers" this is a flattened composite of the visible stack
+   * rather than the target's own tiles. Sampling the composite while
+   * depositing onto the active layer only is what keeps the operation
+   * non-destructive: the layers that contributed to the sample are never
+   * written back to.
+   */
   sourceTiles: Map<string, RasterTile>;
   /** Source position for a target pixel is (x - offsetX, y - offsetY). */
   offsetX: number;
@@ -223,4 +231,53 @@ function meanColorShift(
 
 function clampByte(v: number): number {
   return Math.round(Math.max(0, Math.min(255, v)));
+}
+
+/**
+ * Flatten several layers' tiles into one sampling source, bottom-up.
+ *
+ * Used by "sample all layers" for clone, heal and smudge. The result is a
+ * read-only snapshot: it is never written back, so sampling a composite cannot
+ * destructively bake the stack into whichever layer happens to be active.
+ */
+export function flattenTilesForSampling(
+  layers: ReadonlyArray<{ tiles: Map<string, RasterTile>; opacity?: number; visible?: boolean }>,
+): Map<string, RasterTile> {
+  const out = new Map<string, RasterTile>();
+  for (const layer of layers) {
+    if (layer.visible === false) continue;
+    const opacity = layer.opacity ?? 1;
+    if (opacity <= 0) continue;
+    for (const [key, tile] of layer.tiles) {
+      const existing = out.get(key);
+      if (!existing) {
+        // First contributor for this tile: copy so the source stays read-only.
+        const pixels = new Uint8ClampedArray(tile.pixels);
+        if (opacity < 1) {
+          for (let i = 3; i < pixels.length; i += 4) pixels[i] = pixels[i]! * opacity;
+        }
+        out.set(key, { pixels, version: tile.version });
+        continue;
+      }
+      compositeTileOver(existing.pixels, tile.pixels, opacity);
+    }
+  }
+  return out;
+}
+
+/** Source-over a tile onto an accumulating one, both straight-alpha RGBA. */
+function compositeTileOver(dest: Uint8ClampedArray, src: Uint8ClampedArray, opacity: number): void {
+  for (let i = 0; i < dest.length; i += 4) {
+    const srcA = (src[i + 3]! / 255) * opacity;
+    if (srcA <= 0) continue;
+    const destA = dest[i + 3]! / 255;
+    const outA = srcA + destA * (1 - srcA);
+    if (outA <= 0) continue;
+    for (let c = 0; c < 3; c++) {
+      const s = (src[i + c]! / 255) * srcA;
+      const d = (dest[i + c]! / 255) * destA;
+      dest[i + c] = Math.round(((s + d * (1 - srcA)) / outA) * 255);
+    }
+    dest[i + 3] = Math.round(outA * 255);
+  }
 }
