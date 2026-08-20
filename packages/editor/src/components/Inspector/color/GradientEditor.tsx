@@ -12,6 +12,7 @@ import type {
   BitDepth,
   ColorMode,
   GradientFill,
+  GradientInterpolationSpace,
   GradientStop,
   GradientTilingMode,
   GradientType,
@@ -36,11 +37,21 @@ export interface GradientEditorProps {
   onEditStart?: () => void;
   onEditEnd?: () => void;
   documentColorMode?: ColorMode;
+  /** Resolved document default used when this gradient inherits it. */
+  documentGradientInterpolation?: GradientInterpolationSpace;
+  /**
+   * When true, the selected gradients disagree on interpolation space. The
+   * control shows a "Mixed" placeholder (WCAG 1.4.1 — never colour alone) and
+   * a deliberate change applies the chosen value to all selected gradients.
+   */
+  mixedInterpolationSpace?: boolean;
+  /** Mirrors {@link mixedInterpolationSpace} for the cylindrical hue control. */
+  mixedHue?: boolean;
 }
 
-const INTERPOLATION_SPACES = [
+const INTERPOLATION_SPACES: { value: GradientInterpolationSpace; label: string }[] = [
   { value: 'oklab', label: 'OKLab' },
-  { value: 'oklch', label: 'OKLch' },
+  { value: 'oklch', label: 'OKLCH' },
   { value: 'linear-srgb', label: 'Linear RGB' },
   { value: 'hsl', label: 'HSL' },
   { value: 'srgb', label: 'sRGB' },
@@ -71,8 +82,16 @@ function stopColorCss(c: ManagedColor): string {
   return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
 }
 
-function gradientCss(g: GradientFill): string {
-  const space = g.interpolationSpace ?? 'oklab';
+function gradientCss(
+  g: GradientFill,
+  documentGradientInterpolation: GradientInterpolationSpace = 'oklab',
+): string {
+  // CSS is only the inspector preview; use the same sampled engine as the
+  // canvas and resolve inheritance without mutating the document.
+  const space: GradientInterpolationSpace =
+    g.interpolationSource === 'document'
+      ? documentGradientInterpolation
+      : (g.interpolationSpace ?? 'srgb');
   const inputs = g.stops.map((st) => {
     const [r, gv, b, a] = managedColorToRgba(st.color);
     return {
@@ -84,7 +103,9 @@ function gradientCss(g: GradientFill): string {
   const expanded =
     space === 'srgb'
       ? inputs.map((i) => ({ position: i.position, color: i.color }))
-      : expandGradientStops(inputs, space, 12);
+      : expandGradientStops(inputs, space, 12, {
+          hueInterpolation: g.hueInterpolation ?? 'shorter',
+        });
   const stopCss = expanded
     .map((s) => {
       const [r, gv, b, a] = managedColorToRgba(s.color);
@@ -109,8 +130,15 @@ export function GradientEditor({
   onEditStart,
   onEditEnd,
   documentColorMode,
+  documentGradientInterpolation = 'oklab',
+  mixedInterpolationSpace = false,
+  mixedHue = false,
 }: GradientEditorProps) {
   const [selectedStop, setSelectedStop] = useState(0);
+  const effectiveInterpolationSpace: GradientInterpolationSpace =
+    gradient.interpolationSource === 'document'
+      ? documentGradientInterpolation
+      : (gradient.interpolationSpace ?? 'srgb');
   const barRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
   const autoId = useId();
@@ -163,12 +191,9 @@ export function GradientEditor({
                 : 0.5 + 0.5 * ((linearT - midpoint) / (1 - midpoint));
           const fromN = toNormalized(a.color);
           const toN = toNormalized(b.color);
-          const mid = interpolateNormalizedColor(
-            fromN,
-            toN,
-            blendT,
-            gradient.interpolationSpace ?? 'oklab',
-          );
+          const mid = interpolateNormalizedColor(fromN, toN, blendT, effectiveInterpolationSpace, {
+            hueInterpolation: gradient.hueInterpolation ?? 'shorter',
+          });
           color = {
             space: 'rgb',
             bitDepth: storageDepth !== 'uint8' ? storageDepth : undefined,
@@ -184,7 +209,7 @@ export function GradientEditor({
       onChange({ ...gradient, stops: newStops });
       setSelectedStop(newStops.length - 1);
     },
-    [gradient, onChange],
+    [effectiveInterpolationSpace, gradient, onChange],
   );
 
   const removeStop = useCallback(
@@ -274,26 +299,52 @@ export function GradientEditor({
         <div className="insp-field__control">
           <Select
             label="Gradient interpolation space"
-            value={gradient.interpolationSpace ?? 'oklab'}
-            options={INTERPOLATION_SPACES.map((s) => ({ value: s.value, label: s.label }))}
-            onChange={(v) =>
-              onChange({
-                ...gradient,
-                interpolationSpace: v as GradientFill['interpolationSpace'],
-              })
+            value={
+              mixedInterpolationSpace
+                ? ''
+                : gradient.interpolationSource === 'document'
+                  ? 'document'
+                  : (gradient.interpolationSpace ?? 'srgb')
             }
+            options={[
+              ...(mixedInterpolationSpace ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+              {
+                value: 'document',
+                label: `Document default (${documentGradientInterpolationLabel(documentGradientInterpolation)})`,
+              },
+              ...INTERPOLATION_SPACES,
+            ]}
+            onChange={(v) => {
+              if (v === 'document') {
+                const { interpolationSpace: _space, ...rest } = gradient;
+                onChange({ ...rest, interpolationSource: 'document' });
+                return;
+              }
+              const { interpolationSource: _source, ...rest } = gradient;
+              onChange({
+                ...rest,
+                interpolationSpace: v as GradientInterpolationSpace,
+              });
+            }}
           />
         </div>
+        <span className="insp-field__hint" role="note">
+          Stop colours interpolate separately from the document working profile. Alpha uses
+          premultiplied colour to avoid transparent-stop halos.
+        </span>
       </div>
 
-      {(gradient.interpolationSpace === 'oklch' || gradient.interpolationSpace === 'hsl') && (
+      {(effectiveInterpolationSpace === 'oklch' || effectiveInterpolationSpace === 'hsl') && (
         <div className="insp-field">
           <span className="insp-field__label">Hue</span>
           <div className="insp-field__control">
             <Select
               label="Hue interpolation direction"
-              value={gradient.hueInterpolation ?? 'shorter'}
-              options={HUE_INTERPOLATION_OPTIONS}
+              value={mixedHue ? '' : (gradient.hueInterpolation ?? 'shorter')}
+              options={[
+                ...(mixedHue ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+                ...HUE_INTERPOLATION_OPTIONS,
+              ]}
               onChange={(v) =>
                 onChange({
                   ...gradient,
@@ -334,7 +385,7 @@ export function GradientEditor({
         onPointerDown={handleBarPointerDown}
         onKeyDown={handleBarKeyDown}
         className="gradient-editor__bar"
-        style={{ background: gradientCss(gradient) }}
+        style={{ background: gradientCss(gradient, documentGradientInterpolation) }}
       >
         {gradient.stops.map((stop, i) => (
           <button
@@ -463,4 +514,8 @@ export function GradientEditor({
       )}
     </div>
   );
+}
+
+function documentGradientInterpolationLabel(space: GradientInterpolationSpace): string {
+  return INTERPOLATION_SPACES.find((option) => option.value === space)?.label ?? 'OKLab';
 }

@@ -1,4 +1,11 @@
-import type { BitDepth, ColorMode, IsometricAxis, ManagedColor, WorkingSpace } from '@varve/scene';
+import type {
+  BitDepth,
+  ColorMode,
+  GradientInterpolationSpace,
+  IsometricAxis,
+  ManagedColor,
+  WorkingSpace,
+} from '@varve/scene';
 import {
   CMYK_PROFILES,
   ISOMETRIC_PRESETS,
@@ -38,6 +45,7 @@ export function DocumentPanel() {
     documentColorMode,
     setDocumentBitDepth,
     setDocumentBlendEvaluationSpace,
+    setDocumentGradientInterpolation,
     setDocumentWorkingSpace,
     setDocumentGrid,
     setPixelGridSnapEnabled,
@@ -54,6 +62,8 @@ export function DocumentPanel() {
   const documentBitDepth: BitDepth = colorConfig?.bitDepth ?? 'uint8';
   const workingSpace: WorkingSpace = colorConfig?.workingSpace ?? 'srgb';
   const blendEvaluationSpace: BlendEvaluationSpace = resolveBlendEvaluationSpace(colorConfig ?? {});
+  const gradientInterpolation: GradientInterpolationSpace =
+    colorConfig?.defaultGradientInterpolation ?? 'oklab';
   const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
   const canvasBgColor = doc.canvasBackground ?? fallbackColor;
   // When no custom background is set the canvas renders the theme sunken colour,
@@ -223,6 +233,40 @@ export function DocumentPanel() {
           <p className="insp-panel__color-mode-note" role="note">
             Controls the values received by separable artistic blend formulas. Alpha coverage and
             non-separable W3C modes keep their defined semantics.
+          </p>
+        </div>
+        <div className="insp-panel__color-mode">
+          <span className="insp-panel__color-mode-label">Gradient default</span>
+          <div className="insp-panel__color-mode-buttons">
+            {(
+              [
+                { value: 'oklab', label: 'OKLab' },
+                { value: 'oklch', label: 'OKLCH' },
+                { value: 'linear-srgb', label: 'Linear RGB' },
+                { value: 'srgb', label: 'sRGB' },
+                { value: 'hsl', label: 'HSL' },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`insp-panel__color-mode-btn${gradientInterpolation === opt.value ? ' insp-panel__color-mode-btn--active' : ''}`}
+                onClick={() => {
+                  if (gradientInterpolation === opt.value) return;
+                  beginTransaction();
+                  setDocumentGradientInterpolation(opt.value);
+                  commitTransaction();
+                }}
+                aria-pressed={gradientInterpolation === opt.value}
+                title={`Use ${opt.label} for gradients set to Document default`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="insp-panel__color-mode-note" role="note">
+            New gradients inherit this default. An individual gradient can pin another interpolation
+            space; legacy gradients with no metadata remain sRGB.
           </p>
         </div>
       </DisclosureSection>

@@ -243,6 +243,13 @@ function StrokeRow({
   const dashPatternRaw = commonValue(nodes, (n) => getStroke(n, index)?.dashPattern ?? []);
   const dashOffsetRaw = commonValue(nodes, (n) => getStroke(n, index)?.dashOffset ?? 0);
   const gradientRaw = commonValue(nodes, (n) => getStroke(n, index)?.gradient);
+  const strokeInterpRaw = commonValue(
+    nodes,
+    (n) => getStroke(n, index)?.gradient?.interpolationSpace,
+  );
+  const strokeHueRaw = commonValue(nodes, (n) => getStroke(n, index)?.gradient?.hueInterpolation);
+  const strokeInterpMixed = isMixed(strokeInterpRaw);
+  const strokeHueMixed = isMixed(strokeHueRaw);
   const perSideRaw = commonValue(nodes, (n) => getStroke(n, index)?.perSideWeights);
   const arrowStartRaw = commonValue(nodes, (n) => getStroke(n, index)?.arrowStart ?? 'none');
   const arrowEndRaw = commonValue(nodes, (n) => getStroke(n, index)?.arrowEnd ?? 'none');
@@ -389,6 +396,7 @@ function StrokeRow({
                           color: { space: 'rgb' as const, r: 37, g: 99, b: 235, a: 255 },
                         },
                       ],
+                      interpolationSource: 'document',
                     },
                   }));
                 } else {
@@ -406,6 +414,11 @@ function StrokeRow({
               gradient={gradientRaw as GradientFill}
               onChange={(g: GradientFill) => onChange((s) => ({ ...s, gradient: g }))}
               documentColorMode={editor.documentColorMode}
+              documentGradientInterpolation={
+                editor.state.document.colorConfig?.defaultGradientInterpolation ?? 'oklab'
+              }
+              mixedInterpolationSpace={strokeInterpMixed}
+              mixedHue={strokeHueMixed}
             />
           )}
           {/* Per-side weights for rects/frames */}

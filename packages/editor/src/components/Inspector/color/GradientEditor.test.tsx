@@ -315,3 +315,32 @@ describe('Bug 6 — stop colour editing', () => {
     expect(positionInput).toBeTruthy();
   });
 });
+
+describe('gradient interpolation semantics', () => {
+  it('shows document inheritance and exposes hue controls for the resolved space', () => {
+    render(
+      <GradientEditor
+        gradient={makeGradient({ interpolationSource: 'document' })}
+        documentGradientInterpolation="oklch"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole('combobox', { name: 'Gradient interpolation space' }),
+    ).toHaveTextContent('Document default (OKLCH)');
+    expect(screen.getByRole('combobox', { name: 'Hue interpolation direction' })).toBeTruthy();
+  });
+
+  it('treats missing metadata as historical sRGB and allows a concrete override', () => {
+    const onChange = vi.fn();
+    render(<GradientEditor gradient={makeGradient()} onChange={onChange} />);
+    const select = screen.getByRole('combobox', { name: 'Gradient interpolation space' });
+    expect(select).toHaveTextContent('sRGB');
+
+    fireEvent.click(select);
+    fireEvent.click(screen.getByRole('option', { name: 'OKLab' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ interpolationSpace: 'oklab' }));
+    expect(onChange.mock.calls[0]?.[0]).not.toHaveProperty('interpolationSource');
+  });
+});
