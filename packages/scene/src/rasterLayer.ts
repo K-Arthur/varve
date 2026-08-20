@@ -504,6 +504,16 @@ function compositeBrushDabOnPixels(
   return wrote;
 }
 
+/**
+ * Build the coverage mask for a dab's tip.
+ *
+ * Exposed so retouch tools stamp the identical tip geometry the brush does,
+ * rather than each deriving their own falloff and drifting apart.
+ */
+export function createBrushDabMask(dab: BrushDab): Float64Array {
+  return createBrushMask(dab.radius, dab.hardness, dab.shape ?? 'circle', dab.angle, dab.roundness);
+}
+
 export function compositeDabOnNode(
   node: RasterLayerNode,
   dab: BrushDab,
