@@ -29,6 +29,22 @@ async function forceDownloadSaveFallback(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Save explicitly and wait for the status to settle.
+ *
+ * The demo has no autosave — that is documented behaviour, not an oversight
+ * ("No autosave to disk; edits between explicit saves are lost on close"), so
+ * waiting for the status to reach "Saved" on its own waits forever. With the
+ * File System Access API removed the save lands as a Blob download, which is
+ * the Firefox/Safari path.
+ */
+async function saveAndWait(page: Page): Promise<void> {
+  const download = page.waitForEvent('download', { timeout: 30000 }).catch(() => null);
+  await page.keyboard.press('ControlOrMeta+s');
+  await download;
+  await expect(page.locator('.save-status')).toHaveText('Saved', { timeout: 30000 });
+}
+
 test.describe('browser demo (/try)', () => {
   test.describe.configure({ timeout: 240000 });
 
@@ -45,8 +61,12 @@ test.describe('browser demo (/try)', () => {
     // The demo banner is visible with honest copy.
     const banner = page.locator('.varve-demo-banner');
     await expect(banner).toBeVisible({ timeout: 10000 });
-    await expect(banner.getByText(/browser demo/i)).toBeVisible();
-    await expect(banner.getByText(/nothing uploaded/i)).toBeVisible();
+    // Scoped to the intro paragraph: /browser demo/i also matches the
+    // disclosure summary ("What's limited in the browser demo"), which makes
+    // an unscoped getByText a strict-mode violation rather than an assertion.
+    const intro = banner.locator('.varve-demo-banner__intro');
+    await expect(intro).toContainText(/browser demo/i);
+    await expect(intro).toContainText(/nothing uploaded/i);
 
     // The download-desktop CTA links to the website.
     const cta = banner.getByRole('link', { name: /download desktop/i });
@@ -103,9 +123,7 @@ test.describe('browser demo (/try)', () => {
 
     await expect(page.getByRole('treeitem')).toHaveCount(before + 1, { timeout: 15000 });
 
-    // Wait for the save to land in IndexedDB.
-    const saveStatus = page.locator('.save-status');
-    await expect(saveStatus).toHaveText('Saved', { timeout: 30000 });
+    await saveAndWait(page);
 
     // Reload and verify the sample card is present.
     await dismissRecoveryDialog(page);
@@ -194,8 +212,7 @@ test.describe('browser demo (/try)', () => {
     await page.keyboard.press('v');
     await expect(page.getByRole('treeitem')).toHaveCount(before + 1, { timeout: 15000 });
 
-    // Wait for save.
-    await expect(page.locator('.save-status')).toHaveText('Saved', { timeout: 30000 });
+    await saveAndWait(page);
 
     // Revisit via reload.
     await dismissRecoveryDialog(page);

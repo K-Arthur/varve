@@ -235,6 +235,15 @@ async function performSave(
     // the document stays dirty and this never reports "saved to a file".
     const written = await platform.writeSaveTarget(target, json);
     if (written.kind !== 'written') return writeFailure(patch, written.error);
+    // Mirror to internal storage the way every other branch does. Without
+    // this, Firefox and Safari — the browsers that lack File System Access,
+    // and so the only ones that ever reach here — downloaded a snapshot and
+    // left the browser-local copy untouched, so reopening the document
+    // silently restored the state from before the edits. Only for a document
+    // that already has an id: minting one here would bind the session to a
+    // destination the user never chose, which is what the branch above
+    // deliberately avoids.
+    if (meta.fileId) await mirror(patch, platform, meta.fileId, meta.name, json);
     patch({ lastSavedAt: Date.now() });
     return { status: 'saved' };
   }
@@ -337,7 +346,12 @@ async function chooseAndAdopt(
   const fileId = meta?.fileId ?? crypto.randomUUID();
 
   await recoveryRef.current?.deleteSession(s.activeId);
-  if (adopted.persistent) {
+  // A download-only target is not persistent, so it never adopted a location
+  // to mirror to. But a document that already has an id has a browser-local
+  // copy that is now stale, and leaving it stale is how Firefox and Safari
+  // users lost their edits on reload: the snapshot downloaded, the stored
+  // copy kept its pre-edit state, and reopening quietly restored that.
+  if (adopted.persistent || meta?.fileId) {
     await mirror(patch, platform, fileId, adopted.name, json, adopted.mirrorExtra);
   }
   const cur = stateRef.current;
