@@ -5,6 +5,7 @@ import type { ExportBatch, ExportFormat, SceneNode, ShapeNode } from '@varve/sce
 import { isImageShape } from '@varve/scene';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { durationBucket, getDesktopAnalytics } from '../../analytics/desktopAnalytics';
+import { isCapabilityRestricted } from '../../capabilities/restrictions';
 import { useEditor } from '../../context';
 import {
   createBufferedExportArchive,
@@ -53,7 +54,15 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
   const [batchBgRemoveOpen, setBatchBgRemoveOpen] = useState(false);
 
   useImperativeHandle(ref, () => ({
-    openBatchBgRemove: () => setBatchBgRemoveOpen(true),
+    // BatchBgRemoveDialog calls removeBackground straight from @varve/engine
+    // rather than through the editor context, so the context guard does not
+    // cover it. Disabling the Object-menu item was not enough either — the
+    // command palette reaches this same handler. Refusing to open the dialog
+    // is the one place every route passes through.
+    openBatchBgRemove: () => {
+      if (isCapabilityRestricted('inference')) return;
+      setBatchBgRemoveOpen(true);
+    },
   }));
 
   const getExportEngine = useCallback(() => {

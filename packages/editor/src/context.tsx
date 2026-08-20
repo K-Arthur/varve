@@ -352,6 +352,7 @@ import {
   rotateViewAtScreen,
   toCamera,
 } from './canvas/cameraState';
+import { isCapabilityRestricted } from './capabilities/restrictions';
 import { readClipboardUnifiedWithFallback, writeClipboard as writeToClipboard } from './clipboard';
 import type { SectionId } from './components/Inspector/sectionRegistry';
 import {
@@ -474,7 +475,6 @@ import {
   getParentFast,
   type ParentIndexCache,
 } from './scene/parentIndexCache';
-
 import { type FrameSpatialIndex, getOrCreateFrameSpatialIndex } from './scene/spatialIndex';
 import {
   planLinkSelection,
@@ -528,6 +528,21 @@ export type { CanvasMode, EditorState, SessionMeta, ToolId };
  * document's* canvas size as the viewport), which mirrored placements
  * across the world origin the further the camera was panned.
  */
+/**
+ * Wrap an on-device inference action so a deployment that withholds inference
+ * cannot reach it by any route.
+ *
+ * Returns a resolved promise rather than throwing: these are fire-and-forget
+ * UI actions, and a rejection here would surface as an unhandled error toast
+ * for a capability the deployment deliberately does not offer.
+ */
+function guardInference<A extends unknown[]>(
+  action: (...args: A) => Promise<void>,
+): (...args: A) => Promise<void> {
+  return (...args: A) =>
+    isCapabilityRestricted('inference') ? Promise.resolve() : action(...args);
+}
+
 function viewportCenterWorld(cam: {
   zoom: number;
   pan: { x: number; y: number };
@@ -8179,6 +8194,11 @@ export function EditorProvider({
 
       upscaleDialogOpen: state.upscaleDialogOpen,
       openUpscaleDialog: () => {
+        // Choke point. Upscaling is reachable from the layers context menu, two
+        // inspector sections, the selection quick bar, the command palette and
+        // an action handler — gating the affordances one by one leaves whichever
+        // route was missed wide open, so refuse here instead.
+        if (isCapabilityRestricted('inference')) return;
         patch({ upscaleDialogOpen: true });
       },
       closeUpscaleDialog: () => {
@@ -8800,7 +8820,8 @@ export function EditorProvider({
         announcerRef.current?.announce('Live trace cancelled');
       },
 
-      removeBackground: bgRemoval.removeBackground,
+      // Same reasoning as openUpscaleDialog: one guard, every route.
+      removeBackground: guardInference(bgRemoval.removeBackground),
 
       cancelBackgroundRemoval: bgRemoval.cancelBackgroundRemoval,
 
@@ -8808,7 +8829,7 @@ export function EditorProvider({
 
       cancelBackgroundRemovalPreview: bgRemoval.cancelBackgroundRemovalPreview,
 
-      removeBackgroundWithOptions: bgRemoval.removeBackgroundWithOptions,
+      removeBackgroundWithOptions: guardInference(bgRemoval.removeBackgroundWithOptions),
 
       setShowOriginalBg: bgRemoval.setShowOriginalBg,
       setMaskPreviewMode: bgRemoval.setMaskPreviewMode,
