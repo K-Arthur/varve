@@ -92,11 +92,17 @@ Key facts:
 
 | Browser | Status |
 |---------|--------|
-| Chrome/Edge (recent) | Primary target — verified |
-| Firefox (recent) | Primary target — CI only |
-| Safari (recent) | Primary target — CI only |
+| Chrome/Edge (recent) | Primary target — verified locally, demo spec 11/11 and readiness spec 12/12 |
+| Firefox (recent) | Primary target — verified locally, demo spec 11/11 (including save/reopen, the path that lacks File System Access) |
+| Safari (recent) | Primary target — CI only. Playwright's WebKit build cannot launch on Arch/CachyOS without `flite` and `libbacktrace`; see below |
 | Mobile Chrome/Safari | Works but desktop-optimised |
 | No WebAssembly, or no ES modules | Explicit "This browser cannot run Varve" screen naming what is missing, with a desktop download link |
+
+To verify WebKit locally on Arch/CachyOS: `sudo pacman -S flite libbacktrace`,
+then `npx playwright test tests/e2e/browser/try-demo.spec.ts --project=webkit`.
+Playwright's own `install-deps` cannot help — it shells out to `apt-get`. The
+missing sonames are the flite speech-synthesis family and `libbacktrace.so.0`;
+ICU is *not* among them despite what the installer's message claims.
 
 ## Known limitations
 
