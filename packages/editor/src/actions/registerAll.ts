@@ -1,11 +1,20 @@
 import { isTauriRuntime } from '@varve/platform';
 import { type ContactChannelId, contactMailto } from '@varve/shared';
+import { isCapabilityRestricted } from '../capabilities/restrictions';
 import { registerColorConversionActions } from '../components/ColorConversion/colorConversionCommands';
 import type { EditorContextValue } from '../context';
 import { openMockupsWithSelection } from '../mockup/mockupActions';
 import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
 import { registerThumbnailActions } from '../thumbnail/thumbnailCommands';
 import { type ActionCategory, getActionRegistry } from './ActionRegistry';
+
+/**
+ * Commands that run on-device inference. A deployment that withholds it must
+ * not list them in the command palette: the guards downstream make them safe,
+ * but a searchable command that does nothing when chosen is its own defect.
+ */
+const INFERENCE_COMMANDS: ReadonlySet<string> = new Set(['batchBgRemove', 'upscaleImage']);
+
 import { type ActionHandlerCallbacks, createActionHandlers } from './createActionHandlers';
 
 function categoryFromShortcut(cat: string): ActionCategory {
@@ -159,6 +168,7 @@ export function registerEditorActions(
     ['copyFilePath', 'Copy File Path', 'file'],
   ] as const satisfies ReadonlyArray<readonly [string, string, ActionCategory]>;
   for (const [id, label, category] of menuActions) {
+    if (INFERENCE_COMMANDS.has(id) && isCapabilityRestricted('inference')) continue;
     const handler = handlers[id];
     if (handler) reg(id, label, category, handler);
   }
@@ -263,7 +273,7 @@ export function registerEditorActions(
   });
   reg('enterFrame', 'Enter Frame', 'canvas', handlers.enterFrame ?? (() => {}));
   reg('editText', 'Edit Text', 'text', handlers.editText ?? (() => {}));
-  if (!r.has('upscaleImage')) {
+  if (!r.has('upscaleImage') && !isCapabilityRestricted('inference')) {
     r.register(
       {
         id: 'upscaleImage',
