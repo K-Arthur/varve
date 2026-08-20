@@ -87,6 +87,9 @@ const SAFE_CSS_PROPERTIES = new Set([
 ]);
 
 const SAFE_PROTOCOLS = new Set(['http:', 'https:', 'mailto:', 'tel:']);
+const TEMPLATE_TOKEN = /^(?:\{\{[A-Za-z][A-Za-z0-9_.-]*\}\}|\*\|[A-Z][A-Z0-9_.-]*\|\*)$/i;
+const MAX_CUSTOM_HTML_LENGTH = 512_000;
+const MAX_CUSTOM_CSS_LENGTH = 128_000;
 
 function hasUnsafeCharacters(value: string): boolean {
   return [...value].some((character) => {
@@ -107,6 +110,12 @@ export function validateEmailUrl(link: EmailLink): EmailUrlResult {
     }
     return { valid: true, value: raw };
   }
+
+  // Provider-neutral and provider-specific merge tags are data placeholders,
+  // not executable URLs. Permit them only as a complete token or as part of
+  // an already-safe http(s) URL; never accept a token in a javascript/file
+  // URL or an arbitrary template expression.
+  if (TEMPLATE_TOKEN.test(raw)) return { valid: true, value: raw };
 
   if (link.kind === 'anchor') {
     return raw.startsWith('#') && /^#[A-Za-z][\w:.-]*$/.test(raw)
@@ -175,6 +184,9 @@ function sanitizeStyle(value: string): string {
 
 export function sanitizeEmailCss(css: string): { css: string; removed: string[] } {
   const removed: string[] = [];
+  if (css.length > MAX_CUSTOM_CSS_LENGTH) {
+    return { css: '', removed: ['size-limit'] };
+  }
   const withoutBlocks = css
     .replace(/<\/style/gi, '<\\/style')
     .replace(/@import[^;]+;?/gi, () => {
@@ -224,6 +236,9 @@ function sanitizeAttribute(name: string, value: string): string | null {
 
 export function sanitizeEmailHtml(html: string): { html: string; removed: string[] } {
   const removed: string[] = [];
+  if (html.length > MAX_CUSTOM_HTML_LENGTH) {
+    return { html: '', removed: ['size-limit'] };
+  }
   let safe = html.replace(/<!--[\s\S]*?-->/g, '');
   safe = safe.replace(
     /<\/?([A-Za-z][\w:-]*)([^>]*)>/g,

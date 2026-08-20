@@ -235,12 +235,26 @@ function compileNode(
     if (emailChild) children.push(emailChild);
   }
 
+  const semanticChildren =
+    kind === 'row' && children.length > 1
+      ? children.map((child) =>
+          child.kind === 'container'
+            ? {
+                ...child,
+                kind: 'column' as const,
+                compatibility: 'converted' as const,
+                mobileBehavior: child.mobileBehavior ?? 'stack',
+              }
+            : { ...child, mobileBehavior: child.mobileBehavior ?? 'stack' },
+        )
+      : children;
+
   return {
     id: `email-${sourceNodeId}`,
     sourceNodeId,
     kind,
     name: node.name,
-    children,
+    children: semanticChildren,
     styles,
     content,
     link,
@@ -300,6 +314,13 @@ function resolveEmailKind(
   }
 
   // Infer from node properties
+  if (
+    node.children.length > 1 &&
+    node.layout.mode === 'flex' &&
+    (node.layout.direction === 'row' || node.layout.direction === 'row-reverse')
+  ) {
+    return 'row';
+  }
   if (node.content.type === 'text') return 'paragraph';
   if (node.content.type === 'image') return 'image';
 
@@ -343,10 +364,15 @@ function compileStyles(
   const appearance = node.appearance;
   const layout = node.layout;
 
-  // Background
-  const bg = appearance.background.find((f) => f.type === 'solid' && f.opacity > 0);
-  if (bg && bg.type === 'solid') {
-    styles['background-color'] = bg.value;
+  // `ir-builders` currently derives both background and foreground fills from
+  // the scene fill stack. Text therefore has the same color in both fields.
+  // A text fill is a foreground color, never a cell background; copying it to
+  // `background-color` makes live copy disappear in the email output.
+  if (node.content.type !== 'text') {
+    const bg = appearance.background.find((f) => f.type === 'solid' && f.opacity > 0);
+    if (bg && bg.type === 'solid') {
+      styles['background-color'] = bg.value;
+    }
   }
 
   // Padding
@@ -483,31 +509,32 @@ function compileContent(
 
   if (content.type === 'text' && content.text) {
     const runs: EmailIrTextRun[] = [];
-    if (content.text.runs) {
-      let offset = 0;
-      for (const run of content.text.runs) {
-        const runStyles: Record<string, string> = {};
-        if (run.style.fontFamily) runStyles['font-family'] = resolveFontStack(run.style.fontFamily);
-        if (run.style.fontSize) runStyles['font-size'] = `${run.style.fontSize}px`;
-        if (run.style.fontWeight && run.style.fontWeight !== 400)
-          runStyles['font-weight'] = String(run.style.fontWeight);
-        if (run.style.decoration) runStyles['text-decoration'] = run.style.decoration;
+    const sourceRuns = content.text.runs?.length
+      ? content.text.runs
+      : [{ text: content.text.value, style: {} }];
+    let offset = 0;
+    for (const run of sourceRuns) {
+      const runStyles: Record<string, string> = {};
+      if (run.style.fontFamily) runStyles['font-family'] = resolveFontStack(run.style.fontFamily);
+      if (run.style.fontSize) runStyles['font-size'] = `${run.style.fontSize}px`;
+      if (run.style.fontWeight && run.style.fontWeight !== 400)
+        runStyles['font-weight'] = String(run.style.fontWeight);
+      if (run.style.decoration) runStyles['text-decoration'] = run.style.decoration;
 
-        const pieces = splitTextByLinks(sourceNodeId, run.text, offset, emailSemantics);
-        for (const piece of pieces) {
-          runs.push({
-            ...piece,
-            text: applyVariables(
-              piece.text,
-              emailSemantics?.variables ?? [],
-              provider,
-              previewVariables,
-            ),
-            styles: runStyles,
-          });
-        }
-        offset += run.text.length;
+      const pieces = splitTextByLinks(sourceNodeId, run.text, offset, emailSemantics);
+      for (const piece of pieces) {
+        runs.push({
+          ...piece,
+          text: applyVariables(
+            piece.text,
+            emailSemantics?.variables ?? [],
+            provider,
+            previewVariables,
+          ),
+          styles: runStyles,
+        });
       }
+      offset += run.text.length;
     }
 
     return {

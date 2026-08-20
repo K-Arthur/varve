@@ -117,17 +117,7 @@ export function emitEmailHtml(
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="x-apple-disable-message-reformatting" />
   <title>${escapeHtml(settings.subject ?? '')}</title>
-  <!--[if mso]>
-  <noscript>
-    <xml>
-      <o:OfficeDocumentSettings>
-        <o:AllowPNG/>
-        <o:PixelsPerInch>96</o:PixelsPerInch>
-      </o:OfficeDocumentSettings>
-    </xml>
-  </noscript>
   ${msoHead}
-  <![endif]-->
   <style type="text/css">
     ${css}
   </style>
@@ -204,6 +194,15 @@ function emitNode(
       return emitImage(node, indent, depth, opts, warnings, assets);
     case 'button':
       return emitButton(node, indent, depth, opts, warnings, assets);
+    case 'section':
+    case 'hero':
+    case 'footer':
+    case 'compliance':
+      return emitSection(node, indent, depth, opts, warnings, assets);
+    case 'row':
+      return emitRow(node, indent, depth, opts, warnings, assets);
+    case 'column':
+      return emitColumn(node, indent, depth, opts, warnings, assets);
     case 'divider':
       return emitDivider(node, indent, depth);
     case 'spacer':
@@ -218,6 +217,85 @@ function emitNode(
 }
 
 // ── Element Emitters ──────────────────────────────────────────────────────────
+
+function emitSection(
+  node: EmailIrNode,
+  indent: string,
+  depth: number,
+  opts: EmailHtmlExportOptions,
+  warnings: EmailIrWarning[],
+  assets: string[],
+): string {
+  const pad = indent.repeat(depth);
+  const innerPad = indent.repeat(depth + 1);
+  const styles = buildInlineStyles({
+    ...node.styles,
+    width: node.styles.width ?? '100%',
+  });
+  const children = node.children
+    .map((child) => emitNode(child, indent, depth + 2, opts, warnings, assets))
+    .filter(Boolean)
+    .join('\n');
+  const table = `<table${providerAttributes(node)} role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse: collapse; ${styles}">\n${innerPad}<tr>\n${innerPad}${indent}<td valign="top" style="${styles}">\n${children}\n${innerPad}${indent}</td>\n${innerPad}</tr>\n${pad}</table>`;
+  const link = openContainerLink(node, warnings, 'section');
+  return `${pad}${link}${table}${link ? '</a>' : ''}`;
+}
+
+function emitRow(
+  node: EmailIrNode,
+  indent: string,
+  depth: number,
+  opts: EmailHtmlExportOptions,
+  warnings: EmailIrWarning[],
+  assets: string[],
+): string {
+  const pad = indent.repeat(depth);
+  const innerPad = indent.repeat(depth + 1);
+  const styles = buildInlineStyles(node.styles);
+  const cells = node.children
+    .map((child) => emitColumnCell(child, indent, depth + 1, opts, warnings, assets))
+    .join('\n');
+  const table = `<table${providerAttributes(node)} role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse: collapse; ${styles}">\n${innerPad}<tr>\n${cells}\n${innerPad}</tr>\n${pad}</table>`;
+  const link = openContainerLink(node, warnings, 'row');
+  return `${pad}${link}${table}${link ? '</a>' : ''}`;
+}
+
+function emitColumnCell(
+  node: EmailIrNode,
+  indent: string,
+  depth: number,
+  opts: EmailHtmlExportOptions,
+  warnings: EmailIrWarning[],
+  assets: string[],
+): string {
+  const pad = indent.repeat(depth);
+  const styles = buildInlineStyles({
+    ...node.styles,
+    'vertical-align': node.styles['vertical-align'] ?? 'top',
+  });
+  const width = node.width && node.width > 0 ? ` width="${Math.round(node.width)}"` : '';
+  const children = node.children
+    .map((child) => emitNode(child, indent, depth + 1, opts, warnings, assets))
+    .filter(Boolean)
+    .join('\n');
+  const content =
+    node.kind === 'column' ? children : emitNode(node, indent, depth + 1, opts, warnings, assets);
+  return `${pad}<td${mobileClass(node)}${providerAttributes(node)}${width} valign="top" style="${styles}">\n${content}\n${pad}</td>`;
+}
+
+function emitColumn(
+  node: EmailIrNode,
+  indent: string,
+  depth: number,
+  opts: EmailHtmlExportOptions,
+  warnings: EmailIrWarning[],
+  assets: string[],
+): string {
+  const pad = indent.repeat(depth);
+  const innerPad = indent.repeat(depth + 1);
+  const cell = emitColumnCell(node, indent, depth + 1, opts, warnings, assets);
+  return `${pad}<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">\n${innerPad}<tr>\n${cell}\n${innerPad}</tr>\n${pad}</table>`;
+}
 
 function emitHeading(
   node: EmailIrNode,
@@ -251,7 +329,9 @@ function emitText(
   const styles = buildInlineStyles(node.styles);
 
   if (node.content?.runs && node.content.runs.length > 0) {
-    const runsHtml = node.content.runs.map((run) => emitTextRun(run)).join('');
+    const runsHtml = node.content.runs
+      .map((run) => emitTextRun(run, warnings, node.sourceNodeId))
+      .join('');
     const nodeLink =
       node.link && !node.content.runs.some((run) => run.link)
         ? safeLinkOpen(node.link, warnings, node.sourceNodeId, 'text')
@@ -264,13 +344,26 @@ function emitText(
   return `${pad}<p${mobileClass(node)}${providerAttributes(node)} style="${styles}">${nodeLink}${escapeHtml(text)}${nodeLink ? '</a>' : ''}</p>`;
 }
 
-function emitTextRun(run: EmailIrTextRun): string {
+function emitTextRun(
+  run: EmailIrTextRun,
+  warnings: EmailIrWarning[],
+  sourceNodeId: string,
+): string {
   const styles = buildInlineStyles(run.styles);
   const text = escapeHtml(run.text);
 
   if (run.link) {
     const result = validateEmailUrl(run.link);
-    if (!result.valid) return text;
+    if (!result.valid) {
+      warnings.push({
+        severity: 'error',
+        code: 'INVALID_TEXT_RANGE_LINK',
+        message: `Text-range link was omitted: ${result.reason ?? 'invalid URL'}.`,
+        sourceNodeId,
+        category: 'link',
+      });
+      return text;
+    }
     return `<a href="${escapeAttr(result.value)}"${run.link.target ? ` target="${escapeHtml(run.link.target)}"` : ''}${run.link.title ? ` title="${escapeHtml(run.link.title)}"` : ''} style="${styles}; text-decoration: underline; color: inherit;">${text}</a>`;
   }
 
@@ -293,6 +386,30 @@ function emitImage(
   if (!img) return '';
 
   const src = resolveAssetUrl(img.src, _opts.assetBaseUrl);
+  if (isUnsafeLocalAssetReference(img.src)) {
+    warnings.push({
+      severity: 'error',
+      code: 'LOCAL_IMAGE_URL',
+      message: `Image "${node.name}" was not emitted because its source is local-only.`,
+      sourceNodeId: node.sourceNodeId,
+      category: 'asset',
+      suggestedFix: 'Export the asset or configure an https asset base URL.',
+    });
+  }
+  if (
+    _opts.assetBaseUrl &&
+    !/^https?:\/\//i.test(_opts.assetBaseUrl) &&
+    !img.src.startsWith('http') &&
+    !img.src.startsWith('data:')
+  ) {
+    warnings.push({
+      severity: 'error',
+      code: 'INVALID_ASSET_BASE_URL',
+      message: 'The asset base URL must use http: or https:.',
+      sourceNodeId: node.sourceNodeId,
+      category: 'asset',
+    });
+  }
   if (src) assets.push(src);
 
   const alt = escapeHtml(img.decorative ? '' : img.alt || node.alt || '');
@@ -340,7 +457,7 @@ function emitButton(
   const cellStyle = `background-color: ${escapeHtml(bgColor)}; color: ${escapeHtml(textColor)}; padding: ${escapeHtml(padding)}; text-align: center; font-weight: bold; text-decoration: none; display: inline-block; ${borderRadius ? `border-radius: ${borderRadius};` : ''}`;
 
   if (link) {
-    const href = safeLinkOpen(link, warnings, node.sourceNodeId, 'button');
+    const href = safeLinkOpen(link, warnings, node.sourceNodeId, 'button', false);
     if (!href) return `${pad}<span style="${cellStyle}">${escapeHtml(text)}</span>`;
     return `${pad}<table${providerAttributes(node)} role="presentation" cellpadding="0" cellspacing="0" border="0" style="${tableStyle}">
 ${innerPad}<tr>
@@ -429,9 +546,13 @@ function emitContainer(
     .join('\n');
 
   if (node.compatibility === 'converted' && node.children.length > 0) {
-    return `${pad}<table${providerAttributes(node)} role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse: collapse; ${styles}">\n${innerPad}<tr>\n${innerPad}${indent}<td valign="top" style="${styles}">\n${childrenHtml}\n${innerPad}${indent}</td>\n${innerPad}</tr>\n${pad}</table>`;
+    const table = `<table${providerAttributes(node)} role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse: collapse; ${styles}">\n${innerPad}<tr>\n${innerPad}${indent}<td valign="top" style="${styles}">\n${childrenHtml}\n${innerPad}${indent}</td>\n${innerPad}</tr>\n${pad}</table>`;
+    const link = openContainerLink(node, warnings, 'container');
+    return `${pad}${link}${table}${link ? '</a>' : ''}`;
   }
-  return `${pad}<div${mobileClass(node)} style="${styles}">\n${childrenHtml}\n${pad}</div>`;
+  const content = `<div${mobileClass(node)}${providerAttributes(node)} style="${styles}">\n${childrenHtml}\n${pad}</div>`;
+  const link = openContainerLink(node, warnings, 'container');
+  return `${pad}${link}${content}${link ? '</a>' : ''}`;
 }
 
 // ── CSS Builders ──────────────────────────────────────────────────────────────
@@ -493,21 +614,22 @@ ${indent}}`;
 }
 
 function buildMsoHead(contentWidth: number, bodyBackground?: string): string {
-  return `
+  return `<!--[if mso]>
+    <noscript>
+      <xml>
+        <o:OfficeDocumentSettings>
+          <o:AllowPNG/>
+          <o:PixelsPerInch>96</o:PixelsPerInch>
+        </o:OfficeDocumentSettings>
+      </xml>
+    </noscript>
     <style type="text/css">
       body { background-color: ${bodyBackground ?? '#ffffff'}; }
       table { border-collapse: collapse; mso-spacing: 0; }
       img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
       .email-container { max-width: ${contentWidth}px; }
     </style>
-    <!--[if gte mso 9]>
-    <xml>
-      <o:OfficeDocumentSettings>
-        <o:AllowPNG/>
-        <o:PixelsPerInch>96</o:PixelsPerInch>
-      </o:OfficeDocumentSettings>
-    </xml>
-    <![endif]-->`;
+  <![endif]-->`;
 }
 
 function buildPreheader(text: string, indent: string): string {
@@ -517,10 +639,11 @@ function buildPreheader(text: string, indent: string): string {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function buildInlineStyles(styles: Record<string, string>): string {
-  return Object.entries(styles)
+  const css = Object.entries(styles)
     .filter(([_, v]) => v !== undefined && v !== '')
     .map(([k, v]) => `${k}: ${v}`)
     .join('; ');
+  return escapeAttr(css);
 }
 
 function escapeHtml(s: string): string {
@@ -536,11 +659,38 @@ function escapeAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
+function openContainerLink(node: EmailIrNode, warnings: EmailIrWarning[], context: string): string {
+  if (!node.link) return '';
+  if (hasDescendantLink(node)) {
+    warnings.push({
+      severity: 'error',
+      code: 'NESTED_LINK',
+      message: `${context} link was omitted because a descendant already contains a link.`,
+      sourceNodeId: node.sourceNodeId,
+      category: 'link',
+      suggestedFix: 'Keep one link scope around the content.',
+    });
+    return '';
+  }
+  return safeLinkOpen(node.link, warnings, node.sourceNodeId, context);
+}
+
+function hasDescendantLink(node: EmailIrNode): boolean {
+  return node.children.some(
+    (child) =>
+      Boolean(child.link) ||
+      Boolean(child.image?.link) ||
+      Boolean(child.content?.runs?.some((run) => run.link)) ||
+      hasDescendantLink(child),
+  );
+}
+
 function safeLinkOpen(
   link: EmailIrLink | undefined,
   warnings: EmailIrWarning[],
   sourceNodeId: string | undefined,
   context: string,
+  includeDefaultStyle = true,
 ): string {
   if (!link) return '';
   const result = validateEmailUrl(link);
@@ -554,7 +704,8 @@ function safeLinkOpen(
     });
     return '';
   }
-  return `<a href="${escapeAttr(result.value)}"${link.target ? ` target="${escapeHtml(link.target)}"` : ''}${link.title ? ` title="${escapeHtml(link.title)}"` : ''} style="text-decoration: none;">`;
+  const style = includeDefaultStyle ? ' style="text-decoration: none;"' : '';
+  return `<a href="${escapeAttr(result.value)}"${link.target ? ` target="${escapeHtml(link.target)}"` : ''}${link.title ? ` title="${escapeHtml(link.title)}"` : ''}${style}>`;
 }
 
 function mobileClass(node: EmailIrNode): string {
@@ -574,8 +725,14 @@ function providerAttributes(node: EmailIrNode): string {
 
 function resolveAssetUrl(src: string, baseUrl?: string): string {
   if (!src) return '';
+  if (isUnsafeLocalAssetReference(src)) return '';
   if (src.startsWith('http://') || src.startsWith('https://')) return src;
   if (src.startsWith('data:')) return src;
-  if (baseUrl) return `${baseUrl.replace(/\/$/, '')}/${src.replace(/^\//, '')}`;
+  if (baseUrl && /^https?:\/\//i.test(baseUrl))
+    return `${baseUrl.replace(/\/$/, '')}/${src.replace(/^\//, '')}`;
   return src;
+}
+
+function isUnsafeLocalAssetReference(src: string): boolean {
+  return /^(?:file:|blob:|\/|\.\.?(?:\/|\\)|[A-Za-z]:[\\/])/i.test(src.trim());
 }
