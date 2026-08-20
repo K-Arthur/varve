@@ -21,8 +21,8 @@ import { BrushBrowser, type BrushBrowserItem } from './BrushBrowser';
 import { useBrushLibrary } from './useBrushLibrary';
 
 export function BrushLibraryPanel() {
-  const { state, setBrushSetting } = useEditor();
-  const library = useBrushLibrary(state.platform);
+  const { state, platform, setBrushSetting } = useEditor();
+  const library = useBrushLibrary(platform);
   const [editing, setEditing] = useState<BrushPreset | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
