@@ -668,6 +668,7 @@ export function compositeSmudgeDabOnNode(
   dab: BrushDab,
   direction: number,
   strength: number,
+  coverage: CoverageMask | null = null,
 ): RasterLayerNode {
   const brushShape = dab.shape ?? 'circle';
   const brushMask = createBrushMask(dab.radius, dab.hardness, brushShape, dab.angle, dab.roundness);
@@ -712,6 +713,8 @@ export function compositeSmudgeDabOnNode(
 
         const globalX = tileOriginX + px;
         const globalY = tileOriginY + py;
+        const selectionValue = coverage ? sampleCoverage(coverage, globalX, globalY) : 1;
+        if (selectionValue <= 0) continue;
         const sampled = sampleTilePixel(sourceTiles, globalX - dx, globalY - dy);
         if (!sampled || sampled.a === 0) continue;
         wroteVisible = true;
@@ -723,7 +726,10 @@ export function compositeSmudgeDabOnNode(
           b: newPixels[dstIdx + 2]!,
           a: newPixels[dstIdx + 3]!,
         };
-        const t = Math.max(0, Math.min(1, maskValue * strength * dab.opacity * dab.flow));
+        const t = Math.max(
+          0,
+          Math.min(1, maskValue * strength * dab.opacity * dab.flow * selectionValue),
+        );
         const invT = 1 - t;
         newPixels[dstIdx] = clampByte(destination.r * invT + sampled.r * t);
         newPixels[dstIdx + 1] = clampByte(destination.g * invT + sampled.g * t);
