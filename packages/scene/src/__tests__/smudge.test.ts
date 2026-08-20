@@ -179,3 +179,41 @@ describe('smudge reservoir', () => {
     expect(out).toBe(node);
   });
 });
+
+describe('sample all layers', () => {
+  it('picks colour up from the supplied composite, not the target layer', () => {
+    // Target is empty; the composite underneath is solid red.
+    const target = emptyLayer();
+    const composite = splitLayer().tiles;
+    const options = opts({ mode: 'fingerPaint', sampleTiles: composite });
+    const state = createSmudgeState(options);
+    let node = target;
+    for (let x = 20; x <= 60; x += 4) {
+      node = compositeSmudgeDab(node, dab(x, 40), state, options);
+    }
+    // Red was picked up from the composite even though the target had nothing.
+    expect(state.r).toBeGreaterThan(state.b);
+  });
+
+  it('still deposits onto the target layer only', () => {
+    const composite = splitLayer().tiles;
+    const before = composite.get(makeTileKey(0, 0))!.pixels.slice(0, 4);
+    const options = opts({ mode: 'fingerPaint', sampleTiles: composite });
+    const state = createSmudgeState(options);
+    let node = emptyLayer();
+    for (let x = 20; x <= 60; x += 4) node = compositeSmudgeDab(node, dab(x, 40), state, options);
+
+    expect(node.tiles.size).toBeGreaterThan(0);
+    // The sampled composite is read-only.
+    expect(Array.from(composite.get(makeTileKey(0, 0))!.pixels.slice(0, 4))).toEqual(
+      Array.from(before),
+    );
+  });
+
+  it('falls back to the target layer when no composite is given', () => {
+    const options = opts();
+    const state = createSmudgeState(options);
+    compositeSmudgeDab(splitLayer(), dab(30, 40), state, options);
+    expect(state.r).toBeGreaterThan(state.b);
+  });
+});
