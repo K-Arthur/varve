@@ -186,7 +186,23 @@ the brush immediately re-collect its own output and the trail would never fade.
 | `mixing`      | Starts the stroke with a full reservoir of foreground.       |
 
 Pure smudge refuses to deposit into transparent pixels: moving pigment cannot
-create it.
+create it. That is also why a pure smudge dragged off the edge of a shape leaves
+no trail on bare canvas — there is nothing to pick up and nowhere to put it.
+
+The reservoir drains by the fraction a dab actually transfers, which is about
+half the centre-of-tip deposit fraction once the mask's falloff is accounted
+for. Pickup replenishes it on the next dab, so over painted canvas the brush
+reaches an equilibrium and the smear carries; over bare canvas nothing
+replenishes it and the trail fades on its own.
+
+Smudge carries a dab session and smoothing seed across pointer flushes for the
+same reason the brush does, and more urgently: a smudge dab both picks up and
+deposits, so a spacing restart at a batch boundary shows as a blotch rather than
+a slightly uneven edge. The preset is frozen at pointer-down, since strength
+drives both how much pigment moves and how fast the trail fades.
+
+`sampleAllLayers` uses the same read-only flattened composite Clone Stamp does.
+Deposits still land on the target layer alone.
 
 ## Clone Stamp and Healing Brush
 
@@ -255,17 +271,16 @@ so these exist to be looked at.
 
 Covered: hard and soft tips, pressure taper, elliptical tips, scatter jitter,
 wet edge, alpha lock, feathered selection, mirrored symmetry, smudge transport,
-finger paint, clone, heal and mask painting.
+batched smudge, finger paint, clone, heal and mask painting.
 
-Looking at them is what caught the wet edge darkening every dab's rim instead of
-the stroke's, which no unit test would have flagged.
+Looking at them caught two defects no unit test would have flagged: wet edge
+darkening every dab's rim instead of the stroke's, and the smudge reservoir
+draining so fast the trail died before it left the shape it started in.
 
 ## Limitations
 
 **P2 — incomplete professional workflow**
 
-- `sampleAllLayers` exists for Clone Stamp but not for smudge, which still
-  samples the target layer only.
 - Healing's `pattern` source mode is not implemented and is not offered.
 - The symmetry guide overlay renders and is bounded, but its origin handle is
   not yet draggable — the axis is positioned through settings, not the canvas.
