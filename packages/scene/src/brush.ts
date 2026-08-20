@@ -834,6 +834,9 @@ export function validateBrushPreset(preset: unknown): BrushPreset | null {
     smoothing: clampUnit(p.smoothing as number | undefined, fallback.smoothing),
     minSpeed: Math.max(0, (p.minSpeed as number) ?? fallback.minSpeed),
     maxSpeed: Math.max(0, (p.maxSpeed as number) ?? fallback.maxSpeed),
+    // Preserve the grain reference. Dropping it here silently unstyled every
+    // textured brush that went through validation, import or migration.
+    grainId: typeof p.grainId === 'string' && p.grainId ? p.grainId : fallback.grainId,
     grainScale: Math.max(0, (p.grainScale as number) ?? fallback.grainScale),
     grainRotation: (p.grainRotation as number) ?? fallback.grainRotation,
     grainContrast: Math.max(0, (p.grainContrast as number) ?? fallback.grainContrast),
