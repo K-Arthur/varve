@@ -185,6 +185,29 @@ export function combineAreaSelections(
   };
 }
 
+/**
+ * Complement a selection inside an explicit finite domain. This is the only
+ * supported inversion operation: document-space selections are not allowed to
+ * become an infinite mask on an unbounded pasteboard.
+ */
+export function invertAreaSelection(
+  selection: AreaSelection | null,
+  domain: AreaSelection,
+  generation = Math.max(selection?.generation ?? 0, domain.generation) + 1,
+): AreaSelection {
+  if (!selection) return { ...domain, generation };
+  return {
+    coordinateSpace: domain.coordinateSpace,
+    generation,
+    expression: {
+      kind: 'combine',
+      operation: 'subtract',
+      left: domain.expression,
+      right: selection.expression,
+    },
+  };
+}
+
 export function areaSelectionBounds(expression: AreaSelectionExpression): {
   x: number;
   y: number;

@@ -1,4 +1,4 @@
-import { exportDocumentToSvg } from '@varve/codegen';
+import { createAreaSelection, exportDocumentToSvg, invertAreaSelection } from '@varve/engine';
 import { toDelimitedText } from '@varve/import';
 import type { TextNode } from '@varve/scene';
 import { executeNudge, getNudgeStep } from '../commands/nudge';
@@ -37,6 +37,23 @@ export function createActionHandlers(
   const cb = callbacks ?? {};
 
   const setTool = (tool: ToolId) => () => e.setTool(tool);
+  const isAreaSelectionTool = (tool: ToolId): boolean =>
+    tool === 'marquee' || tool === 'ellipseMarquee';
+  const activePageArea = () => {
+    const page = e.state.document.pages?.find(
+      (candidate) => candidate.id === e.state.document.activePageId,
+    );
+    if (!page || !e.setAreaSelection) return null;
+    return createAreaSelection({
+      kind: 'rectangle',
+      x: page.placement?.x ?? 0,
+      y: page.placement?.y ?? 0,
+      w: page.width,
+      h: page.height,
+      feather: 0,
+      antialias: false,
+    });
+  };
   const updateSelectedText = (update: (node: TextNode) => TextNode): void => {
     const selectedId = e.state.selection.length === 1 ? e.state.selection[0] : undefined;
     if (!selectedId) return;
@@ -66,6 +83,15 @@ export function createActionHandlers(
     duplicate: () => e.duplicateSelected(),
     repeatDuplicate: () => e.repeatDuplicate(),
     selectAll: () => {
+      if (isAreaSelectionTool(e.state.tool)) {
+        const pageArea = activePageArea();
+        if (pageArea) {
+          e.setSelection(null);
+          e.setAreaSelection?.(pageArea);
+          e.announce('Entire active page selected');
+        }
+        return;
+      }
       const nodes = e.rootNodes();
       if (nodes.length === 0) return;
       e.setSelection(nodes[0]?.id ?? null);
@@ -75,8 +101,26 @@ export function createActionHandlers(
       }
       e.announceSelection(nodes);
     },
-    selectNone: () => e.selectNone(),
-    invertSelection: () => e.invertSelection(),
+    selectNone: () => {
+      if (isAreaSelectionTool(e.state.tool) && e.setAreaSelection) {
+        e.setAreaSelection(null);
+        e.announce('Pixel selection cleared');
+        return;
+      }
+      e.selectNone();
+    },
+    invertSelection: () => {
+      if (isAreaSelectionTool(e.state.tool) && e.setAreaSelection) {
+        const pageArea = activePageArea();
+        if (pageArea) {
+          e.setSelection(null);
+          e.setAreaSelection(invertAreaSelection(e.state.areaSelection ?? null, pageArea));
+          e.announce('Pixel selection inverted inside the active page');
+        }
+        return;
+      }
+      e.invertSelection();
+    },
     selectParent: () => e.selectParent(),
     selectChildren: () => e.selectChildren(),
     selectSiblings: () => e.selectSiblings(),
