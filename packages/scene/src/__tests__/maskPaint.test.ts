@@ -53,7 +53,8 @@ describe('mask painting', () => {
   it('converges on the chosen value rather than overshooting it', () => {
     const plane = createMaskPlane(32, 32);
     // Repeated soft dabs approach the target and stop there.
-    for (let i = 0; i < 20; i++) compositeMaskDab(plane, dab(16, 16, { opacity: 0.3 }), { value: 0.5 });
+    for (let i = 0; i < 20; i++)
+      compositeMaskDab(plane, dab(16, 16, { opacity: 0.3 }), { value: 0.5 });
     expect(at(plane, 16, 16)).toBeGreaterThanOrEqual(126);
     expect(at(plane, 16, 16)).toBeLessThanOrEqual(130);
   });

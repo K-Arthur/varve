@@ -27,8 +27,6 @@ import { BrushWorkerHost, type StrokeBatchEvent } from '../render/brushWorkerHos
 import { getPaintProfiler } from '../render/paintProfiler';
 import { BaseTool } from './BaseTool';
 import { collectSourceEvents } from './inputNormalizer';
-import { normalizePressure, normalizeTilt } from './pointerDynamics';
-import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
 import {
   beginMaskPaintSession,
   commitMaskPaintSession,
@@ -37,6 +35,8 @@ import {
   paintMaskDab,
 } from './maskPaintSession';
 import { resolvePaintTarget } from './paintTarget';
+import { normalizePressure, normalizeTilt } from './pointerDynamics';
+import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
 import { selectionCoverageForDab } from './selectionCoverage';
 import { resolveSymmetryTransforms, type SymmetrySettings, transformStrokePoint } from './symmetry';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
@@ -82,6 +82,8 @@ interface PaintStrokeSession {
   areaSelection: AreaSelection | null;
   eraser: boolean;
   wet: boolean;
+  /** Wet-edge parameters for this stroke, or null when the effect is off. */
+  wetEdge: { size: number; darken: number } | null;
   /** Set when this stroke paints a mask rather than layer pixels. */
   mask: MaskPaintSession | null;
   /** Mask coverage the brush paints towards, from the foreground luminance. */
@@ -298,6 +300,10 @@ export class PaintTool extends BaseTool {
       areaSelection: ctx.areaSelection ?? null,
       eraser: this.eraserMode,
       wet: !this.eraserMode && preset.wetEnabled && !maskSession,
+      wetEdge:
+        preset.wetEnabled && preset.wetEdge && !maskSession
+          ? { size: preset.wetEdgeSize, darken: preset.wetEdgeDarken }
+          : null,
       mask: maskSession,
       // Painting a mask sets coverage, not colour: white reveals, black
       // conceals. An eraser on a mask reveals, mirroring its meaning on pixels.
@@ -508,7 +514,11 @@ export class PaintTool extends BaseTool {
         }
         const dabColor = session.wet ? this.mixWet(session, dab, color) : color;
         if (session.wet) deposited = true;
-        updated = compositeDabOnNode(updated, dab, dabColor, { alphaLock, coverage });
+        updated = compositeDabOnNode(updated, dab, dabColor, {
+          alphaLock,
+          coverage,
+          wetEdge: session.wetEdge,
+        });
       }
       return updated;
     });
