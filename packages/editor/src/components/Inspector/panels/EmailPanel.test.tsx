@@ -28,5 +28,8 @@ describe('EmailPanel', () => {
     expect(
       screen.getByRole('region', { name: 'Generated email HTML (read-only)' }),
     ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Plain text' }));
+    expect(screen.getByRole('region', { name: 'Generated email plain text' })).toBeInTheDocument();
   });
 });

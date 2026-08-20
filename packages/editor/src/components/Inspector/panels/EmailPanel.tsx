@@ -66,7 +66,7 @@ export function EmailPanel() {
   const profile = state.document.emailProfile ?? DEFAULT_EMAIL_PROFILE;
   const semantics = state.document.emailSemantics;
   const semantic = node ? (semantics?.nodes[node.id] ?? DEFAULT_EMAIL_SEMANTIC) : undefined;
-  const [previewMode, setPreviewMode] = useState<'preview' | 'code'>('preview');
+  const [previewMode, setPreviewMode] = useState<'preview' | 'code' | 'plain-text'>('preview');
   const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop');
   const [showSamples, setShowSamples] = useState(false);
 
@@ -379,6 +379,13 @@ export function EmailPanel() {
               >
                 Code
               </Button>
+              <Button
+                size="sm"
+                variant={previewMode === 'plain-text' ? 'primary' : 'secondary'}
+                onClick={() => setPreviewMode('plain-text')}
+              >
+                Plain text
+              </Button>
               {output && <CopyButton value={output.html} label="Copy generated email HTML" />}
             </div>
           </div>
@@ -437,6 +444,13 @@ export function EmailPanel() {
                   {selectedSourceMap.endLine}.
                 </p>
               )}
+            </section>
+          )}
+          {output && previewMode === 'plain-text' && (
+            <section aria-label="Generated email plain text">
+              <pre className="email-panel__plain-text-preview">
+                <code>{output.plainText}</code>
+              </pre>
             </section>
           )}
           {output && (
