@@ -116,7 +116,7 @@ describe('FloatingToolbar — per-mode tool adaptation', () => {
     const tools = Array.from(document.querySelectorAll('[data-tool]')).map((el) =>
       el.getAttribute('data-tool'),
     );
-    expect(tools.slice(0, 4)).toEqual(['select', 'lasso', 'hand', 'zoom']);
+    expect(tools.slice(0, 4)).toEqual(['select', 'lasso', 'marquee', 'hand']);
   });
 
   it('disables the boolean operations flyout with a reason when fewer than 2 shapes are selected', async () => {
