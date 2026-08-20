@@ -112,7 +112,10 @@ export function symmetryBranchCount(settings: SymmetrySettings | null | undefine
 }
 
 /** Apply a transform to a full stroke point, preserving its dynamics. */
-export function transformStrokePoint(point: StrokePoint, transform: SymmetryTransform): StrokePoint {
+export function transformStrokePoint(
+  point: StrokePoint,
+  transform: SymmetryTransform,
+): StrokePoint {
   const mapped = transform({ x: point.x, y: point.y, direction: point.direction });
   if (mapped.x === point.x && mapped.y === point.y && mapped.direction === point.direction) {
     return point;

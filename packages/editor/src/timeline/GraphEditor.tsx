@@ -55,7 +55,7 @@ export const GraphEditor: FC<GraphEditorProps> = ({
   duration,
   onSeek,
   onMoveKeyframe,
-  onUpdateEasing: _onUpdateEasing,
+  onUpdateEasing,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoveredPoint, setHoveredPoint] = useState<CurvePoint | null>(null);
@@ -64,6 +64,11 @@ export const GraphEditor: FC<GraphEditorProps> = ({
     trackId: string;
     keyframeIndex: number;
     startProgress: number;
+  } | null>(null);
+  const [draggingTangent, setDraggingTangent] = useState<{
+    trackId: string;
+    keyframeIndex: number;
+    tangentType: 'ti' | 'to';
   } | null>(null);
 
   const padding = { top: 20, right: 20, bottom: 30, left: 50 };
@@ -197,13 +202,23 @@ export const GraphEditor: FC<GraphEditorProps> = ({
           const ky = valueToY(typeof kf.value === 'number' ? kf.value : 0);
           const dist = Math.hypot(x - kx, e.clientY - rect.top - ky);
           if (dist < 8) {
+            // Shift+click cycles easing
+            if (e.shiftKey && onUpdateEasing) {
+              const easings = ['linear', 'ease', 'easeIn', 'easeOut', 'easeInOut'] as const;
+              const currentIdx = easings.indexOf(
+                (kf.easing?.kind ?? 'linear') as (typeof easings)[number],
+              );
+              const nextEasing = easings[(currentIdx + 1) % easings.length]!;
+              onUpdateEasing(timeline.id, track.id, kf.progress, { kind: nextEasing });
+              return;
+            }
             setDragging({ trackId: track.id, keyframeIndex: i, startProgress: kf.progress });
             return;
           }
         }
       }
     },
-    [visibleTracks, xToProgress, progressToX, valueToY, onSeek, duration, width, padding.top],
+    [visibleTracks, xToProgress, progressToX, valueToY, onSeek, duration, width, padding.top, onUpdateEasing, timeline.id],
   );
 
   const handleMouseMove = useCallback(
@@ -228,6 +243,7 @@ export const GraphEditor: FC<GraphEditorProps> = ({
 
   const handleMouseUp = useCallback(() => {
     setDragging(null);
+    setDraggingTangent(null);
   }, []);
 
   return (
@@ -357,8 +373,10 @@ export const GraphEditor: FC<GraphEditorProps> = ({
                             newProgress = Math.min(1, kf.progress + step);
                           else if (e.key === 'Delete' || e.key === 'Backspace') {
                             if (onMoveKeyframe) {
-                              // Delete by nudging to 0/1 (marker removal handled by caller)
+                              // Move to -1 progress as a delete signal — caller interprets
+                              onMoveKeyframe(timeline.id, track.id, kf.progress, -1);
                             }
+                            e.preventDefault();
                             return;
                           }
                           if (newProgress !== kf.progress && onMoveKeyframe) {
@@ -385,6 +403,48 @@ export const GraphEditor: FC<GraphEditorProps> = ({
                       }
                       onMouseLeave={() => setHoveredPoint(null)}
                     />
+                    {(isHovered || isFocused) && kf.spatialTangents && (
+                      <>
+                        {/* Tangent-in arm */}
+                        <line
+                          x1={x}
+                          y1={y}
+                          x2={x + kf.spatialTangents.ti[0] * plotWidth}
+                          y2={y - kf.spatialTangents.ti[1] * plotHeight * 0.1}
+                          stroke="var(--color-accent-primary, #39d0c6)"
+                          strokeWidth={1}
+                          opacity={0.5}
+                          aria-hidden
+                        />
+                        <circle
+                          cx={x + kf.spatialTangents.ti[0] * plotWidth}
+                          cy={y - kf.spatialTangents.ti[1] * plotHeight * 0.1}
+                          r={3}
+                          fill="var(--color-accent-primary, #39d0c6)"
+                          style={{ cursor: 'grab', pointerEvents: 'auto' }}
+                          aria-hidden
+                        />
+                        {/* Tangent-out arm */}
+                        <line
+                          x1={x}
+                          y1={y}
+                          x2={x + kf.spatialTangents.to[0] * plotWidth}
+                          y2={y - kf.spatialTangents.to[1] * plotHeight * 0.1}
+                          stroke="var(--color-accent-primary, #39d0c6)"
+                          strokeWidth={1}
+                          opacity={0.5}
+                          aria-hidden
+                        />
+                        <circle
+                          cx={x + kf.spatialTangents.to[0] * plotWidth}
+                          cy={y - kf.spatialTangents.to[1] * plotHeight * 0.1}
+                          r={3}
+                          fill="var(--color-accent-primary, #39d0c6)"
+                          style={{ cursor: 'grab', pointerEvents: 'auto' }}
+                          aria-hidden
+                        />
+                      </>
+                    )}
                     {(isHovered || isFocused) && (
                       <title>
                         {track.nodeId}.{track.property} ={' '}

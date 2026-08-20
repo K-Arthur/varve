@@ -41,7 +41,8 @@ export class WetPaintScheduler {
         if (typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(h);
         else clearTimeout(h as unknown as ReturnType<typeof setTimeout>);
       });
-    this.now = options.now ?? (() => (typeof performance !== 'undefined' ? performance.now() : Date.now()));
+    this.now =
+      options.now ?? (() => (typeof performance !== 'undefined' ? performance.now() : Date.now()));
   }
 
   get isRunning(): boolean {

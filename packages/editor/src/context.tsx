@@ -39,10 +39,10 @@ export function invalidateNodeThumbnail(nodeId: string): void {
   invalidateThumbnailHandler?.(nodeId);
 }
 
+import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
 import { PaletteExtractDialogHost } from './components/PaletteExtract/PaletteExtractDialogHost';
 import { requestInspectorTab } from './context/inspectorTabBridge';
-import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import { applySelectedLayoutChildField } from './context/layoutChildSetters';
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
@@ -259,8 +259,8 @@ import {
   setAllGuidesLocked,
   setDocumentBitDepth as setDocumentBitDepthDoc,
   setDocumentBlendEvaluationSpace as setDocumentBlendEvaluationSpaceDoc,
-  setDocumentProofConfig as setDocumentProofConfigDoc,
   setDocumentGradientInterpolation as setDocumentGradientInterpolationDoc,
+  setDocumentProofConfig as setDocumentProofConfigDoc,
   setDocumentWorkingSpace as setDocumentWorkingSpaceDoc,
   setFacingPagesEnabled as setFacingPagesEnabledDoc,
   setLiveTraceError as setLiveTraceErrorDoc,
@@ -7846,6 +7846,11 @@ export function EditorProvider({
       setSelectedLayoutPosition: (value) =>
         updateDoc((doc) =>
           applySelectedLayoutChildField(doc, state.selection, 'layoutPosition', value),
+        ),
+
+      setSelectedLayoutAlign: (value) =>
+        updateDoc((doc) =>
+          applySelectedLayoutChildField(doc, state.selection, 'layoutAlign', value),
         ),
 
       setSelectedGridPlacement: (value) => {

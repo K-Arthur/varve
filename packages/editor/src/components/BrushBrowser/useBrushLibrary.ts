@@ -69,7 +69,10 @@ export function useBrushLibrary(platform: Platform | undefined): UseBrushLibrary
       const existingNames = ref.current.entries
         .filter((e) => e.id !== preset.id)
         .map((e) => e.name);
-      const named = { ...clampBrushPreset(preset), name: dedupeBrushName(existingNames, preset.name) };
+      const named = {
+        ...clampBrushPreset(preset),
+        name: dedupeBrushName(existingNames, preset.name),
+      };
       persist(
         addBrushEntry(ref.current, {
           id: named.id,
@@ -91,7 +94,12 @@ export function useBrushLibrary(platform: Platform | undefined): UseBrushLibrary
       if (!current) return;
       // The id is the identity; renaming must not disturb favourites or refs.
       const preset = { ...(current.preset as unknown as BrushPreset), name };
-      persist(updateBrushEntry(ref.current, id, { name, preset: preset as unknown as Record<string, unknown> }));
+      persist(
+        updateBrushEntry(ref.current, id, {
+          name,
+          preset: preset as unknown as Record<string, unknown>,
+        }),
+      );
     },
     [persist],
   );

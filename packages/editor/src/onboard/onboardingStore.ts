@@ -7,7 +7,6 @@ const CURRENT_VERSION = 1;
 export interface OnboardingStore {
   onboardingComplete: boolean;
   onboardingVersion: number;
-  skillLevel: 'beginner' | 'intermediate' | 'advanced' | 'unclassified';
   checklistProgress: string[];
   dismissedTips: string[];
   seenFeatureBadges: string[];
@@ -21,7 +20,6 @@ export interface OnboardingStore {
 const DEFAULT_STATE: OnboardingStore = {
   onboardingComplete: false,
   onboardingVersion: 0,
-  skillLevel: 'unclassified',
   checklistProgress: [],
   dismissedTips: [],
   seenFeatureBadges: [],

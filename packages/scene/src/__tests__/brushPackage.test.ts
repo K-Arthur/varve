@@ -114,7 +114,7 @@ describe('brush import validation', () => {
     });
     expect(r.ok).toBe(true);
     expect('evil' in r.presets[0]!).toBe(false);
-    expect((({}) as Record<string, unknown>).polluted).toBeUndefined();
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
   it('rejects a path-shaped resource id', () => {
@@ -166,7 +166,10 @@ describe('brush import validation', () => {
     const r = importBrushPackage({
       format: BRUSH_PACKAGE_FORMAT,
       version: 1,
-      presets: [{ ...preset('dup'), name: 'First' }, { ...preset('dup'), name: 'Second' }],
+      presets: [
+        { ...preset('dup'), name: 'First' },
+        { ...preset('dup'), name: 'Second' },
+      ],
     });
     expect(r.presets).toHaveLength(1);
     expect(r.presets[0]!.name).toBe('First');
