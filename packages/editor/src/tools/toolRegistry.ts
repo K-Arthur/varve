@@ -453,13 +453,13 @@ export function toolIconName(id: ToolId): IconName {
 }
 
 export function getToolIdForShortcutId(shortcutId: string): ToolId | undefined {
-  return TOOL_REGISTRY.find((definition) => definition.shortcutId === shortcutId)?.id as
-    | ToolId
-    | undefined;
+  return TOOL_REGISTRY.find(
+    (definition) => 'shortcutId' in definition && definition.shortcutId === shortcutId,
+  )?.id as ToolId | undefined;
 }
 
 export const ESSENTIAL_TOOL_IDS: ReadonlySet<ToolId> = new Set(
-  TOOL_REGISTRY.filter((definition) => definition.essential).map(
+  TOOL_REGISTRY.filter((definition) => 'essential' in definition && definition.essential).map(
     (definition) => definition.id as ToolId,
   ),
 );
