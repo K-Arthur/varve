@@ -37,14 +37,23 @@ async function activatePaint(page: import('@playwright/test').Page) {
 }
 
 async function openToolOptions(page: import('@playwright/test').Page) {
-  const trigger = page.locator('.tool-options__trigger, [aria-label*="tool options" i]').first();
+  const trigger = page.getByRole('button', { name: 'Tool options' });
   await expect(trigger).toBeVisible({ timeout: 30000 });
-  await trigger.click();
+  // Activating a paint tool opens the options popover on its own, so this has
+  // to be idempotent — clicking unconditionally would close it.
+  if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
+    await trigger.click();
+  }
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
   return page.locator('.tool-options__popover');
 }
 
 test.describe('paint UI in the running app', () => {
   test('brush browser renders, searches and filters', async ({ page }, testInfo) => {
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'warning' || msg.type() === 'error') consoleErrors.push(msg.text());
+    });
     await page.setViewportSize(VIEWPORT);
     await navigateToEditor(page);
     await switchToPhotoWorkspace(page);
@@ -65,7 +74,9 @@ test.describe('paint UI in the running app', () => {
     const previews = browser.locator('.brush-browser__preview img');
     await expect(previews.first()).toBeVisible({ timeout: 30000 });
     const src = await previews.first().getAttribute('src');
-    expect(src ?? '').toContain('data:image/png');
+    expect(src ?? '', consoleErrors.filter((e) => e.includes('[brush]')).join('\n')).toContain(
+      'data:image/png',
+    );
 
     // Search narrows the list.
     await browser.getByLabel('Search brushes').fill('airbrush');
@@ -106,7 +117,10 @@ test.describe('paint UI in the running app', () => {
 
     // The live preview responds to a parameter change without touching the doc.
     const before = await editor.locator('.brush-editor__preview img').getAttribute('src');
-    await editor.getByRole('button', { name: 'Brush Tip' }).click().catch(() => {});
+    await editor
+      .getByRole('button', { name: 'Brush Tip' })
+      .click()
+      .catch(() => {});
     await editor.getByLabel('Size').fill('60');
     await editor.getByLabel('Size').press('Enter');
     await expect(editor.getByText('Unsaved changes')).toBeVisible();
