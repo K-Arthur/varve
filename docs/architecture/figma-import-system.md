@@ -1,14 +1,15 @@
 # Figma Import System
 
-Date: 2026-08-17
+Date: 2026-08-20
 
 ## Overview
 
-Varve imports Figma documents from official REST API JSON responses or
-plugin-export JSON. Opaque native `.fig` binaries are not supported —
-Figma's local binary format is undocumented and changes frequently. The
-recommended acquisition path is the Figma REST API (`GET /v1/files/:key`)
-or a Figma plugin that exports the same JSON structure.
+Varve imports Figma documents from user-provided official REST API JSON
+responses or plugin-export JSON. It does not embed an API client or persist
+Figma credentials. Opaque native `.fig` binaries are not supported — Figma's
+local binary format is undocumented and changes frequently. The recommended
+acquisition path is the Figma REST API (`GET /v1/files/:key`) or a Figma plugin
+that exports the same JSON structure.
 
 ## Acquisition paths
 
@@ -62,7 +63,7 @@ Node-type mapping:
 | SECTION | GroupNode | Preserved as non-renderable organizational group |
 | COMPONENT | FrameNode + ComponentDefinition | Native master |
 | INSTANCE | FrameNode with componentId | Linked instance with property overrides |
-| COMPONENT_SET | GroupNode | Container for variants |
+| COMPONENT_SET | FrameNode + ComponentDefinition variants | Native container plus structured variants |
 | TEXT | TextNode | Editable text with font family/style/weight |
 | RECTANGLE | ShapeNode | Parametric rect, preserving corner radii |
 | ELLIPSE | ShapeNode | Parametric ellipse |
@@ -71,11 +72,13 @@ Node-type mapping:
 | STAR | ShapeNode | Parametric star |
 | VECTOR | ShapeNode (path) | Bezier path from fillGeometry; bounds fallback when data missing |
 | BOOLEAN_OPERATION | GroupNode | Children preserved; native boolean not available |
+| Unknown container | GroupNode | Children preserved and unsupported type reported |
 | SLICE | Skipped | Export metadata only; logged as unsupported |
 
 Auto Layout:
 
 - HORIZONTAL / VERTICAL → `LayoutStyle.mode = 'flex'`
+- GRID → `LayoutStyle.mode = 'grid'` with column metadata where available
 - itemSpacing → gap
 - padding → padding tuple
 - primaryAxisAlignItems → justifyContent
@@ -84,6 +87,8 @@ Auto Layout:
 - layoutPositioning → layoutPosition
 - layoutGrow → fill sizing
 - wrap → wrap
+- layout grids → `Document.gridSettings.layoutGrids`
+- export settings → node export presets for supported formats
 
 Components and variants:
 
@@ -91,7 +96,7 @@ Components and variants:
   slots don't map 1:1 to Varve slot semantics).
 - componentPropertyDefinitions are preserved as typed properties.
 - Instance propertyOverrides are captured from componentProperties.
-- Component sets become group containers.
+- Component sets become frame containers with structured component variants.
 
 Variables and styles:
 
@@ -131,7 +136,8 @@ Provenance and identity:
 - Maximum 100,000 normalized nodes.
 - Maximum 256 levels of nesting.
 - Maximum 2,000,000 characters of text content.
-- Path commands beyond M/L/C/Z are detected and produce warnings.
+- Malformed or unsupported path commands are bounded and reported; supported
+  relative commands and curves use Varve's shared SVG path parser.
 - Boolean operations are preserved as editable children, not native booleans.
 - Unknown effect types are logged as unsupported, not silently dropped.
 
@@ -141,9 +147,9 @@ Provenance and identity:
 |---------|--------|----------|
 | Pages | Native | — |
 | Frames | Native | — |
-| Auto Layout | Native (flex) | — |
+| Auto Layout | Native (flex/grid) | Fixed geometry only for unsupported source behavior |
 | Components | Native (definition + instance) | Materialized children |
-| Variants | Partial (component properties preserved) | — |
+| Variants | Converted (component properties and variant values) | Ordinary frame if master is unavailable |
 | Variables | Native (color/number/string/boolean) | Resolved values |
 | Styles | Native (color/text/effect/layout) | Inline properties |
 | Text | Native (font family/style/weight/size) | Font substitute |
@@ -161,8 +167,9 @@ Provenance and identity:
 | Stroke | Native (weight/align/cap/join/dash) | — |
 | Blend modes | Native (all standard modes) | — |
 | Export slices | Metadata only | Warning |
-| Scroll | Not imported | — |
-| Layout grids | Not imported | — |
+| Scroll/sticky | Unsupported | Static layout plus report |
+| Layout grids | Converted to non-rendering grid metadata | — |
+| Export settings | Converted to node export presets | Unsupported formats reported |
 
 ## Testing
 
@@ -184,10 +191,14 @@ pnpm exec vitest run packages/import/src/figma.test.ts
 
 ## Known limitations
 
-- No remote image fetching; plugin export must embed image data URLs.
-- Rich text style overrides are approximated, not fully resolved.
-- No scroll, layout grid, or layout constraint reflow after import.
+- No remote image fetching; plugin export must embed image data URLs or the
+  caller must resolve REST image refs before handing JSON to Varve.
+- Rich text style overrides are approximated, not fully shaped across every
+  script/font combination.
+- Scroll/sticky semantics are not yet native; layout grids are imported as
+  non-rendering document metadata.
 - Boolean operations are not native Varve nodes; children are preserved.
 - Variable alias expressions are stored as placeholder strings, not
   fully evaluated.
 - Prototype transitions are simplified to instant/dissolve/smartAnimate.
+- Font replacement is report-only; import-scoped replacement UI is staged.
