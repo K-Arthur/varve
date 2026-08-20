@@ -102,7 +102,10 @@ Key facts:
 
 - Files stored in this browser only (IndexedDB); clearing site data deletes them.
 - WASM engine, not native desktop engine — slower rendering on large documents.
-- No autosave to disk; edits between explicit saves are lost on close.
+- No autosave: edits must be saved explicitly (Ctrl+S), and anything after the
+  last save is lost on close. An explicit save does now update the browser-local
+  copy in every browser, so reopening restores the saved work — that was broken
+  in Firefox and Safari until the download-only mirror was added.
 - No service worker; offline only while the tab is open.
 - Background removal, upscaling, print production, and five workspaces are
   desktop-only (see above).

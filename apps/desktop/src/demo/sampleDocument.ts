@@ -18,7 +18,6 @@ import {
   makeShapeNode,
   makeTextNode,
   nextNodeId,
-
   serializeDocument,
 } from '@varve/scene';
 
@@ -37,7 +36,6 @@ const MUTED = { space: 'rgb', r: 96, g: 108, b: 128, a: 255 } as const;
 const OUTLINE = { space: 'rgb', r: 210, g: 216, b: 228, a: 255 } as const;
 /** Stroke-only shapes still need a fill; makeShapeNode defaults to teal. */
 const NO_FILL = { space: 'rgb', r: 0, g: 0, b: 0, a: 0 } as const;
-
 
 /** Stable doc id for the sample — makes serialization deterministic. */
 const SAMPLE_DOC_ID = '00000000-0000-4000-a000-000000000001';
