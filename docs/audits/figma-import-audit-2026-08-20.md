@@ -20,13 +20,13 @@ were at the integration boundaries:
 - missing-font handling detected only part of the text model and did not yet
   connect replacement choices to rich-text runs or persisted provenance.
 
-Those gaps are now addressed for the supported JSON acquisition path,
-including native missing-font replacement across node-level text, rich-text
-runs, and text styles. Native opaque `.fig` bytes remain explicitly
-unsupported. This is intentional: the
-official Figma interfaces expose file data as JSON and do not document the
-local binary layout. Varve does not reverse-engineer or bypass a protected
-format.
+Those gaps are now addressed for both the documented JSON acquisition path and
+the local native `.fig` path. Missing-font replacement covers node-level text,
+rich-text runs, and text styles. Native archives are decoded through the
+MIT-licensed `openfig-core` library, bounded before decompression, normalized
+into the existing source IR, and converted by the existing Varve builder. The
+adapter is version-aware and fails safely when a source schema is unsupported;
+it does not bypass authentication or technical protections.
 
 ## Source acquisition capability matrix
 
@@ -34,7 +34,7 @@ format.
 | --- | ---: | --- | --- | ---: | --- |
 | User-provided REST file JSON | Yes | High for fields present in JSON | Caller obtains Figma authorization | Yes after export | Recommended for API workflows |
 | Plugin-generated JSON envelope | Yes | High when it includes embedded assets and metadata | Plugin permissions may apply | Yes | Recommended for local-first workflows |
-| Local opaque `.fig` binary | No | None | N/A | N/A | Export JSON/plugin data instead |
+| Local native `.fig` archive | Yes | Converted; schema/version dependent | None | Yes | Recommended for offline local files; use JSON when maximum documented resource fidelity is required |
 | SVG fallback | Yes | Appearance-focused | No | Yes | Use for isolated visual content |
 | PDF fallback | Yes | Appearance/print-focused | No | Yes | Use for print artwork |
 | Figma API client inside Varve | No | N/A | Not implemented | No | Deliberately staged separately to avoid token storage/network coupling |
@@ -59,20 +59,21 @@ The downloaded file was 48,052 bytes with SHA-256
 contained `canvas.fig`, `meta.json`, `thumbnail.png`, and an `images/` entry.
 Its `canvas.fig` payload began with the `fig-kiwi` signature.
 
-Varve's importer correctly classified that real binary as non-JSON and
-rejected it with the explicit unsupported-native-`.fig` path. This validates
-safe failure and prevents a false claim of native `.fig` support; it is not a
-claim that the opaque binary was semantically imported. Semantic import and
-font-replacement validation therefore uses legitimate REST/plugin-shaped JSON,
-which is the supported acquisition contract documented above.
+Varve's native decoder now parses that exact archive through `openfig-core`
+(schema version 106), resolves its `DOCUMENT → CANVAS → FRAME → VECTOR`
+hierarchy, converts the multi-region vector into editable Varve path children,
+and validates the resulting document. The same fixture is uploaded through the
+real browser file-picker path in `tests/e2e/canvas/figma-import.spec.ts`.
+This is a real native `.fig` import check, not a JSON masquerading as a `.fig`
+extension or a screenshot fallback.
 
 ## Architecture implemented
 
 ```text
-REST/plugin JSON or .fig candidate
+REST/plugin JSON or native .fig candidate
         |
         v
-  bounded decoder and source validation
+  native archive decoder or bounded JSON decoder
         |
         v
   FigmaSourceDocument normalized IR
@@ -116,7 +117,7 @@ semantically into a Varve concept; `Approximated` = editable but not identical;
 | Sections | organizational `GroupNode` | Approximated | Preserve label/children | No fake visible artwork |
 | Groups | `GroupNode` | Native | — | Hierarchy and transforms retained |
 | Rectangle/ellipse/line/polygon/star | Parametric `ShapeNode` | Native | — | Corner radii, point counts and star scale retained |
-| Vector paths | editable Varve path | Converted | Bounds placeholder when paths absent | Uses the shared SVG path parser for relative commands and curves |
+| Vector paths | editable Varve path/group | Converted | Bounds placeholder when paths absent | Native vector regions become editable path children; source IDs remain provenance only |
 | Boolean operations | editable group with children | Flattened | Baked/flattened geometry is not attempted | Operation is reported; native boolean node is not present |
 | Unknown container types | editable group | Approximated | Preserve children, report type | Future types do not silently erase descendants |
 | Fills | Varve fill stack | Converted | Omit unresolved paint | Solid, linear/radial/angular/diamond gradients, image references |
@@ -172,7 +173,8 @@ Replace All as one transaction. A clean import remains quiet.
 
 Focused tests currently cover:
 
-- official JSON detection and opaque `.fig` rejection;
+- official JSON detection and native `.fig` archive detection;
+- native `.fig` decoding/conversion from the checked-in `OpenFigs.fig` fixture;
 - ImportService registration and parser-level partial reports;
 - page/frame/layout/text/gradient/effect/path conversion;
 - source-ID isolation;
@@ -182,11 +184,13 @@ Focused tests currently cover:
 - import scaling;
 - editor import report/progress components;
 - rich-text missing-font replacement through the real file-picker workflow;
+- native `.fig` upload through the real browser file picker, with the imported
+  layer visible and the canvas rendered;
 - replacement manifest provenance and save-time manifest rebuilding;
 - post-clone resource/reference remapping;
 - editor import insertion and clipboard paths.
 
-The targeted Figma and editor import suites pass, including the browser
+The targeted Figma and editor import suites pass, including the native browser
 workflow in `tests/e2e/canvas/figma-import.spec.ts`. Workspace typecheck
 remains blocked by unrelated existing errors in shared color/analytics code
 and stale brush-worker tests; those failures are not introduced by the Figma
@@ -204,6 +208,9 @@ memory.
   make it part of the affected validation plan.
 - Add cancellation checkpoints inside very large synchronous conversion phases.
 - Add save/reopen and undo/redo assertions for resource-owned imports.
+- Add parser-level decompression checkpoints if `openfig-core` exposes a
+  streaming/limited ZIP API; the current preflight bounds archive declarations
+  before the library's synchronous unzip.
 
 ### P1 — semantic fidelity
 
@@ -221,6 +228,8 @@ memory.
   storage and image endpoint resolution.
 - Add current Figma node-type fixtures for newer widget/slides/media/connector
   records and keep unknown-type behavior tolerant.
+- Expand native `.fig` resource extraction for style/variable/library/prototype
+  maps when the decoder exposes those records.
 - Add wider color/profile metadata handling where the source path provides it.
 
 ### P3 — product polish
