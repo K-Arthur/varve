@@ -182,14 +182,10 @@ export async function validateImport(
     );
   } else if (parser.format === 'figma') {
     estimatedNodeCount = estimateFigmaNodeCount(data);
-    if (!parser.canParse(data))
+    if (!parser.canParse(data)) {
       warnings.push('Figma input is not official file JSON or a supported plugin export');
-    unsupportedFeatures.push(
-      'opaque native .fig binary',
-      'Figma boolean operations',
-      'Figma scroll behavior',
-      'Figma layout grids',
-    );
+      unsupportedFeatures.push('opaque native .fig binary');
+    }
   }
 
   // Check for empty or too-small data

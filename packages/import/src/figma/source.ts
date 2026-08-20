@@ -85,11 +85,13 @@ export interface FigmaSourceNode {
   strokeDashes?: number[];
   miterLimit?: number;
   fillGeometry?: Array<{ path: string; windingRule?: string }>;
+  pointCount?: number;
+  starInnerScale?: number;
   text?: string;
   textStyle?: FigmaTextStyle;
   styleOverrideTable?: Record<string, FigmaTextStyle>;
   characterStyleOverrides?: number[];
-  layoutMode?: 'HORIZONTAL' | 'VERTICAL' | 'NONE';
+  layoutMode?: 'HORIZONTAL' | 'VERTICAL' | 'GRID' | 'NONE';
   layoutWrap?: 'NO_WRAP' | 'WRAP';
   itemSpacing?: number;
   counterAxisSpacing?: number;
@@ -106,10 +108,19 @@ export interface FigmaSourceNode {
   layoutGrow?: number;
   layoutAlign?: string;
   layoutPositioning?: string;
+  overflowDirection?: string;
+  minWidth?: number;
+  maxWidth?: number;
+  minHeight?: number;
+  maxHeight?: number;
+  layoutGrids?: FigmaLayoutGrid[];
+  exportSettings?: FigmaExportSetting[];
   constraints?: { horizontal?: string; vertical?: string };
   isMask?: boolean;
   booleanOperation?: string;
   componentId?: string;
+  componentSetId?: string;
+  variantProperties?: Record<string, string>;
   componentPropertyDefinitions?: Record<
     string,
     { type?: string; defaultValue?: unknown; variantOptions?: string[] }
@@ -118,6 +129,24 @@ export interface FigmaSourceNode {
   styleRefs?: Record<string, string>;
   boundVariables?: Record<string, { id?: string } | Array<{ id?: string }>>;
   reactions?: Array<Record<string, unknown>>;
+}
+
+export interface FigmaLayoutGrid {
+  pattern: 'COLUMNS' | 'ROWS' | 'GRID' | string;
+  visible: boolean;
+  color?: { r: number; g: number; b: number; a?: number };
+  sectionSize?: number;
+  gutterSize?: number;
+  offset?: number;
+  alignment?: string;
+  count?: number;
+}
+
+export interface FigmaExportSetting {
+  format?: string;
+  suffix?: string;
+  constraint?: { type?: string; value?: number };
+  contentsOnly?: boolean;
 }
 
 export interface FigmaSourcePage {
@@ -131,6 +160,12 @@ export interface FigmaSourceComponent {
   sourceId: string;
   name: string;
   componentSetId?: string;
+}
+
+export interface FigmaSourceComponentSet {
+  sourceId: string;
+  name: string;
+  description?: string;
 }
 
 export interface FigmaSourceStyle {
@@ -156,6 +191,7 @@ export interface FigmaSourceDocument {
   version?: string;
   pages: FigmaSourcePage[];
   components: FigmaSourceComponent[];
+  componentSets: FigmaSourceComponentSet[];
   styles: FigmaSourceStyle[];
   variables: FigmaSourceVariable[];
   images: Record<string, { dataUrl: string; width?: number; height?: number }>;
@@ -238,6 +274,36 @@ function effect(value: unknown): FigmaEffect | undefined {
     spread: finite(value.spread, 0),
     offset: point(value.offset),
     color: color(value.color),
+  };
+}
+
+function layoutGrid(value: unknown): FigmaLayoutGrid | undefined {
+  if (!isRecord(value)) return undefined;
+  return {
+    pattern: stringValue(value.pattern) ?? 'UNKNOWN',
+    visible: value.visible !== false,
+    color: color(value.color),
+    sectionSize: positive(value.sectionSize, 0),
+    gutterSize: positive(value.gutterSize, 0),
+    offset: finite(value.offset, 0),
+    alignment: stringValue(value.alignment),
+    count: Math.max(0, Math.floor(finite(value.count, 0))),
+  };
+}
+
+function exportSetting(value: unknown): FigmaExportSetting | undefined {
+  if (!isRecord(value)) return undefined;
+  const constraint = isRecord(value.constraint)
+    ? {
+        type: stringValue(value.constraint.type),
+        value: finite(value.constraint.value, 1),
+      }
+    : undefined;
+  return {
+    format: stringValue(value.format),
+    suffix: stringValue(value.suffix),
+    constraint,
+    contentsOnly: value.contentsOnly === true,
   };
 }
 
@@ -398,6 +464,8 @@ function normalizeNode(
         windingRule: stringValue(geometry.windingRule),
       }))
       .filter((geometry) => geometry.path.length > 0),
+    pointCount: Math.max(3, Math.floor(finite(raw.pointCount, 5))),
+    starInnerScale: Math.max(0, Math.min(1, finite(raw.starInnerScale, 0.2))),
     text:
       typeof raw.characters === 'string'
         ? raw.characters.slice(0, FIGMA_IMPORT_LIMITS.maxTextLength)
@@ -410,7 +478,11 @@ function normalizeNode(
         )
       : undefined,
     layoutMode:
-      raw.layoutMode === 'HORIZONTAL' || raw.layoutMode === 'VERTICAL' ? raw.layoutMode : 'NONE',
+      raw.layoutMode === 'HORIZONTAL' ||
+      raw.layoutMode === 'VERTICAL' ||
+      raw.layoutMode === 'GRID'
+        ? raw.layoutMode
+        : 'NONE',
     layoutWrap: raw.layoutWrap === 'WRAP' ? 'WRAP' : 'NO_WRAP',
     itemSpacing: finite(raw.itemSpacing, 0),
     counterAxisSpacing: finite(raw.counterAxisSpacing, 0),
@@ -427,6 +499,17 @@ function normalizeNode(
     layoutGrow: finite(raw.layoutGrow, 0),
     layoutAlign: stringValue(raw.layoutAlign),
     layoutPositioning: stringValue(raw.layoutPositioning),
+    overflowDirection: stringValue(raw.overflowDirection),
+    minWidth: positive(raw.minWidth, 0),
+    maxWidth: positive(raw.maxWidth, 0),
+    minHeight: positive(raw.minHeight, 0),
+    maxHeight: positive(raw.maxHeight, 0),
+    layoutGrids: recordArray(raw.layoutGrids)
+      .map(layoutGrid)
+      .filter((grid): grid is FigmaLayoutGrid => grid !== undefined),
+    exportSettings: recordArray(raw.exportSettings)
+      .map(exportSetting)
+      .filter((setting): setting is FigmaExportSetting => setting !== undefined),
     constraints: isRecord(raw.constraints)
       ? {
           horizontal: stringValue(raw.constraints.horizontal),
@@ -436,6 +519,14 @@ function normalizeNode(
     isMask: raw.isMask === true,
     booleanOperation: stringValue(raw.booleanOperation),
     componentId: stringValue(raw.componentId),
+    componentSetId: stringValue(raw.componentSetId),
+    variantProperties: isRecord(raw.variantProperties)
+      ? Object.fromEntries(
+          Object.entries(raw.variantProperties).filter(
+            (entry): entry is [string, string] => typeof entry[1] === 'string',
+          ),
+        )
+      : undefined,
     componentPropertyDefinitions: isRecord(raw.componentPropertyDefinitions)
       ? Object.fromEntries(
           Object.entries(raw.componentPropertyDefinitions).map(([key, value]) => {
@@ -581,6 +672,13 @@ export function decodeFigmaSource(data: string | Uint8Array): FigmaSourceDocumen
         componentSetId: isRecord(raw) ? stringValue(raw.componentSetId) : undefined,
       }))
     : [];
+  const componentSets = isRecord(payload.componentSets)
+    ? Object.entries(payload.componentSets).map(([sourceId, raw]) => ({
+        sourceId,
+        name: isRecord(raw) ? (stringValue(raw.name) ?? sourceId) : sourceId,
+        description: isRecord(raw) ? stringValue(raw.description) : undefined,
+      }))
+    : [];
   const styles = isRecord(payload.styles)
     ? Object.entries(payload.styles).map(([sourceId, raw]) => ({
         sourceId,
@@ -623,6 +721,7 @@ export function decodeFigmaSource(data: string | Uint8Array): FigmaSourceDocumen
     version: stringValue(payload.version),
     pages,
     components,
+    componentSets,
     styles,
     variables: parseVariables(payload.variables),
     images: parseImages(payload.images),

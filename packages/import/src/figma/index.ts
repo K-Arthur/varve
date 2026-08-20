@@ -55,10 +55,13 @@ export type {
   FigmaEffect,
   FigmaPaint,
   FigmaSourceComponent,
+  FigmaSourceComponentSet,
   FigmaSourceDocument,
   FigmaSourceNode,
   FigmaSourcePage,
   FigmaSourceStyle,
   FigmaSourceVariable,
+  FigmaExportSetting,
+  FigmaLayoutGrid,
 } from './source';
 export { decodeFigmaSource, FIGMA_IMPORT_LIMITS, isFigmaJsonSource } from './source';

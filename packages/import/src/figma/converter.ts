@@ -4,6 +4,7 @@ import {
   createEmbeddedAsset,
   type Document,
   type Effect,
+  type ExportPreset,
   type Fill,
   type LayoutStyle,
   type ManagedColor,
@@ -18,6 +19,7 @@ import {
   type TextNode,
   type VariableValue,
 } from '@varve/scene';
+import { parsePathData } from '../svg/shared';
 import type {
   FigmaBounds,
   FigmaPaint,
@@ -279,76 +281,8 @@ function effects(node: FigmaSourceNode, state: ConversionState): Effect[] {
 }
 
 function pathPoints(path: string): { points: PathPoint[]; closed: boolean } | undefined {
-  const tokens = path.match(/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g);
-  if (!tokens) return undefined;
-  const points: PathPoint[] = [];
-  let index = 0;
-  let command = '';
-  let current = { x: 0, y: 0 };
-  let start = { x: 0, y: 0 };
-  let closed = false;
-  const read = (): number | undefined => {
-    const value = Number(tokens[index]);
-    if (!Number.isFinite(value)) return undefined;
-    index += 1;
-    return value;
-  };
-  while (index < tokens.length) {
-    if (/^[a-zA-Z]$/.test(tokens[index] ?? '')) command = tokens[index++]!;
-    const relative = command === command.toLowerCase();
-    const upper = command.toUpperCase();
-    if (upper === 'Z') {
-      current = start;
-      closed = true;
-      command = '';
-      continue;
-    }
-    const x = read();
-    const y = read();
-    if (x === undefined || y === undefined) break;
-    const next = { x: relative ? current.x + x : x, y: relative ? current.y + y : y };
-    if (upper === 'M' || upper === 'L') {
-      if (upper === 'M') start = next;
-      points.push({ x: next.x, y: next.y, handleIn: null, handleOut: null });
-      current = next;
-      if (upper === 'M') command = relative ? 'l' : 'L';
-      continue;
-    }
-    if (upper === 'H' || upper === 'V') {
-      const axis = upper === 'H' ? 'x' : 'y';
-      const value = upper === 'H' ? (relative ? current.x + x : x) : relative ? current.y + x : x;
-      const adjusted = { x: axis === 'x' ? value : current.x, y: axis === 'y' ? value : current.y };
-      points.push({ x: adjusted.x, y: adjusted.y, handleIn: null, handleOut: null });
-      current = adjusted;
-      continue;
-    }
-    if (upper === 'C') {
-      const c2x = read();
-      const c2y = read();
-      const endX = read();
-      const endY = read();
-      if ([c2x, c2y, endX, endY].some((v) => v === undefined)) break;
-      const c1 = { x: next.x, y: next.y };
-      const c2 = { x: relative ? current.x + c2x! : c2x!, y: relative ? current.y + c2y! : c2y! };
-      const end = {
-        x: relative ? current.x + endX! : endX!,
-        y: relative ? current.y + endY! : endY!,
-      };
-      const previous = points[points.length - 1];
-      if (previous) previous.handleOut = [c1.x, c1.y];
-      points.push({ x: end.x, y: end.y, handleIn: [c2.x, c2.y], handleOut: null });
-      current = end;
-      continue;
-    }
-    addUnsupportedPathCommand(command);
-    break;
-  }
-  return points.length >= 2 ? { points, closed } : undefined;
-}
-
-function addUnsupportedPathCommand(_command: string): void {
-  // Kept as a small hook so unsupported path commands terminate safely rather
-  // than interpreting their operands as unrelated geometry.
+  const parsed = parsePathData(path, 1);
+  return parsed.points.length >= 2 ? parsed : undefined;
 }
 
 function shapeForNode(node: FigmaSourceNode, state: ConversionState): Shape {
@@ -362,7 +296,7 @@ function shapeForNode(node: FigmaSourceNode, state: ConversionState): Shape {
       cx: w / 2,
       cy: h / 2,
       radius: Math.min(w, h) / 2,
-      sides: 6,
+      sides: node.pointCount ?? 6,
       rotation: 0,
     };
   if (node.type === 'STAR')
@@ -370,9 +304,9 @@ function shapeForNode(node: FigmaSourceNode, state: ConversionState): Shape {
       kind: 'star',
       cx: w / 2,
       cy: h / 2,
-      innerRadius: Math.min(w, h) * 0.2,
+      innerRadius: Math.min(w, h) * (node.starInnerScale ?? 0.2),
       outerRadius: Math.min(w, h) / 2,
-      points: 5,
+      points: node.pointCount ?? 5,
       rotation: 0,
     };
   if (node.type === 'VECTOR' && node.fillGeometry && node.fillGeometry.length > 0) {
@@ -416,6 +350,28 @@ function justify(value: string | undefined): LayoutStyle['justifyContent'] {
 
 function layoutStyle(node: FigmaSourceNode): LayoutStyle | undefined {
   if (node.layoutMode === 'NONE') return undefined;
+  if (node.layoutMode === 'GRID') {
+    const grid = node.layoutGrids?.find((entry) => entry.pattern === 'GRID');
+    const count = Math.max(1, grid?.count ?? 1);
+    return {
+      mode: 'grid',
+      direction: 'row',
+      gap: Math.max(0, node.itemSpacing ?? 0),
+      wrap: true,
+      padding: [
+        node.paddingTop ?? 0,
+        node.paddingRight ?? 0,
+        node.paddingBottom ?? 0,
+        node.paddingLeft ?? 0,
+      ],
+      grow: 0,
+      shrink: 0,
+      rowGap: Math.max(0, node.counterAxisSpacing ?? node.itemSpacing ?? 0),
+      columnGap: Math.max(0, node.itemSpacing ?? 0),
+      gridTemplateColumns: `repeat(${count}, 1fr)`,
+      gridAutoFlow: 'row',
+    };
+  }
   return {
     mode: 'flex',
     direction: node.layoutMode === 'VERTICAL' ? 'column' : 'row',
@@ -432,6 +388,38 @@ function layoutStyle(node: FigmaSourceNode): LayoutStyle | undefined {
     alignItems: align(node.counterAxisAlignItems),
     justifyContent: justify(node.primaryAxisAlignItems),
   };
+}
+
+function exportPresets(node: FigmaSourceNode, state: ConversionState): ExportPreset[] | undefined {
+  const presets: ExportPreset[] = [];
+  for (const [index, setting] of (node.exportSettings ?? []).entries()) {
+    const format = setting.format?.toLowerCase();
+    if (
+      format !== 'png' &&
+      format !== 'jpg' &&
+      format !== 'webp' &&
+      format !== 'svg' &&
+      format !== 'pdf-screen'
+    ) {
+      addUnsupported(state, `export format ${setting.format ?? 'unknown'}`);
+      continue;
+    }
+    const constraint = setting.constraint;
+    const scale: ExportPreset['scale'] =
+      constraint?.type === 'WIDTH'
+        ? { type: 'width', pixels: Math.max(1, constraint.value ?? 1) }
+        : constraint?.type === 'HEIGHT'
+          ? { type: 'height', pixels: Math.max(1, constraint.value ?? 1) }
+          : { type: 'factor', value: Math.max(0.01, constraint?.value ?? 1) };
+    presets.push({
+      id: `figma-export-${node.sourceId}-${index}`,
+      format,
+      scale,
+      suffix: setting.suffix ?? '',
+      enabled: true,
+    });
+  }
+  return presets.length > 0 ? presets : undefined;
 }
 
 function constraint(value: string | undefined): 'min' | 'max' | 'center' | 'stretch' | 'scale' {
@@ -507,6 +495,7 @@ function applyCommon<T extends SceneNode>(
 ): T {
   const firstSolid = nodeFills.find((entry) => entry.type === 'solid');
   const sourceStyle = source.styleRefs ? Object.values(source.styleRefs)[0] : undefined;
+  const presets = exportPresets(source, state);
   if (sourceStyle && !state.styleSamples.has(sourceStyle))
     state.styleSamples.set(sourceStyle, node);
   if (source.textStyle?.fontFamily) state.fonts.add(source.textStyle.fontFamily);
@@ -542,6 +531,11 @@ function applyCommon<T extends SceneNode>(
             ? 'end'
             : undefined,
     styleId: sourceStyle ? state.styleIds.get(sourceStyle) : undefined,
+    ...(source.minWidth && source.minWidth > 0 ? { minWidth: source.minWidth } : {}),
+    ...(source.maxWidth && source.maxWidth > 0 ? { maxWidth: source.maxWidth } : {}),
+    ...(source.minHeight && source.minHeight > 0 ? { minHeight: source.minHeight } : {}),
+    ...(source.maxHeight && source.maxHeight > 0 ? { maxHeight: source.maxHeight } : {}),
+    ...(presets ? { presets } : {}),
   } as T;
 }
 
@@ -687,6 +681,10 @@ function convertNode(
   state.nodes[id] = node;
   if (source.reactions && source.reactions.length > 0)
     state.interactions.set(source.sourceId, source.reactions);
+  if (source.overflowDirection && source.overflowDirection !== 'NONE') {
+    addUnsupported(state, `scroll behavior ${source.overflowDirection}`);
+    addWarning(state, `Frame "${source.name}" has scrolling metadata that Varve cannot preserve`);
+  }
   return id;
 }
 
@@ -783,8 +781,20 @@ function sourceNodes(pages: FigmaSourceDocument['pages']): FigmaSourceNode[] {
 }
 
 function setupReferences(state: ConversionState, source: FigmaSourceDocument): void {
-  for (const component of source.components)
-    state.componentIds.set(component.sourceId, allocate(state, 'component'));
+  // A component set is one reusable Varve component with structured variants,
+  // not a collection of unrelated masters.  Keep a source-component → Varve
+  // component map so instances of every variant resolve to the same target.
+  const componentGroups = new Map<string, FigmaSourceDocument['components']>();
+  for (const component of source.components) {
+    const groupId = component.componentSetId ?? component.sourceId;
+    const group = componentGroups.get(groupId) ?? [];
+    group.push(component);
+    componentGroups.set(groupId, group);
+  }
+  for (const group of componentGroups.values()) {
+    const componentId = allocate(state, 'component');
+    for (const component of group) state.componentIds.set(component.sourceId, componentId);
+  }
   for (const style of source.styles) state.styleIds.set(style.sourceId, allocate(state, 'style'));
   for (const variable of source.variables)
     state.variableIds.set(variable.sourceId, allocate(state, 'variable'));
@@ -873,10 +883,23 @@ function buildComponents(
 ): Document['components'] {
   const nodes = sourceNodes(source.pages);
   const result: Document['components'] = {};
+  const groups = new Map<string, FigmaSourceDocument['components']>();
   for (const sourceComponent of source.components) {
-    const master = nodes.find((node) => node.sourceId === sourceComponent.sourceId);
-    const masterRootId = master ? state.sourceToVarve.get(master.sourceId) : undefined;
     const id = state.componentIds.get(sourceComponent.sourceId);
+    if (!id) continue;
+    const group = groups.get(id) ?? [];
+    group.push(sourceComponent);
+    groups.set(id, group);
+  }
+  for (const [id, sourceComponents] of groups) {
+    const first = sourceComponents[0];
+    if (!first) continue;
+    const componentSetId = first.componentSetId;
+    const setNode = componentSetId
+      ? nodes.find((node) => node.sourceId === componentSetId && node.type === 'COMPONENT_SET')
+      : undefined;
+    const master = setNode ?? nodes.find((node) => node.sourceId === first.sourceId);
+    const masterRootId = master ? state.sourceToVarve.get(master.sourceId) : undefined;
     if (!id || !masterRootId) continue;
     const properties = Object.entries(master?.componentPropertyDefinitions ?? {}).flatMap(
       ([name, definition], index) => {
@@ -896,7 +919,27 @@ function buildComponents(
         return [{ id: `${id}-property-${index}`, name, type, defaultValue }];
       },
     );
-    result[id] = { id, name: sourceComponent.name, slots: [], masterRootId, properties };
+    const variants = sourceComponents.flatMap((sourceComponent) => {
+      const variantNode = nodes.find((node) => node.sourceId === sourceComponent.sourceId);
+      const propertyValues = variantNode?.variantProperties;
+      if (!variantNode || !propertyValues || Object.keys(propertyValues).length === 0) return [];
+      return [
+        {
+          id: `variant-${sourceComponent.sourceId}`,
+          name: variantNode.name,
+          propertyValues,
+        },
+      ];
+    });
+    result[id] = {
+      id,
+      name:
+        source.componentSets.find((set) => set.sourceId === componentSetId)?.name ?? first.name,
+      slots: [],
+      masterRootId,
+      properties,
+      ...(variants.length > 0 ? { variants } : {}),
+    };
   }
   return result;
 }
@@ -971,6 +1014,59 @@ function buildInteractions(state: ConversionState): Document['interactions'] | u
   return Object.keys(interactions).length > 0 ? interactions : undefined;
 }
 
+function rgbaCss(value: FigmaPaint['color'] | undefined): string {
+  const r = Math.round(Math.max(0, Math.min(1, value?.r ?? 0)) * 255);
+  const g = Math.round(Math.max(0, Math.min(1, value?.g ?? 0)) * 255);
+  const b = Math.round(Math.max(0, Math.min(1, value?.b ?? 0)) * 255);
+  const a = Math.max(0, Math.min(1, value?.a ?? 1));
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+function buildLayoutGrids(
+  state: ConversionState,
+  source: FigmaSourceDocument,
+): NonNullable<NonNullable<Document['gridSettings']>['layoutGrids']> | undefined {
+  const result: NonNullable<NonNullable<Document['gridSettings']>['layoutGrids']> = {};
+  for (const node of sourceNodes(source.pages)) {
+    const nodeId = state.sourceToVarve.get(node.sourceId);
+    if (!nodeId || !node.layoutGrids || node.layoutGrids.length === 0) continue;
+    const grid = node.layoutGrids.find((entry) => entry.visible) ?? node.layoutGrids[0];
+    if (!grid) continue;
+    const pattern = grid.pattern;
+    if (pattern !== 'COLUMNS' && pattern !== 'ROWS' && pattern !== 'GRID') {
+      addUnsupported(state, `layout grid pattern ${pattern}`);
+      continue;
+    }
+    result[nodeId] = {
+      type: 'layout',
+      id: `figma-layout-grid-${nodeId}`,
+      name: `${node.name} layout grid`,
+      visible: grid.visible,
+      snapEnabled: false,
+      color: rgbaCss(grid.color),
+      opacity: Math.max(0, Math.min(1, grid.color?.a ?? 0.3)),
+      scope: 'frame',
+      frameId: nodeId,
+      layoutMode: pattern === 'COLUMNS' ? 'columns' : pattern === 'ROWS' ? 'rows' : 'uniform',
+      ...(pattern === 'COLUMNS'
+        ? { columnCount: Math.max(1, grid.count ?? 1), columnWidth: grid.sectionSize }
+        : {}),
+      ...(pattern === 'ROWS' ? { rowCount: Math.max(1, grid.count ?? 1), rowHeight: grid.sectionSize } : {}),
+      gutter: Math.max(0, grid.gutterSize ?? 0),
+      margin: [grid.offset ?? 0, grid.offset ?? 0, grid.offset ?? 0, grid.offset ?? 0],
+      alignment:
+        grid.alignment === 'MIN'
+          ? 'left'
+          : grid.alignment === 'MAX'
+            ? 'right'
+            : grid.alignment === 'CENTER'
+              ? 'center'
+              : 'stretch',
+    };
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
 export interface FigmaConversionResult {
   document: Document;
   nodeIds: string[];
@@ -1026,6 +1122,7 @@ export function convertFigmaSource(source: FigmaSourceDocument): FigmaConversion
       state,
       `Font "${font}" is preserved by family/style; availability is resolved by Varve after import`,
     );
+  const layoutGrids = buildLayoutGrids(state, source);
   const document: Document = {
     ...state.base,
     nextId: state.nextId,
@@ -1038,6 +1135,10 @@ export function convertFigmaSource(source: FigmaSourceDocument): FigmaConversion
     styles: buildStyles(state, source),
     variableStore: buildVariables(state, source),
     interactions: buildInteractions(state),
+    gridSettings: {
+      ...(state.base.gridSettings ?? {}),
+      ...(layoutGrids ? { layoutGrids } : {}),
+    },
   };
   return {
     document,

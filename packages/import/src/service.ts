@@ -11,6 +11,7 @@ import { DocumentCodec } from '@varve/scene';
 import { createAiParser } from './ai';
 import { detectImageMime } from './bitmap';
 import { createEpsParser } from './eps';
+import { createFigmaParser } from './figma';
 import { importFile } from './import';
 import { createPdfParser } from './pdf';
 import { createPsdParser } from './psd';
@@ -91,6 +92,7 @@ function ensureBuiltInsRegistered(): void {
   registerParser(createPsdParser());
   registerParser(createAiParser());
   registerParser(createEpsParser());
+  registerParser(createFigmaParser());
   registerParser(createSketchParser());
   builtInsRegistered = true;
 }
@@ -201,7 +203,13 @@ async function importOne(
     const result = importFile(input.name, data, options);
     assertNotAborted(signal);
     const normalized = DocumentCodec.normalize(result.document);
-    const unsupportedFeatures = validation?.unsupportedFeatures.map(unsupportedFeature) ?? [];
+    // Parser-level degradation is more precise than the cheap preflight
+    // heuristic.  Keep both: validation catches format-level risks while the
+    // parser reports what this particular document actually lost.
+    const unsupportedFeatures = dedupeUnsupportedFeatures([
+      ...(validation?.unsupportedFeatures.map(unsupportedFeature) ?? []),
+      ...(result.unsupportedFeatures?.map(unsupportedFeature) ?? []),
+    ]);
     const warnings = dedupeWarnings([
       ...(validation?.warnings.map(warning) ?? []),
       ...result.warnings.map(warning),
@@ -245,6 +253,18 @@ async function importOne(
       error: err instanceof Error ? err.message : 'Unknown import error',
     };
   }
+}
+
+function dedupeUnsupportedFeatures(features: UnsupportedFeature[]): UnsupportedFeature[] {
+  const seen = new Set<string>();
+  const result: UnsupportedFeature[] = [];
+  for (const feature of features) {
+    const key = `${feature.code}:${feature.feature}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(feature);
+  }
+  return result;
 }
 
 export const ImportService = {
