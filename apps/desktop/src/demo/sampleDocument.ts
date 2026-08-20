@@ -69,14 +69,18 @@ export function buildDemoSampleDocument(): Document {
     }),
   );
 
-  // Teal circle, top-right.
+  // Teal circle, top-right. Kept inside the frame: it is a sibling of the
+  // Poster rather than a child, so clipContent never applied to it, and at
+  // r=170 centred on (860, 60) it reached y=-110 — a disc floating above the
+  // artboard. Harmless while the demo opened cropped at 100%, obvious the
+  // moment the view fits the whole document.
   insert(
     makeShapeNode(
       '',
-      { kind: 'circle', cx: 0, cy: 0, r: 170 },
+      { kind: 'circle', cx: 0, cy: 0, r: 130 },
       {
         name: 'Sun',
-        transform: [1, 0, 0, 1, 860, 60],
+        transform: [1, 0, 0, 1, 960, 210],
         fill: TEAL,
       },
     ),
@@ -89,7 +93,7 @@ export function buildDemoSampleDocument(): Document {
       { kind: 'rect', x: 0, y: 0, w: 300, h: 220 },
       {
         name: 'Card',
-        transform: [1, 0, 0, 1, 90, 490],
+        transform: [1, 0, 0, 1, 90, 530],
         fill: PINK,
         cornerRadius: 28,
         cornerSmoothing: 0.6,
@@ -106,7 +110,7 @@ export function buildDemoSampleDocument(): Document {
         { kind: 'circle', cx: 0, cy: 0, r: 12 },
         {
           name: `Dot ${i + 1}`,
-          transform: [1, 0, 0, 1, 90 + i * 44, 390],
+          transform: [1, 0, 0, 1, 90 + i * 44, 400],
           fill: colors[i],
         },
       ),
@@ -153,7 +157,7 @@ export function buildDemoSampleDocument(): Document {
       'This is a real document — select the layers, move them, change the colors. Your edits stay in this browser and nothing is uploaded.',
       {
         name: 'Body',
-        transform: [1, 0, 0, 1, 94, 392],
+        transform: [1, 0, 0, 1, 94, 430],
         w: 560,
         h: 76,
         fontSize: 16,
