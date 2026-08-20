@@ -41,15 +41,29 @@ export async function navigateToEditor(page: Page, path = '/') {
   const newBtn = page.getByRole('button', { name: /^new$/i });
   await newBtn.waitFor({ state: 'visible', timeout: 45000 });
   await newBtn.click({ force: true, timeout: 15000 });
-  await page
+  // The new-document dialog's primary action is labelled "Create design" in
+  // some builds and plain "Create" in others, so match either. The 5s budget
+  // this replaces was the outlier in a helper that otherwise allows 45-300s:
+  // on a machine running several suites at once the dialog routinely opens
+  // later than that, and every spec using this helper then failed in
+  // beforeEach — before its own body ever ran, and with a GPU-shaped error
+  // message that had nothing to do with the real cause.
+  const createInDialog = page
     .locator('dialog[open]')
-    .getByRole('button', { name: /^create design$/i })
-    .waitFor({ timeout: 5000 });
-  await page
-    .locator('dialog[open]')
-    .getByRole('button', { name: /^create design$/i })
-    .click({ timeout: 10000 });
-  await page.locator('.layers-panel').waitFor({ timeout: 15000 });
+    .getByRole('button', { name: /^create(\s+design)?$/i })
+    .first();
+  if (!(await createInDialog.isVisible({ timeout: 45000 }).catch(() => false))) {
+    // An empty file browser leads with "Create your first design" instead of
+    // opening the dialog from the toolbar's New button.
+    const firstDesign = page.getByRole('button', { name: /create your first design/i }).first();
+    if (!(await firstDesign.isVisible({ timeout: 5000 }).catch(() => false))) {
+      throw new Error('New did not offer a create action (no dialog, no empty-state button)');
+    }
+    await firstDesign.click({ timeout: 10000 });
+    await createInDialog.waitFor({ timeout: 45000 });
+  }
+  await createInDialog.click({ timeout: 15000 });
+  await page.locator('.layers-panel').waitFor({ timeout: 30000 });
 
   // Startup state can restore more than one modal (for example Settings over
   // the first-run welcome dialog). Clicking either close button is then
