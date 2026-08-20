@@ -286,6 +286,7 @@ export function CanvasArea({
     documentId: string;
     indexedNodeCount: number;
   } | null>(null);
+  const marqueeIndexRef = useRef<SpatialIndex | null>(null);
   const prevDrawDocRef = useRef(state.document);
   const lastRenderedDocRef = useRef(state.document);
   if (state.document !== prevDrawDocRef.current) {
@@ -724,6 +725,7 @@ export function CanvasArea({
         transformCacheRef,
         snapSessionRef,
         snapIndexRef,
+        marqueeIndexRef,
         pendingAutoTextEditRef,
         nodeEditTargetId,
         setDraft,

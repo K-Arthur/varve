@@ -185,6 +185,13 @@ export interface ToolContext {
   canvasDeltaToWorld: (dx: number, dy: number) => { dx: number; dy: number };
   /** World transform for a node, including parent transforms and page placement. */
   getWorldTransform?: (id: NodeId) => import('@varve/shared').Affine;
+  /** Spatial broad-phase candidates for object marquee selection. */
+  queryMarqueeCandidates?: (rect: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  }) => ReadonlySet<NodeId>;
 
   setPointerCapture: (pointerId: number) => void;
   releasePointerCapture: (pointerId: number) => void;

@@ -36,8 +36,7 @@ import { BaseTool } from './BaseTool';
 import { interactionSession } from './InteractionContext';
 import {
   isMarqueeSelectableNode,
-  marqueeRectContainsRect,
-  marqueeRectsIntersect,
+  marqueeGeometryHit,
   normalizeMarqueeRect,
 } from './marqueeGeometry';
 import {
@@ -474,6 +473,7 @@ export class SelectTool extends BaseTool {
       const ordered = [...entries.values()].reverse();
       const marqueeIds: string[] = [];
       const parentIndex = buildParentIndexMap(ctx.document);
+      const broadPhase = ctx.queryMarqueeCandidates?.(rect);
       for (const entry of rect.w > 0 && rect.h > 0 ? ordered : []) {
         if (!entry) continue;
         if (!isMarqueeSelectableNode(ctx.document, entry.nodeId, parentIndex)) continue;
@@ -482,12 +482,9 @@ export class SelectTool extends BaseTool {
           !isInIsolatedSubtree(entry.nodeId, ctx.isolatedNodeId, ctx.document)
         )
           continue;
-        const bbox = nodeWorldBounds(ctx.document, entry.nodeId, parentIndex);
-        if (bbox) {
-          const hit = useContainment
-            ? marqueeRectContainsRect(rect, bbox)
-            : marqueeRectsIntersect(rect, bbox);
-          if (hit) marqueeIds.push(entry.nodeId);
+        if (broadPhase && !broadPhase.has(entry.nodeId)) continue;
+        if (marqueeGeometryHit(ctx.document, entry.nodeId, rect, useContainment, parentIndex)) {
+          marqueeIds.push(entry.nodeId);
         }
       }
       const nextSelection = commitNodeSelectionOperation(ctx, marqueeIds, operation);

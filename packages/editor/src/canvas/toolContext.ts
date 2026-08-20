@@ -73,6 +73,7 @@ export interface ToolContextDeps {
   transformCacheRef: React.MutableRefObject<TransformCache>;
   snapSessionRef: React.MutableRefObject<SnapSession>;
   snapIndexRef: React.MutableRefObject<SnapIndexEntry | null>;
+  marqueeIndexRef: React.MutableRefObject<SpatialIndex | null>;
   pendingAutoTextEditRef: React.MutableRefObject<boolean>;
   nodeEditTargetId: string | null;
   setDraft: (draft: DraftShape | null) => void;
@@ -179,6 +180,13 @@ export function buildToolContext(
     canvasDeltaToWorld: (dx, dy) => e.canvasDeltaToWorld(dx, dy),
     getWorldTransform: (id) =>
       getCachedWorldTransform(deps.transformCacheRef.current, s.document, id),
+    queryMarqueeCandidates: (rect) => {
+      const cached = deps.marqueeIndexRef.current;
+      const index =
+        cached && cached.docRef === s.document ? cached : getOrCreateSpatialIndex(s.document, null);
+      deps.marqueeIndexRef.current = index;
+      return queryRect(index, rect);
+    },
 
     setPointerCapture: (pointerId) => {
       try {
