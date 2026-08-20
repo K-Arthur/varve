@@ -2,6 +2,8 @@ import type { DocumentGrid, GridViewportLines } from './gridTypes';
 
 const MIN_SCREEN_PX_BETWEEN_LINES = 6;
 
+type ColorCacheWindow = Window & { __clearResolvedColorCache?: () => void };
+
 /**
  * Resolve a CSS color string for use with Canvas2D.
  *
@@ -25,7 +27,7 @@ export function clearResolvedColorCache(): void {
 
 // Register globally so context.tsx can call without importing (hub-file budget).
 if (typeof window !== 'undefined') {
-  (window as any).__clearResolvedColorCache = clearResolvedColorCache;
+  (window as ColorCacheWindow).__clearResolvedColorCache = clearResolvedColorCache;
 }
 
 export function resolveCanvasColor(color: string): string {

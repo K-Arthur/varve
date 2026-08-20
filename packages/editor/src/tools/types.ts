@@ -13,6 +13,8 @@
 import type { AreaSelection, AreaSelectionSettings, Engine, PathPoint } from '@varve/engine';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
 import type { Camera } from '@varve/shared';
+import type { TableEditState } from '../context/tableEditState';
+import type { HitTestPolicyName } from '../hitTest/policyTypes';
 import type { NormalizedInputEvent } from './inputNormalizer';
 
 import type { ToolId } from './toolRegistry';
@@ -205,7 +207,7 @@ export interface ToolContext {
    *  Falls back to the default hitTest when policyName is omitted. */
   hitTestWithPolicy?: (
     world: { x: number; y: number },
-    policyName: import('../hitTest').HitTestPolicyName,
+    policyName: HitTestPolicyName,
   ) => { nodeId: NodeId; node: SceneNode } | null;
 
   canvasElement: HTMLCanvasElement | null;
@@ -222,7 +224,7 @@ export interface ToolContext {
   /** Set the text node to be edited inline. */
   setTextEditTargetId: (id: string | null) => void;
   /** ADR-0016: enter/exit table edit mode (cell selection + navigation). */
-  setTableEdit?: (state: import('../context/types').TableEditState | null) => void;
+  setTableEdit?: (state: TableEditState | null) => void;
   /** Enter/exit warp edit mode (which node's modifier the overlay edits). */
   setWarpEdit?: (target: { nodeId: string; modifierId: string } | null) => void;
   /** Apply a warp preset to the current selection. */

@@ -3007,7 +3007,9 @@
 }
 .gradient-editor__stop--selected {
   border: 2px solid var(--color-interactive-default);
-  box-shadow: 0 0 0 2px var(--color-interactive-default), 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-shadow:
+    0 0 0 2px var(--color-interactive-default),
+    0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .gradient-editor__stop--idle {
   border: 2px solid var(--elevation-surface-overlay);
@@ -3204,7 +3206,9 @@
 }
 .gradient-editor__stop--selected {
   border: 2px solid var(--color-interactive-default);
-  box-shadow: 0 0 0 2px var(--color-interactive-default), 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-shadow:
+    0 0 0 2px var(--color-interactive-default),
+    0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .gradient-editor__stop--idle {
   border: 2px solid var(--elevation-surface-overlay);
@@ -3998,6 +4002,9 @@
 .email-preflight__item-button {
   cursor: pointer;
 }
+.email-preflight__message {
+  color: var(--color-text-default);
+}
 .email-preflight__item-button:hover .email-preflight__message,
 .email-preflight__item-button:focus-visible .email-preflight__message {
   text-decoration: underline;
@@ -4015,9 +4022,6 @@
 }
 .email-preflight__severity--info {
   color: var(--color-feedback-info);
-}
-.email-preflight__message {
-  color: var(--color-text-default);
 }
 .email-preflight__fix {
   grid-column: 2;

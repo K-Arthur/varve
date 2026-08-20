@@ -73,8 +73,10 @@ import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
 import { TimelinePanel } from './timeline/TimelinePanel';
 import {
+  editorHeadingLabel,
   useDetachedPanels,
   useEffectiveWorkspaceConfig,
+  useFitOnFirstDocument,
   useWorkspacePanelWidths,
 } from './workspace/shellHooks';
 
@@ -113,68 +115,6 @@ export interface ShellProps {
    * 1200x800 poster, which at 100% zoom shows only its top-left corner.
    */
   fitOnOpen?: boolean;
-}
-
-/** E4 (2026-08-10): document-level heading label for SR heading navigation. */
-function editorHeadingLabel(
-  sessions: { id: string; name: string }[],
-  activeId: string | null,
-): string {
-  const name = sessions.find((s) => s.id === activeId)?.name;
-  return name ? `${name} — Varve` : 'Varve editor';
-}
-
-/**
- * Frame the whole document once, the first time one arrives.
- *
- * Deliberately a one-shot: after this the viewport belongs to the user, and
- * re-fitting on a later document change would yank the canvas out from under
- * them mid-edit.
- *
- * The retry loop exists because fitAll measures `.editor-canvas`. The document
- * is loaded well before that element has been laid out, and fitting against a
- * zero viewport produces a nonsense camera. Rather than guess at a timeout,
- * poll animation frames until the canvas has real dimensions and give up
- * quietly if it never does — a mis-framed document is a far better outcome
- * than a broken one.
- *
- * `fitAll` is held in a ref rather than listed as a dependency on purpose: the
- * editor context hands back a fresh closure every render, so depending on it
- * re-ran this effect constantly, and the cleanup cancelled the in-flight frame
- * while the one-shot guard stopped it ever restarting. The fit never happened.
- */
-function useFitOnFirstDocument(editor: ReturnType<typeof useEditor>, enabled: boolean): void {
-  // Set once the fit has actually run, never merely because one was scheduled.
-  // StrictMode mounts, runs effects, tears them down and runs them again; a
-  // flag set up-front made the first pass cancel its own frame in cleanup and
-  // the second pass return early, so in development the fit never happened at
-  // all and the demo opened at 100% while production opened fitted.
-  const fittedRef = useRef(false);
-  const hasNodes = Object.keys(editor.state.document.nodes).length > 0;
-  const fitAllRef = useRef(editor.fitAll);
-  fitAllRef.current = editor.fitAll;
-
-  useEffect(() => {
-    if (!enabled || fittedRef.current || !hasNodes) return;
-    let frame = 0;
-    let attempts = 0;
-    const tryFit = () => {
-      const canvas = document.querySelector<HTMLElement>('.editor-canvas');
-      if (canvas && canvas.clientWidth > 0 && canvas.clientHeight > 0) {
-        fittedRef.current = true;
-        fitAllRef.current();
-        return;
-      }
-      // ~5s at 60fps, and rAF is throttled in a background tab, so this is a
-      // generous ceiling rather than a deadline.
-      if (++attempts > 300) return;
-      frame = requestAnimationFrame(tryFit);
-    };
-    frame = requestAnimationFrame(tryFit);
-    // Cancels the pending frame only. A re-run may schedule another; fittedRef
-    // is what keeps the fit itself to exactly one.
-    return () => cancelAnimationFrame(frame);
-  }, [enabled, hasNodes]);
 }
 
 function ShellInner({

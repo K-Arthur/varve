@@ -190,7 +190,10 @@ test('sitemap.xml enumerates every real page and excludes 404/alias/demo routes'
       const s = p.replace(/\/+$/, '') || '/';
       if (r === '/') {
         const segments = s.split('/').filter(Boolean);
-        if (segments.length <= 1) { found = true; break; }
+        if (segments.length <= 1) {
+          found = true;
+          break;
+        }
       } else if (s.indexOf(r) === s.length - r.length) {
         found = true;
         break;

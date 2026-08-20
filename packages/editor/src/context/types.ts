@@ -33,27 +33,17 @@ import type {
   HistoryIssue,
   HistoryStepView,
 } from '../history/editorHistorySession';
+import type { HitTestPolicyName } from '../hitTest/policyTypes';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MediaState } from '../state/media-state';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import type { SelectionMode, SelectionOrigin } from './selectionState';
-
-/** Active table edit session (ADR-0016): cell selection + keyboard focus. */
-export interface TableEditState {
-  tableId: NodeId;
-  /** Selected cell ids (single cell or rectangular range). */
-  cellIds: string[];
-  /** Keyboard cursor cell (may be inside a span owner). */
-  activeCellId: string | null;
-  /** Cell with the inline text editor open. */
-  editingCellId: string | null;
-  /** Range anchor for shift-extended selections. */
-  anchorCellId: string | null;
-}
+import type { TableEditState } from './tableEditState';
 
 export * from './selectionState';
+export type { TableEditState } from './tableEditState';
 export type { MaskPreviewMode, ToolId };
 
 export type InspectorTab =
@@ -700,7 +690,7 @@ export interface EditorContextValue {
   hitTestNode: (world: { x: number; y: number }) => { nodeId: NodeId; node: SceneNode } | null;
   hitTestNodeWithPolicy: (
     world: { x: number; y: number },
-    policyName: import('../hitTest').HitTestPolicyName,
+    policyName: HitTestPolicyName,
   ) => { nodeId: NodeId; node: SceneNode } | null;
   /** Set the keyboard focus to a node without changing selection. */
   setFocusedNode: (id: NodeId | null) => void;
