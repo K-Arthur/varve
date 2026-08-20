@@ -1,9 +1,9 @@
 /**
  * E2E: Figma import integration smoke test.
  *
- * Verifies the editor loads correctly with the Figma parser registered
- * and that the file import input accepts .fig files. The actual import
- * pipeline is covered by unit tests in packages/import/src/figma.test.ts.
+ * Verifies the editor loads correctly with the Figma parser registered,
+ * accepts .fig files, and imports a checked-in native archive through the real
+ * browser file picker. JSON conversion remains covered by importer unit tests.
  */
 
 import path from 'node:path';
@@ -107,7 +107,7 @@ test.describe('Figma import integration', () => {
 
   test('imports the checked-in native .fig fixture through the real file picker', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await navigateToEditor(page);
     await page
       .locator('#file-import-input')
@@ -117,6 +117,7 @@ test.describe('Figma import integration', () => {
     });
     await expect(page.locator('.import-results-overlay')).toHaveCount(0);
     await expect(page.locator('.editor-canvas canvas, canvas').first()).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('native-fig-import.png') });
   });
 
   test('shows the fidelity report when source semantics are degraded', async ({ page }) => {
