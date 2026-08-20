@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { suppressedTipShortcutIds } from '../workspace/workspaceShortcutLabel';
-import type { WorkspaceMode } from '../workspace/workspaceTypes';
+import type { WorkspaceConfig, WorkspaceMode } from '../workspace/workspaceTypes';
 import { getActionTracker } from './actionTracker';
 import { recommendShortcuts, type ShortcutRecommendation } from './shortcutRecommender';
 
@@ -30,6 +30,7 @@ export interface UseShortcutTipsResult {
 export function useShortcutTips(
   workspaceMode: WorkspaceMode,
   showTipsEnabled: boolean,
+  effectiveWorkspaceConfig?: WorkspaceConfig,
 ): UseShortcutTipsResult {
   const [currentTip, setCurrentTip] = useState<ShortcutRecommendation | null>(null);
   const shownThisSessionRef = useRef(false);
@@ -61,7 +62,7 @@ export function useShortcutTips(
     const [top] = recommendShortcuts(
       trackerRef.current,
       1,
-      suppressedTipShortcutIds(workspaceMode),
+      suppressedTipShortcutIds(workspaceMode, effectiveWorkspaceConfig),
     );
 
     if (!top) return;
@@ -69,7 +70,7 @@ export function useShortcutTips(
 
     shownThisSessionRef.current = true;
     setCurrentTip(top);
-  }, [workspaceMode, showTipsEnabled]);
+  }, [workspaceMode, showTipsEnabled, effectiveWorkspaceConfig]);
 
   useEffect(() => {
     clearAutoDismiss();

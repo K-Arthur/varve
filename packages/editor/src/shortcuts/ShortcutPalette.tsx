@@ -2,6 +2,9 @@ import { FocusTrap, Icon, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getActionRegistry } from '../actions/ActionRegistry';
+import { getRegisteredTools, type ToolId } from '../tools/toolRegistry';
+import { useEffectiveWorkspaceConfig } from '../workspace/useWorkspaceConfig';
+import { getToolbarToolIds, type WorkspaceMode } from '../workspace/workspaceTypes';
 import {
   captureKeyCombo,
   clearAllOverrides,
@@ -37,7 +40,7 @@ interface ShortcutPaletteProps {
   onClose: () => void;
   onSelect: (id: string) => void;
   /** Current workspace mode for tag display. */
-  workspaceMode?: string;
+  workspaceMode?: WorkspaceMode;
   /** When set, auto-filters to this shortcut on open. */
   focusShortcutId?: string;
 }
@@ -59,6 +62,15 @@ export function ShortcutPalette({
   const paletteRef = useRef<HTMLDivElement>(null);
   // Element focused before the palette opened; restored on close.
   const restoreRef = useRef<HTMLElement | null>(null);
+  const effectiveConfig = useEffectiveWorkspaceConfig(workspaceMode ?? 'design');
+  const hiddenToolShortcutIds = useMemo(() => {
+    const visible = new Set(getToolbarToolIds(effectiveConfig.toolbar));
+    return new Set(
+      getRegisteredTools()
+        .filter((definition) => definition.shortcutId && !visible.has(definition.id as ToolId))
+        .map((definition) => definition.shortcutId as string),
+    );
+  }, [effectiveConfig]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -432,6 +444,7 @@ export function ShortcutPalette({
                   const binding = getEffectiveBinding(id);
                   const usageInfo = usage.usages.get(id);
                   const useCount = usageInfo?.count ?? 0;
+                  const hiddenFromToolbar = hiddenToolShortcutIds.has(id);
 
                   return (
                     // biome-ignore lint/a11y/useKeyWithClickEvents: pointer click on a row is the mouse-path duplicate of Enter; both call handleRowClick(id).
@@ -441,12 +454,18 @@ export function ShortcutPalette({
                       id={`palette-option-${id}`}
                       role="option"
                       aria-selected={highlightId === id}
+                      aria-label={`${def.label}${hiddenFromToolbar ? ', hidden from current toolbar' : ''}`}
                       className={`shortcut-palette__row${isRemapping ? ' shortcut-palette__row--remapping' : ''}${highlightId === id ? ' shortcut-palette__row--highlighted' : ''}`}
                       onMouseEnter={() => setHighlightId(id)}
                       onClick={() => handleRowClick(id)}
                     >
                       <span className="shortcut-palette__row-label">
                         {def.label}
+                        {hiddenFromToolbar && (
+                          <span className="shortcut-palette__workspace-tag">
+                            Hidden from toolbar
+                          </span>
+                        )}
                         {workspaceMode &&
                           SHORTCUT_WORKSPACE_TAGS[id] &&
                           !SHORTCUT_WORKSPACE_TAGS[id].includes(workspaceMode) && (
@@ -528,7 +547,14 @@ export function ShortcutPalette({
                         className="shortcut-palette__row shortcut-palette__row--unused"
                         onClick={() => handleRowClick(id)}
                       >
-                        <span className="shortcut-palette__row-label">{def?.label ?? id}</span>
+                        <span className="shortcut-palette__row-label">
+                          {def?.label ?? id}
+                          {hiddenToolShortcutIds.has(id) && (
+                            <span className="shortcut-palette__workspace-tag">
+                              Hidden from toolbar
+                            </span>
+                          )}
+                        </span>
                         <span className="shortcut-palette__usage">Not used</span>
                         <span className="shortcut-palette__combo">
                           {binding?.key ? formatShortcut(binding) : '—'}

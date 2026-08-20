@@ -17,6 +17,7 @@ import {
 import {
   getWorkspaceConfig,
   type PanelId,
+  resolveWorkspaceTool,
   WORKSPACE_LABELS,
   type WorkspaceConfig,
   type WorkspaceMode,
@@ -85,15 +86,17 @@ function applyWorkspaceConfig(
   currentTool: ToolId,
   patch: (patch: Partial<EditorState>) => void,
   extra?: Partial<EditorState>,
+  toolRef?: MutableRefObject<ToolId>,
 ): void {
+  const targetTool = resolveWorkspaceTool(config, currentTool);
+  if (toolRef && targetTool !== currentTool) {
+    applyToolChange(targetTool, toolRef, patch);
+  }
   const patchObj: Partial<EditorState> & Record<string, unknown> = {
     ...extra,
     ...panelVisibilityPatch(config),
     ...overlayPatch(config),
   };
-  if (config.defaultTool && config.defaultTool !== currentTool) {
-    patchObj.tool = config.defaultTool as ToolId;
-  }
   patch(patchObj as Partial<EditorState>);
   updateSettings({ panel: settingsPanelMirror(config) });
 }
@@ -141,9 +144,15 @@ export function useWorkspaceMode(
 
   const __setWorkspaceModeUnsafe = useCallback(
     (mode: WorkspaceMode) => {
-      applyWorkspaceConfig(getEffectiveWorkspaceConfig(mode), state.tool, patch, {
-        workspaceMode: mode,
-      });
+      applyWorkspaceConfig(
+        getEffectiveWorkspaceConfig(mode),
+        toolRef.current,
+        patch,
+        {
+          workspaceMode: mode,
+        },
+        toolRef,
+      );
       announcerRef.current?.announce(`Switched to ${WORKSPACE_LABELS[mode]} workspace`);
     },
     [state.tool, patch, announcerRef],
@@ -169,9 +178,15 @@ export function useWorkspaceMode(
             applyToolChange('select', toolRef, patch);
           }
         }
-        applyWorkspaceConfig(getEffectiveWorkspaceConfig(mode), state.tool, patch, {
-          workspaceMode: mode,
-        });
+        applyWorkspaceConfig(
+          getEffectiveWorkspaceConfig(mode),
+          toolRef.current,
+          patch,
+          {
+            workspaceMode: mode,
+          },
+          toolRef,
+        );
         announcerRef.current?.announce(`Switched to ${WORKSPACE_LABELS[mode]} workspace`);
         return Promise.resolve(true);
       } finally {
@@ -191,7 +206,7 @@ export function useWorkspaceMode(
     // Built-in config, not the effective one: the overrides are gone and the
     // settings mirror is rewritten from the defaults, so the pre-reset panel
     // visibility cannot come back on the next launch either.
-    applyWorkspaceConfig(getWorkspaceConfig(mode), state.tool, patch);
+    applyWorkspaceConfig(getWorkspaceConfig(mode), toolRef.current, patch, undefined, toolRef);
     emitWorkspaceReset({ kind: 'mode', mode });
     announcerRef.current?.announce(`Reset ${WORKSPACE_LABELS[mode]} workspace to defaults`);
   }, [state.workspaceMode, state.tool, patch, announcerRef]);
@@ -199,7 +214,7 @@ export function useWorkspaceMode(
   const resetAllWorkspacesToDefaults = useCallback(() => {
     const mode = state.workspaceMode;
     updateWorkspacePreferences(() => resetAllPreferences());
-    applyWorkspaceConfig(getWorkspaceConfig(mode), state.tool, patch);
+    applyWorkspaceConfig(getWorkspaceConfig(mode), toolRef.current, patch, undefined, toolRef);
     emitWorkspaceReset({ kind: 'all' });
     announcerRef.current?.announce('Reset all workspaces to defaults');
   }, [state.workspaceMode, state.tool, patch, announcerRef]);

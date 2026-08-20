@@ -4961,6 +4961,8 @@ dialog.varve-dialog--settings[open] {
 .workspace-customize {
   padding: var(--space-4);
   max-width: 400px;
+  max-height: min(70vh, 680px);
+  overflow-y: auto;
 }
 .workspace-customize__title {
   font-size: var(--font-size-lg);
@@ -4988,6 +4990,36 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   line-height: 1.4;
+}
+.workspace-customize__search {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: var(--space-2);
+  padding: var(--space-2);
+  color: var(--color-text-primary);
+  background: var(--color-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
+}
+.workspace-customize__search:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 1px;
+}
+.workspace-customize__empty {
+  margin: var(--space-2) 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.workspace-customize__tool-group {
+  padding: var(--space-1) 0;
+}
+.workspace-customize__tool-group h4 {
+  margin: var(--space-1) 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 .workspace-customize__toggle {
   display: flex;

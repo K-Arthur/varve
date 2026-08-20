@@ -10,6 +10,7 @@ import {
   getVisibleToolbarToolIds,
   getWorkspaceConfig,
   isValidWorkspaceConfig,
+  resolveWorkspaceTool,
   WORKSPACE_CONFIGS,
   WORKSPACE_ICONS,
   WORKSPACE_LABELS,
@@ -261,6 +262,12 @@ describe('workspaceTypes', () => {
     const visible = getVisibleToolbarToolIds(getWorkspaceConfig('design'));
     expect(visible.has('booleanUnion')).toBe(true);
     expect(getHiddenTools('design').has('booleanUnion')).toBe(false);
+  });
+
+  it('falls back from a hidden tool without activating command-only flyout members', () => {
+    expect(resolveWorkspaceTool(getWorkspaceConfig('design'), 'paint')).toBe('select');
+    expect(resolveWorkspaceTool(getWorkspaceConfig('design'), 'booleanUnion')).toBe('select');
+    expect(resolveWorkspaceTool(getWorkspaceConfig('drawing'), 'paint')).toBe('paint');
   });
 
   // ─── Derived tip suppression ─────────────────────────────────────────────

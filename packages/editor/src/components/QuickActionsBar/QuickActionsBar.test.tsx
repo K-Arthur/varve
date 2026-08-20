@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getActionRegistry, resetActionRegistryForTesting } from '../../actions/ActionRegistry';
+import { resetWorkspacePreferenceCache } from '../../workspace/workspaceStore';
 import { QuickActionsBar } from './QuickActionsBar';
 
 afterEach(cleanup);
@@ -11,6 +12,7 @@ afterEach(cleanup);
 describe('QuickActionsBar', () => {
   beforeEach(() => {
     resetActionRegistryForTesting();
+    resetWorkspacePreferenceCache();
     const r = getActionRegistry();
     r.register({ id: 'undo', label: 'Undo', category: 'edit' }, () => {});
     r.register({ id: 'redo', label: 'Redo', category: 'edit' }, () => {});
@@ -108,6 +110,20 @@ describe('QuickActionsBar', () => {
     expect(screen.getAllByText('edit').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('object')).toBeInTheDocument();
     expect(screen.getByText('view')).toBeInTheDocument();
+  });
+
+  it('marks a tool action that is available but hidden from the current toolbar', () => {
+    getActionRegistry().register(
+      { id: 'toolPaint', label: 'Paint brush', category: 'tools' },
+      () => {},
+    );
+    render(<QuickActionsBar open={true} onClose={vi.fn()} workspaceMode="design" />);
+
+    expect(screen.getByText('Paint brush')).toBeInTheDocument();
+    expect(screen.getByText('Hidden from toolbar')).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: /paint brush, hidden from current toolbar/i }),
+    ).toBeInTheDocument();
   });
 
   // The palette is wrapped in a FocusTrap (display: contents), so query the

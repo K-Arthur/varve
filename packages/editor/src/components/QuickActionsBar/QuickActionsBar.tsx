@@ -17,6 +17,9 @@ import {
   useState,
 } from 'react';
 import { getActionRegistry, type RegisteredAction } from '../../actions/ActionRegistry';
+import { getRegisteredTools, type ToolId } from '../../tools/toolRegistry';
+import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
+import { getToolbarToolIds, type WorkspaceMode } from '../../workspace/workspaceTypes';
 import './QuickActionsBar.css';
 
 const MAX_VISIBLE = 12;
@@ -43,9 +46,16 @@ export interface QuickActionsBarProps {
   context?: 'always' | 'selection' | 'textEdit' | 'multiSelect' | 'canvas';
   onExecute?: (actionId: string) => void;
   position?: { x: number; y: number };
+  workspaceMode?: WorkspaceMode;
 }
 
-export function QuickActionsBar({ open, onClose, onExecute, position }: QuickActionsBarProps) {
+export function QuickActionsBar({
+  open,
+  onClose,
+  onExecute,
+  position,
+  workspaceMode = 'design',
+}: QuickActionsBarProps) {
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -53,6 +63,15 @@ export function QuickActionsBar({ open, onClose, onExecute, position }: QuickAct
   const [recent, setRecent] = useState<string[]>(loadRecent);
 
   const registry = getActionRegistry();
+  const effectiveConfig = useEffectiveWorkspaceConfig(workspaceMode);
+  const hiddenToolActionIds = useMemo(() => {
+    const visible = new Set(getToolbarToolIds(effectiveConfig.toolbar));
+    return new Set(
+      getRegisteredTools()
+        .filter((definition) => definition.shortcutId && !visible.has(definition.id as ToolId))
+        .map((definition) => definition.shortcutId as string),
+    );
+  }, [effectiveConfig]);
 
   const allActions = useMemo(() => registry.getAll(), [registry]);
 
@@ -197,10 +216,16 @@ export function QuickActionsBar({ open, onClose, onExecute, position }: QuickAct
               className={`quick-actions-bar__item${i === activeIndex ? ' quick-actions-bar__item--active' : ''}`}
               role="option"
               aria-selected={i === activeIndex}
+              aria-label={`${action.label}${hiddenToolActionIds.has(action.id) ? ', hidden from current toolbar' : ''}`}
               onClick={() => execute(action)}
               onMouseEnter={() => setActiveIndex(i)}
             >
-              <span className="quick-actions-bar__item-label">{action.label}</span>
+              <span className="quick-actions-bar__item-label">
+                {action.label}
+                {hiddenToolActionIds.has(action.id) && (
+                  <span className="quick-actions-bar__item-note">Hidden from toolbar</span>
+                )}
+              </span>
               <span className="quick-actions-bar__item-category">{action.category}</span>
             </button>
           ))}
