@@ -22,6 +22,34 @@ import { FieldRow } from '../controls/FieldRow';
 
 const DEPTH_MODEL_ID = 'depth-anything-v2-small';
 
+/**
+ * Reject if `promise` has not settled within `ms`.
+ *
+ * Every await before `host.infer` was unbounded, and `infer`'s own 120s
+ * timeout only covers the worker round trip. A stalled image decode or model
+ * lookup therefore left "Generating depth map…" on screen indefinitely with no
+ * error and no way back — observed running for ten minutes in a browser with
+ * no hardware WebGPU adapter. A phase that cannot finish has to say so.
+ */
+function withPhaseTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)),
+      ms,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 function loadImageToImageData(src: string): Promise<ImageData> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -149,6 +177,8 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const heatmapCanvasRef = useRef<HTMLCanvasElement>(null);
   const sourceGenerationRef = useRef(0);
+  /** Monotonic id of the latest generate run; only the latest may write state. */
+  const generateRunRef = useRef(0);
 
   const blurAmountId = useId();
   const focalDepthId = useId();
@@ -295,15 +325,30 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
 
   const handleGenerateDepth = useCallback(async () => {
     if (!src) return;
-    const generation = sourceGenerationRef.current;
+    // Guard on "a newer generate superseded me", not on "the source-generation
+    // ref moved". That ref is bumped by an effect keyed on [src, node.id], so a
+    // re-render during inference could bump it while this run was still the
+    // only one in flight — and both the success and failure paths then returned
+    // without touching state, stranding the panel on "Generating depth map…"
+    // with no error. A newer run always writes state itself, so deferring to it
+    // is safe; deferring to a bare ref bump was not.
+    const runId = ++generateRunRef.current;
     const nodeAtStart = node;
     const sourceAssetIdAtStart = sourceAssetId;
     setDepthState('generating');
     setInferenceError(null);
     try {
-      const imageData = await loadImageToImageData(src);
+      const imageData = await withPhaseTimeout(
+        loadImageToImageData(src),
+        30_000,
+        'Loading the source image',
+      );
       const loader = getModelLoader();
-      const modelPath = await loader.getModelPath(DEPTH_MODEL_ID);
+      const modelPath = await withPhaseTimeout(
+        loader.getModelPath(DEPTH_MODEL_ID),
+        30_000,
+        'Resolving the depth model',
+      );
       if (!modelPath) throw new Error('Depth model not downloaded');
 
       const host = getInferenceWorkerHost();
@@ -319,7 +364,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
         },
         { timeoutMs: 120_000 },
       );
-      if (generation !== sourceGenerationRef.current) return;
+      if (runId !== generateRunRef.current) return;
 
       // Different verified exports use `output` or `predicted_depth`; accept
       // both names but reject an unknown tensor rather than attaching garbage.
@@ -357,7 +402,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       setDepthResource(resource);
       setDepthState('ready');
     } catch (err) {
-      if (generation !== sourceGenerationRef.current) return;
+      if (runId !== generateRunRef.current) return;
       const msg = err instanceof Error ? err.message : 'Depth inference failed';
       setInferenceError(msg);
       setDepthState('error');
