@@ -1,9 +1,11 @@
 /**
  * GPU-vs-CPU agreement for the live-effects compute kernels.
  *
- * Runs the harness bundle in a plain page (no app boot — this spec does not
- * need the dev server, but Playwright's baseURL config still points at it;
- * `page.setContent` keeps the test independent of app state).
+ * Runs the harness bundle in a plain document after establishing a localhost
+ * origin. WebGPU is origin-gated; calling `page.setContent` from the initial
+ * about:blank document makes `navigator.gpu` disappear even when Chromium was
+ * launched with the Vulkan flags. The initial navigation is only an origin
+ * bootstrap; the app DOM is replaced before the harness runs.
  *
  * Skips when no WebGPU adapter is available (the runner declines software
  * adapters unless explicitly allowed; the harness allows them so SwiftShader
@@ -105,6 +107,7 @@ test('live effects: WebGPU compute agrees with the CPU kernels', async ({ page }
   const effects = FILTER.length > 0 ? FILTER : ALL_EFFECTS;
   const bundle = readFileSync(bundlePath, 'utf8');
 
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.setContent(
     '<html><body><canvas id="probe" width="4" height="4"></canvas></body></html>',
   );
