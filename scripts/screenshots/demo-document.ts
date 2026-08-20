@@ -17,6 +17,7 @@
  * are produced on every run and by every contributor.
  */
 import type { Affine, PathPoint } from '../../packages/engine/src/types.ts';
+import type { Document } from '../../packages/scene/src/document.ts';
 import {
   addChild,
   addNode,
@@ -26,7 +27,7 @@ import {
   makeTextNode,
 } from '../../packages/scene/src/document.ts';
 import { DocumentCodec } from '../../packages/scene/src/documentCodec.ts';
-import type { Document, Fill, ManagedColor, Stroke } from '../../packages/scene/src/types.ts';
+import type { Fill, ManagedColor, Stroke } from '../../packages/scene/src/types.ts';
 
 /* -------------------------------------------------------------------- */
 /* Palette — the Varve brand strata: teal, sandstone, terracotta.        */
