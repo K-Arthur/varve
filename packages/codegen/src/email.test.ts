@@ -1,6 +1,7 @@
 import { addChild, addNode, createDocument, makeFrameNode, makeTextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { compileEmail } from './email-compiler';
+import { inlineEmailCss } from './email-css';
 import { emitEmailHtml } from './email-html';
 import type { EmailDocumentIr, EmailIrNode } from './email-ir-types';
 import { emitEmailPlainText } from './email-plain-text';
@@ -109,6 +110,19 @@ describe('email security', () => {
 });
 
 describe('email output', () => {
+  it('inlines simple custom CSS while preserving responsive rules', () => {
+    const result = inlineEmailCss(
+      '<p class="copy" style="color: blue">Copy</p>',
+      '.copy { color: red; padding: 4px; }\n@media only screen and (max-width: 480px) { .copy { padding: 2px; } }',
+    );
+    expect(result.html).toContain('color: blue');
+    expect(result.html).toContain('padding: 4px');
+    expect(result.remainingCss).toContain('@media only screen');
+    expect(result.remainingCss).toContain('padding: 2px');
+    expect(result.remainingCss).not.toContain('.copy { color: red');
+    expect(result.inlinedRules).toBe(1);
+  });
+
   it('compiles a plain text node with its range links into Email IR', () => {
     const node = compilerNode();
     const designIr = {
