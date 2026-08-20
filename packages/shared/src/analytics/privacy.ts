@@ -84,6 +84,7 @@ const VALUE_SETS: Record<string, readonly string[]> = {
     '/contribute',
     '/support',
     '/about/privacy',
+    '/try',
   ],
   platform: ['linux', 'windows', 'macos', 'unknown'],
   architecture: ['x64', 'arm64', 'unknown'],
@@ -111,6 +112,9 @@ const EVENT_FIELDS: {
     'releaseChannel',
   ],
   website_outbound_clicked: ['destination'],
+  website_contact_clicked: ['channel'],
+  browser_demo_launched: ['entry'],
+  browser_demo_desktop_download: ['release', 'platform', 'architecture', 'packageType'],
 };
 
 function hasForbiddenKey(value: unknown): boolean {
