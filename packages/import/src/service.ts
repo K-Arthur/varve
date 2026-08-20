@@ -220,11 +220,19 @@ async function importOne(
         path: w.path,
       })),
     ]);
+    const status =
+      result.nodeIds.length === 0
+        ? unsupportedFeatures.length > 0
+          ? 'unsupported'
+          : 'failed'
+        : unsupportedFeatures.length === 0
+          ? 'success'
+          : 'partial';
     return {
       name: input.name,
       source: input.source,
       format: reportFormat,
-      status: result.nodeIds.length > 0 && unsupportedFeatures.length === 0 ? 'success' : 'partial',
+      status,
       byteCount: byteCount(input),
       durationMs: performance.now() - started,
       nodeCount: result.nodeIds.length,

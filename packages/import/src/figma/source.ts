@@ -115,6 +115,7 @@ export interface FigmaSourceNode {
   maxHeight?: number;
   layoutGrids?: FigmaLayoutGrid[];
   exportSettings?: FigmaExportSetting[];
+  clipsContent?: boolean;
   constraints?: { horizontal?: string; vertical?: string };
   isMask?: boolean;
   booleanOperation?: string;
@@ -478,9 +479,7 @@ function normalizeNode(
         )
       : undefined,
     layoutMode:
-      raw.layoutMode === 'HORIZONTAL' ||
-      raw.layoutMode === 'VERTICAL' ||
-      raw.layoutMode === 'GRID'
+      raw.layoutMode === 'HORIZONTAL' || raw.layoutMode === 'VERTICAL' || raw.layoutMode === 'GRID'
         ? raw.layoutMode
         : 'NONE',
     layoutWrap: raw.layoutWrap === 'WRAP' ? 'WRAP' : 'NO_WRAP',
@@ -510,6 +509,7 @@ function normalizeNode(
     exportSettings: recordArray(raw.exportSettings)
       .map(exportSetting)
       .filter((setting): setting is FigmaExportSetting => setting !== undefined),
+    clipsContent: raw.clipsContent === true,
     constraints: isRecord(raw.constraints)
       ? {
           horizontal: stringValue(raw.constraints.horizontal),

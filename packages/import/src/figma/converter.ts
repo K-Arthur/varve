@@ -351,7 +351,9 @@ function justify(value: string | undefined): LayoutStyle['justifyContent'] {
 function layoutStyle(node: FigmaSourceNode): LayoutStyle | undefined {
   if (node.layoutMode === 'NONE') return undefined;
   if (node.layoutMode === 'GRID') {
-    const grid = node.layoutGrids?.find((entry) => entry.pattern === 'GRID');
+    const grid = node.layoutGrids?.find(
+      (entry) => entry.pattern === 'GRID' || entry.pattern === 'COLUMNS',
+    );
     const count = Math.max(1, grid?.count ?? 1);
     return {
       mode: 'grid',
@@ -622,7 +624,7 @@ function convertNode(
       h: source.bounds.h,
       children: childIds,
       transform,
-      clipContent: source.type === 'FRAME' ? true : undefined,
+      clipContent: source.type === 'FRAME' ? source.clipsContent : undefined,
       layoutStyle: layoutStyle(source),
       strokes: strokes(source),
       effects: effects(source, state),
@@ -641,6 +643,22 @@ function convertNode(
       );
     }
     node = applyCommon(state, frame, source, parent, nodeFills);
+  } else if (source.children.length > 0) {
+    // Preserve children for boolean operations and newer container-like node
+    // types even when Varve has no specialized equivalent.
+    if (source.type === 'BOOLEAN_OPERATION')
+      addWarning(
+        state,
+        `Boolean operation "${source.name}" is preserved as an editable group; boolean geometry is not a native Varve node`,
+      );
+    else addUnsupported(state, `node type ${source.type}`);
+    node = applyCommon(
+      state,
+      makeGroupNode(id, { name: source.name, children: childIds, transform }),
+      source,
+      parent,
+      nodeFills,
+    );
   } else {
     if (source.type === 'BOOLEAN_OPERATION')
       addWarning(
@@ -674,7 +692,7 @@ function convertNode(
           sourceNodeId: state.sourceToVarve.get(maskSource.sourceId) ?? childIds[0]!,
           type: 'alpha',
           visible: true,
-          hideMaskSource: false,
+          hideMaskSource: true,
         },
       } as typeof node;
   }
@@ -933,8 +951,7 @@ function buildComponents(
     });
     result[id] = {
       id,
-      name:
-        source.componentSets.find((set) => set.sourceId === componentSetId)?.name ?? first.name,
+      name: source.componentSets.find((set) => set.sourceId === componentSetId)?.name ?? first.name,
       slots: [],
       masterRootId,
       properties,
@@ -1051,7 +1068,9 @@ function buildLayoutGrids(
       ...(pattern === 'COLUMNS'
         ? { columnCount: Math.max(1, grid.count ?? 1), columnWidth: grid.sectionSize }
         : {}),
-      ...(pattern === 'ROWS' ? { rowCount: Math.max(1, grid.count ?? 1), rowHeight: grid.sectionSize } : {}),
+      ...(pattern === 'ROWS'
+        ? { rowCount: Math.max(1, grid.count ?? 1), rowHeight: grid.sectionSize }
+        : {}),
       gutter: Math.max(0, grid.gutterSize ?? 0),
       margin: [grid.offset ?? 0, grid.offset ?? 0, grid.offset ?? 0, grid.offset ?? 0],
       alignment:
