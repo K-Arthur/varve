@@ -234,6 +234,53 @@ describe('email output', () => {
     expect(compiled.content?.runs?.[1]?.link?.url).toBe('https://example.com/policy');
   });
 
+  it('maps provider editable-region metadata through the compiler', () => {
+    const node = compilerNode();
+    const designIr = {
+      version: '2.1.0',
+      metadata: {},
+      nodes: { [node.id]: node },
+      rootIds: [node.id],
+      tokens: {},
+      breakpoints: [],
+      components: {},
+      unsupportedFeatures: [],
+      fidelityWarnings: [],
+      htmlHints: {},
+    } as unknown as IRDocument;
+    const result = compileEmail(
+      {
+        emailProfile: {
+          version: 1,
+          language: 'en',
+          direction: 'ltr',
+          contentWidth: 600,
+          mobileBreakpoint: 480,
+          compatibilityProfile: 'conservative',
+          provider: 'mailchimp',
+          providerSettings: {
+            mailchimp: {
+              editableRegions: [
+                { id: 'body_copy', name: 'Body copy', type: 'text', nodeId: 'text-1' },
+              ],
+            },
+          },
+        },
+      } as never,
+      designIr,
+      { profile: 'conservative', provider: 'mailchimp' },
+    );
+    const output = emitEmailHtml(result.ir);
+    expect(output.html).toContain('mc:edit="body_copy"');
+    expect(result.ir.nodes[0]?.providerAttributes).toEqual({
+      'mc:edit': 'body_copy',
+      'mc:label': 'Body copy',
+    });
+    expect(
+      result.diagnostics.some((diagnostic) => diagnostic.code === 'MISSING_MAILCHIMP_REGION_NODE'),
+    ).toBe(false);
+  });
+
   it('compiles a real Varve flex row into a linked, responsive email row', () => {
     let doc = createDocument('integration-email', true);
     const row = makeFrameNode('row-1', {
