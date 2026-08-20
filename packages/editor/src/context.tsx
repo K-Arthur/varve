@@ -46,6 +46,7 @@ import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import { applySelectedLayoutChildField } from './context/layoutChildSetters';
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
+import { type ImportedResourceSet, mergeImportedResources } from './import/mergeImportedResources';
 import { pathPointsWorldToLocal } from './tools/pathCoords';
 
 /** Module-level bridge giving the BackupSettingsPanel access to the editor's
@@ -560,7 +561,7 @@ function insertImportedSubtree(
   sourceDoc: Document,
   rootId: NodeId,
   adjustRoot: (node: SceneNode) => SceneNode,
-): { doc: Document; rootId: NodeId } | null {
+): { doc: Document; rootId: NodeId; idMap: Map<string, string> } | null {
   // Cross-document import/clipboard paste: mask and scope references that
   // point outside the pasted subtree must not leak source-document IDs —
   // foreign mattes/targets are dropped (the item is pasted unclipped) rather
@@ -600,6 +601,7 @@ function insertImportedSubtree(
     } as ContainerNode;
     return {
       rootId: cloned.rootId,
+      idMap: cloned.idMap,
       doc: {
         ...targetDoc,
         nextId: cloned.nextId,
@@ -620,6 +622,7 @@ function insertImportedSubtree(
 
   return {
     rootId: cloned.rootId,
+    idMap: cloned.idMap,
     doc: {
       ...targetDoc,
       nextId: cloned.nextId,
@@ -7240,6 +7243,7 @@ export function EditorProvider({
           redoLabelsRef.current = [];
           let doc = s.document;
           const newIds: NodeId[] = [];
+          const resourceImports: ImportedResourceSet[] = [];
 
           // Paste target: the deepest selected unlocked/visible frame or
           // group receives pasted content. Pasting converts the source
@@ -7293,6 +7297,7 @@ export function EditorProvider({
               const inserted = insertImportedSubtree(doc, tempDoc, node.id, (n) => n);
               if (!inserted) continue;
               doc = inserted.doc;
+              resourceImports.push({ sourceDoc: tempDoc, idMap: inserted.idMap });
               // World-pose preservation: the copy records each root's
               // placed-world transform; rebase it into the destination
               // frame's local space (or use it directly at the document
@@ -7355,6 +7360,7 @@ export function EditorProvider({
               );
               if (!inserted) continue;
               doc = inserted.doc;
+              resourceImports.push({ sourceDoc: result.document, idMap: inserted.idMap });
               // Paste into the selected frame: rebase the viewport-centred
               // placement into the frame's local space so the imported
               // content lands at the intended world point INSIDE the frame.
@@ -7381,7 +7387,11 @@ export function EditorProvider({
           }
 
           if (newIds.length === 0) return s;
-          return { ...s, document: doc, selection: newIds };
+          return {
+            ...s,
+            document: mergeImportedResources(doc, resourceImports),
+            selection: newIds,
+          };
         });
 
         const totalCount = (varveData?.nodes.length ?? 0) + importResults.length;
@@ -7407,7 +7417,11 @@ export function EditorProvider({
             ),
           );
           if (!inserted) return s;
-          return { ...s, document: inserted.doc, selection: [inserted.rootId] };
+          return {
+            ...s,
+            document: mergeImportedResources(inserted.doc, [{ sourceDoc, idMap: inserted.idMap }]),
+            selection: [inserted.rootId],
+          };
         });
         announcerRef.current?.announce('Imported layer');
       },
@@ -7420,6 +7434,7 @@ export function EditorProvider({
           redoLabelsRef.current = [];
           let doc = s.document;
           const newIds: NodeId[] = [];
+          const resourceImports: ImportedResourceSet[] = [];
           let batchIndex = 0;
           for (const { node, sourceDoc, position } of items) {
             // Cascade positionless items from the viewport centre so a
@@ -7439,6 +7454,7 @@ export function EditorProvider({
             );
             if (!inserted) continue;
             doc = inserted.doc;
+            resourceImports.push({ sourceDoc, idMap: inserted.idMap });
             const insertedNode = doc.nodes[inserted.rootId];
             if (insertedNode && isImageShape(insertedNode)) {
               const shape = insertedNode as import('@varve/scene').ShapeNode;
@@ -7524,7 +7540,7 @@ export function EditorProvider({
           }
           return {
             ...s,
-            document: doc,
+            document: mergeImportedResources(doc, resourceImports),
             selection: newIds,
             dirty: newIds.length > 0 || s.dirty,
           };

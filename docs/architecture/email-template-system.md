@@ -1,6 +1,6 @@
 # Email Template System — Architecture
 
-**Status**: Foundation, compiler, editor authoring, preview, preflight, and local export implemented
+**Status**: Foundation, semantic compiler, responsive preview, preflight, and local package export implemented; advanced code workflow and compatibility database remain deferred
 **ADR**: Pending (will be ADR-02XX)
 
 ## Overview
@@ -39,6 +39,10 @@ Varve Scene (Document)
         |
         v
   Email HTML / Plain Text / Asset Manifest
+        |
+        +--> Provider adapter (generic / limited Mailchimp mapping)
+        |
+        +--> Sandboxed browser preview
 ```
 
 ## Key Design Decisions
@@ -131,6 +135,10 @@ assignment, whole-node links, text-range links, custom HTML blocks,
 personalization variables, a sandboxed browser preview, generated HTML
 inspection, preflight diagnostics, and local HTML/text/manifest/embedded-asset export.
 
+The preview has explicit desktop/mobile viewport controls, and generated HTML
+is read-only; user-authored custom HTML remains a separate preserved source
+block.
+
 ## Files
 
 ### Scene Model
@@ -195,6 +203,9 @@ Generic and Mailchimp adapters are isolated in `email-provider.ts`. Mailchimp
 variables map to `*|TAG|*` syntax, and nodes with explicit editable-region
 metadata emit stable `mc:edit` attributes. Direct authenticated publishing is
 not part of this implementation; export remains local and credential-free.
+Repeatable regions, provider-side conditional execution, and full Mailchimp
+template validation are not yet implemented; the current Mailchimp adapter
+reuses the generic safe emitter and only maps supported metadata.
 
 ## What's NOT Included (By Design)
 
@@ -207,6 +218,25 @@ not part of this implementation; export remains local and credential-free.
 The current preview is a sandboxed iframe with scripting disabled. Remote
 images may be blocked by the browser sandbox; the exported asset manifest
 identifies package-relative assets for an explicit hosting step.
+
+## Current guarantees and known limits
+
+The repaired compiler now covers the highest-risk baseline cases:
+
+- normal Varve flex rows compile to desktop table cells with mobile stacking;
+- live text remains live, including text-range links without rich-text runs;
+- linked containers are retained when they do not contain another link;
+- nested anchor scopes, invalid links, unsafe custom markup/CSS, and local image
+  paths produce diagnostics and are not emitted as executable content;
+- inline styles escape attribute content, and generic HTML, plain text, and a
+  package manifest can be exported together.
+
+This is not yet a full IDE-style email code workflow. Generated code is exposed
+as a read-only inspection view; custom HTML uses the existing controlled text
+editor. Detached HTML ownership, source maps, CSS inlining, a versioned
+compatibility database, imported-HTML round tripping, and exact Gmail/Outlook
+render verification remain future work. The browser preview is labelled as a
+browser preview rather than client proof.
 
 ## Testing
 
