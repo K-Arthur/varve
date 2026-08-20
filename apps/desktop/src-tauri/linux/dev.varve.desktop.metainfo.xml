@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AppStream metainfo for Varve.
+
+  Installed to /usr/share/metainfo/ by the deb, rpm and AppImage bundles so
+  GNOME Software, KDE Discover, AppImageHub and similar consumers can render
+  a proper application page. Requires at least one <release> entry; the
+  version here must match the committed release version (enforced by
+  scripts/release/linux-package-metadata.test.mjs).
+
+  License note: Varve is source-available under FSL-1.1-MIT, which is not a
+  standard SPDX identifier. It is expressed as a custom SPDX reference
+  (LicenseRef-) rather than being mislabelled as an OSI-approved license —
+  the SPDX identifier used by the AUR package and the distro candidates must
+  stay consistent with this declaration.
+-->
+<component type="desktop-application">
+  <id>dev.varve.desktop</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-FSL-1.1-MIT</project_license>
+  <name>Varve</name>
+  <summary>Local-first design suite for vector, layout, typography, motion, and print</summary>
+  <description>
+    <p>
+      Varve is a local-first design suite for vector illustration, page
+      layout, typography, motion, prototyping, and print production. It runs
+      natively on Linux, macOS, and Windows, and keeps your designs on your
+      machine.
+    </p>
+    <p>
+      Source-available under FSL-1.1-MIT. Optional AI assist features
+      (background removal, image upscaling, raster-to-vector tracing) run
+      on-device; a small set of optional models downloads on demand.
+    </p>
+  </description>
+  <launchable type="desktop-id">dev.varve.desktop.desktop</launchable>
+  <url type="homepage">https://varve.studio</url>
+  <url type="bugtracker">https://github.com/K-Arthur/varve/issues</url>
+  <url type="faq">https://varve.studio/support/faq</url>
+  <developer id="dev.varve.desktop">
+    <name>K-Arthur</name>
+  </developer>
+  <screenshots>
+    <screenshot type="default">
+      <caption>The Design workspace</caption>
+      <image type="source">https://varve.studio/screenshots/workspace-light.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Vector drawing tools</caption>
+      <image type="source">https://varve.studio/screenshots/vector-light.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Page layout and typography</caption>
+      <image type="source">https://varve.studio/screenshots/layout-light.png</image>
+    </screenshot>
+  </screenshots>
+  <categories>
+    <category>Graphics</category>
+    <category>2DGraphics</category>
+    <category>VectorGraphics</category>
+  </categories>
+  <keywords>
+    <keyword>design</keyword>
+    <keyword>vector</keyword>
+    <keyword>illustration</keyword>
+    <keyword>layout</keyword>
+    <keyword>typography</keyword>
+    <keyword>motion</keyword>
+    <keyword>print</keyword>
+  </keywords>
+  <releases>
+    <release version="0.1.2" date="2026-08-16"/>
+  </releases>
+  <content_rating type="oars-1.1"/>
+</component>

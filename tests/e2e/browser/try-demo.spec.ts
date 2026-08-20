@@ -67,6 +67,10 @@ test.describe('browser demo (/try)', () => {
     const intro = banner.locator('.varve-demo-banner__intro');
     await expect(intro).toContainText(/browser demo/i);
     await expect(intro).toContainText(/nothing uploaded/i);
+    const consent = banner.locator('.varve-demo-banner__consent');
+    await expect(consent).toBeVisible();
+    await expect(consent.getByRole('button', { name: 'Allow' })).toBeVisible();
+    await expect(consent.getByRole('button', { name: 'No thanks' })).toBeVisible();
 
     // The download-desktop CTA links to the website.
     const cta = banner.getByRole('link', { name: /download desktop/i });
@@ -85,6 +89,30 @@ test.describe('browser demo (/try)', () => {
     expect(box).not.toBeNull();
     expect(box!.width).toBeGreaterThan(0);
     expect(box!.height).toBeGreaterThan(0);
+  });
+
+  test('remembers an explicit analytics choice and does not ask again', async ({ page }) => {
+    await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+
+    const banner = page.locator('.varve-demo-banner');
+    const consent = banner.locator('.varve-demo-banner__consent');
+    await expect(consent).toBeVisible();
+    await consent.getByRole('button', { name: 'No thanks' }).click();
+    await expect(consent).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const raw = localStorage.getItem('varve-editor-settings');
+          return raw ? JSON.parse(raw).privacy?.usageAnalytics : undefined;
+        }),
+      )
+      .toBe('denied');
+
+    await page.reload({ timeout: 120000 });
+    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await expect(page.locator('.varve-demo-banner')).toBeVisible();
+    await expect(page.locator('.varve-demo-banner__consent')).toHaveCount(0);
   });
 
   test('WASM engine loads in the demo', async ({ page }) => {
@@ -283,9 +311,22 @@ test.describe('browser demo (/try)', () => {
     )) as string[];
     expect(labels.sort()).toEqual(['design', 'drawing', 'image']);
 
-    // Not merely hidden: the overflow menu must not carry them either.
+    // Not merely hidden from the tabs: the View menu keeps withheld capability
+    // names visible but genuinely disabled, while allowed modes remain active.
     for (const mode of ['print', 'motion', 'codegen', 'logo', 'email']) {
       await expect(page.locator(`.workspace-tabs [data-mode="${mode}"]`)).toHaveCount(0);
+    }
+    await page.getByRole('menuitem', { name: 'View' }).click();
+    const viewMenu = page.locator('.editor-menubar__menu');
+    for (const mode of ['Print', 'Motion', 'Codegen', 'Logo', 'Email']) {
+      await expect(
+        viewMenu.getByRole('menuitemradio', { name: `Workspace: ${mode}` }),
+      ).toBeDisabled();
+    }
+    for (const mode of ['Design', 'Draw', 'Photo']) {
+      await expect(
+        viewMenu.getByRole('menuitemradio', { name: `Workspace: ${mode}` }),
+      ).not.toBeDisabled();
     }
   });
 
