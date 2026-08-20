@@ -137,12 +137,7 @@ export function BrushBrowser({
           description={query ? `Nothing matches “${query}”.` : 'This category is empty.'}
         />
       ) : (
-        <ul
-          className="brush-browser__grid"
-          role="listbox"
-          aria-label="Brushes"
-          aria-activedescendant={`brush-tile-${selectedId}`}
-        >
+        <ul className="brush-browser__grid" aria-label="Brushes">
           {visible.map((item) => (
             <BrushTile
               key={item.id}
@@ -275,13 +270,17 @@ function BrushTile({
     <li
       ref={ref}
       id={`brush-tile-${item.id}`}
-      role="option"
-      aria-selected={selected}
       className={`brush-browser__tile${selected ? ' is-selected' : ''}`}
     >
+      {/* A listbox whose options contain buttons is invalid ARIA — options
+          must not hold focusable children — and each tile needs favourite,
+          edit, export and delete alongside selection. A list of toggle
+          buttons keeps every action reachable and announces which brush is
+          active via aria-pressed. */}
       <button
         type="button"
         className="brush-browser__tile-main"
+        aria-pressed={selected}
         onClick={() => onSelect(item)}
         onKeyDown={handleKey}
       >

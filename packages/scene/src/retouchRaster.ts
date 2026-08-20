@@ -37,11 +37,7 @@ interface Rgba {
 }
 
 /** Nearest-neighbour tile sample. Returns null outside any populated tile. */
-export function sampleTiles(
-  tiles: Map<string, RasterTile>,
-  x: number,
-  y: number,
-): Rgba | null {
+export function sampleTiles(tiles: Map<string, RasterTile>, x: number, y: number): Rgba | null {
   const px = Math.floor(x);
   const py = Math.floor(y);
   const col = Math.floor(px / TILE_SIZE);

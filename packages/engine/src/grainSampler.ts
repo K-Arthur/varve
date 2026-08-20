@@ -23,13 +23,13 @@
  *                 Adobe Photoshop brush texture engine.
  */
 
-import { getImageCache } from './imageCache';
 import {
-  getGrainTextureCache,
   type GrainPlane,
   type GrainWrapMode,
+  getGrainTextureCache,
   samplePlane,
 } from './grainTexture';
+import { getImageCache } from './imageCache';
 
 export type GrainAnchor = 'brush' | 'canvas' | 'stroke' | 'layer';
 
@@ -108,8 +108,7 @@ export function grainTextureCoords(
   ax += params.offsetX;
   ay += params.offsetY;
 
-  const rotation =
-    params.rotation + (params.followDirection ? (params.direction ?? 0) : 0);
+  const rotation = params.rotation + (params.followDirection ? (params.direction ?? 0) : 0);
   const cos = Math.cos(rotation);
   const sin = Math.sin(rotation);
   const rx = ax * cos - ay * sin;
@@ -209,9 +208,12 @@ export async function prepareGrain(grainId: string | null | undefined): Promise<
   if (getGrainTextureCache().has(id)) return true;
   try {
     const loaded = await getImageCache().load(id);
-    return getGrainTextureCache().put(id, loaded as unknown as Parameters<
-      ReturnType<typeof getGrainTextureCache>['put']
-    >[1]) !== null;
+    return (
+      getGrainTextureCache().put(
+        id,
+        loaded as unknown as Parameters<ReturnType<typeof getGrainTextureCache>['put']>[1],
+      ) !== null
+    );
   } catch {
     return false;
   }

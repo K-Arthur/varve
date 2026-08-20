@@ -3,6 +3,71 @@
 import { render, screen } from '@testing-library/react';
 import { EmptyState } from '@varve/ui';
 import { describe, expect, it } from 'vitest';
+import { getEmptyStateContent } from './CanvasArea';
+
+describe('getEmptyStateContent', () => {
+  it('returns design mode defaults for unknown mode', () => {
+    const content = getEmptyStateContent('unknown');
+    expect(content.title).toBe('Start designing');
+    expect(content.shortcuts).toEqual([
+      { key: 'F', label: 'Frame' },
+      { key: 'R', label: 'Rectangle' },
+      { key: 'T', label: 'Text' },
+      { key: 'P', label: 'Pen' },
+    ]);
+    expect(content.hint).toBe('or drag an image here');
+  });
+
+  it('returns correct content for design mode', () => {
+    const content = getEmptyStateContent('design');
+    expect(content.title).toBe('Start designing');
+    expect(content.shortcuts).toHaveLength(4);
+    expect(content.hint).toBe('or drag an image here');
+  });
+
+  it('returns correct content for drawing mode', () => {
+    const content = getEmptyStateContent('drawing');
+    expect(content.title).toBe('Start painting');
+    expect(content.shortcuts).toEqual([
+      { key: 'B', label: 'Brush' },
+      { key: '⇧P', label: 'Pencil' },
+      { key: 'E', label: 'Eraser' },
+    ]);
+  });
+
+  it('returns correct content for print mode', () => {
+    const content = getEmptyStateContent('print');
+    expect(content.title).toBe('Start your layout');
+    expect(content.shortcuts).toHaveLength(3);
+    expect(content.hint).toBe('or drag an image to place');
+  });
+
+  it('returns correct content for motion mode', () => {
+    const content = getEmptyStateContent('motion');
+    expect(content.title).toBe('Create your first scene');
+    expect(content.hint).toBe('or drag images to animate');
+  });
+
+  it('returns correct content for codegen mode', () => {
+    const content = getEmptyStateContent('codegen');
+    expect(content.title).toBe('Select artwork to export');
+    expect(content.shortcuts).toHaveLength(1);
+    expect(content.hint).toBe('then choose a code format in the Export panel');
+  });
+
+  it('returns correct content for logo mode', () => {
+    const content = getEmptyStateContent('logo');
+    expect(content.title).toBe('Design your mark');
+    expect(content.shortcuts).toHaveLength(4);
+    expect(content.hint).toBe('or start from a template');
+  });
+
+  it('returns correct content for image mode', () => {
+    const content = getEmptyStateContent('image');
+    expect(content.title).toBe('Edit your photo');
+    expect(content.shortcuts).toHaveLength(1);
+  });
+});
 
 describe('CanvasArea empty state', () => {
   it('renders empty state with headline', () => {
@@ -98,23 +163,26 @@ describe('CanvasArea empty state', () => {
 });
 
 describe('Canvas inline empty state', () => {
-  it('renders keyboard shortcut hints', () => {
-    render(
+  function renderEmptyState(mode: string) {
+    const content = getEmptyStateContent(mode);
+    return render(
       <div className="editor-canvas__empty-state" role="status" aria-label="Empty canvas">
-        <p className="editor-canvas__empty-state-title">Start designing</p>
+        <p className="editor-canvas__empty-state-title">{content.title}</p>
         <div className="editor-canvas__empty-state-shortcuts">
-          <span className="editor-canvas__empty-state-key">F</span>
-          <span>Frame</span>
-          <span className="editor-canvas__empty-state-key">R</span>
-          <span>Rectangle</span>
-          <span className="editor-canvas__empty-state-key">T</span>
-          <span>Text</span>
-          <span className="editor-canvas__empty-state-key">P</span>
-          <span>Pen</span>
+          {content.shortcuts.map((s) => (
+            <span key={s.key}>
+              <span className="editor-canvas__empty-state-key">{s.key}</span>
+              {s.label}
+            </span>
+          ))}
         </div>
-        <p className="editor-canvas__empty-state-hint">or drag an image here</p>
+        <p className="editor-canvas__empty-state-hint">{content.hint}</p>
       </div>,
     );
+  }
+
+  it('renders design mode shortcut hints', () => {
+    renderEmptyState('design');
     expect(screen.getByText('Start designing')).toBeTruthy();
     expect(screen.getByText('Frame')).toBeTruthy();
     expect(screen.getByText('Rectangle')).toBeTruthy();
@@ -123,12 +191,28 @@ describe('Canvas inline empty state', () => {
     expect(screen.getByText('or drag an image here')).toBeTruthy();
   });
 
+  it('renders drawing mode shortcut hints', () => {
+    renderEmptyState('drawing');
+    expect(screen.getByText('Start painting')).toBeTruthy();
+    expect(screen.getByText('Brush')).toBeTruthy();
+    expect(screen.getByText('Pencil')).toBeTruthy();
+    expect(screen.getByText('Eraser')).toBeTruthy();
+  });
+
+  it('renders motion mode shortcut hints', () => {
+    renderEmptyState('motion');
+    expect(screen.getByText('Create your first scene')).toBeTruthy();
+    expect(screen.getByText('or drag images to animate')).toBeTruthy();
+  });
+
+  it('renders codegen mode shortcut hints', () => {
+    renderEmptyState('codegen');
+    expect(screen.getByText('Select artwork to export')).toBeTruthy();
+    expect(screen.getByText('then choose a code format in the Export panel')).toBeTruthy();
+  });
+
   it('has role=status for screen readers', () => {
-    render(
-      <div className="editor-canvas__empty-state" role="status" aria-label="Empty canvas">
-        <p className="editor-canvas__empty-state-title">Start designing</p>
-      </div>,
-    );
+    renderEmptyState('design');
     expect(screen.getByRole('status')).toHaveAttribute('aria-label', 'Empty canvas');
   });
 });

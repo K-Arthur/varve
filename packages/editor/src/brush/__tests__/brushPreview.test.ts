@@ -49,7 +49,13 @@ describe('brush preview fingerprint', () => {
     const withPressure = {
       ...p,
       dynamics: [
-        { input: 'pressure' as const, target: 'size' as const, curve: [0, 0, 1, 1] as const, min: 0.1, max: 1 },
+        {
+          input: 'pressure' as const,
+          target: 'size' as const,
+          curve: [0, 0, 1, 1] as const,
+          min: 0.1,
+          max: 1,
+        },
       ],
     };
     expect(brushPreviewFingerprint(withPressure, opts)).not.toBe(brushPreviewFingerprint(p, opts));
