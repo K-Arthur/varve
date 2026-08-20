@@ -439,6 +439,7 @@ records; check the current code before acting on their findings.
 |-----|---------|
 | `apps/desktop/README.md` | Tauri 2 desktop app — architecture, running, building |
 | `apps/website/README.md` | Astro 7 marketing site — architecture, running, testing |
+| `apps/web/` | `@varve/web` — Next.js 15 editor scaffold behind the WASM engine. **Not yet landed**: package.json build/typecheck/test scripts are placeholders ("Full scaffold lands in task 0.9"). Do not treat it as a shippable application; the supported product path remains the native desktop app and the `/try/` browser demo (see root README "Architecture"). |
 
 ## AI-Assisted Development
 
