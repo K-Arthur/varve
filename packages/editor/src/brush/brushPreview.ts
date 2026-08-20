@@ -227,6 +227,14 @@ export class BrushPreviewCache {
   }
 }
 
+const warnedPresets = new Set<string>();
+
+function warnPreviewFailure(presetId: string, err: unknown): void {
+  if (warnedPresets.has(presetId) || typeof console === 'undefined') return;
+  warnedPresets.add(presetId);
+  console.warn(`[brush] preview render failed for "${presetId}"`, err);
+}
+
 /** Render a preview to a data URL, using and populating `cache`. */
 export function brushPreviewDataUrl(
   preset: BrushPreset,
@@ -249,8 +257,11 @@ export function brushPreviewDataUrl(
     ctx.scale(ratio, ratio);
     renderBrushPreview(ctx, preset, options);
     url = canvas.toDataURL('image/png');
-  } catch {
-    // A thumbnail is never worth failing a render over.
+  } catch (err) {
+    // A thumbnail is never worth failing a render over — but swallowing the
+    // reason turns "no previews" into an unexplainable blank grid, so say it
+    // once per preset rather than silently returning nothing.
+    warnPreviewFailure(preset.id, err);
     return null;
   }
   cache.set(preset.id, fingerprint, url);
