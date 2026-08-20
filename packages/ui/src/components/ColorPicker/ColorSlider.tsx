@@ -103,7 +103,7 @@ export function ColorSlider({
   );
 
   return (
-    <div className="insp-slider">
+    <div className={`insp-slider color-slider--${channel}`}>
       <div
         ref={trackRef}
         className="insp-slider__track"

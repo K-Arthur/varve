@@ -195,12 +195,16 @@ function createBrushMask(
   const mask = new Float64Array(size * size);
   const cx = radius;
   const cy = radius;
-  const innerRadius = radius * (1 - hardness);
+  // Hardness is the fraction of the tip that stays fully solid: 1 is a hard
+  // edge, 0 falls off from the centre. This matches the engine's retouch brush
+  // and what the built-in presets were written against — "Airbrush" at
+  // hardness 0.1 is meant to be almost all falloff.
+  const innerRadius = radius * hardness;
   const falloff = radius - innerRadius;
 
   if (shape === 'square') {
     const halfSize = radius;
-    const innerHalf = halfSize * (1 - hardness);
+    const innerHalf = halfSize * hardness;
     const edgeFalloff = halfSize - innerHalf;
 
     for (let y = 0; y < size; y++) {
