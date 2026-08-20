@@ -221,7 +221,9 @@ async function importOne(
       })),
     ]);
     const opaqueBinary = unsupportedFeatures.some(
-      (feature) => feature.feature === 'opaque native .fig binary',
+      (feature) =>
+        feature.feature === 'opaque native .fig binary' ||
+        feature.feature === 'native .fig decoding',
     );
     const status = opaqueBinary
       ? 'unsupported'

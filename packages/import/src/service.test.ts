@@ -37,6 +37,27 @@ function sketchZip(): Uint8Array {
 }
 
 describe('ImportService', () => {
+  it('classifies an undecodable native .fig as unsupported without import artifacts', async () => {
+    const report = await ImportService.importFiles([
+      {
+        name: 'broken.fig',
+        bytes: new Uint8Array([0x50, 0x4b, 0x03, 0x04]),
+        source: 'file-picker',
+      },
+    ]);
+
+    expect(report.files[0]).toMatchObject({
+      status: 'unsupported',
+      nodeCount: 0,
+      artifacts: [{ nodeIds: [] }],
+    });
+    expect(report.failureCount).toBe(1);
+    expect(report.unsupportedCount).toBe(1);
+    expect(report.files[0]?.warnings.map((item) => item.message).join('\n')).toMatch(
+      /could not be decoded safely/i,
+    );
+  });
+
   it('registers Figma JSON in the service and reports parser-level degradation', async () => {
     const json = JSON.stringify({
       name: 'Figma service fixture',
