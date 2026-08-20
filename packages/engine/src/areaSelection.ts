@@ -9,6 +9,31 @@
 
 export type AreaSelectionOperation = 'replace' | 'add' | 'subtract' | 'intersect';
 
+export type AreaSelectionStyle = 'normal' | 'fixed-ratio' | 'fixed-size';
+
+/** Ephemeral controls shared by the rectangular and elliptical marquee tools. */
+export interface AreaSelectionSettings {
+  operation: AreaSelectionOperation;
+  style: AreaSelectionStyle;
+  ratio: number;
+  fixedWidth: number;
+  fixedHeight: number;
+  fromCenter: boolean;
+  feather: number;
+  antialias: boolean;
+}
+
+export const DEFAULT_AREA_SELECTION_SETTINGS: Readonly<AreaSelectionSettings> = Object.freeze({
+  operation: 'replace',
+  style: 'normal',
+  ratio: 1,
+  fixedWidth: 100,
+  fixedHeight: 100,
+  fromCenter: false,
+  feather: 0,
+  antialias: false,
+});
+
 export interface SelectionPoint {
   x: number;
   y: number;

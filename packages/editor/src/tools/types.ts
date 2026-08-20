@@ -10,7 +10,7 @@
  * F3: GestureResult tells the ToolManager whether to fall through or consume.
  */
 
-import type { AreaSelection, Engine, PathPoint } from '@varve/engine';
+import type { AreaSelection, AreaSelectionSettings, Engine, PathPoint } from '@varve/engine';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
 import type { Camera } from '@varve/shared';
 import type { NormalizedInputEvent } from './inputNormalizer';
@@ -113,6 +113,8 @@ export interface ToolContext {
   /** Separate analytical pixel selection; does not use the node selection array. */
   areaSelection?: AreaSelection | null;
   setAreaSelection?: (selection: AreaSelection | null) => void;
+  areaSelectionSettings?: AreaSelectionSettings;
+  setAreaSelectionSettings?: (patch: Partial<AreaSelectionSettings>) => void;
   setMaskPreviewMode: (mode: MaskPreviewMode) => void;
   /** Foreground color for painting as RGBA [r, g, b, a] in 0-255 range. */
   foregroundColor: [number, number, number, number];

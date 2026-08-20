@@ -1,4 +1,10 @@
-import type { Adjustment, AreaSelection, BlendMode, PathPoint } from '@varve/engine';
+import type {
+  Adjustment,
+  AreaSelection,
+  AreaSelectionSettings,
+  BlendMode,
+  PathPoint,
+} from '@varve/engine';
 import type { Platform } from '@varve/platform';
 import type { PrototypeData, PrototypeDebugConsole, PrototypeRuntime } from '@varve/prototype';
 import type {
@@ -308,6 +314,8 @@ export interface EditorState {
   selectionRevision: number;
   /** Ephemeral document-space pixel selection; never serialized into artwork. */
   areaSelection?: AreaSelection | null;
+  /** Ephemeral controls shared by the rectangular and elliptical marquee tools. */
+  areaSelectionSettings: AreaSelectionSettings;
   document: Document;
   sessions: SessionMeta[];
   activeId: string;
@@ -1359,6 +1367,8 @@ export interface EditorContextValue {
   setQuickMaskCoverage: (coverage: Uint8Array, width: number, height: number) => void;
   /** Replace the analytical pixel selection without dirtying the document. */
   setAreaSelection?: (selection: AreaSelection | null) => void;
+  /** Update ephemeral pixel-marquee controls without dirtying the document. */
+  setAreaSelectionSettings: (patch: Partial<AreaSelectionSettings>) => void;
   paintQuickMask: (x: number, y: number, radius: number, value: number) => void;
   fillQuickMask: (value: number) => void;
   invertQuickMask: () => void;

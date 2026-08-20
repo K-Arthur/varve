@@ -50,7 +50,9 @@ export type {
   AreaSelection,
   AreaSelectionExpression,
   AreaSelectionOperation,
+  AreaSelectionSettings,
   AreaSelectionShape,
+  AreaSelectionStyle,
   EllipseSelectionShape,
   PolygonSelectionShape,
   RasterizeAreaSelectionOptions,
@@ -62,6 +64,7 @@ export {
   areaSelectionCoverageAt,
   combineAreaSelections,
   createAreaSelection,
+  DEFAULT_AREA_SELECTION_SETTINGS,
   rasterizeAreaSelection,
 } from './areaSelection';
 export type {
