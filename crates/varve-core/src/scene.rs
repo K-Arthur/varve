@@ -119,19 +119,14 @@ pub enum EngineColor {
 // ── Gradient / Fill types (mirrors @varve/engine types.ts) ──────────────────
 
 /// Hue interpolation direction for cylindrical spaces (OKLCH, HSL).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum HueInterpolation {
+    #[default]
     Shorter,
     Longer,
     Increasing,
     Decreasing,
-}
-
-impl Default for HueInterpolation {
-    fn default() -> Self {
-        Self::Shorter
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
