@@ -8,7 +8,7 @@
  *
  * Uses Varve's custom Select (combobox) and SegmentedControl (radiogroup).
  */
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -166,8 +166,17 @@ test.describe('Auto Layout comprehensive verification', () => {
     await createBtn.click({ timeout: 10000 });
     // Wait for the editor to mount. If it crashes (error boundary), reload and retry.
     for (let attempt = 0; attempt < 3; attempt++) {
-      await page.locator('.layers-panel').waitFor({ timeout: 30000 }).catch(() => null);
-      if (await page.locator('.layers-panel').isVisible().catch(() => false)) break;
+      await page
+        .locator('.layers-panel')
+        .waitFor({ timeout: 30000 })
+        .catch(() => null);
+      if (
+        await page
+          .locator('.layers-panel')
+          .isVisible()
+          .catch(() => false)
+      )
+        break;
       // Editor crashed — click Reload on the error boundary.
       const reloadBtn = page.getByRole('button', { name: /reload/i });
       if (await reloadBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
@@ -381,7 +390,9 @@ test.describe('Auto Layout comprehensive verification', () => {
     await expect(cs.getByRole('combobox', { name: 'Layout position' })).toBeVisible({
       timeout: 3000,
     });
-    await expect(cs.getByRole('combobox', { name: 'Child cross-axis alignment override' })).toBeVisible({
+    await expect(
+      cs.getByRole('combobox', { name: 'Child cross-axis alignment override' }),
+    ).toBeVisible({
       timeout: 3000,
     });
     await page.screenshot({ path: 'test-results/autolayout-09-child-controls.png' });
