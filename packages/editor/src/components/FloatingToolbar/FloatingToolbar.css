@@ -12,6 +12,10 @@
   z-index: calc(var(--elevation-z-raised) + 1);
   pointer-events: none;
   width: max-content;
+  /* The canvas grid area is narrower than the whole shell when side panels
+   * are open. Keep the palette inside that cell; the inner row scrolls when
+   * the workspace has more tools than the available canvas width. */
+  max-width: calc(100% - var(--space-4));
   height: max-content;
   margin: 0;
 }
@@ -26,6 +30,11 @@
   border: 1px solid var(--color-border-subtle);
   box-shadow: var(--shadow-lg);
   pointer-events: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .floating-toolbar__btn {
@@ -39,6 +48,7 @@
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
   cursor: pointer;
+  flex: 0 0 auto;
 }
 
 .floating-toolbar__btn:hover {
@@ -84,6 +94,7 @@
   cursor: pointer;
   padding: 0;
   margin-right: var(--space-1);
+  flex: 0 0 auto;
 }
 
 /* L2 (2026-08-10): at <=640px the 19-tool row is wider than the viewport
@@ -99,10 +110,6 @@
   }
   .floating-toolbar [role="toolbar"] {
     max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: thin;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
   }
 }
 
