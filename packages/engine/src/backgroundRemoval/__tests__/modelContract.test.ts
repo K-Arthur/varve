@@ -26,6 +26,8 @@ describe('MODEL_CONTRACTS', () => {
     const c = MODEL_CONTRACTS.u2netp!;
     expect(c.inputs[0]!.dims).toEqual([1, 3, 320, 320]);
     expect(c.outputs[0]!.dims).toEqual([1, 1, 320, 320]);
+    expect(c.outputs[0]!.name).toBe('1959');
+    expect(c.outputs[0]!.alternateNames).toContain('output.1');
   });
 
   it('IS-Net and BiRefNet contracts expect 1024x1024 input/output', () => {
@@ -39,12 +41,17 @@ describe('MODEL_CONTRACTS', () => {
 
 describe('validateModelContract — valid sessions', () => {
   it('passes when names match for u2netp', () => {
-    const result = validateModelContract('u2netp', ['input.1'], ['output.1']);
+    const result = validateModelContract('u2netp', ['input.1'], ['1959']);
     expect(result.valid).toBe(true);
     expect(result.violations).toHaveLength(0);
   });
 
   it('passes when names match for IS-Net', () => {
+    const result = validateModelContract('isnet-general-use', ['input_image'], ['output_image']);
+    expect(result.valid).toBe(true);
+  });
+
+  it('accepts the older rembg names as verified aliases', () => {
     const result = validateModelContract('isnet-general-use', ['input.1'], ['output.1']);
     expect(result.valid).toBe(true);
   });

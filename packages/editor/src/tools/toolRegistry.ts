@@ -391,6 +391,22 @@ export const TOOL_REGISTRY = [
     aliases: ['freeform selection'],
   },
   {
+    id: 'marquee',
+    label: 'Rectangular Marquee',
+    icon: 'SquareDashed',
+    category: 'selection',
+    kind: 'tool',
+    aliases: ['pixel selection', 'rectangle selection', 'area selection'],
+  },
+  {
+    id: 'ellipseMarquee',
+    label: 'Elliptical Marquee',
+    icon: 'CircleDashed',
+    category: 'selection',
+    kind: 'tool',
+    aliases: ['ellipse selection', 'circle selection', 'area selection'],
+  },
+  {
     id: 'table',
     label: 'Table',
     icon: 'Table',

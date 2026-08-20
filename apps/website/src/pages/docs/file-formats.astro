@@ -1,9 +1,40 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+
+const figmaImportFaq = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'Can Varve import a native Figma .fig file?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes. Varve decodes supported native .fig archives locally, then converts their pages, frames, vectors, paints, text, and layout data into editable native Varve nodes. REST and plugin-export JSON remain available when a Figma file contains resource metadata not exposed by the native archive decoder.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Does importing a Figma file require Figma or an upload?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'No for a local .fig file. Native .fig conversion runs locally and does not store Figma credentials. API-backed JSON acquisition is a separate authenticated workflow.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Does Varve flatten imported Figma designs to images?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'No. Varve prioritizes native editable nodes. Supported vector regions become editable paths, text remains text, and unsupported or degraded semantics are reported instead of being silently presented as full-fidelity import.',
+      },
+    },
+  ],
+};
 ---
 
-<Layout title="File Formats & Figma Import" description="File formats Varve opens and exports, including semantic Figma REST/plugin JSON import, editable text, and local-first font recovery.">
+<Layout title="File Formats & Native Figma .fig Import" description="Import native Figma .fig files locally into editable Varve documents, with REST/plugin JSON support, semantic conversion, and honest fidelity reporting." structuredData={figmaImportFaq}>
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -60,7 +91,7 @@ import { sitePath } from '../../lib/siteUrl';
 
         <h3>Figma design data</h3>
         <p>
-          Varve accepts official Figma REST file JSON and compatible plugin-export JSON for semantic, editable conversion. The importer normalizes source data before building a native Varve document, preserving pages, frames, text, rich-text runs, components, styles, variables, layout metadata, and prototype references where Varve has an equivalent representation.
+          Varve accepts native Figma <code>.fig</code> archives, official Figma REST file JSON, and compatible plugin-export JSON for semantic, editable conversion. Native archives are decoded locally; the importer then normalizes source data before building a native Varve document, preserving pages, frames, vectors, text, rich-text runs, components, styles, variables, layout metadata, and prototype references wherever the source and Varve expose an equivalent representation.
         </p>
         <ul>
           <li><strong>Editable text:</strong> Text remains text, including mixed rich-text runs where the source data provides them</li>
@@ -69,7 +100,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Safe degradation:</strong> Unsupported effects, missing dependencies, and approximations appear in the structured Import Report</li>
         </ul>
         <p>
-          Native opaque <code>.fig</code> binaries are not currently parsed as a semantic source. For editable import, use an authorized REST or plugin export. For visual fallback, SVG or PDF can be imported independently; those formats cannot preserve Figma-specific components, variables, Auto Layout, or prototype semantics. Read the <a href={sitePath('/features/typography')}>missing-font replacement workflow</a> and <a href={sitePath('/docs/tools/typography')}>typography documentation</a> for details.
+          Native <code>.fig</code> conversion is local-first and does not require Figma credentials. Source schema versions and resource maps evolve, so Varve reports unsupported effects, missing dependencies, and degraded semantics in its Import Report. When maximum documented Figma resource fidelity is required, use an authorized REST or plugin export; SVG and PDF remain useful visual fallbacks but cannot preserve Figma-specific components, variables, Auto Layout, or prototype semantics. Read the <a href={sitePath('/features/typography')}>missing-font replacement workflow</a> and <a href={sitePath('/docs/tools/typography')}>typography documentation</a> for details.
         </p>
 
         <h3>PDF</h3>

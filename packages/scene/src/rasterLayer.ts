@@ -3,6 +3,7 @@ import { resolveGrainValueSync } from '@varve/engine';
 import type { BrushDab } from './brush';
 import { type CoverageMask, sampleCoverage } from './paintCoverage';
 import type { RasterLayerNode, RasterTile } from './types';
+import { wetEdgeDarkening } from './wetPaint';
 
 export type { BrushDab };
 
@@ -195,12 +196,16 @@ function createBrushMask(
   const mask = new Float64Array(size * size);
   const cx = radius;
   const cy = radius;
-  const innerRadius = radius * (1 - hardness);
+  // Hardness is the fraction of the tip that stays fully solid: 1 is a hard
+  // edge, 0 falls off from the centre. This matches the engine's retouch brush
+  // and what the built-in presets were written against — "Airbrush" at
+  // hardness 0.1 is meant to be almost all falloff.
+  const innerRadius = radius * hardness;
   const falloff = radius - innerRadius;
 
   if (shape === 'square') {
     const halfSize = radius;
-    const innerHalf = halfSize * (1 - hardness);
+    const innerHalf = halfSize * hardness;
     const edgeFalloff = halfSize - innerHalf;
 
     for (let y = 0; y < size; y++) {
@@ -379,6 +384,14 @@ export interface DabCompositeOptions {
   alphaLock?: boolean;
   /** Selection / clipping coverage in layer pixel space. Null = unrestricted. */
   coverage?: CoverageMask | null;
+  /**
+   * Wet-edge darkening, as watercolour pooling at a stroke's rim.
+   *
+   * Expressed as a fraction of the tip radius plus a darkening amount, both in
+   * brush-relative units — so the effect is identical at any zoom, which is the
+   * usual way a wet edge goes wrong.
+   */
+  wetEdge?: { size: number; darken: number } | null;
 }
 
 export type DabCompositeArg = boolean | DabCompositeOptions;
@@ -386,9 +399,14 @@ export type DabCompositeArg = boolean | DabCompositeOptions;
 function normalizeCompositeOptions(arg: DabCompositeArg | undefined): {
   alphaLock: boolean;
   coverage: CoverageMask | null;
+  wetEdge: { size: number; darken: number } | null;
 } {
-  if (typeof arg === 'boolean') return { alphaLock: arg, coverage: null };
-  return { alphaLock: arg?.alphaLock ?? false, coverage: arg?.coverage ?? null };
+  if (typeof arg === 'boolean') return { alphaLock: arg, coverage: null, wetEdge: null };
+  return {
+    alphaLock: arg?.alphaLock ?? false,
+    coverage: arg?.coverage ?? null,
+    wetEdge: arg?.wetEdge ?? null,
+  };
 }
 
 function compositeBrushDabOnPixels(
@@ -407,6 +425,7 @@ function compositeBrushDabOnPixels(
   tileOriginX = 0,
   tileOriginY = 0,
   coverage: CoverageMask | null = null,
+  wetEdge: { size: number; darken: number } | null = null,
 ): boolean {
   const size = Math.ceil(dabRadius * 2);
   const offsetX = Math.round(dabX - dabRadius);
@@ -435,13 +454,19 @@ function compositeBrushDabOnPixels(
         ? resolveGrainValueSync(grain.grainId, layerX, layerY, {
             scale: grain.scale,
             rotation: grain.rotation,
-            offsetX: 0,
-            offsetY: 0,
+            offsetX: grain.offsetX ?? 0,
+            offsetY: grain.offsetY ?? 0,
             contrast: grain.contrast,
             invert: grain.invert,
-            anchor: 'canvas',
+            anchor: grain.anchor ?? 'layer',
             strokeT: grain.strokeT,
             seed: 0,
+            dabX: grain.dabX ?? dabX + tileOriginX,
+            dabY: grain.dabY ?? dabY + tileOriginY,
+            strokeDistance: grain.strokeDistance ?? 0,
+            direction: grain.direction ?? 0,
+            followDirection: grain.followDirection ?? false,
+            wrap: grain.wrap ?? 'repeat',
           })
         : 1;
 
@@ -450,6 +475,23 @@ function compositeBrushDabOnPixels(
 
       let effectiveAlpha =
         maskValue * dabOpacity * dabFlow * srcAlpha * grainValue * selectionValue;
+
+      // Wet edge: pigment pools towards the rim of the *stroke*, not of every
+      // dab. Scaling by the paint that is not yet there confines the effect to
+      // the stroke's outer boundary — inside the stroke, earlier dabs have
+      // already laid down alpha, so the rim is suppressed and the stroke does
+      // not come out scalloped once per dab.
+      //
+      // The distance is measured against the tip radius, so the effect is
+      // identical at any zoom.
+      let edgeDarken = 0;
+      if (wetEdge && wetEdge.darken > 0 && dabRadius > 0) {
+        const dx = px - dabX;
+        const dy = py - dabY;
+        const distRatio = Math.sqrt(dx * dx + dy * dy) / dabRadius;
+        edgeDarken = wetEdgeDarkening(distRatio, wetEdge.size, wetEdge.darken) * (1 - destAlpha);
+        if (edgeDarken > 0) effectiveAlpha = Math.min(1, effectiveAlpha * (1 + edgeDarken));
+      }
       if (alphaLock) {
         if (destAlpha <= 0) continue;
         effectiveAlpha *= destAlpha;
@@ -457,10 +499,13 @@ function compositeBrushDabOnPixels(
       if (effectiveAlpha <= 0) continue;
       wrote = true;
 
-      // Premultiplied source
-      const srcR = (color[0]! / 255) * effectiveAlpha;
-      const srcG = (color[1]! / 255) * effectiveAlpha;
-      const srcB = (color[2]! / 255) * effectiveAlpha;
+      // Premultiplied source. The wet edge also deepens the pigment itself,
+      // not just its coverage — a rim that is only more opaque reads as a
+      // harder edge rather than a wetter one.
+      const tone = edgeDarken > 0 ? 1 - edgeDarken * 0.5 : 1;
+      const srcR = ((color[0]! * tone) / 255) * effectiveAlpha;
+      const srcG = ((color[1]! * tone) / 255) * effectiveAlpha;
+      const srcB = ((color[2]! * tone) / 255) * effectiveAlpha;
       const srcA = effectiveAlpha;
 
       if (blendMode === 'normal' || blendMode === 'source-over') {
@@ -504,13 +549,23 @@ function compositeBrushDabOnPixels(
   return wrote;
 }
 
+/**
+ * Build the coverage mask for a dab's tip.
+ *
+ * Exposed so retouch tools stamp the identical tip geometry the brush does,
+ * rather than each deriving their own falloff and drifting apart.
+ */
+export function createBrushDabMask(dab: BrushDab): Float64Array {
+  return createBrushMask(dab.radius, dab.hardness, dab.shape ?? 'circle', dab.angle, dab.roundness);
+}
+
 export function compositeDabOnNode(
   node: RasterLayerNode,
   dab: BrushDab,
   color: readonly [number, number, number, number],
   options: DabCompositeArg = false,
 ): RasterLayerNode {
-  const { alphaLock, coverage } = normalizeCompositeOptions(options);
+  const { alphaLock, coverage, wetEdge } = normalizeCompositeOptions(options);
   const brushShape = dab.shape ?? 'circle';
   const brushMask = createBrushMask(dab.radius, dab.hardness, brushShape, dab.angle, dab.roundness);
   const dabDiameter = Math.ceil(dab.radius * 2);
@@ -555,6 +610,7 @@ export function compositeDabOnNode(
       tileOriginX,
       tileOriginY,
       coverage,
+      wetEdge,
     );
 
     // A brand-new tile that received nothing (fully masked out by a selection)
@@ -668,6 +724,7 @@ export function compositeSmudgeDabOnNode(
   dab: BrushDab,
   direction: number,
   strength: number,
+  coverage: CoverageMask | null = null,
 ): RasterLayerNode {
   const brushShape = dab.shape ?? 'circle';
   const brushMask = createBrushMask(dab.radius, dab.hardness, brushShape, dab.angle, dab.roundness);
@@ -712,6 +769,8 @@ export function compositeSmudgeDabOnNode(
 
         const globalX = tileOriginX + px;
         const globalY = tileOriginY + py;
+        const selectionValue = coverage ? sampleCoverage(coverage, globalX, globalY) : 1;
+        if (selectionValue <= 0) continue;
         const sampled = sampleTilePixel(sourceTiles, globalX - dx, globalY - dy);
         if (!sampled || sampled.a === 0) continue;
         wroteVisible = true;
@@ -723,7 +782,10 @@ export function compositeSmudgeDabOnNode(
           b: newPixels[dstIdx + 2]!,
           a: newPixels[dstIdx + 3]!,
         };
-        const t = Math.max(0, Math.min(1, maskValue * strength * dab.opacity * dab.flow));
+        const t = Math.max(
+          0,
+          Math.min(1, maskValue * strength * dab.opacity * dab.flow * selectionValue),
+        );
         const invT = 1 - t;
         newPixels[dstIdx] = clampByte(destination.r * invT + sampled.r * t);
         newPixels[dstIdx + 1] = clampByte(destination.g * invT + sampled.g * t);

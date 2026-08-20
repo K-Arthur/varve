@@ -220,6 +220,7 @@ describe('MirrorAssist', () => {
       angle: 0,
       roundness: 1,
       strokeT: 0.5,
+      strokeDistance: 0,
     };
     const result = m.mirrorDab(dab);
     expect(result.length).toBe(2);

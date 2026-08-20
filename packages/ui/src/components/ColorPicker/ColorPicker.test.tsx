@@ -106,6 +106,18 @@ describe('ColorSlider', () => {
     expect(slider).toHaveAttribute('aria-valuenow', '50');
     expect(slider).toHaveAttribute('aria-valuetext', '50% opacity');
   });
+
+  it('marks hue and alpha tracks independently for channel-specific styling', () => {
+    const { container, rerender } = render(
+      <ColorSlider channel="hue" value={180} onChange={() => {}} />,
+    );
+    expect(container.querySelector('.color-slider--hue')).toBeTruthy();
+    expect(container.querySelector('.color-slider--alpha')).toBeNull();
+
+    rerender(<ColorSlider channel="alpha" value={0.5} onChange={() => {}} />);
+    expect(container.querySelector('.color-slider--alpha')).toBeTruthy();
+    expect(container.querySelector('.color-slider--hue')).toBeNull();
+  });
 });
 
 describe('SwatchPalette', () => {
@@ -546,6 +558,20 @@ describe('ColorPicker — draft sync on external value change', () => {
       .querySelector('.color-area__thumb') as HTMLElement;
     expect(thumb.style.left).toBe('50%');
   });
+
+  it('follows an externally changed native color space', () => {
+    const { rerender } = render(
+      <ColorPicker value={{ space: 'rgb', r: 100, g: 150, b: 200, a: 255 }} onChange={() => {}} />,
+    );
+    expect(screen.getByRole('radio', { name: 'RGB' })).toHaveAttribute('aria-checked', 'true');
+
+    rerender(
+      <ColorPicker value={{ space: 'lab', l: 55, av: 20, b: 30, a: 255 }} onChange={() => {}} />,
+    );
+
+    expect(screen.getByRole('radio', { name: 'Lab' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('spinbutton', { name: 'L' })).toBeTruthy();
+  });
 });
 
 describe('ColorPicker — bit-depth-aware alpha', () => {
@@ -561,6 +587,12 @@ describe('ColorPicker — bit-depth-aware alpha', () => {
     render(<ColorPicker value={color} onChange={() => {}} />);
     const alpha = screen.getByRole('slider', { name: 'Alpha' });
     expect(alpha).toHaveAttribute('aria-valuenow', '50');
+  });
+
+  it('decodes legacy alpha using the value depth when a target depth is supplied', () => {
+    const color: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 128 };
+    render(<ColorPicker value={color} onChange={() => {}} bitDepth="float32" />);
+    expect(screen.getByRole('slider', { name: 'Alpha' })).toHaveAttribute('aria-valuenow', '50');
   });
 
   it('emits float32 alpha without quantizing through uint8', () => {

@@ -46,6 +46,7 @@ export class LassoTool extends BaseTool {
 
   private mode: LassoToolMode = 'freehand';
   private state: LassoState = { kind: 'idle' };
+  private operation: SelectionOperation = 'replace';
 
   setMode(mode: LassoToolMode): void {
     this.mode = mode;
@@ -132,7 +133,10 @@ export class LassoTool extends BaseTool {
     e: PointerEvent,
     ctx: ToolContext,
   ): { consumed: boolean; captured?: boolean } {
-    if (this.mode !== 'polygonal') return { consumed: false };
+    if (this.state.kind === 'idle') {
+      this.operation = selectionOperationFromModifiers(e);
+    }
+    if (this.mode !== 'polygonal') return super.onPointerDown(e, ctx);
 
     const canvas = { x: e.clientX, y: e.clientY };
     const world = ctx.canvasToWorld(canvas.x, canvas.y);
@@ -235,7 +239,7 @@ export class LassoTool extends BaseTool {
 
   private applySelection(polygon: Point2D[], ctx: ToolContext): void {
     const intersectingIds = this.findIntersectingNodes(ctx, polygon);
-    const op = this.resolveOperation(ctx);
+    const op = this.operation;
     const next = commitNodeSelectionOperation(ctx, intersectingIds, op);
 
     ctx.announceSelection(
@@ -243,10 +247,6 @@ export class LassoTool extends BaseTool {
         .map((id) => ctx.getNode(id))
         .filter((n): n is import('@varve/scene').SceneNode => n !== undefined),
     );
-  }
-
-  private resolveOperation(ctx: ToolContext): SelectionOperation {
-    return selectionOperationFromModifiers(ctx);
   }
 
   private findIntersectingNodes(ctx: ToolContext, polygon: Point2D[]): string[] {

@@ -14,7 +14,7 @@ import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@varve/sc
 import { activePageNodes, walkNodes } from '@varve/scene';
 import type { RulerMode } from '@varve/shared';
 import { computeFloatingOrigin, isWorldRectInViewport, worldToScreen } from '@varve/shared';
-import { EmptyState } from '@varve/ui';
+
 import { CanvasNameLabels } from '../canvas/CanvasNameLabels';
 import { useEditor } from '../context';
 import type { GridOverlayMode } from '../context/types';
@@ -290,13 +290,6 @@ export function CanvasOverlays({
     );
   })();
 
-  const isEmpty =
-    tool !== 'inspect' &&
-    Object.keys(doc.nodes).filter((id) => {
-      const n = doc.nodes[id];
-      return n && n.kind !== 'group';
-    }).length === 0;
-
   return (
     <>
       {canvasSize.width > 0 && (
@@ -469,43 +462,6 @@ export function CanvasOverlays({
       )}
       {renderCropOverlay}
       {renderTextEdit}
-      {isEmpty && (
-        <div className="editor-canvas__empty">
-          <EmptyState
-            illustration={
-              <svg
-                width="64"
-                height="64"
-                viewBox="0 0 64 64"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                aria-hidden
-              >
-                <title>Empty canvas</title>
-                <path
-                  d="M24 20 L24 16 C24 14.9 24.9 14 26 14 L44 14 C45.1 14 46 14.9 46 16 L46 40 C46 41.1 45.1 42 44 42 L40 42"
-                  opacity="0.4"
-                />
-                <path
-                  d="M18 24 L26 24 C27.1 24 28 24.9 28 26 L28 48 C28 49.1 27.1 50 26 50 L18 50 C16.9 50 16 49.1 16 48 L16 26 C16 24.9 16.9 24 18 24Z"
-                  opacity="0.3"
-                />
-                <line x1="22" y1="30" x2="30" y2="30" opacity="0.2" />
-                <line x1="22" y1="34" x2="30" y2="34" opacity="0.2" />
-                <line x1="22" y1="38" x2="28" y2="38" opacity="0.2" />
-                <path
-                  d="M38 26 L42 22 M42 22 L46 26 M42 22 L42 34"
-                  opacity="0.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            }
-            headline="Empty canvas"
-            description="Click a tool and drag on the canvas to create your first shape"
-          />
-        </div>
-      )}
       {showOverlays && tool === 'inspect' && (
         <MeasureOverlay
           zoom={zoom}

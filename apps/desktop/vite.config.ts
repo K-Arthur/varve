@@ -195,6 +195,7 @@ export default defineConfig({
           },
         }
       : {}),
+    ...(process.env.VARVE_DISABLE_HMR === '1' ? { hmr: false } : {}),
   },
   optimizeDeps: {
     exclude: ['fast-check'],

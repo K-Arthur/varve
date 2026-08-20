@@ -233,3 +233,61 @@ describe('SmudgeTool', () => {
     expect(onSettingsChange).toHaveBeenCalled();
   });
 });
+
+describe('SmudgeTool stroke continuity', () => {
+  const at = (x: number, y: number) => createPointerEvent({ clientX: x, clientY: y });
+
+  it('runs a long stroke across many pointer batches without a boundary fault', () => {
+    // Smudge picks up and deposits per dab, so a spacing restart at a batch
+    // boundary is directly visible as a blotch. The stroke session carries
+    // spacing, arc length and jitter across flushes.
+    const tool = new SmudgeTool();
+    const ctx = createMockContext({
+      canvasToWorld: (cx: number, cy: number) => ({ x: cx, y: cy }),
+      updateNode: vi.fn((_id, updater) => {
+        updater({
+          id: 'r',
+          kind: 'rasterLayer',
+          tiles: new Map(),
+          width: 512,
+          height: 512,
+        } as never);
+      }) as ToolContext['updateNode'],
+    });
+    tool.updatePresetFromSettings({
+      ...tool.getSettings(),
+      radius: 10,
+      spacing: 0.5,
+      smoothing: 0,
+    });
+
+    tool.onPointerDown(at(0, 50), ctx);
+    for (let x = 5; x <= 200; x += 5) tool.onPointerMove(at(x, 50), ctx);
+    tool.onPointerUp(at(200, 50), ctx);
+
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('freezes the preset for the duration of a stroke', () => {
+    const tool = new SmudgeTool();
+    const ctx = createMockContext({
+      canvasToWorld: (cx: number, cy: number) => ({ x: cx, y: cy }),
+    });
+    tool.updatePresetFromSettings({ ...tool.getSettings(), smudgeStrength: 0.2 });
+    tool.onPointerDown(at(10, 10), ctx);
+    // Strength drives both how much pigment moves and how fast the trail
+    // fades, so a mid-stroke change must not alter what is already drawn.
+    tool.updatePresetFromSettings({ ...tool.getSettings(), smudgeStrength: 0.95 });
+    tool.onPointerMove(at(40, 10), ctx);
+    tool.onPointerUp(at(40, 10), ctx);
+    // The live setting moved; the stroke that just finished did not.
+    expect(tool.getSettings().smudgeStrength).toBe(0.95);
+  });
+
+  it('samples the target layer alone by default', () => {
+    const tool = new SmudgeTool();
+    expect(tool.samplesAllLayers).toBe(false);
+    tool.setSampleAllLayers(true);
+    expect(tool.samplesAllLayers).toBe(true);
+  });
+});

@@ -240,7 +240,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
               <FieldRow label="Align">
                 <SegmentedControl
                   label="Align items"
-                  value={ls.alignItems ?? 'stretch'}
+                  value={ls.alignItems ?? 'start'}
                   options={ALIGN_ITEMS_OPTIONS}
                   onChange={(v) => patch({ alignItems: v })}
                 />

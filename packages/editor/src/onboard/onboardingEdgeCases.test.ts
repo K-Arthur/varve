@@ -26,7 +26,6 @@ describe('onboardingEdgeCases', () => {
     localStorage.setItem('strata:onboarding', '{broken json!!!');
     const state = loadOnboardingState();
     expect(state.onboardingComplete).toBe(false);
-    expect(state.skillLevel).toBe('unclassified');
     expect(state.checklistProgress).toEqual([]);
     expect(state.dismissedTips).toEqual([]);
   });
@@ -36,7 +35,6 @@ describe('onboardingEdgeCases', () => {
     const state: OnboardingStore = {
       onboardingComplete: false,
       onboardingVersion: getCurrentVersion(),
-      skillLevel: 'beginner',
       checklistProgress: ['tutorial:lesson-frame1'],
       dismissedTips: ['test'],
       seenFeatureBadges: [],
@@ -99,7 +97,6 @@ describe('onboardingEdgeCases', () => {
     const old: OnboardingStore = {
       onboardingComplete: true,
       onboardingVersion: 0,
-      skillLevel: 'beginner',
       checklistProgress: [],
       dismissedTips: [],
       seenFeatureBadges: [],

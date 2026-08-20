@@ -173,6 +173,7 @@ describe('Tile compositing', () => {
       angle: 0,
       roundness: 1,
       strokeT: 0,
+      strokeDistance: 0,
     });
     expect(erased.tiles.get('0:0')!.pixels[64 * 128 * 4 + 64 * 4 + 3]).toBe(0);
     expect(erased.tiles.get('0:0')!.pixels[54 * 128 * 4 + 54 * 4 + 3]).toBeGreaterThan(0);
@@ -189,6 +190,7 @@ describe('Tile compositing', () => {
       angle: 0,
       roundness: 1,
       strokeT: 0,
+      strokeDistance: 0,
     };
     const color: [number, number, number, number] = [255, 0, 0, 255];
 
@@ -207,6 +209,7 @@ describe('Tile compositing', () => {
       angle: 0,
       roundness: 1,
       strokeT: 0,
+      strokeDistance: 0,
       grain: {
         grainId: 'procedural',
         scale: 0.5,
@@ -214,6 +217,7 @@ describe('Tile compositing', () => {
         contrast: 1,
         invert: false,
         strokeT: 0,
+        strokeDistance: 0,
       },
     };
     const plain = compositeDabOnNode(
@@ -250,6 +254,7 @@ describe('Tile compositing', () => {
       angle: 0,
       roundness: 1,
       strokeT: 0,
+      strokeDistance: 0,
     };
     const result = compositeDabOnNode(node, dab, [255, 255, 255, 255]);
     expect(result.tiles.size).toBe(1);
@@ -270,6 +275,7 @@ describe('Tile compositing', () => {
       angle: 0,
       roundness: 1,
       strokeT: 0,
+      strokeDistance: 0,
     };
     const result = compositeDabOnNode(node, dab, [0, 255, 0, 255]);
 
@@ -289,6 +295,7 @@ describe('Tile compositing', () => {
       angle: 0,
       roundness: 1,
       strokeT: 0,
+      strokeDistance: 0,
     };
 
     const result = compositeDabOnNode(node, dab, [0, 255, 0, 255]);
@@ -318,6 +325,7 @@ describe('Tile compositing', () => {
         angle: 0,
         roundness: 1,
         strokeT: 0,
+        strokeDistance: 0,
       },
       0,
       1,

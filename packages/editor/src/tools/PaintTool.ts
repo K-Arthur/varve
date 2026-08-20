@@ -1,46 +1,128 @@
-import type { BrushPreset, RasterLayerNode } from '@varve/scene';
+/**
+ * PaintTool — raster brush and eraser.
+ *
+ * One pointer stroke is one `PaintStrokeSession`: it owns the identity
+ * (`strokeId` + `generation`), a frozen snapshot of the brush preset, colour,
+ * alpha lock and area selection, the open history transaction and the
+ * accumulated dirty bounds. Nothing about a stroke in progress is read back out
+ * of shared editor state, so changing brush size or colour mid-stroke cannot
+ * produce a stroke built from two different brushes, and a cancelled stroke is
+ * identifiable precisely enough that its late worker results can be rejected.
+ *
+ * Dab generation is delegated to `BrushWorkerHost`, which runs the canonical
+ * `@varve/scene` stroke engine either on a worker or on the main thread. This
+ * tool only decides *where* dabs land and *how* they are clipped, so the worker
+ * and synchronous paths cannot drift apart in brush semantics.
+ */
+import type { AreaSelection } from '@varve/engine';
+import type { BrushDab, BrushPreset, RasterLayerNode, WetPaintManager } from '@varve/scene';
 import {
   compositeDabOnNode,
   defaultBrushPreset,
   eraseDabOnNode,
-  generateDabs,
-  seedJitter,
-  smoothStrokePoints,
+  maskValueFromColor,
   strokePoint,
 } from '@varve/scene';
-import { BrushWorkerHost } from '../render/brushWorkerHost';
+import { BrushWorkerHost, type StrokeBatchEvent } from '../render/brushWorkerHost';
+import { getPaintProfiler } from '../render/paintProfiler';
 import { BaseTool } from './BaseTool';
 import { collectSourceEvents } from './inputNormalizer';
+import {
+  beginMaskPaintSession,
+  commitMaskPaintSession,
+  encodeMaskRgba,
+  type MaskPaintSession,
+  paintMaskDab,
+} from './maskPaintSession';
+import { resolvePaintTarget } from './paintTarget';
+import { normalizePressure, normalizeTilt } from './pointerDynamics';
 import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
+import { selectionCoverageForDab } from './selectionCoverage';
+import { resolveSymmetryTransforms, type SymmetrySettings, transformStrokePoint } from './symmetry';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
+
+export interface BrushToolSettings {
+  presetId: string;
+  radius: number;
+  opacity: number;
+  flow: number;
+  hardness: number;
+  smoothing: number;
+  spacing: number;
+  grainId?: string | null;
+  grainScale?: number;
+  grainRotation?: number;
+  grainContrast?: number;
+  grainInvert?: boolean;
+  alphaLock?: boolean;
+  blendMode?: string;
+}
+
+/** One symmetry copy of the stroke: its own engine, sharing the session. */
+interface SymmetryBranch {
+  /** Identity suffix so each mirrored copy is an independent engine stroke. */
+  strokeId: string;
+  /** Maps a source stroke point into this branch's coordinates. */
+  transform: (p: { x: number; y: number; direction: number }) => {
+    x: number;
+    y: number;
+    direction: number;
+  };
+}
+
+/** Everything that belongs to one continuous pointer stroke. */
+interface PaintStrokeSession {
+  strokeId: string;
+  generation: number;
+  rasterNodeId: string;
+  /** Frozen at pointer-down; the stroke never re-reads live settings. */
+  preset: BrushPreset;
+  color: [number, number, number, number];
+  alphaLock: boolean;
+  areaSelection: AreaSelection | null;
+  eraser: boolean;
+  wet: boolean;
+  /** Wet-edge parameters for this stroke, or null when the effect is off. */
+  wetEdge: { size: number; darken: number } | null;
+  /** Set when this stroke paints a mask rather than layer pixels. */
+  mask: MaskPaintSession | null;
+  /** Mask coverage the brush paints towards, from the foreground luminance. */
+  maskValue: number;
+  branches: SymmetryBranch[];
+  /** True when this stroke created its own raster layer. */
+  ownsLayer: boolean;
+  transactionOpen: boolean;
+  /** Union of every dab's bounds, in layer pixels. */
+  dirty: { minX: number; minY: number; maxX: number; maxY: number } | null;
+  dabCount: number;
+  startedAt: number;
+}
 
 export class PaintTool extends BaseTool {
   id: 'paint' | 'eraser';
 
   private preset: BrushPreset;
   private eraserMode: boolean;
-  private strokePoints: import('@varve/scene').StrokePoint[] = [];
-  private lastSmoothedPoint: import('@varve/scene').StrokePoint | null = null;
-  private rasterNodeId: string | null = null;
-  private strokeGeneration = 0;
-  private transactionOpen = false;
-  private workerHost: BrushWorkerHost | null = null;
-  private ownsLayer = false;
   private alphaLock = false;
-  private pendingWorkerJobs = 0;
-  private workerStrokeEnding = false;
+  private symmetry: SymmetrySettings | null = null;
+  private workerHost: BrushWorkerHost | null = null;
+  private session: PaintStrokeSession | null = null;
+  private nextGeneration = 1;
+  private lastSamplePoint: import('@varve/scene').StrokePoint | null = null;
+  private ctxRef: ToolContext | null = null;
+  private lastOwnedLayer = false;
+  private lastStrokeBounds: { x: number; y: number; w: number; h: number } | null = null;
+  private wetPaint: WetPaintManager | null = null;
+  private onWetDeposit: (() => void) | null = null;
+  /**
+   * Decodes a stored mask PNG. Injectable because decoding needs a canvas and
+   * an already-loaded image, which the editor owns and headless callers do not.
+   */
+  private decodeMask: (
+    dataUrl: string,
+  ) => { data: Uint8ClampedArray; width: number; height: number } | null = () => null;
 
-  /** Called when the brush settings change (e.g., from keyboard shortcut).
-   *  Editor sets this to update the editor state. */
-  onSettingsChange?: (settings: {
-    presetId: string;
-    radius: number;
-    opacity: number;
-    flow: number;
-    hardness: number;
-    smoothing: number;
-    spacing: number;
-  }) => void;
+  onSettingsChange?: (settings: BrushToolSettings) => void;
 
   constructor(eraser: boolean = false) {
     super();
@@ -60,23 +142,36 @@ export class PaintTool extends BaseTool {
     return { css: 'crosshair' };
   }
 
-  /** Update internal preset fields from an external settings object. */
-  updatePresetFromSettings(settings: {
-    presetId: string;
-    radius: number;
-    opacity: number;
-    flow: number;
-    hardness: number;
-    smoothing: number;
-    spacing: number;
-    grainId?: string | null;
-    grainScale?: number;
-    grainRotation?: number;
-    grainContrast?: number;
-    grainInvert?: boolean;
-    alphaLock?: boolean;
-    blendMode?: string;
-  }): void {
+  /** Symmetry is a stroke transform, not a second tool. Snapshotted per stroke. */
+  setSymmetry(settings: SymmetrySettings | null): void {
+    this.symmetry = settings;
+  }
+
+  /**
+   * Supply the wet-paint runtime. `onDeposit` wakes the drying scheduler; it is
+   * only called when paint is actually laid down, so a dry document never
+   * schedules a frame.
+   */
+  setWetPaint(manager: WetPaintManager | null, onDeposit?: () => void): void {
+    this.wetPaint = manager;
+    this.onWetDeposit = onDeposit ?? null;
+  }
+
+  /** Supply the mask decoder used when a stroke targets a layer mask. */
+  setMaskDecoder(
+    decode: (dataUrl: string) => { data: Uint8ClampedArray; width: number; height: number } | null,
+  ): void {
+    this.decodeMask = decode;
+  }
+
+  /** Enable or disable wet media for subsequent strokes. */
+  setWetEnabled(enabled: boolean, mixStrength?: number, dryingRate?: number): void {
+    this.preset.wetEnabled = enabled;
+    if (mixStrength !== undefined) this.preset.wetMixStrength = mixStrength;
+    if (dryingRate !== undefined) this.preset.wetDryingRate = dryingRate;
+  }
+
+  updatePresetFromSettings(settings: BrushToolSettings): void {
     this.preset.id = settings.presetId;
     this.preset.radius = settings.radius;
     this.preset.opacity = settings.opacity;
@@ -93,16 +188,7 @@ export class PaintTool extends BaseTool {
     if (settings.blendMode !== undefined) this.preset.blendMode = settings.blendMode;
   }
 
-  /** Return current preset values mapped to the brush settings shape. */
-  getSettings(): {
-    presetId: string;
-    radius: number;
-    opacity: number;
-    flow: number;
-    hardness: number;
-    smoothing: number;
-    spacing: number;
-  } {
+  getSettings(): BrushToolSettings {
     return {
       presetId: this.preset.id,
       radius: this.preset.radius,
@@ -111,26 +197,30 @@ export class PaintTool extends BaseTool {
       hardness: this.preset.hardness,
       smoothing: this.preset.smoothing,
       spacing: this.preset.spacing,
+      alphaLock: this.alphaLock,
+      blendMode: this.preset.blendMode,
     };
   }
 
   /** Whether the raster layer used by the current/most recent stroke was newly
    *  created by this tool, as opposed to an existing layer that was reused. */
   get ownsCurrentLayer(): boolean {
-    return this.ownsLayer;
+    return this.session?.ownsLayer ?? this.lastOwnedLayer;
   }
 
-  /** Lazily create and return the brush worker host. */
+  /** Monotonic id of the current stroke, for callers detecting supersession. */
+  get currentStrokeGeneration(): number {
+    return this.session?.generation ?? this.nextGeneration - 1;
+  }
+
   getWorkerHost(): BrushWorkerHost {
-    if (!this.workerHost) {
-      this.workerHost = new BrushWorkerHost();
-    }
-    return this.workerHost;
+    if (!this.workerHost) this.setWorkerHost(new BrushWorkerHost());
+    return this.workerHost as BrushWorkerHost;
   }
 
-  /** Override the worker host (used by tests to inject a mock). */
   setWorkerHost(host: BrushWorkerHost): void {
     this.workerHost = host;
+    host.onBatch = (batch) => this.applyBatch(batch);
   }
 
   override onActivate(ctx: ToolContext): void {
@@ -138,238 +228,375 @@ export class PaintTool extends BaseTool {
   }
 
   override onDeactivate(ctx: ToolContext): void {
-    if (this.transactionOpen) {
-      this.abortStroke(ctx);
-    }
+    if (this.session) this.abortStroke(ctx);
     ctx.setDraft(null);
   }
 
-  /** Destroy the worker host (called when the tool instance is being torn down). */
   destroy(): void {
     this.workerHost?.destroy();
     this.workerHost = null;
   }
+
+  // ── Pointer lifecycle ─────────────────────────────────────────────────────
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
     if (this.drag.kind !== 'idle') return { consumed: false };
     const result = super.onPointerDown(e, ctx);
     if (!result.consumed) return result;
 
+    this.ctxRef = ctx;
     ctx.beginTransaction();
-    this.transactionOpen = true;
 
-    const world = ctx.canvasToWorld(e.clientX, e.clientY);
+    // One resolver decides where paint goes, so a refusal can be explained
+    // rather than looking like the tool is broken.
+    const target = resolvePaintTarget({
+      document: ctx.document as never,
+      selection: ctx.selection,
+      maskEditTarget: ctx.maskEditTarget ?? null,
+      fallbackLayerId: findEditableRasterLayer(ctx),
+    });
 
-    const rasterNodeId = this.findOrCreateRasterLayer(ctx);
+    let maskSession: MaskPaintSession | null = null;
+    let rasterNodeId: string | null = null;
+
+    if (target.kind === 'rasterMask') {
+      maskSession = beginMaskPaintSession(ctx, target.nodeId, this.decodeMask);
+      if (!maskSession) {
+        ctx.announce('That mask could not be opened for painting.');
+        ctx.abortTransaction();
+        return { consumed: false };
+      }
+      rasterNodeId = target.nodeId;
+    } else if (target.kind === 'rasterLayer') {
+      rasterNodeId = target.nodeId;
+      this.lastOwnedLayer = false;
+    } else {
+      if (!target.canCreateLayer) {
+        // Locked or hidden: say why instead of silently doing nothing.
+        ctx.announce(target.reason);
+        ctx.abortTransaction();
+        return { consumed: false };
+      }
+      rasterNodeId = this.findOrCreateRasterLayer(ctx);
+    }
+
     if (!rasterNodeId) {
       ctx.abortTransaction();
-      this.transactionOpen = false;
       return { consumed: false };
     }
-    this.rasterNodeId = rasterNodeId;
-    this.strokeGeneration++;
-    this.workerStrokeEnding = false;
 
-    // Seed deterministic jitter for this stroke
-    seedJitter(Math.round(performance.now() * 1000) & 0x7fffffff);
+    const generation = this.nextGeneration++;
+    const preset = { ...this.preset, dynamics: [...this.preset.dynamics] };
+    const baseStrokeId = `${this.id}:${rasterNodeId}`;
+    const branches = this.buildBranches(baseStrokeId);
+    const session: PaintStrokeSession = {
+      strokeId: baseStrokeId,
+      generation,
+      rasterNodeId,
+      // Snapshot: the rest of the stroke is immune to settings changes.
+      preset,
+      color: this.eraserMode ? [0, 0, 0, 0] : [...ctx.foregroundColor],
+      alphaLock: this.alphaLock,
+      areaSelection: ctx.areaSelection ?? null,
+      eraser: this.eraserMode,
+      wet: !this.eraserMode && preset.wetEnabled && !maskSession,
+      wetEdge:
+        preset.wetEnabled && preset.wetEdge && !maskSession
+          ? { size: preset.wetEdgeSize, darken: preset.wetEdgeDarken }
+          : null,
+      mask: maskSession,
+      // Painting a mask sets coverage, not colour: white reveals, black
+      // conceals. An eraser on a mask reveals, mirroring its meaning on pixels.
+      maskValue: this.eraserMode ? 1 : maskValueFromColor(ctx.foregroundColor),
+      branches,
+      ownsLayer: this.lastOwnedLayer,
+      transactionOpen: true,
+      dirty: null,
+      dabCount: 0,
+      startedAt: nowMs(),
+    };
+    this.session = session;
 
-    const pressure = e.pressure > 0 ? e.pressure : 0.5;
-    const avgTilt = (Math.abs(e.tiltX ?? 0) + Math.abs(e.tiltY ?? 0)) / 2;
+    const host = this.getWorkerHost();
+    for (const branch of branches) {
+      // Seed from the branch identity, not the clock: every mirrored copy gets
+      // its own jitter stream, and replaying a stroke reproduces it exactly.
+      host.beginStroke(
+        branch.strokeId,
+        generation,
+        preset,
+        hashSeed(`${branch.strokeId}#${generation}`),
+      );
+    }
+
+    const world = ctx.canvasToWorld(e.clientX, e.clientY);
     const local = rasterLocalPoint(ctx, rasterNodeId, world);
-    const sp = strokePoint(local.x, local.y, { pressure, tilt: avgTilt });
-    this.strokePoints = [sp];
-    this.updatePreview(ctx);
+    const sp = strokePoint(local.x, local.y, {
+      pressure: normalizePressure(e.pressure, ctx.pointerType),
+      tilt: normalizeTilt(e.tiltX, e.tiltY),
+      time: e.timeStamp,
+    });
+    this.lastSamplePoint = sp;
+    this.dispatch(session, [sp]);
 
+    this.updatePreview(ctx);
     return result;
   }
 
   override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
     if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
+    const session = this.session;
+    if (!session) return;
+    this.ctxRef = ctx;
     this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
     this.drag.currentWorld = ctx.canvasToWorld(e.clientX, e.clientY);
 
     const events = ctx.sourceEvents.length > 0 ? ctx.sourceEvents : collectSourceEvents(e, true);
-
+    const batch: import('@varve/scene').StrokePoint[] = [];
     for (const ev of events) {
       if (ev.isPredicted) continue;
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
-      const local = rasterLocalPoint(ctx, this.rasterNodeId, world);
-      const pressure = ev.pressure > 0 ? ev.pressure : 0.5;
-      const tilt = (Math.abs(ev.tiltX) + Math.abs(ev.tiltY)) / 2;
-      this.sampleStrokePoint(local, pressure, ev.time, tilt);
+      const local = rasterLocalPoint(ctx, session.rasterNodeId, world);
+      const sp = this.makeSample(
+        local,
+        normalizePressure(ev.pressure, ctx.pointerType),
+        ev.time,
+        normalizeTilt(ev.tiltX, ev.tiltY),
+      );
+      if (sp) batch.push(sp);
     }
-
-    this.flushDabs(ctx);
+    if (batch.length > 0) this.dispatch(session, batch);
     this.updatePreview(ctx);
   }
 
   override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
     if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
+    const session = this.session;
+    if (!session) {
+      super.onPointerUp(e, ctx);
+      return;
+    }
+    this.ctxRef = ctx;
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
-    const local = rasterLocalPoint(ctx, this.rasterNodeId, world);
-    const pressure = e.pressure > 0 ? e.pressure : 0.5;
-    const tilt = (Math.abs(e.tiltX ?? 0) + Math.abs(e.tiltY ?? 0)) / 2;
-    this.sampleStrokePoint(local, pressure, undefined, tilt);
+    const local = rasterLocalPoint(ctx, session.rasterNodeId, world);
+    const sp = this.makeSample(
+      local,
+      normalizePressure(e.pressure, ctx.pointerType),
+      e.timeStamp,
+      normalizeTilt(e.tiltX, e.tiltY),
+    );
+    if (sp) this.dispatch(session, [sp]);
 
-    this.flushDabs(ctx);
     super.onPointerUp(e, ctx);
-    if (this.pendingWorkerJobs > 0) {
-      this.workerStrokeEnding = true;
-      ctx.setDraft(null);
-    } else {
-      this.finishStroke(ctx);
+    ctx.setDraft(null);
+
+    const host = this.getWorkerHost();
+    let outstanding = session.branches.length;
+    for (const branch of session.branches) {
+      host.endStroke(branch.strokeId, session.generation, () => {
+        outstanding--;
+        // A cancel between pointer-up and the last batch replaces the session.
+        if (outstanding > 0 || this.session !== session) return;
+        this.finishStroke(ctx);
+      });
     }
   }
 
-  override onDragCancel(_ctx: ToolContext): void {
-    this.abortStroke(_ctx);
+  override onDragCancel(ctx: ToolContext): void {
+    this.abortStroke(ctx);
   }
 
   override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
     if (e.key === 'Escape' && this.drag.kind === 'dragging') {
       this.abortStroke(ctx);
-      ctx.setDraft(null);
       return true;
     }
-    if (e.key === '[') {
-      this.preset.radius = Math.max(1, this.preset.radius - 2);
+    if (e.key === '[' || e.key === ']') {
+      const delta = e.key === '[' ? -2 : 2;
+      this.preset.radius = Math.max(1, Math.min(1000, this.preset.radius + delta));
       ctx.announce(`Brush size: ${Math.round(this.preset.radius)}px`);
       this.onSettingsChange?.(this.getSettings());
-      if (this.drag.kind === 'dragging') this.paintPreview(ctx);
-      return true;
-    }
-    if (e.key === ']') {
-      this.preset.radius += 2;
-      ctx.announce(`Brush size: ${Math.round(this.preset.radius)}px`);
-      this.onSettingsChange?.(this.getSettings());
-      if (this.drag.kind === 'dragging') this.paintPreview(ctx);
       return true;
     }
     return false;
   }
 
-  private sampleStrokePoint(
-    world: { x: number; y: number },
-    pressure: number,
-    time?: number,
-    tilt?: number,
+  // ── Stroke body ───────────────────────────────────────────────────────────
+
+  private buildBranches(baseStrokeId: string): SymmetryBranch[] {
+    const transforms = resolveSymmetryTransforms(this.symmetry);
+    return transforms.map((transform, index) => ({
+      strokeId: index === 0 ? baseStrokeId : `${baseStrokeId}~${index}`,
+      transform,
+    }));
+  }
+
+  /** Feed samples to every symmetry branch, transformed into its space. */
+  private dispatch(
+    session: PaintStrokeSession,
+    points: readonly import('@varve/scene').StrokePoint[],
   ): void {
-    const pts = this.strokePoints;
-    if (pts.length === 0) return;
-    const last = pts[pts.length - 1]!;
-    const t = time ?? performance.now();
+    const host = this.getWorkerHost();
+    for (const branch of session.branches) {
+      const mapped = points.map((p) => transformStrokePoint(p, branch.transform));
+      host.appendPoints(branch.strokeId, session.generation, mapped);
+    }
+  }
 
-    const dx = world.x - last.x;
-    const dy = world.y - last.y;
-    if (dx * dx + dy * dy < 1) return;
-
-    const speed = t - last.time > 0 ? (Math.sqrt(dx * dx + dy * dy) / (t - last.time)) * 1000 : 0;
-    const direction = Math.atan2(dy, dx);
-    const sp = strokePoint(world.x, world.y, {
+  private makeSample(
+    local: { x: number; y: number },
+    pressure: number,
+    time: number | undefined,
+    tilt: number,
+  ): import('@varve/scene').StrokePoint | null {
+    const last = this.lastSamplePoint;
+    const t = time ?? nowMs();
+    if (!last) {
+      const sp = strokePoint(local.x, local.y, { pressure, tilt, time: t });
+      this.lastSamplePoint = sp;
+      return sp;
+    }
+    const dx = local.x - last.x;
+    const dy = local.y - last.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    // Sub-0.25px moves carry no geometric information but do flood the queue.
+    if (dist < 0.25) return null;
+    const dt = t - last.time;
+    const speed = dt > 0 ? (dist / dt) * 1000 : 0;
+    const sp = strokePoint(local.x, local.y, {
       pressure,
-      tilt: tilt ?? last.tilt,
-      direction,
+      tilt,
+      direction: Math.atan2(dy, dx),
       speed,
       time: t,
     });
-    pts.push(sp);
+    this.lastSamplePoint = sp;
+    return sp;
   }
 
-  private flushDabs(ctx: ToolContext): void {
-    const rasterNodeId = this.rasterNodeId;
-    if (!rasterNodeId) return;
+  /** Apply one generated batch to canonical document state. */
+  private applyBatch(batch: StrokeBatchEvent): void {
+    const session = this.session;
+    const ctx = this.ctxRef;
+    if (!session || !ctx) return;
+    // Identity check: a batch from a superseded stroke must never paint.
+    if (batch.generation !== session.generation) return;
+    if (!session.branches.some((b) => b.strokeId === batch.strokeId)) return;
+    if (batch.dabs.length === 0) return;
 
-    const pts = this.strokePoints;
-    if (pts.length < 1) return;
+    const { alphaLock, eraser, color, areaSelection, rasterNodeId } = session;
+    const profiler = getPaintProfiler();
+    const compositeStart = profiler.enabled ? nowMs() : 0;
 
-    const color: [number, number, number, number] = this.eraserMode
-      ? [0, 0, 0, 0]
-      : ctx.foregroundColor;
-
-    // Try worker path; fall back synchronously if unavailable or slow.
-    if (this.workerHost?.isUsingWorker) {
-      this.flushDabsWorker(ctx, pts, color);
-    } else {
-      this.flushDabsSync(ctx, pts, color);
+    if (session.mask) {
+      // Mask strokes accumulate in their own coverage plane and are committed
+      // once at pointer-up, so undo restores mask pixels without touching the
+      // content underneath.
+      for (const dab of batch.dabs) {
+        const coverage = selectionCoverageForDab(ctx, rasterNodeId, dab, areaSelection);
+        paintMaskDab(session.mask, dab, session.maskValue, coverage);
+      }
+      if (profiler.enabled) profiler.compositeTook(nowMs() - compositeStart);
+      session.dabCount += batch.dabs.length;
+      this.growDirty(session, batch.dabs);
+      return;
     }
 
-    // Keep the last point for EMA smoothing continuity, then clear
-    // processed points so the next flush only sends new samples.
-    this.lastSmoothedPoint = pts[pts.length - 1] ?? null;
-    this.strokePoints = this.lastSmoothedPoint ? [this.lastSmoothedPoint] : [];
-  }
-
-  /** Worker-thread dab generation with synchronous compositing on main thread. */
-  private flushDabsWorker(
-    ctx: ToolContext,
-    pts: import('@varve/scene').StrokePoint[],
-    color: [number, number, number, number],
-  ): void {
-    const rasterNodeId = this.rasterNodeId;
-    const gen = this.strokeGeneration;
-    if (!rasterNodeId) return;
-
-    const strokeId = `${rasterNodeId}-${gen}`;
-    const jitterSeed = gen * 7919;
-
-    this.pendingWorkerJobs++;
-    this.workerHost!.generateDabs(strokeId, pts, this.preset, jitterSeed)
-      .then(({ dabs }) => {
-        // Stale-result guard: reject if a newer generation has started
-        // (tool switched, new stroke, or undo/redo invalidated this one).
-        if (gen !== this.strokeGeneration) return;
-        if (dabs.length === 0 || rasterNodeId !== this.rasterNodeId) return;
-        ctx.updateNode(rasterNodeId, (node) => {
-          const raster = node as RasterLayerNode;
-          let updated = raster;
-          for (const dab of dabs) {
-            if (this.eraserMode) {
-              updated = eraseDabOnNode(updated, dab);
-            } else {
-              updated = compositeDabOnNode(updated, dab, color, false);
-            }
-          }
-          return updated;
-        });
-      })
-      .catch(() => {
-        if (gen !== this.strokeGeneration) return;
-        this.flushDabsSync(ctx, pts, color);
-      })
-      .finally(() => {
-        this.pendingWorkerJobs = Math.max(0, this.pendingWorkerJobs - 1);
-        if (this.workerStrokeEnding && this.pendingWorkerJobs === 0) {
-          this.finishStroke(ctx);
-        }
-      });
-  }
-
-  /** Synchronous fallback for when the worker is unavailable. */
-  private flushDabsSync(
-    ctx: ToolContext,
-    pts: import('@varve/scene').StrokePoint[],
-    color: [number, number, number, number],
-  ): void {
-    const rasterNodeId = this.rasterNodeId;
-    if (!rasterNodeId) return;
-
-    const smoothed = smoothStrokePoints(pts, this.preset.smoothing);
-    const dabs = generateDabs(smoothed, this.preset);
-    if (dabs.length === 0) return;
-
+    let deposited = false;
     ctx.updateNode(rasterNodeId, (node) => {
-      const raster = node as RasterLayerNode;
-      let updated = raster;
-      for (const dab of dabs) {
-        if (this.eraserMode) {
-          updated = eraseDabOnNode(updated, dab);
-        } else {
-          updated = compositeDabOnNode(updated, dab, color, this.alphaLock);
+      let updated = node as RasterLayerNode;
+      for (const dab of batch.dabs) {
+        const coverage = selectionCoverageForDab(ctx, rasterNodeId, dab, areaSelection);
+        if (eraser) {
+          updated = eraseDabOnNode(updated, dab, { coverage });
+          continue;
         }
+        const dabColor = session.wet ? this.mixWet(session, dab, color) : color;
+        if (session.wet) deposited = true;
+        updated = compositeDabOnNode(updated, dab, dabColor, {
+          alphaLock,
+          coverage,
+          wetEdge: session.wetEdge,
+        });
       }
       return updated;
     });
+    // Waking the scheduler is what starts drying; a stroke that deposited no
+    // wet paint leaves the document idle.
+    if (deposited) this.onWetDeposit?.();
+
+    if (profiler.enabled) profiler.compositeTook(nowMs() - compositeStart);
+    session.dabCount += batch.dabs.length;
+    this.growDirty(session, batch.dabs);
+  }
+
+  /**
+   * Mix a dab's colour with the wet film already on the layer, and mark the
+   * dab's footprint wet.
+   *
+   * Mixing is evaluated once at the dab centre rather than per pixel: the wet
+   * film is a low-frequency quantity, and a per-pixel solve would multiply the
+   * cost of every textured wet brush for a difference the eye does not resolve
+   * at dab spacing. Wetness is registered on a lattice across the footprint so
+   * a later crossing stroke finds wet paint anywhere the dab covered, not only
+   * at its centre.
+   */
+  private mixWet(
+    session: PaintStrokeSession,
+    dab: BrushDab,
+    color: [number, number, number, number],
+  ): [number, number, number, number] {
+    const wet = this.wetPaint;
+    if (!wet) return color;
+    const amount = Math.max(0, Math.min(1, dab.opacity * dab.flow));
+    const mixed = wet.addPaint(
+      session.rasterNodeId,
+      dab.x,
+      dab.y,
+      color,
+      amount,
+      session.preset.wetMixStrength,
+    );
+    const step = Math.max(1, Math.floor(dab.radius / 2));
+    for (let dy = -dab.radius; dy <= dab.radius; dy += step) {
+      for (let dx = -dab.radius; dx <= dab.radius; dx += step) {
+        if (dx * dx + dy * dy > dab.radius * dab.radius) continue;
+        if (dx === 0 && dy === 0) continue;
+        wet.addPaint(
+          session.rasterNodeId,
+          dab.x + dx,
+          dab.y + dy,
+          mixed,
+          amount,
+          session.preset.wetMixStrength,
+        );
+      }
+    }
+    return mixed;
+  }
+
+  private growDirty(session: PaintStrokeSession, dabs: readonly BrushDab[]): void {
+    for (const d of dabs) {
+      const minX = d.x - d.radius;
+      const minY = d.y - d.radius;
+      const maxX = d.x + d.radius;
+      const maxY = d.y + d.radius;
+      if (!session.dirty) {
+        session.dirty = { minX, minY, maxX, maxY };
+        continue;
+      }
+      const dirty = session.dirty;
+      if (minX < dirty.minX) dirty.minX = minX;
+      if (minY < dirty.minY) dirty.minY = minY;
+      if (maxX > dirty.maxX) dirty.maxX = maxX;
+      if (maxY > dirty.maxY) dirty.maxY = maxY;
+    }
+  }
+
+  /** Bounds touched by the most recent stroke, in layer pixels. */
+  getLastStrokeBounds(): { x: number; y: number; w: number; h: number } | null {
+    return this.lastStrokeBounds;
   }
 
   private updatePreview(ctx: ToolContext): void {
@@ -384,52 +611,70 @@ export class PaintTool extends BaseTool {
     });
   }
 
-  private paintPreview(_ctx: ToolContext): void {
-    // Preview updated during pointer move
-  }
-
   private findOrCreateRasterLayer(ctx: ToolContext): string | null {
-    const existing = this.findExistingRasterLayer(ctx);
+    const existing = findEditableRasterLayer(ctx);
     if (existing) {
-      this.ownsLayer = false;
+      this.lastOwnedLayer = false;
       return existing;
     }
-
     const nodeId = createRasterTarget(ctx, this.drag.startWorld);
-    this.ownsLayer = true;
+    this.lastOwnedLayer = nodeId !== null;
     return nodeId;
   }
 
-  private findExistingRasterLayer(ctx: ToolContext): string | null {
-    return findEditableRasterLayer(ctx);
-  }
-
   private abortStroke(ctx: ToolContext): void {
-    if (!this.transactionOpen) return;
-    this.strokeGeneration++;
-    this.workerStrokeEnding = false;
-    if (this.rasterNodeId) {
-      this.workerHost?.cancelStroke(`${this.rasterNodeId}-${this.strokeGeneration}`);
+    const session = this.session;
+    if (!session) return;
+    this.session = null;
+    // Cancel the stroke that is actually in flight — its own generation, not a
+    // freshly incremented one that no worker job was ever tagged with.
+    for (const branch of session.branches) {
+      this.workerHost?.cancelStroke(branch.strokeId, session.generation);
     }
-    ctx.abortTransaction();
-    this.transactionOpen = false;
+    if (session.transactionOpen) ctx.abortTransaction();
     ctx.setDraft(null);
-    this.resetState();
+    this.lastSamplePoint = null;
   }
 
   private finishStroke(ctx: ToolContext): void {
-    if (!this.transactionOpen) return;
-    ctx.commitTransaction();
-    this.transactionOpen = false;
+    const session = this.session;
+    if (!session) return;
+    this.session = null;
+    if (session.dirty) {
+      this.lastStrokeBounds = {
+        x: session.dirty.minX,
+        y: session.dirty.minY,
+        w: session.dirty.maxX - session.dirty.minX,
+        h: session.dirty.maxY - session.dirty.minY,
+      };
+    }
+    if (session.mask) {
+      const committed = commitMaskPaintSession(ctx, session.mask, encodeMaskRgba);
+      if (!committed) {
+        // Nothing was painted (or encoding failed): do not leave an empty
+        // entry in history for the user to undo past.
+        if (session.transactionOpen) ctx.abortTransaction();
+        ctx.setDraft(null);
+        this.lastSamplePoint = null;
+        return;
+      }
+    }
+    if (session.transactionOpen) ctx.commitTransaction();
     ctx.setDraft(null);
-    this.resetState();
+    this.lastSamplePoint = null;
   }
+}
 
-  private resetState(): void {
-    this.strokePoints = [];
-    this.lastSmoothedPoint = null;
-    this.rasterNodeId = null;
-    this.ownsLayer = false;
-    this.workerStrokeEnding = false;
+function nowMs(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+/** Stable 32-bit hash so a stroke's jitter is reproducible from its identity. */
+function hashSeed(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
   }
+  return h >>> 0;
 }
