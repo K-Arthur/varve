@@ -40,6 +40,7 @@ export function runEmailPreflight(
         category: 'link',
       });
   }
+  inspectOverlappingTextRanges(semantics, diagnostics);
   if (
     !Number.isInteger(ir.settings.contentWidth) ||
     ir.settings.contentWidth < 280 ||
@@ -118,6 +119,38 @@ export function runEmailPreflight(
     });
   }
   return diagnostics;
+}
+
+function inspectOverlappingTextRanges(
+  semantics: EmailSemanticMap | undefined,
+  diagnostics: EmailDiagnostic[],
+): void {
+  const rangesByNode = new Map<string, EmailSemanticMap['textRangeLinks'][string][]>();
+  for (const range of Object.values(semantics?.textRangeLinks ?? {})) {
+    const nodeRanges = rangesByNode.get(range.nodeId) ?? [];
+    nodeRanges.push(range);
+    rangesByNode.set(range.nodeId, nodeRanges);
+  }
+  for (const [nodeId, ranges] of rangesByNode) {
+    ranges.sort(
+      (left, right) => left.startIndex - right.startIndex || left.endIndex - right.endIndex,
+    );
+    let furthestEnd = -1;
+    for (const range of ranges) {
+      if (range.startIndex < furthestEnd) {
+        diagnostics.push({
+          severity: 'error',
+          code: 'OVERLAPPING_TEXT_RANGE_LINK',
+          message: 'Text-range links overlap and cannot be represented as nested email anchors.',
+          sourceNodeId: nodeId,
+          category: 'link',
+          suggestedFix: 'Split the ranges so each character belongs to at most one link.',
+        });
+        break;
+      }
+      furthestEnd = Math.max(furthestEnd, range.endIndex);
+    }
+  }
 }
 
 function inspectNode(
