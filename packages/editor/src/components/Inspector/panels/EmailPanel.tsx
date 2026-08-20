@@ -18,6 +18,8 @@ import {
 import { Button, CopyButton, Input, Select, TextArea } from '@varve/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
+import { EmailNodeCompatibility } from './EmailNodeCompatibility';
+import { EmailPreflightPanel } from './EmailPreflightPanel';
 import { createBufferedExportArchive, saveExportBytes } from '../../../exportSaveAdapter';
 import { EmailCodeEditor } from './EmailCodeEditor';
 
@@ -94,6 +96,29 @@ export function EmailPanel() {
   const hasErrors = Boolean(
     compilation?.ir.diagnostics.some((diagnostic) => diagnostic.severity === 'error') ||
       outputWarnings.some((warning) => warning.severity === 'error'),
+  );
+
+  // Preflight findings and emission warnings describe the same email, so they
+  // belong in one list; showing them separately made the reader diff two
+  // lists to work out whether the template was safe to send.
+  const allDiagnostics = useMemo(
+    () => [
+      ...(compilation?.ir.diagnostics ?? []),
+      ...outputWarnings.map((warning) => ({
+        severity: warning.severity,
+        code: warning.code,
+        message: warning.message,
+        sourceNodeId: warning.sourceNodeId,
+        category: warning.category,
+        suggestedFix: warning.suggestedFix,
+      })),
+    ],
+    [compilation, outputWarnings],
+  );
+
+  const documentNodeIds = useMemo(
+    () => new Set(Object.keys(state.document.nodes)),
+    [state.document.nodes],
   );
 
   const exportEmail = async () => {
@@ -348,6 +373,7 @@ export function EmailPanel() {
               />{' '}
               Hide on mobile
             </label>
+            <EmailNodeCompatibility ir={compilation?.ir ?? null} nodeId={node.id} />
             <NodeLinkEditor nodeId={node.id} />
             {node.kind === 'text' && <TextRangeLinkEditor nodeId={node.id} text={node.text} />}
             <CustomHtmlEditor nodeId={node.id} enabled={semantic.kind === 'custom-html'} />
@@ -458,42 +484,15 @@ export function EmailPanel() {
               <strong>Plain text:</strong> {output.plainText.slice(0, 240)}
             </p>
           )}
-          {compilation && compilation.ir.diagnostics.length > 0 && (
-            <ul className="email-panel__diagnostics" aria-label="Email preflight diagnostics">
-              {compilation.ir.diagnostics.map((diagnostic) => (
-                <li
-                  key={`${diagnostic.code}-${diagnostic.sourceNodeId ?? diagnostic.sourceVariableId ?? ''}`}
-                >
-                  <button
-                    type="button"
-                    className="email-panel__diagnostic"
-                    disabled={!diagnostic.sourceNodeId}
-                    onClick={() => {
-                      if (
-                        diagnostic.sourceNodeId &&
-                        state.document.nodes[diagnostic.sourceNodeId]
-                      ) {
-                        editor.setSelection(diagnostic.sourceNodeId);
-                        editor.revealSelection({ nodeId: diagnostic.sourceNodeId });
-                      }
-                    }}
-                  >
-                    <span>{diagnostic.severity}</span>: {diagnostic.message}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {outputWarnings.length > 0 && (
-            <ul className="email-panel__diagnostics" aria-label="Email emission warnings">
-              {outputWarnings.map((warning, index) => (
-                <li key={`${warning.code}-${warning.sourceNodeId ?? index}`}>
-                  <span className="email-panel__diagnostic email-panel__diagnostic--static">
-                    {warning.severity}: {warning.message}
-                  </span>
-                </li>
-              ))}
-            </ul>
+          {compilation && (
+            <EmailPreflightPanel
+              diagnostics={allDiagnostics}
+              resolvableNodeIds={documentNodeIds}
+              onSelectNode={(nodeId) => {
+                editor.setSelection(nodeId);
+                editor.revealSelection({ nodeId });
+              }}
+            />
           )}
           <Button size="sm" onClick={() => void exportEmail()} disabled={!compilation || hasErrors}>
             Export HTML, text, and manifest
