@@ -513,3 +513,108 @@ describe('PaintTool wet media', () => {
     expect(wake).not.toHaveBeenCalled();
   });
 });
+
+describe('PaintTool mask painting', () => {
+  function maskCtx(overrides: Partial<ToolContext> = {}) {
+    const node = {
+      id: 'frame-1',
+      kind: 'frame',
+      name: 'Card',
+      w: 64,
+      h: 64,
+      visible: true,
+      locked: false,
+      mask: {},
+    };
+    return makeCtx({
+      document: {
+        nodes: { 'frame-1': node },
+        rootChildren: ['frame-1'],
+        rasterMaskAssets: {},
+      } as unknown as ToolContext['document'],
+      selection: ['frame-1'],
+      maskEditTarget: { nodeId: 'frame-1', maskId: 'm1' },
+      getNode: (id: string) => (id === 'frame-1' ? (node as never) : undefined),
+      commitRasterMask: vi.fn(),
+      ...overrides,
+    });
+  }
+
+  function paintStroke(tool: PaintTool, ctx: ToolContext) {
+    tool.setWorkerHost(new BrushWorkerHost(null));
+    tool.onPointerDown(makePointerEvent(10, 10), ctx);
+    tool.onPointerMove(makePointerEvent(30, 30), ctx);
+    tool.onPointerUp(makePointerEvent(30, 30), ctx);
+  }
+
+  it('commits mask pixels instead of layer pixels', () => {
+    const tool = new PaintTool(false);
+    const ctx = maskCtx();
+    paintStroke(tool, ctx);
+
+    expect(ctx.commitRasterMask).toHaveBeenCalledTimes(1);
+    // The content layer is never touched by a mask stroke.
+    expect(ctx.updateNode).not.toHaveBeenCalled();
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('commits the mask in container-local pixel space', () => {
+    const tool = new PaintTool(false);
+    const ctx = maskCtx();
+    paintStroke(tool, ctx);
+    const call = (ctx.commitRasterMask as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(call[0]).toBe('frame-1');
+    expect(call[4]).toBe('container-local-pixels');
+  });
+
+  it('is one history entry per stroke, not one per dab', () => {
+    const tool = new PaintTool(false);
+    const ctx = maskCtx();
+    paintStroke(tool, ctx);
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts rather than recording an empty entry when nothing was painted', () => {
+    const tool = new PaintTool(false);
+    // A stroke entirely outside the mask plane touches no pixels.
+    const ctx = maskCtx();
+    tool.setWorkerHost(new BrushWorkerHost(null));
+    tool.onPointerDown(makePointerEvent(-500, -500), ctx);
+    tool.onPointerUp(makePointerEvent(-500, -500), ctx);
+    expect(ctx.commitRasterMask).not.toHaveBeenCalled();
+    expect(ctx.abortTransaction).toHaveBeenCalled();
+  });
+
+  it('paints layer pixels again once the mask target is cleared', () => {
+    const tool = new PaintTool(false);
+    const ctx = maskCtx({ maskEditTarget: null });
+    paintStroke(tool, ctx);
+    expect(ctx.commitRasterMask).not.toHaveBeenCalled();
+    expect(ctx.updateNode).toHaveBeenCalled();
+  });
+
+  it('refuses a locked layer with a spoken reason instead of failing silently', () => {
+    const locked = {
+      id: 'r1',
+      kind: 'rasterLayer',
+      name: 'Background',
+      visible: true,
+      locked: true,
+    };
+    const ctx = makeCtx({
+      document: { nodes: { r1: locked }, rootChildren: ['r1'] } as unknown as ToolContext['document'],
+      selection: ['r1'],
+      getNode: (id: string) => (id === 'r1' ? (locked as never) : undefined),
+    });
+    const tool = new PaintTool(false);
+    tool.setWorkerHost(new BrushWorkerHost(null));
+    const result = tool.onPointerDown(makePointerEvent(10, 10), ctx);
+
+    expect(result.consumed).toBe(false);
+    expect(ctx.announce).toHaveBeenCalledWith(expect.stringContaining('locked'));
+    expect(ctx.abortTransaction).toHaveBeenCalled();
+    // Never auto-unlocks.
+    expect(ctx.updateNode).not.toHaveBeenCalled();
+  });
+});
