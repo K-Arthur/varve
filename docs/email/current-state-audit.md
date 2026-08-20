@@ -1,6 +1,6 @@
 # Email template system — current-state audit
 
-Date: 2026-08-20
+Date: 2026-08-20 (baseline audit; repairs landed afterward)
 Branch: `master`
 Method: static inspection of `packages/{scene,codegen,editor}` plus an end-to-end
 probe that ran `compileEmail` → `emitEmailHtml` over a real two-column `Document`.
@@ -73,3 +73,16 @@ Keep the architecture, replace the layout/link/asset/provider internals, and add
 the compatibility layer that was never written. `compileEmail` had no test at all;
 the four existing tests only exercise hand-authored IR, which is why none of the
 defects above were caught.
+
+## 5. Post-audit repair note
+
+The baseline defects above were subsequently addressed in the semantic compiler,
+HTML emitter, preflight checks, provider interface, and Email inspector. The
+follow-up implementation adds regression coverage for a real Varve flex row,
+responsive table-cell output, text-range links, linked-container behavior,
+local-image rejection, sandboxed desktop/mobile preview controls, and the
+read-only generated-code ownership boundary. See
+`docs/architecture/email-template-system.md` for the current guarantees and
+remaining limits; the matrix above intentionally remains the historical audit
+record rather than claiming that deferred IDE, source-map, or compatibility-DB
+work is complete.
