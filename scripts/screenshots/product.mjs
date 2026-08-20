@@ -688,7 +688,8 @@ const SCENES = [
     theme: 'light',
     feature: 'vector-tools',
     alt: 'The Varve Vectorize dialog tracing an imported photo into editable vector paths, with mode, colour count and path-fitting controls',
-    caption: 'Trace an imported image into editable paths — computed locally by the Rust trace engine.',
+    caption:
+      'Trace an imported image into editable paths — computed locally by the Rust trace engine.',
     async run(page) {
       await openCleanEditor(page);
       await importImage(page, 'earth.jpg');
@@ -879,7 +880,8 @@ const SCENES = [
     feature: 'visual-awareness',
     clip: CROP.inspectorTall,
     alt: 'The Varve image tools inspector for a selected photo, stacking Image Enhance, Vectorize, Object Selection, Background Removal, Colorize, AI Denoise and Depth Blur sections',
-    caption: 'Image tools for a selected photo — enhance, vectorize, object selection, background removal, depth blur. All run on-device.',
+    caption:
+      'Image tools for a selected photo — enhance, vectorize, object selection, background removal, depth blur. All run on-device.',
     async run(page) {
       await openCleanEditor(page);
       await importImage(page, 'earth.jpg');
@@ -892,13 +894,12 @@ const SCENES = [
       await tab.click();
       // The panel is lazy-loaded; wait for real controls rather than the tab
       // click alone, or the crop can land on a loading fallback.
-      await page
-        .locator('.insp-disclosure')
-        .first()
-        .waitFor({ state: 'visible', timeout: 15000 });
+      await page.locator('.insp-disclosure').first().waitFor({ state: 'visible', timeout: 15000 });
       const bgSection = page.locator('.insp-disclosure').filter({ hasText: /Background Removal/ });
       if (!(await bgSection.isVisible({ timeout: 5000 }).catch(() => false))) {
-        throw new Error('Background Removal section missing — panel would misrepresent image tools');
+        throw new Error(
+          'Background Removal section missing — panel would misrepresent image tools',
+        );
       }
       await page.waitForTimeout(700);
     },
@@ -1113,7 +1114,16 @@ try {
       page.on('console', (msg) => {
         console.log(`  [${scene.id}:${msg.type()}] ${msg.text().slice(0, 300)}`);
       });
-      page.on('pageerror', (err) => console.log(`  [${scene.id}:pageerror] ${String(err).slice(0, 300)}`));
+      page.on('pageerror', (err) =>
+        console.log(`  [${scene.id}:pageerror] ${String(err).slice(0, 300)}`),
+      );
+      // Inference runs in a Web Worker, and a worker's console does not reach
+      // the page's console event — so the one place an ONNX failure reports
+      // itself was invisible to every run above.
+      page.on('worker', (worker) => {
+        console.log(`  [${scene.id}:worker] started ${worker.url().split('/').pop()}`);
+        worker.on('close', () => console.log(`  [${scene.id}:worker] closed`));
+      });
     }
     try {
       await page.emulateMedia({

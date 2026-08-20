@@ -33,9 +33,10 @@ import { sitePath } from '../../../lib/siteUrl';
           Animation in Varve is built on keyframes organized into tracks:
         </p>
         <ul>
-          <li><strong>Animation Track</strong> — A sequence of keyframes for a single property of a node (e.g., position, rotation, opacity)</li>
+          <li><strong>Animation Track</strong> — A sequence of keyframes for a single property of a node (e.g., position, rotation, opacity, fill color, stroke color)</li>
           <li><strong>Keyframe</strong> — A snapshot of a property value at a specific point in time. Keyframes can be moved, added, and deleted on the timeline.</li>
-          <li><strong>Target reference</strong> — Each track references a target node and property path using dot notation (e.g., <code>transform.x</code>)</li>
+          <li><strong>Target reference</strong> — Each track references a target node and property path using dot notation (e.g., <code>transform.x</code>, <code>fill</code>, <code>stroke</code>)</li>
+          <li><strong>Virtualized rendering</strong> — Large track lists use position-based virtualization: only visible tracks are rendered in the DOM, keeping the timeline responsive with hundreds of tracks</li>
         </ul>
         <p>
           To create an animation:
@@ -43,7 +44,7 @@ import { sitePath } from '../../../lib/siteUrl';
         <ol>
           <li>Select a node on the canvas</li>
           <li>In the Timeline Panel, click the "+" button to add a new track</li>
-          <li>Choose the property you want to animate (position, size, rotation, opacity, color, etc.)</li>
+          <li>Choose the property you want to animate (position, size, rotation, opacity, fill color, stroke color, etc.)</li>
           <li>Move the scrubber to a new time position</li>
           <li>Change the property value on the canvas or in the Inspector — a keyframe is automatically created</li>
           <li>Repeat to build up your animation</li>
@@ -74,6 +75,34 @@ import { sitePath } from '../../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>Graph Editor</h2>
+        <p>
+          Toggle the Graph Editor with the curve icon in the timeline panel header. The graph editor shows animation curves where the X axis is time and the Y axis is property value:
+        </p>
+        <ul>
+          <li><strong>Curve visualization</strong> — Each animated property renders as a colored curve with keyframe dots</li>
+          <li><strong>Tangent handles</strong> — Spatial bezier tangent arms are shown for keyframes with custom tangents</li>
+          <li><strong>Easing cycle</strong> — Shift+click on a keyframe cycles through easing types (linear, ease, ease-in, ease-out, ease-in-out)</li>
+          <li><strong>Keyboard</strong> — Arrow keys nudge keyframe progress, Delete removes keyframes</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Motion Presets</h2>
+        <p>
+          The timeline panel includes a preset dropdown with 9 built-in motion presets:
+        </p>
+        <ul>
+          <li>Fade In, Fade + Slide Up</li>
+          <li>Slide Up, Slide Down, Slide Left, Slide Right</li>
+          <li>Scale In, Rotate, Bounce In</li>
+        </ul>
+        <p>
+          Save custom presets from any timeline using the Save button. Custom presets appear in the dropdown alongside built-in presets.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Smart Animate</h2>
         <p>
           Smart Animate automatically generates animations between different states of a node group. When the same node exists in two different frames with modified properties, Varve can animate the transition — interpolating position, size, rotation, color, and other animatable properties automatically.
@@ -94,10 +123,11 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><strong>On Hover</strong> — Mouse enter/exit</li>
           <li><strong>On Drag</strong> — Drag gesture</li>
           <li><strong>On Key Press</strong> — Keyboard input</li>
-          <li><strong>On Timer</strong> — Time-delayed trigger</li>
+          <li><strong>After Delay</strong> — Time-delayed trigger</li>
           <li><strong>On Scroll</strong> — Scroll position change</li>
           <li><strong>On Load</strong> — Screen load</li>
-          <li>And more (gesture, voice, gamepad, variable change, state machine events)</li>
+          <li><strong>On Variable Change</strong> — Variable value change</li>
+          <li>And more (focus, media query, pointer enter/leave)</li>
         </ul>
 
         <h3>Actions</h3>
@@ -105,15 +135,24 @@ import { sitePath } from '../../../lib/siteUrl';
           13 action types define what happens when a trigger fires:
         </p>
         <ul>
-          <li><strong>Navigate</strong> — Go to another screen (with transition)</li>
-          <li><strong>Overlay</strong> — Show or hide an overlay</li>
-          <li><strong>Animate</strong> — Start a timeline animation</li>
-          <li><strong>Toggle Variable</strong> — Set a variable value</li>
-          <li><strong>Link</strong> — Open an external URL</li>
-          <li><strong>Sound</strong> — Play audio</li>
-          <li><strong>Video</strong> — Control video playback</li>
-          <li>And more (set state, payload, custom events)</li>
+          <li><strong>Navigate To</strong> — Go to another screen (with dissolve/slide/push/smart animate transition)</li>
+          <li><strong>Open Overlay</strong> — Show a screen as an overlay</li>
+          <li><strong>Close Overlay</strong> — Dismiss an overlay</li>
+          <li><strong>Play Animation</strong> — Start a timeline animation (wired to MotionFacade playback)</li>
+          <li><strong>Stop Animation</strong> — Stop a running timeline animation</li>
+          <li><strong>Set Variable</strong> — Set a variable value</li>
+          <li><strong>Toggle Variable</strong> — Toggle a boolean variable</li>
+          <li><strong>Scroll To</strong> — Scroll to a target element</li>
+          <li><strong>Open URL</strong> — Open an external link</li>
+          <li><strong>Toggle Visibility</strong> — Show/hide an element</li>
+          <li><strong>Dismiss</strong> — Close all overlays</li>
+          <li><strong>Go Back</strong> — Navigate to previous screen</li>
         </ul>
+
+        <h3>Variables and Conditions</h3>
+        <p>
+          Prototype variables support string, number, boolean, and color types with a safe expression evaluator (arithmetic, comparison, string concatenation). Conditional actions evaluate variable values to determine whether an action executes.
+        </p>
       </section>
 
       <section class="docs-section">
@@ -150,12 +189,14 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Animation Export</h2>
         <p>
-          Animations can be exported in three formats:
+          Animations can be exported in multiple formats:
         </p>
         <ul>
-          <li><strong>CSS @keyframes</strong> — Standard CSS keyframe animation, compatible with any web project</li>
+          <li><strong>CSS @keyframes</strong> — Standard CSS keyframe animation with per-keyframe timing functions, compatible with any web project</li>
           <li><strong>SVG animate</strong> — SMIL-based SVG animation embedded in SVG files</li>
-          <li><strong>Lottie JSON</strong> — Lottie format for use with Lottie-web, Lottie-iOS, and Lottie-Android</li>
+          <li><strong>Lottie JSON</strong> — Lottie format for use with Lottie-web, Lottie-iOS, and Lottie-Android. Supports opacity, rotation, position (separate X/Y), scale, stroke width, corner radius, fill color, and stroke color with per-keyframe bezier easing</li>
+          <li><strong>MP4 / WebM video</strong> — WebCodecs-based video export with configurable frame rate</li>
+          <li><strong>Self-contained HTML prototype</strong> — Exports prototype interactions, state machines, variables, and screen transitions as a single HTML file with embedded CSS + JS runtime</li>
         </ul>
         <p>
           See <a href={sitePath('/docs/tools/export')}>Export & Code Generation</a> for detailed export instructions.

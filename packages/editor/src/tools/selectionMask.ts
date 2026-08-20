@@ -62,7 +62,7 @@ function sampleSelection(
   localY: number,
   sourceMapper?: (x: number, y: number) => { x: number; y: number } | null,
 ): number {
-  const local = sourceMapper?.(localX, localY) ?? { x: localX, y: localY };
+  const local = sourceMapper ? sourceMapper(localX, localY) : { x: localX, y: localY };
   if (!local) return 0;
   const world = applyAffine(worldTransform, [local.x, local.y]);
   return areaSelectionCoverageAt(selection, { x: world[0], y: world[1] });
@@ -253,6 +253,10 @@ export function areaSelectionFromMaskPixels(
       const localX = bounds.x + x + 0.5;
       const localY = bounds.y + y + 0.5;
       const source = sourceMapper?.(localX, localY);
+      if (sourceMapper && !source) {
+        data[y * width + x] = 0;
+        continue;
+      }
       // Image placement coordinates describe pixel edges. Sampling at the
       // destination pixel centre therefore lands on the corresponding source
       // pixel centre after subtracting half a source pixel.
