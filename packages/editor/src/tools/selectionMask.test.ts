@@ -51,6 +51,14 @@ describe('selection mask bridge', () => {
       'container-local-pixels',
     );
     expect(selection).not.toBeNull();
+    if (!selection) throw new Error('expected a selection');
+    if (
+      selection.expression.kind !== 'shape' ||
+      selection.expression.shape.kind !== 'raster-mask'
+    ) {
+      throw new Error('expected a raster-mask selection shape');
+    }
+    expect(selection.expression.shape.boundary.length).toBeGreaterThan(0);
     expect(areaSelectionCoverageAt(selection!, { x: 10, y: 20 })).toBe(1);
     expect(areaSelectionCoverageAt(selection!, { x: 11, y: 21 })).toBeCloseTo(0.5, 2);
     expect(areaSelectionCoverageAt(selection!, { x: 12, y: 22 })).toBeCloseTo(0.25, 2);

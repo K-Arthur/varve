@@ -261,6 +261,35 @@ export function areaSelectionFromMaskPixels(
       data[y * width + x] = Math.round(sampleDecodedAlpha(pixels, sourceX, sourceY) * 255);
     }
   }
+  const boundary: Array<{
+    from: { x: number; y: number };
+    to: { x: number; y: number };
+  }> = [];
+  // A pathological 16M-pixel mask can have millions of edge segments. Keep
+  // the exact contour for normal editor selections and let the overlay use a
+  // bounded rectangle fallback for masks too large to trace interactively.
+  const maxBoundarySegments = 250_000;
+  const localPoint = (x: number, y: number) =>
+    applyAffine(transform, [bounds.x + (x / width) * bounds.w, bounds.y + (y / height) * bounds.h]);
+  const addBoundary = (fromX: number, fromY: number, toX: number, toY: number) => {
+    if (boundary.length >= maxBoundarySegments) return;
+    const from = localPoint(fromX, fromY);
+    const to = localPoint(toX, toY);
+    boundary.push({ from: { x: from[0], y: from[1] }, to: { x: to[0], y: to[1] } });
+  };
+  for (let y = 0; y < height && boundary.length < maxBoundarySegments; y += 1) {
+    for (let x = 0; x < width && boundary.length < maxBoundarySegments; x += 1) {
+      if ((data[y * width + x] ?? 0) === 0) continue;
+      if (x === 0 || (data[y * width + x - 1] ?? 0) === 0) addBoundary(x, y, x, y + 1);
+      if (x === width - 1 || (data[y * width + x + 1] ?? 0) === 0) {
+        addBoundary(x + 1, y + 1, x + 1, y);
+      }
+      if (y === 0 || (data[(y - 1) * width + x] ?? 0) === 0) addBoundary(x + 1, y, x, y);
+      if (y === height - 1 || (data[(y + 1) * width + x] ?? 0) === 0) {
+        addBoundary(x, y + 1, x + 1, y + 1);
+      }
+    }
+  }
   return {
     coordinateSpace: 'document',
     generation: 1,
@@ -275,6 +304,7 @@ export function areaSelectionFromMaskPixels(
         width,
         height,
         data,
+        boundary,
         transform,
         inverseTransform: inverse,
         feather: 0,
