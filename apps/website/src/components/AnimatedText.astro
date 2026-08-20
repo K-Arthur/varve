@@ -1,14 +1,11 @@
 ---
 /**
- * AnimatedText — smooth crossfade phrase rotation for the hero line.
+ * AnimatedText — vertical ticker phrase rotation for the hero line.
  *
  * The accessible text ("One canvas.") is always present as a plain span;
- * a decorative, aria-hidden rotor cycles design-discipline phrases over it
- * with a simultaneous crossfade: the outgoing phrase fades out while drifting
- * up as the incoming phrase fades in from below. A vertical clip-path mask
- * prevents the two phrases from visually overlapping at the same baseline.
- * Search engines and screen readers get the complete static sentence; the
- * animation is presentation only.
+ * a decorative, aria-hidden rotor stacks all phrases in a vertical track
+ * and slides it up by one row each cycle. An overflow:hidden container clips
+ * the track so only one phrase is ever visible — no overlap is possible.
  *
  * - Reserves its box (min-width set to the widest phrase at runtime, height
  *   from the in-flow static span) so nothing shifts layout.
@@ -42,16 +39,19 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
 <span class="hero-phrase" data-animated-phrase>
   <span class="hero-phrase-static">{staticText}</span>
   <span class="hero-phrase-rotor" aria-hidden="true">
-    {phrases.map((phrase) => <span class="hero-phrase-item" data-phrase={phrase}>{phrase}</span>)}
+    <span class="hero-phrase-track">
+      {phrases.map((phrase) => <span class="hero-phrase-item">{phrase}</span>)}
+      <span class="hero-phrase-item hero-phrase-item--loop">{phrases[0]}</span>
+    </span>
   </span>
 </span>
 
 <script>
   import { prefersMotion } from '../lib/motion';
 
-  /** Transition duration in ms — must match the CSS animation duration. */
+  /** Transition duration in ms — must match the CSS transition duration. */
   const TRANSITION_MS = 700;
-  /** Full cycle interval (hold + transition overlap). */
+  /** Full cycle interval (hold time between slides). */
   const CYCLE_MS = 3000;
 
   const hosts = [...document.querySelectorAll<HTMLElement>('[data-animated-phrase]')];
@@ -60,14 +60,8 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
     const items = [...host.querySelectorAll<HTMLElement>('.hero-phrase-item')];
     const staticEl = host.querySelector<HTMLElement>('.hero-phrase-static');
     if (items.length > 1 && staticEl) {
-      // The rotor may live inside a variant that starts hidden (display:none),
-      // in which case measuring now would reserve a zero-width box. Defer the
-      // one-time setup until the host is actually painted, then start once.
       const start = (): void => {
         // Reserve the widest phrase so rotation never shifts the layout.
-        // The probe lives inside the host so it inherits the heading's font,
-        // size and letter-spacing — measuring it against the body font would
-        // under-reserve the box by a factor of three.
         const probe = document.createElement('span');
         probe.className = 'hero-phrase-probe';
         probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;';
@@ -81,41 +75,44 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
         host.style.minWidth = `${Math.ceil(widest)}px`;
         host.classList.add('is-rotating');
 
+        const track = host.querySelector<HTMLElement>('.hero-phrase-track');
+        if (!track) return;
+
+        // Measure one item's height — all are identical (same font, same line).
+        const itemHeight = items[0]?.getBoundingClientRect().height ?? 0;
+        if (itemHeight === 0) return;
+
         let index = 0;
-        items[0]?.classList.add('is-active');
+        // Last item is the duplicate of phrase[0] (for seamless loop reset).
+        const lastIndex = items.length - 1;
 
         const timer = window.setInterval(() => {
-          const old = items[index];
-          index = (index + 1) % items.length;
-          const next = items[index];
+          index++;
+          track.style.transform = `translateY(-${(index * itemHeight).toFixed(1)}px)`;
 
-          // Crossfade: outgoing drifts up and fades out while incoming
-          // fades in from below — both animate simultaneously. The
-          // clip-path mask ensures they never overlap at the same baseline.
-          old?.classList.remove('is-active');
-          old?.classList.add('is-exiting');
-          next?.classList.add('is-active');
-
-          // Clean up the exiting class after the transition completes so
-          // the element is ready for its next turn.
-          setTimeout(() => old?.classList.remove('is-exiting'), TRANSITION_MS);
+          // When we reach the duplicate first phrase, snap back to 0
+          // without a transition so the loop is seamless.
+          if (index >= lastIndex) {
+            const snap = (): void => {
+              track.style.transition = 'none';
+              index = 0;
+              track.style.transform = 'translateY(0)';
+              void track.offsetHeight;
+              track.style.transition = '';
+            };
+            setTimeout(snap, TRANSITION_MS);
+          }
         }, CYCLE_MS);
 
-        // The component owns one timer; nothing else animates this line.
         (host as HTMLElement & { __varvePhraseTimer?: number }).__varvePhraseTimer = timer;
       };
 
-      // If the host is already visible (its parent is not display:none),
-      // start immediately. Otherwise poll via rAF until it appears.
       if (host.offsetParent !== null) {
         start();
       } else {
         const wait = (): void => {
-          if (host.offsetParent !== null) {
-            start();
-          } else {
-            requestAnimationFrame(wait);
-          }
+          if (host.offsetParent !== null) start();
+          else requestAnimationFrame(wait);
         };
         requestAnimationFrame(wait);
       }
@@ -140,85 +137,29 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
   .hero-phrase-rotor {
     position: absolute;
     inset: 0;
+    overflow: hidden;
+  }
+
+  .hero-phrase-track {
+    display: flex;
+    flex-direction: column;
+    transition: transform var(--duration-normal, 0.7s) var(--ease-default, cubic-bezier(0.16, 1, 0.3, 1));
+    will-change: transform;
   }
 
   .hero-phrase-item {
-    position: absolute;
-    inset: 0;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: center;
-    opacity: 0;
-    visibility: hidden;
-    /* See the keyframes below for why the insets are negative. */
-    clip-path: inset(-30% 0 130% 0);
-    transform: translateY(0.45em);
-    will-change: transform, opacity, clip-path;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   /* Animation runs only when the rotor is enabled by JS AND motion is
-     allowed; otherwise the static phrase below it is the visible content.
-     Both rules live behind the same guard, so the static phrase becomes
-     visible again the instant the rotor cannot run (reduced motion toggled
-     mid-session, ?test-motion=static, JS failure) — the line can never end
-     up empty. */
+     allowed; otherwise the static phrase below it is the visible content. */
   @media (prefers-reduced-motion: no-preference) {
-    /* The rotor paints the phrase while rotating; the static copy stays in
-       flow (holding the box open, still in the a11y tree) but must not paint
-       underneath it, or the two phrases overlap into unreadable glyphs. */
     html:not([data-motion='static']) .hero-phrase.is-rotating .hero-phrase-static {
       opacity: 0;
-    }
-
-    /* Incoming phrase: fades in while rising from 0.45em below to rest. The
-       clip-path opens a vertical reveal band so the phrase appears to wipe
-       upward from nothing. */
-    html:not([data-motion='static']) .hero-phrase.is-rotating .hero-phrase-item.is-active {
-      visibility: visible;
-      animation: varve-phrase-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
-    }
-
-    /* Outgoing phrase: fades out while drifting up 0.45em — runs
-       simultaneously with the incoming enter for a smooth crossfade. The
-       clip-path collapses the visible band upward so the outgoing phrase
-       never overlaps the incoming one at the same baseline. */
-    html:not([data-motion='static']) .hero-phrase.is-rotating .hero-phrase-item.is-exiting {
-      visibility: visible;
-      animation: varve-phrase-exit 0.7s cubic-bezier(0.7, 0, 0.84, 0) both;
-    }
-  }
-
-  /* The reveal clips against the item's border box, which is the heading's
-     line box — and the heading runs at line-height 1. Clipping to `inset(0)`
-     therefore slices the ascenders and descenders off the phrase ("Typography."
-     lost the tails of its y, p and g). Every inset is given 30% of vertical
-     slack so the clip edge never lands on a glyph: the shown state extends
-     past the box in both directions, and the hidden states collapse the band
-     to zero height outside it. Horizontal insets stay at 0 — the reveal is a
-     vertical wipe. */
-  @keyframes varve-phrase-enter {
-    from {
-      opacity: 0;
-      clip-path: inset(-30% 0 130% 0);
-      transform: translateY(0.45em);
-    }
-    to {
-      opacity: 1;
-      clip-path: inset(-30% 0 -30% 0);
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes varve-phrase-exit {
-    from {
-      opacity: 1;
-      clip-path: inset(-30% 0 -30% 0);
-      transform: translateY(0);
-    }
-    to {
-      opacity: 0;
-      clip-path: inset(-30% 0 130% 0);
-      transform: translateY(-0.45em);
     }
   }
 
