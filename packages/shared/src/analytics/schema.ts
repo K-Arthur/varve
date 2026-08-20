@@ -72,7 +72,8 @@ export type AnalyticsWebsiteRoute =
   | '/docs'
   | '/contribute'
   | '/support'
-  | '/about/privacy';
+  | '/about/privacy'
+  | '/try';
 export type AnalyticsWebsitePlatform = 'linux' | 'windows' | 'macos' | 'unknown';
 export type AnalyticsPackageType = 'appimage' | 'deb' | 'rpm' | 'dmg' | 'nsis' | 'unknown';
 export type AnalyticsOutboundDestination = 'github' | 'docs' | 'community';
@@ -116,6 +117,18 @@ export interface AnalyticsEventMap {
   };
   website_outbound_clicked: {
     destination: AnalyticsOutboundDestination;
+  };
+  website_contact_clicked: {
+    channel: 'general' | 'support' | 'feedback' | 'security' | 'privacy' | 'press' | 'partnerships';
+  };
+  browser_demo_launched: {
+    entry: 'website' | 'direct';
+  };
+  browser_demo_desktop_download: {
+    release: string;
+    platform: AnalyticsWebsitePlatform;
+    architecture: 'x64' | 'arm64' | 'unknown';
+    packageType: AnalyticsPackageType;
   };
 }
 
