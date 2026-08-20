@@ -250,8 +250,20 @@ function BrushTile({
       { rootMargin: '200px' },
     );
     observer.observe(node);
+
+    // Deadlock guard. A zero-area element is reported as *not* intersecting,
+    // so a tile observed before its styles apply would never render a preview,
+    // and without a preview the placeholder never gains height — the tile stays
+    // zero-area and the observer never fires again. Rendering anyway after a
+    // beat costs one thumbnail in the worst case and cannot get stuck.
+    const fallback = setTimeout(() => {
+      render();
+      observer.disconnect();
+    }, 400);
+
     return () => {
       cancelled = true;
+      clearTimeout(fallback);
       observer.disconnect();
     };
   }, [item.preset, cache]);
