@@ -132,6 +132,7 @@ export function BrushBrowser({
 
       {visible.length === 0 ? (
         <EmptyState
+          illustration={<EmptyBrushIllustration />}
           headline="No brushes match"
           description={query ? `Nothing matches “${query}”.` : 'This category is empty.'}
         />
@@ -159,6 +160,21 @@ export function BrushBrowser({
         </ul>
       )}
     </div>
+  );
+}
+
+/** Outline of a brush stroke. SVG, per the zero-emoji icon contract. */
+function EmptyBrushIllustration() {
+  return (
+    <svg viewBox="0 0 48 32" width="48" height="32" fill="none" aria-hidden="true">
+      <path
+        d="M4 24c6-12 14-16 20-12s4 12 10 12"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        opacity="0.45"
+      />
+    </svg>
   );
 }
 
