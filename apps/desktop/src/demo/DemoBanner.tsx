@@ -89,7 +89,7 @@ export function DemoBanner({ config }: DemoBannerProps) {
           </ul>
         </details>
         {analyticsChoice === 'unknown' && (
-          <div className="varve-demo-banner__consent" role="group" aria-label="Usage measurement">
+          <fieldset className="varve-demo-banner__consent" aria-label="Usage measurement">
             <span>
               Count this visit? Anonymous totals only — no account, no cookies, nothing about your
               design.
@@ -100,7 +100,7 @@ export function DemoBanner({ config }: DemoBannerProps) {
             <button type="button" onClick={() => choose('denied')}>
               No thanks
             </button>
-          </div>
+          </fieldset>
         )}
         <a
           className="varve-demo-banner__cta"

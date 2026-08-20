@@ -16,9 +16,9 @@ import {
 } from '../../onboard';
 import { OnboardingChecklist } from '../../onboard/OnboardingChecklist/OnboardingChecklist';
 import { createTutorialDocument } from '../../samples/tutorial-document';
-import { useSettings } from '../Settings/SettingsContext';
 import { SpotlightOverlay, useOnboarding, WelcomeDialog } from '../Onboarding';
 import { TOUR_STEPS } from '../Onboarding/tourSteps';
+import { useSettings } from '../Settings/SettingsContext';
 
 export interface OnboardingLayerHandle {
   /** Replay the spotlight tour on demand (Help → Take a Tour). */

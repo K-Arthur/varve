@@ -65,7 +65,7 @@ export const GraphEditor: FC<GraphEditorProps> = ({
     keyframeIndex: number;
     startProgress: number;
   } | null>(null);
-  const [draggingTangent, setDraggingTangent] = useState<{
+  const [_draggingTangent, setDraggingTangent] = useState<{
     trackId: string;
     keyframeIndex: number;
     tangentType: 'ti' | 'to';
@@ -218,7 +218,18 @@ export const GraphEditor: FC<GraphEditorProps> = ({
         }
       }
     },
-    [visibleTracks, xToProgress, progressToX, valueToY, onSeek, duration, width, padding.top, onUpdateEasing, timeline.id],
+    [
+      visibleTracks,
+      xToProgress,
+      progressToX,
+      valueToY,
+      onSeek,
+      duration,
+      width,
+      padding.top,
+      onUpdateEasing,
+      timeline.id,
+    ],
   );
 
   const handleMouseMove = useCallback(

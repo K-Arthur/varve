@@ -44,7 +44,7 @@ import { getLayerNavigationCommands } from './components/LayersPanel/layerNaviga
 import { PaletteExtractDialogHost } from './components/PaletteExtract/PaletteExtractDialogHost';
 import { requestInspectorTab } from './context/inspectorTabBridge';
 import { applySelectedLayoutChildField } from './context/layoutChildSetters';
-import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
+import { isCapabilityRestricted, setBumpThemeRevisionHandler } from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
 import { type ImportedResourceSet, mergeImportedResources } from './import/mergeImportedResources';
 import { pathPointsWorldToLocal } from './tools/pathCoords';
@@ -353,7 +353,6 @@ import {
   rotateViewAtScreen,
   toCamera,
 } from './canvas/cameraState';
-import { isCapabilityRestricted } from './capabilities/restrictions';
 import { readClipboardUnifiedWithFallback, writeClipboard as writeToClipboard } from './clipboard';
 import type { SectionId } from './components/Inspector/sectionRegistry';
 import {
@@ -2674,7 +2673,9 @@ export function EditorProvider({
       // Clear the resolved-color cache on theme switch (gridRenderer).
       // Uses global to avoid adding an import to this hub file.
       if (typeof window !== 'undefined') {
-        (window as any).__clearResolvedColorCache?.();
+        (
+          window as Window & { __clearResolvedColorCache?: () => void }
+        ).__clearResolvedColorCache?.();
       }
       patch({ themeRevision: stateRef.current.themeRevision + 1 });
     });

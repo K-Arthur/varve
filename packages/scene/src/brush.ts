@@ -8,8 +8,6 @@
  * libmypaint brush engine, and Pointer Events / stylus dynamics.
  */
 
-import type { Document } from './document';
-
 export type BrushShape = 'circle' | 'square' | 'texture' | 'custom';
 export type BrushDynamicsInput =
   | 'pressure'
@@ -358,7 +356,7 @@ export function generateDabs(
 
   if (walk.length === 1) {
     const p = walk[0]!;
-    if (!session || !session.started) {
+    if (!session?.started) {
       const dab = makeDab(p, preset, 0, session?.arcLength ?? 0, rng);
       dabs.push(dab);
       if (session) {
@@ -942,7 +940,7 @@ export function migrateBrushPreset(preset: Record<string, unknown>): BrushPreset
 }
 
 export function getActivePreset(
-  doc: Document,
+  doc: { brushPresets?: Record<string, unknown> },
   presetId?: string,
   fallbackId?: string,
 ): BrushPreset {

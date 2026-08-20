@@ -6,8 +6,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { WorkspaceMode } from '../../workspace/workspaceTypes';
 import { toolShortcutLabel } from '../../shortcuts/toolShortcutLabel';
+import type { WorkspaceMode } from '../../workspace/workspaceTypes';
 import {
   dismissMicroHint,
   hasSeenMicroHint,

@@ -186,7 +186,7 @@ const EMPTY_STATE_BY_MODE: Record<string, EmptyStateHint> = {
 };
 
 export function getEmptyStateContent(mode: string): EmptyStateHint {
-  return EMPTY_STATE_BY_MODE[mode] ?? EMPTY_STATE_BY_MODE.design;
+  return EMPTY_STATE_BY_MODE[mode] ?? EMPTY_STATE_BY_MODE.design!;
 }
 
 export function CanvasArea({

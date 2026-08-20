@@ -350,13 +350,11 @@ function FillRow({
   // Gradient interpolation/hue are sub-fields; surface "Mixed" across the
   // selection using resolved semantics. A legacy gradient (missing metadata)
   // is sRGB, while interpolationSource=document inherits the document value.
-  const interpRaw = commonValue(
-    nodes,
-    (n) =>
-      resolvedGradientInterpolationSpace(
-        resolveNodeFills(n)[index]?.gradient,
-        documentGradientInterpolation,
-      ),
+  const interpRaw = commonValue(nodes, (n) =>
+    resolvedGradientInterpolationSpace(
+      resolveNodeFills(n)[index]?.gradient,
+      documentGradientInterpolation,
+    ),
   );
   const hueRaw = commonValue(nodes, (n) =>
     resolvedGradientHueInterpolation(

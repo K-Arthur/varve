@@ -13,7 +13,7 @@
  */
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadOnboardingState, saveOnboardingState, type OnboardingStore } from './onboardingStore';
+import { loadOnboardingState, type OnboardingStore, saveOnboardingState } from './onboardingStore';
 
 // ── OnboardingStore ──────────────────────────────────────────────────
 describe('OnboardingStore', () => {
@@ -76,7 +76,9 @@ describe('OnboardingStore', () => {
     expect(hasSeenMicroHint(state, 'rect.first-use')).toBe(true);
     // Dismissing again does not duplicate
     const state2 = dismissMicroHint(state, 'rect.first-use');
-    expect(state2.dismissedMicroHints.filter((h: string) => h === 'rect.first-use')).toHaveLength(1);
+    expect(state2.dismissedMicroHints.filter((h: string) => h === 'rect.first-use')).toHaveLength(
+      1,
+    );
   });
 
   it('dismissTip persists and prevents re-show', async () => {
@@ -276,9 +278,7 @@ describe('useDidYouKnow', () => {
     const tracker = {
       getCount: vi.fn(() => 0),
     };
-    const { result } = renderHook(() =>
-      useDidYouKnow(tracker, undefined, { enabled: false }),
-    );
+    const { result } = renderHook(() => useDidYouKnow(tracker, undefined, { enabled: false }));
     act(() => {
       vi.advanceTimersByTime(16000);
     });
@@ -522,9 +522,7 @@ describe('DidYouKnowTip', () => {
     const onDontShowAgain = vi.fn();
     const tip = { id: 'test-tip', title: 'Test', body: 'Body', category: 'shortcuts' as const };
 
-    render(
-      <DidYouKnowTip tip={tip} onDismiss={onDismiss} onDontShowAgain={onDontShowAgain} />,
-    );
+    render(<DidYouKnowTip tip={tip} onDismiss={onDismiss} onDontShowAgain={onDontShowAgain} />);
 
     const gotItBtn = screen.getByText('Got it');
     act(() => {
@@ -533,15 +531,13 @@ describe('DidYouKnowTip', () => {
     expect(onDismiss).toHaveBeenCalledWith('test-tip');
   });
 
-  it('Don\'t show again calls onDontShowAgain', async () => {
+  it("Don't show again calls onDontShowAgain", async () => {
     const { DidYouKnowTip } = await import('./DidYouKnow/DidYouKnowTip');
     const onDismiss = vi.fn();
     const onDontShowAgain = vi.fn();
     const tip = { id: 'test-tip', title: 'Test', body: 'Body', category: 'shortcuts' as const };
 
-    render(
-      <DidYouKnowTip tip={tip} onDismiss={onDismiss} onDontShowAgain={onDontShowAgain} />,
-    );
+    render(<DidYouKnowTip tip={tip} onDismiss={onDismiss} onDontShowAgain={onDontShowAgain} />);
 
     const btn = screen.getByText("Don't show again");
     act(() => {
@@ -549,8 +545,6 @@ describe('DidYouKnowTip', () => {
     });
     expect(onDontShowAgain).toHaveBeenCalledWith('test-tip');
   });
-
-
 });
 
 // ── MicroHint component ──────────────────────────────────────────────
@@ -636,9 +630,7 @@ describe('MicroHint', () => {
 // ── OnboardingChecklist ──────────────────────────────────────────────
 describe('OnboardingChecklist', () => {
   it('renders with progress bar and items', async () => {
-    const { OnboardingChecklist } = await import(
-      './OnboardingChecklist/OnboardingChecklist'
-    );
+    const { OnboardingChecklist } = await import('./OnboardingChecklist/OnboardingChecklist');
     render(
       <OnboardingChecklist
         open={true}
