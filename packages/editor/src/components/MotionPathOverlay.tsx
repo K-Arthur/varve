@@ -215,7 +215,11 @@ export function MotionPathOverlay({
                   t.keyframes.some((_, ki) => ki === kp.keyframeIndex),
                 );
                 if (track) {
-                  handleKeyframeDragStart(track.id, kp.keyframeIndex, kp.timeMs / timeline.duration);
+                  handleKeyframeDragStart(
+                    track.id,
+                    kp.keyframeIndex,
+                    kp.timeMs / timeline.duration,
+                  );
                 }
               }
             }}
