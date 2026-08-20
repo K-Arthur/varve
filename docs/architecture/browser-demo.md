@@ -69,6 +69,38 @@ warm ONNX cache produced **706 MB** — against GitHub Pages' 1 GB site cap.
 `stage-demo.mjs` enforces a 120 MB budget and fails the build rather than staging
 silently.
 
+## Running it locally
+
+**The Astro dev server does not serve `/try/`, and cannot.** `astro dev` serves
+`apps/website/src`, which has no `/try` route, proxy, or middleware — the demo is
+a separate Vite app that only appears under `/try/` once `stage-demo.mjs` copies
+it into `apps/website/dist/`. Opening `/try/` against `astro dev` returns 404, and
+that is the expected result rather than a broken build.
+
+Two ways to actually run it:
+
+```bash
+# 1. Fastest — the demo on the desktop dev server. Demo mode is a runtime
+#    property of the URL, so the query param is enough. /try/ works on this
+#    server too, because Vite serves index.html for unknown paths.
+pnpm --filter @varve/desktop dev        # then http://localhost:1420/?try=1
+
+# 2. The real /try/ path, as the site serves it.
+pnpm --filter @varve/website build
+pnpm --filter @varve/desktop build:try
+node scripts/website/stage-demo.mjs
+pnpm --filter @varve/website preview    # then http://localhost:4321/try/
+```
+
+Both were verified in Chromium: the demo boots to the sample poster, fitted, with
+the banner, three workspace tabs and no console errors, and the staged copy serves
+its WASM as `application/wasm`.
+
+One difference worth knowing: React StrictMode is active in dev and double-invokes
+effects, which is exactly what broke fit-on-open once already. If something works
+in the built demo but not on the dev server, suspect an effect that is not
+idempotent before suspecting the build.
+
 ## Deployment
 
 GitHub Pages serves the combined artifact (Astro site at root + demo at `/try/`).
