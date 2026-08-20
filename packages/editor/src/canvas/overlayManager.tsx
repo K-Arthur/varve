@@ -58,7 +58,6 @@ function traceAreaSelectionBoundary(
   }
 
   const shape = expression.shape;
-  ctx.beginPath();
   if (shape.kind === 'rectangle') {
     ctx.rect(shape.x, shape.y, shape.w, shape.h);
   } else if (shape.kind === 'ellipse') {
@@ -91,12 +90,14 @@ function drawAreaSelectionBoundary(
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
   ctx.setLineDash([6 / zoom, 6 / zoom]);
   ctx.lineDashOffset = phase / zoom;
+  ctx.beginPath();
   traceAreaSelectionBoundary(ctx, selection.expression);
   ctx.stroke();
 
   ctx.lineWidth = 1 / zoom;
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.98)';
   ctx.lineDashOffset = (phase + 6) / zoom;
+  ctx.beginPath();
   traceAreaSelectionBoundary(ctx, selection.expression);
   ctx.stroke();
   ctx.restore();
