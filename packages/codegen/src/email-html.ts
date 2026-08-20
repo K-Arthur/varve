@@ -12,6 +12,7 @@
  * Never generates <script>, event handlers, or javascript: URLs.
  */
 
+import { inlineEmailCss } from './email-css';
 import type {
   EmailDocumentIr,
   EmailIrLink,
@@ -106,6 +107,7 @@ export function emitEmailHtml(
     const html = emitNode(node, indent, 0, emissionOptions, warnings, assets);
     if (html) bodyParts.push(html);
   }
+  const inlinedBody = inlineEmailCss(bodyParts.join(`\n${indent}`), sanitizedCss.css);
 
   // Build responsive CSS
   const responsiveCss =
@@ -116,7 +118,7 @@ export function emitEmailHtml(
     buildResetCss(indent),
     buildBaseCss(settings, indent),
     responsiveCss,
-    sanitizedCss.css,
+    inlinedBody.remainingCss,
   ]
     .filter(Boolean)
     .join('\n');
@@ -153,7 +155,7 @@ export function emitEmailHtml(
           <td>
           <![endif]-->
           <div class="email-container" style="max-width: ${settings.contentWidth}px; margin: 0 auto; ${settings.contentBackground ? `background-color: ${escapeHtml(settings.contentBackground)};` : ''}">
-            ${bodyParts.join(`\n${indent}`)}
+            ${inlinedBody.html}
           </div>
           <!--[if mso]>
           </td>

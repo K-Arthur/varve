@@ -168,7 +168,8 @@ export function appendTrackingParams(url: string, tracking?: EmailTrackingParams
 }
 
 function sanitizeStyle(value: string): string {
-  if (/<|>|url\s*\(|expression\s*\(|-moz-binding|behavior\s*:/i.test(value)) return '';
+  if (/<|>|url\s*\(|expression\s*\(|-moz-binding|behavior\s*:|javascript\s*:/i.test(value))
+    return '';
   return value
     .split(';')
     .map((declaration) => {
@@ -188,6 +189,7 @@ export function sanitizeEmailCss(css: string): { css: string; removed: string[] 
     return { css: '', removed: ['size-limit'] };
   }
   const withoutBlocks = css
+    .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/<\/style/gi, '<\\/style')
     .replace(/@import[^;]+;?/gi, () => {
       removed.push('@import');
@@ -198,19 +200,48 @@ export function sanitizeEmailCss(css: string): { css: string; removed: string[] 
       return 'none';
     });
 
-  const sanitized = withoutBlocks.replace(
-    /([^{}]+)\{([^{}]*)\}/g,
-    (_match, selector: string, body: string) => {
-      if (/[<>]|javascript:|expression\s*\(/i.test(selector)) {
-        removed.push('unsafe selector');
-        return '';
-      }
+  return { css: sanitizeCssBlock(withoutBlocks, removed), removed };
+}
+
+function sanitizeCssBlock(css: string, removed: string[]): string {
+  const output: string[] = [];
+  let cursor = 0;
+  while (cursor < css.length) {
+    const open = css.indexOf('{', cursor);
+    if (open < 0) break;
+    const close = findMatchingBrace(css, open);
+    if (close < 0) {
+      removed.push('unclosed block');
+      break;
+    }
+    const selector = css.slice(cursor, open).trim();
+    const body = css.slice(open + 1, close);
+    if (/[<>]|javascript:|expression\s*\(/i.test(selector)) {
+      removed.push('unsafe selector');
+    } else if (/^@media\b/i.test(selector)) {
+      const nested = sanitizeCssBlock(body, removed);
+      if (nested) output.push(`${selector} { ${nested} }`);
+    } else if (selector.startsWith('@')) {
+      removed.push(selector.split(/\s+/)[0] ?? 'at-rule');
+    } else {
       const declarations = sanitizeStyle(body);
-      if (!declarations) return '';
-      return `${selector.trim()} { ${declarations}; }`;
-    },
-  );
-  return { css: sanitized, removed };
+      if (declarations) output.push(`${selector} { ${declarations}; }`);
+    }
+    cursor = close + 1;
+  }
+  return output.join('\n');
+}
+
+function findMatchingBrace(value: string, open: number): number {
+  let depth = 0;
+  for (let index = open; index < value.length; index += 1) {
+    if (value[index] === '{') depth += 1;
+    if (value[index] === '}') {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
 }
 
 function sanitizeAttribute(name: string, value: string): string | null {

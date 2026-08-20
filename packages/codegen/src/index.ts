@@ -25,6 +25,8 @@ export type { DesignAuditOptions } from './design-audit';
 export { runCodegenReadiness, runDesignAudit } from './design-audit';
 export type { EmailCompileOptions, EmailCompileResult } from './email-compiler';
 export { compileEmail } from './email-compiler';
+export type { EmailCssInlineResult } from './email-css';
+export { inlineEmailCss } from './email-css';
 export type { EmailHtmlExportOptions, EmailHtmlExportResult } from './email-html';
 export { emitEmailHtml } from './email-html';
 export * from './email-ir-types';
