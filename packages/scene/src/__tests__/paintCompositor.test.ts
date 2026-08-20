@@ -89,9 +89,14 @@ describe('alpha lock', () => {
   });
 
   it('applies to blend modes too', () => {
-    const out = compositeDabOnNode(layerFilled(200, 200, 200, 100), dab({ blendMode: 'multiply' }), RED, {
-      alphaLock: true,
-    });
+    const out = compositeDabOnNode(
+      layerFilled(200, 200, 200, 100),
+      dab({ blendMode: 'multiply' }),
+      RED,
+      {
+        alphaLock: true,
+      },
+    );
     expect(px(out, 20, 20)!.a).toBe(100);
   });
 });

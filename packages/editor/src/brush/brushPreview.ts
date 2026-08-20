@@ -34,10 +34,7 @@ const DEFAULT_INK = '#1b1b1f';
  * Includes only what the image depends on, so editing a preset invalidates its
  * thumbnail while unrelated app state never does.
  */
-export function brushPreviewFingerprint(
-  preset: BrushPreset,
-  options: BrushPreviewOptions,
-): string {
+export function brushPreviewFingerprint(preset: BrushPreset, options: BrushPreviewOptions): string {
   const relevant = [
     preset.id,
     preset.shape,
@@ -61,7 +58,9 @@ export function brushPreviewFingerprint(
     preset.grainAnchor,
     preset.eraser,
     preset.blendMode,
-    preset.dynamics.map((d) => `${d.input}:${d.target}:${d.min}:${d.max}:${d.curve.join(',')}`).join('|'),
+    preset.dynamics
+      .map((d) => `${d.input}:${d.target}:${d.min}:${d.max}:${d.curve.join(',')}`)
+      .join('|'),
     options.width,
     options.height,
     options.pixelRatio ?? 1,

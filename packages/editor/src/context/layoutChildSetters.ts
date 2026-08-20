@@ -6,17 +6,27 @@
  * ceiling.
  */
 import { reflowLayoutChildren } from '@varve/layout';
-import type { Document, LayoutPosition, LayoutSizing, NodeId, SceneNode } from '@varve/scene';
+import type {
+  Document,
+  LayoutAlign,
+  LayoutPosition,
+  LayoutSizing,
+  NodeId,
+  SceneNode,
+} from '@varve/scene';
 import { getParent } from '@varve/scene';
 
 type LayoutChildField =
   | 'layoutSizing'
   | 'layoutSizingWidth'
   | 'layoutSizingHeight'
-  | 'layoutPosition';
+  | 'layoutPosition'
+  | 'layoutAlign';
 type LayoutChildValue<K extends LayoutChildField> = K extends 'layoutPosition'
   ? LayoutPosition
-  : LayoutSizing;
+  : K extends 'layoutAlign'
+    ? LayoutAlign
+    : LayoutSizing;
 
 export function applySelectedLayoutChildField<K extends LayoutChildField>(
   doc: Document,

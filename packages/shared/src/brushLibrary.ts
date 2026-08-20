@@ -208,12 +208,7 @@ export function dedupeBrushName(existingNames: readonly string[], name: string):
  * whitespace-collapsed, so "Ínk  Pen" finds "ink pen".
  */
 export function normalizeSearchText(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ');
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
 export interface BrushSearchable {

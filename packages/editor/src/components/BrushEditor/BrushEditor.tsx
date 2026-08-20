@@ -17,8 +17,8 @@ import { DisclosureSection } from '../Inspector/controls/DisclosureSection';
 import { NumberField } from '../Inspector/controls/NumberField';
 import './BrushEditor.css';
 import {
-  beginEditing,
   type BrushEditorState,
+  beginEditing,
   commitDraft,
   editField,
   isDirty,
@@ -262,20 +262,20 @@ function TransferSection({ draft, set }: SectionProps) {
 function GrainSection({ draft, set }: SectionProps) {
   return (
     <DisclosureSection title="Grain">
-      <label className="brush-editor__field">
-        <span>Texture</span>
+      <div className="brush-editor__field">
+        <span id="brush-grain-texture-label">Texture</span>
         <Input
           value={draft.grainId ?? ''}
           placeholder="None"
-          aria-label="Grain texture"
+          aria-labelledby="brush-grain-texture-label"
           onChange={(e) => set('grainId', e.currentTarget.value || undefined)}
         />
-      </label>
-      <label className="brush-editor__field">
-        <span>Anchor</span>
+      </div>
+      <div className="brush-editor__field">
+        <label htmlFor="brush-grain-anchor">Anchor</label>
         <select
+          id="brush-grain-anchor"
           value={draft.grainAnchor}
-          aria-label="Grain anchor"
           onChange={(e) => set('grainAnchor', e.currentTarget.value as BrushPreset['grainAnchor'])}
         >
           <option value="layer">Layer — fixed to the artwork</option>
@@ -283,7 +283,7 @@ function GrainSection({ draft, set }: SectionProps) {
           <option value="brush">Brush — travels with each dab</option>
           <option value="stroke">Stroke — slides along the stroke</option>
         </select>
-      </label>
+      </div>
       <NumberField
         label="Scale"
         value={Math.round(draft.grainScale * 100)}

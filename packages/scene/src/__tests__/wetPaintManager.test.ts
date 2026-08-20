@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  WET_MAX_GAP_SECONDS,
-  WET_TILE_SIZE,
-  WetPaintManager,
-} from '../wetPaintManager';
+import { WET_MAX_GAP_SECONDS, WET_TILE_SIZE, WetPaintManager } from '../wetPaintManager';
 
 const RED = [255, 0, 0, 255] as const;
 const BLUE = [0, 0, 255, 255] as const;

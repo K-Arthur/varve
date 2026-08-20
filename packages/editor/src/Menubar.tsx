@@ -1371,6 +1371,7 @@ function buildMenus(
           action: 'whatIsThis',
         },
         { label: '---' },
+        { label: 'Getting Started', action: 'gettingStarted' },
         { label: 'Take a Tour', action: 'startTour' },
         { label: "What's New", action: 'whatsNew' },
         { label: '---' },
@@ -1544,6 +1545,7 @@ export function Menubar({
   onBackToHome,
   onOpenSettings,
   onStartTour,
+  onGettingStarted,
   onOpenPalette,
   onOpenHelp,
   onOpenHelpCenter,
@@ -1559,6 +1561,7 @@ export function Menubar({
   onBackToHome?: () => void;
   onOpenSettings?: () => void;
   onStartTour?: () => void;
+  onGettingStarted?: () => void;
   onOpenPalette?: () => void;
   onOpenHelp?: () => void;
   onOpenHelpCenter?: () => void;
@@ -2108,6 +2111,7 @@ export function Menubar({
       onBackToHome,
       onOpenSettings,
       onStartTour,
+      onGettingStarted,
       onOpenPalette,
       onOpenHelp,
       onOpenHelpCenter,

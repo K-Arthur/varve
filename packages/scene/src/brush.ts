@@ -512,14 +512,11 @@ function makeDab(
   const hardnessMod = evaluateDynamics(preset, point, 'hardness', strokeT, rng);
   const rotationMod = evaluateDynamics(preset, point, 'rotation', strokeT, rng);
 
-  const sizeJitter =
-    preset.sizeJitter > 0 ? 1 + (rng.next() * 2 - 1) * preset.sizeJitter : 1;
+  const sizeJitter = preset.sizeJitter > 0 ? 1 + (rng.next() * 2 - 1) * preset.sizeJitter : 1;
   const opacityJitter =
     preset.opacityJitter > 0 ? 1 + (rng.next() * 2 - 1) * preset.opacityJitter : 1;
   const rotationJitter =
-    preset.rotationJitter > 0
-      ? (rng.next() * 2 - 1) * preset.rotationJitter * Math.PI
-      : 0;
+    preset.rotationJitter > 0 ? (rng.next() * 2 - 1) * preset.rotationJitter * Math.PI : 0;
 
   const radius = Math.max(0.5, preset.radius * sizeMod * sizeJitter);
   const opacity = Math.max(0, Math.min(1, preset.opacity * opacityMod * opacityJitter));

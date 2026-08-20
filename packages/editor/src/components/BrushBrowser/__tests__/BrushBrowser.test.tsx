@@ -34,56 +34,56 @@ function renderBrowser(overrides: Partial<ComponentProps<typeof BrushBrowser>> =
 describe('BrushBrowser', () => {
   it('lists built-in and custom brushes together', () => {
     renderBrowser();
-    expect(screen.getByRole('option', { name: /Round/ })).toBeTruthy();
-    expect(screen.getByRole('option', { name: /Charcoal Stick/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Round' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Charcoal Stick' })).toBeTruthy();
   });
 
-  it('exposes brushes as a keyboard-navigable listbox, not just images', () => {
+  it('exposes every brush as a named button, not just an image', () => {
     renderBrowser();
-    const listbox = screen.getByRole('listbox', { name: 'Brushes' });
-    expect(within(listbox).getAllByRole('option').length).toBeGreaterThan(2);
+    const list = screen.getByRole('list', { name: 'Brushes' });
+    expect(within(list).getAllByRole('listitem').length).toBeGreaterThan(2);
+    expect(screen.getByRole('button', { name: 'Charcoal Stick' })).toBeTruthy();
   });
 
   it('marks the selected brush for assistive technology', () => {
     renderBrowser({ selectedId: 'c1' });
-    const option = screen.getByRole('option', { name: /Charcoal Stick/ });
-    expect(option.getAttribute('aria-selected')).toBe('true');
+    expect(
+      screen.getByRole('button', { name: 'Charcoal Stick' }).getAttribute('aria-pressed'),
+    ).toBe('true');
   });
 
   it('filters by search across name and tags', () => {
     renderBrowser();
     fireEvent.change(screen.getByLabelText('Search brushes'), { target: { value: 'charcoal' } });
-    expect(screen.getByRole('option', { name: /Charcoal Stick/ })).toBeTruthy();
-    expect(screen.queryByRole('option', { name: /Wet Wash/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Charcoal Stick' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Wet Wash' })).toBeNull();
   });
 
   it('shows an empty state rather than a blank grid', () => {
     renderBrowser();
     fireEvent.change(screen.getByLabelText('Search brushes'), { target: { value: 'zzzz' } });
-    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Brushes' })).toBeNull();
     expect(screen.getByText(/No brushes match/)).toBeTruthy();
   });
 
   it('filters to favourites', () => {
     renderBrowser({ favoriteIds: new Set(['c1']) });
     fireEvent.click(screen.getByRole('tab', { name: 'Favorites' }));
-    expect(screen.getByRole('option', { name: /Charcoal Stick/ })).toBeTruthy();
-    expect(screen.queryByRole('option', { name: /Wet Wash/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Charcoal Stick' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Wet Wash' })).toBeNull();
   });
 
   it('orders the recent filter by recency', () => {
     renderBrowser({ recentIds: ['c2', 'c1'] });
     fireEvent.click(screen.getByRole('tab', { name: 'Recent' }));
-    const names = screen.getAllByRole('option').map((o) => o.textContent);
+    const names = screen.getAllByRole('listitem').map((o) => o.textContent);
     expect(names[0]).toContain('Wet Wash');
     expect(names[1]).toContain('Charcoal Stick');
   });
 
   it('selects a brush on click', () => {
     const props = renderBrowser();
-    // The tile's own button, not its favourite/edit actions.
-    const tile = screen.getByRole('option', { name: /Charcoal Stick/ });
-    fireEvent.click(within(tile).getByRole('button', { name: 'Charcoal Stick' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Charcoal Stick' }));
     expect(props.onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'c1' }));
   });
 

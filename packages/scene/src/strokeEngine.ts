@@ -19,9 +19,9 @@ import {
   type BrushPreset,
   createStrokeDabSession,
   generateDabs,
-  smoothStrokePoints,
   type StrokeDabSession,
   type StrokePoint,
+  smoothStrokePoints,
   strokeBounds,
 } from './brush';
 

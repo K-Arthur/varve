@@ -9,6 +9,7 @@ import {
   addSMTransition,
   createDocument,
   createStateMachine,
+  createTimeline,
   makeFrameNode,
   makeShapeNode,
 } from '@varve/scene';
@@ -186,6 +187,41 @@ describe('prototype editor integration', () => {
 
     await waitFor(() => {
       expect(ctx?.state.motion.activeTimelineId).toBe('tl-active');
+    });
+  });
+
+  it('startAnimation action plays the referenced timeline', async () => {
+    let doc = createDocument('SA');
+    doc = addNode(doc, makeFrameNode('f1', { name: 'Screen', order: 'a0' }));
+    doc = { ...doc, rootChildren: ['f1'] };
+    const { doc: docTl, id: timelineId } = createTimeline(doc, 'Spin', 1000);
+    doc = docTl;
+    const { doc: withIx } = addInteraction(doc, 'f1', {
+      name: 'Play',
+      trigger: { kind: 'onClick' },
+      actions: [{ kind: 'startAnimation', targetId: 'f1', animationId: timelineId }],
+      enabled: true,
+    });
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return null;
+    }
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(withIx)}>
+        <Test />
+      </EditorProvider>,
+    );
+
+    ctx?.updatePrototypeData();
+    act(() => {
+      ctx?.handlePrototypeEvent({ type: 'click', nodeId: 'f1', screenId: 'f1' });
+    });
+
+    await waitFor(() => {
+      expect(ctx?.state.motion.activeTimelineId).toBe(timelineId);
+      expect(ctx?.state.motion.isPlaying).toBe(true);
     });
   });
 });

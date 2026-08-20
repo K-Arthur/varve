@@ -1,17 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { BrushDab } from '../brush';
+import { createEmptyTile, makeRasterLayerNode, makeTileKey, TILE_SIZE } from '../rasterLayer';
 import {
   compositeSmudgeDab,
   createSmudgeState,
   type SmudgeOptions,
   type SmudgeState,
 } from '../smudge';
-import {
-  createEmptyTile,
-  makeRasterLayerNode,
-  makeTileKey,
-  TILE_SIZE,
-} from '../rasterLayer';
 import type { RasterLayerNode } from '../types';
 
 function dab(x: number, y: number, overrides: Partial<BrushDab> = {}): BrushDab {

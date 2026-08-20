@@ -1,5 +1,5 @@
 import type { BatchImportResult, ImportReport } from '@varve/import';
-import { useCallback, useState, type KeyboardEvent } from 'react';
+import { type KeyboardEvent, useCallback, useState } from 'react';
 
 import './ImportResults.css';
 
@@ -143,7 +143,9 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
                 {rows.map((file, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: file names can repeat across imports; rows are stateless (no id in BatchFileResult)
                   <li key={i} className="import-results__file">
-                    <span className={`import-results__file-icon import-results__file-icon--${file.status}`}>
+                    <span
+                      className={`import-results__file-icon import-results__file-icon--${file.status}`}
+                    >
                       {file.status === 'success' ? (
                         <svg
                           width="14"

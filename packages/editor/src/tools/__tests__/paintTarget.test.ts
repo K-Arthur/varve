@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  paintTargetStatus,
   type PaintTargetInput,
+  paintTargetStatus,
   resolvePaintTarget,
   targetSupportsTool,
   targetUsesColor,
