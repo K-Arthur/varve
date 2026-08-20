@@ -72,6 +72,46 @@ describe('analytics privacy boundary', () => {
     expect(provider.events[0]?.name).toBe('feature_used');
   });
 
+  it('accepts the current website and browser-demo event contract', () => {
+    expect(
+      sanitizeAnalyticsEvent(
+        'website_page_viewed',
+        { route: '/try' },
+        { ...context, runtime: 'web' },
+        Date.now(),
+      ),
+    ).not.toBeNull();
+    expect(
+      sanitizeAnalyticsEvent(
+        'website_contact_clicked',
+        { channel: 'support' },
+        { ...context, runtime: 'web' },
+        Date.now(),
+      ),
+    ).not.toBeNull();
+    expect(
+      sanitizeAnalyticsEvent(
+        'browser_demo_launched',
+        { entry: 'website' },
+        { ...context, runtime: 'web' },
+        Date.now(),
+      ),
+    ).not.toBeNull();
+    expect(
+      sanitizeAnalyticsEvent(
+        'browser_demo_desktop_download',
+        {
+          release: '0.1.0',
+          platform: 'linux',
+          architecture: 'x64',
+          packageType: 'appimage',
+        },
+        { ...context, runtime: 'web' },
+        Date.now(),
+      ),
+    ).not.toBeNull();
+  });
+
   it('revocation discards pending events and shuts down the provider', () => {
     const provider = new RecordingProvider();
     const client = new AnalyticsClient({ context, consent: granted(), provider });
