@@ -1,6 +1,6 @@
 import type { BooleanOpKind } from '@varve/scene';
 import type { IconName, MenuEntry } from '@varve/ui';
-import { ContextMenu, Icon, TOOL_ICONS, Toolbar, Tooltip, TooltipProvider } from '@varve/ui';
+import { ContextMenu, Icon, Toolbar, Tooltip, TooltipProvider } from '@varve/ui';
 import { useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { toolShortcutLabel } from '../../shortcuts';
@@ -8,7 +8,7 @@ import { composeToolbar, type ToolbarFlyoutSlot } from '../../workspace/toolbarC
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import { ToolOptionsPopover } from './ToolOptionsPopover';
 import './FloatingToolbar.css';
-import { toolLabel } from '../../workspace/toolLabels';
+import { toolIconName, toolLabel } from '../../workspace/toolLabels';
 
 const TOUCH_MULTISELECT_ACTIVE_CLASS = 'floating-toolbar__touch-multi--active';
 
@@ -28,7 +28,7 @@ interface ToolButtonProps {
 }
 
 function iconName(id: string): IconName {
-  return ((TOOL_ICONS as Record<string, string>)[id] ?? 'MousePointer2') as IconName;
+  return toolIconName(id as ToolId);
 }
 
 function ToolButton({ id, groupStart }: ToolButtonProps) {
