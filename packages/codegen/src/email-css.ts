@@ -121,7 +121,9 @@ function matchesSelector(tag: string, attributes: string, selector: string): boo
   const selectorId = selector.match(/#([A-Za-z][\w:-]*)/)?.[1];
   if (selectorId && readAttribute(attributes, 'id') !== selectorId) return false;
 
-  const requiredClasses = [...selector.matchAll(/\.([A-Za-z][\w-]*)/g)].map((match) => match[1]);
+  const requiredClasses = [...selector.matchAll(/\.([A-Za-z][\w-]*)/g)]
+    .map((match) => match[1])
+    .filter((value): value is string => Boolean(value));
   if (requiredClasses.length === 0) return true;
   const classes = (readAttribute(attributes, 'class') ?? '').split(/\s+/).filter(Boolean);
   return requiredClasses.every((required) => classes.includes(required));
