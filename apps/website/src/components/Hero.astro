@@ -125,28 +125,21 @@ import { PRODUCT_STATUS } from '@varve/shared';
     </div>
   </div>
 
-  <!-- Centered content with headline variant switcher -->
+  <!-- Centered content -->
   <div class="hero-content">
     <p class="hero-eyebrow">
       <span class="hero-eyebrow-dot" aria-hidden="true"></span>
       Local-first design suite&nbsp;&middot;&nbsp;{PRODUCT_STATUS.label.toLowerCase()}
     </p>
-
-    <div class="hero-switch" data-hero-switch data-active="current">
-      <h1 id="hero-title" class="hero-title">
-        <span class="hero-title-main" data-line="current">Design locally.</span>
-        <span class="hero-title-main" data-line="classic">Varve &mdash; design across disciplines.</span>
-        <span class="hero-title-line hero-title-line--current" data-line="current">
-          <AnimatedText staticText="No account." phrases={['No account.', 'No subscription.', 'Works offline.', 'Yours to keep.']} />
-        </span>
-        <span class="hero-title-line hero-title-line--classic" data-line="classic"><AnimatedText staticText="One canvas." /></span>
-      </h1>
-      <p class="hero-subtitle">
-        <span class="hero-sub-line" data-line="current">One application for vector, layout, typography, motion, and print &mdash; with native Linux performance, local files, and a source-available license that converts to MIT.</span>
-        <span class="hero-sub-line" data-line="classic">Vector, layout, typography, motion, prototyping, and print production in one application &mdash; no subscription, no account, and core editing that works offline. Optional online services are explicit.</span>
-      </p>
-    </div>
-
+    <h1 id="hero-title" class="hero-title">
+      Design locally.
+      <span class="hero-title-line"><AnimatedText staticText="One canvas." /></span>
+    </h1>
+    <p class="hero-subtitle">
+      One application for vector, layout, typography, motion, and print
+      &mdash; no account, no subscription, with native Linux performance and
+      files that stay on your machine.
+    </p>
     <div class="hero-ctas">
       <DownloadCTA size="large" beta />
       <a href={sitePath('/product')} class="btn btn-secondary">What is Varve?</a>
@@ -220,62 +213,6 @@ import { PRODUCT_STATUS } from '@varve/shared';
     }, { passive: true });
 
     void scene;
-  }
-
-  /**
-   * Headline variant switcher — alternates between the current and original
-   * hero copy on a timer (motion allowed). Each variant's emphasis line is a
-   * rotating phrase rotor. Auto-advance pauses while the pointer is over the
-   * hero.
-   */
-  const switcher = document.querySelector<HTMLElement>('[data-hero-switch]');
-  if (switcher) {
-    const VARIANTS = ['current', 'classic'] as const;
-    type Variant = (typeof VARIANTS)[number];
-    let active = (switcher.dataset.active as Variant) ?? 'current';
-    let timer = 0;
-    let swapping = false;
-
-    const apply = (next: Variant): void => {
-      if (next === active || swapping) return;
-      const doSwap = (): void => {
-        active = next;
-        switcher.dataset.active = next;
-      };
-      if (prefersMotion()) {
-        swapping = true;
-        switcher.classList.add('is-swapping');
-        window.setTimeout(() => {
-          doSwap();
-          requestAnimationFrame(() => {
-            switcher.classList.remove('is-swapping');
-            swapping = false;
-          });
-        }, 280);
-      } else {
-        doSwap();
-      }
-    };
-
-    const startTimer = (): void => {
-      if (!prefersMotion()) return;
-      stopTimer();
-      timer = window.setInterval(() => {
-        apply(active === 'current' ? 'classic' : 'current');
-      }, 7000);
-    };
-    const stopTimer = (): void => {
-      if (timer) {
-        window.clearInterval(timer);
-        timer = 0;
-      }
-    };
-
-    // Pause auto-switch while the visitor is reading the hero.
-    switcher.addEventListener('pointerenter', stopTimer, { passive: true });
-    switcher.addEventListener('pointerleave', startTimer, { passive: true });
-
-    startTimer();
   }
 </script>
 
@@ -588,27 +525,6 @@ import { PRODUCT_STATUS } from '@varve/shared';
     font-size: 0.875rem;
     color: var(--text-muted);
     letter-spacing: 0.04em;
-  }
-
-  /* === HEADLINE VARIANT SWITCHER === */
-  /* Only the active variant's lines are painted; the inactive set is removed
-     from both layout and the accessibility tree (display:none), so screen
-     readers and search engines never see doubled/garbled copy. */
-  .hero-title-main { display: block; }
-  .hero-sub-line { display: block; }
-
-  .hero-switch[data-active='current'] [data-line='classic'],
-  .hero-switch[data-active='classic'] [data-line='current'] {
-    display: none;
-  }
-
-  .hero-switch {
-    transition: opacity 0.28s var(--ease-default);
-  }
-  .hero-switch.is-swapping { opacity: 0; }
-
-  @media (prefers-reduced-motion: reduce) {
-    .hero-switch { transition: none; }
   }
 
   @media (max-width: 640px) {
