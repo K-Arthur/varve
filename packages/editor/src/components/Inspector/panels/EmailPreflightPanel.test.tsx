@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import type { EmailDiagnostic } from '@varve/scene';
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import type { EmailDiagnostic } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { EmailPreflightPanel } from './EmailPreflightPanel';
 
@@ -103,7 +103,10 @@ describe('EmailPreflightPanel', () => {
     render(
       <EmailPreflightPanel
         diagnostics={[
-          diagnostic({ message: 'Image has no alt text.', suggestedFix: 'Add descriptive alt text.' }),
+          diagnostic({
+            message: 'Image has no alt text.',
+            suggestedFix: 'Add descriptive alt text.',
+          }),
         ]}
       />,
     );

@@ -17,6 +17,7 @@ import type {
   EmailSemanticKind,
   EmailSemanticMap,
 } from '@varve/scene';
+import { applyCssCompatibility, resolveEmailFontStack } from './email-compat';
 import type {
   EmailCompatibilityClassification,
   EmailDocumentIr,
@@ -30,7 +31,6 @@ import type {
   EmailIrTextRun,
   EmailIrWarning,
 } from './email-ir-types';
-import { applyCssCompatibility, resolveEmailFontStack } from './email-compat';
 import { normalizeEmailLayout } from './email-layout';
 import { emitEmailPlainText } from './email-plain-text';
 import { runEmailPreflight } from './email-preflight';
@@ -493,10 +493,7 @@ function compileStyles(
   const typo = appearance.typography;
   if (typo) {
     if (typo.fontFamily) {
-      styles['font-family'] = resolveEmailFontStack(
-        typo.fontFamily,
-        settings.compatibilityProfile,
-      );
+      styles['font-family'] = resolveEmailFontStack(typo.fontFamily, settings.compatibilityProfile);
     }
     if (typo.fontSize) styles['font-size'] = `${typo.fontSize}px`;
     if (typo.fontWeight && typo.fontWeight !== 400) styles['font-weight'] = String(typo.fontWeight);
@@ -571,7 +568,6 @@ function compileStyles(
 function round(value: number): number {
   return Math.round(value * 100) / 100;
 }
-
 
 // ── Content Compilation ───────────────────────────────────────────────────────
 
