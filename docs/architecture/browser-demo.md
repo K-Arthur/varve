@@ -126,15 +126,37 @@ Key facts:
 |---------|--------|
 | Chrome/Edge (recent) | Primary target — verified locally, demo spec 11/11 and readiness spec 12/12 |
 | Firefox (recent) | Primary target — verified locally, demo spec 11/11 (including save/reopen, the path that lacks File System Access) |
-| Safari (recent) | Primary target — CI only. Playwright's WebKit build cannot launch on Arch/CachyOS without `flite` and `libbacktrace`; see below |
+| Safari (recent) | Primary target — verified in WebKit 26.5: boots to the fitted poster, WASM loads, three workspace tabs, no dialogs, no console errors |
 | Mobile Chrome/Safari | Works but desktop-optimised |
 | No WebAssembly, or no ES modules | Explicit "This browser cannot run Varve" screen naming what is missing, with a desktop download link |
 
-To verify WebKit locally on Arch/CachyOS: `sudo pacman -S flite libbacktrace`,
-then `npx playwright test tests/e2e/browser/try-demo.spec.ts --project=webkit`.
-Playwright's own `install-deps` cannot help — it shells out to `apt-get`. The
-missing sonames are the flite speech-synthesis family and `libbacktrace.so.0`;
-ICU is *not* among them despite what the installer's message claims.
+**Verifying WebKit on Arch/CachyOS.** Do not try to satisfy Playwright's WebKit
+build from the system package manager. It wants Ubuntu sonames — `libicu*.so.74`
+against Arch's 78, `libxml2.so.2` against 16, `libjxl.so.0.8`, and six flite
+voice libraries Arch's `flite` package does not build. Installing `flite` and
+`libbacktrace` gets two of those and no further; shimming the rest from
+distro archives works for one library at a time and then asks for another.
+Playwright's own `install-deps` cannot help either — it shells out to `apt-get`.
+
+Use the official container instead, which has the matching userland:
+
+```bash
+# serve the built demo from the host, then drive WebKit inside the image
+node scripts/website/…                    # or any static server over dist-try
+docker run --rm --network host \
+  -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+  -v "$PWD/probe.mjs:/work/probe.mjs:ro" -w /work \
+  mcr.microsoft.com/playwright:v1.62.1-noble \
+  sh -c "npm i --no-save --silent playwright@1.62.1 && node probe.mjs"
+```
+
+The image ships the browsers but not the `playwright` package, hence the install
+step. This is how the Safari row above was verified.
+
+**Always look at the screenshot.** The WebKit run that found the stuck-loader bug
+passed every DOM assertion — ten layers, three tabs, banner present, WASM 200,
+zero console errors — because the app genuinely had booted. It had booted behind
+an opaque loading overlay that never went away. Only the image showed it.
 
 ## Known limitations
 
