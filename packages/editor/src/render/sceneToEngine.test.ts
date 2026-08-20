@@ -102,3 +102,57 @@ describe('scene raster masks', () => {
     ).toBeUndefined();
   });
 });
+
+describe('scene gradient interpolation resolution', () => {
+  function gradientNode(interpolation: Record<string, unknown> = {}) {
+    const node = makeShapeNode('gradient', {
+      kind: 'rect',
+      x: 0,
+      y: 0,
+      w: 20,
+      h: 20,
+    });
+    node.fills = [
+      {
+        type: 'gradient',
+        gradient: {
+          type: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 } },
+          ],
+          ...interpolation,
+        },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+    ];
+    return node;
+  }
+
+  it('keeps old gradients on their historical encoded-sRGB path', () => {
+    const node = gradientNode();
+    const converted = sceneNodeToEngineNode(node, {}, createDocument('Legacy'));
+    expect(converted.fills?.[0]?.gradient?.interpolationSpace).toBe('srgb');
+  });
+
+  it('resolves document-inherited gradients before they reach the engine', () => {
+    const node = gradientNode({ interpolationSource: 'document' });
+    const doc = {
+      ...createDocument('Inherited'),
+      colorConfig: {
+        ...createDocument('Inherited').colorConfig,
+        defaultGradientInterpolation: 'oklch' as const,
+      },
+    };
+    const converted = sceneNodeToEngineNode(node, {}, doc);
+    expect(converted.fills?.[0]?.gradient?.interpolationSpace).toBe('oklch');
+  });
+
+  it('preserves a per-gradient override over the document default', () => {
+    const node = gradientNode({ interpolationSpace: 'linear-srgb' });
+    const converted = sceneNodeToEngineNode(node, {}, createDocument('Pinned'));
+    expect(converted.fills?.[0]?.gradient?.interpolationSpace).toBe('linear-srgb');
+  });
+});

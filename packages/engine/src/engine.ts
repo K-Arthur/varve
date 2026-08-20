@@ -245,7 +245,11 @@ function stubEngine(): Engine {
                     ...(s.midpoint !== undefined ? { midpoint: s.midpoint } : {}),
                   })),
                   rotation: f.gradient.rotation ?? 0,
-                  interpolationSpace: f.gradient.interpolationSpace ?? 'oklab',
+                  // The engine receives resolved scene data for live editor
+                  // renders. A missing field is therefore the historical
+                  // Canvas2D encoded-sRGB behavior; new gradients are created
+                  // with an explicit `document` setting by @varve/scene.
+                  interpolationSpace: f.gradient.interpolationSpace ?? 'srgb',
                   hueInterpolation: f.gradient.hueInterpolation ?? 'shorter',
                   tilingMode: f.gradient.tilingMode ?? undefined,
                   opacity: f.opacity,

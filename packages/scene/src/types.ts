@@ -499,8 +499,15 @@ export type Effect = EffectVariant & {
 
 export type GradientType = 'linear' | 'radial' | 'angular' | 'diamond';
 
-/** Color space for gradient stop interpolation (default: oklab). */
+/** Supported color spaces for gradient stop interpolation. */
 export type GradientInterpolationSpace = 'srgb' | 'linear-srgb' | 'oklab' | 'oklch' | 'hsl';
+
+/**
+ * A gradient may either pin its interpolation space or inherit the document
+ * default. `undefined` is intentionally different: it is the legacy value
+ * used by documents written before interpolation metadata existed and must
+ * continue to render as Canvas2D's historical encoded-sRGB gradient.
+ */
 
 /**
  * Hue interpolation direction for cylindrical spaces (OKLCH, HSL).
@@ -526,8 +533,10 @@ export interface GradientFill {
   type: GradientType;
   stops: GradientStop[];
   rotation?: number;
-  /** Perceptually uniform interpolation space for stop blending. Default: oklab. */
+  /** Pinned interpolation space; omitted legacy gradients render as encoded sRGB. */
   interpolationSpace?: GradientInterpolationSpace;
+  /** Explicit inheritance marker for new gradients; absent means legacy sRGB. */
+  interpolationSource?: 'document';
   /**
    * Hue interpolation direction for cylindrical spaces (OKLCH, HSL).
    * Ignored for non-cylindrical spaces (sRGB, linear-srgb, OKLab).

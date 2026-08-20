@@ -9,14 +9,12 @@
  * Figma gradient midpoint controls, Porter-Duff premultiplied alpha compositing.
  */
 import {
-  gamutMapToSrgb,
   gamutMapToSrgbUnit,
   linearSrgbToOklab,
   linearToSrgbUnit,
   managedColorToNormalized,
   oklabToLinearSrgb,
   oklabToOkLch,
-  srgbToLinear,
   srgbToLinearUnit,
 } from './colorConversion';
 
@@ -67,54 +65,6 @@ function toRgbColor(
 ): RgbColor {
   const channel = precision === 'working' ? (v: number) => Math.max(0, Math.min(255, v)) : clamp255;
   return { space: 'rgb', r: channel(r), g: channel(g), b: channel(b), a: channel(a) };
-}
-
-/** Convert sRGB 0-255 to HSL (h: 0-360, s/l: 0-1). */
-function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
-  const rn = r / 255;
-  const gn = g / 255;
-  const bn = b / 255;
-  const max = Math.max(rn, gn, bn);
-  const min = Math.min(rn, gn, bn);
-  const l = (max + min) / 2;
-  if (max === min) return [0, 0, l];
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h = 0;
-  if (max === rn) h = ((gn - bn) / d + (gn < bn ? 6 : 0)) / 6;
-  else if (max === gn) h = ((bn - rn) / d + 2) / 6;
-  else h = ((rn - gn) / d + 4) / 6;
-  return [h * 360, s, l];
-}
-
-/** Convert HSL to sRGB 0-255. */
-function hslToRgb(
-  h: number,
-  s: number,
-  l: number,
-  precision: 'display' | 'working' = 'display',
-): [number, number, number] {
-  if (s === 0) {
-    const v = toRgbColor(l * 255, l * 255, l * 255, 255, precision).r;
-    return [v, v, v];
-  }
-  const hue2rgb = (p: number, q: number, t: number): number => {
-    let tt = t;
-    if (tt < 0) tt += 1;
-    if (tt > 1) tt -= 1;
-    if (tt < 1 / 6) return p + (q - p) * 6 * tt;
-    if (tt < 1 / 2) return q;
-    if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
-    return p;
-  };
-  const hn = (((h % 360) + 360) % 360) / 360;
-  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-  const p = 2 * l - q;
-  return [
-    toRgbColor(hue2rgb(p, q, hn + 1 / 3) * 255, 0, 0, 255, precision).r,
-    toRgbColor(hue2rgb(p, q, hn) * 255, 0, 0, 255, precision).r,
-    toRgbColor(hue2rgb(p, q, hn - 1 / 3) * 255, 0, 0, 255, precision).r,
-  ];
 }
 
 /**
@@ -197,108 +147,15 @@ export function interpolateManagedColor(
 ): RgbColor {
   if (t <= 0) return { ...from };
   if (t >= 1) return { ...to };
-
-  const premultiplied = opts.premultiplied !== false;
   const precision = opts.precision ?? 'display';
-  const hueDir = opts.hueInterpolation ?? 'shorter';
-
-  if (premultiplied && (from.a < 255 || to.a < 255)) {
-    const af = from.a / 255;
-    const at = to.a / 255;
-    const pmFrom = toRgbColor(from.r * af, from.g * af, from.b * af, from.a, precision);
-    const pmTo = toRgbColor(to.r * at, to.g * at, to.b * at, to.a, precision);
-    const pmResult = interpolateManagedColor(pmFrom, pmTo, t, space, {
-      ...opts,
-      premultiplied: false,
-    });
-    const outA = clamp255(from.a + (to.a - from.a) * t);
-    if (outA === 0) return toRgbColor(0, 0, 0, 0);
-    const outAf = outA / 255;
-    return toRgbColor(pmResult.r / outAf, pmResult.g / outAf, pmResult.b / outAf, outA, precision);
-  }
-
-  switch (space) {
-    case 'srgb':
-      return toRgbColor(
-        from.r + (to.r - from.r) * t,
-        from.g + (to.g - from.g) * t,
-        from.b + (to.b - from.b) * t,
-        from.a + (to.a - from.a) * t,
-        precision,
-      );
-
-    case 'linear-srgb': {
-      const lr = srgbToLinear(from.r) + (srgbToLinear(to.r) - srgbToLinear(from.r)) * t;
-      const lg = srgbToLinear(from.g) + (srgbToLinear(to.g) - srgbToLinear(from.g)) * t;
-      const lb = srgbToLinear(from.b) + (srgbToLinear(to.b) - srgbToLinear(from.b)) * t;
-      return toRgbColor(
-        linearToSrgbUnit(lr) * 255,
-        linearToSrgbUnit(lg) * 255,
-        linearToSrgbUnit(lb) * 255,
-        from.a + (to.a - from.a) * t,
-        precision,
-      );
-    }
-
-    case 'oklab': {
-      const lerp = (a: number, b: number) => a + (b - a) * t;
-      const toLinear = (c: RgbColor): [number, number, number] => [
-        srgbToLinear(c.r),
-        srgbToLinear(c.g),
-        srgbToLinear(c.b),
-      ];
-      const [l1, a1, b1] = linearSrgbToOklab(toLinear(from));
-      const [l2, a2, b2] = linearSrgbToOklab(toLinear(to));
-      const lab: [number, number, number] = [lerp(l1, l2), lerp(a1, a2), lerp(b1, b2)];
-      const [lr, lg, lb] = oklabToLinearSrgb(lab);
-      return toRgbColor(
-        linearToSrgbUnit(lr) * 255,
-        linearToSrgbUnit(lg) * 255,
-        linearToSrgbUnit(lb) * 255,
-        from.a + (to.a - from.a) * t,
-        precision,
-      );
-    }
-
-    case 'oklch': {
-      const toLinear = (c: RgbColor): [number, number, number] => [
-        srgbToLinear(c.r),
-        srgbToLinear(c.g),
-        srgbToLinear(c.b),
-      ];
-      const [l1, a1, b1] = linearSrgbToOklab(toLinear(from));
-      const [l2, a2, b2] = linearSrgbToOklab(toLinear(to));
-      const [L1, C1, H1] = oklabToOkLch([l1, a1, b1]);
-      const [L2, C2, H2] = oklabToOkLch([l2, a2, b2]);
-      // When either endpoint has near-zero chroma, the hue is undefined
-      // (oklabToOkLch returns H=0 from atan2(0,0)). Interpolating from
-      // the arbitrary 0 to a real hue produces visible hue shift through
-      // gray. Fall back to OKLab, which has no undefined-hue problem.
-      if (C1 < 0.001 || C2 < 0.001) {
-        return interpolateManagedColor(from, to, t, 'oklab', { ...opts, premultiplied: false });
-      }
-      const lerp = (a: number, b: number) => a + (b - a) * t;
-      // OKLCH uses radians internally; convert to degrees for lerpHue
-      const H1Deg = (H1 * 180) / Math.PI;
-      const H2Deg = (H2 * 180) / Math.PI;
-      const HDeg = lerpHue(H1Deg, H2Deg, t, hueDir);
-      const HRad = (HDeg * Math.PI) / 180;
-      const [r, g, b] = (precision === 'working' ? gamutMapToSrgbUnit : gamutMapToSrgb)([
-        lerp(L1, L2),
-        lerp(C1, C2),
-        HRad,
-      ]);
-      return toRgbColor(r, g, b, from.a + (to.a - from.a) * t, precision);
-    }
-
-    case 'hsl': {
-      const [h1, s1, l1] = rgbToHsl(from.r, from.g, from.b);
-      const [h2, s2, l2] = rgbToHsl(to.r, to.g, to.b);
-      const lerp = (a: number, b: number) => a + (b - a) * t;
-      const [r, g, b] = hslToRgb(lerpHue(h1, h2, t, hueDir), lerp(s1, s2), lerp(l1, l2), precision);
-      return toRgbColor(r, g, b, from.a + (to.a - from.a) * t, precision);
-    }
-  }
+  const result = interpolateNormalizedColor(
+    { r: from.r / 255, g: from.g / 255, b: from.b / 255, a: from.a / 255 },
+    { r: to.r / 255, g: to.g / 255, b: to.b / 255, a: to.a / 255 },
+    t,
+    space,
+    opts,
+  );
+  return toRgbColor(result.r * 255, result.g * 255, result.b * 255, result.a * 255, precision);
 }
 
 /** Normalize any color to RGB for interpolation. */
@@ -374,91 +231,100 @@ export function interpolateNormalizedColor(
 
   const premultiplied = opts.premultiplied !== false;
   const hueDir = opts.hueInterpolation ?? 'shorter';
-  if (premultiplied && (from.a < 1 || to.a < 1)) {
-    const pmFrom: InterpolationRgba = {
-      r: from.r * from.a,
-      g: from.g * from.a,
-      b: from.b * from.a,
-      a: from.a,
-    };
-    const pmTo: InterpolationRgba = { r: to.r * to.a, g: to.g * to.a, b: to.b * to.a, a: to.a };
-    const pmResult = interpolateNormalizedColor(pmFrom, pmTo, t, space, {
-      premultiplied: false,
-      hueInterpolation: hueDir,
-    });
-    const outA = from.a + (to.a - from.a) * t;
-    if (outA === 0) return { r: 0, g: 0, b: 0, a: 0 };
-    return { r: pmResult.r / outA, g: pmResult.g / outA, b: pmResult.b / outA, a: outA };
-  }
-
   const lerp = (a: number, b: number) => a + (b - a) * t;
+  const af = Number.isFinite(from.a) ? Math.max(0, Math.min(1, from.a)) : 0;
+  const at = Number.isFinite(to.a) ? Math.max(0, Math.min(1, to.a)) : 0;
+  const outA = lerp(af, at);
+  if (outA <= 0) return { r: 0, g: 0, b: 0, a: 0 };
 
-  switch (space) {
-    case 'srgb':
-      return {
-        r: lerp(from.r, to.r),
-        g: lerp(from.g, to.g),
-        b: lerp(from.b, to.b),
-        a: lerp(from.a, to.a),
-      };
-    case 'linear-srgb': {
-      const lr = srgbToLinearUnit(from.r) + (srgbToLinearUnit(to.r) - srgbToLinearUnit(from.r)) * t;
-      const lg = srgbToLinearUnit(from.g) + (srgbToLinearUnit(to.g) - srgbToLinearUnit(from.g)) * t;
-      const lb = srgbToLinearUnit(from.b) + (srgbToLinearUnit(to.b) - srgbToLinearUnit(from.b)) * t;
-      return {
-        r: linearToSrgbUnit(lr),
-        g: linearToSrgbUnit(lg),
-        b: linearToSrgbUnit(lb),
-        a: lerp(from.a, to.a),
-      };
+  const finiteUnit = (value: number): number =>
+    Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
+  const toOklab = (color: InterpolationRgba): [number, number, number] =>
+    linearSrgbToOklab([
+      srgbToLinearUnit(color.r),
+      srgbToLinearUnit(color.g),
+      srgbToLinearUnit(color.b),
+    ]);
+  const toCoordinates = (
+    color: InterpolationRgba,
+    basis: 'srgb' | 'linear-srgb' | 'oklab',
+  ): [number, number, number] => {
+    if (basis === 'srgb') return [color.r, color.g, color.b];
+    if (basis === 'linear-srgb') {
+      return [srgbToLinearUnit(color.r), srgbToLinearUnit(color.g), srgbToLinearUnit(color.b)];
     }
-    case 'oklab': {
-      const toLin = (c: InterpolationRgba): [number, number, number] => [
-        srgbToLinearUnit(c.r),
-        srgbToLinearUnit(c.g),
-        srgbToLinearUnit(c.b),
+    return toOklab(color);
+  };
+  const fromCoordinates = (
+    coords: readonly [number, number, number],
+    basis: 'srgb' | 'linear-srgb' | 'oklab',
+  ): [number, number, number] => {
+    if (basis === 'srgb')
+      return [finiteUnit(coords[0]), finiteUnit(coords[1]), finiteUnit(coords[2])];
+    if (basis === 'linear-srgb') {
+      return [
+        finiteUnit(linearToSrgbUnit(coords[0])),
+        finiteUnit(linearToSrgbUnit(coords[1])),
+        finiteUnit(linearToSrgbUnit(coords[2])),
       ];
-      const [l1, a1, b1] = linearSrgbToOklab(toLin(from));
-      const [l2, a2, b2] = linearSrgbToOklab(toLin(to));
-      const [lr, lg, lb] = oklabToLinearSrgb([lerp(l1, l2), lerp(a1, a2), lerp(b1, b2)]);
-      return {
-        r: linearToSrgbUnit(lr),
-        g: linearToSrgbUnit(lg),
-        b: linearToSrgbUnit(lb),
-        a: lerp(from.a, to.a),
-      };
     }
-    case 'oklch': {
-      const toLin = (c: InterpolationRgba): [number, number, number] => [
-        srgbToLinearUnit(c.r),
-        srgbToLinearUnit(c.g),
-        srgbToLinearUnit(c.b),
-      ];
-      const [l1, a1, b1] = linearSrgbToOklab(toLin(from));
-      const [l2, a2, b2] = linearSrgbToOklab(toLin(to));
-      const [L1, C1, H1] = oklabToOkLch([l1, a1, b1]);
-      const [L2, C2, H2] = oklabToOkLch([l2, a2, b2]);
-      // Near-zero chroma → undefined hue; fall back to OKLab.
-      if (C1 < 0.001 || C2 < 0.001) {
-        return interpolateNormalizedColor(from, to, t, 'oklab', {
-          premultiplied: false,
-          hueInterpolation: hueDir,
-        });
-      }
-      const H1Deg = (H1 * 180) / Math.PI;
-      const H2Deg = (H2 * 180) / Math.PI;
-      const HDeg = lerpHue(H1Deg, H2Deg, t, hueDir);
-      const HRad = (HDeg * Math.PI) / 180;
-      const [r, g, b] = gamutMapToSrgbUnit([lerp(L1, L2), lerp(C1, C2), HRad]);
-      return { r: r / 255, g: g / 255, b: b / 255, a: lerp(from.a, to.a) };
-    }
-    case 'hsl': {
-      const [h1, s1, l1] = rgbToHslUnit(from.r, from.g, from.b);
-      const [h2, s2, l2] = rgbToHslUnit(to.r, to.g, to.b);
-      const [r, g, b] = hslToRgbUnit(lerpHue(h1, h2, t, hueDir), lerp(s1, s2), lerp(l1, l2));
-      return { r, g, b, a: lerp(from.a, to.a) };
-    }
+    const [r, g, b] = oklabToLinearSrgb([coords[0], coords[1], coords[2]]);
+    return [
+      finiteUnit(linearToSrgbUnit(r)),
+      finiteUnit(linearToSrgbUnit(g)),
+      finiteUnit(linearToSrgbUnit(b)),
+    ];
+  };
+  const rectangular = (basis: 'srgb' | 'linear-srgb' | 'oklab'): [number, number, number] => {
+    const a = toCoordinates(from, basis);
+    const b = toCoordinates(to, basis);
+    const coords: [number, number, number] = premultiplied
+      ? [
+          (a[0] * af + (b[0] * at - a[0] * af) * t) / outA,
+          (a[1] * af + (b[1] * at - a[1] * af) * t) / outA,
+          (a[2] * af + (b[2] * at - a[2] * af) * t) / outA,
+        ]
+      : [lerp(a[0], b[0]), lerp(a[1], b[1]), lerp(a[2], b[2])];
+    return fromCoordinates(coords, basis);
+  };
+
+  // Premultiplication is defined in rectangular coordinates. For polar
+  // spaces, use their rectangular companion whenever transparency is present
+  // so hue is never multiplied as if it were a linear channel.
+  if (space === 'srgb') {
+    const [r, g, b] = rectangular('srgb');
+    return { r, g, b, a: outA };
   }
+  if (space === 'linear-srgb') {
+    const [r, g, b] = rectangular('linear-srgb');
+    return { r, g, b, a: outA };
+  }
+  if (space === 'oklab' || (premultiplied && (af < 1 || at < 1))) {
+    const [r, g, b] = rectangular(space === 'hsl' ? 'srgb' : 'oklab');
+    return { r, g, b, a: outA };
+  }
+  if (space === 'oklch') {
+    const [L1, C1, H1] = oklabToOkLch(toOklab(from));
+    const [L2, C2, H2] = oklabToOkLch(toOklab(to));
+    if (C1 < 0.001 || C2 < 0.001) {
+      const [r, g, b] = rectangular('oklab');
+      return { r, g, b, a: outA };
+    }
+    const hue = lerpHue((H1 * 180) / Math.PI, (H2 * 180) / Math.PI, t, hueDir);
+    const [r, g, b] = gamutMapToSrgbUnit([lerp(L1, L2), lerp(C1, C2), (hue * Math.PI) / 180]).map(
+      (value) => finiteUnit(value / 255),
+    ) as [number, number, number];
+    return { r, g, b, a: outA };
+  }
+
+  const [h1, s1, l1] = rgbToHslUnit(from.r, from.g, from.b);
+  const [h2, s2, l2] = rgbToHslUnit(to.r, to.g, to.b);
+  if (s1 < 0.001 || s2 < 0.001) {
+    const [r, g, b] = rectangular('srgb');
+    return { r, g, b, a: outA };
+  }
+  const [r, g, b] = hslToRgbUnit(lerpHue(h1, h2, t, hueDir), lerp(s1, s2), lerp(l1, l2));
+  return { r: finiteUnit(r), g: finiteUnit(g), b: finiteUnit(b), a: outA };
 }
 
 /**
@@ -467,7 +333,7 @@ export function interpolateNormalizedColor(
 export function sampleGradientColor(
   stops: GradientStopInput[],
   position: number,
-  space: GradientInterpolationSpace = 'oklab',
+  space: GradientInterpolationSpace = 'srgb',
   opts: InterpolateOptions = {},
 ): RgbColor {
   if (stops.length === 0) return { space: 'rgb', r: 0, g: 0, b: 0, a: 0 };
@@ -511,7 +377,7 @@ export function sampleGradientColor(
  */
 export function expandGradientStops(
   stops: GradientStopInput[],
-  space: GradientInterpolationSpace = 'oklab',
+  space: GradientInterpolationSpace = 'srgb',
   subdivisions: number = 16,
   opts: InterpolateOptions = {},
 ): { position: number; color: RgbColor }[] {

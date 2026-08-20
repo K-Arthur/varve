@@ -546,9 +546,9 @@ export interface ColorConfig {
   /** Black generation settings. */
   blackGeneration: BlackGenerationConfig;
   /**
-   * Default interpolation space for new gradients. When a gradient's own
-   * `interpolationSpace` is unset, this value is used. Existing gradients
-   * without this field resolve to 'oklab' (historical default).
+   * Default interpolation space for new gradients that explicitly inherit the
+   * document setting. Legacy gradients without interpolation metadata remain
+   * encoded-sRGB for backward-compatible rendering.
    */
   defaultGradientInterpolation?: import('./types').GradientInterpolationSpace;
 }
@@ -584,6 +584,7 @@ export function defaultRgbColorConfig(bitDepth: BitDepth = DEFAULT_BIT_DEPTH): C
     workingSpace: DEFAULT_WORKING_SPACE,
     blendEvaluationSpace: 'legacy-srgb',
     rgbProfile: { ...RGB_PROFILES.srgb },
+    defaultGradientInterpolation: 'oklab',
     cmykProfile: { ...CMYK_PROFILES.fogra39 },
     blackGeneration: { ...DEFAULT_BLACK_GENERATION },
   };
@@ -597,6 +598,7 @@ export function defaultCmykColorConfig(bitDepth: BitDepth = DEFAULT_BIT_DEPTH): 
     workingSpace: DEFAULT_WORKING_SPACE,
     blendEvaluationSpace: 'legacy-srgb',
     rgbProfile: { ...RGB_PROFILES.srgb },
+    defaultGradientInterpolation: 'oklab',
     cmykProfile: { ...CMYK_PROFILES.fogra39 },
     outputIntent: {
       profile: { ...CMYK_PROFILES.fogra39 },
@@ -625,6 +627,7 @@ export function colorConfigWithDefaults(config: ColorConfig | undefined): ColorC
     bitDepth: base.bitDepth ?? DEFAULT_BIT_DEPTH,
     workingSpace: base.workingSpace ?? DEFAULT_WORKING_SPACE,
     blendEvaluationSpace: resolveBlendEvaluationSpace(base),
+    defaultGradientInterpolation: base.defaultGradientInterpolation ?? 'oklab',
   };
 }
 
