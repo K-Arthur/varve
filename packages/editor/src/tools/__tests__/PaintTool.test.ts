@@ -2,7 +2,7 @@
 
 import { makeRasterLayerNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BrushWorkerHost, DabResult } from '../../render/brushWorkerHost';
+import { BrushWorkerHost } from '../../render/brushWorkerHost';
 import { normalizeInputEvent } from '../inputNormalizer';
 import { PaintTool } from '../PaintTool';
 import type { ToolContext } from '../types';
@@ -450,5 +450,66 @@ describe('PaintTool', () => {
 
     expect(ctx.abortTransaction).toHaveBeenCalled();
     expect(ctx.setDraft).toHaveBeenLastCalledWith(null);
+  });
+});
+
+describe('PaintTool wet media', () => {
+  it('mixes a stroke into wet paint but not into dried paint', async () => {
+    const { WetPaintManager } = await import('@varve/scene');
+    const wet = new WetPaintManager();
+    const wake = vi.fn();
+
+    const paintOnce = (colour: [number, number, number, number]) => {
+      const tool = new PaintTool(false);
+      // The shared mock's updateNode is a bare spy; wet mixing happens inside
+      // the updater, so this test needs one that actually runs it.
+      const ctx = makeCtx({
+        foregroundColor: colour,
+        updateNode: vi.fn((_id: string, updater: (n: never) => never) =>
+          updater(makeRasterLayerNode('raster-1', { width: 512, height: 512 }) as never),
+        ),
+      });
+      tool.setWetPaint(wet, wake);
+      tool.setWetEnabled(true, 0.8, 0.5);
+      tool.setWorkerHost(new BrushWorkerHost(null));
+      const captured: Array<[number, number, number, number]> = [];
+      const original = tool as unknown as {
+        mixWet: (s: unknown, d: unknown, c: [number, number, number, number]) => number[];
+      };
+      const realMix = original.mixWet.bind(tool);
+      original.mixWet = (s, d, c) => {
+        const out = realMix(s, d, c) as [number, number, number, number];
+        captured.push(out);
+        return out;
+      };
+      tool.onPointerDown(makePointerEvent(100, 100), ctx);
+      tool.onPointerUp(makePointerEvent(100, 100), ctx);
+      return captured;
+    };
+
+    const red = paintOnce([255, 0, 0, 255]);
+    expect(red[0]).toEqual([255, 0, 0, 255]);
+    expect(wake).toHaveBeenCalled();
+
+    // Blue over still-wet red comes out mixed, not pure blue.
+    const blueWhileWet = paintOnce([0, 0, 255, 255]);
+    expect(blueWhileWet[0]![0]).toBeGreaterThan(0);
+
+    // After drying, the same stroke deposits pure blue.
+    wet.tick(0, 1);
+    wet.tick(100_000, 1);
+    const blueWhenDry = paintOnce([0, 0, 255, 255]);
+    expect(blueWhenDry[0]).toEqual([0, 0, 255, 255]);
+  });
+
+  it('does not wake the drying scheduler when wet media is off', () => {
+    const wake = vi.fn();
+    const tool = new PaintTool(false);
+    const ctx = makeCtx();
+    tool.setWorkerHost(new BrushWorkerHost(null));
+    tool.setWetPaint(null, wake);
+    tool.onPointerDown(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp(makePointerEvent(100, 100), ctx);
+    expect(wake).not.toHaveBeenCalled();
   });
 });
