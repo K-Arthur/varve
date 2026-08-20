@@ -39,7 +39,14 @@ import {
   type WorkingSpace,
 } from './colorManagement';
 import type { Document } from './document';
-import type { Effect, Fill, GradientStop, SceneNode, Stroke } from './types';
+import type {
+  Effect,
+  Fill,
+  GradientInterpolationSpace,
+  GradientStop,
+  SceneNode,
+  Stroke,
+} from './types';
 
 export type ColorConversionAlgorithm = 'analytical' | 'icc';
 
@@ -370,4 +377,14 @@ export function setDocumentBlendEvaluationSpace(
   const config = colorConfigWithDefaults(doc.colorConfig);
   if (config.blendEvaluationSpace === blendEvaluationSpace) return doc;
   return { ...doc, colorConfig: { ...config, blendEvaluationSpace } };
+}
+
+/** Set the default interpolation space used by newly authored/inherited gradients. */
+export function setDocumentGradientInterpolation(
+  doc: Document,
+  interpolation: GradientInterpolationSpace,
+): Document {
+  const config = colorConfigWithDefaults(doc.colorConfig);
+  if (config.defaultGradientInterpolation === interpolation) return doc;
+  return { ...doc, colorConfig: { ...config, defaultGradientInterpolation: interpolation } };
 }

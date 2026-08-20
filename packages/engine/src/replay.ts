@@ -1609,7 +1609,9 @@ function paintPatternFallback(
 function expandGradientStopsForFill(
   fill: Extract<FillIR, { type: 'gradient' }>,
 ): { position: number; color: EngineColor }[] {
-  const space = fill.interpolationSpace ?? 'oklab';
+  // Missing metadata is a legacy gradient, whose original Canvas2D behavior
+  // was encoded-sRGB. New gradients carry an explicit resolved space.
+  const space = fill.interpolationSpace ?? 'srgb';
   if (space === 'srgb') {
     return fill.stops.map((s) => ({ position: s.position, color: s.color }));
   }

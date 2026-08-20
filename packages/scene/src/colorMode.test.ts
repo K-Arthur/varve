@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { ColorConfig, ManagedColor } from './colorManagement';
-import { setDocumentBitDepth, setDocumentWorkingSpace, switchColorMode } from './colorMode';
+import {
+  setDocumentBitDepth,
+  setDocumentGradientInterpolation,
+  setDocumentWorkingSpace,
+  switchColorMode,
+} from './colorMode';
 import type { Document } from './document';
 
 function rgb(r: number, g: number, b: number, a = 255): ManagedColor {
@@ -264,5 +269,22 @@ describe('setDocumentWorkingSpace', () => {
   it('is a no-op when unchanged', () => {
     const doc = makeDoc(rgb(255, 0, 0));
     expect(setDocumentWorkingSpace(doc, 'srgb')).toBe(doc);
+  });
+});
+
+describe('setDocumentGradientInterpolation', () => {
+  it('persists the document default without rewriting authored colors', () => {
+    const doc = makeDoc(rgb(255, 0, 0));
+    const next = setDocumentGradientInterpolation(doc, 'oklch');
+    expect(next.colorConfig?.defaultGradientInterpolation).toBe('oklch');
+    expect(next.nodes.n1?.fill).toEqual(doc.nodes.n1?.fill);
+  });
+
+  it('fills missing color configuration and is a no-op when unchanged', () => {
+    const doc = { ...makeDoc(rgb(255, 0, 0)), colorConfig: undefined };
+    const next = setDocumentGradientInterpolation(doc, 'linear-srgb');
+    expect(next.colorConfig?.defaultGradientInterpolation).toBe('linear-srgb');
+    const same = setDocumentGradientInterpolation(next, 'linear-srgb');
+    expect(same).toBe(next);
   });
 });

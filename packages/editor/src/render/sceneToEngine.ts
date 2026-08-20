@@ -23,7 +23,7 @@ import {
   warpShapeToPath,
   warpTextToClusterAdjustments,
 } from '@varve/engine';
-import type { Document, NodeId, SceneNode } from '@varve/scene';
+import type { Document, Fill, NodeId, SceneNode } from '@varve/scene';
 import {
   applyBindingsToNode,
   buildAllVariantCaches,
@@ -121,8 +121,32 @@ function resolvePaintRefs(
 
 export type AssetLookupDoc = Pick<
   Document,
-  'paints' | 'rasterMaskAssets' | 'nodes' | 'assets' | 'depthMaps'
+  'paints' | 'rasterMaskAssets' | 'nodes' | 'assets' | 'depthMaps' | 'colorConfig'
 >;
+
+/**
+ * Resolve scene-only gradient inheritance at the scene → engine boundary.
+ * The render IR contains a concrete space so renderers never inspect UI or
+ * document state while painting. Missing metadata is historical encoded sRGB;
+ * `document` is the explicit inheritance marker used by new gradients.
+ */
+function resolveFillForEngine(
+  fill: Fill,
+  doc: AssetLookupDoc | undefined,
+): import('@varve/engine').EngineFill {
+  if (fill.type !== 'gradient' || !fill.gradient) {
+    return fill as unknown as import('@varve/engine').EngineFill;
+  }
+  const requested = fill.gradient.interpolationSpace;
+  const interpolationSpace =
+    fill.gradient.interpolationSource === 'document'
+      ? (doc?.colorConfig?.defaultGradientInterpolation ?? 'oklab')
+      : (requested ?? 'srgb');
+  return {
+    ...(fill as unknown as import('@varve/engine').EngineFill),
+    gradient: { ...fill.gradient, interpolationSpace },
+  };
+}
 
 function resolveEffectMasksForEngine(
   effects: readonly import('@varve/scene').Effect[],
@@ -200,7 +224,10 @@ export function sceneNodeToEngineNode(
     name: node.name,
     fill: resolvedNode.fill,
     fills: resolvedNode.fills
-      ? resolvedNode.fills.map((f) => rewriteImageFillSource(f, doc, resolvedNode, options))
+      ? resolvedNode.fills.map((f) => {
+          const rewritten = rewriteImageFillSource(f, doc, resolvedNode, options);
+          return resolveFillForEngine(rewritten, doc);
+        })
       : resolvedNode.fills,
     transform: node.transform,
     opacity: node.opacity ?? 1,

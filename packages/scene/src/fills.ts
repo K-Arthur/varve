@@ -41,12 +41,27 @@ export function solidFill(
 export function gradientFill(
   type: GradientType,
   stops: GradientStop[],
-  opts: { rotation?: number; opacity?: number; blendMode?: BlendMode; visible?: boolean } = {},
+  opts: {
+    rotation?: number;
+    interpolationSpace?: GradientFill['interpolationSpace'];
+    hueInterpolation?: GradientFill['hueInterpolation'];
+    tilingMode?: GradientFill['tilingMode'];
+    opacity?: number;
+    blendMode?: BlendMode;
+    visible?: boolean;
+  } = {},
 ): Fill {
   const gradient: GradientFill = {
     type,
     stops,
     ...(opts.rotation !== undefined ? { rotation: opts.rotation } : {}),
+    // New gradients inherit the document setting. A missing interpolationSpace
+    // without this marker remains the legacy-sRGB representation for old files.
+    ...(opts.interpolationSpace !== undefined
+      ? { interpolationSpace: opts.interpolationSpace }
+      : { interpolationSource: 'document' as const }),
+    ...(opts.hueInterpolation !== undefined ? { hueInterpolation: opts.hueInterpolation } : {}),
+    ...(opts.tilingMode !== undefined ? { tilingMode: opts.tilingMode } : {}),
   };
   return {
     type: 'gradient',

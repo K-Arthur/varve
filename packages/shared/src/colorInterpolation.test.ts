@@ -65,6 +65,24 @@ describe('interpolateManagedColor', () => {
     expect(mid.b).toBeGreaterThan(128);
   });
 
+  it('keeps transparent color stops from creating dark or gray halos', () => {
+    const transparentBlue = { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 0 };
+    const transparentRed = { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 0 };
+    const spaces: GradientInterpolationSpace[] = ['srgb', 'linear-srgb', 'oklab', 'oklch', 'hsl'];
+
+    for (const space of spaces) {
+      const blueMid = interpolateManagedColor(red, transparentBlue, 0.5, space);
+      const redMid = interpolateManagedColor(red, transparentRed, 0.5, space);
+      expect(blueMid.a).toBe(128);
+      expect(blueMid.r).toBeGreaterThan(240);
+      expect(blueMid.g).toBeLessThan(5);
+      expect(blueMid.b).toBeLessThan(5);
+      expect(redMid.r).toBeGreaterThan(240);
+      expect(redMid.g).toBeLessThan(5);
+      expect(redMid.b).toBeLessThan(5);
+    }
+  });
+
   it('returns endpoints unchanged at t=0 and t=1', () => {
     expect(interpolateManagedColor(red, green, 0, 'oklab')).toEqual(red);
     expect(interpolateManagedColor(red, green, 1, 'oklab')).toEqual(green);
