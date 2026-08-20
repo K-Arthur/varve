@@ -102,6 +102,15 @@ export interface ShellProps {
   /** The platform facade (Tauri/web/memory) — used for native-storage-backed
    *  persistence (e.g. onboarding-complete) rather than raw localStorage. */
   platform?: Platform;
+  /**
+   * Frame the whole document once, the first time one is loaded.
+   *
+   * Off by default: opening a document at its stored zoom is the right
+   * behaviour for someone returning to their own work. It exists for hosts
+   * that open a document the viewer has never seen — the browser demo seeds a
+   * 1200x800 poster, which at 100% zoom shows only its top-left corner.
+   */
+  fitOnOpen?: boolean;
 }
 
 /** E4 (2026-08-10): document-level heading label for SR heading navigation. */
@@ -113,18 +122,67 @@ function editorHeadingLabel(
   return name ? `${name} — Varve` : 'Varve editor';
 }
 
+/**
+ * Frame the whole document once, the first time one arrives.
+ *
+ * Deliberately a one-shot: after this the viewport belongs to the user, and
+ * re-fitting on a later document change would yank the canvas out from under
+ * them mid-edit.
+ *
+ * The retry loop exists because fitAll measures `.editor-canvas`. The document
+ * is loaded well before that element has been laid out, and fitting against a
+ * zero viewport produces a nonsense camera. Rather than guess at a timeout,
+ * poll animation frames until the canvas has real dimensions and give up
+ * quietly if it never does — a mis-framed document is a far better outcome
+ * than a broken one.
+ *
+ * `fitAll` is held in a ref rather than listed as a dependency on purpose: the
+ * editor context hands back a fresh closure every render, so depending on it
+ * re-ran this effect constantly, and the cleanup cancelled the in-flight frame
+ * while the one-shot guard stopped it ever restarting. The fit never happened.
+ */
+function useFitOnFirstDocument(editor: ReturnType<typeof useEditor>, enabled: boolean): void {
+  const doneRef = useRef(false);
+  const hasNodes = Object.keys(editor.state.document.nodes).length > 0;
+  const fitAllRef = useRef(editor.fitAll);
+  fitAllRef.current = editor.fitAll;
+
+  useEffect(() => {
+    if (!enabled || doneRef.current || !hasNodes) return;
+    doneRef.current = true;
+    let frame = 0;
+    let attempts = 0;
+    const tryFit = () => {
+      const canvas = document.querySelector<HTMLElement>('.editor-canvas');
+      if (canvas && canvas.clientWidth > 0 && canvas.clientHeight > 0) {
+        fitAllRef.current();
+        return;
+      }
+      // ~5s at 60fps, and rAF is throttled in a background tab, so this is a
+      // generous ceiling rather than a deadline.
+      if (++attempts > 300) return;
+      frame = requestAnimationFrame(tryFit);
+    };
+    frame = requestAnimationFrame(tryFit);
+    return () => cancelAnimationFrame(frame);
+  }, [enabled, hasNodes]);
+}
+
 function ShellInner({
   onBackToHome,
   openFile,
   platform,
   active = true,
+  fitOnOpen = false,
 }: {
   onBackToHome?: () => void;
   openFile?: OpenFileRequest | null;
   platform?: Platform;
   active?: boolean;
+  fitOnOpen?: boolean;
 }) {
   const editor = useEditor();
+  useFitOnFirstDocument(editor, fitOnOpen && active);
   const editorHelp = useEditorHelp(editor.state.tool);
   const { isDetached } = useDetachedPanels(editor);
   const { paletteOpen, closePalette, openPalette, quickActionsOpen, setQuickActionsOpen } =
@@ -1004,6 +1062,7 @@ export function Shell({
   openFile,
   platform,
   active,
+  fitOnOpen,
 }: ShellProps) {
   return (
     <EditorProvider
@@ -1022,6 +1081,7 @@ export function Shell({
             openFile={openFile}
             platform={platform}
             active={active}
+            fitOnOpen={fitOnOpen}
           />
         </ToastProvider>
       </SettingsProvider>

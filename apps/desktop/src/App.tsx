@@ -480,6 +480,9 @@ export function App() {
               documentFilePath={openRequest?.filePath ?? undefined}
               platform={platform}
               active={view === 'editor'}
+              // The demo opens a poster its visitor has never seen; at 100%
+              // zoom they would meet its top-left corner.
+              fitOnOpen={demo.config.active}
             />
           </div>
         )}
