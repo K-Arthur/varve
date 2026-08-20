@@ -11,6 +11,7 @@
  * - Requires an existing raster layer to smudge (creates one if needed)
  */
 
+import type { AreaSelection } from '@varve/engine';
 import type { BrushPreset, RasterLayerNode } from '@varve/scene';
 import {
   compositeSmudgeDabOnNode,
@@ -23,6 +24,7 @@ import { BaseTool } from './BaseTool';
 import { collectSourceEvents, type NormalizedInputEvent } from './inputNormalizer';
 import { PreviewCanvas } from './previewCanvas';
 import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
+import { selectionCoverageForDab } from './selectionCoverage';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 export type SmudgeMode = 'sampling' | 'mixing' | 'fingerpaint';
@@ -36,6 +38,7 @@ export class SmudgeTool extends BaseTool {
   private strokeGeneration = 0;
   private transactionOpen = false;
   private previewCanvas = new PreviewCanvas();
+  private strokeAreaSelection: AreaSelection | null = null;
 
   onSettingsChange?: (settings: {
     presetId: string;
@@ -138,6 +141,7 @@ export class SmudgeTool extends BaseTool {
       return { consumed: false };
     }
     this.rasterNodeId = rasterNodeId;
+    this.strokeAreaSelection = ctx.areaSelection ?? null;
     this.strokeGeneration++;
 
     const pressure = e.pressure > 0 ? e.pressure : 0.5;
@@ -274,7 +278,14 @@ export class SmudgeTool extends BaseTool {
       const raster = node as RasterLayerNode;
       let updated = raster;
       for (const dab of dabs) {
-        updated = compositeSmudgeDabOnNode(updated, dab, direction, this.preset.smudgeStrength);
+        const coverage = selectionCoverageForDab(ctx, rasterNodeId, dab, this.strokeAreaSelection);
+        updated = compositeSmudgeDabOnNode(
+          updated,
+          dab,
+          direction,
+          this.preset.smudgeStrength,
+          coverage,
+        );
       }
       return updated;
     });
@@ -342,6 +353,7 @@ export class SmudgeTool extends BaseTool {
   private resetState(): void {
     this.strokePoints = [];
     this.rasterNodeId = null;
+    this.strokeAreaSelection = null;
   }
 
   /** Called by the editor when the tool is being torn down. */
