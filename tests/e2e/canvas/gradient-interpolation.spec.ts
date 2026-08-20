@@ -240,4 +240,32 @@ test.describe('Gradient editor accessibility', () => {
     const role = await gradientBar.getAttribute('role');
     expect(role).toBe('slider');
   });
+
+  test('gradient stop bar stays within a narrow properties panel', async ({ page }) => {
+    await navigateToCleanEditor(page);
+    await createRectWithGradient(page);
+    await switchFillToGradient(page);
+
+    const metrics = await page.locator('.gradient-editor__bar').evaluate((bar) => {
+      const panel = bar.closest('#insp-tabpanel-properties');
+      const wrapper = bar.parentElement;
+      if (!panel || !wrapper) throw new Error('gradient bar containment elements not found');
+      const barRect = bar.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      const wrapperRect = wrapper.getBoundingClientRect();
+      return {
+        barLeft: barRect.left,
+        barRight: barRect.right,
+        panelLeft: panelRect.left,
+        panelRight: panelRect.right,
+        wrapperLeft: wrapperRect.left,
+        wrapperRight: wrapperRect.right,
+      };
+    });
+
+    expect(metrics.barLeft).toBeGreaterThan(metrics.panelLeft);
+    expect(metrics.barRight).toBeLessThan(metrics.panelRight);
+    expect(metrics.wrapperLeft).toBeGreaterThanOrEqual(metrics.panelLeft);
+    expect(metrics.wrapperRight).toBeLessThanOrEqual(metrics.panelRight);
+  });
 });
