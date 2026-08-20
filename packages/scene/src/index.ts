@@ -100,6 +100,7 @@ export * from './pageOwnership';
 export * from './pageRange';
 export * from './pageScene';
 export * from './paint';
+export * from './maskPaint';
 export * from './paintCoverage';
 export * from './pasteboardLayout';
 export * from './preflight';
