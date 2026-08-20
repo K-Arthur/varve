@@ -132,3 +132,23 @@
     transition: none;
   }
 }
+
+.brush-library-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-block-size: 0;
+}
+
+.brush-library-panel__notice {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+}
