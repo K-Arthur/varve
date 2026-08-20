@@ -62,6 +62,7 @@ getEffectiveWorkspaceConfig(mode, prefs?)
   + prefs[mode].panelOverrides         the user's per-workspace panel customizations
   + prefs[mode].inspectorTabOverrides  per-workspace inspector tab visibility
   + prefs[mode].statusSectionOverrides per-workspace status bar section visibility
+  + prefs[mode].toolbarToolOverrides   sparse toolbar visibility overrides
 ```
 
 - `workspaceTypes.ts` owns the built-in configs and pure config→derived-data
@@ -75,19 +76,21 @@ getEffectiveWorkspaceConfig(mode, prefs?)
 - `useEffectiveWorkspaceConfig(mode)` is the reactive React view; it re-renders
   workspace-controlled surfaces when a preference changes.
 
-Panel layout is the only field that currently accepts user overrides. Fields
-without an override surface still resolve through the same path so that adding
-one later takes effect everywhere at once.
+Panel layout and toolbar visibility accept user overrides. Fields without an
+override surface still resolve through the same path so that adding one later
+takes effect everywhere at once.
 
 ### Applying a config
 
 `applyWorkspaceConfig` in `context/useWorkspaceMode.ts` is the single projection
-from config onto runtime state — panels, canvas overlays, default tool, and the
-`settings.panel` mirror. Switch, `__setWorkspaceModeUnsafe`, and reset all route
-through it. They previously each had their own copy, and the copies drifted:
-reset resolved the *effective* config before clearing the overrides it was
-meant to discard, so it re-applied the customized layout instead of the
-built-in one.
+from config onto runtime state — panels, canvas overlays, the resolved active
+tool, and the `settings.panel` mirror. Switch, `__setWorkspaceModeUnsafe`, and
+reset all route through it. The active-tool resolver preserves a visible
+selectable tool, otherwise chooses the destination default, then Select, and
+finally the first selectable toolbar member. Command-only flyout actions can
+never become the active tool. Normal workspace switching still runs the
+editor's interaction-resolution cleanup before this projection, so crop/mask
+preview and other transient states do not leave orphaned overlays.
 
 ## Persistence
 
@@ -118,6 +121,12 @@ local snapshot untouched.
   wrong-typed fields are dropped, unknown modes are ignored, missing modes fall
   back to defaults. That last rule is also what keeps a payload written by a
   newer build readable after a downgrade.
+- Toolbar overrides use the same defensive path: unknown, removed, and
+  wrong-typed tool ids are ignored; essential recovery tools cannot be hidden;
+  and overrides equal to the current built-in default are removed. Sparse
+  storage lets a newly added tool enter an existing workspace when its updated
+  built-in default includes it, while an explicit choice for a known tool
+  remains meaningful.
 - Persistence failures are recorded (`getWorkspacePersistenceError()`) rather
   than swallowed, so a user whose customizations silently stopped saving has
   something to report. Failures never interrupt editing.
@@ -125,6 +134,59 @@ local snapshot untouched.
   once, but only where it *disagrees* with the built-in default — equality
   carries no information about what the user chose, and seeding on it would
   mark every fresh install as customized.
+
+## Tool identity, visibility, and availability
+
+`packages/editor/src/tools/toolRegistry.ts` is the canonical runtime registry
+for tool identity metadata: stable id, label, icon, category, activation kind,
+shortcut relationship, aliases, and essential recovery status. `ToolId` is
+derived from that registry. `workspaceTypes.ts` owns only workspace
+presentation — toolbar order, group boundaries, flyouts, and default tool —
+and `workspaceStore.ts` resolves sparse user visibility overrides into the
+effective config. A new toolbar tool therefore needs one registry entry and a
+workspace composition entry; labels, icons, shortcut labels, customization
+search, and toolbar rendering do not require parallel catalogs.
+
+Visibility and runtime availability are deliberately different:
+
+| State | Meaning | Toolbar consequence |
+|---|---|---|
+| Visible | The effective workspace toolbar presents the tool, directly or in a flyout. | Render it in its configured position. |
+| Hidden by default | The workspace does not emphasize it. | Omit it from the toolbar; keep capability access elsewhere. |
+| User-hidden | A sparse override explicitly removes it from this workspace. | Omit it from the main row and flyouts; remove empty flyouts. |
+| Context-disabled | The tool exists but the current selection/document cannot use it. | Keep discovery, disable with the existing reason/explanation. |
+| Unsupported | The runtime/platform/model cannot provide it. | Keep the appropriate surface honest; do not disguise a capability failure as workspace filtering. |
+| Available elsewhere | A hidden toolbar tool is still a command, menu action, shortcut, or contextual action. | Preserve the recovery/discovery route. |
+
+`getVisibleToolbarToolIds`, `isToolVisibleInWorkspace`, and
+`getHiddenTools` answer presentation questions from the effective config;
+they include flyout members. Context predicates remain separate from this
+layer. `ToolKind` also distinguishes selectable tools from immediate commands
+such as boolean operations, preventing a command-only flyout member from being
+installed as `state.tool`.
+
+The shortcut policy is intentionally visual-only: a toolbar-hidden tool's
+shortcut remains active for expert users. Proactive shortcut tips use the
+effective config and suppress hidden-tool recommendations. The command palette
+and Quick Actions remain broader discovery surfaces and annotate a matching
+tool action as **Hidden from toolbar** rather than silently deleting it.
+Context menus and object/image/vector menus remain selection/capability-aware;
+they do not disappear merely because the current workspace toolbar is focused
+on a different workflow.
+
+### Adding a tool
+
+1. Add one stable id and its metadata to `tools/toolRegistry.ts`.
+2. Register its activation action/implementation and add it to the deliberate
+   workspace composition(s) in `workspaceTypes.ts`.
+3. Add focused tests for the tool, its availability/context rules, and any
+   flyout composition. Registry completeness tests catch missing labels/icons
+   and built-in references.
+
+Do not add a second all-tools array, label map, icon map, shortcut-label map,
+or workspace visibility map. If the new entry is a command rather than a
+selectable mode, set `kind: 'command'`; it may live in a flyout but must not
+become the active tool.
 
 ## What is deliberately not workspace configuration
 

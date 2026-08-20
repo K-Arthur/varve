@@ -18,8 +18,7 @@
 
 import type { WorkspaceMode } from '@varve/shared';
 import type { IconName } from '@varve/ui';
-import { getRegisteredToolIds } from '../tools/toolRegistry';
-import type { ToolId } from '../tools/types';
+import { getRegisteredToolIds, getToolDefinition, type ToolId } from '../tools/toolRegistry';
 
 // ---------------------------------------------------------------------------
 // Workspace mode identity
@@ -1214,10 +1213,22 @@ export function isToolVisibleInWorkspace(toolId: ToolId, config: WorkspaceConfig
  */
 export function resolveWorkspaceTool(config: WorkspaceConfig, currentTool: ToolId): ToolId {
   const visible = getVisibleToolbarToolIds(config);
-  if (visible.has(currentTool)) return currentTool;
-  if (config.defaultTool && visible.has(config.defaultTool)) return config.defaultTool;
+  if (getToolDefinition(currentTool)?.kind === 'tool' && visible.has(currentTool)) {
+    return currentTool;
+  }
+  if (
+    config.defaultTool &&
+    getToolDefinition(config.defaultTool)?.kind === 'tool' &&
+    visible.has(config.defaultTool)
+  ) {
+    return config.defaultTool;
+  }
   if (visible.has('select')) return 'select';
-  return getToolbarToolIds(config.toolbar)[0] ?? 'select';
+  return (
+    getToolbarToolIds(config.toolbar).find(
+      (toolId) => getToolDefinition(toolId)?.kind === 'tool',
+    ) ?? 'select'
+  );
 }
 
 /** Get tools hidden from the toolbar, including tools hidden from flyouts. */

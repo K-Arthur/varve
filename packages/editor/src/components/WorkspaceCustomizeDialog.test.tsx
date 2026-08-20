@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { EditorProvider } from '../context';
+import { EditorProvider, useEditor } from '../context';
 import { resetWorkspacePreferenceCache } from '../workspace/workspaceStore';
 import { WorkspaceCustomizeDialog } from './WorkspaceCustomizeDialog';
 
@@ -100,5 +100,33 @@ describe('WorkspaceCustomizeDialog', () => {
     const confirm2 = screen.getAllByRole('dialog').at(-1)!;
     fireEvent.click(within(confirm2).getByRole('button', { name: 'Reset All Workspaces' }));
     expect((historyToggle as HTMLInputElement).checked).toBe(false);
+  });
+
+  it('filters tools by registry label and moves an active hidden tool to Select', async () => {
+    let editor: ReturnType<typeof useEditor> | undefined;
+    function Fixture() {
+      editor = useEditor();
+      return <WorkspaceCustomizeDialog open onClose={() => {}} />;
+    }
+
+    render(
+      <EditorProvider>
+        <Fixture />
+      </EditorProvider>,
+    );
+    await waitFor(() => expect(editor).toBeDefined());
+    if (!editor) throw new Error('editor context was not mounted');
+    act(() => editor?.setTool('pen'));
+    await waitFor(() => expect(editor?.state.tool).toBe('pen'));
+
+    const dialog = screen.getByRole('dialog');
+    const search = within(dialog).getByRole('searchbox', { name: 'Search toolbar tools' });
+    fireEvent.change(search, { target: { value: 'boolean' } });
+    expect(within(dialog).getByText('Boolean Union')).toBeTruthy();
+    expect(within(dialog).queryByText('Rectangle')).toBeNull();
+
+    fireEvent.change(search, { target: { value: 'pen' } });
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Show Pen in Design/ }));
+    expect(editor.state.tool).toBe('select');
   });
 });

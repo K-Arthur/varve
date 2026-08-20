@@ -15,6 +15,7 @@ import {
   subscribeCompositorDiagnostics,
 } from './render/compositorDiagnosticsStore';
 import { formatShortcut, getEffectiveBinding } from './shortcuts/ShortcutManager';
+import { toolLabel } from './workspace/toolLabels';
 import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
 import { getVisibleStatusSections, type StatusSectionId } from './workspace/workspaceTypes';
 
@@ -66,7 +67,11 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
   const showPreflight = sectionVisible('preflight');
   const showDebtBadge = sectionVisible('debt');
   const showTipChip = sectionVisible('shortcutTip');
-  const { currentTip, dismiss } = useShortcutTips(state.workspaceMode, showTipChip);
+  const { currentTip, dismiss } = useShortcutTips(
+    state.workspaceMode,
+    showTipChip,
+    effectiveConfig,
+  );
 
   const sc = (id: string) => formatShortcut(getEffectiveBinding(id));
 
@@ -105,7 +110,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
           file over its import budget) stays untouched. */}
       <DocumentInfoDialog />
       <div className="editor-status">
-        {sectionVisible('toolName') && <span>{state.tool}</span>}
+        {sectionVisible('toolName') && <span>{toolLabel(state.tool)}</span>}
         {showPreflight && <PreflightWarnings />}
         {showDebtBadge && <DebtBadge />}
         <AuditBadge />

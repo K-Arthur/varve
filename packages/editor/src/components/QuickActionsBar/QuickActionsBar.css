@@ -135,6 +135,12 @@
   white-space: nowrap;
 }
 
+.quick-actions-bar__item-note {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
 .quick-actions-bar__item-category {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);

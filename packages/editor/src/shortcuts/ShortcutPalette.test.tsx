@@ -53,6 +53,18 @@ describe('ShortcutPalette', () => {
     expect(allGroupHeaders.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('marks shortcuts for tools that are hidden from the active workspace toolbar', () => {
+    render(<ShortcutPalette open onClose={vi.fn()} onSelect={vi.fn()} workspaceMode="design" />);
+
+    const paintLabel = screen.getByText('Paint brush');
+    expect(paintLabel).toBeInTheDocument();
+    expect(paintLabel.parentElement).toHaveTextContent('Hidden from toolbar');
+    expect(paintLabel.closest('[role="option"]')).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('hidden from current toolbar'),
+    );
+  });
+
   it('filters shortcuts by label', async () => {
     renderPalette();
     const inputs = screen.getAllByRole('combobox', { name: /search/i });

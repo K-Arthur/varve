@@ -7,10 +7,10 @@
  * reverts to built-in defaults.
  */
 import { Dialog } from '@varve/ui';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../context';
-import type { ToolId } from '../tools/types';
-import { ESSENTIAL_TOOL_IDS, toolLabel } from '../workspace/toolLabels';
+import type { ToolId } from '../tools/toolRegistry';
+import { ESSENTIAL_TOOL_IDS, getToolDefinition, toolLabel } from '../workspace/toolLabels';
 import {
   useEffectiveWorkspaceConfig,
   useWorkspaceCustomizations,
@@ -23,51 +23,14 @@ import {
   updateWorkspacePreferences,
 } from '../workspace/workspaceStore';
 import {
+  getToolbarToolIds,
   getWorkspaceConfig,
   type InspectorTabId,
   type PanelId,
   STATUS_SECTION_LABELS,
   type StatusSectionId,
-  type ToolbarConfig,
   WORKSPACE_LABELS,
-  type WorkspaceConfig,
 } from '../workspace/workspaceTypes';
-
-/**
- * All tools a workspace's toolbar can show: main row in declared order,
- * then flyout members not already in the main row (flyout order, first
- * flyout wins on overlaps).
- */
-function allToolbarTools(toolbar: ToolbarConfig): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const item of toolbar.tools) {
-    if (!seen.has(item.toolId)) {
-      seen.add(item.toolId);
-      result.push(item.toolId);
-    }
-  }
-  for (const flyout of toolbar.flyouts ?? []) {
-    for (const toolId of flyout.tools) {
-      if (!seen.has(toolId)) {
-        seen.add(toolId);
-        result.push(toolId);
-      }
-    }
-  }
-  return result;
-}
-
-/**
- * The effective toolbar's full tool id set (main row + flyout members).
- */
-function effectiveToolIds(effectiveConfig: WorkspaceConfig): Set<string> {
-  const ids = new Set<string>(effectiveConfig.toolbar.tools.map((t) => t.toolId));
-  for (const flyout of effectiveConfig.toolbar.flyouts ?? []) {
-    for (const toolId of flyout.tools) ids.add(toolId);
-  }
-  return ids;
-}
 
 export function WorkspaceCustomizeDialog({
   open,
@@ -76,12 +39,13 @@ export function WorkspaceCustomizeDialog({
   open: boolean;
   onClose: () => void;
 }) {
-  const { state, resetWorkspaceToDefault, resetAllWorkspacesToDefaults } = useEditor();
+  const { state, setTool, resetWorkspaceToDefault, resetAllWorkspacesToDefaults } = useEditor();
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
   const customizations = useWorkspaceCustomizations();
   const mode = state.workspaceMode;
   const builtIn = getWorkspaceConfig(mode);
   const [confirmResetAll, setConfirmResetAll] = useState(false);
+  const [toolSearch, setToolSearch] = useState('');
 
   const handleTogglePanel = useCallback(
     (panelId: PanelId, visible: boolean) => {
@@ -108,9 +72,13 @@ export function WorkspaceCustomizeDialog({
 
   const handleToggleTool = useCallback(
     (toolId: string, visible: boolean) => {
+      // Use the normal tool transition lifecycle before removing the active
+      // button. This gives transient tools a chance to clean up and leaves a
+      // visible escape route in the same render as the preference change.
+      if (!visible && state.tool === toolId) setTool('select');
       updateWorkspacePreferences((prefs) => setToolbarToolOverride(prefs, mode, toolId, visible));
     },
-    [mode],
+    [mode, setTool, state.tool],
   );
 
   const handleReset = useCallback(() => {
@@ -137,8 +105,30 @@ export function WorkspaceCustomizeDialog({
     { id: 'history', label: 'History' },
   ];
 
-  const effectiveToolIdsSet = effectiveToolIds(effectiveConfig);
-  const toolbarTools = allToolbarTools(builtIn.toolbar);
+  const effectiveToolIdsSet = new Set(getToolbarToolIds(effectiveConfig.toolbar));
+  const toolbarToolIds = getToolbarToolIds(builtIn.toolbar);
+  const filteredToolbarTools = useMemo(() => {
+    const query = toolSearch.trim().toLowerCase();
+    return toolbarToolIds
+      .map((id) => getToolDefinition(id))
+      .filter((definition): definition is NonNullable<typeof definition> => {
+        if (!definition) return false;
+        if (!query) return true;
+        return [definition.label, definition.category, ...(definition.aliases ?? [])]
+          .join(' ')
+          .toLowerCase()
+          .includes(query);
+      });
+  }, [toolSearch, toolbarToolIds]);
+  const toolbarToolGroups = useMemo(() => {
+    const groups = new Map<string, typeof filteredToolbarTools>();
+    for (const definition of filteredToolbarTools) {
+      const group = groups.get(definition.category) ?? [];
+      group.push(definition);
+      groups.set(definition.category, group);
+    }
+    return [...groups.entries()];
+  }, [filteredToolbarTools]);
 
   return (
     <Dialog open={open} onClose={onClose} title={`Customize ${WORKSPACE_LABELS[mode]} workspace`}>
@@ -165,34 +155,53 @@ export function WorkspaceCustomizeDialog({
         <section className="workspace-customize__section">
           <h3>Toolbar Tools</h3>
           <p className="workspace-customize__hint">
-            Select, Hand, and Zoom stay available so the canvas can always be navigated and
-            recovered.
+            Choose what appears in this workspace. Hidden tools remain available from commands,
+            menus, or shortcuts. Select, Hand, and Zoom stay available for recovery.
           </p>
-          {toolbarTools.map((toolId) => {
-            const isVisible = effectiveToolIdsSet.has(toolId);
-            const isEssential = ESSENTIAL_TOOL_IDS.has(toolId as ToolId);
-            const flyout = builtIn.toolbar.flyouts?.find((f) => f.tools.includes(toolId as ToolId));
-            return (
-              <label key={toolId} className="workspace-customize__toggle">
-                <input
-                  type="checkbox"
-                  checked={isVisible}
-                  disabled={isEssential}
-                  aria-label={`${toolLabel(toolId)} toolbar tool${isEssential ? ' (always available)' : ''}`}
-                  onChange={(e) => handleToggleTool(toolId, e.target.checked)}
-                />
-                <span>
-                  {toolLabel(toolId)}
-                  {flyout && !builtIn.toolbar.tools.some((t) => t.toolId === toolId) && (
-                    <span className="workspace-customize__flyout">in {flyout.label}</span>
-                  )}
-                </span>
-                {isEssential && (
-                  <span className="workspace-customize__always">Always available</span>
-                )}
-              </label>
-            );
-          })}
+          <input
+            className="workspace-customize__search"
+            type="search"
+            value={toolSearch}
+            onChange={(event) => setToolSearch(event.target.value)}
+            placeholder="Search tools…"
+            aria-label="Search toolbar tools"
+          />
+          {toolbarToolGroups.length === 0 && (
+            <p className="workspace-customize__empty">No toolbar tools match that search.</p>
+          )}
+          {toolbarToolGroups.map(([category, definitions]) => (
+            <div key={category} className="workspace-customize__tool-group">
+              <h4>{category.replace(/^[a-z]/, (letter) => letter.toUpperCase())}</h4>
+              {definitions.map((definition) => {
+                const toolId = definition.id as ToolId;
+                const isVisible = effectiveToolIdsSet.has(toolId);
+                const isEssential = ESSENTIAL_TOOL_IDS.has(toolId);
+                const flyout = builtIn.toolbar.flyouts?.find((f) => f.tools.includes(toolId));
+                const isFlyoutOnly =
+                  flyout && !builtIn.toolbar.tools.some((t) => t.toolId === toolId);
+                return (
+                  <label key={toolId} className="workspace-customize__toggle">
+                    <input
+                      type="checkbox"
+                      checked={isVisible}
+                      disabled={isEssential}
+                      aria-label={`Show ${toolLabel(toolId)} in ${WORKSPACE_LABELS[mode]} workspace${isEssential ? ' (always available)' : ''}`}
+                      onChange={(e) => handleToggleTool(toolId, e.target.checked)}
+                    />
+                    <span>
+                      {toolLabel(toolId)}
+                      {isFlyoutOnly && (
+                        <span className="workspace-customize__flyout">in {flyout.label}</span>
+                      )}
+                    </span>
+                    {isEssential && (
+                      <span className="workspace-customize__always">Always available</span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          ))}
         </section>
 
         {/* Inspector tabs */}

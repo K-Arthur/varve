@@ -803,11 +803,13 @@ function ShellInner({
             setPaletteFocusShortcutId(undefined);
           }}
           onSelect={handlePaletteSelect}
+          workspaceMode={editor.state.workspaceMode}
           focusShortcutId={paletteFocusShortcutId}
         />
         <QuickActionsBar
           open={quickActionsOpen}
           onClose={() => setQuickActionsOpen(false)}
+          workspaceMode={editor.state.workspaceMode}
           onExecute={(id) => {
             editor.recordAction(`menu:${id}`);
             if (id === 'open') {
