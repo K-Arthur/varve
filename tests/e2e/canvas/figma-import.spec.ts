@@ -36,4 +36,106 @@ test.describe('Figma import integration', () => {
       fullPage: false,
     });
   });
+
+  test('imports editable Figma JSON through the file picker without a report for a clean file', async ({
+    page,
+  }) => {
+    await navigateToEditor(page);
+    const fixture = {
+      name: 'Basic Figma UI',
+      document: {
+        type: 'DOCUMENT',
+        children: [
+          {
+            id: 'page:1',
+            type: 'CANVAS',
+            name: 'Design',
+            absoluteBoundingBox: { x: 0, y: 0, width: 640, height: 480 },
+            children: [
+              {
+                id: 'frame:1',
+                type: 'FRAME',
+                name: 'Auto Layout card',
+                absoluteBoundingBox: { x: 40, y: 40, width: 280, height: 140 },
+                layoutMode: 'VERTICAL',
+                itemSpacing: 12,
+                paddingTop: 16,
+                paddingRight: 16,
+                paddingBottom: 16,
+                paddingLeft: 16,
+                children: [
+                  {
+                    id: 'text:1',
+                    type: 'TEXT',
+                    name: 'Title',
+                    characters: 'Imported text remains editable',
+                    absoluteBoundingBox: { x: 56, y: 56, width: 248, height: 24 },
+                    style: { fontFamily: 'Inter', fontSize: 18, fontWeight: 600 },
+                  },
+                  {
+                    id: 'shape:1',
+                    type: 'RECTANGLE',
+                    name: 'Button',
+                    absoluteBoundingBox: { x: 56, y: 92, width: 120, height: 40 },
+                    rectangleCornerRadii: [8, 8, 8, 8],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'basic.fig',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(fixture), 'utf8'),
+    });
+    await expect(page.locator('.layers-panel')).toContainText('Auto Layout card', {
+      timeout: 30000,
+    });
+    await expect(page.locator('.import-results-overlay')).toHaveCount(0);
+    await expect(page.locator('.editor-canvas canvas, canvas').first()).toBeVisible();
+    const testResultsDir = process.env.PLAYWRIGHT_TEST_RESULT_DIR ?? 'test-results';
+    await page.screenshot({
+      path: `${testResultsDir}/figma-import-basic-ui.png`,
+      fullPage: false,
+    });
+  });
+
+  test('shows the fidelity report when source semantics are degraded', async ({ page }) => {
+    await navigateToEditor(page);
+    const fixture = {
+      document: {
+        type: 'DOCUMENT',
+        children: [
+          {
+            id: 'page:1',
+            type: 'CANVAS',
+            name: 'Design',
+            children: [
+              {
+                id: 'boolean:1',
+                type: 'BOOLEAN_OPERATION',
+                name: 'Unsupported union',
+                booleanOperation: 'UNION',
+                absoluteBoundingBox: { x: 0, y: 0, width: 100, height: 100 },
+                children: [],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'degraded.fig',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(fixture), 'utf8'),
+    });
+    const report = page.locator('.import-results-overlay');
+    await expect(report).toBeVisible({ timeout: 30000 });
+    await expect(report).toContainText('Import Results');
+    await report.getByRole('button', { name: /show details/i }).click();
+    await expect(report).toContainText('Boolean operation');
+  });
 });

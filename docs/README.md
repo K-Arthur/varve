@@ -420,6 +420,7 @@ records; check the current code before acting on their findings.
 
 | `audits/color-quantization-boundary-inventory.md` | Current high-precision color quantization-boundary inventory |
 | `audits/filesystem-hardening-2026-08-13.md` | Cross-OS directory/path hardening pass: findings fixed, storage map, limitations |
+| `audits/figma-import-audit-2026-08-20.md` | Figma acquisition, semantic conversion, editor integration, fidelity matrix, and backlog |
 
 ## Website-specific (current state)
 

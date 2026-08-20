@@ -1136,11 +1136,6 @@ export function convertFigmaSource(source: FigmaSourceDocument): FigmaConversion
     });
     rootChildren.push(contentRoot);
   }
-  for (const font of state.fonts)
-    addWarning(
-      state,
-      `Font "${font}" is preserved by family/style; availability is resolved by Varve after import`,
-    );
   const layoutGrids = buildLayoutGrids(state, source);
   const document: Document = {
     ...state.base,

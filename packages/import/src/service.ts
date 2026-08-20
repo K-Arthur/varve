@@ -220,10 +220,14 @@ async function importOne(
         path: w.path,
       })),
     ]);
-    const status =
-      result.nodeIds.length === 0
+    const opaqueBinary = unsupportedFeatures.some(
+      (feature) => feature.feature === 'opaque native .fig binary',
+    );
+    const status = opaqueBinary
+      ? 'unsupported'
+      : result.nodeIds.length === 0
         ? unsupportedFeatures.length > 0
-          ? 'unsupported'
+          ? 'partial'
           : 'failed'
         : unsupportedFeatures.length === 0
           ? 'success'
