@@ -137,9 +137,10 @@ points to the latest Varve application release, not the model artifacts.
 | Platform | Package | Status | Signing |
 |---|---|---|---|
 | Linux x86_64 | AppImage · `.deb` · `.rpm` | Supported in the published release | Unsigned — SHA-256 checksums, SBOM, and build provenance published |
-| Windows 10 (1809+) / 11 x86_64 | NSIS `.exe` | Experimental — CI-built and smoke-tested | Unsigned |
+| Linux ARM64 | AppImage · `.deb` · `.rpm` | Supported in the published release | Unsigned — SHA-256 checksums, SBOM, and build provenance published |
 | macOS 13+ Apple Silicon (arm64) | `.dmg` | Experimental — CI-built and smoke-tested | Unsigned, not notarized |
-| Linux ARM64 / Windows ARM64 | — | Not published | — |
+| Windows 10 (1809+) / 11 x86_64 | NSIS `.exe` | Experimental — CI-built and smoke-tested | Unsigned |
+| Windows 10 (1809+) / 11 ARM64 | NSIS `.exe` | Experimental — CI-built and smoke-tested | Unsigned |
 | macOS Intel (x86_64) | — | Not published | — |
 
 Minimum 4 GB RAM (8 GB recommended), 500 MB storage. Full detail and the
