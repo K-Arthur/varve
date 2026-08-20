@@ -110,6 +110,7 @@ export * from './property-path';
 export * from './rasterLayer';
 export * from './richTextIndex';
 export * from './richTextOps';
+export * from './paintCoverage';
 export * from './selectionSet';
 export * from './sha256';
 export * from './spotLibraries';

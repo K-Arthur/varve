@@ -154,8 +154,18 @@ export interface BrushDab {
   hardness: number;
   angle: number;
   roundness: number;
-  /** 0-1 progress along the stroke. */
+  /**
+   * Normalized progress along the stroke, 0-1.
+   *
+   * For a completed stroke this is `arcLengthSoFar / totalStrokeLength`. For a
+   * live stroke generated incrementally through a `StrokeDabSession` the total
+   * length is not yet known, so this is progress against the length seen so far
+   * and therefore reaches ~1.0 at the leading dab of every batch. Use
+   * `strokeDistance` when absolute arc length is what matters.
+   */
   strokeT: number;
+  /** Absolute arc length in layer pixels from the stroke origin to this dab. */
+  strokeDistance: number;
   /** Brush tip shape (circle, square, etc.). Defaults to 'circle'. */
   shape?: BrushShape;
   /** Blend mode for this dab. Defaults to the preset's blend mode. */
@@ -246,54 +256,112 @@ export function interpolatePoints(a: StrokePoint, b: StrokePoint, t: number): St
   };
 }
 
-export function generateDabs(points: StrokePoint[], preset: BrushPreset): BrushDab[] {
-  if (points.length === 0) return [];
-  if (points.length === 1) {
-    const p = points[0]!;
-    return [makeDab(p, preset, 0)];
-  }
+export interface GenerateDabsOptions {
+  /**
+   * Stroke session carrying spacing, arc length and jitter across batches.
+   * Omit to generate a complete stroke in one shot (legacy behaviour).
+   */
+  session?: StrokeDabSession;
+}
 
-  const dabs: BrushDab[] = [];
+/**
+ * Convert stroke samples into evenly spaced dabs.
+ *
+ * Without a session this treats `points` as a whole stroke: spacing starts
+ * fresh, `strokeT` is normalized against the full length, and jitter is drawn
+ * from the legacy shared RNG.
+ *
+ * With a session the call is one batch of a longer stroke. Spacing carries over
+ * from the previous batch (so dab density never spikes at batch boundaries),
+ * arc length accumulates, and jitter continues the session's own sequence. The
+ * concatenation of every batch's dabs is identical to generating the same
+ * points in a single call with the same seed.
+ */
+export function generateDabs(
+  points: StrokePoint[],
+  preset: BrushPreset,
+  options: GenerateDabsOptions = {},
+): BrushDab[] {
+  const session = options.session;
+  const rng = session?.rng ?? _legacyRng;
+  if (points.length === 0) return [];
+
   // Persisted presets can bypass UI clamps; never let a zero spacing value
   // stall the dab loop.
   const spacingPx = Math.max(0.01, preset.radius * 2 * preset.spacing);
-  let accumulated = 0;
-  let lastDabPoint = points[0]!;
-  let totalLength = 0;
-  for (let i = 1; i < points.length; i++) {
-    totalLength += pointDistance(points[i - 1]!, points[i]!);
+  const dabs: BrushDab[] = [];
+
+  // Bridge from the last point of the previous batch so the gap between
+  // batches is walked exactly once — never skipped, never painted twice.
+  const walk: StrokePoint[] =
+    session?.lastPoint && points.length > 0 ? [session.lastPoint, ...points] : points;
+
+  if (walk.length === 1) {
+    const p = walk[0]!;
+    if (!session || !session.started) {
+      const dab = makeDab(p, preset, 0, session?.arcLength ?? 0, rng);
+      dabs.push(dab);
+      if (session) {
+        session.started = true;
+        session.spacingCarry = 0;
+      }
+    }
+    if (session) session.lastPoint = p;
+    return dabs;
   }
 
+  let totalLength = 0;
+  for (let i = 1; i < walk.length; i++) {
+    totalLength += pointDistance(walk[i - 1]!, walk[i]!);
+  }
+
+  const baseArc = session?.arcLength ?? 0;
+  let accumulated = session?.spacingCarry ?? 0;
   let lengthSoFar = 0;
-  for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1]!;
-    const current = points[i]!;
+  let lastDabPoint = walk[0]!;
+  let emitted = session?.started ?? false;
+
+  // A fresh stroke stamps its first dab at the origin so a tap leaves ink.
+  if (!emitted) {
+    dabs.push(makeDab(walk[0]!, preset, 0, baseArc, rng));
+    emitted = true;
+    accumulated = 0;
+  }
+
+  for (let i = 1; i < walk.length; i++) {
+    const prev = walk[i - 1]!;
+    const current = walk[i]!;
     const segmentLength = pointDistance(prev, current);
-    const direction = strokeDirection(prev, current);
-    lengthSoFar += segmentLength;
-
     if (segmentLength === 0) continue;
+    const direction = strokeDirection(prev, current);
 
-    let t = 0;
-    while (t < 1) {
-      const remaining = spacingPx - accumulated;
-      const step = remaining / segmentLength;
-      t += step;
-      if (t > 1) {
-        accumulated += segmentLength * (1 - (t - step));
-        break;
-      }
+    let travelled = 0;
+    while (accumulated + (segmentLength - travelled) >= spacingPx) {
+      const step = spacingPx - accumulated;
+      travelled += step;
+      const t = travelled / segmentLength;
       const sample = interpolatePoints(prev, current, t);
       sample.direction = direction;
-      const strokeT = totalLength > 0 ? lengthSoFar / totalLength : 0;
-      dabs.push(makeDab(sample, preset, strokeT));
-      accumulated = 0;
+      const arc = baseArc + lengthSoFar + travelled;
+      const denom = session ? baseArc + totalLength : totalLength;
+      const strokeT = denom > 0 ? Math.min(1, arc / denom) : 0;
+      dabs.push(makeDab(sample, preset, strokeT, arc, rng));
       lastDabPoint = sample;
+      accumulated = 0;
     }
+    accumulated += segmentLength - travelled;
+    lengthSoFar += segmentLength;
   }
 
-  if (dabs.length === 0) {
-    dabs.push(makeDab(lastDabPoint, preset, 1));
+  if (dabs.length === 0 && !session) {
+    dabs.push(makeDab(lastDabPoint, preset, 1, baseArc + totalLength, rng));
+  }
+
+  if (session) {
+    session.spacingCarry = accumulated;
+    session.arcLength = baseArc + totalLength;
+    session.lastPoint = walk[walk.length - 1]!;
+    session.started = emitted;
   }
 
   return dabs;
@@ -301,38 +369,99 @@ export function generateDabs(points: StrokePoint[], preset: BrushPreset): BrushD
 
 /**
  * Mulberry32 — a fast, seedable 32-bit PRNG.
- * Gives deterministic jitter that is reproducible across stroke replays.
+ *
+ * Jitter state is stroke-local, never process-global: two strokes (or a
+ * worker job and a synchronous fallback for the same stroke) must not be able
+ * to advance each other's jitter sequence. `BrushRng` carries that state
+ * explicitly so dab generation stays deterministic under concurrency,
+ * cancellation and reordering.
  */
-let _rngState = 1;
+export interface BrushRng {
+  next(): number;
+  /** Current internal state — lets a caller checkpoint/restore a sequence. */
+  state(): number;
+}
 
-/** Seed the deterministic RNG. Each stroke calls this with a unique seed. */
+export function createBrushRng(seed: number): BrushRng {
+  let s = seed | 0;
+  if (s === 0) s = 1;
+  return {
+    next(): number {
+      s += 0x6d2b79f5;
+      let t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    },
+    state(): number {
+      return s;
+    },
+  };
+}
+
+/**
+ * Legacy process-global jitter stream.
+ *
+ * Retained so callers that generate a whole stroke in one shot keep working,
+ * but every incremental/worker path threads an explicit `BrushRng` instead.
+ */
+let _legacyRng: BrushRng = createBrushRng(1);
+
+/** Seed the legacy shared RNG. Prefer `createStrokeDabSession` for new code. */
 export function seedJitter(seed: number): void {
-  _rngState = seed | 0;
-  if (_rngState === 0) _rngState = 1;
+  _legacyRng = createBrushRng(seed);
 }
 
-function deterministicRandom(): number {
-  _rngState += 0x6d2b79f5;
-  let t = _rngState;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+/**
+ * Per-stroke dab generation state.
+ *
+ * Threading this through successive `generateDabs` calls is what makes
+ * incremental dispatch (`appendPoints`) produce the same dab stream as
+ * generating the whole stroke at once: the spacing accumulator, arc length and
+ * jitter sequence all continue across batch boundaries instead of restarting.
+ */
+export interface StrokeDabSession {
+  rng: BrushRng;
+  /** Distance already travelled since the last emitted dab. */
+  spacingCarry: number;
+  /** Total arc length consumed by the stroke so far. */
+  arcLength: number;
+  /** Last point processed, used to bridge the gap between batches. */
+  lastPoint: StrokePoint | null;
+  /** True once at least one dab has been emitted for this stroke. */
+  started: boolean;
 }
 
-function makeDab(point: StrokePoint, preset: BrushPreset, strokeT: number): BrushDab {
-  const sizeMod = evaluateDynamics(preset, point, 'size', strokeT);
-  const opacityMod = evaluateDynamics(preset, point, 'opacity', strokeT);
-  const flowMod = evaluateDynamics(preset, point, 'flow', strokeT);
-  const hardnessMod = evaluateDynamics(preset, point, 'hardness', strokeT);
-  const rotationMod = evaluateDynamics(preset, point, 'rotation', strokeT);
+export function createStrokeDabSession(seed: number): StrokeDabSession {
+  return {
+    rng: createBrushRng(seed),
+    spacingCarry: 0,
+    arcLength: 0,
+    lastPoint: null,
+    started: false,
+  };
+}
+
+function makeDab(
+  point: StrokePoint,
+  preset: BrushPreset,
+  strokeT: number,
+  strokeDistance: number,
+  rng: BrushRng,
+): BrushDab {
+  const sizeMod = evaluateDynamics(preset, point, 'size', strokeT, rng);
+  const opacityMod = evaluateDynamics(preset, point, 'opacity', strokeT, rng);
+  const flowMod = evaluateDynamics(preset, point, 'flow', strokeT, rng);
+  const hardnessMod = evaluateDynamics(preset, point, 'hardness', strokeT, rng);
+  const rotationMod = evaluateDynamics(preset, point, 'rotation', strokeT, rng);
 
   const sizeJitter =
-    preset.sizeJitter > 0 ? 1 + (deterministicRandom() * 2 - 1) * preset.sizeJitter : 1;
+    preset.sizeJitter > 0 ? 1 + (rng.next() * 2 - 1) * preset.sizeJitter : 1;
   const opacityJitter =
-    preset.opacityJitter > 0 ? 1 + (deterministicRandom() * 2 - 1) * preset.opacityJitter : 1;
+    preset.opacityJitter > 0 ? 1 + (rng.next() * 2 - 1) * preset.opacityJitter : 1;
   const rotationJitter =
     preset.rotationJitter > 0
-      ? (deterministicRandom() * 2 - 1) * preset.rotationJitter * Math.PI
+      ? (rng.next() * 2 - 1) * preset.rotationJitter * Math.PI
       : 0;
 
   const radius = Math.max(0.5, preset.radius * sizeMod * sizeJitter);
@@ -342,8 +471,8 @@ function makeDab(point: StrokePoint, preset: BrushPreset, strokeT: number): Brus
   const angle = preset.angle + rotationMod * Math.PI + rotationJitter;
 
   const positionJitter = preset.positionJitter * radius;
-  const jx = positionJitter > 0 ? (deterministicRandom() - 0.5) * positionJitter * 2 : 0;
-  const jy = positionJitter > 0 ? (deterministicRandom() - 0.5) * positionJitter * 2 : 0;
+  const jx = positionJitter > 0 ? (rng.next() - 0.5) * positionJitter * 2 : 0;
+  const jy = positionJitter > 0 ? (rng.next() - 0.5) * positionJitter * 2 : 0;
 
   return {
     x: point.x + jx,
@@ -355,6 +484,7 @@ function makeDab(point: StrokePoint, preset: BrushPreset, strokeT: number): Brus
     angle,
     roundness: preset.roundness,
     strokeT,
+    strokeDistance,
     shape: preset.shape,
     blendMode: preset.blendMode,
     grain: preset.grainId
@@ -375,11 +505,12 @@ function evaluateDynamics(
   point: StrokePoint,
   target: BrushDynamicsTarget,
   strokeT: number,
+  rng: BrushRng,
 ): number {
   let product = 1;
   for (const mapping of preset.dynamics) {
     if (mapping.target !== target) continue;
-    const inputValue = getInputValue(preset, point, mapping.input, strokeT);
+    const inputValue = getInputValue(preset, point, mapping.input, strokeT, rng);
     const curveValue = evaluateBezier(mapping.curve, inputValue);
     const mapped = mapping.min + (mapping.max - mapping.min) * curveValue;
     product *= mapped;
@@ -392,6 +523,7 @@ function getInputValue(
   point: StrokePoint,
   input: BrushDynamicsInput,
   strokeT: number,
+  rng: BrushRng,
 ): number {
   switch (input) {
     case 'pressure':
@@ -407,7 +539,7 @@ function getInputValue(
     case 'direction':
       return (point.direction + Math.PI) / (2 * Math.PI);
     case 'random':
-      return deterministicRandom();
+      return rng.next();
     case 'stroke':
       return Math.max(0, Math.min(1, strokeT));
     case 'custom':
