@@ -109,7 +109,7 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
     const canonicalPath = canonical.pathname;
     expect(
       canonicalPath.indexOf(routeSuffix) === canonicalPath.length - routeSuffix.length ||
-        (routeSuffix === '/' && canonicalPath === canonicalPath.replace(/\/+$/, '') + '/'),
+        (routeSuffix === '/' && canonicalPath === `${canonicalPath.replace(/\/+$/, '')}/`),
       `${route}: canonical path ends with visited route`,
     ).toBe(true);
 
@@ -190,7 +190,10 @@ test('sitemap.xml enumerates every real page and excludes 404/alias/demo routes'
       const s = p.replace(/\/+$/, '') || '/';
       if (r === '/') {
         const segments = s.split('/').filter(Boolean);
-        if (segments.length <= 1) { found = true; break; }
+        if (segments.length <= 1) {
+          found = true;
+          break;
+        }
       } else if (s.indexOf(r) === s.length - r.length) {
         found = true;
         break;

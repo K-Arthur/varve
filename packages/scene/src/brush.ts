@@ -8,8 +8,6 @@
  * libmypaint brush engine, and Pointer Events / stylus dynamics.
  */
 
-import type { Document } from './document';
-
 export type BrushShape = 'circle' | 'square' | 'texture' | 'custom';
 export type BrushDynamicsInput =
   | 'pressure'
@@ -942,7 +940,7 @@ export function migrateBrushPreset(preset: Record<string, unknown>): BrushPreset
 }
 
 export function getActivePreset(
-  doc: Document,
+  doc: { brushPresets?: Record<string, unknown> },
   presetId?: string,
   fallbackId?: string,
 ): BrushPreset {

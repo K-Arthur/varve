@@ -17,15 +17,15 @@ import {
   warpsOnNode,
   warpUnsupportedReason,
 } from '@varve/scene';
-import type { EditorState } from '../context/types';
 
 /**
  * Structural editor surface the warp actions need. Both EditorContextValue
  * declarations (context.tsx and context/types.ts) satisfy this — decoupling
- * the actions from the interface split.
+ * the actions from the interface split. Only the fields the actions read are
+ * required, so the actions stay free of a direct context/types import.
  */
 export interface WarpActionEditor {
-  state: EditorState;
+  state: { selection?: string[]; document: Document };
   updateDoc: (fn: (doc: Document) => Document) => void;
   beginTransaction: () => void;
   commitTransaction: () => void;

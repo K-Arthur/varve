@@ -130,20 +130,20 @@ export function MotionPathOverlay({
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!dragRef.current || !timeline || !state.viewport) return;
-      const vp = state.viewport;
-      const cam = { zoom: state.zoom, pan: state.pan, rotation: state.cameraRotation ?? 0 };
+      if (!dragRef.current || !timeline || !canvasSize.width) return;
+      const vp = canvasSize;
+      const cam = { zoom: state.zoom, pan: state.pan, cameraRotation: state.cameraRotation ?? 0 };
       const world = editorScreenToWorld(cam, e.clientX, e.clientY, vp);
       const track = timeline.tracks.find((t) => t.id === dragRef.current!.trackId);
       if (!track) return;
       const kf = track.keyframes[dragRef.current!.keyframeIndex];
       if (!kf) return;
-      const newProgress = Math.max(0, Math.min(1, world.x / Math.max(1, vp.width)));
+      const newProgress = Math.max(0, Math.min(1, world[0] / Math.max(1, vp.width)));
       if (Math.abs(newProgress - kf.progress) > 0.001) {
         editor.moveKeyframe(timeline.id, track.id, kf.progress, newProgress);
       }
     },
-    [timeline, state.viewport, state.zoom, state.pan, state.cameraRotation, editor],
+    [timeline, canvasSize, state.zoom, state.pan, state.cameraRotation, editor],
   );
 
   const handlePointerUp = useCallback(() => {

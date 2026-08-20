@@ -30,22 +30,14 @@ import type {
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MediaState } from '../state/media-state';
 import type { MotionState } from '../state/motion-state';
-import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
+import type { DraftShape, MaskPreviewMode, TableEditState, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import type { SelectionMode, SelectionOrigin } from './selectionState';
 
-/** Active table edit session (ADR-0016): cell selection + keyboard focus. */
-export interface TableEditState {
-  tableId: NodeId;
-  /** Selected cell ids (single cell or rectangular range). */
-  cellIds: string[];
-  /** Keyboard cursor cell (may be inside a span owner). */
-  activeCellId: string | null;
-  /** Cell with the inline text editor open. */
-  editingCellId: string | null;
-  /** Range anchor for shift-extended selections. */
-  anchorCellId: string | null;
-}
+/** Active table edit session (ADR-0016): cell selection + keyboard focus.
+ *  Defined in tools/types.ts (it is part of the ToolContext contract) and
+ *  re-exported here so editor-context consumers keep a single import site. */
+export type { TableEditState } from '../tools/types';
 
 export * from './selectionState';
 export type { MaskPreviewMode, ToolId };
