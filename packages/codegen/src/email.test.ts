@@ -234,6 +234,34 @@ describe('email output', () => {
     expect(compiled.content?.runs?.[1]?.link?.url).toBe('https://example.com/policy');
   });
 
+  it('reports overlapping text ranges before they can become ambiguous anchors', () => {
+    const diagnostics = runEmailPreflight(fixture(), {
+      nodes: {},
+      nodeLinks: {},
+      textRangeLinks: {
+        'text-1:0:8': {
+          nodeId: 'text-1',
+          startIndex: 0,
+          endIndex: 8,
+          link: { kind: 'web', url: 'https://example.com/first' },
+        },
+        'text-1:4:12': {
+          nodeId: 'text-1',
+          startIndex: 4,
+          endIndex: 12,
+          link: { kind: 'web', url: 'https://example.com/second' },
+        },
+      },
+      variables: [],
+      customHtmlBlocks: {},
+      assets: {},
+      diagnostics: [],
+    });
+    expect(
+      diagnostics.some((diagnostic) => diagnostic.code === 'OVERLAPPING_TEXT_RANGE_LINK'),
+    ).toBe(true);
+  });
+
   it('maps provider editable-region metadata through the compiler', () => {
     const node = compilerNode();
     const designIr = {

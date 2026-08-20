@@ -703,11 +703,18 @@ function NodeLinkEditor({ nodeId }: { nodeId: string }) {
 
 function TextRangeLinkEditor({ nodeId, text }: { nodeId: string; text: string }) {
   const editor = useEditor();
+  const ranges = Object.entries(editor.state.document.emailSemantics?.textRangeLinks ?? {})
+    .filter(([, range]) => range.nodeId === nodeId)
+    .sort(
+      ([, left], [, right]) => left.startIndex - right.startIndex || left.endIndex - right.endIndex,
+    );
   const [start, setStart] = useState(0);
   const [end, setEnd] = useState(Math.min(text.length, 1));
   const [url, setUrl] = useState('');
+  const [kind, setKind] = useState<EmailLinkKind>('web');
+  const validation = validateEmailUrl({ url, kind });
   const save = () => {
-    if (start < 0 || end <= start || end > text.length) return;
+    if (start < 0 || end <= start || end > text.length || !validation.valid) return;
     const key = `${nodeId}:${start}:${end}`;
     editor.updateDoc((doc) => ({
       ...doc,
@@ -723,11 +730,31 @@ function TextRangeLinkEditor({ nodeId, text }: { nodeId: string; text: string })
         }),
         textRangeLinks: {
           ...(doc.emailSemantics?.textRangeLinks ?? {}),
-          [key]: { nodeId, startIndex: start, endIndex: end, link: { url, kind: 'web' } },
+          [key]: { nodeId, startIndex: start, endIndex: end, link: { url, kind } },
         },
       },
     }));
   };
+  const remove = (key: string) =>
+    editor.updateDoc((doc) => {
+      const textRangeLinks = { ...(doc.emailSemantics?.textRangeLinks ?? {}) };
+      delete textRangeLinks[key];
+      return {
+        ...doc,
+        emailSemantics: {
+          ...(doc.emailSemantics ?? {
+            nodes: {},
+            nodeLinks: {},
+            textRangeLinks: {},
+            variables: [],
+            customHtmlBlocks: {},
+            assets: {},
+            diagnostics: [],
+          }),
+          textRangeLinks,
+        },
+      };
+    });
   return (
     <div className="email-panel__link">
       <h4>Text range link</h4>
@@ -746,10 +773,44 @@ function TextRangeLinkEditor({ nodeId, text }: { nodeId: string; text: string })
         value={end}
         onChange={(event) => setEnd(Number(event.target.value) || 1)}
       />
+      <Select
+        label="Type"
+        options={LINK_OPTIONS}
+        value={kind}
+        onChange={(value) => setKind(value as EmailLinkKind)}
+      />
       <Input label="URL" value={url} onChange={(event) => setUrl(event.target.value)} />
-      <Button size="sm" onClick={save}>
+      {url.trim() && !validation.valid && (
+        <p className="email-panel__link-status" role="alert">
+          Invalid link: {validation.reason}
+        </p>
+      )}
+      <Button
+        size="sm"
+        onClick={save}
+        disabled={!validation.valid || end <= start || end > text.length}
+      >
         Add range link
       </Button>
+      {ranges.length > 0 && (
+        <ul className="email-panel__text-range-links" aria-label="Text range links">
+          {ranges.map(([key, range]) => (
+            <li key={key}>
+              <span>
+                {range.startIndex}–{range.endIndex}: {range.link.url}
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => remove(key)}
+                aria-label={`Remove text range link ${range.startIndex}–${range.endIndex}`}
+              >
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

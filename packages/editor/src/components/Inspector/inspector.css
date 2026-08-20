@@ -3779,6 +3779,29 @@
 .email-panel__tracking summary {
   cursor: pointer;
 }
+.email-panel__text-range-links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.email-panel__text-range-links li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+.email-panel__text-range-links li > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .email-panel__preview-frame {
   display: flex;
   justify-content: center;
