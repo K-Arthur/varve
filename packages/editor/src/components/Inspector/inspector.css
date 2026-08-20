@@ -3043,6 +3043,22 @@
   opacity: 0.5;
 }
 
+/* Keep the padded stop-bar hit area inside a narrow inspector column. */
+.gradient-editor,
+.gradient-editor__bar-wrap,
+.gradient-editor__bar {
+  box-sizing: border-box;
+  min-width: 0;
+}
+.gradient-editor {
+  width: 100%;
+}
+.gradient-editor__bar-wrap,
+.gradient-editor__bar {
+  width: 100%;
+  max-width: 100%;
+}
+
 /* ─── DebtBadge (status bar debt count pill) ──────────── */
 .debt-badge {
   display: inline-flex;
