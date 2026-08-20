@@ -23,6 +23,7 @@
 import type { BrushDab, BrushPreset, StrokeEngineState, StrokePoint } from '@varve/scene';
 import { appendStrokePoints, beginStroke } from '@varve/scene';
 import type { BrushWorkerCommand, BrushWorkerResponse } from './brushWorker';
+import { getPaintProfiler } from './paintProfiler';
 
 export interface DabResult {
   dabs: BrushDab[];
@@ -174,6 +175,7 @@ export class BrushWorkerHost {
       resolveEnd: null,
     };
     this.strokes.set(this.key(strokeId, generation), stroke);
+    getPaintProfiler().strokeStarted();
     if (!syncOnly) {
       this.post({ type: 'beginStroke', strokeId, generation, preset, jitterSeed });
     }
@@ -211,6 +213,7 @@ export class BrushWorkerHost {
     if (!stroke) return;
     if (stroke.inFlightTimer) clearTimeout(stroke.inFlightTimer);
     this.strokes.delete(key);
+    getPaintProfiler().strokeCancelled();
     // Tell the worker to stop: rejecting a host promise reclaims no CPU.
     if (!stroke.syncOnly) this.post({ type: 'cancelStroke', strokeId, generation });
     const resolve = stroke.resolveEnd;
@@ -343,6 +346,7 @@ export class BrushWorkerHost {
     if (!stroke || stroke.inFlightSeq !== msg.seq) {
       // Superseded, cancelled, or already handled by the sync fallback.
       this.stats.staleResponsesDropped++;
+      getPaintProfiler().staleDropped();
       return;
     }
     if (stroke.inFlightTimer) clearTimeout(stroke.inFlightTimer);
@@ -381,6 +385,15 @@ export class BrushWorkerHost {
     source: 'worker' | 'sync',
   ): void {
     if (dabs.length === 0 && !final) return;
+    const profiler = getPaintProfiler();
+    if (profiler.enabled) {
+      profiler.batchProduced({
+        dabs: dabs.length,
+        source,
+        computeMs: source === 'worker' ? this.stats.lastWorkerComputeMs : undefined,
+        queueDelayMs: source === 'worker' ? this.stats.lastRoundTripMs : undefined,
+      });
+    }
     this.onBatch?.({
       strokeId: stroke.strokeId,
       generation: stroke.generation,
