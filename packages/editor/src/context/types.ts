@@ -1,4 +1,4 @@
-import type { Adjustment, BlendMode, PathPoint } from '@varve/engine';
+import type { Adjustment, AreaSelection, BlendMode, PathPoint } from '@varve/engine';
 import type { Platform } from '@varve/platform';
 import type { PrototypeData, PrototypeDebugConsole, PrototypeRuntime } from '@varve/prototype';
 import type {
@@ -306,6 +306,8 @@ export interface EditorState {
   /** Monotonic revision that increments on every selection change, enabling
    *  cheap change detection without deep-equal on the full selection array. */
   selectionRevision: number;
+  /** Ephemeral document-space pixel selection; never serialized into artwork. */
+  areaSelection?: AreaSelection | null;
   document: Document;
   sessions: SessionMeta[];
   activeId: string;
@@ -1354,6 +1356,8 @@ export interface EditorContextValue {
   enterQuickMask: () => void;
   exitQuickMask: (convertToMask?: boolean) => void;
   setQuickMaskCoverage: (coverage: Uint8Array, width: number, height: number) => void;
+  /** Replace the analytical pixel selection without dirtying the document. */
+  setAreaSelection?: (selection: AreaSelection | null) => void;
   paintQuickMask: (x: number, y: number, radius: number, value: number) => void;
   fillQuickMask: (value: number) => void;
   invertQuickMask: () => void;

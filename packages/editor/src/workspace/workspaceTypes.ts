@@ -394,6 +394,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'table' },
         { toolId: 'select', groupStart: true },
         { toolId: 'lasso' },
+        { toolId: 'marquee' },
         { toolId: 'hand' },
         { toolId: 'zoom' },
         { toolId: 'slice' },
@@ -566,6 +567,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       tools: [
         { toolId: 'select', groupStart: true },
         { toolId: 'lasso' },
+        { toolId: 'marquee' },
         { toolId: 'hand' },
         { toolId: 'zoom' },
         { toolId: 'crop', groupStart: true },

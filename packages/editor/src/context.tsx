@@ -77,6 +77,7 @@ import { getTransactionHooks } from '@varve/collab';
 import type {
   Adjustment,
   Affine,
+  AreaSelection,
   PathPoint,
   PixelArtAlgorithm,
   Shape,
@@ -2210,6 +2211,7 @@ export function EditorProvider({
       focusedNodeId: null,
       activeContainerId: null,
       selectionMode: 'object' as const,
+      areaSelection: null,
       selectionOrigin: 'api' as const,
       selectionRevision: 0,
       document: doc,
@@ -6669,6 +6671,19 @@ export function EditorProvider({
           ...s,
           quickMask: { ...s.quickMask, coverage, width, height },
         }));
+      },
+
+      setAreaSelection: (selection: AreaSelection | null) => {
+        setState((s) => {
+          const nextGeneration =
+            selection === null
+              ? (s.areaSelection?.generation ?? 0) + 1
+              : Math.max(selection.generation, (s.areaSelection?.generation ?? 0) + 1);
+          return {
+            ...s,
+            areaSelection: selection === null ? null : { ...selection, generation: nextGeneration },
+          };
+        });
       },
 
       setWarpEdit: (target) => {
