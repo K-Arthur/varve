@@ -37,6 +37,49 @@ function sketchZip(): Uint8Array {
 }
 
 describe('ImportService', () => {
+  it('registers Figma JSON in the service and reports parser-level degradation', async () => {
+    const json = JSON.stringify({
+      name: 'Figma service fixture',
+      document: {
+        type: 'DOCUMENT',
+        children: [
+          {
+            id: 'page:1',
+            type: 'CANVAS',
+            name: 'Page 1',
+            children: [
+              {
+                id: 'frame:1',
+                type: 'FRAME',
+                name: 'Card',
+                absoluteBoundingBox: { x: 0, y: 0, width: 100, height: 80 },
+                children: [],
+              },
+              {
+                id: 'boolean:1',
+                type: 'BOOLEAN_OPERATION',
+                name: 'Union',
+                booleanOperation: 'UNION',
+                children: [],
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const report = await ImportService.importFiles([
+      { name: 'design.fig.json', text: json, source: 'file-picker' },
+    ]);
+
+    expect(report.files[0]?.format).toBe('figma');
+    expect(report.files[0]?.status).toBe('partial');
+    expect(report.files[0]?.unsupportedFeatures.map((feature) => feature.feature)).toEqual(
+      expect.arrayContaining([expect.stringMatching(/Boolean operation/i)]),
+    );
+    expect(report.files[0]?.artifacts).toHaveLength(1);
+  });
+
   it('returns a typed report for successful imports and unsupported files', async () => {
     const svg = '<svg width="10" height="12"><rect x="0" y="0" width="10" height="12" /></svg>';
 
