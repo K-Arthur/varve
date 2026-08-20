@@ -566,10 +566,7 @@ describe('ColorPicker — draft sync on external value change', () => {
     expect(screen.getByRole('radio', { name: 'RGB' })).toHaveAttribute('aria-checked', 'true');
 
     rerender(
-      <ColorPicker
-        value={{ space: 'lab', l: 55, av: 20, b: 30, a: 255 }}
-        onChange={() => {}}
-      />,
+      <ColorPicker value={{ space: 'lab', l: 55, av: 20, b: 30, a: 255 }} onChange={() => {}} />,
     );
 
     expect(screen.getByRole('radio', { name: 'Lab' })).toHaveAttribute('aria-checked', 'true');

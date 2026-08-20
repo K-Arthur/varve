@@ -51,10 +51,7 @@ async function switchFillToGradient(page: import('@playwright/test').Page) {
 /**
  * Set the gradient interpolation space via the custom Select component.
  */
-async function setInterpolationSpace(
-  page: import('@playwright/test').Page,
-  label: string,
-) {
+async function setInterpolationSpace(page: import('@playwright/test').Page, label: string) {
   const interpSelect = page.getByRole('combobox', { name: /gradient interpolation space/i });
   await expect(interpSelect).toBeVisible({ timeout: 5000 });
   await interpSelect.click();
@@ -201,9 +198,7 @@ test.describe('SVG export interpolation fidelity', () => {
     await expect(gradientBar).toBeVisible({ timeout: 5000 });
 
     // The gradient bar CSS background should reflect the interpolation
-    const bgStyle = await gradientBar.evaluate((el) =>
-      getComputedStyle(el).backgroundImage,
-    );
+    const bgStyle = await gradientBar.evaluate((el) => getComputedStyle(el).backgroundImage);
     expect(bgStyle).toContain('linear-gradient');
 
     await page.screenshot({ path: 'test-results/gradient-svg-linear-export.png' });
