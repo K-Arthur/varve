@@ -78,6 +78,7 @@ import type {
   Adjustment,
   Affine,
   AreaSelection,
+  AreaSelectionSettings,
   PathPoint,
   PixelArtAlgorithm,
   Shape,
@@ -2227,6 +2228,16 @@ export function EditorProvider({
       activeContainerId: null,
       selectionMode: 'object' as const,
       areaSelection: null,
+      areaSelectionSettings: {
+        operation: 'replace',
+        style: 'normal',
+        ratio: 1,
+        fixedWidth: 100,
+        fixedHeight: 100,
+        fromCenter: false,
+        feather: 0,
+        antialias: true,
+      },
       selectionOrigin: 'api' as const,
       selectionRevision: 0,
       document: doc,
@@ -6697,6 +6708,35 @@ export function EditorProvider({
           return {
             ...s,
             areaSelection: selection === null ? null : { ...selection, generation: nextGeneration },
+          };
+        });
+      },
+
+      setAreaSelectionSettings: (patch: Partial<AreaSelectionSettings>) => {
+        setState((s) => {
+          const current = s.areaSelectionSettings;
+          return {
+            ...s,
+            areaSelectionSettings: {
+              ...current,
+              ...patch,
+              ratio:
+                Number.isFinite(patch.ratio) && (patch.ratio ?? 0) > 0
+                  ? patch.ratio!
+                  : current.ratio,
+              fixedWidth:
+                Number.isFinite(patch.fixedWidth) && (patch.fixedWidth ?? 0) >= 0
+                  ? patch.fixedWidth!
+                  : current.fixedWidth,
+              fixedHeight:
+                Number.isFinite(patch.fixedHeight) && (patch.fixedHeight ?? 0) >= 0
+                  ? patch.fixedHeight!
+                  : current.fixedHeight,
+              feather:
+                Number.isFinite(patch.feather) && (patch.feather ?? 0) >= 0
+                  ? patch.feather!
+                  : current.feather,
+            },
           };
         });
       },

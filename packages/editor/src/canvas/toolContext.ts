@@ -128,6 +128,8 @@ export function buildToolContext(
     setMaskPreviewMode: (mode) => e.setMaskPreviewMode(mode),
     areaSelection: s.areaSelection ?? null,
     setAreaSelection: (selection) => e.setAreaSelection?.(selection),
+    areaSelectionSettings: s.areaSelectionSettings,
+    setAreaSelectionSettings: (patch) => e.setAreaSelectionSettings(patch),
     snapEnabled: s.snapEnabled,
     snapGrid: s.snapGrid,
     isolatedNodeId: s.isolatedNodeId,

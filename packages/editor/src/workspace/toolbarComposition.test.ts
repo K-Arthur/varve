@@ -160,10 +160,15 @@ describe('composeToolbar — built-in workspace configs', () => {
   it('leads the Image toolbar with selection rather than drawing tools', () => {
     // The photo workspace declares selection tools first; the previous
     // hard-coded order led with line/text regardless of workspace intent.
-    expect(toolIds(getWorkspaceConfig('image').toolbar).slice(0, 3)).toEqual([
-      'select',
-      'lasso',
-      'marquee',
+    const slots = composeToolbar(getWorkspaceConfig('image').toolbar);
+    expect(slots.slice(0, 3)).toEqual([
+      expect.objectContaining({ kind: 'tool', toolId: 'select' }),
+      expect.objectContaining({ kind: 'tool', toolId: 'lasso' }),
+      expect.objectContaining({
+        kind: 'flyout',
+        id: 'pixel-selection',
+        tools: ['marquee', 'ellipseMarquee'],
+      }),
     ]);
   });
 });

@@ -399,6 +399,14 @@ export const TOOL_REGISTRY = [
     aliases: ['pixel selection', 'rectangle selection', 'area selection'],
   },
   {
+    id: 'ellipseMarquee',
+    label: 'Elliptical Marquee',
+    icon: 'CircleDashed',
+    category: 'selection',
+    kind: 'tool',
+    aliases: ['ellipse selection', 'circle selection', 'area selection'],
+  },
+  {
     id: 'table',
     label: 'Table',
     icon: 'Table',

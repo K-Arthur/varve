@@ -74,6 +74,7 @@ export function getToolManager(): ToolManager {
     toolManager.register('sam2Segment', () => new Sam2SegmentationTool());
     toolManager.register('lasso', () => new LassoTool());
     toolManager.register('marquee', () => new MarqueeTool());
+    toolManager.register('ellipseMarquee', () => new MarqueeTool('ellipse'));
     toolManager.register('table', () => new TableTool());
     toolManager.register('warp', () => new WarpTool());
   }

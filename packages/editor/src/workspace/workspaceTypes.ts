@@ -395,6 +395,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'select', groupStart: true },
         { toolId: 'lasso' },
         { toolId: 'marquee' },
+        { toolId: 'ellipseMarquee' },
         { toolId: 'hand' },
         { toolId: 'zoom' },
         { toolId: 'slice' },
@@ -497,6 +498,11 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       ],
       flyouts: [
         {
+          id: 'pixel-selection',
+          label: 'Pixel selection',
+          tools: ['marquee', 'ellipseMarquee'],
+        },
+        {
           id: 'retouch',
           label: 'Retouch',
           tools: ['cloneStamp', 'healBrush', 'spotHeal', 'patch'],
@@ -568,6 +574,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'select', groupStart: true },
         { toolId: 'lasso' },
         { toolId: 'marquee' },
+        { toolId: 'ellipseMarquee' },
         { toolId: 'hand' },
         { toolId: 'zoom' },
         { toolId: 'crop', groupStart: true },
@@ -593,6 +600,11 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'ellipse' },
       ],
       flyouts: [
+        {
+          id: 'pixel-selection',
+          label: 'Pixel selection',
+          tools: ['marquee', 'ellipseMarquee'],
+        },
         {
           id: 'retouch',
           label: 'Retouch',
