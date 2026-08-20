@@ -22,12 +22,24 @@ Varve Scene (Document)
     - Semantic kind resolution
     - Link/image/asset compilation
     - Compatibility classification
+    - Style translation via the compatibility database
+        |
+        v
+  Compatibility database (email-compat.ts)
+    - Per-profile CSS support, fallbacks, and rationale
+    - Web-safe font stacks
         |
         v
   Email IR (email-ir-types.ts)
     - EmailIrNode tree
     - EmailDocumentIr
-    - Compatibility classifications
+    - Compatibility classifications + degraded declarations
+        |
+        v
+  Layout pass (email-layout.ts)
+    - Bands side-by-side geometry into rows and columns
+    - Resolves column widths and reading order
+    - Reports overlap email cannot layer
         |
         v
   Email HTML Emitter (email-html.ts)
@@ -157,6 +169,8 @@ block.
 |------|---------|
 | `packages/codegen/src/email-ir-types.ts` | Email IR type definitions |
 | `packages/codegen/src/email-compiler.ts` | Scene → Email IR compiler |
+| `packages/codegen/src/email-compat.ts` | Per-profile CSS support table, fallbacks, font stacks |
+| `packages/codegen/src/email-layout.ts` | Row/column inference from geometry, overlap reporting |
 | `packages/codegen/src/email-html.ts` | Email IR → HTML emitter |
 | `packages/codegen/src/email-css.ts` | Conservative simple-selector CSS inliner |
 | `packages/codegen/src/email-security.ts` | URL, HTML, CSS, and provider-attribute safety |
@@ -170,12 +184,15 @@ block.
 | `packages/editor/src/actions/createActionHandlers.ts` | workspaceEmail handler |
 | `packages/editor/src/menu/defs.ts` | View > Workspace > Email |
 | `packages/editor/src/Menubar.tsx` | Email workspace menu entry |
+| `packages/editor/src/components/Inspector/panels/EmailPreflightPanel.tsx` | Grouped, severity-ranked preflight results |
+| `packages/editor/src/components/Inspector/panels/EmailNodeCompatibility.tsx` | Per-object compilation readout |
 
 ### Tests
 | File | Purpose |
 |------|---------|
 | `tests/e2e/email/visual.spec.ts` | Playwright visual verification |
 | `packages/codegen/src/email.test.ts` | URL, HTML sanitization, plain text, and preflight invariants |
+| `packages/codegen/src/email-layout.test.ts` | Row inference, column widths, reading order, overlap, profile reporting |
 
 ## Schema Migration
 
@@ -230,6 +247,11 @@ identifies package-relative assets for an explicit hosting step.
 
 The repaired compiler now covers the highest-risk baseline cases:
 
+- side-by-side design geometry is banded into rows and columns automatically,
+  so a two-column layout survives without the designer hand-tagging every
+  container; author-tagged rows still win over inferred ones;
+- column widths are split in proportion to the design and always sum to the row,
+  and columns stack on mobile by default;
 - normal Varve flex rows compile to desktop table cells with mobile stacking;
 - live text remains live, including text-range links without rich-text runs;
 - linked containers are retained when they do not contain another link;
@@ -243,10 +265,24 @@ line numbers, find/replace, and source-range selection. Custom HTML and CSS use
 the same controlled editor and remain preserved source blocks; they are never
 silently overwritten by design recompilation. The compiler produces deterministic
 HTML source maps and inlines simple safe selectors while retaining media-query
-rules. Detached HTML ownership, a versioned compatibility database,
-imported-HTML round tripping, and exact Gmail/Outlook render verification remain
-future work. The browser preview is labelled as a browser preview rather than
-client proof.
+rules.
+
+Compatibility decisions live in one table (`email-compat.ts`) rather than in
+scattered profile checks. Every declaration the compiler emits is judged against
+it, and anything dropped or substituted is recorded on the node, reported by
+preflight with its reason, and shown against the selected object in the
+inspector. Effects with no email equivalent — rotation, blend modes, shadows,
+blur — are declared precisely so they can be reported rather than vanishing
+silently.
+
+Preflight findings and emission warnings share one grouped panel, ranked by
+severity within and across categories, with severity named in words as well as
+colour.
+
+Detached HTML ownership, imported-HTML round tripping, and exact
+Gmail/Outlook render verification remain future work. The browser preview is
+labelled as a browser preview rather than client proof; nothing in Varve
+verifies how a specific mail client renders a message.
 
 ## Testing
 
@@ -259,6 +295,9 @@ client proof.
 - `email/visual.spec.ts`: Playwright visual regression for email workspace
 - `packages/codegen/src/email.test.ts`: security, output, plain text, and preflight invariants
 - `packages/editor/src/components/Inspector/panels/EmailCodeEditor.test.tsx`: code editing, replacement, read-only ownership, and source-range selection
+- `packages/codegen/src/email-layout.test.ts`: row inference, proportional column widths, reading order, mobile stacking, overlap severity, and profile font behaviour, all driven through `compileEmail` from real geometry
+- `packages/editor/src/components/Inspector/panels/EmailPreflightPanel.test.tsx`: severity ranking, counts, navigation, and stale-node handling
+- `packages/editor/src/components/Inspector/panels/EmailNodeCompatibility.test.tsx`: classification readout, column description, and degraded-style explanations
 
 ### Type Safety
 - All new types are fully typed (no `any`)

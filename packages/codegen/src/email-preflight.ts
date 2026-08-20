@@ -178,7 +178,8 @@ function reportDegradedStyles(
     diagnostics.push({
       severity: 'warning',
       code: 'UNSUPPORTED_CSS_DROPPED',
-      message: `"${node.name}": ${listProperties(dropped)} cannot be represented in email and ${dropped.length === 1 ? 'was' : 'were'} dropped. ${firstNote(dropped)}`.trim(),
+      message:
+        `"${node.name}": ${listProperties(dropped)} cannot be represented in email and ${dropped.length === 1 ? 'was' : 'were'} dropped. ${firstNote(dropped)}`.trim(),
       sourceNodeId: node.sourceNodeId,
       category: 'css',
       profile,
@@ -191,7 +192,8 @@ function reportDegradedStyles(
     diagnostics.push({
       severity: 'info',
       code: 'CSS_FALLBACK_APPLIED',
-      message: `"${node.name}": ${listProperties(substituted)} ${substituted.length === 1 ? 'uses' : 'use'} a fallback in the ${profile} profile. ${firstNote(substituted)}`.trim(),
+      message:
+        `"${node.name}": ${listProperties(substituted)} ${substituted.length === 1 ? 'uses' : 'use'} a fallback in the ${profile} profile. ${firstNote(substituted)}`.trim(),
       sourceNodeId: node.sourceNodeId,
       category: 'css',
       profile,
