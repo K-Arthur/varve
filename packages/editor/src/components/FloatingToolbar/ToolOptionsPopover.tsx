@@ -3,6 +3,11 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import './ToolOptionsPopover.css';
 
+const BrushLibraryPanel = lazy(() =>
+  import('../BrushBrowser/BrushLibraryPanel').then((module) => ({
+    default: module.BrushLibraryPanel,
+  })),
+);
 const BrushSection = lazy(() =>
   import('../Inspector/sections/BrushSection').then((module) => ({
     default: module.BrushSection,
@@ -107,10 +112,15 @@ export function ToolOptionsPopover() {
             }
           >
             {BRUSH_TOOLS.has(state.tool) && (
-              <BrushSection
-                tool={state.tool as 'paint' | 'eraser' | 'pencil' | 'smudge'}
-                sectionId="brush-settings"
-              />
+              <>
+                <BrushSection
+                  tool={state.tool as 'paint' | 'eraser' | 'pencil' | 'smudge'}
+                  sectionId="brush-settings"
+                />
+                {/* The pencil draws vector strokes, so raster brush presets
+                    have nothing to apply to. */}
+                {state.tool !== 'pencil' && <BrushLibraryPanel />}
+              </>
             )}
             {state.tool === 'frame' && (
               <FramePresetsSection mode="create" sectionId="frame-presets" />
