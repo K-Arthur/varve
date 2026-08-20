@@ -82,10 +82,10 @@ export const EMAIL_CSS_RULES: readonly EmailCssRule[] = [
   },
   {
     property: 'opacity',
-    support: support('fallback', 'fallback'),
+    support: support('fallback', 'native'),
     fallback: () => ({}),
     severity: 'warning',
-    note: 'Partial opacity is ignored by Outlook; composite the colour instead.',
+    note: 'Outlook ignores partial opacity; composite the colour into the fill instead.',
   },
   {
     property: 'display',

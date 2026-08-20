@@ -520,6 +520,27 @@ function compileStyles(
     styles.opacity = String(appearance.opacity);
   }
 
+  // Declare the effects the design asks for even though no profile can render
+  // them. The compatibility table drops them from the output, but only because
+  // they were declared does preflight get to tell the designer that their
+  // rotation or blur is gone rather than letting them find out in an inbox.
+  if (appearance.transform.rotate !== 0) {
+    styles.transform = `rotate(${round(appearance.transform.rotate)}deg)`;
+  }
+  if (appearance.blendMode !== 'normal') {
+    styles['mix-blend-mode'] = appearance.blendMode;
+  }
+  if (appearance.effects.some((effect) => effect.type === 'drop-shadow')) {
+    styles['box-shadow'] = '0 2px 4px rgba(0, 0, 0, 0.15)';
+  }
+  if (
+    appearance.effects.some(
+      (effect) => effect.type === 'layer-blur' || effect.type === 'background-blur',
+    )
+  ) {
+    styles.filter = 'blur(4px)';
+  }
+
   // Display for layout
   if (layout.mode === 'flex' && settings.compatibilityProfile !== 'conservative') {
     styles.display = 'flex';
