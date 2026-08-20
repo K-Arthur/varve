@@ -1,3 +1,4 @@
+import type { AreaSelection } from '@varve/engine';
 import type { BrushPreset, RasterLayerNode } from '@varve/scene';
 import {
   compositeDabOnNode,
@@ -12,6 +13,7 @@ import { BrushWorkerHost } from '../render/brushWorkerHost';
 import { BaseTool } from './BaseTool';
 import { collectSourceEvents } from './inputNormalizer';
 import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
+import { selectionCoverageForDab } from './selectionCoverage';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 export class PaintTool extends BaseTool {
@@ -29,6 +31,7 @@ export class PaintTool extends BaseTool {
   private alphaLock = false;
   private pendingWorkerJobs = 0;
   private workerStrokeEnding = false;
+  private strokeAreaSelection: AreaSelection | null = null;
 
   /** Called when the brush settings change (e.g., from keyboard shortcut).
    *  Editor sets this to update the editor state. */
@@ -167,6 +170,7 @@ export class PaintTool extends BaseTool {
       return { consumed: false };
     }
     this.rasterNodeId = rasterNodeId;
+    this.strokeAreaSelection = ctx.areaSelection ?? null;
     this.strokeGeneration++;
     this.workerStrokeEnding = false;
 
@@ -324,10 +328,16 @@ export class PaintTool extends BaseTool {
           const raster = node as RasterLayerNode;
           let updated = raster;
           for (const dab of dabs) {
+            const coverage = selectionCoverageForDab(
+              ctx,
+              rasterNodeId,
+              dab,
+              this.strokeAreaSelection,
+            );
             if (this.eraserMode) {
-              updated = eraseDabOnNode(updated, dab);
+              updated = eraseDabOnNode(updated, dab, { coverage });
             } else {
-              updated = compositeDabOnNode(updated, dab, color, false);
+              updated = compositeDabOnNode(updated, dab, color, { coverage });
             }
           }
           return updated;
@@ -362,10 +372,14 @@ export class PaintTool extends BaseTool {
       const raster = node as RasterLayerNode;
       let updated = raster;
       for (const dab of dabs) {
+        const coverage = selectionCoverageForDab(ctx, rasterNodeId, dab, this.strokeAreaSelection);
         if (this.eraserMode) {
-          updated = eraseDabOnNode(updated, dab);
+          updated = eraseDabOnNode(updated, dab, { coverage });
         } else {
-          updated = compositeDabOnNode(updated, dab, color, this.alphaLock);
+          updated = compositeDabOnNode(updated, dab, color, {
+            alphaLock: this.alphaLock,
+            coverage,
+          });
         }
       }
       return updated;
@@ -430,6 +444,7 @@ export class PaintTool extends BaseTool {
     this.lastSmoothedPoint = null;
     this.rasterNodeId = null;
     this.ownsLayer = false;
+    this.strokeAreaSelection = null;
     this.workerStrokeEnding = false;
   }
 }
