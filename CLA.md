@@ -1,6 +1,6 @@
 # Contributor Licence Agreement — Varve
 
-**Strata (now Varve) is not yet accepting external contributions.** This document
+**Varve is not yet accepting external contributions.** This document
 describes the CLA process we intend to use once the project opens to
 outside contributors, so the plan is transparent in advance. Do not sign
 anything yet — see [ICLA.md](ICLA.md) and [CCLA.md](CCLA.md), which are
@@ -12,7 +12,7 @@ Agreement (CLA), what rights you grant, and what rights you retain.
 
 ## Why a CLA?
 
-Strata (now Varve) is licensed under the **Functional Source License, Version 1.1, MIT
+Varve is licensed under the **Functional Source License, Version 1.1, MIT
 Future License (FSL-1.1-MIT)** — a source-available licence that permits
 free use for internal operations, personal projects, and plugin development,
 but restricts competing commercial redistribution and hosted-service

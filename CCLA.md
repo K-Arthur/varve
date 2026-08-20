@@ -2,7 +2,7 @@
 
 **DRAFT — FOR LEGAL REVIEW. NOT YET IN EFFECT.**
 
-**Project:** Varve (formerly Strata) (https://github.com/K-Arthur/varve)  
+**Project:** Varve (https://github.com/K-Arthur/varve)  
 **Project Owner:** K-Arthur  
 **Agreement Version:** 1.0-draft  
 **Effective Date:** [Date of acceptance]
@@ -51,7 +51,7 @@ submits a Contribution to the Varve project.
 **"Project Owner"** means K-Arthur, the individual maintaining the Varve
 project repository.
 
-**"Strata Project"** means the Strata design application software and any
+**"Varve Project"** means the Varve design application software and any
 related documentation, including all versions and editions, whether
 current or future, and whether distributed under the Functional Source
 License, Version 1.1, MIT Future License (FSL-1.1-MIT), the MIT License,

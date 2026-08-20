@@ -1,6 +1,6 @@
 # Varve Editions
 
-Strata (now Varve) is developed as a community-first application with a sustainable
+Varve is developed as a community-first application with a sustainable
 funding model.
 
 ## Varve Community Edition (free)
