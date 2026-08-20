@@ -14,6 +14,8 @@
  *   phrase shown.
  * - No heading-level changes: this is always a span inside an existing
  *   heading.
+ * - Lazy init: defers measurement until the host is actually visible, so the
+ *   rotor can live inside a variant that starts hidden (display:none).
  */
 const DEFAULT_PHRASES = [
   'One canvas.',
@@ -50,32 +52,52 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
     const items = [...host.querySelectorAll<HTMLElement>('.hero-phrase-item')];
     const staticEl = host.querySelector<HTMLElement>('.hero-phrase-static');
     if (items.length > 1 && staticEl) {
-      // Reserve the widest phrase so rotation never shifts the layout.
-      // The probe lives inside the host so it inherits the heading's font,
-      // size and letter-spacing — measuring it against the body font would
-      // under-reserve the box by a factor of three.
-      const probe = document.createElement('span');
-      probe.className = 'hero-phrase-probe';
-      probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;';
-      host.appendChild(probe);
-      let widest = staticEl.getBoundingClientRect().width;
-      for (const item of items) {
-        probe.textContent = item.textContent ?? '';
-        widest = Math.max(widest, probe.getBoundingClientRect().width);
-      }
-      probe.remove();
-      host.style.minWidth = `${Math.ceil(widest)}px`;
-      host.classList.add('is-rotating');
+      // The rotor may live inside a variant that starts hidden (display:none),
+      // in which case measuring now would reserve a zero-width box. Defer the
+      // one-time setup until the host is actually painted, then start once.
+      const start = (): void => {
+        // Reserve the widest phrase so rotation never shifts the layout.
+        // The probe lives inside the host so it inherits the heading's font,
+        // size and letter-spacing — measuring it against the body font would
+        // under-reserve the box by a factor of three.
+        const probe = document.createElement('span');
+        probe.className = 'hero-phrase-probe';
+        probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;';
+        host.appendChild(probe);
+        let widest = staticEl.getBoundingClientRect().width;
+        for (const item of items) {
+          probe.textContent = item.textContent ?? '';
+          widest = Math.max(widest, probe.getBoundingClientRect().width);
+        }
+        probe.remove();
+        host.style.minWidth = `${Math.ceil(widest)}px`;
+        host.classList.add('is-rotating');
 
-      let index = 0;
-      items[0]?.classList.add('is-active');
-      const timer = window.setInterval(() => {
-        items[index]?.classList.remove('is-active');
-        index = (index + 1) % items.length;
-        items[index]?.classList.add('is-active');
-      }, 3400);
-      // The component owns one timer; nothing else animates this line.
-      (host as HTMLElement & { __varvePhraseTimer?: number }).__varvePhraseTimer = timer;
+        let index = 0;
+        items[0]?.classList.add('is-active');
+        const timer = window.setInterval(() => {
+          items[index]?.classList.remove('is-active');
+          index = (index + 1) % items.length;
+          items[index]?.classList.add('is-active');
+        }, 3400);
+        // The component owns one timer; nothing else animates this line.
+        (host as HTMLElement & { __varvePhraseTimer?: number }).__varvePhraseTimer = timer;
+      };
+
+      // If the host is already visible (its parent is not display:none),
+      // start immediately. Otherwise poll via rAF until it appears.
+      if (host.offsetParent !== null) {
+        start();
+      } else {
+        const wait = (): void => {
+          if (host.offsetParent !== null) {
+            start();
+          } else {
+            requestAnimationFrame(wait);
+          }
+        };
+        requestAnimationFrame(wait);
+      }
     }
   }
 </script>
