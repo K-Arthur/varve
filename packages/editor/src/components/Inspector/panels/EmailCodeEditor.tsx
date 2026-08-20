@@ -12,6 +12,7 @@ interface EmailCodeEditorProps {
   label: string;
   readOnly?: boolean;
   minRows?: number;
+  sourceRange?: { startOffset: number; endOffset: number };
 }
 
 export function EmailCodeEditor({
@@ -21,6 +22,7 @@ export function EmailCodeEditor({
   label,
   readOnly = false,
   minRows = 8,
+  sourceRange,
 }: EmailCodeEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
@@ -40,6 +42,16 @@ export function EmailCodeEditor({
     if (!searchOpen && !replaceOpen) return;
     textareaRef.current?.focus();
   }, [replaceOpen, searchOpen]);
+
+  useEffect(() => {
+    if (!readOnly || !sourceRange || !textareaRef.current) return;
+    const textarea = textareaRef.current;
+    const start = Math.max(0, Math.min(sourceRange.startOffset, value.length));
+    const end = Math.max(start, Math.min(sourceRange.endOffset, value.length));
+    textarea.focus();
+    textarea.setSelectionRange(start, end);
+    textarea.scrollTop = Math.max(0, (value.slice(0, start).split('\n').length - 2) * 18);
+  }, [readOnly, sourceRange, value]);
 
   const syncScroll = () => {
     const textarea = textareaRef.current;

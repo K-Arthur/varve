@@ -48,4 +48,21 @@ describe('EmailCodeEditor', () => {
     );
     expect(screen.queryByRole('button', { name: 'Replace' })).toBeNull();
   });
+
+  it('selects a mapped generated range in read-only mode', () => {
+    render(
+      <EmailCodeEditor
+        label="Generated email HTML"
+        language="markup"
+        value={'<p>Mapped</p>\n<p>Other</p>'}
+        readOnly
+        sourceRange={{ startOffset: 0, endOffset: 13 }}
+      />,
+    );
+    const editor = screen.getByRole('textbox', { name: 'Generated email HTML' });
+    expect(editor).toHaveValue('<p>Mapped</p>\n<p>Other</p>');
+    expect(editor).toHaveAttribute('readonly');
+    expect((editor as HTMLTextAreaElement).selectionStart).toBe(0);
+    expect((editor as HTMLTextAreaElement).selectionEnd).toBe(13);
+  });
 });
