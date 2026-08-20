@@ -3760,6 +3760,25 @@
   font-size: var(--font-size-xs);
   line-height: 1.4;
 }
+.email-panel__link-status {
+  margin: 0;
+  color: var(--color-feedback-danger);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.email-panel__link-status--valid {
+  color: var(--color-feedback-success);
+}
+.email-panel__tracking {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+.email-panel__tracking summary {
+  cursor: pointer;
+}
 .email-panel__preview-frame {
   display: flex;
   justify-content: center;

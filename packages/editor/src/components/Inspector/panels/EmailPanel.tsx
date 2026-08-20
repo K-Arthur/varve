@@ -1,9 +1,11 @@
 import {
+  appendTrackingParams,
   compileEmail,
   type EmailHtmlExportResult,
   type EmailIrAsset,
   emitEmailHtml,
   sceneToIR,
+  validateEmailUrl,
 } from '@varve/codegen';
 import {
   DEFAULT_EMAIL_PROFILE,
@@ -11,9 +13,10 @@ import {
   type EmailLinkKind,
   type EmailProfile,
   type EmailSemanticKind,
+  type EmailTrackingParams,
 } from '@varve/scene';
 import { Button, CopyButton, Input, Select, TextArea } from '@varve/ui';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { createBufferedExportArchive, saveExportBytes } from '../../../exportSaveAdapter';
 import { EmailCodeEditor } from './EmailCodeEditor';
@@ -551,7 +554,24 @@ function NodeLinkEditor({ nodeId }: { nodeId: string }) {
   const link = editor.state.document.emailSemantics?.nodeLinks?.[nodeId];
   const [url, setUrl] = useState(link?.url ?? '');
   const [kind, setKind] = useState<EmailLinkKind>(link?.kind ?? 'web');
-  const save = () =>
+  const [tracking, setTracking] = useState<EmailTrackingParams>(link?.tracking ?? {});
+  const validation = validateEmailUrl({ url, kind });
+  const trackedUrl = validation.valid ? appendTrackingParams(validation.value, tracking) : '';
+
+  useEffect(() => {
+    setUrl(link?.url ?? '');
+    setKind(link?.kind ?? 'web');
+    setTracking(link?.tracking ?? {});
+  }, [link, nodeId]);
+
+  const updateTracking = (patch: Partial<EmailTrackingParams>) =>
+    setTracking((current) => ({ ...current, ...patch }));
+
+  const save = () => {
+    if (!validation.valid) return;
+    const cleanTracking = Object.fromEntries(
+      Object.entries(tracking).filter(([, value]) => value?.trim()),
+    ) as EmailTrackingParams;
     editor.updateDoc((doc) => ({
       ...doc,
       emailSemantics: {
@@ -564,9 +584,13 @@ function NodeLinkEditor({ nodeId }: { nodeId: string }) {
           assets: {},
           diagnostics: [],
         }),
-        nodeLinks: { ...(doc.emailSemantics?.nodeLinks ?? {}), [nodeId]: { url, kind } },
+        nodeLinks: {
+          ...(doc.emailSemantics?.nodeLinks ?? {}),
+          [nodeId]: { url, kind, tracking: cleanTracking },
+        },
       },
     }));
+  };
   const remove = () =>
     editor.updateDoc((doc) => {
       const nodeLinks = { ...(doc.emailSemantics?.nodeLinks ?? {}) };
@@ -587,6 +611,9 @@ function NodeLinkEditor({ nodeId }: { nodeId: string }) {
         },
       };
     });
+  const openLink = () => {
+    if (trackedUrl) window.open(trackedUrl, '_blank', 'noopener,noreferrer');
+  };
   return (
     <div className="email-panel__link">
       <h4>Link</h4>
@@ -602,10 +629,54 @@ function NodeLinkEditor({ nodeId }: { nodeId: string }) {
         placeholder="https://example.com"
         onChange={(event) => setUrl(event.target.value)}
       />
+      {url.trim() && !validation.valid && (
+        <p className="email-panel__link-status" role="alert">
+          Invalid link: {validation.reason}
+        </p>
+      )}
+      {validation.valid && (
+        <p className="email-panel__link-status email-panel__link-status--valid" role="status">
+          Valid target: {trackedUrl}
+        </p>
+      )}
+      <details className="email-panel__tracking">
+        <summary>Optional tracking parameters</summary>
+        <Input
+          label="Source"
+          value={tracking.source ?? ''}
+          onChange={(event) => updateTracking({ source: event.target.value })}
+        />
+        <Input
+          label="Medium"
+          value={tracking.medium ?? ''}
+          onChange={(event) => updateTracking({ medium: event.target.value })}
+        />
+        <Input
+          label="Campaign"
+          value={tracking.campaign ?? ''}
+          onChange={(event) => updateTracking({ campaign: event.target.value })}
+        />
+        <Input
+          label="Content"
+          value={tracking.content ?? ''}
+          onChange={(event) => updateTracking({ content: event.target.value })}
+        />
+        <Input
+          label="Term"
+          value={tracking.term ?? ''}
+          onChange={(event) => updateTracking({ term: event.target.value })}
+        />
+      </details>
       <div>
-        <Button size="sm" onClick={save}>
+        <Button size="sm" onClick={save} disabled={!validation.valid}>
           Save link
         </Button>
+        {trackedUrl && <CopyButton value={trackedUrl} label="Copy email link" />}
+        {trackedUrl && (
+          <Button size="sm" variant="secondary" onClick={openLink}>
+            Test link
+          </Button>
+        )}
         {link && (
           <Button size="sm" variant="secondary" onClick={remove}>
             Remove
