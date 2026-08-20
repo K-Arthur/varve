@@ -285,6 +285,37 @@ describe('paint fixtures', () => {
       save('10-smudge-transport', toRgba(node));
     }
 
+    // Smudge dispatched in many small batches, dragged *within* painted area.
+    // Pure smudge deliberately will not deposit into transparency, so the
+    // meaningful test is whether the smear stays smooth across batch
+    // boundaries rather than blotching where spacing would have restarted.
+    {
+      let node = blank();
+      const bandPreset = base({ hardness: 1, radius: 46 });
+      for (let x = 20; x <= 300; x += 8) {
+        for (const dab of dabsFor(bandPreset, [strokePoint(x, 80), strokePoint(x, 80)])) {
+          node = compositeDabOnNode(node, dab, x < 160 ? RED : BLUE);
+        }
+      }
+      const options = {
+        mode: 'pure',
+        strength: 0.85,
+        pickup: 0.35,
+        foreground: [0, 200, 0, 255],
+      };
+      const state = createSmudgeState(options);
+      const preset = base({ hardness: 0.7, radius: 14, spacing: 0.12, smoothing: 0 });
+      const engine = beginStroke('smudge', 0, preset, 7);
+      // Two samples at a time, the way pointer events actually arrive.
+      for (let x = 60; x <= 300; x += 6) {
+        const batch = appendStrokePoints(engine, [strokePoint(x, 80), strokePoint(x + 3, 80)]);
+        for (const dab of batch.dabs) {
+          node = compositeSmudgeDab(node, dab, state, options);
+        }
+      }
+      save('15-smudge-batched', toRgba(node));
+    }
+
     // Finger paint on an empty canvas: foreground pigment must appear.
     {
       let node = blank();
