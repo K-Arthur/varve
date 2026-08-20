@@ -11,17 +11,17 @@ import {
 import type { NodeId } from '@varve/scene';
 import { screenToWorld } from '@varve/shared';
 import { type ReactNode, useCallback, useRef, useState } from 'react';
-import { useEditor } from '../../context';
+import type { EditorContextValue } from '../../context';
 import type { DragNodeData } from '../../dnd-types';
 import type { LayersDnDHandle } from '../LayersPanel/LayersTree';
 
 export interface DnDShellProps {
   children: ReactNode;
+  editor: EditorContextValue;
   layersDndRef: React.RefObject<LayersDnDHandle | null>;
 }
 
-export function DnDShell({ children, layersDndRef }: DnDShellProps) {
-  const editor = useEditor();
+export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const lastPointerPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [activeDragNode, setActiveDragNode] = useState<{ id: NodeId; name: string } | null>(null);
