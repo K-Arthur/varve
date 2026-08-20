@@ -46,6 +46,25 @@ export {
 export type { AlphaContour, ContourOptions, ContourShapeNodeData } from './alphaContour';
 export { alphaContoursToShapeNodes, extractAlphaContours } from './alphaContour';
 export type {
+  AlphaMask,
+  AreaSelection,
+  AreaSelectionExpression,
+  AreaSelectionOperation,
+  AreaSelectionShape,
+  EllipseSelectionShape,
+  PolygonSelectionShape,
+  RasterizeAreaSelectionOptions,
+  RectangleSelectionShape,
+  SelectionPoint,
+} from './areaSelection';
+export {
+  areaSelectionBounds,
+  areaSelectionCoverageAt,
+  combineAreaSelections,
+  createAreaSelection,
+  rasterizeAreaSelection,
+} from './areaSelection';
+export type {
   BackgroundRemovalOptions,
   BackgroundRemovalResult,
   EnvironmentCapabilities,
