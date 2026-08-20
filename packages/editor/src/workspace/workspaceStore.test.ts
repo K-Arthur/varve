@@ -22,6 +22,7 @@ import {
   subscribeWorkspacePreferences,
   updateWorkspacePreferences,
 } from './workspaceStore';
+import { WORKSPACE_CONFIGS } from './workspaceTypes';
 
 const STORAGE_KEY = 'varve-workspace-preferences';
 const LEGACY_STORAGE_KEY = 'strata-workspace-preferences';
@@ -185,6 +186,31 @@ describe('workspaceStore — effective configuration', () => {
   it('does not persist redundant visibility overrides', () => {
     const prefs = setToolbarToolOverride(getWorkspacePreferences(), 'design', 'booleanUnion', true);
     expect(prefs.design.toolbarToolOverrides?.booleanUnion).toBeUndefined();
+  });
+
+  it('inherits a newly added built-in tool with sparse customizations', () => {
+    const original = WORKSPACE_CONFIGS.design;
+    WORKSPACE_CONFIGS.design = {
+      ...original,
+      toolbar: {
+        ...original.toolbar,
+        tools: [...original.toolbar.tools, { toolId: 'paint' }],
+      },
+    };
+
+    try {
+      let prefs = getWorkspacePreferences();
+      prefs = setToolbarToolOverride(prefs, 'design', 'pen', false);
+      setWorkspacePreferences(prefs);
+
+      const toolIds = getEffectiveWorkspaceConfig('design').toolbar.tools.map(
+        (tool) => tool.toolId,
+      );
+      expect(toolIds).toContain('paint');
+      expect(toolIds).not.toContain('pen');
+    } finally {
+      WORKSPACE_CONFIGS.design = original;
+    }
   });
 
   it('still rejects overrides for tools the workspace does not declare', () => {
