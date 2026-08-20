@@ -1,8 +1,4 @@
-import type {
-  GradientFill,
-  GradientInterpolationSpace,
-  HueInterpolation,
-} from '@varve/scene';
+import type { GradientFill, GradientInterpolationSpace, HueInterpolation } from '@varve/scene';
 
 /**
  * Resolve the value shown by inspector controls without changing the model.

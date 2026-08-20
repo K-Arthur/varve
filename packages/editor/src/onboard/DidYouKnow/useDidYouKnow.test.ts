@@ -134,9 +134,7 @@ describe('useDidYouKnow', () => {
     tracker.setCount('op:createNode', 10);
     tracker.setCount('shortcut:', 20);
 
-    const { result } = renderHook(() =>
-      useDidYouKnow(tracker, undefined, { enabled: false }),
-    );
+    const { result } = renderHook(() => useDidYouKnow(tracker, undefined, { enabled: false }));
 
     act(() => {
       vi.advanceTimersByTime(16000);

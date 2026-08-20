@@ -48,7 +48,10 @@ export interface DocumentContextValue {
   setSelectedFill: (color: ManagedColor) => void;
   setSelectedFills: (fills: Fill[]) => void;
   updateSelectedFillAt: (index: number, fill: Fill) => void;
-  updateSelectedFillGradientAt: (index: number, gradient: import('@varve/scene').GradientFill) => void;
+  updateSelectedFillGradientAt: (
+    index: number,
+    gradient: import('@varve/scene').GradientFill,
+  ) => void;
   addSelectedFill: (fill: Fill) => void;
   removeSelectedFillAt: (index: number) => void;
   reorderSelectedFill: (from: number, to: number) => void;

@@ -248,13 +248,11 @@ function StrokeRow({
   const gradientRaw = commonValue(nodes, (n) => getStroke(n, index)?.gradient);
   const documentGradientInterpolation =
     editor.state.document.colorConfig?.defaultGradientInterpolation ?? 'oklab';
-  const strokeInterpRaw = commonValue(
-    nodes,
-    (n) =>
-      resolvedGradientInterpolationSpace(
-        getStroke(n, index)?.gradient,
-        documentGradientInterpolation,
-      ),
+  const strokeInterpRaw = commonValue(nodes, (n) =>
+    resolvedGradientInterpolationSpace(
+      getStroke(n, index)?.gradient,
+      documentGradientInterpolation,
+    ),
   );
   const strokeHueRaw = commonValue(nodes, (n) =>
     resolvedGradientHueInterpolation(getStroke(n, index)?.gradient, documentGradientInterpolation),

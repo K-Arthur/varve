@@ -143,10 +143,7 @@ export function useDidYouKnow(
     // suggestions are gated by `suggestTutorials`.
     if (queueRef.current.length === 0) {
       const active = modeRef.current;
-      const candidates = [
-        ...(suggestTutorials && active ? workspaceTips(active) : []),
-        ...TIPS,
-      ];
+      const candidates = [...(suggestTutorials && active ? workspaceTips(active) : []), ...TIPS];
       queueRef.current = candidates.filter((tip) => {
         if (dismissed.has(tip.id)) return false;
         if (tipsToday.shownIds.includes(tip.id)) return false;
