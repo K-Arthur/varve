@@ -324,6 +324,42 @@ function shapeForNode(node: FigmaSourceNode, state: ConversionState): Shape {
   return { kind: 'rect', x: 0, y: 0, w, h };
 }
 
+function convertVectorRegions(
+  state: ConversionState,
+  source: FigmaSourceNode,
+  parent: FigmaBounds | undefined,
+  id: string,
+  nodeFills: Fill[],
+): SceneNode {
+  const regionIds: string[] = [];
+  for (const [index, geometry] of (source.geometryRegions ?? []).entries()) {
+    const regionId = allocate(state, 'vector-region');
+    const regionSource: FigmaSourceNode = {
+      ...source,
+      sourceId: `${source.sourceId}:region:${index}`,
+      transform: [1, 0, 0, 1, 0, 0],
+      children: [],
+      fillGeometry: [geometry],
+      geometryRegions: undefined,
+    };
+    const region = makeShapeNode(regionId, shapeForNode(regionSource, state), {
+      name: `${source.name} region ${index + 1}`,
+      transform: [1, 0, 0, 1, 0, 0],
+      strokes: index === 0 ? strokes(source) : [],
+      effects: index === 0 ? effects(source, state) : [],
+    });
+    state.nodes[regionId] = applyCommon(state, region, regionSource, undefined, nodeFills);
+    regionIds.push(regionId);
+  }
+  const group = makeGroupNode(id, {
+    name: source.name,
+    children: regionIds,
+    transform: affine(source, parent),
+    effects: [],
+  });
+  return applyCommon(state, group, source, parent, nodeFills);
+}
+
 function sizing(value: string | undefined): 'fixed' | 'hug' | 'fill' | undefined {
   if (value === 'FIXED') return 'fixed';
   if (value === 'HUG') return 'hug';
@@ -602,6 +638,8 @@ function convertNode(
   let node: SceneNode;
   if (source.type === 'TEXT') {
     node = convertText(state, source, parent, id, nodeFills);
+  } else if (source.type === 'VECTOR' && (source.geometryRegions?.length ?? 0) > 1) {
+    node = convertVectorRegions(state, source, parent, id, nodeFills);
   } else if (source.type === 'GROUP' || source.type === 'SECTION') {
     node = makeGroupNode(id, {
       name: source.name,

@@ -1,6 +1,7 @@
 import type { Document } from '@varve/scene';
 import type { ImportOptions, ImportParser, ImportResult } from '../types';
-import { convertFigmaSource } from './converter';
+import { convertFigmaSource, type FigmaConversionResult } from './converter';
+import { decodeFigmaNativeSource, isFigmaNativeSource } from './native';
 import { decodeFigmaSource, isFigmaJsonSource } from './source';
 
 function options(value?: Partial<ImportOptions>): ImportOptions {
@@ -12,7 +13,8 @@ function options(value?: Partial<ImportOptions>): ImportOptions {
   };
 }
 
-function unsupportedBinary(): ImportResult {
+function nativeDecodeFailure(error: unknown): ImportResult {
+  const message = error instanceof Error ? error.message : 'Unknown native .fig decoder error';
   return {
     document: {
       id: 'figma-import-failed',
@@ -25,9 +27,10 @@ function unsupportedBinary(): ImportResult {
     },
     nodeIds: [],
     warnings: [
-      'This .fig file is an opaque native Figma binary. Varve does not reverse-engineer undocumented .fig bytes; export official Figma REST JSON or a plugin export package instead.',
+      `The native .fig file could not be decoded safely: ${message}`,
+      'No changes were made to the destination document. Try exporting official Figma REST JSON or a plugin export package if this file uses an unsupported schema version.',
     ],
-    unsupportedFeatures: ['opaque native .fig binary'],
+    unsupportedFeatures: ['native .fig decoding'],
   };
 }
 
@@ -61,11 +64,21 @@ export function createFigmaParser(): ImportParser {
   return {
     format: 'figma',
     supportedExtensions: () => ['fig', 'json'],
-    canParse: isFigmaJsonSource,
+    canParse: (data) => isFigmaJsonSource(data) || isFigmaNativeSource(data),
     parse: (data, importOptions) => {
-      if (!isFigmaJsonSource(data)) return unsupportedBinary();
       const opts = options(importOptions);
-      const result = convertFigmaSource(decodeFigmaSource(data));
+      let result: FigmaConversionResult;
+      if (isFigmaJsonSource(data)) {
+        result = convertFigmaSource(decodeFigmaSource(data));
+      } else if (isFigmaNativeSource(data) && data instanceof Uint8Array) {
+        try {
+          result = convertFigmaSource(decodeFigmaNativeSource(data));
+        } catch (error) {
+          return nativeDecodeFailure(error);
+        }
+      } else {
+        return nativeDecodeFailure(new Error('Input is not a recognized Figma source'));
+      }
       const document = scaleDocument(result.document, opts.scale);
       return document === result.document ? result : { ...result, document };
     },
@@ -73,6 +86,10 @@ export function createFigmaParser(): ImportParser {
 }
 
 export { convertFigmaSource } from './converter';
+export {
+  decodeFigmaNativeSource,
+  isFigmaNativeSource,
+} from './native';
 export type {
   FigmaBounds,
   FigmaEffect,
