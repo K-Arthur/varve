@@ -59,9 +59,18 @@ function colorValue(fill: FillSpec): string {
   if (fill.type === 'gradient') {
     const g = fill.gradient;
     const stops = g.stops.map((s) => `${s.color} ${s.position * 100}%`).join(', ');
-    if (g.type === 'linear') return `linear-gradient(${g.rotation ?? 0}deg, ${stops})`;
-    if (g.type === 'radial') return `radial-gradient(circle, ${stops})`;
-    return `linear-gradient(${g.rotation ?? 0}deg, ${stops})`;
+    const space =
+      g.interpolationSpace && g.interpolationSpace !== 'srgb'
+        ? ` in ${g.interpolationSpace === 'linear-srgb' ? 'srgb-linear' : g.interpolationSpace}`
+        : '';
+    const hue =
+      g.hueInterpolation && (g.interpolationSpace === 'oklch' || g.interpolationSpace === 'hsl')
+        ? ` ${g.hueInterpolation} hue`
+        : '';
+    if (g.type === 'linear')
+      return `linear-gradient(${g.rotation ?? 0}deg${space}${hue}, ${stops})`;
+    if (g.type === 'radial') return `radial-gradient(circle${space}${hue}, ${stops})`;
+    return `linear-gradient(${g.rotation ?? 0}deg${space}${hue}, ${stops})`;
   }
   if (fill.type === 'image') return `url("${escapeHtml(fill.image.src)}")`;
   if (fill.type === 'token') return `var(--${fill.tokenId})`;

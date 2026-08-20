@@ -6,7 +6,15 @@
  * Spec builder functions for scene-to-IR conversion.
  */
 
-import type { Document, FrameNode, NodeId, SceneNode, ShapeNode, TextNode } from '@varve/scene';
+import type {
+  Document,
+  FrameNode,
+  GradientInterpolationSpace,
+  NodeId,
+  SceneNode,
+  ShapeNode,
+  TextNode,
+} from '@varve/scene';
 import { isImageShape, resolveMask } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
 import type {
@@ -60,7 +68,10 @@ function generateExportId(sourceId: string): string {
 
 // ── Fill Spec Builder ──────────────────────────────────────────────────────────
 
-function buildFillSpec(node: SceneNode): FillSpec[] {
+function buildFillSpec(
+  node: SceneNode,
+  documentGradientInterpolation: GradientInterpolationSpace = 'oklab',
+): FillSpec[] {
   const fills: FillSpec[] = [];
 
   if (node.fills && node.fills.length > 0) {
@@ -80,6 +91,11 @@ function buildFillSpec(node: SceneNode): FillSpec[] {
           gradient: {
             type: g.type,
             stops,
+            interpolationSpace:
+              g.interpolationSource === 'document'
+                ? documentGradientInterpolation
+                : (g.interpolationSpace ?? 'srgb'),
+            ...(g.hueInterpolation ? { hueInterpolation: g.hueInterpolation } : {}),
             rotation: g.rotation,
           } as GradientSpec,
           opacity: f.opacity ?? 1,
@@ -634,8 +650,8 @@ function convertToSemanticNode(
 
   const appearance: AppearanceSpec = {
     ...DEFAULT_APPEARANCE_SPEC,
-    background: buildFillSpec(node),
-    foreground: buildFillSpec(node),
+    background: buildFillSpec(node, doc.colorConfig?.defaultGradientInterpolation ?? 'oklab'),
+    foreground: buildFillSpec(node, doc.colorConfig?.defaultGradientInterpolation ?? 'oklab'),
     strokes: buildStrokeSpec(node),
     border: buildBorderSpec(node),
     typography: buildTypographySpec(node),

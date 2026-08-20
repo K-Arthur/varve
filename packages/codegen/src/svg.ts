@@ -23,6 +23,8 @@ import { computeTableLayout, isImageShape, resolveMask } from '@varve/scene';
 import {
   applyAffine,
   DEFAULT_ARTWORK_FONT_FAMILY,
+  expandGradientStops,
+  managedColorToRgba,
   multiplyAffine,
   rotateDeg,
   textWrap,
@@ -366,6 +368,7 @@ function nodeSvgBounds(
 function collectGradientDefs(
   node: SceneNode,
   nodeId: string,
+  doc: SceneDocument,
   _preserveColorSpace: boolean,
 ): string[] {
   const defs: string[] = [];
@@ -377,12 +380,58 @@ function collectGradientDefs(
     const cx = 50;
     const cy = 50;
     const gradType = fill.gradient.type;
-    const stops = fill.gradient.stops
-      .map(
-        (s) =>
-          `      <stop offset="${(s.position * 100).toFixed(1)}%" stop-color="${rgba(s.color)}" />`,
-      )
-      .join('\n');
+    const space =
+      fill.gradient.interpolationSource === 'document'
+        ? (doc.colorConfig?.defaultGradientInterpolation ?? 'oklab')
+        : (fill.gradient.interpolationSpace ?? 'srgb');
+    const hue = fill.gradient.hueInterpolation ?? 'shorter';
+
+    // SVG <linearGradient>/<radialGradient> natively interpolates stops only in
+    // sRGB or (via `color-interpolation="linearRGB"`) linear sRGB. For any
+    // other space (OKLab/OKLCH/HSL) the stop list is baked into a denser sRGB
+    // ramp so the exported file matches the Varve canvas, which samples the
+    // same canonical engine. This is the documented "bake" fallback from the
+    // blend-space export policy: SVG cannot express these spaces natively.
+    let stopElements: string;
+    let colorInterpAttr = '';
+    let fidelityComment: string | undefined;
+    if (space === 'linear-srgb') {
+      colorInterpAttr = ' color-interpolation="linearRGB"';
+      stopElements = fill.gradient.stops
+        .map(
+          (s) =>
+            `      <stop offset="${(s.position * 100).toFixed(1)}%" stop-color="${rgba(s.color)}" />`,
+        )
+        .join('\n');
+    } else if (space === 'srgb') {
+      stopElements = fill.gradient.stops
+        .map(
+          (s) =>
+            `      <stop offset="${(s.position * 100).toFixed(1)}%" stop-color="${rgba(s.color)}" />`,
+        )
+        .join('\n');
+    } else {
+      const baked = expandGradientStops(
+        fill.gradient.stops.map((s) => ({
+          position: s.position,
+          color: (() => {
+            const [r, g, b, a] = managedColorToRgba(s.color);
+            return { space: 'rgb' as const, r, g, b, a };
+          })(),
+          midpoint: s.midpoint,
+        })),
+        space,
+        16,
+        { hueInterpolation: hue },
+      );
+      stopElements = baked
+        .map(
+          (s) =>
+            `      <stop offset="${(s.position * 100).toFixed(1)}%" stop-color="${rgba(s.color)}" />`,
+        )
+        .join('\n');
+      fidelityComment = `<!-- gradient interpolated in "${space}" — baked to sRGB stops (SVG has no native ${space} gradient) -->`;
+    }
 
     if (gradType === 'linear') {
       const x1 = cx - Math.cos(rot) * cx;
@@ -390,14 +439,15 @@ function collectGradientDefs(
       const x2 = cx + Math.cos(rot) * cx;
       const y2 = cy + Math.sin(rot) * cy;
       defs.push(
-        `    <linearGradient id="${gradId}" x1="${x1.toFixed(1)}%" y1="${y1.toFixed(1)}%" x2="${x2.toFixed(1)}%" y2="${y2.toFixed(1)}%">\n${stops}\n    </linearGradient>`,
+        `    <linearGradient id="${gradId}" x1="${x1.toFixed(1)}%" y1="${y1.toFixed(1)}%" x2="${x2.toFixed(1)}%" y2="${y2.toFixed(1)}%"${colorInterpAttr}>\n${stopElements}\n    </linearGradient>`,
       );
     } else if (gradType === 'radial') {
       const halfDiag = Math.sqrt(cx * cx + cy * cy);
       defs.push(
-        `    <radialGradient id="${gradId}" cx="${cx}%" cy="${cy}%" r="${halfDiag}%"${rot !== 0 ? ` gradientTransform="rotate(${((fill.gradient.rotation ?? 0) * -1).toFixed(1)})"` : ''}>\n${stops}\n    </radialGradient>`,
+        `    <radialGradient id="${gradId}" cx="${cx}%" cy="${cy}%" r="${halfDiag}%"${rot !== 0 ? ` gradientTransform="rotate(${((fill.gradient.rotation ?? 0) * -1).toFixed(1)})"` : ''}${colorInterpAttr}>\n${stopElements}\n    </radialGradient>`,
       );
     }
+    if (fidelityComment) defs.push(fidelityComment);
     // Angular/conic and diamond gradients have no SVG equivalent;
     // they're handled by raster fallback from the compositor.
   });
@@ -1255,7 +1305,7 @@ export function exportNodeToSvg(
     h: opts?.viewBoxHeight ?? Math.max(1, (bounds?.maxY ?? 160) - (bounds?.minY ?? 0)),
   };
   const maskDefs = collectSubtreeMaskDefs(doc, node);
-  const gradDefs = collectGradientDefs(node, node.id, opts?.preserveColorSpace ?? false);
+  const gradDefs = collectGradientDefs(node, node.id, doc, opts?.preserveColorSpace ?? false);
   const allDefs = [...maskDefs, ...gradDefs];
   const defsSection = allDefs.length > 0 ? `  <defs>\n${allDefs.join('\n')}\n  </defs>\n` : '';
   const inner = nodeToSvgTag(

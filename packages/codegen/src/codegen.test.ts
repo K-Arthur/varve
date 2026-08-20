@@ -14,7 +14,9 @@ import { describe, expect, it } from 'vitest';
 import { exportNodeToCss } from './css';
 import { exportNodeToCssModules } from './css-modules';
 import { exportNodeToFlutter } from './flutter';
+import { exportIrToHtml } from './html';
 import { exportDocumentToReact, exportDocumentToSvg, resolveTokenName } from './index';
+import { sceneToIR } from './ir-converter';
 import { exportNodeToSvg } from './svg';
 import { exportNodeToSwiftUI } from './swiftui';
 import { exportNodeToTailwind } from './tailwind';
@@ -506,6 +508,149 @@ describe('legacy exports', () => {
       expect(svg).toContain('<radialGradient');
       expect(svg).toContain('cx="50%"');
       expect(svg).toContain('cy="50%"');
+    });
+
+    it('emits color-interpolation="linearRGB" for linear-srgb gradients', () => {
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+        { name: 'LinBox' },
+      );
+      const fill: import('@varve/scene').Fill = {
+        type: 'gradient',
+        gradient: {
+          type: 'linear',
+          interpolationSpace: 'linear-srgb',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+        },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      };
+      (node as unknown as Record<string, unknown>).fills = [fill];
+      const svg = exportNodeToSvg(node, createDocument('Test'));
+      expect(svg).toContain('<linearGradient');
+      expect(svg).toContain('color-interpolation="linearRGB"');
+    });
+
+    it('resolves a document-inherited gradient default during SVG export', () => {
+      const base = createDocument('Document default');
+      const doc = {
+        ...base,
+        colorConfig: {
+          ...base.colorConfig,
+          defaultGradientInterpolation: 'linear-srgb' as const,
+        },
+      };
+      const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 });
+      node.fills = [
+        {
+          type: 'gradient',
+          gradient: {
+            type: 'linear',
+            interpolationSource: 'document',
+            stops: [
+              { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+              { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+            ],
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ];
+      const svg = exportNodeToSvg(node, doc);
+      expect(svg).toContain('color-interpolation="linearRGB"');
+    });
+
+    it('bakes an sRGB ramp for OKLCH gradients with a fidelity comment', () => {
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+        { name: 'OklchBox' },
+      );
+      const fill: import('@varve/scene').Fill = {
+        type: 'gradient',
+        gradient: {
+          type: 'linear',
+          interpolationSpace: 'oklch',
+          hueInterpolation: 'shorter',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+        },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      };
+      (node as unknown as Record<string, unknown>).fills = [fill];
+      const svg = exportNodeToSvg(node, createDocument('Test'));
+      // Baked ramp must exceed the two authored stops.
+      const stopCount = (svg.match(/<stop /g) ?? []).length;
+      expect(stopCount).toBeGreaterThan(2);
+      expect(svg).toContain('baked to sRGB stops');
+      expect(svg).not.toContain('color-interpolation="linearRGB"');
+    });
+
+    it('keeps authored sRGB stops without a color-interpolation attribute', () => {
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+        { name: 'SrgbBox' },
+      );
+      const fill: import('@varve/scene').Fill = {
+        type: 'gradient',
+        gradient: {
+          type: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+        },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      };
+      (node as unknown as Record<string, unknown>).fills = [fill];
+      const svg = exportNodeToSvg(node, createDocument('Test'));
+      expect(svg).not.toContain('color-interpolation');
+      expect(svg).not.toContain('baked to sRGB stops');
+    });
+
+    it('carries interpolation metadata into HTML/CSS codegen', () => {
+      const base = createDocument('HTML gradient');
+      const doc = {
+        ...base,
+        colorConfig: {
+          ...base.colorConfig,
+          defaultGradientInterpolation: 'oklch' as const,
+        },
+      };
+      const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 });
+      node.fills = [
+        {
+          type: 'gradient',
+          gradient: {
+            type: 'linear',
+            interpolationSource: 'document',
+            hueInterpolation: 'shorter',
+            stops: [
+              { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+              { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+            ],
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ];
+      const ir = sceneToIR(addNode(doc, node));
+      const html = exportIrToHtml(ir, { includeReset: false, reducedMotion: false });
+      expect(html.css).toContain('in oklch shorter hue');
     });
 
     it('flags angular gradient as needing raster fallback via svgTargetGaps', async () => {
