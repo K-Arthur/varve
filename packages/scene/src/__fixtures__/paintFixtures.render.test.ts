@@ -14,6 +14,15 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import type {
+  BrushDab,
+  BrushPreset,
+  DabCompositeArg,
+  MaskPlane,
+  RasterLayerNode,
+  SmudgeOptions,
+  StrokePoint,
+} from '../index';
 import {
   appendStrokePoints,
   beginStroke,
@@ -38,16 +47,16 @@ const OUT = process.env.PAINT_FIXTURE_DIR ?? 'reports/paint-fixtures';
 
 // ── Minimal PNG encoder (no native canvas needed) ───────────────────────────
 
-function crc32(buf) {
+function crc32(buf: Uint8Array) {
   let c = ~0;
   for (let i = 0; i < buf.length; i++) {
-    c ^= buf[i];
+    c ^= buf[i] ?? 0;
     for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
   }
   return ~c >>> 0;
 }
 
-function chunk(type, data) {
+function chunk(type: string, data: Uint8Array) {
   const len = Buffer.alloc(4);
   len.writeUInt32BE(data.length);
   const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
@@ -56,12 +65,12 @@ function chunk(type, data) {
   return Buffer.concat([len, body, crc]);
 }
 
-function encodePng(rgba, width, height) {
+function encodePng(rgba: Uint8Array, width: number, height: number) {
   const raw = Buffer.alloc((width * 4 + 1) * height);
   for (let y = 0; y < height; y++) {
     raw[y * (width * 4 + 1)] = 0;
     for (let x = 0; x < width * 4; x++) {
-      raw[y * (width * 4 + 1) + 1 + x] = rgba[y * width * 4 + x];
+      raw[y * (width * 4 + 1) + 1 + x] = rgba[y * width * 4 + x] ?? 0;
     }
   }
   const ihdr = Buffer.alloc(13);
@@ -89,7 +98,7 @@ describe('paint fixtures', () => {
     const blank = () => makeRasterLayerNode('fixture', { width: W, height: H });
 
     /** Flatten a node's tiles into an RGBA buffer over a checker background. */
-    function toRgba(node) {
+    function toRgba(node: RasterLayerNode) {
       const out = Buffer.alloc(W * H * 4);
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
@@ -104,22 +113,23 @@ describe('paint fixtures', () => {
           const tile = node.tiles.get(makeTileKey(col, row));
           if (!tile) continue;
           const ti = ((y - row * TILE_SIZE) * TILE_SIZE + (x - col * TILE_SIZE)) * 4;
-          const a = tile.pixels[ti + 3] / 255;
+          const a = (tile.pixels[ti + 3] ?? 0) / 255;
           if (a <= 0) continue;
           for (let c = 0; c < 3; c++) {
-            out[i + c] = Math.round(tile.pixels[ti + c] * a + out[i + c] * (1 - a));
+            out[i + c] = Math.round((tile.pixels[ti + c] ?? 0) * a + (out[i + c] ?? 0) * (1 - a));
           }
         }
       }
       return out;
     }
 
-    function planeToRgba(plane) {
+    function planeToRgba(plane: MaskPlane) {
       const out = Buffer.alloc(W * H * 4);
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
           const i = (y * W + x) * 4;
-          const v = x < plane.width && y < plane.height ? plane.data[y * plane.width + x] : 0;
+          const v =
+            x < plane.width && y < plane.height ? (plane.data[y * plane.width + x] ?? 0) : 0;
           out[i] = v;
           out[i + 1] = v;
           out[i + 2] = v;
@@ -129,7 +139,7 @@ describe('paint fixtures', () => {
       return out;
     }
 
-    function save(name, rgba) {
+    function save(name: string, rgba: Buffer) {
       writeFileSync(join(OUT, `${name}.png`), encodePng(rgba, W, H));
       console.log(`  ${name}.png`);
     }
@@ -150,12 +160,18 @@ describe('paint fixtures', () => {
       return pts;
     }
 
-    function dabsFor(preset, points, seed = 42) {
+    function dabsFor(preset: BrushPreset, points: StrokePoint[], seed = 42): BrushDab[] {
       const state = beginStroke('fx', 0, preset, seed);
       return appendStrokePoints(state, points).dabs;
     }
 
-    function paint(preset, points, color, options, seed = 42) {
+    function paint(
+      preset: BrushPreset,
+      points: StrokePoint[],
+      color: readonly [number, number, number, number],
+      options: DabCompositeArg = false,
+      seed = 42,
+    ): RasterLayerNode {
       let node = blank();
       for (const dab of dabsFor(preset, points, seed)) {
         node = compositeDabOnNode(node, dab, color, options);
@@ -163,9 +179,9 @@ describe('paint fixtures', () => {
       return node;
     }
 
-    const BLACK = [20, 20, 24, 255];
-    const RED = [220, 40, 40, 255];
-    const BLUE = [40, 80, 220, 255];
+    const BLACK: [number, number, number, number] = [20, 20, 24, 255];
+    const RED: [number, number, number, number] = [220, 40, 40, 255];
+    const BLUE: [number, number, number, number] = [40, 80, 220, 255];
 
     const base = (o = {}) => ({
       ...defaultBrushPreset('fx', 'FX'),
@@ -271,7 +287,7 @@ describe('paint fixtures', () => {
       ])) {
         node = compositeDabOnNode(node, dab, BLUE);
       }
-      const options = {
+      const options: SmudgeOptions = {
         mode: 'pure',
         strength: 0.8,
         pickup: 0.4,
@@ -297,7 +313,7 @@ describe('paint fixtures', () => {
           node = compositeDabOnNode(node, dab, x < 160 ? RED : BLUE);
         }
       }
-      const options = {
+      const options: SmudgeOptions = {
         mode: 'pure',
         strength: 0.85,
         pickup: 0.35,
@@ -319,7 +335,7 @@ describe('paint fixtures', () => {
     // Finger paint on an empty canvas: foreground pigment must appear.
     {
       let node = blank();
-      const options = {
+      const options: SmudgeOptions = {
         mode: 'fingerPaint',
         strength: 0.8,
         pickup: 0.5,
