@@ -1,5 +1,7 @@
+import { createDocument, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
+  marqueeGeometryHit,
   marqueeRectContainsRect,
   marqueeRectsIntersect,
   normalizeMarqueeRect,
@@ -44,5 +46,28 @@ describe('marquee geometry', () => {
         { x: 0, y: 0, w: 1, h: 1 },
       ),
     ).toBe(false);
+  });
+
+  it('rejects a marquee that touches only the AABB corner of a rotated rectangle', () => {
+    const base = createDocument('rotated');
+    const doc = {
+      ...base,
+      nodes: {
+        ...base.nodes,
+        rotated: makeShapeNode(
+          'rotated',
+          {
+            kind: 'rect',
+            x: 0,
+            y: 0,
+            w: 10,
+            h: 2,
+          },
+          { transform: [Math.SQRT1_2, Math.SQRT1_2, -Math.SQRT1_2, Math.SQRT1_2, 0, 0] },
+        ),
+      },
+    };
+    expect(marqueeGeometryHit(doc, 'rotated', { x: 5.8, y: 0, w: 1, h: 1 }, false)).toBe(false);
+    expect(marqueeGeometryHit(doc, 'rotated', { x: 5.8, y: 6.5, w: 1, h: 1 }, false)).toBe(true);
   });
 });
