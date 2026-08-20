@@ -1,6 +1,6 @@
 # Email Template System — Architecture
 
-**Status**: Foundation, semantic compiler, responsive preview, preflight, and local package export implemented; advanced code workflow and compatibility database remain deferred
+**Status**: Semantic compiler, responsive preview, safe code workflow, source mapping, preflight, local package export, and Mailchimp region mapping implemented; broad client-compatibility database and arbitrary HTML import remain deferred
 **ADR**: Pending (will be ADR-02XX)
 
 ## Overview
@@ -32,13 +32,13 @@ Varve Scene (Document)
         v
   Email HTML Emitter (email-html.ts)
     - Table-based layout
-    - Inline CSS
+    - Safe simple-selector CSS inlining
     - MSO conditionals
     - Responsive media queries
     - Preheader support
         |
         v
-  Email HTML / Plain Text / Asset Manifest
+  Email HTML / Plain Text / Asset Manifest / Source Map
         |
         +--> Provider adapter (generic / limited Mailchimp mapping)
         |
@@ -110,6 +110,7 @@ interface EmailLink {
   kind: 'web' | 'email' | 'tel' | 'anchor' | 'merge-tag';
   target?: '_blank' | '_self';
   title?: string;
+  tracking?: EmailTrackingParams;
 }
 ```
 
@@ -133,7 +134,9 @@ The Email inspector is mounted as a real top-level inspector tab. It supports
 enabling a normal Varve document as an email, template settings, semantic node
 assignment, whole-node links, text-range links, custom HTML blocks,
 personalization variables, a sandboxed browser preview, generated HTML
-inspection, preflight diagnostics, and local HTML/text/manifest/embedded-asset export.
+inspection with syntax highlighting/find/replace, source-mapped generated ranges,
+preflight diagnostics, optional UTM tracking, a plain-text preview, and local
+HTML/text/manifest/embedded-asset export.
 
 The preview has explicit desktop/mobile viewport controls, and generated HTML
 is read-only; user-authored custom HTML remains a separate preserved source
@@ -155,6 +158,9 @@ block.
 | `packages/codegen/src/email-ir-types.ts` | Email IR type definitions |
 | `packages/codegen/src/email-compiler.ts` | Scene → Email IR compiler |
 | `packages/codegen/src/email-html.ts` | Email IR → HTML emitter |
+| `packages/codegen/src/email-css.ts` | Conservative simple-selector CSS inliner |
+| `packages/codegen/src/email-security.ts` | URL, HTML, CSS, and provider-attribute safety |
+| `packages/codegen/src/email-provider.ts` | Generic/Mailchimp provider adapters |
 
 ### Editor / Workspace
 | File | Purpose |
@@ -200,12 +206,13 @@ interface EmailProviderAdapter {
 ```
 
 Generic and Mailchimp adapters are isolated in `email-provider.ts`. Mailchimp
-variables map to `*|TAG|*` syntax, and nodes with explicit editable-region
-metadata emit stable `mc:edit` attributes. Direct authenticated publishing is
-not part of this implementation; export remains local and credential-free.
-Repeatable regions, provider-side conditional execution, and full Mailchimp
-template validation are not yet implemented; the current Mailchimp adapter
-reuses the generic safe emitter and only maps supported metadata.
+variables map to `*|TAG|*` syntax. Stable editable-region metadata emits
+`mc:edit` and optional `mc:label`; repeat regions emit named `mc:repeatable`
+attributes. Preflight rejects duplicate, unsafe, missing, or nested editable
+regions. Direct authenticated publishing is not part of this implementation;
+export remains local and credential-free. Provider-side conditional execution,
+full Mailchimp template validation, and transactional-provider semantics remain
+deferred.
 
 ## What's NOT Included (By Design)
 
@@ -231,12 +238,15 @@ The repaired compiler now covers the highest-risk baseline cases:
 - inline styles escape attribute content, and generic HTML, plain text, and a
   package manifest can be exported together.
 
-This is not yet a full IDE-style email code workflow. Generated code is exposed
-as a read-only inspection view; custom HTML uses the existing controlled text
-editor. Detached HTML ownership, source maps, CSS inlining, a versioned
-compatibility database, imported-HTML round tripping, and exact Gmail/Outlook
-render verification remain future work. The browser preview is labelled as a
-browser preview rather than client proof.
+Generated code is exposed through a read-only, syntax-highlighted editor with
+line numbers, find/replace, and source-range selection. Custom HTML and CSS use
+the same controlled editor and remain preserved source blocks; they are never
+silently overwritten by design recompilation. The compiler produces deterministic
+HTML source maps and inlines simple safe selectors while retaining media-query
+rules. Detached HTML ownership, a versioned compatibility database,
+imported-HTML round tripping, and exact Gmail/Outlook render verification remain
+future work. The browser preview is labelled as a browser preview rather than
+client proof.
 
 ## Testing
 
@@ -248,6 +258,7 @@ browser preview rather than client proof.
 ### E2E Tests
 - `email/visual.spec.ts`: Playwright visual regression for email workspace
 - `packages/codegen/src/email.test.ts`: security, output, plain text, and preflight invariants
+- `packages/editor/src/components/Inspector/panels/EmailCodeEditor.test.tsx`: code editing, replacement, read-only ownership, and source-range selection
 
 ### Type Safety
 - All new types are fully typed (no `any`)
