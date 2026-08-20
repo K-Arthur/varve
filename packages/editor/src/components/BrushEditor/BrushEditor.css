@@ -1,0 +1,97 @@
+.brush-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  color: var(--color-text-primary);
+}
+
+.brush-editor__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.brush-editor__note {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.brush-editor__preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.brush-editor__preview img {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  /* Checkerboard keeps a light or dark brush legible in either theme. */
+  background-image:
+    linear-gradient(45deg, var(--color-surface-raised) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-surface-raised) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-surface-raised) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-surface-raised) 75%);
+  background-position:
+    0 0,
+    0 4px,
+    4px -4px,
+    -4px 0;
+  background-size: 8px 8px;
+  border: var(--border-micro);
+  border-radius: var(--radius-sm);
+}
+
+.brush-editor__preview-caption {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.brush-editor__sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.brush-editor__field {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+}
+
+.brush-editor__field select {
+  flex: 1;
+  min-inline-size: 0;
+  padding: var(--space-1);
+  color: var(--color-text-primary);
+  font: inherit;
+  background: var(--color-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-sm);
+}
+
+.brush-editor__checkbox {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--font-size-xs);
+}
+
+.brush-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  justify-content: flex-end;
+}
+
+.brush-editor__dirty {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-align: end;
+}
