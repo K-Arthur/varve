@@ -19,7 +19,10 @@ async function insertTable(page: Page): Promise<void> {
 }
 
 async function createColorVariable(page: Page, name: string, hexColor: string): Promise<void> {
-  await page.getByRole('button', { name: /add/i }).click();
+  await page
+    .getByTestId('layers-panel')
+    .getByRole('button', { name: '+ Add', exact: true })
+    .click();
   const nameInput = page.getByRole('textbox', { name: /name/i });
   await nameInput.fill(name);
   const valueInput = page.getByRole('textbox', { name: /value/i });

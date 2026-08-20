@@ -70,7 +70,7 @@ test.describe('Design (Dev/Design) Mode — accessibility audit', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
 
     await page.getByRole('tab', { name: 'audit' }).click();
-    await expect(page.getByText(/WCAG AA minimum/i)).toBeVisible();
+    await expect(page.getByText(/WCAG AA minimum/i).first()).toBeVisible();
     await expect(page.getByText('No issues detected')).not.toBeVisible();
 
     await page.getByRole('button', { name: /auto-fix/i }).click();
