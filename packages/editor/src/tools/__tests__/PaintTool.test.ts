@@ -465,9 +465,9 @@ describe('PaintTool wet media', () => {
       // the updater, so this test needs one that actually runs it.
       const ctx = makeCtx({
         foregroundColor: colour,
-        updateNode: vi.fn((_id: string, updater: (n: never) => never) => {
+        updateNode: vi.fn((_id, updater) => {
           updater(makeRasterLayerNode('raster-1', { width: 512, height: 512 }) as never);
-        }),
+        }) as ToolContext['updateNode'],
       });
       tool.setWetPaint(wet, wake);
       tool.setWetEnabled(true, 0.8, 0.5);

@@ -137,9 +137,14 @@ export function commitMaskPaintSession(
   return true;
 }
 
-/** Decode a PNG data URL through a canvas. Returns null where none is available. */
-export function decodeMaskDataUrl(
-  dataUrl: string,
+/**
+ * Read an already-loaded mask image into pixels.
+ *
+ * Takes the decoded image rather than the data URL: decoding is asynchronous
+ * and a stroke cannot wait for it at pointer-down, so the caller is responsible
+ * for having the image ready.
+ */
+export function decodeMaskImage(
   image: HTMLImageElement | null,
 ): { data: Uint8ClampedArray; width: number; height: number } | null {
   if (!image || typeof document === 'undefined') return null;
@@ -170,7 +175,9 @@ export function encodeMaskRgba(
     canvas.height = height;
     const ctx = canvas.getContext('2d');
     if (!ctx || typeof canvas.toDataURL !== 'function') return null;
-    ctx.putImageData(new ImageData(rgba, width, height), 0, 0);
+    const imageData = ctx.createImageData(width, height);
+    imageData.data.set(rgba);
+    ctx.putImageData(imageData, 0, 0);
     return canvas.toDataURL('image/png');
   } catch {
     return null;

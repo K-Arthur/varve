@@ -1,6 +1,6 @@
 # Paint System
 
-**Status:** Phases 0–6 implemented; see Limitations for what is not
+**Status:** Implemented; see Limitations for what is not
 **Updated:** 2026-08-20
 
 ## Scope
@@ -245,36 +245,47 @@ allocation, and sample buffers exist only in detailed mode.
 small hard round stays on the main thread, where it beats a structured clone
 each way; large, textured or symmetric brushes move off it.
 
+## Visual fixtures
+
+`packages/scene/src/__fixtures__/paintFixtures.render.test.ts` renders fourteen
+scenarios through the real engine and writes PNGs to `reports/paint-fixtures`
+(gitignored). A test asserting a pixel value does not tell you whether a stroke
+*looks* like a stroke, and Playwright cannot drive the desktop WebView on Linux,
+so these exist to be looked at.
+
+Covered: hard and soft tips, pressure taper, elliptical tips, scatter jitter,
+wet edge, alpha lock, feathered selection, mirrored symmetry, smudge transport,
+finger paint, clone, heal and mask painting.
+
+Looking at them is what caught the wet edge darkening every dab's rim instead of
+the stroke's, which no unit test would have flagged.
+
 ## Limitations
 
 **P2 — incomplete professional workflow**
 
-- Mask painting has a resolver, status text and capability rules, but no tool
-  yet writes to a `RasterMaskAsset`; `resolvePaintTarget` returning a
-  `rasterMask` target is not consumed by `PaintTool`.
-- Symmetry has transforms, bounds and tests, but no on-canvas guide UI for
-  moving the origin or changing the angle.
-- Clone Stamp has no on-canvas source marker or offset preview.
-- `sampleAllLayers` for smudge and clone is not implemented; both sample the
-  target layer only.
+- `sampleAllLayers` exists for Clone Stamp but not for smudge, which still
+  samples the target layer only.
 - Healing's `pattern` source mode is not implemented and is not offered.
+- The symmetry guide overlay renders and is bounded, but its origin handle is
+  not yet draggable — the axis is positioned through settings, not the canvas.
 
 **P3 — advanced / optional**
 
-- Wet edge (`wetEdge`, `wetEdgeSize`, `wetEdgeDarken`) is modelled in the preset
-  and in `wetPaint.ts` but is not applied by the compositor.
 - Wet mixing is evaluated once per dab at its centre rather than per pixel.
 - Grain sampling is nearest-neighbour; there is no bilinear filtering.
 - Tilt is normalized to a single magnitude; `tiltAzimuth` exists but no brush
   parameter consumes it yet.
 - Brush thumbnails do not render grain.
+- Mask painting supports the container-local form (`FrameNode`); masks in
+  `source-image-pixels` space still go through `RefineMaskTool`.
 
 **Not verified**
 
 - No testing has been done on real stylus hardware. Pressure and tilt behaviour
-  is covered by synthetic pointer tests only.
-- The paint UI has not been visually inspected in the running desktop app; the
-  Brush Browser and Brush Editor are covered by component tests in jsdom.
-- No performance benchmarks have been run against the corpus described above,
-  so `shouldUseWorker`'s threshold is reasoned from cost structure rather than
-  measured.
+  is covered by synthetic pointer tests only, and should be reported as such.
+- The Brush Browser and Brush Editor are covered by component tests in jsdom;
+  they have not been inspected in the running desktop app. The paint *engine*
+  has been visually inspected through the fixtures above.
+- No performance benchmarks have been run, so `shouldUseWorker`'s threshold is
+  reasoned from cost structure rather than measured.
