@@ -59,8 +59,8 @@ test.describe('onboarding visual verification', () => {
     await navigateToEditor(page);
     await page.waitForTimeout(1000);
 
-    // The existing empty state should now show "Start designing" with shortcuts
-    const emptyState = page.locator('.editor-canvas__empty');
+    // The empty state should show mode-aware guidance with keyboard shortcuts
+    const emptyState = page.locator('.editor-canvas__empty-state');
     await expect(emptyState).toBeVisible({ timeout: 5000 });
 
     // Verify keyboard shortcut hints are visible
