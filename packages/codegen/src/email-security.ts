@@ -90,6 +90,20 @@ const SAFE_PROTOCOLS = new Set(['http:', 'https:', 'mailto:', 'tel:']);
 const TEMPLATE_TOKEN = /^(?:\{\{[A-Za-z][A-Za-z0-9_.-]*\}\}|\*\|[A-Z][A-Z0-9_.-]*\|\*)$/i;
 const MAX_CUSTOM_HTML_LENGTH = 512_000;
 const MAX_CUSTOM_CSS_LENGTH = 128_000;
+const SAFE_MAILCHIMP_ATTRIBUTES = new Set([
+  'mc:edit',
+  'mc:label',
+  'mc:repeatable',
+  'mc:variant',
+  'mc:hideable',
+  'mc:allowdesigner',
+  'mc:allowtext',
+]);
+
+export interface EmailHtmlSanitizeOptions {
+  /** Preserve the documented Mailchimp template attributes for provider blocks. */
+  allowMailchimpAttributes?: boolean;
+}
 
 function hasUnsafeCharacters(value: string): boolean {
   return [...value].some((character) => {
@@ -244,8 +258,16 @@ function findMatchingBrace(value: string, open: number): number {
   return -1;
 }
 
-function sanitizeAttribute(name: string, value: string): string | null {
+function sanitizeAttribute(
+  name: string,
+  value: string,
+  options: EmailHtmlSanitizeOptions,
+): string | null {
   const lower = name.toLowerCase();
+  if (options.allowMailchimpAttributes && SAFE_MAILCHIMP_ATTRIBUTES.has(lower)) {
+    if (hasUnsafeCharacters(value) || /[<>]/.test(value)) return null;
+    return value ? `${lower}="${escapeAttribute(value)}"` : lower;
+  }
   if (!ALLOWED_ATTRIBUTES.has(lower) || /^on/i.test(lower)) return null;
   if (lower === 'style') {
     const style = sanitizeStyle(value);
@@ -265,7 +287,10 @@ function sanitizeAttribute(name: string, value: string): string | null {
   return `${lower}="${escapeAttribute(value)}"`;
 }
 
-export function sanitizeEmailHtml(html: string): { html: string; removed: string[] } {
+export function sanitizeEmailHtml(
+  html: string,
+  options: EmailHtmlSanitizeOptions = {},
+): { html: string; removed: string[] } {
   const removed: string[] = [];
   if (html.length > MAX_CUSTOM_HTML_LENGTH) {
     return { html: '', removed: ['size-limit'] };
@@ -291,7 +316,7 @@ export function sanitizeEmailHtml(html: string): { html: string; removed: string
           bareValue?: string,
         ) => {
           const value = doubleValue ?? singleValue ?? bareValue ?? '';
-          const attribute = sanitizeAttribute(name, value);
+          const attribute = sanitizeAttribute(name, value, options);
           if (attribute) attrs.push(attribute);
           else if (name.toLowerCase() !== 'xmlns') removed.push(`${tag}[${name}]`);
           return '';

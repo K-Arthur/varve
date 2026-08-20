@@ -21,7 +21,8 @@ export const genericEmailProvider: EmailProviderAdapter = {
     };
   },
   validate(ir) {
-    return runEmailPreflight(ir);
+    const output = emitEmailHtml(ir);
+    return [...runEmailPreflight(ir), ...warningsToDiagnostics(output.warnings)];
   },
   mapVariable(variable) {
     return variable.templateTag ?? `{{${variable.name}}}`;
@@ -39,7 +40,8 @@ export const mailchimpEmailProvider: EmailProviderAdapter = {
     };
   },
   validate(ir) {
-    return runEmailPreflight(ir);
+    const output = emitEmailHtml(ir);
+    return [...runEmailPreflight(ir), ...warningsToDiagnostics(output.warnings)];
   },
   mapVariable(variable) {
     return variable.templateTag ?? `*|${variable.name.toUpperCase().replace(/[^A-Z0-9_]/g, '_')}|*`;
