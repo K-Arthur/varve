@@ -142,7 +142,16 @@ export const FONT_COMPAT_MAP: Record<string, string[]> = {
 function hasTextStyleFont(
   node: ResolverTextNode | { id: string; kind: string },
 ): node is ResolverTextNode {
-  return node.kind === 'text' && 'fontFamily' in node && !!(node as ResolverTextNode).fontFamily;
+  if (node.kind !== 'text') return false;
+  const textNode = node as ResolverTextNode;
+  return (
+    Boolean(textNode.fontFamily) ||
+    Boolean(
+      textNode.richText?.paragraphs.some((paragraph) =>
+        paragraph.runs.some((run) => Boolean(run.format?.fontFamily)),
+      ),
+    )
+  );
 }
 
 function getFontFamiliesFromStyles(doc: ResolverDocument): Array<{
@@ -175,6 +184,40 @@ function getFontFamiliesFromStyles(doc: ResolverDocument): Array<{
   return results;
 }
 
+function getFontFamiliesFromNode(node: ResolverTextNode): Array<{
+  family: string;
+  weight?: number;
+  style?: string;
+}> {
+  const results: Array<{
+    family: string;
+    weight?: number;
+    style?: string;
+  }> = [];
+
+  if (node.fontFamily) {
+    results.push({
+      family: node.fontFamily,
+      weight: node.fontWeight,
+      style: node.fontStyle,
+    });
+  }
+
+  for (const paragraph of node.richText?.paragraphs ?? []) {
+    for (const run of paragraph.runs) {
+      const family = run.format?.fontFamily;
+      if (!family) continue;
+      results.push({
+        family,
+        weight: run.format?.fontWeight,
+        style: run.format?.fontStyle,
+      });
+    }
+  }
+
+  return results;
+}
+
 // ---------------------------------------------------------------------------
 // FontResolver
 // ---------------------------------------------------------------------------
@@ -189,6 +232,7 @@ export class FontResolver {
     const familyNodes = new Map<
       string,
       {
+        family: string;
         nodeIds: string[];
         weight?: number;
         style?: string;
@@ -197,21 +241,28 @@ export class FontResolver {
 
     // Scan text nodes
     for (const node of Object.values(doc.nodes)) {
-      if (!hasTextStyleFont(node)) continue;
-      const family = node.fontFamily!;
-      const entry = catalog
-        .getEntriesForFamily(family)
-        .find((e) => e.identity.familyName.toLowerCase() === family.toLowerCase());
+      if (node.kind !== 'text') continue;
 
-      if (!entry) {
-        const existing = familyNodes.get(family);
+      for (const reference of getFontFamiliesFromNode(node)) {
+        const family = reference.family;
+        const key = family.toLowerCase();
+        const entry = catalog
+          .getEntriesForFamily(family)
+          .find((e) => e.identity.familyName.toLowerCase() === key);
+
+        if (entry) continue;
+
+        const existing = familyNodes.get(key);
         if (existing) {
-          existing.nodeIds.push(node.id);
+          if (!existing.nodeIds.includes(node.id)) existing.nodeIds.push(node.id);
+          if (existing.weight === undefined) existing.weight = reference.weight;
+          if (existing.style === undefined) existing.style = reference.style;
         } else {
-          familyNodes.set(family, {
+          familyNodes.set(key, {
+            family,
             nodeIds: [node.id],
-            weight: node.fontWeight,
-            style: node.fontStyle,
+            weight: reference.weight,
+            style: reference.style,
           });
         }
       }
@@ -220,13 +271,15 @@ export class FontResolver {
     // Scan text/paragraph style references
     const styleRefs = getFontFamiliesFromStyles(doc);
     for (const ref of styleRefs) {
+      const key = ref.family.toLowerCase();
       const entry = catalog
         .getEntriesForFamily(ref.family)
-        .find((e) => e.identity.familyName.toLowerCase() === ref.family.toLowerCase());
+        .find((e) => e.identity.familyName.toLowerCase() === key);
       if (!entry) {
-        const existing = familyNodes.get(ref.family);
+        const existing = familyNodes.get(key);
         if (!existing) {
-          familyNodes.set(ref.family, {
+          familyNodes.set(key, {
+            family: ref.family,
             nodeIds: [],
             weight: ref.weight,
             style: ref.style,
@@ -236,7 +289,8 @@ export class FontResolver {
     }
 
     const results: MissingFontInfo[] = [];
-    for (const [family, info] of familyNodes) {
+    for (const info of familyNodes.values()) {
+      const family = info.family;
       const substitutes = this.findSubstitutes(
         {
           familyName: family,
@@ -373,9 +427,38 @@ export class FontResolver {
 
     for (const [id, node] of Object.entries(updatedNodes)) {
       if (!hasTextStyleFont(node)) continue;
-      if (node.fontFamily?.toLowerCase() !== lowerOriginal) continue;
+      let updatedNode: ResolverTextNode = node;
+      let nodeChanged = false;
 
-      updatedNodes[id] = { ...node, fontFamily: replacement.replacement };
+      if (node.fontFamily?.toLowerCase() === lowerOriginal) {
+        updatedNode = { ...updatedNode, fontFamily: replacement.replacement };
+        nodeChanged = true;
+      }
+
+      if (node.richText) {
+        let richTextChanged = false;
+        const paragraphs = node.richText.paragraphs.map((paragraph) => {
+          let paragraphChanged = false;
+          const runs = paragraph.runs.map((run) => {
+            if (run.format?.fontFamily?.toLowerCase() !== lowerOriginal) return run;
+            paragraphChanged = true;
+            return {
+              ...run,
+              format: { ...run.format, fontFamily: replacement.replacement },
+            };
+          });
+          if (!paragraphChanged) return paragraph;
+          richTextChanged = true;
+          return { ...paragraph, runs };
+        });
+
+        if (richTextChanged) {
+          updatedNode = { ...updatedNode, richText: { ...node.richText, paragraphs } };
+          nodeChanged = true;
+        }
+      }
+
+      if (nodeChanged) updatedNodes[id] = updatedNode;
     }
 
     // Also update text/paragraph styles

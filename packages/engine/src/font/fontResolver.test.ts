@@ -151,6 +151,37 @@ describe('FontResolver', () => {
       const families = missing.map((m) => m.familyName);
       expect(families).toContain('Courier New');
     });
+
+    it('finds missing fonts used only by rich-text runs', () => {
+      const catalog = makeCatalog(['Inter']);
+      const doc: ResolverDocument = {
+        nodes: {
+          t1: {
+            id: 't1',
+            kind: 'text',
+            text: 'Mixed',
+            richText: {
+              paragraphs: [
+                {
+                  runs: [
+                    { text: 'Inter', format: { fontFamily: 'Inter' } },
+                    { text: 'Missing', format: { fontFamily: 'Missing Display', fontWeight: 700 } },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      };
+
+      const missing = resolver.detectMissing(doc, catalog);
+      expect(missing).toHaveLength(1);
+      expect(missing[0]).toMatchObject({
+        familyName: 'Missing Display',
+        requestedWeight: 700,
+        nodeIds: ['t1'],
+      });
+    });
   });
 
   describe('findSubstitutes', () => {
@@ -291,6 +322,43 @@ describe('FontResolver', () => {
 
       const updated = resolver.applyReplacement(doc, replacement);
       expect((updated.styles!['style-1'] as any).fontFamily).toBe('Roboto');
+    });
+
+    it('replaces font family in rich-text runs without flattening other node data', () => {
+      const doc: ResolverDocument = {
+        nodes: {
+          t1: {
+            id: 't1',
+            kind: 'text',
+            text: 'Fallback',
+            fontFamily: 'Inter',
+            richText: {
+              paragraphs: [
+                {
+                  runs: [
+                    { text: 'A', format: { fontFamily: 'Missing Display', fontWeight: 700 } },
+                    { text: 'B', format: { fontFamily: 'Inter' } },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      };
+
+      const updated = resolver.applyReplacement(doc, {
+        original: 'Missing Display',
+        replacement: 'IBM Plex Sans Variable',
+        applyToAll: true,
+        preserveOriginalReference: true,
+      });
+      const node = updated.nodes.t1 as any;
+      expect(node.text).toBe('Fallback');
+      expect(node.fontFamily).toBe('Inter');
+      expect(node.richText.paragraphs[0].runs).toEqual([
+        { text: 'A', format: { fontFamily: 'IBM Plex Sans Variable', fontWeight: 700 } },
+        { text: 'B', format: { fontFamily: 'Inter' } },
+      ]);
     });
   });
 
