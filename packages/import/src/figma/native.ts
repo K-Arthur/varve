@@ -1,3 +1,7 @@
+// COMPLEXITY: nativeNode currently exceeds the non-component guidance because it
+// normalizes the source's broad node property surface. Keep extraction of field
+// mappers on the backlog if support for additional native schema fields grows.
+
 import {
   type FigDocument,
   type FigNode,
@@ -181,6 +185,17 @@ function affine(node: FigNode): FigmaSourceNode['transform'] | undefined {
   return values as unknown as FigmaSourceNode['transform'];
 }
 
+function pageLocalTransform(
+  node: FigNode,
+  page: FigmaBounds,
+  localizeToPage: boolean,
+): FigmaSourceNode['transform'] | undefined {
+  const transform = affine(node);
+  if (!transform || !localizeToPage) return transform;
+  const [a, b, c, d, e, f] = transform;
+  return [a, b, c, d, e - page.x, f - page.y];
+}
+
 function bounds(node: FigNode, pageBounds: FigmaBounds): FigmaBounds {
   const size = asRecord(node.size);
   const transform = asRecord(node.transform);
@@ -344,10 +359,11 @@ function assertSafeArchive(data: Uint8Array): void {
   if (centralOffset + centralSize > data.byteLength)
     throw new Error('Native .fig archive has an invalid central directory');
 
+  const centralEnd = centralOffset + centralSize;
   let offset = centralOffset;
   let totalUncompressed = 0;
   for (let index = 0; index < entries; index += 1) {
-    if (offset + 46 > data.byteLength || view.getUint32(offset, true) !== ZIP_CENTRAL_HEADER)
+    if (offset + 46 > centralEnd || view.getUint32(offset, true) !== ZIP_CENTRAL_HEADER)
       throw new Error('Native .fig archive has a malformed central directory entry');
     const compressed = view.getUint32(offset + 20, true);
     const uncompressed = view.getUint32(offset + 24, true);
@@ -365,7 +381,10 @@ function assertSafeArchive(data: Uint8Array): void {
       throw new Error('Native .fig archive exceeds the uncompressed size limit');
     if (compressed > 0 && uncompressed / compressed > MAX_ARCHIVE_COMPRESSION_RATIO)
       throw new Error(`Native .fig archive entry "${name}" has an unsafe compression ratio`);
-    offset += 46 + nameLength + extraLength + commentLength;
+    const nextOffset = offset + 46 + nameLength + extraLength + commentLength;
+    if (nextOffset > centralEnd)
+      throw new Error('Native .fig archive has a truncated central directory entry');
+    offset = nextOffset;
   }
 }
 
@@ -454,13 +473,15 @@ function nativeNode(
   document: FigDocument,
   node: FigNode,
   id: string,
-  page: FigmaBounds,
+  parentBounds: FigmaBounds,
+  pageOrigin: FigmaBounds,
   childNodes: (node: FigNode) => FigNode[],
   imageRef: (value: unknown) => string | undefined,
   warnings: string[],
   unsupportedFeatures: string[],
   depth: number,
   ancestors: Set<string>,
+  localizeToPage: boolean,
 ): FigmaSourceNode {
   if (depth > FIGMA_IMPORT_LIMITS.maxDepth)
     throw new Error(`Native .fig node depth exceeds ${FIGMA_IMPORT_LIMITS.maxDepth}`);
@@ -469,7 +490,7 @@ function nativeNode(
   nextAncestors.add(id);
   const raw = asRecord(node);
   const type = nativeType(node);
-  const nodeBounds = bounds(node, page);
+  const nodeBounds = bounds(node, parentBounds);
   const geometry =
     type === 'VECTOR' || type === 'BOOLEAN_OPERATION' ? geometryPaths(document, node) : [];
   const children = childNodes(node)
@@ -480,12 +501,14 @@ function nativeNode(
         child,
         nodeIdentifier(child, `${id}:child:${index}`),
         nodeBounds,
+        pageOrigin,
         childNodes,
         imageRef,
         warnings,
         unsupportedFeatures,
         depth + 1,
         nextAncestors,
+        type === 'CANVAS',
       ),
     );
   const paints = arrayValue(raw.fillPaints)
@@ -506,7 +529,7 @@ function nativeNode(
     opacity: Math.max(0, Math.min(1, finite(raw.opacity, 1))),
     blendMode: stringValue(raw.blendMode),
     bounds: nodeBounds,
-    transform: affine(node),
+    transform: pageLocalTransform(node, pageOrigin, localizeToPage),
     children,
     fills: paints,
     strokes,
@@ -672,12 +695,14 @@ export function decodeFigmaNativeSource(data: Uint8Array): FigmaSourceDocument {
       pageNode,
       id,
       page,
+      page,
       children,
       imageRef,
       warnings,
       unsupportedFeatures,
       0,
       new Set(),
+      true,
     );
     pages.push({
       sourceId: id,
@@ -701,12 +726,14 @@ export function decodeFigmaNativeSource(data: Uint8Array): FigmaSourceDocument {
           node,
           nodeIds.get(node) ?? `native:root:${index}`,
           page,
+          page,
           children,
           imageRef,
           warnings,
           unsupportedFeatures,
           0,
           new Set(),
+          true,
         ),
       ),
     });

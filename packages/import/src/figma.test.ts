@@ -162,6 +162,7 @@ describe('Figma JSON importer', () => {
     expect(source.pages[0]?.children).toHaveLength(1);
     expect(source.pages[0]?.children[0]?.type).toBe('FRAME');
     expect(source.pages[0]?.children[0]?.children[0]?.type).toBe('VECTOR');
+    expect(source.pages[0]?.children[0]?.transform).toEqual([1, 0, 0, 1, 0, 0]);
 
     const result = createFigmaParser().parse(data);
     const nodes = Object.values(result.document.nodes);
@@ -171,6 +172,30 @@ describe('Figma JSON importer', () => {
     expect(nodes.some((node) => node.kind === 'shape' && node.shape?.kind === 'path')).toBe(true);
     expect(result.warnings).not.toContain(expect.stringMatching(/opaque native/i));
     expect(validateDocument(result.document).valid).toBe(true);
+  });
+
+  it('reports malformed native archives as a failed import without nodes', () => {
+    const data = nativeFixture();
+    const endSignature = [0x50, 0x4b, 0x05, 0x06];
+    let endOffset = -1;
+    for (let offset = data.length - 22; offset >= 0; offset -= 1) {
+      if (endSignature.every((byte, index) => data[offset + index] === byte)) {
+        endOffset = offset;
+        break;
+      }
+    }
+    expect(endOffset).toBeGreaterThanOrEqual(0);
+    const malformed = data.slice();
+    new DataView(malformed.buffer, malformed.byteOffset, malformed.byteLength).setUint32(
+      endOffset + 12,
+      1,
+      true,
+    );
+
+    const result = createFigmaParser().parse(malformed);
+    expect(result.nodeIds).toEqual([]);
+    expect(result.unsupportedFeatures).toContain('native .fig decoding');
+    expect(result.warnings[0]).toMatch(/could not be decoded safely/i);
   });
 
   it('converts pages, auto layout, editable text, gradients, effects and paths', () => {
