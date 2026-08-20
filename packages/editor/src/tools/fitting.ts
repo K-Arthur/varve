@@ -18,6 +18,12 @@
 export interface Point2D {
   x: number;
   y: number;
+  /**
+   * Stylus pressure 0-1, carried through simplification and curve fitting so
+   * variable-width vector strokes survive to the renderer. Optional because
+   * most geometry callers have no pressure to give.
+   */
+  pressure?: number;
 }
 
 export interface BezierSegment {
@@ -282,6 +288,7 @@ export function fitPathToBeziers(points: Point2D[]): FitPathPoint[] {
       y: p.y,
       handleIn: null,
       handleOut: null,
+      pressure: p.pressure,
     }));
   }
 
@@ -320,7 +327,13 @@ export function fitPathToBeziers(points: Point2D[]): FitPathPoint[] {
           const handleIn: [number, number] = [seg.p2.x - p3.x, seg.p2.y - p3.y];
 
           if (result.length === 0) {
-            result.push({ x: p0.x, y: p0.y, handleIn: null, handleOut: handleOut });
+            result.push({
+              x: p0.x,
+              y: p0.y,
+              handleIn: null,
+              handleOut: handleOut,
+              pressure: p0.pressure,
+            });
           } else {
             // Update previous point's handleOut if it was null (continuity)
             const prevPt = result[result.length - 1];
@@ -334,6 +347,9 @@ export function fitPathToBeziers(points: Point2D[]): FitPathPoint[] {
             y: p3.y,
             handleIn: handleIn,
             handleOut: null,
+            // Fitted anchors are original samples, so their pressure is the
+            // measured value rather than an interpolation of neighbours.
+            pressure: p3.pressure,
           });
         }
       }
