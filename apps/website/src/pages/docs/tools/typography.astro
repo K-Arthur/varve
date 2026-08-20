@@ -135,10 +135,10 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Figma acquisition note</h2>
         <p>
-          Varve's semantic Figma import path accepts official REST file JSON and compatible plugin-export JSON. This is the path used to preserve editable pages, frames, text runs, components, styles, variables, and layout semantics where Varve has an equivalent model. The local-first result does not require Figma to remain open after import.
+          Varve's semantic Figma import path accepts native <code>.fig</code> archives, official REST file JSON, and compatible plugin-export JSON. Native archives are decoded locally before the same semantic conversion builds editable pages, frames, text runs, components, styles, variables, and layout semantics where Varve has an equivalent model. The local-first result does not require Figma to remain open after import.
         </p>
         <p>
-          Opaque native <code>.fig</code> binaries are not currently parsed as a semantic source. Use an authorized JSON/plugin export for editable import, or use SVG/PDF when visual fallback is the priority. Varve reports source limitations rather than presenting a flattened fallback as full semantic support.
+          Native <code>.fig</code> support is schema-version dependent. If a source resource or semantic feature is unavailable, Varve keeps the supported artwork editable and surfaces the limitation in the Import Report. Use an authorized JSON/plugin export when the file's REST resource maps are needed, or use SVG/PDF when visual fallback is the priority; neither fallback preserves Figma's higher-level semantics.
         </p>
       </section>
 
