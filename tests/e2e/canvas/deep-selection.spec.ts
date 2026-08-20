@@ -138,7 +138,7 @@ test.describe('Deep Selection', () => {
 
   test('6. Auto-reveal preference can be toggled', async ({ page }) => {
     // Open layers panel and find the auto-reveal toggle
-    const autoRevealBtn = page.locator('.layers-panel__auto-reveal-btn');
+    const autoRevealBtn = page.getByRole('button', { name: 'Auto-reveal canvas selection' });
     await expect(autoRevealBtn).toBeAttached();
 
     // Click to toggle off
