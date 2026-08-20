@@ -20,6 +20,8 @@ const softwareSchema = {
   // step with the published release; omitted entirely when no release exists.
   ...(release.version ? { softwareVersion: release.version } : {}),
   license: 'FSL-1.1-MIT',
+  url: 'https://varve.studio',
+  downloadUrl: 'https://varve.studio/download',
   isAccessibleForFree: true,
   offers: {
     '@type': 'Offer',
