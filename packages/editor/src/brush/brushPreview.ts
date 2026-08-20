@@ -142,11 +142,15 @@ export function renderBrushPreview(
   }
 
   ctx.fillStyle = ink;
+  // Not every 2D context implementation provides gradients (headless canvases
+  // and test environments among them); a flat dab is a worse preview than a
+  // soft one, but an exception would take the whole panel down.
+  const canGradient = typeof ctx.createRadialGradient === 'function';
   for (const dab of dabs) {
     const alpha = Math.max(0, Math.min(1, dab.opacity * dab.flow));
     if (alpha <= 0) continue;
     ctx.globalAlpha = alpha;
-    if (dab.hardness >= 0.99) {
+    if (dab.hardness >= 0.99 || !canGradient) {
       ctx.beginPath();
       ctx.ellipse(dab.x, dab.y, dab.radius, dab.radius * dab.roundness, dab.angle, 0, Math.PI * 2);
       ctx.fill();
@@ -240,10 +244,16 @@ export function brushPreviewDataUrl(
   canvas.width = Math.round(options.width * ratio);
   canvas.height = Math.round(options.height * ratio);
   const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-  ctx.scale(ratio, ratio);
-  renderBrushPreview(ctx, preset, options);
-  const url = canvas.toDataURL('image/png');
+  if (!ctx || typeof canvas.toDataURL !== 'function') return null;
+  let url: string;
+  try {
+    ctx.scale(ratio, ratio);
+    renderBrushPreview(ctx, preset, options);
+    url = canvas.toDataURL('image/png');
+  } catch {
+    // A thumbnail is never worth failing a render over.
+    return null;
+  }
   cache.set(preset.id, fingerprint, url);
   return url;
 }
