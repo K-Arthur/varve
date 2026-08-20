@@ -111,7 +111,16 @@ export function createExportFolderSaveFile(
 }
 
 export interface BufferedExportArchive {
-  saveFile: NonNullable<ExportRunContext['saveFile']>;
+  /** Archive entries only need a path and bytes; MIME/job metadata is not
+   * persisted inside the ZIP and would make package export needlessly coupled
+   * to raster ExportJob records. The optional trailing arguments preserve the
+   * ExportRunContext sink shape for existing batch-export callers. */
+  saveFile: (
+    fileName: string,
+    bytes: Uint8Array,
+    _mimeType?: string,
+    _job?: ExportJob,
+  ) => Promise<string | null | undefined>;
   fileCount: () => number;
   flush: (archiveName: string) => Promise<string | null>;
 }
