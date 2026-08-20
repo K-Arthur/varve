@@ -1,14 +1,22 @@
 import type { BooleanOpKind } from '@varve/scene';
 import type { IconName, MenuEntry } from '@varve/ui';
 import { ContextMenu, Icon, Toolbar, Tooltip, TooltipProvider } from '@varve/ui';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { toolShortcutLabel } from '../../shortcuts';
-import { composeToolbar, type ToolbarFlyoutSlot } from '../../workspace/toolbarComposition';
+import { getToolDefinition } from '../../tools/toolRegistry';
+import {
+  composeToolbar,
+  getToolbarSlotToolIds,
+  type ToolbarFlyoutSlot,
+  type ToolbarGroup,
+  type ToolbarSlot,
+} from '../../workspace/toolbarComposition';
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import { ToolOptionsPopover } from './ToolOptionsPopover';
 import './FloatingToolbar.css';
 import { toolIconName, toolLabel } from '../../workspace/toolLabels';
+import { useToolbarOverflow } from './useToolbarOverflow';
 
 const TOUCH_MULTISELECT_ACTIVE_CLASS = 'floating-toolbar__touch-multi--active';
 
@@ -22,6 +30,7 @@ const BOOLEAN_OP_MAP: Record<string, BooleanOpKind> = {
 /** Flyouts whose members are commands applied to the selection rather than
  *  tools that become active. Boolean operations need 2+ selected shapes. */
 const ACTION_FLYOUT_ID = 'boolean';
+const RESPONSIVE_MORE_ID = 'responsive-more-tools';
 interface ToolButtonProps {
   id: ToolId;
   groupStart?: boolean;
@@ -111,6 +120,108 @@ function FlyoutButton({
         </button>
       </Tooltip>
     </>
+  );
+}
+
+interface ToolbarSlotViewProps {
+  slot: ToolbarSlot;
+  activeTool: ToolId;
+  canBoolean: boolean;
+  onActivate: (flyoutId: string, toolId: ToolId) => void;
+  onToggleMenu: (id: string, rect: DOMRect) => void;
+}
+
+function ToolbarSlotView({
+  slot,
+  activeTool,
+  canBoolean,
+  onActivate,
+  onToggleMenu,
+}: ToolbarSlotViewProps) {
+  if (slot.kind === 'tool') {
+    return <ToolButton id={slot.toolId} groupStart={slot.groupStart} />;
+  }
+
+  const isAction = slot.id === ACTION_FLYOUT_ID;
+  // The primary button shows the active member when one is active, so the
+  // toolbar reflects the current tool rather than resetting to the first
+  // member on every render.
+  const current = slot.tools.includes(activeTool) ? activeTool : slot.tools[0];
+  if (!current) return null;
+
+  return (
+    <FlyoutButton
+      slot={slot}
+      current={current}
+      pressed={!isAction && activeTool === current}
+      disabledReason={isAction && !canBoolean ? 'Select 2+ shapes for boolean' : undefined}
+      onActivate={(toolId) => onActivate(slot.id, toolId)}
+      onToggleMenu={(rect) => onToggleMenu(slot.id, rect)}
+    />
+  );
+}
+
+function categoryLabel(category: string): string {
+  if (category === 'ai') return 'AI-assisted';
+  return category.replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function getOverflowMenuItems(
+  groups: ToolbarGroup[],
+  canBoolean: boolean,
+  onActivate: (flyoutId: string, toolId: ToolId) => void,
+  onClose: () => void,
+): MenuEntry[] {
+  const byCategory = new Map<string, MenuEntry[]>();
+
+  for (const group of groups) {
+    for (const slot of group.slots) {
+      const sourceId = slot.kind === 'flyout' ? slot.id : 'tool';
+      for (const toolId of getToolbarSlotToolIds(slot)) {
+        const category = getToolDefinition(toolId)?.category ?? 'other';
+        const entries = byCategory.get(category) ?? [];
+        entries.push({
+          id: `${RESPONSIVE_MORE_ID}-${sourceId}-${toolId}`,
+          label: toolLabel(toolId),
+          disabled: sourceId === ACTION_FLYOUT_ID && !canBoolean,
+          onAction: () => {
+            onActivate(sourceId, toolId);
+            onClose();
+          },
+        });
+        byCategory.set(category, entries);
+      }
+    }
+  }
+
+  return [...byCategory].map(([category, submenu]) => ({
+    id: `${RESPONSIVE_MORE_ID}-${category}`,
+    label: categoryLabel(category),
+    submenu,
+    type: 'submenu' as const,
+  }));
+}
+
+interface MoreToolsButtonProps {
+  expanded: boolean;
+  onToggle: (rect: DOMRect) => void;
+}
+
+function MoreToolsButton({ expanded, onToggle }: MoreToolsButtonProps) {
+  return (
+    <Tooltip label="More tools">
+      <button
+        type="button"
+        className="floating-toolbar__btn floating-toolbar__more"
+        aria-label="More tools"
+        aria-haspopup="menu"
+        aria-expanded={expanded}
+        data-testid="toolbar-more-tools"
+        onClick={(event) => onToggle(event.currentTarget.getBoundingClientRect())}
+      >
+        <Icon name="Ellipsis" size={16} />
+      </button>
+    </Tooltip>
   );
 }
 
@@ -235,13 +346,18 @@ export function FloatingToolbar() {
   // future mode id silently removed the entire toolbar. The resolver falls
   // back to Design and merges the user's overrides.
   const config = useEffectiveWorkspaceConfig(workspaceMode);
+  // Keep composition and responsive grouping derived from the same effective
+  // config. The hook intentionally runs before the early returns so switching
+  // into/out of a modal tool cannot change hook ordering.
+  const slots = useMemo(() => composeToolbar(config.toolbar), [config.toolbar]);
+  const { rootRef, visibleGroups, collapsedGroups } = useToolbarOverflow(
+    slots,
+    state.tool as ToolId,
+  );
   if (!config.floatingToolbar) return null;
   if (state.tool === 'crop') return null;
 
   const isDrawingMode = workspaceMode === 'drawing';
-  // Order, grouping and flyout membership all come from the workspace config.
-  // The toolbar owns no tool list of its own — see `toolbarComposition.ts`.
-  const slots = composeToolbar(config.toolbar);
 
   /** Apply a boolean flyout member as a command; select any other member. */
   const activate = (flyoutId: string, toolId: ToolId) => {
@@ -267,10 +383,16 @@ export function FloatingToolbar() {
       setOpenMenu(null);
     },
   }));
+  const isMoreToolsOpen = openMenu?.id === RESPONSIVE_MORE_ID;
+  const overflowMenuItems = getOverflowMenuItems(collapsedGroups, canBoolean, activate, () =>
+    setOpenMenu(null),
+  );
+  const contextMenuItems = isMoreToolsOpen ? overflowMenuItems : menuItems;
+  const contextMenuLabel = isMoreToolsOpen ? 'More tools' : (openFlyout?.label ?? '');
 
   return (
     <>
-      <div className="floating-toolbar" data-testid="toolbar">
+      <div ref={rootRef} className="floating-toolbar" data-testid="toolbar">
         <TooltipProvider>
           <Toolbar label="Drawing tools">
             {state.tool === 'table' && (
@@ -285,38 +407,34 @@ export function FloatingToolbar() {
                 <Icon name="FileSpreadsheet" size={16} />
               </button>
             )}
-            {slots.map((slot) => {
-              if (slot.kind === 'tool') {
-                return (
-                  <ToolButton key={slot.toolId} id={slot.toolId} groupStart={slot.groupStart} />
-                );
-              }
-              const isAction = slot.id === ACTION_FLYOUT_ID;
-              // The primary button shows the active member when one is active,
-              // so the toolbar reflects the current tool rather than resetting
-              // to the first member on every render.
-              const current = slot.tools.includes(state.tool as ToolId)
-                ? (state.tool as ToolId)
-                : slot.tools[0];
-              if (!current) return null;
-              return (
-                <FlyoutButton
-                  key={slot.id}
+            {collapsedGroups.length > 0 && (
+              <MoreToolsButton
+                expanded={isMoreToolsOpen}
+                onToggle={(rect) =>
+                  setOpenMenu((prev) =>
+                    prev?.id === RESPONSIVE_MORE_ID
+                      ? null
+                      : { id: RESPONSIVE_MORE_ID, x: rect.left, y: rect.top },
+                  )
+                }
+              />
+            )}
+            {visibleGroups.map((group) =>
+              group.slots.map((slot) => (
+                <ToolbarSlotView
+                  key={slot.kind === 'tool' ? slot.toolId : slot.id}
                   slot={slot}
-                  current={current}
-                  pressed={!isAction && state.tool === current}
-                  disabledReason={
-                    isAction && !canBoolean ? 'Select 2+ shapes for boolean' : undefined
-                  }
-                  onActivate={(toolId) => activate(slot.id, toolId)}
-                  onToggleMenu={(rect) =>
+                  activeTool={state.tool as ToolId}
+                  canBoolean={canBoolean}
+                  onActivate={activate}
+                  onToggleMenu={(id, rect) =>
                     setOpenMenu((prev) =>
-                      prev?.id === slot.id ? null : { id: slot.id, x: rect.left, y: rect.top },
+                      prev?.id === id ? null : { id, x: rect.left, y: rect.top },
                     )
                   }
                 />
-              );
-            })}
+              )),
+            )}
             <ToolOptionsPopover />
             <Tooltip
               label={
@@ -361,13 +479,15 @@ export function FloatingToolbar() {
         {isDrawingMode && <DrawingToolbarControls />}
       </div>
       <ContextMenu
-        items={menuItems}
+        items={contextMenuItems}
         // Guard on the resolved flyout, not just the stored id: a workspace
         // switch or customization can remove the open flyout, and an empty
         // popup would otherwise linger at the last position.
-        position={openFlyout && openMenu ? { x: openMenu.x, y: openMenu.y } : null}
+        position={
+          (openFlyout || isMoreToolsOpen) && openMenu ? { x: openMenu.x, y: openMenu.y } : null
+        }
         onClose={() => setOpenMenu(null)}
-        label={openFlyout?.label ?? ''}
+        label={contextMenuLabel}
       />
     </>
   );
