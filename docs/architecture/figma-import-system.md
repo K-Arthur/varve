@@ -116,8 +116,13 @@ Prototype interactions:
 
 Fonts and images:
 
-- Font family and style are preserved on text nodes; availability is
-  resolved by Varve's font subsystem after import.
+- Font family and style are preserved on text nodes and rich-text runs;
+  availability is resolved by Varve's font subsystem after import.
+- Missing families open the existing replacement workflow when needed. Ranked
+  candidates are applied through one editor transaction across node-level
+  text, rich-text runs, and text styles. The document font manifest records
+  the original family, replacement family, and substitution status so a save
+  and reopen do not erase the provenance.
 - Image paints with embedded data URLs are stored as content-addressed
   `DocumentAsset` entries and deduplicated.
 - Image paints referencing remote Figma `imageRef` without embedded bytes
@@ -153,7 +158,8 @@ Provenance and identity:
 | Variables | Native (color/number/string/boolean) | Resolved values |
 | Styles | Native (color/text/effect/layout) | Inline properties |
 | Text | Native (font family/style/weight/size) | Font substitute |
-| Rich text (style overrides) | Approximated (character style overrides) | — |
+| Rich text (style overrides) | Converted (character style overrides become runs) | Base text style |
+| Font availability/replacement | Converted (catalog, ranked suggestions, manifest provenance) | Installed/system fallback; match quality is reported |
 | Gradients | Native (linear/radial/angular/diamond) | — |
 | Effects | Partial (drop/inner shadow, layer/background blur) | — |
 | Masks | Native (alpha clip) | — |
@@ -201,4 +207,7 @@ pnpm exec vitest run packages/import/src/figma.test.ts
 - Variable alias expressions are stored as placeholder strings, not
   fully evaluated.
 - Prototype transitions are simplified to instant/dissolve/smartAnimate.
-- Font replacement is report-only; import-scoped replacement UI is staged.
+- Native opaque `.fig` remains intentionally unsupported. A real MIT-licensed
+  OpenFig fixture was downloaded and checked as a valid local-copy archive;
+  Varve rejects it safely as an unsupported binary and does not mislabel it as
+  JSON. Supported semantic import validation uses REST/plugin-shaped JSON.

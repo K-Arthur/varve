@@ -17,9 +17,13 @@ were at the integration boundaries:
   cloned imported nodes into the active document;
 - the existing report component understood only the legacy batch-import shape;
 - file-picker imports had no progress, cancellation, or issue-review surface.
+- missing-font handling detected only part of the text model and did not yet
+  connect replacement choices to rich-text runs or persisted provenance.
 
-Those gaps are now addressed for the supported JSON acquisition path. Native
-opaque `.fig` bytes remain explicitly unsupported. This is intentional: the
+Those gaps are now addressed for the supported JSON acquisition path,
+including native missing-font replacement across node-level text, rich-text
+runs, and text styles. Native opaque `.fig` bytes remain explicitly
+unsupported. This is intentional: the
 official Figma interfaces expose file data as JSON and do not document the
 local binary layout. Varve does not reverse-engineer or bypass a protected
 format.
@@ -43,6 +47,24 @@ use the separate image endpoint when their bytes are not embedded. See the
 and [official file model](https://developers.figma.com/docs/rest-api/files/).
 Variables require a separately authorized variables endpoint in supported
 Figma plans; see the [official variables endpoint documentation](https://developers.figma.com/docs/rest-api/variables-endpoints/).
+
+## Real-file validation
+
+There was no Figma artifact in the Varve checkout at the start of this audit.
+For an honest binary-path check, a real local-copy archive was downloaded
+from the MIT-licensed [`OpenFig-org/openfig-core` fixture](https://github.com/OpenFig-org/openfig-core/blob/main/README.md):
+[`test-fixtures/OpenFigs.fig`](https://raw.githubusercontent.com/OpenFig-org/openfig-core/main/test-fixtures/OpenFigs.fig).
+The downloaded file was 48,052 bytes with SHA-256
+`eecd50d4d4135ab4b146bbbb7079b7b0743ee0325f2b8e6f2b37454b59c79c4b` and
+contained `canvas.fig`, `meta.json`, `thumbnail.png`, and an `images/` entry.
+Its `canvas.fig` payload began with the `fig-kiwi` signature.
+
+Varve's importer correctly classified that real binary as non-JSON and
+rejected it with the explicit unsupported-native-`.fig` path. This validates
+safe failure and prevents a false claim of native `.fig` support; it is not a
+claim that the opaque binary was semantically imported. Semantic import and
+font-replacement validation therefore uses legitimate REST/plugin-shaped JSON,
+which is the supported acquisition contract documented above.
 
 ## Architecture implemented
 
@@ -108,7 +130,7 @@ semantically into a Varve concept; `Approximated` = editable but not identical;
 | Missing/remote image refs | no fake bytes | Unsupported | Placement omitted, siblings continue | Report points to image-fills acquisition requirement |
 | Text | editable `TextNode` | Converted | Font fallback | Family/style/weight/size/line-height/tracking and rich runs retained |
 | Rich text ranges | Varve rich text paragraphs/runs | Approximated | Base text style | Character override tables become runs; full shaping parity is not claimed |
-| Font availability | Varve font metadata/subsystem | Approximated | Installed/system fallback | Import records family references; interactive replacement UI is follow-up work |
+| Font availability/replacement | Varve font catalog, resolver, manifest and replacement dialog | Converted | Ranked compatible/category fallback | Rich-text runs and text styles are updated in one undo transaction; original family remains in manifest |
 | Auto Layout H/V | Varve flex `LayoutStyle` | Converted | Fixed geometry only for unsupported cases | Gap, padding, alignment, wrap and sizing intent are retained |
 | Auto Layout GRID | Varve grid `LayoutStyle` | Converted | Flex-like approximation | Explicit column count is mapped when available |
 | Min/max sizing | node min/max fields | Converted | Resolved bounds | Behavior remains editable in Varve layout |
@@ -141,8 +163,10 @@ File-picker import now uses the existing shell and import components:
 - Escape, close, focus-visible controls, and live announcements are retained.
 
 The legacy batch report shape remains supported for existing callers. Missing
-font replacement remains a staged frontend enhancement because Varve's current
-font controller is not yet coupled to an import-scoped replacement session.
+font replacement is surfaced by the existing shell-level controller only when
+unresolved families are present. The dialog is keyboard-usable, explains that
+layout can reflow, shows the original reference and match quality, and applies
+Replace All as one transaction. A clean import remains quiet.
 
 ## Validation performed
 
@@ -157,6 +181,8 @@ Focused tests currently cover:
 - component-set variants, grid/export metadata, masks, unknown containers;
 - import scaling;
 - editor import report/progress components;
+- rich-text missing-font replacement through the real file-picker workflow;
+- replacement manifest provenance and save-time manifest rebuilding;
 - post-clone resource/reference remapping;
 - editor import insertion and clipboard paths.
 
@@ -181,8 +207,8 @@ memory.
 
 ### P1 — semantic fidelity
 
-- Couple import font resolution to a replacement mapping dialog and preserve
-  original family/style metadata for later recovery.
+- Add explicit restore-to-original-font actions when the original family is
+  later installed; ordinary opening deliberately does not auto-rewrite text.
 - Implement exact component/library dependency materialization when a master is
   not present in the selected page set.
 - Preserve Figma image crop/fill mode and richer effect ordering.
