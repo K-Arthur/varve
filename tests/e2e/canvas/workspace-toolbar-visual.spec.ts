@@ -37,6 +37,15 @@ test.describe('workspace toolbar visual QA', () => {
       const toolbar = page.locator('[data-testid="toolbar"]');
       await expect(toolbar).toBeVisible();
       await expect(toolbar.locator('[data-tool="select"]')).toBeVisible();
+      const canvasBox = await page.locator('.editor-canvas').boundingBox();
+      const toolbarBox = await toolbar.boundingBox();
+      expect(canvasBox).not.toBeNull();
+      expect(toolbarBox).not.toBeNull();
+      if (!canvasBox || !toolbarBox) throw new Error('Canvas or toolbar has no layout box');
+      expect(toolbarBox.x).toBeGreaterThanOrEqual(canvasBox.x - 1);
+      expect(toolbarBox.x + toolbarBox.width).toBeLessThanOrEqual(
+        canvasBox.x + canvasBox.width + 1,
+      );
       if (mode === 'codegen') {
         // Codegen renders a workflow panel in the same canvas grid area. The
         // recovery toolbar must remain above that panel and pointer-accessible.
