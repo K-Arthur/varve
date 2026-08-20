@@ -470,6 +470,9 @@ importers:
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
+      openfig-core:
+        specifier: 0.4.1
+        version: 0.4.1
       pdfjs-dist:
         specifier: ^6.2.108
         version: 6.2.108
@@ -4197,6 +4200,9 @@ packages:
   function-bind@1.1.2:
     resolution: {integrity: sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==}
 
+  fzstd@0.1.1:
+    resolution: {integrity: sha512-dkuVSOKKwh3eas5VkJy1AW1vFpet8TA/fGmVA5krThl8YcOVE/8ZIoEA1+U1vEn5ckxxhLirSdY837azmbaNHA==}
+
   geckodriver@6.1.1:
     resolution: {integrity: sha512-/AcCyc9o9o6hUbudaSJM2iOtXbxSLqQPOb4GrPvEN40cjraUeaX/j5kH3mSgwiroyMn7qzx2wM61AQ2XY8j3sA==}
     engines: {node: '>=20.0.0'}
@@ -4677,6 +4683,10 @@ packages:
     resolution: {integrity: sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw==}
     engines: {node: '>=0.10.0'}
 
+  kiwi-schema@0.5.0:
+    resolution: {integrity: sha512-X+FpfU0yTEtc6aTHS7VwbOpvQwRt70+pXXWRI5fd6CvWhe7pSVC854TVo4Zo0x5/wwcWj+/9KUlXpdcP0dY9AA==}
+    hasBin: true
+
   kleur@4.1.5:
     resolution: {integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==}
     engines: {node: '>=6'}
@@ -5092,6 +5102,9 @@ packages:
   open@10.2.0:
     resolution: {integrity: sha512-YgBpdJHPyQ2UE5x+hlSXcnejzAvD0b22U2OuAP+8OnlJT+PjWPxtgmGqKKc+RgTM63U9gN0YzrYc71R2WT/hTA==}
     engines: {node: '>=18'}
+
+  openfig-core@0.4.1:
+    resolution: {integrity: sha512-R1lYAVDlveKxXq4O2LcvWMWANk8FskzJAx1eHiXlqakVGzQ/UkLlwxoOBpMOv7cPEmOLfLSD3Vd3D3bvGE1vwQ==}
 
   opentype.js@2.0.0:
     resolution: {integrity: sha512-kCyjv6xdDY1W/jLWZ/L3QhhTlKUqDZMQ5+Jdlw12b3dXkKNpYBqqlMMj0YDQPShWFTMwgZI1hG14kN3XUDSg/A==}
@@ -10159,6 +10172,8 @@ snapshots:
 
   function-bind@1.1.2: {}
 
+  fzstd@0.1.1: {}
+
   geckodriver@6.1.1:
     dependencies:
       '@wdio/logger': 9.29.1
@@ -10682,6 +10697,8 @@ snapshots:
 
   kind-of@6.0.3: {}
 
+  kiwi-schema@0.5.0: {}
+
   kleur@4.1.5: {}
 
   knip@6.32.0:
@@ -11072,6 +11089,12 @@ snapshots:
       define-lazy-prop: 3.0.0
       is-inside-container: 1.0.0
       wsl-utils: 0.1.0
+
+  openfig-core@0.4.1:
+    dependencies:
+      fflate: 0.8.3
+      fzstd: 0.1.1
+      kiwi-schema: 0.5.0
 
   opentype.js@2.0.0: {}
 

@@ -34,6 +34,12 @@ const fixtures = [100, 1_000, 5_000].map((nodeCount) => [nodeCount, fixture(node
 
 describe('Figma JSON decode and semantic conversion', () => {
   for (const [nodeCount, data] of fixtures) {
-    bench(`${nodeCount} nodes`, () => parser.parse(data), { iterations: 10 });
+    bench(
+      `${nodeCount} nodes`,
+      () => {
+        parser.parse(data);
+      },
+      { iterations: 10 },
+    );
   }
 });

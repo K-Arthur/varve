@@ -5,6 +5,8 @@
  * and that the file import input accepts .fig files. The actual import
  * pipeline is covered by unit tests in packages/import/src/figma.test.ts.
  */
+
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
@@ -101,6 +103,20 @@ test.describe('Figma import integration', () => {
       path: `${testResultsDir}/figma-import-basic-ui.png`,
       fullPage: false,
     });
+  });
+
+  test('imports the checked-in native .fig fixture through the real file picker', async ({
+    page,
+  }) => {
+    await navigateToEditor(page);
+    await page
+      .locator('#file-import-input')
+      .setInputFiles(path.resolve(process.cwd(), 'packages/import/test-fixtures/OpenFigs.fig'));
+    await expect(page.locator('.layers-panel')).toContainText('WhiteOpenFigOutlinedIcon', {
+      timeout: 30000,
+    });
+    await expect(page.locator('.import-results-overlay')).toHaveCount(0);
+    await expect(page.locator('.editor-canvas canvas, canvas').first()).toBeVisible();
   });
 
   test('shows the fidelity report when source semantics are degraded', async ({ page }) => {
