@@ -82,6 +82,10 @@ export interface RasterMaskSelectionShape {
   width: number;
   height: number;
   data: Uint8Array;
+  boundary: readonly {
+    from: SelectionPoint;
+    to: SelectionPoint;
+  }[];
   transform: readonly [number, number, number, number, number, number];
   inverseTransform: readonly [number, number, number, number, number, number];
   feather: number;
