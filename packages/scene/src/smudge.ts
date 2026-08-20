@@ -19,6 +19,12 @@ import type { RasterLayerNode, RasterTile } from './types';
 
 export type SmudgeMode = 'pure' | 'fingerPaint' | 'loaded';
 
+/**
+ * Mean brush-mask coverage over a tip, used to convert a centre-of-tip deposit
+ * fraction into the fraction of the reservoir a whole dab actually transfers.
+ */
+const TIP_DEPOSIT_FRACTION = 0.5;
+
 export interface SmudgeState {
   /** Straight (unpremultiplied) carried colour, 0-255. */
   r: number;
@@ -44,6 +50,14 @@ export interface SmudgeOptions {
   initialLoad?: number;
   coverage?: CoverageMask | null;
   alphaLock?: boolean;
+  /**
+   * Tiles to pick colour up from. Defaults to the target layer's own tiles.
+   *
+   * "Sample all layers" passes a flattened composite of the visible stack here.
+   * Deposits still land on the target alone, so smudging across a stack never
+   * bakes it into one layer.
+   */
+  sampleTiles?: Map<string, RasterTile> | null;
 }
 
 export function createSmudgeState(options: SmudgeOptions): SmudgeState {
@@ -128,7 +142,8 @@ export function compositeSmudgeDab(
   const pickup = Math.max(0, Math.min(1, options.pickup));
 
   // ── Pickup ──────────────────────────────────────────────────────────────
-  const sampled = averageUnderDab(node.tiles, dab, mask, size);
+  const pickupSource = options.sampleTiles ?? node.tiles;
+  const sampled = averageUnderDab(pickupSource, dab, mask, size);
   if (sampled) {
     const take = pickup * dab.opacity;
     mixInto(state, sampled, take);
@@ -205,9 +220,16 @@ export function compositeSmudgeDab(
     newTiles.set(key, { pixels, version: (tile?.version ?? 0) + 1 });
   }
 
-  // The reservoir empties as it is laid down, which is what makes the trail
-  // fade with distance instead of repeating forever.
-  state.load = Math.max(0, state.load * (1 - strength * dab.flow));
+  // The reservoir loses what it laid down. `strength * flow` is the deposit
+  // fraction at the centre of the tip, but coverage falls off across the mask,
+  // so the amount actually transferred integrates to roughly half that —
+  // draining by the peak instead emptied the brush within two or three dabs
+  // and the trail died before it left the shape it started in.
+  //
+  // Pickup replenishes on the next dab, so over painted canvas the reservoir
+  // reaches an equilibrium and the smear carries; over bare canvas there is
+  // nothing to replenish it, and the trail fades out on its own.
+  state.load = Math.max(0, state.load * (1 - strength * dab.flow * TIP_DEPOSIT_FRACTION));
   return { ...node, tiles: newTiles };
 }
 
