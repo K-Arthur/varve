@@ -188,3 +188,34 @@ describe('source-over compositing', () => {
     expect(px(out, 20, 20)!.a).toBeGreaterThan(first);
   });
 });
+
+describe('brush tip hardness', () => {
+  it('gives a hard edge at hardness 1', () => {
+    const node = makeRasterLayerNode('n', { width: TILE_SIZE, height: TILE_SIZE });
+    const out = compositeDabOnNode(node, dab({ x: 40, y: 40, radius: 12, hardness: 1 }), RED);
+    // Solid right up to the rim, then nothing.
+    expect(px(out, 40 + 10, 40)!.a).toBe(255);
+    expect(px(out, 40 + 13, 40)!.a).toBe(0);
+  });
+
+  it('falls off from the centre at low hardness', () => {
+    // Regression: hardness was inverted, so "Airbrush" at hardness 0.1
+    // rendered as a hard-edged disc instead of a soft one.
+    const node = makeRasterLayerNode('n', { width: TILE_SIZE, height: TILE_SIZE });
+    const out = compositeDabOnNode(node, dab({ x: 40, y: 40, radius: 12, hardness: 0.1 }), RED);
+    const centre = px(out, 40, 40)!.a;
+    const mid = px(out, 40 + 6, 40)!.a;
+    const rim = px(out, 40 + 11, 40)!.a;
+    expect(centre).toBe(255);
+    expect(mid).toBeLessThan(centre);
+    expect(rim).toBeLessThan(mid);
+    expect(rim).toBeGreaterThan(0);
+  });
+
+  it('makes a higher hardness cover more of the tip solidly', () => {
+    const node = makeRasterLayerNode('n', { width: TILE_SIZE, height: TILE_SIZE });
+    const soft = compositeDabOnNode(node, dab({ x: 40, y: 40, radius: 12, hardness: 0.2 }), RED);
+    const hard = compositeDabOnNode(node, dab({ x: 40, y: 40, radius: 12, hardness: 0.8 }), RED);
+    expect(px(hard, 40 + 8, 40)!.a).toBeGreaterThan(px(soft, 40 + 8, 40)!.a);
+  });
+});
