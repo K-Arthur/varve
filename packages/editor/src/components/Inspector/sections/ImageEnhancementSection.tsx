@@ -3,6 +3,7 @@ import type { LiveTraceParams, SceneNode } from '@varve/scene';
 import { isImageShape } from '@varve/scene';
 import { Button, Select } from '@varve/ui';
 import { useEffect, useId, useRef, useState } from 'react';
+import { isCapabilityRestricted } from '../../../capabilities/restrictions';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -91,6 +92,10 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
     setPending('trace');
   }, [debouncedParams, liveTrace, traceSelectedImage, setSelectedLiveTraceParams]);
 
+  // A deployment may withhold on-device inference; the guard at the context
+  // stops it running, and this stops the panel offering a button that would
+  // silently do nothing.
+  if (isCapabilityRestricted('inference')) return null;
   if (!node || !isImageShape(node)) return null;
 
   const runTrace = async () => {
