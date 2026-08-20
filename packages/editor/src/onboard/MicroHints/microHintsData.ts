@@ -13,6 +13,8 @@ export interface MicroHint {
   category: 'tools' | 'editing' | 'canvas' | 'text';
   /** How long the hint stays visible (ms). 0 = until user interacts. */
   duration: number;
+  /** Resolved at runtime from the canonical shortcut registry; never hardcoded. */
+  shortcut?: string;
 }
 
 export const MICRO_HINTS: MicroHint[] = [

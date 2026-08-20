@@ -405,8 +405,8 @@ export type { GrainAnchor, GrainResolution, GrainSampleParams } from './grainSam
 export {
   grainTextureCoords,
   isProceduralGrain,
-  prepareGrain,
   PROCEDURAL_GRAIN_ID,
+  prepareGrain,
   resolveGrainDetailed,
   resolveGrainPlane,
   resolveGrainValue,
@@ -417,10 +417,10 @@ export {
 } from './grainSampler';
 export type { GrainPlane, GrainSource, GrainWrapMode } from './grainTexture';
 export {
-  decodeGrainPlane,
   DEFAULT_GRAIN_CACHE_BYTES,
-  getGrainTextureCache,
+  decodeGrainPlane,
   GrainTextureCache,
+  getGrainTextureCache,
   MAX_GRAIN_DIMENSION,
   resetGrainTextureCache,
   samplePlane,

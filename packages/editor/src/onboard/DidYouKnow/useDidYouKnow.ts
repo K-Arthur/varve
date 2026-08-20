@@ -7,6 +7,12 @@ import { workspaceTips } from './workspaceTips';
 const TIPS_TODAY_KEY = 'strata:tips-today';
 const IDLE_THRESHOLD_MS = 15000;
 const MAX_TIPS_PER_DAY = 5;
+/**
+ * After a tip is dismissed (manually or by auto-timeout) we stay quiet for
+ * this long before surfacing another. This enforces the "one interruption at
+ * a time" rule: dismissing a tip must not immediately queue a different one.
+ */
+const DISMISS_COOLDOWN_MS = 120000;
 
 interface TipsTodayData {
   count: number;
@@ -33,15 +39,28 @@ function saveTipsToday(data: TipsTodayData): void {
   localStorage.setItem(TIPS_TODAY_KEY, JSON.stringify(data));
 }
 
+export interface DidYouKnowOptions {
+  /** Master switch for contextual tips (Settings → Learning → Contextual tips). */
+  enabled?: boolean;
+  /**
+   * When false, proactive workspace/first-use tutorial suggestions are
+   * suppressed (Settings → Learning → Tutorial suggestions). General tips
+   * still respect `enabled`.
+   */
+  suggestTutorials?: boolean;
+}
+
 export function useDidYouKnow(
   tracker: { getCount: (id: string, windowMs?: number) => number },
   /** Active workspace — surfaces that workspace's declared onboarding tips. */
   mode?: WorkspaceMode,
+  options: DidYouKnowOptions = {},
 ): {
   currentTip: Tip | null;
   dismiss: () => void;
   dontShowAgain: () => void;
 } {
+  const { enabled = true, suggestTutorials = true } = options;
   const [currentTip, setCurrentTip] = useState<Tip | null>(null);
   const queueRef = useRef<Tip[]>([]);
   // The queue is built once and drained. A workspace switch changes which
@@ -56,9 +75,14 @@ export function useDidYouKnow(
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
+  // When non-zero, suppress the next tip until this timestamp. Set whenever a
+  // tip is dismissed so we never immediately swap one tip for another.
+  const cooldownRef = useRef<number>(0);
 
   // Track user activity to reset idle timer
   useEffect(() => {
+    if (!enabled) return;
+
     function handleActivity() {
       lastActivityRef.current = Date.now();
 
@@ -95,9 +119,14 @@ export function useDidYouKnow(
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
       if (tipTimerRef.current) clearTimeout(tipTimerRef.current);
     };
-  }, [currentTip]);
+  }, [currentTip, enabled]);
 
   function checkAndShowNext() {
+    if (!enabled) return;
+    // Respect the post-dismissal cooldown so a dismissal is not immediately
+    // followed by a different tip (one interruption at a time).
+    if (Date.now() < cooldownRef.current) return;
+
     // Check daily limit
     const tipsToday = loadTipsToday();
     if (tipsToday.count >= MAX_TIPS_PER_DAY) {
@@ -110,10 +139,14 @@ export function useDidYouKnow(
 
     // Build queue of eligible tips not already dismissed. The active
     // workspace's own tips lead: they are the most specific advice available
-    // for what the user is doing right now.
+    // for what the user is doing right now. Proactive workspace/tutorial
+    // suggestions are gated by `suggestTutorials`.
     if (queueRef.current.length === 0) {
       const active = modeRef.current;
-      const candidates = active ? [...workspaceTips(active), ...TIPS] : TIPS;
+      const candidates = [
+        ...(suggestTutorials && active ? workspaceTips(active) : []),
+        ...TIPS,
+      ];
       queueRef.current = candidates.filter((tip) => {
         if (dismissed.has(tip.id)) return false;
         if (tipsToday.shownIds.includes(tip.id)) return false;
@@ -140,8 +173,10 @@ export function useDidYouKnow(
   const dismiss = useCallback(() => {
     setCurrentTip(null);
     lastActivityRef.current = Date.now();
+    // Stay quiet before the next tip — dismissing must not queue another.
+    cooldownRef.current = Date.now() + DISMISS_COOLDOWN_MS;
 
-    // Start idle timer to show next tip
+    // Start idle timer to show next tip (gated by the cooldown in checkAndShowNext)
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     idleTimerRef.current = setTimeout(() => {
       checkAndShowNext();
@@ -156,6 +191,7 @@ export function useDidYouKnow(
     }
     setCurrentTip(null);
     lastActivityRef.current = Date.now();
+    cooldownRef.current = Date.now() + DISMISS_COOLDOWN_MS;
   }, [currentTip]);
 
   return { currentTip, dismiss, dontShowAgain };

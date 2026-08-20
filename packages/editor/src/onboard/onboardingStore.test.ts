@@ -22,7 +22,6 @@ describe('onboardingStore', () => {
   it('returns default state when no stored data', () => {
     const state = loadOnboardingState();
     expect(state.onboardingComplete).toBe(false);
-    expect(state.skillLevel).toBe('unclassified');
     expect(state.checklistProgress).toEqual([]);
     expect(state.dismissedTips).toEqual([]);
   });
@@ -31,7 +30,6 @@ describe('onboardingStore', () => {
     const state: OnboardingStore = {
       onboardingComplete: true,
       onboardingVersion: 1,
-      skillLevel: 'intermediate',
       checklistProgress: ['shape', 'color'],
       dismissedTips: ['tip1'],
       seenFeatureBadges: ['tool:pen'],
@@ -48,7 +46,6 @@ describe('onboardingStore', () => {
     const state: OnboardingStore = {
       onboardingComplete: true,
       onboardingVersion: 1,
-      skillLevel: 'advanced',
       checklistProgress: ['shape'],
       dismissedTips: ['tip1'],
       seenFeatureBadges: ['tool:pen'],
@@ -60,7 +57,6 @@ describe('onboardingStore', () => {
     resetOnboarding();
     const loaded = loadOnboardingState();
     expect(loaded.onboardingComplete).toBe(false);
-    expect(loaded.skillLevel).toBe('unclassified');
     expect(loaded.dismissedMicroHints).toEqual([]);
   });
 
@@ -68,14 +64,12 @@ describe('onboardingStore', () => {
     localStorage.setItem('strata:onboarding', 'not-json');
     const state = loadOnboardingState();
     expect(state.onboardingComplete).toBe(false);
-    expect(state.skillLevel).toBe('unclassified');
   });
 
   it('isVersionBump detects version changes', () => {
     const old: OnboardingStore = {
       onboardingComplete: true,
       onboardingVersion: 0,
-      skillLevel: 'beginner',
       checklistProgress: [],
       dismissedTips: [],
       seenFeatureBadges: [],

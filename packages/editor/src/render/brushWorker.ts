@@ -12,9 +12,9 @@
  */
 import {
   appendStrokePoints,
-  beginStroke,
   type BrushDab,
   type BrushPreset,
+  beginStroke,
   type StrokeEngineState,
   type StrokePoint,
 } from '@varve/scene';

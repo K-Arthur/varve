@@ -21,6 +21,8 @@ const ACTION_OPTIONS: { value: ActionKind; label: string }[] = [
   { value: 'navigateTo', label: 'Navigate to' },
   { value: 'openOverlay', label: 'Open overlay' },
   { value: 'closeOverlay', label: 'Close overlay' },
+  { value: 'startAnimation', label: 'Play animation' },
+  { value: 'stopAnimation', label: 'Stop animation' },
   { value: 'setVariable', label: 'Set variable' },
   { value: 'toggleVisibility', label: 'Toggle visibility' },
 ];
@@ -59,6 +61,7 @@ export function InteractionSection() {
     removeNodeInteraction,
     updateNodeInteraction,
     getPrototypeScreens,
+    state,
   } = useEditor();
   const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map());
   const nodes = selectedNodes();
@@ -75,6 +78,9 @@ export function InteractionSection() {
 
   const interactions = getNodeInteractions(node.id);
   const screens = getPrototypeScreens();
+  const timelineOptions = state.document.timelines
+    ? Object.values(state.document.timelines).map((t) => ({ value: t.id, label: t.name }))
+    : [];
 
   const patchInteraction = (ix: DocumentInteraction, updates: Partial<DocumentInteraction>) => {
     updateNodeInteraction(ix.id, updates);
@@ -147,14 +153,16 @@ export function InteractionSection() {
                     value={String(primary.kind ?? 'navigateTo')}
                     options={ACTION_OPTIONS}
                     onChange={(v) => {
-                      const kind = v;
+                      const kind = v as ActionKind;
                       const nextAction =
                         kind === 'navigateTo'
                           ? { ...DEFAULT_ACTION, kind, targetId: String(primary.targetId ?? '') }
-                          : {
-                              kind,
-                              ...(kind === 'setVariable' ? { variableId: '', value: '' } : {}),
-                            };
+                          : kind === 'startAnimation'
+                            ? { kind, animationId: String(primary.animationId ?? '') }
+                            : {
+                                kind,
+                                ...(kind === 'setVariable' ? { variableId: '', value: '' } : {}),
+                              };
                       patchInteraction(ix, { actions: [nextAction] });
                     }}
                   />
@@ -170,6 +178,22 @@ export function InteractionSection() {
                       onChange={(v) =>
                         patchInteraction(ix, {
                           actions: [{ ...primary, targetId: v }],
+                        })
+                      }
+                    />
+                  </div>
+                )}
+
+                {primary.kind === 'startAnimation' && (
+                  <div className="insp-interaction-row__field">
+                    <Select
+                      label="Target animation"
+                      value={String(primary.animationId ?? '')}
+                      placeholder="Select timeline..."
+                      options={timelineOptions}
+                      onChange={(v) =>
+                        patchInteraction(ix, {
+                          actions: [{ ...primary, animationId: v }],
                         })
                       }
                     />

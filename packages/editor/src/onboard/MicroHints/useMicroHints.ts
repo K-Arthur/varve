@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WorkspaceMode } from '../../workspace/workspaceTypes';
+import { toolShortcutLabel } from '../../shortcuts/toolShortcutLabel';
 import {
   dismissMicroHint,
   hasSeenMicroHint,
@@ -26,9 +27,16 @@ interface UseMicroHintsOptions {
   workspaceMode?: WorkspaceMode;
   enabled: boolean;
   selectionCount: number;
+  /** When true, append the canonical tool shortcut to tool hints. */
+  shortcutsEnabled?: boolean;
 }
 
-export function useMicroHints({ toolId, enabled, selectionCount }: UseMicroHintsOptions): {
+export function useMicroHints({
+  toolId,
+  enabled,
+  selectionCount,
+  shortcutsEnabled = false,
+}: UseMicroHintsOptions): {
   currentHint: MicroHint | null;
   dismiss: () => void;
 } {
@@ -45,6 +53,16 @@ export function useMicroHints({ toolId, enabled, selectionCount }: UseMicroHints
       hintTimerRef.current = null;
     }
   }, []);
+
+  // Resolve the canonical shortcut for a tool id (single source of truth — the
+  // shortcut registry). Returns undefined when no key is bound.
+  const resolveShortcut = useCallback(
+    (id: string): string | undefined => {
+      if (!shortcutsEnabled) return undefined;
+      return toolShortcutLabel(id as never);
+    },
+    [shortcutsEnabled],
+  );
 
   const dismiss = useCallback(() => {
     clearTimer();
@@ -74,7 +92,7 @@ export function useMicroHints({ toolId, enabled, selectionCount }: UseMicroHints
     const state = loadOnboardingState();
     if (hasSeenMicroHint(state, hint.id)) return;
 
-    setCurrentHint(hint);
+    setCurrentHint({ ...hint, shortcut: resolveShortcut(toolId) });
     sessionHintCountRef.current++;
     lastHintTimeRef.current = now;
 
@@ -84,7 +102,7 @@ export function useMicroHints({ toolId, enabled, selectionCount }: UseMicroHints
         setCurrentHint(null);
       }, hint.duration);
     }
-  }, [toolId, enabled, clearTimer]);
+  }, [toolId, enabled, clearTimer, resolveShortcut]);
 
   // Multi-select hint
   useEffect(() => {
@@ -108,7 +126,7 @@ export function useMicroHints({ toolId, enabled, selectionCount }: UseMicroHints
     const state = loadOnboardingState();
     if (hasSeenMicroHint(state, hint.id)) return;
 
-    setCurrentHint(hint);
+    setCurrentHint({ ...hint, shortcut: undefined });
     sessionHintCountRef.current++;
     lastHintTimeRef.current = now;
 

@@ -18,6 +18,7 @@ import type { AreaSelection } from '@varve/engine';
 import type { BrushDab, BrushPreset, RasterLayerNode, WetPaintManager } from '@varve/scene';
 import { compositeDabOnNode, defaultBrushPreset, eraseDabOnNode, strokePoint } from '@varve/scene';
 import { BrushWorkerHost, type StrokeBatchEvent } from '../render/brushWorkerHost';
+import { getPaintProfiler } from '../render/paintProfiler';
 import { BaseTool } from './BaseTool';
 import { collectSourceEvents } from './inputNormalizer';
 import { normalizePressure, normalizeTilt } from './pointerDynamics';
@@ -246,7 +247,12 @@ export class PaintTool extends BaseTool {
     for (const branch of branches) {
       // Seed from the branch identity, not the clock: every mirrored copy gets
       // its own jitter stream, and replaying a stroke reproduces it exactly.
-      host.beginStroke(branch.strokeId, generation, preset, hashSeed(`${branch.strokeId}#${generation}`));
+      host.beginStroke(
+        branch.strokeId,
+        generation,
+        preset,
+        hashSeed(`${branch.strokeId}#${generation}`),
+      );
     }
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
@@ -406,6 +412,8 @@ export class PaintTool extends BaseTool {
     if (batch.dabs.length === 0) return;
 
     const { alphaLock, eraser, color, areaSelection, rasterNodeId } = session;
+    const profiler = getPaintProfiler();
+    const compositeStart = profiler.enabled ? nowMs() : 0;
     let deposited = false;
     ctx.updateNode(rasterNodeId, (node) => {
       let updated = node as RasterLayerNode;
@@ -425,6 +433,7 @@ export class PaintTool extends BaseTool {
     // wet paint leaves the document idle.
     if (deposited) this.onWetDeposit?.();
 
+    if (profiler.enabled) profiler.compositeTook(nowMs() - compositeStart);
     session.dabCount += batch.dabs.length;
     this.growDirty(session, batch.dabs);
   }

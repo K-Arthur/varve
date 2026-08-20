@@ -10,7 +10,8 @@
  */
 import type { AnimationKeyframe, AnimationTrack } from '@varve/scene';
 import { getEasingFn } from '@varve/shared';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { editorScreenToWorld } from '../canvas/cameraState';
 import { useEditor } from '../context';
 
 interface MotionPathPoint {
@@ -43,6 +44,7 @@ interface MotionPathOverlayProps {
   zoom: number;
   pan: { x: number; y: number };
   worldToCanvas: (wx: number, wy: number) => { x: number; y: number };
+  screenToWorld?: (sx: number, sy: number) => { x: number; y: number };
 }
 
 export function MotionPathOverlay({
@@ -50,12 +52,20 @@ export function MotionPathOverlay({
   zoom,
   pan: _pan,
   worldToCanvas,
+  screenToWorld: _screenToWorld,
 }: MotionPathOverlayProps) {
   const editor = useEditor();
   const { state } = editor;
   const isMotionWorkspace = state.workspaceMode === 'motion';
   const timelineId = state.motion.activeTimelineId;
   const timeline = timelineId ? state.document.timelines?.[timelineId] : null;
+
+  const dragRef = useRef<{
+    trackId: string;
+    keyframeIndex: number;
+    startProgress: number;
+  } | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const positionTracks = useMemo(() => {
     if (!timeline) return [];
@@ -110,6 +120,51 @@ export function MotionPathOverlay({
     return points;
   }, [timeline, positionTracks]);
 
+  const handleKeyframeDragStart = useCallback(
+    (trackId: string, keyframeIndex: number, startProgress: number) => {
+      dragRef.current = { trackId, keyframeIndex, startProgress };
+      setDragging(true);
+    },
+    [],
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!dragRef.current || !timeline || !state.viewport) return;
+      const vp = state.viewport;
+      const cam = { zoom: state.zoom, pan: state.pan, rotation: state.cameraRotation ?? 0 };
+      const world = editorScreenToWorld(cam, e.clientX, e.clientY, vp);
+      const track = timeline.tracks.find((t) => t.id === dragRef.current!.trackId);
+      if (!track) return;
+      const kf = track.keyframes[dragRef.current!.keyframeIndex];
+      if (!kf) return;
+      const newProgress = Math.max(0, Math.min(1, world.x / Math.max(1, vp.width)));
+      if (Math.abs(newProgress - kf.progress) > 0.001) {
+        editor.moveKeyframe(timeline.id, track.id, kf.progress, newProgress);
+      }
+    },
+    [timeline, state.viewport, state.zoom, state.pan, state.cameraRotation, editor],
+  );
+
+  const handlePointerUp = useCallback(() => {
+    dragRef.current = null;
+    setDragging(false);
+  }, []);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e: PointerEvent) => {
+      handlePointerMove(e as unknown as React.PointerEvent);
+    };
+    const onUp = () => handlePointerUp();
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [dragging, handlePointerMove, handlePointerUp]);
+
   if (!isMotionWorkspace || !timeline || positionTracks.length === 0 || !sampledPath) {
     return null;
   }
@@ -151,7 +206,19 @@ export function MotionPathOverlay({
         return (
           <g
             key={`kf-${kp.timeMs}-${kp.keyframeIndex}`}
-            style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+            style={{ pointerEvents: 'auto', cursor: dragging ? 'grabbing' : 'grab' }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.currentTarget.setPointerCapture(e.pointerId);
+              if (timeline) {
+                const track = positionTracks.find((t) =>
+                  t.keyframes.some((_, ki) => ki === kp.keyframeIndex),
+                );
+                if (track) {
+                  handleKeyframeDragStart(track.id, kp.keyframeIndex, kp.timeMs / timeline.duration);
+                }
+              }
+            }}
           >
             <circle
               cx={sp.x}

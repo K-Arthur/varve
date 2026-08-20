@@ -797,6 +797,7 @@ export interface EditorContextValue {
   setSelectedLayoutSizingWidth: (value: LayoutSizing) => void;
   setSelectedLayoutSizingHeight: (value: LayoutSizing) => void;
   setSelectedLayoutPosition: (value: import('@varve/scene').LayoutPosition) => void;
+  setSelectedLayoutAlign: (value: import('@varve/scene').LayoutAlign) => void;
   setSelectedGridPlacement: (value: GridItemPlacement) => void;
   setCanvasWidth: (value: number) => void;
   setCanvasHeight: (value: number) => void;

@@ -27,6 +27,10 @@ import { Icon, Select } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { GradientEditor } from '../color/GradientEditor';
+import {
+  resolvedGradientHueInterpolation,
+  resolvedGradientInterpolationSpace,
+} from '../color/gradientUiState';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
@@ -228,7 +232,6 @@ function StrokeRow({
 }: StrokeRowProps) {
   const label = index === 0 ? 'Stroke' : `Stroke ${index + 1}`;
   const editor = useEditor();
-  const [showGradient, setShowGradient] = useState(false);
 
   const visibleRaw = commonValue(nodes, (n) => getStroke(n, index)?.visible ?? true);
   const colorRaw = commonValue(
@@ -243,11 +246,19 @@ function StrokeRow({
   const dashPatternRaw = commonValue(nodes, (n) => getStroke(n, index)?.dashPattern ?? []);
   const dashOffsetRaw = commonValue(nodes, (n) => getStroke(n, index)?.dashOffset ?? 0);
   const gradientRaw = commonValue(nodes, (n) => getStroke(n, index)?.gradient);
+  const documentGradientInterpolation =
+    editor.state.document.colorConfig?.defaultGradientInterpolation ?? 'oklab';
   const strokeInterpRaw = commonValue(
     nodes,
-    (n) => getStroke(n, index)?.gradient?.interpolationSpace,
+    (n) =>
+      resolvedGradientInterpolationSpace(
+        getStroke(n, index)?.gradient,
+        documentGradientInterpolation,
+      ),
   );
-  const strokeHueRaw = commonValue(nodes, (n) => getStroke(n, index)?.gradient?.hueInterpolation);
+  const strokeHueRaw = commonValue(nodes, (n) =>
+    resolvedGradientHueInterpolation(getStroke(n, index)?.gradient, documentGradientInterpolation),
+  );
   const strokeInterpMixed = isMixed(strokeInterpRaw);
   const strokeHueMixed = isMixed(strokeHueRaw);
   const perSideRaw = commonValue(nodes, (n) => getStroke(n, index)?.perSideWeights);
@@ -374,14 +385,14 @@ function StrokeRow({
           <FieldRow label="Type">
             <Select
               label={`${label} paint type`}
-              value={!isMixed(gradientRaw) && gradientRaw ? 'gradient' : 'solid'}
+              value={isMixed(gradientRaw) ? '' : gradientRaw ? 'gradient' : 'solid'}
               options={[
+                ...(isMixed(gradientRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
                 { value: 'solid', label: 'Solid' },
                 { value: 'gradient', label: 'Gradient' },
               ]}
               onChange={(v) => {
                 if (v === 'gradient') {
-                  setShowGradient(true);
                   onChange((s) => ({
                     ...s,
                     gradient: s.gradient ?? {
@@ -400,7 +411,6 @@ function StrokeRow({
                     },
                   }));
                 } else {
-                  setShowGradient(false);
                   onChange((s) => {
                     const { gradient: _g, ...rest } = s;
                     return rest as Stroke;
@@ -409,14 +419,12 @@ function StrokeRow({
               }}
             />
           </FieldRow>
-          {showGradient && !isMixed(gradientRaw) && gradientRaw && (
+          {!isMixed(gradientRaw) && gradientRaw && (
             <GradientEditor
               gradient={gradientRaw as GradientFill}
               onChange={(g: GradientFill) => onChange((s) => ({ ...s, gradient: g }))}
               documentColorMode={editor.documentColorMode}
-              documentGradientInterpolation={
-                editor.state.document.colorConfig?.defaultGradientInterpolation ?? 'oklab'
-              }
+              documentGradientInterpolation={documentGradientInterpolation}
               mixedInterpolationSpace={strokeInterpMixed}
               mixedHue={strokeHueMixed}
             />

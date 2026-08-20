@@ -6,7 +6,7 @@ import {
   resolveGrainDetailed,
   sampleGrainPlane,
 } from '../grainSampler';
-import { GrainTextureCache, type GrainPlane, samplePlane } from '../grainTexture';
+import { type GrainPlane, GrainTextureCache, samplePlane } from '../grainTexture';
 
 function params(overrides: Partial<GrainSampleParams> = {}): GrainSampleParams {
   return {
