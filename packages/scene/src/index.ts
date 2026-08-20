@@ -110,6 +110,7 @@ export * from './property-path';
 export * from './rasterLayer';
 export * from './richTextIndex';
 export * from './richTextOps';
+export * from './brushPackage';
 export * from './paintCoverage';
 export * from './retouchRaster';
 export * from './smudge';
