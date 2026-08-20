@@ -15,18 +15,18 @@
   min-height: 56px;
 }
 .color-picker__sliders .insp-slider {
-  min-height: 24px !important;
+  min-height: 24px;
   flex-shrink: 0;
 }
 .color-picker__sliders .insp-slider__track {
-  height: 20px !important;
-  min-height: 20px !important;
+  height: 20px;
+  min-height: 20px;
   border-radius: var(--radius-sm);
 }
 .color-picker__sliders .insp-slider__thumb {
-  width: 4px !important;
-  height: 24px !important;
-  margin-left: -2px !important;
+  width: 4px;
+  height: 24px;
+  margin-left: -2px;
   border-radius: 2px;
   border: 1px solid var(--color-border-strong);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);

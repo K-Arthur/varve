@@ -1313,8 +1313,6 @@
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
-
-
 /* ── NumberInput (drag-to-scrub) ──────────────────── */
 .varve-number-input {
   flex: 1;
