@@ -283,6 +283,7 @@ describe('Bug 5 — stop hit targets', () => {
   it('stops do not overlap the gradient bar edges', () => {
     render(<GradientEditor gradient={makeGradient()} onChange={vi.fn()} />);
     const bar = findBar();
+    expect(bar.parentElement).toHaveClass('gradient-editor__bar-wrap');
     const barRect = bar.getBoundingClientRect();
     const stops = screen.getAllByRole('button', { name: /^stop/i });
     for (const stop of stops) {
