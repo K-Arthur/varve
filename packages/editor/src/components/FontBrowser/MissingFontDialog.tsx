@@ -60,10 +60,32 @@ export function MissingFontDialog({
     (e: React.KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onDismiss();
+        _onClose();
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (!focusable || focusable.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!first || !last) return;
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     },
-    [onDismiss],
+    [_onClose],
   );
 
   const handleApply = useCallback(
@@ -106,6 +128,7 @@ export function MissingFontDialog({
         role="dialog"
         aria-modal="true"
         aria-label="Missing Fonts"
+        aria-describedby="missing-font-dialog-description missing-font-dialog-warning"
         tabIndex={-1}
         onKeyDown={handleKeyDown}
       >
@@ -117,12 +140,18 @@ export function MissingFontDialog({
           <button
             type="button"
             className="missing-font-dialog__close-btn"
-            onClick={onDismiss}
+            onClick={_onClose}
             aria-label="Close"
           >
-            &#x2715;
+            Close
           </button>
         </div>
+
+        <p id="missing-font-dialog-description" className="missing-font-dialog__description">
+          Varve found font families that are not available on this device. Choose a replacement and
+          it will be applied to every matching text node, including rich-text runs and shared text
+          styles. The original family is retained in the document font manifest.
+        </p>
 
         <div className="missing-font-dialog__list">
           {missingFonts.map((mf) => {
@@ -145,7 +174,12 @@ export function MissingFontDialog({
 
                 <div className="missing-font-dialog__item-detail">
                   <span className="missing-font-dialog__item-nodes">
-                    {mf.nodeIds.length} node{mf.nodeIds.length !== 1 ? 's' : ''}
+                    {mf.nodeIds.length > 0
+                      ? `${mf.nodeIds.length} node${mf.nodeIds.length !== 1 ? 's' : ''}`
+                      : 'Shared text style'}
+                  </span>
+                  <span className="missing-font-dialog__item-reference">
+                    Original: {mf.originalReference}
                   </span>
                 </div>
 
@@ -183,8 +217,8 @@ export function MissingFontDialog({
           })}
         </div>
 
-        <p className="missing-font-dialog__warning">
-          Text layout may change after font replacement.
+        <p id="missing-font-dialog-warning" className="missing-font-dialog__warning">
+          Text layout may change after replacement. Review wrapping and export before delivery.
         </p>
 
         <div className="missing-font-dialog__actions">

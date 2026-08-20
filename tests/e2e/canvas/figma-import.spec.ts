@@ -138,4 +138,64 @@ test.describe('Figma import integration', () => {
     await report.getByRole('button', { name: /show details/i }).click();
     await expect(report).toContainText('Boolean operation');
   });
+
+  test('opens font replacement for a missing rich-text run and applies it globally', async ({
+    page,
+  }, testInfo) => {
+    await navigateToEditor(page);
+    const fixture = {
+      name: 'Rich text font replacement',
+      document: {
+        type: 'DOCUMENT',
+        children: [
+          {
+            id: 'page:1',
+            type: 'CANVAS',
+            name: 'Typography',
+            children: [
+              {
+                id: 'frame:1',
+                type: 'FRAME',
+                name: 'Font replacement fixture',
+                absoluteBoundingBox: { x: 40, y: 40, width: 420, height: 160 },
+                children: [
+                  {
+                    id: 'text:1',
+                    type: 'TEXT',
+                    name: 'Rich text',
+                    characters: 'This run needs a replacement',
+                    absoluteBoundingBox: { x: 56, y: 56, width: 388, height: 32 },
+                    style: { fontFamily: 'Inter', fontSize: 20, fontWeight: 400 },
+                    characterStyleOverrides: Array.from(
+                      { length: 'This run needs a replacement'.length },
+                      () => 1,
+                    ),
+                    styleOverrideTable: {
+                      '1': { fontFamily: 'Missing Display', fontSize: 20, fontWeight: 700 },
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'rich-font.fig',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(fixture), 'utf8'),
+    });
+
+    const dialog = page.getByRole('dialog', { name: 'Missing Fonts' });
+    await expect(dialog).toBeVisible({ timeout: 30000 });
+    await expect(dialog).toContainText('Missing Display');
+    await expect(dialog).toContainText('rich-text runs');
+    await page.screenshot({ path: testInfo.outputPath('font-replacement-dialog.png') });
+    await expect(dialog.getByRole('button', { name: 'Replace All' })).toBeEnabled();
+    await dialog.getByRole('button', { name: 'Replace All' }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator('.layers-panel')).toContainText('Rich text');
+  });
 });
