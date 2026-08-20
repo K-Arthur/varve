@@ -3,25 +3,116 @@
 }
 
 .tool-options__popover {
-  position: absolute;
-  inset-block-end: calc(100% + var(--space-2));
-  inset-inline-start: 50%;
-  z-index: var(--z-popover);
+  position: fixed;
+  inset: auto;
+  z-index: var(--z-overlay);
   width: min(22rem, calc(100vw - 2 * var(--space-4)));
   max-height: min(70vh, 40rem);
   overflow: auto;
-  transform: translateX(-50%);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   background: var(--color-surface-raised);
   box-shadow: var(--shadow-lg);
 }
 
-@media (max-width: 48rem) {
-  .tool-options__popover {
-    position: fixed;
-    inset: auto var(--space-2) 5rem;
-    width: auto;
-    transform: none;
-  }
+.tool-options__content {
+  min-block-size: 0;
+}
+
+.tool-options__selection {
+  display: grid;
+  gap: var(--space-3);
+  min-inline-size: 18rem;
+  padding: var(--space-3);
+}
+
+.tool-options__heading {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 650;
+}
+
+.tool-options__label,
+.tool-options__field > span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.tool-options__operation {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.tool-options__segmented {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.tool-options__segmented button {
+  min-block-size: 2rem;
+  border: 0;
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.tool-options__segmented button:hover,
+.tool-options__segmented button.is-active {
+  background: var(--color-accent-subtle);
+  color: var(--color-text-primary);
+}
+
+.tool-options__field,
+.tool-options__field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.tool-options__field-row {
+  align-items: stretch;
+}
+
+.tool-options__field-row .tool-options__field {
+  min-inline-size: 0;
+  flex: 1;
+}
+
+.tool-options__field input,
+.tool-options__field select {
+  inline-size: 7rem;
+  min-block-size: 2rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  padding-inline: var(--space-2);
+}
+
+.tool-options__field-row input {
+  inline-size: 100%;
+}
+
+.tool-options__check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.tool-options__hint {
+  margin: 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
 }

@@ -103,7 +103,7 @@ export function ColorSlider({
   );
 
   return (
-    <div className="insp-slider">
+    <div className={`insp-slider color-slider--${channel}`}>
       <div
         ref={trackRef}
         className="insp-slider__track"
@@ -130,7 +130,15 @@ export function ColorSlider({
           className="color-slider__gradient"
           style={{ background: channel === 'hue' ? HUE_GRADIENT : alphaGradient(baseColor) }}
         />
-        <div className="insp-slider__fill" style={{ width: `${pct}%` }} />
+        <div
+          className="insp-slider__fill"
+          style={{
+            width: `${pct}%`,
+            // The hue spectrum is the track's indicator; alpha retains the
+            // standard fill so its current opacity remains obvious.
+            background: channel === 'hue' ? 'transparent' : 'var(--color-interactive-default)',
+          }}
+        />
         <div
           className="insp-slider__thumb"
           style={{ left: `${pct}%` }}

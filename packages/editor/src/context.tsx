@@ -39,10 +39,10 @@ export function invalidateNodeThumbnail(nodeId: string): void {
   invalidateThumbnailHandler?.(nodeId);
 }
 
+import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
 import { PaletteExtractDialogHost } from './components/PaletteExtract/PaletteExtractDialogHost';
 import { requestInspectorTab } from './context/inspectorTabBridge';
-import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import { applySelectedLayoutChildField } from './context/layoutChildSetters';
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
@@ -77,6 +77,8 @@ import { getTransactionHooks } from '@varve/collab';
 import type {
   Adjustment,
   Affine,
+  AreaSelection,
+  AreaSelectionSettings,
   PathPoint,
   PixelArtAlgorithm,
   Shape,
@@ -258,8 +260,8 @@ import {
   setAllGuidesLocked,
   setDocumentBitDepth as setDocumentBitDepthDoc,
   setDocumentBlendEvaluationSpace as setDocumentBlendEvaluationSpaceDoc,
-  setDocumentProofConfig as setDocumentProofConfigDoc,
   setDocumentGradientInterpolation as setDocumentGradientInterpolationDoc,
+  setDocumentProofConfig as setDocumentProofConfigDoc,
   setDocumentWorkingSpace as setDocumentWorkingSpaceDoc,
   setFacingPagesEnabled as setFacingPagesEnabledDoc,
   setLiveTraceError as setLiveTraceErrorDoc,
@@ -351,6 +353,7 @@ import {
   rotateViewAtScreen,
   toCamera,
 } from './canvas/cameraState';
+import { isCapabilityRestricted } from './capabilities/restrictions';
 import { readClipboardUnifiedWithFallback, writeClipboard as writeToClipboard } from './clipboard';
 import type { SectionId } from './components/Inspector/sectionRegistry';
 import {
@@ -473,7 +476,6 @@ import {
   getParentFast,
   type ParentIndexCache,
 } from './scene/parentIndexCache';
-
 import { type FrameSpatialIndex, getOrCreateFrameSpatialIndex } from './scene/spatialIndex';
 import {
   planLinkSelection,
@@ -527,6 +529,21 @@ export type { CanvasMode, EditorState, SessionMeta, ToolId };
  * document's* canvas size as the viewport), which mirrored placements
  * across the world origin the further the camera was panned.
  */
+/**
+ * Wrap an on-device inference action so a deployment that withholds inference
+ * cannot reach it by any route.
+ *
+ * Returns a resolved promise rather than throwing: these are fire-and-forget
+ * UI actions, and a rejection here would surface as an unhandled error toast
+ * for a capability the deployment deliberately does not offer.
+ */
+function guardInference<A extends unknown[]>(
+  action: (...args: A) => Promise<void>,
+): (...args: A) => Promise<void> {
+  return (...args: A) =>
+    isCapabilityRestricted('inference') ? Promise.resolve() : action(...args);
+}
+
 function viewportCenterWorld(cam: {
   zoom: number;
   pan: { x: number; y: number };
@@ -2210,6 +2227,17 @@ export function EditorProvider({
       focusedNodeId: null,
       activeContainerId: null,
       selectionMode: 'object' as const,
+      areaSelection: null,
+      areaSelectionSettings: {
+        operation: 'replace',
+        style: 'normal',
+        ratio: 1,
+        fixedWidth: 100,
+        fixedHeight: 100,
+        fromCenter: false,
+        feather: 0,
+        antialias: true,
+      },
       selectionOrigin: 'api' as const,
       selectionRevision: 0,
       document: doc,
@@ -6671,6 +6699,48 @@ export function EditorProvider({
         }));
       },
 
+      setAreaSelection: (selection: AreaSelection | null) => {
+        setState((s) => {
+          const nextGeneration =
+            selection === null
+              ? (s.areaSelection?.generation ?? 0) + 1
+              : Math.max(selection.generation, (s.areaSelection?.generation ?? 0) + 1);
+          return {
+            ...s,
+            areaSelection: selection === null ? null : { ...selection, generation: nextGeneration },
+          };
+        });
+      },
+
+      setAreaSelectionSettings: (patch: Partial<AreaSelectionSettings>) => {
+        setState((s) => {
+          const current = s.areaSelectionSettings;
+          return {
+            ...s,
+            areaSelectionSettings: {
+              ...current,
+              ...patch,
+              ratio:
+                Number.isFinite(patch.ratio) && (patch.ratio ?? 0) > 0
+                  ? patch.ratio!
+                  : current.ratio,
+              fixedWidth:
+                Number.isFinite(patch.fixedWidth) && (patch.fixedWidth ?? 0) >= 0
+                  ? patch.fixedWidth!
+                  : current.fixedWidth,
+              fixedHeight:
+                Number.isFinite(patch.fixedHeight) && (patch.fixedHeight ?? 0) >= 0
+                  ? patch.fixedHeight!
+                  : current.fixedHeight,
+              feather:
+                Number.isFinite(patch.feather) && (patch.feather ?? 0) >= 0
+                  ? patch.feather!
+                  : current.feather,
+            },
+          };
+        });
+      },
+
       setWarpEdit: (target) => {
         setState((s) => {
           const next = target ? { nodeId: target.nodeId, modifierId: target.modifierId } : null;
@@ -7833,6 +7903,11 @@ export function EditorProvider({
           applySelectedLayoutChildField(doc, state.selection, 'layoutPosition', value),
         ),
 
+      setSelectedLayoutAlign: (value) =>
+        updateDoc((doc) =>
+          applySelectedLayoutChildField(doc, state.selection, 'layoutAlign', value),
+        ),
+
       setSelectedGridPlacement: (value) => {
         const sel = state.selection;
         if (sel.length === 0) return;
@@ -8159,6 +8234,11 @@ export function EditorProvider({
 
       upscaleDialogOpen: state.upscaleDialogOpen,
       openUpscaleDialog: () => {
+        // Choke point. Upscaling is reachable from the layers context menu, two
+        // inspector sections, the selection quick bar, the command palette and
+        // an action handler — gating the affordances one by one leaves whichever
+        // route was missed wide open, so refuse here instead.
+        if (isCapabilityRestricted('inference')) return;
         patch({ upscaleDialogOpen: true });
       },
       closeUpscaleDialog: () => {
@@ -8780,7 +8860,8 @@ export function EditorProvider({
         announcerRef.current?.announce('Live trace cancelled');
       },
 
-      removeBackground: bgRemoval.removeBackground,
+      // Same reasoning as openUpscaleDialog: one guard, every route.
+      removeBackground: guardInference(bgRemoval.removeBackground),
 
       cancelBackgroundRemoval: bgRemoval.cancelBackgroundRemoval,
 
@@ -8788,7 +8869,7 @@ export function EditorProvider({
 
       cancelBackgroundRemovalPreview: bgRemoval.cancelBackgroundRemovalPreview,
 
-      removeBackgroundWithOptions: bgRemoval.removeBackgroundWithOptions,
+      removeBackgroundWithOptions: guardInference(bgRemoval.removeBackgroundWithOptions),
 
       setShowOriginalBg: bgRemoval.setShowOriginalBg,
       setMaskPreviewMode: bgRemoval.setMaskPreviewMode,

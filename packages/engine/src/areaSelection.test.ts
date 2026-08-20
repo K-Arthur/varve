@@ -3,6 +3,7 @@ import {
   areaSelectionCoverageAt,
   combineAreaSelections,
   createAreaSelection,
+  invertAreaSelection,
   rasterizeAreaSelection,
 } from './areaSelection';
 
@@ -83,6 +84,15 @@ describe('analytical area selection', () => {
     const incoming = rect(0, 0, 1, 1);
     expect(combineAreaSelections(null, incoming, 'subtract')).toBeNull();
     expect(combineAreaSelections(null, incoming, 'intersect')).toBeNull();
+  });
+
+  it('inverts only inside an explicit finite domain', () => {
+    const selection = rect(1, 1, 2, 2);
+    const domain = rect(0, 0, 4, 4);
+    const inverted = invertAreaSelection(selection, domain);
+    expect(areaSelectionCoverageAt(inverted, { x: 0.5, y: 0.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(inverted, { x: 1.5, y: 1.5 })).toBe(0);
+    expect(areaSelectionCoverageAt(inverted, { x: 4.5, y: 4.5 })).toBe(0);
   });
 
   it('rejects corrupt and non-integral raster bounds', () => {

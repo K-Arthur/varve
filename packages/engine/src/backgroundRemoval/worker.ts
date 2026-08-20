@@ -58,7 +58,12 @@ let cachedExecutionProvider: string = 'wasm';
  *  Determined by environment capabilities at session creation time. */
 let preferredOnnxProviders: string[] | null = null;
 
-async function getPreferredProviders(): Promise<string[]> {
+async function getPreferredProviders(modelId: string): Promise<string[]> {
+  // The bundled U²-Net graph uses MaxPool with ceil_mode, which the current
+  // ONNX Runtime WebGPU EP rejects. Do not spend a provider attempt on an
+  // operator-incompatible GPU graph and then poison the WASM fallback during
+  // provider initialization; the 320px CPU path is the validated route.
+  if (modelId === 'u2netp' || modelId === 'u2netp-int8') return ['wasm'];
   if (preferredOnnxProviders) return preferredOnnxProviders;
 
   try {
@@ -87,7 +92,7 @@ async function getSession(
   const ort = await import('onnxruntime-web');
   configureOrtRuntime(ort);
 
-  const providers = await getPreferredProviders();
+  const providers = await getPreferredProviders(modelId);
 
   // Try every accelerated provider first. Bare WASM is handled separately
   // below, gated behind a memory-safety preflight.

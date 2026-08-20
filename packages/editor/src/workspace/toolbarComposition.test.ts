@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ToolId } from '../tools/types';
-import { composeToolbar, type ToolbarFlyoutSlot } from './toolbarComposition';
+import { composeToolbar, groupToolbarSlots, type ToolbarFlyoutSlot } from './toolbarComposition';
 import { ALL_WORKSPACE_MODES, getWorkspaceConfig, type ToolbarConfig } from './workspaceTypes';
 
 function toolIds(toolbar: ToolbarConfig): ToolId[] {
@@ -16,6 +16,28 @@ function flyouts(toolbar: ToolbarConfig): ToolbarFlyoutSlot[] {
 }
 
 describe('composeToolbar', () => {
+  it('preserves declared category group boundaries for responsive layout', () => {
+    const slots = composeToolbar({
+      tools: [
+        { toolId: 'select', groupStart: true },
+        { toolId: 'hand' },
+        { toolId: 'rect', groupStart: true },
+        { toolId: 'ellipse' },
+      ],
+    });
+
+    expect(groupToolbarSlots(slots).map((group) => group.slots)).toEqual([
+      [
+        { kind: 'tool', toolId: 'select', groupStart: true },
+        { kind: 'tool', toolId: 'hand', groupStart: undefined },
+      ],
+      [
+        { kind: 'tool', toolId: 'rect', groupStart: true },
+        { kind: 'tool', toolId: 'ellipse', groupStart: undefined },
+      ],
+    ]);
+  });
+
   it('preserves the declared tool order', () => {
     const toolbar: ToolbarConfig = {
       tools: [{ toolId: 'select' }, { toolId: 'crop' }, { toolId: 'paint' }],
@@ -136,13 +158,17 @@ describe('composeToolbar — built-in workspace configs', () => {
   });
 
   it('leads the Image toolbar with selection rather than drawing tools', () => {
-    // The photo workspace declares select/lasso/hand/zoom first; the previous
+    // The photo workspace declares selection tools first; the previous
     // hard-coded order led with line/text regardless of workspace intent.
-    expect(toolIds(getWorkspaceConfig('image').toolbar).slice(0, 4)).toEqual([
-      'select',
-      'lasso',
-      'hand',
-      'zoom',
+    const slots = composeToolbar(getWorkspaceConfig('image').toolbar);
+    expect(slots.slice(0, 3)).toEqual([
+      expect.objectContaining({ kind: 'tool', toolId: 'select' }),
+      expect.objectContaining({ kind: 'tool', toolId: 'lasso' }),
+      expect.objectContaining({
+        kind: 'flyout',
+        id: 'pixel-selection',
+        tools: ['marquee', 'ellipseMarquee'],
+      }),
     ]);
   });
 });

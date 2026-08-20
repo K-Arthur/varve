@@ -117,31 +117,68 @@ export function SpotlightOverlay({
     if (!rect) return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
 
     const gap = 12;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    // Estimated tooltip dimensions for overflow detection. The tooltip
+    // contains a title, description, and action buttons — ~150px tall, ~320px
+    // wide at typical viewport sizes.
+    const estW = 320;
+    const estH = 150;
+
+    const cx = rect.left + rect.width / 2;
+
     switch (step.placement) {
-      case 'top':
+      case 'top': {
+        // Place above the target
+        const top = rect.top - estH - gap;
+        if (top < 0) {
+          // Flip below instead
+          return {
+            top: `${rect.top + rect.height + gap}px`,
+            left: `${Math.min(Math.max(cx, estW / 2 + gap), vw - estW / 2 - gap)}px`,
+            transform: 'translateX(-50%)',
+          };
+        }
         return {
-          bottom: `${window.innerHeight - rect.top + gap}px`,
-          left: `${rect.left + rect.width / 2}px`,
+          top: `${top}px`,
+          left: `${Math.min(Math.max(cx, estW / 2 + gap), vw - estW / 2 - gap)}px`,
           transform: 'translateX(-50%)',
         };
-      case 'bottom':
+      }
+      case 'bottom': {
+        // Place below the target
+        const top = rect.top + rect.height + gap;
+        if (top + estH > vh) {
+          // Flip above instead
+          const flippedTop = rect.top - estH - gap;
+          return {
+            top: `${Math.max(flippedTop, gap)}px`,
+            left: `${Math.min(Math.max(cx, estW / 2 + gap), vw - estW / 2 - gap)}px`,
+            transform: 'translateX(-50%)',
+          };
+        }
         return {
-          top: `${rect.top + rect.height + gap}px`,
-          left: `${rect.left + rect.width / 2}px`,
+          top: `${top}px`,
+          left: `${Math.min(Math.max(cx, estW / 2 + gap), vw - estW / 2 - gap)}px`,
           transform: 'translateX(-50%)',
         };
-      case 'left':
+      }
+      case 'left': {
+        const right = vw - rect.left + gap;
         return {
-          right: `${window.innerWidth - rect.left + gap}px`,
+          right: `${right}px`,
           top: `${rect.top + rect.height / 2}px`,
           transform: 'translateY(-50%)',
         };
-      case 'right':
+      }
+      case 'right': {
+        const left = rect.left + rect.width + gap;
         return {
-          left: `${rect.left + rect.width + gap}px`,
+          left: `${left}px`,
           top: `${rect.top + rect.height / 2}px`,
           transform: 'translateY(-50%)',
         };
+      }
       default:
         return {
           top: '50%',

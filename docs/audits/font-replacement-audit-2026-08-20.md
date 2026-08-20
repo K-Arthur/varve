@@ -6,7 +6,9 @@ Varve already had a substantial font catalog, resolver, provider/storage
 layer, and document `fontManifest`. The missing product behavior was at the
 document/editor boundary: the resolver ignored rich-text-only references, the
 dialog mutated only top-level text properties, and save/load could discard the
-reason a substitute had been chosen.
+reason a substitute had been chosen. The completed workflow applies equally to
+Figma REST/plugin JSON and native `.fig` imports after their source-specific
+decoders normalize text into Varve's shared model.
 
 ## Implemented behavior
 

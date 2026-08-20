@@ -51,6 +51,7 @@ export class InferenceWorkerHost {
     // later with no diagnostic. `handleMessage` already tracks readiness.
     this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => this.handleMessage(e.data);
     this.worker.onerror = (e) => this.handleWorkerError(e);
+    this.worker.onmessageerror = () => this.handleWorkerMessageError();
 
     return this.worker;
   }
@@ -82,6 +83,14 @@ export class InferenceWorkerHost {
     }
   }
 
+  private handleWorkerMessageError(): void {
+    for (const [id, job] of this.pendingJobs) {
+      clearTimeout(job.timer);
+      job.reject(new Error('Worker message could not be deserialized'));
+      this.pendingJobs.delete(id);
+    }
+  }
+
   async infer(
     request: Omit<WorkerInferRequest, 'requestId'>,
     options: InferenceJobOptions = {},
@@ -104,7 +113,14 @@ export class InferenceWorkerHost {
       this.pendingJobs.set(requestId, { resolve, reject, timer });
 
       const fullRequest: WorkerInferRequest = { ...request, requestId };
-      worker.postMessage(fullRequest);
+      try {
+        worker.postMessage(fullRequest);
+      } catch (error) {
+        clearTimeout(timer);
+        this.pendingJobs.delete(requestId);
+        reject(error instanceof Error ? error : new Error(String(error)));
+        return;
+      }
 
       options.signal?.addEventListener(
         'abort',

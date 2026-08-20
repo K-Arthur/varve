@@ -85,6 +85,8 @@ export interface FigmaSourceNode {
   strokeDashes?: number[];
   miterLimit?: number;
   fillGeometry?: Array<{ path: string; windingRule?: string }>;
+  /** Multiple native vector regions kept as separate editable paths. */
+  geometryRegions?: Array<{ path: string; windingRule?: string }>;
   pointCount?: number;
   starInnerScale?: number;
   text?: string;

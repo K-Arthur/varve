@@ -1,37 +1,64 @@
 /**
- * HealingBrushTool — paint-based tool that blends source texture with target
- * using NCC (Normalized Cross-Correlation) for best patch matching.
+ * HealingBrushTool — copies texture from a source point while taking colour
+ * from the destination, so repairs blend into their surroundings.
  *
- * Alt+click sets the source point. Painting copies source texture and blends
- * with target content for seamless repair.
- *
- * Research basis: Photoshop Healing Brush, GIMP Heal tool.
- *                 NCC patch matching (Barnes et al. 2009 PatchMatch).
+ * Alt/Option+click sets the source. Like Clone Stamp, healing mutates
+ * canonical raster tiles through the shared retouch compositor, so the result
+ * is undoable, persisted and clipped by the active selection.
  */
-import { createBrushMask, findBestPatch, healPixels } from '@varve/engine';
+import type { AreaSelection } from '@varve/engine';
+import type { BrushDab, RasterLayerNode, RasterTile } from '@varve/scene';
+import {
+  compositeHealDabOnNode,
+  defaultBrushPreset,
+  generateDabs,
+  snapshotTiles,
+  strokePoint,
+} from '@varve/scene';
 import { BaseTool } from './BaseTool';
-import type { CursorSpec, ToolContext, ToolCursorState } from './types';
+import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
+import { selectionCoverageForDab } from './selectionCoverage';
+import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
-interface HealingBrushOptions {
+export interface HealingBrushOptions {
   brushSize: number;
   hardness: number;
-  source: 'sampled' | 'pattern';
+  opacity: number;
+  spacing: number;
+}
+
+interface HealSession {
+  rasterNodeId: string;
+  sourceTiles: Map<string, RasterTile>;
+  offsetX: number;
+  offsetY: number;
+  areaSelection: AreaSelection | null;
+  points: import('@varve/scene').StrokePoint[];
+  transactionOpen: boolean;
 }
 
 export class HealingBrushTool extends BaseTool {
   id = 'healBrush' as const;
 
-  private sourcePoint: { x: number; y: number } | null = null;
+  private sourcePoint: { nodeId: string; x: number; y: number } | null = null;
+  private session: HealSession | null = null;
   private options: HealingBrushOptions = {
-    brushSize: 20,
+    brushSize: 40,
     hardness: 0.7,
-    source: 'sampled',
+    opacity: 1,
+    spacing: 0.15,
   };
-  private brushMask: Uint8Array | null = null;
-  private lastPaintedPoint: { x: number; y: number } | null = null;
 
-  override onActivate(_ctx: ToolContext): void {
-    this.brushMask = createBrushMask(this.options.brushSize, this.options.hardness).mask;
+  setOptions(opts: Partial<HealingBrushOptions>): void {
+    Object.assign(this.options, opts);
+  }
+
+  getOptions(): Readonly<HealingBrushOptions> {
+    return { ...this.options };
+  }
+
+  getSourcePoint(): { nodeId: string; x: number; y: number } | null {
+    return this.sourcePoint;
   }
 
   override cursor(state: ToolCursorState): CursorSpec {
@@ -39,116 +66,130 @@ export class HealingBrushTool extends BaseTool {
     return { css: 'crosshair' };
   }
 
-  override onPointerDown(
-    e: PointerEvent,
-    ctx: ToolContext,
-  ): { consumed: boolean; captured?: boolean } {
-    const canvas = ctx.canvasElement;
-    if (!canvas) return { consumed: false };
+  override onActivate(ctx: ToolContext): void {
+    ctx.setDraft(null);
+  }
 
+  override onDeactivate(ctx: ToolContext): void {
+    if (this.session) this.abortStroke(ctx);
+    this.sourcePoint = null;
+    ctx.setDraft(null);
+  }
+
+  override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
+    const rasterNodeId =
+      findEditableRasterLayer(ctx) ??
+      createRasterTarget(ctx, ctx.canvasToWorld(e.clientX, e.clientY));
+    if (!rasterNodeId) return { consumed: false };
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
+    const local = rasterLocalPoint(ctx, rasterNodeId, world);
 
     if (e.altKey) {
-      this.sourcePoint = world;
-      ctx.announce('Healing source point set');
+      this.sourcePoint = { nodeId: rasterNodeId, x: local.x, y: local.y };
+      ctx.announce('Healing source set');
       return { consumed: true };
     }
-
     if (!this.sourcePoint) {
-      ctx.announce('Alt+click to set healing source point first');
+      ctx.announce('Alt-click to set the healing source first');
       return { consumed: false };
     }
 
-    this.lastPaintedPoint = world;
+    const result = super.onPointerDown(e, ctx);
+    if (!result.consumed) return result;
+    const node = ctx.getNode(rasterNodeId) as RasterLayerNode | undefined;
+    if (!node) return { consumed: false };
 
-    ctx.setPointerCapture(e.pointerId);
     ctx.beginTransaction();
-    this.drag = {
-      kind: 'dragging',
-      pointerId: e.pointerId,
-      startCanvas: { x: e.clientX, y: e.clientY },
-      startWorld: world,
-      currentCanvas: { x: e.clientX, y: e.clientY },
-      currentWorld: world,
+    this.session = {
+      rasterNodeId,
+      sourceTiles: snapshotTiles(node),
+      offsetX: local.x - this.sourcePoint.x,
+      offsetY: local.y - this.sourcePoint.y,
+      areaSelection: ctx.areaSelection ?? null,
+      points: [strokePoint(local.x, local.y, { pressure: 1 })],
+      transactionOpen: true,
     };
-
-    this.healStroke(world, canvas, ctx);
-    return { consumed: true, captured: true };
+    this.stamp(ctx);
+    return result;
   }
 
-  override onDragMove(ctx: ToolContext): void {
-    const canvas = ctx.canvasElement;
-    if (!canvas || !this.lastPaintedPoint) return;
-
-    const world = this.drag.currentWorld;
-    const dx = world.x - this.lastPaintedPoint.x;
-    const dy = world.y - this.lastPaintedPoint.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const step = Math.max(1, this.options.brushSize * 0.3);
-
-    if (dist < step) return;
-
-    this.healStroke(world, canvas, ctx);
-    this.lastPaintedPoint = world;
+  override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
+    if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
+    const session = this.session;
+    if (!session) return;
+    this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
+    this.drag.currentWorld = ctx.canvasToWorld(e.clientX, e.clientY);
+    const local = rasterLocalPoint(ctx, session.rasterNodeId, this.drag.currentWorld);
+    session.points.push(strokePoint(local.x, local.y, { pressure: 1 }));
+    this.stamp(ctx);
   }
 
-  override onDragEnd(ctx: ToolContext): void {
+  override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
+    if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
+    const session = this.session;
+    super.onPointerUp(e, ctx);
+    if (!session) return;
+    this.session = null;
+    if (session.transactionOpen) ctx.commitTransaction();
     ctx.setDraft(null);
-    ctx.commitTransaction();
-    this.lastPaintedPoint = null;
   }
 
   override onDragCancel(ctx: ToolContext): void {
-    ctx.abortTransaction();
-    this.lastPaintedPoint = null;
+    this.abortStroke(ctx);
   }
 
-  private healStroke(
-    _world: { x: number; y: number },
-    canvas: HTMLCanvasElement,
-    _ctx: ToolContext,
-  ): void {
-    const canvasCtx = canvas.getContext('2d');
-    if (!canvasCtx || !this.sourcePoint) return;
-
-    const canvasW = canvas.width;
-    const canvasH = canvas.height;
-    const fullData = canvasCtx.getImageData(0, 0, canvasW, canvasH);
-    const r = Math.floor(this.options.brushSize / 2);
-    const searchRadius = this.options.brushSize * 4;
-
-    const bestPatch = findBestPatch(
-      fullData,
-      fullData,
-      Math.round(this.sourcePoint.x),
-      Math.round(this.sourcePoint.y),
-      r,
-      Math.round(searchRadius),
-    );
-
-    const pw = r * 2 + 1;
-    const patchData = new Uint8ClampedArray(pw * pw * 4);
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        const pi = ((dy + r) * pw + (dx + r)) * 4;
-        const sx = bestPatch.x!;
-        const sy = bestPatch.y!;
-        const si2 = ((sy + dy) * canvasW + (sx + dx)) * 4;
-        patchData[pi] = fullData.data[si2]!;
-        patchData[pi + 1] = fullData.data[si2 + 1]!;
-        patchData[pi + 2] = fullData.data[si2 + 2]!;
-        patchData[pi + 3] = fullData.data[si2 + 3]!;
-      }
+  override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
+    if (e.key === 'Escape' && this.session) {
+      this.abortStroke(ctx);
+      return true;
     }
-
-    const patchImageData = new ImageData(patchData, pw, pw);
-    this.brushMask = createBrushMask(this.options.brushSize, this.options.hardness).mask;
-
-    const result = healPixels(fullData, patchImageData, this.brushMask);
-    canvasCtx.putImageData(result, 0, 0);
+    return false;
   }
 
-  setOptions(opts: Partial<HealingBrushOptions>): void {
-    Object.assign(this.options, opts);
+  private stamp(ctx: ToolContext): void {
+    const session = this.session;
+    if (!session) return;
+    const preset = {
+      ...defaultBrushPreset('heal', 'Heal'),
+      radius: Math.max(0.5, this.options.brushSize / 2),
+      hardness: this.options.hardness,
+      opacity: this.options.opacity,
+      flow: 1,
+      spacing: this.options.spacing,
+      smoothing: 0,
+    };
+    const dabs = generateDabs(session.points, preset);
+    if (dabs.length === 0) return;
+    session.points = [session.points[session.points.length - 1]!];
+    this.applyDabs(ctx, session, dabs);
+  }
+
+  private applyDabs(ctx: ToolContext, session: HealSession, dabs: BrushDab[]): void {
+    ctx.updateNode(session.rasterNodeId, (node) => {
+      let updated = node as RasterLayerNode;
+      for (const dab of dabs) {
+        const coverage = selectionCoverageForDab(
+          ctx,
+          session.rasterNodeId,
+          dab,
+          session.areaSelection,
+        );
+        updated = compositeHealDabOnNode(updated, dab, {
+          sourceTiles: session.sourceTiles,
+          offsetX: session.offsetX,
+          offsetY: session.offsetY,
+          coverage,
+        });
+      }
+      return updated;
+    });
+  }
+
+  private abortStroke(ctx: ToolContext): void {
+    const session = this.session;
+    if (!session) return;
+    this.session = null;
+    if (session.transactionOpen) ctx.abortTransaction();
+    ctx.setDraft(null);
   }
 }

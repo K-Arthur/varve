@@ -117,7 +117,9 @@ describe('direct AI telemetry', () => {
     const outputData = new Float32Array(1024 * 1024);
     for (let i = 0; i < outputData.length; i++) outputData[i] = i % 2 === 0 ? 0.95 : 0.05;
 
-    mockCreate.mockRejectedValueOnce(new Error('WebGL unavailable')).mockResolvedValueOnce({
+    // u2netp is hardcoded to WASM-only in getPreferredProviders, so only one
+    // session creation call happens with the wasm provider.
+    mockCreate.mockResolvedValueOnce({
       inputNames: ['input'],
       outputNames: ['output'],
       release: vi.fn().mockResolvedValue(undefined),
@@ -129,9 +131,8 @@ describe('direct AI telemetry', () => {
     const { removeBackground } = await import('../index');
     const result = await removeBackground(makeImage(), { method: 'ai-balanced' });
 
-    expect(mockCreate).toHaveBeenCalledTimes(2);
-    expect(mockCreate.mock.calls[0]?.[1]).toEqual({ executionProviders: ['webgl'] });
-    expect(mockCreate.mock.calls[1]?.[1]).toEqual({ executionProviders: ['wasm'] });
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(mockCreate.mock.calls[0]?.[1]).toEqual({ executionProviders: ['wasm'] });
     expect(result.executionProvider).toBe('wasm');
     expect(result.processingTimeMs).toBeGreaterThan(0);
     expect(result.confidence).toBeGreaterThan(0);

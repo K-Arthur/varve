@@ -136,6 +136,30 @@ export {
   normalizeBlendEvaluationSpace,
   resolveBlendEvaluationSpace,
 } from './blendEvaluation';
+export type {
+  BrushCategory,
+  BrushKVStore,
+  BrushLibraryEntry,
+  BrushLibraryState,
+  BrushSearchable,
+} from './brushLibrary';
+export {
+  addBrushEntry,
+  BRUSH_CATEGORIES,
+  CURRENT_BRUSH_LIBRARY_SCHEMA_VERSION,
+  DEFAULT_BRUSH_LIBRARY_STATE,
+  dedupeBrushName,
+  deleteBrushEntry,
+  loadBrushLibrary,
+  MAX_BRUSH_RECENTS,
+  normalizeSearchText,
+  recordBrushRecent,
+  sanitizeBrushLibraryState,
+  saveBrushLibrary,
+  searchBrushes,
+  toggleBrushFavorite,
+  updateBrushEntry,
+} from './brushLibrary';
 export type { ColorBlindnessType } from './colorBlindness';
 export { simulateColorBlindness, simulateColorBlindnessCss } from './colorBlindness';
 export type {

@@ -74,6 +74,19 @@ export interface BrushPreset {
   grainContrast: number;
   /** Invert grain. */
   grainInvert: boolean;
+  /**
+   * Where the grain texture lives. 'layer' keeps it still while the viewport
+   * moves; 'brush' makes every dab stamp the same texels; 'stroke' slides it
+   * along the stroke.
+   */
+  grainAnchor: 'brush' | 'canvas' | 'stroke' | 'layer';
+  /** Texture offset in layer pixels. */
+  grainOffsetX: number;
+  grainOffsetY: number;
+  /** Rotate the texture with the stroke direction. */
+  grainFollowDirection: boolean;
+  /** Edge behaviour outside the texture rectangle. */
+  grainWrap: 'repeat' | 'mirror' | 'clamp';
   /** Smudge strength (0-1). How much paint is dragged per dab. */
   smudgeStrength: number;
   /** Wet paint enabled. */
@@ -118,6 +131,11 @@ export function defaultBrushPreset(id: string, name: string): BrushPreset {
     grainRotation: 0,
     grainContrast: 1,
     grainInvert: false,
+    grainAnchor: 'layer',
+    grainOffsetX: 0,
+    grainOffsetY: 0,
+    grainFollowDirection: false,
+    grainWrap: 'repeat',
     smudgeStrength: 0.5,
     wetEnabled: false,
     wetEdge: false,
@@ -178,6 +196,21 @@ export interface BrushDab {
     contrast: number;
     invert: boolean;
     strokeT: number;
+    /**
+     * Anchoring context. Optional so a hand-built dab (a test fixture, a
+     * replayed stroke) stays cheap to construct; the sampler falls back to
+     * layer-anchored, unrotated defaults when they are absent.
+     */
+    anchor?: 'brush' | 'canvas' | 'stroke' | 'layer';
+    offsetX?: number;
+    offsetY?: number;
+    followDirection?: boolean;
+    wrap?: 'repeat' | 'mirror' | 'clamp';
+    /** Dab centre and arc length, so anchoring is resolvable per pixel. */
+    dabX?: number;
+    dabY?: number;
+    strokeDistance?: number;
+    direction?: number;
   };
 }
 
@@ -224,13 +257,40 @@ export function strokeDirection(a: StrokePoint, b: StrokePoint): number {
   return Math.atan2(b.y - a.y, b.x - a.x);
 }
 
-export function smoothStrokePoints(points: StrokePoint[], factor: number): StrokePoint[] {
+/**
+ * Exponential stroke smoothing.
+ *
+ * `previous` is the last smoothed point of the preceding batch. Passing it lets
+ * an incrementally dispatched stroke smooth continuously instead of snapping
+ * back to the raw input at every batch boundary — without it, the first point
+ * of each batch passes through unsmoothed and the stroke visibly kinks.
+ */
+export function smoothStrokePoints(
+  points: StrokePoint[],
+  factor: number,
+  previous?: StrokePoint | null,
+): StrokePoint[] {
   if (points.length === 0 || factor <= 0) return points;
-  const smoothed: StrokePoint[] = [points[0]!];
+  const f0 = Math.max(0, Math.min(1, factor));
+  const smoothed: StrokePoint[] = [];
+  if (previous) {
+    const first = points[0]!;
+    smoothed.push({
+      x: previous.x + (first.x - previous.x) * (1 - f0),
+      y: previous.y + (first.y - previous.y) * (1 - f0),
+      pressure: previous.pressure + (first.pressure - previous.pressure) * (1 - f0),
+      tilt: previous.tilt + (first.tilt - previous.tilt) * (1 - f0),
+      direction: first.direction,
+      speed: first.speed,
+      time: first.time,
+    });
+  } else {
+    smoothed.push(points[0]!);
+  }
   for (let i = 1; i < points.length; i++) {
     const current = points[i]!;
     const prev = smoothed[i - 1]!;
-    const f = Math.max(0, Math.min(1, factor));
+    const f = f0;
     smoothed.push({
       x: prev.x + (current.x - prev.x) * (1 - f),
       y: prev.y + (current.y - prev.y) * (1 - f),
@@ -343,7 +403,7 @@ export function generateDabs(
       const sample = interpolatePoints(prev, current, t);
       sample.direction = direction;
       const arc = baseArc + lengthSoFar + travelled;
-      const denom = session ? baseArc + totalLength : totalLength;
+      const denom = session ? sessionLengthReference(session, preset) : totalLength;
       const strokeT = denom > 0 ? Math.min(1, arc / denom) : 0;
       dabs.push(makeDab(sample, preset, strokeT, arc, rng));
       lastDabPoint = sample;
@@ -430,16 +490,45 @@ export interface StrokeDabSession {
   lastPoint: StrokePoint | null;
   /** True once at least one dab has been emitted for this stroke. */
   started: boolean;
+  /**
+   * Arc length that `strokeT` reaches 1.0 at.
+   *
+   * A live stroke does not know how long it will end up being, so "fraction of
+   * the whole stroke" is not computable while painting. Anchoring `strokeT` to
+   * a fixed reference length instead keeps it a deterministic function of
+   * distance travelled, which is what makes a `stroke`-input dynamics mapping
+   * (taper, fade) produce the same result no matter how the pointer events
+   * happened to be chunked. Replaying a stroke whose total length is already
+   * known can pass that total instead.
+   */
+  lengthReference: number;
 }
 
-export function createStrokeDabSession(seed: number): StrokeDabSession {
+/**
+ * Distance, in brush diameters, over which `strokeT` ramps 0→1 for a live
+ * stroke. Long enough that a normal stroke shows a gradual fade rather than
+ * saturating within the first few dabs.
+ */
+export const STROKE_FADE_DIAMETERS = 50;
+
+export function createStrokeDabSession(
+  seed: number,
+  options: { lengthReference?: number } = {},
+): StrokeDabSession {
   return {
     rng: createBrushRng(seed),
     spacingCarry: 0,
     arcLength: 0,
     lastPoint: null,
     started: false,
+    lengthReference: options.lengthReference ?? 0,
   };
+}
+
+/** Reference length for a session, falling back to the preset-derived fade. */
+function sessionLengthReference(session: StrokeDabSession, preset: BrushPreset): number {
+  if (session.lengthReference > 0) return session.lengthReference;
+  return Math.max(1, preset.radius * 2 * STROKE_FADE_DIAMETERS);
 }
 
 function makeDab(
@@ -455,14 +544,11 @@ function makeDab(
   const hardnessMod = evaluateDynamics(preset, point, 'hardness', strokeT, rng);
   const rotationMod = evaluateDynamics(preset, point, 'rotation', strokeT, rng);
 
-  const sizeJitter =
-    preset.sizeJitter > 0 ? 1 + (rng.next() * 2 - 1) * preset.sizeJitter : 1;
+  const sizeJitter = preset.sizeJitter > 0 ? 1 + (rng.next() * 2 - 1) * preset.sizeJitter : 1;
   const opacityJitter =
     preset.opacityJitter > 0 ? 1 + (rng.next() * 2 - 1) * preset.opacityJitter : 1;
   const rotationJitter =
-    preset.rotationJitter > 0
-      ? (rng.next() * 2 - 1) * preset.rotationJitter * Math.PI
-      : 0;
+    preset.rotationJitter > 0 ? (rng.next() * 2 - 1) * preset.rotationJitter * Math.PI : 0;
 
   const radius = Math.max(0.5, preset.radius * sizeMod * sizeJitter);
   const opacity = Math.max(0, Math.min(1, preset.opacity * opacityMod * opacityJitter));
@@ -495,6 +581,15 @@ function makeDab(
           contrast: preset.grainContrast,
           invert: preset.grainInvert,
           strokeT,
+          anchor: preset.grainAnchor,
+          offsetX: preset.grainOffsetX,
+          offsetY: preset.grainOffsetY,
+          followDirection: preset.grainFollowDirection,
+          wrap: preset.grainWrap,
+          dabX: point.x + jx,
+          dabY: point.y + jy,
+          strokeDistance,
+          direction: point.direction,
         }
       : undefined,
   };
@@ -768,10 +863,25 @@ export function validateBrushPreset(preset: unknown): BrushPreset | null {
     smoothing: clampUnit(p.smoothing as number | undefined, fallback.smoothing),
     minSpeed: Math.max(0, (p.minSpeed as number) ?? fallback.minSpeed),
     maxSpeed: Math.max(0, (p.maxSpeed as number) ?? fallback.maxSpeed),
+    // Preserve the grain reference. Dropping it here silently unstyled every
+    // textured brush that went through validation, import or migration.
+    grainId: typeof p.grainId === 'string' && p.grainId ? p.grainId : fallback.grainId,
     grainScale: Math.max(0, (p.grainScale as number) ?? fallback.grainScale),
     grainRotation: (p.grainRotation as number) ?? fallback.grainRotation,
     grainContrast: Math.max(0, (p.grainContrast as number) ?? fallback.grainContrast),
     grainInvert: typeof p.grainInvert === 'boolean' ? p.grainInvert : fallback.grainInvert,
+    grainAnchor: isGrainAnchor(p.grainAnchor) ? p.grainAnchor : fallback.grainAnchor,
+    grainOffsetX: Number.isFinite(p.grainOffsetX)
+      ? (p.grainOffsetX as number)
+      : fallback.grainOffsetX,
+    grainOffsetY: Number.isFinite(p.grainOffsetY)
+      ? (p.grainOffsetY as number)
+      : fallback.grainOffsetY,
+    grainFollowDirection:
+      typeof p.grainFollowDirection === 'boolean'
+        ? p.grainFollowDirection
+        : fallback.grainFollowDirection,
+    grainWrap: isGrainWrap(p.grainWrap) ? p.grainWrap : fallback.grainWrap,
     smudgeStrength: clampUnit(p.smudgeStrength as number | undefined, fallback.smudgeStrength),
     wetEnabled: typeof p.wetEnabled === 'boolean' ? p.wetEnabled : fallback.wetEnabled,
     wetEdge: typeof p.wetEdge === 'boolean' ? p.wetEdge : fallback.wetEdge,
@@ -783,6 +893,14 @@ export function validateBrushPreset(preset: unknown): BrushPreset | null {
     blendMode: typeof p.blendMode === 'string' ? p.blendMode : fallback.blendMode,
   };
   return result;
+}
+
+function isGrainAnchor(v: unknown): v is BrushPreset['grainAnchor'] {
+  return v === 'brush' || v === 'canvas' || v === 'stroke' || v === 'layer';
+}
+
+function isGrainWrap(v: unknown): v is BrushPreset['grainWrap'] {
+  return v === 'repeat' || v === 'mirror' || v === 'clamp';
 }
 
 function clampUnit(val: number | undefined, fallback: number): number {

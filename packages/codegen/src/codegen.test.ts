@@ -1,6 +1,7 @@
 import type { Document as SceneDoc } from '@varve/scene';
 import {
   addNode,
+  colorConfigWithDefaults,
   createDocument,
   createVariableStore,
   imageFill,
@@ -541,7 +542,7 @@ describe('legacy exports', () => {
       const doc = {
         ...base,
         colorConfig: {
-          ...base.colorConfig,
+          ...colorConfigWithDefaults(base.colorConfig),
           defaultGradientInterpolation: 'linear-srgb' as const,
         },
       };
@@ -626,7 +627,7 @@ describe('legacy exports', () => {
       const doc = {
         ...base,
         colorConfig: {
-          ...base.colorConfig,
+          ...colorConfigWithDefaults(base.colorConfig),
           defaultGradientInterpolation: 'oklch' as const,
         },
       };

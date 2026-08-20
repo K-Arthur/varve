@@ -373,66 +373,68 @@ export function GradientEditor({
         </div>
       </div>
 
-      <div
-        ref={barRef}
-        role="slider"
-        aria-label="Gradient stop bar — click to add, drag stops to reposition"
-        aria-valuenow={Math.round((currentStop?.position ?? 0) * 100)}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuetext={`${Math.round((currentStop?.position ?? 0) * 100)}%`}
-        tabIndex={0}
-        onPointerDown={handleBarPointerDown}
-        onKeyDown={handleBarKeyDown}
-        className="gradient-editor__bar"
-        style={{ background: gradientCss(gradient, documentGradientInterpolation) }}
-      >
-        {gradient.stops.map((stop, i) => (
-          <button
-            // biome-ignore lint/suspicious/noArrayIndexKey: gradient stops have no stable id; position/color change while editing (content keys would remount mid-drag)
-            key={`stop-${i}-${autoId}`}
-            type="button"
-            aria-label={`Stop ${i + 1} at ${Math.round(stop.position * 100)}%, colour ${(() => {
-              const [r, g, b] = managedColorToRgba(stop.color);
-              return rgbToHex(r, g, b);
-            })()}`}
-            aria-pressed={selectedStop === i}
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              setSelectedStop(i);
-              handleStopDrag(i, e);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowLeft') {
-                e.preventDefault();
-                updateStop(i, { position: Math.max(0, stop.position - 0.01) });
-              } else if (e.key === 'ArrowRight') {
-                e.preventDefault();
-                updateStop(i, { position: Math.min(1, stop.position + 0.01) });
-              } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                updateStop(i, { position: Math.max(0, stop.position - 0.05) });
-              } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                updateStop(i, { position: Math.min(1, stop.position + 0.05) });
-              } else if (e.key === 'Home') {
-                e.preventDefault();
-                updateStop(i, { position: 0 });
-              } else if (e.key === 'End') {
-                e.preventDefault();
-                updateStop(i, { position: 1 });
-              } else if (e.key === 'Delete' || e.key === 'Backspace') {
-                e.preventDefault();
-                removeStop(i);
-              }
-            }}
-            className={`gradient-editor__stop${selectedStop === i ? ' gradient-editor__stop--selected' : ' gradient-editor__stop--idle'}`}
-            style={{
-              left: `${stop.position * 100}%`,
-              background: stopColorCss(stop.color),
-            }}
-          />
-        ))}
+      <div className="gradient-editor__bar-wrap">
+        <div
+          ref={barRef}
+          role="slider"
+          aria-label="Gradient stop bar — click to add, drag stops to reposition"
+          aria-valuenow={Math.round((currentStop?.position ?? 0) * 100)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuetext={`${Math.round((currentStop?.position ?? 0) * 100)}%`}
+          tabIndex={0}
+          onPointerDown={handleBarPointerDown}
+          onKeyDown={handleBarKeyDown}
+          className="gradient-editor__bar"
+          style={{ background: gradientCss(gradient, documentGradientInterpolation) }}
+        >
+          {gradient.stops.map((stop, i) => (
+            <button
+              // biome-ignore lint/suspicious/noArrayIndexKey: gradient stops have no stable id; position/color change while editing (content keys would remount mid-drag)
+              key={`stop-${i}-${autoId}`}
+              type="button"
+              aria-label={`Stop ${i + 1} at ${Math.round(stop.position * 100)}%, colour ${(() => {
+                const [r, g, b] = managedColorToRgba(stop.color);
+                return rgbToHex(r, g, b);
+              })()}`}
+              aria-pressed={selectedStop === i}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                setSelectedStop(i);
+                handleStopDrag(i, e);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowLeft') {
+                  e.preventDefault();
+                  updateStop(i, { position: Math.max(0, stop.position - 0.01) });
+                } else if (e.key === 'ArrowRight') {
+                  e.preventDefault();
+                  updateStop(i, { position: Math.min(1, stop.position + 0.01) });
+                } else if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  updateStop(i, { position: Math.max(0, stop.position - 0.05) });
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  updateStop(i, { position: Math.min(1, stop.position + 0.05) });
+                } else if (e.key === 'Home') {
+                  e.preventDefault();
+                  updateStop(i, { position: 0 });
+                } else if (e.key === 'End') {
+                  e.preventDefault();
+                  updateStop(i, { position: 1 });
+                } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                  e.preventDefault();
+                  removeStop(i);
+                }
+              }}
+              className={`gradient-editor__stop${selectedStop === i ? ' gradient-editor__stop--selected' : ' gradient-editor__stop--idle'}`}
+              style={{
+                left: `${stop.position * 100}%`,
+                background: stopColorCss(stop.color),
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       {currentStop && (

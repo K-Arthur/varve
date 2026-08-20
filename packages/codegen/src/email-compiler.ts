@@ -17,11 +17,13 @@ import type {
   EmailSemanticKind,
   EmailSemanticMap,
 } from '@varve/scene';
+import { applyCssCompatibility, resolveEmailFontStack } from './email-compat';
 import type {
   EmailCompatibilityClassification,
   EmailDocumentIr,
   EmailDocumentSettings,
   EmailIrAsset,
+  EmailIrDegradedStyle,
   EmailIrImage,
   EmailIrLink,
   EmailIrNode,
@@ -29,6 +31,7 @@ import type {
   EmailIrTextRun,
   EmailIrWarning,
 } from './email-ir-types';
+import { normalizeEmailLayout } from './email-layout';
 import { emitEmailPlainText } from './email-plain-text';
 import { runEmailPreflight } from './email-preflight';
 import { appendTrackingParams, validateEmailUrl } from './email-security';
@@ -122,10 +125,16 @@ export function compileEmail(
     if (emailNode) nodes.push(emailNode);
   }
 
+  // Rewrite side-by-side geometry into rows and columns before anything reads
+  // the tree: the emitter, the plain-text projection, and preflight all need to
+  // agree on the same structure.
+  const layout = normalizeEmailLayout(nodes, settings);
+  warnings.push(...layout.warnings);
+
   const draftIr: EmailDocumentIr = {
     version: '1.0',
     settings,
-    nodes,
+    nodes: layout.nodes,
     plainText: '',
     assets: dedupeAssets(assets),
     warnings,
@@ -186,7 +195,8 @@ function compileNode(
   const kind = resolveEmailKind(node, semanticMeta?.kind, warnings, sourceNodeId);
 
   // Build styles from appearance
-  const styles = compileStyles(node, settings);
+  const degraded: EmailIrDegradedStyle[] = [];
+  const styles = compileStyles(node, settings, degraded);
 
   // Build content
   const content = compileContent(
@@ -195,6 +205,7 @@ function compileNode(
     sourceNodeId,
     settings.provider,
     options.previewVariables ?? false,
+    settings.compatibilityProfile,
   );
 
   // Build link
@@ -268,6 +279,8 @@ function compileNode(
     decorative: semanticMeta?.kind === 'decorative',
     width: node.layout.width.mode === 'fixed' ? node.layout.width.value : undefined,
     height: node.layout.height.mode === 'fixed' ? node.layout.height.value : undefined,
+    geometry: geometryOf(node),
+    degradedStyles: degraded.length > 0 ? degraded : undefined,
     mobileBehavior: semanticMeta?.mobileBehavior,
     hideOnMobile: semanticMeta?.hideOnMobile,
     hideOnDesktop: semanticMeta?.hideOnDesktop,
@@ -279,6 +292,29 @@ function compileNode(
       sourceNodeId,
       semanticMeta?.editableRegion,
     ),
+  };
+}
+
+/**
+ * Geometry the layout pass reads to work out which siblings sit side by side.
+ *
+ * Only absolutely positioned nodes carry usable coordinates. Auto-layout
+ * children are already in a meaningful order, so they are deliberately left
+ * without geometry and keep their declared sequence.
+ */
+function geometryOf(node: SemanticNode): EmailIrNode['geometry'] {
+  const position = node.layout.position;
+  if (!position || position.type !== 'absolute') return undefined;
+  const width = node.layout.width.value;
+  const height = node.layout.height.value;
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return undefined;
+  }
+  return {
+    x: Math.round(position.left ?? 0),
+    y: Math.round(position.top ?? 0),
+    width: Math.round(width),
+    height: Math.round(height),
   };
 }
 
@@ -385,6 +421,7 @@ function mapSemanticKindToIrKind(kind: EmailSemanticKind): EmailIrNodeKind {
 function compileStyles(
   node: SemanticNode,
   settings: EmailDocumentSettings,
+  degraded: EmailIrDegradedStyle[],
 ): Record<string, string> {
   const styles: Record<string, string> = {};
   const appearance = node.appearance;
@@ -432,23 +469,31 @@ function compileStyles(
     }
   }
 
-  // Width/Height
-  if (layout.width.mode === 'fixed' && layout.width.value > 0) {
-    styles.width = `${layout.width.value}px`;
+  // Width and height.
+  //
+  // Live text never gets a fixed box. The recipient's client picks its own
+  // fallback face, and a substituted face with wider metrics overflows a pinned
+  // width or gets clipped by a pinned height. Text is allowed to set its own
+  // height; the surrounding cell controls the measure.
+  const isTextual = node.content.type === 'text';
+  if (!isTextual) {
+    if (layout.width.mode === 'fixed' && layout.width.value > 0) {
+      styles.width = `${round(layout.width.value)}px`;
+    } else if (layout.width.mode === 'fill') {
+      styles.width = '100%';
+    }
+    if (layout.height.mode === 'fixed' && layout.height.value > 0) {
+      styles.height = `${round(layout.height.value)}px`;
+    }
   } else if (layout.width.mode === 'fill') {
     styles.width = '100%';
-  }
-
-  if (layout.height.mode === 'fixed' && layout.height.value > 0) {
-    styles.height = `${layout.height.value}px`;
   }
 
   // Typography
   const typo = appearance.typography;
   if (typo) {
     if (typo.fontFamily) {
-      // Email-safe font stack
-      styles['font-family'] = resolveFontStack(typo.fontFamily);
+      styles['font-family'] = resolveEmailFontStack(typo.fontFamily, settings.compatibilityProfile);
     }
     if (typo.fontSize) styles['font-size'] = `${typo.fontSize}px`;
     if (typo.fontWeight && typo.fontWeight !== 400) styles['font-weight'] = String(typo.fontWeight);
@@ -472,6 +517,27 @@ function compileStyles(
     styles.opacity = String(appearance.opacity);
   }
 
+  // Declare the effects the design asks for even though no profile can render
+  // them. The compatibility table drops them from the output, but only because
+  // they were declared does preflight get to tell the designer that their
+  // rotation or blur is gone rather than letting them find out in an inbox.
+  if (appearance.transform.rotate !== 0) {
+    styles.transform = `rotate(${round(appearance.transform.rotate)}deg)`;
+  }
+  if (appearance.blendMode !== 'normal') {
+    styles['mix-blend-mode'] = appearance.blendMode;
+  }
+  if (appearance.effects.some((effect) => effect.type === 'drop-shadow')) {
+    styles['box-shadow'] = '0 2px 4px rgba(0, 0, 0, 0.15)';
+  }
+  if (
+    appearance.effects.some(
+      (effect) => effect.type === 'layer-blur' || effect.type === 'background-blur',
+    )
+  ) {
+    styles.filter = 'blur(4px)';
+  }
+
   // Display for layout
   if (layout.mode === 'flex' && settings.compatibilityProfile !== 'conservative') {
     styles.display = 'flex';
@@ -484,35 +550,23 @@ function compileStyles(
     if (layout.justifyContent === 'center') styles['justify-content'] = 'center';
   }
 
-  return styles;
+  // Run the whole declaration block past the compatibility table last, so every
+  // property the compiler produced is judged by the same rules and anything
+  // degraded is recorded once, with the reason preflight will show.
+  const outcome = applyCssCompatibility(styles, settings.compatibilityProfile);
+  for (const entry of outcome.degraded) {
+    degraded.push({
+      property: entry.property,
+      value: entry.value,
+      support: entry.support === 'unsupported' ? 'unsupported' : 'fallback',
+      note: entry.note,
+    });
+  }
+  return outcome.styles;
 }
 
-function resolveFontStack(fontFamily: string): string {
-  // Map common design fonts to email-safe stacks
-  const fontMap: Record<string, string> = {
-    Inter: 'Arial, Helvetica, sans-serif',
-    Roboto: 'Arial, Helvetica, sans-serif',
-    'Open Sans': 'Arial, Helvetica, sans-serif',
-    Lato: 'Arial, Helvetica, sans-serif',
-    Montserrat: 'Arial, Helvetica, sans-serif',
-    Poppins: 'Arial, Helvetica, sans-serif',
-    'Source Sans Pro': 'Arial, Helvetica, sans-serif',
-    Nunito: 'Arial, Helvetica, sans-serif',
-    Playfair: 'Georgia, Times, serif',
-    'Playfair Display': 'Georgia, Times, serif',
-    Merriweather: 'Georgia, Times, serif',
-    Lora: 'Georgia, Times, serif',
-    'PT Serif': 'Georgia, Times, serif',
-    'Fira Code': 'Consolas, Monaco, monospace',
-    'JetBrains Mono': 'Consolas, Monaco, monospace',
-    'Source Code Pro': 'Consolas, Monaco, monospace',
-  };
-
-  const mapped = fontMap[fontFamily];
-  if (mapped) return mapped;
-
-  // Unknown font: use it with generic fallback
-  return `"${fontFamily}", Arial, Helvetica, sans-serif`;
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 // ── Content Compilation ───────────────────────────────────────────────────────
@@ -523,6 +577,7 @@ function compileContent(
   sourceNodeId: string,
   provider: 'generic' | 'mailchimp',
   previewVariables: boolean,
+  profile: EmailCompatibilityProfile,
 ):
   | {
       type: 'text' | 'image' | 'html' | 'none';
@@ -541,7 +596,9 @@ function compileContent(
     let offset = 0;
     for (const run of sourceRuns) {
       const runStyles: Record<string, string> = {};
-      if (run.style.fontFamily) runStyles['font-family'] = resolveFontStack(run.style.fontFamily);
+      if (run.style.fontFamily) {
+        runStyles['font-family'] = resolveEmailFontStack(run.style.fontFamily, profile);
+      }
       if (run.style.fontSize) runStyles['font-size'] = `${run.style.fontSize}px`;
       if (run.style.fontWeight && run.style.fontWeight !== 400)
         runStyles['font-weight'] = String(run.style.fontWeight);

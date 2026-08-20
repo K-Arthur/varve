@@ -75,6 +75,13 @@ interface PrototypeProviderProps {
   /** Shared refs — kept in the parent so the delay-polling useEffect can access them. */
   prototypeRuntimeRef: React.MutableRefObject<PrototypeRuntime | null>;
   smRuntimeRef: React.MutableRefObject<SMRuntime | null>;
+  /**
+   * Drives timeline playback when a prototype action starts/stops an animation.
+   * Injected from the sibling MotionProvider (via EditorProvider's motion value)
+   * so this provider stays free of direct MotionFacade imports. Defaults to no-ops.
+   */
+  playTimeline?: (timelineId?: string) => void;
+  stopTimeline?: () => void;
   onReady?: (value: PrototypeContextValue) => void;
 }
 
@@ -86,6 +93,8 @@ export function PrototypeProvider({
   updateDoc,
   prototypeRuntimeRef,
   smRuntimeRef,
+  playTimeline = () => {},
+  stopTimeline = () => {},
   onReady,
 }: PrototypeProviderProps) {
   const patch = useCallback(
@@ -173,6 +182,18 @@ export function PrototypeProvider({
             }
           }
           protoApplyActionResult(runtime, actionResult);
+
+          // Prototype-triggered timeline playback. The @varve/prototype runtime
+          // only records animation state; driving the actual MotionFacade
+          // playback lives here so the prototype runtime stays document/test
+          // agnostic. `animationId` references Document.timelines[id].
+          if (actionResult.kind === 'startAnimation') {
+            if (stateRef.current.document.timelines?.[actionResult.animationId]) {
+              playTimeline(actionResult.animationId);
+            }
+          } else if (actionResult.kind === 'stopAnimation') {
+            stopTimeline();
+          }
         }
       }
 
@@ -191,7 +212,7 @@ export function PrototypeProvider({
 
       setPrototypeCurrentScreen(runtime.state.currentScreenId);
     },
-    [patch, stateRef, prototypeRuntimeRef, smRuntimeRef],
+    [patch, stateRef, prototypeRuntimeRef, smRuntimeRef, playTimeline, stopTimeline],
   );
 
   const getPrototypeVariable = useCallback(

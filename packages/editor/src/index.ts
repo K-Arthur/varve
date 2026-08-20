@@ -64,6 +64,9 @@ export {
 } from './lifecycle';
 // Onboarding state — exposed so a host can declare first-run already handled
 // (the browser demo explains itself through its own banner).
+export { TIPS } from './onboard/DidYouKnow/tips';
+export { workspaceTips } from './onboard/DidYouKnow/workspaceTips';
+export { MICRO_HINTS } from './onboard/MicroHints/microHintsData';
 export { CHECKLIST_ITEMS } from './onboard/OnboardingChecklist/OnboardingChecklist';
 export type { OnboardingStore } from './onboard/onboardingStore';
 export {
@@ -108,6 +111,7 @@ export {
 export { SelectionOverlay } from './SelectionOverlay';
 export type { OpenFileRequest, ShellProps } from './Shell';
 export { Shell } from './Shell';
+export { loadSettings, updateSettings } from './settings';
 export { formatShortcut, SHORTCUT_DEFS, useShortcuts } from './shortcuts';
 export type { StartupCapabilities } from './startup/capabilityCheck';
 export { checkStartupCapabilities } from './startup/capabilityCheck';

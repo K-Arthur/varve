@@ -71,6 +71,8 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'clone':
     case 'contentAwareFill':
     case 'lasso':
+    case 'marquee':
+    case 'ellipseMarquee':
     case 'warp':
     case 'page':
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);

@@ -144,19 +144,24 @@ function editorHeadingLabel(
  * while the one-shot guard stopped it ever restarting. The fit never happened.
  */
 function useFitOnFirstDocument(editor: ReturnType<typeof useEditor>, enabled: boolean): void {
-  const doneRef = useRef(false);
+  // Set once the fit has actually run, never merely because one was scheduled.
+  // StrictMode mounts, runs effects, tears them down and runs them again; a
+  // flag set up-front made the first pass cancel its own frame in cleanup and
+  // the second pass return early, so in development the fit never happened at
+  // all and the demo opened at 100% while production opened fitted.
+  const fittedRef = useRef(false);
   const hasNodes = Object.keys(editor.state.document.nodes).length > 0;
   const fitAllRef = useRef(editor.fitAll);
   fitAllRef.current = editor.fitAll;
 
   useEffect(() => {
-    if (!enabled || doneRef.current || !hasNodes) return;
-    doneRef.current = true;
+    if (!enabled || fittedRef.current || !hasNodes) return;
     let frame = 0;
     let attempts = 0;
     const tryFit = () => {
       const canvas = document.querySelector<HTMLElement>('.editor-canvas');
       if (canvas && canvas.clientWidth > 0 && canvas.clientHeight > 0) {
+        fittedRef.current = true;
         fitAllRef.current();
         return;
       }
@@ -166,6 +171,8 @@ function useFitOnFirstDocument(editor: ReturnType<typeof useEditor>, enabled: bo
       frame = requestAnimationFrame(tryFit);
     };
     frame = requestAnimationFrame(tryFit);
+    // Cancels the pending frame only. A re-run may schedule another; fittedRef
+    // is what keeps the fit itself to exactly one.
     return () => cancelAnimationFrame(frame);
   }, [enabled, hasNodes]);
 }
@@ -466,7 +473,7 @@ function ShellInner({
   }, [leftPanelVisible, rightPanelVisible]);
 
   return (
-    <DnDShell layersDndRef={layersDndRef}>
+    <DnDShell editor={editor} layersDndRef={layersDndRef}>
       <div
         className={`editor-shell${distractionFreeMode ? ' editor-shell--distraction-free' : ''}${
           editor.state.logoPanelVisible ? ' editor-shell--logo-open' : ''
@@ -546,7 +553,9 @@ function ShellInner({
             onCancel={() => importAbortRef.current?.abort()}
           />
         )}
-        {importReport && <ImportResults result={importReport} onClose={() => setImportReport(null)} />}
+        {importReport && (
+          <ImportResults result={importReport} onClose={() => setImportReport(null)} />
+        )}
         <ImageCompareOverlay
           active={editor.state.beforeAfterCompare}
           selection={editor.selectedNodes()}
@@ -906,7 +915,11 @@ function ShellInner({
               const abortController = new AbortController();
               importAbortRef.current = abortController;
               setImportReport(null);
-              setImportProgress({ current: 0, total: importFiles.length, fileName: importFiles[0]!.name });
+              setImportProgress({
+                current: 0,
+                total: importFiles.length,
+                fileName: importFiles[0]!.name,
+              });
               const { ImportService } = await import('@varve/import');
               const report = await ImportService.importFiles(
                 await Promise.all(

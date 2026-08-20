@@ -12,7 +12,7 @@ import {
 import { getTheme, setTheme, type Theme } from '@varve/ui/tokens';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
-import { isCapabilityRestricted } from './capabilities/restrictions';
+import { isCapabilityRestricted, isWorkspaceModeAllowed } from './capabilities/restrictions';
 import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/ArchiveDialog';
 import { OfflineBanner } from './components/OfflineBanner';
 import { WorkspaceTabs } from './components/WorkspaceTabs';
@@ -252,6 +252,27 @@ function buildMenus(
       case 'batchBgRemove':
         // On-device inference; a deployment can withhold it entirely.
         return !hasSelection || isCapabilityRestricted('inference');
+      // Workspaces a deployment does not expose. requestWorkspaceSwitch already
+      // refuses them, so this is about not offering a menu item that silently
+      // does nothing. Disabled rather than hidden on purpose: a greyed
+      // "Workspace: Print" says the capability exists in Varve but not here,
+      // which is the honest message and the one the demo banner expands on.
+      case 'workspaceDesign':
+        return !isWorkspaceModeAllowed('design');
+      case 'workspacePrint':
+        return !isWorkspaceModeAllowed('print');
+      case 'workspaceDrawing':
+        return !isWorkspaceModeAllowed('drawing');
+      case 'workspaceImage':
+        return !isWorkspaceModeAllowed('image');
+      case 'workspaceMotion':
+        return !isWorkspaceModeAllowed('motion');
+      case 'workspaceLogo':
+        return !isWorkspaceModeAllowed('logo');
+      case 'workspaceEmail':
+        return !isWorkspaceModeAllowed('email');
+      case 'workspaceCodegen':
+        return !isWorkspaceModeAllowed('codegen');
       case 'createMaster':
         return currentPageIsMaster;
       case 'applyMaster':
@@ -855,34 +876,42 @@ function buildMenus(
         {
           label: 'Workspace: Design',
           action: 'workspaceDesign',
+          disabled: dis('workspaceDesign'),
         },
         {
           label: 'Workspace: Print',
           action: 'workspacePrint',
+          disabled: dis('workspacePrint'),
         },
         {
           label: 'Workspace: Draw',
           action: 'workspaceDrawing',
+          disabled: dis('workspaceDrawing'),
         },
         {
           label: 'Workspace: Photo',
           action: 'workspaceImage',
+          disabled: dis('workspaceImage'),
         },
         {
           label: 'Workspace: Motion',
           action: 'workspaceMotion',
+          disabled: dis('workspaceMotion'),
         },
         {
           label: 'Workspace: Logo',
           action: 'workspaceLogo',
+          disabled: dis('workspaceLogo'),
         },
         {
           label: 'Workspace: Email',
           action: 'workspaceEmail',
+          disabled: dis('workspaceEmail'),
         },
         {
           label: 'Workspace: Codegen',
           action: 'workspaceCodegen',
+          disabled: dis('workspaceCodegen'),
         },
         {
           label: 'Reset Workspace to Default',
@@ -1371,6 +1400,7 @@ function buildMenus(
           action: 'whatIsThis',
         },
         { label: '---' },
+        { label: 'Getting Started', action: 'gettingStarted' },
         { label: 'Take a Tour', action: 'startTour' },
         { label: "What's New", action: 'whatsNew' },
         { label: '---' },
@@ -1544,6 +1574,7 @@ export function Menubar({
   onBackToHome,
   onOpenSettings,
   onStartTour,
+  onGettingStarted,
   onOpenPalette,
   onOpenHelp,
   onOpenHelpCenter,
@@ -1559,6 +1590,7 @@ export function Menubar({
   onBackToHome?: () => void;
   onOpenSettings?: () => void;
   onStartTour?: () => void;
+  onGettingStarted?: () => void;
   onOpenPalette?: () => void;
   onOpenHelp?: () => void;
   onOpenHelpCenter?: () => void;
@@ -2108,6 +2140,7 @@ export function Menubar({
       onBackToHome,
       onOpenSettings,
       onStartTour,
+      onGettingStarted,
       onOpenPalette,
       onOpenHelp,
       onOpenHelpCenter,

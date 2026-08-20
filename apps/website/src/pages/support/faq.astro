@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import { sitePath } from '../../lib/siteUrl';
+import { sitePath, siteUrl } from '../../lib/siteUrl';
 import release from '../../data/release-manifest.json';
 
 // Derive human-readable version info from the release manifest
@@ -8,10 +8,6 @@ const releaseVersion = release.version ?? '0.0.0';
 const releaseDateStr = release.releaseDate
   ? new Date(release.releaseDate + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
   : 'TBD';
-const platformsList = Object.keys(release.platforms ?? {}).map(p => {
-  if (p === 'macos') return 'macOS';
-  return p.charAt(0).toUpperCase() + p.slice(1);
-}).join(', ');
 
 // FAQPage structured data: mirrors the visible Q&As so answer engines can
 // extract and cite them. Keep the answers here in sync with the markup below —
@@ -41,7 +37,7 @@ const faqSchema = {
       name: 'What platforms does Varve support?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve publishes Linux x86_64 packages, Apple Silicon macOS builds, and Windows x86_64 installers. Native Linux ARM64 and Windows ARM64 release targets are now in validation and will appear on the download page only after their runtime gates pass. There is no Intel macOS build: Varve\'s on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support — a deliberate dependency constraint, not an oversight.',
+        text: 'Varve publishes Linux x86_64 and ARM64 (aarch64) packages (AppImage, deb, rpm), Apple Silicon macOS builds, and Windows x86_64 and ARM64 installers. There is no Intel macOS build: Varve\'s on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support — a deliberate dependency constraint, not an oversight.',
       },
     },
     {
@@ -49,7 +45,7 @@ const faqSchema = {
       name: 'Has Varve shipped a release yet?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: `Yes. The latest published application release is Varve ${releaseVersion}, released in ${releaseDateStr}. Published installers cover Linux (AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the download page for checksums and the release notes for what changed.`,
+        text: `Yes. The latest published application release is Varve ${releaseVersion}, released in ${releaseDateStr}. Published installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64 and ARM64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the download page for checksums and the release notes for what changed.`,
       },
     },
     {
@@ -89,7 +85,7 @@ const faqSchema = {
       name: 'Does Varve support ARM processors?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve supports Apple Silicon (ARM64) on macOS. Linux ARM64 and Windows ARM64 are being validated as native release targets; use the architecture-labeled download on the download page and do not install an x86_64 build by assumption.',
+        text: 'Yes. Apple Silicon (ARM64) on macOS, Linux ARM64, and Windows ARM64 are all published as native builds. Use the architecture-labeled download on the download page — do not install an x86_64 build by assumption on ARM hardware.',
       },
     },
     {
@@ -128,12 +124,30 @@ const faqSchema = {
     },
   ],
 };
+
+const breadcrumbSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    {
+      '@type': 'ListItem',
+      position: 1,
+      name: 'Support',
+      item: siteUrl('/support'),
+    },
+    {
+      '@type': 'ListItem',
+      position: 2,
+      name: 'FAQ',
+    },
+  ],
+};
 ---
 
 <Layout
   title="FAQ"
   description="Frequently asked questions about Varve: pricing, platforms, licensing (FSL-1.1-MIT), features, print work, ARM support, and contribution."
-  structuredData={faqSchema}
+  structuredData={[faqSchema, breadcrumbSchema]}
 >
   <div class="container-custom">
     <div class="support-page">
@@ -178,12 +192,12 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>What platforms does Varve support?</h3>
-          <p>Varve publishes Linux x86_64 packages, Apple Silicon macOS builds, and Windows x86_64 installers. Native Linux ARM64 and Windows ARM64 release targets are now in validation and will appear on the <a href={sitePath('/download')}>download page</a> only after their runtime gates pass. There is no Intel macOS build: Varve's on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support — a deliberate dependency constraint, not an oversight.</p>
+          <p>Varve publishes Linux x86_64 and ARM64 (aarch64) packages (AppImage, deb, rpm), Apple Silicon macOS builds, and Windows x86_64 and ARM64 installers. There is no Intel macOS build: Varve's on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support — a deliberate dependency constraint, not an oversight.</p>
         </div>
 
         <div class="faq-item">
           <h3>Has Varve shipped a release yet?</h3>
-          <p>Yes. The latest published application release is Varve {releaseVersion}, released in {releaseDateStr}. Published installers cover Linux (AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the <a href={sitePath('/download')}>download page</a> for checksums and the <a href={sitePath('/releases')}>release notes</a> for what changed. Downloads labeled "Varve" anywhere other than the official GitHub repository are not official.
+          <p>Yes. The latest published application release is Varve {releaseVersion}, released in {releaseDateStr}. Published installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64 and ARM64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the <a href={sitePath('/download')}>download page</a> for checksums and the <a href={sitePath('/releases')}>release notes</a> for what changed. Downloads labeled "Varve" anywhere other than the official GitHub repository are not official.
           </p>
         </div>
 
@@ -213,7 +227,7 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>Does Varve support ARM processors?</h3>
-          <p>Varve supports Apple Silicon (ARM64) on macOS. Linux ARM64 and Windows ARM64 are being validated as native release targets; use the architecture-labeled download on the <a href={sitePath('/download')}>download page</a> and do not install an x86_64 build by assumption.</p>
+          <p>Yes. Apple Silicon (ARM64) on macOS, Linux ARM64, and Windows ARM64 are all published as native builds. Use the architecture-labeled download on the <a href={sitePath('/download')}>download page</a> — do not install an x86_64 build by assumption on ARM hardware.</p>
         </div>
 
         <div class="faq-item">

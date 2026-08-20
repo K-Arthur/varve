@@ -97,6 +97,7 @@ export default defineConfig({
           pipe: false,
           ignoreDefaultArgs: ['--no-startup-window'],
           args: [
+            '--enable-unsafe-webgpu',
             '--enable-features=Vulkan',
             '--use-angle=vulkan',
             '--enable-unsafe-swiftshader',

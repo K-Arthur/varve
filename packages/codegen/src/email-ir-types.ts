@@ -96,8 +96,36 @@ export interface EmailIrNode {
   /** Compatibility classification. */
   compatibility: EmailCompatibilityClassification;
 
+  /**
+   * Source geometry in the design, in CSS pixels relative to the parent.
+   * The layout pass reads this to work out which siblings sit side by side; it
+   * is never emitted, because email cannot position anything absolutely.
+   */
+  geometry?: EmailIrGeometry;
+
+  /** Declarations the compatibility profile degraded, for preflight to explain. */
+  degradedStyles?: EmailIrDegradedStyle[];
+
   /** Stable provider attributes (for example Mailchimp editable regions). */
   providerAttributes?: Record<string, string>;
+}
+
+export interface EmailIrGeometry {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface EmailIrDegradedStyle {
+  /** The CSS property the design asked for. */
+  property: string;
+  /** The value the design asked for. */
+  value: string;
+  /** Whether a fallback replaced it or it was dropped outright. */
+  support: 'fallback' | 'unsupported';
+  /** Why, in language that can be shown to a designer. */
+  note?: string;
 }
 
 export type EmailCompatibilityClassification =

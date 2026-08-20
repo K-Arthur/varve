@@ -37,6 +37,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { GradientEditor } from '../color/GradientEditor';
+import {
+  resolvedGradientHueInterpolation,
+  resolvedGradientInterpolationSpace,
+} from '../color/gradientUiState';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -340,14 +344,26 @@ function FillRow({
   const typeRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.type ?? 'solid');
   const opacityRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.opacity ?? 1);
   const blendRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.blendMode ?? 'normal');
+  const documentGradientInterpolation =
+    editor.state.document.colorConfig?.defaultGradientInterpolation ?? 'oklab';
 
   // Gradient interpolation/hue are sub-fields; surface "Mixed" across the
-  // selection without forcing a value when merely opening the control.
+  // selection using resolved semantics. A legacy gradient (missing metadata)
+  // is sRGB, while interpolationSource=document inherits the document value.
   const interpRaw = commonValue(
     nodes,
-    (n) => resolveNodeFills(n)[index]?.gradient?.interpolationSpace,
+    (n) =>
+      resolvedGradientInterpolationSpace(
+        resolveNodeFills(n)[index]?.gradient,
+        documentGradientInterpolation,
+      ),
   );
-  const hueRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.gradient?.hueInterpolation);
+  const hueRaw = commonValue(nodes, (n) =>
+    resolvedGradientHueInterpolation(
+      resolveNodeFills(n)[index]?.gradient,
+      documentGradientInterpolation,
+    ),
+  );
   const gradientInterpMixed = isMixed(interpRaw);
   const gradientHueMixed = isMixed(hueRaw);
   const representativeGradient =
@@ -585,9 +601,7 @@ function FillRow({
           onEditStart={onEditStart}
           onEditEnd={onEditEnd}
           documentColorMode={editor.documentColorMode}
-          documentGradientInterpolation={
-            editor.state.document.colorConfig?.defaultGradientInterpolation ?? 'oklab'
-          }
+          documentGradientInterpolation={documentGradientInterpolation}
           mixedInterpolationSpace={gradientInterpMixed}
           mixedHue={gradientHueMixed}
         />

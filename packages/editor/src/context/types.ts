@@ -1,4 +1,10 @@
-import type { Adjustment, BlendMode, PathPoint } from '@varve/engine';
+import type {
+  Adjustment,
+  AreaSelection,
+  AreaSelectionSettings,
+  BlendMode,
+  PathPoint,
+} from '@varve/engine';
 import type { Platform } from '@varve/platform';
 import type { PrototypeData, PrototypeDebugConsole, PrototypeRuntime } from '@varve/prototype';
 import type {
@@ -306,6 +312,10 @@ export interface EditorState {
   /** Monotonic revision that increments on every selection change, enabling
    *  cheap change detection without deep-equal on the full selection array. */
   selectionRevision: number;
+  /** Ephemeral document-space pixel selection; never serialized into artwork. */
+  areaSelection?: AreaSelection | null;
+  /** Ephemeral controls shared by the rectangular and elliptical marquee tools. */
+  areaSelectionSettings: AreaSelectionSettings;
   document: Document;
   sessions: SessionMeta[];
   activeId: string;
@@ -795,6 +805,7 @@ export interface EditorContextValue {
   setSelectedLayoutSizingWidth: (value: LayoutSizing) => void;
   setSelectedLayoutSizingHeight: (value: LayoutSizing) => void;
   setSelectedLayoutPosition: (value: import('@varve/scene').LayoutPosition) => void;
+  setSelectedLayoutAlign: (value: import('@varve/scene').LayoutAlign) => void;
   setSelectedGridPlacement: (value: GridItemPlacement) => void;
   setCanvasWidth: (value: number) => void;
   setCanvasHeight: (value: number) => void;
@@ -1354,6 +1365,10 @@ export interface EditorContextValue {
   enterQuickMask: () => void;
   exitQuickMask: (convertToMask?: boolean) => void;
   setQuickMaskCoverage: (coverage: Uint8Array, width: number, height: number) => void;
+  /** Replace the analytical pixel selection without dirtying the document. */
+  setAreaSelection?: (selection: AreaSelection | null) => void;
+  /** Update ephemeral pixel-marquee controls without dirtying the document. */
+  setAreaSelectionSettings: (patch: Partial<AreaSelectionSettings>) => void;
   paintQuickMask: (x: number, y: number, radius: number, value: number) => void;
   fillQuickMask: (value: number) => void;
   invertQuickMask: () => void;

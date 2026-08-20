@@ -1,4 +1,4 @@
-import type { LayoutPosition, LayoutSizing, SceneNode } from '@varve/scene';
+import type { LayoutAlign, LayoutPosition, LayoutSizing, SceneNode } from '@varve/scene';
 import { getParent } from '@varve/scene';
 import { Select } from '@varve/ui';
 import { useMemo } from 'react';
@@ -18,9 +18,18 @@ const POSITION_OPTIONS: { value: LayoutPosition; label: string }[] = [
   { value: 'absolute', label: 'Absolute' },
 ];
 
+const ALIGN_OPTIONS: { value: LayoutAlign; label: string }[] = [
+  { value: 'inherit', label: 'Inherit' },
+  { value: 'start', label: 'Start' },
+  { value: 'center', label: 'Center' },
+  { value: 'end', label: 'End' },
+  { value: 'stretch', label: 'Stretch' },
+];
+
 /** Child-owned layout controls. Parent container controls stay in LayoutSection. */
 export function LayoutChildSection({ nodes }: { nodes: SceneNode[] }) {
   const {
+    setSelectedLayoutAlign,
     setSelectedLayoutPosition,
     setSelectedLayoutSizingHeight,
     setSelectedLayoutSizingWidth,
@@ -43,6 +52,7 @@ export function LayoutChildSection({ nodes }: { nodes: SceneNode[] }) {
     (node) => node.layoutSizingHeight ?? node.layoutSizing ?? 'fixed',
   );
   const position = commonValue(nodes, (node) => node.layoutPosition ?? 'flow');
+  const align = commonValue(nodes, (node) => node.layoutAlign ?? 'inherit');
 
   return (
     <DisclosureSection title="Layout child" sectionId="layout-child">
@@ -71,6 +81,15 @@ export function LayoutChildSection({ nodes }: { nodes: SceneNode[] }) {
           placeholder={isMixed(height) ? 'Mixed' : undefined}
           options={SIZING_OPTIONS}
           onChange={(value) => setSelectedLayoutSizingHeight(value as LayoutSizing)}
+        />
+      </FieldRow>
+      <FieldRow label="Align">
+        <Select
+          label="Child cross-axis alignment override"
+          value={isMixed(align) ? '' : align}
+          placeholder={isMixed(align) ? 'Mixed' : undefined}
+          options={ALIGN_OPTIONS}
+          onChange={(value) => setSelectedLayoutAlign(value as LayoutAlign)}
         />
       </FieldRow>
     </DisclosureSection>
