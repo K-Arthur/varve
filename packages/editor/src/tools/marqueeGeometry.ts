@@ -106,12 +106,13 @@ function primitivePolygon(
   const local = nodeLocalBounds(node, doc);
   if (!local) return null;
   if (node.shape.kind === 'rect') {
-    return [
+    const corners: Point[] = [
       [local.x, local.y],
       [local.x + local.w, local.y],
       [local.x + local.w, local.y + local.h],
       [local.x, local.y + local.h],
-    ].map((point) => applyAffine(nodeWorldTransform(doc, nodeId, parentIndex), point));
+    ];
+    return corners.map((point) => applyAffine(nodeWorldTransform(doc, nodeId, parentIndex), point));
   }
   const points: Point[] = [];
   const count = 48;

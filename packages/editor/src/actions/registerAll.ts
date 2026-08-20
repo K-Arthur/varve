@@ -325,6 +325,8 @@ export function registerEditorActions(
     ['addAlphaMask', 'Add Alpha Mask', ['mask', 'alpha', 'transparency']],
     ['addClipMask', 'Add Clip Mask', ['mask', 'clip', 'vector']],
     ['addLuminanceMask', 'Add Luminance Mask', ['mask', 'luminance', 'brightness']],
+    ['createMaskFromSelection', 'Create Mask from Selection', ['mask', 'selection', 'alpha']],
+    ['loadMaskAsSelection', 'Load Mask as Selection', ['mask', 'selection', 'load']],
     ['removeMask', 'Remove Mask', ['mask', 'delete', 'clear']],
     ['toggleMask', 'Toggle Mask', ['mask', 'enable', 'disable']],
     ['invertMask', 'Invert Mask', ['mask', 'invert', 'reverse']],

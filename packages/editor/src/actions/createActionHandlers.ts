@@ -1,11 +1,19 @@
-import { createAreaSelection, exportDocumentToSvg, invertAreaSelection } from '@varve/engine';
+import { exportDocumentToSvg } from '@varve/codegen';
+import { createAreaSelection, invertAreaSelection } from '@varve/engine';
 import { toDelimitedText } from '@varve/import';
-import type { TextNode } from '@varve/scene';
+import { getOwnRasterMaskAsset, isImageShape, type TextNode } from '@varve/scene';
+import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import { executeNudge, getNudgeStep } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
 import { startTextEditing } from '../context';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
 import { getLifecycleCoordinator } from '../lifecycle';
+import {
+  areaSelectionFromMaskPixels,
+  decodeRasterMaskDataUrl,
+  encodeSelectionMaskPng,
+  rasterizeAreaSelectionForNode,
+} from '../tools/selectionMask';
 
 export interface ActionHandlerCallbacks {
   onOpenFile?: () => void;
@@ -54,6 +62,73 @@ export function createActionHandlers(
       antialias: false,
     });
   };
+  const selectedRasterMaskTarget = () => {
+    for (const id of e.state.selection) {
+      const node = e.state.document.nodes[id];
+      if (node?.kind === 'frame' || (node?.kind === 'shape' && isImageShape(node))) {
+        return node;
+      }
+    }
+    return null;
+  };
+  const createMaskFromAreaSelection = () => {
+    const selection = e.state.areaSelection;
+    const target = selectedRasterMaskTarget();
+    if (!selection || !target) {
+      e.announce(
+        target
+          ? 'Create a pixel selection before creating a mask'
+          : 'Select an image or frame first',
+      );
+      return;
+    }
+    const raster = rasterizeAreaSelectionForNode(e.state.document, target.id, selection);
+    const dataUrl = raster ? encodeSelectionMaskPng(raster) : null;
+    if (!raster || !dataUrl) {
+      e.announce('The selected area is too large or cannot be mapped to this target');
+      return;
+    }
+    e.updateDoc((doc) =>
+      commitRasterMask(doc, target.id, {
+        dataUrl,
+        width: raster.width,
+        height: raster.height,
+        coordinateSpace: raster.coordinateSpace,
+        sourceLocator: raster.sourceLocator,
+      }),
+    );
+    e.announce('Mask created from pixel selection');
+  };
+  const loadMaskAsAreaSelection = async () => {
+    const target = selectedRasterMaskTarget();
+    const assetId = target?.mask?.rasterMask?.assetId;
+    const asset = assetId ? getOwnRasterMaskAsset(e.state.document, assetId) : undefined;
+    if (!target || !asset) {
+      e.announce('Select a layer with a raster mask first');
+      return;
+    }
+    const pixels = await decodeRasterMaskDataUrl(asset.dataUrl);
+    if (!pixels) {
+      e.announce('The raster mask could not be decoded');
+      return;
+    }
+    const coordinateSpace = target.mask?.rasterMask?.coordinateSpace;
+    const selection = areaSelectionFromMaskPixels(
+      e.state.document,
+      target.id,
+      pixels,
+      coordinateSpace === 'container-local-pixels' ? coordinateSpace : 'source-image-pixels',
+    );
+    if (!selection) {
+      e.announce('The raster mask could not be mapped to document space');
+      return;
+    }
+    e.setAreaSelection?.({
+      ...selection,
+      generation: (e.state.areaSelection?.generation ?? 0) + 1,
+    });
+    e.announce('Raster mask loaded as pixel selection');
+  };
   const updateSelectedText = (update: (node: TextNode) => TextNode): void => {
     const selectedId = e.state.selection.length === 1 ? e.state.selection[0] : undefined;
     if (!selectedId) return;
@@ -86,7 +161,6 @@ export function createActionHandlers(
       if (isAreaSelectionTool(e.state.tool)) {
         const pageArea = activePageArea();
         if (pageArea) {
-          e.setSelection(null);
           e.setAreaSelection?.(pageArea);
           e.announce('Entire active page selected');
         }
@@ -113,7 +187,6 @@ export function createActionHandlers(
       if (isAreaSelectionTool(e.state.tool) && e.setAreaSelection) {
         const pageArea = activePageArea();
         if (pageArea) {
-          e.setSelection(null);
           e.setAreaSelection(invertAreaSelection(e.state.areaSelection ?? null, pageArea));
           e.announce('Pixel selection inverted inside the active page');
         }
@@ -479,6 +552,8 @@ export function createActionHandlers(
     addAlphaMask: () => e.addMaskToSelected?.('alpha'),
     addClipMask: () => e.addMaskToSelected?.('clip'),
     addLuminanceMask: () => e.addMaskToSelected?.('luminance'),
+    createMaskFromSelection: createMaskFromAreaSelection,
+    loadMaskAsSelection: () => void loadMaskAsAreaSelection(),
     removeMask: () => e.removeMaskFromSelected?.(),
     toggleMask: () => e.toggleMask?.(),
     invertMask: () => e.invertMask?.(),

@@ -272,7 +272,7 @@ export function buildCanvasContextMenuItems({
       label: 'Select All',
       onAction: () => {
         record('selectAll');
-        getActionRegistry().get('selectAll')?.handler();
+        getActionRegistry().get('selectAll')?.handler(undefined);
         closeMenu();
       },
     } satisfies MenuEntry,
