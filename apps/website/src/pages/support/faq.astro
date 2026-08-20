@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import { sitePath } from '../../lib/siteUrl';
+import { sitePath, siteUrl } from '../../lib/siteUrl';
 import release from '../../data/release-manifest.json';
 
 // Derive human-readable version info from the release manifest
@@ -8,10 +8,6 @@ const releaseVersion = release.version ?? '0.0.0';
 const releaseDateStr = release.releaseDate
   ? new Date(release.releaseDate + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
   : 'TBD';
-const platformsList = Object.keys(release.platforms ?? {}).map(p => {
-  if (p === 'macos') return 'macOS';
-  return p.charAt(0).toUpperCase() + p.slice(1);
-}).join(', ');
 
 // FAQPage structured data: mirrors the visible Q&As so answer engines can
 // extract and cite them. Keep the answers here in sync with the markup below —
@@ -128,12 +124,30 @@ const faqSchema = {
     },
   ],
 };
+
+const breadcrumbSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    {
+      '@type': 'ListItem',
+      position: 1,
+      name: 'Support',
+      item: siteUrl('/support'),
+    },
+    {
+      '@type': 'ListItem',
+      position: 2,
+      name: 'FAQ',
+    },
+  ],
+};
 ---
 
 <Layout
   title="FAQ"
   description="Frequently asked questions about Varve: pricing, platforms, licensing (FSL-1.1-MIT), features, print work, ARM support, and contribution."
-  structuredData={faqSchema}
+  structuredData={[faqSchema, breadcrumbSchema]}
 >
   <div class="container-custom">
     <div class="support-page">
