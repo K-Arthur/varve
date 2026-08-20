@@ -64,6 +64,9 @@ export {
 } from './lifecycle';
 // Onboarding state — exposed so a host can declare first-run already handled
 // (the browser demo explains itself through its own banner).
+export { TIPS } from './onboard/DidYouKnow/tips';
+export { workspaceTips } from './onboard/DidYouKnow/workspaceTips';
+export { MICRO_HINTS } from './onboard/MicroHints/microHintsData';
 export { CHECKLIST_ITEMS } from './onboard/OnboardingChecklist/OnboardingChecklist';
 export type { OnboardingStore } from './onboard/onboardingStore';
 export {
