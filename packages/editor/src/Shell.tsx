@@ -48,6 +48,8 @@ import {
   type ExportLayerHandle,
   FindReplaceLayer,
   type FindReplaceLayerHandle,
+  ImportProgress,
+  ImportResults,
   OnboardingLayer,
   type OnboardingLayerHandle,
   ThumbnailPickerHost,
@@ -267,6 +269,15 @@ function ShellInner({
     editor.openFile(openFile.id, openFile.name, openFile.filePath, openFile.json);
   }, [openFile, editor]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const importAbortRef = useRef<AbortController | null>(null);
+  const [importProgress, setImportProgress] = useState<{
+    current: number;
+    total: number;
+    fileName: string;
+  } | null>(null);
+  const [importReport, setImportReport] = useState<import('@varve/import').ImportReport | null>(
+    null,
+  );
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -286,6 +297,10 @@ function ShellInner({
   const exportLayerRef = useRef<ExportLayerHandle | null>(null);
   const findReplaceLayerRef = useRef<FindReplaceLayerHandle | null>(null);
   const onboardingLayerRef = useRef<OnboardingLayerHandle | null>(null);
+
+  useEffect(() => {
+    return () => importAbortRef.current?.abort();
+  }, []);
   const { shellStyle, widths, setWidth } = usePanelWidths();
   useWorkspacePanelWidths(editor.state.workspaceMode, widths, setWidth);
 
@@ -523,6 +538,15 @@ function ShellInner({
         />
         <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
         <AuditOverlayHost viewport={{ width: window.innerWidth, height: window.innerHeight }} />
+        {importProgress && (
+          <ImportProgress
+            current={importProgress.current}
+            total={importProgress.total}
+            fileName={importProgress.fileName}
+            onCancel={() => importAbortRef.current?.abort()}
+          />
+        )}
+        {importReport && <ImportResults result={importReport} onClose={() => setImportReport(null)} />}
         <ImageCompareOverlay
           active={editor.state.beforeAfterCompare}
           selection={editor.selectedNodes()}
@@ -865,24 +889,39 @@ function ShellInner({
                   }
                 }
                 // Filter out LUT files from the remaining import
-                const remaining = files.filter((f) => !/\.(cube|3dl)$/i.test(f.name));
+                const remaining = files.filter((f) => !/\.(cube|3dl|clf|ctf)$/i.test(f.name));
                 if (remaining.length === 0) {
                   e.target.value = '';
                   return;
                 }
                 // Fall through to normal import for remaining files
               }
+              const importFiles = files.filter((f) => !/\.(cube|3dl|clf|ctf)$/i.test(f.name));
+              if (importFiles.length === 0) {
+                e.target.value = '';
+                return;
+              }
+              const abortController = new AbortController();
+              importAbortRef.current = abortController;
+              setImportReport(null);
+              setImportProgress({ current: 0, total: importFiles.length, fileName: importFiles[0]!.name });
               const { ImportService } = await import('@varve/import');
               const report = await ImportService.importFiles(
                 await Promise.all(
-                  files.map(async (file) => ({
+                  importFiles.map(async (file) => ({
                     name: file.name,
                     source: 'file-picker' as const,
                     size: file.size,
                     bytes: new Uint8Array(await file.arrayBuffer()),
                   })),
                 ),
-                { center: true, embedImages: true },
+                {
+                  center: true,
+                  embedImages: true,
+                  onProgress: (current, total, file) =>
+                    setImportProgress({ current, total, fileName: file.name }),
+                },
+                abortController.signal,
               );
               const parsedItems: { node: SceneNode; sourceDoc: Document }[] = [];
               for (const fileReport of report.files) {
@@ -894,14 +933,23 @@ function ShellInner({
                 }
               }
               if (parsedItems.length > 0) editor.batchImportNodes(parsedItems);
+              const hasIssues =
+                report.partialCount > 0 ||
+                report.failureCount > 0 ||
+                report.warnings.length > 0 ||
+                report.files.some((file) => file.unsupportedFeatures.length > 0);
+              if (hasIssues) setImportReport(report);
               editor.announce(
                 `Imported ${report.successCount + report.partialCount} file${report.successCount + report.partialCount === 1 ? '' : 's'}; ${report.failureCount} failed`,
               );
             } catch (err) {
+              if (err instanceof Error && err.name === 'AbortError') return;
               editor.announce(
                 err instanceof Error ? `Import failed: ${err.message}` : 'Import failed',
               );
             } finally {
+              importAbortRef.current = null;
+              setImportProgress(null);
               e.target.value = '';
             }
           }}

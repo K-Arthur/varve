@@ -119,7 +119,11 @@
   align-items: center;
   color: var(--color-feedback-success);
 }
-.import-results__file-icon svg:last-child {
+.import-results__file-icon--partial {
+  color: var(--color-feedback-warning);
+}
+.import-results__file-icon--failed,
+.import-results__file-icon--unsupported {
   color: var(--color-feedback-danger);
 }
 .import-results__file-name {
