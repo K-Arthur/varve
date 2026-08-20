@@ -111,6 +111,7 @@ export {
 export { SelectionOverlay } from './SelectionOverlay';
 export type { OpenFileRequest, ShellProps } from './Shell';
 export { Shell } from './Shell';
+export { loadSettings, updateSettings } from './settings';
 export { formatShortcut, SHORTCUT_DEFS, useShortcuts } from './shortcuts';
 export type { StartupCapabilities } from './startup/capabilityCheck';
 export { checkStartupCapabilities } from './startup/capabilityCheck';
