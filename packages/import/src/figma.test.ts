@@ -199,4 +199,113 @@ describe('Figma JSON importer', () => {
     expect(file.nodeCount).toBeGreaterThanOrEqual(0);
     expect(file.format).not.toBe('unknown');
   });
+
+  it('preserves component sets, grid/export metadata, masks and unknown children', () => {
+    const input = JSON.parse(fixture()) as Record<string, unknown>;
+    const document = input.document as Record<string, unknown>;
+    const page = (document.children as Array<Record<string, unknown>>)[0]!;
+    const children = page.children as Array<Record<string, unknown>>;
+    children.push({
+      id: 'set:1',
+      type: 'COMPONENT_SET',
+      name: 'Button',
+      absoluteBoundingBox: { x: 20, y: 240, width: 120, height: 48 },
+      componentPropertyDefinitions: {
+        Size: { type: 'VARIANT', defaultValue: 'Small' },
+      },
+      children: [
+        {
+          id: 'component:small',
+          type: 'COMPONENT',
+          name: 'Size=Small',
+          componentSetId: 'set:1',
+          variantProperties: { Size: 'Small' },
+          absoluteBoundingBox: { x: 20, y: 240, width: 120, height: 48 },
+        },
+      ],
+    });
+    children.push({
+      id: 'instance:1',
+      type: 'INSTANCE',
+      name: 'Button instance',
+      componentId: 'component:small',
+      absoluteBoundingBox: { x: 180, y: 240, width: 120, height: 48 },
+    });
+    children.push({
+      id: 'grid:1',
+      type: 'FRAME',
+      name: 'Grid frame',
+      layoutMode: 'GRID',
+      layoutGrids: [{ pattern: 'COLUMNS', count: 4, gutterSize: 16, sectionSize: 80 }],
+      exportSettings: [{ format: 'PNG', suffix: '@2x', constraint: { type: 'SCALE', value: 2 } }],
+      absoluteBoundingBox: { x: 20, y: 320, width: 360, height: 200 },
+      children: [],
+    });
+    children.push({
+      id: 'mask:frame',
+      type: 'FRAME',
+      name: 'Masked frame',
+      absoluteBoundingBox: { x: 400, y: 240, width: 100, height: 100 },
+      children: [
+        {
+          id: 'mask:shape',
+          type: 'ELLIPSE',
+          name: 'Mask',
+          isMask: true,
+          absoluteBoundingBox: { x: 400, y: 240, width: 100, height: 100 },
+        },
+        {
+          id: 'mask:content',
+          type: 'RECTANGLE',
+          name: 'Masked content',
+          absoluteBoundingBox: { x: 400, y: 240, width: 100, height: 100 },
+        },
+      ],
+    });
+    children.push({
+      id: 'unknown:container',
+      type: 'NEW_FIGMA_CONTAINER',
+      name: 'Future container',
+      absoluteBoundingBox: { x: 520, y: 240, width: 100, height: 100 },
+      children: [
+        {
+          id: 'unknown:child',
+          type: 'RECTANGLE',
+          name: 'Future child',
+          absoluteBoundingBox: { x: 520, y: 240, width: 20, height: 20 },
+        },
+      ],
+    });
+    input.components = {
+      ...(input.components as Record<string, unknown>),
+      'component:small': { name: 'Size=Small', componentSetId: 'set:1' },
+    };
+    input.componentSets = { 'set:1': { name: 'Button' } };
+
+    const result = createFigmaParser().parse(JSON.stringify(input));
+    const nodes = Object.values(result.document.nodes);
+    const grid = nodes.find((node) => node.name === 'Grid frame');
+    const mask = nodes.find((node) => node.name === 'Masked frame');
+    const future = nodes.find((node) => node.name === 'Future container');
+    expect(grid).toMatchObject({
+      kind: 'frame',
+      layoutStyle: { mode: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' },
+      presets: [{ format: 'png', scale: { type: 'factor', value: 2 } }],
+    });
+    expect(result.document.gridSettings?.layoutGrids).toBeDefined();
+    expect(mask).toMatchObject({ mask: { hideMaskSource: true, type: 'alpha' } });
+    expect(future).toMatchObject({ kind: 'group', children: [expect.any(String)] });
+    expect(Object.values(result.document.components)[0]?.variants).toEqual([
+      expect.objectContaining({ name: 'Size=Small', propertyValues: { Size: 'Small' } }),
+    ]);
+  });
+
+  it('applies import scale at the page-content boundary', () => {
+    const result = createFigmaParser().parse(fixture(), { scale: 2 });
+    expect(result.document.pages?.[0]?.width).toBe(1280);
+    const contentRoot = result.document.pages?.[0]?.contentRoot;
+    expect(contentRoot && result.document.nodes[contentRoot]?.transform).toEqual([
+      2, 0, 0, 2, 0, 0,
+    ]);
+  });
 });

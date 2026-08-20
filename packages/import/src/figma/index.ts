@@ -1,3 +1,4 @@
+import type { Document } from '@varve/scene';
 import type { ImportOptions, ImportParser, ImportResult } from '../types';
 import { convertFigmaSource } from './converter';
 import { decodeFigmaSource, isFigmaJsonSource } from './source';
@@ -30,6 +31,32 @@ function unsupportedBinary(): ImportResult {
   };
 }
 
+function scaleDocument(document: Document, factor: number): Document {
+  if (!Number.isFinite(factor) || factor <= 0 || factor === 1) return document;
+  const nodes = { ...document.nodes };
+  const roots = new Set(document.pages?.map((page) => page.contentRoot) ?? document.rootChildren);
+  for (const id of roots) {
+    const node = nodes[id];
+    if (!node) continue;
+    const [a, b, c, d, e, f] = node.transform;
+    nodes[id] = {
+      ...node,
+      transform: [a * factor, b * factor, c * factor, d * factor, e * factor, f * factor],
+    } as typeof node;
+  }
+  return {
+    ...document,
+    nodes,
+    canvasWidth: document.canvasWidth ? document.canvasWidth * factor : document.canvasWidth,
+    canvasHeight: document.canvasHeight ? document.canvasHeight * factor : document.canvasHeight,
+    pages: document.pages?.map((page) => ({
+      ...page,
+      width: page.width * factor,
+      height: page.height * factor,
+    })),
+  };
+}
+
 export function createFigmaParser(): ImportParser {
   return {
     format: 'figma',
@@ -37,14 +64,10 @@ export function createFigmaParser(): ImportParser {
     canParse: isFigmaJsonSource,
     parse: (data, importOptions) => {
       if (!isFigmaJsonSource(data)) return unsupportedBinary();
-      const result = convertFigmaSource(decodeFigmaSource(data));
       const opts = options(importOptions);
-      if (opts.scale !== 1) {
-        result.warnings.push(
-          `Figma import scale ${opts.scale} is recorded as an import option; geometry scaling is not yet applied`,
-        );
-      }
-      return result;
+      const result = convertFigmaSource(decodeFigmaSource(data));
+      const document = scaleDocument(result.document, opts.scale);
+      return document === result.document ? result : { ...result, document };
     },
   };
 }
@@ -53,6 +76,8 @@ export { convertFigmaSource } from './converter';
 export type {
   FigmaBounds,
   FigmaEffect,
+  FigmaExportSetting,
+  FigmaLayoutGrid,
   FigmaPaint,
   FigmaSourceComponent,
   FigmaSourceComponentSet,
@@ -61,7 +86,5 @@ export type {
   FigmaSourcePage,
   FigmaSourceStyle,
   FigmaSourceVariable,
-  FigmaExportSetting,
-  FigmaLayoutGrid,
 } from './source';
 export { decodeFigmaSource, FIGMA_IMPORT_LIMITS, isFigmaJsonSource } from './source';
