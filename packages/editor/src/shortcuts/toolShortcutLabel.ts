@@ -1,5 +1,5 @@
-import type { ToolId } from '../tools/types';
 import { toolDefinition } from '../tools/toolRegistry';
+import type { ToolId } from '../tools/types';
 import { formatShortcut, getEffectiveBinding } from './ShortcutManager';
 
 /** Registry action id that carries a tool's shortcut, if the tool has one. */

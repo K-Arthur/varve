@@ -19,6 +19,19 @@ import type { ToolId } from './toolRegistry';
 
 export type { ToolId } from './toolRegistry';
 
+/** Active table edit session (ADR-0016): cell selection + keyboard focus. */
+export interface TableEditState {
+  tableId: NodeId;
+  /** Selected cell ids (single cell or rectangular range). */
+  cellIds: string[];
+  /** Keyboard cursor cell (may be inside a span owner). */
+  activeCellId: string | null;
+  /** Cell with the inline text editor open. */
+  editingCellId: string | null;
+  /** Range anchor for shift-extended selections. */
+  anchorCellId: string | null;
+}
+
 export type MaskPreviewMode =
   | 'checkerboard'
   | 'overlay'
@@ -213,7 +226,7 @@ export interface ToolContext {
   /** Set the text node to be edited inline. */
   setTextEditTargetId: (id: string | null) => void;
   /** ADR-0016: enter/exit table edit mode (cell selection + navigation). */
-  setTableEdit?: (state: import('../context/types').TableEditState | null) => void;
+  setTableEdit?: (state: TableEditState | null) => void;
   /** Enter/exit warp edit mode (which node's modifier the overlay edits). */
   setWarpEdit?: (target: { nodeId: string; modifierId: string } | null) => void;
   /** Apply a warp preset to the current selection. */

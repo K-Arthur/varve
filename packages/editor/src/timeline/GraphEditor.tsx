@@ -249,7 +249,6 @@ export const GraphEditor: FC<GraphEditorProps> = ({
 
   const handleMouseUp = useCallback(() => {
     setDragging(null);
-    setDraggingTangent(null);
   }, []);
 
   return (
