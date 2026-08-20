@@ -1,9 +1,52 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+
+const fontReplacementFaq = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'What happens when an imported design uses a missing font?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Varve identifies the missing family, ranks local replacement candidates, and opens a review dialog only when a decision is needed. The text stays editable, and the original family is retained in the document font manifest.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Can Varve replace a missing font across a whole document?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes. Replace All updates matching text nodes, rich-text runs, and reusable text styles in one undoable editor transaction.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Does font replacement upload my document or fonts?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Core replacement is local-first. It uses the local font catalog and does not require Figma credentials or uploading the document. Optional font providers are separate and user-controlled.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Will a font replacement change the design layout?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'It can. Different font metrics may change wrapping, bounds, and export appearance, so Varve labels the match quality and warns you to review reflow before delivery.',
+      },
+    },
+  ],
+};
 ---
 
-<Layout title="Typography" description="Varve's typography system: Unicode-aware text foundations, multi-line layout, OpenType features, variable fonts, text-on-path, inline editing, and CJK line breaking.">
+<Layout
+  title="Typography & Missing-Font Replacement"
+  description="Varve keeps imported text editable: Unicode-aware typography, variable fonts, rich text, and local-first missing-font replacement with preserved provenance."
+  structuredData={fontReplacementFaq}
+>
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -12,7 +55,7 @@ import { sitePath } from '../../lib/siteUrl';
 
       <h1>Typography</h1>
       <p class="feature-intro">
-        Multi-line text rendering, OpenType feature toggles, variable font axes, text-on-path, inline editing, and Unicode-aware layout foundations.
+        Professional text tools with a dependable answer to a common import problem: when a design uses a font you do not have, Varve helps you replace it without turning the design into a screenshot.
       </p>
 
       <section class="feature-section">
@@ -20,6 +63,21 @@ import { sitePath } from '../../lib/siteUrl';
         <p>
           Varve's typography system provides multi-line layout, text decoration, overflow handling, list styles, letter spacing, vertical alignment, and text case transforms. It supports OpenType feature toggles, variable font axis control, text placed along arbitrary paths, and a logical Unicode source model designed to keep shaping, editing, and export aligned.
         </p>
+        <p>
+          For Figma REST or plugin-export JSON imports, Varve also treats fonts as document dependencies. It detects missing families in ordinary text, rich-text runs, and reusable text styles; ranks local candidates; and keeps the original family reference in the saved document manifest. You can continue editing locally without keeping Figma open.
+        </p>
+      </section>
+
+      <section class="feature-section feature-callout">
+        <p class="feature-callout__eyebrow">Import with confidence</p>
+        <h2>Missing fonts are a reviewable decision, not silent damage</h2>
+        <p>
+          Choose a substitute once and apply it across the document in one undoable action. Varve labels exact, compatible, and fallback matches, updates rich text without flattening it, and warns when new font metrics may reflow the design.
+        </p>
+        <div class="feature-callout__links">
+          <a href={sitePath('/docs/tools/typography')}>Read the typography workflow</a>
+          <a href={sitePath('/docs/file-formats')}>See supported Figma acquisition paths</a>
+        </div>
       </section>
 
       <div class="feature-visual feature-visual--pair">
@@ -58,6 +116,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>BiDi foundations:</strong> UAX #9 embedding levels, per-line visual run ordering, mirrored punctuation, and cluster-safe caret geometry in the engine</li>
           <li><strong>Paragraph layout:</strong> Script/language itemization, word-level line breaking that never splits a grapheme, and RTL-safe wrapping</li>
           <li><strong>Font system:</strong> Google Fonts loading, @fontsource bundled fonts, CSS fallback chains</li>
+          <li><strong>Missing-font replacement:</strong> Ranked local candidates, rich-text-aware Replace All, and manifest provenance across save/reopen</li>
           <li><strong>Typography inspector:</strong> Font family, weight, style, size, line height, letter spacing, alignment, OpenType features</li>
         </ul>
       </section>
@@ -81,6 +140,7 @@ import { sitePath } from '../../lib/siteUrl';
             <li>The canonical paragraph layout pipeline (BiDi, line breaking, caret/selection geometry) is engine-complete, but the inline editor and pointer tools still use the legacy textarea/canvas path</li>
             <li>Text-to-outlines produces placeholder bounding boxes (real glyph path extraction deferred)</li>
             <li>Rich-text transactions and mixed inspector state exist, but insertion-style state, composition transactions, and complete shaped per-span rendering remain in development</li>
+            <li>Font substitution preserves editability and provenance, but a compatible or category fallback can change text metrics; explicit restore-to-original-font actions are planned</li>
           </ul>
         </div>
       </section>
@@ -89,8 +149,20 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Status</h2>
         <div class="status-badge built">
           <span class="badge-text">Built</span>
-          <p>Core text controls, OpenType settings, variable fonts, text-on-path, inline editing, Unicode indexing, UAX #9 BiDi, canonical paragraph layout with cluster-safe caret geometry, and rich-text transactions are functional in the beta. Font-byte shaping in the live canvas and full complex-script editing remain in development.</p>
+          <p>Core text controls, OpenType settings, variable fonts, text-on-path, inline editing, Unicode indexing, UAX #9 BiDi, canonical paragraph layout with cluster-safe caret geometry, rich-text transactions, and local-first missing-font replacement are functional in the beta. Font-byte shaping in the live canvas and full complex-script editing remain in development.</p>
         </div>
+      </section>
+
+      <section class="feature-section feature-faq">
+        <h2>Common questions</h2>
+        <h3>What happens when an imported design uses a missing font?</h3>
+        <p>Varve identifies the family, suggests local candidates, and asks for a replacement only when necessary. The source family remains available as provenance in the document manifest.</p>
+        <h3>Can I replace a font everywhere?</h3>
+        <p>Yes. Replace All covers node-level text, mixed rich-text runs, and shared text styles as one undoable operation.</p>
+        <h3>Does replacement upload my document or fonts?</h3>
+        <p>No. Core replacement uses Varve's local font catalog and is local-first; it does not require Figma credentials or uploading the document. Optional font providers remain separate and user-controlled.</p>
+        <h3>Will replacement alter layout?</h3>
+        <p>It can. Font metrics affect wrapping and bounds, so Varve shows the match quality and asks you to review reflow before delivery.</p>
       </section>
 
       <div class="feature-cta">
@@ -170,6 +242,39 @@ import { sitePath } from '../../lib/siteUrl';
   
   .feature-section strong {
     color: var(--text-primary);
+  }
+
+  .feature-callout {
+    padding: 1.5rem;
+    border: 1px solid var(--border-accent);
+    border-radius: 0.75rem;
+    background: var(--surface-muted);
+  }
+
+  .feature-callout__eyebrow {
+    margin-bottom: 0.5rem !important;
+    color: var(--text-link-hover) !important;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .feature-callout__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .feature-callout__links a {
+    color: var(--text-link);
+    font-weight: 600;
+  }
+
+  .feature-faq h3 {
+    margin-top: 1.5rem;
+    color: var(--text-primary);
+    font-size: 1.1rem;
   }
 
   .feature-visual {

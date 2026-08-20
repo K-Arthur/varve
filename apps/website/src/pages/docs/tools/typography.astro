@@ -3,7 +3,7 @@ import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
 ---
 
-<Layout title="Typography — Varve Docs" description="Set type in Varve: Unicode-aware text foundations, multi-line text, OpenType features, variable fonts, text on path, and inline editing.">
+<Layout title="Typography & Font Replacement — Varve Docs" description="Set type in Varve with Unicode-aware text, rich text, variable fonts, and local-first missing-font replacement for imported designs.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -68,6 +68,20 @@ import { sitePath } from '../../../lib/siteUrl';
           The font family selector shows available fonts with their CSS fallback chain. Missing fonts trigger a visible warning in the Typography section.
         </p>
 
+        <h3 id="missing-font-replacement">Missing-font replacement after import</h3>
+        <p>
+          When an imported design references a family that is not available locally, Varve opens a reviewable replacement workflow instead of silently changing the design. It checks ordinary text, mixed rich-text runs, and reusable text styles, then ranks local candidates by identity, compatibility, and script/category fallback.
+        </p>
+        <ol>
+          <li><strong>Review the source:</strong> See the original family, affected text count, and candidate match quality.</li>
+          <li><strong>Choose a local candidate:</strong> Select an installed or bundled font that fits the design and script.</li>
+          <li><strong>Apply once:</strong> Replace All updates matching nodes, rich-text runs, and shared styles in one undoable transaction.</li>
+          <li><strong>Keep provenance:</strong> The original family and substitute remain recorded in the document font manifest for save/reopen diagnostics.</li>
+        </ol>
+        <p>
+          Replacement preserves editable text rather than outlining or rasterizing it. Because font metrics can change wrapping and bounds, Varve reports the substitution and asks you to review layout before delivery. See <a href={sitePath('/docs/file-formats')}>Figma acquisition and import support</a> for source-format boundaries.
+        </p>
+
         <h3>Size and Weight</h3>
         <ul>
           <li><strong>Font Size</strong> — Numeric input with drag-to-scrub</li>
@@ -115,6 +129,16 @@ import { sitePath } from '../../../lib/siteUrl';
         <h2>Variable Fonts</h2>
         <p>
           Varve supports variable fonts with full axis control. When a variable font is selected, the Typography section shows a <strong>Variable Axes</strong> panel with range sliders for each registered axis (e.g., weight, width, optical size, slant). The available axes are determined by the font's <code>fvar</code> table.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Figma acquisition note</h2>
+        <p>
+          Varve's semantic Figma import path accepts official REST file JSON and compatible plugin-export JSON. This is the path used to preserve editable pages, frames, text runs, components, styles, variables, and layout semantics where Varve has an equivalent model. The local-first result does not require Figma to remain open after import.
+        </p>
+        <p>
+          Opaque native <code>.fig</code> binaries are not currently parsed as a semantic source. Use an authorized JSON/plugin export for editable import, or use SVG/PDF when visual fallback is the priority. Varve reports source limitations rather than presenting a flattened fallback as full semantic support.
         </p>
       </section>
 

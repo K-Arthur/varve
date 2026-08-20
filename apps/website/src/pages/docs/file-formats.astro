@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="File Formats" description="File formats Varve opens and exports: .varve documents, SVG, PDF, PSD, AI, EPS, images, and code targets.">
+<Layout title="File Formats & Figma Import" description="File formats Varve opens and exports, including semantic Figma REST/plugin JSON import, editable text, and local-first font recovery.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -57,6 +57,20 @@ import { sitePath } from '../../lib/siteUrl';
           <li>Transform attributes (matrix, translate, rotate, scale, skew)</li>
           <li>Fill, stroke, opacity, and style attributes</li>
         </ul>
+
+        <h3>Figma design data</h3>
+        <p>
+          Varve accepts official Figma REST file JSON and compatible plugin-export JSON for semantic, editable conversion. The importer normalizes source data before building a native Varve document, preserving pages, frames, text, rich-text runs, components, styles, variables, layout metadata, and prototype references where Varve has an equivalent representation.
+        </p>
+        <ul>
+          <li><strong>Editable text:</strong> Text remains text, including mixed rich-text runs where the source data provides them</li>
+          <li><strong>Font recovery:</strong> Missing families are reviewed through ranked local replacement candidates; the original family and replacement remain in the document manifest</li>
+          <li><strong>Native semantics:</strong> Auto Layout, components, variants, variables, and interactions are converted only when the target model can preserve their meaning</li>
+          <li><strong>Safe degradation:</strong> Unsupported effects, missing dependencies, and approximations appear in the structured Import Report</li>
+        </ul>
+        <p>
+          Native opaque <code>.fig</code> binaries are not currently parsed as a semantic source. For editable import, use an authorized REST or plugin export. For visual fallback, SVG or PDF can be imported independently; those formats cannot preserve Figma-specific components, variables, Auto Layout, or prototype semantics. Read the <a href={sitePath('/features/typography')}>missing-font replacement workflow</a> and <a href={sitePath('/docs/tools/typography')}>typography documentation</a> for details.
+        </p>
 
         <h3>PDF</h3>
         <p>
