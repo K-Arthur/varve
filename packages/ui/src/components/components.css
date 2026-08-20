@@ -455,7 +455,12 @@
   margin-top: var(--space-4);
 }
 
-.varve-menu--portaled {
+.varve-menu.varve-menu--portaled {
+  /* FloatingPortal measures its outer fixed element. Keep the menu content
+   * in normal flow so placement/flip/shift use real menu dimensions;
+   * an absolutely positioned child measures as zero and can land on top of
+   * its trigger, making overflow menus look open but impossible to click. */
+  position: static;
   z-index: auto;
 }
 

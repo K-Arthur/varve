@@ -6,7 +6,10 @@
   bottom: var(--space-3);
   left: 50%;
   transform: translateX(-50%);
-  z-index: var(--z-sticky);
+  /* Workflow panels such as Codegen occupy the canvas grid area at the
+   * raised layer. The toolbar is editor chrome and must remain the reachable
+   * command surface above those panels. */
+  z-index: calc(var(--elevation-z-raised) + 1);
   pointer-events: none;
   width: max-content;
   height: max-content;

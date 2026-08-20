@@ -297,7 +297,7 @@ export function WorkspaceTabs() {
               group: 'workspace-overflow' as const,
               checked: state.workspaceMode === mode,
               badge: workspaceShortcutLabel(mode),
-              onAction: () => handleSwitch(mode, { fromOverflow: true }),
+              onToggle: () => handleSwitch(mode, { fromOverflow: true }),
             })),
             { id: 'sep', separator: true as const },
             {
