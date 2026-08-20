@@ -9,7 +9,7 @@ import {
   validateDocument,
 } from './document';
 import { DocumentCodec } from './documentCodec';
-import { imageFill } from './fills';
+import { gradientFill, imageFill } from './fills';
 import { addRasterMaskAsset } from './masks';
 import { makePaint, type Page, type RasterMaskAsset } from './types';
 import { CURRENT_DOCUMENT_VERSION } from './version';
@@ -264,6 +264,34 @@ describe('DocumentCodec', () => {
       const closure = DocumentCodec.collectNodeClosure(doc, ['s1']);
       expect(closure.assets?.[asset.id]).toEqual(asset);
     });
+  });
+
+  it('preserves gradient interpolation metadata through save and reopen', () => {
+    const shape = makeShapeNode('gradient', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 });
+    shape.fills = [
+      gradientFill(
+        'linear',
+        [
+          { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+          { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+        ],
+        { interpolationSpace: 'oklch', hueInterpolation: 'longer' },
+      ),
+    ];
+    const doc = addNode(createDocument('Gradient metadata', true), shape);
+
+    const reopened = DocumentCodec.decode(DocumentCodec.encode(doc));
+
+    expect(reopened.ok).toBe(true);
+    if (!reopened.ok) return;
+    const gradient = reopened.document.nodes.gradient;
+    expect(gradient?.kind).toBe('shape');
+    if (gradient?.kind !== 'shape') return;
+    expect(gradient.fills?.[0]?.gradient).toMatchObject({
+      interpolationSpace: 'oklch',
+      hueInterpolation: 'longer',
+    });
+    expect(gradient.fills?.[0]?.gradient?.interpolationSource).toBeUndefined();
   });
 
   describe('current-version image geometry normalization', () => {
