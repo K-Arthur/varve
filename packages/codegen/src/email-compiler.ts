@@ -304,7 +304,7 @@ function compileNode(
  */
 function geometryOf(node: SemanticNode): EmailIrNode['geometry'] {
   const position = node.layout.position;
-  if (!position || position?.type !== 'absolute') return undefined;
+  if (position?.type !== 'absolute') return undefined;
   const width = node.layout.width.value;
   const height = node.layout.height.value;
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
