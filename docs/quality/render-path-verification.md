@@ -24,7 +24,7 @@ browser (Playwright) instead of extending that pattern.
   representative subset, not the full requested corpus — see "Deferred" below.
 - **Comparison**: Playwright's built-in `toHaveScreenshot()` (pixelmatch under the hood already —
   no new dependency needed), **per-fixture tolerance** scaled by DPR². Two DPR projects always run
-  in CI (`chromium-visual-1x`, `-2x`); 3x is opt-in via `STRATA_VISUAL_3X` (triples cost for
+  in CI (`chromium-visual-1x`, `-2x`); 3x is opt-in via `VARVE_VISUAL_3X` (triples cost for
   marginal signal at this fixture count).
 - **Structural signal** (`packages/engine/src/__goldens__/drawCallRecorder.ts`): a Proxy-based
   canvas-context recorder that snapshots the sequence of draw calls, independent of real
