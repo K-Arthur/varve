@@ -54,6 +54,35 @@ export interface ToolbarToolSlot {
 
 export type ToolbarSlot = ToolbarToolSlot | ToolbarFlyoutSlot;
 
+/** A contiguous declared toolbar group, split at `groupStart` boundaries. */
+export interface ToolbarGroup {
+  id: string;
+  slots: ToolbarSlot[];
+}
+
+/** Return the tool ids represented by one rendered slot, including flyouts. */
+export function getToolbarSlotToolIds(slot: ToolbarSlot): ToolId[] {
+  return slot.kind === 'tool' ? [slot.toolId] : slot.tools;
+}
+
+/**
+ * Preserve workspace-declared group boundaries for responsive composition.
+ * This deliberately does not assign categories or visibility; those remain
+ * registry and effective-config concerns respectively.
+ */
+export function groupToolbarSlots(slots: ToolbarSlot[]): ToolbarGroup[] {
+  const groups: ToolbarGroup[] = [];
+  for (const [index, slot] of slots.entries()) {
+    const startsGroup = groups.length === 0 || slot.groupStart === true;
+    if (startsGroup) {
+      const anchor = slot.kind === 'tool' ? slot.toolId : slot.id;
+      groups.push({ id: `${anchor}-${index}`, slots: [] });
+    }
+    groups.at(-1)?.slots.push(slot);
+  }
+  return groups;
+}
+
 /**
  * Compose the ordered toolbar slots for a workspace.
  *

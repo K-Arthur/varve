@@ -72,6 +72,29 @@ test.describe('workspace toolbar visual QA', () => {
     await toolbar.screenshot({ path: testInfo.outputPath('toolbar-design-narrow.png') });
   });
 
+  test('collapses whole category groups into More tools when the canvas is tight', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 480, height: 700 });
+    await navigateToEditor(page);
+
+    const toolbar = page.locator('[data-testid="toolbar"]');
+    await expect(toolbar).toBeVisible();
+    await expect(toolbar.locator('[data-tool="select"]')).toBeVisible();
+
+    const more = toolbar.getByRole('button', { name: 'More tools' });
+    await expect(more).toBeVisible();
+    await more.click();
+
+    const menu = page.locator('.varve-ctxmenu');
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Vector' })).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Layout' })).toBeVisible();
+
+    await toolbar.screenshot({ path: testInfo.outputPath('toolbar-category-overflow.png') });
+    await page.screenshot({ path: testInfo.outputPath('toolbar-category-menu.png') });
+  });
+
   test('captures the searchable customization dialog and a customized toolbar', async ({
     page,
   }, testInfo) => {
