@@ -15,7 +15,7 @@
  * and synchronous paths cannot drift apart in brush semantics.
  */
 import type { AreaSelection } from '@varve/engine';
-import type { BrushDab, BrushPreset, RasterLayerNode } from '@varve/scene';
+import type { BrushDab, BrushPreset, RasterLayerNode, WetPaintManager } from '@varve/scene';
 import { compositeDabOnNode, defaultBrushPreset, eraseDabOnNode, strokePoint } from '@varve/scene';
 import { BrushWorkerHost, type StrokeBatchEvent } from '../render/brushWorkerHost';
 import { BaseTool } from './BaseTool';
@@ -66,6 +66,7 @@ interface PaintStrokeSession {
   alphaLock: boolean;
   areaSelection: AreaSelection | null;
   eraser: boolean;
+  wet: boolean;
   branches: SymmetryBranch[];
   /** True when this stroke created its own raster layer. */
   ownsLayer: boolean;
@@ -90,6 +91,8 @@ export class PaintTool extends BaseTool {
   private ctxRef: ToolContext | null = null;
   private lastOwnedLayer = false;
   private lastStrokeBounds: { x: number; y: number; w: number; h: number } | null = null;
+  private wetPaint: WetPaintManager | null = null;
+  private onWetDeposit: (() => void) | null = null;
 
   onSettingsChange?: (settings: BrushToolSettings) => void;
 
@@ -114,6 +117,23 @@ export class PaintTool extends BaseTool {
   /** Symmetry is a stroke transform, not a second tool. Snapshotted per stroke. */
   setSymmetry(settings: SymmetrySettings | null): void {
     this.symmetry = settings;
+  }
+
+  /**
+   * Supply the wet-paint runtime. `onDeposit` wakes the drying scheduler; it is
+   * only called when paint is actually laid down, so a dry document never
+   * schedules a frame.
+   */
+  setWetPaint(manager: WetPaintManager | null, onDeposit?: () => void): void {
+    this.wetPaint = manager;
+    this.onWetDeposit = onDeposit ?? null;
+  }
+
+  /** Enable or disable wet media for subsequent strokes. */
+  setWetEnabled(enabled: boolean, mixStrength?: number, dryingRate?: number): void {
+    this.preset.wetEnabled = enabled;
+    if (mixStrength !== undefined) this.preset.wetMixStrength = mixStrength;
+    if (dryingRate !== undefined) this.preset.wetDryingRate = dryingRate;
   }
 
   updatePresetFromSettings(settings: BrushToolSettings): void {
@@ -212,6 +232,7 @@ export class PaintTool extends BaseTool {
       alphaLock: this.alphaLock,
       areaSelection: ctx.areaSelection ?? null,
       eraser: this.eraserMode,
+      wet: !this.eraserMode && preset.wetEnabled,
       branches,
       ownsLayer: this.lastOwnedLayer,
       transactionOpen: true,
@@ -385,19 +406,72 @@ export class PaintTool extends BaseTool {
     if (batch.dabs.length === 0) return;
 
     const { alphaLock, eraser, color, areaSelection, rasterNodeId } = session;
+    let deposited = false;
     ctx.updateNode(rasterNodeId, (node) => {
       let updated = node as RasterLayerNode;
       for (const dab of batch.dabs) {
         const coverage = selectionCoverageForDab(ctx, rasterNodeId, dab, areaSelection);
-        updated = eraser
-          ? eraseDabOnNode(updated, dab, { coverage })
-          : compositeDabOnNode(updated, dab, color, { alphaLock, coverage });
+        if (eraser) {
+          updated = eraseDabOnNode(updated, dab, { coverage });
+          continue;
+        }
+        const dabColor = session.wet ? this.mixWet(session, dab, color) : color;
+        if (session.wet) deposited = true;
+        updated = compositeDabOnNode(updated, dab, dabColor, { alphaLock, coverage });
       }
       return updated;
     });
+    // Waking the scheduler is what starts drying; a stroke that deposited no
+    // wet paint leaves the document idle.
+    if (deposited) this.onWetDeposit?.();
 
     session.dabCount += batch.dabs.length;
     this.growDirty(session, batch.dabs);
+  }
+
+  /**
+   * Mix a dab's colour with the wet film already on the layer, and mark the
+   * dab's footprint wet.
+   *
+   * Mixing is evaluated once at the dab centre rather than per pixel: the wet
+   * film is a low-frequency quantity, and a per-pixel solve would multiply the
+   * cost of every textured wet brush for a difference the eye does not resolve
+   * at dab spacing. Wetness is registered on a lattice across the footprint so
+   * a later crossing stroke finds wet paint anywhere the dab covered, not only
+   * at its centre.
+   */
+  private mixWet(
+    session: PaintStrokeSession,
+    dab: BrushDab,
+    color: [number, number, number, number],
+  ): [number, number, number, number] {
+    const wet = this.wetPaint;
+    if (!wet) return color;
+    const amount = Math.max(0, Math.min(1, dab.opacity * dab.flow));
+    const mixed = wet.addPaint(
+      session.rasterNodeId,
+      dab.x,
+      dab.y,
+      color,
+      amount,
+      session.preset.wetMixStrength,
+    );
+    const step = Math.max(1, Math.floor(dab.radius / 2));
+    for (let dy = -dab.radius; dy <= dab.radius; dy += step) {
+      for (let dx = -dab.radius; dx <= dab.radius; dx += step) {
+        if (dx * dx + dy * dy > dab.radius * dab.radius) continue;
+        if (dx === 0 && dy === 0) continue;
+        wet.addPaint(
+          session.rasterNodeId,
+          dab.x + dx,
+          dab.y + dy,
+          mixed,
+          amount,
+          session.preset.wetMixStrength,
+        );
+      }
+    }
+    return mixed;
   }
 
   private growDirty(session: PaintStrokeSession, dabs: readonly BrushDab[]): void {

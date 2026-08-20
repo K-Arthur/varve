@@ -144,3 +144,4 @@ export * from './warpBounds';
 export * from './warpMigration';
 export * from './warpOps';
 export * from './wetPaint';
+export * from './wetPaintManager';
