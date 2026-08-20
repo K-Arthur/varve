@@ -1,18 +1,53 @@
-import type { BatchImportResult } from '@varve/import';
-import { useCallback, useState } from 'react';
+import type { BatchImportResult, ImportReport } from '@varve/import';
+import { useCallback, useState, type KeyboardEvent } from 'react';
 
 import './ImportResults.css';
 
 export interface ImportResultsProps {
-  result: BatchImportResult;
+  result: BatchImportResult | ImportReport;
   onClose: () => void;
+}
+
+interface ImportResultRow {
+  name: string;
+  status: 'success' | 'partial' | 'failed' | 'unsupported';
+  warnings: string[];
+}
+
+function isServiceReport(result: BatchImportResult | ImportReport): result is ImportReport {
+  return 'files' in result;
+}
+
+function rowsFor(result: BatchImportResult | ImportReport): ImportResultRow[] {
+  if (!isServiceReport(result)) {
+    return result.results.map((file) => ({
+      name: file.name,
+      status: file.success ? 'success' : 'failed',
+      warnings: file.warnings,
+    }));
+  }
+  return result.files.map((file) => ({
+    name: file.name,
+    status: file.status,
+    warnings: [
+      ...file.warnings.map((issue) => issue.message),
+      ...file.unsupportedFeatures.map((feature) => feature.message),
+      ...(file.error ? [file.error] : []),
+    ],
+  }));
 }
 
 export function ImportResults({ result, onClose }: ImportResultsProps) {
   const [expanded, setExpanded] = useState(false);
+  const rows = rowsFor(result);
+  const serviceReport = isServiceReport(result);
+  const successCount = result.successCount;
+  const partialCount = serviceReport ? result.partialCount : 0;
+  const failCount = serviceReport ? result.failureCount : result.failCount;
+  const unsupportedCount = serviceReport ? result.unsupportedCount : 0;
 
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
+    (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
         onClose();
@@ -21,8 +56,8 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
     [onClose],
   );
 
-  const hasFailures = result.failCount > 0;
-  const warningFileCount = result.results.filter((r) => r.warnings.length > 0).length;
+  const hasFailures = failCount > 0;
+  const warningFileCount = rows.filter((file) => file.warnings.length > 0).length;
 
   return (
     <div
@@ -61,17 +96,27 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
         </div>
 
         <div className="import-results__summary">
-          {result.successCount > 0 && (
+          {successCount > 0 && (
             <p className="import-results__stat import-results__stat--success">
-              {result.successCount} file{result.successCount !== 1 ? 's' : ''} imported successfully
+              {successCount} file{successCount !== 1 ? 's' : ''} imported successfully
+            </p>
+          )}
+          {partialCount > 0 && (
+            <p className="import-results__stat import-results__stat--warn">
+              {partialCount} file{partialCount !== 1 ? 's' : ''} imported with fidelity changes
             </p>
           )}
           {hasFailures && (
             <p className="import-results__stat import-results__stat--fail">
-              {result.failCount} file{result.failCount !== 1 ? 's' : ''} failed
+              {failCount} file{failCount !== 1 ? 's' : ''} failed or could not be imported
             </p>
           )}
-          {!hasFailures && result.successCount === 0 && (
+          {unsupportedCount > 0 && (
+            <p className="import-results__stat import-results__stat--fail">
+              {unsupportedCount} file{unsupportedCount !== 1 ? 's' : ''} used an unsupported format
+            </p>
+          )}
+          {!hasFailures && successCount === 0 && partialCount === 0 && (
             <p className="import-results__stat import-results__stat--empty">
               No files were imported
             </p>
@@ -83,23 +128,23 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
           )}
         </div>
 
-        {result.results.length > 0 && (
+        {rows.length > 0 && (
           <div className="import-results__files">
             <button
               type="button"
               className="import-results__toggle"
               onClick={() => setExpanded(!expanded)}
             >
-              {expanded ? 'Hide' : 'Show'} details ({result.results.length} files)
+              {expanded ? 'Hide' : 'Show'} details ({rows.length} files)
             </button>
 
             {expanded && (
               <ul className="import-results__list">
-                {result.results.map((file, i) => (
+                {rows.map((file, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: file names can repeat across imports; rows are stateless (no id in BatchFileResult)
                   <li key={i} className="import-results__file">
-                    <span className="import-results__file-icon">
-                      {file.success ? (
+                    <span className={`import-results__file-icon import-results__file-icon--${file.status}`}>
+                      {file.status === 'success' ? (
                         <svg
                           width="14"
                           height="14"
@@ -129,6 +174,9 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
                       )}
                     </span>
                     <span className="import-results__file-name">{file.name}</span>
+                    {file.status === 'partial' && file.warnings.length === 0 && (
+                      <span className="import-results__file-warnings">(fidelity changes)</span>
+                    )}
                     {file.warnings.length > 0 && (
                       <span className="import-results__file-warnings">
                         ({file.warnings.length} warning{file.warnings.length !== 1 ? 's' : ''})
@@ -159,10 +207,10 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
           </button>
         </div>
 
-        {result.warnings.length > 0 && (
+        {warningFileCount > 0 && (
           <div role="status" aria-live="polite" className="varve-visually-hidden">
-            Import complete: {result.successCount} succeeded, {result.failCount} failed,{' '}
-            {result.warnings.length} warnings
+            Import complete: {successCount} succeeded, {partialCount} partially converted,{' '}
+            {failCount} failed, {warningFileCount} files with warnings
           </div>
         )}
       </div>
