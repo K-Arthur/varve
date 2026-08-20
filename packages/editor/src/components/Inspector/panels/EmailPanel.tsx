@@ -18,10 +18,10 @@ import {
 import { Button, CopyButton, Input, Select, TextArea } from '@varve/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
-import { EmailNodeCompatibility } from './EmailNodeCompatibility';
-import { EmailPreflightPanel } from './EmailPreflightPanel';
 import { createBufferedExportArchive, saveExportBytes } from '../../../exportSaveAdapter';
 import { EmailCodeEditor } from './EmailCodeEditor';
+import { EmailNodeCompatibility } from './EmailNodeCompatibility';
+import { EmailPreflightPanel } from './EmailPreflightPanel';
 
 const KIND_OPTIONS = [
   'auto',

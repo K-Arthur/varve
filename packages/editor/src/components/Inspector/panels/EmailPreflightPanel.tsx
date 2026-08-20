@@ -79,8 +79,8 @@ export function EmailPreflightPanel({
 
       {diagnostics.length === 0 ? (
         <p className="email-preflight__clear">
-          No issues found. Browser preview only — this is not a guarantee of how any particular
-          mail client will render the message.
+          No issues found. Browser preview only — this is not a guarantee of how any particular mail
+          client will render the message.
         </p>
       ) : (
         <ul className="email-preflight__groups">
