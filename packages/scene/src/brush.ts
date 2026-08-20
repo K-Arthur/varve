@@ -196,16 +196,21 @@ export interface BrushDab {
     contrast: number;
     invert: boolean;
     strokeT: number;
-    anchor: 'brush' | 'canvas' | 'stroke' | 'layer';
-    offsetX: number;
-    offsetY: number;
-    followDirection: boolean;
-    wrap: 'repeat' | 'mirror' | 'clamp';
+    /**
+     * Anchoring context. Optional so a hand-built dab (a test fixture, a
+     * replayed stroke) stays cheap to construct; the sampler falls back to
+     * layer-anchored, unrotated defaults when they are absent.
+     */
+    anchor?: 'brush' | 'canvas' | 'stroke' | 'layer';
+    offsetX?: number;
+    offsetY?: number;
+    followDirection?: boolean;
+    wrap?: 'repeat' | 'mirror' | 'clamp';
     /** Dab centre and arc length, so anchoring is resolvable per pixel. */
-    dabX: number;
-    dabY: number;
-    strokeDistance: number;
-    direction: number;
+    dabX?: number;
+    dabY?: number;
+    strokeDistance?: number;
+    direction?: number;
   };
 }
 
@@ -252,13 +257,40 @@ export function strokeDirection(a: StrokePoint, b: StrokePoint): number {
   return Math.atan2(b.y - a.y, b.x - a.x);
 }
 
-export function smoothStrokePoints(points: StrokePoint[], factor: number): StrokePoint[] {
+/**
+ * Exponential stroke smoothing.
+ *
+ * `previous` is the last smoothed point of the preceding batch. Passing it lets
+ * an incrementally dispatched stroke smooth continuously instead of snapping
+ * back to the raw input at every batch boundary — without it, the first point
+ * of each batch passes through unsmoothed and the stroke visibly kinks.
+ */
+export function smoothStrokePoints(
+  points: StrokePoint[],
+  factor: number,
+  previous?: StrokePoint | null,
+): StrokePoint[] {
   if (points.length === 0 || factor <= 0) return points;
-  const smoothed: StrokePoint[] = [points[0]!];
+  const f0 = Math.max(0, Math.min(1, factor));
+  const smoothed: StrokePoint[] = [];
+  if (previous) {
+    const first = points[0]!;
+    smoothed.push({
+      x: previous.x + (first.x - previous.x) * (1 - f0),
+      y: previous.y + (first.y - previous.y) * (1 - f0),
+      pressure: previous.pressure + (first.pressure - previous.pressure) * (1 - f0),
+      tilt: previous.tilt + (first.tilt - previous.tilt) * (1 - f0),
+      direction: first.direction,
+      speed: first.speed,
+      time: first.time,
+    });
+  } else {
+    smoothed.push(points[0]!);
+  }
   for (let i = 1; i < points.length; i++) {
     const current = points[i]!;
     const prev = smoothed[i - 1]!;
-    const f = Math.max(0, Math.min(1, factor));
+    const f = f0;
     smoothed.push({
       x: prev.x + (current.x - prev.x) * (1 - f),
       y: prev.y + (current.y - prev.y) * (1 - f),

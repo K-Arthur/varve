@@ -304,6 +304,7 @@ describe('strokeBounds', () => {
         angle: 0,
         roundness: 1,
         strokeT: 0,
+        strokeDistance: 0,
       },
       {
         x: 100,
@@ -315,6 +316,7 @@ describe('strokeBounds', () => {
         angle: 0,
         roundness: 1,
         strokeT: 1,
+        strokeDistance: 0,
       },
     ];
     const bounds = strokeBounds(dabs);

@@ -454,19 +454,19 @@ function compositeBrushDabOnPixels(
         ? resolveGrainValueSync(grain.grainId, layerX, layerY, {
             scale: grain.scale,
             rotation: grain.rotation,
-            offsetX: grain.offsetX,
-            offsetY: grain.offsetY,
+            offsetX: grain.offsetX ?? 0,
+            offsetY: grain.offsetY ?? 0,
             contrast: grain.contrast,
             invert: grain.invert,
-            anchor: grain.anchor,
+            anchor: grain.anchor ?? 'layer',
             strokeT: grain.strokeT,
             seed: 0,
-            dabX: grain.dabX,
-            dabY: grain.dabY,
-            strokeDistance: grain.strokeDistance,
-            direction: grain.direction,
-            followDirection: grain.followDirection,
-            wrap: grain.wrap,
+            dabX: grain.dabX ?? dabX + tileOriginX,
+            dabY: grain.dabY ?? dabY + tileOriginY,
+            strokeDistance: grain.strokeDistance ?? 0,
+            direction: grain.direction ?? 0,
+            followDirection: grain.followDirection ?? false,
+            wrap: grain.wrap ?? 'repeat',
           })
         : 1;
 
@@ -476,14 +476,20 @@ function compositeBrushDabOnPixels(
       let effectiveAlpha =
         maskValue * dabOpacity * dabFlow * srcAlpha * grainValue * selectionValue;
 
-      // Wet edge: pigment pools towards the rim of the dab. Measured against
-      // the tip radius, so zooming the canvas cannot change its strength.
+      // Wet edge: pigment pools towards the rim of the *stroke*, not of every
+      // dab. Scaling by the paint that is not yet there confines the effect to
+      // the stroke's outer boundary — inside the stroke, earlier dabs have
+      // already laid down alpha, so the rim is suppressed and the stroke does
+      // not come out scalloped once per dab.
+      //
+      // The distance is measured against the tip radius, so the effect is
+      // identical at any zoom.
       let edgeDarken = 0;
       if (wetEdge && wetEdge.darken > 0 && dabRadius > 0) {
         const dx = px - dabX;
         const dy = py - dabY;
         const distRatio = Math.sqrt(dx * dx + dy * dy) / dabRadius;
-        edgeDarken = wetEdgeDarkening(distRatio, wetEdge.size, wetEdge.darken);
+        edgeDarken = wetEdgeDarkening(distRatio, wetEdge.size, wetEdge.darken) * (1 - destAlpha);
         if (edgeDarken > 0) effectiveAlpha = Math.min(1, effectiveAlpha * (1 + edgeDarken));
       }
       if (alphaLock) {
