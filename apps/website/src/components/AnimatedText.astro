@@ -1,12 +1,14 @@
 ---
 /**
- * AnimatedText — masked phrase rotation for the hero line.
+ * AnimatedText — smooth crossfade phrase rotation for the hero line.
  *
  * The accessible text ("One canvas.") is always present as a plain span;
  * a decorative, aria-hidden rotor cycles design-discipline phrases over it
- * with masked line reveals (clip-path + rise). Search engines and screen
- * readers get the complete static sentence; the animation is presentation
- * only.
+ * with a simultaneous crossfade: the outgoing phrase fades out while drifting
+ * up as the incoming phrase fades in from below. A vertical clip-path mask
+ * prevents the two phrases from visually overlapping at the same baseline.
+ * Search engines and screen readers get the complete static sentence; the
+ * animation is presentation only.
  *
  * - Reserves its box (min-width set to the widest phrase at runtime, height
  *   from the in-flow static span) so nothing shifts layout.
@@ -47,6 +49,11 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
 <script>
   import { prefersMotion } from '../lib/motion';
 
+  /** Transition duration in ms — must match the CSS animation duration. */
+  const TRANSITION_MS = 700;
+  /** Full cycle interval (hold + transition overlap). */
+  const CYCLE_MS = 3000;
+
   const hosts = [...document.querySelectorAll<HTMLElement>('[data-animated-phrase]')];
   for (const host of hosts) {
     if (!prefersMotion()) continue;
@@ -76,11 +83,24 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
 
         let index = 0;
         items[0]?.classList.add('is-active');
+
         const timer = window.setInterval(() => {
-          items[index]?.classList.remove('is-active');
+          const old = items[index];
           index = (index + 1) % items.length;
-          items[index]?.classList.add('is-active');
-        }, 3400);
+          const next = items[index];
+
+          // Crossfade: outgoing drifts up and fades out while incoming
+          // fades in from below — both animate simultaneously. The
+          // clip-path mask ensures they never overlap at the same baseline.
+          old?.classList.remove('is-active');
+          old?.classList.add('is-exiting');
+          next?.classList.add('is-active');
+
+          // Clean up the exiting class after the transition completes so
+          // the element is ready for its next turn.
+          setTimeout(() => old?.classList.remove('is-exiting'), TRANSITION_MS);
+        }, CYCLE_MS);
+
         // The component owns one timer; nothing else animates this line.
         (host as HTMLElement & { __varvePhraseTimer?: number }).__varvePhraseTimer = timer;
       };
@@ -150,11 +170,21 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
       opacity: 0;
     }
 
+    /* Incoming phrase: fades in while rising from 0.45em below to rest. The
+       clip-path opens a vertical reveal band so the phrase appears to wipe
+       upward from nothing. */
     html:not([data-motion='static']) .hero-phrase.is-rotating .hero-phrase-item.is-active {
       visibility: visible;
-      animation:
-        varve-phrase-in 0.6s var(--ease-default) both,
-        varve-phrase-out 0.45s var(--ease-default) 2.9s both;
+      animation: varve-phrase-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    /* Outgoing phrase: fades out while drifting up 0.45em — runs
+       simultaneously with the incoming enter for a smooth crossfade. The
+       clip-path collapses the visible band upward so the outgoing phrase
+       never overlaps the incoming one at the same baseline. */
+    html:not([data-motion='static']) .hero-phrase.is-rotating .hero-phrase-item.is-exiting {
+      visibility: visible;
+      animation: varve-phrase-exit 0.7s cubic-bezier(0.7, 0, 0.84, 0) both;
     }
   }
 
@@ -166,7 +196,7 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
      past the box in both directions, and the hidden states collapse the band
      to zero height outside it. Horizontal insets stay at 0 — the reveal is a
      vertical wipe. */
-  @keyframes varve-phrase-in {
+  @keyframes varve-phrase-enter {
     from {
       opacity: 0;
       clip-path: inset(-30% 0 130% 0);
@@ -175,20 +205,20 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
     to {
       opacity: 1;
       clip-path: inset(-30% 0 -30% 0);
-      transform: none;
+      transform: translateY(0);
     }
   }
 
-  @keyframes varve-phrase-out {
+  @keyframes varve-phrase-exit {
     from {
       opacity: 1;
       clip-path: inset(-30% 0 -30% 0);
-      transform: none;
+      transform: translateY(0);
     }
     to {
       opacity: 0;
       clip-path: inset(-30% 0 130% 0);
-      transform: translateY(-0.3em);
+      transform: translateY(-0.45em);
     }
   }
 
