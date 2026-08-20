@@ -65,11 +65,6 @@ export const GraphEditor: FC<GraphEditorProps> = ({
     keyframeIndex: number;
     startProgress: number;
   } | null>(null);
-  const [draggingTangent, setDraggingTangent] = useState<{
-    trackId: string;
-    keyframeIndex: number;
-    tangentType: 'ti' | 'to';
-  } | null>(null);
 
   const padding = { top: 20, right: 20, bottom: 30, left: 50 };
   const width = 800;

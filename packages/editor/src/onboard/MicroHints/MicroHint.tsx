@@ -54,9 +54,7 @@ export function MicroHint({ hint, onDismiss }: MicroHintProps) {
       <span className="micro-hint__title">
         {hint.title}
         {hint.shortcut && (
-          <kbd className="micro-hint__shortcut" aria-hidden="true">
-            {hint.shortcut}
-          </kbd>
+          <kbd className="micro-hint__shortcut">{hint.shortcut}</kbd>
         )}
       </span>
       <span className="micro-hint__body">{hint.body}</span>

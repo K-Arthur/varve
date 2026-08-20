@@ -358,7 +358,7 @@ export function generateDabs(
 
   if (walk.length === 1) {
     const p = walk[0]!;
-    if (!session || !session.started) {
+    if (!session?.started) {
       const dab = makeDab(p, preset, 0, session?.arcLength ?? 0, rng);
       dabs.push(dab);
       if (session) {
