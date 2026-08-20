@@ -164,7 +164,11 @@ The targeted Figma and editor import suites pass, including the browser
 workflow in `tests/e2e/canvas/figma-import.spec.ts`. Workspace typecheck
 remains blocked by unrelated existing errors in shared color/analytics code
 and stale brush-worker tests; those failures are not introduced by the Figma
-files. The final handoff records the exact commands and outcomes.
+files. The importer benchmark (`packages/import/src/figma.bench.ts`) also
+passes: the Node runner measured approximately 1.14 ms for 100 nodes, 9.52 ms
+for 1,000 nodes, and 71.46 ms for 5,000 nodes in this environment. These are
+conversion timings, not a claim about full editor import latency or peak
+memory.
 
 ## Priority backlog
 
