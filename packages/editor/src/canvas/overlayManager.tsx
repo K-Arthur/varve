@@ -7,6 +7,7 @@
  * overlay rendering here instead of managing it inline.
  */
 
+import type { AreaSelection, AreaSelectionExpression } from '@varve/engine';
 import { computeImagePlacement } from '@varve/engine';
 import {
   canBeClipMaskSource,
@@ -41,8 +42,64 @@ export interface UseOverlayDrawOptions {
   accentColorRef: MutableRefObject<string>;
   sunkenColorRef: MutableRefObject<string>;
   draft: unknown | null;
+  areaSelection: AreaSelection | null | undefined;
   dropTargetFrameId: NodeId | null;
   maskDropTargetId: NodeId | null;
+}
+
+function traceAreaSelectionBoundary(
+  ctx: CanvasRenderingContext2D,
+  expression: AreaSelectionExpression,
+): void {
+  if (expression.kind === 'combine') {
+    traceAreaSelectionBoundary(ctx, expression.left);
+    traceAreaSelectionBoundary(ctx, expression.right);
+    return;
+  }
+
+  const shape = expression.shape;
+  ctx.beginPath();
+  if (shape.kind === 'rectangle') {
+    ctx.rect(shape.x, shape.y, shape.w, shape.h);
+  } else if (shape.kind === 'ellipse') {
+    ctx.ellipse(
+      shape.x + shape.w / 2,
+      shape.y + shape.h / 2,
+      Math.abs(shape.w) / 2,
+      Math.abs(shape.h) / 2,
+      0,
+      0,
+      Math.PI * 2,
+    );
+  } else {
+    const first = shape.points[0];
+    if (!first) return;
+    ctx.moveTo(first.x, first.y);
+    for (const point of shape.points.slice(1)) ctx.lineTo(point.x, point.y);
+    ctx.closePath();
+  }
+}
+
+function drawAreaSelectionBoundary(
+  ctx: CanvasRenderingContext2D,
+  selection: AreaSelection,
+  zoom: number,
+  phase: number,
+): void {
+  ctx.save();
+  ctx.lineWidth = 3 / zoom;
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+  ctx.setLineDash([6 / zoom, 6 / zoom]);
+  ctx.lineDashOffset = phase / zoom;
+  traceAreaSelectionBoundary(ctx, selection.expression);
+  ctx.stroke();
+
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.98)';
+  ctx.lineDashOffset = (phase + 6) / zoom;
+  traceAreaSelectionBoundary(ctx, selection.expression);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawObjectSelectionPreview(
@@ -171,10 +228,12 @@ export function useOverlayDraw({
   displayDpr,
   accentColorRef,
   draft,
+  areaSelection,
   dropTargetFrameId,
   maskDropTargetId,
 }: UseOverlayDrawOptions): () => void {
   const overlayFrameKey = useRef<string | null>(null);
+  const areaSelectionPhaseRef = useRef(0);
   overlayFrameKey.current ??= createCanvasFrameKey('overlay');
 
   const drawOverlay = useCallback(() => {
@@ -293,6 +352,13 @@ export function useOverlayDraw({
         drawObjectSelectionPreview(ctx, doc, objectNode, objectSession, objectTransform);
         drawObjectSelectionPrompts(ctx, objectSession, s.zoom);
       }
+    }
+
+    // ── Pixel-area selection boundary ──────────────────────────────────
+    // This is an overlay-only visualization. The analytical expression is
+    // never baked into the scene or export output.
+    if (s.areaSelection) {
+      drawAreaSelectionBoundary(ctx, s.areaSelection, s.zoom, areaSelectionPhaseRef.current);
     }
 
     // ── Subject picker highlight overlay ─────────────────────────────────
@@ -689,6 +755,7 @@ export function useOverlayDraw({
     displayDpr,
     accentColorRef,
     draft,
+    areaSelection,
     dropTargetFrameId,
     maskDropTargetId,
   ]);
@@ -700,10 +767,32 @@ export function useOverlayDraw({
     scheduleCanvasFrame(frameKey, 'ui', () => {
       drawOverlay();
     });
+
     return () => {
       cancelCanvasFrame(frameKey);
     };
   }, [drawOverlay]);
+
+  // Animate only the lightweight boundary overlay. Reduced-motion users get
+  // one static, high-contrast boundary and no timer/RAF work.
+  useEffect(() => {
+    if (!areaSelection) return;
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    if (reduced) return;
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const tick = () => {
+      areaSelectionPhaseRef.current = (areaSelectionPhaseRef.current + 1) % 12;
+      if (overlayFrameKey.current) {
+        scheduleCanvasFrame(overlayFrameKey.current, 'ui', drawOverlay);
+      }
+      timer = setTimeout(tick, 100);
+    };
+    timer = setTimeout(tick, 100);
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [areaSelection, drawOverlay]);
 
   // Theme-change redraw guard
   useEffect(() => {

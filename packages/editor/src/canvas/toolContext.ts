@@ -126,6 +126,8 @@ export function buildToolContext(
     foregroundColor: s.foregroundColor,
     maskPreviewMode: s.maskPreviewMode,
     setMaskPreviewMode: (mode) => e.setMaskPreviewMode(mode),
+    areaSelection: s.areaSelection ?? null,
+    setAreaSelection: (selection) => e.setAreaSelection?.(selection),
     snapEnabled: s.snapEnabled,
     snapGrid: s.snapGrid,
     isolatedNodeId: s.isolatedNodeId,
