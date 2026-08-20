@@ -118,7 +118,96 @@ export function runEmailPreflight(
       suggestedFix: 'Review the plain-text version after changing the visual design.',
     });
   }
-  return diagnostics;
+
+  // Compiler and layout findings are diagnostics too. They are raised while the
+  // tree is being built, where preflight cannot see them, so fold them in here
+  // rather than leaving them on the IR for nobody to read.
+  for (const warning of ir.warnings) {
+    diagnostics.push({
+      severity: warning.severity,
+      code: warning.code,
+      message: warning.message,
+      sourceNodeId: warning.sourceNodeId,
+      category: warning.category,
+      suggestedFix: warning.suggestedFix,
+    });
+  }
+
+  return dedupeDiagnostics(diagnostics);
+}
+
+/**
+ * Collapse repeats of the same finding on the same node.
+ *
+ * A single defect can be noticed by the compiler, the layout pass, and the
+ * emitter. Listing it three times in the preflight panel reads as three
+ * problems and buries the ones that are genuinely distinct.
+ */
+function dedupeDiagnostics(diagnostics: EmailDiagnostic[]): EmailDiagnostic[] {
+  const seen = new Set<string>();
+  const unique: EmailDiagnostic[] = [];
+  for (const diagnostic of diagnostics) {
+    const key = `${diagnostic.code}|${diagnostic.sourceNodeId ?? ''}|${diagnostic.sourceVariableId ?? ''}|${diagnostic.message}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(diagnostic);
+  }
+  return unique;
+}
+
+/**
+ * Explain declarations the compatibility profile changed.
+ *
+ * The compiler already swapped or dropped them, so the output is correct
+ * either way; what a designer needs is to know their rounded corners will be
+ * square in Outlook *before* they send, and which profile decided that. One
+ * diagnostic per node keeps a heavily styled block from flooding the panel.
+ */
+function reportDegradedStyles(
+  node: EmailIrNode,
+  diagnostics: EmailDiagnostic[],
+  profile: EmailDocumentIr['settings']['compatibilityProfile'],
+): void {
+  const degraded = node.degradedStyles;
+  if (!degraded || degraded.length === 0) return;
+
+  const dropped = degraded.filter((entry) => entry.support === 'unsupported');
+  const substituted = degraded.filter((entry) => entry.support === 'fallback');
+
+  if (dropped.length > 0) {
+    diagnostics.push({
+      severity: 'warning',
+      code: 'UNSUPPORTED_CSS_DROPPED',
+      message: `"${node.name}": ${listProperties(dropped)} cannot be represented in email and ${dropped.length === 1 ? 'was' : 'were'} dropped. ${firstNote(dropped)}`.trim(),
+      sourceNodeId: node.sourceNodeId,
+      category: 'css',
+      profile,
+      suggestedFix:
+        'Bake the effect into an exported image, or use a solid colour the profile can render.',
+    });
+  }
+
+  if (substituted.length > 0) {
+    diagnostics.push({
+      severity: 'info',
+      code: 'CSS_FALLBACK_APPLIED',
+      message: `"${node.name}": ${listProperties(substituted)} ${substituted.length === 1 ? 'uses' : 'use'} a fallback in the ${profile} profile. ${firstNote(substituted)}`.trim(),
+      sourceNodeId: node.sourceNodeId,
+      category: 'css',
+      profile,
+    });
+  }
+}
+
+function listProperties(entries: Array<{ property: string }>): string {
+  const names = [...new Set(entries.map((entry) => entry.property))];
+  if (names.length === 1) return `\`${names[0]}\``;
+  const last = names.pop();
+  return `${names.map((name) => `\`${name}\``).join(', ')} and \`${last}\``;
+}
+
+function firstNote(entries: Array<{ note?: string }>): string {
+  return entries.find((entry) => entry.note)?.note ?? '';
 }
 
 function inspectOverlappingTextRanges(
@@ -165,6 +254,8 @@ function inspectNode(
   const hasInlineLink = Boolean(
     node.content?.runs?.some((run) => Boolean(run.link)) || node.image?.link,
   );
+  reportDegradedStyles(node, diagnostics, profile);
+
   if (linkedAncestor && (node.link || hasInlineLink)) {
     diagnostics.push({
       severity: 'error',
