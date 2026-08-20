@@ -18,6 +18,7 @@ import type {
   EmailIrNode,
   EmailIrTextRun,
   EmailIrWarning,
+  EmailSourceMapEntry,
 } from './email-ir-types';
 import { sanitizeEmailCss, sanitizeEmailHtml, validateEmailUrl } from './email-security';
 
@@ -38,6 +39,9 @@ export interface EmailHtmlExportOptions {
 
   /** Asset base URL for resolving relative paths. */
   assetBaseUrl?: string;
+
+  /** Internal compiler capture used to produce stable source mappings. */
+  _sourceMapCapture?: EmailSourceMapCapture;
 }
 
 export interface EmailHtmlExportResult {
@@ -55,7 +59,17 @@ export interface EmailHtmlExportResult {
 
   /** Plain-text fallback generated from the same Email IR. */
   plainText: string;
+
+  /** Source mappings into the final HTML string. */
+  sourceMap: EmailSourceMapEntry[];
 }
+
+interface EmailSourceMapCapture {
+  nextMarkerId: number;
+  sourceNodeIds: Map<number, string>;
+}
+
+const SOURCE_MAP_BOUNDARY = String.fromCharCode(0);
 
 // ── Main Emitter ──────────────────────────────────────────────────────────────
 
@@ -69,6 +83,11 @@ export function emitEmailHtml(
 
   const settings = ir.settings;
   const resolvedOptions = { ...opts, assetBaseUrl: opts.assetBaseUrl ?? settings.assetBaseUrl };
+  const sourceMapCapture: EmailSourceMapCapture = {
+    nextMarkerId: 0,
+    sourceNodeIds: new Map(),
+  };
+  const emissionOptions = { ...resolvedOptions, _sourceMapCapture: sourceMapCapture };
   const sanitizedCss = settings.customCss
     ? sanitizeEmailCss(settings.customCss)
     : { css: '', removed: [] as string[] };
@@ -84,7 +103,7 @@ export function emitEmailHtml(
   // Emit body content
   const bodyParts: string[] = [];
   for (const node of ir.nodes) {
-    const html = emitNode(node, indent, 0, resolvedOptions, warnings, assets);
+    const html = emitNode(node, indent, 0, emissionOptions, warnings, assets);
     if (html) bodyParts.push(html);
   }
 
@@ -109,7 +128,7 @@ export function emitEmailHtml(
       : '';
 
   // Build the full HTML document
-  const html = `<!DOCTYPE html>
+  const rawHtml = `<!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="${escapeHtml(settings.language)}" dir="${settings.direction}">
 <head>
   <meta charset="utf-8" />
@@ -147,19 +166,36 @@ export function emitEmailHtml(
   </center>
 </body>
 </html>`;
+  const mapped = stripSourceMapMarkers(rawHtml, sourceMapCapture);
 
   return {
-    html,
+    html: mapped.html,
     css,
     assets: [...new Set(assets)].sort(),
     warnings,
     plainText: ir.plainText,
+    sourceMap: mapped.sourceMap,
   };
 }
 
 // ── Node Emitter ──────────────────────────────────────────────────────────────
 
 function emitNode(
+  node: EmailIrNode,
+  indent: string,
+  depth: number,
+  opts: EmailHtmlExportOptions,
+  warnings: EmailIrWarning[],
+  assets: string[],
+): string {
+  const rendered = emitNodeContent(node, indent, depth, opts, warnings, assets);
+  if (!rendered || !opts._sourceMapCapture) return rendered;
+  const markerId = opts._sourceMapCapture.nextMarkerId++;
+  opts._sourceMapCapture.sourceNodeIds.set(markerId, node.sourceNodeId);
+  return `${sourceMapMarker('start', markerId)}${rendered}${sourceMapMarker('end', markerId)}`;
+}
+
+function emitNodeContent(
   node: EmailIrNode,
   indent: string,
   depth: number,
@@ -214,6 +250,61 @@ function emitNode(
     default:
       return emitContainer(node, indent, depth, opts, warnings, assets);
   }
+}
+
+function sourceMapMarker(kind: 'start' | 'end', markerId: number): string {
+  return `${SOURCE_MAP_BOUNDARY}varve-source-${kind}:${markerId}${SOURCE_MAP_BOUNDARY}`;
+}
+
+function stripSourceMapMarkers(
+  rawHtml: string,
+  capture: EmailSourceMapCapture,
+): { html: string; sourceMap: EmailSourceMapEntry[] } {
+  const markerPattern = new RegExp(
+    `${SOURCE_MAP_BOUNDARY}varve-source-(start|end):(\\d+)${SOURCE_MAP_BOUNDARY}`,
+    'g',
+  );
+  const sourceMap: EmailSourceMapEntry[] = [];
+  const openEntries = new Map<number, { sourceNodeId: string; startOffset: number }>();
+  let cleanHtml = '';
+  let cursor = 0;
+
+  for (let match = markerPattern.exec(rawHtml); match; match = markerPattern.exec(rawHtml)) {
+    cleanHtml += rawHtml.slice(cursor, match.index);
+    cursor = match.index + match[0].length;
+    const markerId = Number(match[2]);
+    const offset = cleanHtml.length;
+    if (match[1] === 'start') {
+      const sourceNodeId = capture.sourceNodeIds.get(markerId);
+      if (sourceNodeId) openEntries.set(markerId, { sourceNodeId, startOffset: offset });
+    } else {
+      const open = openEntries.get(markerId);
+      if (open) {
+        const start = locationAtOffset(cleanHtml, open.startOffset);
+        const end = locationAtOffset(cleanHtml, offset);
+        sourceMap.push({
+          sourceNodeId: open.sourceNodeId,
+          startOffset: open.startOffset,
+          endOffset: offset,
+          startLine: start.line,
+          startColumn: start.column,
+          endLine: end.line,
+          endColumn: end.column,
+        });
+        openEntries.delete(markerId);
+      }
+    }
+  }
+  cleanHtml += rawHtml.slice(cursor);
+  sourceMap.sort((a, b) => a.startOffset - b.startOffset || b.endOffset - a.endOffset);
+  return { html: cleanHtml, sourceMap };
+}
+
+function locationAtOffset(value: string, offset: number): { line: number; column: number } {
+  const before = value.slice(0, offset);
+  const line = before.split('\n').length;
+  const lastNewline = before.lastIndexOf('\n');
+  return { line, column: offset - lastNewline };
 }
 
 // ── Element Emitters ──────────────────────────────────────────────────────────
