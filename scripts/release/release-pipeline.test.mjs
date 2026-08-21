@@ -24,13 +24,19 @@ import { buildUpdaterConfig } from './write-updater-config.mjs';
 // generated updater config makes `tauri build` fail after packaging the app.
 const releaseWorkflow = readFileSync('.github/workflows/release.yml', 'utf8');
 const signedUpdaterBuild = releaseWorkflow.match(
-  /- name: Tauri build \(unsigned platforms with signed updater\)([\s\S]*?)(?=\n      - name:)/,
+  /- name: Tauri build \(unsigned platforms with signed updater\)([\s\S]*?)(?=\n {6}- name:)/,
 )?.[1];
-assert.ok(signedUpdaterBuild, 'release workflow must have a signed-updater unsigned-platform build');
+assert.ok(
+  signedUpdaterBuild,
+  'release workflow must have a signed-updater unsigned-platform build',
+);
 assert.match(signedUpdaterBuild, /updater_mode == 'signed'/);
-assert.match(signedUpdaterBuild, /TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\.TAURI_SIGNING_PRIVATE_KEY \}\}/);
+assert.match(
+  signedUpdaterBuild,
+  /TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\.TAURI_SIGNING_PRIVATE_KEY \}\}/,
+);
 const manualUpdaterBuild = releaseWorkflow.match(
-  /- name: Tauri build \(unsigned platforms, manual updates\)([\s\S]*?)(?=\n      - name:)/,
+  /- name: Tauri build \(unsigned platforms, manual updates\)([\s\S]*?)(?=\n {6}- name:)/,
 )?.[1];
 assert.ok(manualUpdaterBuild, 'release workflow must retain a manual-update build path');
 assert.match(manualUpdaterBuild, /updater_mode != 'signed'/);
