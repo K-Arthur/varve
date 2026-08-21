@@ -11,7 +11,10 @@ test.describe('palette extraction marketing surface', () => {
     await expect(page.getByText(/bounded preview is analysed locally/i)).toBeVisible();
     await expect(page.getByText(/Generated harmonies/i)).toBeVisible();
     await expect(page.getByText(/WCAG 2.1 body-text and large-text contrast/i)).toBeVisible();
-    const paletteVisual = page.locator('.feature-visual img');
+    // The color page also contains a second feature visual for effects. Select
+    // the palette capture by its manifest-owned alt text rather than relying
+    // on a page-wide class that is intentionally shared by both visuals.
+    const paletteVisual = page.locator('img[alt*="Palette Inspector"]');
     await expect(paletteVisual).toBeVisible();
     await expect(paletteVisual).toHaveAttribute('alt', /extracted swatches/i);
 

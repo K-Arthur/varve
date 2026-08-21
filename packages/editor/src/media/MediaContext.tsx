@@ -131,13 +131,23 @@ export function MediaProvider({
 
   const playMedia = useCallback(() => {
     playingRef.current = true;
-    patchMedia({ isPlaying: true, source: 'media' });
     const stamp = tickMediaPresentation(
       stateRef.current.document,
       stateRef.current.media.currentTime,
     );
-    patch({ media: { ...stateRef.current.media, presentedStamp: stamp } });
-  }, [patchMedia, patch, stateRef]);
+    // Keep the playback transition and its presentation stamp in one state
+    // update. Two queued updates built from stateRef.current can otherwise
+    // let the second stale snapshot overwrite isPlaying=true before React
+    // commits the first update.
+    patch({
+      media: {
+        ...stateRef.current.media,
+        isPlaying: true,
+        source: 'media',
+        presentedStamp: stamp,
+      },
+    });
+  }, [patch, stateRef]);
 
   const pauseMedia = useCallback(() => {
     playingRef.current = false;

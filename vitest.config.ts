@@ -34,6 +34,10 @@ const EXCLUDE = [
   '**/*.bench.ts',
 ];
 
+// Same override scripts/quality/verify.mjs passes to --maxWorkers, honored
+// here so plain `vitest run` (pnpm test) can be capped on constrained hosts.
+const WORKERS_OVERRIDE = process.env.VARVE_TEST_WORKERS;
+
 export default defineConfig({
   optimizeDeps: {
     exclude: ['fast-check'],
@@ -52,6 +56,7 @@ export default defineConfig({
     alias: {},
   },
   test: {
+    ...(WORKERS_OVERRIDE ? { maxWorkers: WORKERS_OVERRIDE } : {}),
     server: {
       deps: {
         inline: ['@varve/engine'],

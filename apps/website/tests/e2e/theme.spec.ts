@@ -319,7 +319,7 @@ test.describe('hero visibility', () => {
 
       const subtitleText = await subtitle.textContent();
       expect(subtitleText).toContain('vector, layout, typography, motion, and print');
-      expect(subtitleText).toContain('local files');
+      expect(subtitleText).toContain('files that stay on your machine');
       expect(subtitleText).toContain('native Linux performance');
 
       const localFirstTitle = page.locator('.local-first-title');
@@ -333,7 +333,7 @@ test.describe('hero visibility', () => {
     await freshPage(page);
     const heading = page.getByRole('heading', { level: 1 });
     await expect(heading).toContainText('Design locally.');
-    await expect(heading).toContainText('No account. No subscription.');
+    await expect(heading).toContainText('One canvas.');
   });
 
   test('discipline section copy is readable in every theme', async ({ page }) => {

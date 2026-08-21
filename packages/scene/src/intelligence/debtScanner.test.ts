@@ -242,25 +242,37 @@ describe('checkMissingFonts', () => {
 });
 
 describe('checkDuplicateStyles', () => {
-  it.skip('flags duplicate styles with identical properties', () => {
+  it('flags duplicate styles with identical properties', () => {
     const doc = createDocument();
-    (doc as any).styles = {
+    doc.styles = {
       '1': {
         id: '1',
         name: 'Red',
         type: 'color',
         description: '',
-        color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+        fill: {
+          type: 'solid',
+          color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
       },
       '2': {
-        id: '2',
-        name: 'Crimson',
-        type: 'color',
+        fill: {
+          visible: true,
+          blendMode: 'normal',
+          opacity: 1,
+          color: { a: 255, b: 0, g: 0, r: 255, space: 'rgb' },
+          type: 'solid',
+        },
         description: '',
-        color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+        type: 'color',
+        name: 'Crimson',
+        id: '2',
       },
     };
-    (doc as any).rootChildren = [];
+    doc.rootChildren = [];
     const issues = checkDuplicateStyles(doc);
     expect(issues).toHaveLength(1);
     expect(issues[0]!.checkId).toBe('duplicate-styles');
