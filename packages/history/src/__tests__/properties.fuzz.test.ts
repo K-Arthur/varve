@@ -37,6 +37,7 @@ import type { Document } from '@varve/scene';
 import {
   applyOperation,
   canonicalHash,
+  canonicalHistoryHash,
   createDocument,
   makeShapeNode,
   registerBuiltinOperations,
@@ -196,7 +197,7 @@ describe('property fuzzing', () => {
         expect(result.invalid).toBe(false);
         expect(['clean', 'conflicted']).toContain(result.status);
         if (result.status === 'clean') {
-          expect(canonicalHash(result.mergedDocument!)).toBe(result.mergedHash);
+          expect(canonicalHistoryHash(result.mergedDocument!)).toBe(result.mergedHash);
         }
       }),
       { numRuns: 100 },

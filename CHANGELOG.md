@@ -12,6 +12,8 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-20
+
 ### Added
 
 - **Motion/prototyping P1-P3 improvements** — timeline virtualization (only

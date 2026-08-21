@@ -10,6 +10,7 @@ import type { Document } from '@varve/scene';
 import {
   applyOperation,
   canonicalHash,
+  canonicalHistoryHash,
   createDocument,
   makeShapeNode,
   registerBuiltinOperations,
@@ -218,7 +219,7 @@ describe('merge conflict matrix', () => {
     // Both items moved to different base-relative positions — deterministic
     // order merge applies; the merged doc must stay valid either way.
     expect(result.invalid).toBe(false);
-    expect(canonicalHash(result.mergedDocument)).toBe(result.mergedHash);
+    expect(canonicalHistoryHash(result.mergedDocument)).toBe(result.mergedHash);
   });
 
   it('node-type replacement: identity-based diff treats it as an entity modify', () => {
