@@ -35,6 +35,7 @@ assert.match(
   signedUpdaterBuild,
   /TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\.TAURI_SIGNING_PRIVATE_KEY \}\}/,
 );
+assert.match(signedUpdaterBuild, /VARVE_SIGNING_STEP_ALLOWED: '1'/);
 const manualUpdaterBuild = releaseWorkflow.match(
   /- name: Tauri build \(unsigned platforms, manual updates\)([\s\S]*?)(?=\n {6}- name:)/,
 )?.[1];

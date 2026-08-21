@@ -647,6 +647,11 @@ jobs:
           NO_STRIP: '1'
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # The updater key is needed by Tauri's beforeBuildCommand, which
+          # rebuilds the frontend in this process. The guard permits this
+          # exact signing family only for this short-lived build step, and the
+          # resulting dist is scanned again before collection.
+          VARVE_SIGNING_STEP_ALLOWED: '1'
           VARVE_UPDATER_MODE: ${{ needs.signing-preflight.outputs.updater_mode }}
           VARVE_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
