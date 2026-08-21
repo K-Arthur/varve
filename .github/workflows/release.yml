@@ -628,13 +628,15 @@ jobs:
           pnpm tauri build --target ${{ matrix.rust_target }} --bundles ${{ matrix.bundles }} --ci ${TAURI_EXTRA_ARGS}
         working-directory: apps/desktop
 
-      # Platform-unsigned builds run in a separate step with no OS certificate
-      # variables in scope — Tauri treats a set
-      # APPLE_CERTIFICATE as a certificate to import, and an empty value would
-      # abort the macOS bundle (SecKeychainItemImport), so the variables must
-      # not exist at all here, not merely be empty.
-      - name: Tauri build (unsigned platforms)
-        if: matrix.enabled && needs.signing-preflight.outputs.macos_mode != 'signed' && needs.signing-preflight.outputs.windows_mode != 'signed'
+      # Platform-unsigned builds still need the updater private key when the
+      # updater channel is signed. Platform signing and updater signing are
+      # separate trust layers: an unsigned Linux/Windows/macOS installer may
+      # still carry a verified Tauri updater signature. Keep OS certificate
+      # variables out of this step — Tauri treats a set APPLE_CERTIFICATE as a
+      # certificate to import, and an empty value would abort the macOS bundle
+      # (SecKeychainItemImport).
+      - name: Tauri build (unsigned platforms with signed updater)
+        if: matrix.enabled && needs.signing-preflight.outputs.macos_mode != 'signed' && needs.signing-preflight.outputs.windows_mode != 'signed' && needs.signing-preflight.outputs.updater_mode == 'signed'
         shell: bash
         env:
           # linuxdeploy bundles an old binutils `strip` that cannot parse the
@@ -642,6 +644,23 @@ jobs:
           # whole AppImage build with only "failed to run linuxdeploy" to show
           # for it. Harmless to set everywhere: the Varve binary is stripped by
           # [profile.release] strip = true, and distro libraries ship stripped.
+          NO_STRIP: '1'
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VARVE_UPDATER_MODE: ${{ needs.signing-preflight.outputs.updater_mode }}
+          VARVE_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}
+        run: |
+          TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.update.channel.json"
+          pnpm tauri build --target ${{ matrix.rust_target }} --bundles ${{ matrix.bundles }} --ci ${TAURI_EXTRA_ARGS}
+        working-directory: apps/desktop
+
+      # With no updater key, write the schema-valid inactive updater config and
+      # build a genuinely manual-download artifact. No signing material is
+      # present in this step at all.
+      - name: Tauri build (unsigned platforms, manual updates)
+        if: matrix.enabled && needs.signing-preflight.outputs.macos_mode != 'signed' && needs.signing-preflight.outputs.windows_mode != 'signed' && needs.signing-preflight.outputs.updater_mode != 'signed'
+        shell: bash
+        env:
           NO_STRIP: '1'
           VARVE_UPDATER_MODE: ${{ needs.signing-preflight.outputs.updater_mode }}
           VARVE_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}

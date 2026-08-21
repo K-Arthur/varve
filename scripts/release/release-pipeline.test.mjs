@@ -11,13 +11,30 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
 import { incrementVersion } from './version.mjs';
 import { buildWebsiteReleaseData, formatCopy } from './website-release-data.mjs';
 import { buildUpdaterConfig } from './write-updater-config.mjs';
+
+// Platform code-signing and Tauri updater signing are independent. When the
+// updater key exists, even an unsigned platform build must receive it or the
+// generated updater config makes `tauri build` fail after packaging the app.
+const releaseWorkflow = readFileSync('.github/workflows/release.yml', 'utf8');
+const signedUpdaterBuild = releaseWorkflow.match(
+  /- name: Tauri build \(unsigned platforms with signed updater\)([\s\S]*?)(?=\n      - name:)/,
+)?.[1];
+assert.ok(signedUpdaterBuild, 'release workflow must have a signed-updater unsigned-platform build');
+assert.match(signedUpdaterBuild, /updater_mode == 'signed'/);
+assert.match(signedUpdaterBuild, /TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\.TAURI_SIGNING_PRIVATE_KEY \}\}/);
+const manualUpdaterBuild = releaseWorkflow.match(
+  /- name: Tauri build \(unsigned platforms, manual updates\)([\s\S]*?)(?=\n      - name:)/,
+)?.[1];
+assert.ok(manualUpdaterBuild, 'release workflow must retain a manual-update build path');
+assert.match(manualUpdaterBuild, /updater_mode != 'signed'/);
+assert.doesNotMatch(manualUpdaterBuild, /TAURI_SIGNING_PRIVATE_KEY:/);
 
 // ── updater build-mode configuration ────────────────────────────────────────
 assert.deepEqual(buildUpdaterConfig('stable', 'signed'), {
