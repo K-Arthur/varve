@@ -807,6 +807,12 @@ export function useCanvasInputs({
     // up drag state — otherwise the tool may remain in a "dragging" state
     // with no matching pointerup.
     const onLostPointerCapture = (e: PointerEvent) => {
+      // BaseTool releases capture during a normal pointer-up. The browser may
+      // deliver the resulting lostpointercapture event after the up handler
+      // has already cleared activeDragPointer; that is an expected release,
+      // not a cancellation. Only forward capture loss for a pointer that is
+      // still tracked as an active drag.
+      if (activeDragPointer.current?.pointerId !== e.pointerId) return;
       const tmInst = tmRef.current;
       if (!tmInst) return;
       tmInst.handlePointerCancel(e, buildToolCtx(e));

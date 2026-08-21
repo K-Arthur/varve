@@ -152,6 +152,14 @@ test.describe('Combined table + variable modifier workflow', () => {
 
     // Step 11: Save and reload to verify persistence
     await page.reload({ waitUntil: 'domcontentloaded' });
+    // A browser reload boots the app on Home. Reopen the persisted file before
+    // asserting the editor state; assuming the editor remains mounted made
+    // this test validate an impossible navigation state instead of persistence.
+    await page.locator('.varve-home__toolbar').waitFor({ state: 'visible', timeout: 30000 });
+    await page
+      .getByRole('gridcell', { name: /^Untitled \d+,/i })
+      .first()
+      .dblclick();
     await page.locator('.layers-panel').waitFor({ timeout: 15000 });
 
     // Take screenshot after reload
