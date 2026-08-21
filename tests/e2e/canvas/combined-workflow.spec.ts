@@ -94,7 +94,7 @@ test.describe('Combined table + variable modifier workflow', () => {
     await page.keyboard.press('Escape');
 
     // Step 6: Verify table structure in inspector
-    const rowsInput = page.getByRole('spinbutton', { name: /rows/i });
+    const rowsInput = page.getByRole('spinbutton', { name: 'Rows', exact: true });
     if (await rowsInput.isVisible()) {
       // Verify row count
       await expect(rowsInput).toHaveValue('4');
