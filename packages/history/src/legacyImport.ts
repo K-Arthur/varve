@@ -12,7 +12,7 @@
  */
 
 import type { Document } from '@varve/scene';
-import { canonicalHash, DocumentCodec } from '@varve/scene';
+import { canonicalHistoryHash, DocumentCodec } from '@varve/scene';
 import { createSnapshot } from './snapshots';
 import { type HistoryStore, mintHistoryId } from './store';
 import type { CheckpointRef, IntegrityIssue, RevisionAuthor, RevisionRecord } from './types';
@@ -75,7 +75,7 @@ export async function importLegacyVersions(
       skipped.push({ versionId: version.id, reason: 'decode threw' });
       continue;
     }
-    const hash = canonicalHash(document);
+    const hash = canonicalHistoryHash(document);
     const existing = byHash.get(hash);
     if (existing) {
       existing.versionIds.push(version.id);

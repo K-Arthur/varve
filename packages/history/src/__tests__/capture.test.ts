@@ -10,9 +10,11 @@ import {
   addChild,
   applyOperation,
   canonicalHash,
+  canonicalHistoryHash,
   createDocument,
   createVariableStore,
   makeShapeNode,
+  makeTableNode,
   moveNode,
   registerBuiltinOperations,
   removeNode,
@@ -60,7 +62,7 @@ function expectRoundTrip(before: Document, after: Document): void {
   const payload = capture(before, after);
   const replayed = replay(before, payload);
   expect(canonicalHash(replayed)).toBe(canonicalHash(after));
-  expect(canonicalHash(replayed)).toBe(payload.afterHash);
+  expect(canonicalHistoryHash(replayed)).toBe(payload.afterHash);
 }
 
 describe('capture round-trip', () => {
@@ -139,6 +141,13 @@ describe('capture round-trip', () => {
     };
     const after: Document = { ...before };
     delete after.variableStore;
+    expectRoundTrip(before, after);
+  });
+
+  it('replays a table node addition with its nested model intact', () => {
+    const before = baseDoc();
+    const table = makeTableNode('table_aaaa', { rows: 4, columns: 4 });
+    const after = addChild(before, table.id, table);
     expectRoundTrip(before, after);
   });
 });

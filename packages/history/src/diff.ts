@@ -26,7 +26,7 @@
  *   `nextId` counter are not semantic content.
  */
 import type { Document } from '@varve/scene';
-import { canonicalHash, graphemeClusters } from '@varve/scene';
+import { canonicalHistoryHash, graphemeClusters } from '@varve/scene';
 
 export type DiffEntityKind =
   | 'document'
@@ -189,8 +189,8 @@ export function diffDocuments(
     changes: [],
     options: { epsilonPolicy: options.epsilonPolicy ?? 'default' },
   };
-  const baseHash = canonicalHash(base);
-  const targetHash = canonicalHash(target);
+  const baseHash = canonicalHistoryHash(base);
+  const targetHash = canonicalHistoryHash(target);
   if (baseHash === targetHash) {
     return { baseHash, targetHash, changed: false, changes: [], summary: emptySummary() };
   }

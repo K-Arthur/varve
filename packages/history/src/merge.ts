@@ -23,7 +23,7 @@
  * clone of the `ours` document, shallowest paths first.
  */
 import type { Document } from '@varve/scene';
-import { canonicalHash, graphemeClusters } from '@varve/scene';
+import { canonicalHistoryHash, graphemeClusters } from '@varve/scene';
 import {
   type DiffEntityKind,
   type DocumentDiff,
@@ -728,7 +728,7 @@ function finishMerge(
   let mergedHash = '';
   let invalid = false;
   try {
-    mergedHash = canonicalHash(mergedDocument);
+    mergedHash = canonicalHistoryHash(mergedDocument);
     const issues = validateMergedDocument(mergedDocument);
     if (issues.length > 0) {
       invalid = true;
