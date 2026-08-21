@@ -76,7 +76,7 @@ import {
 } from '@varve/history';
 import type { Document, NodeId } from '@varve/scene';
 import {
-  canonicalHash,
+  canonicalHistoryHash,
   registerBuiltinOperations,
   type SemanticSummary,
   validatePayload,
@@ -241,7 +241,7 @@ export class EditorHistorySession {
     }
 
     // Reconcile the working document against the recorded head.
-    const workingHash = canonicalHash(document);
+    const workingHash = canonicalHistoryHash(document);
     if (workingHash === head.canonicalDocumentHash) {
       return this.finishAttach(head, branch, false, issues);
     }
