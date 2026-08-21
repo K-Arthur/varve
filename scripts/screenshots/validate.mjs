@@ -17,7 +17,7 @@
  * --strict additionally fails when any scene is skipped (used by the
  * screenshots:update path after a regeneration).
  */
-import { globSync, readFileSync } from 'node:fs';
+import { existsSync, globSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -117,18 +117,31 @@ if (totalPngBytes > PNG_TOTAL_BUDGET_FAIL) {
 }
 
 // Every reference to screenshots in docs/marketing must resolve to a captured
-// manifest entry (no stale paths, no hand-copied copies).
-const refRe = /(?:src|href)="[^"]*\/screenshots\/([a-z0-9-]+\.png)"/g;
+// manifest entry (no stale paths, no hand-copied copies). Video and poster
+// references resolve against the generated workflow assets instead of the
+// manifest — they are not manifest scenes.
+const refRe = /(?:src|href|poster)="[^"]*\/screenshots\/([a-z0-9-]+\.(?:png|webm|mp4))"/g;
 const haystack = [
   ...globSync('docs/**/*.md', { cwd: ROOT }),
   ...globSync('README.md', { cwd: ROOT }),
   ...globSync('apps/website/src/**/*.{astro,md,ts,tsx}', { cwd: ROOT }),
 ].map((rel) => readFileSync(join(ROOT, rel), 'utf8'));
 
+// Generated workflow assets that are real files but deliberately have no
+// manifest scene entry.
+const generatedExtras = new Set(['workflow-poster.png']);
+
 const missingRefs = new Set();
 for (const src of haystack) {
   for (const m of src.matchAll(refRe)) {
-    if (!capturedFiles.has(m[1])) missingRefs.add(m[1]);
+    const file = m[1];
+    if (capturedFiles.has(file)) continue;
+    if (generatedExtras.has(file) && existsSync(join(PUBLIC_DIR, file))) continue;
+    if (/\.(webm|mp4)$/.test(file)) {
+      if (!existsSync(join(PUBLIC_DIR, file))) missingRefs.add(file);
+      continue;
+    }
+    missingRefs.add(file);
   }
 }
 for (const ref of missingRefs) fail(`docs/website reference to missing screenshot: ${ref}`);
@@ -143,7 +156,9 @@ for (const [label, dir] of [
   ['docs/screenshots/product', join(ROOT, 'docs', 'screenshots', 'product')],
 ]) {
   for (const file of globSync('*.png', { cwd: dir })) {
-    if (!capturedFiles.has(file)) fail(`orphan file in ${label}: ${file}`);
+    if (capturedFiles.has(file)) continue;
+    if (generatedExtras.has(file)) continue;
+    fail(`orphan file in ${label}: ${file}`);
   }
 }
 
@@ -185,6 +200,47 @@ for (const ext of ['webm', 'mp4']) {
     }
   } catch {
     // Video is optional — not a failure if absent
+  }
+}
+
+// Poster frame: optional, but when present it must be a sane PNG within the
+// standard image budget and consistent across both output directories.
+{
+  const fileName = 'workflow-poster.png';
+  const docsPath = join(DOCS_DIR, fileName);
+  const publicPath = join(PUBLIC_DIR, fileName);
+  let publicBuf = null;
+  try {
+    publicBuf = readFileSync(publicPath);
+  } catch {
+    // Optional — the website embed degrades to no poster / no still
+  }
+  if (publicBuf) {
+    if (publicBuf.length === 0) {
+      fail(`workflow poster ${fileName} is 0 bytes`);
+    } else if (publicBuf.length > PNG_BUDGET_FAIL) {
+      fail(
+        `workflow poster ${fileName} exceeds ${PNG_BUDGET_FAIL / 1_000_000} MB budget (${(publicBuf.length / 1_000_000).toFixed(2)} MB)`,
+      );
+    } else if (!pngSize(publicBuf)) {
+      fail(`workflow poster ${fileName} is not a valid PNG`);
+    }
+    try {
+      const docsBuf = readFileSync(docsPath);
+      if (docsBuf.length !== publicBuf.length) {
+        fail(
+          `workflow poster ${fileName}: docs/screenshots size (${docsBuf.length}) differs from public/screenshots (${publicBuf.length})`,
+        );
+      }
+    } catch {
+      fail(
+        `workflow poster ${fileName} exists in public/screenshots but missing from docs/screenshots/product/`,
+      );
+    }
+  } else if (existsSync(docsPath)) {
+    fail(
+      `workflow poster ${fileName} exists in docs/screenshots/product but missing from public/screenshots`,
+    );
   }
 }
 

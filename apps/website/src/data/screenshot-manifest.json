@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-08-20T20:42:02.844Z",
+  "generatedAt": "2026-08-21T06:29:28.434Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -179,27 +179,27 @@
       "status": "captured",
       "lastValidatedAgainst": null
     },
-    "depth-blur": {
-      "file": "depth-blur-light.png",
-      "alt": "The Varve Depth Blur inspector showing a generated depth map preview for a photo, with blur amount, focal distance and transition range controls",
-      "caption": "A depth map computed on-device drives a non-destructive lens blur.",
-      "feature": "depth-aware-effects",
-      "theme": "light",
-      "status": "captured",
-      "lastValidatedAgainst": null,
-      "width": 1440,
-      "height": 900
-    },
     "background-removal": {
       "file": "background-removal-light.png",
       "alt": "The Varve background removal inspector after generating a cutout mask on an imported photo, with the mask shown on a checkerboard and confidence reported before applying",
       "caption": "Generate a cutout locally, review the mask on a checkerboard, then apply it.",
       "feature": "background-removal",
       "theme": "light",
-      "status": "captured",
-      "lastValidatedAgainst": null,
       "width": 1440,
-      "height": 900
+      "height": 900,
+      "status": "captured",
+      "lastValidatedAgainst": null
+    },
+    "depth-blur": {
+      "file": "depth-blur-light.png",
+      "alt": "The Varve Depth Blur inspector showing a generated depth map preview for a photo, with blur amount, focal distance and transition range controls",
+      "caption": "A depth map computed on-device drives a non-destructive lens blur.",
+      "feature": "depth-aware-effects",
+      "theme": "light",
+      "width": 1440,
+      "height": 900,
+      "status": "captured",
+      "lastValidatedAgainst": null
     }
   }
 }
