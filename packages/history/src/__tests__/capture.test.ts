@@ -11,6 +11,7 @@ import {
   applyOperation,
   canonicalHash,
   createDocument,
+  createVariableStore,
   makeShapeNode,
   moveNode,
   registerBuiltinOperations,
@@ -114,5 +115,30 @@ describe('capture round-trip', () => {
     const diff = diffDocuments(doc, doc);
     expect(diff.changed).toBe(false);
     expect(diff.changes).toHaveLength(0);
+  });
+
+  it('adds an optional variable store when replaying over a legacy document', () => {
+    const before = baseDoc();
+    const after: Document = { ...before, variableStore: createVariableStore() };
+    after.variableStore!.variables.v_0001 = {
+      id: 'v_0001',
+      name: 'Brand',
+      type: 'color',
+      valuesByMode: { default: '#39d0c6' },
+    };
+    expectRoundTrip(before, after);
+  });
+
+  it('removes an optional variable store without leaving an undefined property', () => {
+    const before: Document = { ...baseDoc(), variableStore: createVariableStore() };
+    before.variableStore!.variables.v_0001 = {
+      id: 'v_0001',
+      name: 'Brand',
+      type: 'color',
+      valuesByMode: { default: '#39d0c6' },
+    };
+    const after: Document = { ...before };
+    delete after.variableStore;
+    expectRoundTrip(before, after);
   });
 });
