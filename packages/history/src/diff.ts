@@ -435,6 +435,25 @@ function compareValue(
     return;
   }
 
+  // A missing object cannot be replayed safely as a set of leaf changes: the
+  // persisted base may be an older document that does not contain the parent
+  // path at all (for example, the first variable added to a legacy document).
+  // Record the boundary replacement so capture replay can create or remove
+  // the optional object atomically.
+  if (baseVal === undefined || targetVal === undefined) {
+    if (baseVal === targetVal) return;
+    emit(ctx, {
+      changeType: 'modified',
+      entityId,
+      entityType,
+      propertyPath: path,
+      before: baseVal,
+      after: targetVal,
+      summary: `${entityLabel(entityType)} ${entityNameOf(entityId)}: ${pathTail(path)} changed`,
+    });
+    return;
+  }
+
   if (isRecord(baseVal) || isRecord(targetVal)) {
     // Nested collection registry lookup (e.g. variableStore.collections).
     const specs = nestedSpecsFor(path);
