@@ -159,4 +159,23 @@ describe('capture round-trip', () => {
     const after = addChild(allocated.doc, table.id, table);
     expectRoundTrip(before, after);
   });
+
+  it('replays a page-scoped editor-style table allocation', () => {
+    const before = createDocument('capture-page');
+    const page = before.pages?.[0];
+    expect(page).toBeDefined();
+    const allocated = nextNodeId(before);
+    const table = makeTableNode(allocated.id, {
+      name: 'Table',
+      transform: [1, 0, 0, 1, 200, 160],
+      rows: 4,
+      columns: 4,
+      headerRows: 1,
+      w: 500,
+      h: 300,
+      columnSizing: { kind: 'fraction', value: 1 },
+    });
+    const after = addChild(allocated.doc, page!.contentRoot, table);
+    expectRoundTrip(before, after);
+  });
 });
