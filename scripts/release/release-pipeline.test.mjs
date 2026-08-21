@@ -43,6 +43,45 @@ assert.ok(manualUpdaterBuild, 'release workflow must retain a manual-update buil
 assert.match(manualUpdaterBuild, /updater_mode != 'signed'/);
 assert.doesNotMatch(manualUpdaterBuild, /TAURI_SIGNING_PRIVATE_KEY:/);
 
+// Installer-size reports are generated after collect-artifacts, then copied
+// into the final directory for release diagnostics. They are not installer
+// manifest entries, but they must remain checksum-covered final-release files.
+{
+  const staged = join(tmpdir(), `varve-merge-staged-${process.pid}`);
+  const out = join(tmpdir(), `varve-merge-out-${process.pid}`);
+  rmSync(staged, { recursive: true, force: true });
+  rmSync(out, { recursive: true, force: true });
+  mkdirSync(join(staged, 'windows'), { recursive: true });
+  mkdirSync(out, { recursive: true });
+  const installer = 'Varve-0.1.0-windows-x86_64.exe';
+  writeFileSync(join(out, installer), Buffer.from('installer bytes'));
+  writeFileSync(join(out, 'installer-size-report-windows-x86_64.json'), '{"status":"pass"}\n');
+  writeFileSync(
+    join(staged, 'windows', 'release-manifest.json'),
+    JSON.stringify({
+      version: '0.1.0',
+      artifacts: [{ filename: installer, os: 'windows', arch: 'x86_64', format: 'nsis' }],
+    }),
+  );
+  execFileSync(
+    process.execPath,
+    ['scripts/release/merge-manifests.mjs', '--staged', staged, '--out', out],
+    { encoding: 'utf8' },
+  );
+  execFileSync(process.execPath, ['scripts/release/generate-final-checksums.mjs', '--dir', out], {
+    encoding: 'utf8',
+  });
+  const merged = JSON.parse(readFileSync(join(out, 'release-manifest.json'), 'utf8'));
+  assert.equal(merged.artifacts.length, 1, 'diagnostic report is not an installer artifact');
+  assert.ok(readFileSync(join(out, 'release-manifest.json'), 'utf8').includes(installer));
+  assert.match(
+    readFileSync(join(out, 'SHA256SUMS.txt'), 'utf8'),
+    /installer-size-report-windows-x86_64\.json$/m,
+  );
+  rmSync(staged, { recursive: true, force: true });
+  rmSync(out, { recursive: true, force: true });
+}
+
 // ── updater build-mode configuration ────────────────────────────────────────
 assert.deepEqual(buildUpdaterConfig('stable', 'signed'), {
   plugins: { updater: { endpoints: ['https://varve.studio/updates/stable.json'] } },
