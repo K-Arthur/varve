@@ -217,6 +217,88 @@ test('checksums-and-requirements jump links activate the matching tab', async ({
   await context.close();
 });
 
+test('desktop quick-download buttons align across platform architecture rows', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    userAgent: LINUX_X64_UA,
+    viewport: { width: 1280, height: 900 },
+  });
+  const page = await context.newPage();
+  await openDownload(page);
+  await page.waitForLoadState('networkidle');
+  await expect(
+    page.locator(
+      '.quick-download-col[data-platform-col="linux"] .quick-architecture[data-arch="x86_64"]',
+    ),
+  ).toHaveClass(/recommended-arch/);
+  await expect(page.locator('.quick-download-btn').first()).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+
+  const geometry = await page.evaluate(() => {
+    const columns = [...document.querySelectorAll<HTMLElement>('.quick-download-col')];
+    const buttons = columns.map((column) =>
+      [...column.querySelectorAll<HTMLElement>('.quick-architecture')].map((row) => {
+        const button = row.querySelector<HTMLElement>('.quick-download-btn');
+        const rect = button?.getBoundingClientRect();
+        return rect ? { top: rect.top, right: rect.right } : null;
+      }),
+    );
+    return {
+      firstRow: buttons.flatMap((rows) => (rows[0] ? [rows[0]] : [])),
+      secondRow: buttons.flatMap((rows) => (rows[1] ? [rows[1]] : [])),
+      viewportWidth: document.documentElement.clientWidth,
+      maxButtonRight: Math.max(
+        ...buttons.flatMap((rows) => rows.filter(Boolean).map((button) => button!.right)),
+      ),
+    };
+  });
+  const firstRowTops = geometry.firstRow.map((button) => button.top);
+  expect(Math.max(...firstRowTops) - Math.min(...firstRowTops)).toBeLessThanOrEqual(1);
+  const secondRowTops = geometry.secondRow.map((button) => button.top);
+  expect(Math.max(...secondRowTops) - Math.min(...secondRowTops)).toBeLessThanOrEqual(1);
+  expect(geometry.maxButtonRight).toBeLessThanOrEqual(geometry.viewportWidth);
+
+  await context.close();
+});
+
+test('ARM64 recommendation keeps architecture rows before the detail link', async ({ browser }) => {
+  const context = await browser.newContext({ userAgent: LINUX_ARM64_UA });
+  const page = await context.newPage();
+  await openDownload(page);
+  await page.waitForLoadState('networkidle');
+  await expect(
+    page.locator(
+      '.quick-download-col[data-platform-col="linux"] .quick-architecture[data-arch="aarch64"]',
+    ),
+  ).toHaveClass(/recommended-arch/);
+
+  const childOrder = await page
+    .locator('.quick-download-col[data-platform-col="linux"]')
+    .evaluate((column) => ({
+      column: [...column.children].map((child) => child.className),
+      architectureList: [...column.querySelectorAll('.quick-architecture-list > *')].map(
+        (child) => child.className,
+      ),
+    }));
+  const lastArchitecture = Math.max(
+    ...childOrder.architectureList.map((className, index) =>
+      className.includes('quick-architecture') ? index : -1,
+    ),
+  );
+  const detailLink = childOrder.column.findIndex((className) =>
+    className.includes('quick-download-detail-link'),
+  );
+  const architectureList = childOrder.column.findIndex((className) =>
+    className.includes('quick-architecture-list'),
+  );
+  expect(lastArchitecture).toBeGreaterThanOrEqual(0);
+  expect(detailLink).toBeGreaterThan(architectureList);
+  expect(childOrder.architectureList[0]).toContain('recommended-arch');
+
+  await context.close();
+});
+
 test('no horizontal overflow at 320px with the long artifact names', async ({ browser }) => {
   const context = await browser.newContext({
     userAgent: LINUX_X64_UA,

@@ -214,6 +214,14 @@ const quickPlatforms = available.map((p) => {
   };
 });
 
+// Keep the platform columns on a shared set of architecture rows. A release
+// may not expose every architecture on every platform (macOS currently has
+// one), so the shorter columns receive an inert spacer below.
+const quickArchitectureRowCount = Math.max(
+  1,
+  ...quickPlatforms.map((platform) => platform.architectures.length),
+);
+
 /** Install command of a platform's primary artifact, for the install steps. */
 function primaryInstallCommand(p: (typeof available)[number]): string | null {
   const primaryFormat = platformPrimaryFormat[p.id];
@@ -318,7 +326,11 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
             <div class="quick-download-grid">
               {quickPlatforms.map((p) => (
-                <div class="quick-download-col" data-platform-col={p.id}>
+                <div
+                  class="quick-download-col"
+                  data-platform-col={p.id}
+                  style={`--architecture-rows: ${quickArchitectureRowCount}`}
+                >
                   <div class="quick-download-platform">
                     <span class="platform-icon" data-icon={PLATFORM_ICON[p.id]} aria-hidden="true">
                       {PLATFORM_ICON[p.id] === 'terminal' && (
@@ -347,46 +359,52 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                     <span class="recommend-chip" hidden>Recommended</span>
                   </div>
 
-                  {p.architectures.map((architecture) => (
-                    <div class="quick-architecture" data-arch={architecture.arch}>
-                      <div class="quick-architecture-label">
-                        {architecture.label}
-                        <span class="arch-chip" hidden>Recommended for you</span>
-                      </div>
-                      <a
-                        href={architecture.primary.url}
-                        class="btn-primary quick-download-btn"
-                        download
-                        data-analytics-download="true"
-                        data-analytics-platform={p.id}
-                        data-analytics-architecture={analyticsArchitecture(architecture.primary.arch)}
-                        data-analytics-package-type={analyticsPackageType(architecture.primary.format)}
-                        data-analytics-release={release.version}
-                        data-analytics-release-channel={analyticsReleaseChannel}
-                      >
-                        Download {architecture.primary.size}
-                      </a>
-                      {architecture.alternates.length > 0 && (
-                        <div class="quick-download-alts">
-                          {architecture.alternates.map((alternate) => (
-                            <a
-                              href={alternate.url}
-                              class="alt-link"
-                              download
-                              data-analytics-download="true"
-                              data-analytics-platform={p.id}
-                              data-analytics-architecture={analyticsArchitecture(alternate.arch)}
-                              data-analytics-package-type={analyticsPackageType(alternate.format)}
-                              data-analytics-release={release.version}
-                              data-analytics-release-channel={analyticsReleaseChannel}
-                            >
-                              {alternate.title ?? alternate.label} &middot; {alternate.size}
-                            </a>
-                          ))}
+                  <div class="quick-architecture-list">
+                    {p.architectures.map((architecture) => (
+                      <div class="quick-architecture" data-arch={architecture.arch}>
+                        <div class="quick-architecture-label">
+                          {architecture.label}
+                          <span class="arch-chip" hidden>Recommended for you</span>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        <a
+                          href={architecture.primary.url}
+                          class="btn-primary quick-download-btn"
+                          download
+                          data-analytics-download="true"
+                          data-analytics-platform={p.id}
+                          data-analytics-architecture={analyticsArchitecture(architecture.primary.arch)}
+                          data-analytics-package-type={analyticsPackageType(architecture.primary.format)}
+                          data-analytics-release={release.version}
+                          data-analytics-release-channel={analyticsReleaseChannel}
+                        >
+                          Download {architecture.primary.size}
+                        </a>
+                        {architecture.alternates.length > 0 && (
+                          <div class="quick-download-alts">
+                            {architecture.alternates.map((alternate) => (
+                              <a
+                                href={alternate.url}
+                                class="alt-link"
+                                download
+                                data-analytics-download="true"
+                                data-analytics-platform={p.id}
+                                data-analytics-architecture={analyticsArchitecture(alternate.arch)}
+                                data-analytics-package-type={analyticsPackageType(alternate.format)}
+                                data-analytics-release={release.version}
+                                data-analytics-release-channel={analyticsReleaseChannel}
+                              >
+                                {alternate.title ?? alternate.label} &middot; {alternate.size}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {Array.from({ length: quickArchitectureRowCount - p.architectures.length }).map(() => (
+                      <div class="quick-architecture quick-architecture-placeholder" aria-hidden="true"></div>
+                    ))}
+                  </div>
 
                   <a href={`#platform-${p.id}`} class="quick-download-detail-link" data-jump-platform={p.id}>
                     Checksums &amp; requirements &rsaquo;
@@ -903,10 +921,13 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   }
 
   .quick-download-col {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    --architecture-rows: 1;
+    /* The parent stretches each column to the same height. Shared minimum
+       tracks then keep buttons in the same horizontal rows even when one
+       platform has a recommendation chip or more alternate packages. */
+    grid-template-rows: auto repeat(var(--architecture-rows, 1), minmax(10rem, 1fr)) auto;
     align-items: stretch;
-    gap: 0;
     padding: 0;
     background: var(--surface-card);
   }
@@ -944,13 +965,22 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     display: flex;
     width: 100%;
     justify-content: center;
+    align-self: start;
     padding: 0.65rem 1rem;
     font-size: 0.9375rem;
     border-radius: 0.5rem;
   }
 
   .quick-architecture {
+    display: grid;
+    grid-template-rows: 3.5rem auto 2.75rem;
+    align-content: start;
+    min-height: 0;
     padding: 1rem 1.25rem;
+  }
+
+  .quick-architecture-list {
+    display: contents;
   }
 
   .quick-architecture + .quick-architecture {
@@ -962,6 +992,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     align-items: center;
     flex-wrap: wrap;
     gap: 0.5rem;
+    min-height: 3.5rem;
+    align-content: start;
     margin-bottom: 0.6rem;
   }
 
@@ -983,7 +1015,13 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem 0.75rem;
+    min-height: 2.75rem;
     margin-top: 0.5rem;
+  }
+
+  .quick-architecture-placeholder {
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .alt-link {
@@ -1044,8 +1082,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   .quick-architecture.recommended-arch {
     background: var(--surface-accent-soft);
     border-radius: 0.5rem;
-    margin: -0.25rem -0.5rem 0;
-    padding: 1rem 0.75rem;
+    margin: 0;
+    padding: 1rem 1.25rem;
   }
 
   .format-tradeoffs {
@@ -1216,6 +1254,29 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
     .quick-download-grid {
       grid-template-columns: 1fr;
+    }
+
+    .quick-download-col {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .quick-architecture-placeholder {
+      display: none;
+    }
+
+    .quick-architecture {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .quick-architecture-label,
+    .quick-download-alts {
+      min-height: 0;
+    }
+
+    .quick-download-btn {
+      align-self: stretch;
     }
 
     .quick-architecture.recommended-arch {
@@ -1745,10 +1806,13 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
       const ordered = orderArchitectures(keys, archKey);
       if (ordered.join() !== keys.join()) {
         const orderMap = new Map(rows.map((row, index) => [row, ordered.indexOf(keys[index])]));
-        rows
-          .slice()
-          .sort((a, b) => (orderMap.get(a) ?? 99) - (orderMap.get(b) ?? 99))
-          .forEach((row) => column.appendChild(row));
+        const architectureList = column.querySelector<HTMLElement>('.quick-architecture-list');
+        if (architectureList) {
+          rows
+            .slice()
+            .sort((a, b) => (orderMap.get(a) ?? 99) - (orderMap.get(b) ?? 99))
+            .forEach((row) => architectureList.appendChild(row));
+        }
       }
       rows.forEach(function (row) {
         const rowArch = ARCH_KEYS[row.getAttribute('data-arch') ?? ''] ?? 'unknown';

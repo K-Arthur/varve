@@ -349,8 +349,8 @@ describe('website page styling', () => {
     for (const css of [tokensCss, themeCss]) {
       for (const m of css.matchAll(/--[\w-]+\s*:/g)) defined.add(m[0].replace(/\s*:$/, ''));
     }
-    // Inline --bento-* overrides are set via style attributes in components.
-    for (const m of ['--bento-cols', '--bento-span']) defined.add(m);
+    // Inline layout overrides are set via style attributes in components/pages.
+    for (const m of ['--bento-cols', '--bento-span', '--architecture-rows']) defined.add(m);
     const missing = new Set<string>();
     const allSources = [read('layouts/Layout.astro'), ...pageFiles.map((f) => read(`pages/${f}`))];
     for (const src of allSources) {
