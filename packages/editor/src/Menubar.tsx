@@ -1865,7 +1865,7 @@ export function Menubar({
           return;
         }
         const fileEntry = await platform.getFile(entry.id).catch(() => undefined);
-        openFile(entry.id, entry.label, fileEntry?.filePath, json);
+        openFile(entry.id, entry.label, fileEntry?.filePath, json, true);
         return;
       }
 

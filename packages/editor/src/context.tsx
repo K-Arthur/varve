@@ -1061,6 +1061,7 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
     name: string,
     filePath: string | undefined,
     json: string | null,
+    libraryStorage?: boolean,
   ) => void;
   /** Visible root-level nodes in paint order (layers panel, IR). */
   rootNodes: () => SceneNode[];
@@ -2158,6 +2159,7 @@ export function EditorProvider({
   initialDocumentName,
   initialFileId,
   initialFilePath,
+  initialLibraryStorage,
   platform,
   externalState,
   onMutation,
@@ -2179,6 +2181,7 @@ export function EditorProvider({
    */
   initialFileId?: string;
   initialFilePath?: string;
+  initialLibraryStorage?: boolean;
   platform?: Platform;
   /**
    * Remote-session sync (auxiliary windows, ADR-0204).
@@ -2248,6 +2251,7 @@ export function EditorProvider({
           dirty: false,
           ...(initialFileId ? { fileId: initialFileId } : {}),
           ...(initialFilePath ? { filePath: initialFilePath } : {}),
+          ...(initialLibraryStorage ? { libraryStorage: true } : {}),
         },
       ],
       activeId: INITIAL_SESSION_ID,
@@ -2510,6 +2514,7 @@ export function EditorProvider({
             dirty: false,
             filePath: meta?.filePath,
             fileId: meta?.fileId,
+            libraryStorage: meta?.libraryStorage,
           },
         ],
         activeId: newId,
@@ -8128,6 +8133,7 @@ export function EditorProvider({
         name: string,
         filePath: string | undefined,
         json: string | null,
+        libraryStorage?: boolean,
       ) => {
         // Parse up front; null/invalid json = fresh blank document (new file).
         let doc: Document;
@@ -8247,7 +8253,9 @@ export function EditorProvider({
               pan: openPan,
               dirty: false,
               sessions: s.sessions.map((sess) =>
-                sess.id === s.activeId ? { ...sess, name, filePath, fileId } : sess,
+                sess.id === s.activeId
+                  ? { ...sess, name, filePath, fileId, libraryStorage: libraryStorage || undefined }
+                  : sess,
               ),
               activeId: s.activeId,
             };
@@ -8262,7 +8270,17 @@ export function EditorProvider({
             zoom: openZoom,
             pan: openPan,
             dirty: false,
-            sessions: [...syncedSessions, { id: newId, name, dirty: false, filePath, fileId }],
+            sessions: [
+              ...syncedSessions,
+              {
+                id: newId,
+                name,
+                dirty: false,
+                filePath,
+                fileId,
+                libraryStorage: libraryStorage || undefined,
+              },
+            ],
             activeId: newId,
           };
         });
