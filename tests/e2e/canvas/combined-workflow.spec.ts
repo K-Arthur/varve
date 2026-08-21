@@ -151,6 +151,9 @@ test.describe('Combined table + variable modifier workflow', () => {
     });
 
     // Step 11: Save and reload to verify persistence
+    await page.getByRole('button', { name: 'File', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('button', { name: /^Saved\b/i })).toBeVisible({ timeout: 15000 });
     await page.reload({ waitUntil: 'domcontentloaded' });
     // A browser reload boots the app on Home. Reopen the persisted file before
     // asserting the editor state; assuming the editor remains mounted made
