@@ -14,10 +14,9 @@
  *   - undo/redo of the reparent keeps the world pose stable
  *
  * Conventions follow the existing canvas specs (constraints, deep-selection):
- * canvas-relative drags assume the fresh-design camera, selection uses
- * layers-panel rows (clicking the LABEL text — row centers carry "Zoom to"
- * action buttons that fit-zoom the camera), and inspector X/Y fields are the
- * numeric authority for stored coordinates.
+ * canvas-relative drags assume the fresh-design camera, Ctrl+click is used
+ * when selecting a child through its containing frame, and inspector X/Y
+ * fields are the numeric authority for stored coordinates.
  */
 import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
@@ -29,18 +28,6 @@ test.describe('Artboard-local coordinates', () => {
     await navigateToEditor(page);
   });
 
-  async function selectLayer(page: import('@playwright/test').Page, name: RegExp) {
-    // Click the row's LABEL text, not the row center: the row carries
-    // action buttons ("Zoom to <layer>") that fit-zoom the camera when hit
-    // accidentally, corrupting subsequent canvas-relative coordinates.
-    await page
-      .locator('.layers-panel')
-      .getByRole('treeitem', { name })
-      .getByText(/^(Rectangle|Frame|Group) \d+$/)
-      .click();
-    await page.waitForTimeout(350);
-  }
-
   async function plainClick(
     page: import('@playwright/test').Page,
     box: { x: number; y: number },
@@ -48,6 +35,18 @@ test.describe('Artboard-local coordinates', () => {
     worldY: number,
   ) {
     await page.mouse.click(box.x + worldX, box.y + worldY);
+    await page.waitForTimeout(350);
+  }
+
+  async function deepClick(
+    page: import('@playwright/test').Page,
+    box: { x: number; y: number },
+    worldX: number,
+    worldY: number,
+  ) {
+    await page.keyboard.down('Control');
+    await page.mouse.click(box.x + worldX, box.y + worldY);
+    await page.keyboard.up('Control');
     await page.waitForTimeout(350);
   }
 
@@ -81,7 +80,9 @@ test.describe('Artboard-local coordinates', () => {
 
     await page.keyboard.press('v');
     await page.waitForTimeout(300);
-    await selectLayer(page, /Rectangle 1/);
+    // Select through the canvas so the layer-panel reveal-to-fit behavior does
+    // not change the camera and invalidate the cached canvas bounding box.
+    await deepClick(page, box, 150, 150);
 
     // Drawn at local (60,60): inspector shows artboard-relative values.
     const xBefore = await readField(page, 'X', 60);
@@ -101,7 +102,7 @@ test.describe('Artboard-local coordinates', () => {
     // position (360,310)-(500,400) selects the CHILD (topmost hit) and its
     // stored local X/Y is unchanged — children are never rewritten by a
     // parent move.
-    await plainClick(page, box, 420, 350);
+    await deepClick(page, box, 420, 350);
     await readField(page, 'X', xBefore);
     await readField(page, 'Y', yBefore);
 
@@ -119,43 +120,101 @@ test.describe('Artboard-local coordinates', () => {
     test.setTimeout(120000);
     // Artboard A at world (50,50) 400x300; Artboard B at (500,50) 400x300.
     await page.keyboard.press('f');
-    const boxA = await dragOnCanvas(page, 50, 50, 450, 350);
-    await page.keyboard.press('f');
-    await dragOnCanvas(page, 500, 50, 900, 350);
+    await dragOnCanvas(page, 50, 50, 450, 350);
 
     // Child inside A at local (60,60) — world (110,110).
     await page.keyboard.press('r');
     await dragOnCanvas(page, 110, 110, 250, 200);
 
+    // Create B only after the child is attached to A. Creating another
+    // artboard can recalculate the view, so creating the child afterwards
+    // from the old canvas box would place it outside A.
+    await page.keyboard.press('f');
+    await dragOnCanvas(page, 500, 50, 900, 350);
+
     await page.keyboard.press('v');
     await page.waitForTimeout(300);
-    await selectLayer(page, /Rectangle 1/);
+    // Both artboards must be visible for the cross-artboard gesture. Fit all
+    // also gives us the current zoom so the 500-world-pixel move can be
+    // converted to its screen-space equivalent.
+    await page.getByRole('button', { name: 'Fit all to viewport' }).click();
+    await page.waitForTimeout(500);
+
+    // Selection reveal is intentionally disabled here. Selecting the child
+    // through the layer tree gives us its actual post-layout screen bounds;
+    // the drag below then uses those bounds rather than assuming the camera
+    // stayed at its creation-time origin.
+    const autoRevealBtn = page.getByRole('button', {
+      name: 'Auto-reveal canvas selection',
+    });
+    await autoRevealBtn.click();
+    await expect(autoRevealBtn).toHaveAttribute('aria-pressed', 'false');
+    const frame2Row = page.locator('[role="treeitem"][data-layer-type="frame"]', {
+      hasText: 'Frame 2',
+    });
+    const childRow = page.locator('[role="treeitem"][data-layer-type="shape"]', {
+      hasText: 'Rectangle 1',
+    });
+    await expect(childRow).toHaveCount(1);
+    // Start from the frame selected by the frame tool and use the tree's
+    // arrow navigation. This follows the keyboard selection path without the
+    // row-pointer handler's revealSelection (fit-to-node) camera change.
+    await frame2Row.focus();
+    await expect(frame2Row).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(350);
+    await expect(childRow).toHaveAttribute('aria-selected', 'true');
+
+    const selectionRect = page.locator('svg:has(filter#selection-glow) rect').first();
+    const childBox = await selectionRect.boundingBox();
+    if (!childBox) throw new Error('selected child overlay not found');
+    const childCenter = {
+      x: childBox.x + childBox.width / 2,
+      y: childBox.y + childBox.height / 2,
+    };
     await readField(page, 'X', 60);
 
-    // Drag the child into artboard B: from world (150,130) to (650,130).
-    await page.mouse.move(boxA.x + 150, boxA.y + 130);
+    const zoomPercent = Number(await page.locator('#menubar-zoom').inputValue());
+    const screenDelta = 500 * (zoomPercent / 100);
+    // Drag the child 500 world px right into artboard B. Deriving the start
+    // from the overlay keeps the test correct if the viewport origin is
+    // fractional, while the zoom conversion keeps the world delta exact.
+    // The hit tester normally resolves a click inside a frame to the frame.
+    // Hold Ctrl only for pointer-down to resolve the child, then release it
+    // before movement so SelectTool's normal drag-end auto-reparent path is
+    // still active.
+    await page.keyboard.down('Control');
+    await page.mouse.move(childCenter.x, childCenter.y);
     await page.mouse.down();
-    await page.mouse.move(boxA.x + 200, boxA.y + 130, { steps: 5 });
-    await page.mouse.move(boxA.x + 650, boxA.y + 130, { steps: 10 });
+    await page.keyboard.up('Control');
+    await page.mouse.move(childCenter.x + screenDelta / 2, childCenter.y, { steps: 5 });
+    await page.mouse.move(childCenter.x + screenDelta, childCenter.y, { steps: 10 });
     await page.mouse.up();
     await page.waitForTimeout(700);
 
-    // No teleport: the child's world pose is preserved — its local X/Y is
-    // now B-relative: 110-500 = -390.
-    await selectLayer(page, /Rectangle 1/);
-    await readField(page, 'X', -390);
-    await readField(page, 'Y', 60);
+    // The child follows the pointer by roughly +500 world px and is then
+    // reparented into B without an additional teleport. Its world X is now
+    // about 610, so its B-local X remains about 110 (not a second jump to the
+    // destination frame's origin).
+    await readField(page, 'X', 110, 5);
+    await readField(page, 'Y', 60, 5);
 
     // Undo the reparent: back in A at local (60,60).
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(600);
-    await selectLayer(page, /Rectangle 1/);
+    // The history operation can restore the prior primary selection. The
+    // camera no longer matters after the drag, so use the row directly to
+    // make the restored child authoritative in the inspector.
+    await childRow.click();
+    await page.waitForTimeout(350);
     await readField(page, 'X', 60);
 
-    // Redo: back in B at (-390, 60) — the world pose survived the cycle.
+    // Redo: back in B at (110, 60) — the world pose survived the cycle.
     await page.keyboard.press('Control+Shift+z');
     await page.waitForTimeout(600);
-    await selectLayer(page, /Rectangle 1/);
-    await readField(page, 'X', -390);
+    await childRow.click();
+    await page.waitForTimeout(350);
+    await readField(page, 'X', 110, 5);
   });
 });

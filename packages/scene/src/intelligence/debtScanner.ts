@@ -12,7 +12,7 @@ import type { ColorSwatch, ManagedColor } from '../colorManagement';
 import type { Document } from '../document';
 import { findOrphanedStyles, findUnusedComponents, validateNamingConventions } from '../governance';
 import { addSwatch } from '../swatches';
-import type { FrameNode, NodeId, SceneNode, TextNode } from '../types';
+import type { FrameNode, NodeId, SceneNode, Style, TextNode } from '../types';
 import { runIntelligenceAudit } from './audit';
 
 /** Severity of a debt issue. */
@@ -363,6 +363,24 @@ export function checkMissingFonts(doc: Document, opts: DebtScannerOptions = {}):
 
 // ── Check 7: Duplicate Styles ───────────────────────────────────────────
 
+function stableSerialize(value: unknown): string {
+  if (value === undefined) return '';
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? '';
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, entry]) => entry !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b));
+  return `{${entries
+    .map(([key, entry]) => `${JSON.stringify(key)}:${stableSerialize(entry)}`)
+    .join(',')}}`;
+}
+
+function stylePayload(style: Style): string {
+  const { id: _id, name: _name, ...payload } = style;
+  return stableSerialize(payload);
+}
+
 export function checkDuplicateStyles(doc: Document): DebtIssue[] {
   const issues: DebtIssue[] = [];
   const styles = Object.values(doc.styles ?? {});
@@ -376,10 +394,7 @@ export function checkDuplicateStyles(doc: Document): DebtIssue[] {
       if (a.type !== b.type) continue;
       if (a.name === b.name) continue;
 
-      // Simple property comparison (can be expanded)
-      const aProps = JSON.stringify(a);
-      const bProps = JSON.stringify(b);
-      if (aProps === bProps) {
+      if (stylePayload(a) === stylePayload(b)) {
         issues.push({
           checkId: 'duplicate-styles',
           severity: 'warning',

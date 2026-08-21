@@ -9416,6 +9416,7 @@ export function EditorProvider({
       logoProject,
       platform,
       motionValue,
+      mediaValue,
       newDocument,
       serializeDocument,
       save,
