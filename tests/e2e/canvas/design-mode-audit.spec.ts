@@ -73,7 +73,10 @@ test.describe('Design (Dev/Design) Mode — accessibility audit', () => {
     await expect(page.getByText(/WCAG AA minimum/i).first()).toBeVisible();
     await expect(page.getByText('No issues detected')).not.toBeVisible();
 
-    await page.getByRole('button', { name: /auto-fix/i }).click();
+    await page
+      .getByRole('button', { name: /auto-fix/i })
+      .first()
+      .click();
     await expect(page.getByText('No issues detected')).toBeVisible();
   });
 });
