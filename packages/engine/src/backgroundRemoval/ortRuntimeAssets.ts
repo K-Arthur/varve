@@ -20,6 +20,15 @@ export function getOrtWasmBaseUrl(locationHref?: string): string {
 export function configureOrtRuntime(ort: typeof import('onnxruntime-web')): string {
   const wasmBaseUrl = getOrtWasmBaseUrl();
   ort.env.wasm.wasmPaths = wasmBaseUrl;
+  // Inference already runs in a dedicated worker. Starting ORT's own
+  // pthread pool inside that worker can deadlock on Chromium headless/AMD
+  // combinations, leaving InferenceSession.create() pending until the host
+  // timeout. Keep worker-owned runtimes single-threaded; the native path and
+  // any main-thread direct provider retain their normal runtime policy.
+  if (typeof document === 'undefined') {
+    ort.env.wasm.numThreads = 1;
+    ort.env.wasm.proxy = false;
+  }
 
   if (!loggedConfiguration) {
     loggedConfiguration = true;

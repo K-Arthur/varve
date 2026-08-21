@@ -12,6 +12,30 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  min-height: 56px;
+}
+.color-picker__sliders .insp-slider {
+  min-height: 24px;
+  flex-shrink: 0;
+}
+.color-picker__sliders .insp-slider__track {
+  height: 20px;
+  min-height: 20px;
+  border-radius: var(--radius-sm);
+}
+.color-picker__sliders .insp-slider__thumb {
+  width: 4px;
+  height: 24px;
+  margin-left: -2px;
+  border-radius: 2px;
+  border: 1px solid var(--color-border-strong);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+/* Hide the fill overlay on hue sliders — the rainbow gradient IS the
+ * visual indicator. A solid fill obscures the spectrum.  The fill is
+ * only meaningful on the alpha slider (shows opacity level). */
+.color-picker__sliders .insp-slider__fill {
+  background: transparent;
 }
 .color-picker__preview-row {
   display: flex;
@@ -41,11 +65,13 @@
   border-top: 1px solid var(--color-border-subtle);
 }
 
-/* ColorArea — 2D saturation/value picker */
+/* ColorArea — 2D saturation/value picker.
+ * 60% aspect ratio keeps the area large enough for precise picking while
+ * leaving room for the hue+alpha sliders below within the inspector panel. */
 .color-area {
   position: relative;
   width: 100%;
-  padding-bottom: 75%;
+  padding-bottom: 60%;
   border-radius: var(--radius-sm);
   cursor: crosshair;
   overflow: hidden;
@@ -58,14 +84,16 @@
 }
 .color-area__thumb {
   position: absolute;
-  width: 16px;
-  height: 16px;
-  margin-left: -8px;
-  margin-top: -8px;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  margin-top: -9px;
   border-radius: 50%;
   background: white;
-  border: 2px solid rgba(0, 0, 0, 0.6);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.25);
   pointer-events: none;
   transform: translateZ(0);
 }

@@ -149,6 +149,13 @@ const ALLOWED = {
       test: (v) => /^\/[^\s]*$/.test(v),
       hint: "a path starting with '/', e.g. '/'",
     },
+    // Selects the Plausible provider. Public by nature — it is the site the
+    // events are attributed to, never a key. Release and demo builds both set
+    // it; without it the client falls back to the no-op provider.
+    VITE_VARVE_ANALYTICS_DOMAIN: {
+      test: (v) => v === '' || /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(v),
+      hint: "an empty value or a bare hostname (e.g. 'varve.studio')",
+    },
     VARVE_APP_VERSION: {
       test: (v) => v === '' || /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(v),
       hint: 'a semver string (e.g. 0.1.1) or empty',

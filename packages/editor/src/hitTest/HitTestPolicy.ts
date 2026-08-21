@@ -1,4 +1,7 @@
 import type { NodeId, SceneNode } from '@varve/scene';
+import type { HitTestPolicyName } from './policyTypes';
+
+export type { HitTestPolicyName } from './policyTypes';
 
 export interface HitTestPolicy {
   tolerancePx: number;
@@ -161,8 +164,6 @@ export const HIT_TEST_POLICIES = {
     stopAtContainerBoundary: false,
   } satisfies HitTestPolicy,
 } as const;
-
-export type HitTestPolicyName = keyof typeof HIT_TEST_POLICIES;
 
 export function getPolicy(name: HitTestPolicyName): HitTestPolicy {
   return HIT_TEST_POLICIES[name];

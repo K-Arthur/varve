@@ -1,0 +1,183 @@
+.brush-browser {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: hidden;
+  padding: var(--space-2);
+  color: var(--color-text-primary);
+}
+
+.brush-browser__search {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.brush-browser__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.brush-browser__chip {
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  background: var(--color-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.brush-browser__chip.is-active {
+  color: var(--color-text-primary-on-accent);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.brush-browser__chip:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.brush-browser__grid {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: var(--space-2);
+  min-block-size: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  list-style: none;
+}
+
+.brush-browser__tile {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
+}
+
+.brush-browser__tile.is-selected {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.brush-browser__tile-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  color: inherit;
+  text-align: start;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.brush-browser__tile-main:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.brush-browser__preview {
+  display: block;
+  /* Checkerboard so a light brush stays visible over the panel surface and a
+     dark one stays visible in dark theme. */
+  background-image:
+    linear-gradient(45deg, var(--color-surface-raised) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-surface-raised) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-surface-raised) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-surface-raised) 75%);
+  background-position:
+    0 0,
+    0 4px,
+    4px -4px,
+    -4px 0;
+  background-size: 8px 8px;
+  border-radius: var(--radius-sm);
+  block-size: 56px;
+}
+
+.brush-browser__preview img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+}
+
+.brush-browser__preview-placeholder {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.brush-browser__name {
+  overflow: hidden;
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.brush-browser__tile-actions {
+  display: flex;
+  gap: var(--space-0);
+  justify-content: flex-end;
+  padding: 0 var(--space-1) var(--space-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brush-browser__tile {
+    transition: none;
+  }
+}
+
+.brush-library-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-block-size: 0;
+}
+
+.brush-library-panel__notice {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+}
+
+/* Tool options are portaled out of the toolbar. When the library is present,
+ * make the brush grid the scroll owner so the search/filter controls remain
+ * reachable while a large imported library is browsed. */
+.tool-options__popover:has(.brush-library-panel) {
+  display: flex;
+  flex-direction: column;
+}
+
+.tool-options__popover:has(.brush-library-panel) > .tool-options__content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.tool-options__popover:has(.brush-library-panel) .brush-library-panel {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: hidden;
+}

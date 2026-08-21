@@ -29,7 +29,7 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUT_DIR = join(ROOT, 'docs', 'screenshots', 'product');
@@ -77,7 +77,12 @@ async function startServer() {
       // 400 MB, which IS-Net at 178 MB sits well above.
       env: {
         ...process.env,
-        ...(process.env.VARVE_SHOT_MODELS ? { VARVE_CROSS_ORIGIN_ISOLATION: '1' } : {}),
+        // A capture must not be reset by another checkout participant's HMR
+        // update while a model scene is waiting on a worker result.
+        VARVE_DISABLE_HMR: '1',
+        ...(process.env.VARVE_SHOT_MODELS && !process.env.VARVE_SHOT_NO_ISOLATION
+          ? { VARVE_CROSS_ORIGIN_ISOLATION: '1' }
+          : {}),
       },
       stdio: 'ignore',
       detached: false,
@@ -315,6 +320,21 @@ async function expandSection(page, titleRe) {
   await section.evaluate((el) => el.scrollIntoView({ block: 'start' }));
   await page.waitForTimeout(400);
   return section;
+}
+
+/** Wait for an inference result while preserving a visible model error. */
+async function waitForInferenceResult(success, section, timeout) {
+  const error = section.getByRole('alert').first();
+  try {
+    return await Promise.race([
+      success.waitFor({ state: 'visible', timeout }).then(() => 'success'),
+      error
+        .waitFor({ state: 'visible', timeout })
+        .then(async () => ({ error: (await error.textContent().catch(() => ''))?.trim() })),
+    ]);
+  } catch {
+    return 'timeout';
+  }
 }
 
 async function parkMouse(page) {
@@ -668,7 +688,8 @@ const SCENES = [
     theme: 'light',
     feature: 'vector-tools',
     alt: 'The Varve Vectorize dialog tracing an imported photo into editable vector paths, with mode, colour count and path-fitting controls',
-    caption: 'Trace an imported image into editable paths — computed locally by the Rust trace engine.',
+    caption:
+      'Trace an imported image into editable paths — computed locally by the Rust trace engine.',
     async run(page) {
       await openCleanEditor(page);
       await importImage(page, 'earth.jpg');
@@ -797,11 +818,17 @@ const SCENES = [
       await create.click();
       // Inference runs in a worker; the review panel is the completion signal.
       const review = section.getByText(/review mask before applying/i);
-      if (!(await review.isVisible({ timeout: 600000 }).catch(() => false))) {
+      const result = await waitForInferenceResult(review, section, 900000);
+      if (result !== 'success') {
         // Report what the panel actually says: "no preview appeared" is not
         // enough to tell a model failure from a changed label.
-        const state = (await section.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 240);
-        throw new Error(`background removal produced no mask preview to review — panel read: ${state}`);
+        const state = (await section.innerText().catch(() => ''))
+          .replace(/\s+/g, ' ')
+          .slice(0, 240);
+        const detail = typeof result === 'object' ? ` — error: ${result.error || 'unknown'}` : '';
+        throw new Error(
+          `background removal produced no mask preview to review${detail} — panel read: ${state}`,
+        );
       }
       await page.waitForTimeout(1200);
     },
@@ -826,12 +853,23 @@ const SCENES = [
         throw new Error('Depth Blur offers no "Generate Depth Map" action — model likely missing');
       }
       await generate.click();
-      const preview = section.getByLabel(/depth map preview/i);
-      // CPU/WASM inference in headless Chromium: minutes, not seconds.
-      if (!(await preview.isVisible({ timeout: 600000 }).catch(() => false))) {
-        const state = (await section.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 240);
-        throw new Error(`depth map never rendered — panel read: ${state}`);
+      // The heatmap canvas is intentionally hidden until Preview Depth is
+      // checked, so it cannot be the inference completion signal. The
+      // persistent subsection label appears as soon as generation succeeds.
+      const ready = section.getByText(/^Depth Map Preview$/);
+      // The bundled INT8 model is CPU/WASM-preferred even though the capture
+      // browser uses Vulkan for renderer/WebGPU diagnostics: minutes, not
+      // seconds.
+      const result = await waitForInferenceResult(ready, section, 900000);
+      if (result !== 'success') {
+        const state = (await section.innerText().catch(() => ''))
+          .replace(/\s+/g, ' ')
+          .slice(0, 240);
+        const detail = typeof result === 'object' ? ` — error: ${result.error || 'unknown'}` : '';
+        throw new Error(`depth map never rendered${detail} — panel read: ${state}`);
       }
+      await section.getByRole('checkbox', { name: /preview depth/i }).check();
+      await expect(section.getByLabel(/depth map preview/i)).toBeVisible({ timeout: 5000 });
       await page.waitForTimeout(1200);
     },
   },
@@ -842,7 +880,8 @@ const SCENES = [
     feature: 'visual-awareness',
     clip: CROP.inspectorTall,
     alt: 'The Varve image tools inspector for a selected photo, stacking Image Enhance, Vectorize, Object Selection, Background Removal, Colorize, AI Denoise and Depth Blur sections',
-    caption: 'Image tools for a selected photo — enhance, vectorize, object selection, background removal, depth blur. All run on-device.',
+    caption:
+      'Image tools for a selected photo — enhance, vectorize, object selection, background removal, depth blur. All run on-device.',
     async run(page) {
       await openCleanEditor(page);
       await importImage(page, 'earth.jpg');
@@ -855,13 +894,12 @@ const SCENES = [
       await tab.click();
       // The panel is lazy-loaded; wait for real controls rather than the tab
       // click alone, or the crop can land on a loading fallback.
-      await page
-        .locator('.insp-disclosure')
-        .first()
-        .waitFor({ state: 'visible', timeout: 15000 });
+      await page.locator('.insp-disclosure').first().waitFor({ state: 'visible', timeout: 15000 });
       const bgSection = page.locator('.insp-disclosure').filter({ hasText: /Background Removal/ });
       if (!(await bgSection.isVisible({ timeout: 5000 }).catch(() => false))) {
-        throw new Error('Background Removal section missing — panel would misrepresent image tools');
+        throw new Error(
+          'Background Removal section missing — panel would misrepresent image tools',
+        );
       }
       await page.waitForTimeout(700);
     },
@@ -1004,9 +1042,7 @@ const GPU_ARGS = [
   '--enable-features=Vulkan',
   '--use-angle=vulkan',
 ];
-const browser = await chromium.launch(
-  process.env.VARVE_SHOT_MODELS ? { args: GPU_ARGS } : {},
-);
+const browser = await chromium.launch(process.env.VARVE_SHOT_MODELS ? { args: GPU_ARGS } : {});
 const server = await startServer();
 let failures = 0;
 let ranThisRun = 0;
@@ -1042,10 +1078,11 @@ try {
   for (const scene of SCENES) {
     if (onlyScenes.size > 0 && !onlyScenes.has(scene.id)) continue;
     // Scenes that need on-device inference are opt-in. Their models are a
-    // local prerequisite (gitignored), and inference runs on CPU through WASM
-    // in headless Chromium, so a default run must neither block on them nor
-    // fail --strict for skipping them. Opting out drops the manifest entry
-    // entirely rather than leaving a permanent "skipped" record behind.
+    // local prerequisite (gitignored), and the bundled INT8 model runs on CPU
+    // through WASM even though model-mode Chromium enables Vulkan. A default
+    // run must neither block on them nor fail --strict for skipping them.
+    // Opting out drops the manifest entry entirely rather than leaving a
+    // permanent "skipped" record behind.
     if (scene.requiresEnv && !process.env[scene.requiresEnv]) {
       if (manifest.scenes[scene.id]) {
         const stale = manifest.scenes[scene.id];
@@ -1077,7 +1114,9 @@ try {
       page.on('console', (msg) => {
         console.log(`  [${scene.id}:${msg.type()}] ${msg.text().slice(0, 300)}`);
       });
-      page.on('pageerror', (err) => console.log(`  [${scene.id}:pageerror] ${String(err).slice(0, 300)}`));
+      page.on('pageerror', (err) =>
+        console.log(`  [${scene.id}:pageerror] ${String(err).slice(0, 300)}`),
+      );
       // Inference runs in a Web Worker, and a worker's console does not reach
       // the page's console event — so the one place an ONNX failure reports
       // itself was invisible to every run above.

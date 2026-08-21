@@ -97,10 +97,11 @@ carries the `filename`, the `localPath` the loader requests, and a pinned
 serve a file whose hash does not match the manifest — the pinned hash is the
 only provenance guarantee these binaries have.
 
-Inference here runs on CPU through WASM in headless Chromium, with no GPU
-acceleration, so it takes **minutes rather than seconds**. Both scenes allow
-ten minutes before giving up; that ceiling exists to catch a genuinely stuck
-run, not to bound normal work.
+The capture browser enables the Vulkan path for renderer/WebGPU diagnostics,
+but the bundled Depth-Anything model is INT8 and is deliberately catalogued as
+CPU/WASM-only. Inference therefore still takes **minutes rather than seconds**
+on this path. Each scene allows up to fifteen minutes before giving up; that
+ceiling exists to catch a genuinely stuck run, not to bound normal work.
 
 Still without a scene:
 

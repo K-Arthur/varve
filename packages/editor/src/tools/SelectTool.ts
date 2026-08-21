@@ -36,13 +36,13 @@ import { BaseTool } from './BaseTool';
 import { interactionSession } from './InteractionContext';
 import {
   isMarqueeSelectableNode,
-  marqueeRectContainsRect,
-  marqueeRectsIntersect,
+  marqueeGeometryHit,
   normalizeMarqueeRect,
 } from './marqueeGeometry';
 import {
   commitNodeSelectionOperation,
   marqueeUsesContainment,
+  type SelectionOperation,
   selectionOperationFromModifiers,
 } from './selectionOperations';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
@@ -86,6 +86,8 @@ export class SelectTool extends BaseTool {
   }
 
   private marqueeActive = false;
+  private marqueeOperation: SelectionOperation = 'replace';
+  private marqueeContainment = false;
   private isMoveGesture = false;
   private initialPositions = new Map<string, { x: number; y: number }>();
   private hasDuplicated = false;
@@ -104,6 +106,9 @@ export class SelectTool extends BaseTool {
   private visibilityHandler: (() => void) | null = null;
 
   override onActivate(_ctx: ToolContext): void {
+    // Returning to the object-selection domain removes any raster boundary so
+    // node handles and pixel ants cannot be mistaken for one selection.
+    _ctx.setAreaSelection?.(null);
     this.visibilityHandler = () => {
       if (document.hidden && this.nudgeGestureActive) {
         this.nudgeGestureActive = false;
@@ -144,6 +149,11 @@ export class SelectTool extends BaseTool {
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
+    // Capture the semantic modes at pointer-down. Modifier changes during a
+    // drag may affect other interactions, but must not make one marquee switch
+    // between replace/add/subtract or containment halfway through the gesture.
+    this.marqueeOperation = selectionOperationFromModifiers(e);
+    this.marqueeContainment = marqueeUsesContainment(loadSettings().layers.marqueeContainment, e);
     ctx.setPointerCapture(e.pointerId);
     const canvas = { x: e.clientX, y: e.clientY };
     const world = ctx.canvasToWorld(canvas.x, canvas.y);
@@ -457,13 +467,13 @@ export class SelectTool extends BaseTool {
       //   Alt: subtract (remove from selection)
       //   Shift+Alt: intersect (keep only nodes in both selection and marquee)
       //   Ctrl/Cmd: temporarily toggle containment, independently of the op
-      const prefContainment = loadSettings().layers.marqueeContainment;
-      const useContainment = marqueeUsesContainment(prefContainment, ctx);
-      const operation = selectionOperationFromModifiers(ctx);
+      const useContainment = this.marqueeContainment;
+      const operation = this.marqueeOperation;
       const entries = walkNodes(ctx.document, activePageNodes(ctx.document));
       const ordered = [...entries.values()].reverse();
       const marqueeIds: string[] = [];
       const parentIndex = buildParentIndexMap(ctx.document);
+      const broadPhase = ctx.queryMarqueeCandidates?.(rect);
       for (const entry of rect.w > 0 && rect.h > 0 ? ordered : []) {
         if (!entry) continue;
         if (!isMarqueeSelectableNode(ctx.document, entry.nodeId, parentIndex)) continue;
@@ -472,12 +482,9 @@ export class SelectTool extends BaseTool {
           !isInIsolatedSubtree(entry.nodeId, ctx.isolatedNodeId, ctx.document)
         )
           continue;
-        const bbox = nodeWorldBounds(ctx.document, entry.nodeId, parentIndex);
-        if (bbox) {
-          const hit = useContainment
-            ? marqueeRectContainsRect(rect, bbox)
-            : marqueeRectsIntersect(rect, bbox);
-          if (hit) marqueeIds.push(entry.nodeId);
+        if (broadPhase && !broadPhase.has(entry.nodeId)) continue;
+        if (marqueeGeometryHit(ctx.document, entry.nodeId, rect, useContainment, parentIndex)) {
+          marqueeIds.push(entry.nodeId);
         }
       }
       const nextSelection = commitNodeSelectionOperation(ctx, marqueeIds, operation);

@@ -47,6 +47,12 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     browser = await chromium.launch();
     const page = await browser.newPage();
     await page.goto(BASE_URL, { timeout: 180_000, waitUntil: 'domcontentloaded' });
+    // Handle safe mode dialog if present (from a previous crash)
+    const continueBtn = page.getByRole('button', { name: /continue normal startup/i });
+    if (await continueBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await continueBtn.click({ timeout: 5000 });
+      await page.waitForTimeout(1000);
+    }
     // The editor's module graph (Menubar, CanvasArea, inspector, ...) is
     // lazy: vite only transforms it when the editor actually mounts. Waiting
     // for the home screen's New button alone leaves the expensive part

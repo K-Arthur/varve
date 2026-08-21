@@ -175,6 +175,8 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.object.createClippingMask': 'Create Clipping Mask',
   'menu.object.releaseClippingMask': 'Release Clipping Mask',
   'menu.object.addAlphaMask': 'Add Alpha Mask',
+  'menu.object.createMaskFromSelection': 'Create Mask from Selection',
+  'menu.object.loadMaskAsSelection': 'Load Mask as Selection',
   'menu.object.addLuminanceMask': 'Add Luminance Mask',
   'menu.object.addClipMask': 'Add Clip Mask',
   'menu.object.removeMask': 'Remove Mask',

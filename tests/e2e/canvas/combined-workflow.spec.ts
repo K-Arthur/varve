@@ -19,7 +19,10 @@ async function insertTable(page: Page): Promise<void> {
 }
 
 async function createColorVariable(page: Page, name: string, hexColor: string): Promise<void> {
-  await page.getByRole('button', { name: /add/i }).click();
+  await page
+    .getByTestId('layers-panel')
+    .getByRole('button', { name: '+ Add', exact: true })
+    .click();
   const nameInput = page.getByRole('textbox', { name: /name/i });
   await nameInput.fill(name);
   const valueInput = page.getByRole('textbox', { name: /value/i });
@@ -91,7 +94,7 @@ test.describe('Combined table + variable modifier workflow', () => {
     await page.keyboard.press('Escape');
 
     // Step 6: Verify table structure in inspector
-    const rowsInput = page.getByRole('spinbutton', { name: /rows/i });
+    const rowsInput = page.getByRole('spinbutton', { name: 'Rows', exact: true });
     if (await rowsInput.isVisible()) {
       // Verify row count
       await expect(rowsInput).toHaveValue('4');
@@ -148,7 +151,18 @@ test.describe('Combined table + variable modifier workflow', () => {
     });
 
     // Step 11: Save and reload to verify persistence
+    await page.getByRole('menuitem', { name: 'File', exact: true }).click();
+    await page.getByRole('menuitem', { name: /^Save\s+Ctrl\+S$/i }).click();
+    await expect(page.getByRole('button', { name: /^Saved\b/i })).toBeVisible({ timeout: 15000 });
     await page.reload({ waitUntil: 'domcontentloaded' });
+    // A browser reload boots the app on Home. Reopen the persisted file before
+    // asserting the editor state; assuming the editor remains mounted made
+    // this test validate an impossible navigation state instead of persistence.
+    await page.locator('.varve-home__toolbar').waitFor({ state: 'visible', timeout: 30000 });
+    await page
+      .getByRole('gridcell', { name: /^Untitled \d+,/i })
+      .first()
+      .dblclick();
     await page.locator('.layers-panel').waitFor({ timeout: 15000 });
 
     // Take screenshot after reload

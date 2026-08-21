@@ -150,7 +150,7 @@ events. Native Tauri shortcut/window APIs are not used for viewport commands yet
 ## Native Tauri E2E
 
 Optional smoke coverage lives in `tests/e2e/tauri/smoke.spec.ts`, gated by
-`STRATA_TAURI_E2E=1` and `scripts/tauri-e2e.sh` (requires `tauri-driver` +
+`VARVE_TAURI_E2E=1` and `scripts/tauri-e2e.sh` (requires `tauri-driver` +
 WebDriver). PR CI uses Chromium Playwright only; see `tests/e2e/tauri/README.md`.
 
 ## Research Notes

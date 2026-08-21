@@ -7,8 +7,8 @@
  * before inference produces garbage output.
  *
  * Research basis:
- *   - U^2-Net (u2netp): input "input.1" [1,3,320,320] float32, output "output.1" [1,1,320,320] float32
- *   - IS-Net: input "input.1" [1,3,1024,1024] float32, output "output.1" [1,1,1024,1024] float32
+ *   - U^2-Net (u2netp): input "input.1" [1,3,320,320] float32, output "1959" [1,1,320,320] float32
+ *   - IS-Net: input "input_image" [1,3,1024,1024] float32, output "output_image" [1,1,1024,1024] float32
  *   - BiRefNet Lite: input "input.1" [1,3,1024,1024] float32, output "output.1" [1,1,1024,1024] float32
  *   - BiRefNet Full: input "input.1" [1,3,1024,1024] float32, output "output.1" [1,1,1024,1024] float32
  *
@@ -19,6 +19,8 @@ import type { WorkerModelId } from './types';
 
 export interface TensorContract {
   name: string;
+  /** Names used by verified alternate exports of the same graph. */
+  alternateNames?: readonly string[];
   dims: readonly (number | null)[];
   dtype: string;
 }
@@ -37,15 +39,43 @@ export interface ModelContract {
 export const MODEL_CONTRACTS: Record<string, ModelContract> = {
   u2netp: {
     inputs: [{ name: 'input.1', dims: [1, 3, 320, 320], dtype: 'float32' }],
-    outputs: [{ name: 'output.1', dims: [1, 1, 320, 320], dtype: 'float32' }],
+    outputs: [
+      {
+        name: '1959',
+        alternateNames: ['output.1'],
+        dims: [1, 1, 320, 320],
+        dtype: 'float32',
+      },
+    ],
   },
   'u2netp-int8': {
     inputs: [{ name: 'input.1', dims: [1, 3, 320, 320], dtype: 'float32' }],
-    outputs: [{ name: 'output.1', dims: [1, 1, 320, 320], dtype: 'float32' }],
+    outputs: [
+      {
+        name: '1959',
+        alternateNames: ['output.1'],
+        dims: [1, 1, 320, 320],
+        dtype: 'float32',
+      },
+    ],
   },
   'isnet-general-use': {
-    inputs: [{ name: 'input.1', dims: [1, 3, 1024, 1024], dtype: 'float32' }],
-    outputs: [{ name: 'output.1', dims: [1, 1, 1024, 1024], dtype: 'float32' }],
+    inputs: [
+      {
+        name: 'input_image',
+        alternateNames: ['input.1'],
+        dims: [1, 3, 1024, 1024],
+        dtype: 'float32',
+      },
+    ],
+    outputs: [
+      {
+        name: 'output_image',
+        alternateNames: ['output.1'],
+        dims: [1, 1, 1024, 1024],
+        dtype: 'float32',
+      },
+    ],
   },
   'birefnet-general-lite': {
     inputs: [{ name: 'input.1', dims: [1, 3, 1024, 1024], dtype: 'float32' }],
@@ -97,12 +127,13 @@ export function validateModelContract(
   for (let i = 0; i < contract.inputs.length; i++) {
     const expected = contract.inputs[i]!;
     const actualName = inputNames[i] ?? '';
-    if (actualName && actualName !== expected.name) {
+    const allowedNames = [expected.name, ...(expected.alternateNames ?? [])];
+    if (actualName && !allowedNames.includes(actualName)) {
       violations.push({
         kind: 'input',
         index: i,
         field: 'name',
-        expected: expected.name,
+        expected: allowedNames.join(' or '),
         actual: actualName,
       });
     }
@@ -132,12 +163,13 @@ export function validateModelContract(
   for (let i = 0; i < contract.outputs.length; i++) {
     const expected = contract.outputs[i]!;
     const actualName = outputNames[i] ?? '';
-    if (actualName && actualName !== expected.name) {
+    const allowedNames = [expected.name, ...(expected.alternateNames ?? [])];
+    if (actualName && !allowedNames.includes(actualName)) {
       violations.push({
         kind: 'output',
         index: i,
         field: 'name',
-        expected: expected.name,
+        expected: allowedNames.join(' or '),
         actual: actualName,
       });
     }

@@ -35,7 +35,7 @@ Persisted prototype wiring in `packages/scene/src/interactions.ts`. Structurally
 
 ### Motion Presets
 
-Reusable motion styles captured from timelines (`createMotionPreset` / `removeMotionPreset` in `motion.ts`). Parallel to `TextStyle` / `EffectStyle`.
+Reusable motion styles captured from timelines (`createMotionPreset` / `removeMotionPreset` in `motion.ts`). Parallel to `TextStyle` / `EffectStyle`. The timeline panel exposes a preset dropdown with 9 built-in presets (Fade In, Slide Up/Down/Left/Right, Scale In, Rotate, Bounce In, Fade + Slide Up) when no user presets exist, and user presets when saved.
 
 ### State Machines
 
@@ -77,6 +77,8 @@ Inspector (prototype mode)
 | Prototype bridge | `packages/editor/src/motion/prototypeRuntime.ts` |
 | Smart Animate | `packages/prototype/src/smartAnimate.ts`, `editor/motion/smartAnimateBridge.ts` |
 | SM bridge | `packages/editor/src/motion/stateMachineBridge.ts` |
+| Motion path overlay | `packages/editor/src/components/MotionPathOverlay.tsx` |
+| Graph editor | `packages/editor/src/timeline/GraphEditor.tsx` |
 | Export (CSS/Lottie) | `packages/codegen/src/animation-*.ts` |
 | Export (UI) | `packages/editor/src/components/Export/ExportDialog.tsx` |
 | Video export (UI) | `packages/editor/src/components/Export/ExportDialog.tsx` |
@@ -126,8 +128,9 @@ Nested timeline evaluation during playback passes the full `Document` to `sample
 
 - **ExportDialog** exposes per-timeline CSS keyframes, Lottie JSON, SVG animate, and MP4/WebM video (WebCodecs + `mp4-muxer` / `webm-muxer`).
 - **videoExport.ts** — `exportTimelineToVideo()` with injected frame renderer; `videoExportBridge.ts` wires `sampleTimelineAt` → `buildIr` → `replayIr` on OffscreenCanvas.
-- **animation-interactive.ts** — exports `Document.interactions` to React event handlers and optional CSS scroll bindings (`useScrollTimeline` partial).
+- **animation-interactive.ts** — exports `Document.interactions` to a self-contained HTML prototype with embedded CSS + JS runtime.
 - Reduced-motion video export: single final frame when `prefers-reduced-motion` is active.
+- **Lottie fill/stroke color** — track properties `fill`/`fill.*` and `stroke`/`stroke.*` export as animated `fc`/`sc` keyframes with RGB conversion (RGBA 0-255 → Lottie 0-1) and per-keyframe bezier easing.
 
 ## Video export (complete)
 
@@ -173,6 +176,29 @@ Reserved in `motion-types.ts`, not yet implemented:
 - Motion preset save/apply from timeline panel
 - Auto-keyframe toggle (Diamond icon) inserts keyframes at playhead during playback
 - Spec panel motion summary with export hash
+- **Timeline virtualization** — native position-based track virtualization: only visible tracks (±5 overscan) are rendered in the DOM. Container uses absolute positioning with scroll-based visibility culling. Activates for lists with >20 tracks.
+
+## Graph Editor
+
+`GraphEditor` renders a 2D SVG canvas where X axis is time (0–1 progress) and Y axis is property value. Each property track becomes a colored curve with draggable keyframe dots.
+
+- **Tangent handles**: When a keyframe has `spatialTangents`, tangent-in and tangent-out arms are rendered as lines with control-point circles. These visualize the spatial bezier curve.
+- **Easing cycle**: Shift+click on a keyframe cycles through easing types (linear → ease → easeIn → easeOut → easeInOut) via `onUpdateEasing`.
+- **Keyboard**: ArrowLeft/ArrowRight nudges keyframe progress (0.02 step, 0.1 with Shift). Delete key sends a delete signal via `onMoveKeyframe` with progress -1.
+- **Accessible**: Hidden `<button>` elements overlay each keyframe dot for screen reader access.
+
+## Motion Path Editing
+
+`MotionPathOverlay` renders the trajectory of animated position/transform tracks as a visible dashed curve on the canvas. Keyframe points are displayed as draggable circles:
+
+- **Pointer events** on keyframe circles start a drag interaction via `setPointerCapture`.
+- **Screen→world conversion** uses `editorScreenToWorld` from `cameraState.ts` with the editor's viewport, zoom, pan, and rotation.
+- **Drag commitment** calls `moveKeyframe` on the editor context, updating the keyframe's progress in the document model.
+- **Cursor feedback** changes between `grab` (idle) and `grabbing` (dragging).
+
+## Prototype Click-Through Tests
+
+E2E tests in `tests/e2e/prototype/prototype-clickthrough.spec.ts` verify the core prototype workflow: workspace switching, timeline creation, and motion workspace layout. The prototype runtime tests (`packages/prototype/src/*.test.ts`) cover trigger matching, action execution, variable evaluation, conditions, and state machine transitions.
 
 ## Tests
 
@@ -188,6 +214,16 @@ Reserved in `motion-types.ts`, not yet implemented:
 | Shell timeline | `packages/editor/src/Shell.motion.test.tsx` |
 | Auto-keyframe | `packages/editor/src/motion/autoKeyframe.test.ts` |
 | Timeline ruler | `packages/editor/src/timeline/TimelineRuler.test.tsx` |
+| Timeline panel | `packages/editor/src/timeline/TimelinePanel.test.tsx` |
+| Graph editor | `packages/editor/src/timeline/GraphEditor.test.tsx` |
+| Motion path overlay | `packages/editor/src/components/__tests__/MotionPathOverlay.test.tsx` |
+| Interaction section | `packages/editor/src/components/Inspector/sections/InteractionSection.test.ts` |
+| Lottie export | `packages/codegen/src/animation-lottie.test.ts` |
+| CSS export | `packages/codegen/src/animation-css.test.ts` |
+| SVG export | `packages/codegen/src/animation-svg.test.ts` |
+| Interactive export | `packages/codegen/src/animation-interactive.test.ts` |
 | E2E playback | `tests/e2e/motion/timeline-playback.spec.ts` |
+| E2E motion mode | `tests/e2e/canvas/motion-mode.spec.ts` |
+| E2E prototype | `tests/e2e/prototype/prototype-clickthrough.spec.ts` |
 | E2E video export | `tests/e2e/motion/video-export.spec.ts` |
 | Benchmark | `packages/engine/src/motion.bench.test.ts` |

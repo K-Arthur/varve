@@ -14,16 +14,19 @@ import {
   useMicroHints,
   useTutorialProgress,
 } from '../../onboard';
-import {
-  CHECKLIST_ITEMS,
-  OnboardingChecklist,
-} from '../../onboard/OnboardingChecklist/OnboardingChecklist';
+import { OnboardingChecklist } from '../../onboard/OnboardingChecklist/OnboardingChecklist';
 import { createTutorialDocument } from '../../samples/tutorial-document';
 import { SpotlightOverlay, useOnboarding, WelcomeDialog } from '../Onboarding';
 import { TOUR_STEPS } from '../Onboarding/tourSteps';
+import { useSettings } from '../Settings/SettingsContext';
 
 export interface OnboardingLayerHandle {
+  /** Replay the spotlight tour on demand (Help → Take a Tour). */
   reopen: () => void;
+  /** Open the non-blocking "Getting started" checklist panel. */
+  openChecklist: () => void;
+  /** Show the Welcome dialog on demand (Help → Getting Started). */
+  openWelcome: () => void;
 }
 
 export interface OnboardingLayerProps {
@@ -34,11 +37,15 @@ export interface OnboardingLayerProps {
 export const OnboardingLayer = forwardRef<OnboardingLayerHandle, OnboardingLayerProps>(
   function OnboardingLayer({ platform, onBackToHome }, ref) {
     const editor = useEditor();
+    const { settings } = useSettings();
+    const learning = settings.learning;
     const tutorialProgress = useTutorialProgress(editor.state.document);
     const onboarding = useOnboarding(editor.platform);
 
     useImperativeHandle(ref, () => ({
       reopen: onboarding.reopen,
+      openChecklist: () => setChecklistOpen(true),
+      openWelcome: () => onboarding.requestWelcome(),
     }));
 
     const [checklistOpen, setChecklistOpen] = useState(false);
@@ -84,31 +91,36 @@ export const OnboardingLayer = forwardRef<OnboardingLayerHandle, OnboardingLayer
       if (tracker.getCount('export', 600_000) > 0) updateChecklistProgress('export');
     }, [updateChecklistProgress, platform]);
 
-    useEffect(() => {
-      if (!onboarding.showWelcome && !onboarding.active) {
-        const saved = loadOnboardingState();
-        const allDone = CHECKLIST_ITEMS.every((item) => saved.checklistProgress.includes(item.id));
-        if (!saved.onboardingComplete || !allDone) {
-          setChecklistOpen(true);
-        }
-      }
-    }, [onboarding.showWelcome, onboarding.active]);
-
+    // Nothing is surfaced automatically. The Welcome dialog, spotlight tour,
+    // and checklist are all opt-in (Help menu / Settings). This keeps first
+    // launch non-blocking and respects the user's learning preferences.
     const {
       currentTip: didYouKnowTip,
       dismiss: dismissTip,
       dontShowAgain: dontShowAgainTip,
-    } = useDidYouKnow(getActionTracker(), editor.state.workspaceMode);
+    } = useDidYouKnow(getActionTracker(), editor.state.workspaceMode, {
+      enabled: learning.showContextualTips,
+      suggestTutorials: learning.autoSuggestTutorials,
+    });
 
     const selectionCount = editor.state.selection.length;
     const { currentHint: microHint, dismiss: dismissMicroHint } = useMicroHints({
       toolId: editor.state.tool,
       workspaceMode: editor.state.workspaceMode,
-      enabled: true,
+      enabled: learning.showContextualTips,
       selectionCount,
+      shortcutsEnabled: learning.showShortcutHints,
     });
 
     const currentStep = onboarding.stepIndex >= 0 && onboarding.active ? onboarding.stepIndex : -1;
+
+    // One interruption at a time: any higher-priority surface suppresses all
+    // lower-priority proactive hints (DidYouKnow, MicroHint). Priority order:
+    //   SpotlightTour > WelcomeDialog > OnboardingChecklist > DidYouKnow > MicroHint
+    const tourActive = currentStep >= 0 && onboarding.active;
+    const welcomeOpen = onboarding.showWelcome && onboarding.active;
+    const checklistVisible = checklistOpen;
+    const higherSurfaceActive = tourActive || welcomeOpen || checklistVisible;
 
     return (
       <>
@@ -121,13 +133,15 @@ export const OnboardingLayer = forwardRef<OnboardingLayerHandle, OnboardingLayer
           }}
         />
 
-        {/* Welcome dialog */}
+        {/* Welcome dialog (modal) */}
         <WelcomeDialog
-          open={onboarding.showWelcome && onboarding.active}
+          open={welcomeOpen}
           onStartTour={onboarding.startTour}
           onStartTutorial={() => {
-            const tutorialDoc = createTutorialDocument();
-            editor.updateDoc(() => tutorialDoc);
+            // Open the tutorial in a NEW tab so the user's current document is
+            // never discarded (Principle: never destroy unsaved work).
+            editor.newDocument();
+            editor.updateDoc(() => createTutorialDocument());
             onboarding.dismiss();
           }}
           onStartBlank={() => {
@@ -141,8 +155,7 @@ export const OnboardingLayer = forwardRef<OnboardingLayerHandle, OnboardingLayer
         />
 
         {/* Spotlight tour overlay */}
-        {currentStep >= 0 &&
-          onboarding.active &&
+        {tourActive &&
           (() => {
             const step = TOUR_STEPS[currentStep];
             if (!step) return null;
@@ -158,17 +171,17 @@ export const OnboardingLayer = forwardRef<OnboardingLayerHandle, OnboardingLayer
             );
           })()}
 
-        {/* Onboarding checklist */}
+        {/* Onboarding checklist (non-blocking panel) */}
         <OnboardingChecklist
-          open={checklistOpen}
+          open={checklistVisible}
           onClose={() => setChecklistOpen(false)}
           progress={checklistProgress}
           onItemClick={(id) => updateChecklistProgress(id)}
           onDismiss={dismissChecklist}
         />
 
-        {/* Did You Know? contextual tips */}
-        {didYouKnowTip && (
+        {/* Did You Know? tips — suppressed when any higher-priority surface is active */}
+        {didYouKnowTip && !higherSurfaceActive && (
           <DidYouKnowTip
             tip={didYouKnowTip}
             onDismiss={dismissTip}
@@ -176,8 +189,10 @@ export const OnboardingLayer = forwardRef<OnboardingLayerHandle, OnboardingLayer
           />
         )}
 
-        {/* Contextual micro-hints (tool first-use) */}
-        {microHint && !didYouKnowTip && <MicroHint hint={microHint} onDismiss={dismissMicroHint} />}
+        {/* Micro-hints — suppressed when DidYouKnow is showing or any higher surface */}
+        {microHint && !didYouKnowTip && !higherSurfaceActive && (
+          <MicroHint hint={microHint} onDismiss={dismissMicroHint} />
+        )}
       </>
     );
   },

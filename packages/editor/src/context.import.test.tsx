@@ -8,6 +8,7 @@ import {
   getParent,
   imageFill,
   isImageShape,
+  makeFrameNode,
   makeGroupNode,
   makeShapeNode,
 } from '@varve/scene';
@@ -211,6 +212,66 @@ describe('Editor import insertion', () => {
     expect(options).toMatchObject({ center: true, embedImages: true });
     await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
     spy.mockRestore();
+  });
+
+  it('imports file-picker nodes into the selected frame without changing world pose', async () => {
+    let initial = createDocument('Import target');
+    const page = initial.pages?.[0];
+    if (!page) throw new Error('Expected initial page');
+    initial = addChild(
+      initial,
+      page.contentRoot,
+      makeFrameNode('target-frame', {
+        transform: [1, 0, 0, 1, 200, 100],
+        w: 300,
+        h: 200,
+      }),
+    );
+
+    const image = makeShapeNode('image', { kind: 'rect', x: 0, y: 0, w: 80, h: 60 });
+    image.fills = [imageFill('data:image/png;base64,AA==')];
+    const sourceDoc = {
+      ...createDocument('Imported image', true),
+      nodes: { image },
+      rootChildren: ['image'],
+    };
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <>
+          <button type="button" onClick={() => ctx?.setSelection('target-frame')}>
+            select frame
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              ctx?.batchImportNodes([{ node: image, sourceDoc, position: { x: 260, y: 140 } }])
+            }
+          >
+            import into frame
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={DocumentCodec.encode(initial)}>
+        <Test />
+      </EditorProvider>,
+    );
+
+    screen.getByText('select frame').click();
+    await waitFor(() => expect(ctx?.state.selection).toEqual(['target-frame']));
+    screen.getByText('import into frame').click();
+
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const importedId = ctx?.state.selection[0];
+    if (!ctx || !importedId) throw new Error('Expected imported image selection');
+    expect(getParent(ctx.state.document, importedId)).toBe('target-frame');
+    const imported = ctx.state.document.nodes[importedId];
+    expect(imported?.kind).toBe('shape');
   });
 
   it('atomically imports dropped images into a compatible clipping target', async () => {

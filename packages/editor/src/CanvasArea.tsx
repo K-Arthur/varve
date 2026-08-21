@@ -10,7 +10,6 @@ import {
   prewarmWasmEngine,
 } from '@varve/engine';
 import { type ImportFileInput, ImportService } from '@varve/import';
-import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import {
   buildAllVariantCaches,
   buildVariableDependencyMap,
@@ -24,6 +23,7 @@ import {
 } from '@varve/scene';
 import { type Camera, computeFloatingOrigin, screenToWorld } from '@varve/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import { resetProfile } from './canvas/adaptiveProfile';
 import {
   subscribeToCanvasContextLifecycle,
@@ -108,6 +108,85 @@ function isOnlyVariableStoreChange(oldDoc: Document, newDoc: Document): boolean 
     }
   }
   return true;
+}
+
+interface EmptyStateHint {
+  title: string;
+  shortcuts: Array<{ key: string; label: string }>;
+  hint: string;
+}
+
+const EMPTY_STATE_BY_MODE: Record<string, EmptyStateHint> = {
+  design: {
+    title: 'Start designing',
+    shortcuts: [
+      { key: 'F', label: 'Frame' },
+      { key: 'R', label: 'Rectangle' },
+      { key: 'T', label: 'Text' },
+      { key: 'P', label: 'Pen' },
+    ],
+    hint: 'or drag an image here',
+  },
+  print: {
+    title: 'Start your layout',
+    shortcuts: [
+      { key: 'F', label: 'Frame' },
+      { key: 'R', label: 'Rectangle' },
+      { key: 'T', label: 'Text' },
+    ],
+    hint: 'or drag an image to place',
+  },
+  drawing: {
+    title: 'Start painting',
+    shortcuts: [
+      { key: 'B', label: 'Brush' },
+      { key: '⇧P', label: 'Pencil' },
+      { key: 'E', label: 'Eraser' },
+    ],
+    hint: 'or drag an image to trace',
+  },
+  image: {
+    title: 'Edit your photo',
+    shortcuts: [{ key: '⌘O', label: 'Open image' }],
+    hint: 'or drag an image onto the canvas',
+  },
+  motion: {
+    title: 'Create your first scene',
+    shortcuts: [
+      { key: 'F', label: 'Frame' },
+      { key: 'R', label: 'Rectangle' },
+      { key: 'T', label: 'Text' },
+    ],
+    hint: 'or drag images to animate',
+  },
+  codegen: {
+    title: 'Select artwork to export',
+    shortcuts: [{ key: 'V', label: 'Select' }],
+    hint: 'then choose a code format in the Export panel',
+  },
+  logo: {
+    title: 'Design your mark',
+    shortcuts: [
+      { key: 'F', label: 'Frame' },
+      { key: 'R', label: 'Rectangle' },
+      { key: 'T', label: 'Text' },
+      { key: 'P', label: 'Pen' },
+    ],
+    hint: 'or start from a template',
+  },
+  email: {
+    title: 'Design your email',
+    shortcuts: [
+      { key: 'F', label: 'Frame' },
+      { key: 'R', label: 'Rectangle' },
+      { key: 'T', label: 'Text' },
+    ],
+    hint: 'or drag images into the layout',
+  },
+};
+
+export function getEmptyStateContent(mode: string): EmptyStateHint {
+  return EMPTY_STATE_BY_MODE[mode] ?? EMPTY_STATE_BY_MODE.design!;
 }
 
 export function CanvasArea({
@@ -207,6 +286,7 @@ export function CanvasArea({
     documentId: string;
     indexedNodeCount: number;
   } | null>(null);
+  const marqueeIndexRef = useRef<SpatialIndex | null>(null);
   const prevDrawDocRef = useRef(state.document);
   const lastRenderedDocRef = useRef(state.document);
   if (state.document !== prevDrawDocRef.current) {
@@ -645,6 +725,7 @@ export function CanvasArea({
         transformCacheRef,
         snapSessionRef,
         snapIndexRef,
+        marqueeIndexRef,
         pendingAutoTextEditRef,
         nodeEditTargetId,
         setDraft,
@@ -812,6 +893,7 @@ export function CanvasArea({
     accentColorRef,
     sunkenColorRef,
     draft,
+    areaSelection: state.areaSelection ?? null,
     dropTargetFrameId,
     maskDropTargetId,
   });
@@ -1288,22 +1370,25 @@ export function CanvasArea({
         />
       )}
       {/* Empty canvas guidance — shown only when document has no content */}
-      {state.document.rootChildren.length === 0 && !isDragOver && (
-        <div className="editor-canvas__empty-state" role="status" aria-label="Empty canvas">
-          <p className="editor-canvas__empty-state-title">Start designing</p>
-          <div className="editor-canvas__empty-state-shortcuts">
-            <span className="editor-canvas__empty-state-key">F</span>
-            <span>Frame</span>
-            <span className="editor-canvas__empty-state-key">R</span>
-            <span>Rectangle</span>
-            <span className="editor-canvas__empty-state-key">T</span>
-            <span>Text</span>
-            <span className="editor-canvas__empty-state-key">P</span>
-            <span>Pen</span>
-          </div>
-          <p className="editor-canvas__empty-state-hint">or drag an image here</p>
-        </div>
-      )}
+      {state.document.rootChildren.length === 0 &&
+        !isDragOver &&
+        (() => {
+          const empty = getEmptyStateContent(state.workspaceMode);
+          return (
+            <div className="editor-canvas__empty-state" role="status" aria-label="Empty canvas">
+              <p className="editor-canvas__empty-state-title">{empty.title}</p>
+              <div className="editor-canvas__empty-state-shortcuts">
+                {empty.shortcuts.map((s) => (
+                  <span key={s.key}>
+                    <span className="editor-canvas__empty-state-key">{s.key}</span>
+                    {s.label}
+                  </span>
+                ))}
+              </div>
+              <p className="editor-canvas__empty-state-hint">{empty.hint}</p>
+            </div>
+          );
+        })()}
     </section>
   );
 }

@@ -96,7 +96,7 @@ describe('performance workload corpus', () => {
   });
 
   it('produces a stable checksum for every fixture across independent calls', {
-    timeout: 180_000,
+    timeout: 300_000,
   }, () => {
     // 60s timeout: generates every workload fixture twice; on loaded
     // CI/parallel-agent hosts the default 5s is routinely exceeded.

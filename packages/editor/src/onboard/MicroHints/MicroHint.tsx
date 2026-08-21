@@ -51,7 +51,10 @@ export function MicroHint({ hint, onDismiss }: MicroHintProps) {
       aria-label={`${hint.title}: ${hint.body}`}
       onKeyDown={handleKeyDown}
     >
-      <span className="micro-hint__title">{hint.title}</span>
+      <span className="micro-hint__title">
+        {hint.title}
+        {hint.shortcut && <kbd className="micro-hint__shortcut">{hint.shortcut}</kbd>}
+      </span>
       <span className="micro-hint__body">{hint.body}</span>
       <button
         type="button"

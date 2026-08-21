@@ -18,7 +18,7 @@
  * the same document and warnings.
  */
 import type { Document } from '@varve/scene';
-import { canonicalHash } from '@varve/scene';
+import { canonicalHistoryHash } from '@varve/scene';
 import type { MergeConflict } from './merge';
 
 export type MergeResolutionChoice = 'ours' | 'theirs' | 'base';
@@ -242,7 +242,7 @@ export function bulkResolve(
 /** Sanity-check that the resolved document still canonicalizes. */
 export function verifyResolvedDocument(document: Document): boolean {
   try {
-    canonicalHash(document);
+    canonicalHistoryHash(document);
     return true;
   } catch {
     return false;

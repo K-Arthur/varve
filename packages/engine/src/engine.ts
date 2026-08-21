@@ -13,7 +13,7 @@
 import type { MeasureTextFn } from '@varve/shared';
 import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@varve/shared';
 import { hitTest } from './geometry';
-import type { Backend, Engine, EngineFill, FillIR, RenderItem, SceneNode } from './types';
+import type { Backend, Engine, EngineFill, FillIR, RenderItem, Scene, SceneNode } from './types';
 import type { WasmEngineModule } from './wasmLoader';
 import { loadWasmEngineModule } from './wasmLoader';
 
@@ -352,6 +352,15 @@ async function nativeEngine(): Promise<Engine> {
 export function withStubFallback(primary: Engine): Engine {
   if (primary.backend === 'stub') return primary;
   const stub = stubEngine();
+  // The Rust/WASM backends currently carry the vector IR contract only. A
+  // raster layer's tile payload is deliberately kept in the TypeScript
+  // renderer, where replay can upload it to the retained tile surface. Route
+  // scenes containing raster data through that reference implementation until
+  // the native wire format grows an equivalent tile transport. Without this
+  // guard a browser paint stroke reaches the document but the WASM compiler
+  // silently turns the layer into a transparent rect (or drops it entirely).
+  const requiresRasterFallback = (scene: Scene): boolean =>
+    scene.nodes.some((node) => node.kind === 'rasterLayer' && node.rasterLayerData !== undefined);
   // Contract failures (missing/invalid `shape`, colour objects where Rust wants
   // `[u8; 4]`, …) are deterministic, not transient. Once `buildIr` throws, keep
   // using the stub so we don't burn a JSON round-trip through the failing
@@ -368,6 +377,7 @@ export function withStubFallback(primary: Engine): Engine {
   return {
     backend: primary.backend,
     async buildIr(scene) {
+      if (requiresRasterFallback(scene)) return stub.buildIr(scene);
       if (buildIrBroken) return stub.buildIr(scene);
       try {
         return await primary.buildIr(scene);

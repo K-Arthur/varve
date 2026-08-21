@@ -39,12 +39,12 @@ export function invalidateNodeThumbnail(nodeId: string): void {
   invalidateThumbnailHandler?.(nodeId);
 }
 
+import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
 import { PaletteExtractDialogHost } from './components/PaletteExtract/PaletteExtractDialogHost';
 import { requestInspectorTab } from './context/inspectorTabBridge';
-import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import { applySelectedLayoutChildField } from './context/layoutChildSetters';
-import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
+import { isCapabilityRestricted, setBumpThemeRevisionHandler } from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
 import { type ImportedResourceSet, mergeImportedResources } from './import/mergeImportedResources';
 import { pathPointsWorldToLocal } from './tools/pathCoords';
@@ -77,6 +77,8 @@ import { getTransactionHooks } from '@varve/collab';
 import type {
   Adjustment,
   Affine,
+  AreaSelection,
+  AreaSelectionSettings,
   PathPoint,
   PixelArtAlgorithm,
   Shape,
@@ -258,8 +260,8 @@ import {
   setAllGuidesLocked,
   setDocumentBitDepth as setDocumentBitDepthDoc,
   setDocumentBlendEvaluationSpace as setDocumentBlendEvaluationSpaceDoc,
-  setDocumentProofConfig as setDocumentProofConfigDoc,
   setDocumentGradientInterpolation as setDocumentGradientInterpolationDoc,
+  setDocumentProofConfig as setDocumentProofConfigDoc,
   setDocumentWorkingSpace as setDocumentWorkingSpaceDoc,
   setFacingPagesEnabled as setFacingPagesEnabledDoc,
   setLiveTraceError as setLiveTraceErrorDoc,
@@ -473,7 +475,6 @@ import {
   getParentFast,
   type ParentIndexCache,
 } from './scene/parentIndexCache';
-
 import { type FrameSpatialIndex, getOrCreateFrameSpatialIndex } from './scene/spatialIndex';
 import {
   planLinkSelection,
@@ -527,6 +528,21 @@ export type { CanvasMode, EditorState, SessionMeta, ToolId };
  * document's* canvas size as the viewport), which mirrored placements
  * across the world origin the further the camera was panned.
  */
+/**
+ * Wrap an on-device inference action so a deployment that withholds inference
+ * cannot reach it by any route.
+ *
+ * Returns a resolved promise rather than throwing: these are fire-and-forget
+ * UI actions, and a rejection here would surface as an unhandled error toast
+ * for a capability the deployment deliberately does not offer.
+ */
+function guardInference<A extends unknown[]>(
+  action: (...args: A) => Promise<void>,
+): (...args: A) => Promise<void> {
+  return (...args: A) =>
+    isCapabilityRestricted('inference') ? Promise.resolve() : action(...args);
+}
+
 function viewportCenterWorld(cam: {
   zoom: number;
   pan: { x: number; y: number };
@@ -1044,6 +1060,7 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
     name: string,
     filePath: string | undefined,
     json: string | null,
+    libraryStorage?: boolean,
   ) => void;
   /** Visible root-level nodes in paint order (layers panel, IR). */
   rootNodes: () => SceneNode[];
@@ -2141,6 +2158,7 @@ export function EditorProvider({
   initialDocumentName,
   initialFileId,
   initialFilePath,
+  initialLibraryStorage,
   platform,
   externalState,
   onMutation,
@@ -2162,6 +2180,7 @@ export function EditorProvider({
    */
   initialFileId?: string;
   initialFilePath?: string;
+  initialLibraryStorage?: boolean;
   platform?: Platform;
   /**
    * Remote-session sync (auxiliary windows, ADR-0204).
@@ -2210,6 +2229,17 @@ export function EditorProvider({
       focusedNodeId: null,
       activeContainerId: null,
       selectionMode: 'object' as const,
+      areaSelection: null,
+      areaSelectionSettings: {
+        operation: 'replace',
+        style: 'normal',
+        ratio: 1,
+        fixedWidth: 100,
+        fixedHeight: 100,
+        fromCenter: false,
+        feather: 0,
+        antialias: true,
+      },
       selectionOrigin: 'api' as const,
       selectionRevision: 0,
       document: doc,
@@ -2220,6 +2250,7 @@ export function EditorProvider({
           dirty: false,
           ...(initialFileId ? { fileId: initialFileId } : {}),
           ...(initialFilePath ? { filePath: initialFilePath } : {}),
+          ...(initialLibraryStorage ? { libraryStorage: true } : {}),
         },
       ],
       activeId: INITIAL_SESSION_ID,
@@ -2482,6 +2513,7 @@ export function EditorProvider({
             dirty: false,
             filePath: meta?.filePath,
             fileId: meta?.fileId,
+            libraryStorage: meta?.libraryStorage,
           },
         ],
         activeId: newId,
@@ -2646,7 +2678,9 @@ export function EditorProvider({
       // Clear the resolved-color cache on theme switch (gridRenderer).
       // Uses global to avoid adding an import to this hub file.
       if (typeof window !== 'undefined') {
-        (window as any).__clearResolvedColorCache?.();
+        (
+          window as Window & { __clearResolvedColorCache?: () => void }
+        ).__clearResolvedColorCache?.();
       }
       patch({ themeRevision: stateRef.current.themeRevision + 1 });
     });
@@ -3758,11 +3792,17 @@ export function EditorProvider({
             const parentIndex = buildParentIndexMap(newDoc);
 
             // Find siblings (nodes with same parent as the new frame)
-            const frameParent = parentIndex.get(id);
+            const frameParent = parentIndex.get(id) ?? null;
             const siblings: NodeId[] = [];
-            for (const [nodeId, parentId] of parentIndex.entries()) {
-              if (parentId === frameParent && nodeId !== id) {
-                siblings.push(nodeId);
+            if (frameParent) {
+              for (const [nodeId, parentId] of parentIndex.entries()) {
+                if (parentId === frameParent && nodeId !== id) {
+                  siblings.push(nodeId);
+                }
+              }
+            } else {
+              for (const nodeId of newDoc.rootChildren) {
+                if (nodeId !== id) siblings.push(nodeId);
               }
             }
 
@@ -6671,6 +6711,48 @@ export function EditorProvider({
         }));
       },
 
+      setAreaSelection: (selection: AreaSelection | null) => {
+        setState((s) => {
+          const nextGeneration =
+            selection === null
+              ? (s.areaSelection?.generation ?? 0) + 1
+              : Math.max(selection.generation, (s.areaSelection?.generation ?? 0) + 1);
+          return {
+            ...s,
+            areaSelection: selection === null ? null : { ...selection, generation: nextGeneration },
+          };
+        });
+      },
+
+      setAreaSelectionSettings: (patch: Partial<AreaSelectionSettings>) => {
+        setState((s) => {
+          const current = s.areaSelectionSettings;
+          return {
+            ...s,
+            areaSelectionSettings: {
+              ...current,
+              ...patch,
+              ratio:
+                Number.isFinite(patch.ratio) && (patch.ratio ?? 0) > 0
+                  ? patch.ratio!
+                  : current.ratio,
+              fixedWidth:
+                Number.isFinite(patch.fixedWidth) && (patch.fixedWidth ?? 0) >= 0
+                  ? patch.fixedWidth!
+                  : current.fixedWidth,
+              fixedHeight:
+                Number.isFinite(patch.fixedHeight) && (patch.fixedHeight ?? 0) >= 0
+                  ? patch.fixedHeight!
+                  : current.fixedHeight,
+              feather:
+                Number.isFinite(patch.feather) && (patch.feather ?? 0) >= 0
+                  ? patch.feather!
+                  : current.feather,
+            },
+          };
+        });
+      },
+
       setWarpEdit: (target) => {
         setState((s) => {
           const next = target ? { nodeId: target.nodeId, modifierId: target.modifierId } : null;
@@ -7473,6 +7555,18 @@ export function EditorProvider({
           let doc = s.document;
           const newIds: NodeId[] = [];
           const resourceImports: ImportedResourceSet[] = [];
+          const selectedContainerId: NodeId | null =
+            s.selection.length === 1
+              ? (() => {
+                  const selected = s.document.nodes[s.selection[0]!];
+                  return selected &&
+                    !selected.locked &&
+                    selected.visible !== false &&
+                    (selected.kind === 'frame' || selected.kind === 'group')
+                    ? selected.id
+                    : null;
+                })()
+              : null;
           let batchIndex = 0;
           for (const { node, sourceDoc, position } of items) {
             // Cascade positionless items from the viewport centre so a
@@ -7520,6 +7614,28 @@ export function EditorProvider({
                     },
                   };
                 }
+              }
+            }
+            // File-picker imports honour a selected frame/group as their
+            // destination, matching paste and canvas-drop behaviour. The
+            // importer initially attaches roots to the active page so it can
+            // remain document-scoped; rebase the imported world transform
+            // before reparenting so translated/rotated containers do not
+            // teleport their new children.
+            if (selectedContainerId && doc.nodes[selectedContainerId]) {
+              const parent = doc.nodes[selectedContainerId];
+              const importedWorld = nodeWorldTransform(doc, inserted.rootId);
+              const parentWorld = nodeWorldTransform(doc, selectedContainerId);
+              const localTransform = multiplyAffine(invertAffine(parentWorld), importedWorld);
+              const toIndex = isContainer(parent) ? parent.children.length : -1;
+              if (toIndex >= 0) {
+                doc = reparentNodeDoc(
+                  doc,
+                  inserted.rootId,
+                  selectedContainerId,
+                  toIndex,
+                  localTransform,
+                );
               }
             }
             newIds.push(inserted.rootId);
@@ -7833,6 +7949,11 @@ export function EditorProvider({
           applySelectedLayoutChildField(doc, state.selection, 'layoutPosition', value),
         ),
 
+      setSelectedLayoutAlign: (value) =>
+        updateDoc((doc) =>
+          applySelectedLayoutChildField(doc, state.selection, 'layoutAlign', value),
+        ),
+
       setSelectedGridPlacement: (value) => {
         const sel = state.selection;
         if (sel.length === 0) return;
@@ -8011,6 +8132,7 @@ export function EditorProvider({
         name: string,
         filePath: string | undefined,
         json: string | null,
+        libraryStorage?: boolean,
       ) => {
         // Parse up front; null/invalid json = fresh blank document (new file).
         let doc: Document;
@@ -8130,7 +8252,9 @@ export function EditorProvider({
               pan: openPan,
               dirty: false,
               sessions: s.sessions.map((sess) =>
-                sess.id === s.activeId ? { ...sess, name, filePath, fileId } : sess,
+                sess.id === s.activeId
+                  ? { ...sess, name, filePath, fileId, libraryStorage: libraryStorage || undefined }
+                  : sess,
               ),
               activeId: s.activeId,
             };
@@ -8145,7 +8269,17 @@ export function EditorProvider({
             zoom: openZoom,
             pan: openPan,
             dirty: false,
-            sessions: [...syncedSessions, { id: newId, name, dirty: false, filePath, fileId }],
+            sessions: [
+              ...syncedSessions,
+              {
+                id: newId,
+                name,
+                dirty: false,
+                filePath,
+                fileId,
+                libraryStorage: libraryStorage || undefined,
+              },
+            ],
             activeId: newId,
           };
         });
@@ -8159,6 +8293,11 @@ export function EditorProvider({
 
       upscaleDialogOpen: state.upscaleDialogOpen,
       openUpscaleDialog: () => {
+        // Choke point. Upscaling is reachable from the layers context menu, two
+        // inspector sections, the selection quick bar, the command palette and
+        // an action handler — gating the affordances one by one leaves whichever
+        // route was missed wide open, so refuse here instead.
+        if (isCapabilityRestricted('inference')) return;
         patch({ upscaleDialogOpen: true });
       },
       closeUpscaleDialog: () => {
@@ -8780,7 +8919,8 @@ export function EditorProvider({
         announcerRef.current?.announce('Live trace cancelled');
       },
 
-      removeBackground: bgRemoval.removeBackground,
+      // Same reasoning as openUpscaleDialog: one guard, every route.
+      removeBackground: guardInference(bgRemoval.removeBackground),
 
       cancelBackgroundRemoval: bgRemoval.cancelBackgroundRemoval,
 
@@ -8788,7 +8928,7 @@ export function EditorProvider({
 
       cancelBackgroundRemovalPreview: bgRemoval.cancelBackgroundRemovalPreview,
 
-      removeBackgroundWithOptions: bgRemoval.removeBackgroundWithOptions,
+      removeBackgroundWithOptions: guardInference(bgRemoval.removeBackgroundWithOptions),
 
       setShowOriginalBg: bgRemoval.setShowOriginalBg,
       setMaskPreviewMode: bgRemoval.setMaskPreviewMode,

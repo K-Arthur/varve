@@ -3,7 +3,7 @@ import type { Timeline } from '@varve/scene';
 import { getAnimatedMediaFill } from '@varve/scene';
 import type { EasingDefinition } from '@varve/shared';
 import { Select, Tooltip, TooltipProvider } from '@varve/ui';
-import { type FC, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { type FC, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { PanelDragHandle } from '../components/PanelDragHandle';
 import { EditorCtx } from '../context';
 import { GraphEditor } from './GraphEditor';
@@ -145,10 +145,51 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   const [zoom, setZoom] = useState(1);
   const tracksContainerRef = useRef<HTMLUListElement>(null);
 
-  const presetOptions = useMemo(
-    () => Object.values(motionPresets).map((p) => ({ id: p.id, name: p.name })),
-    [motionPresets],
+  const TRACK_HEIGHT = 28;
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(400);
+
+  const handleTracksScroll = useCallback(() => {
+    const el = tracksContainerRef.current;
+    if (el) setScrollOffset(el.scrollTop);
+  }, []);
+
+  const visibleStart = Math.floor(scrollOffset / TRACK_HEIGHT);
+  const visibleEnd = Math.min(
+    tracks.length,
+    Math.ceil((scrollOffset + containerHeight) / TRACK_HEIGHT) + 5,
   );
+  const visibleTracks = tracks.slice(visibleStart, visibleEnd);
+
+  useEffect(() => {
+    const el = tracksContainerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setContainerHeight(entry.contentRect.height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const BUILTIN_MOTION_PRESETS = [
+    { id: '__builtin_fade-in', name: 'Fade In', builtin: true },
+    { id: '__builtin_slide-up', name: 'Slide Up', builtin: true },
+    { id: '__builtin_slide-down', name: 'Slide Down', builtin: true },
+    { id: '__builtin_slide-left', name: 'Slide Left', builtin: true },
+    { id: '__builtin_slide-right', name: 'Slide Right', builtin: true },
+    { id: '__builtin_scale-in', name: 'Scale In', builtin: true },
+    { id: '__builtin_rotate', name: 'Rotate', builtin: true },
+    { id: '__builtin_bounce-in', name: 'Bounce In', builtin: true },
+    { id: '__builtin_fade-slide-up', name: 'Fade + Slide Up', builtin: true },
+  ];
+
+  const presetOptions = useMemo(() => {
+    const userPresets = Object.values(motionPresets).map((p) => ({ id: p.id, name: p.name }));
+    // When user presets exist, show only user presets to avoid name collisions
+    if (userPresets.length > 0) return userPresets;
+    return BUILTIN_MOTION_PRESETS;
+  }, [motionPresets]);
 
   const handleTimelineSelect = useCallback(
     (val: string) => {
@@ -333,49 +374,75 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
             />
           </div>
 
-          <ul className="timeline-panel__tracks" ref={tracksContainerRef}>
+          <ul
+            className="timeline-panel__tracks"
+            ref={tracksContainerRef}
+            onScroll={tracks.length > 20 ? handleTracksScroll : undefined}
+          >
             {tracks.length === 0 ? (
               <li className="timeline-panel__empty-tracks">No tracks in this timeline</li>
             ) : (
-              tracks.map((track) => (
-                <TrackRow
-                  key={track.id}
-                  track={track}
-                  nodeName={getNodeName?.(track.nodeId) ?? track.nodeId}
-                  duration={duration}
-                  zoom={zoom}
-                  selected={selectedTrackIds.includes(track.id)}
-                  selectedKeyframeIndex={
-                    selectedKeyframe?.trackId === track.id ? selectedKeyframe.index : null
-                  }
-                  timelines={timelines}
-                  activeTimelineId={activeTimelineId}
-                  onSelectTrack={onSelectTrack}
-                  onClickKeyframe={onClickKeyframe}
-                  onSetNestedTimeline={onSetTrackNestedTimeline}
-                  onDeleteKeyframe={
-                    onDeleteKeyframe && activeTimelineId
-                      ? (progress) => onDeleteKeyframe(activeTimelineId, track.id, progress)
-                      : undefined
-                  }
-                  onMoveKeyframe={
-                    onMoveKeyframe && activeTimelineId
-                      ? (oldProgress, newProgress) =>
-                          onMoveKeyframe(activeTimelineId, track.id, oldProgress, newProgress)
-                      : undefined
-                  }
-                  onSetMuted={
-                    onSetTrackMuted && activeTimelineId
-                      ? (muted) => onSetTrackMuted(activeTimelineId, track.id, muted)
-                      : undefined
-                  }
-                  onSetSolo={
-                    onSetTrackSolo && activeTimelineId
-                      ? (solo) => onSetTrackSolo(activeTimelineId, track.id, solo)
-                      : undefined
-                  }
-                />
-              ))
+              <div
+                style={{
+                  height: `${tracks.length * TRACK_HEIGHT}px`,
+                  width: '100%',
+                  position: 'relative',
+                }}
+              >
+                {visibleTracks.map((track, vi) => {
+                  const idx = visibleStart + vi;
+                  return (
+                    <div
+                      key={track.id}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: `${TRACK_HEIGHT}px`,
+                        transform: `translateY(${idx * TRACK_HEIGHT}px)`,
+                      }}
+                    >
+                      <TrackRow
+                        track={track}
+                        nodeName={getNodeName?.(track.nodeId) ?? track.nodeId}
+                        duration={duration}
+                        zoom={zoom}
+                        selected={selectedTrackIds.includes(track.id)}
+                        selectedKeyframeIndex={
+                          selectedKeyframe?.trackId === track.id ? selectedKeyframe.index : null
+                        }
+                        timelines={timelines}
+                        activeTimelineId={activeTimelineId}
+                        onSelectTrack={onSelectTrack}
+                        onClickKeyframe={onClickKeyframe}
+                        onSetNestedTimeline={onSetTrackNestedTimeline}
+                        onDeleteKeyframe={
+                          onDeleteKeyframe && activeTimelineId
+                            ? (progress) => onDeleteKeyframe(activeTimelineId, track.id, progress)
+                            : undefined
+                        }
+                        onMoveKeyframe={
+                          onMoveKeyframe && activeTimelineId
+                            ? (oldProgress, newProgress) =>
+                                onMoveKeyframe(activeTimelineId, track.id, oldProgress, newProgress)
+                            : undefined
+                        }
+                        onSetMuted={
+                          onSetTrackMuted && activeTimelineId
+                            ? (muted) => onSetTrackMuted(activeTimelineId, track.id, muted)
+                            : undefined
+                        }
+                        onSetSolo={
+                          onSetTrackSolo && activeTimelineId
+                            ? (solo) => onSetTrackSolo(activeTimelineId, track.id, solo)
+                            : undefined
+                        }
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </ul>
 

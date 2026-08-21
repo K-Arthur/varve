@@ -718,6 +718,35 @@ describe('withStubFallback resilience', () => {
     expect(idx).not.toBeNull();
   });
 
+  it('routes raster tile scenes through the TS renderer', async () => {
+    const primary: Engine = {
+      backend: 'wasm',
+      buildIr: vi.fn(async () => []),
+      hitTest: vi.fn(async () => null),
+    };
+    const eng = withStubFallback(primary);
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'raster-1',
+          name: 'Raster Layer',
+          kind: 'rasterLayer',
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+          rasterLayerData: {
+            width: 128,
+            height: 128,
+            pixelMode: false,
+            tiles: { '0:0': { pixels: new Array(128 * 128 * 4).fill(0), version: 1 } },
+          },
+        },
+      ],
+    });
+
+    expect(primary.buildIr).not.toHaveBeenCalled();
+    expect(ir[0]?.primitive.kind).toBe('rasterLayer');
+  });
+
   it('does not wrap a stub engine (no double fallback)', () => {
     const stub = createStubForTest();
     expect(withStubFallback(stub)).toBe(stub);

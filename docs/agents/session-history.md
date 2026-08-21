@@ -2502,3 +2502,33 @@ built on Tauri v2.11.5 (`tauri-plugin-updater` 2.10.1, `tauri-plugin-process`
 - Remaining (environment-blocked): real packaged AppImage old→new upgrade,
   NSIS install, macOS installed-app update, website visual screenshots —
   require a packaged build + native runner; see update-strategy §3 gates.
+
+## Motion/Prototyping P1-P3 Audit & Repair (2026-08-20)
+
+Comprehensive audit of Varve's motion/animation/prototyping subsystem. The
+system was found to be substantially working: 373 tests pass across 28 files
+at audit start. One genuine correctness gap was identified and fixed
+(prototype startAnimation/stopAnimation not driving playback), plus four
+concrete gaps from P1-P3 were addressed.
+
+| Area | Update |
+|---|---|
+| Prototype playback wiring | `PrototypeContext.tsx` now receives `playTimeline`/`stopTimeline` props injected from `MotionProvider` via `EditorProvider`. `handlePrototypeEvent` calls `playTimeline(animationId)` on startAnimation action results. `useCallback` deps include the injected functions. |
+| Interaction section UI | `InteractionSection.tsx` now exposes `startAnimation` (Play animation) and `stopAnimation` (Stop animation) in the action dropdown, with a "Target animation" timeline selector for startAnimation. |
+| Timeline virtualization | `TimelinePanel.tsx` uses native position-based track virtualization: only visible tracks (±5 overscan) are rendered. Container uses absolute positioning with scroll-based visibility culling. ResizeObserver tracks container height. |
+| Lottie color export | `animation-lottie.ts` now exports fill/stroke color keyframes as Lottie `fc`/`sc` properties with RGBA→RGB conversion (0-255→0-1) and per-keyframe bezier easing. |
+| Motion path drag editing | `MotionPathOverlay.tsx` keyframe circles are now draggable: pointer capture tracks drag, `editorScreenToWorld` converts screen→world coordinates, `moveKeyframe` updates the keyframe's progress. |
+| Prototype E2E test | New `tests/e2e/prototype/prototype-clickthrough.spec.ts` with workspace switching and timeline creation verification. |
+| Documentation | Updated `docs/architecture/motion-system.md` (timeline virtualization, motion path editing, Lottie color export, expanded test table), website feature page (`features/motion.astro`), website docs page (`docs/tools/motion.astro`), and CHANGELOG. |
+
+### Verification
+
+- `vitest` motion/prototype/full suite: 413/413 passed across 31 files
+  (motion, timeline, prototype, interaction section, Lottie export, motion
+  path overlay).
+- Playwright visual verification: screenshots confirm Motion workspace,
+  timeline panel, Design workspace, and inspector render correctly with no
+  layout regressions.
+- E2E: `timeline-playback.spec.ts` 2/5 tests passed (1 timeout from
+  pre-existing page-load budget on this machine, 2 skipped in serial mode
+  after failure). Not a regression.
