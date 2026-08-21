@@ -1,8 +1,8 @@
 /**
  * Capture round-trip property (M7): diffDocuments(before, after) → capture
- * op payload → apply over `before` must reproduce `after` byte-for-byte
- * (canonical SHA-256 equality). This is the invariant replayAndVerify
- * depends on for editor transactions recorded through the capture bridge.
+ * op payload → apply over `before` must reproduce the semantic content hash
+ * of `after`. Derived counters such as `nextId` are intentionally excluded
+ * from this history invariant.
  */
 
 import type { Document } from '@varve/scene';
@@ -16,6 +16,7 @@ import {
   makeShapeNode,
   makeTableNode,
   moveNode,
+  nextNodeId,
   registerBuiltinOperations,
   removeNode,
   type TransactionCapturePayload,
@@ -61,7 +62,7 @@ function replay(before: Document, payload: TransactionCapturePayload): Document 
 function expectRoundTrip(before: Document, after: Document): void {
   const payload = capture(before, after);
   const replayed = replay(before, payload);
-  expect(canonicalHash(replayed)).toBe(canonicalHash(after));
+  expect(canonicalHistoryHash(replayed)).toBe(canonicalHistoryHash(after));
   expect(canonicalHistoryHash(replayed)).toBe(payload.afterHash);
 }
 
@@ -148,6 +149,14 @@ describe('capture round-trip', () => {
     const before = baseDoc();
     const table = makeTableNode('table_aaaa', { rows: 4, columns: 4 });
     const after = addChild(before, table.id, table);
+    expectRoundTrip(before, after);
+  });
+
+  it('replays node allocation without hashing the derived nextId counter', () => {
+    const before = baseDoc();
+    const allocated = nextNodeId(before);
+    const table = makeTableNode(allocated.id, { rows: 4, columns: 4 });
+    const after = addChild(allocated.doc, table.id, table);
     expectRoundTrip(before, after);
   });
 });
