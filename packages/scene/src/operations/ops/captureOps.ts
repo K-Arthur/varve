@@ -229,7 +229,7 @@ function applyChanges(document: Document, changes: CapturedChange[]): Document {
     switch (change.changeType) {
       case 'added': {
         if (!MAP_BACKED.has(change.entityType) || !change.propertyPath) continue;
-        const container = resolveRecord(next, change.propertyPath);
+        const container = resolveRecord(next, change.propertyPath, true);
         if (container !== undefined) container[change.entityId] = structuredClone(change.after);
         continue;
       }
@@ -260,6 +260,7 @@ function applyChanges(document: Document, changes: CapturedChange[]): Document {
 function resolveRecord(
   root: Record<string, unknown>,
   path: string,
+  createMissing = false,
 ): Record<string, unknown> | undefined {
   const segments = path.split('.');
   let current: unknown = root;
@@ -272,7 +273,12 @@ function resolveRecord(
       if (!found) return undefined;
       current = found;
     } else {
-      current = (current as Record<string, unknown>)[segment];
+      const record = current as Record<string, unknown>;
+      if (record[segment] === undefined) {
+        if (!createMissing) return undefined;
+        record[segment] = {};
+      }
+      current = record[segment];
     }
   }
   return typeof current === 'object' && current !== null && !Array.isArray(current)
@@ -292,11 +298,18 @@ function setAtPath(root: Record<string, unknown>, path: string, value: unknown):
       );
       if (!found) return;
       current = found;
+    } else if (typeof current === 'object' && current !== null) {
+      const record = current as Record<string, unknown>;
+      if (record[segment] === undefined || record[segment] === null) {
+        record[segment] = {};
+      }
+      current = record[segment];
     } else {
-      current = (current as Record<string, unknown>)[segment];
+      return;
     }
   }
   const last = segments[segments.length - 1]!;
+  if (current === null || typeof current !== 'object') return;
   if (Array.isArray(current)) {
     const index = (current as Array<Record<string, unknown>>).findIndex(
       (item) => item?.id === last,
@@ -304,7 +317,9 @@ function setAtPath(root: Record<string, unknown>, path: string, value: unknown):
     if (index < 0) return;
     (current as unknown[])[index] = value;
   } else {
-    (current as Record<string, unknown>)[last] = value;
+    const record = current as Record<string, unknown>;
+    if (value === undefined) delete record[last];
+    else record[last] = value;
   }
 }
 
