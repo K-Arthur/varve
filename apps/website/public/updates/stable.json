@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "notes": "",
+  "platforms": {
+    "linux-x86_64": {
+      "url": "https://github.com/K-Arthur/varve/releases/download/v0.2.0/Varve-0.2.0-linux-x86_64.AppImage",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUMTFadW14WEIvT1NabjUxY3JJWkZqUlZGNHJoYzk4UGpXekdrY05iZVEwclNLU2NaanJtZFBIU0Rzb3U5dFRuU0kyQ29IOU9ZVUdQOUl2SHI0VFBNRnBacXJBUDNnK2dFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MzIwNzQ2CWZpbGU6VmFydmVfMC4yLjBfYW1kNjQuQXBwSW1hZ2UKM2Uva1NFUjgwRkdqUjluc3k5YkplQUNSRFRnRHpsM2cvRkh1dTc0aFhpd3hmNHllZFB3bVY3QUphZ1ZNWnhlNFRKYU9ZaHM4TnRmTThvUjh0UFlhQ0E9PQo="
+    },
+    "windows-x86_64": {
+      "url": "https://github.com/K-Arthur/varve/releases/download/v0.2.0/Varve-0.2.0-windows-x86_64.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUMTFadW14WEIvT1loNVh6bFZRL0k1MVpGMGxEcWpFSGdxbENJMnJZWGh5K2dvYUhmMTFhb0xaYzVxcGVLaWh3WmR0QzlweW9xMVNYeXExWCtRNnR6Z3B0cFpKQkxySncwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MzIxNjYxCWZpbGU6VmFydmVfMC4yLjBfeDY0LXNldHVwLmV4ZQpxSnRxNFdYeHdMUDRvZ2RqR29NSkpGYmVoSTU5NU95SlRYWXQ2ZGZUam8ybCsrakZjRGQwTm01NStQMTVxaXkydTFFN3N6OFlWUGFvSVhGczVVOTFDQT09Cg=="
+    }
+  }
+}

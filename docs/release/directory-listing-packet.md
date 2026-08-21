@@ -16,7 +16,7 @@ License:           FSL-1.1-MIT (source-available; converts to MIT after
 Pricing:           Free. No subscription, no feature lockouts.
 Platform:          Linux (x86_64, aarch64), macOS (Apple Silicon),
                    Windows (x86_64, aarch64)
-Status:            Public beta (v0.1.2 as of 2026-08-16)
+Status:            Public beta (v0.2.0 as of 2026-08-21)
 Homepage:          https://varve.studio
 Download:          https://varve.studio/download
 Source:            https://github.com/K-Arthur/varve
@@ -79,8 +79,8 @@ policy is published at https://varve.studio/about/privacy.
   "operatingSystems": ["Linux", "macOS", "Windows"],
   "categories": ["Design", "Vector Graphics", "Print", "Prototyping"],
   "status": "public-beta",
-  "version": "0.1.2",
-  "releaseDate": "2026-08-16",
+  "version": "0.2.0",
+  "releaseDate": "2026-08-21",
   "privacyPolicy": "https://varve.studio/about/privacy",
   "supportUrl": "https://github.com/K-Arthur/varve/discussions"
 }

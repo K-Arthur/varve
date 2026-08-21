@@ -1,7 +1,7 @@
 # Varve — Platform & Architecture Support Matrix
 
-**Date:** 2026-08-16
-**Applies to:** the current release line (v0.1.2 published 2026-08-16;
+**Date:** 2026-08-21
+**Applies to:** the current release line (v0.2.0 published 2026-08-21;
 v0.1.1 published 2026-08-12; v0.1.0 published 2026-08-09)
 
 The guiding rule: **do not advertise a platform we have not run the application on.**
@@ -26,8 +26,8 @@ below is backed by an actual launch on real hardware; everything else is labelle
 | OS | Arch | Build | Package | Signing | Tested | Min OS | Tier | Confidence |
 |---|---|---|---|---|---|---|---|---|
 | **Linux** (Arch/CachyOS) | x86-64 | ✅ built + launched | `.deb` (host WebKitGTK) | unsigned | ✅ dev machine | glibc 2.35+ | **1** | High |
-| **Linux** (Debian/Ubuntu) | x86-64 | ✅ built locally | `.deb` 74 MB | unsigned | ⬜ VM needed (container install-test ✅) | Ubuntu 22.04 | **2** | Medium |
-| **Linux** (Fedora/RHEL) | x86-64 | ✅ built locally | `.rpm` 74 MB | unsigned | ⬜ VM needed (container install-test ✅) | Fedora 38 | **2** | Low |
+| **Linux** (Debian/Ubuntu) | x86-64 | ✅ built locally | `.deb` 49.8 MB (v0.2.0) | unsigned | ⬜ VM needed (container install-test ✅) | Ubuntu 22.04 | **2** | Medium |
+| **Linux** (Fedora/RHEL) | x86-64 | ✅ built locally | `.rpm` 49.8 MB (v0.2.0) | unsigned | ⬜ VM needed (container install-test ✅) | Fedora 38 | **2** | Low |
 | **Linux** | ARM64 | 🟡 matrix wired (`ubuntu-22.04-arm`); artifact/runtime gates pending | AppImage, `.deb`, `.rpm` | checksums + SBOM | ⬜ genuine ARM runtime and GUI smoke pending | glibc 2.35+ | **3 — Experimental** | Low |
 | **Windows 10/11** | x86-64 | ✅ built in CI (`windows-latest`, NSIS) | `.exe` | unsigned | ⚠️ runner smoke passed 2026-08-09 (install/launch/uninstall); no long-term hardware testing | Win 10 1809 | **3** | Low |
 | **Windows** | ARM64 | 🟡 matrix wired (`windows-11-arm`); native executable/runtime gates pending | native ARM64 app in NSIS distribution | unsigned until signing gate passes | ⬜ Windows on ARM runtime smoke pending | Windows 10 1809 | **3 — Experimental** | Low |
