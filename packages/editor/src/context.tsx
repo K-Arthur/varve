@@ -2856,8 +2856,6 @@ export function EditorProvider({
     [updateDoc],
   );
 
-  const layoutSetters = makeLayoutSetters(updateDoc, state, reflowLayoutChildren);
-
   // F6: transaction API — begin/commit/abort for single-undo scrubbing
   // P5: Wired to @varve/collab transaction hooks for Yjs integration
   const beginTransaction = useCallback(() => {
