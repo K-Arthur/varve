@@ -8,7 +8,7 @@
  */
 
 import type { Document } from '@varve/scene';
-import { canonicalHash, canonicalizeDocument } from '@varve/scene';
+import { canonicalHistoryHash, canonicalizeDocument } from '@varve/scene';
 import type { HistoryStore } from './store';
 
 export interface SnapshotRecord {
@@ -67,7 +67,7 @@ export async function createSnapshot(
   opts: { documentId: string; revisionId: string; schemaVersion?: number },
 ): Promise<SnapshotRecord> {
   const canonicalText = canonicalizeDocument(document);
-  const hash = canonicalHash(document);
+  const hash = canonicalHistoryHash(document);
   const existing = await store.getSnapshot(opts.documentId, hash);
   if (existing) return existing;
   const snapshot: SnapshotRecord = {

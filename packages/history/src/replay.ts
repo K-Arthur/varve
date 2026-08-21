@@ -9,7 +9,7 @@
  */
 
 import type { Document } from '@varve/scene';
-import { applyOperation, canonicalHash, hasOperation } from '@varve/scene';
+import { applyOperation, canonicalHistoryHash, hasOperation } from '@varve/scene';
 import { verifySegmentChecksum } from './log';
 import { snapshotToDocument } from './snapshots';
 import type { HistoryStore } from './store';
@@ -40,7 +40,7 @@ export function applyStoredOperations(base: Document, operations: StoredOperatio
 
 /** Canonical hash of a document (replay verification input). */
 export function hashOf(document: Document): string {
-  return canonicalHash(document);
+  return canonicalHistoryHash(document);
 }
 
 /** Position just after `position` (exclusive start for ranges). */

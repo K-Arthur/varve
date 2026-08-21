@@ -10,7 +10,7 @@ import { createMemoryHistoryStore, type HistoryStore } from '@varve/history';
 import type { Document } from '@varve/scene';
 import {
   applyOperation,
-  canonicalHash,
+  canonicalHistoryHash,
   createDocument,
   makeShapeNode,
   registerBuiltinOperations,
@@ -206,7 +206,7 @@ describe('EditorHistorySession', () => {
     const steps = await second.steps();
     expect(steps).toHaveLength(3);
     expect(steps[2]!.label).toBe('Loaded working state');
-    expect(steps[2]!.revision.canonicalDocumentHash).toBe(canonicalHash(moved));
+    expect(steps[2]!.revision.canonicalDocumentHash).toBe(canonicalHistoryHash(moved));
   });
 
   it('protects the attached branch and branches with unique work from deletion', async () => {
