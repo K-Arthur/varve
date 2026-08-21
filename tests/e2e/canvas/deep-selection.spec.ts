@@ -248,7 +248,9 @@ test.describe('Deep Selection', () => {
     const { canvasBox } = await createFrameWithChild(page);
 
     // Toggle auto-reveal off
-    const autoRevealBtn = page.locator('.layers-panel__auto-reveal-btn');
+    const autoRevealBtn = page.getByRole('button', {
+      name: 'Auto-reveal canvas selection',
+    });
     await autoRevealBtn.click();
     await page.waitForTimeout(100);
     await expect(autoRevealBtn).toHaveAttribute('aria-pressed', 'false');
