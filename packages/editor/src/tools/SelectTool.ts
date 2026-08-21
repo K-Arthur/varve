@@ -1018,6 +1018,41 @@ function isPointNearPath(
   return false;
 }
 
+/** F: Check if a world-space point is near any segment of a path node. */
+function isPointNearPath(
+  world: { x: number; y: number },
+  node: import('@varve/scene').SceneNode,
+  nodeId: string,
+  doc: import('@varve/scene').Document,
+  threshold: number,
+): boolean {
+  if (node.kind !== 'shape' || node.shape.kind !== 'path') return false;
+  const points = node.shape.points;
+  if (!points || points.length < 2) return false;
+
+  const worldMat = nodeWorldTransform(doc, nodeId);
+  const invMat = invertAffine(worldMat);
+  if (!invMat) return false;
+
+  const localPt = applyAffine(invMat, [world.x, world.y]);
+
+  for (let i = 0; i < points.length; i++) {
+    const from = points[i]!;
+    const to = points[(i + 1) % points.length]!;
+
+    // Check bezier segment if handles exist
+    if (from.handleOut || to.handleIn) {
+      const bez = pathPointToBezier(from, to);
+      const closest = cubicBezierClosestPoint(bez, { x: localPt[0], y: localPt[1] });
+      if (closest.dist <= threshold * threshold) return true;
+    } else {
+      const distSq = pointToSegmentDistSq([from.x, from.y], [to.x, to.y], [localPt[0], localPt[1]]);
+      if (distSq <= threshold * threshold) return true;
+    }
+  }
+  return false;
+}
+
 function childrenCount(
   doc: { nodes: Record<string, { id: string; children?: string[] }> },
   id: string,
