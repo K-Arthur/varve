@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -14,7 +14,8 @@ const fixture = mkdtempSync(join(tmpdir(), 'varve-collect-artifacts-'));
 const bundle = join(fixture, 'bundle', 'appimage');
 const unsignedOut = join(fixture, 'unsigned');
 const signedOut = join(fixture, 'signed');
-const source = join(bundle, 'Varve_0.1.2_amd64.AppImage');
+const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+const source = join(bundle, `Varve_${version}_amd64.AppImage`);
 
 mkdirSync(bundle, { recursive: true });
 writeFileSync(source, 'synthetic AppImage bytes');
@@ -41,12 +42,12 @@ function collect(out, updaterSignatures) {
 
 try {
   collect(unsignedOut, false);
-  assert.equal(existsSync(join(unsignedOut, 'Varve-0.1.2-linux-x86_64.AppImage')), true);
-  assert.equal(existsSync(join(unsignedOut, 'Varve-0.1.2-linux-x86_64.AppImage.sig')), false);
+  assert.equal(existsSync(join(unsignedOut, `Varve-${version}-linux-x86_64.AppImage`)), true);
+  assert.equal(existsSync(join(unsignedOut, `Varve-${version}-linux-x86_64.AppImage.sig`)), false);
 
   writeFileSync(`${source}.sig`, 'synthetic updater signature');
   collect(signedOut, true);
-  assert.equal(existsSync(join(signedOut, 'Varve-0.1.2-linux-x86_64.AppImage.sig')), true);
+  assert.equal(existsSync(join(signedOut, `Varve-${version}-linux-x86_64.AppImage.sig`)), true);
 
   rmSync(`${source}.sig`);
   assert.throws(

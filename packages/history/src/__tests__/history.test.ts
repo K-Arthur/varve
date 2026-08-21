@@ -4,7 +4,7 @@
  */
 
 import type { Document } from '@varve/scene';
-import { canonicalHash } from '@varve/scene';
+import { canonicalHash, canonicalHistoryHash } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { buildEntityIndex, entityOperations } from '../entityIndex';
 import { importLegacyVersions, validateImportedHistory } from '../legacyImport';
@@ -301,7 +301,7 @@ describe('revision DAG', () => {
     // Snapshot at tx1 and attach it to tx1.
     await createSnapshot(store, r.document, { documentId: 'doc-1', revisionId: tx.revisionId });
     const tx1WithSnapshot = (await store.getRevision('doc-1', tx.revisionId))!;
-    const snap = (await store.getSnapshot('doc-1', canonicalHash(r.document)))!;
+    const snap = (await store.getSnapshot('doc-1', canonicalHistoryHash(r.document)))!;
     await store.putRevision({ ...tx1WithSnapshot, snapshotId: snap.canonicalHash });
 
     r = record(r, 'node.patch', { nodeId: FIXTURE_NODE_ID, path: 'opacity', value: 0.25 }, 2);
