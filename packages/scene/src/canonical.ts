@@ -25,6 +25,8 @@ import type { SceneNode } from './types';
 export interface CanonicalizeOptions {
   /** Replace binary payloads with their content reference (default true). */
   excludePayloads?: boolean;
+  /** Omit derived runtime counters from content hashes (history policy). */
+  excludeVolatile?: boolean;
 }
 
 export class CanonicalizationError extends Error {
@@ -306,6 +308,7 @@ const PATH_ORDER_MAP: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
 
 interface SerializeCtx {
   excludePayloads: boolean;
+  excludeVolatile: boolean;
   payloadOwners: Set<string>;
   payloadToAssetId: Map<string, string>;
 }
@@ -340,6 +343,7 @@ function canonify(value: unknown, path: string, ctx: SerializeCtx): unknown {
 
   const out: Record<string, unknown> = {};
   for (const key of orderedKeys(record, path)) {
+    if (ctx.excludeVolatile && path === '' && key === 'nextId') continue;
     let child = record[key];
     if (ctx.excludePayloads && typeof child === 'string') {
       if (key === 'src' && ctx.payloadToAssetId.has(child)) {
@@ -424,7 +428,12 @@ export function canonicalizeDocument(doc: Document, opts: CanonicalizeOptions = 
     }
   }
 
-  const ctx: SerializeCtx = { excludePayloads, payloadOwners, payloadToAssetId };
+  const ctx: SerializeCtx = {
+    excludePayloads,
+    excludeVolatile: opts.excludeVolatile ?? false,
+    payloadOwners,
+    payloadToAssetId,
+  };
   const tree = canonify(doc, '', ctx);
   return JSON.stringify(tree);
 }
@@ -435,6 +444,15 @@ export function canonicalizeDocument(doc: Document, opts: CanonicalizeOptions = 
  */
 export function canonicalHash(doc: Document, opts: CanonicalizeOptions = {}): string {
   return canonicalDigest(canonicalizeDocument(doc, opts));
+}
+
+/**
+ * Content hash used by persistent history and semantic merge/replay.
+ * `nextId` is persisted for compatibility but is derived from document ids,
+ * so it must not make two semantically identical revisions hash differently.
+ */
+export function canonicalHistoryHash(doc: Document): string {
+  return canonicalHash(doc, { excludeVolatile: true });
 }
 
 export { canonicalDigest, sha256Hex, sha256Utf8 } from './sha256';
