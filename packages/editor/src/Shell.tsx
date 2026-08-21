@@ -85,6 +85,8 @@ export interface OpenFileRequest {
   filePath?: string;
   /** Document JSON, or null for a fresh blank document. */
   json: string | null;
+  /** True when the request came from the app-managed Home library. */
+  libraryStorage?: boolean;
   seq: number;
 }
 
@@ -96,6 +98,8 @@ export interface ShellProps {
    *  is recognisable to openFile's dedupe rather than being duplicated. */
   documentFileId?: string;
   documentFilePath?: string;
+  /** Whether the bootstrap document is bound to app-managed library storage. */
+  documentLibraryStorage?: boolean;
   /** File-open requests from the host app (home screen). */
   openFile?: OpenFileRequest | null;
   /** False while the editor is hidden behind the home screen — suspends
@@ -273,7 +277,13 @@ function ShellInner({
   useEffect(() => {
     if (!openFile || openFile.seq === lastOpenSeq.current) return;
     lastOpenSeq.current = openFile.seq;
-    editor.openFile(openFile.id, openFile.name, openFile.filePath, openFile.json);
+    editor.openFile(
+      openFile.id,
+      openFile.name,
+      openFile.filePath,
+      openFile.json,
+      openFile.libraryStorage,
+    );
   }, [openFile, editor]);
   const fileRef = useRef<HTMLInputElement>(null);
   const importAbortRef = useRef<AbortController | null>(null);
@@ -1122,6 +1132,7 @@ export function Shell({
   documentName,
   documentFileId,
   documentFilePath,
+  documentLibraryStorage,
   openFile,
   platform,
   active,
@@ -1134,6 +1145,7 @@ export function Shell({
       initialDocumentName={documentName}
       initialFileId={documentFileId}
       initialFilePath={documentFilePath}
+      initialLibraryStorage={documentLibraryStorage}
       platform={platform}
     >
       <SettingsProvider>

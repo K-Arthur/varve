@@ -260,6 +260,7 @@ export function App() {
               name: entry.name,
               json,
               filePath: entry.filePath,
+              libraryStorage: !entry.filePath,
               seq: (prev?.seq ?? 0) + 1,
             }));
             markEditorStateInitialized();
@@ -293,6 +294,7 @@ export function App() {
         name: entry.name,
         json,
         filePath: entry.filePath,
+        libraryStorage: !entry.filePath,
         seq: (prev?.seq ?? 0) + 1,
       }));
       markEditorStateInitialized();
@@ -478,6 +480,7 @@ export function App() {
               documentName={openRequest?.name ?? undefined}
               documentFileId={openRequest?.id ?? undefined}
               documentFilePath={openRequest?.filePath ?? undefined}
+              documentLibraryStorage={openRequest?.libraryStorage}
               platform={platform}
               active={view === 'editor'}
               // The demo opens a poster its visitor has never seen; at 100%

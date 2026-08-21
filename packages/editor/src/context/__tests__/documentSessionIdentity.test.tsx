@@ -114,6 +114,19 @@ describe('newDocument — File > New / Ctrl+N', () => {
 });
 
 describe('openFile — multiple documents open at once', () => {
+  it('preserves an explicit app-library save destination', () => {
+    const getCtx = mountEditor();
+
+    act(() => {
+      getCtx().openFile('library-a', 'Library A', undefined, DOC_JSON, true);
+    });
+
+    expect(activeSession(getCtx())).toMatchObject({
+      fileId: 'library-a',
+      libraryStorage: true,
+    });
+  });
+
   it('opens a second file in its own tab, keeping the first open', () => {
     const getCtx = mountEditor();
     openFileInActiveTab(getCtx, 'file-a', 'Design A', '/docs/a.varve');
@@ -223,7 +236,9 @@ describe('loadDocument — file identity is explicit, never inherited', () => {
 
   it('keeps the binding when replacing the same file (rename, version restore)', () => {
     const getCtx = mountEditor();
-    openFileInActiveTab(getCtx, 'file-a', 'Design A', '/docs/a.varve');
+    act(() => {
+      getCtx().openFile('file-a', 'Design A', undefined, DOC_JSON, true);
+    });
 
     act(() => {
       getCtx().loadDocument(DOC_JSON, { name: 'Renamed', keepIdentity: true });
@@ -232,7 +247,7 @@ describe('loadDocument — file identity is explicit, never inherited', () => {
     expect(activeSession(getCtx())).toMatchObject({
       name: 'Renamed',
       fileId: 'file-a',
-      filePath: '/docs/a.varve',
+      libraryStorage: true,
     });
   });
 

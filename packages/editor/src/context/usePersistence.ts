@@ -156,6 +156,7 @@ export function usePersistence(
             name,
             filePath: meta.filePath,
             fileId: meta.fileId,
+            libraryStorage: meta.libraryStorage,
             saveHandleId: meta.saveHandleId,
             saveHandleName: meta.saveHandleName,
             downloadName: meta.downloadName,
@@ -173,12 +174,14 @@ export function usePersistence(
           ? {
               filePath: active?.filePath,
               fileId: active?.fileId,
+              libraryStorage: active?.libraryStorage,
               saveHandleId: active?.saveHandleId,
               saveHandleName: active?.saveHandleName,
             }
           : {
               filePath: meta?.filePath,
               fileId: meta?.fileId,
+              libraryStorage: meta?.libraryStorage,
               saveHandleId: meta?.saveHandleId,
               saveHandleName: meta?.saveHandleName,
               downloadName: meta?.downloadName,

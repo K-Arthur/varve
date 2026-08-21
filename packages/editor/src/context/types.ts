@@ -856,6 +856,8 @@ export interface EditorContextValue {
     name: string,
     filePath: string | undefined,
     json: string | null,
+    /** True when the app-managed library is the authoritative save target. */
+    libraryStorage?: boolean,
   ) => void;
   rootNodes: () => SceneNode[];
   reparentNode: (id: NodeId, newParentId: NodeId | null, toIndex: number) => void;
