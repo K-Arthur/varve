@@ -15,7 +15,11 @@ import type { BackgroundRemovalOptions, BackgroundRemovalResult, WorkerModelId }
 import { DEFAULT_PREVIEW_MAX_DIMENSION, workerModelIdForMethod } from '../types';
 import type { RemovalProvider } from './types';
 
-async function getPreferredProviders(): Promise<string[]> {
+async function getPreferredProviders(modelId: string): Promise<string[]> {
+  // Keep the bundled U²-Net graph on its validated CPU path. Its MaxPool
+  // ceil_mode is not supported by the current ONNX Runtime WebGPU EP, and a
+  // failed GPU probe can leave the later WASM initialization unusable.
+  if (modelId === 'u2netp' || modelId === 'u2netp-int8') return ['wasm'];
   try {
     const { getBestOnnxProviders } = await import('../environmentCapabilities');
     return getBestOnnxProviders();
@@ -34,7 +38,7 @@ async function createOrtSession(
 }> {
   configureOrtRuntime(ort);
 
-  const providers = await getPreferredProviders();
+  const providers = await getPreferredProviders(modelId);
 
   // Try every accelerated provider first; bare WASM is gated below.
   let lastError: Error | null = null;

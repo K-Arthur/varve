@@ -1,8 +1,8 @@
 /**
  * Capture round-trip property (M7): diffDocuments(before, after) → capture
- * op payload → apply over `before` must reproduce `after` byte-for-byte
- * (canonical SHA-256 equality). This is the invariant replayAndVerify
- * depends on for editor transactions recorded through the capture bridge.
+ * op payload → apply over `before` must reproduce the semantic content hash
+ * of `after`. Derived counters such as `nextId` are intentionally excluded
+ * from this history invariant.
  */
 
 import type { Document } from '@varve/scene';
@@ -10,9 +10,13 @@ import {
   addChild,
   applyOperation,
   canonicalHash,
+  canonicalHistoryHash,
   createDocument,
+  createVariableStore,
   makeShapeNode,
+  makeTableNode,
   moveNode,
+  nextNodeId,
   registerBuiltinOperations,
   removeNode,
   type TransactionCapturePayload,
@@ -58,8 +62,8 @@ function replay(before: Document, payload: TransactionCapturePayload): Document 
 function expectRoundTrip(before: Document, after: Document): void {
   const payload = capture(before, after);
   const replayed = replay(before, payload);
-  expect(canonicalHash(replayed)).toBe(canonicalHash(after));
-  expect(canonicalHash(replayed)).toBe(payload.afterHash);
+  expect(canonicalHistoryHash(replayed)).toBe(canonicalHistoryHash(after));
+  expect(canonicalHistoryHash(replayed)).toBe(payload.afterHash);
 }
 
 describe('capture round-trip', () => {
@@ -114,5 +118,64 @@ describe('capture round-trip', () => {
     const diff = diffDocuments(doc, doc);
     expect(diff.changed).toBe(false);
     expect(diff.changes).toHaveLength(0);
+  });
+
+  it('adds an optional variable store when replaying over a legacy document', () => {
+    const before = baseDoc();
+    const after: Document = { ...before, variableStore: createVariableStore() };
+    after.variableStore!.variables.v_0001 = {
+      id: 'v_0001',
+      name: 'Brand',
+      type: 'color',
+      valuesByMode: { default: '#39d0c6' },
+    };
+    expectRoundTrip(before, after);
+  });
+
+  it('removes an optional variable store without leaving an undefined property', () => {
+    const before: Document = { ...baseDoc(), variableStore: createVariableStore() };
+    before.variableStore!.variables.v_0001 = {
+      id: 'v_0001',
+      name: 'Brand',
+      type: 'color',
+      valuesByMode: { default: '#39d0c6' },
+    };
+    const after: Document = { ...before };
+    delete after.variableStore;
+    expectRoundTrip(before, after);
+  });
+
+  it('replays a table node addition with its nested model intact', () => {
+    const before = baseDoc();
+    const table = makeTableNode('table_aaaa', { rows: 4, columns: 4 });
+    const after = addChild(before, table.id, table);
+    expectRoundTrip(before, after);
+  });
+
+  it('replays node allocation without hashing the derived nextId counter', () => {
+    const before = baseDoc();
+    const allocated = nextNodeId(before);
+    const table = makeTableNode(allocated.id, { rows: 4, columns: 4 });
+    const after = addChild(allocated.doc, table.id, table);
+    expectRoundTrip(before, after);
+  });
+
+  it('replays a page-scoped editor-style table allocation', () => {
+    const before = createDocument('capture-page');
+    const page = before.pages?.[0];
+    expect(page).toBeDefined();
+    const allocated = nextNodeId(before);
+    const table = makeTableNode(allocated.id, {
+      name: 'Table',
+      transform: [1, 0, 0, 1, 200, 160],
+      rows: 4,
+      columns: 4,
+      headerRows: 1,
+      w: 500,
+      h: 300,
+      columnSizing: { kind: 'fraction', value: 1 },
+    });
+    const after = addChild(allocated.doc, page!.contentRoot, table);
+    expectRoundTrip(before, after);
   });
 });

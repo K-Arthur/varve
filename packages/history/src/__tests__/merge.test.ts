@@ -4,7 +4,7 @@
 
 import type { Document } from '@varve/scene';
 import {
-  canonicalHash,
+  canonicalHistoryHash,
   createDocument,
   makeFrameNode,
   makeShapeNode,
@@ -327,7 +327,7 @@ describe('mergeDocuments', () => {
     (theirs.nodes.n2_bbbb as { name: string }).name = 'Group 2';
     const result = mergeDocuments(base, ours, theirs);
     expect(result.invalid).toBe(false);
-    expect(result.mergedHash).toBe(canonicalHash(result.mergedDocument));
+    expect(result.mergedHash).toBe(canonicalHistoryHash(result.mergedDocument));
   });
 
   it('flags dangling references as invalid', () => {

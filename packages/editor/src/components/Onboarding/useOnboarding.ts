@@ -24,16 +24,19 @@ export interface OnboardingActions {
   isComplete: () => boolean;
   reopen: () => void;
   resetWelcome: () => void;
+  requestWelcome: () => void;
   dismissTip: (tipId: string) => void;
 }
 
 export function useOnboarding(platform?: Platform): OnboardingState & OnboardingActions {
   const [state, setState] = useState<OnboardingState>(() => {
-    const saved = loadOnboardingState();
+    // Nothing is shown automatically. The Welcome dialog, tour, and checklist
+    // are all opt-in (Help menu / Settings). This keeps first launch
+    // non-blocking — the user can create and edit immediately.
     return {
-      active: !saved.onboardingComplete,
+      active: false,
       stepIndex: -1,
-      showWelcome: !saved.onboardingComplete,
+      showWelcome: false,
     };
   });
 
@@ -113,6 +116,10 @@ export function useOnboarding(platform?: Platform): OnboardingState & Onboarding
     setState({ active: true, stepIndex: -1, showWelcome: true });
   }, []);
 
+  const requestWelcome = useCallback(() => {
+    setState({ active: true, stepIndex: -1, showWelcome: true });
+  }, []);
+
   const dismissTip = useCallback(
     (tipId: string) => {
       const saved = loadOnboardingState();
@@ -151,6 +158,7 @@ export function useOnboarding(platform?: Platform): OnboardingState & Onboarding
     isComplete,
     reopen,
     resetWelcome,
+    requestWelcome,
     dismissTip,
   };
 }

@@ -1,7 +1,18 @@
+import { readFileSync } from 'node:fs';
 import { DocumentCodec, validateDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { createFigmaParser, decodeFigmaSource, isFigmaJsonSource } from './figma';
+import {
+  createFigmaParser,
+  decodeFigmaNativeSource,
+  decodeFigmaSource,
+  isFigmaJsonSource,
+  isFigmaNativeSource,
+} from './figma';
 import { ImportService } from './service';
+
+function nativeFixture(): Uint8Array {
+  return new Uint8Array(readFileSync(new URL('../test-fixtures/OpenFigs.fig', import.meta.url)));
+}
 
 function fixture(): string {
   return JSON.stringify({
@@ -137,9 +148,54 @@ function malformedFigmaCorpusEntry(seed: number): string {
 }
 
 describe('Figma JSON importer', () => {
-  it('recognizes official REST file JSON but not opaque binary .fig bytes', () => {
+  it('recognizes official REST file JSON without misclassifying native .fig bytes as JSON', () => {
     expect(isFigmaJsonSource(fixture())).toBe(true);
     expect(isFigmaJsonSource(new Uint8Array([0x46, 0x49, 0x47, 0x00]))).toBe(false);
+  });
+
+  it('decodes and converts an actual native .fig archive into editable Varve nodes', () => {
+    const data = nativeFixture();
+    expect(isFigmaNativeSource(data)).toBe(true);
+
+    const source = decodeFigmaNativeSource(data);
+    expect(source.pages.map((page) => page.name)).toEqual(['Page 1']);
+    expect(source.pages[0]?.children).toHaveLength(1);
+    expect(source.pages[0]?.children[0]?.type).toBe('FRAME');
+    expect(source.pages[0]?.children[0]?.children[0]?.type).toBe('VECTOR');
+    expect(source.pages[0]?.children[0]?.transform).toEqual([1, 0, 0, 1, 0, 0]);
+
+    const result = createFigmaParser().parse(data);
+    const nodes = Object.values(result.document.nodes);
+    expect(result.nodeIds).toHaveLength(1);
+    expect(result.document.pages?.[0]?.name).toBe('Page 1');
+    expect(nodes.some((node) => node.name === 'WhiteOpenFigOutlinedIcon')).toBe(true);
+    expect(nodes.some((node) => node.kind === 'shape' && node.shape?.kind === 'path')).toBe(true);
+    expect(result.warnings).not.toContain(expect.stringMatching(/opaque native/i));
+    expect(validateDocument(result.document).valid).toBe(true);
+  });
+
+  it('reports malformed native archives as a failed import without nodes', () => {
+    const data = nativeFixture();
+    const endSignature = [0x50, 0x4b, 0x05, 0x06];
+    let endOffset = -1;
+    for (let offset = data.length - 22; offset >= 0; offset -= 1) {
+      if (endSignature.every((byte, index) => data[offset + index] === byte)) {
+        endOffset = offset;
+        break;
+      }
+    }
+    expect(endOffset).toBeGreaterThanOrEqual(0);
+    const malformed = data.slice();
+    new DataView(malformed.buffer, malformed.byteOffset, malformed.byteLength).setUint32(
+      endOffset + 12,
+      1,
+      true,
+    );
+
+    const result = createFigmaParser().parse(malformed);
+    expect(result.nodeIds).toEqual([]);
+    expect(result.unsupportedFeatures).toContain('native .fig decoding');
+    expect(result.warnings[0]).toMatch(/could not be decoded safely/i);
   });
 
   it('converts pages, auto layout, editable text, gradients, effects and paths', () => {

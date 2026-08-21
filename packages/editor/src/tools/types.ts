@@ -10,9 +10,11 @@
  * F3: GestureResult tells the ToolManager whether to fall through or consume.
  */
 
-import type { Engine, PathPoint } from '@varve/engine';
+import type { AreaSelection, AreaSelectionSettings, Engine, PathPoint } from '@varve/engine';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
 import type { Camera } from '@varve/shared';
+import type { TableEditState } from '../context/tableEditState';
+import type { HitTestPolicyName } from '../hitTest/policyTypes';
 import type { NormalizedInputEvent } from './inputNormalizer';
 
 import type { ToolId } from './toolRegistry';
@@ -110,6 +112,11 @@ export interface ToolContext {
   sourceEvents: NormalizedInputEvent[];
   /** Overlay preview mode for mask refinement visualization. */
   maskPreviewMode: MaskPreviewMode;
+  /** Separate analytical pixel selection; does not use the node selection array. */
+  areaSelection?: AreaSelection | null;
+  setAreaSelection?: (selection: AreaSelection | null) => void;
+  areaSelectionSettings?: AreaSelectionSettings;
+  setAreaSelectionSettings?: (patch: Partial<AreaSelectionSettings>) => void;
   setMaskPreviewMode: (mode: MaskPreviewMode) => void;
   /** Foreground color for painting as RGBA [r, g, b, a] in 0-255 range. */
   foregroundColor: [number, number, number, number];
@@ -180,6 +187,13 @@ export interface ToolContext {
   canvasDeltaToWorld: (dx: number, dy: number) => { dx: number; dy: number };
   /** World transform for a node, including parent transforms and page placement. */
   getWorldTransform?: (id: NodeId) => import('@varve/shared').Affine;
+  /** Spatial broad-phase candidates for object marquee selection. */
+  queryMarqueeCandidates?: (rect: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  }) => ReadonlySet<NodeId>;
 
   setPointerCapture: (pointerId: number) => void;
   releasePointerCapture: (pointerId: number) => void;
@@ -193,7 +207,7 @@ export interface ToolContext {
    *  Falls back to the default hitTest when policyName is omitted. */
   hitTestWithPolicy?: (
     world: { x: number; y: number },
-    policyName: import('../hitTest').HitTestPolicyName,
+    policyName: HitTestPolicyName,
   ) => { nodeId: NodeId; node: SceneNode } | null;
 
   canvasElement: HTMLCanvasElement | null;
@@ -210,7 +224,7 @@ export interface ToolContext {
   /** Set the text node to be edited inline. */
   setTextEditTargetId: (id: string | null) => void;
   /** ADR-0016: enter/exit table edit mode (cell selection + navigation). */
-  setTableEdit?: (state: import('../context/types').TableEditState | null) => void;
+  setTableEdit?: (state: TableEditState | null) => void;
   /** Enter/exit warp edit mode (which node's modifier the overlay edits). */
   setWarpEdit?: (target: { nodeId: string; modifierId: string } | null) => void;
   /** Apply a warp preset to the current selection. */
@@ -256,6 +270,15 @@ export interface ToolContext {
   getTrimapData?: (nodeId: string) => { data: Uint8Array; width: number; height: number } | null;
   setTrimapPreview?: (trimap: Uint8Array, width: number, height: number) => void;
   commitTrimapEdit?: (trimap: Uint8Array) => void;
+  /**
+   * The mask the user has explicitly chosen to edit, or null for layer pixels.
+   *
+   * Explicit rather than inferred: deciding between "paint the layer" and
+   * "paint its mask" from whichever thumbnail was clicked most recently leaves
+   * the UI unable to state what a stroke will do.
+   */
+  maskEditTarget?: { nodeId: NodeId; maskId: string } | null;
+  setMaskEditTarget?: (target: { nodeId: NodeId; maskId: string } | null) => void;
   /** Commit a raster mask as a native RasterMaskAsset. */
   commitRasterMask?: (
     nodeId: string,

@@ -48,6 +48,10 @@ export interface DocumentContextValue {
   setSelectedFill: (color: ManagedColor) => void;
   setSelectedFills: (fills: Fill[]) => void;
   updateSelectedFillAt: (index: number, fill: Fill) => void;
+  updateSelectedFillGradientAt: (
+    index: number,
+    gradient: import('@varve/scene').GradientFill,
+  ) => void;
   addSelectedFill: (fill: Fill) => void;
   removeSelectedFillAt: (index: number) => void;
   reorderSelectedFill: (from: number, to: number) => void;
@@ -101,6 +105,8 @@ export interface DocumentContextValue {
     name: string,
     filePath: string | undefined,
     json: string | null,
+    /** True when the app-managed library is the authoritative save target. */
+    libraryStorage?: boolean,
   ) => void;
   rootNodes: () => SceneNode[];
   reparentNode: (id: NodeId, newParentId: NodeId | null, toIndex: number) => void;

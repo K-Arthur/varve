@@ -15,8 +15,8 @@
   <a href="https://github.com/sponsors/K-Arthur"><img src="https://img.shields.io/github/sponsors/K-Arthur?label=sponsors" alt="GitHub Sponsors"></a>
 </p>
 
-> **Public beta.** The latest published application release is
-> `<!-- VARVE_VERSION -->v0.1.2<!-- /VARVE_VERSION -->`. Installers are
+> **Public beta.** The latest published application release is `v0.1.2`.
+> This checkout is preparing the `v0.2.0` release candidate. Installers are
 > published for Linux, macOS, and Windows. Core workflows are usable today,
 > but the `.varve` document format and interfaces can still change, and
 > Windows/macOS builds are not yet code-signed.
@@ -137,9 +137,10 @@ points to the latest Varve application release, not the model artifacts.
 | Platform | Package | Status | Signing |
 |---|---|---|---|
 | Linux x86_64 | AppImage · `.deb` · `.rpm` | Supported in the published release | Unsigned — SHA-256 checksums, SBOM, and build provenance published |
-| Windows 10 (1809+) / 11 x86_64 | NSIS `.exe` | Experimental — CI-built and smoke-tested | Unsigned |
+| Linux ARM64 | AppImage · `.deb` · `.rpm` | Supported in the published release | Unsigned — SHA-256 checksums, SBOM, and build provenance published |
 | macOS 13+ Apple Silicon (arm64) | `.dmg` | Experimental — CI-built and smoke-tested | Unsigned, not notarized |
-| Linux ARM64 / Windows ARM64 | — | Not published | — |
+| Windows 10 (1809+) / 11 x86_64 | NSIS `.exe` | Experimental — CI-built and smoke-tested | Unsigned |
+| Windows 10 (1809+) / 11 ARM64 | NSIS `.exe` | Experimental — CI-built and smoke-tested | Unsigned |
 | macOS Intel (x86_64) | — | Not published | — |
 
 Minimum 4 GB RAM (8 GB recommended), 500 MB storage. Full detail and the
@@ -243,9 +244,9 @@ scripts/    release, screenshot, and quality-gate tooling
 ## Project status
 
 Varve is in **public beta**. The latest published application release is
-`<!-- VARVE_VERSION -->v0.1.2<!-- /VARVE_VERSION -->` (published installer releases are `v0.1.0`, `v0.1.1`, and `v0.1.2`),
+`v0.1.2` (published installer releases are `v0.1.0`, `v0.1.1`, and `v0.1.2`),
 covering Linux, macOS (Apple Silicon), and Windows. The checkout represented
-by this source tree is version `<!-- VARVE_VERSION -->0.1.2<!-- /VARVE_VERSION -->`. Versioning follows [SemVer](https://semver.org/); release notes are
+by this source tree is version `<!-- VARVE_VERSION -->0.2.0<!-- /VARVE_VERSION -->`. Versioning follows [SemVer](https://semver.org/); release notes are
 kept in [CHANGELOG.md](CHANGELOG.md). Expect rough edges, and keep backups —
 the `.varve` document format can still change between releases. Documents
 saved with the legacy `.strata` extension (from before the project's rename

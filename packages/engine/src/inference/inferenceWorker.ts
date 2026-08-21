@@ -368,11 +368,48 @@ interface CachedSession {
 const sessionCache = new Map<string, CachedSession>();
 let preferredOnnxProviders: string[] | null = null;
 
-async function getPreferredProviders(): Promise<string[]> {
-  if (preferredOnnxProviders) return preferredOnnxProviders;
+const PROVIDER_PROBE_TIMEOUT = 15_000;
+const ACCELERATED_SESSION_TIMEOUT = 45_000;
+const WASM_SESSION_TIMEOUT = 180_000;
+
+/** Keep a provider that never resolves from stranding the whole inference job. */
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`)),
+      timeoutMs,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+async function getPreferredProviders(modelId: string): Promise<string[]> {
   try {
+    const { getRecommendedProvider } = await import('./modelCatalog');
+    // The catalog marks small INT8/depth models as CPU-preferred: onnxruntime-
+    // web may initialize WASM while probing an unsupported WebGPU graph, then
+    // reject the real WASM session with "multiple calls to initWasm". Keep
+    // those models on their validated provider and reserve WebGPU for models
+    // whose catalog entry says the accelerated path is worthwhile.
+    if (getRecommendedProvider(modelId) === 'cpu') {
+      return ['wasm'];
+    }
+    if (preferredOnnxProviders) return preferredOnnxProviders;
     const { getBestOnnxProviders } = await import('../backgroundRemoval/environmentCapabilities');
-    preferredOnnxProviders = await getBestOnnxProviders();
+    preferredOnnxProviders = await withTimeout(
+      getBestOnnxProviders(),
+      PROVIDER_PROBE_TIMEOUT,
+      'ONNX provider detection',
+    );
   } catch {
     preferredOnnxProviders = ['wasm'];
   }
@@ -430,7 +467,7 @@ async function getSession(
   }
 
   const ort = await loadOrt();
-  const providers = await getPreferredProviders();
+  const providers = await getPreferredProviders(modelId);
   // Weights kept outside the graph must be handed to the runtime under the
   // exact filename the graph references, or session creation fails resolving
   // the missing tensor data.
@@ -442,10 +479,14 @@ async function getSession(
   for (const provider of providers) {
     if (provider === 'wasm') continue;
     try {
-      const session = await ort.InferenceSession.create(modelPath, {
-        executionProviders: [provider],
-        ...externalDataOption,
-      });
+      const session = await withTimeout(
+        ort.InferenceSession.create(modelPath, {
+          executionProviders: [provider],
+          ...externalDataOption,
+        }),
+        ACCELERATED_SESSION_TIMEOUT,
+        `ONNX ${provider} session creation`,
+      );
       const cachedSession: CachedSession = {
         session,
         executionProvider: provider,
@@ -474,10 +515,14 @@ async function getSession(
         );
   }
 
-  const session = await ort.InferenceSession.create(modelPath, {
-    executionProviders: ['wasm'],
-    ...externalDataOption,
-  });
+  const session = await withTimeout(
+    ort.InferenceSession.create(modelPath, {
+      executionProviders: ['wasm'],
+      ...externalDataOption,
+    }),
+    WASM_SESSION_TIMEOUT,
+    'ONNX WASM session creation',
+  );
   const cachedSession: CachedSession = {
     session,
     executionProvider: 'wasm',

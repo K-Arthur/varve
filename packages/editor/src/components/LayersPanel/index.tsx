@@ -23,7 +23,7 @@ import {
   getParentFast,
   type ParentIndexCache,
 } from '../../scene/parentIndexCache';
-import { loadSettings, updateSettings } from '../../settings';
+import { type LayersSettingsStore, loadSettings, updateSettings } from '../../settings';
 import { applyThumbnailPreference } from '../../thumbnail/thumbnailCommands';
 import { openThumbnailPicker } from '../../thumbnail/thumbnailPickerBridge';
 import { PanelDragHandle } from '../PanelDragHandle';
@@ -374,7 +374,13 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     contextMenuNode?.kind === 'frame' &&
     Object.values(state.document.components).some((c) => c.masterRootId === contextMenu.id);
 
-  const layerSettings = loadSettings().layers;
+  const [layerSettings, setLayerSettings] = useState<LayersSettingsStore>(
+    () => loadSettings().layers,
+  );
+  const updateLayerSettings = useCallback((patch: Partial<LayersSettingsStore>) => {
+    const next = updateSettings({ layers: patch });
+    setLayerSettings(next.layers);
+  }, []);
   const [iconBrowserOpen, setIconBrowserOpen] = useState(false);
 
   return (
@@ -399,9 +405,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
                 <button
                   type="button"
                   className={`layers-panel__auto-reveal-btn ${layerSettings.autoReveal ? 'layers-panel__auto-reveal-btn--active' : ''}`}
-                  onClick={() =>
-                    updateSettings({ layers: { autoReveal: !layerSettings.autoReveal } })
-                  }
+                  onClick={() => updateLayerSettings({ autoReveal: !layerSettings.autoReveal })}
                   aria-label={`Auto-reveal canvas selection in Layers panel: ${layerSettings.autoReveal ? 'enabled' : 'disabled'}`}
                   aria-pressed={layerSettings.autoReveal}
                 >
@@ -419,9 +423,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
                   type="button"
                   className={`layers-panel__auto-reveal-btn ${layerSettings.marqueeContainment ? 'layers-panel__auto-reveal-btn--active' : ''}`}
                   onClick={() =>
-                    updateSettings({
-                      layers: { marqueeContainment: !layerSettings.marqueeContainment },
-                    })
+                    updateLayerSettings({ marqueeContainment: !layerSettings.marqueeContainment })
                   }
                   aria-label={`Marquee containment: ${layerSettings.marqueeContainment ? 'enabled' : 'disabled'}`}
                   aria-pressed={layerSettings.marqueeContainment}
@@ -529,6 +531,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             handleSelectSameLayerColor,
             handleSelectAllOfType,
             handleRevealOnCanvas,
+            enableAutoReveal: () => updateLayerSettings({ autoReveal: true }),
             addMaskToSelected,
             removeMaskFromSelected,
             toggleMask,
@@ -607,6 +610,7 @@ interface BuildLayerMenuItemsArgs {
   handleSelectSameLayerColor: () => void;
   handleSelectAllOfType: () => void;
   handleRevealOnCanvas: () => void;
+  enableAutoReveal: () => void;
   addMaskToSelected: (type: 'alpha' | 'clip' | 'luminance', sourceNodeId?: string) => void;
   removeMaskFromSelected: () => void;
   toggleMask: () => void;
@@ -658,6 +662,7 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     handleSelectSameLayerColor,
     handleSelectAllOfType,
     handleRevealOnCanvas,
+    enableAutoReveal,
     addMaskToSelected,
     removeMaskFromSelected,
     toggleMask,
@@ -887,7 +892,7 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
       label: 'Reveal in Layers panel',
       onAction: () => {
         if (selection.length > 0) {
-          updateSettings({ layers: { autoReveal: true } });
+          enableAutoReveal();
           document
             .querySelector('.layers-panel__tree')
             ?.querySelector('[role="treeitem"][aria-selected="true"]')

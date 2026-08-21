@@ -123,3 +123,35 @@
     padding: var(--space-2) 0 0;
   }
 }
+
+/* Usage-measurement choice. Shown only until the visitor decides; the default
+   until then is no tracking, so nothing is lost by ignoring it. */
+.varve-demo-banner__consent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--color-text-secondary);
+}
+
+.varve-demo-banner__consent button {
+  border: 1px solid var(--color-border-subtle);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  padding: 2px var(--space-2);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.varve-demo-banner__consent button:hover {
+  background: var(--color-surface-hover);
+}
+
+.varve-demo-banner__consent button:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}

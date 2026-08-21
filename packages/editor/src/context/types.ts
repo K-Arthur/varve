@@ -1,4 +1,10 @@
-import type { Adjustment, BlendMode, PathPoint } from '@varve/engine';
+import type {
+  Adjustment,
+  AreaSelection,
+  AreaSelectionSettings,
+  BlendMode,
+  PathPoint,
+} from '@varve/engine';
 import type { Platform } from '@varve/platform';
 import type { PrototypeData, PrototypeDebugConsole, PrototypeRuntime } from '@varve/prototype';
 import type {
@@ -27,27 +33,17 @@ import type {
   HistoryIssue,
   HistoryStepView,
 } from '../history/editorHistorySession';
+import type { HitTestPolicyName } from '../hitTest/policyTypes';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MediaState } from '../state/media-state';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import type { SelectionMode, SelectionOrigin } from './selectionState';
-
-/** Active table edit session (ADR-0016): cell selection + keyboard focus. */
-export interface TableEditState {
-  tableId: NodeId;
-  /** Selected cell ids (single cell or rectangular range). */
-  cellIds: string[];
-  /** Keyboard cursor cell (may be inside a span owner). */
-  activeCellId: string | null;
-  /** Cell with the inline text editor open. */
-  editingCellId: string | null;
-  /** Range anchor for shift-extended selections. */
-  anchorCellId: string | null;
-}
+import type { TableEditState } from './tableEditState';
 
 export * from './selectionState';
+export type { TableEditState } from './tableEditState';
 export type { MaskPreviewMode, ToolId };
 
 export type InspectorTab =
@@ -306,6 +302,10 @@ export interface EditorState {
   /** Monotonic revision that increments on every selection change, enabling
    *  cheap change detection without deep-equal on the full selection array. */
   selectionRevision: number;
+  /** Ephemeral document-space pixel selection; never serialized into artwork. */
+  areaSelection?: AreaSelection | null;
+  /** Ephemeral controls shared by the rectangular and elliptical marquee tools. */
+  areaSelectionSettings: AreaSelectionSettings;
   document: Document;
   sessions: SessionMeta[];
   activeId: string;
@@ -690,7 +690,7 @@ export interface EditorContextValue {
   hitTestNode: (world: { x: number; y: number }) => { nodeId: NodeId; node: SceneNode } | null;
   hitTestNodeWithPolicy: (
     world: { x: number; y: number },
-    policyName: import('../hitTest').HitTestPolicyName,
+    policyName: HitTestPolicyName,
   ) => { nodeId: NodeId; node: SceneNode } | null;
   /** Set the keyboard focus to a node without changing selection. */
   setFocusedNode: (id: NodeId | null) => void;
@@ -795,6 +795,7 @@ export interface EditorContextValue {
   setSelectedLayoutSizingWidth: (value: LayoutSizing) => void;
   setSelectedLayoutSizingHeight: (value: LayoutSizing) => void;
   setSelectedLayoutPosition: (value: import('@varve/scene').LayoutPosition) => void;
+  setSelectedLayoutAlign: (value: import('@varve/scene').LayoutAlign) => void;
   setSelectedGridPlacement: (value: GridItemPlacement) => void;
   setCanvasWidth: (value: number) => void;
   setCanvasHeight: (value: number) => void;
@@ -845,6 +846,8 @@ export interface EditorContextValue {
     name: string,
     filePath: string | undefined,
     json: string | null,
+    /** True when the app-managed library is the authoritative save target. */
+    libraryStorage?: boolean,
   ) => void;
   rootNodes: () => SceneNode[];
   reparentNode: (id: NodeId, newParentId: NodeId | null, toIndex: number) => void;
@@ -1354,6 +1357,10 @@ export interface EditorContextValue {
   enterQuickMask: () => void;
   exitQuickMask: (convertToMask?: boolean) => void;
   setQuickMaskCoverage: (coverage: Uint8Array, width: number, height: number) => void;
+  /** Replace the analytical pixel selection without dirtying the document. */
+  setAreaSelection?: (selection: AreaSelection | null) => void;
+  /** Update ephemeral pixel-marquee controls without dirtying the document. */
+  setAreaSelectionSettings: (patch: Partial<AreaSelectionSettings>) => void;
   paintQuickMask: (x: number, y: number, radius: number, value: number) => void;
   fillQuickMask: (value: number) => void;
   invertQuickMask: () => void;

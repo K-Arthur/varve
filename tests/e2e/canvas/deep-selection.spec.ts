@@ -138,7 +138,7 @@ test.describe('Deep Selection', () => {
 
   test('6. Auto-reveal preference can be toggled', async ({ page }) => {
     // Open layers panel and find the auto-reveal toggle
-    const autoRevealBtn = page.locator('.layers-panel__auto-reveal-btn');
+    const autoRevealBtn = page.getByRole('button', { name: 'Auto-reveal canvas selection' });
     await expect(autoRevealBtn).toBeAttached();
 
     // Click to toggle off
@@ -248,7 +248,9 @@ test.describe('Deep Selection', () => {
     const { canvasBox } = await createFrameWithChild(page);
 
     // Toggle auto-reveal off
-    const autoRevealBtn = page.locator('.layers-panel__auto-reveal-btn');
+    const autoRevealBtn = page.getByRole('button', {
+      name: 'Auto-reveal canvas selection',
+    });
     await autoRevealBtn.click();
     await page.waitForTimeout(100);
     await expect(autoRevealBtn).toHaveAttribute('aria-pressed', 'false');

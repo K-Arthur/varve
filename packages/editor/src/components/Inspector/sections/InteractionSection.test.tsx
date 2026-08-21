@@ -5,6 +5,7 @@ import {
   addInteraction,
   addNode,
   createDocument,
+  createTimeline,
   makeFrameNode,
   makeShapeNode,
 } from '@varve/scene';
@@ -130,5 +131,53 @@ describe('InteractionSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /remove interaction/i }));
     await waitFor(() => expect(getCtx().getNodeInteractions('btn1')).toHaveLength(0));
+  });
+
+  it('exposes Play animation action with a target timeline selector', async () => {
+    let doc = createDocument('Proto Test');
+    doc = addNode(doc, makeFrameNode('f1', { name: 'Home', order: 'a0' }));
+    doc = addNode(
+      doc,
+      makeShapeNode('btn1', { kind: 'rect', x: 0, y: 0, w: 120, h: 44 }, { name: 'CTA' }),
+    );
+    doc = {
+      ...doc,
+      rootChildren: ['f1'],
+      nodes: {
+        ...doc.nodes,
+        f1: { ...(doc.nodes.f1 as import('@varve/scene').FrameNode), children: ['btn1'] },
+      },
+    };
+    const { doc: docTl, id: tlId } = createTimeline(doc, 'Spin', 1000);
+    doc = docTl;
+    const { doc: withIx } = addInteraction(doc, 'btn1', {
+      name: 'Play',
+      trigger: { kind: 'onClick' },
+      actions: [
+        {
+          kind: 'navigateTo',
+          targetId: 'f1',
+          transition: { kind: 'dissolve', duration: 300, easing: { kind: 'ease' } },
+        },
+      ],
+      enabled: true,
+    });
+
+    const getCtx = renderInteractionSection(JSON.stringify(withIx));
+    getCtx().setSelection('btn1');
+    await waitFor(() => expect(screen.getByLabelText('Action')).toBeTruthy());
+
+    fireEvent.click(screen.getByLabelText('Action'));
+    fireEvent.click(screen.getByRole('option', { name: /play animation/i }));
+    await waitFor(() => expect(screen.getByLabelText('Target animation')).toBeTruthy());
+
+    fireEvent.click(screen.getByLabelText('Target animation'));
+    fireEvent.click(screen.getByRole('option', { name: /spin/i }));
+    await waitFor(() => {
+      const action = getCtx().getNodeInteractions('btn1')[0]?.actions[0] as {
+        animationId?: string;
+      };
+      expect(action?.animationId).toBe(tlId);
+    });
   });
 });

@@ -95,6 +95,7 @@ npm-debug.log*
 
 # --- Test artifacts ---
 test-results/
+test-results-*/
 playwright-report/
 visual-diff-report/
 

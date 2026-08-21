@@ -515,4 +515,70 @@ describe('timelineToLottieJSON', () => {
     expect(p.y.k[1].s[0]).toBe(50);
     expect(p.y.k[2].s[0]).toBe(200);
   });
+
+  it('exports fill color keyframes with RGB conversion', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'FillAnim', 1000);
+    tl.tracks = [
+      {
+        id: 'tr-fc',
+        nodeId: 'n1',
+        property: 'fill',
+        keyframes: [
+          createKeyframe(0, { r: 255, g: 0, b: 0, a: 255 }),
+          createKeyframe(1, { r: 0, g: 0, b: 255, a: 255 }),
+        ],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    const fc = parsed.layers[0].ks.fc;
+    expect(fc).toBeDefined();
+    expect(fc.a).toBe(1);
+    expect(fc.k).toHaveLength(2);
+    expect(fc.k[0].s[0]).toBeCloseTo(1);
+    expect(fc.k[0].s[1]).toBeCloseTo(0);
+    expect(fc.k[0].s[2]).toBeCloseTo(0);
+    expect(fc.k[1].s[0]).toBeCloseTo(0);
+    expect(fc.k[1].s[1]).toBeCloseTo(0);
+    expect(fc.k[1].s[2]).toBeCloseTo(1);
+  });
+
+  it('exports stroke color keyframes with RGB conversion', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'StrokeAnim', 1000);
+    tl.tracks = [
+      {
+        id: 'tr-sc',
+        nodeId: 'n1',
+        property: 'stroke',
+        keyframes: [
+          createKeyframe(0, { r: 0, g: 0, b: 0, a: 255 }),
+          createKeyframe(1, { r: 128, g: 128, b: 128, a: 255 }),
+        ],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    const sc = parsed.layers[0].ks.sc;
+    expect(sc).toBeDefined();
+    expect(sc.a).toBe(1);
+    expect(sc.k).toHaveLength(2);
+    expect(sc.k[0].s[0]).toBeCloseTo(0);
+    expect(sc.k[1].s[0]).toBeCloseTo(128 / 255);
+  });
+
+  it('omits fc/sc when no fill/stroke color tracks', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'Clean', 1000);
+    tl.tracks = [
+      {
+        id: 'tr1',
+        nodeId: 'n1',
+        property: 'opacity',
+        keyframes: [createKeyframe(0, 0), createKeyframe(1, 1)],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    expect(parsed.layers[0].ks.fc).toBeUndefined();
+    expect(parsed.layers[0].ks.sc).toBeUndefined();
+  });
 });

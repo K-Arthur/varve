@@ -11,7 +11,7 @@
  * Exit 0 = all checks pass, exit 1 = violation found.
  */
 
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
@@ -27,17 +27,11 @@ const OPEN_CRATES = [
   'varve-bgremove',
 ];
 
-const FSL_CRATES = [
-  'varve-engine',
-  'varve-print',
-  'varve-bridge',
-  'varve-wasm',
-  'varve-sync',
-];
+const FSL_CRATES = ['varve-engine', 'varve-print', 'varve-bridge', 'varve-wasm', 'varve-sync'];
 
 const OPEN_SET = new Set(OPEN_CRATES);
 const FSL_SET = new Set(FSL_CRATES);
-const ALL_CRATES = new Set([...OPEN_CRATES, ...FSL_CRATES]);
+const _ALL_CRATES = new Set([...OPEN_CRATES, ...FSL_CRATES]);
 
 let violations = 0;
 
@@ -71,9 +65,7 @@ function parseDependencies(text) {
     const sectionMatch = line.match(/^\[(.+)\]/);
     if (sectionMatch) {
       section = sectionMatch[1];
-      inDeps =
-        section === 'dependencies' ||
-        section.startsWith('dependencies.');
+      inDeps = section === 'dependencies' || section.startsWith('dependencies.');
       continue;
     }
     if (inDeps) {

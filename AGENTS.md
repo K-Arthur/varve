@@ -573,6 +573,7 @@ See `docs/architecture/text-pipeline.md`.
 |---|---|---|
 | `apps/desktop` | **Built** | Tauri 2 app with Vite+React frontend; `build:try` produces the public browser demo at `/try/` |
 | `apps/website` | **Built** | Astro 7 static marketing site, GitHub Pages deploy (see `docs/release/website.md`) |
+| `apps/web` | **Scaffold (not landed)** | `@varve/web` — Next.js 15 editor scaffold behind the WASM engine. Build/typecheck/test scripts are placeholders; the full scaffold lands in task 0.9. Not a shippable application yet. |
 
 ## Release signing (code-signing pipeline)
 

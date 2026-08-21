@@ -537,12 +537,12 @@ pnpm verify:affected      # Tiers 0-4, dependency-aware affected validation
 
 ### Reclassified Files (not deleted, merely categorized)
 
-- **`ARCHITECTURE_BRIEF.md`** — Now classified as historical point-in-time snapshot (was already flagged in docs/README.md but not in the dated-files list; now properly placed)
-- **`architecture/interaction-systems-2026-07-27.md`** — To be moved to `docs/historical/` in follow-up
-- **`architecture/ai-competitor-intelligence-2026.md`** — To be moved to `docs/historical/`
-- **`architecture/ai-feature-strategy-2026-07-21.md`** — To be moved to `docs/historical/`
-- **`architecture/icon-system-audit-2026-08-02.md`** — To be moved to `docs/historical/`
-- **`architecture/design-to-code-intermediate-representation.md`** — To be moved to `docs/historical/` (implementation exists elsewhere)
+- **`ARCHITECTURE_BRIEF.md`** — Now classified as historical point-in-time snapshot (was already flagged in docs/README.md but not in the dated-files list; now properly placed in `docs/historical/`)
+- **`architecture/interaction-systems-2026-07-27.md`** — Moved to `docs/historical/` (confirmed present there)
+- **`architecture/ai-competitor-intelligence-2026.md`** — Moved to `docs/historical/`
+- **`architecture/ai-feature-strategy-2026-07-21.md`** — Moved to `docs/historical/`
+- **`architecture/icon-system-audit-2026-08-02.md`** — Moved to `docs/historical/`
+- **`architecture/design-to-code-intermediate-representation.md`** — Moved to `docs/historical/` (implementation exists elsewhere)
 
 ### Not Modified (intentional retention)
 
@@ -596,3 +596,62 @@ pnpm audit:docs           # Docs drift gate
 ```
 
 The audit primarily used `verify:plan` and `verify:affected` to understand the impact of changes and validate that the documentation state is consistent.
+
+---
+
+## Follow-up Verification — 2026-08-20
+
+A second pass re-checked the prior audit's deferred items and sampled the
+canonical documentation set against the current tree (branch
+`feat/figma-native-import`).
+
+### Deferred items from the prior audit — now resolved
+
+- The dated architecture files listed as "to be moved to `docs/historical/`"
+  (ARCHITECTURE_BRIEF, interaction-systems-2026-07-27, ai-competitor-intelligence-2026,
+  ai-feature-strategy-2026-07-21, icon-system-audit-2026-08-02,
+  design-to-code-intermediate-representation) **are present in `docs/historical/`**.
+  The prior summary's "to be moved in follow-up" wording is now incorrect; the
+  moves had already been completed.
+- **Rust crate names are already renamed.** The actual crates are `varve-bgremove`
+  and `varve-wasm` (per `ls crates/`), not `strata-bgremove` / `strata-wasm`. The
+  `strata-*` references that remain in the tree live only inside `docs/audits/`
+  dated historical audit records, which the repo convention (docs/README.md)
+  deliberately preserves as point-in-time artifacts. No correction is required
+  there — those old names are intentional historical references, not stale current docs.
+
+### New finding — undocumented application scaffold
+
+- `apps/web` (`@varve/web`) exists as an unlanded Next.js 15 editor scaffold:
+  its `package.json` build/typecheck/test scripts are placeholders
+  ("Full scaffold lands in task 0.9"). It was absent from both `docs/README.md`
+  (Applications section) and the `AGENTS.md` app-inventory table.
+- **Fix applied:** added an `apps/web` entry to `docs/README.md` (Applications)
+  and an `apps/web` row to the `AGENTS.md` package/crate table, both marked
+  clearly as "scaffold / not landed." No code or working build was changed.
+
+### Re-verified canonical claims (consistent with code)
+
+- Version `0.1.2` is consistent across `package.json`, `git tag v0.1.2`, and
+  `CHANGELOG.md` (0.1.2 published 2026-08-16).
+- `docs/release/platform-support-matrix.md` is current (v0.1.2; unsigned Linux,
+  experimental Windows/macOS).
+- `docs/release/signing-decision-record.md` exists and correctly states
+  signing is credential-dependent / not yet implemented for stable releases.
+- Root `README.md` accurately reflects architecture, platforms, licensing, and
+  the legacy `.strata` migration note.
+
+### Automated gate
+
+- `pnpm audit:docs` → **clean** (574 docs, 141 links, 161 ADRs indexed; no dead
+  internal links in the index). This is the repo's own documentation drift gate
+  and it passes.
+
+### Scope note
+
+This follow-up did not re-read all 607 documentation files. It re-verified the
+prior audit's deferred actions, sampled the highest-value canonical docs
+(root README, docs/README.md index, signing/release/platform docs, AGENTS.md)
+against the current source tree and manifests, and ran the repo's doc-drift
+gate. Broad file-by-file coverage remains the responsibility of `pnpm audit:docs`
+and periodic manual review.

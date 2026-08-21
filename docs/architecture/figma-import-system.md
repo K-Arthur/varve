@@ -4,12 +4,12 @@ Date: 2026-08-20
 
 ## Overview
 
-Varve imports Figma documents from user-provided official REST API JSON
-responses or plugin-export JSON. It does not embed an API client or persist
-Figma credentials. Opaque native `.fig` binaries are not supported — Figma's
-local binary format is undocumented and changes frequently. The recommended
-acquisition path is the Figma REST API (`GET /v1/files/:key`) or a Figma plugin
-that exports the same JSON structure.
+Varve imports Figma documents from user-provided official REST API JSON,
+plugin-export JSON, and local native `.fig` archives. JSON remains the richest
+documented acquisition path; native archives are decoded locally through the
+MIT-licensed `openfig-core` adapter and then enter the same normalized source IR
+and native Varve converter. Varve does not embed an API client or persist Figma
+credentials.
 
 ## Acquisition paths
 
@@ -17,16 +17,16 @@ that exports the same JSON structure.
 |--------|----------|----------|-------|
 | REST API JSON | Yes | High | Requires Figma access token; export via `GET /v1/files/:key` |
 | Plugin export JSON | Yes | High | Plugin must emit the same `{ document, components, styles, variables, images }` envelope |
-| Opaque `.fig` binary | No | N/A | Documented in `unsupportedFeatures` report; not reverse-engineered |
+| Native `.fig` archive | Yes | Converted/format-version dependent | Parsed locally with `openfig-core`; no Figma credentials or network required |
 | SVG/PDF fallback | Yes | Low | Handled by existing SVG/PDF parsers; not Figma-specific |
 
 ## Architecture
 
 ```
-Figma source JSON
+Figma source JSON or native `.fig`
        |
        v
-decodeFigmaSource()           -- bounded normalization
+decodeFigmaSource() or native decoder -- bounded normalization
        |
        v
 FigmaSourceDocument           -- normalized source IR
@@ -41,9 +41,18 @@ Document (native Varve)       -- transactional fragment
 ImportService / Editor        -- validation, merge, undo
 ```
 
-### Source normalization (`figma/source.ts`)
+### Source acquisition and normalization (`figma/native.ts`, `figma/source.ts`)
 
-- Accepts official REST JSON or a compatible plugin-export envelope.
+- Accepts official REST JSON, a compatible plugin-export envelope, or a native
+  `.fig` archive/raw `canvas.fig` payload.
+- Native archives are preflighted before decompression: ZIP directory paths,
+  entry count, declared uncompressed size, entry size, compression ratio, and
+  ZIP64 input are bounded or rejected. Parsed node count and graph depth are
+  bounded again after decoding.
+- `openfig-core` exposes Figma's decoded flat node graph, child map, paints,
+  effects, text fields, images, and vector geometry. This adapter maps those
+  source concepts into the same IR; it does not make `FigNode` a live Varve
+  document model.
 - Limits: 64 MB, 100k nodes, 256 depth, 2M text length.
 - Preserves Figma source IDs as provenance only — never as Varve node IDs.
 - Reports unsupported features (boolean operations, missing image bytes,
@@ -70,7 +79,7 @@ Node-type mapping:
 | LINE | ShapeNode | Line geometry |
 | POLYGON | ShapeNode | Parametric polygon |
 | STAR | ShapeNode | Parametric star |
-| VECTOR | ShapeNode (path) | Bezier path from fillGeometry; bounds fallback when data missing |
+| VECTOR | ShapeNode (path) | Native Bezier geometry; multi-region vectors become an editable group of path children |
 | BOOLEAN_OPERATION | GroupNode | Children preserved; native boolean not available |
 | Unknown container | GroupNode | Children preserved and unsupported type reported |
 | SLICE | Skipped | Export metadata only; logged as unsupported |
@@ -181,7 +190,9 @@ Provenance and identity:
 
 Tests are colocated at `packages/import/src/figma.test.ts` and cover:
 
-- Official REST JSON detection vs opaque `.fig` binary rejection
+- Official REST JSON detection without misclassifying native `.fig` bytes
+- Native `.fig` archive decoding and conversion using the checked-in
+  MIT-licensed `OpenFigs.fig` fixture
 - Page, frame, text, vector, gradient, effect, stroke, corner radius
 - Auto Layout direction, gap, padding, alignment, sizing
 - Source ID isolation from Varve scene IDs
@@ -207,7 +218,10 @@ pnpm exec vitest run packages/import/src/figma.test.ts
 - Variable alias expressions are stored as placeholder strings, not
   fully evaluated.
 - Prototype transitions are simplified to instant/dissolve/smartAnimate.
-- Native opaque `.fig` remains intentionally unsupported. A real MIT-licensed
-  OpenFig fixture was downloaded and checked as a valid local-copy archive;
-  Varve rejects it safely as an unsupported binary and does not mislabel it as
-  JSON. Supported semantic import validation uses REST/plugin-shaped JSON.
+- Native `.fig` support depends on the source schema versions understood by
+  `openfig-core`; Varve reports a safe decode failure and leaves the destination
+  document unchanged when an archive is malformed or unsupported.
+- Native archives do not expose every REST resource map through the current
+  adapter. When styles, variables, library metadata, or prototype data are not
+  present in the decoded archive, Varve preserves the resolved node appearance
+  and reports the missing semantic dependency rather than inventing one.

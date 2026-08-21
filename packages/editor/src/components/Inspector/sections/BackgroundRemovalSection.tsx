@@ -20,6 +20,7 @@ import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { removeRasterMaskFromNode } from '../../../backgroundRemoval/commitRasterMask';
+import { isCapabilityRestricted } from '../../../capabilities/restrictions';
 import { useEditor } from '../../../context';
 import { ModelDownloadDialog } from '../../BackgroundRemoval/ModelDownloadDialog';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -231,6 +232,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     };
   }, [pending]);
 
+  if (isCapabilityRestricted('inference')) return null;
   if (!eligible || !node) return null;
 
   const handleApply = async () => {

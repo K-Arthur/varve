@@ -9,7 +9,12 @@
  * - canonical hash stability and content sensitivity
  */
 import { describe, expect, it } from 'vitest';
-import { CanonicalizationError, canonicalHash, canonicalizeDocument } from '../canonical';
+import {
+  CanonicalizationError,
+  canonicalHash,
+  canonicalHistoryHash,
+  canonicalizeDocument,
+} from '../canonical';
 import type { Document } from '../document';
 import {
   addNode,
@@ -177,6 +182,13 @@ describe('canonicalHash', () => {
     const renamed = { ...doc, name: 'renamed' } as Document;
     const after = canonicalHash(renamed);
     expect(after).not.toBe(before);
+  });
+
+  it('keeps derived nextId out of the history content hash', () => {
+    const doc = richDocument();
+    const advanced = { ...doc, nextId: doc.nextId + 100 } as Document;
+    expect(canonicalHash(advanced)).not.toBe(canonicalHash(doc));
+    expect(canonicalHistoryHash(advanced)).toBe(canonicalHistoryHash(doc));
   });
 
   it('is stable across repeated serialization', () => {

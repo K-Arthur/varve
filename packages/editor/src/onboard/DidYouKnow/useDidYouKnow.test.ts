@@ -126,4 +126,64 @@ describe('useDidYouKnow', () => {
 
     vi.useRealTimers();
   });
+
+  it('respects the enabled flag — no tip shown when disabled', () => {
+    vi.useFakeTimers();
+    const tracker = createTracker();
+    tracker.setCount('tool:select', 50);
+    tracker.setCount('op:createNode', 10);
+    tracker.setCount('shortcut:', 20);
+
+    const { result } = renderHook(() => useDidYouKnow(tracker, undefined, { enabled: false }));
+
+    act(() => {
+      vi.advanceTimersByTime(16000);
+    });
+
+    expect(result.current.currentTip).toBeNull();
+
+    vi.useRealTimers();
+  });
+
+  it('does not immediately show a different tip after dismiss (cooldown)', () => {
+    vi.useFakeTimers();
+    const tracker = createTracker();
+    // Two always-eligible tips exist (panel-toggle, undo) so a second can show later.
+    const { result } = renderHook(() => useDidYouKnow(tracker));
+
+    act(() => {
+      vi.advanceTimersByTime(16000);
+    });
+    expect(result.current.currentTip).not.toBeNull();
+    const firstId = result.current.currentTip?.id;
+
+    act(() => {
+      result.current.dismiss();
+    });
+    expect(result.current.currentTip).toBeNull();
+
+    // Within the dismiss cooldown: activity + idle must NOT surface another tip.
+    act(() => {
+      window.dispatchEvent(new Event('mousemove'));
+    });
+    act(() => {
+      vi.advanceTimersByTime(16000);
+    });
+    expect(result.current.currentTip).toBeNull();
+
+    // Past the cooldown: activity + idle surfaces the next distinct tip.
+    act(() => {
+      vi.advanceTimersByTime(110000);
+    });
+    act(() => {
+      window.dispatchEvent(new Event('mousemove'));
+    });
+    act(() => {
+      vi.advanceTimersByTime(16000);
+    });
+    expect(result.current.currentTip).not.toBeNull();
+    expect(result.current.currentTip?.id).not.toBe(firstId);
+
+    vi.useRealTimers();
+  });
 });

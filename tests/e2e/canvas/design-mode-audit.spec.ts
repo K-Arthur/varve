@@ -69,11 +69,17 @@ test.describe('Design (Dev/Design) Mode — accessibility audit', () => {
     });
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
 
-    await page.getByRole('tab', { name: 'audit' }).click();
-    await expect(page.getByText(/WCAG AA minimum/i)).toBeVisible();
+    // The inspector owns the IntelligencePanel. Open its outer Audit tab
+    // before addressing the nested Intelligence tabs; otherwise the nested
+    // tablist does not exist and the test waits until timeout.
+    const inspector = page.locator('.editor-inspector');
+    await inspector.getByRole('tab', { name: 'Audit', exact: true }).click();
+    const intelligence = page.locator('.intelligence-panel');
+    await intelligence.getByRole('tab', { name: 'audit', exact: true }).click();
+    await expect(page.getByText(/WCAG AA minimum/i).first()).toBeVisible();
     await expect(page.getByText('No issues detected')).not.toBeVisible();
 
-    await page.getByRole('button', { name: /auto-fix/i }).click();
+    await intelligence.getByRole('button', { name: /auto-fix/i }).click();
     await expect(page.getByText('No issues detected')).toBeVisible();
   });
 });

@@ -7,7 +7,7 @@
  * "natural" size must mean the same thing everywhere it's measured.
  */
 import type { LayoutSizing, SceneNode } from '@varve/scene';
-import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@varve/shared';
+import { DEFAULT_ARTWORK_FONT_FAMILY, measureText, measureWrappedText } from '@varve/shared';
 
 export interface Size {
   w: number;
@@ -28,18 +28,26 @@ export function measureNodeSize(n: SceneNode): Size {
       return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
     }
   }
-  if (n.kind === 'frame') return { w: n.w, h: n.h };
+  if (n.kind === 'frame') return { w: n.w ?? 0, h: n.h ?? 0 };
   if (n.kind === 'text') {
     const fs = n.fontSize ?? 16;
-    const measured = measureText(n.text ?? '', {
+    const opts = {
       fontSize: fs,
       fontFamily: n.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
       fontWeight: n.fontWeight ?? 400,
       fontStyle: n.fontStyle ?? 'normal',
       letterSpacing: n.letterSpacing ?? 0,
       lineHeight: n.lineHeight ?? 1.4,
-    });
-    return { w: Math.max(measured.width, 20), h: measured.height };
+      textCase: n.textCase,
+    };
+    const content = n.text ?? '';
+    if (!n.w || n.textResizing === 'autoWidth') {
+      const measured = measureText(content, opts);
+      return { w: Math.max(measured.width, 20), h: measured.height };
+    }
+    const wrapped = measureWrappedText(content, n.w, opts);
+    const h = n.textResizing === 'fixed' && n.h != null ? n.h : wrapped.height;
+    return { w: n.w, h };
   }
   return { w: 0, h: 0 };
 }

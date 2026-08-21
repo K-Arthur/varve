@@ -9,7 +9,7 @@
  */
 
 import type { Document } from '@varve/scene';
-import { canonicalHash } from '@varve/scene';
+import { canonicalHistoryHash } from '@varve/scene';
 import { createSnapshot } from './snapshots';
 import { type HistoryStore, mintHistoryId } from './store';
 import type {
@@ -38,7 +38,7 @@ export interface CreateRevisionInput {
 
 /** Build a RevisionRecord for a document state (does not persist it). */
 export function buildRevision(input: CreateRevisionInput): RevisionRecord {
-  const hash = canonicalHash(input.document);
+  const hash = canonicalHistoryHash(input.document);
   return {
     revisionId: mintHistoryId('r'),
     documentId: input.documentId,

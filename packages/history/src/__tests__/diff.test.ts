@@ -281,10 +281,9 @@ describe('diffDocuments null-safety', () => {
     expect(() => diffDocuments(base, target)).not.toThrow();
     const diff = diffDocuments(base, target);
     expect(diff.changed).toBe(true);
-    // The variable fields are reported as changes against undefined.
-    expect(diff.changes.some((c) => c.propertyPath?.startsWith('variableStore.variables.'))).toBe(
-      true,
-    );
+    // The optional store is captured as one atomic replacement so replay can
+    // create its parent path on a legacy snapshot.
+    expect(diff.changes.some((c) => c.propertyPath === 'variableStore')).toBe(true);
   });
 
   it('does not throw when a nested collection record is removed to undefined', () => {

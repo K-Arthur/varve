@@ -50,10 +50,13 @@ export type {
   AreaSelection,
   AreaSelectionExpression,
   AreaSelectionOperation,
+  AreaSelectionSettings,
   AreaSelectionShape,
+  AreaSelectionStyle,
   EllipseSelectionShape,
   PolygonSelectionShape,
   RasterizeAreaSelectionOptions,
+  RasterMaskSelectionShape,
   RectangleSelectionShape,
   SelectionPoint,
 } from './areaSelection';
@@ -62,6 +65,8 @@ export {
   areaSelectionCoverageAt,
   combineAreaSelections,
   createAreaSelection,
+  DEFAULT_AREA_SELECTION_SETTINGS,
+  invertAreaSelection,
   rasterizeAreaSelection,
 } from './areaSelection';
 export type {
@@ -401,13 +406,30 @@ export {
   DEFAULT_GRADIENT_LUT_SIZE,
   interpolateGradientMapColor,
 } from './gradientMap';
-export type { GrainAnchor, GrainSampleParams } from './grainSampler';
+export type { GrainAnchor, GrainResolution, GrainSampleParams } from './grainSampler';
 export {
+  grainTextureCoords,
+  isProceduralGrain,
+  PROCEDURAL_GRAIN_ID,
+  prepareGrain,
+  resolveGrainDetailed,
+  resolveGrainPlane,
   resolveGrainValue,
   resolveGrainValueSync,
-  sampleImageGrain,
+  sampleGrainPlane,
   sampleProceduralGrain,
+  shapeGrainValue,
 } from './grainSampler';
+export type { GrainPlane, GrainSource, GrainWrapMode } from './grainTexture';
+export {
+  DEFAULT_GRAIN_CACHE_BYTES,
+  decodeGrainPlane,
+  GrainTextureCache,
+  getGrainTextureCache,
+  MAX_GRAIN_DIMENSION,
+  resetGrainTextureCache,
+  samplePlane,
+} from './grainTexture';
 export type {
   HalftoneChannel,
   HalftoneDotShape,

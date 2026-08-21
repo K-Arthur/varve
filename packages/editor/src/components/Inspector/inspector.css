@@ -514,6 +514,7 @@
 
 .insp-field {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
@@ -2974,16 +2975,22 @@
   border-radius: var(--radius-sm);
   padding: 0 var(--space-2);
 }
+/* Wrapper provides horizontal room for stop handles at the bar edges
+ * so the 24×24 WCAG target-size handles don't clip against the bar border.
+ * Handles are 24px; at position 0%/100% the handle center aligns with the
+ * bar content edge so 12px extends past it. The bar border is 1px, so the
+ * wrapper needs ≥13px. Using 26px for generous visual clearance. */
+.gradient-editor__bar-wrap {
+  padding: 8px 26px;
+}
 .gradient-editor__bar {
   position: relative;
-  height: var(--space-5);
+  height: 20px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-subtle);
   cursor: copy;
   user-select: none;
-  /* Reserve space for stop handles at the edges so they don't overflow
-   * or get clipped by the bar's border/padding. */
-  padding: 0 10px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 .gradient-editor__stop {
   position: absolute;
@@ -2996,9 +3003,13 @@
   cursor: grab;
   padding: 0;
   z-index: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .gradient-editor__stop--selected {
   border: 2px solid var(--color-interactive-default);
+  box-shadow:
+    0 0 0 2px var(--color-interactive-default),
+    0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .gradient-editor__stop--idle {
   border: 2px solid var(--elevation-surface-overlay);
@@ -3032,6 +3043,22 @@
 .gradient-editor__remove-btn:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+/* Keep the padded stop-bar hit area inside a narrow inspector column. */
+.gradient-editor,
+.gradient-editor__bar-wrap,
+.gradient-editor__bar {
+  box-sizing: border-box;
+  min-width: 0;
+}
+.gradient-editor {
+  width: 100%;
+}
+.gradient-editor__bar-wrap,
+.gradient-editor__bar {
+  width: 100%;
+  max-width: 100%;
 }
 
 /* ─── DebtBadge (status bar debt count pill) ──────────── */
@@ -3147,16 +3174,22 @@
   border-radius: var(--radius-sm);
   padding: 0 var(--space-2);
 }
+/* Wrapper provides horizontal room for stop handles at the bar edges
+ * so the 24×24 WCAG target-size handles don't clip against the bar border.
+ * Handles are 24px; at position 0%/100% the handle center aligns with the
+ * bar content edge so 12px extends past it. The bar border is 1px, so the
+ * wrapper needs ≥13px. Using 26px for generous visual clearance. */
+.gradient-editor__bar-wrap {
+  padding: 8px 26px;
+}
 .gradient-editor__bar {
   position: relative;
-  height: var(--space-5);
+  height: 20px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-subtle);
   cursor: copy;
   user-select: none;
-  /* Reserve space for stop handles at the edges so they don't overflow
-   * or get clipped by the bar's border/padding. */
-  padding: 0 10px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 .gradient-editor__stop {
   position: absolute;
@@ -3169,9 +3202,13 @@
   cursor: grab;
   padding: 0;
   z-index: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .gradient-editor__stop--selected {
   border: 2px solid var(--color-interactive-default);
+  box-shadow:
+    0 0 0 2px var(--color-interactive-default),
+    0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .gradient-editor__stop--idle {
   border: 2px solid var(--elevation-surface-overlay);
@@ -3563,6 +3600,9 @@
   color: var(--color-text-subtle);
   line-height: 1.4;
   margin: 0 0 var(--space-2);
+  /* Break to its own line inside insp-field (flex row) so multi-line hints
+   * don't collide with the control or subsequent elements. */
+  flex-basis: 100%;
 }
 
 /* AuditBadge — keyboard focus (badge itself styled above). */
@@ -3888,4 +3928,187 @@
   gap: var(--space-2);
   color: var(--color-text-default);
   font-size: var(--font-size-sm);
+}
+
+/* ── Email preflight ─────────────────────────────────────────────────────── */
+
+.email-preflight {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+.email-preflight h3 {
+  margin: 0;
+  color: var(--color-text-default);
+  font-size: var(--font-size-sm);
+}
+.email-preflight__summary {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+.email-preflight__clear {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.email-preflight__groups,
+.email-preflight__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.email-preflight__items {
+  gap: var(--space-1);
+}
+.email-preflight__group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.email-preflight__group-count {
+  color: var(--color-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.email-preflight__item-button,
+.email-preflight__item-static {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 var(--space-2);
+  width: 100%;
+  padding: var(--space-1) 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-default);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  text-align: start;
+}
+.email-preflight__item-button {
+  cursor: pointer;
+}
+.email-preflight__message {
+  color: var(--color-text-default);
+}
+.email-preflight__item-button:hover .email-preflight__message,
+.email-preflight__item-button:focus-visible .email-preflight__message {
+  text-decoration: underline;
+}
+.email-preflight__severity {
+  font-weight: var(--font-weight-medium);
+  /* Severity is carried by the word as well as the colour, so the ranking
+     survives for anyone who cannot separate these hues. */
+}
+.email-preflight__severity--error {
+  color: var(--color-feedback-danger);
+}
+.email-preflight__severity--warning {
+  color: var(--color-feedback-warning);
+}
+.email-preflight__severity--info {
+  color: var(--color-feedback-info);
+}
+.email-preflight__fix {
+  grid-column: 2;
+  color: var(--color-text-muted);
+}
+
+/* ── Selected-node email output ──────────────────────────────────────────── */
+
+.email-compat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+.email-compat h4 {
+  margin: 0;
+  color: var(--color-text-default);
+  font-size: var(--font-size-sm);
+}
+.email-compat__badge {
+  align-self: flex-start;
+  margin: 0;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+.email-compat__badge--native {
+  background: color-mix(in oklch, var(--color-feedback-success) 20%, transparent);
+  color: var(--color-feedback-success);
+}
+.email-compat__badge--converted,
+.email-compat__badge--approximated {
+  background: color-mix(in oklch, var(--color-feedback-info) 20%, transparent);
+  color: var(--color-feedback-info);
+}
+.email-compat__badge--rasterized {
+  background: color-mix(in oklch, var(--color-feedback-warning) 20%, transparent);
+  color: var(--color-feedback-warning);
+}
+.email-compat__badge--unsupported {
+  background: color-mix(in oklch, var(--color-feedback-danger) 20%, transparent);
+  color: var(--color-feedback-danger);
+}
+.email-compat__explanation {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.email-compat__facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--font-size-xs);
+}
+.email-compat__facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.email-compat__facts dt {
+  color: var(--color-text-muted);
+}
+.email-compat__facts dd {
+  margin: 0;
+  color: var(--color-text-default);
+  text-align: end;
+}
+.email-compat__degraded {
+  font-size: var(--font-size-xs);
+}
+.email-compat__degraded-heading {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text-muted);
+}
+.email-compat__degraded ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  color: var(--color-text-default);
+}
+.email-compat__degraded code {
+  font-family: var(--font-family-mono);
 }

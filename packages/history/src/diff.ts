@@ -26,7 +26,7 @@
  *   `nextId` counter are not semantic content.
  */
 import type { Document } from '@varve/scene';
-import { canonicalHash, graphemeClusters } from '@varve/scene';
+import { canonicalHistoryHash, graphemeClusters } from '@varve/scene';
 
 export type DiffEntityKind =
   | 'document'
@@ -189,8 +189,8 @@ export function diffDocuments(
     changes: [],
     options: { epsilonPolicy: options.epsilonPolicy ?? 'default' },
   };
-  const baseHash = canonicalHash(base);
-  const targetHash = canonicalHash(target);
+  const baseHash = canonicalHistoryHash(base);
+  const targetHash = canonicalHistoryHash(target);
   if (baseHash === targetHash) {
     return { baseHash, targetHash, changed: false, changes: [], summary: emptySummary() };
   }
@@ -432,6 +432,25 @@ function compareValue(
     typeof targetVal === 'string'
   ) {
     compareText(ctx, entityId, path, baseVal, targetVal);
+    return;
+  }
+
+  // A missing object cannot be replayed safely as a set of leaf changes: the
+  // persisted base may be an older document that does not contain the parent
+  // path at all (for example, the first variable added to a legacy document).
+  // Record the boundary replacement so capture replay can create or remove
+  // the optional object atomically.
+  if (baseVal === undefined || targetVal === undefined) {
+    if (baseVal === targetVal) return;
+    emit(ctx, {
+      changeType: 'modified',
+      entityId,
+      entityType,
+      propertyPath: path,
+      before: baseVal,
+      after: targetVal,
+      summary: `${entityLabel(entityType)} ${entityNameOf(entityId)}: ${pathTail(path)} changed`,
+    });
     return;
   }
 

@@ -1,3 +1,5 @@
+export { isCapabilityRestricted } from '../capabilities/restrictions';
+
 /** Module-level bridge: call after setTheme() + localStorage so EditorProvider
  *  bumps themeRevision, causing Minimap, Ruler, and other subscribers to
  *  re-resolve theme-dependent colours.  Registered in EditorProvider. */
