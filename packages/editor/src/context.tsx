@@ -3788,11 +3788,17 @@ export function EditorProvider({
             const parentIndex = buildParentIndexMap(newDoc);
 
             // Find siblings (nodes with same parent as the new frame)
-            const frameParent = parentIndex.get(id);
+            const frameParent = parentIndex.get(id) ?? null;
             const siblings: NodeId[] = [];
-            for (const [nodeId, parentId] of parentIndex.entries()) {
-              if (parentId === frameParent && nodeId !== id) {
-                siblings.push(nodeId);
+            if (frameParent) {
+              for (const [nodeId, parentId] of parentIndex.entries()) {
+                if (parentId === frameParent && nodeId !== id) {
+                  siblings.push(nodeId);
+                }
+              }
+            } else {
+              for (const nodeId of newDoc.rootChildren) {
+                if (nodeId !== id) siblings.push(nodeId);
               }
             }
 
