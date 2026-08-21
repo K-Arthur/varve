@@ -204,7 +204,7 @@ describe('email layout inference', () => {
     const widths = row?.children.map((column) => column.width ?? 0) ?? [];
     expect(widths).toEqual([200, 400]);
     // Cells that do not add up to the row leave a gap in Outlook.
-    expect(widths.reduce((sum, width) => sum + width, 0)).toBe(600);
+    expect(widths.reduce<number>((sum, width) => sum + width, 0)).toBe(600);
   });
 
   it('keeps stacked siblings stacked rather than inventing columns', () => {
