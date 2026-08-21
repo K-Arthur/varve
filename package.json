@@ -67,8 +67,9 @@
     "build:website:pages": "pnpm --filter @varve/website build:pages",
     "screenshots:product": "node scripts/screenshots/product.mjs",
     "screenshots:og": "node scripts/screenshots/og-image.mjs",
+    "screenshots:workflow": "node scripts/screenshots/workflow.mjs",
     "screenshots:website": "pnpm build:website && node scripts/screenshots/validate.mjs",
-    "screenshots:update": "pnpm screenshots:product && pnpm screenshots:og && pnpm screenshots:website -- --strict",
+    "screenshots:update": "pnpm screenshots:product && pnpm screenshots:og && pnpm screenshots:workflow && pnpm screenshots:website -- --strict",
     "test:website": "vitest run apps/website/src/test",
     "test:website:e2e": "pnpm build:website && pnpm build:website:pages && playwright test -c playwright.website.config.ts"
   },

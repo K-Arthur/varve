@@ -12,6 +12,9 @@ import { spawn } from 'node:child_process';
  * Output:
  *   docs/screenshots/product/workflow.webm  — canonical video
  *   apps/website/public/screenshots/workflow.webm — synced for the website
+ *   workflow.mp4 (both dirs, when ffmpeg is available)
+ *   workflow-poster.png (both dirs) — first frame of the delivered cut;
+ *     <video> poster and the reduced-motion still on the website
  *
  * The workflow sequence:
  *   1. Open the poster demo document and fit it (setup — trimmed from the cut)
@@ -51,6 +54,13 @@ const skipMp4 = args.includes('--no-mp4');
 const VIDEO_FILE = 'workflow.webm';
 const VIDEO_PATH = join(OUT_DIR, VIDEO_FILE);
 const VIDEO_PUBLIC = join(PUBLIC_DIR, VIDEO_FILE);
+
+// First frame of the delivered cut. Serves as the <video> poster and as the
+// still shown to reduced-motion users, so both entry points depict exactly
+// what playing the video would show.
+const POSTER_FILE = 'workflow-poster.png';
+const POSTER_PATH = join(OUT_DIR, POSTER_FILE);
+const POSTER_PUBLIC = join(PUBLIC_DIR, POSTER_FILE);
 
 mkdirSync(OUT_DIR, { recursive: true });
 mkdirSync(PUBLIC_DIR, { recursive: true });
@@ -328,6 +338,11 @@ function trimToMp4(src, dest, startSeconds) {
   ]);
 }
 
+/** First frame of the delivered cut, as a PNG. */
+function extractPoster(src, dest) {
+  return runFfmpeg(['-i', src, '-frames:v', '1', '-update', '1', dest]);
+}
+
 function probeDuration(path) {
   return new Promise((resolve) => {
     const child = spawn('ffprobe', [
@@ -377,9 +392,11 @@ await warmUp();
 let exitCode = 0;
 
 try {
-  // Delete any previous workflow video
+  // Delete any previous workflow video and poster
   rmSync(VIDEO_PATH, { force: true });
   rmSync(VIDEO_PUBLIC, { force: true });
+  rmSync(POSTER_PATH, { force: true });
+  rmSync(POSTER_PUBLIC, { force: true });
 
   const ctx = await browser.newContext({
     viewport: { width: 1440, height: 900 },
@@ -435,6 +452,16 @@ try {
         await trimToMp4(videoPath, mp4Path, trimStart);
         writeFileSync(mp4Public, readFileSync(mp4Path));
       }
+      try {
+        await extractPoster(VIDEO_PATH, POSTER_PATH);
+        writeFileSync(POSTER_PUBLIC, readFileSync(POSTER_PATH));
+      } catch (err) {
+        console.warn(
+          `WARN poster extraction failed (${err instanceof Error ? err.message : err}) — website embed falls back to no poster`,
+        );
+        rmSync(POSTER_PATH, { force: true });
+        rmSync(POSTER_PUBLIC, { force: true });
+      }
     } else {
       // No ffmpeg: ship the untrimmed WebM rather than nothing, but say so —
       // the cut will open on the application's cold start.
@@ -460,6 +487,7 @@ try {
     for (const [label, path] of [
       ['WebM', VIDEO_PATH],
       ['MP4', mp4Path],
+      ['Poster', POSTER_PATH],
     ]) {
       if (!existsSync(path)) continue;
       const bytes = statSync(path).size;

@@ -23,6 +23,48 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       </section>
 
       <section class="product-section">
+        <h2>Watch a workflow</h2>
+        <p>
+          A real editing pass recorded from the application: select a layer,
+          reshape a B&eacute;zier path in node-edit mode, then open the export
+          dialog. Like every image on this site, it is captured by a
+          deterministic pipeline from a seeded demo document &mdash; never
+          hand-edited.
+        </p>
+        <figure class="workflow-loop">
+          <video
+            class="workflow-video"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            width="1440"
+            height="900"
+            poster={sitePath('/screenshots/workflow-poster.png')}
+            aria-label="Screen recording of the Varve editor: selecting a headline, editing a vector path's Bézier anchor points, and opening the export dialog"
+          >
+            <source src={sitePath('/screenshots/workflow.webm')} type="video/webm" />
+            <source src={sitePath('/screenshots/workflow.mp4')} type="video/mp4" />
+          </video>
+          <img
+            class="workflow-still"
+            src={sitePath('/screenshots/workflow-poster.png')}
+            alt="Still frame of the Varve editor with the demo poster document fitted in the workspace"
+            width="1440"
+            height="900"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>
+            Select, node-edit, export &mdash; one pass through the real
+            interface. The recording is muted and loops; a still frame replaces
+            it when your system asks for reduced motion.
+          </figcaption>
+        </figure>
+      </section>
+
+      <section class="product-section">
         <h2>Local-first, your files, your machine</h2>
         <p>
           Varve stores design data locally. No account or mandatory cloud sync is required, and core editing works offline. Optional model downloads, online font/icon search, user-configured providers, update checks, and aggregate measurements are separate network features; consented measurements do not include design content. You own your files, you control where they live, and the desktop application uses a native Rust engine. The same engine is compiled to WASM for the web target (a hosted web app is not available yet).
@@ -183,6 +225,44 @@ import ClosingCTA from '../components/ClosingCTA.astro';
     position: absolute;
     left: 0;
     color: var(--text-link-hover);
+  }
+
+  /* Workflow loop: the video autoplays muted; reduced-motion users get the
+     poster still instead. display:none also removes the hidden element from
+     the accessibility tree, so assistive tech sees exactly one description. */
+  .workflow-loop {
+    margin: 1.5rem 0 0;
+  }
+
+  .workflow-video,
+  .workflow-still {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-card);
+  }
+
+  .workflow-still {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .workflow-video {
+      display: none;
+    }
+
+    .workflow-still {
+      display: block;
+    }
+  }
+
+  .workflow-loop figcaption {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    padding-top: 0.75rem;
   }
   
   .audience-grid {
