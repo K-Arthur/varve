@@ -244,6 +244,11 @@ test('desktop quick-download buttons align across platform architecture rows', a
         return rect ? { top: rect.top, right: rect.right } : null;
       }),
     );
+    const recommendedRow = document.querySelector<HTMLElement>(
+      '.quick-architecture.recommended-arch',
+    );
+    const recommendationChip = recommendedRow?.querySelector<HTMLElement>('.arch-chip');
+    const recommendationButton = recommendedRow?.querySelector<HTMLElement>('.quick-download-btn');
     return {
       firstRow: buttons.flatMap((rows) => (rows[0] ? [rows[0]] : [])),
       secondRow: buttons.flatMap((rows) => (rows[1] ? [rows[1]] : [])),
@@ -251,6 +256,11 @@ test('desktop quick-download buttons align across platform architecture rows', a
       maxButtonRight: Math.max(
         ...buttons.flatMap((rows) => rows.filter(Boolean).map((button) => button!.right)),
       ),
+      recommendationGap:
+        recommendationChip && recommendationButton
+          ? recommendationButton.getBoundingClientRect().top -
+            recommendationChip.getBoundingClientRect().bottom
+          : null,
     };
   });
   const firstRowTops = geometry.firstRow.map((button) => button.top);
@@ -258,6 +268,7 @@ test('desktop quick-download buttons align across platform architecture rows', a
   const secondRowTops = geometry.secondRow.map((button) => button.top);
   expect(Math.max(...secondRowTops) - Math.min(...secondRowTops)).toBeLessThanOrEqual(1);
   expect(geometry.maxButtonRight).toBeLessThanOrEqual(geometry.viewportWidth);
+  expect(geometry.recommendationGap).toBeGreaterThanOrEqual(16);
 
   await context.close();
 });

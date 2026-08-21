@@ -114,6 +114,42 @@ test('no horizontal overflow at 320px', async ({ page }) => {
   }
 });
 
+test('footer wordmark animates only while its signature is in view', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/');
+
+  const footer = page.locator('[data-site-footer]');
+  const signature = page.locator('[data-footer-signature]');
+  const wordmark = page.locator('.footer-signature-text');
+  await expect(footer).toBeVisible();
+  await expect(signature).toBeVisible();
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect
+    .poll(() => footer.evaluate((element) => element.classList.contains('is-in-view')))
+    .toBe(false);
+  await expect
+    .poll(() => wordmark.evaluate((element) => getComputedStyle(element).animationName))
+    .toBe('none');
+
+  await signature.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => footer.evaluate((element) => element.classList.contains('is-in-view')))
+    .toBe(true);
+  await expect
+    .poll(() => wordmark.evaluate((element) => getComputedStyle(element).animationName))
+    .not.toBe('none');
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect
+    .poll(() => footer.evaluate((element) => element.classList.contains('is-in-view')))
+    .toBe(false);
+  await expect
+    .poll(() => wordmark.evaluate((element) => getComputedStyle(element).animationName))
+    .toBe('none');
+});
+
 test('keyboard-only path to the download page', async ({ page }) => {
   await page.goto('/');
   // Tab through the page; when the Download link is focused, activate it.

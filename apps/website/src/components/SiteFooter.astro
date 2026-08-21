@@ -20,7 +20,7 @@ const statusLabel = release.hasRelease && release.version
   : 'Beta · no public release yet';
 ---
 
-<footer class="site-footer">
+<footer class="site-footer" data-site-footer>
   <div class="footer-download-band">
     <div class="container-custom footer-download-inner">
       <div class="footer-download-copy">
@@ -115,7 +115,7 @@ const statusLabel = release.hasRelease && release.version
   <!-- Closing signature: a clean, high-contrast full-bleed wordmark. The
        oversized crop carries the Affinity/Antigravity reference without
        introducing geometry that does not align with the live glyph. -->
-  <div class="footer-signature" aria-hidden="true">
+  <div class="footer-signature" data-footer-signature aria-hidden="true">
     <svg class="footer-signature-svg" viewBox="0 0 1400 600" role="presentation">
       <text
         class="footer-signature-text"
@@ -138,6 +138,21 @@ const statusLabel = release.hasRelease && release.version
     </p>
   </div>
 </footer>
+
+<script>
+  const signature = document.querySelector<HTMLElement>('[data-footer-signature]');
+  const footer = signature?.closest<HTMLElement>('[data-site-footer]');
+
+  if (signature && footer && 'IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        footer.classList.toggle('is-in-view', entry?.isIntersecting ?? false);
+      },
+      { threshold: 0.05 },
+    );
+    observer.observe(signature);
+  }
+</script>
 
 
 <style>
@@ -379,7 +394,7 @@ const statusLabel = release.hasRelease && release.version
      a slow rise with a letter-spacing settle, then a gentle breathing
      drift. Runs on a loop but is slow and calm. */
   @media (prefers-reduced-motion: no-preference) {
-    .footer-signature-text {
+    .site-footer.is-in-view .footer-signature-text {
       animation:
         fs-rise 1.6s var(--ease-default) both,
         fs-breathe 7s ease-in-out 1.8s infinite;
