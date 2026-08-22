@@ -70,6 +70,30 @@ describe('runRestoration', () => {
     expect(result.warnings[0]).toMatch(/before super-resolution/i);
   });
 
+  it('forwards per-stage upscale progress to the live stage reporter', async () => {
+    const snapshots: Array<{ id: string; status: string; progress: number }[]> = [];
+    vi.mocked(dispatchUpscale).mockImplementation(async (_input, options) => {
+      options.onProgress?.(3, 4);
+      return image(4, 4);
+    });
+
+    await runRestoration(
+      image(),
+      {
+        operation: 'upscale',
+        upscale: { method: 'ai', modelId: 'upscale-realesr-general', scale: 2 },
+      },
+      {
+        onStageChange: (stages) => {
+          snapshots.push(stages.map(({ id, status, progress }) => ({ id, status, progress })));
+        },
+      },
+    );
+
+    expect(snapshots).toContainEqual([{ id: 'upscale', status: 'running', progress: 0.75 }]);
+    expect(snapshots.at(-1)).toEqual([{ id: 'upscale', status: 'completed', progress: 1 }]);
+  });
+
   it('does not call providers for a no-op', async () => {
     const result = await runRestoration(image(), { operation: 'none' });
     expect(result.imageData.width).toBe(2);

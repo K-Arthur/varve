@@ -160,6 +160,11 @@ export async function runRestoration(
               modelId: stage.modelId,
               preview: request.preview,
               previewMaxDimension: request.previewMaxDimension,
+              onProgress: (done, total) => {
+                stage.progress = total > 0 ? done / total : 0;
+                options.onProgress?.(stage, done, total);
+                reportStages(stages, options.onStageChange);
+              },
             },
             options.signal,
           );
