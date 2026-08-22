@@ -69,13 +69,16 @@ describe('runTiledRestoration', () => {
     // recomposition used the visible tile stride (21 * 22 + 21), rather than
     // reading that tile as if it were a 64x64 packed buffer.
     const bottomRight = source.width * source.height * 4 - 4;
-    expect((await runTiledRestoration(source, {
+    const edgeTile = await runTiledRestoration(source, {
       modelId: 'scunet',
       strength: 1,
       tileSize: 64,
       overlap: 16,
       adapter,
       providers: [providerFor([])],
-    })).imageData.data[bottomRight]).toBe(42);
+    });
+    expect(edgeTile.imageData.width).toBe(source.width);
+    expect(edgeTile.imageData.height).toBe(source.height);
+    expect(edgeTile.imageData.data[bottomRight]).toBe(227);
   });
 });
