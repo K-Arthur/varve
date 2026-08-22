@@ -16,13 +16,13 @@ const root = join(import.meta.dirname, '..', '..');
 const out = join(root, 'docs', 'screenshots', 'workflows');
 const publicOut = join(root, 'apps', 'website', 'public', 'screenshots', 'workflows');
 const slugs = [
-  'auto-layout',
-  'component-variants',
-  'prototype-interaction',
-  'smart-animate',
-  'motion-timeline',
-  'export-react',
-  'light-dark-ui',
+  'raster-to-vector',
+  'bezier-node-edit',
+  'poster-to-print',
+  'rgb-to-cmyk',
+  'variable-font',
+  'text-on-path',
+  'export-svg',
 ];
 const stage = join(root, `.capture-tmp-encode-${process.pid}-${Date.now()}`);
 mkdirSync(stage, { recursive: true });

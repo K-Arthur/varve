@@ -6,21 +6,19 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const workflows = {
-  'auto-layout': 'auto-layout.mjs',
-  'component-variants': 'component-variants.mjs',
-  'prototype-interaction': 'prototype-interaction.mjs',
-  'smart-animate': 'smart-animate.mjs',
-  'motion-timeline': 'motion-timeline.mjs',
-  'export-react': 'export-react.mjs',
-  'light-dark-ui': 'light-dark-ui.mjs',
+  'raster-to-vector': 'raster-to-vector.mjs',
+  'bezier-node-edit': 'bezier-node-edit.mjs',
+  'poster-to-print': 'poster-to-print.mjs',
+  'rgb-to-cmyk': 'rgb-to-cmyk.mjs',
+  'variable-font': 'variable-font.mjs',
+  'text-on-path': 'text-on-path.mjs',
+  'export-svg': 'export-svg.mjs',
 };
 const groups = {
-  interaction: ['prototype-interaction', 'smart-animate'],
-  motion: ['motion-timeline'],
-  codegen: ['export-react'],
-  theme: ['light-dark-ui'],
-  layout: ['auto-layout'],
-  components: ['component-variants'],
+  vector: ['raster-to-vector', 'bezier-node-edit'],
+  print: ['poster-to-print', 'rgb-to-cmyk'],
+  type: ['variable-font', 'text-on-path'],
+  export: ['export-svg'],
 };
 
 function usage() {
