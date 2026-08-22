@@ -156,9 +156,11 @@ and may be used for:
 - **Optional model downloads**, fetched from the model provider shown in the
   model dialog and verified against a pinned checksum when one is available.
 - **Online font and icon search**, when you invoke those providers.
-- **Update checks**, only after you enable them and only for an install whose
-  release channel has a published signed feed. The current release does not
-  include a signed feed, so manual updates are currently the dependable path.
+- **Update checks**, only after you enable them. The published stable feed
+  carries Tauri-signed metadata for Linux AppImage (x86_64) and Windows
+  NSIS (x86_64) builds. macOS, Linux package formats, and ARM64 builds
+  update manually. Update checks send only your current version, platform,
+  architecture, and release channel — no document data or device identifiers.
 - **Optional cloud providers**, only when you configure and invoke one (for
   example, a user-supplied background-removal endpoint).
 - **Consent-gated aggregate analytics**. Crash reports remain local unless a

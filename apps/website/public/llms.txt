@@ -10,7 +10,7 @@
 - It is free with no subscription and no feature lockouts. Only the Community Edition exists today.
 - Desktop builds use a native Rust engine; the same engine compiles to WASM for web builds (the web build is not yet deployed as a hosted app).
 
-## Release status (verified against the repository state on 2026-08-20)
+## Release status (verified against the repository state on 2026-08-21)
 
 - Status: public beta. The latest published application release, **Varve 0.2.0**, was published 2026-08-21; the first public release was **0.1.0**. Published installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon dmg), and Windows (x86_64 and ARM64 NSIS installers). Windows and macOS installers are not code-signed; updater metadata is signed separately.
 - The download page renders every artifact from the verified release manifest (SHA-256 checksums, SBOMs, system requirements); nothing is hand-typed.
