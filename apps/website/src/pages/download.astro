@@ -559,22 +559,75 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               {p.id === 'linux' && (
                 <div class="format-tradeoffs">
                   <h3>Which package should I choose?</h3>
-                  <ul>
-                    <li>
-                      <strong>Debian package (.deb)</strong> — recommended for Debian, Ubuntu and
-                      derivatives: installs system-wide and updates through apt, and pulls in the
-                      WebKitGTK dependency automatically.
-                    </li>
-                    <li>
-                      <strong>AppImage</strong> — a single portable file that runs on any
-                      distribution without installing. It needs FUSE2 (or
-                      <code>--appimage-extract-and-run</code>) and a system WebKitGTK library.
-                    </li>
-                    <li>
-                      <strong>RPM package (.rpm)</strong> — for Fedora, RHEL and derivatives;
-                      updates through dnf.
-                    </li>
-                  </ul>
+                  <p class="format-tradeoffs-intro">
+                    Linux has no single package format. Pick the one that matches your distro:
+                  </p>
+                  <div class="distro-picker">
+                    <table class="distro-table">
+                      <thead>
+                        <tr>
+                          <th>Distro family</th>
+                          <th>Recommended format</th>
+                          <th>Install command</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><strong>Debian / Ubuntu / Mint / Pop!_OS</strong></td>
+                          <td>Debian package (.deb)</td>
+                          <td><code>sudo apt install ./Varve-*.deb</code></td>
+                        </tr>
+                        <tr>
+                          <td><strong>Fedora / RHEL / Rocky / Alma</strong></td>
+                          <td>RPM package (.rpm)</td>
+                          <td><code>sudo dnf install ./Varve-*.rpm</code></td>
+                        </tr>
+                        <tr>
+                          <td><strong>Arch / CachyOS / Manjaro</strong></td>
+                          <td>AppImage <span class="format-badge">recommended</span></td>
+                          <td><code>chmod +x Varve-*.AppImage &amp;&amp; ./Varve-*.AppImage</code></td>
+                        </tr>
+                        <tr>
+                          <td><strong>openSUSE / SUSE</strong></td>
+                          <td>AppImage</td>
+                          <td><code>chmod +x Varve-*.AppImage &amp;&amp; ./Varve-*.AppImage</code></td>
+                        </tr>
+                        <tr>
+                          <td><strong>Other distros</strong></td>
+                          <td>AppImage <span class="format-badge">universal</span></td>
+                          <td>Same as above; or <code>--appimage-extract-and-run</code> if FUSE2 is unavailable</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="format-notes">
+                    <p>
+                      <strong>AppImage</strong> — a single portable file that runs on any distro
+                      without root or a package manager. This is the universal option and the
+                      recommended default for Arch, CachyOS, openSUSE, and other non-Debian/Fedora
+                      distros. Requires FUSE2 (or <code>--appimage-extract-and-run</code>) and the
+                      system WebKitGTK library.
+                    </p>
+                    <p>
+                      <strong>Debian package (.deb)</strong> — installs system-wide and updates
+                      through apt. Pulls in the WebKitGTK dependency automatically. For Debian,
+                      Ubuntu, and derivatives.
+                    </p>
+                    <p>
+                      <strong>RPM package (.rpm)</strong> — installs system-wide and updates through
+                      dnf. For Fedora, RHEL, and derivatives.
+                    </p>
+                    <p>
+                      <strong>Arch/CachyOS PKGBUILD</strong> — a
+                      <code>varve-desktop-bin</code> PKGBUILD is in the
+                      <a href="https://github.com/K-Arthur/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">
+                        repository
+                      </a>. It extracts the AppImage at install time, providing proper
+                      <code>.desktop</code> file, icons, MIME types, and clean uninstall via
+                      <code>pacman -R</code>. No FUSE dependency. Build with
+                      <code>makepkg -si</code> from the PKGBUILD directory.
+                    </p>
+                  </div>
                 </div>
               )}
 
