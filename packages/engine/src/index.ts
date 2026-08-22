@@ -917,6 +917,7 @@ export type {
   RestorationRequest,
   RestorationRuntime,
   RestorationStagePlan,
+  RestorationStageState,
   RestorationTask,
 } from './restoration';
 export {
@@ -945,7 +946,6 @@ export {
 export type {
   RestorationExecutionOptions,
   RestorationResult,
-  RestorationStageState,
 } from './restorationPipeline';
 export { runRestoration } from './restorationPipeline';
 export {

@@ -202,6 +202,12 @@ export interface RestorationStagePlan {
   reason?: string;
 }
 
+export interface RestorationStageState extends Omit<RestorationStagePlan, 'status'> {
+  status: 'pending' | 'running' | 'completed' | 'cancelled' | 'failed';
+  progress: number;
+  processingTimeMs?: number;
+}
+
 export interface RestorationPlan {
   operation: RestorationOperation;
   stages: RestorationStagePlan[];

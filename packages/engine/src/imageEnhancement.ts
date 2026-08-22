@@ -10,11 +10,11 @@ export type UpscaleMethod = 'nearest' | 'bilinear' | 'bicubic' | 'lanczos3' | 'a
 
 export type UpscaleProgressFn = (done: number, total: number) => void;
 export type UpscaleStageChangeFn = (
-  stages: import('./restorationPipeline').RestorationStageState[],
+  stages: import('./restoration').RestorationStageState[],
 ) => void;
 
 export type { RestorationOperation } from './restoration';
-export type { RestorationStageState } from './restorationPipeline';
+export type { RestorationStageState } from './restoration';
 
 export type DenoiseStrength = 'none' | 'light' | 'medium' | 'strong';
 

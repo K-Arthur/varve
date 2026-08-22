@@ -5,15 +5,12 @@ import {
   type RestorationOperation,
   type RestorationRequest,
   type RestorationStagePlan,
+  type RestorationStageState,
   toRestorationError,
 } from './restoration';
 import { dispatchUpscale } from './upscaleProviders/dispatch';
 
-export interface RestorationStageState extends Omit<RestorationStagePlan, 'status'> {
-  status: 'pending' | 'running' | 'completed' | 'cancelled' | 'failed';
-  progress: number;
-  processingTimeMs?: number;
-}
+export type { RestorationStageState } from './restoration';
 
 export interface RestorationExecutionOptions {
   signal?: AbortSignal;
