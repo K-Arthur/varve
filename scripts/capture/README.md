@@ -13,9 +13,11 @@ verification of the delivered file.
 ## Commands
 
 ```bash
-node scripts/capture/workflows/<slug>.mjs           # record, deliver, verify
-node scripts/capture/workflows/<slug>.mjs --no-mp4  # WebM only
-node scripts/capture/workflows/<slug>.mjs --keep-source  # keep the raw recording
+pnpm capture:workflow <slug>                       # record one workflow
+pnpm capture:group interaction                     # record a group
+pnpm capture:all                                   # record all seven
+pnpm capture:encode                                # encode verified WebM masters to MP4
+pnpm capture:verify                                # verify canonical media without recording
 ```
 
 Every run picks its own port (`14000 + pid % 900`) and its own scratch
@@ -28,13 +30,13 @@ editor mid-recording.
 
 | Slug | Workflow | Target length |
 |---|---|---|
-| `raster-to-vector` | Raster → editable vector | 18–30s |
-| `bezier-node-edit` | Draw Bézier → manipulate nodes | 14–26s |
-| `poster-to-print` | Poster from blank canvas → print | 26–44s |
-| `rgb-to-cmyk` | RGB design → CMYK workflow | 20–32s |
-| `variable-font` | Variable font axes | 15–26s |
-| `text-on-path` | Text on path | 17–28s |
-| `export-svg` | Design → SVG | 15–26s |
+| `auto-layout` | Music-player playlist auto-layout | 18–28s |
+| `component-variants` | Transit-ticket component variants | 20–30s |
+| `prototype-interaction` | Travel-booking prototype flow | 18–28s |
+| `smart-animate` | Expanding weather card | 15–24s |
+| `motion-timeline` | Kinetic editorial title card | 22–32s |
+| `export-react` | Pricing-plan Design → React | 18–28s |
+| `light-dark-ui` | Same editorial project in light/dark UI | 12–18s |
 
 Each produces, in `docs/screenshots/workflows/`:
 

@@ -36,9 +36,15 @@ for (const slug of slugs) {
     findings.push(`webm dimensions ${webm.width}x${webm.height}`);
   if (mp4.width !== 1440 || mp4.height !== 900)
     findings.push(`mp4 dimensions ${mp4.width}x${mp4.height}`);
+  if (webm.fps !== 30) findings.push(`webm fps ${webm.fps}`);
+  if (mp4.fps !== 30) findings.push(`mp4 fps ${mp4.fps}`);
   if (Math.abs(webm.duration - mp4.duration) > 0.15)
     findings.push(`duration mismatch ${webm.duration.toFixed(2)} / ${mp4.duration.toFixed(2)}`);
+  if (manifest.outputs?.mp4 !== `docs/screenshots/workflows/${slug}.mp4`)
+    findings.push('manifest MP4 output is missing or incorrect');
   if (manifest.verification?.pass !== true) findings.push('manifest verification is not passing');
+  if (manifest.verification?.clips?.mp4?.pass !== true)
+    findings.push('manifest MP4 verification is not passing');
   if (findings.length) {
     console.error(`[${slug}] ${findings.join('; ')}`);
     failed = true;
