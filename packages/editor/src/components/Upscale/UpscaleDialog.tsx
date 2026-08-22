@@ -768,6 +768,7 @@ export function UpscaleDialog({
                   </button>
                 </div>
               </div>
+              </div>
               <div
                 ref={previewContainerRef}
                 className={`upscale-preview__image-container ${previewZoom === '100%' ? 'upscale-preview__image-container--zoom100' : ''}`}
