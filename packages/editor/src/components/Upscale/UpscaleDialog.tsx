@@ -61,6 +61,7 @@ interface UpscaleDialogProps {
     output: OutputBehavior;
     qualityPolicy: 'faithful' | 'balanced';
     denoiseStrength: DenoiseStrength;
+    deblurStrength?: number;
     pixelArtAlgorithm?: PixelArtAlgorithm;
     onProgress: UpscaleProgressFn;
   }) => Promise<void>;
@@ -130,6 +131,7 @@ export function UpscaleDialog({
   const [output, setOutput] = useState<OutputBehavior>('new-layer');
   const [qualityPolicy, setQualityPolicy] = useState<'faithful' | 'balanced'>('faithful');
   const [denoiseStrength, setDenoiseStrength] = useState<DenoiseStrength>('none');
+  const [deblurStrength, setDeblurStrength] = useState(0.7);
   const [pixelArtAlgorithm, setPixelArtAlgorithm] = useState<PixelArtAlgorithm>('epx');
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -179,6 +181,10 @@ export function UpscaleDialog({
       denoise: usesDenoise
         ? { strength: denoiseStrength === 'none' ? 'medium' : denoiseStrength }
         : undefined,
+      deblur:
+        operation === 'deblur' || operation === 'deblur-upscale'
+          ? { strength: deblurStrength }
+          : undefined,
       upscale: usesUpscale
         ? {
             method,
@@ -196,7 +202,7 @@ export function UpscaleDialog({
       preview: true,
       previewMaxDimension: 512,
     };
-  }, [denoiseStrength, mode, operation, pixelArtAlgorithm, qualityPolicy, scale, usesDenoise, usesUpscale]);
+  }, [denoiseStrength, deblurStrength, mode, operation, pixelArtAlgorithm, qualityPolicy, scale, usesDenoise, usesUpscale]);
 
   /**
    * Resolve the Auto recommendation into a concrete operation. Suggestions
@@ -377,6 +383,7 @@ export function UpscaleDialog({
     sourceImageData,
     mode,
     processing,
+    previewFocus,
   ]);
 
   // Clear preview when the operation changes or becomes unavailable.
@@ -556,6 +563,10 @@ export function UpscaleDialog({
             : usesDenoise
               ? denoiseStrength
               : 'none',
+        deblurStrength:
+          concreteOp === 'deblur' || concreteOp === 'deblur-upscale'
+            ? deblurStrength
+            : undefined,
         pixelArtAlgorithm: modeId === 'pixel-art' ? pixelArtAlgorithm : undefined,
         onProgress,
       });
@@ -596,6 +607,7 @@ export function UpscaleDialog({
     scale,
     output,
     denoiseStrength,
+    deblurStrength,
     pixelArtAlgorithm,
     memoryExceeded,
     processing,
@@ -750,24 +762,24 @@ export function UpscaleDialog({
                     role="group"
                     aria-label="Preview zoom"
                   >
-                  <button
-                    type="button"
-                    className={`upscale-preview__zoom-btn ${previewZoom === 'fit' ? 'upscale-preview__zoom-btn--active' : ''}`}
-                    aria-pressed={previewZoom === 'fit'}
-                    onClick={() => setPreviewZoom('fit')}
-                  >
-                    Fit
-                  </button>
-                  <button
-                    type="button"
-                    className={`upscale-preview__zoom-btn ${previewZoom === '100%' ? 'upscale-preview__zoom-btn--active' : ''}`}
-                    aria-pressed={previewZoom === '100%'}
-                    onClick={() => setPreviewZoom('100%')}
-                  >
-                    100%
-                  </button>
+                    <button
+                      type="button"
+                      className={`upscale-preview__zoom-btn ${previewZoom === 'fit' ? 'upscale-preview__zoom-btn--active' : ''}`}
+                      aria-pressed={previewZoom === 'fit'}
+                      onClick={() => setPreviewZoom('fit')}
+                    >
+                      Fit
+                    </button>
+                    <button
+                      type="button"
+                      className={`upscale-preview__zoom-btn ${previewZoom === '100%' ? 'upscale-preview__zoom-btn--active' : ''}`}
+                      aria-pressed={previewZoom === '100%'}
+                      onClick={() => setPreviewZoom('100%')}
+                    >
+                      100%
+                    </button>
+                  </div>
                 </div>
-              </div>
               </div>
               <div
                 ref={previewContainerRef}
@@ -1006,7 +1018,7 @@ export function UpscaleDialog({
                 </div>
               )}
 
-              {(usesDenoise || operation === 'upscale') && (
+              {(usesDenoise || operation === 'upscale') && operation !== 'deblur-upscale' && (
                 <div className="upscale-settings__group">
                   <span className="upscale-settings__label">Denoise</span>
                   <SegmentedControl
@@ -1025,11 +1037,36 @@ export function UpscaleDialog({
                     <p className="insp-hint">
                       {denoiseStrength === 'none'
                         ? 'No denoising'
-                        : operation === 'deblur-upscale'
-                          ? `${denoiseStrength} deblur before upscale`
-                          : `${denoiseStrength} denoise before upscale`}
+                        : `${denoiseStrength} denoise before upscale`}
                     </p>
                   )}
+                </div>
+              )}
+
+              {(operation === 'deblur' || operation === 'deblur-upscale') && (
+                <div className="upscale-settings__group">
+                  <span className="upscale-settings__label">Deblur</span>
+                  <SegmentedControl
+                    label="Deblur strength"
+                    value={String(deblurStrength)}
+                    disabled={processing}
+                    options={[
+                      { value: '0.3', label: 'Light' },
+                      { value: '0.5', label: 'Medium' },
+                      { value: '0.7', label: 'Strong' },
+                      { value: '0.9', label: 'Maximum' },
+                    ]}
+                    onChange={(v) => setDeblurStrength(Number(v))}
+                  />
+                  <p className="insp-hint">
+                    {operation === 'deblur-upscale'
+                      ? `Deblur strength ${deblurStrength} before upscale`
+                      : deblurStrength <= 0.3
+                        ? 'Conservative — preserves original detail'
+                        : deblurStrength >= 0.9
+                          ? 'Maximum — may create ringing on already-sharp images'
+                          : `Deblur strength ${deblurStrength}`}
+                  </p>
                 </div>
               )}
 

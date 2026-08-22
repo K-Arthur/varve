@@ -42,6 +42,8 @@ export interface UpscaleOptions {
   previewMaxDimension?: number;
   /** Denoise strength — applies SCUNet denoising before upscaling. */
   denoiseStrength?: DenoiseStrength;
+  /** Deblur strength (0-1) — applies NAFNet deblurring before upscaling. */
+  deblurStrength?: number;
   /** Pixel-art algorithm to use when method is 'nearest' (pixel-art mode). */
   pixelArtAlgorithm?: import('./pixelArtScaling').PixelArtAlgorithm;
   /** Where to place the upscaled result. Defaults to a new layer. */
@@ -55,6 +57,11 @@ export interface UpscaleOptions {
    * with the same pixels (selection membership is not required).
    */
   nodeId?: string;
+  /**
+   * Fractional center (0–1 per axis) of the preview crop region. Defaults
+   * to the image center; lets the user inspect a specific area.
+   */
+  previewFocus?: { x: number; y: number };
 }
 
 /** Default bundled Real-ESRGAN model used by the shared worker path. */
@@ -373,7 +380,15 @@ export function computeUpscalePreview(source: ImageData, options: UpscaleOptions
   return upscaleImageData(previewSource, { ...options, scale });
 }
 
-/** Region of the source that {@link computeUpscalePreview} magnifies. */
+/**
+ * Region of the source that {@link computeUpscalePreview} magnifies.
+ *
+ * `focus` optionally moves the crop's center to a fractional position
+ * (0–1 in both axes) so the user can inspect a specific area instead of
+ * the default center — a defect at an edge or corner is otherwise
+ * invisible to preview. The region is clamped so it always lies fully
+ * inside the source.
+ */
 export function upscalePreviewRegion(
   source: ImageData | { width: number; height: number },
   options: UpscaleOptions = {},
@@ -383,9 +398,18 @@ export function upscalePreviewRegion(
   const cropLimit = Math.max(1, maxDim / Math.max(scale, 0.001));
   const width = Math.max(1, Math.min(source.width, Math.round(cropLimit)));
   const height = Math.max(1, Math.min(source.height, Math.round(cropLimit)));
+  const focus = options.previewFocus;
+  const centerX =
+    focus && Number.isFinite(focus.x)
+      ? Math.min(1, Math.max(0, focus.x)) * source.width
+      : source.width / 2;
+  const centerY =
+    focus && Number.isFinite(focus.y)
+      ? Math.min(1, Math.max(0, focus.y)) * source.height
+      : source.height / 2;
   return {
-    x: Math.floor((source.width - width) / 2),
-    y: Math.floor((source.height - height) / 2),
+    x: Math.floor(Math.min(source.width - width, Math.max(0, centerX - width / 2))),
+    y: Math.floor(Math.min(source.height - height, Math.max(0, centerY - height / 2))),
     width,
     height,
   };

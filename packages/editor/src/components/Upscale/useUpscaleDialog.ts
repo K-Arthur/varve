@@ -40,6 +40,7 @@ interface UseUpscaleDialogReturn {
     output: 'new-layer' | 'replace-source' | 'non-destructive';
     qualityPolicy: 'faithful' | 'balanced';
     denoiseStrength: DenoiseStrength;
+    deblurStrength?: number;
     pixelArtAlgorithm?: PixelArtAlgorithm;
     onProgress: UpscaleProgressFn;
     /** Explicit target node for batch enhancement. */
@@ -83,6 +84,7 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
       output: 'new-layer' | 'replace-source' | 'non-destructive';
       qualityPolicy: 'faithful' | 'balanced';
       denoiseStrength: DenoiseStrength;
+      deblurStrength?: number;
       pixelArtAlgorithm?: PixelArtAlgorithm;
       onProgress: UpscaleProgressFn;
       /** Explicit target node for batch enhancement. */
@@ -112,6 +114,7 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
         method,
         modelId,
         denoiseStrength: options.denoiseStrength,
+        deblurStrength: options.deblurStrength,
         pixelArtAlgorithm: options.pixelArtAlgorithm,
         output: options.output,
         qualityPolicy: options.qualityPolicy,

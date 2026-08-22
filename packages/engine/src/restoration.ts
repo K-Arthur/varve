@@ -176,6 +176,11 @@ export interface RestorationRequest {
     strength: 'light' | 'medium' | 'strong';
     modelId?: string;
   };
+  deblur?: {
+    /** Output blend strength (0-1). 0 = source only, 1 = full deblur. */
+    strength: number;
+    modelId?: string;
+  };
   upscale?: {
     method: 'nearest' | 'bilinear' | 'bicubic' | 'lanczos3' | 'ai' | 'pixel-art';
     scale: number;

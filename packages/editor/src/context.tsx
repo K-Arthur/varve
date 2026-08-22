@@ -8542,6 +8542,7 @@ export function EditorProvider({
           }
 
           const denoiseStrength = options.denoiseStrength;
+          const deblurStrength = options.deblurStrength;
           const pixelArtAlgo = options.pixelArtAlgorithm;
           const usePixelArt =
             options.method === 'nearest' && pixelArtAlgo && pixelArtAlgo !== 'nearest';
@@ -8560,6 +8561,13 @@ export function EditorProvider({
                             ? denoiseStrength
                             : 'medium',
                         modelId: 'scunet',
+                      }
+                    : undefined,
+                deblur:
+                  operation === 'deblur' || operation === 'deblur-upscale'
+                    ? {
+                        strength: options.deblurStrength ?? 0.7,
+                        modelId: 'nafnet-deblur-gopro',
                       }
                     : undefined,
                 upscale:

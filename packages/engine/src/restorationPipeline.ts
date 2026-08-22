@@ -116,18 +116,19 @@ export async function runRestoration(
         currentImage = result.denoised;
         provider = result.executionProvider;
       } else if (stage.task === 'deblur' || stage.task === 'compression-restoration') {
-        // Both run through the shared restoration dispatch; the planner has
-        // already validated the checkpoint for the exact task.  The strength
-        // maps from the user-facing denoise strength control so deblur-upscale
-        // keeps its setting consistent.
+        // Use explicit deblur strength when provided; fall back to the
+        // denoise-mapped value for backward compatibility with callers
+        // that don't yet set deblur.strength.
         const deblurStrength =
-          request.qualityPolicy === 'faithful' && !request.denoise?.strength
-            ? 0.3
-            : request.denoise?.strength === 'light'
+          request.deblur?.strength != null
+            ? request.deblur.strength
+            : request.qualityPolicy === 'faithful' && !request.denoise?.strength
               ? 0.3
-              : request.denoise?.strength === 'strong'
-                ? 0.8
-                : 0.7;
+              : request.denoise?.strength === 'light'
+                ? 0.3
+                : request.denoise?.strength === 'strong'
+                  ? 0.8
+                  : 0.7;
         const { dispatchRestorationTask } = await import('./restorationProviders/dispatch');
         const result = await dispatchRestorationTask(currentImage, stage.task, deblurStrength, {
           signal: options.signal,
