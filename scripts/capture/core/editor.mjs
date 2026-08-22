@@ -161,7 +161,7 @@ export async function useTool(page, key) {
  * resolved, then two animation frames so a consequential layout change has
  * been through both React commit and the canvas repaint that follows it.
  */
-export async function settle(page, { pauseMs = 400 } = {}) {
+export async function settle(page, { pauseMs = 250 } = {}) {
   await page.evaluate(() => document.fonts.ready);
   await page.evaluate(
     () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
@@ -214,7 +214,7 @@ export async function frac(page, fx, fy) {
 /** Moves visibly before pressing, so the cursor is where the click lands. */
 export async function clickCanvas(page, x, y, { settleMs = 350 } = {}) {
   const box = await canvasBox(page);
-  await page.mouse.move(box.x + x, box.y + y, { steps: 12 });
+  await page.mouse.move(box.x + x, box.y + y, { steps: 6 });
   await page.mouse.down();
   await page.mouse.up();
   // The pen tool treats two clicks inside 300ms as "finish path", so callers
@@ -236,9 +236,9 @@ export async function dragAt(page, from, to, opts) {
 }
 
 /** Click-drag on the canvas — the gesture that pulls a Bézier tangent out. */
-export async function dragCanvas(page, from, to, { steps = 22, settleMs = 350 } = {}) {
+export async function dragCanvas(page, from, to, { steps = 12, settleMs = 350 } = {}) {
   const box = await canvasBox(page);
-  await page.mouse.move(box.x + from[0], box.y + from[1], { steps: 10 });
+  await page.mouse.move(box.x + from[0], box.y + from[1], { steps: 6 });
   await page.mouse.down();
   await page.mouse.move(box.x + to[0], box.y + to[1], { steps });
   await page.mouse.up();
@@ -310,8 +310,8 @@ export async function nodeEditPoints(page) {
 }
 
 /** Drags between two absolute page positions. */
-export async function dragPage(page, from, to, { steps = 24, settleMs = 400 } = {}) {
-  await page.mouse.move(from.x, from.y, { steps: 8 });
+export async function dragPage(page, from, to, { steps = 14, settleMs = 350 } = {}) {
+  await page.mouse.move(from.x, from.y, { steps: 6 });
   await page.mouse.down();
   await page.mouse.move(to.x, to.y, { steps });
   await page.mouse.up();

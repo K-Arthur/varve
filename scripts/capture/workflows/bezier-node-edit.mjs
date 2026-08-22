@@ -45,24 +45,23 @@ await capture({
     assertions.push('canvas starts empty — every anchor is drawn on camera');
 
     begin();
-    await beat(page, 540);
+    await beat(page, 405);
 
     // ── Draw the ribbon ────────────────────────────────────────────
     // Pen tool. Two clicks inside 300ms mean "finish", so anchors are
     // spaced above that; clickCanvas already holds for 350ms.
     await useTool(page, 'p');
-    await beat(page, 400);
+    await beat(page, 350);
 
     // Click-drag pulls a tangent out of the anchor as it is placed — this is
     // the gesture that makes the segment a curve rather than a straight run.
     // Positions are fractions of the drawing area, which is what the panels
     // leave behind rather than the window size.
-    await dragAt(page, [0.12, 0.62], [0.22, 0.46]);
-    await dragAt(page, [0.34, 0.34], [0.44, 0.27]);
-    await dragAt(page, [0.56, 0.55], [0.66, 0.66]);
-    await dragAt(page, [0.78, 0.33], [0.87, 0.24]);
-    await clickAt(page, 0.92, 0.58);
-    await beat(page, 400);
+    await dragAt(page, [0.12, 0.62], [0.24, 0.44]);
+    await dragAt(page, [0.38, 0.32], [0.50, 0.26]);
+    await dragAt(page, [0.64, 0.56], [0.76, 0.66]);
+    await clickAt(page, 0.90, 0.34);
+    await beat(page, 350);
 
     await page.keyboard.press('Enter');
     await page.waitForTimeout(700);
@@ -77,7 +76,7 @@ await capture({
     assert.equal(names.length, 1, `expected one new layer, got ${names.length}`);
     assert.match(names[0], /path|vector/i, `expected a path layer, got "${names[0]}"`);
     assertions.push(`pen tool produced a path layer ("${names[0].trim()}"), not a rect or freehand`);
-    await beat(page, 540);
+    await beat(page, 405);
 
     // ── Node editing ───────────────────────────────────────────────
     await selectLayer(page, /vector|path/i);
@@ -93,14 +92,14 @@ await capture({
     await parkPointer(page);
     await settle(page);
     assertions.push('node edit mode opened on the drawn path from the selection quick bar');
-    await beat(page, 840);
+    await beat(page, 630);
 
     // Grab an anchor the overlay is actually drawing. Selecting the layer
     // reveals and zooms to it, so the coordinates the path was drawn at are
     // no longer where its anchors sit.
     const points = await nodeEditPoints(page);
     assert.ok(
-      points.anchors.length >= 4,
+      points.anchors.length >= 3,
       `node edit exposed ${points.anchors.length} anchors, expected the drawn path's`,
     );
     assertions.push(`node edit mode exposes ${points.anchors.length} real anchors on the path`);
@@ -117,7 +116,7 @@ await capture({
       'moving an anchor did not change the rendered canvas',
     );
     assertions.push('dragging an anchor changed the rendered geometry');
-    await beat(page, 720);
+    await beat(page, 540);
 
     // Then a tangent handle, read from the overlay the same way. Handles are
     // drawn at a smaller radius than anchors, which is how they are told
@@ -134,7 +133,7 @@ await capture({
       'dragging a tangent handle did not change the rendered curve',
     );
     assertions.push('dragging its control handle re-curved the adjoining segments');
-    await beat(page, 840);
+    await beat(page, 630);
 
     // Undo has to reach the node edit, not just the path creation.
     const beforeUndo = await canvasPixels(page);
@@ -146,7 +145,7 @@ await capture({
       'undo did not revert the node edit',
     );
     assertions.push('undo reverted the node edit');
-    await beat(page, 420);
+    await beat(page, 350);
 
     await page.keyboard.press('Control+Shift+z');
     await page.waitForTimeout(700);
@@ -155,7 +154,7 @@ await capture({
     await useTool(page, 'v');
     await parkPointer(page);
     await settle(page);
-    await beat(page, 780);
+    await beat(page, 585);
 
     return assertions;
   },
