@@ -27,9 +27,17 @@ interface SourceInfo {
 }
 
 export function UpscaleDialogHost({ open, onClose }: UpscaleDialogHostProps) {
-  const { state, closeUpscaleDialog } = useEditor();
+  const { state, closeUpscaleDialog, announce } = useEditor();
   const { handleDialogApply } = useUpscaleDialog();
   const [source, setSource] = useState<SourceInfo | null>(null);
+
+  // Batch enhancement is not yet supported — select one image at a time.
+  useEffect(() => {
+    if (open && state.selection.length > 1) {
+      announce('Enhance works on one image at a time. Select a single image layer.');
+      closeUpscaleDialog();
+    }
+  }, [open, state.selection.length, announce, closeUpscaleDialog]);
 
   useEffect(() => {
     if (!open) {

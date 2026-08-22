@@ -50,6 +50,18 @@ JPEG-specific model. A new checkpoint must provide task provenance,
 licensing, hashes, conversion details, and Varve corpus evidence before it
 is added.
 
+**Candidate:** FBCNN (Jiang et al., ICCV 2021, BSD-3-Clause) is the leading
+candidate for future JPEG artifact removal. It is a flexible blind CNN that
+predicts the JPEG quality factor and embeds it into the reconstructor for
+configurable restoration strength (~6.7 MB, pixel-domain, no DCT access
+needed). OpenVINO model zoo has a pre-exported version. To enable it:
+1. Convert to ONNX with verified SHA-256 (tools/fbcnn-export/).
+2. Run the design-content corpus (tests/fixtures/restore-corpus/) and
+   measure PSNR on JPEG-degraded fixtures.
+3. Verify it does not destroy 1px lines, text edges, or UI screenshots.
+4. Only then add a `compression-restoration` capability with
+   `status: 'available'` and enable the UI option.
+
 Scale semantics:
 the Real-ESRGAN model is fixed 4×. A request for 2×/3× via AI is served as
 **AI 4× → high-quality lanczos3 downsample** to the exact target size

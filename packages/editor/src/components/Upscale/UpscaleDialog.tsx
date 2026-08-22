@@ -893,7 +893,16 @@ export function UpscaleDialog({
                     )}
                   </div>
                 )}
-                {!operationAvailable && (
+                {!operationAvailable && operation === 'compression-restoration' && (
+                  <p className="insp-hint insp-hint--warn">
+                    No JPEG/artifact-removal model has passed the design-content corpus yet.
+                    SCUNet denoise damages thin lines and text; the only NAFNet JPEG checkpoint
+                    was rejected on provenance. Denoise can reduce some artifacts but is not a
+                    dedicated compression restorer. A validated model (e.g. FBCNN) will be added
+                    when its ONNX export is verified.
+                  </p>
+                )}
+                {!operationAvailable && operation !== 'compression-restoration' && (
                   <p className="insp-hint insp-hint--warn">
                     No task-specific model is installed and validated for this operation yet.
                   </p>
@@ -1042,7 +1051,7 @@ export function UpscaleDialog({
               {/* Output info */}
               <div className="upscale-output-info">
                 <span className="insp-hint">
-                  Output {outW}\u00d7{outH}px
+                  Output {outW}×{outH}px
                   {outputBytes > 0 && ` ~${formatBytes(outputBytes)}`}
                   {mode?.isAi && ' slow, runs locally'}
                   {peakMemoryBytes > 0 && ` · peak model ~${formatBytes(peakMemoryBytes)}`}
@@ -1055,7 +1064,7 @@ export function UpscaleDialog({
                 )}
                 {usesUpscale && mode?.isAi && scale !== 4 && (
                   <span className="insp-hint">
-                    AI is fixed 4× — your {scale}× is served as 4× AI then high-quality lanczos3 downsample to {outW}\u00d7{outH}px.
+                    AI is fixed 4× — your {scale}× is served as 4× AI then high-quality lanczos3 downsample to {outW}×{outH}px.
                   </span>
                 )}
               </div>
