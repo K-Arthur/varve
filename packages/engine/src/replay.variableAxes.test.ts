@@ -127,6 +127,15 @@ describe('variable font axes in the Canvas2D painter', () => {
     expect(weightsFrom(fonts)).toContain(1000);
   });
 
+  it('applies the axis on the canonical path, which ordinary text takes', () => {
+    // measureText present => canonicalTextSnapshot shapes and paintCanonicalText
+    // draws from the shaped runs. Two earlier fixes patched the fallback and
+    // path-text painters and left this one dropping the axis.
+    const { target, fonts } = recordingTarget();
+    replayIr(target as never, [textItem({ wght: 800 })]);
+    expect(weightsFrom(fonts).filter((w) => !Number.isNaN(w))).toContain(800);
+  });
+
   it('ignores axes the shorthand cannot express and keeps the weight', () => {
     // opsz has no CSS shorthand slot; it must not corrupt the font string.
     const { target, fonts } = recordingTarget();

@@ -2782,7 +2782,13 @@ function paintCanonicalText(
           : 0;
     for (const run of line.runs) {
       const style = run.sourceRun.fontStyle === 'italic' ? 'italic ' : '';
-      const weight = Math.max(1, Math.min(1000, run.sourceRun.fontWeight));
+      // The shaped run carries the weight it was measured at. The axis has to
+      // win here as well: shaping with the effective weight is not enough,
+      // because this is where the font actually gets assigned before drawing.
+      const weight =
+        p.variableAxes?.wght != null
+          ? effectiveWeight(p)
+          : Math.max(1, Math.min(1000, run.sourceRun.fontWeight));
       target.font = `${style}${weight} ${run.sourceRun.fontSize}px "${run.sourceRun.fontFamily}"`;
       for (const glyph of run.glyphs) {
         const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
