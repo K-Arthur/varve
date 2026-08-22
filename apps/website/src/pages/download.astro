@@ -1,9 +1,40 @@
 ---
 import release from '../data/release-manifest.json';
 import Layout from '../layouts/Layout.astro';
-import { sitePath } from '../lib/siteUrl';
+import { sitePath, siteUrl } from '../lib/siteUrl';
 import { primaryFormatFor } from '../lib/download-detection';
 import { PRODUCT_STATUS, type ProductStatusStage } from '@varve/shared';
+
+/**
+ * SoftwareApplication JSON-LD for the download page itself. The homepage
+ * carries the discovery-oriented schema; this one is the download-oriented
+ * counterpart (distinct @id) and only renders when a verified release exists,
+ * so crawlers never see a version or downloadUrl for a release that isn't
+ * published. Facts derive from the generated release manifest — nothing here
+ * is hand-typed.
+ */
+const downloadSchema = release.hasRelease
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      '@id': `${siteUrl('/download')}#software`,
+      name: 'Varve',
+      applicationCategory: 'DesignApplication',
+      operatingSystem: 'Linux, macOS, Windows',
+      url: siteUrl('/download'),
+      ...(release.version ? { softwareVersion: release.version } : {}),
+      ...(release.releaseDate ? { datePublished: release.releaseDate } : {}),
+      downloadUrl: release.releaseUrl,
+      releaseNotes: siteUrl('/releases'),
+      license: 'FSL-1.1-MIT',
+      isAccessibleForFree: true,
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+      },
+    }
+  : null;
 
 // Channel label: the product stage (not just the GitHub prerelease flag)
 // decides how a release is described — a "Stable"-tagged release of a product
@@ -246,6 +277,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 <Layout
   title="Download Varve"
   description="Download Varve beta for Linux, macOS, and Windows — free and source-available under FSL-1.1-MIT. SHA-256 checksums, SBOMs, and system requirements."
+  structuredData={downloadSchema ? [downloadSchema] : undefined}
 >
   <div class="container-custom">
     <div class="download-page">

@@ -36,7 +36,7 @@ const ogImageUrl = ogImageUrlOf(image);
 // page title does not already carry it.
 const pageTitle = /\bVarve\b/.test(title) ? title : `${title} | Varve`;
 
-const sitewideStructuredData = [
+const sitewideStructuredData: object[] = [
   {
     '@context': 'https://schema.org',
     '@type': 'Organization',
@@ -87,6 +87,64 @@ const sitewideStructuredData = [
     inLanguage: 'en',
   },
 ];
+
+/**
+ * BreadcrumbList derived from the rendered path, so every nested page
+ * (docs/features/support/learn/...) exposes its hierarchy to search engines
+ * without hand-maintaining per-page schema. Known sections get their
+ * navigation label; deeper segments are humanized ("getting-started" ->
+ * "Getting Started"). Skipped on noindex pages (404, redirect aliases),
+ * which must not present themselves as locatable hierarchy nodes.
+ */
+const SECTION_LABELS: Record<string, string> = {
+  about: 'About',
+  compare: 'Compare',
+  contact: 'Contact',
+  contribute: 'Contribute',
+  docs: 'Documentation',
+  download: 'Download',
+  faq: 'FAQ',
+  features: 'Features',
+  learn: 'Learn',
+  press: 'Press',
+  product: 'Product',
+  releases: 'Releases',
+  security: 'Security',
+  support: 'Support',
+};
+
+function segmentLabel(segment: string): string {
+  return (
+    SECTION_LABELS[segment] ??
+    segment
+      .split('-')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  );
+}
+
+// Strip the deploy base (e.g. /varve on the Pages build) before splitting.
+const basePrefix =
+  import.meta.env.BASE_URL && import.meta.env.BASE_URL !== '/'
+    ? import.meta.env.BASE_URL.replace(/\/+$/, '')
+    : '';
+const routePath = basePrefix && Astro.url.pathname.startsWith(basePrefix)
+  ? Astro.url.pathname.slice(basePrefix.length)
+  : Astro.url.pathname;
+const routeSegments = routePath.split('/').filter(Boolean);
+
+if (!noindex && routeSegments.length > 0) {
+  sitewideStructuredData.push({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: routeSegments.map((segment, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: segmentLabel(segment),
+      item: siteUrl(`/${routeSegments.slice(0, index + 1).join('/')}`),
+    })),
+  });
+}
 
 // Empty unless deliberately configured at build time. The default build makes
 // no analytics requests and renders no consent prompt.
