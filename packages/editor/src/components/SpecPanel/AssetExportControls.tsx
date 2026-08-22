@@ -241,6 +241,7 @@ function scaleLabel(scale: ExportScale): string {
   }
   if (scale.type === 'width') return `${scale.pixels}w`;
   if (scale.type === 'height') return `${scale.pixels}h`;
+  if (scale.type === 'resolution') return `${scale.dpi}ppi`;
   return '';
 }
 

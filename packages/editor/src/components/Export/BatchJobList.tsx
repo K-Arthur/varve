@@ -70,6 +70,7 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
         <span className="batch-job-row__format">{job.format}</span>
         <span className="batch-job-row__dims">
           {job.dimensions.w}x{job.dimensions.h}
+          {job.outputPpi ? ` · ${Math.round(job.outputPpi)} PPI` : ''}
         </span>
         <span className="batch-job-row__size">{formatSize(job.estimatedSize)}</span>
         <span className={`batch-job-row__status batch-job-row__status--${job.status}`}>

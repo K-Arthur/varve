@@ -82,7 +82,7 @@ export function PrintSettingsPanel({
 
         <div className="print-settings__field">
           <label className="print-settings__label" htmlFor={dpiId}>
-            Resolution floor (dpi)
+            Minimum image resolution (PPI)
           </label>
           <input
             id={dpiId}
@@ -130,8 +130,8 @@ export function PrintSettingsPanel({
         ) : (
           'This document has no bleed configured; the field above applies to this export only.'
         )}{' '}
-        CMYK conversion uses the bundled Fogra39 profile. The resolution floor is a preflight
-        threshold for embedded raster content, not an encoder resize.
+        CMYK conversion uses the bundled Fogra39 profile. The PPI floor is a preflight threshold for
+        embedded raster content, not an encoder resize.
       </p>
     </section>
   );

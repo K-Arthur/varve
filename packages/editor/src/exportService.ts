@@ -165,6 +165,8 @@ export function rasterScaleForJob(job: ExportJob, context: ExportRunContext): nu
       return Math.max(1 / 16, job.scale.pixels / baseWidth);
     case 'height':
       return Math.max(1 / 16, job.scale.pixels / baseHeight);
+    case 'resolution':
+      return Math.max(1 / 16, job.scale.dpi / 96);
   }
 }
 

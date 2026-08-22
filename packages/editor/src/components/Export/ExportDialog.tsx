@@ -42,6 +42,7 @@ import {
 } from '@varve/scene';
 import {
   buildExportPlan,
+  createExportConfiguration,
   type ExportBatchRequest,
   type ExportFinding,
   formatFileName,
@@ -66,6 +67,7 @@ import { BatchJobList } from './BatchJobList';
 import { DestinationPicker } from './DestinationPicker';
 import { ExportProgressBar } from './ExportProgressBar';
 import { ExportResultsList } from './ExportResultsList';
+import { OutputResolutionPanel } from './OutputResolutionPanel';
 import { PreflightFindingsPanel } from './PreflightFindingsPanel';
 import { PrintSettingsPanel } from './PrintSettingsPanel';
 
@@ -168,7 +170,9 @@ function scaledDimensions(
       ? scale.value
       : scale.type === 'width'
         ? scale.pixels / base.w
-        : scale.pixels / base.h;
+        : scale.type === 'height'
+          ? scale.pixels / base.h
+          : scale.dpi / 96;
   return {
     w: Math.max(1, Math.round(base.w * factor)),
     h: Math.max(1, Math.round(base.h * factor)),
@@ -223,6 +227,7 @@ export function buildJobs(nodes: SceneNode[], document?: Document): ExportJob[] 
         code: preset.code,
         print: preset.print,
         dimensions,
+        outputPpi: planItem?.outputResolutionPpi,
         estimatedSize: 1024 * 50,
         status: 'pending',
       });
@@ -233,6 +238,10 @@ export function buildJobs(nodes: SceneNode[], document?: Document): ExportJob[] 
 
 function isPdfXFormat(format: ExportJob['format']): boolean {
   return format === 'pdf-x1a' || format === 'pdf-x4';
+}
+
+function isRasterExportFormat(format: ExportJob['format']): boolean {
+  return format === 'png' || format === 'jpg' || format === 'webp';
 }
 
 function buildSelectedJobs(jobs: ExportJob[], selectedIds: Set<string>): ExportJob[] {
@@ -249,10 +258,46 @@ function buildBatchForExport(
   folderRule: ExportBatch['folderRule'],
   destination: string | null,
   printSettings: PrintOptions,
+  document: Document | undefined,
+  resolutionOverride: number | null,
 ): ExportBatch {
-  const jobsWithPrint = selectedJobs.map((job) =>
-    isPdfXFormat(job.format) ? { ...job, print: printSettings } : job,
-  );
+  const jobsWithPrint = selectedJobs.map((job) => {
+    const withPrint = isPdfXFormat(job.format) ? { ...job, print: printSettings } : job;
+    if (!document || resolutionOverride === null || !isRasterExportFormat(job.format)) {
+      return withPrint;
+    }
+
+    const configuration = createExportConfiguration({
+      id: job.presetId,
+      target: { type: 'node', nodeId: job.nodeId },
+      format: legacyFormatToCanonical(job.format),
+      scale: { mode: 'resolution', dpi: resolutionOverride },
+      enabled: true,
+    });
+    const plan = buildExportPlan(
+      document,
+      {
+        id: `batch-resolution-${job.presetId}`,
+        configurations: [configuration],
+        conflictPolicy: 'rename',
+        failurePolicy: 'continue',
+        createdAt: Date.now(),
+        createdBy: 'export-dialog',
+      },
+      { document },
+    );
+    const item = plan.items[0];
+    if (!item) return withPrint;
+    return {
+      ...withPrint,
+      scale: { type: 'resolution', dpi: resolutionOverride } as const,
+      outputPpi: item.outputResolutionPpi ?? resolutionOverride,
+      dimensions: {
+        w: item.resolvedDimensions.width,
+        h: item.resolvedDimensions.height,
+      },
+    };
+  });
   const jobs = applyExportBatchPaths(jobsWithPrint, template, folderRule);
   return {
     jobs,
@@ -310,6 +355,7 @@ export function ExportDialog({
     return '';
   }, [template]);
   const [folderRule, setFolderRule] = useState<ExportBatch['folderRule']>('flat');
+  const [resolutionOverride, setResolutionOverride] = useState<number | null>(null);
   const [destinationLabel, setDestinationLabel] = useState('');
   const [announceMsg, setAnnounceMsg] = useState('');
   const [removeBgBeforeExport, setRemoveBgBeforeExport] = useState(false);
@@ -389,6 +435,11 @@ export function ExportDialog({
     [selectedJobs],
   );
 
+  const hasRasterJobs = useMemo(
+    () => selectedJobs.some((job) => isRasterExportFormat(job.format)),
+    [selectedJobs],
+  );
+
   const exportBatch = useMemo(
     () =>
       buildBatchForExport(
@@ -397,9 +448,26 @@ export function ExportDialog({
         folderRule,
         destinationLabel || null,
         printSettings,
+        document,
+        resolutionOverride,
       ),
-    [selectedJobs, template, folderRule, destinationLabel, printSettings],
+    [
+      selectedJobs,
+      template,
+      folderRule,
+      destinationLabel,
+      printSettings,
+      document,
+      resolutionOverride,
+    ],
   );
+
+  const displayJobs = useMemo(() => {
+    const resolved = new Map(
+      exportBatch.jobs.map((job) => [`${job.nodeId}-${job.presetId}`, job] as const),
+    );
+    return jobs.map((job) => resolved.get(`${job.nodeId}-${job.presetId}`) ?? job);
+  }, [jobs, exportBatch.jobs]);
 
   const findings = useMemo(
     () => preflightFindings(exportBatch, document, platformKind),
@@ -413,6 +481,7 @@ export function ExportDialog({
       setProgressDetail({ stage: 'preflight' });
       setAnnounceMsg('');
       setLastReport(null);
+      setResolutionOverride(null);
       const allIds = new Set(jobs.map((job) => `${job.nodeId}-${job.presetId}`));
       setSelectedIds(allIds);
     }
@@ -863,7 +932,7 @@ export function ExportDialog({
             <section className="export-dialog__section" aria-label="Jobs">
               <h3 className="export-dialog__section-title">Files to export</h3>
               <BatchJobList
-                jobs={jobs}
+                jobs={displayJobs}
                 selectedIds={selectedIds}
                 onToggleJob={handleToggleJob}
                 onToggleAll={handleToggleAll}
@@ -892,6 +961,15 @@ export function ExportDialog({
                         ? documentBleedMm(document)
                         : undefined
                   }
+                />
+              </section>
+            )}
+
+            {hasRasterJobs && document && (
+              <section className="export-dialog__section" aria-label="Output resolution">
+                <OutputResolutionPanel
+                  value={resolutionOverride}
+                  onChange={setResolutionOverride}
                 />
               </section>
             )}

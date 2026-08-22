@@ -213,7 +213,7 @@ describe('ExportDialog', () => {
 
     // Canonical naming: '@2x' suffix must not get an extra '-' separator.
     expect(container.querySelector('.batch-job-row__name')?.textContent).toBe('Logo@2x.png');
-    expect(container.querySelector('.batch-job-row__dims')?.textContent).toBe('200x160');
+    expect(container.querySelector('.batch-job-row__dims')?.textContent).toBe('200x160 · 192 PPI');
   });
 
   it('shows close button when not running', () => {

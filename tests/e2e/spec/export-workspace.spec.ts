@@ -77,6 +77,23 @@ test.describe('Export workspace — batch dialog surfaces', () => {
     await expect(pdfxOption).toBeDisabled();
   });
 
+  test('raster resolution override updates the live batch dimensions', async ({ page }) => {
+    await createExportableFrame(page);
+    await selectExportTab(page);
+
+    await page.getByRole('button', { name: 'PNG', exact: true }).click();
+    await page.getByRole('button', { name: 'Add configuration' }).click();
+    await openAdvancedExport(page);
+
+    const dialog = page.getByRole('dialog', { name: 'Export' });
+    await expect(dialog.locator('.output-resolution')).toBeVisible();
+    await dialog.getByLabel('Override raster outputs').check();
+
+    const ppi = dialog.getByLabel('Temporary raster output resolution in PPI');
+    await ppi.fill('300');
+    await expect(dialog.locator('.batch-job-row__dims').first()).toContainText('300 PPI');
+  });
+
   test('batch export reports per-file results', async ({ page }) => {
     await createExportableFrame(page);
     await selectExportTab(page);
