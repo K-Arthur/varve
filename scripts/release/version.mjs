@@ -74,7 +74,10 @@ const TARGETS = [
   { path: 'Cargo.toml', kind: 'toml-section', section: 'workspace.package' },
   { path: 'apps/desktop/src-tauri/Cargo.toml', kind: 'toml-section', section: 'package' },
   { path: 'README.md', kind: 'readme-markers' },
-  { path: 'apps/desktop/src-tauri/linux/dev.varve.desktop.metainfo.xml', kind: 'appstream-releases' },
+  {
+    path: 'apps/desktop/src-tauri/linux/dev.varve.desktop.metainfo.xml',
+    kind: 'appstream-releases',
+  },
   { path: 'packaging/aur/varve-desktop-bin/PKGBUILD', kind: 'pkgver-line' },
   { path: 'packaging/aur/varve-desktop-bin/.SRCINFO', kind: 'srcinfo-version' },
 ];
@@ -170,9 +173,7 @@ function writeTarget(target, version) {
     if (oldTopmost === version) {
       // Same version already at top — refresh date in place.
       const updated = text.replace(
-        new RegExp(
-          '(<release\\s+version=")[^"]*("\\s+date=")[^"]*(")',
-        ),
+        /(<release\s+version=")[^"]*("\s+date=")[^"]*(")/,
         (_m, pre, mid, suf) => `${pre}${version}${mid}${today}${suf}`,
       );
       if (updated !== text) writeFileSync(abs, updated);
@@ -180,8 +181,8 @@ function writeTarget(target, version) {
     }
     // New version — insert entry above the first existing <release>.
     const updated = text.replace(
-      new RegExp('(<releases>)'),
-      (_m, open) => `${open}\n    <release version="${version}" date="${today}"/>`,
+      /<releases>/,
+      (_m) => `${_m}\n    <release version="${version}" date="${today}"/>`,
     );
     if (updated === text && oldTopmost !== version) {
       throw new Error(`Could not locate <releases> element in ${target.path}`);
@@ -192,10 +193,7 @@ function writeTarget(target, version) {
 
   if (target.kind === 'pkgver-line') {
     if (!existsSync(abs)) return;
-    const updated = text.replace(
-      /^pkgver=(.+)$/m,
-      (_m, _old) => `pkgver=${version}`,
-    );
+    const updated = text.replace(/^pkgver=(.+)$/m, (_m, _old) => `pkgver=${version}`);
     if (updated === text && readTarget(target).value !== version) {
       throw new Error(`Could not locate pkgver= line in ${target.path}`);
     }
@@ -205,10 +203,7 @@ function writeTarget(target, version) {
 
   if (target.kind === 'srcinfo-version') {
     if (!existsSync(abs)) return;
-    let updated = text.replace(
-      /^(\tpkgver\s*=\s*).+$/m,
-      (_m, prefix) => `${prefix}${version}`,
-    );
+    let updated = text.replace(/^(\tpkgver\s*=\s*).+$/m, (_m, prefix) => `${prefix}${version}`);
     // Replace version strings inside source = lines (e.g.
     // Varve-0.1.0-linux-x86_64.AppImage::…/download/v0.1.0/Varve-0.1.0-…).
     updated = updated.replace(
