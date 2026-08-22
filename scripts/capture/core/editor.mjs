@@ -134,7 +134,17 @@ export async function importImage(page, fixturePath) {
 export async function selectLayer(page, pattern, { timeout = 6000 } = {}) {
   const item = page.getByRole('treeitem').filter({ hasText: pattern }).first();
   await item.waitFor({ state: 'visible', timeout });
-  await item.click({ timeout: 5000 });
+  // Already selected rows are a no-op. Clicking one anyway can hang: the row
+  // is visible, enabled and stable, and Playwright still retries the click
+  // until it times out because something else would receive it.
+  if ((await item.getAttribute('aria-selected')) !== 'true') {
+    await item.click({ timeout: 5000 }).catch(async () => {
+      // Layer rows carry their own controls — visibility, lock, the disclosure
+      // triangle — any of which can sit under the pointer. Falling back to a
+      // forced click targets the row itself rather than whatever is on top.
+      await item.click({ timeout: 5000, force: true });
+    });
+  }
   await page.waitForTimeout(400);
   return item;
 }
