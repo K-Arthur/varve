@@ -186,7 +186,7 @@ test('changes scale factor in the enhance dialog', async ({ page }) => {
     .getByRole('radiogroup', { name: 'Scale factor' })
     .getByText('3x', { exact: true })
     .click();
-  await expect(page.getByText('Output 48by48px', { exact: false })).toBeVisible();
+  await expect(page.getByText('Output 48×48px', { exact: false })).toBeVisible();
 
   await page.getByRole('button', { name: 'Cancel' }).click();
 });
