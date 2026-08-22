@@ -698,6 +698,26 @@ jobs:
             --arch ${{ matrix.arch_slug }} \
             --tools-dir "$HOME/.cache/tauri"
 
+      # linuxdeploy re-assembles the AppImage from a fresh squashfs, so
+      # the .sig produced by Tauri's build step is no longer valid.
+      # Re-sign the pruned AppImage so collect-artifacts.mjs ships a
+      # signature that matches the published bytes.
+      - name: Re-sign pruned AppImage for updater
+        if: matrix.enabled && runner.os == 'Linux' && needs.signing-preflight.outputs.updater_mode == 'signed'
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        working-directory: apps/desktop
+        run: |
+          APPIMAGE=$(find "${TAURI_BUNDLE_DIR}/appimage" -maxdepth 1 -name '*.AppImage' -print -quit)
+          if [ -n "$APPIMAGE" ]; then
+            echo "Re-signing pruned AppImage for updater: $APPIMAGE"
+            pnpm tauri signer sign "$APPIMAGE" --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
+          else
+            echo "::warning::No AppImage found to re-sign after pruning."
+          fi
+
       - name: Verify native executable architecture
         if: matrix.enabled
         shell: bash
@@ -1136,6 +1156,14 @@ jobs:
             --version '${{ needs.preflight.outputs.version }}' \
             --channel '${{ needs.preflight.outputs.channel }}' \
             --base-url 'https://github.com/K-Arthur/varve/releases/download/${{ needs.preflight.outputs.tag }}'
+
+      # Verify every feed entry's cryptographic signature against the
+      # embedded pubkey and the on-disk artifacts.  This catches the class
+      # of bug where a post-build step (e.g. AppImage pruning) invalidates
+      # the Tauri-bundler-produced signature before the feed is published.
+      - name: Verify updater feed signatures
+        if: needs.signing-preflight.outputs.updater_mode == 'signed'
+        run: node scripts/release/verify-updater-feed-signatures.mjs --dir dist/release
 
       - name: Record manual update fallback
         if: needs.signing-preflight.outputs.updater_mode != 'signed'

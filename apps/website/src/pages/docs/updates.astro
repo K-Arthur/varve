@@ -21,7 +21,7 @@ import release from '../../data/release-manifest.json';
       </p>
 
       <aside class="docs-note">
-        <strong>Current release note:</strong> the published <code>v{release.version}</code> release {release.updater ? 'includes an updater feed' : 'does not include an updater feed'}. {release.updater ? 'The updater design below is active.' : <span>For this release, use the <a href={sitePath('/download')}>download page</a> or GitHub Releases for manual updates. The updater design below applies when a channel feed is present in a future release.</span>}
+        <strong>Current release note (v{release.version}):</strong> {release.updater ? 'An updater feed exists, but only Windows NSIS auto-updates are cryptographically verified and working.' : 'No updater feed is published for this release.'} {' '}Linux AppImage and macOS updates are currently manual. See the platform status below.
       </aside>
 
       <section class="docs-section">
@@ -57,16 +57,21 @@ import release from '../../data/release-manifest.json';
         <h2>Which installs can update in the app?</h2>
         <ul>
           <li>
-            <strong>Linux AppImage:</strong> supported only when the running AppImage is in a
-            writable location and can replace itself.
+            <strong>Windows NSIS:</strong> fully working. The updater artifact is verified before
+            installation, which happens only after you approve the download and install action.
           </li>
           <li>
-            <strong>Windows NSIS:</strong> the updater artifact is verified before installation,
-            which happens only after you approve the download and install action.
+            <strong>Linux AppImage:</strong> the updater feed exists but the published signature
+            does not verify against the artifact (a post-build pruning step invalidated it).
+            Download the new AppImage from the{' '}
+            <a href={sitePath('/releases')}>release page</a>{' '}
+            and replace the current file. A fix is in progress.
           </li>
           <li>
-            <strong>macOS:</strong> supported for a writable app installed in Applications. A
-            mounted DMG or Gatekeeper-translocated copy must be moved into Applications first.
+            <strong>macOS:</strong> not yet available. Download the new DMG from the{' '}
+            <a href={sitePath('/releases')}>release page</a>{' '}
+            and replace your installed copy. In-app macOS updates require a{' '}
+            <code>.app.tar.gz</code> bundle target that is not yet published.
           </li>
         </ul>
         <p>

@@ -672,9 +672,12 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 </p>
                 <ul>
                   <li>
-                    <strong>AppImage:</strong> self-updates in place when the file is in a writable
-                    location. If the AppImage cannot be replaced (read-only folder, moved after
-                    launch), Varve explains what happened and offers the manual update path.
+                    <strong>AppImage:</strong> in-app automatic updates are temporarily unavailable
+                    in published builds due to a signing pipeline issue (see{' '}
+                    <a href={sitePath('/docs/updates')}>Updates guide</a>). Download the new
+                    AppImage from the{' '}
+                    <a href={sitePath('/releases')}>release page</a>{' '}
+                    and replace the current file.
                   </li>
                   <li>
                     <strong>Windows (NSIS):</strong> updates install through the installer with a
@@ -682,10 +685,10 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                     {!release.signed && ' Windows may show a SmartScreen warning for unsigned builds — choose More info, then Run anyway.'}
                   </li>
                   <li>
-                    <strong>macOS:</strong> updates the installed app in your Applications folder.
-                    If you are running Varve from the mounted DMG or a Gatekeeper-translocated copy,
-                    move it into Applications first.
-                    {!release.signed && ' macOS may block unsigned builds — use System Settings > Privacy & Security to allow it.'}
+                    <strong>macOS:</strong> in-app updates are not yet available for DMG installs.
+                    Download the new DMG from the{' '}
+                    <a href={sitePath('/releases')}>release page</a>{' '}
+                    and replace your installed copy.
                   </li>
                   <li>
                     <strong>Debian / RPM packages:</strong> installed files are owned by your package
