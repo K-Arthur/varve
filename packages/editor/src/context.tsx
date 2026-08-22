@@ -8585,6 +8585,7 @@ export function EditorProvider({
               {
                 signal: controller.signal,
                 onProgress: (_stage, done, total) => options.onProgress?.(done, total),
+                onStageChange: options.onStageChange,
               },
             );
             outputImage = restorationResult.imageData;

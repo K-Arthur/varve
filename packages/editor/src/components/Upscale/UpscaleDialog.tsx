@@ -24,7 +24,7 @@ import {
   isRestorationOperationAvailable,
   RESTORATION_CAPABILITIES,
   type RestorationErrorCode,
-  type RestorationStagePlan,
+  type RestorationStageState,
   recommendationLabel,
   runRestoration,
   toRestorationError,
@@ -64,6 +64,7 @@ interface UpscaleDialogProps {
     deblurStrength?: number;
     pixelArtAlgorithm?: PixelArtAlgorithm;
     onProgress: UpscaleProgressFn;
+    onStageChange: (stages: RestorationStageState[]) => void;
   }) => Promise<void>;
 }
 
@@ -135,7 +136,7 @@ export function UpscaleDialog({
   const [pixelArtAlgorithm, setPixelArtAlgorithm] = useState<PixelArtAlgorithm>('epx');
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [stages, setStages] = useState<RestorationStagePlan[]>([]);
+  const [stages, setStages] = useState<RestorationStageState[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<RestorationErrorCode | null>(null);
   const [capabilities, setCapabilities] = useState<{ pathDescription: string } | null>(null);
@@ -159,68 +160,13 @@ export function UpscaleDialog({
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const mode = useMemo(() => getUpscaleMode(modeId), [modeId]);
-  // Availability comes from the validated capability registry, not a
-  // hardcoded per-operation rule, so a task lights up the moment its
-  // checkpoint passes validation and lands in the manifest.
-  const operationAvailable = useMemo(() => {
-    if (operation === 'auto') return true;
-    return isRestorationOperationAvailable(operation);
-  }, [operation]);
-  const usesUpscale =
-    operation === 'upscale' || operation === 'restore-upscale' || operation === 'deblur-upscale';
-  const usesDenoise =
-    operation === 'denoise' || operation === 'restore-upscale' || operation === 'deblur-upscale';
-
-  const buildRestorationRequest = useCallback((): RestorationRequest => {
-    const method = mode?.id === 'pixel-art' ? 'pixel-art' : (mode?.method ?? 'bicubic');
-    // Auto shows the unchanged source as its preview; the recommended
-    // operation is resolved only when the user applies.
-    const activeOperation: RestorationOperation = operation === 'auto' ? 'none' : operation;
-    return {
-      operation: activeOperation,
-      denoise: usesDenoise
-        ? { strength: denoiseStrength === 'none' ? 'medium' : denoiseStrength }
-        : undefined,
-      deblur:
-        operation === 'deblur' || operation === 'deblur-upscale'
-          ? { strength: deblurStrength }
-          : undefined,
-      upscale: usesUpscale
-        ? {
-            method,
-            scale,
-            modelId:
-              mode?.id === 'illustration'
-                ? 'upscale-realesrgan-anime'
-                : mode?.id === 'ai-enhance'
-                  ? 'upscale-realesr-general'
-                  : undefined,
-            pixelArtAlgorithm: mode?.id === 'pixel-art' ? pixelArtAlgorithm : undefined,
-          }
-        : undefined,
-      qualityPolicy,
-      preview: true,
-      previewMaxDimension: 512,
-    };
-  }, [
-    denoiseStrength,
-    deblurStrength,
-    mode,
-    operation,
-    pixelArtAlgorithm,
-    qualityPolicy,
-    scale,
-    usesDenoise,
-    usesUpscale,
-  ]);
 
   /**
-   * Resolve the Auto recommendation into a concrete operation. Suggestions
-   * whose checkpoint is not installed are dropped with a note — the dialog
-   * never silently substitutes an unrelated model.
+   * Resolve Auto once and reuse that result for preview, model checks, output
+   * sizing, and apply. Showing an unchanged preview and then applying a
+   * different operation makes restoration especially hard to judge.
    */
   const [autoAnalysis, setAutoAnalysis] = useState<AutoAnalysis | null>(null);
-
   const resolveAutoOperation = useCallback((): {
     operation: RestorationOperation | null;
     note?: string;
@@ -248,6 +194,62 @@ export function UpscaleDialog({
     return { operation: restore };
   }, [autoAnalysis]);
 
+  const effectiveOperation: RestorationOperation | null =
+    operation === 'auto' ? resolveAutoOperation().operation : operation;
+  // Availability comes from the validated capability registry, not a
+  // hardcoded per-operation rule, so a task lights up the moment its
+  // checkpoint passes validation and lands in the manifest.
+  const operationAvailable = useMemo(() => {
+    if (operation === 'auto') return true;
+    return isRestorationOperationAvailable(operation);
+  }, [operation]);
+  const usesUpscale =
+    effectiveOperation === 'upscale' ||
+    effectiveOperation === 'restore-upscale' ||
+    effectiveOperation === 'deblur-upscale';
+  const usesDenoise = effectiveOperation === 'denoise' || effectiveOperation === 'restore-upscale';
+
+  const buildRestorationRequest = useCallback((): RestorationRequest => {
+    const method = mode?.id === 'pixel-art' ? 'pixel-art' : (mode?.method ?? 'bicubic');
+    const activeOperation: RestorationOperation = effectiveOperation ?? 'none';
+    return {
+      operation: activeOperation,
+      denoise: usesDenoise
+        ? { strength: denoiseStrength === 'none' ? 'medium' : denoiseStrength }
+        : undefined,
+      deblur:
+        effectiveOperation === 'deblur' || effectiveOperation === 'deblur-upscale'
+          ? { strength: deblurStrength }
+          : undefined,
+      upscale: usesUpscale
+        ? {
+            method,
+            scale,
+            modelId:
+              mode?.id === 'illustration'
+                ? 'upscale-realesrgan-anime'
+                : mode?.id === 'ai-enhance'
+                  ? 'upscale-realesr-general'
+                  : undefined,
+            pixelArtAlgorithm: mode?.id === 'pixel-art' ? pixelArtAlgorithm : undefined,
+          }
+        : undefined,
+      qualityPolicy,
+      preview: true,
+      previewMaxDimension: 512,
+    };
+  }, [
+    denoiseStrength,
+    deblurStrength,
+    effectiveOperation,
+    mode,
+    pixelArtAlgorithm,
+    qualityPolicy,
+    scale,
+    usesDenoise,
+    usesUpscale,
+  ]);
+
   // Model prerequisites. Denoise needs SCUNet, Deblur needs the NAFNet
   // checkpoint, and the AI modes need their Real-ESRGAN weights; the CPU
   // resampling modes need nothing. Checking here means a missing model is
@@ -255,34 +257,23 @@ export function UpscaleDialog({
   // failure after the user commits to the operation.
   // Anime mode uses the validated anime-optimized model; CPU resampling
   // modes need nothing.
-  const requiredModelId = usesDenoise
-    ? 'scunet'
-    : operation === 'deblur' || (operation as string) === 'deblur-upscale'
-      ? 'nafnet-deblur-gopro'
-      : operation === 'auto'
-        ? (() => {
-            // Auto resolves its recommendation before apply; surface the
-            // model requirement so the user can download it up front.
-            const resolved = autoAnalysis ? resolveAutoOperation() : null;
-            if (resolved?.operation === 'denoise' || resolved?.operation === 'restore-upscale') {
-              return 'scunet';
-            }
-            if (
-              resolved?.operation === 'deblur' ||
-              (resolved?.operation as string) === 'deblur-upscale'
-            ) {
-              return 'nafnet-deblur-gopro';
-            }
-            return null;
-          })()
-        : mode?.isAi
-          ? modeId === 'illustration'
-            ? 'upscale-realesrgan-anime'
-            : 'upscale-realesr-general'
-          : denoiseStrength !== 'none'
-            ? 'scunet'
-            : null;
-  const [modelMissing, setModelMissing] = useState(false);
+  const requiredModelIds = useMemo(() => {
+    const ids: string[] = [];
+    if (usesDenoise) ids.push('scunet');
+    if (effectiveOperation === 'deblur' || effectiveOperation === 'deblur-upscale') {
+      ids.push('nafnet-deblur-gopro');
+    }
+    if (usesUpscale && mode?.isAi) {
+      ids.push(modeId === 'illustration' ? 'upscale-realesrgan-anime' : 'upscale-realesr-general');
+    }
+    return ids;
+  }, [effectiveOperation, mode?.isAi, modeId, usesDenoise, usesUpscale]);
+  const [missingModelIds, setMissingModelIds] = useState<string[]>([]);
+  const modelMissing = missingModelIds.length > 0;
+  // The first missing model is the actionable one shown by the download
+  // dialog. Combined restoration operations may require two or more models;
+  // after one completes, the next remains disabled until it is acquired.
+  const requiredModelId = missingModelIds[0] ?? requiredModelIds[0] ?? null;
   const [showModelDownload, setShowModelDownload] = useState(false);
 
   // Auto mode: run the cheap classical analysis once per open/source change.
@@ -304,34 +295,27 @@ export function UpscaleDialog({
   }, [open, operation, sourceImageData]);
 
   useEffect(() => {
-    if (!open || !requiredModelId) {
-      setModelMissing(false);
+    if (!open || requiredModelIds.length === 0) {
+      setMissingModelIds([]);
       return;
     }
     let cancelled = false;
-    void getModelLoader()
-      .isModelAvailable(requiredModelId)
+    void Promise.all(requiredModelIds.map((id) => getModelLoader().isModelAvailable(id)))
       .then((available) => {
-        if (!cancelled) setModelMissing(!available);
+        if (!cancelled) {
+          setMissingModelIds(requiredModelIds.filter((_id, index) => !available[index]));
+        }
       })
       .catch(() => {
-        if (!cancelled) setModelMissing(false);
+        if (!cancelled) setMissingModelIds(requiredModelIds);
       });
     return () => {
       cancelled = true;
     };
-  }, [open, requiredModelId]);
+  }, [open, requiredModelIds]);
 
-  const outW = !usesUpscale
-    ? sourceWidth
-    : mode?.isAi
-      ? sourceWidth * 4
-      : Math.round(sourceWidth * scale);
-  const outH = !usesUpscale
-    ? sourceHeight
-    : mode?.isAi
-      ? sourceHeight * 4
-      : Math.round(sourceHeight * scale);
+  const outW = !usesUpscale ? sourceWidth : Math.round(sourceWidth * scale);
+  const outH = !usesUpscale ? sourceHeight : Math.round(sourceHeight * scale);
   const outputBytes = outW > 0 && outH > 0 ? outW * outH * 4 : 0;
   const memoryWarning = outputBytes > MEMORY_WARNING_BYTES;
   const memoryExceeded = outputBytes > MEMORY_MAX_BYTES;
@@ -388,11 +372,15 @@ export function UpscaleDialog({
     operation,
     operationAvailable,
     denoiseStrength,
+    deblurStrength,
+    effectiveOperation,
     open,
     sourceImageData,
     mode,
     processing,
     previewFocus,
+    pixelArtAlgorithm,
+    qualityPolicy,
   ]);
 
   // Clear preview when the operation changes or becomes unavailable.
@@ -401,7 +389,17 @@ export function UpscaleDialog({
   useEffect(() => {
     setPreviewDataUrl(null);
     setPreviewBaselineUrl(null);
-  }, [operation, operationAvailable]);
+  }, [
+    operation,
+    operationAvailable,
+    modeId,
+    scale,
+    denoiseStrength,
+    deblurStrength,
+    pixelArtAlgorithm,
+    qualityPolicy,
+    previewFocus,
+  ]);
 
   async function generatePreview() {
     // Never contend with a running upscale for the native backend's single job
@@ -512,6 +510,9 @@ export function UpscaleDialog({
   const onProgress: UpscaleProgressFn = useCallback((done: number, total: number) => {
     setProgress({ done, total });
   }, []);
+  const onStageChange = useCallback((nextStages: RestorationStageState[]) => {
+    setStages(nextStages);
+  }, []);
 
   const handleApply = useCallback(async () => {
     if (!mode || memoryExceeded || processing || !operationAvailable) return;
@@ -519,7 +520,10 @@ export function UpscaleDialog({
     // the analysis suggested no restoration.
     const resolved = operation === 'auto' ? resolveAutoOperation() : null;
     if (operation === 'auto' && !resolved?.operation) {
-      announce('No specific restoration suggested');
+      const message = resolved?.note ?? 'No specific restoration suggested';
+      setError(message);
+      setErrorCode(null);
+      announce(message);
       return;
     }
     if (resolved?.note) {
@@ -540,23 +544,11 @@ export function UpscaleDialog({
     previewAbortRef.current = null;
     setProcessing(true);
     setProgress(null);
-    // Build stage skeleton for progress UI — derived from the concrete operation
     const concreteOp = resolved?.operation ?? (operation === 'auto' ? 'upscale' : operation);
-    const stageNames: string[] =
-      concreteOp === 'restore-upscale'
-        ? ['Denoise', 'Upscale']
-        : concreteOp === 'deblur-upscale'
-          ? ['Deblur', 'Upscale']
-          : concreteOp === 'denoise'
-            ? ['Denoise']
-            : concreteOp === 'deblur'
-              ? ['Deblur']
-              : concreteOp === 'compression-restoration'
-                ? ['Compression cleanup']
-                : ['Upscale'];
-    setStages(
-      stageNames.map((name) => ({ id: name, task: name as never, status: 'ready' as const })),
-    );
+    // The engine reports the actual ordered stages and their status. Do not
+    // infer the active stage from a global tile count: restoration and
+    // upscaling have different tile totals and some CPU stages have none.
+    setStages([]);
     try {
       await onApply({
         // 'auto' is a UI-level selection; the resolver picks the concrete
@@ -578,6 +570,7 @@ export function UpscaleDialog({
           concreteOp === 'deblur' || concreteOp === 'deblur-upscale' ? deblurStrength : undefined,
         pixelArtAlgorithm: modeId === 'pixel-art' ? pixelArtAlgorithm : undefined,
         onProgress,
+        onStageChange,
       });
       onClose();
     } catch (caught) {
@@ -623,6 +616,7 @@ export function UpscaleDialog({
     onApply,
     onClose,
     onProgress,
+    onStageChange,
     announce,
     buildRestorationRequest,
     operationAvailable,
@@ -676,17 +670,18 @@ export function UpscaleDialog({
       ? (RESTORATION_CAPABILITIES.find((c) => c.id === 'scunet')?.peakMemoryBytes ?? 0)
       : 0;
     const deblurPeak =
-      operation === 'deblur' || operation === 'deblur-upscale'
+      effectiveOperation === 'deblur' || effectiveOperation === 'deblur-upscale'
         ? (RESTORATION_CAPABILITIES.find((c) => c.id === 'nafnet-deblur-gopro')?.peakMemoryBytes ??
           0)
         : 0;
+    const aiModelId =
+      modeId === 'illustration' ? 'upscale-realesrgan-anime' : 'upscale-realesr-general';
     const aiPeak =
       usesUpscale && mode?.isAi
-        ? (RESTORATION_CAPABILITIES.find((c) => c.id === 'upscale-realesr-general')
-            ?.peakMemoryBytes ?? 0)
+        ? (RESTORATION_CAPABILITIES.find((c) => c.id === aiModelId)?.peakMemoryBytes ?? 0)
         : 0;
     return Math.max(denoisePeak, deblurPeak, aiPeak);
-  }, [usesDenoise, usesUpscale, operation, mode?.isAi]);
+  }, [effectiveOperation, mode?.isAi, modeId, usesDenoise, usesUpscale]);
 
   const progressPct =
     progress && progress.total > 0
@@ -1202,26 +1197,23 @@ export function UpscaleDialog({
                 <div className="upscale-progress" role="status" aria-live="polite">
                   {stages.length > 0 && (
                     <div className="upscale-progress__stages">
-                      {stages.map((s, idx) => {
-                        const isActive = progress
-                          ? idx ===
-                            Math.floor(
-                              ((progress.done - 1) / Math.max(1, progress.total)) * stages.length,
-                            )
-                          : idx === 0;
-                        const isDone = progress
-                          ? idx <
-                            Math.floor(
-                              (progress.done / Math.max(1, progress.total)) * stages.length,
-                            )
-                          : false;
+                      {stages.map((s) => {
+                        const isActive = s.status === 'running';
+                        const isDone = s.status === 'completed';
+                        const isFailed = s.status === 'failed';
                         return (
                           <span
                             key={s.id}
-                            className={`upscale-progress__stage ${isDone ? 'upscale-progress__stage--done' : ''} ${isActive ? 'upscale-progress__stage--active' : ''}`}
+                            className={`upscale-progress__stage ${isDone ? 'upscale-progress__stage--done' : ''} ${isActive ? 'upscale-progress__stage--active' : ''} ${isFailed ? 'upscale-progress__stage--failed' : ''}`}
                           >
                             <span aria-hidden="true">
-                              {isDone ? 'done' : isActive ? 'active' : 'pending'}
+                              {isDone
+                                ? 'done'
+                                : isFailed
+                                  ? 'failed'
+                                  : isActive
+                                    ? 'active'
+                                    : 'pending'}
                             </span>{' '}
                             {s.id}
                           </span>
@@ -1240,9 +1232,14 @@ export function UpscaleDialog({
                     >
                       <div className="insp-progress__bar" style={{ width: `${progressPct}%` }} />
                       <span className="insp-progress__label">
-                        {stages.length > 1
-                          ? `Stage ${Math.min(stages.length, Math.max(1, Math.ceil((progress.done / progress.total) * stages.length)))}/${stages.length} · ${progress.done}/${progress.total} tiles`
-                          : `Step ${progress.done}/${progress.total}`}
+                        {(() => {
+                          const active = stages.find((s) => s.status === 'running');
+                          if (active) return `${active.id} · ${progress.done}/${progress.total}`;
+                          const failed = stages.find((s) => s.status === 'failed');
+                          return failed
+                            ? `${failed.id} failed`
+                            : `${progress.done}/${progress.total}`;
+                        })()}
                       </span>
                     </div>
                   )}
@@ -1345,7 +1342,7 @@ export function UpscaleDialog({
           onClose={() => setShowModelDownload(false)}
           onComplete={() => {
             setShowModelDownload(false);
-            setModelMissing(false);
+            setMissingModelIds((ids) => ids.filter((id) => id !== requiredModelId));
           }}
         />
       )}

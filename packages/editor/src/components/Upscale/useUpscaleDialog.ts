@@ -9,6 +9,7 @@ import type {
   DenoiseStrength,
   PixelArtAlgorithm,
   RestorationOperation,
+  RestorationStageState,
   UpscaleModeId,
   UpscaleProgressFn,
 } from '@varve/engine';
@@ -43,6 +44,7 @@ interface UseUpscaleDialogReturn {
     deblurStrength?: number;
     pixelArtAlgorithm?: PixelArtAlgorithm;
     onProgress: UpscaleProgressFn;
+    onStageChange: (stages: RestorationStageState[]) => void;
     /** Explicit target node for batch enhancement. */
     nodeId?: string;
   }) => Promise<void>;
@@ -87,6 +89,7 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
       deblurStrength?: number;
       pixelArtAlgorithm?: PixelArtAlgorithm;
       onProgress: UpscaleProgressFn;
+      onStageChange: (stages: RestorationStageState[]) => void;
       /** Explicit target node for batch enhancement. */
       nodeId?: string;
     }) => {
@@ -119,6 +122,7 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
         output: options.output,
         qualityPolicy: options.qualityPolicy,
         onProgress: options.onProgress,
+        onStageChange: options.onStageChange,
         replaceSource: options.output === 'replace-source',
         nodeId: options.nodeId,
       });
