@@ -112,6 +112,8 @@ export async function runEnhancementPipeline(
     }
   } else if (upscaleMethod === 'ai') {
     const { dispatchUpscale: dispatchAi } = await import('./dispatch');
+    const beforeWidth = currentImage.width;
+    const beforeHeight = currentImage.height;
     currentImage = await dispatchAi(
       currentImage,
       {
@@ -123,6 +125,23 @@ export async function runEnhancementPipeline(
       },
       signal,
     );
+    if (
+      !preview &&
+      upscaleScale !== 4 &&
+      currentImage.width === beforeWidth * 4 &&
+      currentImage.height === beforeHeight * 4
+    ) {
+      const { upscaleImageData } = await import('../imageEnhancement');
+      const targetWidth = Math.max(1, Math.round(beforeWidth * upscaleScale));
+      const targetHeight = Math.max(1, Math.round(beforeHeight * upscaleScale));
+      if (currentImage.width !== targetWidth || currentImage.height !== targetHeight) {
+        currentImage = upscaleImageData(currentImage, {
+          method: 'lanczos3',
+          targetWidth,
+          targetHeight,
+        });
+      }
+    }
   }
 
   upscaleStage.status = 'completed';

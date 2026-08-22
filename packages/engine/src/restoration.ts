@@ -120,6 +120,29 @@ export const RESTORATION_CAPABILITIES: readonly RestorationCapability[] = [
     qualityTier: 'balanced',
     status: 'available',
   },
+  {
+    id: 'upscale-realesrgan-anime',
+    task: 'upscale',
+    family: 'Real-ESRGAN',
+    architecture: 'Real-ESRGAN anime x4 (6B)',
+    variant: 'anime/illustration super-resolution',
+    revision: 'v0.2.5.0 / x4plus_anime_6B (no validated ONNX export)',
+    source: 'xinntao/Real-ESRGAN',
+    sourceUrl: 'https://github.com/xinntao/Real-ESRGAN',
+    license: 'BSD-3-Clause',
+    redistribution: 'pending',
+    runtime: 'onnx-native',
+    modelSizeBytes: 6_700_000,
+    inputChannels: 3,
+    inputRange: '[0,1]',
+    paddingMultiple: 1,
+    outputScale: 4,
+    peakMemoryBytes: 22_000_000,
+    qualityTier: 'balanced',
+    status: 'not-validated',
+    statusReason:
+      'No reproducible ONNX export with pinned SHA-256 and Varve corpus evidence has been validated for the anime variant. The general x4 (upscale-realesr-general) is the validated bundled fallback.',
+  },
 ];
 
 const TASK_LABELS: Record<RestorationTask, string> = {

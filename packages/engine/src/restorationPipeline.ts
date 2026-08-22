@@ -133,6 +133,8 @@ export async function runRestoration(
             scale: upscale.scale,
           });
         } else {
+          const beforeUpscaleWidth = currentImage.width;
+          const beforeUpscaleHeight = currentImage.height;
           currentImage = await dispatchUpscale(
             currentImage,
             {
@@ -144,6 +146,28 @@ export async function runRestoration(
             },
             options.signal,
           );
+          // Real-ESRGAN is a fixed 4× model. An arbitrary requested
+          // scale (e.g. 2×) is served as: AI 4× → high-quality downsample
+          // to the exact target size. This is honest about what the model
+          // natively does and avoids claiming variable-scale super-resolution.
+          if (
+            upscale.method === 'ai' &&
+            !request.preview &&
+            upscale.scale !== 4 &&
+            currentImage.width === beforeUpscaleWidth * 4 &&
+            currentImage.height === beforeUpscaleHeight * 4
+          ) {
+            const { upscaleImageData } = await import('./imageEnhancement');
+            const targetWidth = Math.max(1, Math.round(beforeUpscaleWidth * upscale.scale));
+            const targetHeight = Math.max(1, Math.round(beforeUpscaleHeight * upscale.scale));
+            if (currentImage.width !== targetWidth || currentImage.height !== targetHeight) {
+              currentImage = upscaleImageData(currentImage, {
+                method: 'lanczos3',
+                targetWidth,
+                targetHeight,
+              });
+            }
+          }
         }
         provider = provider ?? (upscale.method === 'ai' ? 'ai' : 'cpu');
         stage.progress = 1;

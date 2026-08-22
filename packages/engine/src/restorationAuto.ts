@@ -251,6 +251,33 @@ export function analyzeImageForRestoration(
     noiseLevel !== 'none' || blurLevel !== 'none' || jpegLevel !== 'none' || lowResolution;
   const confidence = hasStrongSignal ? maxConfidence : 0;
 
+  // Lightweight pixel-art heuristic: limited palette, sharp edges, and
+  // low-resolution are characteristic of UI/pixel-art assets that must not
+  // be routed through photographic denoise/deblur. This does not trigger a
+  // separate recommendation — it is surfaced as a hint for the caller to
+  // prefer the pixel-art enlargement path.
+  const isLikelyPixelArt = (() => {
+    if (shortEdge > 128) return false;
+    // Palette size via quantized sampling (first 1024 pixels).
+    const seen = new Set<number>();
+    const sampleCount = Math.min(1024, source.width * source.height);
+    for (let i = 0; i < sampleCount; i++) {
+      const idx = (i * 4) % source.data.length;
+      const r = source.data[idx]! >> 4;
+      const g = source.data[idx + 1]! >> 4;
+      const b = source.data[idx + 2]! >> 4;
+      seen.add((r << 8) | (g << 4) | b);
+      if (seen.size > 64) break;
+    }
+    return seen.size <= 32;
+  })();
+
+  // If likely pixel-art, we add a finding that callers can surface as a
+  // mode hint; we do not override the resolution recommendation.
+  if (isLikelyPixelArt && lowResolution) {
+    findings.push('Limited palette suggests pixel art — consider Pixel Art mode');
+  }
+
   return {
     noise: { level: noiseLevel, confidence: signalConfidences[0]! },
     blur: { level: blurLevel, confidence: signalConfidences[1]! },

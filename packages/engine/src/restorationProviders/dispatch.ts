@@ -76,8 +76,14 @@ const TASK_SPECS: Record<RestorationTask, TaskSpec> = {
     tilePolicy: deblurTilePolicy,
   },
   'compression-restoration': {
-    modelId: NAFNET_DEBLUR_GOPRO_ID,
-    adapter: nafnetAdapter,
+    // No validated checkpoint — SCUNet harms text/thin-lines on the
+    // design corpus (-17 dB, docs/quality/image-enhancement-benchmark.md)
+    // and the only NAFNet JPEG checkpoint was rejected on provenance.
+    // The planner rejects this task before dispatch is reached, but an
+    // empty modelId ensures dispatch cannot silently route through an
+    // unrelated model if the guard is ever bypassed.
+    modelId: '',
+    adapter: scunetAdapter,
     tileSize: 512,
     overlap: 64,
   },
@@ -98,8 +104,8 @@ export function resetTaskSpecOverrides(): void {
     tilePolicy: deblurTilePolicy,
   };
   TASK_SPECS['compression-restoration'] = {
-    modelId: NAFNET_DEBLUR_GOPRO_ID,
-    adapter: nafnetAdapter,
+    modelId: '',
+    adapter: scunetAdapter,
     tileSize: 512,
     overlap: 64,
   };
@@ -111,6 +117,11 @@ export async function dispatchRestorationTask(
   strength: number,
   options: RestorationTaskOptions = {},
 ): Promise<RestorationTaskDispatchResult> {
+  if (task === 'compression-restoration') {
+    throw new Error(
+      'Remove compression artifacts is not available for this installation — no checkpoint has passed Varve’s design-content corpus (SCUNet destroys 1px lines; see docs/quality/image-enhancement-benchmark.md).',
+    );
+  }
   const spec = TASK_SPECS[task];
   const policy = spec.tilePolicy?.(source.width, source.height);
   return runTiledRestoration(source, {

@@ -128,7 +128,8 @@ export function UpscaleDialog({
   }, [operation]);
   const usesUpscale =
     operation === 'upscale' || operation === 'restore-upscale' || operation === 'deblur-upscale';
-  const usesDenoise = operation === 'denoise' || operation === 'restore-upscale';
+  const usesDenoise =
+    operation === 'denoise' || operation === 'restore-upscale' || operation === 'deblur-upscale';
 
   const buildRestorationRequest = useCallback((): RestorationRequest => {
     const method = mode?.id === 'pixel-art' ? 'pixel-art' : (mode?.method ?? 'bicubic');
@@ -145,11 +146,9 @@ export function UpscaleDialog({
             method,
             scale,
             modelId:
-              mode?.id === 'ai-enhance'
+              mode?.id === 'ai-enhance' || mode?.id === 'illustration'
                 ? 'upscale-realesr-general'
-                : mode?.id === 'illustration'
-                  ? 'upscale-realesrgan-anime'
-                  : undefined,
+                : undefined,
             pixelArtAlgorithm: mode?.id === 'pixel-art' ? pixelArtAlgorithm : undefined,
           }
         : undefined,
@@ -171,24 +170,26 @@ export function UpscaleDialog({
   } => {
     if (!autoAnalysis || autoAnalysis.recommendation[0] === 'none') return { operation: null };
     const { recommendation } = autoAnalysis;
-    const restore =
-      recommendation.find(
-        (r) => r === 'deblur' || r === 'denoise' || r === 'compression-restoration',
-      ) ?? null;
-    const upscale = recommendation.includes('upscale');
-    const availableRestore =
-      restore === 'deblur' ? 'deblur' : restore === 'denoise' ? 'denoise' : null;
-    if (restore === 'compression-restoration') {
+
+    // Compression restoration has no validated model — drop it from the
+    // recommendation and note the gap only when it was the sole signal.
+    const hasCompression = recommendation.includes('compression-restoration');
+    const filtered = recommendation.filter((r) => r !== 'compression-restoration');
+    if (filtered.length === 0 && hasCompression) {
       return {
-        operation: upscale ? 'restore-upscale' : 'denoise',
-        note: 'Compression-artifact cleanup is not available for this installation; Denoise is the closest validated operation.',
+        operation: null,
+        note: 'Compression-artifact cleanup is not yet available. Denoise can reduce some artifacts but is not a dedicated restoration.',
       };
     }
-    if (!availableRestore) return { operation: upscale ? 'upscale' : null };
+
+    const restore =
+      filtered.find((r) => r === 'deblur' || r === 'denoise') ?? null;
+    const upscale = filtered.includes('upscale');
+    if (!restore) return { operation: upscale ? 'upscale' : null };
     if (upscale) {
-      return { operation: availableRestore === 'deblur' ? 'deblur-upscale' : 'restore-upscale' };
+      return { operation: restore === 'deblur' ? 'deblur-upscale' : 'restore-upscale' };
     }
-    return { operation: availableRestore };
+    return { operation: restore };
   }, [autoAnalysis]);
 
   // Model prerequisites. Denoise needs SCUNet, Deblur needs the NAFNet
@@ -196,6 +197,10 @@ export function UpscaleDialog({
   // resampling modes need nothing. Checking here means a missing model is
   // offered as a download up front instead of surfacing as a backend
   // failure after the user commits to the operation.
+  // Illustration anime variant has no validated ONNX export yet
+  // (see restoration.ts upscale-realesrgan-anime not-validated); it
+  // intentionally falls back to the general model with an honest note
+  // rather than claiming an unavailable checkpoint.
   const requiredModelId = usesDenoise
     ? 'scunet'
     : operation === 'deblur' || operation === 'deblur-upscale'
@@ -214,9 +219,7 @@ export function UpscaleDialog({
             return null;
           })()
         : mode?.isAi
-          ? modeId === 'illustration'
-            ? 'upscale-realesrgan-anime'
-            : 'upscale-realesr-general'
+          ? 'upscale-realesr-general'
           : denoiseStrength !== 'none'
             ? 'scunet'
             : null;
@@ -434,7 +437,9 @@ export function UpscaleDialog({
         scale,
         output,
         denoiseStrength:
-          resolved?.operation === 'denoise' || resolved?.operation === 'restore-upscale'
+          resolved?.operation === 'denoise' ||
+          resolved?.operation === 'restore-upscale' ||
+          resolved?.operation === 'deblur-upscale'
             ? denoiseStrength
             : usesDenoise
               ? denoiseStrength
@@ -646,7 +651,13 @@ export function UpscaleDialog({
                   Original
                 </span>
                 <span className="upscale-preview__label upscale-preview__label--after">
-                  Upscaled
+                  {operation === 'denoise'
+                    ? 'Denoised'
+                    : operation === 'deblur'
+                      ? 'Deblurred'
+                      : operation === 'compression-restoration'
+                        ? 'Restored'
+                        : 'Enhanced'}
                 </span>
                 {mode?.isAi && !previewDataUrl && (
                   <p className="upscale-preview__ai-hint">
@@ -656,8 +667,8 @@ export function UpscaleDialog({
               </div>
               <p className="upscale-preview__hint">
                 {previewBaselineUrl
-                  ? `Drag to compare — magnified detail, not the whole image. Output: ${outW}by${outH}px`
-                  : `Drag to compare. Output: ${outW}by${outH}px`}
+                  ? `Drag to compare \u2014 magnified detail, not the whole image. Output: ${outW}\u00d7${outH}px`
+                  : `Drag to compare. Output: ${outW}\u00d7${outH}px`}
               </p>
             </div>
 
@@ -759,7 +770,7 @@ export function UpscaleDialog({
                   <SegmentedControl
                     label="Denoise strength"
                     value={denoiseStrength}
-                    disabled={processing || mode?.isAi || operation === 'upscale'}
+                    disabled={processing || operation === 'upscale'}
                     options={[
                       { value: 'none', label: 'None' },
                       { value: 'light', label: 'Light' },
@@ -768,11 +779,13 @@ export function UpscaleDialog({
                     ]}
                     onChange={(v) => setDenoiseStrength(v as DenoiseStrength)}
                   />
-                  {!mode?.isAi && operation !== 'upscale' && (
+                  {operation !== 'upscale' && (
                     <p className="insp-hint">
                       {denoiseStrength === 'none'
                         ? 'No denoising'
-                        : `${denoiseStrength} denoise before upscale`}
+                        : operation === 'deblur-upscale'
+                          ? `${denoiseStrength} deblur before upscale`
+                          : `${denoiseStrength} denoise before upscale`}
                     </p>
                   )}
                 </div>
@@ -841,7 +854,7 @@ export function UpscaleDialog({
               {/* Output info */}
               <div className="upscale-output-info">
                 <span className="insp-hint">
-                  Output {outW}by{outH}px
+                  Output {outW}\u00d7{outH}px
                   {outputBytes > 0 && ` ~${formatBytes(outputBytes)}`}
                   {mode?.isAi && ' slow, runs locally'}
                 </span>
@@ -940,9 +953,11 @@ export function UpscaleDialog({
                       ? 'Clean up image'
                       : operation === 'restore-upscale'
                         ? 'Restore and upscale'
-                        : mode?.isAi
-                          ? 'Upscale with AI'
-                          : 'Upscale image'}
+                        : operation === 'deblur-upscale'
+                          ? 'Deblur and upscale'
+                          : mode?.isAi
+                            ? 'Upscale with AI'
+                            : 'Upscale image'}
             </Button>
           </div>
 

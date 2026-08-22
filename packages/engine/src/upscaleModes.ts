@@ -100,7 +100,7 @@ export const UPSCALE_MODES: UpscaleMode[] = [
     id: 'illustration',
     label: 'Illustration & anime',
     description:
-      'Real-ESRGAN anime-optimized x4 model. Preserves line art, flat colours, and cel shading. Optional download — falls back to general AI if not installed.',
+      'Tuned for line art, flat colours, and cel shading. Currently served by the validated general Real-ESRGAN x4; a dedicated anime export is pending corpus validation and will appear here when pinned (see restoration.ts upscale-realesrgan-anime).',
     method: 'ai',
     isAi: true,
     lockedScale: true,

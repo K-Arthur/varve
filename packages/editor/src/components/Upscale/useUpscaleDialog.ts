@@ -92,12 +92,12 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
               : options.mode === 'balanced'
                 ? 'bicubic'
                 : 'lanczos3';
+      // Illustration anime variant has no validated export yet — falls
+      // back to the verified general model with an honest descriptor.
       const modelId =
-        options.mode === 'ai-enhance'
+        options.mode === 'ai-enhance' || options.mode === 'illustration'
           ? 'upscale-realesr-general'
-          : options.mode === 'illustration'
-            ? 'upscale-realesrgan-anime'
-            : undefined;
+          : undefined;
       await upscaleSelectedImage({
         operation: options.operation,
         scale: options.scale,

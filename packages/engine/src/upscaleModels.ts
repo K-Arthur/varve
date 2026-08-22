@@ -33,10 +33,11 @@ export const UPSCALE_MODELS: UpscaleModelMetadata[] = [
   {
     id: 'upscale-realesrgan-anime',
     name: 'Real-ESRGAN Anime (x4)',
-    description: 'Optional download: x4 model optimized for anime, illustrations, and line art.',
+    description:
+      'Optional download: x4 model optimized for anime, illustrations, and line art. No validated ONNX export is bundled yet — falls back to the general model until a reproducible export with pinned hash passes the corpus gate (see docs/quality/image-enhancement-benchmark.md).',
     size: 6_700_000,
     filename: 'realesrgan-x4plus-anime.onnx',
-    sourceRelease: 'Real-ESRGAN v0.2.5.0',
+    sourceRelease: 'Real-ESRGAN v0.2.5.0 (anime_6B — no validated ONNX)',
     sourceUrl:
       'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/RealESRGAN_x4plus_anime_6B.pth',
     remoteUrl: '',
