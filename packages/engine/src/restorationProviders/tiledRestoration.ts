@@ -10,14 +10,24 @@ import {
   alignTo8,
   blendTiles,
   computeTiles,
-  extractTile,
   type ScunetPreprocessResult,
+  type ScunetTile,
 } from '../inference/models/scunet';
 import { candidateProviders, restoreTileWithFallback } from './chain';
 import type { RestorationTileProvider, RestorationTileRequest } from './types';
 
 export interface RestorationAdapter {
   preprocess(imageData: ImageData): ScunetPreprocessResult;
+  extractTile(imageData: ImageData, tile: ScunetTile): RestorationTileInput;
+  /** Align dimensions after a max-dimension reduction to this model's graph contract. */
+  alignDimension(n: number): number;
+}
+
+export interface RestorationTileInput {
+  tensor: Float32Array;
+  alignedWidth: number;
+  alignedHeight: number;
+  alphaData: Uint8ClampedArray | null;
 }
 
 export interface TiledRestorationOptions {
@@ -54,10 +64,15 @@ export async function runTiledRestoration(
   const candidates = options.providers ?? candidateProviders(modelId);
   const pinned: { provider: RestorationTileProvider | null } = { provider: null };
 
-  const { tensor, alignedWidth, alignedHeight, originalWidth, originalHeight, alphaData } =
-    adapter.preprocess(source);
-
-  if (alignedWidth <= tileSize && alignedHeight <= tileSize) {
+  // Do not preprocess the entire source before deciding whether to tile. A
+  // 10k x 10k source would otherwise allocate a padded 3-channel float tensor
+  // (over 1.2 GB) and then immediately discard it in the tiled branch.
+  // Source-sized inputs at or below the tile budget are safe to preprocess in
+  // one shot; each large-image tile is padded independently by extractTile.
+  const shouldTile = source.width > tileSize || source.height > tileSize;
+  if (!shouldTile) {
+    const { tensor, alignedWidth, alignedHeight, originalWidth, originalHeight, alphaData } =
+      adapter.preprocess(source);
     const result = await runSingle(
       tensor,
       alignedWidth,
@@ -69,6 +84,7 @@ export async function runTiledRestoration(
       strength,
       modelId,
       maxDim,
+      adapter.alignDimension,
       candidates,
       pinned,
       signal,
@@ -83,13 +99,16 @@ export async function runTiledRestoration(
     };
   }
 
+  const originalWidth = source.width;
+  const originalHeight = source.height;
+  const alphaData = alphaChannel(source);
   const tiles = computeTiles(originalWidth, originalHeight, tileSize, overlap);
   const tileResults: Float32Array[] = [];
 
   for (let i = 0; i < tiles.length; i++) {
     if (signal?.aborted) throw new Error('cancelled');
     const tile = tiles[i]!;
-    const extracted = extractTile(source, tile);
+    const extracted = adapter.extractTile(source, tile);
 
     const tileOriginalData = new Uint8ClampedArray(tile.width * tile.height * 4);
     const pixels = tile.width * tile.height;
@@ -114,9 +133,13 @@ export async function runTiledRestoration(
       tile.height,
       extracted.alphaData,
       tileOriginalData,
-      strength,
+      // Providers blend their output in the single-tile path. Tiled output
+      // is blended against the source once below, so ask the provider for
+      // the full restoration here to avoid applying strength twice.
+      1,
       modelId,
       maxDim,
+      adapter.alignDimension,
       candidates,
       pinned,
       signal,
@@ -148,13 +171,13 @@ export async function runTiledRestoration(
 
   if (signal?.aborted) throw new Error('cancelled');
 
-  const blended = blendTiles(tiles, tileResults, alignedWidth, alignedHeight, overlap);
+  const blended = blendTiles(tiles, tileResults, originalWidth, originalHeight, overlap);
   const finalPixels = originalWidth * originalHeight;
   const result = new Uint8ClampedArray(finalPixels * 4);
 
   for (let y = 0; y < originalHeight; y++) {
     for (let x = 0; x < originalWidth; x++) {
-      const blendIdx = y * alignedWidth + x;
+      const blendIdx = y * originalWidth + x;
       const dstIdx = (y * originalWidth + x) * 4;
       const r = Math.round(Math.min(1, Math.max(0, blended[blendIdx]!)) * 255);
       const g = Math.round(Math.min(1, Math.max(0, blended[finalPixels + blendIdx]!)) * 255);
@@ -176,6 +199,21 @@ export async function runTiledRestoration(
   };
 }
 
+/** Extract alpha without allocating the model tensor used by an adapter. */
+function alphaChannel(source: ImageData): Uint8ClampedArray | null {
+  let hasAlpha = false;
+  for (let i = 0; i < source.width * source.height; i += 1) {
+    if (source.data[i * 4 + 3]! < 255) {
+      hasAlpha = true;
+      break;
+    }
+  }
+  if (!hasAlpha) return null;
+  const alpha = new Uint8ClampedArray(source.width * source.height);
+  for (let i = 0; i < alpha.length; i += 1) alpha[i] = source.data[i * 4 + 3]!;
+  return alpha;
+}
+
 async function runSingle(
   tensor: Float32Array,
   width: number,
@@ -187,6 +225,7 @@ async function runSingle(
   strength: number,
   modelId: string,
   maxDim: number,
+  alignDimension: (n: number) => number,
   candidates: RestorationTileProvider[],
   pinned: { provider: RestorationTileProvider | null },
   signal?: AbortSignal,
@@ -208,8 +247,8 @@ async function runSingle(
 
   if (width > maxDim || height > maxDim) {
     const scale = maxDim / Math.max(width, height);
-    processW = alignTo8(Math.floor(width * scale));
-    processH = alignTo8(Math.floor(height * scale));
+    processW = alignDimension(Math.floor(width * scale));
+    processH = alignDimension(Math.floor(height * scale));
     const processPixels = processW * processH;
     processTensor = new Float32Array(processPixels * 3);
     const xRatio = width / processW;

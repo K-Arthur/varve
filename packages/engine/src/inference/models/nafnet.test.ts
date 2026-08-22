@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { alignTo16, NAFNET_PADDING_MULTIPLE, postprocessNafnet, preprocessNafnet } from './nafnet';
+import {
+  alignTo16,
+  extractTileNafnet,
+  NAFNET_PADDING_MULTIPLE,
+  postprocessNafnet,
+  preprocessNafnet,
+} from './nafnet';
 
 function rgbaImage(width: number, height: number): ImageData {
   const data = new Uint8ClampedArray(width * height * 4);
@@ -36,6 +42,16 @@ describe('preprocessNafnet', () => {
     const result = preprocessNafnet(img);
     expect(result.hasAlpha).toBe(true);
     expect(result.alphaData?.[0]).toBe(128);
+  });
+
+  it('keeps BGR channel order for edge tiles', () => {
+    const result = extractTileNafnet(rgbaImage(20, 20), { x: 4, y: 4, width: 5, height: 6 });
+    const pixels = result.alignedWidth * result.alignedHeight;
+    expect(result.alignedWidth).toBe(16);
+    expect(result.alignedHeight).toBe(16);
+    expect(result.tensor[0]).toBeCloseTo(50 / 255);
+    expect(result.tensor[pixels]).toBeCloseTo(100 / 255);
+    expect(result.tensor[pixels * 2]).toBeCloseTo(200 / 255);
   });
 });
 

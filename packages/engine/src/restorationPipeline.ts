@@ -131,6 +131,7 @@ export async function runRestoration(
                   : 0.7;
         const { dispatchRestorationTask } = await import('./restorationProviders/dispatch');
         const result = await dispatchRestorationTask(currentImage, stage.task, deblurStrength, {
+          modelId: stage.modelId,
           signal: options.signal,
           onProgress: (done, total) => {
             stage.progress = total > 0 ? done / total : 0;

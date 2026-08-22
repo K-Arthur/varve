@@ -132,4 +132,14 @@ describe('dispatchDenoise', () => {
     const result = await dispatchDenoise(src, { strength: 0.5, modelId: 'scunet' });
     expect(result.executionProvider).toBe('worker');
   });
+
+  it('rejects a checkpoint that is not validated for denoise', async () => {
+    await expect(
+      dispatchDenoise(makeImageData(32, 32), {
+        strength: 0.5,
+        modelId: 'nafnet-deblur-gopro',
+      }),
+    ).rejects.toThrow(/not validated for denoise/i);
+    expect(fakeRestore).not.toHaveBeenCalled();
+  });
 });

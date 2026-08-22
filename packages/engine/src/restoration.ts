@@ -228,6 +228,7 @@ export type RestorationErrorCode =
   | 'runtime-unavailable'
   | 'tensor-allocation'
   | 'invalid-image'
+  | 'invalid-request'
   | 'dimension-limit'
   | 'provider-failed'
   | 'cancelled'
@@ -242,6 +243,7 @@ export const RESTORATION_ERROR_CODES: readonly RestorationErrorCode[] = [
   'runtime-unavailable',
   'tensor-allocation',
   'invalid-image',
+  'invalid-request',
   'dimension-limit',
   'provider-failed',
   'cancelled',
@@ -269,8 +271,19 @@ export class RestorationError extends Error {
  * else is `provider-failed`.
  */
 export function toRestorationError(caught: unknown): RestorationError {
+  if (caught instanceof RestorationPlanningError) {
+    const code: RestorationErrorCode =
+      caught.code === 'unsupported-operation'
+        ? 'unsupported-operation'
+        : caught.code === 'model-unavailable'
+          ? 'model-not-installed'
+          : 'invalid-request';
+    return new RestorationError(code, caught.message);
+  }
   const message = caught instanceof Error ? caught.message : String(caught);
-  if (message === 'cancelled') return new RestorationError('cancelled', message);
+  if (/^cancelled$|^inference cancelled$/i.test(message.trim())) {
+    return new RestorationError('cancelled', message);
+  }
   if (/not downloaded|model.*not found|not installed/i.test(message)) {
     return new RestorationError('model-not-installed', message);
   }
@@ -352,6 +365,16 @@ function validateScale(scale: number): void {
   }
 }
 
+function validateStrength(strength: number | undefined): void {
+  if (strength === undefined) return;
+  if (!Number.isFinite(strength) || strength < 0 || strength > 1) {
+    throw new RestorationPlanningError(
+      'invalid-request',
+      'Restoration strength must be a finite number between 0 and 1',
+    );
+  }
+}
+
 /** Build a lazy, truthful execution plan without loading any model. */
 export function planRestoration(request: RestorationRequest): RestorationPlan {
   const warnings: string[] = [];
@@ -394,6 +417,7 @@ export function planRestoration(request: RestorationRequest): RestorationPlan {
       );
       break;
     case 'deblur-upscale':
+      validateStrength(request.deblur?.strength);
       addStage('deblur');
       if (!request.upscale) {
         throw new RestorationPlanningError('invalid-request', 'Upscale settings are required');
@@ -406,6 +430,7 @@ export function planRestoration(request: RestorationRequest): RestorationPlan {
       );
       break;
     case 'deblur':
+      validateStrength(request.deblur?.strength);
       addStage('deblur');
       break;
     case 'compression-restoration':

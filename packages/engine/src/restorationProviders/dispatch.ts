@@ -126,6 +126,11 @@ export async function dispatchRestorationTask(
   }
   const spec = TASK_SPECS[task];
   const modelId = options.modelId ?? spec.modelId;
+  if (modelId !== spec.modelId) {
+    throw new Error(
+      `Model '${modelId}' is not validated for ${task}; use the task capability selected by the restoration planner`,
+    );
+  }
   const policy = spec.tilePolicy?.(source.width, source.height);
   return runTiledRestoration(source, {
     modelId,

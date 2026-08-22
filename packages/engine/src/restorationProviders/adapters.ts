@@ -4,14 +4,18 @@
  * orchestrator stay task-agnostic.
  */
 
-import { preprocessNafnet } from '../inference/models/nafnet';
-import { preprocessScunet } from '../inference/models/scunet';
+import { alignTo16, extractTileNafnet, preprocessNafnet } from '../inference/models/nafnet';
+import { alignTo8, extractTile, preprocessScunet } from '../inference/models/scunet';
 import type { RestorationAdapter } from './tiledRestoration';
 
 export const scunetAdapter: RestorationAdapter = {
   preprocess: preprocessScunet,
+  extractTile,
+  alignDimension: alignTo8,
 };
 
 export const nafnetAdapter: RestorationAdapter = {
   preprocess: preprocessNafnet,
+  extractTile: extractTileNafnet,
+  alignDimension: alignTo16,
 };

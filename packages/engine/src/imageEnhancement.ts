@@ -9,8 +9,11 @@
 export type UpscaleMethod = 'nearest' | 'bilinear' | 'bicubic' | 'lanczos3' | 'ai';
 
 export type UpscaleProgressFn = (done: number, total: number) => void;
+export type UpscaleStageChangeFn = (
+  stages: import('./restoration').RestorationStageState[],
+) => void;
 
-export type { RestorationOperation } from './restoration';
+export type { RestorationOperation, RestorationStageState } from './restoration';
 
 export type DenoiseStrength = 'none' | 'light' | 'medium' | 'strong';
 
@@ -30,6 +33,8 @@ export interface UpscaleOptions {
    * thread roughly once per upscaled tile (a 1024px image yields ~225 tiles).
    */
   onProgress?: UpscaleProgressFn;
+  /** Live stage state from the unified restoration pipeline. */
+  onStageChange?: UpscaleStageChangeFn;
   /** When true, replaces the source image in place instead of creating a new layer. */
   replaceSource?: boolean;
   /**

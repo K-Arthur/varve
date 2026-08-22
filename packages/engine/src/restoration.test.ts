@@ -62,6 +62,19 @@ describe('restoration capability planning', () => {
     ).toThrow(/scale must be positive/i);
   });
 
+  it('rejects invalid deblur strength before provider dispatch', () => {
+    expect(() =>
+      planRestoration({ operation: 'deblur', deblur: { strength: Number.NaN } }),
+    ).toThrow(/strength must be a finite number/i);
+    expect(() =>
+      planRestoration({
+        operation: 'deblur-upscale',
+        deblur: { strength: 1.1 },
+        upscale: { method: 'bicubic', scale: 2 },
+      }),
+    ).toThrow(/strength must be a finite number/i);
+  });
+
   it('derives operation availability from the capability registry', () => {
     expect(isRestorationOperationAvailable('denoise')).toBe(true);
     expect(isRestorationOperationAvailable('upscale')).toBe(true);
@@ -99,6 +112,12 @@ describe('restoration capability planning', () => {
 
   it('classifies thrown values into typed restoration errors', () => {
     expect(toRestorationError(new Error('cancelled'))).toMatchObject({ code: 'cancelled' });
+    expect(toRestorationError('Inference cancelled')).toMatchObject({ code: 'cancelled' });
+    expect(
+      toRestorationError(new RestorationPlanningError('invalid-request', 'bad request')),
+    ).toMatchObject({
+      code: 'invalid-request',
+    });
     expect(toRestorationError('Model not downloaded. Download first.')).toMatchObject({
       code: 'model-not-installed',
     });

@@ -14,7 +14,7 @@ describe('deblur adaptive tile policy', () => {
     await dispatchRestorationTask(new ImageData(1000, 700), 'deblur', 0.7);
     expect(spy).toHaveBeenCalledWith(
       expect.any(ImageData),
-      expect.objectContaining({ tileSize: 1008, overlap: 0 }),
+      expect.objectContaining({ modelId: 'nafnet-deblur-gopro', tileSize: 1008, overlap: 0 }),
     );
     spy.mockRestore();
   });
@@ -30,7 +30,7 @@ describe('deblur adaptive tile policy', () => {
     await dispatchRestorationTask(new ImageData(2400, 1600), 'deblur', 0.7);
     expect(spy).toHaveBeenCalledWith(
       expect.any(ImageData),
-      expect.objectContaining({ tileSize: 1280, overlap: 256 }),
+      expect.objectContaining({ modelId: 'nafnet-deblur-gopro', tileSize: 1280, overlap: 256 }),
     );
     spy.mockRestore();
   });

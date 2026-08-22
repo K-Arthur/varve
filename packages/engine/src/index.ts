@@ -471,6 +471,7 @@ export type {
   UpscaleMethod,
   UpscaleOptions,
   UpscaleProgressFn,
+  UpscaleStageChangeFn,
 } from './imageEnhancement';
 export {
   computeUpscaleDimensions,

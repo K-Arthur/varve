@@ -19,6 +19,7 @@
  * reference output pixel-for-pixel (see tools/nafnet-export parity run).
  */
 import type { TensorSpec } from '../imageTensor';
+import type { ScunetTile } from './scunet';
 
 export const NAFNET_INPUT_SIZE = 0;
 
@@ -48,6 +49,65 @@ export interface NafnetPreprocessResult {
   originalHeight: number;
   hasAlpha: boolean;
   alphaData: Uint8ClampedArray | null;
+}
+
+/**
+ * Extract one tiled NAFNet input in the checkpoint's BGR order. The shared
+ * orchestrator cannot use SCUNet's RGB extractor for this path: native
+ * inference repacks RGBA itself, but the worker consumes the supplied tensor
+ * directly. Edge pixels are repeated to the NAFNet-safe multiple of 16.
+ */
+export function extractTileNafnet(imageData: ImageData, tile: ScunetTile): NafnetPreprocessResult {
+  const originalWidth = tile.width;
+  const originalHeight = tile.height;
+  const alignedWidth = alignTo16(originalWidth);
+  const alignedHeight = alignTo16(originalHeight);
+  let hasAlpha = false;
+  for (let y = 0; y < originalHeight && !hasAlpha; y += 1) {
+    for (let x = 0; x < originalWidth; x += 1) {
+      const sourceX = Math.min(tile.x + x, imageData.width - 1);
+      const sourceY = Math.min(tile.y + y, imageData.height - 1);
+      if (imageData.data[(sourceY * imageData.width + sourceX) * 4 + 3]! < 255) {
+        hasAlpha = true;
+        break;
+      }
+    }
+  }
+  let alphaData: Uint8ClampedArray | null = null;
+  if (hasAlpha) {
+    alphaData = new Uint8ClampedArray(originalWidth * originalHeight);
+    for (let y = 0; y < originalHeight; y += 1) {
+      for (let x = 0; x < originalWidth; x += 1) {
+        const sourceX = Math.min(tile.x + x, imageData.width - 1);
+        const sourceY = Math.min(tile.y + y, imageData.height - 1);
+        alphaData[y * originalWidth + x] =
+          imageData.data[(sourceY * imageData.width + sourceX) * 4 + 3]!;
+      }
+    }
+  }
+
+  const pixelCount = alignedWidth * alignedHeight;
+  const tensor = new Float32Array(pixelCount * 3);
+  for (let y = 0; y < alignedHeight; y += 1) {
+    for (let x = 0; x < alignedWidth; x += 1) {
+      const sourceX = Math.min(tile.x + x, imageData.width - 1);
+      const sourceY = Math.min(tile.y + y, imageData.height - 1);
+      const sourceIndex = (sourceY * imageData.width + sourceX) * 4;
+      const destinationIndex = y * alignedWidth + x;
+      tensor[destinationIndex] = imageData.data[sourceIndex + 2]! / 255;
+      tensor[pixelCount + destinationIndex] = imageData.data[sourceIndex + 1]! / 255;
+      tensor[pixelCount * 2 + destinationIndex] = imageData.data[sourceIndex]! / 255;
+    }
+  }
+  return {
+    tensor,
+    alignedWidth,
+    alignedHeight,
+    originalWidth,
+    originalHeight,
+    hasAlpha,
+    alphaData,
+  };
 }
 
 /**
