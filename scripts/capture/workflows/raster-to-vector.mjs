@@ -135,6 +135,24 @@ await capture({
       await page.waitForTimeout(1000);
     }
     if (!grew) throw new Error('the trace produced no new layers within 240s');
+
+    // Close the dialog now that the trace has landed. Waiting on the outcome
+    // rather than on the dialog fixed one problem and introduced another: the
+    // dialog stays up, and its modal backdrop silently intercepts every later
+    // click — the next failure was Fit-all timing out while reporting itself
+    // visible, enabled, stable and scrolled into view, all of which were true
+    // and none of which mattered behind a backdrop.
+    const close = dialog.getByRole('button', { name: /close|done|cancel/i }).first();
+    if (await close.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await close.click({ timeout: 4000 }).catch(() => undefined);
+    } else {
+      await page.keyboard.press('Escape');
+    }
+    await dialog.waitFor({ state: 'detached', timeout: 15000 }).catch(async () => {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    });
+    await page.waitForTimeout(500);
     await page.waitForTimeout(1200);
     await parkPointer(page);
     await settle(page);
