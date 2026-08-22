@@ -103,8 +103,17 @@ await capture({
     await selectLayer(page, labelName);
     const offset = page.getByRole('slider', { name: /start offset along path/i });
     if (!(await offset.isVisible({ timeout: 8000 }).catch(() => false))) {
+      // The handler announces either what it attached to or what it wanted
+      // and did not get. Reading that back beats inferring from the absence
+      // of a control several steps later.
+      const said = await page
+        .locator('[aria-live]')
+        .allInnerTexts()
+        .then((t) => t.filter(Boolean).join(' | '))
+        .catch(() => '');
       throw new Error(
-        'the text node is not in path mode after Object > Text on Path — the attach did not take',
+        `the text node is not in path mode after Object > Text on Path — ` +
+          `the attach did not take. Application announced: ${said || '(nothing)'}`,
       );
     }
     assertions.push('the text node is in path mode — its Text on Path section is present');
