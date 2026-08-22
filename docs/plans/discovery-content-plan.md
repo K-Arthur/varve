@@ -80,17 +80,15 @@ Format: single-page articles, one JSON-LD `Article` schema each, canonical
 under `/learn/articles/`, linked from `/learn` and the relevant feature page.
 No ad network, no newsletter bait.
 
-### 3. `/try/` indexability decision (recorded for the demo workstream)
+### 3. `/try/` indexability decision (implemented 2026-08-22)
 
-The in-progress browser demo serves at `/try/` from a bare Vite `index.html`
-(see `docs/architecture/browser-demo.md`). Recommendation:
+The browser demo serves at `/try/` from the staged Vite `index.html` (see
+`docs/architecture/browser-demo.md`). The public demo build now injects its
+own title, description, canonical, robots, Open Graph/Twitter metadata, and
+WebPage JSON-LD. It is therefore included in the sitemap as a useful,
+first-party search destination rather than inheriting the desktop app shell's
+bare `<title>Varve</title>`.
 
-- Index the `/try/` landing only after it carries its own title, description,
-  canonical, and OG tags (today it inherits the desktop app shell's bare
-  `<title>Varve</title>`).
-- Keep it out of the sitemap until then (it already is — the sitemap
-  generator only enumerates `.astro` pages). Do not noindex the demo itself;
-  a SPA shell with no meta simply gets a weak snippet, which is harmless.
 - If deep editor states are ever shared as URLs, noindex them; only the
   landing should be a search destination.
 - Do not let the demo page move the sitemap's `/download` priority.

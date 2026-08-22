@@ -81,7 +81,7 @@ const faqSchema = {
       name: 'How do I get help with Varve?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: `For product support, email ${CONTACTS.support}. Varve's support documentation and troubleshooting guides are at https://varve.studio/support, and public questions can be asked in GitHub Discussions.`,
+        text: `For product support, email ${CONTACTS.support}. Varve's support documentation and troubleshooting guides are at ${siteUrl('/support')}, and public questions can be asked in GitHub Discussions.`,
       },
     },
     {
@@ -105,7 +105,7 @@ const faqSchema = {
       name: 'Who do journalists contact about Varve?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: `Press and media inquiries can be sent to ${CONTACTS.press}. Logos, screenshots, and product facts are on the Varve press page at https://varve.studio/press.`,
+        text: `Press and media inquiries can be sent to ${CONTACTS.press}. Logos, screenshots, and product facts are on the Varve press page at ${siteUrl('/press')}.`,
       },
     },
     {

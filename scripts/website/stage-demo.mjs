@@ -13,7 +13,7 @@
  * Result:
  *   apps/website/dist/try/  — the demo app at the /try/ sub-path
  */
-import { cpSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const repoRoot = join(import.meta.dirname, '..', '..');
@@ -46,6 +46,26 @@ console.log(`[stage-demo] Staged demo build into ${demoDest}`);
 const index = join(demoDest, 'index.html');
 if (!existsSync(index)) {
   console.error('[stage-demo] try/index.html missing after staging');
+  process.exit(1);
+}
+
+// `/try/` is intentionally in the sitemap, so it needs a real search/link
+// preview head rather than the desktop shell's generic title. Fail the stage
+// before deployment if the Vite transform is removed or runs in the wrong
+// build mode.
+const indexHtml = readFileSync(index, 'utf8');
+const requiredSeo = [
+  '<title>Try Varve in your browser — Varve design suite</title>',
+  '<meta name="description"',
+  '<meta name="robots" content="index, follow" />',
+  '<link rel="canonical" href="https://varve.studio/try/" />',
+  '<meta property="og:image" content="https://varve.studio/og-image.png" />',
+  '<meta name="twitter:card" content="summary_large_image" />',
+  '<script type="application/ld+json">',
+];
+const missingSeo = requiredSeo.filter((fragment) => !indexHtml.includes(fragment));
+if (missingSeo.length > 0) {
+  console.error(`[stage-demo] Demo metadata is incomplete; missing: ${missingSeo.join(', ')}`);
   process.exit(1);
 }
 

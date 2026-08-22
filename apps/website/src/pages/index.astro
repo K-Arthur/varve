@@ -5,13 +5,14 @@ import TrustStrip from '../components/TrustStrip.astro';
 import ProductShowcase from '../components/ProductShowcase.astro';
 import DisciplineTabs from '../components/DisciplineTabs.astro';
 import Reveal from '../components/Reveal.astro';
-import { sitePath } from '../lib/siteUrl';
+import { sitePath, siteUrl } from '../lib/siteUrl';
 import { PRODUCT_STATUS } from '@varve/shared';
 import release from '../data/release-manifest.json';
 
 const softwareSchema = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
+  '@id': `${siteUrl('/')}#software`,
   name: 'Varve',
   applicationCategory: 'DesignApplication',
   operatingSystem: 'Linux, macOS, Windows',
@@ -20,8 +21,9 @@ const softwareSchema = {
   // step with the published release; omitted entirely when no release exists.
   ...(release.version ? { softwareVersion: release.version } : {}),
   license: 'FSL-1.1-MIT',
-  url: 'https://varve.studio',
-  downloadUrl: 'https://varve.studio/download',
+  url: siteUrl('/'),
+  downloadUrl: siteUrl('/download'),
+  image: siteUrl('/brand/varve-icon.svg'),
   isAccessibleForFree: true,
   offers: {
     '@type': 'Offer',

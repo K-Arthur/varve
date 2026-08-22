@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import pkg from './package.json';
+import { injectDemoSeo } from './src/demo/demoSeo';
 
 /**
  * Dev-only plugin: serve ort-wasm files directly from public/ort-wasm/ without Vite transform.
@@ -159,6 +160,18 @@ function demoCspPlugin() {
   };
 }
 
+function demoSeoPlugin() {
+  const demo = process.env.VITE_DEMO === '1';
+  return {
+    name: 'demo-seo',
+    apply: 'build' as const,
+    enforce: 'post' as const,
+    transformIndexHtml(html: string) {
+      return demo ? injectDemoSeo(html) : html;
+    },
+  };
+}
+
 export default defineConfig({
   define: {
     __VARVE_ASSET_BASE__: JSON.stringify(process.env.VITE_BASE_URL ?? '/'),
@@ -172,7 +185,7 @@ export default defineConfig({
     }),
   },
   base: process.env.VITE_BASE_URL ?? '/',
-  plugins: [react(), ortWasmDevPlugin(), demoCspPlugin(), demoAssetPrunePlugin()],
+  plugins: [react(), ortWasmDevPlugin(), demoCspPlugin(), demoSeoPlugin(), demoAssetPrunePlugin()],
   clearScreen: false,
   server: {
     port: 1420,

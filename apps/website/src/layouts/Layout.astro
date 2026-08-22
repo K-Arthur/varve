@@ -31,6 +31,7 @@ const {
 // helpers in lib/siteUrl.ts are the one place this joining lives.
 const canonicalUrl = canonicalPath ? siteUrl(canonicalPath) : canonicalUrlOf(Astro.url.pathname);
 const ogImageUrl = ogImageUrlOf(image);
+const brandMarkUrl = siteUrl('/brand/varve-icon.svg');
 
 // Avoid "Features - Varve | Varve" duplication: only append the brand when the
 // page title does not already carry it.
@@ -43,37 +44,40 @@ const sitewideStructuredData: object[] = [
     '@id': `${siteOriginOf()}#organization`,
     name: 'Varve',
     url: siteOriginOf(),
-    logo: ogImageUrl,
-     sameAs: [
-       'https://github.com/K-Arthur/varve',
-       'https://github.com/K-Arthur/varve/discussions',
-     ],
-      contactPoint: [
-        {
-          '@type': 'ContactPoint',
-          contactType: 'customer support',
-          email: CONTACTS.support,
-          url: siteUrl('/support'),
-        },
-        {
-          '@type': 'ContactPoint',
-          contactType: 'media inquiries',
-          email: CONTACTS.press,
-          url: siteUrl('/contact'),
-        },
-        {
-          '@type': 'ContactPoint',
-          contactType: 'privacy',
-          email: CONTACTS.privacy,
-          url: siteUrl('/about/privacy'),
-        },
-        {
-          '@type': 'ContactPoint',
-          contactType: 'security',
-          email: CONTACTS.security,
-          url: siteUrl('/security'),
-        },
-      ],
+    // Organization.logo should identify the entity, not reuse the wide social
+    // card. Keep the social card in `image` where it belongs.
+    logo: brandMarkUrl,
+    image: ogImageUrl,
+    sameAs: [
+      'https://github.com/K-Arthur/varve',
+      'https://github.com/K-Arthur/varve/discussions',
+    ],
+    contactPoint: [
+      {
+        '@type': 'ContactPoint',
+        contactType: 'customer support',
+        email: CONTACTS.support,
+        url: siteUrl('/support'),
+      },
+      {
+        '@type': 'ContactPoint',
+        contactType: 'media inquiries',
+        email: CONTACTS.press,
+        url: siteUrl('/contact'),
+      },
+      {
+        '@type': 'ContactPoint',
+        contactType: 'privacy',
+        email: CONTACTS.privacy,
+        url: siteUrl('/about/privacy'),
+      },
+      {
+        '@type': 'ContactPoint',
+        contactType: 'security',
+        email: CONTACTS.security,
+        url: siteUrl('/security'),
+      },
+    ],
   },
   {
     '@context': 'https://schema.org',

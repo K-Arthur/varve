@@ -81,6 +81,7 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
         twitterTitle: get('meta[name="twitter:title"]'),
         twitterImage: get('meta[name="twitter:image"]'),
         twitterImageAlt: get('meta[name="twitter:image:alt"]'),
+        ldJson,
         ldTypes: ldJson.map((s) => s['@type']),
       };
     });
@@ -134,8 +135,22 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
     for (const type of ['Organization', 'WebSite']) {
       expect(meta.ldTypes, `${route}: ld+json ${type}`).toContain(type);
     }
+    const organization = meta.ldJson.find((schema) => schema['@type'] === 'Organization') as
+      | { logo?: string; image?: string }
+      | undefined;
+    expect(organization?.logo, `${route}: organization logo`).toMatch(/\/brand\/varve-icon\.svg$/);
+    expect(organization?.image, `${route}: organization image`).toMatch(/\/og-image\.png$/);
     if (route === '/') {
       expect(meta.ldTypes, `${route}: SoftwareApplication`).toContain('SoftwareApplication');
+      const software = meta.ldJson.find((schema) => schema['@type'] === 'SoftwareApplication') as
+        | { url?: string; downloadUrl?: string; image?: string }
+        | undefined;
+      const canonicalRoot = meta.canonical!;
+      expect(software?.url, `${route}: software url`).toBe(canonicalRoot);
+      expect(software?.downloadUrl, `${route}: software downloadUrl`).toBe(
+        new URL('download', canonicalRoot).toString().replace(/\/$/, ''),
+      );
+      expect(software?.image, `${route}: software image`).toMatch(/\/brand\/varve-icon\.svg$/);
     }
   }
 });
