@@ -114,7 +114,7 @@ await capture({
     await settle(page);
 
     begin();
-    await beat(page, 900);
+    await beat(page, 1600);
     // Match the collapsed state exactly. `new RegExp('Frame 1')` also matches
     // "Frame 1 copy", and selectLayer takes the first hit in a newest-first
     // tree, so the interaction was being attached to the duplicate -- leaving
@@ -139,7 +139,7 @@ await capture({
     assertions.push(
       'source and target states use a real Smart Animate transition set to 1400ms',
     );
-    await beat(page, 900);
+    await beat(page, 1800);
 
     await page.keyboard.press('Control+Shift+p');
     const preview = page.getByRole('dialog', { name: 'Prototype Preview' });
@@ -194,12 +194,31 @@ await capture({
     assertions.push(
       `Smart Animate interpolated the card through ${between.length} intermediate widths (${smallest}px → ${largest}px)`,
     );
+    await beat(page, 2600);
+
+    // Replay once. A 1.4s morph in the middle of the clip is easy to miss,
+    // and stepping back through the presenter's own Previous control is the
+    // real way a reviewer would watch it again.
+    await preview.getByRole('button', { name: 'Previous screen' }).click();
+    await page.waitForTimeout(900);
+    assert.ok(
+      await preview.getByRole('application', { name: screenLabel(collapsedState) }).isVisible(),
+      'Previous screen did not return to the collapsed state',
+    );
     await beat(page, 900);
+    await source.click({ position: { x: 60, y: 300 } });
+    await page.waitForTimeout(1800);
+    assert.ok(
+      await preview.getByRole('application', { name: screenLabel(expandedState) }).isVisible(),
+      'replayed transition did not reach the expanded state',
+    );
+    assertions.push('the transition replays from the presenter without re-authoring it');
+    await beat(page, 2400);
     await page.keyboard.press('Escape');
     await preview.waitFor({ state: 'hidden', timeout: 8000 });
     await parkPointer(page);
     await settle(page);
-    await beat(page, 900);
+    await beat(page, 2000);
     return assertions;
   },
   metadata: {
