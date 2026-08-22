@@ -45,9 +45,10 @@
 *.rpm      binary
 *.dmg      binary
 
-# AI models are Git LFS objects. `-text` keeps Git from ever applying EOL
-# conversion, which would corrupt the pointer files.
-*.onnx filter=lfs diff=lfs merge=lfs -text
+# ONNX models are committed directly (small bundled models) or downloaded
+# at runtime (large models from release assets / upstream URLs).  No Git
+# LFS dependency — the free-tier budget was exhausted by the 980 MB
+# ddcolor source, and Release assets have no bandwidth quota.
 
 # Generated lockfiles: collapsed in diffs and excluded from language stats,
 # without being hidden from review.

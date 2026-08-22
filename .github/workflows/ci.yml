@@ -40,7 +40,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          lfs: true
           fetch-depth: 0
       - id: lanes
         run: |
@@ -143,7 +142,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          lfs: true
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
@@ -245,7 +243,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          lfs: true
       # The workflow security policy audit parses YAML structurally (js-yaml,
       # a devDependency), so this job now installs once. The install is small
       # and cached; the job stays cheap.
@@ -272,11 +269,17 @@ jobs:
       - name: Verify health classifier
         run: node scripts/ci-health.test.mjs
       - name: Verify release version consistency
-        # Version drift across the five manifests (package.json x2,
+        # Version drift across all manifests (package.json x2,
         # tauri.conf.json, workspace + desktop Cargo.toml) must never land on
         # master silently — release.yml only catches it at tag time, when a
         # fix means another commit + tag. Cheap and dependency-free.
         run: node scripts/release/version.mjs verify
+      - name: Validate AUR PKGBUILD syntax
+        run: bash -n packaging/aur/varve-desktop-bin/PKGBUILD
+      - name: Validate Flatpak manifest YAML
+        run: node scripts/packaging/validate-flatpak-manifest.mjs
+      - name: Validate Linux package metadata consistency
+        run: node scripts/release/linux-package-metadata.test.mjs
       - name: Verify product truth (cross-source contradiction check)
         # Detects contradictions between canonical sources (version, platforms,
         # signing, document extension, changelog) and user-facing claims.
@@ -318,7 +321,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          lfs: true
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -374,7 +376,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          lfs: true
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -417,7 +418,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          lfs: true
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -495,7 +495,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          lfs: true
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0

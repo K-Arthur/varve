@@ -96,7 +96,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          lfs: true
           ref: ${{ inputs.tag || github.ref }}
           # Full history: the provenance gate below runs merge-base against
           # the default branch, which needs real ancestry (a depth-1 clone
@@ -189,7 +188,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
@@ -432,7 +430,6 @@ jobs:
           # ddcolor-tiny 220 MB, font-classify 64 MB) are downloaded at runtime
           # and never touched here. The pointer guard below still fails the
           # build with instructions rather than silently shipping a pointer.
-          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - name: Verify no bundled asset is an LFS pointer
@@ -869,7 +866,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - name: Download Linux artifacts
@@ -972,7 +968,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         if: matrix.enabled
         with:
-          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - name: Download platform artifacts
@@ -1102,7 +1097,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
@@ -1343,7 +1337,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - name: Publish the draft

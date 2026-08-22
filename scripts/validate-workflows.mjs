@@ -469,7 +469,7 @@ function validateReleaseSigningRules(content, stepBlocks, errors) {
   }
 }
 
-export { validateVarveRules, validateWorkflowStructure, validateYAMLSyntax };
+export { validateRepoInvariants, validateVarveRules, validateWorkflowStructure, validateYAMLSyntax };
 
 /**
  * Extract `steps:` entries per job as {name, run} pairs, line-scanned.
@@ -594,6 +594,52 @@ function validateWorkflow(filename) {
   return { valid: true, errors: [] };
 }
 
+/**
+ * Repo-wide invariant checks that complement per-workflow validation.
+ * Run only when --staged is NOT set (full-tree checks).
+ */
+function validateRepoInvariants() {
+  const errors = [];
+
+  // No Git LFS tracking — the free-tier budget was exhausted (980 MB
+  // ddcolor.onnx pushed storage over the 1 GiB limit).  Large models
+  // are hosted on the varve-models-v1 release instead.  Removing this
+  // guard without migrating back to LFS will brick CI again.
+  try {
+    const attrs = readFileSync('.gitattributes', 'utf8');
+    if (/filter=lfs/.test(attrs)) {
+      errors.push(
+        '.gitattributes: filter=lfs detected — Git LFS is disabled. ' +
+          'Migrate large assets to release assets (varve-models-v1).',
+      );
+    }
+  } catch {
+    errors.push('.gitattributes: file missing or unreadable');
+  }
+
+  // No tracked .onnx file may be a Git LFS pointer (132-byte stub).
+  try {
+    const ls = execSync('git ls-files "*.onnx"', { encoding: 'utf8' });
+    const LFS_MAGIC = 'version https://git-lfs.github.com/spec/v1';
+    for (const file of ls.split('\n').filter(Boolean)) {
+      try {
+        const head = readFileSync(file, 'utf8').slice(0, 64);
+        if (head.startsWith(LFS_MAGIC)) {
+          errors.push(
+            `${file}: tracked file is a Git LFS pointer (132-byte stub), not real content`,
+          );
+        }
+      } catch {
+        // unreadable — skip
+      }
+    }
+  } catch {
+    // git ls-files failed — skip pointer check
+  }
+
+  return errors;
+}
+
 function main() {
   const flags = parseArgs();
   const files = getWorkflowFiles(flags);
@@ -624,6 +670,18 @@ function main() {
   if (hasErrors) {
     console.log('\n❌ Workflow validation failed');
     process.exit(1);
+  }
+
+  // Repo-wide invariant checks (skip in --staged mode)
+  if (!flags.staged) {
+    const repoErrors = validateRepoInvariants();
+    if (repoErrors.length > 0) {
+      console.log('\n❌ Repository invariant violations:');
+      for (const err of repoErrors) {
+        console.log(`   ${err}`);
+      }
+      process.exit(1);
+    }
   }
 
   console.log('\n✅ All workflows are valid');

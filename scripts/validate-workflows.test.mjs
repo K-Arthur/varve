@@ -8,6 +8,7 @@
  */
 import assert from 'node:assert/strict';
 import {
+  validateRepoInvariants,
   validateVarveRules,
   validateWorkflowStructure,
   validateYAMLSyntax,
@@ -547,6 +548,27 @@ assert.deepEqual(
   assert.ok(
     errors.some((e) => /action-gh-release/.test(e)),
     'release publication from a PR-capable workflow must be rejected',
+  );
+}
+
+// validateRepoInvariants: Git LFS regression guard
+{
+  const realErrors = validateRepoInvariants();
+  assert.deepEqual(
+    realErrors,
+    [],
+    `real repo invariants must pass: ${realErrors.join('; ')}`,
+  );
+}
+
+// .gitattributes: no Git LFS (free-tier budget exhausted; models on release assets)
+{
+  const fs = await import('node:fs');
+  const attrs = fs.readFileSync('.gitattributes', 'utf8');
+  assert.doesNotMatch(
+    attrs,
+    /filter=lfs/,
+    '.gitattributes must not contain filter=lfs (use release assets for large models)',
   );
 }
 

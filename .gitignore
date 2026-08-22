@@ -146,6 +146,9 @@ apps/desktop/src-tauri/onnxruntime-libs/
 scripts/diagnostics/
 .replay-browser-results.json
 
+# --- Large source models for quantization (hosted on varve-models-v1 release) ---
+models-source/
+
 # --- One-off perf debugging dumps (removed 2026-08-04; kept out of future commits) ---
 scripts/perf/dump*.mjs
 
