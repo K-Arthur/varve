@@ -38,6 +38,7 @@ interface UseUpscaleDialogReturn {
     mode: UpscaleModeId;
     scale: number;
     output: 'new-layer' | 'replace-source' | 'non-destructive';
+    qualityPolicy: 'faithful' | 'balanced';
     denoiseStrength: DenoiseStrength;
     pixelArtAlgorithm?: PixelArtAlgorithm;
     onProgress: UpscaleProgressFn;
@@ -78,6 +79,7 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
       mode: UpscaleModeId;
       scale: number;
       output: 'new-layer' | 'replace-source' | 'non-destructive';
+      qualityPolicy: 'faithful' | 'balanced';
       denoiseStrength: DenoiseStrength;
       pixelArtAlgorithm?: PixelArtAlgorithm;
       onProgress: UpscaleProgressFn;
@@ -106,6 +108,7 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
         denoiseStrength: options.denoiseStrength,
         pixelArtAlgorithm: options.pixelArtAlgorithm,
         output: options.output,
+        qualityPolicy: options.qualityPolicy,
         onProgress: options.onProgress,
         replaceSource: options.output === 'replace-source',
       });

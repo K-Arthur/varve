@@ -96,8 +96,13 @@ export async function runRestoration(
 
     try {
       if (stage.task === 'denoise') {
-        const strength = request.denoise?.strength ?? 'medium';
-        const strengthValue = { light: 0.3, medium: 0.5, strong: 0.8 }[strength];
+        // Faithful policy uses lighter denoise to preserve original detail;
+        // balanced uses the user-selected or default strength.
+        const effectiveStrength =
+          request.qualityPolicy === 'faithful' && !request.denoise?.strength
+            ? 'light'
+            : request.denoise?.strength ?? 'medium';
+        const strengthValue = { light: 0.3, medium: 0.5, strong: 0.8 }[effectiveStrength];
         const result = await dispatchDenoise(currentImage, {
           strength: strengthValue,
           modelId: stage.modelId,
@@ -116,11 +121,13 @@ export async function runRestoration(
         // maps from the user-facing denoise strength control so deblur-upscale
         // keeps its setting consistent.
         const deblurStrength =
-          request.denoise?.strength === 'light'
+          request.qualityPolicy === 'faithful' && !request.denoise?.strength
             ? 0.3
-            : request.denoise?.strength === 'strong'
-              ? 0.8
-              : 0.7;
+            : request.denoise?.strength === 'light'
+              ? 0.3
+              : request.denoise?.strength === 'strong'
+                ? 0.8
+                : 0.7;
         const { dispatchRestorationTask } = await import('./restorationProviders/dispatch');
         const result = await dispatchRestorationTask(currentImage, stage.task, deblurStrength, {
           signal: options.signal,

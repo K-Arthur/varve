@@ -46,6 +46,8 @@ export interface UpscaleOptions {
   pixelArtAlgorithm?: import('./pixelArtScaling').PixelArtAlgorithm;
   /** Where to place the upscaled result. Defaults to a new layer. */
   output?: 'new-layer' | 'replace-source' | 'non-destructive';
+  /** Restoration quality policy — faithful preserves detail, balanced allows stronger reconstruction. */
+  qualityPolicy?: 'faithful' | 'balanced';
 }
 
 /** Default bundled Real-ESRGAN model used by the shared worker path. */

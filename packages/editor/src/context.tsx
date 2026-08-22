@@ -8565,6 +8565,7 @@ export function EditorProvider({
                           : undefined,
                       }
                     : undefined,
+                qualityPolicy: options.qualityPolicy,
               },
               {
                 signal: controller.signal,

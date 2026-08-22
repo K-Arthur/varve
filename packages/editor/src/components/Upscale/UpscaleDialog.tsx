@@ -57,6 +57,7 @@ interface UpscaleDialogProps {
     mode: UpscaleModeId;
     scale: number;
     output: OutputBehavior;
+    qualityPolicy: 'faithful' | 'balanced';
     denoiseStrength: DenoiseStrength;
     pixelArtAlgorithm?: PixelArtAlgorithm;
     onProgress: UpscaleProgressFn;
@@ -124,6 +125,7 @@ export function UpscaleDialog({
   const [operation, setOperation] = useState<RestorationOperation | 'auto'>('auto');
   const [scale, setScale] = useState(2);
   const [output, setOutput] = useState<OutputBehavior>('new-layer');
+  const [qualityPolicy, setQualityPolicy] = useState<'faithful' | 'balanced'>('faithful');
   const [denoiseStrength, setDenoiseStrength] = useState<DenoiseStrength>('none');
   const [pixelArtAlgorithm, setPixelArtAlgorithm] = useState<PixelArtAlgorithm>('epx');
   const [processing, setProcessing] = useState(false);
@@ -183,6 +185,7 @@ export function UpscaleDialog({
             pixelArtAlgorithm: mode?.id === 'pixel-art' ? pixelArtAlgorithm : undefined,
           }
         : undefined,
+      qualityPolicy,
       preview: true,
       previewMaxDimension: 512,
     };
@@ -531,6 +534,7 @@ export function UpscaleDialog({
         mode: modeId,
         scale,
         output,
+        qualityPolicy,
         denoiseStrength:
           resolved?.operation === 'denoise' ||
           resolved?.operation === 'restore-upscale' ||
@@ -894,6 +898,25 @@ export function UpscaleDialog({
                     No task-specific model is installed and validated for this operation yet.
                   </p>
                 )}
+              </div>
+
+              <div className="upscale-settings__group">
+                <span className="upscale-settings__label">Quality</span>
+                <SegmentedControl
+                  label="Quality policy"
+                  value={qualityPolicy}
+                  disabled={processing}
+                  options={[
+                    { value: 'faithful', label: 'Faithful' },
+                    { value: 'balanced', label: 'Balanced' },
+                  ]}
+                  onChange={(v) => setQualityPolicy(v as 'faithful' | 'balanced')}
+                />
+                <p className="insp-hint">
+                  {qualityPolicy === 'faithful'
+                    ? 'Preserve original detail. Lighter restoration, fewer artifacts.'
+                    : 'Allow stronger reconstruction for better perceptual results.'}
+                </p>
               </div>
 
               {usesUpscale && (
