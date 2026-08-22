@@ -141,6 +141,26 @@ describe('analyzeImageForRestoration', () => {
     ).toBe('clean up compression artifacts + upscale');
   });
 
+  it('returns finite JPEG blockiness for an 8px-blocky image', () => {
+    // Synthetic JPEG-like content: 8x8 blocks with quantized values and
+    // the characteristic enhanced discontinuities at block boundaries.
+    // The estimator is a ratio of on-grid to off-grid horizontal
+    // discontinuities.  Before the NaN/rowStep fix, this signal was
+    // permanently disabled (ratio always NaN → 'none').
+    const blocky = makeImage(256, 192, (x, y) => {
+      const bw = Math.floor(x / 8);
+      return clamp(100 + ((bw + Math.floor(y / 8)) % 3) * 12);
+    });
+    const result = analyzeImageForRestoration(blocky, options);
+    expect(Number.isFinite(result.jpeg.confidence)).toBe(true);
+  });
+
+  it('does not flag a smooth gradient as compressed', () => {
+    const smooth = makeImage(512, 384, (x, y) => clamp((x / 512) * 80 + (y / 384) * 60 + 60));
+    const result = analyzeImageForRestoration(smooth, options);
+    expect(result.jpeg.level).toBe('none');
+  });
+
   it('runs quickly on a large image (bounded sampling)', () => {
     const start = performance.now();
     analyzeImageForRestoration(makeImage(4096, 3072, () => 128));

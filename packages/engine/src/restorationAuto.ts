@@ -128,25 +128,40 @@ function estimateBlurScore(lum: Float32Array, width: number, height: number): nu
  * offsets along both axes (classic BNI, averaged over sampled rows).
  */
 function estimateJpegBlockiness(lum: Float32Array, width: number, height: number): number {
-  let gridDiscontinuity = 0;
-  let offGridDiscontinuity = 0;
-  let samples = 0;
+  // Per-axis accumulators: the horizontal ratio (x%8 classification) is
+  // always unbiased regardless of which rows are sampled, so it carries the
+  // primary signal.  The vertical ratio is only meaningful when enough
+  // off-grid (y%8 !== 0) rows are sampled — when rowStep is a multiple of
+  // 8, every sampled row falls on the grid and the vertical off-grid
+  // accumulator is near zero, so we skip that axis to avoid dividing by
+  // near-zero and inflating the result on smooth gradients.
+  //
+  // At y=0 the vertical comparison reads lum[-width+x] which is undefined
+  // (NaN).  Without the y>0 guard, gridDiscontinuity is poisoned to NaN
+  // for every image, permanently disabling the JPEG signal.
+  let gridH = 0;
+  let offGridH = 0;
+  let gridV = 0;
+  let offGridV = 0;
   const rowStep = Math.max(1, Math.floor(height / 24));
   for (let y = 0; y < height; y += rowStep) {
     for (let x = 8; x < width - 8; x++) {
       const d = Math.abs(lum[y * width + x]! - lum[y * width + x - 1]!);
-      if (x % 8 === 0) gridDiscontinuity += d;
-      else offGridDiscontinuity += d;
+      if (x % 8 === 0) gridH += d;
+      else offGridH += d;
     }
-    for (let x = 8; x < width - 8; x++) {
-      const d = Math.abs(lum[y * width + x]! - lum[(y - 1) * width + x]!);
-      if (y % 8 === 0) gridDiscontinuity += d;
-      else offGridDiscontinuity += d;
+    if (y > 0) {
+      for (let x = 8; x < width - 8; x++) {
+        const d = Math.abs(lum[y * width + x]! - lum[(y - 1) * width + x]!);
+        if (y % 8 === 0) gridV += d;
+        else offGridV += d;
+      }
     }
-    samples++;
   }
-  if (samples === 0 || offGridDiscontinuity === 0) return 0;
-  return gridDiscontinuity / offGridDiscontinuity;
+  const ratios: number[] = [];
+  if (offGridH > 0) ratios.push(gridH / offGridH);
+  if (offGridV > 0) ratios.push(gridV / offGridV);
+  return ratios.length === 0 ? 0 : ratios.reduce((a, b) => a + b, 0) / ratios.length;
 }
 
 function levelFor(
