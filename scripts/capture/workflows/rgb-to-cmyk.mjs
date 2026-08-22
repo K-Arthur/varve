@@ -25,6 +25,7 @@ import {
   dragAt,
   fitContent,
   layerNames,
+  menuItem,
   openCleanEditor,
   openSection,
   parkPointer,
@@ -98,23 +99,11 @@ await capture({
     await beat(page, 1600);
 
     // ── The document colour-mode workflow ──────────────────────────
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(400);
-    await page
-      .getByRole('menuitem', { name: /^File$|^Edit$|^View$|^Object$/ })
-      .first()
-      .click();
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
-
-    // Reached through the command palette so the route is visible and does
-    // not depend on which menu the item currently lives under.
-    await page.keyboard.press('Control+k');
-    const palette = page.locator('[role="dialog"], .command-palette').first();
-    await palette.waitFor({ state: 'visible', timeout: 8000 });
-    await page.keyboard.type('color mode', { delay: 45 });
-    await page.waitForTimeout(700);
-    await page.keyboard.press('Enter');
+    // File > Document Color Mode… is the real surface. The command palette
+    // in this build edits keyboard shortcuts; it does not run actions.
+    const openConversion = await menuItem(page, 'File', 'Document Color Mode');
+    await beat(page, 700);
+    await openConversion.click();
     await page.waitForTimeout(900);
 
     const dialog = page.getByRole('dialog', { name: /document color mode/i });

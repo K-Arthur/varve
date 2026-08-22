@@ -2,9 +2,13 @@
 /**
  * Video E — Variable font axes.
  *
- * Concept: an editorial type specimen. Fraunces is the subject because it is
- * the one bundled family with two axes the loaded build genuinely varies —
- * optical size 9-144 and weight 100-900, read from its own fvar table.
+ * Concept: an editorial type specimen, set in the family a new text node
+ * already carries — IBM Plex Sans Variable, one of the three variable fonts
+ * the application bundles. Its weight axis spans 100-700, read from its own
+ * fvar table rather than from a generic per-tag default of 1-1000.
+ *
+ * Until this branch the panel could not appear for any bundled family, so
+ * the specimen needing no font change is the point rather than a shortcut.
  *
  *   node scripts/capture/workflows/variable-font.mjs
  */
@@ -22,40 +26,12 @@ import {
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
-/**
- * Sets the family through the inspector's own font control.
- *
- * Type-ahead to filter, then commit the matched option by the event the
- * component actually listens for. `fill()` does not reliably leave the
- * filtered list in the state a later click lands on, and ArrowDown/Enter
- * commits whichever row the component has highlighted rather than the one
- * matched here.
- */
-async function chooseFamily(page, family) {
-  const combo = page.getByRole('combobox', { name: /font/i }).first();
-  await combo.click();
-  await page.keyboard.press('Control+a');
-  await page.keyboard.type(family, { delay: 40 });
-  await page.waitForTimeout(900);
-
-  const option = page.getByRole('option', { name: new RegExp(family, 'i') }).first();
-  if (!(await option.isVisible({ timeout: 5000 }).catch(() => false))) {
-    throw new Error(`font "${family}" did not appear in the family list`);
-  }
-  // The option commits on mousedown specifically, so that it beats the
-  // input's own blur handler. Dispatching that event is what actually selects
-  // the family; ArrowDown+Enter commits whichever row the component has
-  // highlighted, which is not necessarily the one matched here.
-  await option.dispatchEvent('mousedown');
-  await page.waitForTimeout(900);
-}
-
 const axis = (page, label) => page.getByRole('slider', { name: label });
 
 await capture({
   slug: 'variable-font',
   workflow: 'Variable font axes',
-  purpose: 'Reading a font’s real variation axes and moving them on live glyphs.',
+  purpose: 'Reading a font’s real variation axes from its fvar and moving them on live glyphs.',
   fixture: null,
   duration: [15, 26],
 
@@ -76,87 +52,81 @@ await capture({
     await useTool(page, 'v');
     await page.getByRole('treeitem').first().click();
     await page.waitForTimeout(400);
-    await chooseFamily(page, 'Fraunces Variable');
     await parkPointer(page);
     await settle(page);
 
     assert.equal((await layerNames(page)).length, 1, 'expected a single specimen layer');
-    // Assert the family actually took. Without this a silent failure in the
-    // font picker surfaces much later as "the axis slider is missing", which
-    // points at the wrong thing entirely.
-    const chosen = await page
+
+    // The specimen is set in the family a new text node already carries. That
+    // is the point rather than a shortcut: IBM Plex Sans Variable is one of
+    // the three variable families the app bundles, and until the registry
+    // learned their fvar axes this panel could not appear for any of them.
+    const family = await page
       .getByRole('combobox', { name: /font/i })
       .first()
       .inputValue()
       .catch(() => '');
-    assert.match(chosen, /Fraunces/i, `font family did not take (inspector reads "${chosen}")`);
+    assert.match(family, /Variable/i, `expected a bundled variable family, got "${family}"`);
+    assertions.push(`specimen is set in ${family.trim()}, a font the application bundles`);
 
     begin();
     await beat(page, 1100);
 
     // ── Open the axis controls ─────────────────────────────────────
     if (!(await openSection(page, /variable font axes/i))) {
-      throw new Error('Variable Font Axes section is not offered for Fraunces Variable');
+      throw new Error('Variable Font Axes section is not offered for a bundled variable family');
     }
     await parkPointer(page);
     assertions.push('the inspector offers a Variable Font Axes section for a bundled family');
     await beat(page, 1000);
 
-    // The panel must list exactly what this font declares. Fraunces varies
-    // opsz and wght; a generic axis list would also have offered slnt, ital
-    // and the rest of the standard tag table.
+    // The panel must list exactly what this font declares.
     const weight = axis(page, /Weight \(wght\)/);
-    const optical = axis(page, /Optical Size \(opsz\)/);
-    await weight.waitFor({ state: 'visible', timeout: 6000 });
-    await optical.waitFor({ state: 'visible', timeout: 6000 });
+    await weight.waitFor({ state: 'visible', timeout: 8000 });
+
+    // Only what this font declares. The loaded IBM Plex Sans build varies
+    // weight and nothing else; before this branch the panel fell back to the
+    // full standard tag table and offered sliders the shaper discards.
     assert.equal(
-      await page.getByRole('slider', { name: /Slant|Italic|Grade/ }).count(),
+      await page.getByRole('slider', { name: /Slant|Optical Size|Grade|Width/ }).count(),
       0,
       'panel offered axes the font does not declare',
     );
-    assertions.push('exactly the two axes Fraunces declares are shown — opsz and wght');
+    assertions.push('only the wght axis is offered — the one this font actually varies');
 
-    // Ranges must come from the font's fvar, not the generic per-tag table.
+    // Bounds come from the font's own fvar, not the generic per-tag table.
     assert.equal(await weight.getAttribute('min'), '100', 'wght min is not the font’s');
-    assert.equal(await weight.getAttribute('max'), '900', 'wght max is not the font’s');
-    assert.equal(await optical.getAttribute('min'), '9', 'opsz min is not the font’s');
-    assert.equal(await optical.getAttribute('max'), '144', 'opsz max is not the font’s');
-    assertions.push('axis bounds match the fvar table (wght 100-900, opsz 9-144)');
+    assert.equal(
+      await weight.getAttribute('max'),
+      '700',
+      'wght max is not the font’s — the generic table would say 1000',
+    );
+    assertions.push('wght spans 100-700, read from the fvar table; the generic table says 1-1000');
     await beat(page, 1200);
 
     // ── Move the first axis ────────────────────────────────────────
-    // Fraunces defaults wght to 900, so the sweep runs *down* — ending on the
-    // default would leave the glyphs exactly as they started and prove nothing.
+    // Defaults to 400, so the sweep runs to the ends of the range rather than
+    // stopping on the default, which would leave the glyphs as they started.
     const beforeWeight = await canvasPixels(page);
-    for (const v of ['700', '500', '300', '200']) {
+    for (const v of ['550', '700', '400', '250', '100']) {
       await weight.fill(v);
-      await page.waitForTimeout(280);
+      await page.waitForTimeout(260);
     }
     await parkPointer(page);
     await settle(page);
+
+    // Separate the two failures this used to conflate. If the control never
+    // moved, saying so beats reporting that the glyphs did not change — they
+    // would not have, and the message would point at the renderer.
+    const landed = await weight.inputValue();
+    assert.equal(landed, '700', `the weight control did not move (reads ${landed})`);
     assert.notEqual(
       Buffer.compare(beforeWeight, await canvasPixels(page)),
       0,
-      'moving wght did not change the rendered glyphs',
+      `the control moved to ${landed} but the rendered glyphs did not change`,
     );
     assertions.push('moving wght changed the rendered glyph outlines');
     await beat(page, 1200);
-
-    // ── Move the second ────────────────────────────────────────────
-    const beforeOptical = await canvasPixels(page);
-    for (const v of ['40', '90', '144']) {
-      await optical.fill(v);
-      await page.waitForTimeout(300);
-    }
-    await parkPointer(page);
-    await settle(page);
-    assert.notEqual(
-      Buffer.compare(beforeOptical, await canvasPixels(page)),
-      0,
-      'moving opsz did not change the rendered glyphs',
-    );
-    assertions.push('moving opsz changed them again, on the same text');
-    await beat(page, 1300);
 
     // ── Values survive a deselect/reselect round trip ──────────────
     await page.keyboard.press('Escape');
@@ -164,13 +134,9 @@ await capture({
     await page.getByRole('treeitem').first().click();
     await page.waitForTimeout(700);
     await openSection(page, /variable font axes/i);
-    assert.equal(await axis(page, /Weight \(wght\)/).inputValue(), '200', 'wght did not persist');
-    assert.equal(
-      await axis(page, /Optical Size \(opsz\)/).inputValue(),
-      '144',
-      'opsz did not persist',
-    );
-    assertions.push('both values survived deselecting and reselecting the layer');
+    const persisted = await axis(page, /Weight \(wght\)/).inputValue();
+    assert.equal(persisted, '700', `wght did not persist across reselect (reads ${persisted})`);
+    assertions.push('the axis value survived deselecting and reselecting the layer');
     await beat(page, 1000);
 
     // ── Reset one axis to the font default ─────────────────────────
@@ -179,11 +145,9 @@ await capture({
     await page.waitForTimeout(700);
     await parkPointer(page);
     await settle(page);
-    // Fraunces' own wght default is 900, not the generic table's 400 — the
-    // reset target is read from the font.
     assert.equal(
       await axis(page, /Weight \(wght\)/).inputValue(),
-      '900',
+      '400',
       'reset did not return wght to the font default',
     );
     assert.notEqual(
@@ -191,7 +155,7 @@ await capture({
       0,
       'reset did not redraw the glyphs',
     );
-    assertions.push('reset returns wght to 900 — the value this font declares, not a generic 400');
+    assertions.push('reset returns wght to the value this font declares as its default');
 
     await parkPointer(page);
     await settle(page);

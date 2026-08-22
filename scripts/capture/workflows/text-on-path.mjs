@@ -14,6 +14,7 @@ import {
   canvasPixels,
   dragAt,
   layerNames,
+  menuItem,
   openCleanEditor,
   parkPointer,
   selectLayer,
@@ -22,12 +23,7 @@ import {
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
-async function objectMenu(page, item) {
-  await page.getByRole('menuitem', { name: /^Object$/ }).click();
-  const entry = page.getByRole('menuitem', { name: item });
-  await entry.waitFor({ state: 'visible', timeout: 6000 });
-  return entry;
-}
+const objectMenu = (page, item) => menuItem(page, 'Object', item);
 
 await capture({
   slug: 'text-on-path',
@@ -73,7 +69,7 @@ await capture({
     // ── Attach ─────────────────────────────────────────────────────
     await page.keyboard.press('Control+a');
     await page.waitForTimeout(500);
-    const attach = await objectMenu(page, /^Text on Path$/);
+    const attach = await objectMenu(page, 'Text on Path');
     assert.ok(await attach.isEnabled(), 'Text on Path was offered but disabled');
     await beat(page, 900);
     await attach.click();

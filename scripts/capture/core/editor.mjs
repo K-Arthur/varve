@@ -81,10 +81,27 @@ export async function openCleanEditor(page, base, { preset, query = '' } = {}) {
 
   const dialog = page.locator('dialog[open]');
   if (preset) {
-    const option = dialog.getByRole('button', { name: preset }).first();
-    if (await option.isVisible({ timeout: 4000 }).catch(() => false)) {
+    // PresetPicker renders tiles as role="option" inside a role="listbox",
+    // not as buttons — searching for a button silently matched nothing and
+    // the document was created at the default size.
+    const option = dialog.getByRole('option', { name: preset }).first();
+    if (await option.isVisible({ timeout: 6000 }).catch(() => false)) {
       await option.click({ timeout: 5000 });
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(400);
+    } else {
+      // Searchable pickers need the query narrowed before the tile exists.
+      const search = dialog.getByRole('combobox').first();
+      if (await search.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await search.click();
+        await page.keyboard.type(typeof preset === 'string' ? preset : 'A3', { delay: 40 });
+        await page.waitForTimeout(600);
+        const narrowed = dialog.getByRole('option', { name: preset }).first();
+        await narrowed.waitFor({ state: 'visible', timeout: 6000 });
+        await narrowed.click();
+        await page.waitForTimeout(400);
+      } else {
+        throw new Error(`new-document preset ${preset} was not offered`);
+      }
     }
   }
   await dialog
@@ -210,9 +227,6 @@ export async function setNumberField(page, label, value) {
 export async function chooseTheme(page, theme) {
   const view = page.getByRole('menuitem', { name: /^View$/ }).first();
   await view.click();
-  const themeMenu = page.getByRole('menuitem', { name: /^Theme$/ }).last();
-  await themeMenu.waitFor({ state: 'visible', timeout: 5000 });
-  await themeMenu.hover();
   const item = page.getByRole('menuitemradio', { name: theme, exact: true }).last();
   await item.waitFor({ state: 'visible', timeout: 5000 });
   await item.click();
@@ -443,4 +457,30 @@ export async function openSection(page, name, { timeout = 8000 } = {}) {
     await page.waitForTimeout(500);
   }
   return true;
+}
+
+/**
+ * Opens a menubar menu and returns one of its items.
+ *
+ * Follows the same shape as tests/e2e/helpers/menu-helpers.ts: the trigger is
+ * scoped to `[role="menubar"]`, and the item is looked for inside the
+ * `[role="menu"]` that opens. An unscoped `getByRole('menuitem')` matches
+ * triggers and dropdown entries alike, so it can "open" the wrong thing and
+ * then time out looking for an item that was never going to appear.
+ */
+export async function menuItem(page, menu, item, { timeout = 8000 } = {}) {
+  const trigger = page.locator('[role="menubar"] [role="menuitem"]', { hasText: menu }).first();
+  await trigger.waitFor({ state: 'visible', timeout });
+  await trigger.click();
+  const dropdown = page.locator('[role="menu"]').first();
+  await dropdown.waitFor({ state: 'visible', timeout });
+  const entry = dropdown.locator('[role="menuitem"]', { hasText: item }).first();
+  await entry.waitFor({ state: 'visible', timeout });
+  return entry;
+}
+
+/** Closes any open menubar dropdown. */
+export async function closeMenu(page) {
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(250);
 }

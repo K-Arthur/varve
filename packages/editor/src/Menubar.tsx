@@ -249,6 +249,10 @@ function buildMenus(
       case 'extractPalette':
       case 'imageTrace':
         return !hasSelection;
+      // Attaching needs a text layer and a shape; detaching needs the text.
+      case 'attachTextToPath':
+      case 'detachTextFromPath':
+        return !hasSelection;
       case 'batchBgRemove':
         // On-device inference; a deployment can withhold it entirely.
         return !hasSelection || isCapabilityRestricted('inference');
@@ -1060,6 +1064,18 @@ function buildMenus(
           ariaKeyshortcut: ks('imageTrace'),
           action: 'imageTrace',
           disabled: dis('imageTrace'),
+        },
+        { label: '---' },
+        // Text on path
+        {
+          label: 'Text on Path',
+          action: 'attachTextToPath',
+          disabled: dis('attachTextToPath'),
+        },
+        {
+          label: 'Detach Text from Path',
+          action: 'detachTextFromPath',
+          disabled: dis('detachTextFromPath'),
         },
         { label: '---' },
         // Masks

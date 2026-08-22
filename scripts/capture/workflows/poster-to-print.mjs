@@ -17,6 +17,7 @@ import {
   dragAt,
   fitContent,
   layerNames,
+  menuItem,
   openCleanEditor,
   openSection,
   parkPointer,
@@ -95,9 +96,8 @@ await capture({
     // ── Bleed ──────────────────────────────────────────────────────
     // Bleed guides default off and PagePrintOverlays only mounts while they
     // are on, so this toggle is what makes the trim edge visible at all.
-    await page.getByRole('menuitem', { name: /^View$/ }).click();
-    const bleed = page.getByRole('menuitem', { name: /bleed guides/i });
-    if (await bleed.isVisible({ timeout: 5000 }).catch(() => false)) {
+    const bleed = await menuItem(page, 'View', 'Bleed Guides').catch(() => null);
+    if (bleed && (await bleed.isVisible({ timeout: 2000 }).catch(() => false))) {
       await beat(page, 700);
       await bleed.click();
       await page.waitForTimeout(800);

@@ -19,6 +19,7 @@ import {
   fitContent,
   importImage,
   layerNames,
+  menuItem,
   openCleanEditor,
   parkPointer,
   selectLayer,
@@ -63,9 +64,7 @@ await capture({
     }
 
     // ── Trace it ───────────────────────────────────────────────────
-    await page.getByRole('menuitem', { name: /^Object$/ }).click();
-    const trace = page.getByRole('menuitem', { name: /Vectorize Image/i });
-    await trace.waitFor({ state: 'visible', timeout: 6000 });
+    const trace = await menuItem(page, 'Object', 'Vectorize Image');
     assert.ok(await trace.isEnabled(), 'Vectorize Image was disabled for a bitmap layer');
     await beat(page, 800);
     await trace.click();
@@ -100,7 +99,7 @@ await capture({
     // reaching an enabled button is itself evidence the tracer ran.
     const apply = dialog.getByRole('button', { name: /apply trace/i });
     await apply.waitFor({ state: 'visible', timeout: 20000 });
-    for (let i = 0; i < 60 && !(await apply.isEnabled()); i += 1) {
+    for (let i = 0; i < 150 && !(await apply.isEnabled()); i += 1) {
       await page.waitForTimeout(1000);
     }
     assert.ok(await apply.isEnabled(), 'trace preview never became ready');
@@ -108,7 +107,10 @@ await capture({
     await beat(page, 900);
 
     await apply.click();
-    await dialog.waitFor({ state: 'hidden', timeout: 180000 });
+    // The tracer is real work on real pixels, and this machine is often busy
+    // with other capture runs. Five minutes is a stuck-run ceiling, not an
+    // expectation — a healthy trace of this fixture finishes in seconds.
+    await dialog.waitFor({ state: 'hidden', timeout: 300000 });
     await page.waitForTimeout(1200);
     await parkPointer(page);
     await settle(page);
