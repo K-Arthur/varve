@@ -33,7 +33,8 @@ async function drawRect(
   w: number,
   h: number,
 ) {
-  const canvas = page.locator('canvas').first();
+  await page.keyboard.press('r');
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas not found');
   await page.mouse.move(box.x + x, box.y + y);
@@ -107,6 +108,17 @@ test.describe('Prototype interaction click-through', () => {
       await expect(graphToggle).toHaveAttribute('aria-label', 'Toggle graph editor');
       await expect(graphToggle).toHaveAttribute('aria-pressed');
     }
+  });
+
+  test('single child layers expose the real Prototype interaction surface', async ({ page }) => {
+    await navigateToEditor(page);
+    await drawRect(page, 220, 220, 180, 90);
+
+    await page.getByRole('treeitem').filter({ hasText: /Rectangle 1/i }).first().click();
+    const prototypeTab = page.getByRole('tab', { name: 'Prototype', exact: true });
+    await expect(prototypeTab).toBeVisible();
+    await prototypeTab.click();
+    await expect(page.getByRole('button', { name: 'Add Interaction' })).toBeVisible();
   });
 
   test('timeline ruler is keyboard accessible', async ({ page }) => {
