@@ -227,10 +227,13 @@ and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchma
 | `architecture/mockup-system.md` | Non-destructive mockup system (Level 1+2) |
 | `architecture/alpha-aware-shadows.md` | Alpha-aware shadow rendering |
 | `architecture/analytics.md` | Privacy-first analytics architecture |
+| `architecture/auto-layout-system.md` | Auto-layout (flex/grid) engine — canonical doc |
+| `architecture/blend-spaces.md` | Blend-space model from the 2026-08-17 blend-space landing |
+| `architecture/paint-system.md` | Paint subsystem: stroke-to-pixels pipeline, brush library, invariants |
 | `architecture/animated-image-media-system.md` | GIF/APNG/WebP media pipeline |
-| `architecture/effect-rendering.md` | Live effect model and render-parity contract |
+| `architecture/effect-rendering.md` | Effect pass structure in `replay.ts` and render-parity contract |
 | `architecture/email-template-system.md` | Email template authoring, preview, and export system |
-| `architecture/live-effects-system.md` | Live effect model and render-parity contract |
+| `architecture/live-effects-system.md` | Live-effect kind registry and non-destructive adjustment model |
 | `architecture/gradient-map-system.md` | Gradient map adjustment system |
 | `architecture/warp-system.md` | Persistent geometry modifier (warp) model (ADRs 0155–0169) |
 | `architecture/persistent-history.md` | Version history architecture (milestones 1–14 landed) |
@@ -270,6 +273,7 @@ not current-state guidance. Treat them like the dated files in
 `docs/audits/`/`docs/plans/`: verify against current code before acting.
 
 - `architecture/arm64-support-audit-2026-08-13.md` — ARM64 platform support audit
+- `architecture/auto-layout-audit-2026-08-20.md` — auto-layout audit/repair report
 - `architecture/coordinate-spaces-research.md` — coordinate-space research matrix
 - `architecture/interaction-latency-2026-08-10.md` — interaction latency investigation
 - `architecture/motion-framework-evaluation.md` — motion framework evaluation
@@ -326,6 +330,7 @@ The following dated files were moved from `docs/architecture/` to
 | `design/design-principles.md` | Design principles |
 | `design/component-status.md` | Component implementation status |
 | `design/migration-debt.md` | Design migration debt |
+| `design/icon-system.md` | Semantic icon boundary and Tabler visual-language direction for UI icons |
 | `brand-guide.md` | Brand guide (mark, wordmarks, usage) — current |
 | `brand/varve-brand-guide.md` | Superseded v1.0 brand guide (pre-rework mark); retained as a historical record |
 
@@ -334,12 +339,16 @@ The following dated files were moved from `docs/architecture/` to
 | Doc | Purpose |
 |-----|---------|
 | `privacy/consent-state.md` | Consent state for telemetry/crash reporting |
+| `privacy/analytics.md` | Analytics measurement plan and transmitted-data inventory (Plausible) |
 | `privacy/crash-audit.md` | Crash reporting data audit |
 | `privacy/ingestion.md` | Data ingestion inventory |
 | `privacy/redaction.md` | Redaction rules |
 | `privacy/retention.md` | Retention policy |
 | `privacy/runbooks.md` | Privacy operations runbooks |
 | `crash-reporting/README.md` | Crash reporting architecture |
+| `licensing/mixed-license-model.md` | Current licensing model (FSL-1.1-MIT + commercial) |
+| `licensing/review.md` | Dated (2026-07-21) licensing decision-support review — pre-rename context, superseded sections marked inline |
+| `licensing/decision-research-2026-08-18.md` | Dated licensing decision research record |
 | `security/security-hardening.md` | Security hardening contract and policy (CSP, workflow policy, secret scanning) |
 
 ## Quality
@@ -408,9 +417,9 @@ The following dated files were moved from `docs/architecture/` to
 | `plans/archived/website-strategy.md` | Website marketing strategy (Phase C deliverable, archived) |
 | `plans/archived/website-research-findings.md` | Competitor research (Phase B deliverable, archived) |
 | `plans/archived/website-product-truth-matrix.md` | Dated (2026-07-08) product capability audit — superseded by `release/website.md` (archived) |
-| `plans/rename-strata-consultation.md` | Dated record of the product-rename consultation (file retains its original name) |
+| `plans/archived/rename-strata-consultation.md` | Dated record of the product-rename consultation (file retains its original name) |
 | Other `plans/*.md` | Per-session implementation plans and deferred-work records |
-| `plans/archived/*.md` | Completed/superseded plans, archived per the convention in `session-04-packaging.md` |
+| `plans/archived/*.md` | Completed/superseded plans, archived per the convention in `plans/archived/session-04-packaging.md` |
 
 ## Audits (historical)
 
@@ -427,7 +436,7 @@ records; check the current code before acting on their findings.
 
 | Area | Location | Purpose |
 |------|----------|---------|
-| Source code | `apps/website/` | Astro 7 static site (42 pages) |
+| Source code | `apps/website/` | Astro 7 static site (64 pages) |
 | Release manifest | `apps/website/src/data/release-manifest.json` | Download data for the release pages |
 | Deployment workflow | `.github/workflows/website-deploy.yml` | GitHub Pages auto-deploy |
 | Website build | `pnpm --filter @varve/website build` | Build command (astro check + astro build) |

@@ -1,5 +1,12 @@
 # AI Model Recovery — Implementation Progress
 
+> **Status note (2026-08-21):** phase statuses below are a point-in-time
+> snapshot from 2026-07-27 and lag master. The 2026-08-20 branch triage
+> (`docs/plans/branch-consolidation.md` §12.3) found the `feat/ai-model-recovery`
+> branch contributed zero unique commits — the shipped work landed on master
+> through other sessions (font detection, colourisation fallbacks). Verify
+> against the codebase before treating any "pending" row as open work.
+
 > Scoped implementation plan for restoring colourisation and font-identification
 > capabilities that are currently disabled due to unavailable model artifacts.
 

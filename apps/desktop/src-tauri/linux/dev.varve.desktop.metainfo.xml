@@ -69,6 +69,7 @@
     <keyword>print</keyword>
   </keywords>
   <releases>
+    <release version="0.2.0" date="2026-08-21"/>
     <release version="0.1.2" date="2026-08-16"/>
   </releases>
   <content_rating type="oars-1.1"/>

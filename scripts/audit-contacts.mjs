@@ -151,7 +151,7 @@ const ALLOW = [
   {
     // Historical naming consultation: records that the social handle
     // "@varveapp" was available. A handle, not an address.
-    path: 'docs/plans/rename-strata-consultation.md',
+    path: 'docs/plans/archived/rename-strata-consultation.md',
     why: 'historical naming record (social handle, not an email)',
   },
 ];
