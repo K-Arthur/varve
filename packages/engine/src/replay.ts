@@ -2825,7 +2825,7 @@ function paintPathText(
 
   const displayText = applyTextCase(p.text, p.textCase);
   const style = p.fontStyle === 'italic' ? 'italic ' : '';
-  const fw = Math.max(1, Math.min(1000, p.fontWeight));
+  const fw = effectiveWeight(p);
   target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
   target.textBaseline = 'alphabetic';
 
@@ -2904,6 +2904,27 @@ export function drawClusters(
   }
 }
 
+/**
+ * Effective weight for a Canvas2D font string.
+ *
+ * A CanvasRenderingContext2D `font` is a CSS font shorthand, and the
+ * shorthand has no slot for `font-variation-settings` — so the axis values
+ * the inspector writes never reached the canvas, and dragging a weight axis
+ * changed the document while the glyphs stayed exactly as they were. The
+ * shorthand's weight *does* drive a variable font's `wght` axis, so folding
+ * that axis into the weight slot is how this renderer honours it.
+ *
+ * Only `wght` can be expressed this way. Axes like `opsz`, `wdth` and `slnt`
+ * have no shorthand equivalent and are still applied only where the outline
+ * path runs (textOutlines.ts sets them on the parsed font), not in this
+ * Canvas2D preview.
+ */
+function effectiveWeight(p: { fontWeight: number; variableAxes?: Record<string, number> }): number {
+  const axis = p.variableAxes?.wght;
+  const weight = typeof axis === 'number' && Number.isFinite(axis) ? axis : p.fontWeight;
+  return Math.max(1, Math.min(1000, weight));
+}
+
 /** Paint a text primitive via Canvas2D `fillText` with full typography support. */
 function paintText(
   target: ReplayTarget,
@@ -2924,7 +2945,7 @@ function paintText(
   }
 
   const style = p.fontStyle === 'italic' ? 'italic ' : '';
-  const fw = Math.max(1, Math.min(1000, p.fontWeight));
+  const fw = effectiveWeight(p);
   target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
 
   // Text baseline from vertical alignment.
