@@ -8542,7 +8542,6 @@ export function EditorProvider({
           }
 
           const denoiseStrength = options.denoiseStrength;
-          const deblurStrength = options.deblurStrength;
           const pixelArtAlgo = options.pixelArtAlgorithm;
           const usePixelArt =
             options.method === 'nearest' && pixelArtAlgo && pixelArtAlgo !== 'nearest';

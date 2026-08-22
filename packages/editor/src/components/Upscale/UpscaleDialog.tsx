@@ -22,12 +22,12 @@ import {
   getModelLoader,
   getUpscaleMode,
   isRestorationOperationAvailable,
-  recommendationLabel,
   RESTORATION_CAPABILITIES,
-  runRestoration,
-  toRestorationError,
   type RestorationErrorCode,
   type RestorationStagePlan,
+  recommendationLabel,
+  runRestoration,
+  toRestorationError,
   UPSCALE_MODES,
   upscalePreviewRegion,
 } from '@varve/engine';
@@ -97,10 +97,6 @@ function errorActionForCode(code: RestorationErrorCode): string | null {
   switch (code) {
     case 'model-not-installed':
       return 'Download the required model to continue.';
-    case 'model-unavailable':
-      return 'This checkpoint is not validated for the selected operation. Choose another operation.';
-    case 'invalid-request':
-      return 'Review the selected operation and settings, then try again.';
     case 'hash-mismatch':
       return 'The downloaded model failed integrity verification. Re-download it.';
     case 'dimension-limit':
@@ -206,7 +202,17 @@ export function UpscaleDialog({
       preview: true,
       previewMaxDimension: 512,
     };
-  }, [denoiseStrength, deblurStrength, mode, operation, pixelArtAlgorithm, qualityPolicy, scale, usesDenoise, usesUpscale]);
+  }, [
+    denoiseStrength,
+    deblurStrength,
+    mode,
+    operation,
+    pixelArtAlgorithm,
+    qualityPolicy,
+    scale,
+    usesDenoise,
+    usesUpscale,
+  ]);
 
   /**
    * Resolve the Auto recommendation into a concrete operation. Suggestions
@@ -233,8 +239,7 @@ export function UpscaleDialog({
       };
     }
 
-    const restore =
-      filtered.find((r) => r === 'deblur' || r === 'denoise') ?? null;
+    const restore = filtered.find((r) => r === 'deblur' || r === 'denoise') ?? null;
     const upscale = filtered.includes('upscale');
     if (!restore) return { operation: upscale ? 'upscale' : null };
     if (upscale) {
@@ -549,7 +554,9 @@ export function UpscaleDialog({
               : concreteOp === 'compression-restoration'
                 ? ['Compression cleanup']
                 : ['Upscale'];
-    setStages(stageNames.map((name) => ({ id: name, task: name as never, status: 'ready' as const })));
+    setStages(
+      stageNames.map((name) => ({ id: name, task: name as never, status: 'ready' as const })),
+    );
     try {
       await onApply({
         // 'auto' is a UI-level selection; the resolver picks the concrete
@@ -568,9 +575,7 @@ export function UpscaleDialog({
               ? denoiseStrength
               : 'none',
         deblurStrength:
-          concreteOp === 'deblur' || concreteOp === 'deblur-upscale'
-            ? deblurStrength
-            : undefined,
+          concreteOp === 'deblur' || concreteOp === 'deblur-upscale' ? deblurStrength : undefined,
         pixelArtAlgorithm: modeId === 'pixel-art' ? pixelArtAlgorithm : undefined,
         onProgress,
       });
@@ -672,11 +677,14 @@ export function UpscaleDialog({
       : 0;
     const deblurPeak =
       operation === 'deblur' || operation === 'deblur-upscale'
-        ? (RESTORATION_CAPABILITIES.find((c) => c.id === 'nafnet-deblur-gopro')?.peakMemoryBytes ?? 0)
+        ? (RESTORATION_CAPABILITIES.find((c) => c.id === 'nafnet-deblur-gopro')?.peakMemoryBytes ??
+          0)
         : 0;
-    const aiPeak = usesUpscale && mode?.isAi
-      ? (RESTORATION_CAPABILITIES.find((c) => c.id === 'upscale-realesr-general')?.peakMemoryBytes ?? 0)
-      : 0;
+    const aiPeak =
+      usesUpscale && mode?.isAi
+        ? (RESTORATION_CAPABILITIES.find((c) => c.id === 'upscale-realesr-general')
+            ?.peakMemoryBytes ?? 0)
+        : 0;
     return Math.max(denoisePeak, deblurPeak, aiPeak);
   }, [usesDenoise, usesUpscale, operation, mode?.isAi]);
 
@@ -860,7 +868,7 @@ export function UpscaleDialog({
                 >
                   <div className="upscale-preview__slider-line" />
                   <div className="upscale-preview__slider-handle" aria-hidden="true">
-                    <span aria-hidden="true">↔</span>
+                    <span aria-hidden="true">&lt;-&gt;</span>
                   </div>
                 </div>
                 <span className="upscale-preview__label upscale-preview__label--before">
@@ -889,10 +897,11 @@ export function UpscaleDialog({
                     Generating preview…
                   </div>
                 )}
+              </div>
               <p className="upscale-preview__hint">
                 {previewBaselineUrl
-                  ? `Honest comparison — same ${previewDataUrl ? '512 px' : 'center'} crop at same output size (${usesUpscale ? (mode?.isAi ? 'AI' : 'bicubic') : 'source'} baseline vs ${mode?.isAi ? 'AI' : mode?.label ?? 'enhanced'}). Drag or use \u2190 \u2192 to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}\u00d7${outH}px`
-                  : `Drag or use arrow keys to compare. Output: ${outW}\u00d7${outH}px`}
+                  ? `Honest comparison — same ${previewDataUrl ? '512 px' : 'center'} crop at same output size (${usesUpscale ? (mode?.isAi ? 'AI' : 'bicubic') : 'source'} baseline vs ${mode?.isAi ? 'AI' : (mode?.label ?? 'enhanced')}). Drag or use left/right keys to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}x${outH}px`
+                  : `Drag or use left/right keys to compare. Output: ${outW}x${outH}px`}
               </p>
             </div>
 
@@ -956,11 +965,11 @@ export function UpscaleDialog({
                 )}
                 {!operationAvailable && operation === 'compression-restoration' && (
                   <p className="insp-hint insp-hint--warn">
-                    No JPEG/artifact-removal model has passed the design-content corpus yet.
-                    SCUNet denoise damages thin lines and text; the only NAFNet JPEG checkpoint
-                    was rejected on provenance. Denoise can reduce some artifacts but is not a
-                    dedicated compression restorer. A validated model (e.g. FBCNN) will be added
-                    when its ONNX export is verified.
+                    No JPEG/artifact-removal model has passed the design-content corpus yet. SCUNet
+                    denoise damages thin lines and text; the only NAFNet JPEG checkpoint was
+                    rejected on provenance. Denoise can reduce some artifacts but is not a dedicated
+                    compression restorer. A validated model (e.g. FBCNN) will be added when its ONNX
+                    export is verified.
                   </p>
                 )}
                 {!operationAvailable && operation !== 'compression-restoration' && (
@@ -968,6 +977,7 @@ export function UpscaleDialog({
                     No task-specific model is installed and validated for this operation yet.
                   </p>
                 )}
+              </div>
 
               <div className="upscale-settings__group">
                 <span className="upscale-settings__label">Quality</span>
@@ -986,6 +996,7 @@ export function UpscaleDialog({
                     ? 'Preserve original detail. Lighter restoration, fewer artifacts.'
                     : 'Allow stronger reconstruction for better perceptual results.'}
                 </p>
+              </div>
 
               {usesUpscale && (
                 <div className="upscale-settings__group">
@@ -1000,7 +1011,8 @@ export function UpscaleDialog({
                   {mode && <p className="insp-hint">{mode.description}</p>}
                   {modeId === 'illustration' && (
                     <p className="insp-hint">
-                      Anime-optimized Real-ESRGAN x4 (6B RRDB blocks) — produces sharper edges and cleaner lines on anime and illustrations than the general model.
+                      Anime-optimized Real-ESRGAN x4 (6B RRDB blocks) — produces sharper edges and
+                      cleaner lines on anime and illustrations than the general model.
                     </p>
                   )}
                   {mode?.isAi && (
@@ -1016,6 +1028,7 @@ export function UpscaleDialog({
                       </Button>
                     </div>
                   )}
+                </div>
               )}
 
               {(usesDenoise || operation === 'upscale') && operation !== 'deblur-upscale' && (
@@ -1040,6 +1053,7 @@ export function UpscaleDialog({
                         : `${denoiseStrength} denoise before upscale`}
                     </p>
                   )}
+                </div>
               )}
 
               {(operation === 'deblur' || operation === 'deblur-upscale') && (
@@ -1066,6 +1080,7 @@ export function UpscaleDialog({
                           ? 'Maximum — may create ringing on already-sharp images'
                           : `Deblur strength ${deblurStrength}`}
                   </p>
+                </div>
               )}
 
               {usesUpscale && modeId === 'pixel-art' && (
@@ -1097,6 +1112,7 @@ export function UpscaleDialog({
                             ? 'Pattern-aware scaling for complex pixel art'
                             : 'Pure integer nearest-neighbour scaling'}
                   </p>
+                </div>
               )}
 
               {usesUpscale && (
@@ -1109,6 +1125,7 @@ export function UpscaleDialog({
                     options={scaleOptions}
                     onChange={(v) => setScale(Number(v))}
                   />
+                </div>
               )}
 
               <div className="upscale-settings__group">
@@ -1124,11 +1141,12 @@ export function UpscaleDialog({
                   ]}
                   onChange={(v) => setOutput(v as OutputBehavior)}
                 />
+              </div>
 
               {/* Output info */}
               <div className="upscale-output-info">
                 <span className="insp-hint">
-                  Output {outW}×{outH}px
+                  Output {outW}x{outH}px
                   {outputBytes > 0 && ` ~${formatBytes(outputBytes)}`}
                   {mode?.isAi && ' slow, runs locally'}
                   {peakMemoryBytes > 0 && ` · peak model ~${formatBytes(peakMemoryBytes)}`}
@@ -1137,13 +1155,18 @@ export function UpscaleDialog({
                   <span className="insp-hint">Path: {capabilities.pathDescription}</span>
                 )}
                 {autoAnalysis?.findings.some((f) => f.includes('pixel art')) && (
-                  <span className="insp-hint">Hint: limited palette — Pixel Art mode will preserve hard edges (no photographic smoothing).</span>
+                  <span className="insp-hint">
+                    Hint: limited palette — Pixel Art mode will preserve hard edges (no photographic
+                    smoothing).
+                  </span>
                 )}
                 {usesUpscale && mode?.isAi && scale !== 4 && (
                   <span className="insp-hint">
-                    AI is fixed 4× — your {scale}× is served as 4× AI then high-quality lanczos3 downsample to {outW}×{outH}px.
+                    AI is fixed 4x — your {scale}x is served as 4x AI then high-quality lanczos3
+                    downsample to {outW}x{outH}px.
                   </span>
                 )}
+              </div>
 
               {modelMissing && requiredModelId && (
                 <div className="upscale-model-missing" role="status">
@@ -1163,6 +1186,7 @@ export function UpscaleDialog({
                   >
                     Download model
                   </Button>
+                </div>
               )}
 
               {memoryWarning && (
@@ -1179,11 +1203,27 @@ export function UpscaleDialog({
                   {stages.length > 0 && (
                     <div className="upscale-progress__stages">
                       {stages.map((s, idx) => {
-                        const isActive = progress ? idx === Math.floor(((progress.done - 1) / Math.max(1, progress.total)) * stages.length) : idx === 0;
-                        const isDone = progress ? idx < Math.floor((progress.done / Math.max(1, progress.total)) * stages.length) : false;
+                        const isActive = progress
+                          ? idx ===
+                            Math.floor(
+                              ((progress.done - 1) / Math.max(1, progress.total)) * stages.length,
+                            )
+                          : idx === 0;
+                        const isDone = progress
+                          ? idx <
+                            Math.floor(
+                              (progress.done / Math.max(1, progress.total)) * stages.length,
+                            )
+                          : false;
                         return (
-                          <span key={s.id} className={`upscale-progress__stage ${isDone ? 'upscale-progress__stage--done' : ''} ${isActive ? 'upscale-progress__stage--active' : ''}`}>
-                            <span aria-hidden="true">{isDone ? '✓' : isActive ? '•' : '○'}</span> {s.id}
+                          <span
+                            key={s.id}
+                            className={`upscale-progress__stage ${isDone ? 'upscale-progress__stage--done' : ''} ${isActive ? 'upscale-progress__stage--active' : ''}`}
+                          >
+                            <span aria-hidden="true">
+                              {isDone ? 'done' : isActive ? 'active' : 'pending'}
+                            </span>{' '}
+                            {s.id}
                           </span>
                         );
                       })}
@@ -1200,15 +1240,14 @@ export function UpscaleDialog({
                     >
                       <div className="insp-progress__bar" style={{ width: `${progressPct}%` }} />
                       <span className="insp-progress__label">
-                        {(() => {
-                          const active = stages.find((s) => s.status === 'running');
-                          if (active) return `${active.id} · ${progress.done}/${progress.total}`;
-                          return `${progress.done}/${progress.total}`;
-                        })()}
+                        {stages.length > 1
+                          ? `Stage ${Math.min(stages.length, Math.max(1, Math.ceil((progress.done / progress.total) * stages.length)))}/${stages.length} · ${progress.done}/${progress.total} tiles`
+                          : `Step ${progress.done}/${progress.total}`}
                       </span>
                     </div>
                   )}
                   {!progress && <p className="insp-hint">Enhancing image…</p>}
+                </div>
               )}
 
               {error && (
@@ -1218,18 +1257,31 @@ export function UpscaleDialog({
                     <p className="insp-hint">{errorActionForCode(errorCode)}</p>
                   )}
                   {errorCode === 'model-not-installed' && requiredModelId && (
-                    <Button type="button" variant="secondary" size="sm" onClick={() => setShowModelDownload(true)}>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setShowModelDownload(true)}
+                    >
                       Download model
                     </Button>
                   )}
                   {errorCode === 'hash-mismatch' && requiredModelId && (
-                    <Button type="button" variant="secondary" size="sm" onClick={() => setShowModelDownload(true)}>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setShowModelDownload(true)}
+                    >
                       Re-download model
                     </Button>
                   )}
                   {(errorCode === 'dimension-limit' || errorCode === 'tensor-allocation') && (
-                    <p className="insp-hint">Try a smaller output scale or a smaller source crop.</p>
+                    <p className="insp-hint">
+                      Try a smaller output scale or a smaller source crop.
+                    </p>
                   )}
+                </div>
               )}
             </div>
           </div>
