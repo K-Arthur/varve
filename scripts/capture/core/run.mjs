@@ -130,6 +130,20 @@ export async function capture(spec) {
   const browser = await chromium.launch();
   let server;
   let exitCode = 0;
+
+  // Interrupting a capture must not leak its dev server. Node runs no finally
+  // block on SIGTERM/SIGINT, so a killed run leaves vite holding roughly 22k
+  // inotify watches; a couple of dozen of those exhaust the system limit and
+  // then no dev server will start for anyone on the machine.
+  let interrupted = false;
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.once(signal, () => {
+      if (interrupted) return;
+      interrupted = true;
+      console.error(`[${spec.slug}] ${signal} — stopping the dev server before exit`);
+      void Promise.resolve(stopServer(server)).finally(() => process.exit(130));
+    });
+  }
   let publishLock = null;
 
   try {
