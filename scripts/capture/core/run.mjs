@@ -133,7 +133,21 @@ export async function capture(spec) {
   let publishLock = null;
 
   try {
-    server = await startServer({ port, root: ROOT });
+    // Probing a port then binding it is a race, and on a checkout several
+    // agents are starting servers in there is a real chance of losing it —
+    // vite is launched with --strictPort, so it exits rather than sliding to
+    // the next one. Retry with a fresh port instead of failing the capture.
+    let attempt = 0;
+    for (;;) {
+      try {
+        server = await startServer({ port: attempt === 0 ? port : await capturePort(), root: ROOT });
+        break;
+      } catch (err) {
+        attempt += 1;
+        if (attempt >= 3) throw err;
+        console.warn(`[${spec.slug}] dev server did not come up, retrying on another port`);
+      }
+    }
     console.log(`[${spec.slug}] server on :${port}`);
 
     // Warm the module graph first. A cold Vite transform of this app takes
