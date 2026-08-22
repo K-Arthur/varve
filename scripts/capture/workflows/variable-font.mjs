@@ -113,7 +113,11 @@ await capture({
     // Defaults to 400, so the sweep runs to the ends of the range rather than
     // stopping on the default, which would leave the glyphs as they started.
     const beforeWeight = await canvasPixels(page);
-    for (const v of ['550', '700', '400', '250', '100']) {
+    // Ends heavy. A light terminal value is the one case a fallback face
+    // renders indistinguishably from the 400 default — there is no synthetic
+    // thinning — so a real failure and a font-loading problem would look the
+    // same in the pixel comparison below.
+    for (const v of ['250', '400', '550', '700']) {
       await setRange(weight, v);
       await page.waitForTimeout(260);
     }
