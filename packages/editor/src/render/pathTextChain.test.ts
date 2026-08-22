@@ -108,7 +108,7 @@ describe('path-text settings reach the painter', () => {
     // in the same IR build for the text to resolve it by id.
     const engine = await createEngine('stub');
     const { doc, engineNode } = build(0.25);
-    const ringEngineNode = sceneNodeToEngineNode(doc.nodes['ring-1'], undefined, doc);
+    const ringEngineNode = sceneNodeToEngineNode(doc.nodes['ring-1']!, undefined, doc);
     const ir = await engine.buildIr({ nodes: [ringEngineNode, engineNode] } as never);
     const textItem = (ir as Array<{ primitive: { kind: string } }>).find(
       (i) => i.primitive.kind === 'text',

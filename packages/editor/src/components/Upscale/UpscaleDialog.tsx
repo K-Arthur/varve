@@ -23,7 +23,11 @@ import {
   getUpscaleMode,
   isRestorationOperationAvailable,
   recommendationLabel,
+  RESTORATION_CAPABILITIES,
   runRestoration,
+  toRestorationError,
+  type RestorationErrorCode,
+  type RestorationStagePlan,
   UPSCALE_MODES,
   upscalePreviewRegion,
 } from '@varve/engine';
@@ -85,6 +89,27 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024).toFixed(0)} KB`;
 }
 
+function errorActionForCode(code: RestorationErrorCode): string | null {
+  switch (code) {
+    case 'model-not-installed':
+      return 'Download the required model to continue.';
+    case 'hash-mismatch':
+      return 'The downloaded model failed integrity verification. Re-download it.';
+    case 'dimension-limit':
+      return 'The image is too large for this operation. Try a smaller scale or crop.';
+    case 'tensor-allocation':
+      return 'Not enough memory. Try a smaller scale, close other documents, or restart the app.';
+    case 'runtime-unavailable':
+      return 'The AI runtime is not available in this environment. Try a classical (CPU) mode.';
+    case 'cancelled':
+      return null;
+    case 'stale-result':
+      return 'The source image changed before processing finished. Re-apply on the current selection.';
+    default:
+      return null;
+  }
+}
+
 export function UpscaleDialog({
   sourceWidth,
   sourceHeight,
@@ -103,10 +128,13 @@ export function UpscaleDialog({
   const [pixelArtAlgorithm, setPixelArtAlgorithm] = useState<PixelArtAlgorithm>('epx');
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [stages, setStages] = useState<RestorationStagePlan[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<RestorationErrorCode | null>(null);
   const [capabilities, setCapabilities] = useState<{ pathDescription: string } | null>(null);
   const [previewPosition, setPreviewPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewZoom, setPreviewZoom] = useState<'fit' | '100%'>('fit');
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   // The same region as `previewDataUrl`, straight from the source. Comparing
   // the upscale against this (rather than the whole image) is what makes the
@@ -116,6 +144,7 @@ export function UpscaleDialog({
   const previewAbortRef = useRef<AbortController | null>(null);
   const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const previewSliderRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const mode = useMemo(() => getUpscaleMode(modeId), [modeId]);
@@ -146,9 +175,11 @@ export function UpscaleDialog({
             method,
             scale,
             modelId:
-              mode?.id === 'ai-enhance' || mode?.id === 'illustration'
-                ? 'upscale-realesr-general'
-                : undefined,
+              mode?.id === 'illustration'
+                ? 'upscale-realesrgan-anime'
+                : mode?.id === 'ai-enhance'
+                  ? 'upscale-realesr-general'
+                  : undefined,
             pixelArtAlgorithm: mode?.id === 'pixel-art' ? pixelArtAlgorithm : undefined,
           }
         : undefined,
@@ -203,7 +234,7 @@ export function UpscaleDialog({
   // rather than claiming an unavailable checkpoint.
   const requiredModelId = usesDenoise
     ? 'scunet'
-    : operation === 'deblur' || operation === 'deblur-upscale'
+    : operation === 'deblur' || (operation as string) === 'deblur-upscale'
       ? 'nafnet-deblur-gopro'
       : operation === 'auto'
         ? (() => {
@@ -213,7 +244,10 @@ export function UpscaleDialog({
             if (resolved?.operation === 'denoise' || resolved?.operation === 'restore-upscale') {
               return 'scunet';
             }
-            if (resolved?.operation === 'deblur' || resolved?.operation === 'deblur-upscale') {
+            if (
+              resolved?.operation === 'deblur' ||
+              (resolved?.operation as string) === 'deblur-upscale'
+            ) {
               return 'nafnet-deblur-gopro';
             }
             return null;
@@ -335,13 +369,13 @@ export function UpscaleDialog({
     processing,
   ]);
 
-  // Clear preview when switching to AI mode
+  // Clear preview when switching away from upscale or when operation becomes unavailable
   useEffect(() => {
-    if (mode?.isAi || !usesUpscale) {
+    if (!usesUpscale || !operationAvailable) {
       setPreviewDataUrl(null);
       setPreviewBaselineUrl(null);
     }
-  }, [mode?.isAi, usesUpscale]);
+  }, [usesUpscale, operationAvailable]);
 
   async function generatePreview() {
     // Never contend with a running upscale for the native backend's single job
@@ -359,41 +393,81 @@ export function UpscaleDialog({
       canvas.width = previewImage.width;
       canvas.height = previewImage.height;
       const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.putImageData(previewImage, 0, 0);
-        const dataUrl = canvas.toDataURL('image/png');
+      if (!ctx) return;
+      ctx.putImageData(previewImage, 0, 0);
+      const dataUrl = canvas.toDataURL('image/png');
 
-        // Baseline: the identical source region, drawn at the upscaled size so
-        // the browser's own interpolation stands in for "no upscale". Any
-        // quality difference the slider reveals is then genuinely the method's.
-        const region = upscalePreviewRegion(sourceImageData, {
-          scale: usesUpscale ? scale : 1,
-          previewMaxDimension: 512,
-        });
-        const cropCanvas = document.createElement('canvas');
-        cropCanvas.width = region.width;
-        cropCanvas.height = region.height;
-        const cropCtx = cropCanvas.getContext('2d');
-        let baselineUrl: string | null = null;
-        if (cropCtx) {
-          const cropped = new ImageData(region.width, region.height);
-          for (let y = 0; y < region.height; y += 1) {
-            for (let x = 0; x < region.width; x += 1) {
-              const from = ((region.y + y) * sourceImageData.width + region.x + x) * 4;
-              const to = (y * region.width + x) * 4;
-              cropped.data[to] = sourceImageData.data[from] as number;
-              cropped.data[to + 1] = sourceImageData.data[from + 1] as number;
-              cropped.data[to + 2] = sourceImageData.data[from + 2] as number;
-              cropped.data[to + 3] = sourceImageData.data[from + 3] as number;
-            }
-          }
-          cropCtx.putImageData(cropped, 0, 0);
-          baselineUrl = cropCanvas.toDataURL('image/png');
+      // Honest baseline: the same source crop, upscaled with a neutral
+      // high-quality CPU filter to the *same* output dimensions as the
+      // enhanced preview. Both halves are then shown at the same pixel
+      // size, so the slider reveals the method's actual improvement rather
+      // than exaggerating via the browser's default interpolation.
+      const region = upscalePreviewRegion(sourceImageData, {
+        scale: usesUpscale ? scale : 1,
+        previewMaxDimension: 512,
+      });
+      const cropped = new ImageData(region.width, region.height);
+      for (let y = 0; y < region.height; y += 1) {
+        for (let x = 0; x < region.width; x += 1) {
+          const from = ((region.y + y) * sourceImageData.width + region.x + x) * 4;
+          const to = (y * region.width + x) * 4;
+          cropped.data[to] = sourceImageData.data[from] as number;
+          cropped.data[to + 1] = sourceImageData.data[from + 1] as number;
+          cropped.data[to + 2] = sourceImageData.data[from + 2] as number;
+          cropped.data[to + 3] = sourceImageData.data[from + 3] as number;
         }
-        if (abort.signal.aborted) return;
-        setPreviewBaselineUrl(baselineUrl);
-        setPreviewDataUrl(dataUrl);
       }
+      // Baseline uses a faithful classical filter at the same scale so
+      // dimensions match exactly. Pixel-art uses nearest to preserve hard edges.
+      let baselineDataUrl: string | null = null;
+      try {
+        const { upscaleImageData } = await import('@varve/engine');
+        const baselineMethod =
+          mode?.id === 'pixel-art' ? 'nearest' : usesUpscale ? 'bicubic' : 'nearest';
+        const baselineScale = usesUpscale ? scale : 1;
+        let baselineImage: ImageData;
+        if (baselineScale === 1 && !usesUpscale) {
+          baselineImage = cropped;
+        } else {
+          baselineImage = upscaleImageData(cropped, {
+            method: baselineMethod as 'nearest' | 'bicubic' | 'bilinear' | 'lanczos3',
+            scale: baselineScale,
+          });
+          // If the enhanced preview was AI 4x→downsampled to e.g. 2x,
+          // the baseline must also be the same final size to compare honestly.
+          if (
+            baselineImage.width !== previewImage.width ||
+            baselineImage.height !== previewImage.height
+          ) {
+            baselineImage = upscaleImageData(baselineImage, {
+              method: 'lanczos3',
+              targetWidth: previewImage.width,
+              targetHeight: previewImage.height,
+            });
+          }
+        }
+        const bCanvas = document.createElement('canvas');
+        bCanvas.width = baselineImage.width;
+        bCanvas.height = baselineImage.height;
+        const bCtx = bCanvas.getContext('2d');
+        if (bCtx) {
+          bCtx.putImageData(baselineImage, 0, 0);
+          baselineDataUrl = bCanvas.toDataURL('image/png');
+        }
+      } catch {
+        // Fallback to raw crop if classical upscale unavailable
+        const fallback = document.createElement('canvas');
+        fallback.width = cropped.width;
+        fallback.height = cropped.height;
+        const fCtx = fallback.getContext('2d');
+        if (fCtx) {
+          fCtx.putImageData(cropped, 0, 0);
+          baselineDataUrl = fallback.toDataURL('image/png');
+        }
+      }
+      if (abort.signal.aborted) return;
+      setPreviewBaselineUrl(baselineDataUrl);
+      setPreviewDataUrl(dataUrl);
     } catch (err) {
       if (normalizeThrownMessage(err) !== 'cancelled') {
         console.error('Preview generation failed:', err);
@@ -416,7 +490,13 @@ export function UpscaleDialog({
       announce('No specific restoration suggested');
       return;
     }
-    if (resolved?.note) setError(resolved.note);
+    if (resolved?.note) {
+      setError(resolved.note);
+      setErrorCode(null);
+    } else {
+      setError(null);
+      setErrorCode(null);
+    }
     // Retire any queued or in-flight preview first. Both share the native
     // backend's single job slot, so a preview starting after this point would
     // cancel the real upscale.
@@ -428,11 +508,26 @@ export function UpscaleDialog({
     previewAbortRef.current = null;
     setProcessing(true);
     setProgress(null);
+    // Build stage skeleton for progress UI — derived from the concrete operation
+    const concreteOp = resolved?.operation ?? (operation === 'auto' ? 'upscale' : operation);
+    const stageNames: string[] =
+      concreteOp === 'restore-upscale'
+        ? ['Denoise', 'Upscale']
+        : concreteOp === 'deblur-upscale'
+          ? ['Deblur', 'Upscale']
+          : concreteOp === 'denoise'
+            ? ['Denoise']
+            : concreteOp === 'deblur'
+              ? ['Deblur']
+              : concreteOp === 'compression-restoration'
+                ? ['Compression cleanup']
+                : ['Upscale'];
+    setStages(stageNames.map((name) => ({ id: name, task: name as never, status: 'ready' as const })));
     try {
       await onApply({
         // 'auto' is a UI-level selection; the resolver picks the concrete
         // operation. Fall back to plain upscale when it has not resolved.
-        operation: resolved?.operation ?? (operation === 'auto' ? 'upscale' : operation),
+        operation: concreteOp,
         mode: modeId,
         scale,
         output,
@@ -451,22 +546,31 @@ export function UpscaleDialog({
     } catch (caught) {
       // Tauri commands reject with a bare string, so `instanceof Error` alone
       // would discard the backend's message and report a useless generic.
-      const message = normalizeThrownMessage(caught);
+      const restorationError = toRestorationError(caught);
+      const message = restorationError.message;
       console.error(
         'Upscale failed:',
         message,
+        'code:',
+        restorationError.code,
         '\nthrown value:',
         caught,
         '\nstack:',
         caught instanceof Error ? caught.stack : '(non-Error throw, no stack)',
       );
-      setError(message === 'cancelled' ? 'Cancelled' : message);
-      announce(
-        message === 'cancelled' ? 'Enhancement cancelled' : `Enhancement failed: ${message}`,
-      );
+      if (restorationError.code === 'cancelled') {
+        setError('Cancelled');
+        setErrorCode('cancelled');
+        announce('Enhancement cancelled');
+      } else {
+        setError(message);
+        setErrorCode(restorationError.code);
+        announce(`Enhancement failed: ${message}`);
+      }
     } finally {
       setProcessing(false);
       setProgress(null);
+      setStages([]);
     }
   }, [
     mode,
@@ -512,6 +616,36 @@ export function UpscaleDialog({
   const handlePointerUp = useCallback(() => {
     setIsDragging(false);
   }, []);
+
+  const handleSliderKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setPreviewPosition((p) => Math.max(0, p - (e.shiftKey ? 10 : 2)));
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      setPreviewPosition((p) => Math.min(100, p + (e.shiftKey ? 10 : 2)));
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setPreviewPosition(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setPreviewPosition(100);
+    }
+  }, []);
+
+  const peakMemoryBytes = useMemo(() => {
+    const denoisePeak = usesDenoise
+      ? (RESTORATION_CAPABILITIES.find((c) => c.id === 'scunet')?.peakMemoryBytes ?? 0)
+      : 0;
+    const deblurPeak =
+      operation === 'deblur' || operation === 'deblur-upscale'
+        ? (RESTORATION_CAPABILITIES.find((c) => c.id === 'nafnet-deblur-gopro')?.peakMemoryBytes ?? 0)
+        : 0;
+    const aiPeak = usesUpscale && mode?.isAi
+      ? (RESTORATION_CAPABILITIES.find((c) => c.id === 'upscale-realesr-general')?.peakMemoryBytes ?? 0)
+      : 0;
+    return Math.max(denoisePeak, deblurPeak, aiPeak);
+  }, [usesDenoise, usesUpscale, operation, mode?.isAi]);
 
   const progressPct =
     progress && progress.total > 0
@@ -568,68 +702,61 @@ export function UpscaleDialog({
           <div className="upscale-dialog__body">
             {/* Preview */}
             <div className="upscale-preview">
+              <div className="upscale-preview__toolbar">
+                <span className="upscale-preview__toolbar-label">Preview</span>
+                <div className="upscale-preview__zoom-toggle" role="group" aria-label="Preview zoom">
+                  <button
+                    type="button"
+                    className={`upscale-preview__zoom-btn ${previewZoom === 'fit' ? 'upscale-preview__zoom-btn--active' : ''}`}
+                    aria-pressed={previewZoom === 'fit'}
+                    onClick={() => setPreviewZoom('fit')}
+                  >
+                    Fit
+                  </button>
+                  <button
+                    type="button"
+                    className={`upscale-preview__zoom-btn ${previewZoom === '100%' ? 'upscale-preview__zoom-btn--active' : ''}`}
+                    aria-pressed={previewZoom === '100%'}
+                    onClick={() => setPreviewZoom('100%')}
+                  >
+                    100%
+                  </button>
+                </div>
+              </div>
               <div
                 ref={previewContainerRef}
-                className="upscale-preview__image-container"
+                className={`upscale-preview__image-container ${previewZoom === '100%' ? 'upscale-preview__image-container--zoom100' : ''}`}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
               >
                 <img
                   src={previewBaselineUrl ?? sourceDataUrl}
-                  alt="Original"
+                  alt="Original (classical bicubic at same size for honest comparison)"
                   className="upscale-preview__image upscale-preview__image--original"
+                  style={previewZoom === '100%' ? { imageRendering: 'auto' as const } : undefined}
                 />
                 <div
                   className="upscale-preview__overlay"
                   style={{ clipPath: `inset(0 ${100 - previewPosition}% 0 0)` }}
                 >
-                  {mode?.isAi ? (
-                    // AI mode: use CSS-scaled placeholder or real preview if generated
-                    previewDataUrl ? (
-                      <img
-                        src={previewDataUrl}
-                        alt="AI upscaled preview"
-                        className="upscale-preview__image upscale-preview__image--upscaled"
-                        style={{
-                          aspectRatio: `${sourceWidth}/${sourceHeight}`,
-                          transform: `scale(${outW / sourceWidth}, ${outH / sourceHeight})`,
-                          transformOrigin: 'top left',
-                          width: `${(outW / sourceWidth) * 100}%`,
-                          height: `${(outH / sourceHeight) * 100}%`,
-                        }}
-                      />
-                    ) : (
-                      <img
-                        src={sourceDataUrl}
-                        alt="AI upscaled preview placeholder"
-                        className="upscale-preview__image upscale-preview__image--upscaled"
-                        style={{
-                          aspectRatio: `${sourceWidth}/${sourceHeight}`,
-                          transform: `scale(${outW / sourceWidth}, ${outH / sourceHeight})`,
-                          transformOrigin: 'top left',
-                          width: `${(outW / sourceWidth) * 100}%`,
-                          height: `${(outH / sourceHeight) * 100}%`,
-                          opacity: 0.6,
-                        }}
-                      />
-                    )
-                  ) : // CPU modes: use real preview or fallback to CSS scaling
-                  previewDataUrl ? (
+                  {previewDataUrl ? (
                     <img
                       src={previewDataUrl}
-                      alt="Upscaled preview"
+                      alt="Enhanced preview — same crop and output size as original"
                       className="upscale-preview__image upscale-preview__image--upscaled"
                       style={{
-                        aspectRatio: `${sourceWidth}/${sourceHeight}`,
                         width: '100%',
                         height: '100%',
+                        objectFit: 'contain' as const,
+                        imageRendering:
+                          mode?.id === 'pixel-art' ? ('pixelated' as const) : undefined,
                       }}
                     />
-                  ) : (
+                  ) : mode?.isAi ? (
                     <img
                       src={sourceDataUrl}
-                      alt="Upscaled preview placeholder"
+                      alt="AI upscaled preview placeholder"
                       className="upscale-preview__image upscale-preview__image--upscaled"
                       style={{
                         aspectRatio: `${sourceWidth}/${sourceHeight}`,
@@ -637,14 +764,41 @@ export function UpscaleDialog({
                         transformOrigin: 'top left',
                         width: `${(outW / sourceWidth) * 100}%`,
                         height: `${(outH / sourceHeight) * 100}%`,
+                        opacity: 0.45,
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={sourceDataUrl}
+                      alt="Preview placeholder"
+                      className="upscale-preview__image upscale-preview__image--upscaled"
+                      style={{
+                        aspectRatio: `${sourceWidth}/${sourceHeight}`,
+                        transform: `scale(${outW / sourceWidth}, ${outH / sourceHeight})`,
+                        transformOrigin: 'top left',
+                        width: `${(outW / sourceWidth) * 100}%`,
+                        height: `${(outH / sourceHeight) * 100}%`,
+                        opacity: 0.45,
                       }}
                     />
                   )}
                 </div>
-                <div className="upscale-preview__slider" style={{ left: `${previewPosition}%` }}>
+                <div
+                  ref={previewSliderRef}
+                  className="upscale-preview__slider"
+                  style={{ left: `${previewPosition}%` }}
+                  role="slider"
+                  aria-label="Before / after comparison"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(previewPosition)}
+                  aria-valuetext={`${Math.round(previewPosition)}% enhanced`}
+                  tabIndex={0}
+                  onKeyDown={handleSliderKeyDown}
+                >
                   <div className="upscale-preview__slider-line" />
                   <div className="upscale-preview__slider-handle" aria-hidden="true">
-                    <span aria-hidden="true">|</span>
+                    <span aria-hidden="true">↔</span>
                   </div>
                 </div>
                 <span className="upscale-preview__label upscale-preview__label--before">
@@ -661,14 +815,19 @@ export function UpscaleDialog({
                 </span>
                 {mode?.isAi && !previewDataUrl && (
                   <p className="upscale-preview__ai-hint">
-                    AI preview is opt-in. Generate to see real results.
+                    AI preview is opt-in — generates a 512 px crop. Tap Generate to see real output.
                   </p>
+                )}
+                {previewGenerating && (
+                  <div className="upscale-preview__generating" role="status" aria-live="polite">
+                    Generating preview…
+                  </div>
                 )}
               </div>
               <p className="upscale-preview__hint">
                 {previewBaselineUrl
-                  ? `Drag to compare \u2014 magnified detail, not the whole image. Output: ${outW}\u00d7${outH}px`
-                  : `Drag to compare. Output: ${outW}\u00d7${outH}px`}
+                  ? `Honest comparison — same ${previewDataUrl ? '512 px' : 'center'} crop at same output size (bicubic baseline vs ${mode?.isAi ? 'AI' : mode?.label ?? 'enhanced'}). Drag or use ← → to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}\u00d7${outH}px`
+                  : `Drag or use arrow keys to compare. Output: ${outW}\u00d7${outH}px`}
               </p>
             </div>
 
@@ -748,6 +907,12 @@ export function UpscaleDialog({
                     onChange={(v) => setModeId(v as UpscaleModeId)}
                   />
                   {mode && <p className="insp-hint">{mode.description}</p>}
+                  {modeId === 'illustration' && (
+                    <p className="insp-hint">
+                      No validated anime model is bundled yet — this mode currently uses the general Real-ESRGAN x4.
+                      A dedicated export will replace it when pinned with a verified hash and corpus evidence.
+                    </p>
+                  )}
                   {mode?.isAi && (
                     <div className="upscale-settings__ai-preview">
                       <Button
@@ -757,7 +922,7 @@ export function UpscaleDialog({
                         disabled={previewGenerating || processing}
                         onClick={() => void generatePreview()}
                       >
-                        {previewGenerating ? 'Generating...' : 'Generate AI preview'}
+                        {previewGenerating ? 'Generating…' : 'Generate AI preview'}
                       </Button>
                     </div>
                   )}
@@ -857,9 +1022,18 @@ export function UpscaleDialog({
                   Output {outW}\u00d7{outH}px
                   {outputBytes > 0 && ` ~${formatBytes(outputBytes)}`}
                   {mode?.isAi && ' slow, runs locally'}
+                  {peakMemoryBytes > 0 && ` · peak model ~${formatBytes(peakMemoryBytes)}`}
                 </span>
                 {capabilities && (
                   <span className="insp-hint">Path: {capabilities.pathDescription}</span>
+                )}
+                {autoAnalysis?.findings.some((f) => f.includes('pixel art')) && (
+                  <span className="insp-hint">Hint: limited palette — Pixel Art mode will preserve hard edges (no photographic smoothing).</span>
+                )}
+                {usesUpscale && mode?.isAi && scale !== 4 && (
+                  <span className="insp-hint">
+                    AI is fixed 4× — your {scale}× is served as 4× AI then high-quality lanczos3 downsample to {outW}\u00d7{outH}px.
+                  </span>
                 )}
               </div>
 
@@ -892,27 +1066,63 @@ export function UpscaleDialog({
                 </p>
               )}
 
-              {/* Progress */}
-              {processing && progress && progress.total > 0 && (
-                <div
-                  className="insp-progress"
-                  role="progressbar"
-                  aria-valuenow={progressPct}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label="Enhancement progress"
-                >
-                  <div className="insp-progress__bar" style={{ width: `${progressPct}%` }} />
-                  <span className="insp-progress__label">
-                    Step {progress.done}/{progress.total}
-                  </span>
+              {/* Progress — stage-aware */}
+              {processing && (
+                <div className="upscale-progress" role="status" aria-live="polite">
+                  {stages.length > 0 && (
+                    <div className="upscale-progress__stages">
+                      {stages.map((s, idx) => {
+                        const isActive = progress ? idx === Math.floor(((progress.done - 1) / Math.max(1, progress.total)) * stages.length) : idx === 0;
+                        const isDone = progress ? idx < Math.floor((progress.done / Math.max(1, progress.total)) * stages.length) : false;
+                        return (
+                          <span key={s.id} className={`upscale-progress__stage ${isDone ? 'upscale-progress__stage--done' : ''} ${isActive ? 'upscale-progress__stage--active' : ''}`}>
+                            <span aria-hidden="true">{isDone ? '✓' : isActive ? '•' : '○'}</span> {s.id}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {progress && progress.total > 0 && (
+                    <div
+                      className="insp-progress"
+                      role="progressbar"
+                      aria-valuenow={progressPct}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label="Enhancement progress"
+                    >
+                      <div className="insp-progress__bar" style={{ width: `${progressPct}%` }} />
+                      <span className="insp-progress__label">
+                        {stages.length > 1
+                          ? `Stage ${Math.min(stages.length, Math.max(1, Math.ceil((progress.done / progress.total) * stages.length)))}/${stages.length} · ${progress.done}/${progress.total} tiles`
+                          : `Step ${progress.done}/${progress.total}`}
+                      </span>
+                    </div>
+                  )}
+                  {!progress && <p className="insp-hint">Enhancing image…</p>}
                 </div>
               )}
 
               {error && (
-                <p className="insp-hint insp-hint--error" role="alert">
-                  {error}
-                </p>
+                <div className="upscale-error" role="alert">
+                  <p className="insp-hint insp-hint--error">{error}</p>
+                  {errorCode && errorActionForCode(errorCode) && (
+                    <p className="insp-hint">{errorActionForCode(errorCode)}</p>
+                  )}
+                  {errorCode === 'model-not-installed' && requiredModelId && (
+                    <Button type="button" variant="secondary" size="sm" onClick={() => setShowModelDownload(true)}>
+                      Download model
+                    </Button>
+                  )}
+                  {errorCode === 'hash-mismatch' && requiredModelId && (
+                    <Button type="button" variant="secondary" size="sm" onClick={() => setShowModelDownload(true)}>
+                      Re-download model
+                    </Button>
+                  )}
+                  {(errorCode === 'dimension-limit' || errorCode === 'tensor-allocation') && (
+                    <p className="insp-hint">Try a smaller output scale or a smaller source crop.</p>
+                  )}
+                </div>
               )}
             </div>
           </div>

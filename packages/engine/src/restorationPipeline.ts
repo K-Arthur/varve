@@ -112,9 +112,17 @@ export async function runRestoration(
         provider = result.executionProvider;
       } else if (stage.task === 'deblur' || stage.task === 'compression-restoration') {
         // Both run through the shared restoration dispatch; the planner has
-        // already validated the checkpoint for the exact task.
+        // already validated the checkpoint for the exact task.  The strength
+        // maps from the user-facing denoise strength control so deblur-upscale
+        // keeps its setting consistent.
+        const deblurStrength =
+          request.denoise?.strength === 'light'
+            ? 0.3
+            : request.denoise?.strength === 'strong'
+              ? 0.8
+              : 0.7;
         const { dispatchRestorationTask } = await import('./restorationProviders/dispatch');
-        const result = await dispatchRestorationTask(currentImage, stage.task, 0.7, {
+        const result = await dispatchRestorationTask(currentImage, stage.task, deblurStrength, {
           signal: options.signal,
           onProgress: (done, total) => {
             stage.progress = total > 0 ? done / total : 0;

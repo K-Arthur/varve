@@ -931,6 +931,7 @@ export {
   restorationTasksForOperation,
   toRestorationError,
 } from './restoration';
+export type { RestorationErrorCode } from './restoration';
 export type {
   AutoAnalysis,
   AutoAnalysisSignal,
