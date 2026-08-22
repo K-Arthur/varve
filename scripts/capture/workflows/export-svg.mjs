@@ -121,21 +121,24 @@ await capture({
     assertions.push('the Export tab is opened on a real selection');
     await beat(page, 1200);
 
-    // Choose SVG as the output format through the export controls.
-    const format = page.getByRole('combobox', { name: /format/i }).first();
-    if (await format.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await format.selectOption({ label: 'SVG' }).catch(async () => {
-        await format.selectOption('svg').catch(() => undefined);
-      });
-      await page.waitForTimeout(700);
-      assertions.push('SVG is chosen as the export format in the export controls');
-    }
+    // The quick-format picker is a row of aria-pressed buttons, not a select.
+    const svgFormat = page.getByRole('button', { name: /^SVG$/ }).first();
+    await svgFormat.waitFor({ state: 'visible', timeout: 8000 });
+    await svgFormat.click();
+    await page.waitForTimeout(700);
+    assert.equal(
+      await svgFormat.getAttribute('aria-pressed'),
+      'true',
+      'SVG did not become the selected export format',
+    );
+    assertions.push('SVG is chosen as the export format in the export controls');
     await beat(page, 1300);
 
     // ── Capture the file the application produces ──────────────────
     const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
+    // Labelled "Download SVG" in the browser and "Export SVG" under Tauri.
     const exportBtn = page
-      .getByRole('button', { name: /^export$|export selected|download/i })
+      .getByRole('button', { name: /^(?:download|export)\s+svg$/i })
       .first();
     await exportBtn.waitFor({ state: 'visible', timeout: 8000 });
     await exportBtn.click();
