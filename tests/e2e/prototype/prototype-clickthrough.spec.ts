@@ -114,7 +114,11 @@ test.describe('Prototype interaction click-through', () => {
     await navigateToEditor(page);
     await drawRect(page, 220, 220, 180, 90);
 
-    await page.getByRole('treeitem').filter({ hasText: /Rectangle 1/i }).first().click();
+    await page
+      .getByRole('treeitem')
+      .filter({ hasText: /Rectangle 1/i })
+      .first()
+      .click();
     const prototypeTab = page.getByRole('tab', { name: 'Prototype', exact: true });
     await expect(prototypeTab).toBeVisible();
     await prototypeTab.click();

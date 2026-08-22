@@ -33,7 +33,10 @@ async function typeSpecimen(page: import('@playwright/test').Page, family: strin
   await fontInput.click();
   await fontInput.fill(family);
   await page.waitForTimeout(600);
-  await page.getByRole('option', { name: new RegExp(family, 'i') }).first().click();
+  await page
+    .getByRole('option', { name: new RegExp(family, 'i') })
+    .first()
+    .click();
   await page.waitForTimeout(600);
 }
 

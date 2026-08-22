@@ -469,7 +469,12 @@ function validateReleaseSigningRules(content, stepBlocks, errors) {
   }
 }
 
-export { validateRepoInvariants, validateVarveRules, validateWorkflowStructure, validateYAMLSyntax };
+export {
+  validateRepoInvariants,
+  validateVarveRules,
+  validateWorkflowStructure,
+  validateYAMLSyntax,
+};
 
 /**
  * Extract `steps:` entries per job as {name, run} pairs, line-scanned.

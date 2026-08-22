@@ -224,14 +224,8 @@ export async function capture(spec) {
     // Some errors are expected in a local dev environment and must not fail
     // the capture — CORS blocks from Google Fonts when the font browser
     // tries to load families from an external API over localhost.
-    const KNOWN_BENIGN_CONSOLE = [
-      /googleapis\.com/i,
-      /CORS policy/i,
-      /ERR_FAILED/i,
-    ];
-    const KNOWN_BENIGN_PAGE_ERROR = [
-      /Maximum update depth exceeded/i,
-    ];
+    const KNOWN_BENIGN_CONSOLE = [/googleapis\.com/i, /CORS policy/i, /ERR_FAILED/i];
+    const KNOWN_BENIGN_PAGE_ERROR = [/Maximum update depth exceeded/i];
     page.on('console', (msg) => {
       if (msg.type() !== 'error') return;
       const text = msg.text().slice(0, 300);

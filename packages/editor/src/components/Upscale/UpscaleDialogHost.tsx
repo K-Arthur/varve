@@ -9,8 +9,8 @@
 
 import type { UpscaleProgressFn } from '@varve/engine';
 import { getImageCache } from '@varve/engine';
-import { getImageFill } from '@varve/scene';
 import type { NodeId } from '@varve/scene';
+import { getImageFill } from '@varve/scene';
 import { useEffect, useState } from 'react';
 import { useEditor } from '../../context';
 import { selectedImageShapes } from '../../imageOperations';

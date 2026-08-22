@@ -136,9 +136,7 @@ await capture({
     // Control+Shift+P, and the presenter then never opens.
     await durationField.blur();
     await page.waitForTimeout(300);
-    assertions.push(
-      'source and target states use a real Smart Animate transition set to 1400ms',
-    );
+    assertions.push('source and target states use a real Smart Animate transition set to 1400ms');
     await beat(page, 1800);
 
     await page.keyboard.press('Control+Shift+p');
@@ -225,7 +223,7 @@ await capture({
     productTruth:
       'Smart Animate uses matched child layers and the real prototype transition engine',
     correspondence:
-      'matchLayersByName pairs layers by name; the clip renames the duplicate\'s card so the two states correspond',
+      "matchLayersByName pairs layers by name; the clip renames the duplicate's card so the two states correspond",
     limitation:
       'Duplicating a frame suffixes every descendant with " copy" (context.tsx cloneNodeDeep, asserted in editor.test.tsx), so a frame and its duplicate share no layer names and Smart Animate snaps between them until a layer is renamed.',
   },

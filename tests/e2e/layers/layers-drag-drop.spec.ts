@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 /**
@@ -22,9 +22,15 @@ async function expectNoCrashDialog(page: Page) {
   const crashDialog = page
     .locator('dialog[open]')
     .filter({ hasText: /closed unexpectedly|trouble starting/i });
-  const visible = await crashDialog.first().isVisible({ timeout: 500 }).catch(() => false);
+  const visible = await crashDialog
+    .first()
+    .isVisible({ timeout: 500 })
+    .catch(() => false);
   if (visible) {
-    const text = await crashDialog.first().innerText().catch(() => '<unreadable>');
+    const text = await crashDialog
+      .first()
+      .innerText()
+      .catch(() => '<unreadable>');
     throw new Error(`Crash dialog appeared during DnD:\n${text}`);
   }
 }
@@ -43,20 +49,12 @@ async function rowNames(page: Page): Promise<string[]> {
 }
 
 function rowByName(page: Page, name: string): Locator {
-  return page
-    .locator('[role="treeitem"]')
-    .filter({ hasText: name })
-    .first();
+  return page.locator('[role="treeitem"]').filter({ hasText: name }).first();
 }
 
 /** Drag one row onto another with real pointer events. offsetFraction -0.35
  *  targets the before band, +0.35 the after band, 0 the into (middle) band. */
-async function dragRowToRow(
-  page: Page,
-  fromName: string,
-  toName: string,
-  offsetFraction: number,
-) {
+async function dragRowToRow(page: Page, fromName: string, toName: string, offsetFraction: number) {
   const from = rowByName(page, fromName);
   await from.scrollIntoViewIfNeeded();
   const fromBox = await from.boundingBox();
@@ -185,9 +183,7 @@ test.describe('Layers Panel — real drag & drop', () => {
     expect(after.slice(-2)).toEqual([top, second]);
   });
 
-  test('escape-cancelled drag leaves order untouched and no stuck indicator', async ({
-    page,
-  }) => {
+  test('escape-cancelled drag leaves order untouched and no stuck indicator', async ({ page }) => {
     const names = await rowNames(page);
     const firstName = names[0];
     const secondName = names[1];
@@ -211,9 +207,7 @@ test.describe('Layers Panel — real drag & drop', () => {
 
     expect(await rowNames(page)).toEqual(names);
     const stuck = await page
-      .locator(
-        '.layers-row--drop-before, .layers-row--drop-after, .layers-row--drop-into',
-      )
+      .locator('.layers-row--drop-before, .layers-row--drop-after, .layers-row--drop-into')
       .count();
     expect(stuck).toBe(0);
   });

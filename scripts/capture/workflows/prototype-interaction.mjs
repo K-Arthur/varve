@@ -88,25 +88,25 @@ await capture({
     await settle(page);
 
     // ── Screen 1: Destination search ──
-    const searchScreen = await makeScreen(page, [0.10, 0.16], [0.36, 0.74]);
+    const searchScreen = await makeScreen(page, [0.1, 0.16], [0.36, 0.74]);
     await drawText(page, [0.13, 0.21], [0.33, 0.27], 'NORTHLINE TRAVEL');
-    await drawRect(page, [0.13, 0.30], [0.33, 0.46]);
+    await drawRect(page, [0.13, 0.3], [0.33, 0.46]);
     await drawText(page, [0.15, 0.33], [0.31, 0.39], 'KYOTO');
     await drawText(page, [0.13, 0.51], [0.33, 0.56], '5 nights · from ¥38,000');
     await makeButton(page, [0.13, 0.62], [0.33, 0.69], 'SEARCH STAYS', '#E27D60');
 
     // ── Screen 2: Ryokan details ──
-    const detailsScreen = await makeScreen(page, [0.40, 0.16], [0.66, 0.74]);
+    const detailsScreen = await makeScreen(page, [0.4, 0.16], [0.66, 0.74]);
     await drawText(page, [0.43, 0.21], [0.63, 0.27], 'NORTHLINE / KYOTO');
-    await drawRect(page, [0.43, 0.30], [0.63, 0.46]);
+    await drawRect(page, [0.43, 0.3], [0.63, 0.46]);
     await drawText(page, [0.45, 0.33], [0.61, 0.39], 'MIZU RYOKAN');
     await drawText(page, [0.43, 0.51], [0.63, 0.56], '¥42,800 · 4.9 ★');
     await makeButton(page, [0.43, 0.62], [0.63, 0.69], 'RESERVE ROOM', '#6E9A8A');
 
     // ── Screen 3: Booking confirmation ──
-    const confirmationScreen = await makeScreen(page, [0.70, 0.16], [0.92, 0.74]);
+    const confirmationScreen = await makeScreen(page, [0.7, 0.16], [0.92, 0.74]);
     await drawText(page, [0.73, 0.21], [0.89, 0.27], 'NORTHLINE / CONFIRM');
-    await drawRect(page, [0.73, 0.30], [0.89, 0.46]);
+    await drawRect(page, [0.73, 0.3], [0.89, 0.46]);
     await drawText(page, [0.75, 0.34], [0.87, 0.4], 'BOOKED');
     await drawText(page, [0.73, 0.51], [0.89, 0.56], 'Confirmation sent');
     await makeButton(page, [0.73, 0.62], [0.89, 0.69], 'VIEW ITINERARY', '#D9A441');
@@ -115,7 +115,11 @@ await capture({
     const screenNames = [searchScreen, detailsScreen, confirmationScreen];
     const roots = page.locator('[role="treeitem"][aria-level="1"]');
     for (const name of screenNames) {
-      assert.equal(await roots.filter({ hasText: new RegExp(`^${name}\\b`) }).count(), 1, `${name} screen missing`);
+      assert.equal(
+        await roots.filter({ hasText: new RegExp(`^${name}\\b`) }).count(),
+        1,
+        `${name} screen missing`,
+      );
     }
     assert.equal(await roots.count(), 3, 'travel flow needs three real frame screens');
     assert.ok(

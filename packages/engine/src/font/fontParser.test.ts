@@ -194,8 +194,7 @@ function makeFvarTable(
   const axesArrayOffset = 16;
   const axisSize = 20;
   const instanceSize = 4 + axes.length * 4;
-  const totalSize =
-    axesArrayOffset + axes.length * axisSize + namedInstances.length * instanceSize;
+  const totalSize = axesArrayOffset + axes.length * axisSize + namedInstances.length * instanceSize;
   const buffer = new ArrayBuffer(totalSize);
   const view = new DataView(buffer);
 

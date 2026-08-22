@@ -117,9 +117,7 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
         }
         editor.commitTransaction();
         editor.announce(
-          moveIds.length > 1
-            ? `Moved ${moveIds.length} layers to canvas`
-            : `Moved layer to canvas`,
+          moveIds.length > 1 ? `Moved ${moveIds.length} layers to canvas` : `Moved layer to canvas`,
         );
         return;
       }

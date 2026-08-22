@@ -554,11 +554,7 @@ assert.deepEqual(
 // validateRepoInvariants: Git LFS regression guard
 {
   const realErrors = validateRepoInvariants();
-  assert.deepEqual(
-    realErrors,
-    [],
-    `real repo invariants must pass: ${realErrors.join('; ')}`,
-  );
+  assert.deepEqual(realErrors, [], `real repo invariants must pass: ${realErrors.join('; ')}`);
 }
 
 // .gitattributes: no Git LFS (free-tier budget exhausted; models on release assets)

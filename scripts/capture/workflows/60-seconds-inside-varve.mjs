@@ -44,7 +44,8 @@ await capture({
     project: 'Kite / 01 — Mini brand launch kit',
     visualDirection: 'Full-bleed mountain photograph, teal identity card, editorial grid.',
     pacing: '58–62 seconds; each segment is a real application state.',
-    motionHandling: 'Reduced-motion capture shows the real prototype surface; provider-gated motion is disclosed in current-limitations.',
+    motionHandling:
+      'Reduced-motion capture shows the real prototype surface; provider-gated motion is disclosed in current-limitations.',
   },
 
   async sequence(ctx) {

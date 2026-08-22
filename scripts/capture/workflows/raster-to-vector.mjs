@@ -21,8 +21,8 @@ import {
   fitContent,
   importImage,
   layerNames,
-  nodeEditPoints,
   menuItem,
+  nodeEditPoints,
   openCleanEditor,
   parkPointer,
   selectLayer,
@@ -231,10 +231,7 @@ await capture({
     // traced path the anchors are wherever the tracer put them, so a guessed
     // position is even less likely to land on one.
     const points = await nodeEditPoints(page);
-    assert.ok(
-      points.anchors.length > 0,
-      'node edit mode exposed no anchors on the traced path',
-    );
+    assert.ok(points.anchors.length > 0, 'node edit mode exposed no anchors on the traced path');
     assertions.push(`the traced path exposes ${points.anchors.length} editable anchors`);
 
     // Pick the anchor furthest from the path's centre: on a traced outline the

@@ -17,7 +17,8 @@ import { capture } from '../core/run.mjs';
 await capture({
   slug: 'light-dark-ui',
   workflow: 'Same project in light/dark UI',
-  purpose: 'One editorial magazine spread stays identical while Varve chrome changes from light to dark.',
+  purpose:
+    'One editorial magazine spread stays identical while Varve chrome changes from light to dark.',
   duration: [12, 18],
   fixture: null,
 
@@ -27,7 +28,7 @@ await capture({
     await openCleanEditor(page, base);
     await settle(page);
     await useTool(page, 'f');
-    await dragAt(page, [0.16, 0.18], [0.84, 0.80], { steps: 14, settleMs: 220 });
+    await dragAt(page, [0.16, 0.18], [0.84, 0.8], { steps: 14, settleMs: 220 });
     await useTool(page, 'r');
     await dragAt(page, [0.22, 0.28], [0.78, 0.62], { steps: 12, settleMs: 220 });
     await useTool(page, 't');
@@ -45,18 +46,21 @@ await capture({
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const canvasBounds = await canvas.boundingBox();
     if (!canvasBounds) throw new Error('content canvas not found');
-    const lightArtwork = await page.evaluate((clip) => {
-      const canvas = document.querySelector('canvas.editor-canvas__content-layer');
-      const context = canvas?.getContext('2d');
-      if (!canvas || !context) throw new Error('canvas pixels unavailable');
-      const image = context.getImageData(clip.x, clip.y, clip.width, clip.height);
-      return Array.from(image.data);
-    }, {
-      x: Math.round(canvasBounds.width * 0.25),
-      y: Math.round(canvasBounds.height * 0.25),
-      width: Math.round(canvasBounds.width * 0.5),
-      height: Math.round(canvasBounds.height * 0.45),
-    });
+    const lightArtwork = await page.evaluate(
+      (clip) => {
+        const canvas = document.querySelector('canvas.editor-canvas__content-layer');
+        const context = canvas?.getContext('2d');
+        if (!canvas || !context) throw new Error('canvas pixels unavailable');
+        const image = context.getImageData(clip.x, clip.y, clip.width, clip.height);
+        return Array.from(image.data);
+      },
+      {
+        x: Math.round(canvasBounds.width * 0.25),
+        y: Math.round(canvasBounds.height * 0.25),
+        width: Math.round(canvasBounds.width * 0.5),
+        height: Math.round(canvasBounds.height * 0.45),
+      },
+    );
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
 
     begin();
@@ -65,25 +69,30 @@ await capture({
     await chooseTheme(page, 'Dark');
     await settle(page);
     const darkZoom = await currentZoom(page);
-    const darkArtwork = await page.evaluate((clip) => {
-      const canvas = document.querySelector('canvas.editor-canvas__content-layer');
-      const context = canvas?.getContext('2d');
-      if (!canvas || !context) throw new Error('canvas pixels unavailable');
-      const image = context.getImageData(clip.x, clip.y, clip.width, clip.height);
-      return Array.from(image.data);
-    }, {
-      x: Math.round(canvasBounds.width * 0.25),
-      y: Math.round(canvasBounds.height * 0.25),
-      width: Math.round(canvasBounds.width * 0.5),
-      height: Math.round(canvasBounds.height * 0.45),
-    });
+    const darkArtwork = await page.evaluate(
+      (clip) => {
+        const canvas = document.querySelector('canvas.editor-canvas__content-layer');
+        const context = canvas?.getContext('2d');
+        if (!canvas || !context) throw new Error('canvas pixels unavailable');
+        const image = context.getImageData(clip.x, clip.y, clip.width, clip.height);
+        return Array.from(image.data);
+      },
+      {
+        x: Math.round(canvasBounds.width * 0.25),
+        y: Math.round(canvasBounds.height * 0.25),
+        width: Math.round(canvasBounds.width * 0.5),
+        height: Math.round(canvasBounds.height * 0.45),
+      },
+    );
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
     assert.equal(darkZoom, lightZoom, 'theme switch changed the camera zoom');
     const background = lightArtwork.slice(0, 4);
     let foreground = 0;
     let mismatched = 0;
     for (let i = 0; i < lightArtwork.length; i += 4) {
-      const isForeground = lightArtwork.slice(i, i + 4).some((value, channel) => value !== background[channel]);
+      const isForeground = lightArtwork
+        .slice(i, i + 4)
+        .some((value, channel) => value !== background[channel]);
       if (!isForeground) continue;
       foreground += 1;
       for (let channel = 0; channel < 4; channel += 1) {
@@ -94,8 +103,13 @@ await capture({
       }
     }
     assert.ok(foreground > 100, 'paired theme crop contains no artwork pixels');
-    assert.ok(mismatched / foreground < 0.01, `document artwork changed for ${mismatched}/${foreground} foreground pixels`);
-    assertions.push('real View → Theme → Dark changed application chrome while the canvas crop stayed pixel-identical');
+    assert.ok(
+      mismatched / foreground < 0.01,
+      `document artwork changed for ${mismatched}/${foreground} foreground pixels`,
+    );
+    assertions.push(
+      'real View → Theme → Dark changed application chrome while the canvas crop stayed pixel-identical',
+    );
     await beat(page, 2200);
     await chooseTheme(page, 'Light');
     await settle(page);
@@ -106,5 +120,7 @@ await capture({
     await parkPointer(page);
     return assertions;
   },
-  metadata: { productTruth: 'theme control mutates UI tokens only; project scene/camera are unchanged' },
+  metadata: {
+    productTruth: 'theme control mutates UI tokens only; project scene/camera are unchanged',
+  },
 });

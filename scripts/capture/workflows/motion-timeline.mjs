@@ -16,7 +16,8 @@ import { capture } from '../core/run.mjs';
 await capture({
   slug: 'motion-timeline',
   workflow: 'Motion timeline',
-  purpose: 'A kinetic editorial title card is keyed, scrubbed, dragged and played in the real timeline.',
+  purpose:
+    'A kinetic editorial title card is keyed, scrubbed, dragged and played in the real timeline.',
   duration: [22, 32],
   authoredMotion: true,
   fixture: null,
@@ -28,9 +29,9 @@ await capture({
     await settle(page);
 
     await useTool(page, 'r');
-    await dragAt(page, [0.24, 0.30], [0.48, 0.56], { steps: 12, settleMs: 220 });
+    await dragAt(page, [0.24, 0.3], [0.48, 0.56], { steps: 12, settleMs: 220 });
     await useTool(page, 't');
-    await dragAt(page, [0.18, 0.20], [0.74, 0.28], { steps: 12, settleMs: 120 });
+    await dragAt(page, [0.18, 0.2], [0.74, 0.28], { steps: 12, settleMs: 120 });
     const editor = page.getByRole('textbox', { name: /editing text/i });
     await editor.fill('KINETIC WEATHER');
     await editor.press('Escape');
@@ -43,7 +44,10 @@ await capture({
     await page.keyboard.press('Control+Shift+5');
     const timeline = page.locator('.timeline-panel');
     await timeline.waitFor({ state: 'visible', timeout: 10000 });
-    await timeline.getByRole('button', { name: /Create timeline/i }).first().click();
+    await timeline
+      .getByRole('button', { name: /Create timeline/i })
+      .first()
+      .click();
     await page.waitForTimeout(700);
     await timeline.getByRole('combobox', { name: 'Select timeline' }).waitFor({ state: 'visible' });
     begin();
@@ -73,7 +77,11 @@ await capture({
     await dragAt(page, [0.36, 0.42], [0.58, 0.34], { steps: 16, settleMs: 250 });
     await page.keyboard.press('Alt+p');
     await page.waitForTimeout(600);
-    assert.notEqual(Buffer.compare(beforeMove, await canvasPixels(page)), 0, 'keyed transform did not render');
+    assert.notEqual(
+      Buffer.compare(beforeMove, await canvasPixels(page)),
+      0,
+      'keyed transform did not render',
+    );
     keys = timeline.locator('.timeline-track-row__keyframe');
     assert.ok((await keys.count()) >= 2, 'second position keyframe was not created');
     assertions.push('second position keyframe stores the moved editorial geometry');
@@ -92,8 +100,14 @@ await capture({
     await page.mouse.up();
     await page.waitForTimeout(700);
     const movedLabel = await keys.nth(1).getAttribute('aria-label');
-    assert.notEqual(movedLabel, secondLabel, 'dragging a keyframe did not change its authored progress');
-    assertions.push(`dragging the keyframe changed its real timeline position (${secondLabel} → ${movedLabel})`);
+    assert.notEqual(
+      movedLabel,
+      secondLabel,
+      'dragging a keyframe did not change its authored progress',
+    );
+    assertions.push(
+      `dragging the keyframe changed its real timeline position (${secondLabel} → ${movedLabel})`,
+    );
     await beat(page, 900);
 
     await timeline.getByRole('button', { name: 'Play' }).click();
@@ -109,5 +123,7 @@ await capture({
     await beat(page, 1200);
     return assertions;
   },
-  metadata: { productTruth: 'MotionFacade/TimelineSampler drive the canvas; no capture-only CSS animation' },
+  metadata: {
+    productTruth: 'MotionFacade/TimelineSampler drive the canvas; no capture-only CSS animation',
+  },
 });

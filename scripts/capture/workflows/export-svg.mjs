@@ -137,9 +137,7 @@ await capture({
     // ── Capture the file the application produces ──────────────────
     const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
     // Labelled "Download SVG" in the browser and "Export SVG" under Tauri.
-    const exportBtn = page
-      .getByRole('button', { name: /^(?:download|export)\s+svg$/i })
-      .first();
+    const exportBtn = page.getByRole('button', { name: /^(?:download|export)\s+svg$/i }).first();
     await exportBtn.waitFor({ state: 'visible', timeout: 8000 });
     await exportBtn.click();
 
@@ -148,9 +146,7 @@ await capture({
     const saved = join(ARTIFACT_DIR, 'export-svg-icon-set.svg');
     await download.saveAs(saved);
     const svg = (await import('node:fs')).readFileSync(saved, 'utf8');
-    assertions.push(
-      `export produced ${download.suggestedFilename()} (${svg.length} bytes)`,
-    );
+    assertions.push(`export produced ${download.suggestedFilename()} (${svg.length} bytes)`);
     await beat(page, 2800);
 
     // ── Validate the artefact ──────────────────────────────────────
