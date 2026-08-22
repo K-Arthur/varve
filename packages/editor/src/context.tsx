@@ -8620,7 +8620,7 @@ export function EditorProvider({
             (!options.nodeId && !current.selection.includes(processingNodeId)) ||
             current.document.nodes[processingNodeId] !== imageNode
           )
-            return;
+            throw new Error('stale-result: source changed before processing completed');
 
           const fill = getImageFill(imageNode);
           const currentFill =
@@ -8828,7 +8828,7 @@ export function EditorProvider({
             !current.selection.includes(processingNodeId) ||
             current.document.nodes[processingNodeId] !== imageNode
           )
-            return;
+            throw new Error('stale-result: source changed before processing completed');
 
           // Live trace mode: generate a trace group at the source's position,
           // hide the source, and link the group via the source's liveTrace state.
