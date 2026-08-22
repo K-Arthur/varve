@@ -21,9 +21,43 @@ export interface FontEntry {
   url?: string;
   /** Variable font axis values (e.g. { wght: 500, wdth: 75, slnt: 0, opsz: 14 }). */
   variableAxes?: Record<string, number>;
+  /**
+   * Axis definitions read from the font's own `fvar` table — the tags it
+   * actually varies and the bounds it varies them between.
+   *
+   * Distinct from `variableAxes`, which holds chosen *values*. Ranges cannot
+   * be recovered from values, and the generic per-tag table below is only a
+   * fallback: real families disagree with it constantly (IBM Plex Sans stops
+   * at wght 700, Fraunces defaults opsz to 9 rather than 14).
+   */
+  axisDefinitions?: VariableAxisInfo[];
 }
 
 export type FontLoadState = 'unknown' | 'loading' | 'loaded' | 'error';
+
+/**
+ * Axis definitions for the variable fonts the desktop app bundles, read from
+ * the `fvar` tables of the exact payloads `apps/desktop/src/main.tsx` imports.
+ *
+ * These families were registered as plain bundled fonts with no axis data at
+ * all, so `isVariable()` reported false for every one of them and the
+ * inspector's Variable Font Axes panel — which returns null when the family
+ * is not variable — could never appear, on any document, for any font the
+ * application ships.
+ *
+ * Only axes present in the specific subset that is loaded belong here: the
+ * Fraunces import is the `opsz` build (optical size + weight), not `full`, so
+ * SOFT and WONK are deliberately absent. fontRegistry.bundledAxes.test.ts
+ * re-reads the woff2 files and fails if any of this drifts.
+ */
+const BUNDLED_VARIABLE_AXES: Record<string, VariableAxisInfo[]> = {
+  'Geist Variable': [{ tag: 'wght', name: 'Weight', min: 100, default: 400, max: 900 }],
+  'IBM Plex Sans Variable': [{ tag: 'wght', name: 'Weight', min: 100, default: 400, max: 700 }],
+  'Fraunces Variable': [
+    { tag: 'opsz', name: 'Optical Size', min: 9, default: 9, max: 144 },
+    { tag: 'wght', name: 'Weight', min: 100, default: 900, max: 900 },
+  ],
+};
 
 const DEFAULT_FONTS: FontEntry[] = [
   { family: 'IBM Plex Sans Variable', weight: 400, style: 'normal', source: 'bundled' },
@@ -115,7 +149,12 @@ export class FontRegistry {
   /** Register a font entry (e.g., from system enumeration or Google Fonts API). */
   register(entry: FontEntry): void {
     const existing = this.entries.get(entry.family) ?? [];
-    existing.push(entry);
+    // Bundled variable families carry their fvar axes even when the caller
+    // did not spell them out, so the inspector can offer them.
+    const bundled = BUNDLED_VARIABLE_AXES[entry.family];
+    existing.push(
+      bundled && !entry.axisDefinitions ? { ...entry, axisDefinitions: bundled } : entry,
+    );
     this.entries.set(entry.family, existing);
     this._revision++;
   }
@@ -166,9 +205,41 @@ export class FontRegistry {
     return undefined;
   }
 
-  /** Get known standard axis info for a given axis tag. */
-  getAxisInfo(tag: string): VariableAxisInfo | undefined {
+  /**
+   * Axis definitions this family actually declares, in `fvar` order.
+   *
+   * Prefer this over `getVariableAxes`, which returns chosen values and so
+   * cannot describe the range a control should span.
+   */
+  getAxisDefinitions(family: string): VariableAxisInfo[] | undefined {
+    for (const entry of this.entries.get(family) ?? []) {
+      if (entry.axisDefinitions?.length) return entry.axisDefinitions;
+    }
+    return undefined;
+  }
+
+  /**
+   * Axis info for a tag, preferring what `family` really declares.
+   *
+   * Without a family this can only answer from the generic table, whose
+   * bounds are a superset of what any one font supports — offering a wght
+   * slider up to 1000 for a face that stops at 700 invites values the
+   * renderer will clamp.
+   */
+  getAxisInfo(tag: string, family?: string): VariableAxisInfo | undefined {
+    if (family) {
+      const declared = this.getAxisDefinitions(family)?.find((a) => a.tag === tag);
+      if (declared) return declared;
+    }
     return STANDARD_AXES[tag];
+  }
+
+  /** Record axis definitions parsed from a font binary at runtime. */
+  registerAxisDefinitions(family: string, axes: VariableAxisInfo[]): void {
+    const entries = this.entries.get(family);
+    if (!entries?.length || axes.length === 0) return;
+    for (const entry of entries) entry.axisDefinitions = axes;
+    this._revision++;
   }
 
   /** Get all standard axis definitions. */
@@ -408,7 +479,7 @@ export class FontRegistry {
   variableFamilies(): string[] {
     const result: string[] = [];
     for (const [family, entries] of this.entries) {
-      if (entries.some((e) => e.variableAxes)) {
+      if (entries.some((e) => e.variableAxes || e.axisDefinitions?.length)) {
         result.push(family);
       }
     }
@@ -419,7 +490,7 @@ export class FontRegistry {
   isVariable(family: string): boolean {
     const entries = this.entries.get(family);
     if (!entries) return false;
-    return entries.some((e) => e.variableAxes);
+    return entries.some((e) => e.variableAxes || e.axisDefinitions?.length);
   }
 
   /** Get available font entries as a Set of family names (for preflight). */

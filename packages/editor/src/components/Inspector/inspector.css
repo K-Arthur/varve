@@ -1851,6 +1851,32 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Per-axis reset for variable fonts. Disabled while the axis already sits at
+   the font's own default, so the control states what the value is as well as
+   offering to change it. */
+.insp-slider__reset {
+  flex: none;
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.insp-slider__reset:hover:not(:disabled) {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+.insp-slider__reset:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: 1px;
+}
+.insp-slider__reset:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* ---------- Intelligence Panel ---------- */
 .intelligence-panel {
   display: flex;

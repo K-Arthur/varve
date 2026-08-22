@@ -564,16 +564,6 @@ interface VariableAxesSectionProps {
 function VariableAxesSection({ textNodes, familyRaw, batchUpdate }: VariableAxesSectionProps) {
   const registry = getFontRegistry();
   const family = isMixed(familyRaw) ? '' : familyRaw;
-  const isVariable = family ? registry.isVariable(family) : false;
-  const allAxes = registry.getAllAxes();
-
-  const currentAxes = commonValue(textNodes, (n) => (n as TextNode).variableAxes ?? {});
-  const axesMap = isMixed(currentAxes) ? {} : currentAxes;
-
-  if (!isVariable) return null;
-
-  const familyAxes = registry.getVariableAxes(family);
-  const activeAxisTags = familyAxes ? Object.keys(familyAxes) : allAxes.map((a) => a.tag);
 
   const setAxis = useCallback(
     (tag: string, value: number) => {
@@ -585,6 +575,34 @@ function VariableAxesSection({ textNodes, familyRaw, batchUpdate }: VariableAxes
     [batchUpdate],
   );
 
+  const resetAxis = useCallback(
+    (tag: string) => {
+      batchUpdate((n) => {
+        const next = { ...(n.variableAxes ?? {}) };
+        delete next[tag];
+        return { ...n, variableAxes: next };
+      });
+    },
+    [batchUpdate],
+  );
+
+  const currentAxes = commonValue(textNodes, (n) => (n as TextNode).variableAxes ?? {});
+  const axesMap = isMixed(currentAxes) ? {} : currentAxes;
+
+  // Every hook above runs unconditionally: this early return used to sit
+  // ahead of the callbacks, so the hook count changed the moment a selection
+  // moved between a variable and a static family.
+  if (!family || !registry.isVariable(family)) return null;
+
+  // Only the axes this family declares. Falling back to the full generic tag
+  // list offered sliders for axes the font does not vary — dragging them
+  // wrote variation settings the shaper simply ignored.
+  const definitions = registry.getAxisDefinitions(family);
+  const activeAxisTags = definitions
+    ? definitions.map((a) => a.tag)
+    : Object.keys(registry.getVariableAxes(family) ?? {});
+  if (activeAxisTags.length === 0) return null;
+
   return (
     <DisclosureSection
       title="Variable Font Axes"
@@ -593,9 +611,14 @@ function VariableAxesSection({ textNodes, familyRaw, batchUpdate }: VariableAxes
       defaultExpanded={false}
     >
       {activeAxisTags.map((tag) => {
-        const info = registry.getAxisInfo(tag);
+        const info = registry.getAxisInfo(tag, family);
         if (!info) return null;
         const value = axesMap[tag] ?? info.default;
+        const isDefault = value === info.default;
+        // Integral axes (wght, ital) should not land on fractional values;
+        // a fixed 1/100th-of-range step put wght on 92.8 for a 100-900 face.
+        const span = info.max - info.min;
+        const step = span >= 100 ? 1 : span / 100;
         return (
           <div key={tag} className="insp-field">
             <label className="insp-field__label" htmlFor={`vf-${tag}`}>
@@ -609,15 +632,27 @@ function VariableAxesSection({ textNodes, familyRaw, batchUpdate }: VariableAxes
                   className="insp-slider__input"
                   min={info.min}
                   max={info.max}
-                  step={(info.max - info.min) / 100}
+                  step={step}
                   value={value}
                   onChange={(e) => setAxis(tag, Number(e.target.value))}
-                  aria-label={info.name}
+                  aria-label={`${info.name} (${tag})`}
                   aria-valuemin={info.min}
                   aria-valuemax={info.max}
                   aria-valuenow={value}
                 />
-                <span className="insp-slider__value">{value}</span>
+                <span className="insp-slider__value" data-axis={tag}>
+                  {Number.isInteger(value) ? value : value.toFixed(1)}
+                </span>
+                <button
+                  type="button"
+                  className="insp-slider__reset"
+                  onClick={() => resetAxis(tag)}
+                  disabled={isDefault}
+                  title={`Reset ${info.name} to ${info.default}`}
+                  aria-label={`Reset ${info.name} to default`}
+                >
+                  Reset
+                </button>
               </div>
             </div>
           </div>
