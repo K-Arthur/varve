@@ -77,6 +77,7 @@ await capture({
     // deriving the second layer's name by diffing the tree is fragile when
     // both entries' text changes as the tree grows. The menu command is
     // unambiguous and visible in the clip.
+    const beforeAttach = await canvasPixels(page);
     const selectAll = await menuItem(page, 'Edit', 'Select All');
     await selectAll.click();
     await page.waitForTimeout(600);
@@ -118,6 +119,17 @@ await capture({
     await fitContent(page);
     await parkPointer(page);
     await settle(page);
+
+    // Attaching must change what is on screen: the glyphs leave their own
+    // position and take station around the curve. Asserting it here names the
+    // problem at the attach, rather than three steps later when the offset
+    // appears to do nothing.
+    assert.notEqual(
+      Buffer.compare(beforeAttach, await canvasPixels(page)),
+      0,
+      'attaching did not change the canvas — the glyphs are not being drawn on the path',
+    );
+    assertions.push('attaching moves the glyphs onto the curve');
     if (!(await offset.isVisible({ timeout: 8000 }).catch(() => false))) {
       // The handler announces either what it attached to or what it wanted
       // and did not get. Reading that back beats inferring from the absence
