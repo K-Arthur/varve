@@ -42,6 +42,8 @@ interface UseUpscaleDialogReturn {
     denoiseStrength: DenoiseStrength;
     pixelArtAlgorithm?: PixelArtAlgorithm;
     onProgress: UpscaleProgressFn;
+    /** Explicit target node for batch enhancement. */
+    nodeId?: string;
   }) => Promise<void>;
 }
 
@@ -83,6 +85,8 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
       denoiseStrength: DenoiseStrength;
       pixelArtAlgorithm?: PixelArtAlgorithm;
       onProgress: UpscaleProgressFn;
+      /** Explicit target node for batch enhancement. */
+      nodeId?: string;
     }) => {
       const method =
         options.mode === 'ai-enhance' || options.mode === 'illustration'
@@ -111,6 +115,7 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
         qualityPolicy: options.qualityPolicy,
         onProgress: options.onProgress,
         replaceSource: options.output === 'replace-source',
+        nodeId: options.nodeId,
       });
     },
     [upscaleSelectedImage],

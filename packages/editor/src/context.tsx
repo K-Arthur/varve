@@ -8492,7 +8492,15 @@ export function EditorProvider({
       },
 
       upscaleSelectedImage: async (options) => {
-        const imageNode = selectedImageShape(state.document, state.selection);
+        // Explicit nodeId (batch enhancement) takes precedence over selection.
+        const imageNode = options.nodeId
+          ? (() => {
+              const node = state.document.nodes[options.nodeId!];
+              return node && node.kind === 'shape' && isImageShape(node)
+                ? (node as import('@varve/scene').ShapeNode)
+                : null;
+            })()
+          : selectedImageShape(state.document, state.selection);
         if (!imageNode) {
           announcerRef.current?.announce('Select an image layer first');
           return;
@@ -8604,8 +8612,12 @@ export function EditorProvider({
           outputContext.putImageData(outputImage, 0, 0);
           const dataUrl = outputCanvas.toDataURL('image/png');
           const current = stateRef.current;
+          // Stale-result protection: the source must still exist and be the
+          // same node we started from. For batch enhancement (explicit
+          // nodeId) selection membership is not required — the user may
+          // legitimately change selection while a queue runs.
           if (
-            !current.selection.includes(processingNodeId) ||
+            (!options.nodeId && !current.selection.includes(processingNodeId)) ||
             current.document.nodes[processingNodeId] !== imageNode
           )
             return;

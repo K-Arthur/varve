@@ -33,6 +33,16 @@ export function selectedImageShape(doc: Document, selection: NodeId[]): ShapeNod
   return null;
 }
 
+/** All image shapes in the current selection, in selection order. */
+export function selectedImageShapes(doc: Document, selection: NodeId[]): ShapeNode[] {
+  const shapes: ShapeNode[] = [];
+  for (const id of selection) {
+    const node = doc.nodes[id];
+    if (node?.kind === 'shape' && isImageShape(node)) shapes.push(node);
+  }
+  return shapes;
+}
+
 function insertAfter(
   doc: Document,
   sourceId: NodeId,

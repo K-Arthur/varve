@@ -48,6 +48,13 @@ export interface UpscaleOptions {
   output?: 'new-layer' | 'replace-source' | 'non-destructive';
   /** Restoration quality policy — faithful preserves detail, balanced allows stronger reconstruction. */
   qualityPolicy?: 'faithful' | 'balanced';
+  /**
+   * Explicit target node id for batch enhancement. When set, overrides the
+   * current selection so callers can process many images sequentially.
+   * The stale-result check then verifies only that this node still exists
+   * with the same pixels (selection membership is not required).
+   */
+  nodeId?: string;
 }
 
 /** Default bundled Real-ESRGAN model used by the shared worker path. */
