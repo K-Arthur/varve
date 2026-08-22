@@ -53,18 +53,6 @@ await capture({
   purpose: 'A current, evidence-backed status reel. It is not a bug-hunting performance.',
   fixture: null,
   duration: [40, 65],
-  initScripts: [
-    () => {
-      try {
-        localStorage.setItem(
-          'varve-editor-settings',
-          JSON.stringify({ performance: { showPerformanceDiagnostics: true } }),
-        );
-      } catch {
-        /* diagnostics remain optional if storage is unavailable */
-      }
-    },
-  ],
   metadata: () => ({
     limitationsReport: report,
     stalePolicy: 'Capture fails if any evidence file/anchor disappears or the count is not five.',
@@ -77,7 +65,10 @@ await capture({
     const { page, base, begin } = ctx;
     report = auditLimitations(ROOT);
     const assertions = [];
-    await openCleanEditor(page, base, { query: '?perf=1' });
+    // This is a public status reel, not an engineering diagnostics clip: the
+    // evidence captions are the source of truth, so the development HUD must
+    // stay out of the delivered artwork.
+    await openCleanEditor(page, base);
     await activateTool(page, 'r');
     await dragAt(page, [0.12, 0.2], [0.42, 0.55]);
     await activateTool(page, 'o');
