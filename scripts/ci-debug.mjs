@@ -71,7 +71,14 @@ const FAILURE_PATTERNS = [
   /CMake Error/i,
 ];
 
-const IGNORED_PATTERNS = [/\bgit\s+status\b.*clean/i, /\+\s*exit\s+0/i, /\bgit\s+config\b/i];
+const IGNORED_PATTERNS = [
+  /\bgit\s+status\b.*clean/i,
+  /\+\s*exit\s+0/i,
+  /\bgit\s+config\b/i,
+  // GitHub includes the action's shell source in the log before executing it.
+  // Do not mistake a printf/echo template for the annotation emitted later.
+  /(?:printf|echo)\s+['"]?::error::/i,
+];
 
 // Job-level annotations that mean "the job never started" (infrastructure
 // block), not a code or test failure. GitHub emits this when the account

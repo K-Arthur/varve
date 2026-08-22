@@ -66,6 +66,10 @@ assertTrue(!isFailureLine('  + exit 0'), 'should ignore exit 0');
 assertTrue(!isFailureLine('git status clean'), 'should ignore clean status');
 assertTrue(!isFailureLine(''), 'should ignore empty line');
 assertTrue(!isFailureLine('Everything is fine'), 'should ignore plain text');
+assertTrue(
+  !isFailureLine('  printf \'::error::install-action: %s\\n\' "$*"'),
+  'should ignore action source that prints an error annotation',
+);
 
 // Rank priority: generic error (index 1) outranks panic (index 5)
 assertTrue(
@@ -94,6 +98,18 @@ assertTrue(
   'snippet should include failing line',
 );
 assertTrue(hits[0].snippet.includes('at some_function'), 'context should include following line');
+
+const actionSourceLog = [
+  '  printf \'::error::install-action: %s\\n\' "$*"',
+  '::error::File content differs from formatting output',
+].join('\n');
+const actionSourceHits = extractFailures(actionSourceLog, 0);
+assert.strictEqual(actionSourceHits.length, 1, 'action source must not create a false failure hit');
+assert.strictEqual(
+  actionSourceHits[0].text,
+  '::error::File content differs from formatting output',
+  'the extracted hit should point to the actual annotated failure',
+);
 
 // GitHub prefixes run-archive job filenames with a numeric index. The report
 // must recognise that indexed filename as the same job before adding a false

@@ -2,6 +2,23 @@
 
 This document describes the hardened GitHub Actions pipeline, the automated failure-debug tooling, and the local runner parity setup for the Varve monorepo.
 
+## Resilience benchmark decisions
+
+The current design follows the documented behavior of the platform and its
+local-runner ecosystem:
+
+- GitHub's [workflow-run REST API](https://docs.github.com/en/rest/actions/workflow-runs) provides the log archive and per-job fallback used by `ci-debug.mjs`.
+- GitHub's [workflow commands](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands) make `GITHUB_STEP_SUMMARY` the concise human-facing failure surface; raw logs remain available as artifacts.
+- `actions/setup-node` and `actions/setup-python` key package caches from committed lock/requirements files. The [dependency-caching guidance](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching) treats caches as isolated, disposable acceleration rather than build inputs.
+- GitHub's [concurrency model](https://docs.github.com/en/actions/concepts/workflows-and-actions/concurrency) and matrix limits inform the per-workflow groups and `max-parallel` caps in this repository.
+- `act` is useful for graph and container-local execution, but its [runner documentation](https://github.com/nektos/act-docs/blob/main/src/usage/runners.md) warns that container images are not identical to hosted runners. The wrapper therefore verifies the parser version and the CI gates remain authoritative.
+
+The project does not need a self-hosted Kubernetes runner pool today. GitHub's
+[Actions Runner Controller](https://github.com/actions/actions-runner-controller)
+is the scale-set reference if hosted capacity becomes a sustained constraint;
+until then, bounded matrices and cancellation avoid turning transient capacity
+incidents into a repository-wide queue.
+
 ## Hardened workflows
 
 All workflows live in `.github/workflows/` and share the following hardening rules:
@@ -13,7 +30,7 @@ All workflows live in `.github/workflows/` and share the following hardening rul
 - **Install `just` via `taiki-e/install-action`** (`tool: just@1.54.0`) before any `just` recipe runs — GitHub-hosted runners do not ship `just`.
 - **Add `rustup target add`** steps for macOS and Windows so `tauri build` can compile on the default `macos-latest` (Apple Silicon) and `windows-latest` runners.
 - **Declare explicit least-privilege `permissions:` blocks** (top-level and per job). Workflows that run the API-backed failure extractor grant only `actions: read` in addition to `contents: read`; `website-deploy.yml` uses `pages: write` + `id-token: write` for GitHub Pages; `release.yml` scopes `contents: write` to the draft/publish jobs only. v4 `upload-artifact`/`download-artifact` need no `actions:` scope.
-- **Add `if: failure()` debug steps** to long-running workflows (`build.yml`, `ci-smoke.yml`, `e2e-keyboard-nav.yml` run `scripts/ci-debug.mjs` and upload a `ci-debug-report.md` artifact). The separate `ci-debug.yml` workflow covers the remaining pipelines via `workflow_run` (see the table below).
+- **Add `if: failure()` debug steps** to long-running workflows (`build.yml`, `ci-smoke.yml`, `e2e-keyboard-nav.yml` run `scripts/ci-debug.mjs` and upload a `ci-debug-report.md` artifact). The separate `ci-debug.yml` workflow covers the remaining pipelines via `workflow_run` (see the table below). The smoke workflow also runs the simulated extractor scenario, so report generation is tested before it is needed.
 
 | Workflow | Trigger | Notes |
 |---|---|---|
@@ -40,7 +57,7 @@ Every `ci.yml` run includes the `pipeline-validate` job, which:
 6. `node scripts/security/workflow-policy.mjs` + `workflow-policy.test.mjs` — signing-secret scoping and PR-safe release enforcement.
 7. `node scripts/security/validate-client-env.mjs` (website + desktop) + regression tests — client-side env guard.
 8. `node scripts/security/import-boundaries.mjs` + regression tests — package import-boundary audit.
-9. `node scripts/ci-debug.test.mjs` + `ci-health.test.mjs` + `pin-github-actions.test.mjs` — extractor + pin-table regression.
+9. `node scripts/ci-debug.test.mjs` + `node scripts/test-ci-debug.mjs` + `ci-health.test.mjs` + `pin-github-actions.test.mjs` — extractor, simulated log, and pin-table regression.
 10. `bash scripts/test-ci-shell-scripts.sh` — CI shell-script TDD assertions.
 
 This job would have caught the 2026-08-01 outage, where every workflow was pinned to fabricated SHAs.
@@ -67,7 +84,7 @@ The script:
 3. Fetches workflow metadata and check-run annotations, then downloads the run log archive.
 4. Falls back to the per-job logs API when the archive is expired, unavailable, or missing a job. Requests are bounded at 30 seconds so a GitHub API incident cannot hang the debug job indefinitely.
 5. Extracts high-priority failure patterns (errors, panics, test failures, exit codes, `##[error]` annotations, unresolvable action refs, etc.) and redacts credential-shaped values.
-6. Writes a Markdown report, appends the same report to `GITHUB_STEP_SUMMARY`, and includes local reproduction commands. Indexed archive filenames are matched to job metadata so a valid log is never mislabeled as missing.
+6. Ignores shell source lines that merely print `::error::` templates, writes a Markdown report, appends the same report to `GITHUB_STEP_SUMMARY`, and includes local reproduction commands. Indexed archive filenames are matched to job metadata so a valid log is never mislabeled as missing.
 
 In CI, failure-debug coverage is layered: `build.yml`, `ci-smoke.yml`, and
 `e2e-keyboard-nav.yml` run `scripts/ci-debug.mjs` inline (`if: failure()`)
@@ -209,7 +226,7 @@ just ci-health --runs 20       # runs show STUCK / INFRA (runner-unavailable)
 
 ## Local runner parity with `act`
 
-Install `act` (full job execution requires a container engine — Docker or podman):
+Install `act` 0.2.89 or newer (full job execution requires a container engine — Docker or podman). This minimum is intentional: the workflows use Node 24 actions and older `act` releases reject them during dry-run.
 
 ```bash
 # Arch / CachyOS
@@ -219,9 +236,11 @@ yay -S act docker      # or paru; podman is an alternative to docker
 ```
 
 `act --list` and `act -n` (dry-run) work **without** a container engine — they
-only parse the workflows and print the job graph. So `just act-list` and
-`just act-dry` are usable even while Docker is unavailable; only `just act-run`
-needs a running engine.
+only parse the workflows and print the job graph. The Varve wrapper checks the
+minimum version before invoking either mode, so an outdated Arch package fails
+with an upgrade instruction instead of an opaque `runs.using=node24` error.
+`just act-list` and `just act-dry` are usable while Docker is unavailable; only
+`just act-run` needs a running engine.
 
 List workflows/jobs:
 
@@ -272,6 +291,7 @@ The pipeline tooling is covered by TDD assertions that run as part of `pnpm test
 - `node scripts/security/dependency-hardening.test.mjs` — transitive security overrides,
   the patched archive extractor, and lockfile patch integrity.
 - `bash scripts/test-ci-shell-scripts.sh` — shell assertions on `ci-local-run.sh` dispatch, act-missing detection, secrets stub, and `bash -n` syntax for every CI shell script and git hook.
+- The same shell suite rejects `act` versions below 0.2.89 and verifies that `--check` reports the Node 24 compatibility requirement.
 
 Run them directly with:
 
@@ -331,6 +351,46 @@ The local environment matches CI closely:
 - `gh` is required for the debug tools; install with `bash scripts/install-ci-tooling.sh` (also installs `act` and Docker).
 
 ## Troubleshooting
+
+### The smoke workflow fails at `Format check`
+
+Run the formatter against the reported files and then verify the complete tree:
+
+```bash
+pnpm exec biome check --write --formatter-enabled=true --linter-enabled=false <reported-files>
+just format-check
+```
+
+The debug report points to the first real formatter annotation and ignores the
+action source line that prints the annotation template.
+
+### Linux package metadata validation fails on AppImage, deb, or rpm
+
+`apps/desktop/src-tauri/tauri.conf.json` must map
+`linux/dev.varve.desktop.metainfo.xml` to
+`/usr/share/metainfo/dev.varve.desktop.metainfo.xml` under every Linux target.
+Run `node scripts/release/linux-package-metadata.test.mjs` before rebuilding.
+
+### Build fails with one shared TypeScript error on every operating system
+
+The frontend gate runs before native compilation, so one editor typecheck
+error fans out to Linux, macOS, and Windows jobs. Run the exact package
+typecheck locally first (`pnpm --filter @varve/editor typecheck`), fix the
+shared source/test contract, then rerun the affected plan; changing runner
+matrices will not fix this class of failure.
+
+### `just act-dry` reports `runs.using=node24`
+
+Check the installed version:
+
+```bash
+bash scripts/install-ci-tooling.sh --check
+act --version
+```
+
+Upgrade to act 0.2.89 or newer with `yay -S act`, `paru -S act`, or the binary
+from `https://github.com/nektos/act/releases`. The wrapper refuses older
+versions because they cannot parse the current pinned action runtimes.
 
 ### Every job fails in 3-5s with `The job was not started because recent account payments have failed...`
 

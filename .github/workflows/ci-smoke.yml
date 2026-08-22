@@ -77,6 +77,7 @@ jobs:
       - name: CI tooling regression tests
         run: |
           node scripts/ci-debug.test.mjs
+          node scripts/test-ci-debug.mjs
           node scripts/ci-health.test.mjs
           node scripts/pin-github-actions.test.mjs
           bash scripts/test-ci-shell-scripts.sh
@@ -87,3 +88,11 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
+
+      - name: Upload debug report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pipeline-smoke-debug-${{ github.run_id }}
+          path: ci-debug-report.md
+          if-no-files-found: ignore

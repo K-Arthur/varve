@@ -131,7 +131,8 @@
       "appimage": {
         "bundleMediaFramework": false,
         "files": {
-          "/usr/share/icons/hicolor": "icons/hicolor/"
+          "/usr/share/icons/hicolor": "icons/hicolor/",
+          "/usr/share/metainfo/dev.varve.desktop.metainfo.xml": "linux/dev.varve.desktop.metainfo.xml"
         }
       },
       "deb": {
@@ -162,7 +163,8 @@
           "/usr/share/icons/hicolor/1024x1024/apps/dev.varve.desktop.png": "icons/hicolor/1024x1024/apps/dev.varve.desktop.png",
           "/usr/share/icons/hicolor/scalable/apps/dev.varve.desktop.svg": "icons/hicolor/scalable/apps/dev.varve.desktop.svg",
           "/usr/share/icons/hicolor/symbolic/apps/dev.varve.desktop-symbolic.svg": "icons/hicolor/symbolic/apps/dev.varve.desktop-symbolic.svg",
-          "/usr/share/mime/packages/dev.varve.desktop.xml": "linux/dev.varve.desktop.xml"
+          "/usr/share/mime/packages/dev.varve.desktop.xml": "linux/dev.varve.desktop.xml",
+          "/usr/share/metainfo/dev.varve.desktop.metainfo.xml": "linux/dev.varve.desktop.metainfo.xml"
         }
       },
       "rpm": {
@@ -183,7 +185,8 @@
           "/usr/share/icons/hicolor/1024x1024/apps/dev.varve.desktop.png": "icons/hicolor/1024x1024/apps/dev.varve.desktop.png",
           "/usr/share/icons/hicolor/scalable/apps/dev.varve.desktop.svg": "icons/hicolor/scalable/apps/dev.varve.desktop.svg",
           "/usr/share/icons/hicolor/symbolic/apps/dev.varve.desktop-symbolic.svg": "icons/hicolor/symbolic/apps/dev.varve.desktop-symbolic.svg",
-          "/usr/share/mime/packages/dev.varve.desktop.xml": "linux/dev.varve.desktop.xml"
+          "/usr/share/mime/packages/dev.varve.desktop.xml": "linux/dev.varve.desktop.xml",
+          "/usr/share/metainfo/dev.varve.desktop.metainfo.xml": "linux/dev.varve.desktop.metainfo.xml"
         }
       }
     },

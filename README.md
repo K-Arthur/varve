@@ -208,6 +208,12 @@ just test-js                # Vitest
 See [docs/development/setup.md#testing](docs/development/setup.md#testing)
 for the full validation strategy.
 
+For GitHub Actions diagnosis and CachyOS local runner parity, see
+[docs/CI_CD_RESILIENCE.md](docs/CI_CD_RESILIENCE.md). The shortest pre-push
+checks are `pnpm verify:plan`, `pnpm verify:affected`, and
+`bash scripts/install-ci-tooling.sh --check`; use `just ci-debug RUN_ID=<id>`
+for a concise report from a failed remote run.
+
 ## Architecture
 
 ```

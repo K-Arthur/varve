@@ -264,6 +264,8 @@ jobs:
         run: node scripts/pin-github-actions.mjs --verify
       - name: Verify extractor logic
         run: node scripts/ci-debug.test.mjs
+      - name: Verify simulated extractor scenario
+        run: node scripts/test-ci-debug.mjs
       - name: Verify health classifier
         run: node scripts/ci-health.test.mjs
       - name: Verify release version consistency
