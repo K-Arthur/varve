@@ -74,7 +74,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       <section class="product-section">
         <h2>Cross-platform native performance</h2>
         <p>
-          Varve runs natively on Linux (CachyOS, Arch, Ubuntu, Fedora), macOS (Apple Silicon), and Windows (x86_64). The rendering architecture separates scene computation from display, using an intermediate representation that replays efficiently to the canvas. The same codebase powers both the native desktop and WASM web builds.
+          Varve runs natively on Linux (CachyOS, Arch, Ubuntu, Fedora — x86_64 and ARM64), macOS (Apple Silicon), and Windows (x86_64 and ARM64). The rendering architecture separates scene computation from display, using an intermediate representation that replays efficiently to the canvas. The same codebase powers both the native desktop and WASM web builds.
         </p>
       </section>
 
@@ -144,7 +144,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           <li><strong>Critical production deadlines:</strong> expect bugs, incomplete tools, and workflow changes. Keep backups and test before relying on it for paid work.</li>
           <li><strong>Teams needing real-time collaboration:</strong> collaboration is not implemented — this is a single-user tool today.</li>
           <li><strong>Complex-script text:</strong> the engine has a canonical UAX #9 + paragraph layout pipeline (itemization, line breaking, visual run order, caret geometry), but live Canvas2D shaping and export parity for Arabic, Hebrew, Devanagari, Thai, and similar scripts remains in development.</li>
-          <li><strong>Linux or Windows on ARM:</strong> only x86_64 is supported on those platforms (macOS builds target Apple Silicon).</li>
+          <li><strong>Intel Macs:</strong> macOS builds target Apple Silicon only. The on-device AI depends on the ONNX Runtime, whose upstream discontinued Intel macOS binaries, and Apple has ended new Intel macOS support.</li>
         </ul>
       </section>
 
