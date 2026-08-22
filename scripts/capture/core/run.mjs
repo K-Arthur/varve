@@ -200,6 +200,24 @@ export async function capture(spec) {
       console.error(`[${spec.slug}] pageerror: ${err.message}`);
     });
 
+    // A renderer crash is not a page error and not a failed assertion — the
+    // page simply stops. Without this the run just waits out whatever locator
+    // it was on and reports a timeout, which sends you looking at the
+    // selector instead of at the crash that made it unreachable.
+    page.on('crash', () => {
+      pageErrors.push('renderer crashed');
+      console.error(`[${spec.slug}] the renderer crashed`);
+    });
+
+    // Console errors carry the worker-side failures that never surface as a
+    // pageerror, which is where an off-main-thread job reports its problems.
+    page.on('console', (msg) => {
+      if (msg.type() !== 'error') return;
+      const text = msg.text().slice(0, 300);
+      pageErrors.push(`console: ${text}`);
+      console.error(`[${spec.slug}] console error: ${text}`);
+    });
+
     const started = Date.now();
     let trimStart = null;
     const ctx = {
