@@ -8,9 +8,22 @@ const shots = shotManifest.scenes as unknown as Record<
   { file: string; alt: string; caption: string; width?: number; height?: number }
 >;
 const workspaceShot = shots.workspace;
+
+const firstDocHowTo = {
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  name: 'Create your first document in Varve',
+  description: 'Steps to create and save a new design document in Varve.',
+  step: [
+    { '@type': 'HowToStep', position: 1, name: 'Open the home screen', text: 'Click "New Document" on the home screen.' },
+    { '@type': 'HowToStep', position: 2, name: 'Choose dimensions', text: 'Choose a preset or enter custom dimensions.' },
+    { '@type': 'HowToStep', position: 3, name: 'Name your document', text: 'Name your document.' },
+    { '@type': 'HowToStep', position: 4, name: 'Create', text: 'Click "Create".' },
+  ],
+};
 ---
 
-<Layout title="Getting Started — Varve Docs" description="Install Varve on Linux, macOS, or Windows, and open your first document. System requirements and first steps for the current beta release.">
+<Layout title="Getting Started — Varve Docs" description="Install Varve on Linux, macOS, or Windows, and open your first document. System requirements and first steps for the current beta release." structuredData={firstDocHowTo}>
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">

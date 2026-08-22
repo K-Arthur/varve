@@ -108,6 +108,14 @@ const faqSchema = {
     },
     {
       '@type': 'Question',
+      name: 'Does checking for updates send my documents anywhere?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'No. An update check sends only your current version, platform, architecture and release channel to Varve\'s release endpoint. No account, document data, machine identifier or device fingerprint is transmitted, and update consent is separate from any analytics or diagnostics consent.',
+      },
+    },
+    {
+      '@type': 'Question',
       name: 'Who develops Varve?',
       acceptedAnswer: {
         '@type': 'Answer',
@@ -120,6 +128,14 @@ const faqSchema = {
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'You can contribute code, documentation, testing, or design. Non-financial contributions are equally valuable to financial support.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How can I support the project financially?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Varve accepts financial support via GitHub Sponsors. Sponsorship tiers and what support enables are described on the Support Project page.',
       },
     },
   ],
