@@ -11,7 +11,9 @@ import { join, resolve } from 'node:path';
 
 const TARGETS = [
   { key: 'linux-x86_64', filename: (v) => `Varve-${v}-linux-x86_64.AppImage` },
+  { key: 'linux-aarch64', filename: (v) => `Varve-${v}-linux-aarch64.AppImage` },
   { key: 'windows-x86_64', filename: (v) => `Varve-${v}-windows-x86_64.exe` },
+  { key: 'windows-aarch64', filename: (v) => `Varve-${v}-windows-aarch64.exe` },
   { key: 'darwin-aarch64', filename: (v) => `Varve-${v}-macos-aarch64.app.tar.gz` },
 ];
 

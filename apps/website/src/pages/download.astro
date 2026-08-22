@@ -685,10 +685,13 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                     {!release.signed && ' Windows may show a SmartScreen warning for unsigned builds — choose More info, then Run anyway.'}
                   </li>
                   <li>
-                    <strong>macOS:</strong> in-app updates are not yet available for DMG installs.
-                    Download the new DMG from the{' '}
+                    <strong>macOS:</strong> in-app updates are available for installed copies
+                    (drag the app from the DMG into Applications). If you are running Varve
+                    from a mounted DMG or a Gatekeeper-translocated copy, download the new DMG
+                    from the{' '}
                     <a href={sitePath('/releases')}>release page</a>{' '}
                     and replace your installed copy.
+                    {release.signed !== true && ' macOS may block unsigned builds — use System Settings > Privacy & Security to allow it.'}
                   </li>
                   <li>
                     <strong>Debian / RPM packages:</strong> installed files are owned by your package

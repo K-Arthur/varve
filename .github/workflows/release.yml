@@ -407,7 +407,7 @@ jobs:
             # ARM64 only, not universal: the bundled ONNX Runtime dylib has no
             # macOS Intel build (scripts/fetch-onnxruntime.mjs PLATFORMS), so a
             # "universal" DMG would be half-degraded. Audit H-3.
-            bundles: dmg
+            bundles: app,dmg
             enabled: ${{ needs.preflight.outputs.build_macos == 'true' }}
     runs-on: ${{ matrix.os }}
     env:

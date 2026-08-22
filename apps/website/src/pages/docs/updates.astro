@@ -68,10 +68,11 @@ import release from '../../data/release-manifest.json';
             and replace the current file. A fix is in progress.
           </li>
           <li>
-            <strong>macOS:</strong> not yet available. Download the new DMG from the{' '}
-            <a href={sitePath('/releases')}>release page</a>{' '}
-            and replace your installed copy. In-app macOS updates require a{' '}
-            <code>.app.tar.gz</code> bundle target that is not yet published.
+            <strong>macOS:</strong> available for installed copies. The updater verifies a
+            signed <code>.app.tar.gz</code> bundle before replacing the installed app.
+            A mounted DMG or Gatekeeper-translocated copy must be moved into Applications
+            first. If you see a Gatekeeper warning, use System Settings &gt; Privacy &amp; Security
+            to allow the app.
           </li>
         </ul>
         <p>
