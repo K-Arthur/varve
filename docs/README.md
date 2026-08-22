@@ -214,6 +214,7 @@ and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchma
 | `architecture/figma-import-system.md` | Figma REST/plugin JSON import: acquisition, normalization, conversion, and fidelity |
 | `architecture/image-geometry.md` | Image crop, placement, and transform contract |
 | `architecture/raster-assets.md` | Canonical raster asset architecture: metadata, resource handles, worker residency, export barrier |
+| `architecture/export-resolution.md` | Geometry, physical sizing, output PPI, effective raster PPI, and batch export semantics |
 | `architecture/image-trace-system.md` | Native raster-to-vector tracing (silhouette/centerline/pixel-art) |
 | `architecture/image-vector-enhancement.md` | Image/vector enhancement and AI upscaling dispatch |
 | `architecture/palette-extraction-system.md` | Deterministic local image palette, harmony, and WCAG pair analysis |

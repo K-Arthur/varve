@@ -20,6 +20,7 @@ import {
 } from './capabilities';
 import type { ExportBatchRequest, ExportFormat, ExportJobSpec } from './model';
 import { buildExportPlan, type ExportPlan } from './plan';
+import { effectiveRasterPpiForNode } from './resolution';
 
 // ── Findings ────────────────────────────────────────────────────────────────
 
@@ -129,6 +130,7 @@ function pushItemFindings(
   pushFontFindings(findings, document, item, options.availableFonts);
   pushRasterizationFindings(findings, document, item, capability);
   pushPrintFindings(findings, item);
+  pushRasterResolutionFindings(findings, document, item);
   pushFormatSpecificFindings(findings, item, capability, platform);
 }
 
@@ -140,6 +142,20 @@ function pushDimensionFindings(
   maxPixels: number,
 ): void {
   const pixels = item.resolvedDimensions.width * item.resolvedDimensions.height;
+  if (item.dimensionsClamped && item.requestedDimensions) {
+    findings.push({
+      id: findingId('output-dimension-clamped', item.configurationId),
+      code: 'output-dimension-clamped',
+      severity: 'warning',
+      title: 'Output dimensions were limited',
+      description:
+        `The requested output was ${item.requestedDimensions.width} × ${item.requestedDimensions.height}px, ` +
+        `but this format is limited to ${item.resolvedDimensions.width} × ${item.resolvedDimensions.height}px.`,
+      configurationId: item.configurationId,
+      nodeIds: item.nodeId ? [item.nodeId] : undefined,
+      canIgnore: true,
+    });
+  }
   if (pixels > maxPixels) {
     findings.push({
       id: findingId('memory-risk', item.configurationId),
@@ -374,6 +390,35 @@ function pushPrintFindings(findings: ExportFinding[], item: ExportJobSpec): void
       title: 'Print colors not converted to destination',
       description: 'The print job is not converting content to the output color space.',
       configurationId: item.configurationId,
+      canIgnore: true,
+    });
+  }
+}
+
+function pushRasterResolutionFindings(
+  findings: ExportFinding[],
+  document: Document,
+  item: ExportJobSpec,
+): void {
+  const targetPpi =
+    item.print?.enforceDpi ?? (item.rasterized ? item.outputResolutionPpi : undefined);
+  if (!targetPpi || !item.nodeId) return;
+
+  for (const entry of walkNodes(document, [item.nodeId]).values()) {
+    if (entry.node.kind !== 'shape') continue;
+    const effective = effectiveRasterPpiForNode(document, entry.node);
+    if (!effective?.available || effective.minimumPpi >= targetPpi) continue;
+    findings.push({
+      id: findingId('low-effective-resolution', item.configurationId, [entry.node.id]),
+      code: 'low-effective-resolution',
+      severity: 'warning',
+      title: 'Raster source may appear soft',
+      description:
+        `"${entry.node.name}" has approximately ${Math.round(effective.minimumPpi)} effective PPI ` +
+        `at its placed size, below the ${targetPpi} PPI target. Reduce its placed size, lower ` +
+        'the output target, or intentionally resample/enhance the source.',
+      configurationId: item.configurationId,
+      nodeIds: [entry.node.id],
       canIgnore: true,
     });
   }

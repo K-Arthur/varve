@@ -79,7 +79,7 @@ describe('scale mapping', () => {
     });
   });
 
-  it('round-trips multiplier/width/height but not resolution', () => {
+  it('round-trips multiplier/width/height/resolution', () => {
     expect(canonicalScaleToLegacy({ mode: 'multiplier', value: 3 })).toEqual({
       type: 'factor',
       value: 3,
@@ -88,7 +88,10 @@ describe('scale mapping', () => {
       type: 'width',
       pixels: 300,
     });
-    expect(canonicalScaleToLegacy({ mode: 'resolution', dpi: 300 })).toBeUndefined();
+    expect(canonicalScaleToLegacy({ mode: 'resolution', dpi: 300 })).toEqual({
+      type: 'resolution',
+      dpi: 300,
+    });
   });
 });
 
@@ -184,7 +187,7 @@ describe('configurationToLegacyPreset', () => {
     });
   });
 
-  it('returns undefined for canonical-only formats and scales', () => {
+  it('returns undefined for canonical-only formats', () => {
     const tiff = createExportConfiguration({
       id: 'p1',
       target: { type: 'document' },
@@ -198,7 +201,10 @@ describe('configurationToLegacyPreset', () => {
       format: 'png',
       scale: { mode: 'resolution', dpi: 300 },
     });
-    expect(configurationToLegacyPreset(resolution)).toBeUndefined();
+    expect(configurationToLegacyPreset(resolution)).toMatchObject({
+      format: 'png',
+      scale: { type: 'resolution', dpi: 300 },
+    });
   });
 
   it('preserves legacy-compatible print settings', () => {

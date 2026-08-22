@@ -16,3 +16,4 @@ export * from './pipeline';
 export * from './plan';
 export * from './preflight';
 export * from './presets';
+export * from './resolution';

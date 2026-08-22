@@ -36,7 +36,8 @@ export type ExportFormat =
 export type ExportScale =
   | { type: 'factor'; value: number }
   | { type: 'width'; pixels: number }
-  | { type: 'height'; pixels: number };
+  | { type: 'height'; pixels: number }
+  | { type: 'resolution'; dpi: number };
 
 export interface RasterOptions {
   scale: ExportScale;
@@ -114,6 +115,8 @@ export interface ExportJob {
   fileName: string;
   /** Preset scale used to compute raster output. Kept on the job for workers. */
   scale?: ExportScale;
+  /** Resolved output density for physical-resolution exports. */
+  outputPpi?: number;
   /** Filename suffix persisted by the source configuration. */
   suffix?: string;
   /** Format-specific options carried from the source configuration. */

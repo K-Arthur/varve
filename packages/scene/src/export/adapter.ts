@@ -8,9 +8,9 @@
  * dialog or exporter defines its own unrelated option mapping.
  *
  * Conversions are total for the legacy side: every legacy preset/job/scale maps
- * to a canonical value. Reverse conversions return `undefined` when the
- * canonical value has no legacy representation (new formats/scales) — callers
- * must not silently drop those; they should surface them.
+ * to a canonical value. Reverse conversions return `undefined` only when the
+ * canonical value has no legacy representation (new formats) — callers must
+ * not silently drop those; they should surface them.
  */
 
 import type {
@@ -87,6 +87,8 @@ export function legacyScaleToCanonical(scale: LegacyExportScale): ExportScale {
       return { mode: 'width', value: scale.pixels, unit: 'px' };
     case 'height':
       return { mode: 'height', value: scale.pixels, unit: 'px' };
+    case 'resolution':
+      return { mode: 'resolution', dpi: scale.dpi };
   }
 }
 
@@ -99,7 +101,7 @@ export function canonicalScaleToLegacy(scale: ExportScale): LegacyExportScale | 
     case 'height':
       return { type: 'height', pixels: scale.value };
     case 'resolution':
-      return undefined;
+      return { type: 'resolution', dpi: scale.dpi };
   }
 }
 
@@ -205,8 +207,7 @@ export function legacyPresetsToConfigurations(
 /**
  * Convert a canonical configuration back to a legacy preset. Returns
  * `undefined` when the canonical value has no legacy representation (new
- * formats, resolution scale, vector settings) — the caller must not silently
- * drop it.
+ * formats) — the caller must not silently drop it.
  */
 export function configurationToLegacyPreset(
   config: ExportConfiguration,
@@ -287,6 +288,18 @@ export function legacyBatchToRequest(batch: ExportBatch): ExportBatchRequest {
         format: legacyFormatToCanonical(job.format),
         scale: job.scale ? legacyScaleToCanonical(job.scale) : { mode: 'multiplier', value: 1 },
         filenameTemplate: batch.filenameTemplate,
+        raster: job.raster ? mapLegacyRasterOptions(job.raster) : undefined,
+        vector: job.vector ? mapLegacyVectorOptions(job.vector) : undefined,
+        print: job.print
+          ? createPrintExportSettings({
+              bleedMm: job.print.bleedMm,
+              includeCropMarks: job.print.includeCropMarks,
+              includeRegistrationMarks: job.print.includeRegistrationMarks,
+              includeColorBars: job.print.includeColorBars,
+              enforceDpi: job.print.enforceDpi,
+              overprint: job.print.overprintBlack,
+            })
+          : undefined,
         enabled: true,
       }),
     ),
@@ -322,7 +335,10 @@ export function legacyJobToJobSpec(job: LegacyExportJob): ExportJobSpec | undefi
     fileName: job.fileName,
     relativePath: job.fileName,
     scaleFactor: 1,
+    requestedDimensions: { width: job.dimensions.w, height: job.dimensions.h },
     resolvedDimensions: { width: job.dimensions.w, height: job.dimensions.h },
+    dimensionsClamped: false,
+    outputResolutionPpi: job.outputPpi,
     boundsRect: { x: 0, y: 0, width: job.dimensions.w, height: job.dimensions.h },
     color: createExportColorSettings(),
     background: { transparent: true },

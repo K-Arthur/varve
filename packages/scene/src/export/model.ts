@@ -325,7 +325,16 @@ export interface ExportJobSpec {
   relativePath: string;
   /** Final scale factor applied to nominal bounds. */
   scaleFactor: number;
+  /** Output pixel dimensions after clamping. */
   resolvedDimensions: { width: number; height: number };
+  /** Requested output pixel dimensions before format-limit clamping. */
+  requestedDimensions?: { width: number; height: number };
+  /** Whether the output was clamped to a format or raster limit. */
+  dimensionsClamped?: boolean;
+  /** Output PPI when the scale has physical semantics (undefined for pure multipliers). */
+  outputResolutionPpi?: number;
+  /** Physical size of the export bounds in inches (for print previews). */
+  physicalSizeInches?: { width: number; height: number };
   boundsRect: { x: number; y: number; width: number; height: number };
   color: ExportColorSettings;
   raster?: RasterExportSettings;

@@ -30,7 +30,7 @@ import type { Document } from '../document';
 import { computeFlattenBounds } from '../flatten/bounds';
 import { pageBleedInsetsPx } from '../printGeometry';
 import type { NodeId } from '../types';
-import { capabilitiesForFormat, type PlatformKind } from './capabilities';
+import { capabilitiesForFormat, type PlatformKind, RASTER_MAX_PIXELS } from './capabilities';
 import {
   createExportColorSettings,
   createRasterExportSettings,
@@ -44,6 +44,12 @@ import {
   exportTargetKind,
 } from './model';
 import { extensionForFormat, type FileNameContext, formatFileName } from './naming';
+import {
+  physicalSizeForDocumentBounds,
+  physicalToDocumentPx,
+  REFERENCE_PPI,
+  resolveExportScale,
+} from './resolution';
 
 // ── Errors ──────────────────────────────────────────────────────────────────
 
@@ -81,8 +87,6 @@ export interface PlanContext {
   /** Index for {index} token (1-based). */
   startIndex?: number;
 }
-
-const DEFAULT_DPI = 96;
 
 // ── Target resolution ───────────────────────────────────────────────────────
 
@@ -226,41 +230,24 @@ function toBoundsRect(b: { x: number; y: number; w: number; h: number }): Bounds
 export function computeScaleFactor(
   scale: ExportScale,
   nominal: { width: number; height: number },
-  doc: Document,
+  _doc: Document,
 ): number {
-  const dpi = doc.dpi ?? DEFAULT_DPI;
-  switch (scale.mode) {
-    case 'multiplier':
-      return Math.max(1 / 16, scale.value);
-    case 'width': {
-      const targetPx = toPixels(scale.value, scale.unit, dpi);
-      return Math.max(1 / 16, targetPx / Math.max(1, nominal.width));
-    }
-    case 'height': {
-      const targetPx = toPixels(scale.value, scale.unit, dpi);
-      return Math.max(1 / 16, targetPx / Math.max(1, nominal.height));
-    }
-    case 'resolution': {
-      const baseDpi = doc.dpi ?? DEFAULT_DPI;
-      return Math.max(1 / 16, scale.dpi / Math.max(1, baseDpi));
-    }
-  }
+  return resolveExportScale(scale, nominal).scaleFactor;
 }
 
-function toPixels(value: number, unit: 'px' | 'in' | 'mm' | 'cm', dpi: number): number {
-  switch (unit) {
-    case 'px':
-      return value;
-    case 'in':
-      return value * dpi;
-    case 'mm':
-      return (value * dpi) / 25.4;
-    case 'cm':
-      return (value * dpi) / 2.54;
-  }
+/** Convert one physical dimension to output pixels using the canonical model. */
+export function physicalSizeToOutputPixels(
+  value: number,
+  unit: 'px' | 'in' | 'mm' | 'cm',
+  targetPpi: number,
+): number {
+  const designPx = unit === 'px' ? value : physicalToDocumentPx(value, unit);
+  return Math.round(designPx * (targetPpi / REFERENCE_PPI));
 }
 
 export interface ResolvedDimensions {
+  requestedWidth: number;
+  requestedHeight: number;
   width: number;
   height: number;
   /** Whether the result was clamped by a format limit. */
@@ -275,8 +262,10 @@ export function resolveDimensions(
   const rawW = bounds.width * scaleFactor;
   const rawH = bounds.height * scaleFactor;
   const cap = capabilitiesForFormat(format).maxDimensions;
-  let width = Math.max(1, Math.round(rawW));
-  let height = Math.max(1, Math.round(rawH));
+  const requestedWidth = Math.max(1, Math.round(rawW));
+  const requestedHeight = Math.max(1, Math.round(rawH));
+  let width = requestedWidth;
+  let height = requestedHeight;
   let clamped = false;
   if (cap > 0) {
     if (width > cap) {
@@ -290,7 +279,13 @@ export function resolveDimensions(
       clamped = true;
     }
   }
-  return { width, height, clamped };
+  if (cap > 0 && width * height > RASTER_MAX_PIXELS) {
+    const factor = Math.sqrt(RASTER_MAX_PIXELS / (width * height));
+    width = Math.max(1, Math.floor(width * factor));
+    height = Math.max(1, Math.floor(height * factor));
+    clamped = true;
+  }
+  return { requestedWidth, requestedHeight, width, height, clamped };
 }
 
 // ── Plan builder ────────────────────────────────────────────────────────────
@@ -359,7 +354,8 @@ export function buildJobSpec(
   }
 
   const nominal = { width: Math.max(1, bounds.width), height: Math.max(1, bounds.height) };
-  const scaleFactor = computeScaleFactor(configuration.scale, nominal, ctx.document);
+  const resolvedScale = resolveExportScale(configuration.scale, nominal);
+  const scaleFactor = resolvedScale.scaleFactor;
   const dimensions = resolveDimensions(bounds, scaleFactor, format);
 
   const color = configuration.color ?? createExportColorSettings();
@@ -400,7 +396,17 @@ export function buildJobSpec(
       fileName: relativePath.split('/').pop() ?? relativePath,
       relativePath,
       scaleFactor,
+      requestedDimensions: {
+        width: dimensions.requestedWidth,
+        height: dimensions.requestedHeight,
+      },
       resolvedDimensions: { width: dimensions.width, height: dimensions.height },
+      dimensionsClamped: dimensions.clamped,
+      outputResolutionPpi: resolvedScale.outputPpi,
+      physicalSizeInches: (() => {
+        const size = physicalSizeForDocumentBounds(bounds);
+        return { width: size.widthInches, height: size.heightInches };
+      })(),
       boundsRect: bounds,
       color,
       raster,

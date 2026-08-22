@@ -245,6 +245,46 @@ describe('resolveDimensions', () => {
 });
 
 describe('buildExportPlan', () => {
+  it('resolves physical pages at the requested PPI without changing page geometry', () => {
+    const a4 = createDocument('A4', {
+      physicalWidth: 210,
+      physicalHeight: 297,
+      documentUnit: 'mm',
+      dpi: 300,
+    });
+    const page = a4.pages?.[0];
+    expect(page?.width).toBeCloseTo((210 * 96) / 25.4, 6);
+    const config = createExportConfiguration({
+      id: 'a4-300ppi',
+      target: { type: 'page', pageId: page?.id ?? '' },
+      format: 'png',
+      scale: { mode: 'resolution', dpi: 300 },
+      bounds: 'page',
+    });
+    const plan = buildExportPlan(a4, batchRequest([config]), { document: a4 });
+    expect(plan.items[0]?.resolvedDimensions).toEqual({ width: 2480, height: 3508 });
+    expect(plan.items[0]?.outputResolutionPpi).toBe(300);
+  });
+
+  it('resolves Letter at 300 PPI deterministically', () => {
+    const letter = createDocument('Letter', {
+      physicalWidth: 8.5,
+      physicalHeight: 11,
+      documentUnit: 'in',
+      dpi: 96,
+    });
+    const page = letter.pages?.[0];
+    const config = createExportConfiguration({
+      id: 'letter-300ppi',
+      target: { type: 'page', pageId: page?.id ?? '' },
+      format: 'png',
+      scale: { mode: 'resolution', dpi: 300 },
+      bounds: 'page',
+    });
+    const plan = buildExportPlan(letter, batchRequest([config]), { document: letter });
+    expect(plan.items[0]?.resolvedDimensions).toEqual({ width: 2550, height: 3300 });
+  });
+
   it('expands enabled configurations into deterministic job specs', () => {
     const doc = docWithShapes();
     const config = createExportConfiguration({
