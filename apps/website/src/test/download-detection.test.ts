@@ -157,9 +157,10 @@ describe('orderArchitectures', () => {
 });
 
 describe('primaryFormatFor', () => {
-  it('prefers .deb on Linux, falling back to AppImage', () => {
-    expect(primaryFormatFor('linux', ['appimage', 'deb', 'rpm'])).toBe('deb');
-    expect(primaryFormatFor('linux', ['appimage', 'rpm'])).toBe('appimage');
+  it('prefers AppImage on Linux (universal, no root required), falling back to .deb', () => {
+    expect(primaryFormatFor('linux', ['appimage', 'deb', 'rpm'])).toBe('appimage');
+    expect(primaryFormatFor('linux', ['deb', 'rpm'])).toBe('deb');
+    expect(primaryFormatFor('linux', ['rpm'])).toBe('rpm');
   });
 
   it('takes the first published format elsewhere', () => {
