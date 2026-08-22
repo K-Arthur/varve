@@ -57,14 +57,20 @@ const toResign = [];
 
 for (const arch of ARCHITECTURES) {
   const filename = `Varve-${tag.slice(1)}-linux-${arch}.AppImage`;
-  const assetExists = run('gh', [
-    'api',
-    `repos/K-Arthur/varve/releases/tags/${tag}/assets`,
-    '--jq',
-    `.[] | select(.name == "${filename}") | .name`,
-  ]);
-  if (assetExists === filename) {
-    toResign.push({ arch, filename });
+  try {
+    const view = run('gh', [
+      'release',
+      'view',
+      tag,
+      '--repo',
+      'K-Arthur/varve',
+      '--json',
+      'assets',
+    ]);
+    const assets = JSON.parse(view).assets ?? [];
+    if (assets.some((a) => a.name === filename)) toResign.push({ arch, filename });
+  } catch (e) {
+    process.stderr.write(`Warning: could not check asset ${filename}: ${e.message}\n`);
   }
 }
 
