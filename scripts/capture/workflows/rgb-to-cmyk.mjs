@@ -68,6 +68,9 @@ await capture({
     await useTool(page, 'r');
     await dragAt(page, [0.28, 0.12], [0.72, 0.88], { steps: 20 });
     await useTool(page, 'v');
+    // Captured now rather than guessed at later: layers are not named after
+    // what they contain, and the default names differ by primitive.
+    const canName = (await layerNames(page))[0].trim().split('\n')[0];
     await page.getByRole('treeitem').first().click();
     await page.waitForTimeout(400);
     // A strongly saturated orange sits well outside a coated CMYK gamut.
@@ -93,7 +96,7 @@ await capture({
     await beat(page, 1500);
 
     // ── A real colour readout on a real object ─────────────────────
-    await selectLayer(page, /rect|shape|vector/i);
+    await selectLayer(page, canName);
     await page.waitForTimeout(700);
     assertions.push('a saturated object is selected and its colour is read in the inspector');
     await beat(page, 1600);
