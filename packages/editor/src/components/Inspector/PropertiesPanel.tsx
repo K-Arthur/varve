@@ -115,7 +115,7 @@ export function PropertiesPanel() {
     const isImageSelected =
       selNodes.length === 1 && (selNodes[0] ? isImageShape(selNodes[0]) : false);
     const isAdjustmentSelected = selNodes.length === 1 && selNodes[0]?.kind === 'adjustment';
-    const isFrameSelected = selNodes.length === 1 && selNodes[0]?.kind === 'frame';
+    const isSingleNodeSelected = selNodes.length === 1;
     const isTextSelected = selNodes.length === 1 && selNodes[0]?.kind === 'text';
 
     // Show Adjustments tab for any single image selection: the image-editing
@@ -127,9 +127,10 @@ export function PropertiesPanel() {
       if (!tabs.includes('adjustments')) tabs.push('adjustments');
     }
 
-    // Prototype tab: only when a frame is selected or prototype mode is active
+    // Prototype interactions may target any single scene node. Frames are the
+    // screens, but child layers are real hit areas in the presenter.
     if (tabs.includes('prototype')) {
-      if (!isFrameSelected && !state.prototypeMode) {
+      if (!isSingleNodeSelected && !state.prototypeMode) {
         tabs.splice(tabs.indexOf('prototype'), 1);
       }
     }

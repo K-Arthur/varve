@@ -103,11 +103,11 @@ const TrackRowInner: FC<TrackRowProps> = ({
 
       const startX = e.clientX;
       const startProgress = progress;
-      const trackWidth = trackRef.current?.clientWidth ?? 1;
+      const authoredTimelineWidth = Math.max(duration * zoom, 1);
 
       const handleMove = (ev: MouseEvent) => {
         const dx = ev.clientX - startX;
-        const dProgress = dx / trackWidth / zoom;
+        const dProgress = dx / authoredTimelineWidth;
         const newProgress = Math.max(0, Math.min(1, startProgress + dProgress));
         onMoveKeyframe(startProgress, newProgress);
       };

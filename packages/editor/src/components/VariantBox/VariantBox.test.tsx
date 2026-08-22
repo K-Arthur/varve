@@ -115,6 +115,7 @@ describe('VariantBox', () => {
 
     render(<VariantBox {...variantBoxProps('inst1', doc)} />);
     expect(screen.getByText('No Variants')).toBeInTheDocument();
+    expect(screen.getByLabelText('Create variant')).toBeInTheDocument();
   });
 
   it('renders all variants as selectable options', () => {

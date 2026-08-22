@@ -22,6 +22,7 @@ async function navigateToEditor(page: import('@playwright/test').Page) {
   ) {
     await welcomeClose.first().click();
   }
+  await page.keyboard.press('Control+Shift+1');
   await page.waitForTimeout(500);
 }
 

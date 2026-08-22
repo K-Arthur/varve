@@ -38,7 +38,7 @@ const TRANSITION_LABELS: Record<string, string> = {
   instant: 'Instant',
   dissolve: 'Dissolve',
   slide: 'Slide',
-  smartAnimate: 'Smart Transition',
+  smartAnimate: 'Smart Animate',
 };
 
 const DEFAULT_TRIGGER = { kind: 'onClick' as const };

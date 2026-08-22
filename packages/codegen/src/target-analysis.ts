@@ -19,6 +19,7 @@ import type { TargetGap } from './types';
 /** Code-export format identifiers handled by this analyser. */
 export type CodeExportFormat =
   | 'css'
+  | 'react'
   | 'react-cssmodules'
   | 'react-tailwind'
   | 'flutter'
@@ -41,6 +42,7 @@ type GapFn = (node: SceneNode, doc: Document) => TargetGap[];
 
 const GAP_FNS: Record<CodeExportFormat, GapFn> = {
   css: cssTargetGaps,
+  react: () => [],
   'react-cssmodules': cssModulesTargetGaps,
   'react-tailwind': tailwindTargetGaps,
   flutter: flutterTargetGaps,

@@ -163,8 +163,7 @@ export function CanvasOverlays({
     const frame = singleNode;
     if (!frame.componentId) return null;
     const component = doc.components[frame.componentId];
-    const hasVariants = component?.variants && component.variants.length > 0;
-    if (!hasVariants) return null;
+    if (!component) return null;
     const worldB = editor.getWorldBounds(singleId);
     if (!worldB) return null;
     const { x: screenX, y: screenY } = editor.worldToCanvas(worldB.x, worldB.y);

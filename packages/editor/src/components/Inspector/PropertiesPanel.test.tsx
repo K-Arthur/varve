@@ -52,8 +52,7 @@ async function renderPanelWithSelectedRect(locked = false) {
   return utils;
 }
 
-/** Same as the rect helper, but selects a frame — the Prototype tab is shown
- * only for a frame selection (or in prototype mode). */
+/** Same as the rect helper, but selects a frame to verify screen selection. */
 async function renderPanelWithSelectedFrame() {
   const { createDocument, makeFrameNode, addChild } = await import('@varve/scene');
   let doc = createDocument('frame-selection-test');
@@ -157,11 +156,16 @@ describe('PropertiesPanel section gating for a real single selection', () => {
   });
 
   it('moves Prototype Interactions to the dedicated Prototype surface', async () => {
-    await renderPanelWithSelectedFrame();
+    await renderPanelWithSelectedRect();
     expect(screen.queryByRole('button', { name: 'Prototype Interactions' })).toBeNull();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Prototype' }));
     expect(await screen.findByRole('button', { name: 'Prototype Interactions' })).toBeTruthy();
+  });
+
+  it('shows Prototype for a selected frame screen', async () => {
+    await renderPanelWithSelectedFrame();
+    expect(screen.getByRole('tab', { name: 'Prototype' })).toBeTruthy();
   });
 
   it('does not mount image-only AI sections for a non-image rect selection', async () => {

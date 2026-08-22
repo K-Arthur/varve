@@ -93,19 +93,6 @@ export function PrototypePresenter({
     }
   }, [isOpen, handleKeyDown]);
 
-  useEffect(() => {
-    if (isOpen) {
-      const el = document.documentElement;
-      if (el.requestFullscreen) {
-        el.requestFullscreen().catch(() => {});
-      }
-    } else {
-      if (document.exitFullscreen && document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
-      }
-    }
-  }, [isOpen]);
-
   if (!isOpen) return null;
 
   const smartHotspotOverrides =
@@ -160,9 +147,21 @@ export function PrototypePresenter({
       ? computeTransitionVisuals(activeTransition, transitionProgress)
       : null;
 
+  const transitionCandidate =
+    activeTransition && prototypeDocument
+      ? prototypeDocument.nodes[activeTransition.fromScreenId]
+      : null;
+  const transitionFrame = transitionCandidate?.kind === 'frame' ? transitionCandidate : null;
+
   const screenContent =
     transitionVisuals && activeTransition ? (
-      <div className="prototype-presenter__transition-stack">
+      <div
+        className="prototype-presenter__transition-stack"
+        style={{
+          width: transitionFrame?.w ?? 375,
+          height: transitionFrame?.h ?? 812,
+        }}
+      >
         {renderScreen(
           activeTransition.fromScreenId,
           {
@@ -252,12 +251,12 @@ export function PrototypePresenter({
           type="button"
           className="prototype-presenter__exit-btn"
           onClick={onClose}
-          aria-label="Exit fullscreen"
+          aria-label="Exit prototype preview"
         >
           Exit
         </button>
       </div>
-      {content}
+      <div className="prototype-presenter__content">{content}</div>
     </div>
   );
 }

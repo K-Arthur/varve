@@ -1,5 +1,6 @@
 import type { Document as SceneDoc } from '@varve/scene';
 import {
+  addChild,
   addNode,
   colorConfigWithDefaults,
   createDocument,
@@ -16,7 +17,12 @@ import { exportNodeToCss } from './css';
 import { exportNodeToCssModules } from './css-modules';
 import { exportNodeToFlutter } from './flutter';
 import { exportIrToHtml } from './html';
-import { exportDocumentToReact, exportDocumentToSvg, resolveTokenName } from './index';
+import {
+  exportDocumentToReact,
+  exportDocumentToSvg,
+  exportNodeToReact,
+  resolveTokenName,
+} from './index';
 import { sceneToIR } from './ir-converter';
 import { exportNodeToSvg } from './svg';
 import { exportNodeToSwiftUI } from './swiftui';
@@ -719,5 +725,38 @@ describe('legacy exports', () => {
       expect(svg).toContain('href="data:image/png;base64');
       expect(svg).toContain('width="200"');
     });
+  });
+});
+
+describe('exportNodeToReact', () => {
+  it('emits parseable TSX for a selected node and nested children', () => {
+    const doc = createDocument('React export');
+    const frame = makeFrameNode('frame', {
+      transform: [1, 0, 0, 1, 32, 48],
+      w: 360,
+      h: 220,
+    });
+    const card = makeShapeNode(
+      'card',
+      { kind: 'rect', x: 0, y: 0, w: 360, h: 220 },
+      { name: 'Card' },
+    );
+    const title = makeTextNode('title', 'Pro <plan>', { fontSize: 24, name: 'Title' });
+    const withFrame = addNode(doc, frame);
+    const withCard = addChild(withFrame, 'frame', card);
+    const withTitle = addChild(withCard, 'card', title);
+    const exported = exportNodeToReact(withTitle.nodes.frame!, withTitle);
+
+    expect(exported).toContain('style={{ transform:');
+    expect(exported).toContain('Pro &lt;plan&gt;');
+    expect(exported).toContain('<rect');
+    expect(exported).toContain('<text');
+
+    const ts = require('typescript') as typeof import('typescript');
+    const result = ts.transpileModule(exported, {
+      compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS },
+      reportDiagnostics: true,
+    });
+    expect(result.diagnostics ?? []).toHaveLength(0);
   });
 });

@@ -150,7 +150,7 @@ export function VariantBox({
         </div>
       )}
 
-      {!showCreateForm && variants.length > 0 && (
+      {!showCreateForm && (
         <button
           type="button"
           className="variant-box__create-btn"

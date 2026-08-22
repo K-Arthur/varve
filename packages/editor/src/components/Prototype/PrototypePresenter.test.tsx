@@ -25,6 +25,7 @@ describe('PrototypePresenter', () => {
       />,
     );
     expect(container.querySelector('.prototype-presenter')).toBeTruthy();
+    expect(container.querySelector('.prototype-presenter__content')).toBeTruthy();
   });
 
   it('does not render when isOpen is false', () => {

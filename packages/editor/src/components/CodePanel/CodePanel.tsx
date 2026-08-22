@@ -15,6 +15,7 @@ import {
   analyseDocument,
   type DesignAuditReport,
   exportNodeToCss,
+  exportNodeToReact,
   exportNodeToSvelte,
   exportNodeToSvg,
   exportNodeToTailwind,
@@ -41,10 +42,11 @@ const PRIMARY_TABS: Tab<PrimaryTab>[] = [
   { value: 'readiness', label: 'Readiness' },
 ];
 
-type CodeTarget = 'css' | 'tailwind' | 'vue' | 'svelte' | 'web-component' | 'svg';
+type CodeTarget = 'css' | 'react' | 'tailwind' | 'vue' | 'svelte' | 'web-component' | 'svg';
 
 const CODE_TABS: Tab<CodeTarget>[] = [
   { value: 'css', label: 'HTML/CSS' },
+  { value: 'react', label: 'React' },
   { value: 'tailwind', label: 'Tailwind React' },
   { value: 'vue', label: 'Vue' },
   { value: 'svelte', label: 'Svelte' },
@@ -90,6 +92,8 @@ function generateCode(node: SceneNode, doc: Document, target: CodeTarget): strin
   switch (target) {
     case 'css':
       return exportNodeToCss(node, doc);
+    case 'react':
+      return exportNodeToReact(node, doc);
     case 'tailwind':
       return exportNodeToTailwind(node, doc);
     case 'vue':
@@ -107,6 +111,8 @@ function getCodeLanguage(target: CodeTarget): string {
   switch (target) {
     case 'css':
       return 'css';
+    case 'react':
+      return 'tsx';
     case 'tailwind':
       return 'jsx';
     case 'vue':
@@ -145,6 +151,7 @@ function CodegenTab({ doc, selection }: CodePanelProps) {
     if (!code) return;
     const extMap: Record<CodeTarget, string> = {
       css: 'css',
+      react: 'tsx',
       tailwind: 'tsx',
       vue: 'vue',
       svelte: 'svelte',
@@ -343,6 +350,7 @@ function AuditTab({ doc }: { doc: Document }) {
 
 const READINESS_FORMATS: { value: CodeTarget; label: string }[] = [
   { value: 'css', label: 'HTML/CSS' },
+  { value: 'react', label: 'React' },
   { value: 'tailwind', label: 'Tailwind React' },
   { value: 'vue', label: 'Vue' },
   { value: 'svelte', label: 'Svelte' },
@@ -352,6 +360,7 @@ const READINESS_FORMATS: { value: CodeTarget; label: string }[] = [
 
 const FORMAT_TO_CODEEXPORT: Record<CodeTarget, import('@varve/codegen').CodeExportFormat> = {
   css: 'css',
+  react: 'react',
   tailwind: 'react-tailwind',
   vue: 'css',
   svelte: 'css',

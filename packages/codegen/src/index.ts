@@ -876,3 +876,60 @@ export function exportDocumentToReact(doc: Document): string {
     '',
   ].join('\n');
 }
+
+/** Export one selected node and its real nested scene children to React TSX. */
+export function exportNodeToReact(node: SceneNode, doc: Document): string {
+  const indent = (depth: number) => '  '.repeat(depth);
+  const renderNode = (current: SceneNode, depth: number): string => {
+    const pad = indent(depth);
+    const fill = rgba(current.fill);
+    const opacity = current.opacity === 1 ? '' : ` opacity={${current.opacity}}`;
+    const transform = ` style={{ transform: "${affineToSvg(nodeEffectiveTransform(current))}" }}`;
+    const id = ` data-node-id="${escapeXml(current.id)}"`;
+
+    if (current.kind === 'shape') {
+      const shape = current.shape;
+      switch (shape.kind) {
+        case 'rect':
+          return `${pad}<rect${id} x={${shape.x}} y={${shape.y}} width={${shape.w}} height={${shape.h}} fill="${fill}"${opacity}${transform} />`;
+        case 'ellipse':
+          return `${pad}<ellipse${id} cx={${shape.cx}} cy={${shape.cy}} rx={${shape.rx}} ry={${shape.ry}} fill="${fill}"${opacity}${transform} />`;
+        case 'circle':
+          return `${pad}<circle${id} cx={${shape.cx}} cy={${shape.cy}} r={${shape.r}} fill="${fill}"${opacity}${transform} />`;
+        case 'line':
+          return `${pad}<line${id} x1={${shape.from[0]}} y1={${shape.from[1]}} x2={${shape.to[0]}} y2={${shape.to[1]}} stroke="${fill}" strokeWidth={${shape.tolerance * 2}}${opacity}${transform} />`;
+        case 'polygon':
+        case 'star':
+          return `${pad}<polygon${id} points="${shapeVerticesToPoints(shape, 3)}" fill="${fill}"${opacity}${transform} />`;
+        default:
+          return `${pad}<g${id}${opacity}${transform} />`;
+      }
+    }
+
+    if (current.kind === 'text') {
+      return `${pad}<text${id} x={0} y={0} fill="${fill}" fontSize={${current.fontSize}}${opacity}${transform}>${escapeXml(current.text)}</text>`;
+    }
+
+    if (current.kind === 'frame' || current.kind === 'group') {
+      const children = current.children
+        .map((childId) => doc.nodes[childId])
+        .filter((child): child is SceneNode => Boolean(child))
+        .map((child) => renderNode(child, depth + 1))
+        .join('\n');
+      return `${pad}<g${id}${opacity}${transform}>${children ? `\n${children}\n${pad}` : ''}</g>`;
+    }
+
+    return `${pad}<g${id}${opacity}${transform} />`;
+  };
+
+  return [
+    `import type { FC } from 'react';`,
+    '',
+    `export const ExportedScene: FC = () => (`,
+    `  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="100%" height="100%">`,
+    renderNode(node, 2),
+    `  </svg>`,
+    `);`,
+    '',
+  ].join('\n');
+}
