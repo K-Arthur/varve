@@ -382,17 +382,21 @@ export async function dragCanvas(page, from, to, { steps = 12, settleMs = 350 } 
  * region through the compositor keeps the comparison meaningful (any geometry
  * change moves pixels here) at a fraction of the cost.
  */
-export async function canvasPixels(page) {
+export async function canvasPixels(page, around) {
   const box = await canvasBox(page);
-  return page.screenshot({
-    clip: {
-      x: box.x,
-      y: box.y,
-      width: Math.min(box.width, 640),
-      height: Math.min(box.height, 480),
-    },
-    scale: 'css',
-  });
+  // Centre the sample on the point being edited when one is given. A fixed
+  // top-left crop misses anything happening elsewhere: the tracer inserts its
+  // paths beside the source image, so an anchor drag out there changed
+  // nothing inside the sampled region and read as "the edit did nothing".
+  const width = Math.min(box.width, 640);
+  const height = Math.min(box.height, 480);
+  const x = around
+    ? Math.min(Math.max(around.x - width / 2, box.x), box.x + box.width - width)
+    : box.x;
+  const y = around
+    ? Math.min(Math.max(around.y - height / 2, box.y), box.y + box.height - height)
+    : box.y;
+  return page.screenshot({ clip: { x, y, width, height }, scale: 'css' });
 }
 
 /** Names of every layer currently in the tree. */
@@ -507,10 +511,7 @@ export async function closeMenu(page) {
  */
 export async function setRange(locator, value) {
   await locator.evaluate((el, v) => {
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      'value',
-    )?.set;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
     setter?.call(el, String(v));
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
