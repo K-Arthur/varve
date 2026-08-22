@@ -23,6 +23,7 @@ export function writeManifest(path, entry, root) {
     captureRuntime: `chromium ${entry.browserVersion ?? 'unknown'} / node ${process.version}`,
     sourceDuration: Number((entry.sourceDuration ?? 0).toFixed(2)),
     deliveredDuration: Number((entry.deliveredDuration ?? 0).toFixed(2)),
+    posterAt: entry.posterAt ?? null,
     fps: entry.fps ?? 30,
     outputs: entry.outputs ?? {},
     metadata: entry.metadata ?? {},

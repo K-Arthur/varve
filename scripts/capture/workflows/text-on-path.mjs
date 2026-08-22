@@ -27,12 +27,41 @@ import { capture } from '../core/run.mjs';
 
 const objectMenu = (page, item) => menuItem(page, 'Object', item);
 
+async function openTextEditor(page) {
+  const editor = page.getByRole('textbox', { name: /editing text/i });
+  if (await editor.isVisible({ timeout: 500 }).catch(() => false)) return editor;
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(250);
+  if (await editor.isVisible({ timeout: 800 }).catch(() => false)) return editor;
+  const edit = page.getByRole('button', { name: /^Edit$/ }).last();
+  await edit.waitFor({ state: 'visible', timeout: 5000 });
+  await edit.click();
+  await editor.waitFor({ state: 'visible', timeout: 8000 });
+  return editor;
+}
+
+async function setFillHex(page, hex) {
+  const swatch = page.locator('.insp-swatch[aria-label="Fill colour"]');
+  if (!(await swatch.isVisible({ timeout: 3000 }).catch(() => false))) return false;
+  await swatch.click();
+  const dialog = page.getByRole('dialog', { name: /pick fill colour/i });
+  await dialog.waitFor({ state: 'visible', timeout: 3000 });
+  const field = dialog.getByRole('textbox', { name: 'Hex color' });
+  await field.fill(hex);
+  await field.press('Enter');
+  await page.waitForTimeout(350);
+  await dialog.getByRole('button', { name: /^done$/i }).click();
+  await page.waitForTimeout(250);
+  return true;
+}
+
 await capture({
   slug: 'text-on-path',
   workflow: 'Text on path',
   purpose: 'Attaching real text to real path geometry and steering it along the curve.',
   fixture: null,
   duration: [17, 50],
+  posterAt: 0.75,
 
   async sequence(ctx) {
     const { page, base, begin } = ctx;
@@ -49,6 +78,14 @@ await capture({
     await useTool(page, 'o');
     await dragAt(page, [0.22, 0.12], [0.78, 0.72], { steps: 20 });
     await useTool(page, 'v');
+    // Keep the path visible as a ring instead of an opaque disc so the real
+    // glyphs remain readable when the text is attached to it.
+    await setFillHex(page, '#39D0C600');
+    const initialStroke = page.getByRole('button', { name: 'Add Stroke' }).first();
+    if (await initialStroke.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await initialStroke.click();
+      await page.waitForTimeout(450);
+    }
     const ringLayers = await layerNames(page);
     await parkPointer(page);
     await settle(page, { pauseMs: 150 });
@@ -57,8 +94,10 @@ await capture({
     // ── The label ──────────────────────────────────────────────────
     await useTool(page, 't');
     await dragAt(page, [0.06, 0.86], [0.42, 0.94]);
-    await page.keyboard.type('VELO CLUB · EST 1974', { delay: 35 });
-    await page.keyboard.press('Escape');
+    const labelEditor = await openTextEditor(page);
+    await labelEditor.fill('VELO CLUB · EST 1974');
+    assert.equal(await labelEditor.inputValue(), 'VELO CLUB · EST 1974');
+    await labelEditor.press('Escape');
     await page.waitForTimeout(350);
     await useTool(page, 'v');
     await parkPointer(page);
@@ -149,12 +188,11 @@ await capture({
     await beat(page, 800);
 
     // ── The text is still text ─────────────────────────────────────
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(400);
-    await page.keyboard.press('Control+a');
-    await page.keyboard.type('VELO CLUB · EST 1974 ·', { delay: 30 });
+    // The label was edited in a real text editor before attachment. Keep the
+    // path-control state visible here; reopening the editor after attachment
+    // would hide the very glyphs this workflow is meant to prove.
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
     await parkPointer(page);
     await settle(page, { pauseMs: 150 });
     const textNodes = await layerNames(page);
@@ -179,6 +217,12 @@ await capture({
       `reshaping deleted layers: was ${preReshapeNames.length}, now ${postReshape.length}`,
     );
     assertions.push('the ring stays independently editable and the text follows it');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await useTool(page, 'v');
+    await fitContent(page);
+    await parkPointer(page);
+    await settle(page, { pauseMs: 200 });
     await beat(page, 800);
 
     return assertions;

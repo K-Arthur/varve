@@ -2,14 +2,15 @@
   "workflow": "Text on path",
   "slug": "text-on-path",
   "purpose": "Attaching real text to real path geometry and steering it along the curve.",
-  "gitCommit": "58458f8c5b62d527da486fab6a84c1c7c6c898ec",
-  "capturedAt": "2026-08-22T14:11:33.545Z",
+  "gitCommit": "2d3a8b9c0213e0448c9d40383b1671a627255060",
+  "capturedAt": "2026-08-22T21:20:53.425Z",
   "viewport": "1440x900",
   "dpr": 1,
   "fixture": null,
   "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
-  "sourceDuration": 53.31,
-  "deliveredDuration": 42.8,
+  "sourceDuration": 41.77,
+  "deliveredDuration": 33.93,
+  "posterAt": 25.45,
   "fps": 30,
   "outputs": {
     "webm": "docs/screenshots/workflows/text-on-path.webm",
@@ -39,9 +40,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 1284,
-          "duration": 42.8,
-          "bytes": 1514461
+          "frames": 1017,
+          "duration": 33.933,
+          "bytes": 1397514
         }
       },
       "mp4": {
@@ -52,9 +53,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 1284,
-          "duration": 42.8,
-          "bytes": 1737755
+          "frames": 1017,
+          "duration": 33.9,
+          "bytes": 1465039
         }
       }
     },
@@ -69,32 +70,32 @@
       },
       {
         "label": "q1",
-        "at": 10.7,
-        "luma": 223.5,
+        "at": 8.48,
+        "luma": 231.8,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "mid",
-        "at": 21.4,
-        "luma": 223.6,
+        "at": 16.97,
+        "luma": 231.6,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "q3",
-        "at": 32.1,
-        "luma": 221.4,
+        "at": 25.45,
+        "luma": 233,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "final",
-        "at": 42.55,
-        "luma": 221.6,
+        "at": 33.68,
+        "luma": 233.1,
         "black": false,
         "blank": false,
         "exists": true
