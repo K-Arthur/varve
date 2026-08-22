@@ -2,28 +2,32 @@
   "workflow": "Smart Animate",
   "slug": "smart-animate",
   "purpose": "A collapsed weather card expands through real corresponding-layer interpolation.",
-  "gitCommit": "47ed6a6c3aae08a9bf23cf3f9a3d0982526835e5",
-  "capturedAt": "2026-08-22T06:55:11.215Z",
+  "gitCommit": "91b76071e8c5910e9310d5525ad72de02b361fd4",
+  "capturedAt": "2026-08-22T10:43:49.690Z",
   "viewport": "1440x900",
   "dpr": 1,
   "fixture": null,
   "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
-  "sourceDuration": 49.62,
-  "deliveredDuration": 15.77,
+  "sourceDuration": 40.13,
+  "deliveredDuration": 22.47,
   "fps": 30,
   "outputs": {
     "webm": "docs/screenshots/workflows/smart-animate.webm",
-    "poster": "docs/screenshots/workflows/smart-animate-poster.png",
-    "mp4": "docs/screenshots/workflows/smart-animate.mp4"
+    "mp4": "docs/screenshots/workflows/smart-animate.mp4",
+    "poster": "docs/screenshots/workflows/smart-animate-poster.png"
   },
   "metadata": {
-    "productTruth": "Smart Animate uses matched duplicated child layers and the real prototype transition engine",
-    "correspondence": "duplicated child layer identity is preserved; missing layers are not crossfaded"
+    "productTruth": "Smart Animate uses matched child layers and the real prototype transition engine",
+    "correspondence": "matchLayersByName pairs layers by name; the clip renames the duplicate's card so the two states correspond",
+    "limitation": "Duplicating a frame suffixes every descendant with \" copy\" (context.tsx cloneNodeDeep, asserted in editor.test.tsx), so a frame and its duplicate share no layer names and Smart Animate snaps between them until a layer is renamed."
   },
   "artifacts": [],
   "productAssertions": [
-    "source and target states use a real Smart Animate transition setting",
-    "preview rendered an intermediate two-state stack before reaching expanded weather"
+    "expanded state's card is a genuinely different size (158px → 210px wide)",
+    "renamed the duplicate's card \"Rectangle 1 copy\" back to \"Rectangle 1\" so Smart Animate can correspond the layers",
+    "source and target states use a real Smart Animate transition set to 1400ms",
+    "Smart Animate interpolated the card through 42 intermediate widths (158px → 210px)",
+    "the transition replays from the presenter without re-authoring it"
   ],
   "verification": {
     "findings": [],
@@ -36,9 +40,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 472,
-          "duration": 15.766,
-          "bytes": 388014
+          "frames": 674,
+          "duration": 22.466,
+          "bytes": 458535
         }
       },
       "mp4": {
@@ -49,9 +53,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 472,
-          "duration": 15.733333,
-          "bytes": 445594
+          "frames": 674,
+          "duration": 22.466667,
+          "bytes": 449296
         }
       }
     },
@@ -59,39 +63,39 @@
       {
         "label": "start",
         "at": 0.15,
-        "luma": 218.9,
+        "luma": 225.3,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "q1",
-        "at": 3.94,
-        "luma": 218.3,
+        "at": 5.62,
+        "luma": 222.1,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "mid",
-        "at": 7.88,
-        "luma": 232.1,
+        "at": 11.23,
+        "luma": 231.3,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "q3",
-        "at": 11.82,
-        "luma": 232.2,
+        "at": 16.85,
+        "luma": 231.3,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "final",
-        "at": 15.52,
-        "luma": 218.2,
+        "at": 22.22,
+        "luma": 222.1,
         "black": false,
         "blank": false,
         "exists": true
