@@ -5,11 +5,9 @@ import {
   beat,
   dragAt,
   fitContent,
-  layerNames,
   openCleanEditor,
   parkPointer,
   selectComboboxOption,
-  selectLayer,
   settle,
   useTool,
 } from '../core/editor.mjs';
@@ -18,6 +16,9 @@ import { capture } from '../core/run.mjs';
 async function makeScreen(page, from, to) {
   await useTool(page, 'f');
   await dragAt(page, from, to, { steps: 12, settleMs: 250 });
+  const root = page.locator('[role="treeitem"][aria-level="1"]').first();
+  await root.waitFor({ state: 'visible', timeout: 5000 });
+  return (await root.innerText()).split('\n')[0].trim();
 }
 
 async function drawRect(page, from, to) {
@@ -33,6 +34,42 @@ async function drawText(page, from, to, text) {
   await editor.fill(text);
   await editor.press('Escape');
   await page.waitForTimeout(250);
+}
+
+async function setFillHex(page, hex) {
+  const swatch = page.locator('.insp-swatch[aria-label="Fill colour"]');
+  if (!(await swatch.isVisible({ timeout: 3000 }).catch(() => false))) return false;
+  await swatch.click();
+  const dialog = page.getByRole('dialog', { name: /pick fill colour/i });
+  await dialog.waitFor({ state: 'visible', timeout: 3000 });
+  const field = dialog.getByRole('textbox', { name: 'Hex color' });
+  if (!(await field.isVisible({ timeout: 3000 }).catch(() => false))) return false;
+  await field.fill(hex);
+  await field.press('Enter');
+  await page.waitForTimeout(350);
+  await dialog.getByRole('button', { name: /^done$/i }).click();
+  await page.waitForTimeout(250);
+  return true;
+}
+
+async function makeButton(page, from, to, label, fill) {
+  // Prototype screens are real Frames; the controls inside them are real
+  // rectangle/text button compositions so the presenter does not mistake
+  // every decorative control for another screen.
+  await useTool(page, 'r');
+  await dragAt(page, from, to, { steps: 10, settleMs: 180 });
+  await setFillHex(page, fill);
+  await drawText(page, [from[0] + 0.02, from[1] + 0.025], [to[0] - 0.02, to[1] - 0.025], label);
+}
+
+async function selectScreen(page, name) {
+  const root = page
+    .locator('[role="treeitem"][aria-level="1"]')
+    .filter({ hasText: new RegExp(`^${name}\\b`) })
+    .first();
+  await root.waitFor({ state: 'visible', timeout: 6000 });
+  await root.click();
+  await page.waitForTimeout(400);
 }
 
 await capture({
@@ -51,28 +88,40 @@ await capture({
     await settle(page);
 
     // ── Screen 1: Destination search ──
-    await makeScreen(page, [0.10, 0.16], [0.36, 0.74]);
-    await drawRect(page, [0.13, 0.20], [0.33, 0.36]);
-    await drawText(page, [0.13, 0.40], [0.33, 0.46], 'Kyoto — 5 nights');
-    await drawText(page, [0.13, 0.50], [0.33, 0.55], 'From ¥38,000');
+    const searchScreen = await makeScreen(page, [0.10, 0.16], [0.36, 0.74]);
+    await drawText(page, [0.13, 0.21], [0.33, 0.27], 'NORTHLINE TRAVEL');
+    await drawRect(page, [0.13, 0.30], [0.33, 0.46]);
+    await drawText(page, [0.15, 0.33], [0.31, 0.39], 'KYOTO');
+    await drawText(page, [0.13, 0.51], [0.33, 0.56], '5 nights · from ¥38,000');
+    await makeButton(page, [0.13, 0.62], [0.33, 0.69], 'SEARCH STAYS', '#E27D60');
 
     // ── Screen 2: Ryokan details ──
-    await makeScreen(page, [0.40, 0.16], [0.66, 0.74]);
-    await drawRect(page, [0.43, 0.20], [0.63, 0.36]);
-    await drawText(page, [0.43, 0.40], [0.63, 0.46], 'Ryokan · ¥42,800');
-    await drawText(page, [0.43, 0.50], [0.63, 0.55], 'per night');
+    const detailsScreen = await makeScreen(page, [0.40, 0.16], [0.66, 0.74]);
+    await drawText(page, [0.43, 0.21], [0.63, 0.27], 'NORTHLINE / KYOTO');
+    await drawRect(page, [0.43, 0.30], [0.63, 0.46]);
+    await drawText(page, [0.45, 0.33], [0.61, 0.39], 'MIZU RYOKAN');
+    await drawText(page, [0.43, 0.51], [0.63, 0.56], '¥42,800 · 4.9 ★');
+    await makeButton(page, [0.43, 0.62], [0.63, 0.69], 'RESERVE ROOM', '#6E9A8A');
 
     // ── Screen 3: Booking confirmation ──
-    await makeScreen(page, [0.70, 0.16], [0.92, 0.74]);
-    await drawRect(page, [0.73, 0.20], [0.89, 0.36]);
-    await drawText(page, [0.73, 0.40], [0.89, 0.46], 'Booked!');
-    await drawText(page, [0.73, 0.50], [0.89, 0.55], 'Confirmation sent');
+    const confirmationScreen = await makeScreen(page, [0.70, 0.16], [0.92, 0.74]);
+    await drawText(page, [0.73, 0.21], [0.89, 0.27], 'NORTHLINE / CONFIRM');
+    await drawRect(page, [0.73, 0.30], [0.89, 0.46]);
+    await drawText(page, [0.75, 0.34], [0.87, 0.4], 'BOOKED');
+    await drawText(page, [0.73, 0.51], [0.89, 0.56], 'Confirmation sent');
+    await makeButton(page, [0.73, 0.62], [0.89, 0.69], 'VIEW ITINERARY', '#D9A441');
 
     await useTool(page, 'v');
-    const allNames = (await layerNames(page)).filter((name) => /^Frame \d+$/.test(name.trim()));
-    assert.equal(allNames.length, 3, 'travel flow needs three real frame screens');
-    // Tree lists newest-first, so reverse to get creation order (screen 1, 2, 3).
-    const screenNames = [...allNames].reverse();
+    const screenNames = [searchScreen, detailsScreen, confirmationScreen];
+    const roots = page.locator('[role="treeitem"][aria-level="1"]');
+    for (const name of screenNames) {
+      assert.equal(await roots.filter({ hasText: new RegExp(`^${name}\\b`) }).count(), 1, `${name} screen missing`);
+    }
+    assert.equal(await roots.count(), 3, 'travel flow needs three real frame screens');
+    assert.ok(
+      (await page.locator('[role="treeitem"][aria-level="2"]').count()) >= 9,
+      'travel flow has no nested card and button content',
+    );
     await fitContent(page);
     await parkPointer(page);
     await settle(page);
@@ -82,7 +131,7 @@ await capture({
     await beat(page, 1100);
 
     // Screen 1 → Screen 2
-    await selectLayer(page, new RegExp(`^${screenNames[0]}$`));
+    await selectScreen(page, screenNames[0]);
     await page.getByRole('tab', { name: 'Prototype', exact: true }).click();
     await page.getByRole('button', { name: 'Add Interaction' }).click();
     await page.waitForTimeout(800);
@@ -94,7 +143,7 @@ await capture({
     await beat(page, 900);
 
     // Screen 2 → Screen 3
-    await selectLayer(page, new RegExp(`^${screenNames[1]}$`));
+    await selectScreen(page, screenNames[1]);
     await page.getByRole('tab', { name: 'Prototype', exact: true }).click();
     await page.getByRole('button', { name: 'Add Interaction' }).click();
     await page.waitForTimeout(800);
