@@ -98,6 +98,10 @@ await capture({
     // ── A real colour readout on a real object ─────────────────────
     await selectLayer(page, canName);
     await page.waitForTimeout(700);
+    // Selecting reveals and zooms to the layer, so re-frame before the
+    // comparisons below look at the canvas.
+    await fitContent(page);
+    await parkPointer(page);
     assertions.push('a saturated object is selected and its colour is read in the inspector');
     await beat(page, 1600);
 

@@ -139,6 +139,10 @@ await capture({
     const tracedName = traced[0];
     await selectLayer(page, tracedName.trim().split('\n')[0]);
     await page.waitForTimeout(600);
+    // Selecting reveals and zooms to the layer; without re-framing the later
+    // pixel comparison can be photographing empty canvas.
+    await fitContent(page);
+    await parkPointer(page);
 
     // Drill into the group until a path with editable nodes is selected.
     const editNodes = page
