@@ -2,14 +2,14 @@
   "workflow": "Reusable component / variant",
   "slug": "component-variants",
   "purpose": "A transit-ticket purchase button is promoted to a real component and switched between variants.",
-  "gitCommit": "7bf1f4f86f1d5fd88638f96f329c39b3693ab9e4",
-  "capturedAt": "2026-08-22T20:39:18.427Z",
+  "gitCommit": "af9a8eed6bb0edb7f8a1b3f38054d8adfa494c2c",
+  "capturedAt": "2026-08-22T20:49:49.496Z",
   "viewport": "1440x900",
   "dpr": 1,
   "fixture": null,
   "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
-  "sourceDuration": 65.53,
-  "deliveredDuration": 21.73,
+  "sourceDuration": 69.01,
+  "deliveredDuration": 21.57,
   "fps": 30,
   "outputs": {
     "webm": "docs/screenshots/workflows/component-variants.webm",
@@ -39,9 +39,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 652,
-          "duration": 21.733,
-          "bytes": 916165
+          "frames": 647,
+          "duration": 21.566,
+          "bytes": 996110
         }
       },
       "mp4": {
@@ -52,9 +52,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 652,
-          "duration": 21.733333,
-          "bytes": 1013748
+          "frames": 647,
+          "duration": 21.566667,
+          "bytes": 1099310
         }
       }
     },
@@ -62,39 +62,39 @@
       {
         "label": "start",
         "at": 0.15,
-        "luma": 233.1,
+        "luma": 227.7,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "q1",
-        "at": 5.43,
-        "luma": 231.9,
+        "at": 5.39,
+        "luma": 218.7,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "mid",
-        "at": 10.87,
-        "luma": 231.8,
+        "at": 10.78,
+        "luma": 221.2,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "q3",
-        "at": 16.3,
-        "luma": 231.8,
+        "at": 16.17,
+        "luma": 221.2,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "final",
-        "at": 21.48,
-        "luma": 233.1,
+        "at": 21.32,
+        "luma": 231,
         "black": false,
         "blank": false,
         "exists": true

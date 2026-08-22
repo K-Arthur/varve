@@ -36,15 +36,18 @@ async function addText(page, from, to, copy) {
 }
 
 async function setFillHex(page, hex) {
-  const swatch = page.locator('.insp-color-swatch, [aria-label*="fill" i]').first();
+  const swatch = page.locator('.insp-swatch[aria-label="Fill colour"]');
   if (!(await swatch.isVisible({ timeout: 3000 }).catch(() => false))) return false;
   await swatch.click();
-  const field = page.getByRole('textbox', { name: /hex/i }).first();
+  const dialog = page.getByRole('dialog', { name: /pick fill colour/i });
+  await dialog.waitFor({ state: 'visible', timeout: 3000 });
+  const field = dialog.getByRole('textbox', { name: 'Hex color' });
   if (!(await field.isVisible({ timeout: 3000 }).catch(() => false))) return false;
   await field.fill(hex);
   await field.press('Enter');
   await page.waitForTimeout(350);
-  await page.keyboard.press('Escape');
+  await dialog.getByRole('button', { name: /^done$/i }).click();
+  await page.waitForTimeout(250);
   return true;
 }
 
