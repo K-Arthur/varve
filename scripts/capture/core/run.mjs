@@ -231,7 +231,9 @@ export async function capture(spec) {
     console.log(`[${spec.slug}] trimming ${trimStart.toFixed(1)}s of setup`);
     await toWebm(sourcePath, webm, { start: trimStart, fps: FPS });
     if (!skipMp4) await toMp4(sourcePath, mp4, { start: trimStart, fps: FPS });
-    await posterFrom(webm, poster);
+    // Late in the cut, where the artwork exists — see posterFrom.
+    const posterAt = Math.max(0.2, (await probe(webm)).duration * 0.85);
+    await posterFrom(webm, poster, posterAt);
 
     const delivered = await probe(webm);
     const [minS, maxS] = spec.duration;

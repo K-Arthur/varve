@@ -101,7 +101,15 @@ export function toMp4(src, dest, { start = 0, duration, fps = 30 }) {
   ]);
 }
 
-/** Poster taken from the delivered cut, never from a separately staged shot. */
+/**
+ * Poster taken from the delivered cut, never from a separately staged shot.
+ *
+ * Sampled late rather than at the head. Several of these clips open on a
+ * deliberately empty document — the point being that the artwork is made on
+ * camera — so the first frame is "No layers yet". That frame is what the
+ * website shows before playback and what reduced-motion users get *instead
+ * of* the video, which makes the head the worst possible choice for them.
+ */
 export function posterFrom(src, dest, atSeconds = 0.2) {
   return ffmpeg(['-ss', atSeconds.toFixed(3), '-i', src, '-frames:v', '1', '-update', '1', dest]);
 }
