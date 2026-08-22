@@ -241,7 +241,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
       # The workflow security policy audit parses YAML structurally (js-yaml,
       # a devDependency), so this job now installs once. The install is small
       # and cached; the job stays cheap.
