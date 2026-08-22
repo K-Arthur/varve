@@ -73,7 +73,7 @@ describe('runRestoration', () => {
   it('forwards per-stage upscale progress to the live stage reporter', async () => {
     const snapshots: Array<{ id: string; status: string; progress: number }[]> = [];
     vi.mocked(dispatchUpscale).mockImplementation(async (_input, options) => {
-      options.onProgress?.(3, 4);
+      options?.onProgress?.(3, 4);
       return image(4, 4);
     });
 

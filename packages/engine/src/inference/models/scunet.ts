@@ -173,48 +173,68 @@ export function extractTile(
   return { tensor, alignedWidth: tw, alignedHeight: th, alphaData };
 }
 
-export function blendTiles(
-  tiles: ScunetTile[],
-  tileResults: Float32Array[],
+export interface TileBlendAccumulator {
+  output: Float32Array;
+  weightAccum: Float32Array;
+  /** Raw edge values for border pixels whose feather weight is zero. */
+  rawFallback: Float32Array;
+}
+
+export function createTileBlendAccumulator(
+  outputWidth: number,
+  outputHeight: number,
+): TileBlendAccumulator {
+  const pixelCount = outputWidth * outputHeight;
+  return {
+    output: new Float32Array(pixelCount * 3),
+    weightAccum: new Float32Array(pixelCount),
+    rawFallback: new Float32Array(pixelCount * 3),
+  };
+}
+
+/** Add one padded tile to an accumulator without retaining the tile result. */
+export function accumulateTile(
+  accumulator: TileBlendAccumulator,
+  tile: ScunetTile,
+  result: Float32Array,
   outputWidth: number,
   outputHeight: number,
   overlap: number,
-): Float32Array {
+): void {
+  const { output, weightAccum, rawFallback } = accumulator;
   const pixelCount = outputWidth * outputHeight;
-  const output = new Float32Array(pixelCount * 3);
-  const weightAccum = new Float32Array(pixelCount);
-  // Zero-weight pixels (image borders covered by a single tile's edge) fall
-  // back to the last tile's raw value — without this, the `weightAccum || 1`
-  // fallback divides 0 by 1 and paints black border lines on tiled output.
-  const rawFallback = new Float32Array(pixelCount * 3);
-  for (let t = 0; t < tiles.length; t++) {
-    const tile = tiles[t]!;
-    const result = tileResults[t]!;
-    const tw = alignTo8(tile.width);
-    const th = alignTo8(tile.height);
-    const srcPixels = tw * th;
-    for (let dy = 0; dy < tile.height; dy++) {
-      for (let dx = 0; dx < tile.width; dx++) {
-        const outX = tile.x + dx;
-        const outY = tile.y + dy;
-        if (outX >= outputWidth || outY >= outputHeight) continue;
-        const distToEdge = Math.min(dx, dy, tile.width - 1 - dx, tile.height - 1 - dy);
-        const maxFeather = Math.min(overlap, tile.width >> 1, tile.height >> 1);
-        const weight = Math.min(1, distToEdge / Math.max(1, maxFeather));
-        const srcIdx = dy * tw + dx;
-        const outIdx = outY * outputWidth + outX;
-        output[outIdx] = output[outIdx]! + result[srcIdx]! * weight;
-        output[outIdx + pixelCount] =
-          output[outIdx + pixelCount]! + result[srcIdx + srcPixels]! * weight;
-        output[outIdx + pixelCount * 2] =
-          output[outIdx + pixelCount * 2]! + result[srcIdx + srcPixels * 2]! * weight;
-        rawFallback[outIdx] = result[srcIdx]!;
-        rawFallback[outIdx + pixelCount] = result[srcIdx + srcPixels]!;
-        rawFallback[outIdx + pixelCount * 2] = result[srcIdx + srcPixels * 2]!;
-        weightAccum[outIdx] = weightAccum[outIdx]! + weight;
-      }
+  const tw = alignTo8(tile.width);
+  const srcPixels = tw * alignTo8(tile.height);
+  for (let dy = 0; dy < tile.height; dy++) {
+    for (let dx = 0; dx < tile.width; dx++) {
+      const outX = tile.x + dx;
+      const outY = tile.y + dy;
+      if (outX >= outputWidth || outY >= outputHeight) continue;
+      const distToEdge = Math.min(dx, dy, tile.width - 1 - dx, tile.height - 1 - dy);
+      const maxFeather = Math.min(overlap, tile.width >> 1, tile.height >> 1);
+      const weight = Math.min(1, distToEdge / Math.max(1, maxFeather));
+      const srcIdx = dy * tw + dx;
+      const outIdx = outY * outputWidth + outX;
+      output[outIdx] = output[outIdx]! + result[srcIdx]! * weight;
+      output[outIdx + pixelCount] =
+        output[outIdx + pixelCount]! + result[srcIdx + srcPixels]! * weight;
+      output[outIdx + pixelCount * 2] =
+        output[outIdx + pixelCount * 2]! + result[srcIdx + srcPixels * 2]! * weight;
+      rawFallback[outIdx] = result[srcIdx]!;
+      rawFallback[outIdx + pixelCount] = result[srcIdx + srcPixels]!;
+      rawFallback[outIdx + pixelCount * 2] = result[srcIdx + srcPixels * 2]!;
+      weightAccum[outIdx] = weightAccum[outIdx]! + weight;
     }
   }
+}
+
+export function finalizeTileBlend(
+  accumulator: TileBlendAccumulator,
+  outputWidth: number,
+  outputHeight: number,
+): void {
+  const { output, weightAccum, rawFallback } = accumulator;
+  const pixelCount = outputWidth * outputHeight;
   for (let i = 0; i < pixelCount; i++) {
     const w = weightAccum[i]!;
     if (w > 0) {
@@ -227,7 +247,21 @@ export function blendTiles(
       output[i + pixelCount * 2] = rawFallback[i + pixelCount * 2]!;
     }
   }
-  return output;
+}
+
+export function blendTiles(
+  tiles: ScunetTile[],
+  tileResults: Float32Array[],
+  outputWidth: number,
+  outputHeight: number,
+  overlap: number,
+): Float32Array {
+  const accumulator = createTileBlendAccumulator(outputWidth, outputHeight);
+  for (let t = 0; t < tiles.length; t++) {
+    accumulateTile(accumulator, tiles[t]!, tileResults[t]!, outputWidth, outputHeight, overlap);
+  }
+  finalizeTileBlend(accumulator, outputWidth, outputHeight);
+  return accumulator.output;
 }
 
 function clamp255(v: number): number {

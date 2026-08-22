@@ -7,9 +7,11 @@
  */
 
 import {
+  accumulateTile,
   alignTo8,
-  blendTiles,
   computeTiles,
+  createTileBlendAccumulator,
+  finalizeTileBlend,
   type ScunetPreprocessResult,
   type ScunetTile,
 } from '../inference/models/scunet';
@@ -103,7 +105,10 @@ export async function runTiledRestoration(
   const originalHeight = source.height;
   const alphaData = alphaChannel(source);
   const tiles = computeTiles(originalWidth, originalHeight, tileSize, overlap);
-  const tileResults: Float32Array[] = [];
+  // Accumulate each tile immediately. Retaining every padded tile result made
+  // memory scale with tile count on large images, even though recomposition
+  // only needs the running weighted sums.
+  const blendAccumulator = createTileBlendAccumulator(originalWidth, originalHeight);
 
   for (let i = 0; i < tiles.length; i++) {
     if (signal?.aborted) throw new Error('cancelled');
@@ -165,13 +170,14 @@ export async function runTiledRestoration(
         tileFloat[paddedPixels * 2 + paddedPixel] = denoisedData[sourcePixel * 4 + 2]! / 255;
       }
     }
-    tileResults.push(tileFloat);
+    accumulateTile(blendAccumulator, tile, tileFloat, originalWidth, originalHeight, overlap);
     onProgress?.(i + 1, tiles.length);
   }
 
   if (signal?.aborted) throw new Error('cancelled');
 
-  const blended = blendTiles(tiles, tileResults, originalWidth, originalHeight, overlap);
+  finalizeTileBlend(blendAccumulator, originalWidth, originalHeight);
+  const blended = blendAccumulator.output;
   const finalPixels = originalWidth * originalHeight;
   const result = new Uint8ClampedArray(finalPixels * 4);
 
