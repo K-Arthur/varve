@@ -104,12 +104,15 @@ const TrackRowInner: FC<TrackRowProps> = ({
       const startX = e.clientX;
       const startProgress = progress;
       const authoredTimelineWidth = Math.max(duration * zoom, 1);
+      let currentProgress = startProgress;
 
       const handleMove = (ev: MouseEvent) => {
         const dx = ev.clientX - startX;
         const dProgress = dx / authoredTimelineWidth;
         const newProgress = Math.max(0, Math.min(1, startProgress + dProgress));
-        onMoveKeyframe(startProgress, newProgress);
+        if (newProgress === currentProgress) return;
+        onMoveKeyframe(currentProgress, newProgress);
+        currentProgress = newProgress;
       };
 
       const handleUp = () => {
@@ -121,7 +124,7 @@ const TrackRowInner: FC<TrackRowProps> = ({
       window.addEventListener('mousemove', handleMove);
       window.addEventListener('mouseup', handleUp);
     },
-    [onMoveKeyframe, zoom],
+    [duration, onMoveKeyframe, zoom],
   );
 
   const handleKeyDown = useCallback(

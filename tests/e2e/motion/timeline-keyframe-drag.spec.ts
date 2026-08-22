@@ -34,9 +34,13 @@ test.describe('Timeline keyframe editing', () => {
     await second.scrollIntoViewIfNeeded();
     const keyBox = await second.boundingBox();
     if (!keyBox) throw new Error('second keyframe not laid out');
-    await page.mouse.move(keyBox.x, keyBox.y);
+    const keyCenter = {
+      x: keyBox.x + keyBox.width / 2,
+      y: keyBox.y + keyBox.height / 2,
+    };
+    await page.mouse.move(keyCenter.x, keyCenter.y);
     await page.mouse.down();
-    await page.mouse.move(keyBox.x + 80, keyBox.y, { steps: 10 });
+    await page.mouse.move(keyCenter.x + 80, keyCenter.y, { steps: 10 });
     await page.mouse.up();
     await expect(keyframes.nth(1)).not.toHaveAttribute('aria-label', before ?? '');
   });
