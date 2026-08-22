@@ -688,6 +688,34 @@ export function UpscaleDialog({
       ? Math.min(100, Math.round((progress.done / progress.total) * 100))
       : 0;
 
+  // A tiny source (favicon, icon, glyph) has a tiny intrinsic <img> box, which
+  // makes the comparison technically correct but useless to inspect. Fit the
+  // source or selected preview crop into a bounded review area while keeping
+  // 100% mode genuinely pixel-sized.
+  const previewRegion = upscalePreviewRegion(
+    { width: Math.max(1, sourceWidth), height: Math.max(1, sourceHeight) },
+    {
+      scale: usesUpscale ? scale : 1,
+      previewMaxDimension: 512,
+      previewFocus,
+    },
+  );
+  const previewReferenceWidth = previewBaselineUrl ? previewRegion.width : sourceWidth;
+  const previewReferenceHeight = previewBaselineUrl ? previewRegion.height : sourceHeight;
+  const previewFitScale = Math.min(
+    640 / Math.max(1, previewReferenceWidth),
+    180 / Math.max(1, previewReferenceHeight),
+  );
+  const previewFitStyle =
+    previewZoom === 'fit'
+      ? {
+          width: `${Math.max(1, Math.round(previewReferenceWidth * previewFitScale))}px`,
+          height: `${Math.max(1, Math.round(previewReferenceHeight * previewFitScale))}px`,
+          maxWidth: 'none',
+          maxHeight: 'none',
+        }
+      : undefined;
+
   if (!open) return null;
 
   const modeOptions = UPSCALE_MODES.map((m) => ({
@@ -743,6 +771,7 @@ export function UpscaleDialog({
               <div className="upscale-preview__toolbar">
                 <span className="upscale-preview__toolbar-label">Preview</span>
                 <div className="upscale-preview__toolbar-controls">
+                  <span className="upscale-preview__control-label">Inspect</span>
                   <fieldset
                     className="upscale-preview__focus-picker"
                     aria-label="Preview region (pick the area to inspect)"
@@ -763,6 +792,7 @@ export function UpscaleDialog({
                       }),
                     )}
                   </fieldset>
+                  <span className="upscale-preview__control-label">Zoom</span>
                   <fieldset className="upscale-preview__zoom-toggle" aria-label="Preview zoom">
                     <button
                       type="button"
@@ -791,10 +821,16 @@ export function UpscaleDialog({
                 onPointerUp={handlePointerUp}
               >
                 <img
-                  src={previewBaselineUrl ?? sourceDataUrl}
-                  alt="Original (classical bicubic at same size for honest comparison)"
+                  src={previewBaselineUrl ?? (sourceDataUrl || undefined)}
+                  alt="Baseline (same crop at output size for honest comparison)"
                   className="upscale-preview__image upscale-preview__image--original"
-                  style={previewZoom === '100%' ? { imageRendering: 'auto' as const } : undefined}
+                  style={
+                    previewFitStyle
+                      ? { ...previewFitStyle }
+                      : previewZoom === '100%'
+                        ? { imageRendering: 'auto' as const }
+                        : undefined
+                  }
                 />
                 <div
                   className="upscale-preview__overlay"
@@ -815,29 +851,25 @@ export function UpscaleDialog({
                     />
                   ) : mode?.isAi ? (
                     <img
-                      src={sourceDataUrl}
+                      src={sourceDataUrl || undefined}
                       alt="AI upscaled preview placeholder"
                       className="upscale-preview__image upscale-preview__image--upscaled"
                       style={{
-                        aspectRatio: `${sourceWidth}/${sourceHeight}`,
-                        transform: `scale(${outW / sourceWidth}, ${outH / sourceHeight})`,
-                        transformOrigin: 'top left',
-                        width: `${(outW / sourceWidth) * 100}%`,
-                        height: `${(outH / sourceHeight) * 100}%`,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain' as const,
                         opacity: 0.45,
                       }}
                     />
                   ) : (
                     <img
-                      src={sourceDataUrl}
+                      src={sourceDataUrl || undefined}
                       alt="Preview placeholder"
                       className="upscale-preview__image upscale-preview__image--upscaled"
                       style={{
-                        aspectRatio: `${sourceWidth}/${sourceHeight}`,
-                        transform: `scale(${outW / sourceWidth}, ${outH / sourceHeight})`,
-                        transformOrigin: 'top left',
-                        width: `${(outW / sourceWidth) * 100}%`,
-                        height: `${(outH / sourceHeight) * 100}%`,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain' as const,
                         opacity: 0.45,
                       }}
                     />
@@ -862,7 +894,7 @@ export function UpscaleDialog({
                   </div>
                 </div>
                 <span className="upscale-preview__label upscale-preview__label--before">
-                  Original
+                  {previewBaselineUrl ? 'Baseline' : 'Original'}
                 </span>
                 <span className="upscale-preview__label upscale-preview__label--after">
                   {operation === 'denoise'
@@ -890,8 +922,8 @@ export function UpscaleDialog({
               </div>
               <p className="upscale-preview__hint">
                 {previewBaselineUrl
-                  ? `Honest comparison — same ${previewDataUrl ? '512 px' : 'center'} crop at same output size (${usesUpscale ? (mode?.isAi ? 'AI' : 'bicubic') : 'source'} baseline vs ${mode?.isAi ? 'AI' : (mode?.label ?? 'enhanced')}). Drag or use left/right keys to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}x${outH}px`
-                  : `Drag or use left/right keys to compare. Output: ${outW}x${outH}px`}
+                  ? `Honest comparison — same ${previewDataUrl ? '512 px' : 'center'} crop at same output size (${usesUpscale ? (mode?.isAi ? 'AI' : 'bicubic') : 'source'} baseline vs ${mode?.isAi ? 'AI' : (mode?.label ?? 'enhanced')}). Drag or use left/right keys to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}×${outH}px`
+                  : `Drag or use left/right keys to compare. Output: ${outW}×${outH}px`}
               </p>
             </div>
 
