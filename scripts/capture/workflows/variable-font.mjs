@@ -12,7 +12,7 @@ import { strict as assert } from 'node:assert';
 import {
   beat,
   canvasPixels,
-  dragCanvas,
+  dragAt,
   layerNames,
   openCleanEditor,
   parkPointer,
@@ -53,7 +53,7 @@ await capture({
     // Set the specimen up before the cut: this clip is about the axes, not
     // about typing.
     await useTool(page, 't');
-    await dragCanvas(page, [180, 260], [1180, 480]);
+    await dragAt(page, [0.08, 0.3], [0.9, 0.56]);
     await page.keyboard.type('Aa', { delay: 40 });
     await page.keyboard.press('Escape');
     await page.waitForTimeout(400);

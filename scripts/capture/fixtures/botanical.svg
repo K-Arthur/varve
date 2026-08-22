@@ -1,0 +1,36 @@
+<!--
+  Source art for the raster→vector capture.
+
+  Deliberately flat colour with clean edges: tracing a photograph produces
+  hundreds of overlapping paths and a complexity warning, which demonstrates
+  the tracer's failure mode rather than its purpose. This is rasterised to
+  PNG by generate.mjs and imported as a bitmap, so the trace in the clip runs
+  against real pixels with no vector data behind them.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700" viewBox="0 0 900 700">
+  <rect width="900" height="700" fill="#F7F5F0"/>
+  <g stroke="#1F3D2B" stroke-width="7" fill="none" stroke-linecap="round">
+    <path d="M450 660 C 450 520 448 400 452 250"/>
+    <path d="M452 470 C 380 450 330 400 310 340"/>
+    <path d="M452 400 C 528 385 578 340 596 282"/>
+    <path d="M452 560 C 392 548 352 512 336 466"/>
+  </g>
+  <g fill="#2F6B47">
+    <path d="M310 340 C 300 280 330 232 392 214 C 402 276 372 322 310 340 Z"/>
+    <path d="M596 282 C 610 222 584 174 524 152 C 510 214 538 262 596 282 Z"/>
+    <path d="M336 466 C 330 418 354 380 404 366 C 412 416 388 452 336 466 Z"/>
+  </g>
+  <g fill="#7FA88A">
+    <path d="M392 214 C 430 236 442 278 424 318 C 388 296 378 254 392 214 Z"/>
+    <path d="M524 152 C 486 174 476 216 494 254 C 530 234 538 192 524 152 Z"/>
+  </g>
+  <g>
+    <circle cx="452" cy="196" r="62" fill="#E2853C"/>
+    <circle cx="452" cy="196" r="30" fill="#C4482E"/>
+    <circle cx="452" cy="196" r="12" fill="#3A2410"/>
+    <circle cx="330" cy="256" r="34" fill="#D9A648"/>
+    <circle cx="330" cy="256" r="14" fill="#B3521F"/>
+    <circle cx="588" cy="212" r="28" fill="#D9A648"/>
+    <circle cx="588" cy="212" r="11" fill="#B3521F"/>
+  </g>
+</svg>

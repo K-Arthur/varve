@@ -12,8 +12,8 @@ import { strict as assert } from 'node:assert';
 import {
   beat,
   canvasPixels,
-  clickCanvas,
-  dragCanvas,
+  clickAt,
+  dragAt,
   layerNames,
   openCleanEditor,
   parkPointer,
@@ -52,11 +52,13 @@ await capture({
 
     // Click-drag pulls a tangent out of the anchor as it is placed — this is
     // the gesture that makes the segment a curve rather than a straight run.
-    await dragCanvas(page, [300, 480], [400, 380]);
-    await dragCanvas(page, [560, 330], [660, 300]);
-    await dragCanvas(page, [830, 430], [920, 490]);
-    await dragCanvas(page, [1060, 330], [1140, 280]);
-    await clickCanvas(page, 1220, 470);
+    // Positions are fractions of the drawing area, which is what the panels
+    // leave behind rather than the window size.
+    await dragAt(page, [0.12, 0.62], [0.22, 0.46]);
+    await dragAt(page, [0.34, 0.34], [0.44, 0.27]);
+    await dragAt(page, [0.56, 0.55], [0.66, 0.66]);
+    await dragAt(page, [0.78, 0.33], [0.87, 0.24]);
+    await clickAt(page, 0.92, 0.58);
     await beat(page, 500);
 
     await page.keyboard.press('Enter');
@@ -84,9 +86,11 @@ await capture({
     assertions.push('node edit mode opened on the drawn path from the selection quick bar');
     await beat(page, 1400);
 
-    // Move a real anchor and prove the render followed it.
+    // Move a real anchor and prove the render followed it. The third anchor
+    // was placed at this exact spot a moment ago, so this grabs geometry the
+    // clip itself created.
     const beforeMove = await canvasPixels(page);
-    await dragCanvas(page, [830, 430], [830, 250], { steps: 26 });
+    await dragAt(page, [0.56, 0.55], [0.56, 0.28], { steps: 26 });
     await parkPointer(page);
     await settle(page);
     const afterMove = await canvasPixels(page);
@@ -98,9 +102,11 @@ await capture({
     assertions.push('dragging an anchor changed the rendered geometry');
     await beat(page, 1200);
 
-    // Then a tangent handle, which changes curvature without moving the anchor.
+    // Then the out-handle of that anchor. It was dragged to (0.66, 0.66) when
+    // the anchor was placed and travelled with it, so it now sits the same
+    // offset from the anchor's new position.
     const beforeHandle = await canvasPixels(page);
-    await dragCanvas(page, [920, 310], [1010, 200], { steps: 26 });
+    await dragAt(page, [0.66, 0.39], [0.74, 0.22], { steps: 26 });
     await parkPointer(page);
     await settle(page);
     assert.notEqual(
@@ -108,7 +114,7 @@ await capture({
       0,
       'dragging a tangent handle did not change the rendered curve',
     );
-    assertions.push('dragging a tangent handle re-curved the segment');
+    assertions.push('dragging its control handle re-curved the adjoining segments');
     await beat(page, 1400);
 
     // Undo has to reach the node edit, not just the path creation.

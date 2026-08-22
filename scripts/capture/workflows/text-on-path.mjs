@@ -12,7 +12,7 @@ import { strict as assert } from 'node:assert';
 import {
   beat,
   canvasPixels,
-  dragCanvas,
+  dragAt,
   layerNames,
   openCleanEditor,
   parkPointer,
@@ -49,7 +49,7 @@ await capture({
 
     // ── The ring ───────────────────────────────────────────────────
     await useTool(page, 'o');
-    await dragCanvas(page, [420, 170], [1020, 770], { steps: 26 });
+    await dragAt(page, [0.22, 0.12], [0.78, 0.72], { steps: 26 });
     await useTool(page, 'v');
     await parkPointer(page);
     await settle(page);
@@ -57,7 +57,7 @@ await capture({
 
     // ── The label ──────────────────────────────────────────────────
     await useTool(page, 't');
-    await dragCanvas(page, [140, 820], [520, 870]);
+    await dragAt(page, [0.06, 0.86], [0.42, 0.94]);
     await page.keyboard.type('VELO CLUB · EST 1974', { delay: 35 });
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
@@ -145,7 +145,7 @@ await capture({
     // Reshaping the ring must re-lay the text that rides on it.
     const beforeReshape = await canvasPixels(page);
     await selectLayer(page, /ellipse|circle|shape/i);
-    await dragCanvas(page, [1020, 770], [1100, 840], { steps: 22 });
+    await dragAt(page, [0.78, 0.72], [0.88, 0.82], { steps: 22 });
     await parkPointer(page);
     await settle(page);
     assert.notEqual(

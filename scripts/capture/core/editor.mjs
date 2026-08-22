@@ -197,6 +197,20 @@ export async function canvasBox(page) {
   return box;
 }
 
+/**
+ * Canvas coordinates as fractions of the drawing area.
+ *
+ * The content canvas is neither the viewport nor a fixed size — it is what
+ * the panels leave behind (832x778 of a 1440x900 window at the time of
+ * writing). Hardcoded pixels silently land outside it when a panel changes
+ * width, and a pen gesture off the canvas draws nothing at all rather than
+ * failing loudly, so every workflow addresses the canvas proportionally.
+ */
+export async function frac(page, fx, fy) {
+  const box = await canvasBox(page);
+  return [box.width * fx, box.height * fy];
+}
+
 /** Moves visibly before pressing, so the cursor is where the click lands. */
 export async function clickCanvas(page, x, y, { settleMs = 350 } = {}) {
   const box = await canvasBox(page);
@@ -206,6 +220,19 @@ export async function clickCanvas(page, x, y, { settleMs = 350 } = {}) {
   // The pen tool treats two clicks inside 300ms as "finish path", so callers
   // placing anchors must stay above that.
   if (settleMs > 0) await page.waitForTimeout(settleMs);
+}
+
+/** Click at a fractional position on the canvas. */
+export async function clickAt(page, fx, fy, opts) {
+  const [x, y] = await frac(page, fx, fy);
+  return clickCanvas(page, x, y, opts);
+}
+
+/** Click-drag between two fractional positions on the canvas. */
+export async function dragAt(page, from, to, opts) {
+  const a = await frac(page, from[0], from[1]);
+  const b = await frac(page, to[0], to[1]);
+  return dragCanvas(page, a, b, opts);
 }
 
 /** Click-drag on the canvas — the gesture that pulls a Bézier tangent out. */
