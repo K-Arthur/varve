@@ -382,6 +382,10 @@
   color: var(--color-success, var(--color-text-primary));
 }
 
+.upscale-progress__stage--failed {
+  color: var(--color-error, var(--color-text-primary));
+}
+
 .upscale-error {
   display: flex;
   flex-direction: column;

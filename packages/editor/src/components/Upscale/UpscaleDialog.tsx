@@ -97,6 +97,10 @@ function errorActionForCode(code: RestorationErrorCode): string | null {
   switch (code) {
     case 'model-not-installed':
       return 'Download the required model to continue.';
+    case 'model-unavailable':
+      return 'This checkpoint is not validated for the selected operation. Choose another operation.';
+    case 'invalid-request':
+      return 'Review the selected operation and settings, then try again.';
     case 'hash-mismatch':
       return 'The downloaded model failed integrity verification. Re-download it.';
     case 'dimension-limit':
@@ -885,7 +889,6 @@ export function UpscaleDialog({
                     Generating preview…
                   </div>
                 )}
-              </div>
               <p className="upscale-preview__hint">
                 {previewBaselineUrl
                   ? `Honest comparison — same ${previewDataUrl ? '512 px' : 'center'} crop at same output size (${usesUpscale ? (mode?.isAi ? 'AI' : 'bicubic') : 'source'} baseline vs ${mode?.isAi ? 'AI' : mode?.label ?? 'enhanced'}). Drag or use \u2190 \u2192 to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}\u00d7${outH}px`
@@ -965,7 +968,6 @@ export function UpscaleDialog({
                     No task-specific model is installed and validated for this operation yet.
                   </p>
                 )}
-              </div>
 
               <div className="upscale-settings__group">
                 <span className="upscale-settings__label">Quality</span>
@@ -984,7 +986,6 @@ export function UpscaleDialog({
                     ? 'Preserve original detail. Lighter restoration, fewer artifacts.'
                     : 'Allow stronger reconstruction for better perceptual results.'}
                 </p>
-              </div>
 
               {usesUpscale && (
                 <div className="upscale-settings__group">
@@ -1015,7 +1016,6 @@ export function UpscaleDialog({
                       </Button>
                     </div>
                   )}
-                </div>
               )}
 
               {(usesDenoise || operation === 'upscale') && operation !== 'deblur-upscale' && (
@@ -1040,7 +1040,6 @@ export function UpscaleDialog({
                         : `${denoiseStrength} denoise before upscale`}
                     </p>
                   )}
-                </div>
               )}
 
               {(operation === 'deblur' || operation === 'deblur-upscale') && (
@@ -1067,7 +1066,6 @@ export function UpscaleDialog({
                           ? 'Maximum — may create ringing on already-sharp images'
                           : `Deblur strength ${deblurStrength}`}
                   </p>
-                </div>
               )}
 
               {usesUpscale && modeId === 'pixel-art' && (
@@ -1099,7 +1097,6 @@ export function UpscaleDialog({
                             ? 'Pattern-aware scaling for complex pixel art'
                             : 'Pure integer nearest-neighbour scaling'}
                   </p>
-                </div>
               )}
 
               {usesUpscale && (
@@ -1112,7 +1109,6 @@ export function UpscaleDialog({
                     options={scaleOptions}
                     onChange={(v) => setScale(Number(v))}
                   />
-                </div>
               )}
 
               <div className="upscale-settings__group">
@@ -1128,7 +1124,6 @@ export function UpscaleDialog({
                   ]}
                   onChange={(v) => setOutput(v as OutputBehavior)}
                 />
-              </div>
 
               {/* Output info */}
               <div className="upscale-output-info">
@@ -1149,7 +1144,6 @@ export function UpscaleDialog({
                     AI is fixed 4× — your {scale}× is served as 4× AI then high-quality lanczos3 downsample to {outW}×{outH}px.
                   </span>
                 )}
-              </div>
 
               {modelMissing && requiredModelId && (
                 <div className="upscale-model-missing" role="status">
@@ -1169,7 +1163,6 @@ export function UpscaleDialog({
                   >
                     Download model
                   </Button>
-                </div>
               )}
 
               {memoryWarning && (
@@ -1207,14 +1200,15 @@ export function UpscaleDialog({
                     >
                       <div className="insp-progress__bar" style={{ width: `${progressPct}%` }} />
                       <span className="insp-progress__label">
-                        {stages.length > 1
-                          ? `Stage ${Math.min(stages.length, Math.max(1, Math.ceil((progress.done / progress.total) * stages.length)))}/${stages.length} · ${progress.done}/${progress.total} tiles`
-                          : `Step ${progress.done}/${progress.total}`}
+                        {(() => {
+                          const active = stages.find((s) => s.status === 'running');
+                          if (active) return `${active.id} · ${progress.done}/${progress.total}`;
+                          return `${progress.done}/${progress.total}`;
+                        })()}
                       </span>
                     </div>
                   )}
                   {!progress && <p className="insp-hint">Enhancing image…</p>}
-                </div>
               )}
 
               {error && (
@@ -1236,7 +1230,6 @@ export function UpscaleDialog({
                   {(errorCode === 'dimension-limit' || errorCode === 'tensor-allocation') && (
                     <p className="insp-hint">Try a smaller output scale or a smaller source crop.</p>
                   )}
-                </div>
               )}
             </div>
           </div>
