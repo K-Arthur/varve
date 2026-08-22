@@ -7,6 +7,7 @@
  * demonstrates and the assertions that prove they were real.
  */
 import {
+  appendFileSync,
   copyFileSync,
   existsSync,
   mkdirSync,
@@ -38,16 +39,24 @@ const FPS = 30;
  * Recording temp dir is per-run: Playwright names videos by hash, and two
  * concurrent captures sharing a directory would race over the same output.
  */
-function scratchDir() {
-  const dir = join(ROOT, '.capture-tmp', `run-${process.pid}-${Date.now()}`);
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
-function stagingDir() {
-  const dir = join(ROOT, '.capture-tmp', `publish-${process.pid}-${Date.now()}`);
-  mkdirSync(dir, { recursive: true });
-  return dir;
+/**
+ * One directory per run, holding everything that run owns.
+ *
+ * Previously the recording and the staging area were siblings under
+ * `.capture-tmp/` named `run-*` and `publish-*`. That reads as isolated and
+ * is not: tidying up meant globbing `run-*`, which deletes directories
+ * belonging to *other* runs — including a capture still writing to one. The
+ * symptom is an ffmpeg "No such file or directory" in a run that did nothing
+ * wrong, and on a shared checkout the victim can be another agent.
+ *
+ * Everything a run touches now lives under a single root it alone may
+ * remove, and nothing globs siblings.
+ */
+function runRoot(slug) {
+  const root = join(ROOT, '.capture-tmp', `${slug}-${process.pid}-${Date.now().toString(36)}`);
+  mkdirSync(join(root, 'recording'), { recursive: true });
+  mkdirSync(join(root, 'stage'), { recursive: true });
+  return root;
 }
 
 const PRIVACY_PATTERNS = [
@@ -94,9 +103,30 @@ export async function capture(spec) {
   mkdirSync(PUBLIC_DIR, { recursive: true });
   mkdirSync(FRAME_DIR, { recursive: true });
 
-  const port = capturePort();
-  const tmp = scratchDir();
-  const stage = stagingDir();
+  const port = await capturePort();
+  // Everything this run owns, under one root it alone removes.
+  const root = runRoot(spec.slug);
+  const tmp = join(root, 'recording');
+  const stage = join(root, 'stage');
+
+  // A copy of this run's console output, inside its own root. Redirecting
+  // several attempts at the same shell-chosen path overwrites the evidence
+  // from whichever is still running, which is how a real failure message
+  // repeatedly went missing while I read a truncated file.
+  const logPath = join(root, 'run.log');
+  for (const stream of ['log', 'error']) {
+    const original = console[stream].bind(console);
+    console[stream] = (...args) => {
+      const line = args.map((a) => (typeof a === 'string' ? a : String(a))).join(' ');
+      try {
+        appendFileSync(logPath, `${line}\n`);
+      } catch {
+        /* logging must never fail a capture */
+      }
+      original(...args);
+    };
+  }
+  console.log(`[${spec.slug}] run directory ${root}`);
   const browser = await chromium.launch();
   let server;
   let exitCode = 0;
@@ -312,9 +342,9 @@ export async function capture(spec) {
     for (const f of verification.findings) console.error(`  ! ${f}`);
     if (!verification.pass) exitCode = 1;
 
-    if (keepSource) console.log(`[${spec.slug}] source kept at ${sourcePath}`);
-    else rmSync(tmp, { recursive: true, force: true });
-    if (verification.pass) rmSync(stage, { recursive: true, force: true });
+    if (keepSource) console.log(`[${spec.slug}] run directory kept at ${root}`);
+    else if (verification.pass) rmSync(root, { recursive: true, force: true });
+    else console.error(`[${spec.slug}] run directory kept for inspection: ${root}`);
 
     return manifest;
   } catch (err) {
@@ -322,7 +352,7 @@ export async function capture(spec) {
     exitCode = 1;
     // The raw recording is left in place: re-encoding it costs seconds where
     // re-recording costs another warm-up plus the whole sequence.
-    console.error(`[${spec.slug}] recording left at ${tmp}`);
+    console.error(`[${spec.slug}] run directory kept for inspection: ${root}`);
   } finally {
     if (publishLock) rmSync(publishLock, { recursive: true, force: true });
     await stopServer(server);

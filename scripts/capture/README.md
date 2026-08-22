@@ -20,11 +20,31 @@ pnpm capture:encode                                # encode verified WebM master
 pnpm capture:verify                                # verify canonical media without recording
 ```
 
-Every run picks its own port (`14000 + pid % 900`) and its own scratch
-directory unless `VARVE_CAPTURE_PORT` says otherwise, and starts its own Vite
-rather than attaching to one it did not launch — several agents work in this
-checkout at once, and an HMR update from someone else's edit resets the
-editor mid-recording.
+### Isolation
+
+Several agents work in this checkout at once, so a run must own everything it
+touches and touch nothing else.
+
+- **One directory per run.** `.capture-tmp/<slug>-<pid>-<base36 time>/` holds
+  the raw recording, the staging area and that run's `run.log`. A run removes
+  only its own root, and only once verification passes; a failed run keeps
+  everything for inspection. Nothing globs siblings — deleting `run-*` to tidy
+  up takes out other runs mid-write, and the victim's failure looks like a
+  bug in its own script.
+- **A port it can have to itself.** The PID picks a starting slot and the
+  first genuinely free port from there is bound. Deriving one purely from the
+  PID still collides, and hand-picking per run collides constantly. Set
+  `VARVE_CAPTURE_PORT` to override.
+- **Its own dev server.** Never attach to one you did not launch: an HMR
+  update from someone else's edit resets the editor mid-recording.
+- **Its own log.** Redirecting several attempts to one shell-chosen path
+  overwrites the evidence from whichever is still running.
+
+Before starting a run, check the previous one is actually gone with
+`pgrep -c -f "node scripts/capture/workflows/<slug>.mjs"`. A
+`pgrep -f <pattern> | grep -v $$` loop matches its own shell and reports the
+process dead while it is still running — stacking runs that way exhausts
+memory and gets them all OOM-killed, which reads as random silent failure.
 
 ## The clips
 

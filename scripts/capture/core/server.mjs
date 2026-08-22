@@ -8,6 +8,7 @@
  */
 import { spawn } from 'node:child_process';
 import { get } from 'node:http';
+import { createServer } from 'node:net';
 
 /**
  * A port unlikely to collide with a concurrent agent.
@@ -16,10 +17,34 @@ import { get } from 'node:http';
  * private range — a fixed default would be the one thing every parallel run
  * agreed on.
  */
-export function capturePort() {
+/** True when nothing is listening on `port`. */
+function portFree(port) {
+  return new Promise((resolve) => {
+    const probe = createServer();
+    probe.once('error', () => resolve(false));
+    probe.once('listening', () => probe.close(() => resolve(true)));
+    probe.listen(port, '127.0.0.1');
+  });
+}
+
+/**
+ * A port this run can have to itself.
+ *
+ * VARVE_CAPTURE_PORT wins when set. Otherwise the PID picks a starting slot
+ * and the first genuinely free port from there is taken — deriving one purely
+ * from the PID still collides (two pids 900 apart agree), and hand-picking
+ * per run, as I did while debugging, collides constantly. Binding to check is
+ * the only answer that accounts for another agent's server as well as ours.
+ */
+export async function capturePort() {
   const explicit = Number(process.env.VARVE_CAPTURE_PORT);
   if (Number.isFinite(explicit) && explicit > 0) return explicit;
-  return 14000 + (process.pid % 900);
+  const base = 14000 + (process.pid % 900);
+  for (let offset = 0; offset < 200; offset += 1) {
+    const candidate = base + offset;
+    if (await portFree(candidate)) return candidate;
+  }
+  throw new Error('no free port for the capture dev server');
 }
 
 function probe(base) {
