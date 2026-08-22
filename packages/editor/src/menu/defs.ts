@@ -1126,6 +1126,30 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
       run: () => runAction('imageTrace'),
     },
     {
+      id: 'attachTextToPath',
+      labelKey: 'menu.object.attachTextToPath',
+      kind: 'command',
+      group: 'image',
+      workspaces: ['design', 'print', 'drawing'],
+      enabled: (ctx) => {
+        if (ctx.selection.hasText && ctx.selection.hasVector) return true;
+        return { reason: 'Select a text layer and a shape' };
+      },
+      run: () => runAction('attachTextToPath'),
+    },
+    {
+      id: 'detachTextFromPath',
+      labelKey: 'menu.object.detachTextFromPath',
+      kind: 'command',
+      group: 'image',
+      workspaces: ['design', 'print', 'drawing'],
+      enabled: (ctx) => {
+        if (ctx.selection.hasText) return true;
+        return { reason: 'Select a text layer that is on a path' };
+      },
+      run: () => runAction('detachTextFromPath'),
+    },
+    {
       id: 'toolCrop',
       labelKey: 'menu.object.cropImage',
       accelerator: a('c', true, true),

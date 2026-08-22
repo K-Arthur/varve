@@ -177,6 +177,15 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Basic text formatting remains contextual; advanced controls may split later.',
   },
+  'text-on-path': {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'occasional',
+    complexity: 'compact',
+    status: 'functional',
+    rationale:
+      'Only meaningful for a single text node already attached to a path; the attach step lives in the Object menu.',
+  },
   component: {
     surface: 'properties',
     scope: 'selection',

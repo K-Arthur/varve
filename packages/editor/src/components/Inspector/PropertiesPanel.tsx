@@ -44,6 +44,7 @@ import { PositionSizeSection } from './sections/PositionSizeSection';
 import { StrokeSection } from './sections/StrokeSection';
 import { TableCellsSection, TableTracksSection } from './sections/TableCellsSection';
 import { TableSection } from './sections/TableSection';
+import { PathTextSection } from './sections/PathTextSection';
 import { TypographySection } from './sections/TypographySection';
 import { WarpSection } from './sections/WarpSection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
@@ -553,6 +554,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('image-placement', <ImagePlacementSection nodes={nodes} />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);
+    add('text-on-path', <PathTextSection nodes={nodes} />);
     if ('warps' in node || state.tool === 'warp') {
       add('warp', <WarpSection nodes={nodes} node={node} />);
     }

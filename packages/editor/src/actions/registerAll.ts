@@ -320,6 +320,37 @@ export function registerEditorActions(
       handlers.imageTrace ?? (() => {}),
     );
   }
+  if (!r.has('attachTextToPath')) {
+    r.register(
+      {
+        id: 'attachTextToPath',
+        label: 'Text on Path',
+        category: 'object',
+        keywords: [
+          'text on path',
+          'type on path',
+          'curved text',
+          'text path',
+          'textpath',
+          'circular text',
+          'attach text',
+          'follow path',
+        ],
+      },
+      handlers.attachTextToPath ?? (() => {}),
+    );
+  }
+  if (!r.has('detachTextFromPath')) {
+    r.register(
+      {
+        id: 'detachTextFromPath',
+        label: 'Detach Text from Path',
+        category: 'object',
+        keywords: ['detach text', 'remove text from path', 'straighten text', 'unattach'],
+      },
+      handlers.detachTextFromPath ?? (() => {}),
+    );
+  }
   // Mask operations (reachable via Object menu and Layers context menu)
   const maskOps = [
     ['addAlphaMask', 'Add Alpha Mask', ['mask', 'alpha', 'transparency']],

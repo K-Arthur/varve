@@ -36,6 +36,7 @@ export type SectionId =
   | 'warp'
   | 'mockups'
   | 'typography'
+  | 'text-on-path'
   | 'interaction'
   | 'component'
   | 'icon'
@@ -373,6 +374,19 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     order: 300,
     category: 'content',
     isAvailable: (ctx) => isAllTextNodes(ctx.selectedNodes),
+  },
+  {
+    id: 'text-on-path',
+    title: 'Text on Path',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 310,
+    category: 'content',
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) &&
+      ctx.selectedNodes[0]?.kind === 'text' &&
+      (ctx.selectedNodes[0] as { textMode?: string }).textMode === 'path',
   },
   {
     id: 'mockups',

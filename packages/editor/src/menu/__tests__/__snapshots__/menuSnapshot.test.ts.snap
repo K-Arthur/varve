@@ -4663,6 +4663,20 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
       {
         "badge": undefined,
         "disabled": true,
+        "id": "attachTextToPath",
+        "label": "Text on Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "detachTextFromPath",
+        "label": "Detach Text from Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "toolCrop",
         "label": "Crop Image",
         "onAction": [Function],
@@ -6238,6 +6252,20 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
       {
         "badge": undefined,
         "disabled": true,
+        "id": "attachTextToPath",
+        "label": "Text on Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "detachTextFromPath",
+        "label": "Detach Text from Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "toolCrop",
         "label": "Crop Image",
         "onAction": [Function],
@@ -7752,6 +7780,20 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
       {
         "badge": undefined,
         "disabled": true,
+        "id": "attachTextToPath",
+        "label": "Text on Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "detachTextFromPath",
+        "label": "Detach Text from Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "extractPalette",
         "label": "Extract Palette",
         "onAction": [Function],
@@ -9216,6 +9258,20 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
         "disabled": true,
         "id": "imageTrace",
         "label": "Vectorize Image (Image Trace)…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "attachTextToPath",
+        "label": "Text on Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "detachTextFromPath",
+        "label": "Detach Text from Path",
         "onAction": [Function],
       },
       {
@@ -16011,6 +16067,20 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
       {
         "badge": undefined,
         "disabled": true,
+        "id": "attachTextToPath",
+        "label": "Text on Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "detachTextFromPath",
+        "label": "Detach Text from Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "toolCrop",
         "label": "Crop Image",
         "onAction": [Function],
@@ -17561,6 +17631,20 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
       {
         "id": "sep-after-mask",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "attachTextToPath",
+        "label": "Text on Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "detachTextFromPath",
+        "label": "Detach Text from Path",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -21411,6 +21495,20 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
       {
         "badge": undefined,
         "disabled": true,
+        "id": "attachTextToPath",
+        "label": "Text on Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "detachTextFromPath",
+        "label": "Detach Text from Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "toolCrop",
         "label": "Crop Image",
         "onAction": [Function],
@@ -22986,6 +23084,20 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
       {
         "badge": undefined,
         "disabled": true,
+        "id": "attachTextToPath",
+        "label": "Text on Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "detachTextFromPath",
+        "label": "Detach Text from Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "toolCrop",
         "label": "Crop Image",
         "onAction": [Function],
@@ -24500,6 +24612,20 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
       {
         "badge": undefined,
         "disabled": true,
+        "id": "attachTextToPath",
+        "label": "Text on Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "detachTextFromPath",
+        "label": "Detach Text from Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "extractPalette",
         "label": "Extract Palette",
         "onAction": [Function],
@@ -25964,6 +26090,20 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
         "disabled": true,
         "id": "imageTrace",
         "label": "Vectorize Image (Image Trace)…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "attachTextToPath",
+        "label": "Text on Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "detachTextFromPath",
+        "label": "Detach Text from Path",
         "onAction": [Function],
       },
       {
@@ -32759,6 +32899,20 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
       {
         "badge": undefined,
         "disabled": true,
+        "id": "attachTextToPath",
+        "label": "Text on Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "detachTextFromPath",
+        "label": "Detach Text from Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
         "id": "toolCrop",
         "label": "Crop Image",
         "onAction": [Function],
@@ -34309,6 +34463,20 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
       {
         "id": "sep-after-mask",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "attachTextToPath",
+        "label": "Text on Path",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "detachTextFromPath",
+        "label": "Detach Text from Path",
+        "onAction": [Function],
       },
       {
         "badge": undefined,

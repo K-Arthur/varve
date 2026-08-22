@@ -147,6 +147,7 @@ image, motion, logo, codegen.
 | workspaceImage | Workspace: Photo | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | workspaceMotion | Workspace: Motion | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | workspaceLogo | Workspace: Logo | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| workspaceEmail | Workspace Email | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | workspaceCodegen | Workspace: Codegen | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | resetWorkspace | Reset Workspace | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | logoPreview | Test Logo at Small Sizes | ✓ | ✓ | ✓ | – | – | ✓ | – |
@@ -173,9 +174,13 @@ image, motion, logo, codegen.
 | releaseClippingMask | Release Clipping Mask | ✓ | ✓ | ✓ | ✓ | – | – | – |
 | batchBgRemove | Batch Background Removal | ✓ | – | – | ✓ | – | – | – |
 | imageTrace | Vectorize Image (Image Trace)… | ✓ | – | ✓ | ✓ | – | – | – |
+| attachTextToPath | Text on Path | ✓ | ✓ | ✓ | – | – | – | – |
+| detachTextFromPath | Detach Text from Path | ✓ | ✓ | ✓ | – | – | – | – |
 | toolCrop | Crop Image | ✓ | ✓ | – | ✓ | – | – | – |
 | extractPalette | Extract Palette | ✓ | – | ✓ | ✓ | – | – | – |
 | addAlphaMask | Add Alpha Mask | ✓ | ✓ | ✓ | ✓ | – | – | – |
+| createMaskFromSelection | Create Mask from Selection | ✓ | ✓ | ✓ | ✓ | – | – | – |
+| loadMaskAsSelection | Load Mask as Selection | ✓ | ✓ | ✓ | ✓ | – | – | – |
 | addClipMask | Add Clip Mask | ✓ | ✓ | ✓ | ✓ | – | – | – |
 | addLuminanceMask | Add Luminance Mask | ✓ | ✓ | ✓ | ✓ | – | – | – |
 | removeMask | Remove Mask | ✓ | ✓ | ✓ | ✓ | – | – | – |
@@ -243,6 +248,10 @@ image, motion, logo, codegen.
 |----|-------|--------|-------|---------|-------|--------|------|---------|
 | openHelp | Contextual Help | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | openHelpCenter | Help Center | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| contactSupport | Contact Support | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| sendFeedback | Send Feedback | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| reportSecurity | Report a Security Issue | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| openPrivacy | Privacy | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | whatIsThis | What Is This | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | startTour | Start Tour | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | about | About Varve | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |

@@ -148,6 +148,8 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.logoPreview': 'Test Logo at Small Sizes',
   'menu.object.addClearSpaceGuides': 'Generate Clear-Space Guides…',
   'menu.object.imageTrace': 'Vectorize Image (Image Trace)…',
+  'menu.object.attachTextToPath': 'Text on Path',
+  'menu.object.detachTextFromPath': 'Detach Text from Path',
 
   // ── Object ─────────────────────────────────────────────────────────────────
   'menu.object.path': 'Path',

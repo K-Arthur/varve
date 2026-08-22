@@ -153,6 +153,7 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `workspaceImage` | `—` | ✓ | ✓ | ✓ |  |
 | `workspaceMotion` | `—` | ✓ | ✓ | ✓ |  |
 | `workspaceLogo` | `—` | ✓ | ✓ | ✓ |  |
+| `workspaceEmail` | `—` | ✓ | ✓ | ✓ |  |
 | `workspaceCodegen` | `—` | ✓ | ✓ | ✓ |  |
 | `resetWorkspace` | `—` | ✓ | ✓ | ✓ |  |
 | `logoPreview` | `—` | ✓ | ✓ | ✓ |  |
@@ -179,9 +180,13 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `releaseClippingMask` | `—` | ✓ | ✓ | ✓ |  |
 | `batchBgRemove` | `—` | ✓ | ✓ | ✓ |  |
 | `imageTrace` | `—` | ✓ | ✓ | ✓ |  |
+| `attachTextToPath` | `—` | ✓ | ✓ | ✓ |  |
+| `detachTextFromPath` | `—` | ✓ | ✓ | ✓ |  |
 | `toolCrop` | `—` | ✓ | ✓ | ✓ |  |
 | `extractPalette` | `—` | ✓ | ✓ | ✓ |  |
 | `addAlphaMask` | `—` | ✓ | ✓ | ✓ |  |
+| `createMaskFromSelection` | `—` | ✓ | ✓ | ✓ |  |
+| `loadMaskAsSelection` | `—` | ✓ | ✓ | ✓ |  |
 | `addClipMask` | `—` | ✓ | ✓ | ✓ |  |
 | `addLuminanceMask` | `—` | ✓ | ✓ | ✓ |  |
 | `removeMask` | `—` | ✓ | ✓ | ✓ |  |
@@ -249,6 +254,10 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 |------|-----|-----|-------|-----|-------|
 | `openHelp` | `—` | ✓ | ✓ | ✓ |  |
 | `openHelpCenter` | `—` | ✓ | ✓ | ✓ |  |
+| `contactSupport` | `—` | ✓ | ✓ | ✓ |  |
+| `sendFeedback` | `—` | ✓ | ✓ | ✓ |  |
+| `reportSecurity` | `—` | ✓ | ✓ | ✓ |  |
+| `openPrivacy` | `—` | ✓ | ✓ | ✓ |  |
 | `whatIsThis` | `—` | ✓ | ✓ | ✓ |  |
 | `startTour` | `—` | ✓ | ✓ | ✓ |  |
 | `about` | `—` | ✓ | ✓ | ✓ |  |

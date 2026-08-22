@@ -549,6 +549,57 @@ export function createActionHandlers(
       }
       e.openVectorizeDialog();
     },
+    /**
+     * Attach a selected text node to a selected shape so its glyphs follow
+     * that geometry.
+     *
+     * The renderer resolves the path by id at draw time, so the two nodes stay
+     * independent: the shape keeps its own fill, stroke and node editing, and
+     * moving or reshaping it re-lays the text on the next frame.
+     */
+    attachTextToPath: () => {
+      const selected = e.state.selection.map((id) => e.state.document.nodes[id]);
+      const textNode = selected.find((n) => n?.kind === 'text');
+      const pathNode = selected.find((n) => n?.kind === 'shape' && !!n.shape);
+      if (!textNode || !pathNode) {
+        e.announce?.('Select a text layer and a shape to place the text on');
+        return;
+      }
+      e.beginTransaction();
+      e.updateNode(textNode.id, (n) =>
+        n.kind === 'text'
+          ? {
+              ...n,
+              textMode: 'path',
+              pathTextSettings: {
+                ...(n.pathTextSettings ?? {}),
+                pathNodeId: pathNode.id,
+                startOffset: n.pathTextSettings?.startOffset ?? 0,
+                side: n.pathTextSettings?.side ?? 'top',
+              },
+            }
+          : n,
+      );
+      e.commitTransaction();
+      e.announce?.(`Text placed on ${pathNode.name}`);
+    },
+    detachTextFromPath: () => {
+      const textNode = e.state.selection
+        .map((id) => e.state.document.nodes[id])
+        .find((n) => n?.kind === 'text' && n.textMode === 'path');
+      if (!textNode) {
+        e.announce?.('Select a text layer that is on a path');
+        return;
+      }
+      e.beginTransaction();
+      e.updateNode(textNode.id, (n) => {
+        if (n.kind !== 'text') return n;
+        const { pathTextSettings: _dropped, ...rest } = n;
+        return { ...rest, textMode: 'point' } as TextNode;
+      });
+      e.commitTransaction();
+      e.announce?.('Text detached from path');
+    },
     addAlphaMask: () => e.addMaskToSelected?.('alpha'),
     addClipMask: () => e.addMaskToSelected?.('clip'),
     addLuminanceMask: () => e.addMaskToSelected?.('luminance'),
