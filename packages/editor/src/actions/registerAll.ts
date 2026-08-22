@@ -320,7 +320,15 @@ export function registerEditorActions(
       handlers.imageTrace ?? (() => {}),
     );
   }
-  if (!r.has('attachTextToPath')) {
+  // Re-registered on every call, not guarded by `has`. This function re-runs
+  // whenever editor state changes precisely so handlers close over a fresh
+  // context; an action registered once keeps the very first closure, whose
+  // selection is empty, and then quietly refuses to act on anything. Actions
+  // with a SHORTCUT_DEFS entry already take the unguarded path above — these
+  // two have no shortcut, so they need it spelled out. `remove` first, since
+  // `register` warns about duplicates in development.
+  {
+    r.remove('attachTextToPath');
     r.register(
       {
         id: 'attachTextToPath',
@@ -340,7 +348,8 @@ export function registerEditorActions(
       handlers.attachTextToPath ?? (() => {}),
     );
   }
-  if (!r.has('detachTextFromPath')) {
+  {
+    r.remove('detachTextFromPath');
     r.register(
       {
         id: 'detachTextFromPath',

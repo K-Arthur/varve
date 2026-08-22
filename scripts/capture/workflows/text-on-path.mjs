@@ -67,9 +67,6 @@ await capture({
     const drawn = await layerNames(page);
     assert.equal(drawn.length, 2, `expected a ring and a label, got ${drawn.length} layer(s)`);
     const ringName = ringLayers[0].trim().split('\n')[0];
-    const labelName = (drawn.find((n) => !ringLayers.includes(n)) ?? drawn[0])
-      .trim()
-      .split('\n')[0];
     assertions.push('ring and label are two independent nodes, both drawn on camera');
     await beat(page, 1000);
 
@@ -100,8 +97,18 @@ await capture({
 
     // The section only renders for a single text node already in path mode,
     // so reaching it is evidence the document really changed.
-    await selectLayer(page, labelName);
+    // Find the attached text layer by what it exposes rather than by name.
+    // The section only renders for a single text node already in path mode,
+    // so clicking through the tree until it appears both locates the layer
+    // and proves the attach took — and it does not depend on a layer name
+    // derived by diffing the tree, which is what made this brittle.
     const offset = page.getByRole('slider', { name: /start offset along path/i });
+    const items = await page.getByRole('treeitem').all();
+    for (const item of items) {
+      await item.click();
+      await page.waitForTimeout(450);
+      if (await offset.isVisible({ timeout: 1200 }).catch(() => false)) break;
+    }
     if (!(await offset.isVisible({ timeout: 8000 }).catch(() => false))) {
       // The handler announces either what it attached to or what it wanted
       // and did not get. Reading that back beats inferring from the absence
