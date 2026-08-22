@@ -25,10 +25,9 @@ try {
   for (const [src, out, width, height] of SOURCES) {
     const svg = readFileSync(join(HERE, src), 'utf8');
     const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
-    await page.setContent(
-      `<!doctype html><style>html,body{margin:0;padding:0}</style>${svg}`,
-      { waitUntil: 'load' },
-    );
+    await page.setContent(`<!doctype html><style>html,body{margin:0;padding:0}</style>${svg}`, {
+      waitUntil: 'load',
+    });
     const buffer = await page.screenshot({ type: 'png' });
     writeFileSync(join(HERE, out), buffer);
     await page.close();

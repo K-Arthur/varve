@@ -71,17 +71,17 @@ await capture({
     // ── Build the icon set before the cut ──────────────────────────
     // Primitives, one Bézier, and type — the mix the export has to handle.
     await useTool(page, 'o');
-    await dragAt(page, [0.08, 0.16], [0.30, 0.38], { steps: 16 });
+    await dragAt(page, [0.08, 0.16], [0.3, 0.38], { steps: 16 });
     await useTool(page, 'r');
     await dragAt(page, [0.39, 0.18], [0.59, 0.36], { steps: 16 });
     await useTool(page, 'o');
-    await dragAt(page, [0.68, 0.16], [0.90, 0.38], { steps: 16 });
+    await dragAt(page, [0.68, 0.16], [0.9, 0.38], { steps: 16 });
 
     // A drawn Bézier: a comet arc.
     await useTool(page, 'p');
-    await dragAt(page, [0.10, 0.62], [0.18, 0.54]);
-    await dragAt(page, [0.30, 0.70], [0.38, 0.62]);
-    await dragAt(page, [0.52, 0.56], [0.60, 0.50]);
+    await dragAt(page, [0.1, 0.62], [0.18, 0.54]);
+    await dragAt(page, [0.3, 0.7], [0.38, 0.62]);
+    await dragAt(page, [0.52, 0.56], [0.6, 0.5]);
     await page.keyboard.press('Enter');
     await page.waitForTimeout(600);
     await useTool(page, 'v');
@@ -99,7 +99,9 @@ await capture({
 
     const artwork = await layerNames(page);
     assert.ok(artwork.length >= 5, `expected a small icon set, got ${artwork.length} layers`);
-    assertions.push(`source artwork is ${artwork.length} real nodes: primitives, a Bézier and type`);
+    assertions.push(
+      `source artwork is ${artwork.length} real nodes: primitives, a Bézier and type`,
+    );
 
     begin();
     await beat(page, 1600);
@@ -159,10 +161,13 @@ await capture({
     );
 
     // ── Render it somewhere that has never seen Varve ──────────────
-    const independent = await page.context().browser().newContext({
-      viewport: { width: 900, height: 700 },
-      deviceScaleFactor: 1,
-    });
+    const independent = await page
+      .context()
+      .browser()
+      .newContext({
+        viewport: { width: 900, height: 700 },
+        deviceScaleFactor: 1,
+      });
     const viewer = await independent.newPage();
     await viewer.setContent(`<!doctype html><style>html,body{margin:0}</style>${svg}`, {
       waitUntil: 'load',

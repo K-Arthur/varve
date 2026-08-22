@@ -25,6 +25,8 @@ export function writeManifest(path, entry, root) {
     deliveredDuration: Number((entry.deliveredDuration ?? 0).toFixed(2)),
     fps: entry.fps ?? 30,
     outputs: entry.outputs ?? {},
+    metadata: entry.metadata ?? {},
+    artifacts: entry.artifacts ?? [],
     productAssertions: entry.assertions ?? [],
     verification: entry.verification ?? {},
   };

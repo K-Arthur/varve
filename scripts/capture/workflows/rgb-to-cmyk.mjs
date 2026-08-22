@@ -26,6 +26,7 @@ import {
   fitContent,
   layerNames,
   openCleanEditor,
+  openSection,
   parkPointer,
   selectLayer,
   settle,
@@ -84,11 +85,7 @@ await capture({
     // ── The document is RGB ────────────────────────────────────────
     await page.keyboard.press('Escape');
     await page.waitForTimeout(600);
-    const docColour = page.getByRole('button', { name: /document color/i }).first();
-    if (await docColour.isVisible({ timeout: 6000 }).catch(() => false)) {
-      const expanded = await docColour.getAttribute('aria-expanded');
-      if (expanded === 'false') await docColour.click();
-      await page.waitForTimeout(500);
+    if (await openSection(page, /document color/i)) {
       assertions.push('the Document Color section reports the working mode');
     }
     await parkPointer(page);
@@ -103,7 +100,10 @@ await capture({
     // ── The document colour-mode workflow ──────────────────────────
     await page.keyboard.press('Escape');
     await page.waitForTimeout(400);
-    await page.getByRole('menuitem', { name: /^File$|^Edit$|^View$|^Object$/ }).first().click();
+    await page
+      .getByRole('menuitem', { name: /^File$|^Edit$|^View$|^Object$/ })
+      .first()
+      .click();
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
 
@@ -155,12 +155,7 @@ await capture({
     // ── Show the resulting state ───────────────────────────────────
     await page.keyboard.press('Escape');
     await page.waitForTimeout(600);
-    const after = page.getByRole('button', { name: /document color/i }).first();
-    if (await after.isVisible({ timeout: 5000 }).catch(() => false)) {
-      const expanded = await after.getAttribute('aria-expanded');
-      if (expanded === 'false') await after.click();
-      await page.waitForTimeout(600);
-    }
+    await openSection(page, /document color/i);
     await parkPointer(page);
     await beat(page, 1600);
 

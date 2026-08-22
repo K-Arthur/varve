@@ -15,43 +15,42 @@ import {
   dragAt,
   layerNames,
   openCleanEditor,
+  openSection,
   parkPointer,
   settle,
   useTool,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
-/** Sets the family through the inspector's own font control. */
+/**
+ * Sets the family through the inspector's own font control.
+ *
+ * Type-ahead to filter, then commit the matched option by the event the
+ * component actually listens for. `fill()` does not reliably leave the
+ * filtered list in the state a later click lands on, and ArrowDown/Enter
+ * commits whichever row the component has highlighted rather than the one
+ * matched here.
+ */
 async function chooseFamily(page, family) {
   const combo = page.getByRole('combobox', { name: /font/i }).first();
   await combo.click();
-  await combo.fill(family);
-  await page.waitForTimeout(700);
-  await page
-    .getByRole('option', { name: new RegExp(family, 'i') })
-    .first()
-    .click();
-  await page.waitForTimeout(800);
+  await page.keyboard.press('Control+a');
+  await page.keyboard.type(family, { delay: 40 });
+  await page.waitForTimeout(900);
+
+  const option = page.getByRole('option', { name: new RegExp(family, 'i') }).first();
+  if (!(await option.isVisible({ timeout: 5000 }).catch(() => false))) {
+    throw new Error(`font "${family}" did not appear in the family list`);
+  }
+  // The option commits on mousedown specifically, so that it beats the
+  // input's own blur handler. Dispatching that event is what actually selects
+  // the family; ArrowDown+Enter commits whichever row the component has
+  // highlighted, which is not necessarily the one matched here.
+  await option.dispatchEvent('mousedown');
+  await page.waitForTimeout(900);
 }
 
 const axis = (page, label) => page.getByRole('slider', { name: label });
-
-/**
- * Opens a disclosure section only if it is closed.
- *
- * The trigger is a toggle, so clicking unconditionally shuts a section that
- * some earlier step already opened — which reads as "the control is missing"
- * when the sliders inside it then never appear.
- */
-async function openSection(page, name) {
-  const trigger = page.getByRole('button', { name }).first();
-  if (!(await trigger.isVisible({ timeout: 8000 }).catch(() => false))) return false;
-  if ((await trigger.getAttribute('aria-expanded')) === 'false') {
-    await trigger.click();
-    await page.waitForTimeout(500);
-  }
-  return true;
-}
 
 await capture({
   slug: 'variable-font',
@@ -166,7 +165,11 @@ await capture({
     await page.waitForTimeout(700);
     await openSection(page, /variable font axes/i);
     assert.equal(await axis(page, /Weight \(wght\)/).inputValue(), '200', 'wght did not persist');
-    assert.equal(await axis(page, /Optical Size \(opsz\)/).inputValue(), '144', 'opsz did not persist');
+    assert.equal(
+      await axis(page, /Optical Size \(opsz\)/).inputValue(),
+      '144',
+      'opsz did not persist',
+    );
     assertions.push('both values survived deselecting and reselecting the layer');
     await beat(page, 1000);
 

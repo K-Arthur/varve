@@ -18,6 +18,7 @@ import {
   fitContent,
   layerNames,
   openCleanEditor,
+  openSection,
   parkPointer,
   settle,
   useTool,
@@ -111,11 +112,7 @@ await capture({
     // ── Print settings on the page itself ──────────────────────────
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
-    const pagePrint = page.getByRole('button', { name: /page print|print/i }).first();
-    if (await pagePrint.isVisible({ timeout: 5000 }).catch(() => false)) {
-      const expanded = await pagePrint.getAttribute('aria-expanded');
-      if (expanded === 'false') await pagePrint.click();
-      await page.waitForTimeout(700);
+    if (await openSection(page, /page print|print/i, { timeout: 5000 })) {
       assertions.push('the page’s own print settings are shown in the inspector');
     }
     await parkPointer(page);

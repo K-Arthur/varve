@@ -55,8 +55,9 @@ export async function dismissDialogs(page, attempts = 4) {
  * cleared. A capture that opens on a recovery prompt is not a capture of the
  * product working.
  */
-export async function openCleanEditor(page, base, { preset } = {}) {
-  await page.goto(`${base}/`, { timeout: 180000, waitUntil: 'domcontentloaded' });
+export async function openCleanEditor(page, base, { preset, query = '' } = {}) {
+  const suffix = query ? (query.startsWith('?') ? query : `?${query}`) : '';
+  await page.goto(`${base}/${suffix}`, { timeout: 180000, waitUntil: 'domcontentloaded' });
 
   if (await page.evaluate(() => localStorage.getItem('varve:safe-mode') !== null)) {
     await page.evaluate(() => localStorage.removeItem('varve:safe-mode'));
@@ -177,12 +178,115 @@ export function beat(page, ms = 1200) {
 /** Runs a command through the palette — the same route a user takes. */
 export async function runCommand(page, name) {
   await page.keyboard.press('Control+k');
-  const palette = page.locator('[role="dialog"], .command-palette').first();
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
   await palette.waitFor({ state: 'visible', timeout: 8000 });
-  await page.keyboard.type(name, { delay: 25 });
+  await palette.getByRole('combobox', { name: 'Search commands' }).fill(name);
   await page.waitForTimeout(400);
   await page.keyboard.press('Enter');
   await page.waitForTimeout(500);
+}
+
+/** Selects an APG combobox through its visible listbox, preserving product semantics. */
+export async function selectComboboxOption(page, label, option) {
+  const combo = page.getByRole('combobox', { name: label }).first();
+  await combo.waitFor({ state: 'visible', timeout: 8000 });
+  await combo.click();
+  const listbox = page.getByRole('listbox', { name: label }).first();
+  await listbox.waitFor({ state: 'visible', timeout: 5000 });
+  await listbox.getByRole('option', { name: option, exact: true }).click();
+  await page.waitForTimeout(350);
+}
+
+/** Commits a real inspector number field without relying on React internals. */
+export async function setNumberField(page, label, value) {
+  const field = page.getByRole('spinbutton', { name: label }).first();
+  await field.waitFor({ state: 'visible', timeout: 8000 });
+  await field.fill(String(value));
+  await field.press('Enter');
+  await page.waitForTimeout(350);
+}
+
+/** Opens the application's theme submenu and chooses a real theme radio item. */
+export async function chooseTheme(page, theme) {
+  const view = page.getByRole('menuitem', { name: /^View$/ }).first();
+  await view.click();
+  const themeMenu = page.getByRole('menuitem', { name: /^Theme$/ }).last();
+  await themeMenu.waitFor({ state: 'visible', timeout: 5000 });
+  await themeMenu.hover();
+  const item = page.getByRole('menuitemradio', { name: theme, exact: true }).last();
+  await item.waitFor({ state: 'visible', timeout: 5000 });
+  await item.click();
+  await page.waitForTimeout(500);
+}
+
+/** Creates an adjustment layer through Object > New Adjustment Layer. */
+export async function createAdjustmentLayer(page) {
+  const objectMenu = page.getByRole('menuitem', { name: /^Object$/ });
+  await objectMenu.click();
+  const create = page.getByRole('menuitem', { name: /New Adjustment Layer/i });
+  await create.waitFor({ state: 'visible', timeout: 8000 });
+  await create.click();
+  await page.waitForTimeout(450);
+  const adjustmentsTab = page.getByRole('tab', { name: /^Adjustments$/i });
+  if (await adjustmentsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await adjustmentsTab.click();
+  }
+  await page.locator('.adj-panel__add-btn').waitFor({ state: 'visible', timeout: 8000 });
+}
+
+/** Adds an adjustment using the production adjustment panel menu. */
+export async function addAdjustment(page, displayName) {
+  const add = page.getByRole('button', { name: /Add adjustment/i });
+  await add.waitFor({ state: 'visible', timeout: 8000 });
+  await add.click();
+  const item = page
+    .locator('.adj-panel__add-menu')
+    .getByRole('menuitem', { name: new RegExp(`^${displayName}$`, 'i') });
+  await item.waitFor({ state: 'visible', timeout: 5000 });
+  await item.click();
+  await settle(page, { pauseMs: 250 });
+}
+
+/** Reads the real serialized adjustment stack from the selected layer. */
+export async function adjustmentStack(page) {
+  return page.evaluate(() => {
+    const root = document.getElementById('root');
+    if (!root) return [];
+    const key = Object.keys(root).find(
+      (name) => name.startsWith('__reactFiber$') || name.startsWith('__reactContainer$'),
+    );
+    if (!key) return [];
+    const visit = (fiber) => {
+      if (!fiber) return null;
+      for (const props of [fiber.memoizedProps, fiber.pendingProps]) {
+        const value = props?.value;
+        if (value && typeof value === 'object' && 'state' in value) {
+          const state = value.state;
+          const id = state?.selection?.length === 1 ? state.selection[0] : null;
+          const node = id ? state.document?.nodes?.[id] : null;
+          if (node?.kind === 'adjustment') return node.adjustments ?? [];
+        }
+      }
+      return visit(fiber.child) || visit(fiber.sibling);
+    };
+    return visit(root[key]);
+  });
+}
+
+/** Opens an adjustment row so its real editor controls are visible. */
+export async function selectAdjustment(page, displayName) {
+  const row = page
+    .locator('.adj-panel__item')
+    .filter({ hasText: new RegExp(`^${displayName}`, 'i') })
+    .first();
+  await row.waitFor({ state: 'visible', timeout: 8000 });
+  await row.getByRole('button', { name: new RegExp(displayName, 'i') }).click();
+  await page.waitForTimeout(250);
+}
+
+/** Returns the current canvas pixel bytes for before/after assertions. */
+export async function canvasScreenshot(page) {
+  return canvasPixels(page);
 }
 
 /* ---------------------------------------------------------------- */
@@ -257,7 +361,12 @@ export async function dragCanvas(page, from, to, { steps = 12, settleMs = 350 } 
 export async function canvasPixels(page) {
   const box = await canvasBox(page);
   return page.screenshot({
-    clip: { x: box.x, y: box.y, width: Math.min(box.width, 640), height: Math.min(box.height, 480) },
+    clip: {
+      x: box.x,
+      y: box.y,
+      width: Math.min(box.width, 640),
+      height: Math.min(box.height, 480),
+    },
     scale: 'css',
   });
 }
@@ -316,4 +425,22 @@ export async function dragPage(page, from, to, { steps = 14, settleMs = 350 } = 
   await page.mouse.move(to.x, to.y, { steps });
   await page.mouse.up();
   if (settleMs > 0) await page.waitForTimeout(settleMs);
+}
+
+/**
+ * Opens a disclosure section, and only if it is closed.
+ *
+ * The trigger is a toggle. Clicking it unconditionally shuts a section that
+ * an earlier step already opened, and the failure then surfaces several
+ * seconds later as "the control inside is missing" — which points at the
+ * control rather than at the click that hid it.
+ */
+export async function openSection(page, name, { timeout = 8000 } = {}) {
+  const trigger = page.getByRole('button', { name }).first();
+  if (!(await trigger.isVisible({ timeout }).catch(() => false))) return false;
+  if ((await trigger.getAttribute('aria-expanded')) === 'false') {
+    await trigger.click();
+    await page.waitForTimeout(500);
+  }
+  return true;
 }

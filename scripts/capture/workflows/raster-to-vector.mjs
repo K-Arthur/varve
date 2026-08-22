@@ -70,7 +70,10 @@ await capture({
     await beat(page, 800);
     await trace.click();
 
-    const dialog = page.getByRole('dialog').filter({ hasText: /vectori/i }).first();
+    const dialog = page
+      .getByRole('dialog')
+      .filter({ hasText: /vectori/i })
+      .first();
     await dialog.waitFor({ state: 'visible', timeout: 15000 });
     assertions.push('Object > Vectorize Image opens the real trace workflow for the bitmap');
     await beat(page, 1400);
@@ -112,10 +115,7 @@ await capture({
 
     // ── What came out ──────────────────────────────────────────────
     const after = await layerNames(page);
-    assert.ok(
-      after.length > start.length,
-      `trace produced no new layers (still ${after.length})`,
-    );
+    assert.ok(after.length > start.length, `trace produced no new layers (still ${after.length})`);
     const traced = after.filter((n) => !start.includes(n));
     assert.ok(
       traced.some((n) => /path|vector|trace|group/i.test(n)),

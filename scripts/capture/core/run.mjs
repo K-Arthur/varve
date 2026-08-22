@@ -6,7 +6,15 @@
  * verification, manifest — so a workflow file contains only the actions it
  * demonstrates and the assertions that prove they were real.
  */
-import { copyFileSync, existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
@@ -42,6 +50,26 @@ function stagingDir() {
   return dir;
 }
 
+const PRIVACY_PATTERNS = [
+  { name: 'home path', re: /\/(?:home|Users|var\/home)\/[^\s/]+/i },
+  { name: 'bearer token', re: /\bBearer\s+[A-Za-z0-9._-]{16,}/i },
+  {
+    name: 'access token',
+    re: /(?:access[_-]?token|api[_-]?key|secret)\s*[:=]\s*['"]?[A-Za-z0-9._-]{16,}/i,
+  },
+  { name: 'private key', re: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i },
+  {
+    name: 'internal URL',
+    re: /https?:\/\/(?:localhost|127\.0\.0\.1|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)[^\s"']+/i,
+  },
+];
+
+function privacyFindings(text, label) {
+  return PRIVACY_PATTERNS.filter(({ re }) => re.test(text)).map(
+    ({ name }) => `${label} contains possible ${name}`,
+  );
+}
+
 /**
  * @param {object} spec
  * @param {string} spec.slug            file stem for every artefact
@@ -50,6 +78,9 @@ function stagingDir() {
  * @param {string} [spec.fixture]       fixture identifier recorded in the manifest
  * @param {[number, number]} spec.duration  [min, max] delivered seconds
  * @param {boolean} [spec.authoredMotion]  allow authored prototype/timeline motion
+ * @param {Array<Function|object>} [spec.initScripts] init scripts installed before first navigation
+ * @param {object|((ctx: object) => object)} [spec.metadata] extra manifest metadata
+ * @param {Array<{name: string, contents: string|Buffer, public?: boolean}>|((ctx: object) => Array)} [spec.artifacts]
  * @param {(ctx) => Promise<string[]>} spec.sequence
  *        Drives the editor. Calls `ctx.begin()` once setup is done — the cut
  *        starts there. Returns the product assertions it verified.
@@ -61,6 +92,7 @@ export async function capture(spec) {
 
   mkdirSync(OUT_DIR, { recursive: true });
   mkdirSync(PUBLIC_DIR, { recursive: true });
+  mkdirSync(FRAME_DIR, { recursive: true });
 
   const port = capturePort();
   const tmp = scratchDir();
@@ -68,6 +100,7 @@ export async function capture(spec) {
   const browser = await chromium.launch();
   let server;
   let exitCode = 0;
+  let publishLock = null;
 
   try {
     server = await startServer({ port, root: ROOT });
@@ -90,6 +123,7 @@ export async function capture(spec) {
       recordVideo: { dir: tmp, size: VIEWPORT },
     });
     await context.addInitScript(SEED_FIRST_RUN_STATE);
+    for (const script of spec.initScripts ?? []) await context.addInitScript(script);
     const page = await context.newPage();
     await page.emulateMedia({
       colorScheme: 'light',
@@ -107,6 +141,7 @@ export async function capture(spec) {
       page,
       base: server.base,
       fixtures: FIXTURES,
+      runId: stage.split('/').pop(),
       begin: () => {
         if (trimStart === null) {
           trimStart = (Date.now() - started) / 1000;
@@ -123,6 +158,11 @@ export async function capture(spec) {
       sourceSeconds = (Date.now() - started) / 1000;
     }
     if (trimStart === null) throw new Error('sequence never called ctx.begin()');
+
+    const visibleText = await page
+      .locator('body')
+      .innerText()
+      .catch(() => '');
 
     const video = page.video();
     await context.close();
@@ -171,12 +211,27 @@ export async function capture(spec) {
       verification.findings.push(...result.findings.map((f) => `${label}: ${f}`));
     }
 
-    const frames = await sampleFrames(webm, delivered.duration, FRAME_DIR, spec.slug);
+    const stagedFrameDir = join(stage, 'frames');
+    const frames = await sampleFrames(webm, delivered.duration, stagedFrameDir, spec.slug);
     verification.frames = frames.map(({ path, ...rest }) => rest);
     verification.findings.push(...frameFindings(frames));
     if (pageErrors.length) {
       verification.pageErrors = pageErrors;
       verification.findings.push(`page errors during capture: ${pageErrors.length}`);
+    }
+    verification.privacy = privacyFindings(visibleText, 'visible capture text');
+    verification.findings.push(...verification.privacy);
+    verification.pass = verification.findings.length === 0;
+
+    const metadata = typeof spec.metadata === 'function' ? await spec.metadata(ctx) : spec.metadata;
+    const extraArtifacts =
+      typeof spec.artifacts === 'function' ? await spec.artifacts(ctx) : (spec.artifacts ?? []);
+    for (const artifact of extraArtifacts) {
+      const artifactPath = join(stage, artifact.name);
+      mkdirSync(dirname(artifactPath), { recursive: true });
+      const contents = artifact.contents;
+      writeFileSync(artifactPath, contents);
+      verification.findings.push(...privacyFindings(String(contents), artifact.name));
     }
     verification.pass = verification.findings.length === 0;
 
@@ -200,23 +255,46 @@ export async function capture(spec) {
           poster: `docs/screenshots/workflows/${spec.slug}-poster.png`,
         },
         assertions,
+        metadata,
+        artifacts: extraArtifacts.map(({ name }) => name),
         verification,
       },
       ROOT,
     );
 
     if (verification.pass) {
+      const lock = join(OUT_DIR, `.${spec.slug}.publish.lock`);
+      try {
+        mkdirSync(lock);
+      } catch {
+        throw new Error(`another ${spec.slug} capture is publishing; refusing to overwrite it`);
+      }
+      publishLock = lock;
       const canonical = [
         [webm, join(OUT_DIR, `${spec.slug}.webm`)],
         ...(!skipMp4 ? [[mp4, join(OUT_DIR, `${spec.slug}.mp4`)]] : []),
         [poster, join(OUT_DIR, `${spec.slug}-poster.png`)],
         [manifestPath, join(OUT_DIR, `${spec.slug}.capture.json`)],
       ];
-      for (const [src, dest] of canonical) copyFileSync(src, dest);
+      const atomicCopy = (src, dest) => {
+        const temporary = `${dest}.tmp-${process.pid}`;
+        copyFileSync(src, temporary);
+        renameSync(temporary, dest);
+      };
+      for (const [src, dest] of canonical) atomicCopy(src, dest);
+      for (const frame of frames) {
+        atomicCopy(frame.path, join(FRAME_DIR, `${spec.slug}-${frame.label}.png`));
+      }
+      for (const artifact of extraArtifacts) {
+        const src = join(stage, artifact.name);
+        const dest = join(OUT_DIR, artifact.name);
+        mkdirSync(dirname(dest), { recursive: true });
+        atomicCopy(src, dest);
+      }
       // Website copies live in their own subdirectory: the screenshot
       // validator treats a loose PNG in public/screenshots as an orphan.
       for (const src of [webm, ...(skipMp4 ? [] : [mp4]), poster]) {
-        copyFileSync(src, join(PUBLIC_DIR, src.split('/').pop()));
+        atomicCopy(src, join(PUBLIC_DIR, src.split('/').pop()));
       }
     } else {
       console.error(`[${spec.slug}] canonical outputs were left untouched`);
@@ -243,6 +321,7 @@ export async function capture(spec) {
     // re-recording costs another warm-up plus the whole sequence.
     console.error(`[${spec.slug}] recording left at ${tmp}`);
   } finally {
+    if (publishLock) rmSync(publishLock, { recursive: true, force: true });
     await stopServer(server);
     await browser.close();
     process.exitCode = exitCode;

@@ -126,7 +126,9 @@ export async function probe(path) {
   ]);
   const parsed = JSON.parse(raw);
   const stream = parsed.streams?.[0] ?? {};
-  const [num, den] = String(stream.avg_frame_rate ?? '0/1').split('/').map(Number);
+  const [num, den] = String(stream.avg_frame_rate ?? '0/1')
+    .split('/')
+    .map(Number);
   return {
     codec: stream.codec_name ?? null,
     width: stream.width ?? null,

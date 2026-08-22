@@ -15,8 +15,8 @@ import {
   clickAt,
   dragAt,
   dragPage,
-  nodeEditPoints,
   layerNames,
+  nodeEditPoints,
   openCleanEditor,
   parkPointer,
   selectLayer,
@@ -58,9 +58,9 @@ await capture({
     // Positions are fractions of the drawing area, which is what the panels
     // leave behind rather than the window size.
     await dragAt(page, [0.12, 0.62], [0.24, 0.44]);
-    await dragAt(page, [0.38, 0.32], [0.50, 0.26]);
+    await dragAt(page, [0.38, 0.32], [0.5, 0.26]);
     await dragAt(page, [0.64, 0.56], [0.76, 0.66]);
-    await clickAt(page, 0.90, 0.34);
+    await clickAt(page, 0.9, 0.34);
     await beat(page, 350);
 
     await page.keyboard.press('Enter');
@@ -75,7 +75,9 @@ await capture({
     const names = await layerNames(page);
     assert.equal(names.length, 1, `expected one new layer, got ${names.length}`);
     assert.match(names[0], /path|vector/i, `expected a path layer, got "${names[0]}"`);
-    assertions.push(`pen tool produced a path layer ("${names[0].trim()}"), not a rect or freehand`);
+    assertions.push(
+      `pen tool produced a path layer ("${names[0].trim()}"), not a rect or freehand`,
+    );
     await beat(page, 405);
 
     // ── Node editing ───────────────────────────────────────────────
