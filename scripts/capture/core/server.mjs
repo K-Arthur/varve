@@ -6,7 +6,7 @@
  * attaching to a server we did not start means an HMR update from someone
  * else's edit can reset the editor midway through a recording.
  */
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { get } from 'node:http';
 import { createServer } from 'node:net';
 
@@ -68,11 +68,11 @@ export async function startServer({ port, root, timeoutMs = 180000 }) {
       // A capture must not be torn down by someone else's HMR update.
       env: { ...process.env, VARVE_DISABLE_HMR: '1' },
       stdio: 'ignore',
-      // Own process group. The command is `pnpm ... exec vite`, so the thing
-      // actually listening is a grandchild; signalling the pnpm wrapper alone
-      // leaves vite running forever. Twenty-seven of them had accumulated
-      // before this was noticed, which is its own kind of memory leak.
-      detached: true,
+      // Deliberately not detached. Putting the server in its own process
+      // group did stop the leak, but the server then died moments after it
+      // started serving and every capture hung in warm-up for four minutes.
+      // The leak is fixed by killing the descendants explicitly instead.
+      detached: false,
     },
   );
 
@@ -89,29 +89,51 @@ export async function startServer({ port, root, timeoutMs = 180000 }) {
 }
 
 /**
- * Stops the server this module started, and the vite it spawned.
+Stops the server this module started, and the vite it spawned.
  *
- * Kills the process *group*, not just the pnpm wrapper: `pnpm exec vite` puts
- * the listener two levels down, and terminating the wrapper orphans it. Only
- * ever this run's group — never a stray vite that might belong to someone
- * else's capture.
+ * `pnpm ... exec vite` puts the process actually holding the port two levels
+ * down, so signalling the wrapper alone orphans it. Twenty-seven leaked
+ * before this was noticed, which exhausts memory and inotify watches alike.
+ * Descendants are collected and signalled explicitly rather than by process
+ * group: detaching the server into its own group also stopped the leak, but
+ * the server then died moments after it began serving.
  */
 export async function stopServer(server) {
   if (!server?.child?.pid) return;
-  const pid = server.child.pid;
-  try {
-    process.kill(-pid, 'SIGTERM');
-  } catch {
+  const root = server.child.pid;
+
+  const descendants = [];
+  const walk = (pid, depth) => {
+    if (depth > 4) return;
+    let out = '';
     try {
-      server.child.kill('SIGTERM');
+      out = execFileSync('pgrep', ['-P', String(pid)], { encoding: 'utf8' });
+    } catch {
+      return; // no children
+    }
+    for (const line of out.split('\n')) {
+      const child = Number(line.trim());
+      if (!Number.isInteger(child) || child <= 0) continue;
+      descendants.push(child);
+      walk(child, depth + 1);
+    }
+  };
+  walk(root, 0);
+
+  const targets = [...descendants, root];
+  for (const pid of targets) {
+    try {
+      process.kill(pid, 'SIGTERM');
     } catch {
       /* already gone */
     }
   }
   await new Promise((r) => setTimeout(r, 800));
-  try {
-    process.kill(-pid, 'SIGKILL');
-  } catch {
-    /* exited on the term, as intended */
+  for (const pid of targets) {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      /* exited on the term, as intended */
+    }
   }
 }
