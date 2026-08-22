@@ -82,6 +82,12 @@ await capture({
     const selectAll = await menuItem(page, 'Edit', 'Select All');
     await selectAll.click();
     await page.waitForTimeout(600);
+
+    // Attach needs a text layer *and* a shape selected together. Assert that
+    // here, so a selection problem reports itself rather than surfacing later
+    // as the command appearing not to work.
+    const selectedCount = await page.locator('[role="treeitem"][aria-selected="true"]').count();
+    assert.equal(selectedCount, 2, `expected both layers selected, got ${selectedCount}`);
     const attach = await objectMenu(page, 'Text on Path');
     assert.ok(await attach.isEnabled(), 'Text on Path was offered but disabled');
     await beat(page, 900);
