@@ -4,11 +4,11 @@
   "platforms": {
     "linux-x86_64": {
       "url": "https://github.com/K-Arthur/varve/releases/download/v0.2.0/Varve-0.2.0-linux-x86_64.AppImage",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUMTFadW14WEIvT1NabjUxY3JJWkZqUlZGNHJoYzk4UGpXekdrY05iZVEwclNLU2NaanJtZFBIU0Rzb3U5dFRuU0kyQ29IOU9ZVUdQOUl2SHI0VFBNRnBacXJBUDNnK2dFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MzIwNzQ2CWZpbGU6VmFydmVfMC4yLjBfYW1kNjQuQXBwSW1hZ2UKM2Uva1NFUjgwRkdqUjluc3k5YkplQUNSRFRnRHpsM2cvRkh1dTc0aFhpd3hmNHllZFB3bVY3QUphZ1ZNWnhlNFRKYU9ZaHM4TnRmTThvUjh0UFlhQ0E9PQo="
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUMTFadW14WEIvT1F4NmRVcloxQkRrdkM2bzFxRHpTM21hTFdBZURZdXRWb0hNelpsdEpVc3R3bE1JYWhMU09WYXdNU2x6OC9rUXlVQjlvSjlKTXJiOFdtSDJ5b3lXcFFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3Mzc3OTE1CWZpbGU6VmFydmUtMC4yLjAtbGludXgteDg2XzY0LkFwcEltYWdlClBCakhOMjROVGpJNk13MmNDbUVTUGRqN1BnVXB6SXR2clBtQzhSREMyU0xQVnFqVGJvSXFETnNHVzlZbUZYUFM5eDNKM2FaNEJYdzFDMzZvbk91WkJ3PT0K"
     },
-    "windows-x86_64": {
-      "url": "https://github.com/K-Arthur/varve/releases/download/v0.2.0/Varve-0.2.0-windows-x86_64.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUMTFadW14WEIvT1loNVh6bFZRL0k1MVpGMGxEcWpFSGdxbENJMnJZWGh5K2dvYUhmMTFhb0xaYzVxcGVLaWh3WmR0QzlweW9xMVNYeXExWCtRNnR6Z3B0cFpKQkxySncwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MzIxNjYxCWZpbGU6VmFydmVfMC4yLjBfeDY0LXNldHVwLmV4ZQpxSnRxNFdYeHdMUDRvZ2RqR29NSkpGYmVoSTU5NU95SlRYWXQ2ZGZUam8ybCsrakZjRGQwTm01NStQMTVxaXkydTFFN3N6OFlWUGFvSVhGczVVOTFDQT09Cg=="
+    "linux-aarch64": {
+      "url": "https://github.com/K-Arthur/varve/releases/download/v0.2.0/Varve-0.2.0-linux-aarch64.AppImage",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUMTFadW14WEIvT1gxbXBQOHVCek51MW1lcklxcVVnUTVzem5tN2NCcFl3MlFjcW0xdHdRVkhoMmtoSjNKaG12d05vb0hXTVlIcWlMSHRBQUZKM1VablZnVWJhenB6VkFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3Mzc3OTE4CWZpbGU6VmFydmUtMC4yLjAtbGludXgtYWFyY2g2NC5BcHBJbWFnZQp4Z1RMMUJuTUhiQ011eU5zRmE3S3lOQ2NIZlRYdTY5TVptYWxpK01QVFVvWWlUbFRFUjR3enRsRmFTRzBaUFdRQkFrZ3lzRTlGS3ltUkNWMGZiWjRDQT09Cg=="
     }
   }
 }
