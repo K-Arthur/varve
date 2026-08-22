@@ -104,7 +104,7 @@ await capture({
     );
 
     begin();
-    await beat(page, 1600);
+    await beat(page, 2200);
 
     // ── Export ─────────────────────────────────────────────────────
     await selectLayer(page, artwork[0].trim().split('\n')[0]);
@@ -148,8 +148,10 @@ await capture({
     const saved = join(ARTIFACT_DIR, 'export-svg-icon-set.svg');
     await download.saveAs(saved);
     const svg = (await import('node:fs')).readFileSync(saved, 'utf8');
-    assertions.push(`export produced ${download.suggestedFilename()} (${svg.length} bytes)`);
-    await beat(page, 1500);
+    assertions.push(
+      `export produced ${download.suggestedFilename()} (${svg.length} bytes)`,
+    );
+    await beat(page, 2000);
 
     // ── Validate the artefact ──────────────────────────────────────
     const result = validateSvg(svg);
