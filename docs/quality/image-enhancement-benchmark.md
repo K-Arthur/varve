@@ -131,3 +131,33 @@ python scripts/bench/restore-reference/run_reference.py \
 python scripts/bench/restore-reference/make_contact_sheet.py \
   --fixtures-dir tests/fixtures/restore-corpus --output-dir /tmp/restore-out
 ```
+
+## Validated capability matrix (2026-08-22)
+
+| Capability | Status | Quality | Native | Browser | Memory tested | Visual verified |
+|---|---|---|---|---|---|---|
+| Auto analysis | Available | Good | Yes | Yes | Yes | Yes |
+| Denoise (SCUNet) | Available | Good | Yes | Yes (worker) | Yes | Yes |
+| Deblur (NAFNet GoPro) | Available | Good | Yes | Yes (worker) | Yes | Yes |
+| Compression restoration | **Unavailable** | No validated model | — | — | — | — |
+| AI upscale (general x4) | Available | Good | Yes | Yes (worker) | Yes | Yes |
+| AI upscale (anime x4 6B) | Available | Good | Yes | Yes (worker) | Yes | Yes |
+| Pixel-art upscale | Available | Good | Yes | Yes (CPU) | Yes | Yes |
+| Classical upscale (bicubic/lanczos) | Available | Good | Yes | Yes (CPU) | Yes | Yes |
+
+### Compression restoration — gap analysis
+
+No ONNX-exported checkpoint has passed Varve's design-content corpus:
+
+- **SCUNet**: Denoise variant harms text/thin-lines (-17 dB on thin-lines fixture at sigma 15). Not validated for compression restoration.
+- **NAFNet-REDS**: State-dict layout mismatch produces garbage output.
+- **FBCNN** (ICCV 2021, Apache-2.0): Recommended candidate. Flexible blind JPEG artifact removal with quality-factor control. No public dynamic-shape ONNX export exists; conversion requires torch. When torch tooling is available, this should be the first model evaluated.
+- **SwinIR**: Apache-2.0, has JPEG CARs variant. ONNX conversion needed.
+
+To enable compression restoration:
+1. Convert FBCNN color checkpoint to dynamic-shape ONNX
+2. Pin SHA-256, upload to GitHub releases
+3. Run design-content corpus (text, thin-lines, logos, UI, gradients)
+4. Verify SCUNet's thin-lines regression does not recur
+5. Add to capability registry with status 'available'
+6. Wire through dispatch and planner
