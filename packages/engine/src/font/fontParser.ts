@@ -731,20 +731,42 @@ interface FvarData {
   instances: ParsedNamedInstance[];
 }
 
+/**
+ * Reads an OpenType `Fixed` value: a signed 32-bit 16.16 fixed-point number.
+ *
+ * `fvar` stores every axis bound and instance coordinate this way. Reading
+ * those four bytes as an IEEE-754 float instead yields denormals (`wght`
+ * min 100 is 0x00640000, which is 9.18e-39 as a float, not 100), so the
+ * whole variable-axis surface silently degrades to noise.
+ */
+function readFixed(view: DataView, offset: number): number {
+  return view.getInt32(offset, false) / 65536;
+}
+
 function parseFvarTable(data: ArrayBuffer, tables: Map<string, TableDirectory>): FvarData {
   const table = tables.get('fvar');
   if (!table) return { axes: [], instances: [] };
-  if (table.offset + 12 > data.byteLength) return { axes: [], instances: [] };
+  if (table.offset + 16 > data.byteLength) return { axes: [], instances: [] };
 
   const view = new DataView(data);
   const base = table.offset;
 
-  const axesCount = view.getUint16(base + 4);
-  const axisSize = view.getUint16(base + 6);
-  const instanceSize = view.getUint16(base + 8);
+  // fvar header: majorVersion(0) minorVersion(2) axesArrayOffset(4)
+  // reserved(6) axisCount(8) axisSize(10) instanceCount(12) instanceSize(14).
+  // Treating offset 4 as the axis count reads axesArrayOffset (16) instead,
+  // which is why this used to report a 16-axis font with a 2-byte axis record.
+  const axesArrayOffset = view.getUint16(base + 4);
+  const axesCount = view.getUint16(base + 8);
+  const axisSize = view.getUint16(base + 10);
+  const instanceCount = view.getUint16(base + 12);
+  const instanceSize = view.getUint16(base + 14);
+
+  // A malformed table can advertise a zero stride; walking it would spin on
+  // the same record until the iteration cap.
+  if (axisSize < 20) return { axes: [], instances: [] };
 
   const axes: ParsedAxis[] = [];
-  let axisOffset = base + 12;
+  let axisOffset = base + axesArrayOffset;
 
   for (let i = 0; i < axesCount && i < 20; i++) {
     if (axisOffset + axisSize > data.byteLength) break;
@@ -756,9 +778,9 @@ function parseFvarTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
       view.getUint8(axisOffset + 3),
     );
 
-    const minValue = view.getFloat32(axisOffset + 4, false);
-    const defaultValue = view.getFloat32(axisOffset + 8, false);
-    const maxValue = view.getFloat32(axisOffset + 12, false);
+    const minValue = readFixed(view, axisOffset + 4);
+    const defaultValue = readFixed(view, axisOffset + 8);
+    const maxValue = readFixed(view, axisOffset + 12);
     void view.getUint16(axisOffset + 16);
     void view.getUint16(axisOffset + 18);
 
@@ -776,17 +798,21 @@ function parseFvarTable(data: ArrayBuffer, tables: Map<string, TableDirectory>):
     axisOffset += axisSize;
   }
 
-  // Parse named instances
+  // Named instances. The count is a header field; deriving it from the table
+  // length assumed the axis array began at a fixed offset and that no
+  // trailing data followed the instance array.
   const instances: ParsedNamedInstance[] = [];
-  const instanceCount = (table.length - 12 - axesCount * axisSize) / instanceSize;
-  let instOffset = base + 12 + axesCount * axisSize;
+  const minInstanceSize = 4 + axes.length * 4;
+  if (instanceSize < minInstanceSize) return { axes, instances };
+  let instOffset = base + axesArrayOffset + axesCount * axisSize;
 
-  for (let i = 0; i < Math.floor(instanceCount) && i < 50; i++) {
+  for (let i = 0; i < instanceCount && i < 50; i++) {
     if (instOffset + instanceSize > data.byteLength) break;
 
+    // instance record: subfamilyNameID(0) flags(2) coordinates(4...)
     const coords: Record<string, number> = {};
-    for (let a = 0; a < axesCount; a++) {
-      const val = view.getFloat32(instOffset + 4 + a * 4, false);
+    for (let a = 0; a < axes.length; a++) {
+      const val = readFixed(view, instOffset + 4 + a * 4);
       const axis = axes[a];
       if (axis) {
         coords[axis.tag] = val;

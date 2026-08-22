@@ -171,36 +171,67 @@ function makeMaxpTable(glyphCount: number = 500): ArrayBuffer {
   return buffer;
 }
 
+/** Writes an OpenType `Fixed` (signed 16.16 fixed-point), as `fvar` requires. */
+function setFixed(view: DataView, offset: number, value: number): void {
+  view.setInt32(offset, Math.round(value * 65536), false);
+}
+
+/**
+ * Builds a spec-shaped `fvar` table.
+ *
+ * This fixture previously wrote axis bounds as IEEE floats at header offsets
+ * that did not match the OpenType layout — the same two mistakes the parser
+ * made — so the round-trip agreed with itself and no test could see that real
+ * fonts parsed to garbage. It now follows the spec, which is what makes the
+ * assertions below meaningful.
+ */
 function makeFvarTable(
   axes: Array<{ tag: string; min: number; default: number; max: number }>,
+  namedInstances: Array<Record<string, number>> = [],
 ): ArrayBuffer {
   if (axes.length === 0) return new ArrayBuffer(0);
 
+  const axesArrayOffset = 16;
   const axisSize = 20;
-  const instanceCount = axes.length;
   const instanceSize = 4 + axes.length * 4;
-  const versionSize = 12;
-  const totalSize = versionSize + axes.length * axisSize + instanceCount * instanceSize;
+  const totalSize =
+    axesArrayOffset + axes.length * axisSize + namedInstances.length * instanceSize;
   const buffer = new ArrayBuffer(totalSize);
   const view = new DataView(buffer);
 
-  view.setUint16(4, axes.length);
-  view.setUint16(6, axisSize);
-  view.setUint16(8, instanceSize);
+  view.setUint16(0, 1); // majorVersion
+  view.setUint16(2, 0); // minorVersion
+  view.setUint16(4, axesArrayOffset);
+  view.setUint16(6, 2); // reserved
+  view.setUint16(8, axes.length);
+  view.setUint16(10, axisSize);
+  view.setUint16(12, namedInstances.length);
+  view.setUint16(14, instanceSize);
 
   for (let i = 0; i < axes.length; i++) {
     const ax = axes[i]!;
-    const off = versionSize + i * axisSize;
+    const off = axesArrayOffset + i * axisSize;
     const tagBytes = ax.tag;
     view.setUint8(off, tagBytes.charCodeAt(0));
     view.setUint8(off + 1, tagBytes.charCodeAt(1));
     view.setUint8(off + 2, tagBytes.charCodeAt(2));
     view.setUint8(off + 3, tagBytes.charCodeAt(3));
-    view.setFloat32(off + 4, ax.min, false);
-    view.setFloat32(off + 8, ax.default, false);
-    view.setFloat32(off + 12, ax.max, false);
-    view.setUint16(off + 16, 0);
-    view.setUint16(off + 18, 0);
+    setFixed(view, off + 4, ax.min);
+    setFixed(view, off + 8, ax.default);
+    setFixed(view, off + 12, ax.max);
+    view.setUint16(off + 16, 0); // flags
+    view.setUint16(off + 18, 0); // axisNameID
+  }
+
+  const instanceBase = axesArrayOffset + axes.length * axisSize;
+  for (let i = 0; i < namedInstances.length; i++) {
+    const off = instanceBase + i * instanceSize;
+    view.setUint16(off, 0); // subfamilyNameID
+    view.setUint16(off + 2, 0); // flags
+    for (let a = 0; a < axes.length; a++) {
+      const tag = axes[a]!.tag;
+      setFixed(view, off + 4 + a * 4, namedInstances[i]![tag] ?? axes[a]!.default);
+    }
   }
 
   return buffer;
