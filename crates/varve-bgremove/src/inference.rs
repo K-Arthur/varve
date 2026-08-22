@@ -8,7 +8,7 @@
 //! burn, ort C API) can be substituted without rewriting the inference
 //! pipeline. `OrtInferenceRuntime` is the current implementation.
 
-use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
+use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba, RgbaImage};
 use ort::session::Session;
 
 use crate::session_pool::{
@@ -454,7 +454,7 @@ pub struct DenoiseResult {
 /// Run SCUNet denoising on an image natively via ONNX Runtime.
 ///
 /// The model expects [1,3,H,W] float32 in [0,1] range (pixel / 255, no
-/// mean subtraction) and H/W divisible by 8. Output is [1,3,H,W] in [0,1].
+/// mean subtraction) and H/W divisible by 64. Output is [1,3,H,W] in [0,1].
 /// `strength` blends between original and denoised (0 = original, 1 = full).
 pub fn denoise_image(
     img: &DynamicImage,
@@ -505,10 +505,11 @@ pub fn denoise_image_cancellable(
         orig_h
     };
 
+    let source_rgba = img.to_rgba8();
     let source = if proc_w != orig_w || proc_h != orig_h {
-        img.resize_exact(proc_w, proc_h, image::imageops::FilterType::Triangle)
+        DynamicImage::ImageRgba8(pad_rgba_edges(&source_rgba, proc_w, proc_h))
     } else {
-        img.clone()
+        DynamicImage::ImageRgba8(source_rgba)
     };
     let rgba = source.to_rgba8();
     let pixels = rgba.into_raw();
@@ -564,11 +565,16 @@ pub fn denoise_image_cancellable(
     }
 
     let final_rgba = if out_w != orig_w || out_h != orig_h {
+        if out_w < orig_w || out_h < orig_h {
+            return Err(format!(
+                "Denoise: output dimensions {out_w}×{out_h} are smaller than source {orig_w}×{orig_h}"
+            ));
+        }
         let tmp = ImageBuffer::<image::Rgba<u8>, _>::from_raw(out_w, out_h, out_rgba)
             .ok_or("Failed to build output image buffer")?;
-        let resized =
-            image::imageops::resize(&tmp, orig_w, orig_h, image::imageops::FilterType::Triangle);
-        resized.into_raw()
+        image::imageops::crop_imm(&tmp, 0, 0, orig_w, orig_h)
+            .to_image()
+            .into_raw()
     } else {
         out_rgba
     };
@@ -593,6 +599,22 @@ pub fn denoise_image_cancellable(
         height: orig_h,
         processing_time_ms: elapsed.as_millis() as u64,
     })
+}
+
+/// Match the browser worker's graph-safe preprocessing: repeat the nearest
+/// edge pixel into the padded region instead of resampling the source. This
+/// keeps fine lines and alpha edges stable when the model requires dimensions
+/// divisible by 64.
+fn pad_rgba_edges(image: &RgbaImage, target_width: u32, target_height: u32) -> RgbaImage {
+    let mut padded = RgbaImage::new(target_width, target_height);
+    for y in 0..target_height {
+        let source_y = y.min(image.height().saturating_sub(1));
+        for x in 0..target_width {
+            let source_x = x.min(image.width().saturating_sub(1));
+            padded.put_pixel(x, y, *image.get_pixel(source_x, source_y));
+        }
+    }
+    padded
 }
 
 // ── LaMa Inpainting ───────────────────────────────────────────────────
@@ -1205,9 +1227,10 @@ fn resize_mask(mask: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> V
 #[cfg(test)]
 mod tests {
     use super::{
-        model_spec, normalize_segmentation_output, reconstruct_letterbox_mask, resize_mask,
-        InferenceRuntime, InferenceSession, LetterboxTransform, OrtInferenceRuntime,
+        model_spec, normalize_segmentation_output, pad_rgba_edges, reconstruct_letterbox_mask,
+        resize_mask, InferenceRuntime, InferenceSession, LetterboxTransform, OrtInferenceRuntime,
     };
+    use image::{Rgba, RgbaImage};
 
     fn decode_gray_png(png: &[u8]) -> Vec<u8> {
         let image = image::load_from_memory(png).expect("png should decode");
@@ -1259,6 +1282,20 @@ mod tests {
     #[test]
     fn resizes_soft_mask_bilinearly() {
         assert_eq!(resize_mask(&[0, 255], 2, 1, 4, 1), vec![0, 64, 191, 255]);
+    }
+
+    #[test]
+    fn pads_image_model_inputs_by_repeating_edges() {
+        let mut image = RgbaImage::new(2, 2);
+        image.put_pixel(0, 0, Rgba([1, 2, 3, 4]));
+        image.put_pixel(1, 0, Rgba([5, 6, 7, 8]));
+        image.put_pixel(0, 1, Rgba([9, 10, 11, 12]));
+        image.put_pixel(1, 1, Rgba([13, 14, 15, 16]));
+
+        let padded = pad_rgba_edges(&image, 3, 4);
+        assert_eq!(padded.get_pixel(2, 3), &Rgba([13, 14, 15, 16]));
+        assert_eq!(padded.get_pixel(0, 3), &Rgba([9, 10, 11, 12]));
+        assert_eq!(padded.get_pixel(2, 0), &Rgba([5, 6, 7, 8]));
     }
 
     #[test]
