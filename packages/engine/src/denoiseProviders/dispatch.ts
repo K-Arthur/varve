@@ -30,6 +30,7 @@ export async function dispatchDenoise(
   const result = await dispatchRestorationTask(source, 'denoise', options.strength, {
     signal: options.signal,
     onProgress: options.onProgress,
+    modelId: options.modelId,
     tileSize: options.tileSize,
     overlap: options.overlap,
     maxDim: options.maxDim,

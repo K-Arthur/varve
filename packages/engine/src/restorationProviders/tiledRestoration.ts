@@ -122,12 +122,25 @@ export async function runTiledRestoration(
       signal,
     );
 
-    const tileFloat = new Float32Array(pixels * 3);
+    // `blendTiles` indexes each result with the graph-safe padded stride. The
+    // provider returns the cropped, visible tile, so repack it into that
+    // padded layout before recomposition. Keeping the visible and padded
+    // dimensions separate is essential for right/bottom edge tiles: using a
+    // packed visible stride here shifts rows and eventually reads undefined
+    // values as black pixels.
+    const paddedWidth = alignTo8(tile.width);
+    const paddedHeight = alignTo8(tile.height);
+    const paddedPixels = paddedWidth * paddedHeight;
+    const tileFloat = new Float32Array(paddedPixels * 3);
     const denoisedData = denoised.imageData.data;
-    for (let p = 0; p < pixels; p++) {
-      tileFloat[p] = denoisedData[p * 4]! / 255;
-      tileFloat[pixels + p] = denoisedData[p * 4 + 1]! / 255;
-      tileFloat[pixels * 2 + p] = denoisedData[p * 4 + 2]! / 255;
+    for (let y = 0; y < tile.height; y += 1) {
+      for (let x = 0; x < tile.width; x += 1) {
+        const sourcePixel = y * tile.width + x;
+        const paddedPixel = y * paddedWidth + x;
+        tileFloat[paddedPixel] = denoisedData[sourcePixel * 4]! / 255;
+        tileFloat[paddedPixels + paddedPixel] = denoisedData[sourcePixel * 4 + 1]! / 255;
+        tileFloat[paddedPixels * 2 + paddedPixel] = denoisedData[sourcePixel * 4 + 2]! / 255;
+      }
     }
     tileResults.push(tileFloat);
     onProgress?.(i + 1, tiles.length);

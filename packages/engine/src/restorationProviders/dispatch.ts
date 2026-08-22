@@ -20,6 +20,8 @@ export const SCUNET_ID = 'scunet';
 export interface RestorationTaskOptions {
   signal?: AbortSignal;
   onProgress?: (completed: number, total: number) => void;
+  /** Explicit validated checkpoint selected by the restoration planner. */
+  modelId?: string;
   /** Overrides for tests/benchmarks (tile policy, providers). */
   tileSize?: number;
   overlap?: number;
@@ -123,9 +125,10 @@ export async function dispatchRestorationTask(
     );
   }
   const spec = TASK_SPECS[task];
+  const modelId = options.modelId ?? spec.modelId;
   const policy = spec.tilePolicy?.(source.width, source.height);
   return runTiledRestoration(source, {
-    modelId: spec.modelId,
+    modelId,
     strength,
     tileSize: options.tileSize ?? policy?.tileSize ?? spec.tileSize,
     overlap: options.overlap ?? policy?.overlap ?? spec.overlap,
