@@ -86,6 +86,7 @@ function privacyFindings(text, label) {
  * @param {string} spec.purpose         one line: what this clip is for
  * @param {string} [spec.fixture]       fixture identifier recorded in the manifest
  * @param {[number, number]} spec.duration  [min, max] delivered seconds
+ * @param {number} [spec.posterAt]      fraction of the delivered cut used for the poster (0–1)
  * @param {boolean} [spec.authoredMotion]  allow authored prototype/timeline motion
  * @param {Array<Function|object>} [spec.initScripts] init scripts installed before first navigation
  * @param {object|((ctx: object) => object)} [spec.metadata] extra manifest metadata
@@ -288,8 +289,19 @@ export async function capture(spec) {
     console.log(`[${spec.slug}] trimming ${trimStart.toFixed(1)}s of setup`);
     await toWebm(sourcePath, webm, { start: trimStart, fps: FPS });
     if (!skipMp4) await toMp4(sourcePath, mp4, { start: trimStart, fps: FPS });
-    // Late in the cut, where the artwork exists — see posterFrom.
-    const posterAt = Math.max(0.2, (await probe(webm)).duration * 0.85);
+    // Late in the cut, where the artwork exists — see posterFrom. Workflows
+    // with a clean explanatory end state can opt into a later or earlier
+    // frame; a single fixed fraction made stale-looking posters too easy to
+    // ship when a panel opened near the end of a sequence.
+    const deliveredBeforePoster = await probe(webm);
+    const posterFraction = spec.posterAt ?? 0.85;
+    if (!(posterFraction >= 0 && posterFraction <= 1)) {
+      throw new Error(`posterAt must be between 0 and 1, got ${posterFraction}`);
+    }
+    const posterAt = Math.min(
+      Math.max(0.2, deliveredBeforePoster.duration - 0.2),
+      Math.max(0.2, deliveredBeforePoster.duration * posterFraction),
+    );
     await posterFrom(webm, poster, posterAt);
 
     const delivered = await probe(webm);
@@ -354,6 +366,7 @@ export async function capture(spec) {
         browserVersion: browser.version(),
         sourceDuration: sourceSeconds,
         deliveredDuration: delivered.duration,
+        posterAt: Number(posterAt.toFixed(2)),
         fps: FPS,
         outputs: {
           webm: `docs/screenshots/workflows/${spec.slug}.webm`,

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Verify the seven canonical deliverables without recording another run. */
+/** Verify every shipped workflow deliverable without recording another run. */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { probe } from './core/ffmpeg.mjs';
@@ -7,15 +7,10 @@ import { probe } from './core/ffmpeg.mjs';
 const root = join(import.meta.dirname, '..', '..');
 const out = join(root, 'docs', 'screenshots', 'workflows');
 const publicOut = join(root, 'apps', 'website', 'public', 'screenshots', 'workflows');
-const slugs = [
-  'raster-to-vector',
-  'bezier-node-edit',
-  'poster-to-print',
-  'rgb-to-cmyk',
-  'variable-font',
-  'text-on-path',
-  'export-svg',
-];
+const slugs = readdirSync(out)
+  .filter((fileName) => fileName.endsWith('.capture.json'))
+  .map((fileName) => fileName.slice(0, -'.capture.json'.length))
+  .sort();
 const VIDEO_WARN = 5_000_000;
 const VIDEO_FAIL = 10_000_000;
 const POSTER_WARN = 1_000_000;
@@ -74,6 +69,11 @@ for (const dir of [out, publicOut]) {
   }
 }
 
+if (slugs.length === 0) {
+  console.error(`[media] no capture manifests found in ${out}`);
+  failed = true;
+}
+
 for (const slug of slugs) {
   const manifestPath = join(out, `${slug}.capture.json`);
   const webmPath = join(out, `${slug}.webm`);
@@ -111,7 +111,13 @@ for (const slug of slugs) {
     findings.push('manifest WebM output is missing or incorrect');
   if (manifest.outputs?.poster !== `docs/screenshots/workflows/${slug}-poster.png`)
     findings.push('manifest poster output is missing or incorrect');
-  if (manifest.viewport !== '1440x900' || manifest.fps !== 30)
+  if (
+    !(
+      (manifest.viewport === '1440x900' ||
+        (manifest.viewport?.width === 1440 && manifest.viewport?.height === 900)) &&
+      manifest.fps === 30
+    )
+  )
     findings.push(`manifest capture settings are ${manifest.viewport} at ${manifest.fps}fps`);
   if (
     typeof manifest.deliveredDuration === 'number' &&
