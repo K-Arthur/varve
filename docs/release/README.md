@@ -27,7 +27,7 @@ trust. Start with the audit; it explains why the rest of these exist.
 
 | Script | Purpose |
 |---|---|
-| `version.mjs` | Single-source the version across five manifests; `verify` gate on tag agreement **and on every push** (ci.yml `pipeline-validate`); `bump`/`snapshot` for the post-release bump and dev builds |
+| `version.mjs` | Single-source the version across nine manifests (see TARGETS array in source); `verify` gate on tag agreement **and on every push** (ci.yml `pipeline-validate`); `bump`/`snapshot` for the post-release bump and dev builds |
 | `check-bundled-assets.mjs` | Fail on LFS pointers, catalog disagreement, and unpinned model downloads |
 | `prune-foreign-runtimes.mjs` | Drop other platforms' ONNX Runtime libraries before packaging |
 | `collect-artifacts.mjs` | Rename to a predictable scheme, hash, write manifest + `SHA256SUMS.txt` |

@@ -97,3 +97,9 @@ Latency numbers are sensitive to host load. The audit records `nproc`,
 `uptime` load, and CPU model alongside every run; comparisons between
 models are only meaningful under the same load conditions, and absolute
 numbers from a loaded machine are not product latency claims.
+
+## See also
+
+- Canonical architecture: `docs/architecture/semantic-asset-similarity.md`
+- Benchmark results: `docs/quality/semantic-asset-similarity-benchmark.md`
+- Dated evaluation snapshot: `docs/audits/semantic-asset-similarity-evaluation-2026-08-13.md`

@@ -306,6 +306,7 @@ The following dated files were moved from `docs/architecture/` to
 | `release/website.md` | Website architecture and launch plan |
 | `release/budget-plan.md` | Launch budget (CAD $200) and purchase triggers |
 | `release/distribution-decision-matrix.md` | Distribution channel decisions |
+| `release/linux-ecosystem-readiness.md` | Per-channel Linux package ecosystem readiness assessment (AUR, Flatpak, DEB/RPM) |
 | `release/directory-listing-packet.md` | Canonical listing data for AlternativeTo / repology / software directories |
 
 ### Release Engineering — historical records

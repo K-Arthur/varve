@@ -583,6 +583,9 @@ assert.throws(
     'apps/desktop/src-tauri/tauri.conf.json',
     'Cargo.toml',
     'apps/desktop/src-tauri/Cargo.toml',
+    'apps/desktop/src-tauri/linux/dev.varve.desktop.metainfo.xml',
+    'packaging/aur/varve-desktop-bin/PKGBUILD',
+    'packaging/aur/varve-desktop-bin/.SRCINFO',
   ];
   {
     const tmp = join(tmpdir(), `varve-version-${process.pid}`);

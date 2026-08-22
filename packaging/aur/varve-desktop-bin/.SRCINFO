@@ -1,6 +1,6 @@
 pkgbase = varve-desktop-bin
 	pkgdesc = Local-first design suite for vector, layout, typography, motion and print
-	pkgver = 0.1.0
+	pkgver = 0.2.0
 	pkgrel = 1
 	url = https://github.com/K-Arthur/varve
 	arch = x86_64
@@ -20,7 +20,7 @@ pkgbase = varve-desktop-bin
 	provides = varve-desktop
 	conflicts = varve-desktop varve-desktop-git
 	options = !strip !debug
-	source = Varve-0.1.0-linux-x86_64.AppImage::https://github.com/K-Arthur/varve/releases/download/v0.1.0/Varve-0.1.0-linux-x86_64.AppImage
-	sha256sums = SKIP
+	source = Varve-0.2.0-linux-x86_64.AppImage::https://github.com/K-Arthur/varve/releases/download/v0.2.0/Varve-0.2.0-linux-x86_64.AppImage
+	sha256sums = 1ea6d1931bde5b1a253bc49ce1ba599e58368a6a2453d1e52c7c7caa81e2405f
 
 pkgname = varve-desktop-bin

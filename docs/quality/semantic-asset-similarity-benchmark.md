@@ -106,3 +106,9 @@ Numbers above were collected on a shared development machine under heavy
 parallel load (load average > 25). p50/p95 latency and throughput figures
 from the corpus harness are the authoritative measurements; re-run on an
 idle machine before quoting them in release material.
+
+## See also
+
+- Canonical architecture: `docs/architecture/semantic-asset-similarity.md`
+- Reproduction recipe: `docs/quality/semantic-similarity-benchmark.md`
+- Dated evaluation snapshot: `docs/audits/semantic-asset-similarity-evaluation-2026-08-13.md`
