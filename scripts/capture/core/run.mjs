@@ -202,11 +202,14 @@ export async function capture(spec) {
     if (keepSource) console.log(`[${spec.slug}] source kept at ${sourcePath}`);
     else rmSync(tmp, { recursive: true, force: true });
 
+
     return manifest;
   } catch (err) {
     console.error(`[${spec.slug}] FAILED: ${err instanceof Error ? err.message : err}`);
     exitCode = 1;
-    rmSync(tmp, { recursive: true, force: true });
+    // The raw recording is left in place: re-encoding it costs seconds where
+    // re-recording costs another warm-up plus the whole sequence.
+    console.error(`[${spec.slug}] recording left at ${tmp}`);
   } finally {
     await stopServer(server);
     await browser.close();

@@ -37,8 +37,16 @@ export async function hasFfmpeg() {
 
 const ffmpeg = (args) => run('ffmpeg', ['-y', '-loglevel', 'error', ...args]);
 
-/** Constant-rate VP9. Re-encoded, not stream-copied, so the cut is frame-exact. */
-export function toWebm(src, dest, { start = 0, duration, fps = 30 }) {
+/**
+ * Constant-rate VP9. Re-encoded, not stream-copied, so the cut is frame-exact.
+ *
+ * `-cpu-used 4` is not a quality compromise worth arguing about here: at the
+ * default speed libvpx-vp9 spends many minutes and a great deal of memory on
+ * a 1440x900 screencast, and this repo is routinely shared with several other
+ * agents running builds and test suites. A capture that gets killed partway
+ * through delivery is worth less than one encoded a notch faster.
+ */
+export function toWebm(src, dest, { start = 0, duration, fps = 30, threads = 4 }) {
   return ffmpeg([
     '-ss',
     start.toFixed(3),
@@ -53,6 +61,12 @@ export function toWebm(src, dest, { start = 0, duration, fps = 30 }) {
     '0',
     '-row-mt',
     '1',
+    '-deadline',
+    'good',
+    '-cpu-used',
+    '4',
+    '-threads',
+    String(threads),
     '-r',
     String(fps),
     '-an',
@@ -73,7 +87,9 @@ export function toMp4(src, dest, { start = 0, duration, fps = 30 }) {
     '-crf',
     '20',
     '-preset',
-    'slow',
+    'medium',
+    '-threads',
+    '4',
     '-pix_fmt',
     'yuv420p',
     '-movflags',
