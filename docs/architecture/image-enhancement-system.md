@@ -33,15 +33,29 @@ The shipped AI capabilities are:
   conversion + parity evidence in `tools/nafnet-export/`; artifact hosted
   on the `varve-models-v1` GitHub release with a pinned SHA-256.
 - `upscale-realesr-general`: Real-ESRGAN general x4 super-resolution, ONNX,
-  using the existing tiled provider.
+  using the existing tiled provider (`TILE 64/OVERLAP 16`).
+- `upscale-realesrgan-anime`: Real-ESRGAN anime/illustration x4 (6B) — **not
+  validated**. Present in the registry as `not-validated` with a blocking
+  `statusReason`; the UI (Enhance → Illustration & anime) honestly falls
+  back to the general model until a reproducible ONNX export with pinned
+  hash and corpus evidence is published. No hash is advertised.
 
 JPEG artifact removal is represented as a user operation but is rejected by
-the planner: no model passed Varve's design-content corpus (SCUNet destroys
-1px line patterns and harms UI screenshots; the only NAFNet checkpoint
-trained with JPEG was rejected on state-dict provenance). SCUNet is not
-advertised as a JPEG-specific model. A new checkpoint must provide task
-provenance, licensing, hashes, conversion details, and Varve corpus
-evidence before it is added.
+both planner (`planRestoration` throws `unsupported-operation`) and dispatch
+(`dispatchRestorationTask` throws even if the planner is bypassed): no model
+passed Varve's design-content corpus (SCUNet destroys 1px line patterns and
+harms UI screenshots; the only NAFNet checkpoint trained with JPEG was
+rejected on state-dict provenance). SCUNet is never advertised as a
+JPEG-specific model. A new checkpoint must provide task provenance,
+licensing, hashes, conversion details, and Varve corpus evidence before it
+is added.
+
+Scale semantics:
+the Real-ESRGAN model is fixed 4×. A request for 2×/3× via AI is served as
+**AI 4× → high-quality lanczos3 downsample** to the exact target size
+(`restorationPipeline.ts`, `enhancementPipeline.ts`). This honest pipeline is
+documented in the dialog's output hint and avoids claiming variable-scale
+super-resolution.
 
 ## Execution and compatibility
 
@@ -56,12 +70,23 @@ activates the unified planner when present.
 Deblur tiling is adaptive (single-shot up to 1280 px, then 1280/256):
 NAFNet's global receptive field makes small tiles visibly seamed
 (34 dB tiled-vs-whole at 768/128 on a 1536 px image vs 60 dB single-shot).
+Strength for deblur respects the user-facing denoise strength
+(`light 0.3 / medium 0.7 / strong 0.8` in `restorationPipeline.ts`) so
+`deblur-upscale` keeps its setting consistent across tasks.
 
-Preview requests crop a centered region before model dispatch. Final
-requests retain the existing output pixel budget and document safeguards.
+Preview is honest: a centered 512 px crop is enhanced with the *same*
+preprocessing, model, and postprocessing as the final job, while the
+baseline is the *same* crop upscaled with a neutral classical filter
+(bicubic, nearest for pixel-art) to the *same* output dimensions. Both
+halves are shown at the same pixel size under the split slider, which is
+keyboard-accessible (← →, Shift+← →, Home/End) and offers Fit / 100%
+pixel view. No browser-bilinear exaggeration.
+
 Alpha is carried separately by both restoration paths, and pixel-art
 scaling stays on its specialized algorithm path rather than entering photo
-restoration.
+restoration. The `restorationAuto` heuristic adds a conservative
+pixel-art hint (≤128 px short edge, ≤32 colours) that surfaces as
+“consider Pixel Art mode” without overriding the resolution recommendation.
 
 The default output is a new derived image layer. Replace-source remains
 atomic and undoable. The existing persisted derived-output metadata is kept
@@ -84,10 +109,19 @@ with a pinned hash.
 `packages/engine/src/restorationAuto.ts` runs a cheap classical analysis
 (Laplacian-MAD noise, Laplacian-variance blur, 8px-grid blockiness,
 resolution) and proposes an operation in human terms with a confidence
-number. No neural classifier gates which neural model loads. A
-compression-restoration suggestion is never silently substituted: the
-dialog explains the operation is unavailable and offers the closest
-validated operation instead.
+number. No neural classifier gates which neural model loads. Below 96 px
+short edge, noise/blur signals are suppressed (only resolution matters) to
+avoid flagging icons as noisy. A compression-restoration suggestion is
+never silently substituted: the dialog explains the operation is
+unavailable and offers the closest validated operation instead. Limited
+palette on small images surfaces a pixel-art hint.
+
+Progress and errors in the Enhance dialog are stage-aware (`Denoise` →
+`Upscale` etc. with ✓/•) and typed (`model-not-installed` offers Download,
+`hash-mismatch` Re-download, `dimension-limit`/`tensor-allocation` suggest a
+smaller scale, `stale-result` explains source changed). Cancellation and
+stale-job protection (revision check before commit) are enforced so a
+preview cannot clobber an in-flight Apply.
 
 ## Validation policy
 
