@@ -2,19 +2,19 @@
   "workflow": "Motion timeline",
   "slug": "motion-timeline",
   "purpose": "A kinetic editorial title card is keyed, scrubbed, dragged and played in the real timeline.",
-  "gitCommit": "47ed6a6c3aae08a9bf23cf3f9a3d0982526835e5",
-  "capturedAt": "2026-08-22T06:57:54.961Z",
+  "gitCommit": "78027f24a82dbea598cd4c71bc3e60e3990a06ec",
+  "capturedAt": "2026-08-22T14:40:25.590Z",
   "viewport": "1440x900",
   "dpr": 1,
   "fixture": null,
   "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
-  "sourceDuration": 47.23,
-  "deliveredDuration": 29.73,
+  "sourceDuration": 37.03,
+  "deliveredDuration": 23.07,
   "fps": 30,
   "outputs": {
     "webm": "docs/screenshots/workflows/motion-timeline.webm",
-    "poster": "docs/screenshots/workflows/motion-timeline-poster.png",
-    "mp4": "docs/screenshots/workflows/motion-timeline.mp4"
+    "mp4": "docs/screenshots/workflows/motion-timeline.mp4",
+    "poster": "docs/screenshots/workflows/motion-timeline-poster.png"
   },
   "metadata": {
     "productTruth": "MotionFacade/TimelineSampler drive the canvas; no capture-only CSS animation"
@@ -39,9 +39,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 891,
-          "duration": 29.733,
-          "bytes": 851579
+          "frames": 691,
+          "duration": 23.066,
+          "bytes": 706107
         }
       },
       "mp4": {
@@ -52,9 +52,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 891,
-          "duration": 29.7,
-          "bytes": 898846
+          "frames": 691,
+          "duration": 23.033333,
+          "bytes": 772646
         }
       }
     },
@@ -69,15 +69,15 @@
       },
       {
         "label": "q1",
-        "at": 7.43,
-        "luma": 229.4,
+        "at": 5.77,
+        "luma": 229.7,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "mid",
-        "at": 14.87,
+        "at": 11.53,
         "luma": 229.5,
         "black": false,
         "blank": false,
@@ -85,7 +85,7 @@
       },
       {
         "label": "q3",
-        "at": 22.3,
+        "at": 17.3,
         "luma": 230.2,
         "black": false,
         "blank": false,
@@ -93,7 +93,7 @@
       },
       {
         "label": "final",
-        "at": 29.48,
+        "at": 22.82,
         "luma": 230.2,
         "black": false,
         "blank": false,

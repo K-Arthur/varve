@@ -2,19 +2,19 @@
   "workflow": "Reusable component / variant",
   "slug": "component-variants",
   "purpose": "A transit-ticket purchase button is promoted to a real component and switched between variants.",
-  "gitCommit": "3a02217199790c557d610593fa9cc208604963da",
-  "capturedAt": "2026-08-22T06:10:24.399Z",
+  "gitCommit": "58458f8c5b62d527da486fab6a84c1c7c6c898ec",
+  "capturedAt": "2026-08-22T13:39:01.654Z",
   "viewport": "1440x900",
   "dpr": 1,
   "fixture": null,
   "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
-  "sourceDuration": 35.48,
-  "deliveredDuration": 21.53,
+  "sourceDuration": 66.06,
+  "deliveredDuration": 23.63,
   "fps": 30,
   "outputs": {
     "webm": "docs/screenshots/workflows/component-variants.webm",
-    "poster": "docs/screenshots/workflows/component-variants-poster.png",
-    "mp4": "docs/screenshots/workflows/component-variants.mp4"
+    "mp4": "docs/screenshots/workflows/component-variants.mp4",
+    "poster": "docs/screenshots/workflows/component-variants-poster.png"
   },
   "metadata": {
     "productTruth": "componentId/variant/propertyOverrides persisted in the scene document"
@@ -39,9 +39,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 645,
-          "duration": 21.533,
-          "bytes": 670687
+          "frames": 708,
+          "duration": 23.633,
+          "bytes": 780401
         }
       },
       "mp4": {
@@ -52,9 +52,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 645,
-          "duration": 21.5,
-          "bytes": 863856
+          "frames": 708,
+          "duration": 23.6,
+          "bytes": 852877
         }
       }
     },
@@ -69,15 +69,15 @@
       },
       {
         "label": "q1",
-        "at": 5.38,
-        "luma": 222.2,
+        "at": 5.91,
+        "luma": 219.9,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "mid",
-        "at": 10.77,
+        "at": 11.82,
         "luma": 222.2,
         "black": false,
         "blank": false,
@@ -85,15 +85,15 @@
       },
       {
         "label": "q3",
-        "at": 16.15,
-        "luma": 223.1,
+        "at": 17.72,
+        "luma": 222.2,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "final",
-        "at": 21.28,
+        "at": 23.38,
         "luma": 223.1,
         "black": false,
         "blank": false,

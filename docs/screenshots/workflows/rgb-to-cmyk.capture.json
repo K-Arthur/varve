@@ -1,0 +1,104 @@
+{
+  "workflow": "RGB design → CMYK workflow",
+  "slug": "rgb-to-cmyk",
+  "purpose": "Taking saturated RGB artwork through Varve’s real document colour-mode workflow.",
+  "gitCommit": "417fe23d3bc81f92ebb27064ece0ea7ddff4708d",
+  "capturedAt": "2026-08-22T12:07:06.767Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": null,
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 68.03,
+  "deliveredDuration": 26.1,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/rgb-to-cmyk.webm",
+    "mp4": "docs/screenshots/workflows/rgb-to-cmyk.mp4",
+    "poster": "docs/screenshots/workflows/rgb-to-cmyk-poster.png"
+  },
+  "metadata": {},
+  "artifacts": [],
+  "productAssertions": [
+    "a saturated object is selected and its colour is read in the inspector",
+    "the Document Color Mode dialog is the real conversion surface",
+    "dialog reports the document is currently RGB",
+    "assign-mode and convert-colors are offered as distinct operations, with the dialog stating that browser conversion is analytical and ICC-accurate conversion is the desktop engine’s",
+    "Convert colors rewrote the stored process colours as one undoable step",
+    "the conversion is a single undo/redo step"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 783,
+          "duration": 26.1,
+          "bytes": 858511
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 783,
+          "duration": 26.1,
+          "bytes": 994106
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 231.1,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 6.53,
+        "luma": 230.9,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 13.05,
+        "luma": 129.5,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 19.58,
+        "luma": 230.9,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 25.85,
+        "luma": 230.9,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "privacy": [],
+    "pass": true
+  }
+}

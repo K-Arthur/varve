@@ -1,0 +1,108 @@
+{
+  "workflow": "Raster → editable vector",
+  "slug": "raster-to-vector",
+  "purpose": "Tracing a bitmap into real path geometry, then editing that geometry.",
+  "gitCommit": "58458f8c5b62d527da486fab6a84c1c7c6c898ec",
+  "capturedAt": "2026-08-22T14:13:52.122Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": "scripts/capture/fixtures/botanical.png",
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 75.13,
+  "deliveredDuration": 61.77,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/raster-to-vector.webm",
+    "mp4": "docs/screenshots/workflows/raster-to-vector.mp4",
+    "poster": "docs/screenshots/workflows/raster-to-vector-poster.png"
+  },
+  "metadata": {},
+  "artifacts": [],
+  "productAssertions": [
+    "document starts as one raster layer (\"botanical.png\")",
+    "Object > Vectorize Image opens the real trace workflow for the bitmap",
+    "Apply became enabled only after the tracer produced a preview",
+    "trace inserted vector geometry as new layer(s): botanical.png trace, Trace 4, Trace 3, Trace 2, Trace 1",
+    "the source bitmap is preserved beside the trace, not hidden behind it",
+    "the trace produced a group of 4 separate paths",
+    "the traced output opens in node edit mode — it is real path geometry",
+    "the traced path exposes 14 editable anchors",
+    "moving an anchor on the traced path changed the render",
+    "the node edit participates in undo and redo"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 1853,
+          "duration": 61.766,
+          "bytes": 1834957
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 1853,
+          "duration": 61.766667,
+          "bytes": 2116040
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 231.1,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 15.44,
+        "luma": 140.3,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 30.88,
+        "luma": 140.3,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 46.32,
+        "luma": 164,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 61.52,
+        "luma": 232,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "privacy": [],
+    "pass": true
+  }
+}

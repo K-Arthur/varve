@@ -2,14 +2,14 @@
   "workflow": "Auto-layout",
   "slug": "auto-layout",
   "purpose": "A playlist row system reflows through real flex auto-layout controls as content grows.",
-  "gitCommit": "fbdf11959d69a3483f3a541e8995b1f63df91e11",
-  "capturedAt": "2026-08-22T10:24:14.420Z",
+  "gitCommit": "78027f24a82dbea598cd4c71bc3e60e3990a06ec",
+  "capturedAt": "2026-08-22T14:36:30.686Z",
   "viewport": "1440x900",
   "dpr": 1,
   "fixture": null,
   "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
-  "sourceDuration": 100.78,
-  "deliveredDuration": 25.63,
+  "sourceDuration": 62.09,
+  "deliveredDuration": 20,
   "fps": 30,
   "outputs": {
     "webm": "docs/screenshots/workflows/auto-layout.webm",
@@ -39,9 +39,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 768,
-          "duration": 25.633,
-          "bytes": 910445
+          "frames": 599,
+          "duration": 20,
+          "bytes": 726344
         }
       },
       "mp4": {
@@ -52,9 +52,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 768,
-          "duration": 25.6,
-          "bytes": 1195822
+          "frames": 599,
+          "duration": 19.966667,
+          "bytes": 871079
         }
       }
     },
@@ -69,7 +69,7 @@
       },
       {
         "label": "q1",
-        "at": 6.41,
+        "at": 5,
         "luma": 221.4,
         "black": false,
         "blank": false,
@@ -77,7 +77,7 @@
       },
       {
         "label": "mid",
-        "at": 12.82,
+        "at": 10,
         "luma": 220.5,
         "black": false,
         "blank": false,
@@ -85,15 +85,15 @@
       },
       {
         "label": "q3",
-        "at": 19.22,
-        "luma": 220.9,
+        "at": 15,
+        "luma": 221,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "final",
-        "at": 25.38,
+        "at": 19.75,
         "luma": 221.5,
         "black": false,
         "blank": false,

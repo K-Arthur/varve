@@ -2,28 +2,27 @@
   "workflow": "Prototype interaction",
   "slug": "prototype-interaction",
   "purpose": "A compact travel-booking flow navigates between real frame screens in presentation mode.",
-  "gitCommit": "47ed6a6c3aae08a9bf23cf3f9a3d0982526835e5",
-  "capturedAt": "2026-08-22T06:51:52.077Z",
+  "gitCommit": "58458f8c5b62d527da486fab6a84c1c7c6c898ec",
+  "capturedAt": "2026-08-22T14:25:49.593Z",
   "viewport": "1440x900",
   "dpr": 1,
   "fixture": null,
   "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
-  "sourceDuration": 125.44,
-  "deliveredDuration": 19.7,
+  "sourceDuration": 107.42,
+  "deliveredDuration": 26.27,
   "fps": 30,
   "outputs": {
     "webm": "docs/screenshots/workflows/prototype-interaction.webm",
-    "poster": "docs/screenshots/workflows/prototype-interaction-poster.png",
-    "mp4": "docs/screenshots/workflows/prototype-interaction.mp4"
+    "mp4": "docs/screenshots/workflows/prototype-interaction.mp4",
+    "poster": "docs/screenshots/workflows/prototype-interaction-poster.png"
   },
   "metadata": {
-    "productTruth": "document interactions on real CTA child nodes + PrototypePresenter hit testing and navigation",
-    "scenario": "Northbound travel booking: search → details → confirmation"
+    "productTruth": "document interactions + PrototypePresenter hit testing and navigation"
   },
   "artifacts": [],
   "productAssertions": [
-    "first CTA has a persisted On click → Navigate to interaction",
-    "details CTA has a second persisted navigation interaction",
+    "source screen has a persisted On click → Navigate to interaction",
+    "details screen has a second persisted navigation interaction",
     "presentation opened the real Prototype Preview route",
     "clicking the source screen hit area navigated to the configured details screen",
     "the secondary interaction reached the confirmation screen",
@@ -40,9 +39,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 590,
-          "duration": 19.7,
-          "bytes": 542823
+          "frames": 788,
+          "duration": 26.266,
+          "bytes": 833594
         }
       },
       "mp4": {
@@ -53,9 +52,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 590,
-          "duration": 19.666667,
-          "bytes": 622703
+          "frames": 788,
+          "duration": 26.266667,
+          "bytes": 774762
         }
       }
     },
@@ -63,39 +62,39 @@
       {
         "label": "start",
         "at": 0.15,
-        "luma": 222.2,
+        "luma": 221.8,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "q1",
-        "at": 4.92,
-        "luma": 206.7,
+        "at": 6.57,
+        "luma": 220.6,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "mid",
-        "at": 9.85,
-        "luma": 206.1,
+        "at": 13.13,
+        "luma": 215.7,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "q3",
-        "at": 14.77,
-        "luma": 232.1,
+        "at": 19.7,
+        "luma": 231.8,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "final",
-        "at": 19.45,
-        "luma": 206.1,
+        "at": 26.02,
+        "luma": 221.3,
         "black": false,
         "blank": false,
         "exists": true

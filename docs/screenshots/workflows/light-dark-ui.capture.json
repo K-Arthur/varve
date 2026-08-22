@@ -2,19 +2,19 @@
   "workflow": "Same project in light/dark UI",
   "slug": "light-dark-ui",
   "purpose": "One editorial magazine spread stays identical while Varve chrome changes from light to dark.",
-  "gitCommit": "5f3f86f5649cadfbcc24d46f7ce056e4818a70bf",
-  "capturedAt": "2026-08-22T07:00:56.757Z",
+  "gitCommit": "78027f24a82dbea598cd4c71bc3e60e3990a06ec",
+  "capturedAt": "2026-08-22T14:47:09.025Z",
   "viewport": "1440x900",
   "dpr": 1,
   "fixture": null,
   "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
-  "sourceDuration": 35.11,
+  "sourceDuration": 31.23,
   "deliveredDuration": 13.37,
   "fps": 30,
   "outputs": {
     "webm": "docs/screenshots/workflows/light-dark-ui.webm",
-    "poster": "docs/screenshots/workflows/light-dark-ui-poster.png",
-    "mp4": "docs/screenshots/workflows/light-dark-ui.mp4"
+    "mp4": "docs/screenshots/workflows/light-dark-ui.mp4",
+    "poster": "docs/screenshots/workflows/light-dark-ui-poster.png"
   },
   "metadata": {
     "productTruth": "theme control mutates UI tokens only; project scene/camera are unchanged"
@@ -36,9 +36,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 400,
+          "frames": 401,
           "duration": 13.366,
-          "bytes": 573411
+          "bytes": 594617
         }
       },
       "mp4": {
@@ -49,9 +49,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 400,
-          "duration": 13.333333,
-          "bytes": 542131
+          "frames": 401,
+          "duration": 13.366667,
+          "bytes": 535504
         }
       }
     },
@@ -91,7 +91,7 @@
       {
         "label": "final",
         "at": 13.12,
-        "luma": 213.8,
+        "luma": 213.7,
         "black": false,
         "blank": false,
         "exists": true

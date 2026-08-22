@@ -1,0 +1,101 @@
+{
+  "workflow": "Poster from blank canvas → print",
+  "slug": "poster-to-print",
+  "purpose": "Building an A3 poster from an empty page and taking it into print production.",
+  "gitCommit": "78027f24a82dbea598cd4c71bc3e60e3990a06ec",
+  "capturedAt": "2026-08-22T14:33:53.613Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": null,
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 87.48,
+  "deliveredDuration": 77.9,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/poster-to-print.webm",
+    "mp4": "docs/screenshots/workflows/poster-to-print.mp4",
+    "poster": "docs/screenshots/workflows/poster-to-print-poster.png"
+  },
+  "metadata": {},
+  "artifacts": [],
+  "productAssertions": [
+    "document begins as an empty A3 page — no preloaded poster",
+    "4 elements placed on camera from an empty page",
+    "View > Bleed Guides reveals the trim and bleed boundary on the page"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 2336,
+          "duration": 77.9,
+          "bytes": 2123018
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 2336,
+          "duration": 77.866667,
+          "bytes": 2190957
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 234.3,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 19.48,
+        "luma": 232.6,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 38.95,
+        "luma": 233.2,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 58.43,
+        "luma": 233.3,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 77.65,
+        "luma": 144.2,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "privacy": [],
+    "pass": true
+  }
+}
