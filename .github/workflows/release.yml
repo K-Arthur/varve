@@ -490,6 +490,10 @@ jobs:
       # the bundle contents independent of what happens to be staged, which is
       # what stops a 74 MB .deb from carrying 53.9 MB of macOS and Windows
       # libraries the way a local build did.
+      - name: Fetch ONNX Runtime for target platform
+        if: matrix.enabled
+        run: node scripts/fetch-onnxruntime.mjs
+
       - name: Prune foreign ONNX runtimes
         if: matrix.enabled
         run: node scripts/release/prune-foreign-runtimes.mjs
