@@ -178,7 +178,7 @@ export function UpscaleDialog({
             scale,
             modelId:
               mode?.id === 'illustration'
-                ? 'upscale-realesrgan-anime'
+                ? 'upscale-realesr-general'
                 : mode?.id === 'ai-enhance'
                   ? 'upscale-realesr-general'
                   : undefined,
@@ -189,7 +189,7 @@ export function UpscaleDialog({
       preview: true,
       previewMaxDimension: 512,
     };
-  }, [denoiseStrength, mode, operation, pixelArtAlgorithm, scale, usesDenoise, usesUpscale]);
+  }, [denoiseStrength, mode, operation, pixelArtAlgorithm, qualityPolicy, scale, usesDenoise, usesUpscale]);
 
   /**
    * Resolve the Auto recommendation into a concrete operation. Suggestions
