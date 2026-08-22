@@ -96,7 +96,7 @@ await capture({
     assertions.push('the generated React component rendered in a fresh browser context');
     await parkPointer(page);
     await settle(page);
-    await beat(page, 11000);
+    await beat(page, 11200);
     return assertions;
   },
   artifacts: () => [

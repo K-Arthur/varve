@@ -15,6 +15,8 @@ written and are not updated retroactively. Current guidance lives in
 Current image-enhancement architecture and evidence requirements are documented
 in [`architecture/image-enhancement-system.md`](architecture/image-enhancement-system.md)
 and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchmark.md).
+The 2026-08-22 implementation evidence matrix is in
+[`audits/image-enhancement-implementation-2026-08-22.md`](audits/image-enhancement-implementation-2026-08-22.md).
 
 | Doc | Purpose |
 |-----|---------|

@@ -163,7 +163,7 @@ await capture({
     assertions.push(
       'editing the title to a significantly longer string re-rendered the row through layout',
     );
-    await beat(page, 3000);
+    await beat(page, 2400);
 
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(500);
@@ -173,7 +173,7 @@ await capture({
     await fitContent(page);
     await parkPointer(page);
     await settle(page);
-    await beat(page, 2200);
+    await beat(page, 1800);
     return assertions;
   },
   metadata: { productTruth: 'layoutStyle.mode=flex; reflow driven by @varve/layout' },

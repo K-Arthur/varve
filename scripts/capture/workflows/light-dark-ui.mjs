@@ -101,8 +101,8 @@ await capture({
     await settle(page);
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
     assertions.push('switching back to Light restored the same project and camera');
-    await beat(page, 1500);
     await beat(page, 1800);
+    await beat(page, 2000);
     await parkPointer(page);
     return assertions;
   },
