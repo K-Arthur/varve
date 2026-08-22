@@ -13,6 +13,7 @@ import {
   beat,
   canvasPixels,
   dragAt,
+  fitContent,
   layerNames,
   menuItem,
   openCleanEditor,
@@ -109,6 +110,14 @@ await capture({
       await page.waitForTimeout(450);
       if (await offset.isVisible({ timeout: 1200 }).catch(() => false)) break;
     }
+
+    // Selecting layers reveals and zooms to them, so by this point the camera
+    // is deep inside the document and the artwork is off-screen. Every pixel
+    // comparison below would otherwise be photographing blank canvas and
+    // reporting that nothing changed.
+    await fitContent(page);
+    await parkPointer(page);
+    await settle(page);
     if (!(await offset.isVisible({ timeout: 8000 }).catch(() => false))) {
       // The handler announces either what it attached to or what it wanted
       // and did not get. Reading that back beats inferring from the absence
@@ -185,6 +194,8 @@ await capture({
     // Reshaping the ring must re-lay the text that rides on it.
     const beforeReshape = await canvasPixels(page);
     await selectLayer(page, ringName);
+    await fitContent(page);
+    await parkPointer(page);
     await dragAt(page, [0.78, 0.72], [0.88, 0.82], { steps: 22 });
     await parkPointer(page);
     await settle(page);
