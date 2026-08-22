@@ -74,7 +74,16 @@ await capture({
     await beat(page, 1000);
 
     // ── Attach ─────────────────────────────────────────────────────
-    await page.keyboard.press('Control+a');
+    // Both layers selected explicitly in the panel rather than via Ctrl+A.
+    // Select-all depends on where focus happens to be after text editing, and
+    // if it lands in a field it selects that field's text instead — leaving
+    // the menu command correctly refusing a selection it cannot act on.
+    await selectLayer(page, ringName);
+    await page
+      .getByRole('treeitem')
+      .filter({ hasText: labelName })
+      .first()
+      .click({ modifiers: ['Shift'] });
     await page.waitForTimeout(500);
     const attach = await objectMenu(page, 'Text on Path');
     assert.ok(await attach.isEnabled(), 'Text on Path was offered but disabled');
@@ -90,7 +99,11 @@ await capture({
     // so reaching it is evidence the document really changed.
     await selectLayer(page, labelName);
     const offset = page.getByRole('slider', { name: /start offset along path/i });
-    await offset.waitFor({ state: 'visible', timeout: 8000 });
+    if (!(await offset.isVisible({ timeout: 8000 }).catch(() => false))) {
+      throw new Error(
+        'the text node is not in path mode after Object > Text on Path — the attach did not take',
+      );
+    }
     assertions.push('the text node is in path mode — its Text on Path section is present');
     await beat(page, 1000);
 
