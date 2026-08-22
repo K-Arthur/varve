@@ -841,13 +841,29 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 &gt; About (Windows) and pick the matching label above.
               </li>
               <li>
-                <strong>Linux — AppImage will not start:</strong> FUSE2 is missing. Install{' '}
-                <code>fuse2</code> or run <code>./Varve-*.AppImage --appimage-extract-and-run</code>.
+                <strong>Linux — AppImage will not start (FUSE2 missing):</strong> install the
+                <code>fuse2</code> package for your distro (e.g. <code>sudo pacman -S fuse2</code>
+                on Arch, <code>sudo apt install fuse libfuse2</code> on Debian/Ubuntu), or run
+                with <code>--appimage-extract-and-run</code>. Alternatively, build the AUR package
+                on Arch which does not need FUSE at all.
+              </li>
+              <li>
+                <strong>Linux — AppImage white screen or EGL error:</strong> some GPU/driver
+                combinations conflict with bundled Mesa libraries. Run with
+                <code>--appimage-extract-and-run</code> to use system libraries instead.
               </li>
               <li>
                 <strong>Linux — .deb fails to install or start:</strong> the package needs the
                 system WebKitGTK library — <code>sudo apt install libwebkit2gtk-4.1-0</code>, then
                 reinstall the package.
+              </li>
+              <li>
+                <strong>Arch/CachyOS — prefer the PKGBUILD:</strong> the
+                <code>varve-desktop-bin</code> PKGBUILD is in the
+                <a href="https://github.com/K-Arthur/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">repository</a>.
+                It extracts the AppImage, providing proper desktop integration (icons, MIME types,
+                clean uninstall) without FUSE. Build with <code>makepkg -si</code> from the
+                PKGBUILD directory.
               </li>
               <li>
                 <strong>macOS — the app is blocked:</strong> this build is unsigned and not
