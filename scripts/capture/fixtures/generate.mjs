@@ -18,7 +18,11 @@ import { chromium } from '@playwright/test';
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 /** [source, output, width, height] — sizes match each SVG's viewBox. */
-const SOURCES = [['botanical.svg', 'botanical.png', 900, 700]];
+// Deliberately small. The trace is real work on real pixels, and at 900x700
+// it ran for minutes — which cannot sit inside a twenty-second clip however
+// well it succeeds. A quarter of the pixels traces in a fraction of the time
+// and reads identically at the size the video is watched.
+const SOURCES = [['botanical.svg', 'botanical.png', 460, 358]];
 
 const browser = await chromium.launch();
 try {
