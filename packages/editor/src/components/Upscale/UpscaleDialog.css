@@ -104,8 +104,46 @@
   letter-spacing: 0.04em;
 }
 
+.upscale-preview__toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.upscale-preview__focus-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 18px);
+  gap: 2px;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.upscale-preview__focus-cell {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 2px;
+  background: var(--elevation-surface-sunken);
+  cursor: pointer;
+}
+
+.upscale-preview__focus-cell--active {
+  border-color: var(--color-interactive-default);
+  background: var(--color-interactive-default);
+}
+
+.upscale-preview__focus-cell:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: 1px;
+}
+
 .upscale-preview__zoom-toggle {
   display: inline-flex;
+  margin: 0;
+  padding: 0;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   overflow: hidden;

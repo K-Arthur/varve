@@ -743,9 +743,8 @@ export function UpscaleDialog({
               <div className="upscale-preview__toolbar">
                 <span className="upscale-preview__toolbar-label">Preview</span>
                 <div className="upscale-preview__toolbar-controls">
-                  <div
+                  <fieldset
                     className="upscale-preview__focus-picker"
-                    role="group"
                     aria-label="Preview region (pick the area to inspect)"
                   >
                     {([0, 0.5, 1] as const).flatMap((fy) =>
@@ -763,12 +762,8 @@ export function UpscaleDialog({
                         );
                       }),
                     )}
-                  </div>
-                  <div
-                    className="upscale-preview__zoom-toggle"
-                    role="group"
-                    aria-label="Preview zoom"
-                  >
+                  </fieldset>
+                  <fieldset className="upscale-preview__zoom-toggle" aria-label="Preview zoom">
                     <button
                       type="button"
                       className={`upscale-preview__zoom-btn ${previewZoom === 'fit' ? 'upscale-preview__zoom-btn--active' : ''}`}
@@ -785,7 +780,7 @@ export function UpscaleDialog({
                     >
                       100%
                     </button>
-                  </div>
+                  </fieldset>
                 </div>
               </div>
               <div
