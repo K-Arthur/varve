@@ -14,9 +14,12 @@ import {
   canvasPixels,
   clickAt,
   dragAt,
+  dragPage,
+  nodeEditPoints,
   layerNames,
   openCleanEditor,
   parkPointer,
+  selectLayer,
   settle,
   useTool,
 } from '../core/editor.mjs';
@@ -63,6 +66,10 @@ await capture({
 
     await page.keyboard.press('Enter');
     await page.waitForTimeout(700);
+    // Committing leaves the pen tool active, and the selection quick bar
+    // belongs to the select tool — switch back before looking for it.
+    await useTool(page, 'v');
+    await page.waitForTimeout(300);
 
     // The pen tool must have produced a path, not a rectangle or a freehand
     // stroke — those are what a mis-timed gesture degrades into.
@@ -73,6 +80,8 @@ await capture({
     await beat(page, 900);
 
     // ── Node editing ───────────────────────────────────────────────
+    await selectLayer(page, /vector|path/i);
+    await page.waitForTimeout(400);
     const editNodes = page
       .locator('.selection-quick-bar')
       .getByRole('button', { name: /edit nodes/i });
@@ -86,11 +95,19 @@ await capture({
     assertions.push('node edit mode opened on the drawn path from the selection quick bar');
     await beat(page, 1400);
 
-    // Move a real anchor and prove the render followed it. The third anchor
-    // was placed at this exact spot a moment ago, so this grabs geometry the
-    // clip itself created.
+    // Grab an anchor the overlay is actually drawing. Selecting the layer
+    // reveals and zooms to it, so the coordinates the path was drawn at are
+    // no longer where its anchors sit.
+    const points = await nodeEditPoints(page);
+    assert.ok(
+      points.anchors.length >= 4,
+      `node edit exposed ${points.anchors.length} anchors, expected the drawn path's`,
+    );
+    assertions.push(`node edit mode exposes ${points.anchors.length} real anchors on the path`);
+
+    const target = points.anchors[Math.floor(points.anchors.length / 2)];
     const beforeMove = await canvasPixels(page);
-    await dragAt(page, [0.56, 0.55], [0.56, 0.28], { steps: 26 });
+    await dragPage(page, target, { x: target.x + 10, y: target.y - 150 }, { steps: 26 });
     await parkPointer(page);
     await settle(page);
     const afterMove = await canvasPixels(page);
@@ -102,11 +119,13 @@ await capture({
     assertions.push('dragging an anchor changed the rendered geometry');
     await beat(page, 1200);
 
-    // Then the out-handle of that anchor. It was dragged to (0.66, 0.66) when
-    // the anchor was placed and travelled with it, so it now sits the same
-    // offset from the anchor's new position.
+    // Then a tangent handle, read from the overlay the same way. Handles are
+    // drawn at a smaller radius than anchors, which is how they are told
+    // apart without reaching into the document model.
+    const moved = await nodeEditPoints(page);
+    const handle = moved.handles[Math.floor(moved.handles.length / 2)] ?? moved.anchors[0];
     const beforeHandle = await canvasPixels(page);
-    await dragAt(page, [0.66, 0.39], [0.74, 0.22], { steps: 26 });
+    await dragPage(page, handle, { x: handle.x + 90, y: handle.y - 110 }, { steps: 26 });
     await parkPointer(page);
     await settle(page);
     assert.notEqual(

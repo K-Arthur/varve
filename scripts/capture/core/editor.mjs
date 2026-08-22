@@ -254,3 +254,54 @@ export async function canvasPixels(page) {
 export async function layerNames(page) {
   return page.getByRole('treeitem').allInnerTexts();
 }
+
+/**
+ * Positions of the anchors and handles the node-edit overlay is drawing.
+ *
+ * NodeEditOverlay paints them as SVG `<circle>`/`<rect>` in an absolutely
+ * positioned, pointer-events:none layer, so they can be read exactly rather
+ * than guessed at. This matters because selecting a layer reveals and zooms
+ * to it: the coordinates a shape was drawn at are not where its anchors are
+ * by the time node editing opens.
+ *
+ * Returns page coordinates, ordered as the overlay emits them, split into
+ * anchors (the on-path points) and handles (the off-path tangent ends).
+ */
+export async function nodeEditPoints(page) {
+  return page.evaluate(() => {
+    const layers = [...document.querySelectorAll('svg[aria-hidden]')].filter(
+      (svg) => svg.querySelector('circle, rect') && getComputedStyle(svg).position === 'absolute',
+    );
+    const out = { anchors: [], handles: [] };
+    for (const svg of layers) {
+      const box = svg.getBoundingClientRect();
+      if (box.width < 50) continue;
+      for (const el of svg.querySelectorAll('circle, rect')) {
+        const isCircle = el.tagName.toLowerCase() === 'circle';
+        const x = isCircle
+          ? Number(el.getAttribute('cx'))
+          : Number(el.getAttribute('x')) + Number(el.getAttribute('width')) / 2;
+        const y = isCircle
+          ? Number(el.getAttribute('cy'))
+          : Number(el.getAttribute('y')) + Number(el.getAttribute('height')) / 2;
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        const r = isCircle ? Number(el.getAttribute('r')) : 4;
+        // The overlay draws anchors at r>=4 and tangent ends smaller.
+        (r >= 4.5 || !isCircle ? out.anchors : out.handles).push({
+          x: box.left + x,
+          y: box.top + y,
+        });
+      }
+    }
+    return out;
+  });
+}
+
+/** Drags between two absolute page positions. */
+export async function dragPage(page, from, to, { steps = 24, settleMs = 400 } = {}) {
+  await page.mouse.move(from.x, from.y, { steps: 8 });
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps });
+  await page.mouse.up();
+  if (settleMs > 0) await page.waitForTimeout(settleMs);
+}
