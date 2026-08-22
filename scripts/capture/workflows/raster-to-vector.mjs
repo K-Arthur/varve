@@ -16,9 +16,11 @@ import {
   beat,
   canvasPixels,
   dragAt,
+  dragPage,
   fitContent,
   importImage,
   layerNames,
+  nodeEditPoints,
   menuItem,
   openCleanEditor,
   parkPointer,
@@ -214,9 +216,20 @@ await capture({
     assertions.push('the traced output opens in node edit mode — it is real path geometry');
     await beat(page, 1600);
 
-    // Move a real anchor on the traced path.
+    // Grab an anchor the overlay is actually drawing, rather than guessing at
+    // a fraction of the canvas — the same fix the Bezier clip needed. On a
+    // traced path the anchors are wherever the tracer put them, so a guessed
+    // position is even less likely to land on one.
+    const points = await nodeEditPoints(page);
+    assert.ok(
+      points.anchors.length > 0,
+      'node edit mode exposed no anchors on the traced path',
+    );
+    assertions.push(`the traced path exposes ${points.anchors.length} editable anchors`);
+
+    const anchor = points.anchors[Math.floor(points.anchors.length / 2)];
     const beforeEdit = await canvasPixels(page);
-    await dragAt(page, [0.5, 0.28], [0.58, 0.16], { steps: 24 });
+    await dragPage(page, anchor, { x: anchor.x + 26, y: anchor.y - 34 }, { steps: 18 });
     await parkPointer(page);
     await settle(page);
     assert.notEqual(
