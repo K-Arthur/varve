@@ -1418,7 +1418,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     min-width: 0;
   }
 
-  .install-commands-group {
+  .install-commands li.install-commands-group {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -1426,12 +1426,12 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     width: 100%;
   }
 
-  .install-commands-group > span {
+  .install-commands li.install-commands-group > span {
     font-weight: 600;
     color: var(--text-primary);
   }
 
-  .install-command-options {
+  .install-commands li.install-commands-group .install-command-options {
     display: grid;
     gap: 0.35rem;
     width: 100%;
