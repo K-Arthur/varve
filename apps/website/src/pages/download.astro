@@ -170,7 +170,7 @@ function platformTrustLabel(
 const REQUIREMENTS: Record<string, string[]> = {
   linux: [
     'OS: any distribution with glibc 2.35 or newer (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS)',
-    'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig',
+    'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig (DEB/RPM pull these in automatically; AppImage and PKGBUILD need them as system packages)',
     'CPU: choose the download labeled x86_64 or ARM64 to match your Linux machine',
     'RAM: 4 GB minimum, 8 GB recommended',
     'Display: Wayland or X11',
