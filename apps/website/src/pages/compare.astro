@@ -114,6 +114,80 @@ const pageSchema = {
       </section>
 
       <section class="compare-section">
+        <h2>Category facts at a glance</h2>
+        <p class="compare-sub">Long-stable facts from each tool's public documentation. Pricing changes frequently — verify current details on each product's own site.</p>
+        <div class="compare-table-wrap" tabindex="0" role="region" aria-label="Design tool comparison">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th scope="col"></th>
+                <th scope="col">Varve</th>
+                <th scope="col">Figma</th>
+                <th scope="col">Illustrator</th>
+                <th scope="col">Affinity</th>
+                <th scope="col">Inkscape</th>
+                <th scope="col">Penpot</th>
+                <th scope="col">Sketch</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Linux</th>
+                <td>Native</td>
+                <td>No</td>
+                <td>No</td>
+                <td>No</td>
+                <td>Native</td>
+                <td>Browser</td>
+                <td>No</td>
+              </tr>
+              <tr>
+                <th scope="row">Native desktop</th>
+                <td>Yes</td>
+                <td>Mac, Windows</td>
+                <td>Mac, Windows</td>
+                <td>Mac, Windows, iPad</td>
+                <td>Yes</td>
+                <td>No</td>
+                <td>Mac only</td>
+              </tr>
+              <tr>
+                <th scope="row">License</th>
+                <td>Source-available<sup>[1]</sup></td>
+                <td>Proprietary</td>
+                <td>Proprietary</td>
+                <td>Proprietary</td>
+                <td>GPL-2.0+</td>
+                <td>MPL-2.0</td>
+                <td>Proprietary</td>
+              </tr>
+              <tr>
+                <th scope="row">Collaboration</th>
+                <td>Single-user</td>
+                <td>Real-time</td>
+                <td>File-based</td>
+                <td>File-based</td>
+                <td>Single-user</td>
+                <td>Real-time</td>
+                <td>File-based</td>
+              </tr>
+              <tr>
+                <th scope="row">Storage</th>
+                <td>Local files</td>
+                <td>Cloud account</td>
+                <td>Local files</td>
+                <td>Local files</td>
+                <td>Local files</td>
+                <td>Cloud account</td>
+                <td>Local files</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="compare-table-note">[1] Varve is source-available under FSL-1.1-MIT; each release converts to MIT after two years. Varve does not cover every task these established tools handle — it trades breadth-of-maturity for a single-document, cross-discipline model.</p>
+      </section>
+
+      <section class="compare-section">
         <h2>If you're coming from&hellip;</h2>
         <div class="from-grid">
           <div class="from-card">
@@ -312,6 +386,67 @@ const pageSchema = {
   .faq-item p {
     color: var(--text-secondary);
     line-height: 1.7;
+  }
+
+  .compare-table-wrap {
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .compare-table {
+    width: 100%;
+    min-width: 680px;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .compare-table th,
+  .compare-table td {
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--border-default);
+    white-space: nowrap;
+    text-align: left;
+    color: var(--text-secondary);
+  }
+
+  .compare-table thead th {
+    background: var(--surface-sunken);
+    font-weight: 600;
+    color: var(--text-primary);
+    position: sticky;
+    top: 0;
+  }
+
+  .compare-table thead th:first-child {
+    background: var(--surface-card);
+  }
+
+  .compare-table tbody th {
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--surface-card);
+  }
+
+  .compare-table tbody tr:hover td,
+  .compare-table tbody tr:hover th {
+    background: color-mix(in oklab, var(--surface-sunken) 70%, var(--surface-card));
+  }
+
+  .compare-table-note {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-top: 0.5rem;
+  }
+
+  .compare-sub {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
   }
 
   @media (max-width: 640px) {
