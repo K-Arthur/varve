@@ -101,7 +101,7 @@ three-OS bundle matrix and then stops.
 `just aur-validate` (`justfile`) has the same defect via the Docker volume mount.
 
 The AUR PKGBUILDs are specified only as an unimplemented code block in
-`docs/plans/archived/session-04-packaging.md:110` — that plan was never executed.
+`docs/plans/session-04-packaging.md:110` — that plan was never executed.
 
 **Remediation:** remove the hard `aur-validate` dependency from `release` (AUR is a
 post-release publishing step, not a release gate), and defer AUR packaging until there is a

@@ -15,45 +15,6 @@ Documented behaviour here has been exercised by the tests named in each
 section. Anything not yet implemented is listed under Limitations rather than
 described as if it ships.
 
-## Product shape and workspace integration
-
-Varve does not maintain a second document model or a separate "paint mode"
-state. The workspace may reorganize the toolbar and inspector, but the
-authoritative scene remains the same for Design, Draw, and every other
-workspace.
-
-When a raster or vector drawing tool becomes active, the existing tool-options
-popover opens automatically. This keeps preset, size, opacity, flow, hardness,
-spacing, strength, or stabilization controls discoverable without creating a
-second drawing toolbar or duplicating brush state.
-
-The output target is deliberately explicit:
-
-- `Paint` and `Eraser` create or modify raster-layer pixels.
-- `Smudge` modifies existing raster-layer pixels.
-- `Pencil` creates editable vector path geometry.
-- `Paint` is the painting interaction; document paints/fills remain styling
-  entities and are not used as a name for raster tool state.
-
-## Raster layer targeting and persistence
-
-Painting resolves its raster target in this order:
-
-1. selected visible, unlocked raster layer;
-2. visible, unlocked raster layer in the active page subtree;
-3. a new page-sized raster layer, parented to the containing frame when one is
-   active.
-
-World samples are mapped through the inverse cached world transform before they
-enter raster tile compositing. Raster layers use sparse 128 by 128 RGBA tiles;
-the theoretical layer extent does not preallocate all tiles.
-
-`RasterLayerNode.tiles` is a runtime `Map<string, RasterTile>`. The canonical
-document codec converts it to a keyed serializable tile object with base64 pixel
-buffers on encode and reconstructs the `Map` on decode. Invalid tile payloads
-are discarded with a codec warning rather than crashing document load. Tile
-buffers must be exactly `128 * 128 * 4` bytes.
-
 ## Pipeline
 
 ```

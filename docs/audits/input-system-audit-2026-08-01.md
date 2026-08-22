@@ -202,6 +202,6 @@ does not expose an `isMac()` or `isWebKitGTK()` helper for input code.
 
 Companion documents:
 - `docs/architecture/input-system-behavior-matrix.md` — intended behavior per device × modifier.
-- `docs/architecture/input-system-behavior-matrix.md#7-manual-hardware-checklist-release-gate` — manual hardware checklist (release gate).
+- `docs/architecture/input-system-behavior-matrix.md#7` — manual hardware checklist (release gate).
 
 

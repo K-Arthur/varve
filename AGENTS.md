@@ -130,8 +130,7 @@ dependent package itself (or into `@varve/shared` if it belongs to no single own
 `EditorProvider` function body level because the provider wrappers haven't mounted yet.
 Instead, the sub-context accepts an `onReady` callback prop that reports its value back to
 `EditorProvider` via `useState`. **New sub-contexts MUST follow this pattern** — see
-`MotionProvider.onReady` in `MotionContext.tsx` and its usage inside `EditorProvider`
-in `context.tsx`.
+`MotionProvider.onReady` in `MotionContext.tsx` and its usage at `context.tsx:5617`.
 
 ### ActionRegistry overwrite order
 
@@ -155,12 +154,10 @@ them drags the whole module graph. Follow these rules:
 |------|-------------|-----------------|--------|
 | `CanvasArea.tsx` | 34 | ~0.90 | **Improved (was 82)** — drawContent/buildToolCtx/tool-sync extracted; must not increase |
 | `Shell.tsx` | 56 | ~0.89 | **Over budget** — must not increase |
-| `Menubar.tsx` | 17 | ~1.0 | At risk |
-| `context.tsx` | 73 | ~0.48 | Healthy (provider composition; extraction continued) |
+| `Menubar.tsx` | 15 | ~1.0 | At risk |
+| `context.tsx` | 70 | ~0.48 | Healthy (provider composition; extraction continued) |
 
-Import counts are measured by `scripts/audit-health.mjs` (baseline:
-`.health-baseline.json`). Instability values come from madge via
-`scripts/audit-architecture.mjs` (refresh with `--update` after intentional changes).
+Import counts are measured by `scripts/audit-health.mjs` (baseline: `.health-baseline.json`, updated 2026-08-10). Instability values come from madge via `scripts/audit-architecture.mjs` (refresh with `--update` after intentional changes).
 
 **No new import may be added to CanvasArea.tsx or Shell.tsx without first removing
 an existing import of equal or greater weight.** Enforced by `scripts/audit-health.mjs`.
@@ -387,9 +384,9 @@ git log --oneline -3
 | Deferred plan | `docs/plans/layers-panel-deferred.md` |
 | Export deferred | `docs/plans/export-system-deferred.md` |
 | Home/Workspace System | `docs/plans/archived/projects-home-workspace-completed.md` |
-| Packaging (0.11) | `docs/plans/archived/session-04-packaging.md` (historical; current release pipeline lives in `docs/release/` and `scripts/release/`) |
+| Packaging (0.11) | `docs/plans/session-04-packaging.md` |
 | Loading Experience System | `docs/architecture/loading-system.md`, `docs/audits/loading-experience-audit.md` |
-| Marketing Website | `apps/website/` - Astro 7 static site, 64 pages, GitHub Pages deploy. See `docs/plans/website-progress-tracker.md` |
+| Marketing Website | `apps/website/` - Astro 7 static site, 42 pages, GitHub Pages deploy. See `docs/plans/website-progress-tracker.md` |
 | CI/CD pipeline memory (local, gitignored) | `GITHUB_PIPELINE_MEMORY.md` — session-survivable tracker for billing blocks, run classifications, and tooling state |
 
 ## Application Icon (cross-platform)
@@ -537,14 +534,12 @@ See `docs/architecture/text-pipeline.md`.
 |---|---|---|
 | `varve-core` | **Built** | Geometry primitives, `Shape` enum, `SceneNode`, `hit_test()` |
 | `varve-engine` | **Built** | `build_render_ir()` — scene → `Vec<RenderItem>` |
-| `varve-layout` | Implemented, unwired | Taffy-backed flex/grid/container-query layout with unit tests; no crate depends on it yet — the wired implementation is `@varve/layout` (TS) |
+| `varve-layout` | Stub | Taffy-backed flex/grid layout |
 | `varve-sync` | **Built** | SQLite DocumentStore + Tauri IPC |
 | `varve-trace` | **Built** | Raster-to-vector tracing: silhouette/centerline/pixel-art modes, Oklab quantization, Bézier fitting, hole pairing, cancellation (`docs/architecture/image-trace-system.md`) |
 | `varve-print` | **Built** | lopdf-based PDF export, CMYK/PDF-X, font outlining, ICC profiles, print backends |
 | `varve-upscale` | **Built** | Native image upscaling — bicubic CPU + optional ONNX super-resolution |
 | `varve-bgremove` | **Built** | Background removal: heuristic non-AI methods + optional ONNX matting |
-| `varve-media` | **Built** | Animated-image frame decoding (GIF/APNG/WebP) under allocation bounds; consumed by the desktop app and `varve-wasm` (`docs/architecture/animated-image-media-system.md`) |
-| `varve-effects` | **Built** | Native live-effects kernels — deterministic RGBA ports of `packages/engine/src/liveEffects/`; consumed by the desktop `apply_effect` IPC and `varve-wasm` |
 | `varve-colour` | **Built** | Colour science: ICC transforms (tintbox), analytical conversion, WASM bindings |
 | `varve-bridge` | **Built** | TS wire-format → `varve-core` `SceneNode` conversion (Tauri IPC + WASM) |
 | `varve-wasm` | **Built** | wasm-bindgen glue for `varve-engine` (web IR build + hit test) |

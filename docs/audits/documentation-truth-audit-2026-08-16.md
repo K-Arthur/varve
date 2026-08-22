@@ -1,11 +1,5 @@
 # Repository Documentation Truth & Modernization Audit — Summary
 
-> **Historical record (2026-08-16).** Point-in-time audit snapshot taken before
-> the v0.2.0 release; version numbers, counts, and file locations below reflect
-> that date and are not maintained. The ongoing hygiene ledger is
-> `docs/repository-hygiene-progress.md`; the enforced docs gate is
-> `pnpm audit:docs` (`scripts/audit-docs.mjs`).
-
 ## Repository Overview
 
 - **Project**: Varve — local-first, cross-platform design suite for vector, layout, typography, motion, prototyping, and print
@@ -661,66 +655,3 @@ prior audit's deferred actions, sampled the highest-value canonical docs
 against the current source tree and manifests, and ran the repo's doc-drift
 gate. Broad file-by-file coverage remains the responsibility of `pnpm audit:docs`
 and periodic manual review.
-## Follow-up Verification — 2026-08-21 (post-v0.2.0)
-
-A third pass re-verified the audit against `master` after the v0.2.0 release
-(2026-08-20/21) and the merge of `feat/figma-native-import`. The prior
-follow-up's "Re-verified canonical claims" section still cites v0.1.2; those
-version-specific statements describe 2026-08-20 state and are superseded by
-this section.
-
-### Drift found and fixed in this pass
-
-| Claim | Where | Evidence | Fix |
-|---|---|---|---|
-| Linux ARM64 listed as "Supported in the published release" (added 2026-08-20 while reconciling copy with the v0.1.2 manifest) | root `README.md` platform table | `docs/release/platform-support-matrix.md` (synced for v0.2.0): Tier 3 — Experimental, "genuine ARM runtime and GUI smoke pending"; `scripts/release/targets.mjs`: `linux-aarch64` has `releaseReady: false` | README row now reads "Experimental — CI-built, never launched on ARM hardware" |
-| Website described as "42 pages" | `apps/website/README.md` (×2), `AGENTS.md`, `docs/README.md` | `apps/website/src/pages` contains 64 route components; latest `dist-pages` build (2026-08-21) emits exactly 64 HTML files | Updated to 64 |
-| AGENTS.md crate inventory: `varve-layout` marked "Stub"; `varve-media` and `varve-effects` absent | `AGENTS.md` crates table | `crates/varve-layout/src/lib.rs`: real Taffy flex/grid/container-query implementation with unit tests but no dependent crate (wired TS mirror: `@varve/layout`); `varve-media` consumed by desktop app + `varve-wasm` (`probe`, `decode_frames_base64`); `varve-effects` consumed via desktop `apply_effect` IPC (`src-tauri/src/lib.rs`) and `varve-wasm` | Row corrected to "Implemented, unwired"; both missing crates added as **Built** |
-
-### Implementation defects found during verification (fixed as small, doc-blocking corrections)
-
-- `just check-env` printed shell PIDs plus literal command text instead of tool
-  versions: recipe bodies used make-style `$$(cmd)` escaping, which just passes
-  to the shell verbatim (just is not make; there is no `$$` unescape). This is
-  the documented first-run toolchain check (root README, setup.md). Fixed by
-  using single `$()`; verified it now prints real versions.
-- The `gate-full` justfile guard tested `-z "$${VARVE_FULL_GATE_REASON:-}"`,
-  which expands to a non-empty PID+literal string, so the guard never fired.
-  The documented behaviour still held because `scripts/quality/verify.mjs`
-  enforces the reason requirement downstream (defense in depth). Fixed to
-  `${VARVE_FULL_GATE_REASON:-}`; verified `just gate-full` now refuses without
-  a reason at the first layer.
-
-### Re-verified canonical claims (consistent with code, v0.2.0)
-
-- Version 0.2.0 consistent across root `package.json`,
-  `apps/desktop/package.json`, `tauri.conf.json`, workspace `Cargo.toml`,
-  `CHANGELOG.md`, and the release manifest.
-- All commands documented in `docs/development/setup.md` exist (`check-env`,
-  `install-dev-icons`, `wasm-build*`, `package-*`, `generate-icons`,
-  `format-check`, `gates`, `gate-full`, `test-rust`, `test-js`; desktop
-  `pnpm dev` / `pnpm tauri:dev`; `@varve/ui` storybook).
-- README export-format list matches `packages/codegen/src` modules
-  (svg/svelte/vue/flutter/swiftui/tailwind/web-component/email-html/
-  animation-{lottie,css,svg}).
-- README links, wordmark assets, and all 12 product screenshots resolve;
-  internal-link sweep across the markdown tree (597 files walked = 584
-  tracked + 13 gitignored local mirrors out of 599 tracked `.md`) — zero
-  broken (repo gate `pnpm audit:docs` also clean: naming/index/link checks).
-- CONTRIBUTING.md, docs/development/contributing.md, SUPPORT.md, SECURITY.md,
-  apps/desktop/README.md consistent with current policy (external code PRs
-  paused; private vulnerability reporting).
-- Remaining "Strata" mentions in current-state dirs are intentional
-  (provenance records, legacy identifiers, dated audits).
-
-### Scope notes
-
-- Two git worktrees (`.worktrees/integrate-figma`,
-  `.worktrees/release-v0.2.0`) are other lines of work; not audited or touched.
-- Uncommitted marketing-copy edits were observed under
-  `apps/website/src/pages` + `src/layouts` from a concurrent session; this
-  pass did not read them into any conclusion and did not modify anything under
-  `apps/website/src`.
-- Root-level `*_MEMORY.md` / dot-prefixed memory files are gitignored local
-  mirrors; tracked canonicals live in `docs/implementation-memory/`
-  (small byte drift between mirrors is expected and harmless).
