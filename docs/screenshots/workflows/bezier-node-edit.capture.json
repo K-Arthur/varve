@@ -1,0 +1,103 @@
+{
+  "workflow": "Draw Bézier → manipulate nodes",
+  "slug": "bezier-node-edit",
+  "purpose": "Drawing a curved path with the pen tool, then editing its anchors and tangents.",
+  "gitCommit": "4a3c50cb04111fd24ef0508a1bb5bf9e3dfb1629",
+  "capturedAt": "2026-08-22T05:16:03.651Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": null,
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 28.87,
+  "deliveredDuration": 23,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/bezier-node-edit.webm",
+    "mp4": "docs/screenshots/workflows/bezier-node-edit.mp4",
+    "poster": "docs/screenshots/workflows/bezier-node-edit-poster.png"
+  },
+  "productAssertions": [
+    "canvas starts empty — every anchor is drawn on camera",
+    "pen tool produced a path layer (\"Vector shape 1\"), not a rect or freehand",
+    "node edit mode opened on the drawn path from the selection quick bar",
+    "node edit mode exposes 4 real anchors on the path",
+    "dragging an anchor changed the rendered geometry",
+    "dragging its control handle re-curved the adjoining segments",
+    "undo reverted the node edit",
+    "redo restored it"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 690,
+          "duration": 23,
+          "bytes": 794067
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 690,
+          "duration": 23,
+          "bytes": 1165620
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 234.5,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 5.75,
+        "luma": 233.7,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 11.5,
+        "luma": 228.9,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 17.25,
+        "luma": 229,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 22.75,
+        "luma": 228.4,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "pass": true
+  }
+}
