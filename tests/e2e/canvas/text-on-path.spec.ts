@@ -33,15 +33,35 @@ async function dragOn(
   await page.waitForTimeout(400);
 }
 
+async function editSelectedText(page: import('@playwright/test').Page, value: string) {
+  const editor = page.getByRole('textbox', { name: /editing text/i });
+  if (!(await editor.isVisible({ timeout: 500 }).catch(() => false))) {
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(250);
+  }
+  if (!(await editor.isVisible({ timeout: 800 }).catch(() => false))) {
+    const edit = page.getByRole('button', { name: /^Edit$/ }).last();
+    await edit.waitFor({ state: 'visible', timeout: 5000 });
+    await edit.click();
+    await editor.waitFor({ state: 'visible', timeout: 8000 });
+  }
+  await editor.fill(value);
+  await expect(editor).toHaveValue(value);
+  await editor.press('Escape');
+  await page.waitForTimeout(350);
+}
+
+function textLayer(page: import('@playwright/test').Page) {
+  return page.getByRole('treeitem').filter({ hasText: /\bText:/i }).first();
+}
+
 /** Ellipse tool, then the text tool — the two nodes the attach needs. */
 async function drawRingAndLabel(page: import('@playwright/test').Page) {
   await page.keyboard.press('o');
   await dragOn(page, 200, 150, 520, 470);
   await page.keyboard.press('t');
   await dragOn(page, 620, 200, 900, 250);
-  await page.keyboard.type('VELO CLUB', { delay: 20 });
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(400);
+  await editSelectedText(page, 'VELO CLUB');
   await page.keyboard.press('v');
 }
 
@@ -78,7 +98,7 @@ test.describe('text on path', () => {
 
     // The section only renders for a single text node already in path mode,
     // so its presence is evidence the document actually changed.
-    await page.getByRole('treeitem').filter({ hasText: /VELO CLUB/i }).first().click();
+    await textLayer(page).click();
     await expect(page.getByRole('slider', { name: /start offset along path/i })).toBeVisible({
       timeout: 8000,
     });
@@ -92,7 +112,7 @@ test.describe('text on path', () => {
     await page.getByRole('menuitem', { name: /^Object$/ }).click();
     await page.getByRole('menuitem', { name: /^Text on Path$/ }).click();
     await page.waitForTimeout(600);
-    await page.getByRole('treeitem').filter({ hasText: /VELO CLUB/i }).first().click();
+    await textLayer(page).click();
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const before = await canvas.screenshot();
@@ -111,7 +131,7 @@ test.describe('text on path', () => {
     await page.getByRole('menuitem', { name: /^Object$/ }).click();
     await page.getByRole('menuitem', { name: /^Text on Path$/ }).click();
     await page.waitForTimeout(600);
-    await page.getByRole('treeitem').filter({ hasText: /VELO CLUB/i }).first().click();
+    await textLayer(page).click();
     await expect(page.getByRole('slider', { name: /start offset along path/i })).toBeVisible();
 
     await page.getByRole('button', { name: /detach from path/i }).click();
