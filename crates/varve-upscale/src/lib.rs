@@ -216,6 +216,38 @@ mod tests {
     }
 
     #[test]
+    fn bicubic_preserves_semi_transparent_edge_colors() {
+        let w = 4u32;
+        let h = 4u32;
+        let mut src = vec![0u8; (w * h * 4) as usize];
+        for y in 0..h {
+            for x in 0..w {
+                let i = ((y * w + x) * 4) as usize;
+                if x < w / 2 {
+                    src[i] = 200;
+                    src[i + 1] = 0;
+                    src[i + 2] = 0;
+                    src[i + 3] = 255;
+                } else {
+                    src[i] = 0;
+                    src[i + 1] = 180;
+                    src[i + 2] = 0;
+                    src[i + 3] = 128;
+                }
+            }
+        }
+        let out = cpu_upscale(&src, w, h, 2.0, UpscaleFilter::CatmullRom).unwrap();
+        assert_eq!(out.len(), 8 * 8 * 4);
+        for px in out.chunks(4) {
+            if px[3] == 0 {
+                assert_eq!(px[0], 0, "R must be 0 at alpha=0");
+                assert_eq!(px[1], 0, "G must be 0 at alpha=0");
+                assert_eq!(px[2], 0, "B must be 0 at alpha=0");
+            }
+        }
+    }
+
+    #[test]
     fn nearest_golden_matches_typescript() {
         // Shared with packages/engine/src/upscaleGoldenParity.test.ts
         let src = vec![
