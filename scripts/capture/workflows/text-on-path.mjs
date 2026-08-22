@@ -47,6 +47,9 @@ await capture({
     await useTool(page, 'o');
     await dragAt(page, [0.22, 0.12], [0.78, 0.72], { steps: 26 });
     await useTool(page, 'v');
+    // Layers are not named after their content — a new text node is called
+    // 'Node' — so identity is captured here rather than searched for later.
+    const ringLayers = await layerNames(page);
     await parkPointer(page);
     await settle(page);
     await beat(page, 800);
@@ -63,6 +66,10 @@ await capture({
 
     const drawn = await layerNames(page);
     assert.equal(drawn.length, 2, `expected a ring and a label, got ${drawn.length} layer(s)`);
+    const ringName = ringLayers[0].trim().split('\n')[0];
+    const labelName = (drawn.find((n) => !ringLayers.includes(n)) ?? drawn[0])
+      .trim()
+      .split('\n')[0];
     assertions.push('ring and label are two independent nodes, both drawn on camera');
     await beat(page, 1000);
 
@@ -81,7 +88,7 @@ await capture({
 
     // The section only renders for a single text node already in path mode,
     // so reaching it is evidence the document really changed.
-    await selectLayer(page, /VELO CLUB/i);
+    await selectLayer(page, labelName);
     const offset = page.getByRole('slider', { name: /start offset along path/i });
     await offset.waitFor({ state: 'visible', timeout: 8000 });
     assertions.push('the text node is in path mode — its Text on Path section is present');
@@ -140,7 +147,7 @@ await capture({
     // ── The path is still a path ───────────────────────────────────
     // Reshaping the ring must re-lay the text that rides on it.
     const beforeReshape = await canvasPixels(page);
-    await selectLayer(page, /ellipse|circle|shape/i);
+    await selectLayer(page, ringName);
     await dragAt(page, [0.78, 0.72], [0.88, 0.82], { steps: 22 });
     await parkPointer(page);
     await settle(page);
