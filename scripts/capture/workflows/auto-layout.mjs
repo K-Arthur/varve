@@ -97,7 +97,7 @@ await capture({
       'gap did not reflow rows',
     );
     assertions.push('changing Gap reflowed the child row geometry');
-    await beat(page, 800);
+    await beat(page, 1100);
 
     for (const side of ['Padding T', 'Padding R', 'Padding B', 'Padding L']) {
       const field = page.getByRole('spinbutton', { name: side });
@@ -105,13 +105,13 @@ await capture({
       await field.press('Enter');
     }
     assertions.push('container padding was changed through all four real inspector fields');
-    await beat(page, 700);
+    await beat(page, 1100);
 
     await setNumberField(page, 'W', 760);
     assertions.push(
       'container width was resized through the inspector and children remained in layout',
     );
-    await beat(page, 800);
+    await beat(page, 1100);
 
     // Select the actual song-title node and replace it with a much longer title.
     // The layer tree lists newest-first, so the first text item is the last
@@ -163,7 +163,7 @@ await capture({
     assertions.push(
       'editing the title to a significantly longer string re-rendered the row through layout',
     );
-    await beat(page, 1300);
+    await beat(page, 3000);
 
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(500);
@@ -173,7 +173,7 @@ await capture({
     await fitContent(page);
     await parkPointer(page);
     await settle(page);
-    await beat(page, 1200);
+    await beat(page, 2200);
     return assertions;
   },
   metadata: { productTruth: 'layoutStyle.mode=flex; reflow driven by @varve/layout' },

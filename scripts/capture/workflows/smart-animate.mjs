@@ -43,18 +43,35 @@ await capture({
     await page.keyboard.press('Control+d');
     await page.waitForTimeout(700);
 
-    // Move the duplicated state beside the collapsed state, then enlarge its
-    // corresponding child through the real inspector width field.
-    const box = await canvasBox(page);
-    await page.mouse.move(box.x + box.width * 0.26, box.y + box.height * 0.42);
-    await page.mouse.down();
-    await page.mouse.move(box.x + box.width * 0.68, box.y + box.height * 0.42, { steps: 16 });
-    await page.mouse.up();
-    await page.waitForTimeout(600);
-    await page.mouse.click(box.x + box.width * 0.68, box.y + box.height * 0.39);
+    // Move the duplicate beside the collapsed state through the inspector's X
+    // field. Dragging it by canvas coordinates guessed where the duplicate had
+    // landed, and a miss silently left the two states stacked.
+    const originX = Number(await page.getByRole('spinbutton', { name: 'X' }).first().inputValue());
+    assert.ok(Number.isFinite(originX), 'duplicated state has no readable X position');
+    await setNumberField(page, 'X', Math.round(originX) + 420);
+
+    // Enlarge the duplicate's card. The layer tree lists newest-first, so the
+    // first rectangle is the duplicate's own card — selecting it by identity
+    // rather than by clicking a canvas point that may hit the parent frame.
+    // Without a genuinely larger target there is nothing for Smart Animate to
+    // interpolate, which is how this clip previously recorded two identical
+    // states and still passed.
+    const expandedCard = page.getByRole('treeitem').filter({ hasText: /rect/i }).first();
+    await expandedCard.click();
     await page.waitForTimeout(400);
-    await setNumberField(page, 'W', 260);
+    const collapsedWidth = Number(
+      await page.getByRole('spinbutton', { name: 'W' }).first().inputValue(),
+    );
+    await setNumberField(page, 'W', 300);
+    await setNumberField(page, 'H', 240);
     await page.waitForTimeout(600);
+    assert.ok(
+      collapsedWidth > 0 && Math.abs(300 - collapsedWidth) > 40,
+      `expanded card (300) is not meaningfully wider than collapsed (${collapsedWidth})`,
+    );
+    assertions.push(
+      `expanded state's card is a genuinely different size (${Math.round(collapsedWidth)}px → 300px wide)`,
+    );
     await useTool(page, 'v');
 
     const screens = (await layerNames(page)).filter((name) => /frame/i.test(name));
