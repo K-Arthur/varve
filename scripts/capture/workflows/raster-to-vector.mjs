@@ -186,13 +186,23 @@ await capture({
     await fitContent(page);
     await parkPointer(page);
 
-    // Drill into the group until a path with editable nodes is selected.
+    // The tracer returns a *group* of paths, and node editing acts on one
+    // path — so select a child rather than the container. That is also the
+    // honest thing to show: the result is many paths, not a single outline.
     const editNodes = page
       .locator('.selection-quick-bar')
       .getByRole('button', { name: /edit nodes/i });
-    if (!(await editNodes.isVisible({ timeout: 4000 }).catch(() => false))) {
-      await page.keyboard.press('Enter');
-      await page.waitForTimeout(600);
+
+    if (!(await editNodes.isVisible({ timeout: 3000 }).catch(() => false))) {
+      const children = page.locator('[role="treeitem"][aria-level="2"]');
+      const count = await children.count();
+      assert.ok(count > 0, 'the trace group has no child paths to edit');
+      assertions.push(`the trace produced a group of ${count} separate paths`);
+      for (let i = 0; i < Math.min(count, 4); i += 1) {
+        await children.nth(i).click({ timeout: 4000, force: true });
+        await page.waitForTimeout(500);
+        if (await editNodes.isVisible({ timeout: 1500 }).catch(() => false)) break;
+      }
     }
     if (!(await editNodes.isVisible({ timeout: 6000 }).catch(() => false))) {
       throw new Error('traced output exposes no node editing — it is not editable geometry');
