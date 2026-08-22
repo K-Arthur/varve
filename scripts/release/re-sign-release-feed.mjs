@@ -104,9 +104,12 @@ for (const { arch, filename } of toResign) {
 
   if (!existsSync(localPath)) die(`download failed: ${filename}`);
 
-  // Re-sign
+  // Re-sign. Tauri prompts for password on stdin when --password is
+  // omitted; in CI stdin is /dev/null which causes a read error. Pass
+  // --password with the env var (empty string for passwordless keys).
   process.stdout.write(`Signing ${filename}...\n`);
-  run('pnpm', ['tauri', 'signer', 'sign', localPath], {
+  const password = process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? '';
+  run('pnpm', ['tauri', 'signer', 'sign', localPath, '--password', password], {
     cwd: join(repoRoot, 'apps/desktop'),
     env: { ...process.env, TAURI_SIGNING_PRIVATE_KEY: process.env.TAURI_SIGNING_PRIVATE_KEY },
   });
