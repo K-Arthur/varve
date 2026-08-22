@@ -293,6 +293,12 @@ export function sceneNodeToEngineNode(
       textDecoration: node.textDecoration,
       textMode,
       pathTextSettings: node.pathTextSettings,
+      // The shape is what the render pipeline turns into a text primitive, so
+      // anything the painter reads has to be on it. These two were set on the
+      // engine node below but not here, so the inspector wrote variation
+      // settings and OpenType features that never reached the canvas.
+      variableAxes: node.variableAxes,
+      openTypeFeatures: node.openTypeFeatures,
     };
     return {
       ...base,
