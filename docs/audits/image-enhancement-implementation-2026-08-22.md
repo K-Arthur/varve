@@ -40,6 +40,10 @@ model wins a task-quality comparison on every content class.
 - Stale-result errors now surface as typed UI messages instead of silent return.
 - Real per-stage progress data from `runRestoration.onStageChange` replaces
   fake tile-index-to-stage mapping.
+- Tiled recomposition now accumulates weighted planes as each tile completes;
+  it does not retain all padded tile tensors for a large source. Dimension
+  reduction also uses the selected model adapter's verified graph alignment
+  (64 for SCUNet, 16 for NAFNet).
 - Native `cpu_upscale` now premultiplies alpha before resize and unpremultiplies
   after, fixing dark fringing at semi-transparent edges.
 - Semi-transparent edge color test added to `varve-upscale` crate.

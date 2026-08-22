@@ -93,6 +93,12 @@ operation is Deblur or Deblur-Upscale. For backward compatibility, the
 pipeline falls back to the denoise-mapped value when `deblur.strength` is
 not set.
 
+Large restoration jobs do not preprocess a full-frame model tensor before
+choosing the tile path, and weighted tile recomposition accumulates results as
+tiles complete instead of retaining every padded tile buffer. Model-specific
+adapters still apply their own graph alignment (SCUNet 64, NAFNet 16) after
+any bounded dimension reduction.
+
 Preview is honest: a centered 512 px crop is enhanced with the *same*
 preprocessing, model, and postprocessing as the final job, while the
 baseline is the *same* crop upscaled with a neutral classical filter
