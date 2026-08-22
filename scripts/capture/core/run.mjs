@@ -356,7 +356,14 @@ export async function capture(spec) {
   } finally {
     if (publishLock) rmSync(publishLock, { recursive: true, force: true });
     await stopServer(server);
-    await browser.close();
+    await browser.close().catch(() => undefined);
     process.exitCode = exitCode;
+    // Force the process down. Playwright and the Vite child can leave handles
+    // open that keep Node alive indefinitely after a failure — the run prints
+    // FAILED and then sits there holding a browser and a dev server. Several
+    // accumulate into memory exhaustion, at which point later runs are OOM
+    // killed with no error at all, which reads as random flakiness rather
+    // than as a pile-up of the previous attempts.
+    setTimeout(() => process.exit(exitCode), 2000).unref();
   }
 }
