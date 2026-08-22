@@ -107,10 +107,34 @@ await capture({
     await beat(page, 900);
 
     await apply.click();
-    // The tracer is real work on real pixels, and this machine is often busy
-    // with other capture runs. Five minutes is a stuck-run ceiling, not an
-    // expectation — a healthy trace of this fixture finishes in seconds.
-    await dialog.waitFor({ state: 'hidden', timeout: 300000 });
+
+    // Wait for the *outcome*, not for the dialog to go away. A previous run
+    // showed why: the app dropped to a splash screen after Apply and stayed
+    // there, and because Playwright counts a covered element as visible, the
+    // dialog behind that overlay never went "hidden" — so a reload and a slow
+    // trace were indistinguishable, and the run burned five minutes on the
+    // wrong signal. New layers appearing is the thing actually being claimed.
+    const before = start.length;
+    const deadline = Date.now() + 240000;
+    let grew = false;
+    while (Date.now() < deadline) {
+      const names = await layerNames(page).catch(() => []);
+      if (names.length > before) {
+        grew = true;
+        break;
+      }
+      // A splash means the document went away entirely; say so rather than
+      // waiting out the clock.
+      const splashed = await page
+        .locator('.layers-panel')
+        .isVisible({ timeout: 500 })
+        .catch(() => false);
+      if (!splashed && Date.now() > deadline - 200000) {
+        throw new Error('the editor reloaded during the trace — no document to trace into');
+      }
+      await page.waitForTimeout(1000);
+    }
+    if (!grew) throw new Error('the trace produced no new layers within 240s');
     await page.waitForTimeout(1200);
     await parkPointer(page);
     await settle(page);
