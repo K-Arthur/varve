@@ -196,6 +196,29 @@ export default defineConfig({
         }
       : {}),
     ...(process.env.VARVE_DISABLE_HMR === '1' ? { hmr: false } : {}),
+    watch: {
+      // Without this the dev server recursively watches the Rust build
+      // output, which is tens of thousands of files, and exhausts the
+      // system-wide inotify limit: vite then dies at startup with
+      // "ENOSPC: System limit for number of file watchers reached" and the
+      // next server on the machine cannot start at all. That is a shared
+      // resource, so one careless watcher takes everyone else down with it.
+      //
+      // Naming `ignored` replaces vite's defaults, so .git and node_modules
+      // have to be repeated here.
+      ignored: [
+        '**/.git/**',
+        '**/node_modules/**',
+        '**/src-tauri/target/**',
+        '**/target/**',
+        '**/dist/**',
+        '**/dist-*/**',
+        '**/test-results*/**',
+        '**/playwright-report*/**',
+        '**/.capture-tmp/**',
+        '**/docs/screenshots/**',
+      ],
+    },
   },
   optimizeDeps: {
     exclude: ['fast-check'],
