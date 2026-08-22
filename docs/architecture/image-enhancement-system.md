@@ -34,11 +34,11 @@ The shipped AI capabilities are:
   on the `varve-models-v1` GitHub release with a pinned SHA-256.
 - `upscale-realesr-general`: Real-ESRGAN general x4 super-resolution, ONNX,
   using the existing tiled provider (`TILE 64/OVERLAP 16`).
-- `upscale-realesrgan-anime`: Real-ESRGAN anime/illustration x4 (6B) — **not
-  validated**. Present in the registry as `not-validated` with a blocking
-  `statusReason`; the UI (Enhance → Illustration & anime) honestly falls
-  back to the general model until a reproducible ONNX export with pinned
-  hash and corpus evidence is published. No hash is advertised.
+- `upscale-realesrgan-anime`: Real-ESRGAN anime/illustration x4 (6B), with a
+  pinned ONNX artifact, checksum, source license, and contract/inference
+  validation in the model manifest. It is optional and downloaded on demand;
+  the UI never silently substitutes the general checkpoint when it is absent.
+  The task-quality corpus benchmark remains a separate measured gate.
 
 JPEG artifact removal is represented as a user operation but is rejected by
 both planner (`planRestoration` throws `unsupported-operation`) and dispatch
@@ -50,7 +50,7 @@ JPEG-specific model. A new checkpoint must provide task provenance,
 licensing, hashes, conversion details, and Varve corpus evidence before it
 is added.
 
-**Candidate:** FBCNN (Jiang et al., ICCV 2021, BSD-3-Clause) is the leading
+**Candidate:** FBCNN (Jiang et al., ICCV 2021, Apache-2.0) is the leading
 candidate for future JPEG artifact removal. It is a flexible blind CNN that
 predicts the JPEG quality factor and embeds it into the reconstructor for
 configurable restoration strength (~6.7 MB, pixel-domain, no DCT access
@@ -79,12 +79,19 @@ legacy `dispatchDenoise` API remains as a compatibility wrapper, and
 `upscaleSelectedImage` callers keep working; `operation` is optional and
 activates the unified planner when present.
 
+Native and worker SCUNet preprocessing are intentionally equivalent: both
+repeat edge pixels to the next graph-safe multiple of 64, then crop the
+top-left output back to the source dimensions. Native inference must not use
+resampling for this padding because it changes thin lines and alpha edges.
+
 Deblur tiling is adaptive (single-shot up to 1280 px, then 1280/256):
 NAFNet's global receptive field makes small tiles visibly seamed
 (34 dB tiled-vs-whole at 768/128 on a 1536 px image vs 60 dB single-shot).
-Strength for deblur respects the user-facing denoise strength
-(`light 0.3 / medium 0.7 / strong 0.8` in `restorationPipeline.ts`) so
-`deblur-upscale` keeps its setting consistent across tasks.
+Deblur has its own user-controllable strength (Light 0.3 / Medium 0.5 /
+Strong 0.7 / Maximum 0.9) exposed as a segmented control when the
+operation is Deblur or Deblur-Upscale. For backward compatibility, the
+pipeline falls back to the denoise-mapped value when `deblur.strength` is
+not set.
 
 Preview is honest: a centered 512 px crop is enhanced with the *same*
 preprocessing, model, and postprocessing as the final job, while the
@@ -92,7 +99,8 @@ baseline is the *same* crop upscaled with a neutral classical filter
 (bicubic, nearest for pixel-art) to the *same* output dimensions. Both
 halves are shown at the same pixel size under the split slider, which is
 keyboard-accessible (← →, Shift+← →, Home/End) and offers Fit / 100%
-pixel view. No browser-bilinear exaggeration.
+pixel view. A 3×3 region picker lets the user choose which part of the
+image to inspect (center by default). No browser-bilinear exaggeration.
 
 Alpha is carried separately by both restoration paths, and pixel-art
 scaling stays on its specialized algorithm path rather than entering photo

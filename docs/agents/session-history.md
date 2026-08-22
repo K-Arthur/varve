@@ -2532,3 +2532,44 @@ concrete gaps from P1-P3 were addressed.
 - E2E: `timeline-playback.spec.ts` 2/5 tests passed (1 timeout from
   pre-existing page-load budget on this machine, 2 skipped in serial mode
   after failure). Not a regression.
+
+---
+
+## Session: Image Enhancement Pipeline Audit & Fixes (2026-08-22)
+
+### Summary
+
+Comprehensive audit and improvement of the Enhance workflow. Identified and
+fixed 8 concrete issues across the engine, native crate, and editor UI.
+Added the validated anime ONNX model. Plumbed deblur strength control and
+real per-stage progress. Documented the validated capability matrix.
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `packages/engine/src/restorationAuto.ts` | Fixed JPEG blockiness NaN at y=0 and rowStep structural bias via per-axis accumulators |
+| `packages/engine/src/restoration.ts` | Added `deblur.strength` to RestorationRequest; updated anime capability to `status: 'available'`; added stale-result classification |
+| `packages/engine/src/restorationPipeline.ts` | Plumbs `request.deblur?.strength` with denoise-mapped fallback |
+| `packages/engine/src/imageEnhancement.ts` | Added `deblurStrength` and `onStageChange` to UpscaleOptions |
+| `packages/engine/src/inference/modelCatalog.ts` | Added `upscale-realesrgan-anime` catalog entry |
+| `packages/engine/src/restorationProviders/dispatch.ts` | Updated compression-restoration comment (FBCNN candidate) |
+| `packages/editor/src/components/Upscale/UpscaleDialog.tsx` | Deblur strength control, real stage progress, preview region picker, stale-result handling, illustration model wiring |
+| `packages/editor/src/components/Upscale/useUpscaleDialog.ts` | Plumbs deblurStrength, onStageChange, illustration model |
+| `packages/editor/src/context.tsx` | Plumbs deblur.strength, onStageChange, stale-result throws |
+| `crates/varve-upscale/src/lib.rs` | Premultiplied-alpha fix in cpu_upscale; semi-transparent edge test |
+| `docs/architecture/image-enhancement-system.md` | Updated deblur strength, FBCNN license, region picker |
+| `docs/audits/image-enhancement-implementation-2026-08-22.md` | Added additional fixes section |
+| `docs/quality/image-enhancement-benchmark.md` | Added validated capability matrix and compression gap analysis |
+
+### Models
+
+- Anime model: `RealESRGAN_x4plus_anime_6B.onnx` (17.9 MB, SHA-256 `2648cab4...`), downloaded from `deepghs/imgutils-models`, uploaded to `varve-models-v1` release, dimension sweep all-pass, 5.9x sharper than general on block-edge content
+- Compression restoration: no validated model. FBCNN (Apache-2.0) recommended; needs torch for ONNX conversion.
+
+### Verification
+
+- JS engine tests: 40/40 passed across restoration, restorationAuto, restorationPipeline, upscaleProviders, denoiseProviders
+- Rust varve-upscale: 7/7 passed including semi-transparent edge test
+- Biome: clean on all changed engine files
+- TypeScript: no regressions (pre-existing type errors in unrelated packages)
