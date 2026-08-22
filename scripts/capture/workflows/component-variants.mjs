@@ -24,6 +24,30 @@ async function openObjectAction(page, label) {
   await page.waitForTimeout(700);
 }
 
+async function addText(page, from, to, copy) {
+  await useTool(page, 't');
+  await dragAt(page, from, to, { steps: 10, settleMs: 120 });
+  const editor = page.getByRole('textbox', { name: /editing text/i });
+  await editor.waitFor({ state: 'visible', timeout: 8000 });
+  await editor.fill(copy);
+  await editor.press('Escape');
+  await page.waitForTimeout(300);
+  await useTool(page, 'v');
+}
+
+async function setFillHex(page, hex) {
+  const swatch = page.locator('.insp-color-swatch, [aria-label*="fill" i]').first();
+  if (!(await swatch.isVisible({ timeout: 3000 }).catch(() => false))) return false;
+  await swatch.click();
+  const field = page.getByRole('textbox', { name: /hex/i }).first();
+  if (!(await field.isVisible({ timeout: 3000 }).catch(() => false))) return false;
+  await field.fill(hex);
+  await field.press('Enter');
+  await page.waitForTimeout(350);
+  await page.keyboard.press('Escape');
+  return true;
+}
+
 await capture({
   slug: 'component-variants',
   workflow: 'Reusable component / variant',
@@ -38,13 +62,26 @@ await capture({
     await openCleanEditor(page, base);
     await settle(page);
 
+    // Build a small ticket-picker composition rather than three anonymous
+    // boxes: the cards are real Frames with real text children, and their
+    // varied fills make the later component/variant change legible on camera.
+
     // Three visually distinct ticket buttons with the same frame structure.
     await useTool(page, 'f');
-    await dragAt(page, [0.1, 0.24], [0.34, 0.46], { steps: 12, settleMs: 220 });
+    await dragAt(page, [0.1, 0.32], [0.34, 0.54], { steps: 12, settleMs: 220 });
+    await setFillHex(page, '#F4C95D');
+    await addText(page, [0.13, 0.37], [0.31, 0.42], 'STANDARD');
+    await addText(page, [0.13, 0.45], [0.31, 0.5], 'BOOK TICKET');
     await useTool(page, 'f');
-    await dragAt(page, [0.39, 0.24], [0.66, 0.48], { steps: 12, settleMs: 220 });
+    await dragAt(page, [0.39, 0.32], [0.66, 0.56], { steps: 12, settleMs: 220 });
+    await setFillHex(page, '#F28F6B');
+    await addText(page, [0.42, 0.37], [0.63, 0.42], 'FLEX');
+    await addText(page, [0.42, 0.47], [0.63, 0.52], 'BOOK TICKET');
     await useTool(page, 'f');
-    await dragAt(page, [0.71, 0.24], [0.93, 0.5], { steps: 12, settleMs: 220 });
+    await dragAt(page, [0.71, 0.32], [0.93, 0.58], { steps: 12, settleMs: 220 });
+    await setFillHex(page, '#9CC5A1');
+    await addText(page, [0.74, 0.37], [0.91, 0.42], 'FLEX PLUS');
+    await addText(page, [0.74, 0.49], [0.91, 0.54], 'BOOK TICKET');
     await useTool(page, 'v');
     await fitContent(page);
     await parkPointer(page);
@@ -52,7 +89,7 @@ await capture({
     assert.equal((await layerNames(page)).filter((name) => /frame/i.test(name)).length, 3);
 
     begin();
-    await beat(page, 1100);
+    await beat(page, 1800);
     await openObjectAction(page, 'Detect Duplicates');
     await page
       .getByRole('tab', { name: 'Audit', exact: true })
@@ -65,7 +102,9 @@ await capture({
     );
     await page.waitForTimeout(900);
 
-    const roots = page.getByRole('treeitem');
+    // Text children are real nested layers, so address the three component
+    // roots explicitly instead of relying on flat tree order.
+    const roots = page.locator('[role="treeitem"][aria-level="1"]');
     const treeCount = await roots.count();
     assert.ok(treeCount >= 3, `component conversion removed ticket layers (got ${treeCount})`);
     // After Detect Duplicates the inspector stays on the Audit tab.
@@ -89,7 +128,7 @@ await capture({
       .first();
     await componentSection.waitFor({ state: 'visible', timeout: 8000 });
     assertions.push('component source and instances remain real document-linked layers');
-    await beat(page, 900);
+    await beat(page, 1400);
 
     // Select an instance and use the actual floating VariantBox. The box is
     // deliberately present even before the first variant so this workflow is
@@ -103,7 +142,7 @@ await capture({
     await page.waitForTimeout(700);
     assert.ok(await variantBox.getByRole('option', { name: 'Selected' }).isVisible());
     assertions.push('first variant was created from the real instance picker and is active');
-    await beat(page, 1000);
+    await beat(page, 1500);
 
     await variantBox.getByRole('button', { name: 'Create variant' }).click();
     await variantBox.getByRole('textbox', { name: 'Variant name' }).fill('Disabled');
@@ -139,6 +178,7 @@ await capture({
     await page.keyboard.press('Control+Shift+z');
     await page.waitForTimeout(500);
     assertions.push('undo and redo completed after component-source propagation');
+    await fitContent(page);
     await parkPointer(page);
     await settle(page);
     await beat(page, 1200);
