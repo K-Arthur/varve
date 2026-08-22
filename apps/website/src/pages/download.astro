@@ -787,6 +787,18 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   <strong>Open the app.</strong>
                   <ul class="install-commands">
                     {available.map((p) => {
+                      if (p.id === 'linux') {
+                        return (
+                          <li class="install-commands-group">
+                            <span>Linux (pick one):</span>
+                            <div class="install-command-options">
+                              <code class="code-block">chmod +x Varve-*.AppImage &amp;&amp; ./Varve-*.AppImage</code>
+                              <code class="code-block">sudo apt install ./Varve-*.deb</code>
+                              <code class="code-block">sudo dnf install ./Varve-*.rpm</code>
+                            </div>
+                          </li>
+                        );
+                      }
                       const command = primaryInstallCommand(p);
                       return command ? (
                         <li>
