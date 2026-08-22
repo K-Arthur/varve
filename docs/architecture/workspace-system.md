@@ -2,8 +2,12 @@
 
 Canonical contract for Varve's workspace modes. A workspace is a **versioned
 view-and-workflow configuration over one document and one editor engine** —
-Design, Print, Draw, Photo, Motion, Codegen & Audit, and Logo are all the same
-editor with different chrome, not different editors.
+Design, Print, Draw, Photo, Motion, Logo, Email, and Codegen &amp; Audit are all
+the same editor with different chrome, not different editors. The mode union,
+per-mode configs, and labels live in `workspace/workspaceTypes.ts`
+(`WorkspaceMode`, `WORKSPACE_CONFIGS`, `ALL_WORKSPACE_MODES`); the shortcut
+registry (`workspaceDesign` … `workspaceCodegen`) lives in
+`shortcuts/ShortcutManager.ts`.
 
 Related: `docs/architecture/logo-system.md`, `docs/architecture/motion-system.md`,
 `docs/architecture/focus-navigation.md`.
@@ -210,7 +214,7 @@ is a layout change and must not reconfigure the renderer as a side effect.
 **Shortcut-tip suppression** is derived, not declared. Tips for tools a
 workspace hides are suppressed via `suppressedTipShortcutIds(mode)`, computed
 from the workspace's own toolbar. The previous hand-maintained
-`shortcuts.disabled` list was empty in all seven built-ins and suppressed
+`shortcuts.disabled` list was empty in every built-in and suppressed
 nothing.
 
 ## Toolbar composition
@@ -270,7 +274,8 @@ the same review that found the toolbar defects above. Result:
 | `onboarding.tips` | `workspaceTips` → `useDidYouKnow` | Live **as of this pass** — see below |
 | `floatingToolbar` / `statusBar` / `tabStrip` | `Shell`, `FloatingToolbar` | Live |
 
-**Workspace onboarding tips are now shown.** All seven workspaces declared
+**Workspace onboarding tips are now shown.** All built-in workspaces (eight
+as of 2026-08) declare
 `onboarding.tips` (roughly 28 authored, workspace-specific hints) that nothing
 read, while the Did-You-Know surface drew only from the global, workspace-blind
 `TIPS` list. `onboard/DidYouKnow/workspaceTips.ts` adapts the declared tips into
@@ -298,7 +303,8 @@ gaps:
   missing `historyPanelVisible`, so the History panel was the one panel id with
   no switch-time projection: overrides for it were recorded but never applied
   by a workspace switch (invariant 9 violation). It is now in the projection
-  and in the customize dialog's panel list. All seven built-ins declare it
+  and in the customize dialog's panel list. All built-ins (eight as of
+  2026-08) declare it
   `visible: false`, so built-in layouts are unchanged; per-mode overrides now
   work.
 - **The customize dialog covers the full surface.** The Toolbar Tools section
@@ -307,7 +313,7 @@ gaps:
   UI (the store supported it; the dialog did not). Status-section labels come
   from a single `STATUS_SECTION_LABELS` map instead of camelCase-split ids.
   Reset All now requires an explicit confirmation dialog — it discards every
-  customization in all seven modes.
+  customization in all eight modes.
 - **The status bar is section-honest.** Every renderable section
   (`toolName`, `cursorPos`, `layoutScore`, `unit`, `zoom`, `selectionInfo`,
   plus the already-gated `preflight`/`debt`/`shortcutTip`) is gated by its

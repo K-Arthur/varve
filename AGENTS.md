@@ -95,19 +95,32 @@ architecture audit to verify architectural metrics haven't regressed:
 node scripts/audit-architecture.mjs --ci
 ```
 
-Check these thresholds (2026-07-27 post-remediation):
-| Metric | Current | Ceiling |
-|--------|---------|---------|
-| Avg cyclomatic complexity (editor) | 26.3 | 52.0 |
-| Dependency cycles (madge) | 4 | 6 |
-| Layer violations | 0 | 0 |
-| Hub files over budget | 0 | 0 |
-| Editor max complexity (context.tsx) | 833 | 847 |
-| CanvasArea max complexity | ~450 | 630 |
-| Shell.tsx import count | 46 | 49 |
+These numbers drift with everyday merges — treat this table as orientation
+and the audit output plus the committed baselines as the source of truth.
+Enforced by `audit-architecture.mjs --ci` against `.architecture-baseline.json`
+(live values 2026-08-22):
 
-See `docs/audits/architecture-health-baseline-2026-07-25.md` for full
-measurements. If any threshold is breached, stop and investigate.
+| Metric | Live (2026-08-22) | Enforced ceiling |
+|--------|-------------------|------------------|
+| Dependency cycles (madge, total distinct) | 15 | 19 (`max_cycles`) |
+| Unstable modules (I > 0.9, all packages) | 49 | 49 (`max_unstable`) — at ceiling; a new unstable module fails the gate |
+| Layer violations | 0 | 0 (`max_layer_violations`) |
+| Unused exports | 0 | 10 (`max_unused_exports`) |
+
+Reported but not enforced by `--ci`: per-package average/max cyclomatic
+complexity (editor avg 27.9 on 2026-08-22; `complexity` in the architecture
+baseline is intentionally empty), and per-hub import budgets — Shell (56),
+Menubar (18), and context (76) print OVER BUDGET warnings against the
+script's hardcoded budgets. Hub line/import *enforcement* lives in the
+pre-commit health gate (`.health-baseline.json` via
+`scripts/audit-health.mjs --staged`). Function-level complexity ceilings for
+over-ceiling files (context.tsx 847, CanvasArea 630, …) live in
+`scripts/audit-health.mjs` and are guarded by each file's first-line
+`// COMPLEXITY:` comment.
+
+See `docs/audits/architecture-health-baseline-2026-07-25.md` for the original
+measurement methodology. If an enforced threshold is breached, stop and
+investigate.
 Use `node scripts/audit-architecture.mjs --update` to reset the baseline after
 intentional improvements.
 
@@ -151,16 +164,20 @@ them drags the whole module graph. Follow these rules:
 2. **Prefer dependency injection over direct imports in hub files.**
 3. **New hub files must target I < 0.85.**
 
-| File | Imports (Ce) | Instability (I) | Status |
-|------|-------------|-----------------|--------|
-| `CanvasArea.tsx` | 34 | ~0.90 | **Improved (was 82)** — drawContent/buildToolCtx/tool-sync extracted; must not increase |
-| `Shell.tsx` | 56 | ~0.89 | **Over budget** — must not increase |
-| `Menubar.tsx` | 17 | ~1.0 | At risk |
-| `context.tsx` | 73 | ~0.48 | Healthy (provider composition; extraction continued) |
+| File | Imports (baseline / live 2026-08-22) | Instability (I) | Status |
+|------|--------------------------------------|-----------------|--------|
+| `CanvasArea.tsx` | 34 / 35 | ~0.90 | **Improved (was 82)** — drawContent/buildToolCtx/tool-sync extracted; must not increase |
+| `Shell.tsx` | 56 / 56 | ~0.89 | **Over budget** — must not increase |
+| `Menubar.tsx` | 17 / 18 | ~1.0 | At risk |
+| `context.tsx` | 73 / 76 | ~0.48 | Healthy instability, but live count is exactly at `max_imports` (76) — one more import fails the pre-commit health gate |
 
-Import counts are measured by `scripts/audit-health.mjs` (baseline:
-`.health-baseline.json`). Instability values come from madge via
-`scripts/audit-architecture.mjs` (refresh with `--update` after intentional changes).
+Import counts are measured by `scripts/audit-health.mjs` against
+`.health-baseline.json` (snapshot 2026-07-27; the "baseline" column above
+mirrors it). Instability values come from madge via
+`scripts/audit-architecture.mjs` at run time and are never persisted
+(refresh with `--update` after intentional changes). Live import counts move
+with everyday merges — when this table and the baseline disagree with a fresh
+`node scripts/audit-health.mjs` run, believe the audit.
 
 **No new import may be added to CanvasArea.tsx or Shell.tsx without first removing
 an existing import of equal or greater weight.** Enforced by `scripts/audit-health.mjs`.
@@ -388,7 +405,7 @@ git log --oneline -3
 | Export deferred | `docs/plans/export-system-deferred.md` |
 | Home/Workspace System | `docs/plans/archived/projects-home-workspace-completed.md` |
 | Packaging (0.11) | `docs/plans/archived/session-04-packaging.md` (historical; current release pipeline lives in `docs/release/` and `scripts/release/`) |
-| Loading Experience System | `docs/architecture/loading-system.md`, `docs/audits/loading-experience-audit.md` |
+| Loading Experience System | `docs/architecture/loading-system.md`, `docs/audits/loading-experience-audit-2026-07-08.md` |
 | Marketing Website | `apps/website/` - Astro 7 static site, 64 pages, GitHub Pages deploy. See `docs/plans/website-progress-tracker.md` |
 | CI/CD pipeline memory (local, gitignored) | `GITHUB_PIPELINE_MEMORY.md` — session-survivable tracker for billing blocks, run classifications, and tooling state |
 
@@ -480,7 +497,7 @@ Complete timeline-based animation workspace. Canonical doc: `docs/architecture/m
 
 ## Workspace Mode System
 
-Seven task-focused modes over the same document/scene/rendering/command/history
+Eight task-focused modes over the same document/scene/rendering/command/history
 systems. Canonical contract, configuration resolution, persistence, and known
 gaps: `docs/architecture/workspace-system.md`.
 
@@ -492,6 +509,7 @@ gaps: `docs/architecture/workspace-system.md`.
 | **Photo** | `Ctrl+Shift+4` | select | Nondestructive photo editing, adjustments |
 | **Motion** | `Ctrl+Shift+5` | select | Timeline animation, keyframes, easing |
 | **Logo** | `Ctrl+Shift+6` | select | Wordmarks, marks, monograms, badges, brand systems |
+| **Email** | `Ctrl+Shift+7` | select | Email template design, semantics, preview, export |
 | **Codegen** | `Ctrl+Shift+9` | select | Code export |
 
 Logo workflow docs: `docs/architecture/logo-system.md`,
@@ -578,7 +596,7 @@ See `docs/architecture/text-pipeline.md`.
 |---|---|---|
 | `apps/desktop` | **Built** | Tauri 2 app with Vite+React frontend; `build:try` produces the public browser demo at `/try/` |
 | `apps/website` | **Built** | Astro 7 static marketing site, GitHub Pages deploy (see `docs/release/website.md`) |
-| `apps/web` | **Scaffold (not landed)** | `@varve/web` — Next.js 15 editor scaffold behind the WASM engine. Build/typecheck/test scripts are placeholders; the full scaffold lands in task 0.9. Not a shippable application yet. |
+| `apps/web` | **Scaffold (removed from workspace)** | `@varve/web` — Next.js 15 editor scaffold behind the WASM engine. Removed from `pnpm-workspace.yaml` on 2026-07-12; task 0.9 deferred indefinitely. Only a placeholder `package.json` remains — not a shippable application. |
 
 ## Release signing (code-signing pipeline)
 

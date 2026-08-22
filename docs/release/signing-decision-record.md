@@ -22,7 +22,13 @@ the setup checklist lives in [code-signing-setup.md](code-signing-setup.md).
 | **A. Windows Authenticode** | Publisher identity + file integrity on Windows | Azure Artifact Signing (Public Trust) via Tauri `signCommand` |
 | **B. Apple Developer ID + notarization** | Gatekeeper acceptance on macOS | Developer ID Application cert + App Store Connect API key |
 | **C. Linux artifact trust** | Integrity + build provenance | SHA-256 checksums + SBOM + GitHub artifact attestations (+ optional GPG later) |
-| **D. Tauri updater signing** | Update-manifest authenticity for installed clients | Not in use (see `update-strategy.md`); keys kept separate when it lands |
+| **D. Tauri updater signing** | Update-manifest authenticity for installed clients | **In use since 2026-08-13** (minisign keys, signed stable feed — see `update-strategy.md`; keys are separate from A–C material) |
+
+> **Update (2026-08-22):** row D originally read "Not in use" — accurate when
+> this record was written (2026-08-08) but superseded by the updater rollout
+> documented in `update-strategy.md` (`createUpdaterArtifacts`, published
+> pubkey, signed `stable.json` feed, and post-generation signature
+> verification in `release.yml`).
 
 A `.sig` for the updater is not Authenticode. A checksum is not notarization. A
 GitHub attestation is not a trusted Windows publisher. The release pipeline

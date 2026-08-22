@@ -1,8 +1,12 @@
 # Varve Icon Naming Conventions and Visual Standards
 
-Canonical source of truth for internal UI icons. Feature code references
-semantic names (via `SemanticIcon` from `@varve/ui`); the registry maps each
-name to a concrete Lucide (outline) or Phosphor (filled) implementation.
+Canonical source of truth for internal UI icon *naming*. Feature code
+references semantic names (via `SemanticIcon` from `@varve/ui`). Outline
+icons render from Tabler by default (Lucide as the fallback family for
+concepts not yet mapped in `TABLER_SEMANTIC_ICONS`); filled surfaces render
+Phosphor. The current-state contract — resolution order, component APIs,
+library choice rationale — lives in `docs/design/icon-system.md`; this doc
+records the naming rules and visual standards.
 
 ## 1. Semantic naming rules
 
@@ -34,8 +38,8 @@ Name categories (as used in `SEMANTIC_ICONS`):
 
 ## 2. Visual standards
 
-- **Grid:** 24 × 24 viewBox, 2 px stroke at regular weight (Lucide and
-  Phosphor regular both conform).
+- **Grid:** 24 × 24 viewBox, 2 px stroke at regular weight (Tabler, Lucide,
+  and Phosphor regular all conform).
 - **Optical bounds:** glyphs sit within the 24 × 24 box with consistent
   internal padding; no glyph fills the full box edge-to-edge unless the
   concept is a filled square.
@@ -46,9 +50,9 @@ Name categories (as used in `SEMANTIC_ICONS`):
   corrections explicitly.
 - **Hit targets:** glyph size and button hit area are separate concepts.
   A 16 px icon may live in a 32 px button.
-- **Families:** outline (Lucide) is the default; filled (Phosphor) is used
-  for the refreshed design-system surfaces. Do not mix families for the same
-  concept in one surface without a documented reason.
+- **Families:** outline (Tabler, Lucide fallback) is the default; filled
+  (Phosphor) is used for surfaces that intentionally use filled icons. Do not
+  mix families for the same concept in one surface without a documented reason.
 
 ## 3. RTL behaviour
 
@@ -70,9 +74,11 @@ not the icon.
 ## 5. Adding an internal icon
 
 1. Add the semantic name to the `SemanticIconName` union.
-2. Add the entry to `SEMANTIC_ICONS` with an outline (Lucide) and filled
-   (Phosphor) name. Verify both names exist in the *installed* library
-   versions (lucide 1.x renamed several icons: `AlertTriangle` →
+2. Add the entry to `SEMANTIC_ICONS` with an outline and a filled (Phosphor)
+   name; if Tabler has a better-matching glyph, also add the concept to
+   `TABLER_SEMANTIC_ICONS` so the outline family resolves to Tabler first.
+   Verify the names exist in the *installed* library versions (lucide 1.x
+   renamed several icons: `AlertTriangle` →
    `TriangleAlert`, `CheckCircle2` → `CircleCheckBig`, `XCircle` → `CircleX`,
    `Loader2` → `LoaderCircle`, `Rows` → `Rows2`, `Columns` → `Columns2`,
    `Layout` → `PanelTop`).

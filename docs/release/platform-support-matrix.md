@@ -104,7 +104,7 @@ Untested and needing a VM pass before Tier 2 is claimed:
 - WebKitGTK 2.40–2.46 behaviour (Ubuntu 22.04/24.04 ship older versions than CachyOS)
 - Software rendering fallback where no GPU/WebGPU is available
 - XDG desktop portal file dialogs under GNOME vs KDE vs wlroots
-- CUPS discovery via `lpstat` (`print_linux.rs:6`) where CUPS is absent
+- CUPS discovery via `lpstat` (`print_linux.rs:7`) where CUPS is absent
 - Fontconfig behaviour with a minimal font set
 - AppImage on a FUSE-less host
 - X11 vs Wayland (dev is Wayland-only today)
@@ -177,7 +177,7 @@ accordingly.
 | Arch | ARM64 only | Apple Silicon is the overwhelming majority of active Macs; Intel macOS is a discontinued platform — ONNX Runtime upstream stopped shipping Intel macOS binaries (last line 1.23.0, dropped at 1.24.1) and GitHub retires its last Intel runner (Aug 2027). Decision: `docs/plans/macos-intel-feasibility.md` |
 | Universal vs split | **Split, ARM64 published** | The current build targets `aarch64-apple-darwin` only (a DMG); an earlier `universal-apple-darwin` approach produced a binary whose accelerated inference path only worked on Apple Silicon anyway. Better to ship an honest `aarch64` DMG than a "universal" one that is half-degraded |
 | Intel | **Not supported** (decision 2026-08-18) | Dependency EOL: ONNX Runtime upstream discontinued Intel macOS binaries; the last viable line (1.23.0) predates Varve's runtime, carries a known macOS exit-crash bug, and will never receive fixes. GitHub's Intel runner retires Aug 2027. Revisit only with demand, hardware, and upstream signal (`docs/plans/macos-intel-feasibility.md`) |
-| Min version | macOS 13 Ventura | Already set in `tauri.conf.json:180` |
+| Min version | macOS 13 Ventura | Already set in `tauri.conf.json` (`minimumSystemVersion`) |
 | Distribution | Unsigned DMG, clearly labelled | See below |
 | Mac App Store | **Reject for v1** | Requires the $99 membership *and* full App Sandbox. The sandbox directly conflicts with arbitrary-path document access and CUPS printing. Months of work |
 

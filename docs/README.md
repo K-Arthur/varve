@@ -251,7 +251,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/focus-navigation.md` | Focus and keyboard navigation contract |
 | `architecture/input-system-behavior-matrix.md` | Input behavior matrix |
 | `architecture/inspector-feature-ownership.md` | Inspector feature ownership |
-| `architecture/icon-library.md` / `architecture/icon-system-naming.md` | Icon library and naming contract |
+| `architecture/icon-library.md` / `architecture/icon-system-naming.md` | Icon library; icon naming rules and visual standards (current-state contract in `design/icon-system.md`) |
 | `architecture/onnx-inference-architecture.md` | ONNX inference architecture |
 | `architecture/semantic-asset-similarity.md` | Local image-to-image similarity, duplicate lanes, model/runtime boundaries, and current limitations |
 | `quality/semantic-asset-similarity-benchmark.md` | Exact-search scale baseline and held-out retrieval evaluation contract |
@@ -267,6 +267,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/multi-window-workspaces.md` | Detachable panels and native multi-monitor workspaces |
 | `architecture/multimodal-edit-plan.md` | Multimodal design edit plans and proposal boundary |
 | `architecture/halftone-system.md` | Halftone screening: canonical parameters, coordinates, tone mapping, export parity |
+| `architecture/browser-demo.md` | Public browser demo (`/try`): scope, capability messaging, build path |
 
 ### Dated point-in-time records under `docs/architecture/`
 
@@ -311,6 +312,14 @@ The following dated files were moved from `docs/architecture/` to
 | `release/distribution-decision-matrix.md` | Distribution channel decisions |
 | `release/linux-ecosystem-readiness.md` | Per-channel Linux package ecosystem readiness assessment (AUR, Flatpak, DEB/RPM) |
 | `release/directory-listing-packet.md` | Canonical listing data for AlternativeTo / repology / software directories |
+| `release/signing-decision-record.md` | Code-signing strategy decision record (systems A–D; updater row updated 2026-08-22) |
+| `release/code-signing-setup.md` | Human checklist for acquiring certificates (not yet owned) |
+| `release/signing-rotation-runbook.md` | Signing/updater key rotation calendar and procedure |
+| `release/signing-incident-runbook.md` | Key-compromise and signing-incident response |
+| `release/release-rollback-runbook.md` | Withdrawing or rolling back a published release |
+| `release/custom-domain-runbook.md` | varve.studio domain (Porkbun + GitHub Pages) operations record |
+| `release/updater-signing-repair.md` | Dated (2026-08) AppImage updater signature repair post-mortem |
+| `release/implementation-plan.md` | Dated release-pipeline implementation plan — complete 2026-08-10; historical |
 
 ### Release Engineering — historical records
 
@@ -323,6 +332,7 @@ The following dated files were moved from `docs/architecture/` to
 | `development/setup.md` | Setup, running, testing, and quality gates |
 | `development/troubleshooting.md` | Common build, platform, test, runtime, and CI/CD issues |
 | `development/provenance.md` | Git identity and contribution provenance |
+| `development/email-routing.md` | Public email identities and inbound routing for `@varve.studio` role addresses |
 | `development/tooltip-guide.md` | Tooltip system authoring patterns |
 
 ## Design & Brand
@@ -354,6 +364,7 @@ The following dated files were moved from `docs/architecture/` to
 | `licensing/review.md` | Dated (2026-07-21) licensing decision-support review — pre-rename context, superseded sections marked inline |
 | `licensing/decision-research-2026-08-18.md` | Dated licensing decision research record |
 | `security/security-hardening.md` | Security hardening contract and policy (CSP, workflow policy, secret scanning) |
+| `security/trust-boundaries.md` | Source-sharing vs trust-sharing boundaries; client env allowlist (machine-enforced) |
 
 ## Quality
 
@@ -364,6 +375,8 @@ The following dated files were moved from `docs/architecture/` to
 | `quality/editorprovider-surface.md` | EditorProvider surface |
 | `quality/validation-strategy.md` | **Canonical validation policy** — impact-aware planning, tiers, escalation rules |
 | `quality/render-path-verification.md` | Render-path verification contract |
+| `quality/object-selection-parity.md` | Object Selection quality/parity methodology |
+| `quality/semantic-similarity-benchmark.md` | Semantic-similarity benchmark reproduction recipe (corpus + retrieval eval) |
 | `quality/cycles.md` / `quality/scene-cycle-report.md` / `quality/section-registry-cycle-report.md` / `quality/wasm-engine-cycle.md` | Dependency cycle reports (dated records, 2026-07) |
 | `quality/report-audit.md` | Audit report quality review (dated record, 2026-07-25) |
 
@@ -422,6 +435,7 @@ The following dated files were moved from `docs/architecture/` to
 | `plans/archived/website-research-findings.md` | Competitor research (Phase B deliverable, archived) |
 | `plans/archived/website-product-truth-matrix.md` | Dated (2026-07-08) product capability audit — superseded by `release/website.md` (archived) |
 | `plans/archived/rename-strata-consultation.md` | Dated record of the product-rename consultation (file retains its original name) |
+| `plans/macos-intel-feasibility.md` | Decision record: macOS Intel support rejected (2026-08-18); grounds a row of `release/platform-support-matrix.md` |
 | Other `plans/*.md` | Per-session implementation plans and deferred-work records |
 | `plans/archived/*.md` | Completed/superseded plans, archived per the convention in `plans/archived/session-04-packaging.md` |
 
@@ -434,6 +448,7 @@ records; check the current code before acting on their findings.
 | `audits/color-quantization-boundary-inventory.md` | Current high-precision color quantization-boundary inventory |
 | `audits/filesystem-hardening-2026-08-13.md` | Cross-OS directory/path hardening pass: findings fixed, storage map, limitations |
 | `audits/figma-import-audit-2026-08-20.md` | Figma acquisition, semantic conversion, editor integration, fidelity matrix, and backlog |
+| `audits/email-current-state-audit-2026-08-20.md` | Email template system baseline audit (moved from `docs/email/`, 2026-08-22) |
 | `audits/font-replacement-audit-2026-08-20.md` | Missing-font detection, ranked replacement UX, rich-text coverage, manifest provenance, and validation |
 
 ## Website-specific (current state)

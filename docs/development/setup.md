@@ -7,8 +7,13 @@
 | Rust | 1.97+ | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
 | pnpm | 11.9+ | `npm install -g pnpm` or `corepack enable && corepack prepare pnpm@latest --activate` |
 | just | 1.54+ | `cargo install just` or `pacman -S just` / `brew install just` |
-| Node.js | 26+ | via fnm/nvm/volta or system package manager |
+| Node.js | 22.12+ enforced by `engines` (`package.json`); 26 is what CI and active development use | via fnm/nvm/volta or system package manager |
 | wasm32 target | — | `rustup target add wasm32-unknown-unknown` |
+
+`just wasm-build` / `just wasm-build-all` additionally need
+[wasm-pack](https://rustwasm.github.io/wasm-pack/) (`cargo install wasm-pack`
+or `pacman -S wasm-pack`). `wasm-opt` from Binaryen is used when present and
+silently skipped otherwise.
 
 ### Linux (Tauri)
 
@@ -19,8 +24,13 @@ sudo pacman -S webkit2gtk-4.1 gtk3 librsvg libsoup3 \
 
 # Ubuntu/Debian
 sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
-  libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
+  libsoup-3.0-dev libjavascriptcoregtk-4.1-dev \
+  libssl-dev libfontconfig1-dev libglib2.0-dev cmake pkg-config
 ```
+
+The Ubuntu list mirrors what CI installs before building
+(`.github/workflows/ci.yml`, `build.yml`, `release.yml`); E2E workflow jobs
+additionally install `libayatana-appindicator3-dev`.
 
 See [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for other platforms.
 
@@ -108,7 +118,7 @@ Each gate is also available individually:
 just format              # Auto-format
 just format-check        # Check formatting
 just lint                # Lint (Biome + Clippy)
-just gates               # Audits only
+just gates               # Quality audits (tokens/emoji/docs) + health, architecture, typecheck-regression
 just gate                # Full gate (format-check + lint + test + gates)
 ```
 

@@ -182,7 +182,7 @@ Full instructions, prerequisites, and per-OS system packages:
 git clone https://github.com/K-Arthur/varve
 cd varve
 pnpm install
-just check-env             # verify Rust/pnpm/just/Node toolchain
+just check-env             # verify Rust, pnpm, just, and WebKitGTK pkg-config
 ```
 
 Run the application:
