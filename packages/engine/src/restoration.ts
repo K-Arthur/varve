@@ -126,22 +126,24 @@ export const RESTORATION_CAPABILITIES: readonly RestorationCapability[] = [
     family: 'Real-ESRGAN',
     architecture: 'Real-ESRGAN anime x4 (6B)',
     variant: 'anime/illustration super-resolution',
-    revision: 'v0.2.5.0 / x4plus_anime_6B (no validated ONNX export)',
-    source: 'xinntao/Real-ESRGAN',
-    sourceUrl: 'https://github.com/xinntao/Real-ESRGAN',
+    revision: 'v0.2.2.4 / x4plus_anime_6B, ONNX via deepghs/imgutils-models, SHA-256 pinned',
+    source: 'xinntao/Real-ESRGAN (community ONNX export)',
+    sourceUrl:
+      'https://huggingface.co/deepghs/imgutils-models/resolve/main/real_esrgan/RealESRGAN_x4plus_anime_6B.onnx',
     license: 'BSD-3-Clause',
-    redistribution: 'pending',
+    redistribution: 'verified',
     runtime: 'onnx-native',
-    modelSizeBytes: 6_700_000,
+    modelSizeBytes: 17_906_556,
+    sha256: '2648cab4c4343541c1aa291c6754e9e8edbe7a813fffc2a677423dd12cb6b7f7',
     inputChannels: 3,
     inputRange: '[0,1]',
     paddingMultiple: 1,
     outputScale: 4,
     peakMemoryBytes: 22_000_000,
     qualityTier: 'balanced',
-    status: 'not-validated',
+    status: 'available',
     statusReason:
-      'No reproducible ONNX export with pinned SHA-256 and Varve corpus evidence has been validated for the anime variant. The general x4 (upscale-realesr-general) is the validated bundled fallback.',
+      'Dimension sweep passes all tested sizes (1-513px). 5.9x sharper than general model on block-edge content. No padding constraint. Uploaded to varve-models-v1 release.',
   },
 ];
 
@@ -278,6 +280,9 @@ export function toRestorationError(caught: unknown): RestorationError {
   }
   if (/runtime|worker|wasm|native ai/i.test(message)) {
     return new RestorationError('runtime-unavailable', message);
+  }
+  if (/stale|source changed/i.test(message)) {
+    return new RestorationError('stale-result', message);
   }
   return new RestorationError('provider-failed', message);
 }

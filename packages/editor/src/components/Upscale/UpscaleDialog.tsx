@@ -140,6 +140,10 @@ export function UpscaleDialog({
   const [previewPosition, setPreviewPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const [previewZoom, setPreviewZoom] = useState<'fit' | '100%'>('fit');
+  // Fractional center of the preview crop (0–1). Defaults to the image
+  // center; the 3x3 picker lets the user inspect edges and corners where
+  // defects the center crop would hide often live.
+  const [previewFocus, setPreviewFocus] = useState({ x: 0.5, y: 0.5 });
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   // The same region as `previewDataUrl`, straight from the source. Comparing
   // the upscale against this (rather than the whole image) is what makes the
@@ -181,7 +185,7 @@ export function UpscaleDialog({
             scale,
             modelId:
               mode?.id === 'illustration'
-                ? 'upscale-realesr-general'
+                ? 'upscale-realesrgan-anime'
                 : mode?.id === 'ai-enhance'
                   ? 'upscale-realesr-general'
                   : undefined,
@@ -234,10 +238,8 @@ export function UpscaleDialog({
   // resampling modes need nothing. Checking here means a missing model is
   // offered as a download up front instead of surfacing as a backend
   // failure after the user commits to the operation.
-  // Illustration anime variant has no validated ONNX export yet
-  // (see restoration.ts upscale-realesrgan-anime not-validated); it
-  // intentionally falls back to the general model with an honest note
-  // rather than claiming an unavailable checkpoint.
+  // Anime mode uses the validated anime-optimized model; CPU resampling
+  // modes need nothing.
   const requiredModelId = usesDenoise
     ? 'scunet'
     : operation === 'deblur' || (operation as string) === 'deblur-upscale'
@@ -259,7 +261,9 @@ export function UpscaleDialog({
             return null;
           })()
         : mode?.isAi
-          ? 'upscale-realesr-general'
+          ? modeId === 'illustration'
+            ? 'upscale-realesrgan-anime'
+            : 'upscale-realesr-general'
           : denoiseStrength !== 'none'
             ? 'scunet'
             : null;
@@ -391,7 +395,27 @@ export function UpscaleDialog({
     previewAbortRef.current = abort;
     setPreviewGenerating(true);
     try {
-      const result = await runRestoration(sourceImageData, buildRestorationRequest(), {
+      // User-selected preview region: crop the source to the focused area
+      // FIRST, then run the pipeline on that crop. runRestoration's own
+      // center-crop becomes a no-op because the focused crop already fits
+      // the preview budget, so preview and final share identical math.
+      const region = upscalePreviewRegion(sourceImageData, {
+        scale: usesUpscale ? scale : 1,
+        previewMaxDimension: 512,
+        previewFocus,
+      });
+      const focusedSource = new ImageData(region.width, region.height);
+      for (let y = 0; y < region.height; y += 1) {
+        for (let x = 0; x < region.width; x += 1) {
+          const from = ((region.y + y) * sourceImageData.width + region.x + x) * 4;
+          const to = (y * region.width + x) * 4;
+          focusedSource.data[to] = sourceImageData.data[from] as number;
+          focusedSource.data[to + 1] = sourceImageData.data[from + 1] as number;
+          focusedSource.data[to + 2] = sourceImageData.data[from + 2] as number;
+          focusedSource.data[to + 3] = sourceImageData.data[from + 3] as number;
+        }
+      }
+      const result = await runRestoration(focusedSource, buildRestorationRequest(), {
         signal: abort.signal,
       });
       const previewImage = result.imageData;
@@ -403,26 +427,12 @@ export function UpscaleDialog({
       ctx.putImageData(previewImage, 0, 0);
       const dataUrl = canvas.toDataURL('image/png');
 
-      // Honest baseline: the same source crop, upscaled with a neutral
+      // Honest baseline: the same focused crop, upscaled with a neutral
       // high-quality CPU filter to the *same* output dimensions as the
       // enhanced preview. Both halves are then shown at the same pixel
       // size, so the slider reveals the method's actual improvement rather
       // than exaggerating via the browser's default interpolation.
-      const region = upscalePreviewRegion(sourceImageData, {
-        scale: usesUpscale ? scale : 1,
-        previewMaxDimension: 512,
-      });
-      const cropped = new ImageData(region.width, region.height);
-      for (let y = 0; y < region.height; y += 1) {
-        for (let x = 0; x < region.width; x += 1) {
-          const from = ((region.y + y) * sourceImageData.width + region.x + x) * 4;
-          const to = (y * region.width + x) * 4;
-          cropped.data[to] = sourceImageData.data[from] as number;
-          cropped.data[to + 1] = sourceImageData.data[from + 1] as number;
-          cropped.data[to + 2] = sourceImageData.data[from + 2] as number;
-          cropped.data[to + 3] = sourceImageData.data[from + 3] as number;
-        }
-      }
+      const cropped = focusedSource;
       // Baseline uses a faithful classical filter at the same scale so
       // dimensions match exactly. Pixel-art uses nearest to preserve hard edges.
       let baselineDataUrl: string | null = null;
@@ -713,7 +723,33 @@ export function UpscaleDialog({
             <div className="upscale-preview">
               <div className="upscale-preview__toolbar">
                 <span className="upscale-preview__toolbar-label">Preview</span>
-                <div className="upscale-preview__zoom-toggle" role="group" aria-label="Preview zoom">
+                <div className="upscale-preview__toolbar-controls">
+                  <div
+                    className="upscale-preview__focus-picker"
+                    role="group"
+                    aria-label="Preview region (pick the area to inspect)"
+                  >
+                    {([0, 0.5, 1] as const).flatMap((fy) =>
+                      ([0, 0.5, 1] as const).map((fx) => {
+                        const active = previewFocus.x === fx && previewFocus.y === fy;
+                        return (
+                          <button
+                            key={`${fx}-${fy}`}
+                            type="button"
+                            className={`upscale-preview__focus-cell ${active ? 'upscale-preview__focus-cell--active' : ''}`}
+                            aria-pressed={active}
+                            aria-label={`Preview ${fy === 0 ? 'top' : fy === 1 ? 'bottom' : 'middle'} ${fx === 0 ? 'left' : fx === 1 ? 'right' : 'center'}`}
+                            onClick={() => setPreviewFocus({ x: fx, y: fy })}
+                          />
+                        );
+                      }),
+                    )}
+                  </div>
+                  <div
+                    className="upscale-preview__zoom-toggle"
+                    role="group"
+                    aria-label="Preview zoom"
+                  >
                   <button
                     type="button"
                     className={`upscale-preview__zoom-btn ${previewZoom === 'fit' ? 'upscale-preview__zoom-btn--active' : ''}`}
@@ -950,8 +986,7 @@ export function UpscaleDialog({
                   {mode && <p className="insp-hint">{mode.description}</p>}
                   {modeId === 'illustration' && (
                     <p className="insp-hint">
-                      No validated anime model is bundled yet — this mode currently uses the general Real-ESRGAN x4.
-                      A dedicated export will replace it when pinned with a verified hash and corpus evidence.
+                      Anime-optimized Real-ESRGAN x4 (6B RRDB blocks) — produces sharper edges and cleaner lines on anime and illustrations than the general model.
                     </p>
                   )}
                   {mode?.isAi && (

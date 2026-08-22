@@ -246,6 +246,26 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     components: [],
   },
   {
+    id: 'upscale-realesrgan-anime',
+    name: 'Real-ESRGAN Anime x4 (6B)',
+    description:
+      'Anime/illustration-optimized Real-ESRGAN with 6 RRDB blocks (lighter than the 23-block general model). Produces sharper edges and cleaner lines on anime, illustrations, and pixel art. 4x fixed scale.',
+    sizeBytes: 17_906_556,
+    remoteUrl:
+      'https://github.com/K-Arthur/varve/releases/download/varve-models-v1/realesrgan-anime-6b.onnx',
+    checksum: '2648cab4c4343541c1aa291c6754e9e8edbe7a813fffc2a677423dd12cb6b7f7',
+    bundled: false,
+    inputSpec: null,
+    quality: 4,
+    precision: 'fp32',
+    category: 'upscaling',
+    peakMemoryBytes: 22_000_000,
+    gpuRecommended: false,
+    source: 'xinntao/Real-ESRGAN (BSD-3-Clause, community ONNX export via deepghs/imgutils-models)',
+    sourceLicense: 'BSD-3-Clause',
+    components: [],
+  },
+  {
     id: 'sam2-hiera-tiny',
     name: 'SAM2 Tiny',
     description:
