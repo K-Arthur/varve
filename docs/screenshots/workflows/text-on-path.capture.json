@@ -2,15 +2,15 @@
   "workflow": "Text on path",
   "slug": "text-on-path",
   "purpose": "Attaching real text to real path geometry and steering it along the curve.",
-  "gitCommit": "2d3a8b9c0213e0448c9d40383b1671a627255060",
-  "capturedAt": "2026-08-22T21:20:53.425Z",
+  "gitCommit": "7c42b7b5f5c7cc42a6297f1e0a39693e24befd25",
+  "capturedAt": "2026-08-22T21:35:24.690Z",
   "viewport": "1440x900",
   "dpr": 1,
   "fixture": null,
   "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
-  "sourceDuration": 41.77,
-  "deliveredDuration": 33.93,
-  "posterAt": 25.45,
+  "sourceDuration": 41.53,
+  "deliveredDuration": 33.73,
+  "posterAt": 25.3,
   "fps": 30,
   "outputs": {
     "webm": "docs/screenshots/workflows/text-on-path.webm",
@@ -40,9 +40,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 1017,
-          "duration": 33.933,
-          "bytes": 1397514
+          "frames": 1012,
+          "duration": 33.733,
+          "bytes": 1339626
         }
       },
       "mp4": {
@@ -53,9 +53,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 1017,
-          "duration": 33.9,
-          "bytes": 1465039
+          "frames": 1012,
+          "duration": 33.733333,
+          "bytes": 1427420
         }
       }
     },
@@ -63,14 +63,14 @@
       {
         "label": "start",
         "at": 0.15,
-        "luma": 234.5,
+        "luma": 234.3,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "q1",
-        "at": 8.48,
+        "at": 8.43,
         "luma": 231.8,
         "black": false,
         "blank": false,
@@ -78,7 +78,7 @@
       },
       {
         "label": "mid",
-        "at": 16.97,
+        "at": 16.87,
         "luma": 231.6,
         "black": false,
         "blank": false,
@@ -86,7 +86,7 @@
       },
       {
         "label": "q3",
-        "at": 25.45,
+        "at": 25.3,
         "luma": 233,
         "black": false,
         "blank": false,
@@ -94,7 +94,7 @@
       },
       {
         "label": "final",
-        "at": 33.68,
+        "at": 33.48,
         "luma": 233.1,
         "black": false,
         "blank": false,
