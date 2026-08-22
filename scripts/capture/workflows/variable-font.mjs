@@ -59,12 +59,18 @@ await capture({
     // A specimen wants display type. The text tool's default size renders a
     // few pixels of "Aa" in a large empty box, which is not what this clip is
     // for. Set it through the inspector's own Size field.
-    const sizeField = page.getByRole('spinbutton', { name: /^Size$/ }).first();
-    if (await sizeField.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await sizeField.fill('180');
-      await sizeField.press('Enter');
-      await page.waitForTimeout(600);
-    }
+    const sizeField = page
+      .getByRole('spinbutton', { name: /^Size$/ })
+      .or(page.getByRole('textbox', { name: /^Size$/ }))
+      .first();
+    await sizeField.waitFor({ state: 'visible', timeout: 8000 });
+    await sizeField.fill('180');
+    await sizeField.press('Enter');
+    await page.waitForTimeout(700);
+    // No silent skip: a specimen at the tool's default size is a few pixels
+    // of "Aa" in a large empty box, and the clip is worthless without this.
+    const sized = await sizeField.inputValue();
+    assert.equal(sized, '180', `specimen size did not take (reads ${sized})`);
     await fitContent(page);
     await parkPointer(page);
     await settle(page);
@@ -97,6 +103,10 @@ await capture({
     // The panel must list exactly what this font declares.
     const weight = axis(page, /Weight \(wght\)/);
     await weight.waitFor({ state: 'visible', timeout: 8000 });
+    // Bring the axis control on camera. It sits far down a scrolling panel,
+    // and a clip about moving an axis has to show the axis being moved.
+    await weight.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(400);
 
     // Only what this font declares. The loaded IBM Plex Sans build varies
     // weight and nothing else; before this branch the panel fell back to the
