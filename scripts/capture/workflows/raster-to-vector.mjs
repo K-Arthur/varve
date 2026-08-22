@@ -205,6 +205,13 @@ await capture({
         await page.waitForTimeout(500);
         if (await editNodes.isVisible({ timeout: 1500 }).catch(() => false)) break;
       }
+      // Selecting reveals and zooms to the path, and the tracer's smaller
+      // shapes are only tens of pixels across — one of them filled the screen
+      // at 2475%, which is both an unusable frame and a drag that moves the
+      // anchor about a pixel in document space. Re-frame the whole artwork.
+      await fitContent(page);
+      await parkPointer(page);
+      await settle(page);
     }
     if (!(await editNodes.isVisible({ timeout: 6000 }).catch(() => false))) {
       throw new Error('traced output exposes no node editing — it is not editable geometry');
@@ -227,9 +234,16 @@ await capture({
     );
     assertions.push(`the traced path exposes ${points.anchors.length} editable anchors`);
 
-    const anchor = points.anchors[Math.floor(points.anchors.length / 2)];
+    // Pick the anchor furthest from the path's centre: on a traced outline the
+    // interior anchors barely move the silhouette, and a change nobody can see
+    // is not worth asserting on.
+    const cx = points.anchors.reduce((a, p) => a + p.x, 0) / points.anchors.length;
+    const cy = points.anchors.reduce((a, p) => a + p.y, 0) / points.anchors.length;
+    const anchor = points.anchors.reduce((best, p) =>
+      Math.hypot(p.x - cx, p.y - cy) > Math.hypot(best.x - cx, best.y - cy) ? p : best,
+    );
     const beforeEdit = await canvasPixels(page);
-    await dragPage(page, anchor, { x: anchor.x + 26, y: anchor.y - 34 }, { steps: 18 });
+    await dragPage(page, anchor, { x: anchor.x + 70, y: anchor.y - 60 }, { steps: 18 });
     await parkPointer(page);
     await settle(page);
     assert.notEqual(
