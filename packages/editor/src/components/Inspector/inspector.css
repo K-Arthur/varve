@@ -1691,6 +1691,10 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  /* A flex item's default min-width is its content, so a row holding a
+     range input, a value and a reset button pushes past the panel and
+     scrolls it sideways — which clips the labels of every other row. */
+  min-width: 0;
 }
 .insp-slider__track {
   position: relative;
@@ -1839,6 +1843,9 @@
 /* ---------- Variable font axis slider ---------- */
 .insp-slider__input {
   flex: 1;
+  /* Without this the input refuses to shrink below its intrinsic width and
+     the row overflows the panel instead. */
+  min-width: 0;
   accent-color: var(--color-interactive-default);
   cursor: pointer;
 }
@@ -1856,7 +1863,7 @@
    offering to change it. */
 .insp-slider__reset {
   flex: none;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-1);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   background: transparent;
