@@ -17,6 +17,7 @@ import {
   beat,
   canvasPixels,
   dragAt,
+  fitContent,
   layerNames,
   openCleanEditor,
   openSection,
@@ -52,6 +53,9 @@ await capture({
     await useTool(page, 'v');
     await page.getByRole('treeitem').first().click();
     await page.waitForTimeout(400);
+    // Selecting reveals and zooms to the layer; fit so the specimen is framed
+    // the same way on every run and the comparisons look at the glyphs.
+    await fitContent(page);
     await parkPointer(page);
     await settle(page);
 
