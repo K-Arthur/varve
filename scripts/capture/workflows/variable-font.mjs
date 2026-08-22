@@ -59,10 +59,9 @@ await capture({
     // A specimen wants display type. The text tool's default size renders a
     // few pixels of "Aa" in a large empty box, which is not what this clip is
     // for. Set it through the inspector's own Size field.
-    const sizeField = page
-      .getByRole('spinbutton', { name: /^Size$/ })
-      .or(page.getByRole('textbox', { name: /^Size$/ }))
-      .first();
+    // NumberField's accessible name is `${label} (${unit})`, so the field is
+    // "Size (px)" rather than "Size".
+    const sizeField = page.getByRole('spinbutton', { name: /^Size(\s*\(|$)/ }).first();
     await sizeField.waitFor({ state: 'visible', timeout: 8000 });
     await sizeField.fill('180');
     await sizeField.press('Enter');
