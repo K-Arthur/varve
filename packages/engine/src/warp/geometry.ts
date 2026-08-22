@@ -549,16 +549,11 @@ export function shapeToPathPoints(shape: Shape): PathConversion {
       const kx = rx * KAPPA;
       const ky = ry * KAPPA;
       const pts = [
-        point(cx + rx, cy, null, [0, ky]),
-        point(cx, cy + ry, [kx, 0], null),
-        point(cx - rx, cy, null, [0, -ky]),
-        point(cx, cy - ry, [-kx, 0], null),
+        point(cx + rx, cy, [0, -ky], [0, ky]),
+        point(cx, cy + ry, [kx, 0], [-kx, 0]),
+        point(cx - rx, cy, [0, ky], [0, -ky]),
+        point(cx, cy - ry, [-kx, 0], [kx, 0]),
       ];
-      // wire handleIn/handleOut for full cubic continuity
-      pts[0]!.handleOut = [0, ky];
-      pts[1]!.handleIn = [kx, 0];
-      pts[2]!.handleOut = [0, -ky];
-      pts[3]!.handleIn = [-kx, 0];
       return { points: pts, closed: true };
     }
     case 'circle': {

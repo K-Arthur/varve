@@ -4,7 +4,12 @@
  * TDD: tests written as failing assertions before implementation.
  */
 import { describe, expect, it } from 'vitest';
-import { pathLength, placeGlyphsOnPath, samplePathAtLength } from './pathText';
+import {
+  pathLength,
+  placeGlyphsOnPath,
+  samplePathAtLength,
+  transformPathShape,
+} from './pathText';
 import type { Shape } from './types';
 
 function approx(a: number, b: number, tol = 0.05): void {
@@ -91,6 +96,21 @@ describe('placeGlyphsOnPath — circle fast path', () => {
   it('returns [] for zero-radius circle', () => {
     const shape: Shape = { kind: 'circle', cx: 0, cy: 0, r: 0 };
     expect(placeGlyphsOnPath('Hi', shape, { fontSize: 16 })).toEqual([]);
+  });
+
+  it('keeps every quadrant on the circle after affine path conversion', () => {
+    const converted = transformPathShape(
+      { kind: 'circle', cx: 100, cy: 100, r: 50 },
+      [1, 0, 0, 1, 0, 0],
+    );
+    expect(converted.kind).toBe('path');
+    if (converted.kind !== 'path') return;
+
+    const length = pathLength(converted);
+    for (const fraction of [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875]) {
+      const point = samplePathAtLength(converted, length * fraction);
+      expect(Math.hypot(point.x - 100, point.y - 100)).toBeCloseTo(50, 0);
+    }
   });
 });
 
