@@ -124,7 +124,21 @@ await capture({
     // moved, saying so beats reporting that the glyphs did not change — they
     // would not have, and the message would point at the renderer.
     const landed = await weight.inputValue();
-    assert.equal(landed, '700', `the weight control did not move (reads ${landed})`);
+    if (landed !== '700') {
+      // Dump enough to tell apart: wrong element matched, a range the value
+      // is being clamped into, or a write that never reached the node.
+      const all = await page.getByRole('slider').all();
+      const dump = [];
+      for (const sl of all) {
+        dump.push(
+          `${await sl.getAttribute('aria-label')}[min=${await sl.getAttribute('min')} ` +
+            `max=${await sl.getAttribute('max')} value=${await sl.inputValue()}]`,
+        );
+      }
+      throw new Error(
+        `the weight control did not move (reads ${landed}). Sliders present: ${dump.join(', ')}`,
+      );
+    }
     assert.notEqual(
       Buffer.compare(beforeWeight, await canvasPixels(page)),
       0,
