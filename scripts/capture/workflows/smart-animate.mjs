@@ -37,6 +37,10 @@ await capture({
     await useTool(page, 'r');
     await dragAt(page, [0.17, 0.34], [0.36, 0.47], { steps: 12, settleMs: 220 });
     await useTool(page, 'v');
+    // Remember what the card is called before duplication renames the copy.
+    const collapsedCardName = (
+      await page.getByRole('treeitem').filter({ hasText: /rect/i }).first().innerText()
+    ).trim();
     const firstFrame = page.getByRole('treeitem').filter({ hasText: /frame/i }).first();
     await firstFrame.click();
     await page.keyboard.press('Control+d');
@@ -70,6 +74,25 @@ await capture({
     );
     assertions.push(
       `expanded state's card is a genuinely different size (${Math.round(collapsedWidth)}px → 210px wide)`,
+    );
+
+    // Smart Animate matches corresponding layers *by name*
+    // (matchLayersByName), but duplicating a frame renames every descendant,
+    // so the card is "Rectangle 1" in one state and "Rectangle 1 copy" in the
+    // other. With no match, computeSmartAnimateTransition returns null and the
+    // card snaps between states instead of interpolating. Rename the copy's
+    // card back through the real F2 rename so the two states correspond.
+    await expandedCard.click();
+    await page.waitForTimeout(250);
+    await page.keyboard.press('F2');
+    const renameInput = page.locator('.layers-row__name-input');
+    await renameInput.waitFor({ state: 'visible', timeout: 5000 });
+    const duplicatedName = await renameInput.inputValue();
+    await renameInput.fill(collapsedCardName);
+    await renameInput.press('Enter');
+    await page.waitForTimeout(400);
+    assertions.push(
+      `renamed the duplicate's card ${JSON.stringify(duplicatedName)} back to ${JSON.stringify(collapsedCardName)} so Smart Animate can correspond the layers`,
     );
     await useTool(page, 'v');
 
@@ -181,8 +204,10 @@ await capture({
   },
   metadata: {
     productTruth:
-      'Smart Animate uses matched duplicated child layers and the real prototype transition engine',
+      'Smart Animate uses matched child layers and the real prototype transition engine',
     correspondence:
-      'duplicated child layer identity is preserved; missing layers are not crossfaded',
+      'matchLayersByName pairs layers by name; the clip renames the duplicate\'s card so the two states correspond',
+    limitation:
+      'Duplicating a frame suffixes every descendant with " copy" (context.tsx cloneNodeDeep, asserted in editor.test.tsx), so a frame and its duplicate share no layer names and Smart Animate snaps between them until a layer is renamed.',
   },
 });
