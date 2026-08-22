@@ -45,13 +45,13 @@ await capture({
     assertions.push('canvas starts empty — every anchor is drawn on camera');
 
     begin();
-    await beat(page, 900);
+    await beat(page, 540);
 
     // ── Draw the ribbon ────────────────────────────────────────────
     // Pen tool. Two clicks inside 300ms mean "finish", so anchors are
     // spaced above that; clickCanvas already holds for 350ms.
     await useTool(page, 'p');
-    await beat(page, 500);
+    await beat(page, 400);
 
     // Click-drag pulls a tangent out of the anchor as it is placed — this is
     // the gesture that makes the segment a curve rather than a straight run.
@@ -62,7 +62,7 @@ await capture({
     await dragAt(page, [0.56, 0.55], [0.66, 0.66]);
     await dragAt(page, [0.78, 0.33], [0.87, 0.24]);
     await clickAt(page, 0.92, 0.58);
-    await beat(page, 500);
+    await beat(page, 400);
 
     await page.keyboard.press('Enter');
     await page.waitForTimeout(700);
@@ -77,7 +77,7 @@ await capture({
     assert.equal(names.length, 1, `expected one new layer, got ${names.length}`);
     assert.match(names[0], /path|vector/i, `expected a path layer, got "${names[0]}"`);
     assertions.push(`pen tool produced a path layer ("${names[0].trim()}"), not a rect or freehand`);
-    await beat(page, 900);
+    await beat(page, 540);
 
     // ── Node editing ───────────────────────────────────────────────
     await selectLayer(page, /vector|path/i);
@@ -93,7 +93,7 @@ await capture({
     await parkPointer(page);
     await settle(page);
     assertions.push('node edit mode opened on the drawn path from the selection quick bar');
-    await beat(page, 1400);
+    await beat(page, 840);
 
     // Grab an anchor the overlay is actually drawing. Selecting the layer
     // reveals and zooms to it, so the coordinates the path was drawn at are
@@ -107,7 +107,7 @@ await capture({
 
     const target = points.anchors[Math.floor(points.anchors.length / 2)];
     const beforeMove = await canvasPixels(page);
-    await dragPage(page, target, { x: target.x + 10, y: target.y - 150 }, { steps: 26 });
+    await dragPage(page, target, { x: target.x + 10, y: target.y - 150 }, { steps: 14 });
     await parkPointer(page);
     await settle(page);
     const afterMove = await canvasPixels(page);
@@ -117,7 +117,7 @@ await capture({
       'moving an anchor did not change the rendered canvas',
     );
     assertions.push('dragging an anchor changed the rendered geometry');
-    await beat(page, 1200);
+    await beat(page, 720);
 
     // Then a tangent handle, read from the overlay the same way. Handles are
     // drawn at a smaller radius than anchors, which is how they are told
@@ -125,7 +125,7 @@ await capture({
     const moved = await nodeEditPoints(page);
     const handle = moved.handles[Math.floor(moved.handles.length / 2)] ?? moved.anchors[0];
     const beforeHandle = await canvasPixels(page);
-    await dragPage(page, handle, { x: handle.x + 90, y: handle.y - 110 }, { steps: 26 });
+    await dragPage(page, handle, { x: handle.x + 90, y: handle.y - 110 }, { steps: 14 });
     await parkPointer(page);
     await settle(page);
     assert.notEqual(
@@ -134,20 +134,19 @@ await capture({
       'dragging a tangent handle did not change the rendered curve',
     );
     assertions.push('dragging its control handle re-curved the adjoining segments');
-    await beat(page, 1400);
+    await beat(page, 840);
 
     // Undo has to reach the node edit, not just the path creation.
     const beforeUndo = await canvasPixels(page);
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(700);
-    await settle(page);
+    await page.waitForTimeout(600);
     assert.notEqual(
       Buffer.compare(beforeUndo, await canvasPixels(page)),
       0,
       'undo did not revert the node edit',
     );
     assertions.push('undo reverted the node edit');
-    await beat(page, 700);
+    await beat(page, 420);
 
     await page.keyboard.press('Control+Shift+z');
     await page.waitForTimeout(700);
@@ -156,7 +155,7 @@ await capture({
     await useTool(page, 'v');
     await parkPointer(page);
     await settle(page);
-    await beat(page, 1300);
+    await beat(page, 780);
 
     return assertions;
   },

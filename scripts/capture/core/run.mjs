@@ -6,7 +6,15 @@
  * verification, manifest — so a workflow file contains only the actions it
  * demonstrates and the assertions that prove they were real.
  */
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
@@ -36,6 +44,12 @@ function scratchDir() {
   return dir;
 }
 
+function stagingDir() {
+  const dir = join(ROOT, '.capture-tmp', `publish-${process.pid}-${Date.now()}`);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 /**
  * @param {object} spec
  * @param {string} spec.slug            file stem for every artefact
@@ -43,6 +57,7 @@ function scratchDir() {
  * @param {string} spec.purpose         one line: what this clip is for
  * @param {string} [spec.fixture]       fixture identifier recorded in the manifest
  * @param {[number, number]} spec.duration  [min, max] delivered seconds
+ * @param {boolean} [spec.authoredMotion]  allow authored prototype/timeline motion
  * @param {(ctx) => Promise<string[]>} spec.sequence
  *        Drives the editor. Calls `ctx.begin()` once setup is done — the cut
  *        starts there. Returns the product assertions it verified.
@@ -57,6 +72,7 @@ export async function capture(spec) {
 
   const port = capturePort();
   const tmp = scratchDir();
+  const stage = stagingDir();
   const browser = await chromium.launch();
   let server;
   let exitCode = 0;
@@ -83,7 +99,11 @@ export async function capture(spec) {
     });
     await context.addInitScript(SEED_FIRST_RUN_STATE);
     const page = await context.newPage();
-    await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce', forcedColors: 'none' });
+    await page.emulateMedia({
+      colorScheme: 'light',
+      reducedMotion: spec.authoredMotion ? 'no-preference' : 'reduce',
+      forcedColors: 'none',
+    });
 
     // A capture must never ship a frame containing a page error.
     const pageErrors = [];
@@ -120,9 +140,12 @@ export async function capture(spec) {
       throw new Error('ffmpeg/ffprobe are required to deliver a normalised cut');
     }
 
-    const webm = join(OUT_DIR, `${spec.slug}.webm`);
-    const mp4 = join(OUT_DIR, `${spec.slug}.mp4`);
-    const poster = join(OUT_DIR, `${spec.slug}-poster.png`);
+    // Encode into a per-run staging directory. Canonical files are touched
+    // only after every codec/frame assertion passes, so a failed concurrent
+    // run can never replace a previously delivered clip.
+    const webm = join(stage, `${spec.slug}.webm`);
+    const mp4 = join(stage, `${spec.slug}.mp4`);
+    const poster = join(stage, `${spec.slug}-poster.png`);
     for (const f of [webm, mp4, poster]) rmSync(f, { force: true });
 
     console.log(`[${spec.slug}] trimming ${trimStart.toFixed(1)}s of setup`);
@@ -160,15 +183,8 @@ export async function capture(spec) {
     }
     verification.pass = verification.findings.length === 0;
 
-    // Website copies live in their own subdirectory: the screenshot validator
-    // treats a loose PNG in public/screenshots as an orphan.
-    for (const src of [webm, ...(skipMp4 ? [] : [mp4]), poster]) {
-      writeFileSync(join(PUBLIC_DIR, src.split('/').pop()), readFileSync(src));
-    }
-
-    const manifest = writeManifest(
-      join(OUT_DIR, `${spec.slug}.capture.json`),
-      {
+    const manifestPath = join(stage, `${spec.slug}.capture.json`);
+    const manifest = writeManifest(manifestPath, {
         workflow: spec.workflow,
         slug: spec.slug,
         purpose: spec.purpose,
@@ -188,7 +204,24 @@ export async function capture(spec) {
         verification,
       },
       ROOT,
-    );
+    });
+
+    if (verification.pass) {
+      const canonical = [
+        [webm, join(OUT_DIR, `${spec.slug}.webm`)],
+        ...(!skipMp4 ? [[mp4, join(OUT_DIR, `${spec.slug}.mp4`)]] : []),
+        [poster, join(OUT_DIR, `${spec.slug}-poster.png`)],
+        [manifestPath, join(OUT_DIR, `${spec.slug}.capture.json`)],
+      ];
+      for (const [src, dest] of canonical) copyFileSync(src, dest);
+      // Website copies live in their own subdirectory: the screenshot
+      // validator treats a loose PNG in public/screenshots as an orphan.
+      for (const src of [webm, ...(skipMp4 ? [] : [mp4]), poster]) {
+        copyFileSync(src, join(PUBLIC_DIR, src.split('/').pop()));
+      }
+    } else {
+      console.error(`[${spec.slug}] canonical outputs were left untouched`);
+    }
 
     console.log(
       `[${spec.slug}] ${delivered.duration.toFixed(1)}s  ` +
@@ -201,6 +234,7 @@ export async function capture(spec) {
 
     if (keepSource) console.log(`[${spec.slug}] source kept at ${sourcePath}`);
     else rmSync(tmp, { recursive: true, force: true });
+    if (verification.pass) rmSync(stage, { recursive: true, force: true });
 
 
     return manifest;

@@ -245,9 +245,21 @@ export async function dragCanvas(page, from, to, { steps = 22, settleMs = 350 } 
   if (settleMs > 0) await page.waitForTimeout(settleMs);
 }
 
-/** Pixels of the content canvas, for before/after comparison of a real edit. */
+/**
+ * A cheap fingerprint of the rendered canvas, for before/after comparison.
+ *
+ * Screenshotting the whole 832x778 canvas six times in a sequence added tens
+ * of seconds to the recording on a loaded machine — and those seconds are in
+ * the delivered clip as dead air, not just in the run. Downscaling to a small
+ * region through the compositor keeps the comparison meaningful (any geometry
+ * change moves pixels here) at a fraction of the cost.
+ */
 export async function canvasPixels(page) {
-  return page.locator('canvas.editor-canvas__content-layer').screenshot();
+  const box = await canvasBox(page);
+  return page.screenshot({
+    clip: { x: box.x, y: box.y, width: Math.min(box.width, 640), height: Math.min(box.height, 480) },
+    scale: 'css',
+  });
 }
 
 /** Names of every layer currently in the tree. */
