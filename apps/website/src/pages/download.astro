@@ -1220,20 +1220,116 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     color: var(--text-primary);
   }
 
-  .format-tradeoffs ul {
-    list-style: none;
-    display: grid;
-    gap: 0.5rem;
-  }
-
-  .format-tradeoffs li {
+  .format-tradeoffs-intro {
     color: var(--text-secondary);
     font-size: 0.9375rem;
+    margin-bottom: 1rem;
     line-height: 1.5;
   }
 
-  .format-tradeoffs strong {
+  .distro-picker {
+    overflow-x: auto;
+    margin-bottom: 1.25rem;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.5rem;
+  }
+
+  .distro-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .distro-table th {
+    text-align: left;
+    font-weight: 600;
     color: var(--text-primary);
+    padding: 0.6rem 0.875rem;
+    border-bottom: 2px solid var(--border-default);
+    background: var(--surface-card);
+    white-space: nowrap;
+    font-size: 0.8125rem;
+    letter-spacing: 0.02em;
+  }
+
+  .distro-table td {
+    padding: 0.6rem 0.875rem;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    vertical-align: middle;
+  }
+
+  .distro-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .distro-table tbody tr:hover {
+    background: color-mix(in oklab, var(--surface-card) 50%, transparent);
+  }
+
+  .distro-table td:first-child {
+    white-space: nowrap;
+  }
+
+  .distro-table td strong {
+    color: var(--text-primary);
+  }
+
+  .distro-table td code {
+    font-size: 0.8125em;
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.25rem;
+    padding: 0.1em 0.35em;
+    white-space: nowrap;
+  }
+
+  .format-badge {
+    display: inline-block;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.15em 0.4em;
+    border-radius: 999px;
+    background: var(--surface-accent-soft);
+    color: var(--accent-primary);
+    border: 1px solid var(--border-accent);
+    vertical-align: middle;
+    margin-left: 0.35rem;
+    line-height: 1.4;
+  }
+
+  .format-notes {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .format-notes p {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  .format-notes strong {
+    color: var(--text-primary);
+  }
+
+  .format-notes code {
+    font-size: 0.875em;
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.25rem;
+    padding: 0.1em 0.35em;
+  }
+
+  .format-notes a {
+    color: var(--text-link);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .format-tradeoffs code,
