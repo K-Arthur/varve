@@ -113,13 +113,19 @@ await capture({
     );
     await beat(page, 800);
 
-    // Select the actual text node and replace it with a much longer title.
+    // Select the actual song-title node and replace it with a much longer title.
+    // The layer tree lists newest-first, so the first text item is the last
+    // cell drawn — row three's duration, not a title. Each row was drawn as
+    // rectangle, then title, then duration, so the *last* text item in the
+    // tree is the first title drawn: "Night Drive" in row one. The content is
+    // asserted below before the edit, so picking the wrong node fails the run
+    // rather than quietly recording an edit to the wrong cell.
     const textLayers = page.getByRole('treeitem').filter({ hasText: /text/i });
     assert.ok(
-      (await textLayers.count()) >= 3,
-      'expected playlist text layers in the real layer tree',
+      (await textLayers.count()) >= 6,
+      'expected a title and a duration text layer per playlist row',
     );
-    await textLayers.first().click();
+    await textLayers.last().click();
     await page.waitForTimeout(350);
     const beforeLongTitle = await canvasPixels(page);
     const editText = page
@@ -129,6 +135,14 @@ await capture({
     await editText.click();
     const textEditor = page.getByRole('textbox', { name: /editing text/i });
     if (await textEditor.isVisible({ timeout: 2000 }).catch(() => false)) {
+      // Confirm this really is row one's song title before lengthening it.
+      // Layer names carry no content, so the editor's own value is the only
+      // honest check that the intended node is the one being edited.
+      assert.equal(
+        (await textEditor.inputValue()).trim(),
+        'Night Drive',
+        'selected node is not the row-one song title',
+      );
       await textEditor.fill('Night Drive — Extended Midnight Session');
       await textEditor.press('Escape');
     } else {
