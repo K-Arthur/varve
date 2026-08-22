@@ -375,15 +375,13 @@ export function UpscaleDialog({
     processing,
   ]);
 
-  // Clear preview only when the operation becomes unavailable — NOT when
-  // upscale is not part of the operation, since denoise/deblur-only
-  // previews are valid and should persist.
+  // Clear preview when the operation changes or becomes unavailable.
+  // Stale preview data from a previous operation must not persist while
+  // the new preview is generating (250ms debounce + processing).
   useEffect(() => {
-    if (!operationAvailable) {
-      setPreviewDataUrl(null);
-      setPreviewBaselineUrl(null);
-    }
-  }, [operationAvailable]);
+    setPreviewDataUrl(null);
+    setPreviewBaselineUrl(null);
+  }, [operation, operationAvailable]);
 
   async function generatePreview() {
     // Never contend with a running upscale for the native backend's single job
