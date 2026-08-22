@@ -108,8 +108,10 @@ export async function runTiledRestoration(
       extracted.tensor,
       extracted.alignedWidth,
       extracted.alignedHeight,
-      extracted.alignedWidth,
-      extracted.alignedHeight,
+      // Keep padded tensor dimensions separate from the actual output tile.
+      // Edge tiles are smaller than their graph-safe padded tensor.
+      tile.width,
+      tile.height,
       extracted.alphaData,
       tileOriginalData,
       strength,

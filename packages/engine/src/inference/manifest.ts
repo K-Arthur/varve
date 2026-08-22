@@ -69,6 +69,7 @@ const KNOWN_SIZES: Record<string, number> = {
   'birefnet-general': 972_666_916,
   'upscale-realesr-general': 4_866_438,
   'upscale-realesr-general-int8': 1_300_000,
+  'upscale-realesrgan-anime': 17_906_556,
   scunet: 18_000_000,
   'sam2-hiera-tiny': 154902133_902_201,
   'sam2-hiera-small': 183344311_344_379,
@@ -103,8 +104,10 @@ function entryDescription(id: string, notes?: string): string {
     return 'Best quality, handles hair, fur, transparency, and fine detail.';
   if (id === 'upscale-realesr-general' || id === 'upscale-realesr-general-int8')
     return 'Real-ESRGAN x4 general-purpose upscaling for photos and illustrations. Bundled with the app.';
+  if (id === 'upscale-realesrgan-anime')
+    return 'Validated Real-ESRGAN anime x4 upscaling for line art, illustrations, and cel shading. Optional download.';
   if (id === 'scunet')
-    return 'SCUNet — removes noise, JPEG artifacts, and grain from photos while preserving detail.';
+    return 'SCUNet — conservative blind denoising for sensor noise and grain in photos. It is not a dedicated JPEG-artifact remover.';
   if (id === 'sam2-hiera-tiny' || id === 'sam2-hiera-small')
     return 'SAM2 — interactive object segmentation via point, box, or mask prompts. Click foreground/background, drag box, iteratively refine.';
   if (id === 'tr-ocr-base-printed')

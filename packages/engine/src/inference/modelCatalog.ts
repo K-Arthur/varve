@@ -249,7 +249,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'upscale-realesrgan-anime',
     name: 'Real-ESRGAN Anime x4 (6B)',
     description:
-      'Anime/illustration-optimized Real-ESRGAN with 6 RRDB blocks (lighter than the 23-block general model). Produces sharper edges and cleaner lines on anime, illustrations, and pixel art. 4x fixed scale.',
+      'Validated anime/illustration-optimized Real-ESRGAN with 6 RRDB blocks (lighter than the 23-block general model). Produces sharper edges and cleaner lines on anime and illustrations. 4x fixed scale; optional download.',
     sizeBytes: 17_906_556,
     remoteUrl:
       'https://github.com/K-Arthur/varve/releases/download/varve-models-v1/realesrgan-anime-6b.onnx',

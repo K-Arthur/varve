@@ -101,7 +101,7 @@ export async function runRestoration(
         const effectiveStrength =
           request.qualityPolicy === 'faithful' && !request.denoise?.strength
             ? 'light'
-            : request.denoise?.strength ?? 'medium';
+            : (request.denoise?.strength ?? 'medium');
         const strengthValue = { light: 0.3, medium: 0.5, strong: 0.8 }[effectiveStrength];
         const result = await dispatchDenoise(currentImage, {
           strength: strengthValue,
