@@ -61,15 +61,15 @@ await capture({
     const collapsedWidth = Number(
       await page.getByRole('spinbutton', { name: 'W' }).first().inputValue(),
     );
-    await setNumberField(page, 'W', 300);
-    await setNumberField(page, 'H', 240);
+    await setNumberField(page, 'W', 210);
+    await setNumberField(page, 'H', 210);
     await page.waitForTimeout(600);
     assert.ok(
-      collapsedWidth > 0 && Math.abs(300 - collapsedWidth) > 40,
-      `expanded card (300) is not meaningfully wider than collapsed (${collapsedWidth})`,
+      collapsedWidth > 0 && Math.abs(210 - collapsedWidth) > 40,
+      `expanded card (210) is not meaningfully wider than collapsed (${collapsedWidth})`,
     );
     assertions.push(
-      `expanded state's card is a genuinely different size (${Math.round(collapsedWidth)}px → 300px wide)`,
+      `expanded state's card is a genuinely different size (${Math.round(collapsedWidth)}px → 210px wide)`,
     );
     await useTool(page, 'v');
 
@@ -103,7 +103,16 @@ await capture({
     await page.getByRole('button', { name: 'Add Interaction' }).click();
     await selectComboboxOption(page, 'Target screen', expandedState);
     await selectComboboxOption(page, 'Transition', 'Smart Animate');
-    assertions.push('source and target states use a real Smart Animate transition setting');
+    // The interaction ships at 300ms, which is under this harness's sampling
+    // latency and too quick to read on camera. Stretch it through the real
+    // Duration control rather than slowing the engine for the capture.
+    const durationField = page.getByLabel('Duration (ms)').first();
+    await durationField.fill('1400');
+    await durationField.press('Enter');
+    await page.waitForTimeout(300);
+    assertions.push(
+      'source and target states use a real Smart Animate transition set to 1400ms',
+    );
     await beat(page, 900);
 
     await page.keyboard.press('Control+Shift+p');
@@ -113,43 +122,51 @@ await capture({
     // the end: an unanchored /Frame 1/ also matches "Frame 1 copy".
     const screenLabel = (name) => new RegExp(`${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
     const source = preview.getByRole('application', { name: screenLabel(collapsedState) });
-    await source.click({ position: { x: 100, y: 220 } });
-    await page.waitForTimeout(260);
-    assert.ok(
-      (await preview.getByRole('application').count()) >= 2,
-      'no two-state transition stack rendered',
+
+    // Record the card across the whole transition rather than peeking once.
+    // A single delayed sample raced the 300ms default and read only the
+    // settled state, so the clip could show no interpolation and still pass.
+    // The sampler runs in the page on requestAnimationFrame, so it observes
+    // the same frames the engine paints.
+    const samples = page.evaluate(
+      (ms) =>
+        new Promise((resolve) => {
+          const widths = [];
+          const started = performance.now();
+          const tick = () => {
+            let widest = 0;
+            for (const el of document.querySelectorAll('.prototype-screen-view__hotspot')) {
+              widest = Math.max(widest, el.getBoundingClientRect().width);
+            }
+            widths.push(Math.round(widest));
+            if (performance.now() - started < ms) requestAnimationFrame(tick);
+            else resolve(widths);
+          };
+          requestAnimationFrame(tick);
+        }),
+      2200,
     );
-    // Sample the moving card mid-transition. A screenshot's byte length says
-    // nothing — a blank PNG clears any size threshold — so read the card's
-    // real geometry while it is between states. PrototypeScreenView paints
-    // each node as a positioned hotspot button fed by `hotspotOverrides`,
-    // which is exactly where computeSmartAnimateHotspotOverrides writes the
-    // interpolated geometry for the current transitionProgress; the screens
-    // themselves are an <img>, so there is no canvas or svg to measure. The
-    // widest hotspot is the weather card.
-    const cardWidth = async () => {
-      const hotspots = await preview.locator('.prototype-screen-view__hotspot').all();
-      let widest = 0;
-      for (const hotspot of hotspots) {
-        const box = await hotspot.boundingBox();
-        if (box) widest = Math.max(widest, box.width);
-      }
-      return widest;
-    };
-    const midWidth = await cardWidth();
-    await page.waitForTimeout(700);
+    await source.click({ position: { x: 60, y: 300 } });
+    const widths = await samples;
+
+    const seen = [...new Set(widths.filter((w) => w > 0))].sort((a, b) => a - b);
+    assert.ok(seen.length > 0, 'Smart Animate card had no rendered geometry at any frame');
+    const smallest = seen[0];
+    const largest = seen[seen.length - 1];
+    const between = seen.filter((w) => w > smallest + 2 && w < largest - 2);
+    assert.ok(
+      largest - smallest > 30,
+      `card never changed size during the transition (widths seen: ${seen.join(', ')})`,
+    );
+    assert.ok(
+      between.length >= 3,
+      `card jumped between states instead of interpolating (widths seen: ${seen.join(', ')})`,
+    );
     assert.ok(
       await preview.getByRole('application', { name: screenLabel(expandedState) }).isVisible(),
     );
-    const endWidth = await cardWidth();
-    assert.ok(midWidth > 0 && endWidth > 0, 'Smart Animate card had no rendered geometry');
-    assert.notEqual(
-      Math.round(midWidth),
-      Math.round(endWidth),
-      `card width never interpolated: ${midWidth} at mid-transition equals ${endWidth} at rest`,
-    );
     assertions.push(
-      `Smart Animate interpolated the card width mid-transition (${Math.round(midWidth)}px → ${Math.round(endWidth)}px)`,
+      `Smart Animate interpolated the card through ${between.length} intermediate widths (${smallest}px → ${largest}px)`,
     );
     await beat(page, 900);
     await page.keyboard.press('Escape');
