@@ -13,8 +13,7 @@ export type UpscaleStageChangeFn = (
   stages: import('./restoration').RestorationStageState[],
 ) => void;
 
-export type { RestorationOperation } from './restoration';
-export type { RestorationStageState } from './restoration';
+export type { RestorationOperation, RestorationStageState } from './restoration';
 
 export type DenoiseStrength = 'none' | 'light' | 'medium' | 'strong';
 
