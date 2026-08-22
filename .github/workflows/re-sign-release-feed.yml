@@ -40,6 +40,7 @@ jobs:
 
       - name: Re-sign artifacts and regenerate feed
         env:
+          GH_TOKEN: ${{ github.token }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: node scripts/release/re-sign-release-feed.mjs --tag ${{ inputs.tag }}
 
