@@ -75,7 +75,7 @@ await capture({
     assertions.push(`specimen is set in ${family.trim()}, a font the application bundles`);
 
     begin();
-    await beat(page, 1100);
+    await beat(page, 1650);
 
     // ── Open the axis controls ─────────────────────────────────────
     if (!(await openSection(page, /variable font axes/i))) {
@@ -83,7 +83,7 @@ await capture({
     }
     await parkPointer(page);
     assertions.push('the inspector offers a Variable Font Axes section for a bundled family');
-    await beat(page, 1000);
+    await beat(page, 1500);
 
     // The panel must list exactly what this font declares.
     const weight = axis(page, /Weight \(wght\)/);
@@ -107,7 +107,7 @@ await capture({
       'wght max is not the font’s — the generic table would say 1000',
     );
     assertions.push('wght spans 100-700, read from the fvar table; the generic table says 1-1000');
-    await beat(page, 1200);
+    await beat(page, 1800);
 
     // ── Move the first axis ────────────────────────────────────────
     // Defaults to 400, so the sweep runs to the ends of the range rather than
@@ -119,7 +119,7 @@ await capture({
     // same in the pixel comparison below.
     for (const v of ['250', '400', '550', '700']) {
       await setRange(weight, v);
-      await page.waitForTimeout(260);
+      await page.waitForTimeout(460);
     }
     await parkPointer(page);
     await settle(page);
@@ -149,7 +149,7 @@ await capture({
       `the control moved to ${landed} but the rendered glyphs did not change`,
     );
     assertions.push('moving wght changed the rendered glyph outlines');
-    await beat(page, 1200);
+    await beat(page, 1800);
 
     // ── Values survive a deselect/reselect round trip ──────────────
     await page.keyboard.press('Escape');
@@ -160,7 +160,7 @@ await capture({
     const persisted = await axis(page, /Weight \(wght\)/).inputValue();
     assert.equal(persisted, '700', `wght did not persist across reselect (reads ${persisted})`);
     assertions.push('the axis value survived deselecting and reselecting the layer');
-    await beat(page, 1000);
+    await beat(page, 1500);
 
     // ── Reset one axis to the font default ─────────────────────────
     const beforeReset = await canvasPixels(page);
@@ -182,7 +182,7 @@ await capture({
 
     await parkPointer(page);
     await settle(page);
-    await beat(page, 1300);
+    await beat(page, 1950);
 
     return assertions;
   },
