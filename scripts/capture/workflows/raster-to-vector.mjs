@@ -242,12 +242,12 @@ await capture({
     const anchor = points.anchors.reduce((best, p) =>
       Math.hypot(p.x - cx, p.y - cy) > Math.hypot(best.x - cx, best.y - cy) ? p : best,
     );
-    const beforeEdit = await canvasPixels(page);
+    const beforeEdit = await canvasPixels(page, anchor);
     await dragPage(page, anchor, { x: anchor.x + 70, y: anchor.y - 60 }, { steps: 18 });
     await parkPointer(page);
     await settle(page);
     assert.notEqual(
-      Buffer.compare(beforeEdit, await canvasPixels(page)),
+      Buffer.compare(beforeEdit, await canvasPixels(page, anchor)),
       0,
       'moving an anchor on the traced path changed nothing',
     );
