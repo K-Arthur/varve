@@ -1,9 +1,9 @@
 # Workflow capture pipeline
 
-Seven deterministic videos, each demonstrating one Varve workflow through the
-real application. They are separate clips on purpose: the website, README,
-docs and launch material all want a single capability at a time, not one long
-screencast.
+Seven deterministic feature videos, each demonstrating one Varve workflow
+through the real application. They are separate clips on purpose: the website,
+README, docs and launch material all want a single capability at a time, not
+one long screencast.
 
 This sits alongside `scripts/screenshots/`, which captures still product
 screenshots and the single short `workflow.webm` embedded on the product page.
@@ -50,13 +50,13 @@ memory and gets them all OOM-killed, which reads as random silent failure.
 
 | Slug | Workflow | Target length |
 |---|---|---|
-| `auto-layout` | Music-player playlist auto-layout | 18–28s |
-| `component-variants` | Transit-ticket component variants | 20–30s |
-| `prototype-interaction` | Travel-booking prototype flow | 18–28s |
-| `smart-animate` | Expanding weather card | 15–24s |
-| `motion-timeline` | Kinetic editorial title card | 22–32s |
-| `export-react` | Pricing-plan Design → React | 18–28s |
-| `light-dark-ui` | Same editorial project in light/dark UI | 12–18s |
+| `raster-to-vector` | Raster image → editable vector paths | 18–70s |
+| `bezier-node-edit` | Draw Bézier → manipulate nodes | 14–26s |
+| `poster-to-print` | Blank canvas → poster → print workflow | 26–82s |
+| `rgb-to-cmyk` | RGB design → CMYK workflow | 20–32s |
+| `variable-font` | Variable-font axis editing | 15–26s |
+| `text-on-path` | Text on path | 17–50s |
+| `export-svg` | Design → SVG | 15–26s |
 
 Each produces, in `docs/screenshots/workflows/`:
 
@@ -70,6 +70,12 @@ Each produces, in `docs/screenshots/workflows/`:
 Website copies land in `apps/website/public/screenshots/workflows/`. That
 subdirectory matters: `scripts/screenshots/validate.mjs` treats any loose PNG
 directly in `public/screenshots/` as an orphan.
+
+`pnpm capture:verify` checks each canonical clip before release: WebM/MP4 are
+warned at 5 MB and rejected at 10 MB, posters are warned at 1 MB and rejected
+at 2 MB, every poster is 1440×900, and canonical and website copies must be
+byte-identical. GIF workflow outputs are rejected; use the WebM master and the
+MP4 fallback instead. The canonical workflow set has a 60 MB ceiling.
 
 ## Product truth
 

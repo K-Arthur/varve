@@ -245,6 +245,37 @@ for (const ext of ['webm', 'mp4']) {
 }
 
 const skipped = Object.values(scenes).filter((s) => s.status === 'skipped');
+
+// README is the repository's first-run surface. Validate every relative link
+// and HTML asset reference there, not only screenshot references: a renamed
+// logo, guide, or local media file must fail CI instead of silently degrading
+// the page on GitHub. Remote URLs, anchors, and mailto links are intentionally
+// outside this filesystem check.
+const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
+const readmeRefs = new Set();
+const addReadmeRef = (raw) => {
+  const target = raw.trim().replace(/^<|>$/g, '').split(/[?#]/, 1)[0];
+  if (
+    !target ||
+    target.startsWith('#') ||
+    target.startsWith('/') ||
+    /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(target)
+  ) {
+    return;
+  }
+  readmeRefs.add(target);
+};
+for (const match of readme.matchAll(/!?(?:\[[^\]]*\])\(([^)\s]+)(?:\s+[^)]*)?\)/g)) {
+  addReadmeRef(match[1]);
+}
+for (const match of readme.matchAll(/\b(?:src|href|poster)=["']([^"']+)["']/g)) {
+  addReadmeRef(match[1]);
+}
+for (const ref of readmeRefs) {
+  if (!existsSync(join(ROOT, ref))) fail(`README references missing local path: ${ref}`);
+}
+console.log(`README local references: ${readmeRefs.size} checked`);
+
 if (strict && skipped.length > 0) {
   fail(`strict mode: ${skipped.length} scene(s) skipped`);
 }
