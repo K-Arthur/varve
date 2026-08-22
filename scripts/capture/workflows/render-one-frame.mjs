@@ -107,6 +107,12 @@ await capture({
     // One real edit creates the next dirty frame. The editor's own diagnostics
     // decide whether it is a structural replay, worker path or compositor path.
     await selectLayer(page, /Rectangle|Ellipse/i);
+    // Selection reveals the node in the production editor, which can zoom the
+    // camera to it. Re-establish the deterministic whole-scene camera before
+    // the edit so that this technical explainer does not look like a capture
+    // glitch while the real selection/edit path remains visible.
+    await fitContent(page);
+    await parkPointer(page);
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowDown');
     await settle(page, { pauseMs: 700 });

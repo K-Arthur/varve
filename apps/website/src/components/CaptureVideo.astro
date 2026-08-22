@@ -1,0 +1,63 @@
+---
+import { sitePath } from '../lib/siteUrl';
+
+interface Props {
+  slug: string;
+  title: string;
+  description: string;
+}
+
+const { slug, title, description } = Astro.props;
+const base = `/screenshots/workflows/${slug}`;
+---
+
+<figure class="capture-video">
+  <video
+    controls
+    preload="none"
+    poster={sitePath(`${base}-poster.png`)}
+    width="1440"
+    height="900"
+    aria-label={title}
+  >
+    <source src={sitePath(`${base}.webm`)} type="video/webm" />
+    <source src={sitePath(`${base}.mp4`)} type="video/mp4" />
+    <p>{description} <a href={sitePath(`${base}-poster.png`)}>View the poster image.</a></p>
+  </video>
+  <figcaption>{description}</figcaption>
+</figure>
+
+<style>
+  .capture-video {
+    margin: 2rem 0 3rem;
+    width: 100%;
+  }
+
+  .capture-video video {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    background: var(--surface-card);
+  }
+
+  .capture-video figcaption {
+    margin-top: 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .capture-video video {
+      display: none;
+    }
+
+    .capture-video {
+      padding: 1rem;
+      border: 1px solid var(--border-default);
+      border-radius: 0.75rem;
+      background: var(--surface-card);
+    }
+  }
+</style>

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Varve
+GenericName=Design Tool
+Comment=Local-first design suite for vector, raster, layout, typography, motion, and print
+Exec=varve-desktop %F
+Icon=dev.varve.desktop
+Type=Application
+Categories=Graphics;2DGraphics;VectorGraphics;
+MimeType=application/x-varve;application/x-strata;
+Keywords=design;vector;illustration;layout;typography;motion;print;raster;
+Terminal=false
+StartupNotify=true
+StartupWMClass=dev.varve.desktop

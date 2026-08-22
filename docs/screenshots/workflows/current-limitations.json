@@ -1,0 +1,113 @@
+{
+  "exactGitSha": "a890cada6ae6c67520f6fbf12a5fc1cead33d468",
+  "captureDate": "2026-08-22T08:51:02.003Z",
+  "title": "Five things currently broken/unfinished in Varve",
+  "limitations": [
+    {
+      "id": "flatpak-manifest-stub",
+      "title": "Flatpak is not shippable yet",
+      "kind": "missing feature",
+      "status": "partial",
+      "evidence": [
+        {
+          "file": "docs/release/linux-ecosystem-readiness.md",
+          "anchors": [
+            "current manifest is a stub",
+            "`exit 1`"
+          ],
+          "missing": []
+        }
+      ],
+      "reproductionSteps": [
+        "Inspect the current Flatpak manifest readiness entry.",
+        "Run the documented flatpak-builder command only after a human completes the missing offline sources."
+      ],
+      "linkedIssue": null
+    },
+    {
+      "id": "web-editor-scaffold",
+      "title": "The separate web app is still a scaffold",
+      "kind": "missing feature",
+      "status": "not yet supported",
+      "evidence": [
+        {
+          "file": "apps/web/package.json",
+          "anchors": [
+            "Full scaffold lands in task 0.9",
+            "typecheck deferred to task 0.9"
+          ],
+          "missing": []
+        }
+      ],
+      "reproductionSteps": [
+        "Inspect the @varve/web package scripts.",
+        "The shippable editor remains apps/desktop’s browser demo rather than this package."
+      ],
+      "linkedIssue": null
+    },
+    {
+      "id": "linux-webgpu",
+      "title": "Linux WebKitGTK uses Canvas2D, not WebGPU",
+      "kind": "known limitation",
+      "status": "known limitation",
+      "evidence": [
+        {
+          "file": "docs/architecture/render-pipeline.md",
+          "anchors": [
+            "WebKitGTK (Linux Tauri) has no WebGPU",
+            "Canvas2D is the production path"
+          ],
+          "missing": []
+        }
+      ],
+      "reproductionSteps": [
+        "Launch the native Linux build with the capture diagnostics enabled.",
+        "Read the real backend/capability status; do not infer it from Chromium."
+      ],
+      "linkedIssue": null
+    },
+    {
+      "id": "pdf-canvas-parity",
+      "title": "PDF export has no Canvas2D visual-parity golden",
+      "kind": "known limitation",
+      "status": "planned",
+      "evidence": [
+        {
+          "file": "docs/architecture/render-pipeline.md",
+          "anchors": [
+            "No visual-parity test between the native PDF export path",
+            "nothing asserts they agree"
+          ],
+          "missing": []
+        }
+      ],
+      "reproductionSteps": [
+        "Export a document to PDF.",
+        "Compare it against the same on-screen document; the repository has unit tests, not a PDF-vs-canvas pixel golden."
+      ],
+      "linkedIssue": null
+    },
+    {
+      "id": "motion-video-webcodecs",
+      "title": "Motion video export is provider-gated",
+      "kind": "known limitation",
+      "status": "partial",
+      "evidence": [
+        {
+          "file": "packages/editor/src/components/Export/ExportDialog.tsx",
+          "anchors": [
+            "video (WebCodecs;",
+            "Chromium recommended",
+            "Video export unavailable"
+          ],
+          "missing": []
+        }
+      ],
+      "reproductionSteps": [
+        "Open Motion Export in a runtime without WebCodecs.",
+        "Use the available CSS/Lottie paths or Chromium for video; the UI reports the provider limitation."
+      ],
+      "linkedIssue": null
+    }
+  ]
+}

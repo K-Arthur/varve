@@ -1,0 +1,113 @@
+{
+  "workflow": "Linux installation → first document",
+  "slug": "linux-first-document",
+  "purpose": "Native Linux first-run flow in a disposable XDG profile.",
+  "gitCommit": "242bfc4c40038b3621fc6798326f06d6a4de4f85",
+  "capturedAt": "2026-08-22T08:46:01.416Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": null,
+  "captureRuntime": "Tauri/WebKitGTK native WDIO / node v26.7.0",
+  "artifact": {
+    "type": "local-debug-build",
+    "path": "apps/desktop/src-tauri/target/debug/varve-desktop",
+    "publicRelease": false,
+    "note": "Locally built capture artifact; not presented as a public download."
+  },
+  "sourceDuration": 31.2,
+  "deliveredDuration": 31.2,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/linux-first-document.webm",
+    "mp4": "docs/screenshots/workflows/linux-first-document.mp4",
+    "poster": "docs/screenshots/workflows/linux-first-document-poster.png"
+  },
+  "productAssertions": [
+    "native Tauri/WebKitGTK binary launched under a clean XDG profile",
+    "first document created through the native desktop UI",
+    "rectangle created through the real editor canvas",
+    "text entered through the real text tool where available",
+    "local save status reached a persisted or saving state"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 936,
+          "duration": 31.2,
+          "bytes": 526395
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 936,
+          "duration": 31.2,
+          "bytes": 426337
+        }
+      }
+    },
+    "environment": {
+      "native": true,
+      "display": ":113",
+      "artifact": "apps/desktop/src-tauri/target/debug/varve-desktop",
+      "captureMode": "native-tauri-webdriver-screenshot-sequence",
+      "nativeFrameCount": 51
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 20.4,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 7.8,
+        "luma": 29.8,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 15.6,
+        "luma": 28.6,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 23.4,
+        "luma": 28.6,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 30.95,
+        "luma": 28.6,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "pass": true
+  }
+}

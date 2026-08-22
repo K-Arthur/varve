@@ -1,0 +1,173 @@
+{
+  "workflow": "How Varve renders one frame",
+  "slug": "render-one-frame",
+  "purpose": "A real frame diagnostic: document state, culling, cache, replay path and timing.",
+  "gitCommit": "34dab2e0fef9c03e435a350d19db4c3cebe1d32d",
+  "capturedAt": "2026-08-22T09:00:36.372Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": null,
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 70.47,
+  "deliveredDuration": 37.7,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/render-one-frame.webm",
+    "mp4": "docs/screenshots/workflows/render-one-frame.mp4",
+    "poster": "docs/screenshots/workflows/render-one-frame-poster.png"
+  },
+  "metadata": {
+    "sourceMap": {
+      "documentAndScene": [
+        "packages/editor/src/canvas/renderPipeline.ts",
+        "packages/engine/src/engine.ts"
+      ],
+      "visibilityAndCulling": [
+        "packages/editor/src/canvas/renderPipeline.ts"
+      ],
+      "renderIrReplay": [
+        "packages/engine/src/replay.ts"
+      ],
+      "canvas2dCompositor": [
+        "packages/compositor/src/canvas2d/backend.ts"
+      ],
+      "optionalWebGpuRouter": [
+        "packages/compositor/src/router.ts",
+        "packages/compositor/src/webgpu/backend.ts"
+      ],
+      "diagnostics": [
+        "packages/editor/src/canvas/drawDiagnostics.ts",
+        "packages/editor/src/canvas/perfRuntime.ts"
+      ],
+      "architectureDoc": "docs/architecture/render-pipeline.md"
+    },
+    "observedFrame": {
+      "frameIndex": 8,
+      "docVersion": 8,
+      "redrawCount": 21,
+      "nodeCount": 1,
+      "culledCount": 0,
+      "cacheHitCount": 1,
+      "buildIrMs": 0,
+      "hashMs": 0,
+      "replayMs": 0.09999999403953552,
+      "engineNodeComputes": 0,
+      "engineNodeHits": 1,
+      "setupMs": 0,
+      "preLoopMs": 0,
+      "totalMs": 0.29999998211860657,
+      "renderPath": "worker-cached",
+      "wasDirty": false,
+      "partialRedraw": false,
+      "cacheBytes": 4952,
+      "cacheEntries": 8,
+      "profileTier": "balanced",
+      "redrawReason": "clean",
+      "invalidationReasons": [
+        "worker-present"
+      ],
+      "frameSource": "worker-reply",
+      "dirtyAreaRatio": 0,
+      "dirtyRects": 0,
+      "frameDecision": "content",
+      "committedAt": 49930.79999998212
+    },
+    "observedPath": {
+      "requestedBackend": "worker-offscreen-canvas2d",
+      "actualBackend": "worker-offscreen-canvas2d",
+      "workerAvailable": true,
+      "offscreenCanvasAvailable": true,
+      "offscreenCanvasVerified": false,
+      "workerPolicyAllowed": true,
+      "fallbackReason": "none",
+      "engine": "chromium",
+      "engineVersionToken": "537.36",
+      "offscreenCapability": "offscreen-unknown",
+      "workerHostCreated": true,
+      "observedWorkerFrames": 21,
+      "observedMainThreadFrames": 1,
+      "summary": "chromium -> worker-offscreen-canvas2d"
+    }
+  },
+  "artifacts": [],
+  "productAssertions": [
+    "the diagnostics HUD is enabled only through the explicit ?perf=1 capture gate",
+    "the edited frame reports 1 nodes, 0 culled, 1 cache hits and worker-cached replay",
+    "the exact next frame is frozen for inspection; the HUD is observability only"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 1131,
+          "duration": 37.7,
+          "bytes": 1241809
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 1131,
+          "duration": 37.7,
+          "bytes": 1327305
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 214.4,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 9.43,
+        "luma": 214.4,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 18.85,
+        "luma": 200.2,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 28.28,
+        "luma": 201,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 37.45,
+        "luma": 201,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "privacy": [],
+    "pass": true
+  }
+}

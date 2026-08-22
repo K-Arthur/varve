@@ -1,0 +1,117 @@
+{
+  "workflow": "Background removal",
+  "slug": "background-removal",
+  "purpose": "AI Balanced foreground extraction on a challenging product photograph.",
+  "gitCommit": "977c2a31be6faa036b62b8b49b96801b589ee964",
+  "capturedAt": "2026-08-22T06:13:54.075Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": "tests/fixtures/bg-removal-corpus/car.jpg",
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 43.33,
+  "deliveredDuration": 22.37,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/background-removal.webm",
+    "mp4": "docs/screenshots/workflows/background-removal.mp4",
+    "poster": "docs/screenshots/workflows/background-removal-poster.png"
+  },
+  "metadata": {
+    "modelCapture": {
+      "provider": "wasm.",
+      "model": "u2netp",
+      "modelSha256": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+      "inputSha256": "ba47ffa59a548b137050727632c5e69840b1b345520cbcd4418b4c60d4591e39",
+      "outputSha256": "2c8210b73286c3b39b5a018b320fd38ef5dbb013a77ccca7714ff19d9d50d656",
+      "runtimeVersion": "onnxruntime-web 1.27.0 (workspace lockfile)",
+      "backend": "wasm."
+    },
+    "inputSha256": "ba47ffa59a548b137050727632c5e69840b1b345520cbcd4418b4c60d4591e39",
+    "modelManifestVersion": 3
+  },
+  "artifacts": [
+    "background-removal-model.json"
+  ],
+  "productAssertions": [
+    "AI Balanced was chosen from the production Background Removal inspector",
+    "inference progress/review appeared only after a real model-backed request",
+    "mask is non-trivial (16336/81920 foreground pixels)",
+    "the applied alpha mask changes the real image render over the contrast plate",
+    "Show Original toggles the nondestructive result without deleting the mask"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 671,
+          "duration": 22.366,
+          "bytes": 868014
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 671,
+          "duration": 22.366667,
+          "bytes": 987569
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 199.8,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 5.59,
+        "luma": 201,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 11.18,
+        "luma": 199.2,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 16.77,
+        "luma": 203,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 22.12,
+        "luma": 203,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "privacy": [],
+    "pass": true
+  }
+}

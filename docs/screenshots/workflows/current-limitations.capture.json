@@ -1,0 +1,220 @@
+{
+  "workflow": "Five things currently broken/unfinished in Varve",
+  "slug": "current-limitations",
+  "purpose": "A current, evidence-backed status reel. It is not a bug-hunting performance.",
+  "gitCommit": "a47f251ef1343cc994f839ad38acaf8c6fbec9b9",
+  "capturedAt": "2026-08-22T08:55:05.341Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": null,
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 56.13,
+  "deliveredDuration": 41,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/current-limitations.webm",
+    "mp4": "docs/screenshots/workflows/current-limitations.mp4",
+    "poster": "docs/screenshots/workflows/current-limitations-poster.png"
+  },
+  "metadata": {
+    "limitationsReport": {
+      "exactGitSha": "a890cada6ae6c67520f6fbf12a5fc1cead33d468",
+      "captureDate": "2026-08-22T08:51:02.003Z",
+      "title": "Five things currently broken/unfinished in Varve",
+      "limitations": [
+        {
+          "id": "flatpak-manifest-stub",
+          "title": "Flatpak is not shippable yet",
+          "kind": "missing feature",
+          "status": "partial",
+          "evidence": [
+            {
+              "file": "docs/release/linux-ecosystem-readiness.md",
+              "anchors": [
+                "current manifest is a stub",
+                "`exit 1`"
+              ],
+              "missing": []
+            }
+          ],
+          "reproductionSteps": [
+            "Inspect the current Flatpak manifest readiness entry.",
+            "Run the documented flatpak-builder command only after a human completes the missing offline sources."
+          ],
+          "linkedIssue": null
+        },
+        {
+          "id": "web-editor-scaffold",
+          "title": "The separate web app is still a scaffold",
+          "kind": "missing feature",
+          "status": "not yet supported",
+          "evidence": [
+            {
+              "file": "apps/web/package.json",
+              "anchors": [
+                "Full scaffold lands in task 0.9",
+                "typecheck deferred to task 0.9"
+              ],
+              "missing": []
+            }
+          ],
+          "reproductionSteps": [
+            "Inspect the @varve/web package scripts.",
+            "The shippable editor remains apps/desktop’s browser demo rather than this package."
+          ],
+          "linkedIssue": null
+        },
+        {
+          "id": "linux-webgpu",
+          "title": "Linux WebKitGTK uses Canvas2D, not WebGPU",
+          "kind": "known limitation",
+          "status": "known limitation",
+          "evidence": [
+            {
+              "file": "docs/architecture/render-pipeline.md",
+              "anchors": [
+                "WebKitGTK (Linux Tauri) has no WebGPU",
+                "Canvas2D is the production path"
+              ],
+              "missing": []
+            }
+          ],
+          "reproductionSteps": [
+            "Launch the native Linux build with the capture diagnostics enabled.",
+            "Read the real backend/capability status; do not infer it from Chromium."
+          ],
+          "linkedIssue": null
+        },
+        {
+          "id": "pdf-canvas-parity",
+          "title": "PDF export has no Canvas2D visual-parity golden",
+          "kind": "known limitation",
+          "status": "planned",
+          "evidence": [
+            {
+              "file": "docs/architecture/render-pipeline.md",
+              "anchors": [
+                "No visual-parity test between the native PDF export path",
+                "nothing asserts they agree"
+              ],
+              "missing": []
+            }
+          ],
+          "reproductionSteps": [
+            "Export a document to PDF.",
+            "Compare it against the same on-screen document; the repository has unit tests, not a PDF-vs-canvas pixel golden."
+          ],
+          "linkedIssue": null
+        },
+        {
+          "id": "motion-video-webcodecs",
+          "title": "Motion video export is provider-gated",
+          "kind": "known limitation",
+          "status": "partial",
+          "evidence": [
+            {
+              "file": "packages/editor/src/components/Export/ExportDialog.tsx",
+              "anchors": [
+                "video (WebCodecs;",
+                "Chromium recommended",
+                "Video export unavailable"
+              ],
+              "missing": []
+            }
+          ],
+          "reproductionSteps": [
+            "Open Motion Export in a runtime without WebCodecs.",
+            "Use the available CSS/Lottie paths or Chromium for video; the UI reports the provider limitation."
+          ],
+          "linkedIssue": null
+        }
+      ]
+    },
+    "stalePolicy": "Capture fails if any evidence file/anchor disappears or the count is not five."
+  },
+  "artifacts": [
+    "current-limitations.json"
+  ],
+  "productAssertions": [
+    "Flatpak is not shippable yet remains current at a890cada6ae6c67520f6fbf12a5fc1cead33d468",
+    "The separate web app is still a scaffold remains current at a890cada6ae6c67520f6fbf12a5fc1cead33d468",
+    "Linux WebKitGTK uses Canvas2D, not WebGPU remains current at a890cada6ae6c67520f6fbf12a5fc1cead33d468",
+    "PDF export has no Canvas2D visual-parity golden remains current at a890cada6ae6c67520f6fbf12a5fc1cead33d468",
+    "Motion video export is provider-gated remains current at a890cada6ae6c67520f6fbf12a5fc1cead33d468"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 1229,
+          "duration": 41,
+          "bytes": 1411918
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 1229,
+          "duration": 40.966667,
+          "bytes": 1346402
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 211.9,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 10.25,
+        "luma": 200.1,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 20.5,
+        "luma": 197.4,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 30.75,
+        "luma": 200.2,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 40.75,
+        "luma": 211.8,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "privacy": [],
+    "pass": true
+  }
+}
