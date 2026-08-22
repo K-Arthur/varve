@@ -92,7 +92,13 @@ await capture({
 
     begin();
     await beat(page, 900);
-    await selectLayer(page, new RegExp(collapsedState));
+    // Match the collapsed state exactly. `new RegExp('Frame 1')` also matches
+    // "Frame 1 copy", and selectLayer takes the first hit in a newest-first
+    // tree, so the interaction was being attached to the duplicate -- leaving
+    // the screen the presenter actually opens with no interaction at all, and
+    // the click on it did nothing.
+    const exact = (name) => new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+    await selectLayer(page, exact(collapsedState));
     await page.getByRole('tab', { name: 'Prototype', exact: true }).click();
     await page.getByRole('button', { name: 'Add Interaction' }).click();
     await selectComboboxOption(page, 'Target screen', expandedState);
@@ -103,7 +109,10 @@ await capture({
     await page.keyboard.press('Control+Shift+p');
     const preview = page.getByRole('dialog', { name: 'Prototype Preview' });
     await preview.waitFor({ state: 'visible', timeout: 10000 });
-    const source = preview.getByRole('application', { name: new RegExp(collapsedState) });
+    // The presenter labels screens `Prototype screen: <name>`, so anchor at
+    // the end: an unanchored /Frame 1/ also matches "Frame 1 copy".
+    const screenLabel = (name) => new RegExp(`${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+    const source = preview.getByRole('application', { name: screenLabel(collapsedState) });
     await source.click({ position: { x: 100, y: 220 } });
     await page.waitForTimeout(260);
     assert.ok(
@@ -129,7 +138,9 @@ await capture({
     };
     const midWidth = await cardWidth();
     await page.waitForTimeout(700);
-    assert.ok(await preview.getByRole('application', { name: new RegExp(expandedState) }).isVisible());
+    assert.ok(
+      await preview.getByRole('application', { name: screenLabel(expandedState) }).isVisible(),
+    );
     const endWidth = await cardWidth();
     assert.ok(midWidth > 0 && endWidth > 0, 'Smart Animate card had no rendered geometry');
     assert.notEqual(
