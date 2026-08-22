@@ -109,6 +109,9 @@ await capture({
     const durationField = page.getByLabel('Duration (ms)').first();
     await durationField.fill('1400');
     await durationField.press('Enter');
+    // Leave the field before the Present shortcut: a text input swallows
+    // Control+Shift+P, and the presenter then never opens.
+    await durationField.blur();
     await page.waitForTimeout(300);
     assertions.push(
       'source and target states use a real Smart Animate transition set to 1400ms',
