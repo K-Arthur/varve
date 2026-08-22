@@ -3,7 +3,6 @@
 import { strict as assert } from 'node:assert';
 import {
   beat,
-  canvasBox,
   dragAt,
   fitContent,
   layerNames,
@@ -76,16 +75,27 @@ await capture({
 
     const screens = (await layerNames(page)).filter((name) => /frame/i.test(name));
     assert.equal(screens.length, 2, 'Smart Animate needs two duplicated frame states');
+    // Name the states rather than trusting tree order. The tree lists
+    // newest-first, so screens[0] is the duplicate: wiring the interaction
+    // from it pointed the flow expanded -> collapsed, and the presenter --
+    // which enters on the leftmost frame -- then never showed the source at
+    // all. The duplicate is the only one Varve names "copy".
+    const expandedState = screens.find((name) => /copy/i.test(name));
+    const collapsedState = screens.find((name) => !/copy/i.test(name));
+    assert.ok(
+      expandedState && collapsedState,
+      `could not tell the duplicated state apart: ${JSON.stringify(screens)}`,
+    );
     await fitContent(page);
     await parkPointer(page);
     await settle(page);
 
     begin();
     await beat(page, 900);
-    await selectLayer(page, new RegExp(screens[0]));
+    await selectLayer(page, new RegExp(collapsedState));
     await page.getByRole('tab', { name: 'Prototype', exact: true }).click();
     await page.getByRole('button', { name: 'Add Interaction' }).click();
-    await selectComboboxOption(page, 'Target screen', screens[1]);
+    await selectComboboxOption(page, 'Target screen', expandedState);
     await selectComboboxOption(page, 'Transition', 'Smart Animate');
     assertions.push('source and target states use a real Smart Animate transition setting');
     await beat(page, 900);
@@ -93,7 +103,7 @@ await capture({
     await page.keyboard.press('Control+Shift+p');
     const preview = page.getByRole('dialog', { name: 'Prototype Preview' });
     await preview.waitFor({ state: 'visible', timeout: 10000 });
-    const source = preview.getByRole('application', { name: new RegExp(screens[0]) });
+    const source = preview.getByRole('application', { name: new RegExp(collapsedState) });
     await source.click({ position: { x: 100, y: 220 } });
     await page.waitForTimeout(260);
     assert.ok(
@@ -102,19 +112,24 @@ await capture({
     );
     // Sample the moving card mid-transition. A screenshot's byte length says
     // nothing — a blank PNG clears any size threshold — so read the card's
-    // real geometry from the presenter while it is between states and require
-    // it to sit strictly between the collapsed and expanded widths.
-    const cardWidth = () =>
-      preview
-        .getByRole('application')
-        .last()
-        .locator('canvas, svg')
-        .first()
-        .boundingBox()
-        .then((box) => box?.width ?? 0);
+    // real geometry while it is between states. PrototypeScreenView paints
+    // each node as a positioned hotspot button fed by `hotspotOverrides`,
+    // which is exactly where computeSmartAnimateHotspotOverrides writes the
+    // interpolated geometry for the current transitionProgress; the screens
+    // themselves are an <img>, so there is no canvas or svg to measure. The
+    // widest hotspot is the weather card.
+    const cardWidth = async () => {
+      const hotspots = await preview.locator('.prototype-screen-view__hotspot').all();
+      let widest = 0;
+      for (const hotspot of hotspots) {
+        const box = await hotspot.boundingBox();
+        if (box) widest = Math.max(widest, box.width);
+      }
+      return widest;
+    };
     const midWidth = await cardWidth();
     await page.waitForTimeout(700);
-    assert.ok(await preview.getByRole('application', { name: new RegExp(screens[1]) }).isVisible());
+    assert.ok(await preview.getByRole('application', { name: new RegExp(expandedState) }).isVisible());
     const endWidth = await cardWidth();
     assert.ok(midWidth > 0 && endWidth > 0, 'Smart Animate card had no rendered geometry');
     assert.notEqual(
