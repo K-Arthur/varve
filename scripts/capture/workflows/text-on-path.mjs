@@ -74,17 +74,14 @@ await capture({
     await beat(page, 1000);
 
     // ── Attach ─────────────────────────────────────────────────────
-    // Both layers selected explicitly in the panel rather than via Ctrl+A.
-    // Select-all depends on where focus happens to be after text editing, and
-    // if it lands in a field it selects that field's text instead — leaving
-    // the menu command correctly refusing a selection it cannot act on.
-    await selectLayer(page, ringName);
-    await page
-      .getByRole('treeitem')
-      .filter({ hasText: labelName })
-      .first()
-      .click({ modifiers: ['Shift'] });
-    await page.waitForTimeout(500);
+    // Edit > Select All rather than Ctrl+A or shift-clicking the tree.
+    // The keystroke depends on where focus landed after text editing, and
+    // deriving the second layer's name by diffing the tree is fragile when
+    // both entries' text changes as the tree grows. The menu command is
+    // unambiguous and visible in the clip.
+    const selectAll = await menuItem(page, 'Edit', 'Select All');
+    await selectAll.click();
+    await page.waitForTimeout(600);
     const attach = await objectMenu(page, 'Text on Path');
     assert.ok(await attach.isEnabled(), 'Text on Path was offered but disabled');
     await beat(page, 900);
