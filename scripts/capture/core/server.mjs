@@ -7,6 +7,7 @@
  * else's edit can reset the editor midway through a recording.
  */
 import { execFileSync, spawn } from 'node:child_process';
+import { openSync } from 'node:fs';
 import { get } from 'node:http';
 import { createServer } from 'node:net';
 
@@ -58,8 +59,9 @@ function probe(base) {
   });
 }
 
-export async function startServer({ port, root, timeoutMs = 180000 }) {
+export async function startServer({ port, root, timeoutMs = 180000, logPath }) {
   const base = `http://localhost:${port}`;
+  const serverLog = logPath ? openSync(logPath, 'a') : undefined;
   const child = spawn(
     'pnpm',
     ['--filter', '@varve/desktop', 'exec', 'vite', '--port', String(port), '--strictPort'],
@@ -67,7 +69,11 @@ export async function startServer({ port, root, timeoutMs = 180000 }) {
       cwd: root,
       // A capture must not be torn down by someone else's HMR update.
       env: { ...process.env, VARVE_DISABLE_HMR: '1' },
-      stdio: 'ignore',
+      // The server's own output, not /dev/null. When vite dies moments after
+      // it starts serving, the reason is in here — and discarding it meant
+      // several rounds of guessing at a crash that was writing its cause out
+      // the whole time.
+      stdio: logPath ? ['ignore', serverLog, serverLog] : 'ignore',
       // Deliberately not detached. Putting the server in its own process
       // group did stop the leak, but the server then died moments after it
       // started serving and every capture hung in warm-up for four minutes.

@@ -140,7 +140,11 @@ export async function capture(spec) {
     let attempt = 0;
     for (;;) {
       try {
-        server = await startServer({ port: attempt === 0 ? port : await capturePort(), root: ROOT });
+        server = await startServer({
+          port: attempt === 0 ? port : await capturePort(),
+          root: ROOT,
+          logPath: join(root, 'server.log'),
+        });
         break;
       } catch (err) {
         attempt += 1;
