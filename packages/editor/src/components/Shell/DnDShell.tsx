@@ -49,9 +49,6 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
           y: ev.clientY + event.delta.y,
         };
       }
-      // Always forward to layers so it can recompute its drop indicator from
-      // live pointer position + row rects (dnd-kit's collision winner is
-      // unreliable for virtualized trees — see DnDShell.handleDragEnd).
       layersDndRef.current?.handleDragMove(event);
     },
     [layersDndRef],
@@ -69,10 +66,6 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
       const { active, over } = event;
       const data = active.data.current as DragNodeData | undefined;
 
-      // Canvas drop: dnd-kit says canvas-drop-zone AND pointer is inside
-      // the canvas region.  When the pointer is actually in the layers
-      // panel (dnd-kit false-positive), fall through to the layers handler
-      // which uses its own indicator to determine the real target row.
       if (over?.id === 'canvas-drop-zone' && data?.type === 'layer') {
         const canvasSection = document.querySelector('.editor-canvas');
         const canvasRect = canvasSection?.getBoundingClientRect();
@@ -89,13 +82,11 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
           ptr.y <= canvasRect.bottom;
 
         if (!pointerInsideCanvas) {
-          // Pointer is over the layers panel — let layers handle the drop.
           layersDndRef.current?.handleDragEnd(event);
           setActiveDragNode(null);
           return;
         }
 
-        // Actual canvas drop — move node(s) to the canvas at pointer world pos.
         setActiveDragNode(null);
         const canvasEl = canvasSection.querySelector('canvas');
         if (!canvasEl) return;

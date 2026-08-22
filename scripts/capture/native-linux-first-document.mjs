@@ -186,7 +186,7 @@ try {
     environment: {
       native: true,
       display,
-      artifact: binary,
+      artifact: binary.replace(`${ROOT}/`, ''),
       captureMode: 'native-tauri-webdriver-screenshot-sequence',
       nativeFrameCount: nativeFrames.length,
     },

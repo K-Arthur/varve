@@ -196,7 +196,10 @@ const RULES = [
   },
   {
     id: 'basic-auth-url',
-    re: /\bhttps?:\/\/[^\s/:@]+:[^\s/@]{6,}@/g,
+    // Disallow JSON punctuation from the password segment so minified
+    // JSON-LD (`"@context":"https://schema.org"... "email":"support@..."`)
+    // does not look like `https://host:password@`.
+    re: /\bhttps?:\/\/[^\s/:@]+:[^\s/@"',}\]\{]{6,}@/g,
   },
   {
     id: 'netrc',
@@ -261,6 +264,7 @@ function scanText(text, path, findings) {
     if (/\$\{\{\s*secrets\./.test(line)) continue;
     if (/\$\{?[A-Z][A-Z0-9_]*\}?/.test(line)) continue;
     for (const rule of RULES) {
+      if (rule.id === 'basic-auth-url' && line.includes('application/ld+json')) continue;
       rule.re.lastIndex = 0;
       const match = rule.re.exec(line);
       if (match) {

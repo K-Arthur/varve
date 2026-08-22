@@ -1111,17 +1111,40 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   // the drop zone gets stuck at whatever 'before'/'after' was true on entry
   // and can never reach the middle-third 'into' zone, so dropping onto a
   // frame row never works (reordering "works" only because it's edge-based).
+  // We also cannot trust dnd-kit's `over` at all — its rectIntersection
+  // collision can spuriously pick the huge canvas-drop-zone over small row
+  // droppables — so we resolve the target row by hit-testing the pointer
+  // against live row rects.
   const updateDropIndicator = useCallback(
     (over: Over | null, activeNodeId: NodeId) => {
-      const overId = over?.id as NodeId | undefined;
-      if (!overId || overId === activeNodeId) {
-        setDropIndicator(null);
-        cancelAutoExpand();
-        return;
+      // Resolve target row by pointer position, not by dnd-kit's `over`.
+      let overId: NodeId | undefined;
+      let overEl: HTMLElement | undefined;
+      const py = lastPointerRef.current.y;
+      for (const [id, el] of rowRefs.current.entries()) {
+        if (id === activeNodeId) continue;
+        const r = el.getBoundingClientRect();
+        if (py >= r.top && py <= r.bottom) {
+          overId = id as NodeId;
+          overEl = el;
+          break;
+        }
+      }
+      // Fallback to dnd-kit's over when pointer is in a gap between rows.
+      if (!overId) {
+        const candidate = over?.id as NodeId | undefined;
+        if (!candidate || candidate === activeNodeId) {
+          setDropIndicator(null);
+          cancelAutoExpand();
+          return;
+        }
+        const el = rowRefs.current.get(candidate);
+        if (!el) return;
+        overId = candidate;
+        overEl = el;
       }
 
-      const overEl = rowRefs.current.get(overId);
-      if (!overEl) return;
+      if (!overEl || !overId) return;
 
       const rect = overEl.getBoundingClientRect();
       const relativeY = (lastPointerRef.current.y - rect.top) / rect.height;
@@ -1278,7 +1301,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       let overIdx = targetSiblings.indexOf(overId);
       if (overIdx < 0) overIdx = targetSiblings.length;
 
-      const basePosition = zone === 'before' ? overIdx : overIdx + 1;
+      // Visual before/after is inverted vs raw array order (panel is
+      // front-most-first, raw is back-to-front).  Dropping "before" a row
+      // visually (above it) means inserting *after* it in the raw array.
+      const basePosition = zone === 'before' ? overIdx + 1 : overIdx;
       const steps = computeMultiMoveSteps(targetSiblings, moveIds, basePosition);
 
       if (isMulti) beginTransaction();
