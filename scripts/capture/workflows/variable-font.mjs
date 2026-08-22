@@ -22,6 +22,7 @@ import {
   openCleanEditor,
   openSection,
   parkPointer,
+  setRange,
   settle,
   useTool,
 } from '../core/editor.mjs';
@@ -113,7 +114,7 @@ await capture({
     // stopping on the default, which would leave the glyphs as they started.
     const beforeWeight = await canvasPixels(page);
     for (const v of ['550', '700', '400', '250', '100']) {
-      await weight.fill(v);
+      await setRange(weight, v);
       await page.waitForTimeout(260);
     }
     await parkPointer(page);

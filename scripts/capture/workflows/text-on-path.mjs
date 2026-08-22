@@ -19,6 +19,7 @@ import {
   openCleanEditor,
   parkPointer,
   selectLayer,
+  setRange,
   settle,
   useTool,
 } from '../core/editor.mjs';
@@ -150,7 +151,7 @@ await capture({
     // ── Steer it along the curve ───────────────────────────────────
     const beforeOffset = await canvasPixels(page);
     for (const v of ['8', '16', '24', '30']) {
-      await offset.fill(v);
+      await setRange(offset, v);
       await page.waitForTimeout(260);
     }
     await parkPointer(page);

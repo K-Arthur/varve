@@ -484,3 +484,25 @@ export async function closeMenu(page) {
   await page.keyboard.press('Escape');
   await page.waitForTimeout(250);
 }
+
+/**
+ * Sets a React-controlled range input and makes React notice.
+ *
+ * `fill()` assigns the DOM value, but React tracks the previous value on the
+ * node and skips the change when it re-renders from props — so a controlled
+ * slider snaps straight back, often to its minimum, and the capture reports
+ * that the control "did not move". Going through the prototype's value setter
+ * clears that tracker, and the bubbled input/change events are what the
+ * handler is actually listening for.
+ */
+export async function setRange(locator, value) {
+  await locator.evaluate((el, v) => {
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    setter?.call(el, String(v));
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }, String(value));
+}

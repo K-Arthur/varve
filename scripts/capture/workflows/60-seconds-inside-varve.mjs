@@ -82,6 +82,18 @@ await capture({
     const built = await layerNames(page);
     assert.ok(built.length >= 12, `brand kit did not build enough real layers: ${built.length}`);
 
+    // Layer-row clicks are real product interactions, but the production
+    // editor's optional auto-reveal camera makes each selection jump to the
+    // node. Disable that user preference for this paced tour so the campaign
+    // board remains the stable visual reference while selection still works.
+    const autoReveal = page.getByRole('button', { name: 'Auto-reveal canvas selection' });
+    if (await autoReveal.isVisible({ timeout: 3000 }).catch(() => false)) {
+      if ((await autoReveal.getAttribute('aria-pressed')) !== 'false') {
+        await autoReveal.click();
+      }
+      assert.equal(await autoReveal.getAttribute('aria-pressed'), 'false');
+    }
+
     begin();
     // 0–6: open the finished campaign board.
     await beat(page, 5000);
@@ -105,8 +117,6 @@ await capture({
       .click()
       .catch(() => undefined);
     await page.waitForTimeout(700);
-    await fitContent(page);
-    await parkPointer(page);
     assertions.push('typography layer selected in the production inspector');
     await beat(page, 4500);
 
@@ -114,8 +124,6 @@ await capture({
     // Keeping the duplicated object compact preserves the campaign read while
     // still proving that reuse is a real document operation.
     await selectLayer(page, /Ellipse 1/i);
-    await fitContent(page);
-    await parkPointer(page);
     await page.keyboard.press('Control+d');
     await page.waitForTimeout(650);
     assertions.push('a launch-kit element is duplicated through the editor command path');
@@ -126,8 +134,6 @@ await capture({
       await page.getByRole('treeitem').last().click();
     });
     await page.waitForTimeout(700);
-    await fitContent(page);
-    await parkPointer(page);
     assertions.push('the kit contains a real raster layer alongside vector and type');
     await beat(page, 4500);
 
