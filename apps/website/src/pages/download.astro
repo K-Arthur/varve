@@ -1418,6 +1418,27 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     min-width: 0;
   }
 
+  .install-commands-group {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .install-commands-group > span {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .install-command-options {
+    display: grid;
+    gap: 0.35rem;
+    width: 100%;
+    margin-top: 0.25rem;
+  }
+
+  .install-command-options .code-block {
+    font-size: 0.8125rem;
+  }
+
   .troubleshoot-help ul {
     list-style: none;
     display: grid;
