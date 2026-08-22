@@ -1521,6 +1521,46 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
       margin: 0;
       padding: 1rem 1.25rem;
     }
+
+    .distro-table thead {
+      display: none;
+    }
+
+    .distro-table,
+    .distro-table tbody,
+    .distro-table tr,
+    .distro-table td {
+      display: block;
+    }
+
+    .distro-table tr {
+      padding: 0.75rem 0.875rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .distro-table tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    .distro-table td {
+      padding: 0.15rem 0;
+      border: none;
+      white-space: normal;
+    }
+
+    .distro-table td:first-child {
+      font-size: 0.9375rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .distro-table td:nth-child(2) {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+    }
+
+    .distro-table td:nth-child(3) {
+      margin-top: 0.25rem;
+    }
   }
 
   .platform-selector {
