@@ -112,12 +112,16 @@ export function orderArchitectures(
 /**
  * The single rule for which artifact format is the "primary download" of a
  * platform, shared by the quick grid and the detailed sections so the two can
- * never disagree. Linux prefers the .deb (apt-managed, the dominant Linux
- * desktop) and falls back to AppImage; other platforms take the first
- * published format.
+ * never disagree. Linux prefers the AppImage (universal: runs on any distro
+ * without root or a package manager, the safest default for a cross-distro
+ * audience) and falls back to .deb; other platforms take the first published
+ * format.
  */
 export function primaryFormatFor(platform: string, formats: string[]): string {
-  if (platform === 'linux' && formats.includes('deb')) return 'deb';
+  if (platform === 'linux') {
+    if (formats.includes('appimage')) return 'appimage';
+    if (formats.includes('deb')) return 'deb';
+  }
   return formats[0] ?? '';
 }
 
