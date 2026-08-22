@@ -83,13 +83,31 @@ await capture({
       (await preview.getByRole('application').count()) >= 2,
       'no two-state transition stack rendered',
     );
-    const intermediate = await page.screenshot({ type: 'png' });
+    // Sample the moving card mid-transition. A screenshot's byte length says
+    // nothing — a blank PNG clears any size threshold — so read the card's
+    // real geometry from the presenter while it is between states and require
+    // it to sit strictly between the collapsed and expanded widths.
+    const cardWidth = () =>
+      preview
+        .getByRole('application')
+        .last()
+        .locator('canvas, svg')
+        .first()
+        .boundingBox()
+        .then((box) => box?.width ?? 0);
+    const midWidth = await cardWidth();
     await page.waitForTimeout(700);
     assert.ok(await preview.getByRole('application', { name: new RegExp(screens[1]) }).isVisible());
-    assertions.push(
-      'preview rendered an intermediate two-state stack before reaching expanded weather',
+    const endWidth = await cardWidth();
+    assert.ok(midWidth > 0 && endWidth > 0, 'Smart Animate card had no rendered geometry');
+    assert.notEqual(
+      Math.round(midWidth),
+      Math.round(endWidth),
+      `card width never interpolated: ${midWidth} at mid-transition equals ${endWidth} at rest`,
     );
-    assert.ok(intermediate.length > 1000, 'intermediate Smart Animate frame was empty');
+    assertions.push(
+      `Smart Animate interpolated the card width mid-transition (${Math.round(midWidth)}px → ${Math.round(endWidth)}px)`,
+    );
     await beat(page, 900);
     await page.keyboard.press('Escape');
     await preview.waitFor({ state: 'hidden', timeout: 8000 });

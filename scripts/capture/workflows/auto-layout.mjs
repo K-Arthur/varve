@@ -156,8 +156,12 @@ await capture({
       0,
       'long title edit did not change the rendered row',
     );
+    // Claim only the pixel change that was actually measured. Absence of
+    // overlap is a geometry property this comparison cannot see, and the
+    // rows are fixed-sized, so a title long enough to wrap still overflows
+    // its cell — see the auto-layout limitation noted in the capture report.
     assertions.push(
-      'editing the title to a significantly longer string recomputed the row without overlap',
+      'editing the title to a significantly longer string re-rendered the row through layout',
     );
     await beat(page, 1300);
 
