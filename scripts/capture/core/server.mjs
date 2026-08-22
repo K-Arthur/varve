@@ -68,7 +68,11 @@ export async function startServer({ port, root, timeoutMs = 180000 }) {
       // A capture must not be torn down by someone else's HMR update.
       env: { ...process.env, VARVE_DISABLE_HMR: '1' },
       stdio: 'ignore',
-      detached: false,
+      // Own process group. The command is `pnpm ... exec vite`, so the thing
+      // actually listening is a grandchild; signalling the pnpm wrapper alone
+      // leaves vite running forever. Twenty-seven of them had accumulated
+      // before this was noticed, which is its own kind of memory leak.
+      detached: true,
     },
   );
 
@@ -84,12 +88,30 @@ export async function startServer({ port, root, timeoutMs = 180000 }) {
   throw new Error(`vite did not serve :${port} within ${Math.round(timeoutMs / 1000)}s`);
 }
 
-/** Only ever stops the child this module started — never a stray Vite. */
+/**
+ * Stops the server this module started, and the vite it spawned.
+ *
+ * Kills the process *group*, not just the pnpm wrapper: `pnpm exec vite` puts
+ * the listener two levels down, and terminating the wrapper orphans it. Only
+ * ever this run's group — never a stray vite that might belong to someone
+ * else's capture.
+ */
 export async function stopServer(server) {
-  if (!server?.child) return;
+  if (!server?.child?.pid) return;
+  const pid = server.child.pid;
   try {
-    server.child.kill('SIGTERM');
+    process.kill(-pid, 'SIGTERM');
   } catch {
-    /* already gone */
+    try {
+      server.child.kill('SIGTERM');
+    } catch {
+      /* already gone */
+    }
+  }
+  await new Promise((r) => setTimeout(r, 800));
+  try {
+    process.kill(-pid, 'SIGKILL');
+  } catch {
+    /* exited on the term, as intended */
   }
 }
