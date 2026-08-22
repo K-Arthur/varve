@@ -47,6 +47,8 @@ interface UpscaleDialogProps {
   sourceDataUrl: string;
   /** Source image data for preview computation. */
   sourceImageData?: ImageData;
+  /** Number of selected images to enhance (batch). Preview shows the first. */
+  batchCount?: number;
   /** Whether the dialog is open. */
   open: boolean;
   /** Close handler. */
@@ -116,6 +118,7 @@ export function UpscaleDialog({
   sourceHeight,
   sourceDataUrl,
   sourceImageData,
+  batchCount = 1,
   open,
   onClose,
   onApply,
@@ -372,13 +375,15 @@ export function UpscaleDialog({
     processing,
   ]);
 
-  // Clear preview when switching away from upscale or when operation becomes unavailable
+  // Clear preview only when the operation becomes unavailable — NOT when
+  // upscale is not part of the operation, since denoise/deblur-only
+  // previews are valid and should persist.
   useEffect(() => {
-    if (!usesUpscale || !operationAvailable) {
+    if (!operationAvailable) {
       setPreviewDataUrl(null);
       setPreviewBaselineUrl(null);
     }
-  }, [usesUpscale, operationAvailable]);
+  }, [operationAvailable]);
 
   async function generatePreview() {
     // Never contend with a running upscale for the native backend's single job
@@ -684,7 +689,9 @@ export function UpscaleDialog({
       <FocusTrap active={open}>
         <div className="upscale-dialog">
           <div className="upscale-dialog__header">
-            <h2 className="upscale-dialog__title">Enhance image</h2>
+            <h2 className="upscale-dialog__title">
+              Enhance image{batchCount > 1 ? ` (${batchCount} selected)` : ''}
+            </h2>
             <button
               type="button"
               className="upscale-dialog__close"
@@ -815,7 +822,11 @@ export function UpscaleDialog({
                       ? 'Deblurred'
                       : operation === 'compression-restoration'
                         ? 'Restored'
-                        : 'Enhanced'}
+                        : operation === 'restore-upscale'
+                          ? 'Restored + enhanced'
+                          : operation === 'deblur-upscale'
+                            ? 'Deblurred + enhanced'
+                            : 'Enhanced'}
                 </span>
                 {mode?.isAi && !previewDataUrl && (
                   <p className="upscale-preview__ai-hint">
@@ -830,7 +841,7 @@ export function UpscaleDialog({
               </div>
               <p className="upscale-preview__hint">
                 {previewBaselineUrl
-                  ? `Honest comparison — same ${previewDataUrl ? '512 px' : 'center'} crop at same output size (bicubic baseline vs ${mode?.isAi ? 'AI' : mode?.label ?? 'enhanced'}). Drag or use ← → to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}\u00d7${outH}px`
+                  ? `Honest comparison — same ${previewDataUrl ? '512 px' : 'center'} crop at same output size (${usesUpscale ? (mode?.isAi ? 'AI' : 'bicubic') : 'source'} baseline vs ${mode?.isAi ? 'AI' : mode?.label ?? 'enhanced'}). Drag or use \u2190 \u2192 to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}\u00d7${outH}px`
                   : `Drag or use arrow keys to compare. Output: ${outW}\u00d7${outH}px`}
               </p>
             </div>
