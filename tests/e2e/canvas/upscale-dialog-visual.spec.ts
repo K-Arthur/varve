@@ -23,7 +23,7 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
 
   // Auto is the default; the analysis recommends upscale for the 16x16 icon.
   await expect(page.getByText(/Low source resolution/i)).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText(/Output:\s*32×32px/)).toBeVisible();
+  await expect(page.getByText(/Output:\s*32x32px/)).toBeVisible();
   await expect(
     page.getByAltText('Enhanced preview — same crop and output size as original'),
   ).toBeVisible({ timeout: 15000 });

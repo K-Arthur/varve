@@ -922,8 +922,8 @@ export function UpscaleDialog({
               </div>
               <p className="upscale-preview__hint">
                 {previewBaselineUrl
-                  ? `Honest comparison — same ${previewDataUrl ? '512 px' : 'center'} crop at same output size (${usesUpscale ? (mode?.isAi ? 'AI' : 'bicubic') : 'source'} baseline vs ${mode?.isAi ? 'AI' : (mode?.label ?? 'enhanced')}). Drag or use left/right keys to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}×${outH}px`
-                  : `Drag or use left/right keys to compare. Output: ${outW}×${outH}px`}
+                  ? `Honest comparison — same ${previewDataUrl ? '512 px' : 'center'} crop at same output size (${usesUpscale ? (mode?.isAi ? 'AI' : 'bicubic') : 'source'} baseline vs ${mode?.isAi ? 'AI' : (mode?.label ?? 'enhanced')}). Drag or use left/right keys to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}x${outH}px`
+                  : `Drag or use left/right keys to compare. Output: ${outW}x${outH}px`}
               </p>
             </div>
 
