@@ -15,6 +15,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 USER_INSTALL=false
+ACT_MIN_VERSION="0.2.89"
 
 # Parse arguments
 for arg in "$@"; do
@@ -152,7 +153,21 @@ install_gh() {
 # Function to install act
 install_act() {
   if command_exists act; then
-    echo "✅ act already installed"
+    local installed
+    installed="$(act --version 2>/dev/null | sed -nE 's/.*act version ([0-9]+(\.[0-9]+){2}).*/\1/p' | head -n 1)"
+    if [ -n "$installed" ] && [ "$(printf '%s\n' "$ACT_MIN_VERSION" "$installed" | sort -V | tail -n 1)" = "$installed" ]; then
+      echo "✅ act $installed already installed"
+      return 0
+    fi
+    echo "⚠️  act ${installed:-unknown} is too old; ${ACT_MIN_VERSION}+ is required for Node 24 actions"
+    if command_exists yay; then
+      yay -S --noconfirm act
+    elif command_exists paru; then
+      paru -S --noconfirm act
+    else
+      echo "❌ No AUR helper found. Upgrade act from https://github.com/nektos/act/releases"
+      return 1
+    fi
     return 0
   fi
   
@@ -168,7 +183,14 @@ check_act_parity() {
     echo "❌ act is not installed. Run: sudo bash scripts/install-ci-tooling.sh"
     return 1
   fi
-  echo "✅ act $(act --version 2>/dev/null | head -1 || echo 'installed')"
+  local installed
+  installed="$(act --version 2>/dev/null | sed -nE 's/.*act version ([0-9]+(\.[0-9]+){2}).*/\1/p' | head -n 1)"
+  if [ -z "$installed" ] || [ "$(printf '%s\n' "$ACT_MIN_VERSION" "$installed" | sort -V | tail -n 1)" != "$installed" ]; then
+    echo "❌ act ${installed:-unknown} is too old. act ${ACT_MIN_VERSION} or newer is required for Node 24 actions."
+    echo "   Upgrade from https://github.com/nektos/act/releases or with: yay -S act"
+    return 1
+  fi
+  echo "✅ act $installed"
 
   if command_exists docker && docker info >/dev/null 2>&1; then
     echo "✅ docker daemon running — full local job execution available"

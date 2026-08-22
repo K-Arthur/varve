@@ -13,12 +13,34 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ACT_BIN="${ACT_BIN:-act}"
 ACT_IMAGE="${ACT_IMAGE:-catthehacker/ubuntu:act-latest}"
 SECRET_FILE="${REPO_ROOT}/.act-secrets"
+ACT_MIN_VERSION="0.2.89"
+
+act_version() {
+  "${ACT_BIN}" --version 2>/dev/null |
+    sed -nE 's/.*act version ([0-9]+(\.[0-9]+){2}).*/\1/p' |
+    head -n 1
+}
+
+act_version_is_supported() {
+  local installed="$1"
+  [[ -n "${installed}" ]] || return 1
+  [[ "$(printf '%s\n' "${ACT_MIN_VERSION}" "${installed}" | sort -V | tail -n 1)" = "${installed}" ]]
+}
 
 ensure_act() {
   if ! command -v "${ACT_BIN}" >/dev/null 2>&1; then
     echo "act is not installed. Install it with:"
     echo "  sudo pacman -S act    # AUR helper on Arch/CachyOS"
     echo "  or download from https://github.com/nektos/act/releases"
+    exit 1
+  fi
+
+  local installed
+  installed="$(act_version)"
+  if ! act_version_is_supported "${installed}"; then
+    echo "act ${ACT_MIN_VERSION} or newer is required (found ${installed:-unknown})."
+    echo "Upgrade act from https://github.com/nektos/act/releases or with: yay -S act"
+    echo "The current workflows use Node 24 actions, which older act releases cannot parse."
     exit 1
   fi
 }

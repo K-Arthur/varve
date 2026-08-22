@@ -45,7 +45,7 @@ echo "== ci-local-run.sh arg dispatch =="
 # We can't run the real script (it would call `act`); instead extract the
 # dispatch logic via a dry parser: source a stub `act` and `command -v`.
 ACT_STUB_DIR="$(mktemp -d)"
-printf '#!/usr/bin/env bash\necho "act-stub invoked with: $@"\nexit 0\n' > "$ACT_STUB_DIR/act"
+printf '#!/usr/bin/env bash\nif [ "${1:-}" = "--version" ]; then echo "act version 0.2.89"; else echo "act-stub invoked with: $@"; fi\nexit 0\n' > "$ACT_STUB_DIR/act"
 chmod +x "$ACT_STUB_DIR/act"
 
 # Verify the usage string covers all three subcommands.
@@ -69,6 +69,26 @@ if echo "$OUT2" | grep -q "not installed"; then
 else
   bad "act-missing detection missing hint (got: $OUT2)"
 fi
+
+# Old act releases cannot parse the Node 24 action runtime used by the
+# workflows. The wrapper must fail before Docker is touched and explain the
+# upgrade path instead of emitting act's opaque runtime error.
+OLD_ACT_DIR="$(mktemp -d)"
+printf '#!/usr/bin/env bash\nif [ "${1:-}" = "--version" ]; then echo "act version 0.2.77"; else echo "old-act-stub invoked with: $@"; fi\nexit 0\n' > "$OLD_ACT_DIR/act"
+chmod +x "$OLD_ACT_DIR/act"
+OUT_OLD=$(ACT_BIN="$OLD_ACT_DIR/act" bash "$CI_LOCAL" dry-run .github/workflows/ci-smoke.yml 2>&1)
+if echo "$OUT_OLD" | grep -q "0.2.89 or newer"; then
+  ok "old act version is rejected with upgrade guidance"
+else
+  bad "old act version should be rejected (got: $OUT_OLD)"
+fi
+OUT_INSTALL_OLD=$(PATH="$OLD_ACT_DIR:$PATH" bash "$INSTALL_CI" --check 2>&1 || true)
+if echo "$OUT_INSTALL_OLD" | grep -q "0.2.89 or newer"; then
+  ok "tooling check reports outdated act runtime"
+else
+  bad "tooling check should report outdated act runtime (got: $OUT_INSTALL_OLD)"
+fi
+rm -rf "$OLD_ACT_DIR"
 
 # list with act on PATH forwards --list.
 OUT3=$(PATH="$ACT_STUB_DIR:$PATH" ACT_IMAGE="catthehacker/ubuntu:act-latest" bash "$CI_LOCAL" list 2>&1)
