@@ -66,8 +66,18 @@ await capture({
     await page.waitForTimeout(900);
 
     const roots = page.getByRole('treeitem');
-    assert.ok((await roots.count()) >= 3, 'component conversion removed ticket layers');
+    const treeCount = await roots.count();
+    assert.ok(treeCount >= 3, `component conversion removed ticket layers (got ${treeCount})`);
+    // After Detect Duplicates the inspector stays on the Audit tab.
+    // Switch to Properties so the Component section (on instances) is reachable.
+    const propsTab = page.getByRole('tab', { name: 'Properties', exact: true });
+    if (await propsTab.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await propsTab.click();
+      await page.waitForTimeout(300);
+    }
+    // Select the first instance (tree lists newest-first: instance, instance, source).
     await roots.first().click();
+    await page.waitForTimeout(400);
     const componentSection = page
       .locator('section.insp-disclosure')
       .filter({ hasText: /Component/i })

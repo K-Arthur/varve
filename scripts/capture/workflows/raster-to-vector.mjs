@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import {
   beat,
   canvasPixels,
+  dismissDialogs,
   dragAt,
   dragPage,
   fitContent,
@@ -42,6 +43,8 @@ await capture({
 
     await openCleanEditor(page, base);
     await importImage(page, join(FIXTURES, 'botanical.png'));
+    // Import may surface dialogs (tips, onboarding residue, image-size notice).
+    await dismissDialogs(page, 6);
     await page.keyboard.press('v');
     await page.getByRole('treeitem').first().click();
     await page.waitForTimeout(400);
@@ -138,22 +141,20 @@ await capture({
     }
     if (!grew) throw new Error('the trace produced no new layers within 240s');
 
-    // Close the dialog now that the trace has landed. Waiting on the outcome
-    // rather than on the dialog fixed one problem and introduced another: the
-    // dialog stays up, and its modal backdrop silently intercepts every later
-    // click — the next failure was Fit-all timing out while reporting itself
-    // visible, enabled, stable and scrolled into view, all of which were true
-    // and none of which mattered behind a backdrop.
-    const close = dialog.getByRole('button', { name: /close|done|cancel/i }).first();
-    if (await close.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await close.click({ timeout: 4000 }).catch(() => undefined);
-    } else {
-      await page.keyboard.press('Escape');
+    // Close the Vectorize dialog now that the trace has landed.
+    const closeBtn = dialog
+      .getByRole('button', { name: /close|done|cancel|ok|got it|apply|finish/i })
+      .first();
+    if (await closeBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await closeBtn.click({ timeout: 4000 }).catch(() => undefined);
     }
-    await dialog.waitFor({ state: 'detached', timeout: 15000 }).catch(async () => {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+    if (await dialog.isVisible({ timeout: 800 }).catch(() => false)) {
       await page.keyboard.press('Escape');
-      await page.waitForTimeout(500);
-    });
+      await page.waitForTimeout(600);
+    }
+    await dismissDialogs(page, 8);
     await page.waitForTimeout(500);
     await page.waitForTimeout(1200);
     await parkPointer(page);
@@ -181,6 +182,7 @@ await capture({
 
     // ── Edit the traced geometry ───────────────────────────────────
     const tracedName = traced[0];
+    await dismissDialogs(page, 6);
     await selectLayer(page, tracedName.trim().split('\n')[0]);
     await page.waitForTimeout(600);
     // Selecting reveals and zooms to the layer; without re-framing the later
@@ -218,6 +220,7 @@ await capture({
     }
     await editNodes.click();
     await page.waitForTimeout(700);
+    await dismissDialogs(page, 4);
     await parkPointer(page);
     await settle(page);
     assertions.push('the traced output opens in node edit mode — it is real path geometry');
@@ -262,6 +265,7 @@ await capture({
 
     await page.keyboard.press('Escape');
     await page.keyboard.press('v');
+    await dismissDialogs(page, 4);
     await parkPointer(page);
     await settle(page);
     await beat(page, 1400);
