@@ -11,8 +11,14 @@
  * (no WASM memory ceiling). The web build selects wasm.
  */
 import type { MeasureTextFn } from '@varve/shared';
-import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@varve/shared';
+import {
+  DEFAULT_ARTWORK_FONT_FAMILY,
+  measureText,
+  multiplyAffine,
+  tryInvertAffine,
+} from '@varve/shared';
 import { hitTest } from './geometry';
+import { transformPathShape } from './pathText';
 import type { Backend, Engine, EngineFill, FillIR, RenderItem, Scene, SceneNode } from './types';
 import type { WasmEngineModule } from './wasmLoader';
 import { loadWasmEngineModule } from './wasmLoader';
@@ -50,7 +56,10 @@ function resolvePathShape(
   if (!settings || !nodeMap) return undefined;
   const pathNode = nodeMap.get(settings.pathNodeId);
   if (!pathNode) return undefined;
-  return pathNode.shape;
+  if (!pathNode.shape) return undefined;
+  const textInverse = tryInvertAffine(node.transform);
+  if (!textInverse) return pathNode.shape;
+  return transformPathShape(pathNode.shape, multiplyAffine(textInverse, pathNode.transform));
 }
 
 function shapeToPrimitive(

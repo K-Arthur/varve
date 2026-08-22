@@ -66,6 +66,7 @@ import {
 } from '../render/canvasRenderAdapter';
 import { admitWorkerImagePayload, workerSourceCapFor } from '../render/collectImageBitmaps';
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
+import { pathShapeInTextSpace } from '../render/pathTextGeometry';
 import { alphaBounds } from '../render/surfaceBounds';
 import {
   collectMasterOffsets,
@@ -760,7 +761,14 @@ export function renderContent(deps: RenderContentDeps): void {
         if (isPathText) {
           const pathNode = doc.nodes[pathNodeId] as import('@varve/scene').ShapeNode | undefined;
           if (pathNode?.shape) {
-            (built.shape as Record<string, unknown>).pathShape = pathNode.shape;
+            let pathWorld = getCachedWorldTransform(cache, doc, pathNodeId);
+            const pathMasterOffset = masterOffsets.get(pathNodeId);
+            if (pathMasterOffset) pathWorld = offsetWorldTransform(pathWorld, pathMasterOffset);
+            (built.shape as Record<string, unknown>).pathShape = pathShapeInTextSpace(
+              pathNode.shape as import('@varve/engine').Shape,
+              pathWorld,
+              world,
+            );
           }
         }
         engineNode = { ...built, transform: world };

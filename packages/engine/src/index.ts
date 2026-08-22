@@ -829,7 +829,12 @@ export type { FillRule, PathShapeLike } from './pathCompound';
 export { pathFillRule, pathRings } from './pathCompound';
 export { expandStroke, offsetPath, roundCorners } from './pathOffset';
 export type { GlyphPlacement, GlyphPlaceOptions, PathSample } from './pathText';
-export { pathLength, placeGlyphsOnPath, samplePathAtLength } from './pathText';
+export {
+  pathLength,
+  placeGlyphsOnPath,
+  samplePathAtLength,
+  transformPathShape,
+} from './pathText';
 export type { PixelArtAlgorithm, PixelArtOptions } from './pixelArtScaling';
 export { scalePixelArt } from './pixelArtScaling';
 export type { PorterDuffOp } from './porterDuff';

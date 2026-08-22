@@ -12,6 +12,7 @@
  *                 W3C SVG textPath, HarfBuzz glyph positioning.
  */
 
+import type { Affine } from '@varve/shared';
 import {
   cubicBezierDerivative,
   cubicBezierLength,
@@ -20,6 +21,7 @@ import {
   pathPointToBezier,
 } from './bezier';
 import type { Shape } from './types';
+import { shapeToPathPoints } from './warp/geometry';
 
 /** Position and tangent angle at a point along a path. */
 export interface PathSample {
@@ -46,6 +48,48 @@ export interface GlyphPlaceOptions {
   side?: 'top' | 'bottom';
   /** Font size in px (used for advance and side offset). */
   fontSize?: number;
+}
+
+/**
+ * Convert a path geometry into another coordinate space.
+ *
+ * Text-on-path receives the text node's transform at replay time, while the
+ * referenced shape is authored in the path node's local space. Converting to
+ * cubic path points keeps the full affine (including rotation and non-uniform
+ * scale) instead of pretending every transformed ellipse is axis-aligned.
+ */
+export function transformPathShape(shape: Shape, transform: Affine): Shape {
+  const converted = shapeToPathPoints(shape);
+  const transformPoint = (point: PathPoint): PathPoint => ({
+    ...point,
+    x: transform[0] * point.x + transform[2] * point.y + transform[4],
+    y: transform[1] * point.x + transform[3] * point.y + transform[5],
+    ...(point.handleIn
+      ? {
+          handleIn: [
+            transform[0] * point.handleIn[0] + transform[2] * point.handleIn[1],
+            transform[1] * point.handleIn[0] + transform[3] * point.handleIn[1],
+          ] as [number, number],
+        }
+      : {}),
+    ...(point.handleOut
+      ? {
+          handleOut: [
+            transform[0] * point.handleOut[0] + transform[2] * point.handleOut[1],
+            transform[1] * point.handleOut[0] + transform[3] * point.handleOut[1],
+          ] as [number, number],
+        }
+      : {}),
+  });
+
+  return {
+    kind: 'path',
+    points: converted.points.map(transformPoint),
+    closed: converted.closed,
+    tolerance: 0,
+    ...(converted.holes ? { holes: converted.holes.map((ring) => ring.map(transformPoint)) } : {}),
+    ...(converted.fillRule ? { fillRule: converted.fillRule } : {}),
+  };
 }
 
 /**

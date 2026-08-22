@@ -19,6 +19,7 @@ import {
   type SceneNode,
   type VariableStore,
 } from '@varve/scene';
+import { pathShapeInTextSpace } from '../render/pathTextGeometry';
 import { sceneNodeToEngineNode } from '../render/sceneToEngine';
 import { getWorldTransform, type TransformCache } from '../scene/transformCache';
 import { expandReplayDependencies } from './dirtyQuery';
@@ -67,7 +68,12 @@ export function appendReplayDependencies(args: AppendReplayDependenciesArgs): {
     if (isPathText) {
       const pathNode = doc.nodes[pathNodeId] as (SceneNode & { shape?: unknown }) | undefined;
       if (pathNode?.shape) {
-        (built.shape as Record<string, unknown>).pathShape = pathNode.shape;
+        const pathWorld = getWorldTransform(args.cache, doc, pathNodeId);
+        (built.shape as Record<string, unknown>).pathShape = pathShapeInTextSpace(
+          pathNode.shape as import('@varve/engine').Shape,
+          pathWorld,
+          world,
+        );
       }
     }
     const engineNode: EngineNode = { ...built, transform: world };

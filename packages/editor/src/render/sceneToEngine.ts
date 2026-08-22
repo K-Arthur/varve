@@ -39,6 +39,7 @@ import {
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
 import { maskRenderUrl } from '../backgroundRemoval/maskRenderCache';
 import { nodeWorldTransform } from '../scene/world';
+import { pathShapeInTextSpace } from './pathTextGeometry';
 import { compileTableToEngineNode } from './tableCompile';
 
 export interface SceneNodeConversionOptions {
@@ -469,7 +470,14 @@ export function flattenSceneToEngine(
       ) {
         const pathNode = document.nodes[engineNode.pathTextSettings.pathNodeId];
         if (pathNode?.kind === 'shape') {
-          (engineNode.shape as unknown as Record<string, unknown>).pathShape = pathNode.shape;
+          const pathWorld = options.localTransforms
+            ? sceneLocalWorldTransform(document, pathNode.id)
+            : nodeWorldTransform(document, pathNode.id);
+          (engineNode.shape as unknown as Record<string, unknown>).pathShape = pathShapeInTextSpace(
+            pathNode.shape as import('@varve/engine').Shape,
+            pathWorld,
+            engineNode.transform as import('@varve/shared').Affine,
+          );
         }
       }
 
