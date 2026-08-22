@@ -9,7 +9,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import type { NodeId } from '@varve/scene';
-import { screenToWorld } from '@varve/shared';
+import { computeFloatingOrigin, screenToWorld } from '@varve/shared';
 import { type ReactNode, useCallback, useRef, useState } from 'react';
 import type { EditorContextValue } from '../../context';
 import type { DragNodeData } from '../../dnd-types';
@@ -42,11 +42,17 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
 
   const handleDragMove = useCallback(
     (event: DragMoveEvent) => {
-      layersDndRef.current?.handleDragMove(event);
       const ev = event.activatorEvent;
       if (ev instanceof MouseEvent || ev instanceof PointerEvent) {
-        lastPointerPos.current = { x: ev.clientX, y: ev.clientY };
+        lastPointerPos.current = {
+          x: ev.clientX + event.delta.x,
+          y: ev.clientY + event.delta.y,
+        };
       }
+      // Always forward to layers so it can recompute its drop indicator from
+      // live pointer position + row rects (dnd-kit's collision winner is
+      // unreliable for virtualized trees — see DnDShell.handleDragEnd).
+      layersDndRef.current?.handleDragMove(event);
     },
     [layersDndRef],
   );
@@ -63,24 +69,67 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
       const { active, over } = event;
       const data = active.data.current as DragNodeData | undefined;
 
+      // Canvas drop: dnd-kit says canvas-drop-zone AND pointer is inside
+      // the canvas region.  When the pointer is actually in the layers
+      // panel (dnd-kit false-positive), fall through to the layers handler
+      // which uses its own indicator to determine the real target row.
       if (over?.id === 'canvas-drop-zone' && data?.type === 'layer') {
-        setActiveDragNode(null);
-        const nodeId = data.nodeId as string;
         const canvasSection = document.querySelector('.editor-canvas');
-        const canvasEl = canvasSection?.querySelector('canvas');
-        if (canvasEl) {
-          const rect = canvasEl.getBoundingClientRect();
-          const cam = { pan: editor.state.pan, zoom: editor.state.zoom };
-          const [wx, wy] = screenToWorld(
-            cam,
-            lastPointerPos.current.x - rect.left,
-            lastPointerPos.current.y - rect.top,
-          );
+        const canvasRect = canvasSection?.getBoundingClientRect();
+        if (!canvasSection || !canvasRect) {
+          layersDndRef.current?.handleDragEnd(event);
+          setActiveDragNode(null);
+          return;
+        }
+        const ptr = lastPointerPos.current;
+        const pointerInsideCanvas =
+          ptr.x >= canvasRect.left &&
+          ptr.x <= canvasRect.right &&
+          ptr.y >= canvasRect.top &&
+          ptr.y <= canvasRect.bottom;
+
+        if (!pointerInsideCanvas) {
+          // Pointer is over the layers panel — let layers handle the drop.
+          layersDndRef.current?.handleDragEnd(event);
+          setActiveDragNode(null);
+          return;
+        }
+
+        // Actual canvas drop — move node(s) to the canvas at pointer world pos.
+        setActiveDragNode(null);
+        const canvasEl = canvasSection.querySelector('canvas');
+        if (!canvasEl) return;
+        const rect = canvasEl.getBoundingClientRect();
+        const cam = {
+          pan: editor.state.pan,
+          zoom: editor.state.zoom,
+          rotation: editor.state.cameraRotation ?? 0,
+        };
+        const viewport = { width: rect.width, height: rect.height };
+        const origin = computeFloatingOrigin(cam, viewport);
+        const [wx, wy] = screenToWorld(cam, ptr.x - rect.left, ptr.y - rect.top, viewport, origin);
+
+        const selection = editor.state.selection;
+        const moveIds =
+          selection.length > 1 && selection.includes(data.nodeId as NodeId)
+            ? selection
+            : [data.nodeId as NodeId];
+
+        editor.beginTransaction();
+        for (const nodeId of moveIds) {
           editor.reparentNode(nodeId, null, Number.MAX_SAFE_INTEGER);
           editor.setNodePosition(nodeId, wx, wy);
-          editor.setSelection(nodeId);
-          editor.announce('Moved layer to canvas');
         }
+        editor.setSelection(moveIds[0]!);
+        for (let i = 1; i < moveIds.length; i++) {
+          editor.toggleSelection(moveIds[i]!, true);
+        }
+        editor.commitTransaction();
+        editor.announce(
+          moveIds.length > 1
+            ? `Moved ${moveIds.length} layers to canvas`
+            : `Moved layer to canvas`,
+        );
         return;
       }
 
@@ -90,6 +139,11 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
     [editor, layersDndRef],
   );
 
+  const handleDragCancel = useCallback(() => {
+    layersDndRef.current?.handleDragCancel();
+    setActiveDragNode(null);
+  }, [layersDndRef]);
+
   return (
     <DndContext
       sensors={sensors}
@@ -97,6 +151,7 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
       onDragMove={handleDragMove}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
       {children}
       <DragOverlay dropAnimation={null}>

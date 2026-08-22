@@ -390,6 +390,7 @@ export interface LayersDnDHandle {
   handleDragMove: (event: DragMoveEvent) => void;
   handleDragOver: (event: DragOverEvent) => void;
   handleDragEnd: (event: DragEndEvent) => void;
+  handleDragCancel: () => void;
   activeId: NodeId | null;
   dropIndicator: {
     nodeId: NodeId;
@@ -1183,18 +1184,20 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       setActiveId(null);
       cancelAutoExpand();
       cancelAutoScroll();
-      if (!over || active.id === over.id) {
-        setDropIndicator(null);
-        return;
-      }
-      if (!dropIndicator) {
+      if (!over || !dropIndicator || dropIndicator.nodeId === active.id) {
         setDropIndicator(null);
         return;
       }
 
       const activeNodeId = active.id as NodeId;
-      const overId = over.id as NodeId;
       const { zone } = dropIndicator;
+      // Use the app-computed indicator target as the authoritative overId,
+      // not dnd-kit's event.over.id.  dnd-kit's rectIntersection collision
+      // detection can pick the huge canvas-drop-zone droppable over small
+      // row droppables (the same false-positive hijack that DnDShell
+      // guards against with its canvas bounds check), so the layers handler
+      // must trust its own pointer-position-based calculation.
+      const overId = dropIndicator.nodeId;
       setDropIndicator(null);
 
       const doc = state.document;
@@ -1230,6 +1233,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
         const dropTarget = resolveDropClipTarget(doc, overId, zone);
         if (dropTarget?.clipInto && dropTarget.parentId) {
           const overParentNode = doc.nodes[dropTarget.parentId];
+          if (!overParentNode || !isContainer(overParentNode)) return;
           const siblings = (overParentNode as ContainerNode).children;
           const steps = computeMultiMoveSteps(siblings, moveIds, dropTarget.index);
 
@@ -1303,6 +1307,13 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     ],
   );
 
+  const handleDragCancel = useCallback(() => {
+    setActiveId(null);
+    setDropIndicator(null);
+    cancelAutoExpand();
+    cancelAutoScroll();
+  }, [cancelAutoExpand, cancelAutoScroll]);
+
   // Expose DnD handlers and collapse methods to parent via ref
   useImperativeHandle(
     ref,
@@ -1311,6 +1322,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       handleDragMove,
       handleDragOver,
       handleDragEnd,
+      handleDragCancel,
       activeId,
       dropIndicator,
       collapseAll: handleCollapseAll,
@@ -1343,6 +1355,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       handleDragMove,
       handleDragOver,
       handleDragEnd,
+      handleDragCancel,
       activeId,
       dropIndicator,
       handleCollapseAll,

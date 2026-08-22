@@ -133,7 +133,10 @@ export async function capture(spec) {
 
     // A capture must never ship a frame containing a page error.
     const pageErrors = [];
-    page.on('pageerror', (err) => pageErrors.push(err.message));
+    page.on('pageerror', (err) => {
+      pageErrors.push(err.message);
+      console.error(`[${spec.slug}] pageerror: ${err.message}`);
+    });
 
     const started = Date.now();
     let trimStart = null;
