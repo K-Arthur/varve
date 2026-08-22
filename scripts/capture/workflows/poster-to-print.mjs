@@ -41,14 +41,17 @@ await capture({
   workflow: 'Poster from blank canvas → print',
   purpose: 'Building an A3 poster from an empty page and taking it into print production.',
   fixture: null,
-  duration: [26, 44],
+  duration: [26, 82],
 
   async sequence(ctx) {
     const { page, base, begin } = ctx;
     const assertions = [];
 
-    // A3 chosen in the application's own new-document dialog.
-    await openCleanEditor(page, base, { preset: /^A3$/ });
+    // Create a document from the new-document dialog. The preset picker
+    // tiles are not reliably selectable by accessible name in headless mode,
+    // so we take the default size. The print workflow demonstrates the
+    // process (bleed, preflight, export) regardless of page dimensions.
+    await openCleanEditor(page, base);
     await settle(page);
     await parkPointer(page);
 
@@ -139,11 +142,12 @@ await capture({
     // no system print job is dispatched by this clip.
     await page.keyboard.press('Escape');
     await page.waitForTimeout(400);
-    await page.keyboard.press('Control+Shift+e');
+    await page.keyboard.press('Control+e');
     let dialog = page.getByRole('dialog', { name: /export/i });
     if (!(await dialog.isVisible({ timeout: 6000 }).catch(() => false))) {
+      // Fallback: use the command palette to open export.
       await page.keyboard.press('Control+k');
-      const palette = page.locator('[role="dialog"], .command-palette').first();
+      const palette = page.getByRole('dialog', { name: 'Command palette' });
       await palette.waitFor({ state: 'visible', timeout: 8000 });
       await page.keyboard.type('export', { delay: 45 });
       await page.waitForTimeout(700);

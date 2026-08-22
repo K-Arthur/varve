@@ -70,11 +70,16 @@ await capture({
     assert.ok(treeCount >= 3, `component conversion removed ticket layers (got ${treeCount})`);
     // After Detect Duplicates the inspector stays on the Audit tab.
     // Switch to Properties so the Component section (on instances) is reachable.
-    const propsTab = page.getByRole('tab', { name: 'Properties', exact: true });
-    if (await propsTab.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await propsTab.click();
-      await page.waitForTimeout(300);
-    }
+    await page.evaluate(() => {
+      const tabs = document.querySelectorAll('[role="tab"]');
+      for (const tab of tabs) {
+        if (tab.textContent?.trim() === 'Properties') {
+          tab.click();
+          break;
+        }
+      }
+    });
+    await page.waitForTimeout(400);
     // Select the first instance (tree lists newest-first: instance, instance, source).
     await roots.first().click();
     await page.waitForTimeout(400);

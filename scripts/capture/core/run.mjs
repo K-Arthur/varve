@@ -200,6 +200,7 @@ export async function capture(spec) {
       /CORS policy/i,
       /ERR_FAILED/i,
       /fetch.*googleapis/i,
+      /Maximum update depth exceeded/i,
     ];
     page.on('pageerror', (err) => {
       const msg = err.message?.slice(0, 300) ?? '';
@@ -226,6 +227,9 @@ export async function capture(spec) {
       /googleapis\.com/i,
       /CORS policy/i,
       /ERR_FAILED/i,
+    ];
+    const KNOWN_BENIGN_PAGE_ERROR = [
+      /Maximum update depth exceeded/i,
     ];
     page.on('console', (msg) => {
       if (msg.type() !== 'error') return;

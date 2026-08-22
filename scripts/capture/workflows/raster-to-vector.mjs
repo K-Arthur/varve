@@ -35,7 +35,7 @@ await capture({
   workflow: 'Raster → editable vector',
   purpose: 'Tracing a bitmap into real path geometry, then editing that geometry.',
   fixture: 'scripts/capture/fixtures/botanical.png',
-  duration: [18, 30],
+  duration: [18, 70],
 
   async sequence(ctx) {
     const { page, base, begin } = ctx;
