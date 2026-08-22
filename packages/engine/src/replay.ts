@@ -2737,7 +2737,10 @@ function canonicalTextSnapshot(target: ReplayTarget, p: TextPrimitive): TextLayo
         p.fontSize,
         target as unknown as CanvasRenderingContext2D,
         {
-          fontWeight: p.fontWeight,
+          // The canonical path shapes and then paints from `run.font`, so the
+          // axis has to be folded in here too — patching only the fallback
+          // painter left the common case unchanged.
+          fontWeight: effectiveWeight(p),
           fontStyle: p.fontStyle,
           letterSpacing: p.letterSpacing,
           tracking: p.tracking,
