@@ -36,6 +36,23 @@ async function chooseFamily(page, family) {
 
 const axis = (page, label) => page.getByRole('slider', { name: label });
 
+/**
+ * Opens a disclosure section only if it is closed.
+ *
+ * The trigger is a toggle, so clicking unconditionally shuts a section that
+ * some earlier step already opened — which reads as "the control is missing"
+ * when the sliders inside it then never appear.
+ */
+async function openSection(page, name) {
+  const trigger = page.getByRole('button', { name }).first();
+  if (!(await trigger.isVisible({ timeout: 8000 }).catch(() => false))) return false;
+  if ((await trigger.getAttribute('aria-expanded')) === 'false') {
+    await trigger.click();
+    await page.waitForTimeout(500);
+  }
+  return true;
+}
+
 await capture({
   slug: 'variable-font',
   workflow: 'Variable font axes',
@@ -65,17 +82,23 @@ await capture({
     await settle(page);
 
     assert.equal((await layerNames(page)).length, 1, 'expected a single specimen layer');
+    // Assert the family actually took. Without this a silent failure in the
+    // font picker surfaces much later as "the axis slider is missing", which
+    // points at the wrong thing entirely.
+    const chosen = await page
+      .getByRole('combobox', { name: /font/i })
+      .first()
+      .inputValue()
+      .catch(() => '');
+    assert.match(chosen, /Fraunces/i, `font family did not take (inspector reads "${chosen}")`);
 
     begin();
     await beat(page, 1100);
 
     // ── Open the axis controls ─────────────────────────────────────
-    const section = page.getByRole('button', { name: /variable font axes/i });
-    if (!(await section.isVisible({ timeout: 8000 }).catch(() => false))) {
+    if (!(await openSection(page, /variable font axes/i))) {
       throw new Error('Variable Font Axes section is not offered for Fraunces Variable');
     }
-    await section.click();
-    await page.waitForTimeout(500);
     await parkPointer(page);
     assertions.push('the inspector offers a Variable Font Axes section for a bundled family');
     await beat(page, 1000);
@@ -141,12 +164,7 @@ await capture({
     await page.waitForTimeout(500);
     await page.getByRole('treeitem').first().click();
     await page.waitForTimeout(700);
-    const reopened = page.getByRole('button', { name: /variable font axes/i });
-    if (await reopened.isVisible({ timeout: 4000 }).catch(() => false)) {
-      const expanded = await reopened.getAttribute('aria-expanded');
-      if (expanded === 'false') await reopened.click();
-      await page.waitForTimeout(400);
-    }
+    await openSection(page, /variable font axes/i);
     assert.equal(await axis(page, /Weight \(wght\)/).inputValue(), '200', 'wght did not persist');
     assert.equal(await axis(page, /Optical Size \(opsz\)/).inputValue(), '144', 'opsz did not persist');
     assertions.push('both values survived deselecting and reselecting the layer');
