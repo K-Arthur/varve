@@ -1,0 +1,106 @@
+{
+  "workflow": "Auto-layout",
+  "slug": "auto-layout",
+  "purpose": "A playlist row system reflows through real flex auto-layout controls as content grows.",
+  "gitCommit": "4a3c3cb7141cca298ebe9a2ad6e45dd19a54ff62",
+  "capturedAt": "2026-08-22T05:38:52.945Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": null,
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 77.6,
+  "deliveredDuration": 19.07,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/auto-layout.webm",
+    "poster": "docs/screenshots/workflows/auto-layout-poster.png",
+    "mp4": "docs/screenshots/workflows/auto-layout.mp4"
+  },
+  "metadata": {
+    "productTruth": "layoutStyle.mode=flex; reflow driven by @varve/layout"
+  },
+  "artifacts": [],
+  "productAssertions": [
+    "parent playlist frame uses the real Flex layout mode and Column direction",
+    "changing Gap reflowed the child row geometry",
+    "container padding was changed through all four real inspector fields",
+    "container width was resized through the inspector and children remained in layout",
+    "editing the title to a significantly longer string recomputed the row without overlap",
+    "undo and redo completed after the layout/content edits"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 571,
+          "duration": 19.066,
+          "bytes": 802234
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 571,
+          "duration": 19.033333,
+          "bytes": 979524
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 220.8,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 4.77,
+        "luma": 221.4,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 9.53,
+        "luma": 220.5,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 14.3,
+        "luma": 213.5,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 18.82,
+        "luma": 221.6,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "privacy": [],
+    "pass": true
+  }
+}

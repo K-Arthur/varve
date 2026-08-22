@@ -1,0 +1,106 @@
+{
+  "workflow": "Motion timeline",
+  "slug": "motion-timeline",
+  "purpose": "A kinetic editorial title card is keyed, scrubbed, dragged and played in the real timeline.",
+  "gitCommit": "47ed6a6c3aae08a9bf23cf3f9a3d0982526835e5",
+  "capturedAt": "2026-08-22T06:57:54.961Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": null,
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 47.23,
+  "deliveredDuration": 29.73,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/motion-timeline.webm",
+    "poster": "docs/screenshots/workflows/motion-timeline-poster.png",
+    "mp4": "docs/screenshots/workflows/motion-timeline.mp4"
+  },
+  "metadata": {
+    "productTruth": "MotionFacade/TimelineSampler drive the canvas; no capture-only CSS animation"
+  },
+  "artifacts": [],
+  "productAssertions": [
+    "first position keyframe was inserted through the real Motion shortcut",
+    "drag/keyboard seek moved the real playhead to the exact 2.5s authored time",
+    "second position keyframe stores the moved editorial geometry",
+    "dragging the keyframe changed its real timeline position (Keyframe at 50% → Keyframe at 52%)",
+    "timeline playback rendered the same keyed values used by scrub/seek",
+    "undo restored the last keyframe edit"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 891,
+          "duration": 29.733,
+          "bytes": 851579
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 891,
+          "duration": 29.7,
+          "bytes": 898846
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 230.2,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 7.43,
+        "luma": 229.4,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 14.87,
+        "luma": 229.5,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 22.3,
+        "luma": 230.2,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 29.48,
+        "luma": 230.2,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "privacy": [],
+    "pass": true
+  }
+}

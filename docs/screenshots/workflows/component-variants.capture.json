@@ -1,0 +1,106 @@
+{
+  "workflow": "Reusable component / variant",
+  "slug": "component-variants",
+  "purpose": "A transit-ticket purchase button is promoted to a real component and switched between variants.",
+  "gitCommit": "3a02217199790c557d610593fa9cc208604963da",
+  "capturedAt": "2026-08-22T06:10:24.399Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": null,
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 35.48,
+  "deliveredDuration": 21.53,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/component-variants.webm",
+    "poster": "docs/screenshots/workflows/component-variants-poster.png",
+    "mp4": "docs/screenshots/workflows/component-variants.mp4"
+  },
+  "metadata": {
+    "productTruth": "componentId/variant/propertyOverrides persisted in the scene document"
+  },
+  "artifacts": [],
+  "productAssertions": [
+    "duplicate ticket frames were converted through Detect Duplicates → Create component",
+    "component source and instances remain real document-linked layers",
+    "first variant was created from the real instance picker and is active",
+    "the instance switched variants through document component semantics",
+    "editing the source preserved the linked instance and its selected variant",
+    "undo and redo completed after component-source propagation"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 645,
+          "duration": 21.533,
+          "bytes": 670687
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 645,
+          "duration": 21.5,
+          "bytes": 863856
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 229.6,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 5.38,
+        "luma": 222.2,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 10.77,
+        "luma": 222.2,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 16.15,
+        "luma": 223.1,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 21.28,
+        "luma": 223.1,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "privacy": [],
+    "pass": true
+  }
+}

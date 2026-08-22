@@ -1,0 +1,103 @@
+{
+  "workflow": "Same project in light/dark UI",
+  "slug": "light-dark-ui",
+  "purpose": "One editorial magazine spread stays identical while Varve chrome changes from light to dark.",
+  "gitCommit": "5f3f86f5649cadfbcc24d46f7ce056e4818a70bf",
+  "capturedAt": "2026-08-22T07:00:56.757Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": null,
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 35.11,
+  "deliveredDuration": 13.37,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/light-dark-ui.webm",
+    "poster": "docs/screenshots/workflows/light-dark-ui-poster.png",
+    "mp4": "docs/screenshots/workflows/light-dark-ui.mp4"
+  },
+  "metadata": {
+    "productTruth": "theme control mutates UI tokens only; project scene/camera are unchanged"
+  },
+  "artifacts": [],
+  "productAssertions": [
+    "light UI stabilized at zoom 133% with the editorial spread visible",
+    "real View → Theme → Dark changed application chrome while the canvas crop stayed pixel-identical",
+    "switching back to Light restored the same project and camera"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 400,
+          "duration": 13.366,
+          "bytes": 573411
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 400,
+          "duration": 13.333333,
+          "bytes": 542131
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 213.8,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 3.34,
+        "luma": 79,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 6.68,
+        "luma": 78.9,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 10.02,
+        "luma": 213.8,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 13.12,
+        "luma": 213.8,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "privacy": [],
+    "pass": true
+  }
+}
