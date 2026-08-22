@@ -374,6 +374,31 @@ function xbr2x(source: ImageData): ImageData {
   return out;
 }
 
+/**
+ * Apply a 2x pixel-art algorithm iteratively to reach the target power-of-2
+ * scale. Non-power-of-2 remainder is filled with nearest-neighbor (which
+ * is honest — these algorithms are designed for 2x passes, not fractional).
+ */
+function iterativePixelArtScale(
+  source: ImageData,
+  scale: number,
+  core2x: (src: ImageData) => ImageData,
+): ImageData {
+  if (scale === 1) return source;
+  // Number of 2x passes: floor(log2(scale)) — e.g. scale 8 = 3 passes
+  const passes = Math.floor(Math.log2(scale));
+  let current = source;
+  for (let i = 0; i < passes; i++) {
+    current = core2x(current);
+  }
+  // If scale is not a power of 2, fill the remainder with nearest-neighbor
+  const achievedScale = current.width / source.width;
+  if (achievedScale < scale) {
+    current = scaleNx(current, scale / achievedScale);
+  }
+  return current;
+}
+
 export function scalePixelArt(source: ImageData, options: PixelArtOptions): ImageData {
   const { algorithm, scale } = options;
   if (scale <= 0 || !Number.isInteger(scale)) {
@@ -384,45 +409,16 @@ export function scalePixelArt(source: ImageData, options: PixelArtOptions): Imag
     case 'nearest':
       return scaleNx(source, scale);
     case 'epx':
-    case 'scale2x': {
-      if (scale === 1) return source;
-      let current = source;
-      for (let i = 0; i < Math.log2(scale); i++) {
-        current = epx2x(current);
-      }
-      if (current.width / source.width < scale) {
-        current = scaleNx(current, scale / (current.width / source.width));
-      }
-      return current;
-    }
-    case 'scale3x': {
+    case 'scale2x':
+      return iterativePixelArtScale(source, scale, epx2x);
+    case 'scale3x':
       return scaleNx(source, 3);
-    }
-    case 'scale4x': {
+    case 'scale4x':
       return scaleNx(source, 4);
-    }
-    case 'hqx': {
-      if (scale === 1) return source;
-      let current = source;
-      for (let i = 0; i < Math.log2(scale); i++) {
-        current = hq2xCore(current);
-      }
-      if (current.width / source.width < scale) {
-        current = scaleNx(current, scale / (current.width / source.width));
-      }
-      return current;
-    }
-    case 'xbr': {
-      if (scale === 1) return source;
-      let current = source;
-      for (let i = 0; i < Math.log2(scale); i++) {
-        current = xbr2x(current);
-      }
-      if (current.width / source.width < scale) {
-        current = scaleNx(current, scale / (current.width / source.width));
-      }
-      return current;
-    }
+    case 'hqx':
+      return iterativePixelArtScale(source, scale, hq2xCore);
+    case 'xbr':
+      return iterativePixelArtScale(source, scale, xbr2x);
     default:
       return scaleNx(source, scale);
   }
