@@ -105,6 +105,8 @@ await capture({
       .click()
       .catch(() => undefined);
     await page.waitForTimeout(700);
+    await fitContent(page);
+    await parkPointer(page);
     assertions.push('typography layer selected in the production inspector');
     await beat(page, 4500);
 
@@ -112,6 +114,8 @@ await capture({
     // Keeping the duplicated object compact preserves the campaign read while
     // still proving that reuse is a real document operation.
     await selectLayer(page, /Ellipse 1/i);
+    await fitContent(page);
+    await parkPointer(page);
     await page.keyboard.press('Control+d');
     await page.waitForTimeout(650);
     assertions.push('a launch-kit element is duplicated through the editor command path');
@@ -122,6 +126,8 @@ await capture({
       await page.getByRole('treeitem').last().click();
     });
     await page.waitForTimeout(700);
+    await fitContent(page);
+    await parkPointer(page);
     assertions.push('the kit contains a real raster layer alongside vector and type');
     await beat(page, 4500);
 
