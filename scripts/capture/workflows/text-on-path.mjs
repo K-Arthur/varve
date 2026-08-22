@@ -134,10 +134,15 @@ await capture({
     }
     await parkPointer(page);
     await settle(page);
+
+    // Split the two failures. A range input that did not commit and a render
+    // that did not follow look identical from a pixel comparison alone.
+    const landedOffset = await offset.inputValue();
+    assert.equal(landedOffset, '30', `the offset control did not move (reads ${landedOffset})`);
     assert.notEqual(
       Buffer.compare(beforeOffset, await canvasPixels(page)),
       0,
-      'changing the start offset did not move the glyphs',
+      `the offset moved to ${landedOffset}% but the glyphs did not`,
     );
     assertions.push('changing the start offset walks the glyphs around the ring');
     await beat(page, 1200);
