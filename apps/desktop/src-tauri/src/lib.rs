@@ -976,7 +976,13 @@ fn ensure_native_ai(app: &tauri::AppHandle) -> bool {
             }
         },
         None => {
-            eprintln!("[bgremove] no bundled onnxruntime dylib found for this platform; falling back to WASM");
+            eprintln!(
+                "[bgremove] no bundled onnxruntime dylib found for this platform ({}-{}); \
+                 falling back to WASM inference. Run `node scripts/fetch-onnxruntime.mjs` \
+                 from the repo root to stage the native library.",
+                std::env::consts::OS,
+                std::env::consts::ARCH,
+            );
         }
     }
     varve_bgremove::runtime::native_ai_ready()
