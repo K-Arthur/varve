@@ -6,15 +6,7 @@
  * verification, manifest — so a workflow file contains only the actions it
  * demonstrates and the assertions that prove they were real.
  */
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
@@ -124,10 +116,11 @@ export async function capture(spec) {
     };
 
     let assertions = [];
+    let sourceSeconds = 0;
     try {
       assertions = (await spec.sequence(ctx)) ?? [];
     } finally {
-      var sourceSeconds = (Date.now() - started) / 1000;
+      sourceSeconds = (Date.now() - started) / 1000;
     }
     if (trimStart === null) throw new Error('sequence never called ctx.begin()');
 
@@ -170,7 +163,11 @@ export async function capture(spec) {
         maxSeconds: maxS,
         maxBytes: 10_000_000,
       });
-      verification.clips[label] = { pass: result.pass, findings: result.findings, info: result.info };
+      verification.clips[label] = {
+        pass: result.pass,
+        findings: result.findings,
+        info: result.info,
+      };
       verification.findings.push(...result.findings.map((f) => `${label}: ${f}`));
     }
 
@@ -184,7 +181,9 @@ export async function capture(spec) {
     verification.pass = verification.findings.length === 0;
 
     const manifestPath = join(stage, `${spec.slug}.capture.json`);
-    const manifest = writeManifest(manifestPath, {
+    const manifest = writeManifest(
+      manifestPath,
+      {
         workflow: spec.workflow,
         slug: spec.slug,
         purpose: spec.purpose,
@@ -204,7 +203,7 @@ export async function capture(spec) {
         verification,
       },
       ROOT,
-    });
+    );
 
     if (verification.pass) {
       const canonical = [
@@ -235,7 +234,6 @@ export async function capture(spec) {
     if (keepSource) console.log(`[${spec.slug}] source kept at ${sourcePath}`);
     else rmSync(tmp, { recursive: true, force: true });
     if (verification.pass) rmSync(stage, { recursive: true, force: true });
-
 
     return manifest;
   } catch (err) {
