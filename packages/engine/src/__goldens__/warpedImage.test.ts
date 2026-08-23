@@ -66,6 +66,19 @@ describe('warpedImage primitive', () => {
     expect(b.h).toBeCloseTo(700, 6);
   });
 
+  it('accepts an offset quad without treating its scene coordinates as raster indices', () => {
+    const item = warpItem({
+      quad: [
+        [-40, -20],
+        [40, -20],
+        [40, 60],
+        [-40, 60],
+      ],
+    });
+    const { target } = createRecordingTarget();
+    expect(() => replayIr(target, [item])).not.toThrow();
+  });
+
   it('degenerate quads do not throw', () => {
     const item = warpItem({
       quad: [

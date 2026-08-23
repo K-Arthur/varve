@@ -46,8 +46,41 @@ export interface BakeResult {
 
 function allFiltersBakeable(filters: FilterIR[]): FilterIR[] {
   return filters.filter(
-    (f) => f.kind !== 'blur' && f.kind !== 'sharpen' && f.kind !== 'halftone' && f.kind !== 'chain',
+    (f) =>
+      f.kind !== 'blur' &&
+      f.kind !== 'sharpen' &&
+      f.kind !== 'halftone' &&
+      f.kind !== 'chain' &&
+      (f.blendMode === 'normal' || f.blendMode === 'passThrough'),
   );
+}
+
+/** Apply one bakeable filter and honor its own mix amount. */
+function applyBakeFilter(
+  surface: RasterSurface,
+  filter: FilterIR,
+  width: number,
+  height: number,
+): void {
+  const before = surface.context.getImageData(0, 0, width, height);
+  applySoftwareFilter(surface.context, filter, width, height);
+  const after = surface.context.getImageData(0, 0, width, height);
+  const opacity = Math.max(0, Math.min(1, filter.opacity ?? 1));
+  if (opacity >= 1) return;
+
+  for (let i = 0; i < after.data.length; i += 4) {
+    after.data[i] = Math.round(before.data[i]! + (after.data[i]! - before.data[i]!) * opacity);
+    after.data[i + 1] = Math.round(
+      before.data[i + 1]! + (after.data[i + 1]! - before.data[i + 1]!) * opacity,
+    );
+    after.data[i + 2] = Math.round(
+      before.data[i + 2]! + (after.data[i + 2]! - before.data[i + 2]!) * opacity,
+    );
+    after.data[i + 3] = Math.round(
+      before.data[i + 3]! + (after.data[i + 3]! - before.data[i + 3]!) * opacity,
+    );
+  }
+  surface.context.putImageData(after, 0, 0);
 }
 
 /**
@@ -63,7 +96,8 @@ export function bakeFiltersToLut(
 ): BakeResult {
   const usable = allFiltersBakeable(filters);
   const incompatible = filters.filter((f) => !allFiltersBakeable(filters).includes(f));
-  const size = options.size;
+  const requestedSize = Number.isFinite(options.size) ? Math.round(options.size) : 16;
+  const size = Math.max(2, Math.min(256, requestedSize));
   const domainMin = options.domainMin ?? [0, 0, 0];
   const domainMax = options.domainMax ?? [1, 1, 1];
 
@@ -91,7 +125,7 @@ export function bakeFiltersToLut(
           surface.context.fillRect(0, 0, 1, 1);
 
           for (const filter of usable) {
-            applySoftwareFilter(surface.context, filter, 1, 1);
+            applyBakeFilter(surface, filter, 1, 1);
           }
 
           // Read the sampled output AFTER the filter stack runs. Reading
@@ -134,7 +168,7 @@ export function bakeFiltersToLut(
       surfR.context.fillStyle = `rgb(${Math.round(t * 255)}, 0, 0)`;
       surfR.context.fillRect(0, 0, 1, 1);
       for (const filter of usable) {
-        applySoftwareFilter(surfR.context, filter, 1, 1);
+        applyBakeFilter(surfR, filter, 1, 1);
       }
       const imgR = surfR.context.getImageData(0, 0, 1, 1);
       r[i] = imgR.data[0]! / 255;
@@ -144,7 +178,7 @@ export function bakeFiltersToLut(
       surfG.context.fillStyle = `rgb(0, ${Math.round(t * 255)}, 0)`;
       surfG.context.fillRect(0, 0, 1, 1);
       for (const filter of usable) {
-        applySoftwareFilter(surfG.context, filter, 1, 1);
+        applyBakeFilter(surfG, filter, 1, 1);
       }
       const imgG = surfG.context.getImageData(0, 0, 1, 1);
       g[i] = imgG.data[1]! / 255;
@@ -154,7 +188,7 @@ export function bakeFiltersToLut(
       surfB.context.fillStyle = `rgb(0, 0, ${Math.round(t * 255)})`;
       surfB.context.fillRect(0, 0, 1, 1);
       for (const filter of usable) {
-        applySoftwareFilter(surfB.context, filter, 1, 1);
+        applyBakeFilter(surfB, filter, 1, 1);
       }
       const imgB = surfB.context.getImageData(0, 0, 1, 1);
       b[i] = imgB.data[2]! / 255;

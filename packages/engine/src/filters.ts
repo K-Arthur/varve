@@ -40,6 +40,7 @@ export type AdjustmentKind =
   | 'colorBalance'
   | 'channelMixer'
   | 'photoFilter'
+  | 'shadowHighlight'
   | 'halftone'
   | 'gradientMap'
   | 'tritone'
@@ -635,6 +636,18 @@ export interface CausticsAdjustment extends AdjustmentBase {
   quality: EffectQualityParam;
 }
 
+export interface ShadowHighlightAdjustment extends AdjustmentBase {
+  kind: 'shadowHighlight';
+  /** Shadow brightening amount (0-100, default 0). */
+  shadows: number;
+  /** Highlight darkening amount (0-100, default 0). */
+  highlights: number;
+  /** Tonal width: how broad the shadow/highlight zones are (0-100, default 50). */
+  tonalWidth: number;
+  /** Midpoint: balance between shadow and highlight bias (0-100, default 50). */
+  midpoint: number;
+}
+
 export type Adjustment =
   | BrightnessAdjustment
   | ContrastAdjustment
@@ -674,7 +687,8 @@ export type Adjustment =
   | LightShaftsAdjustment
   | LensFlareAdjustment
   | LightLeakAdjustment
-  | CausticsAdjustment;
+  | CausticsAdjustment
+  | ShadowHighlightAdjustment;
 
 export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
   const base = { opacity: adjustment.opacity, blendMode: adjustment.blendMode };
@@ -1094,6 +1108,15 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         quality: adjustment.quality,
         ...base,
       };
+    case 'shadowHighlight':
+      return {
+        kind: 'shadowHighlight',
+        shadows: adjustment.shadows,
+        highlights: adjustment.highlights,
+        tonalWidth: adjustment.tonalWidth,
+        midpoint: adjustment.midpoint,
+        ...base,
+      };
     default:
       return { kind: 'opacity', value: 100, opacity: 1, blendMode: 'normal' };
   }
@@ -1131,6 +1154,7 @@ const ADJUSTMENT_KINDS: ReadonlySet<AdjustmentKind> = new Set<AdjustmentKind>([
   'colorBalance',
   'channelMixer',
   'photoFilter',
+  'shadowHighlight',
   'halftone',
   'gradientMap',
   'tritone',
@@ -1245,6 +1269,8 @@ export function filterKindDisplayName(kind: AdjustmentKind): string {
       return 'Channel Mixer';
     case 'photoFilter':
       return 'Photo Filter';
+    case 'shadowHighlight':
+      return 'Shadow / Highlight';
     case 'selectiveColor':
       return 'Selective Color';
     case 'gradientMap':
@@ -1362,6 +1388,14 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         color: [255, 255, 0, 255] as Color,
         density: 25,
         preserveLuminosity: true,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'shadowHighlight':
+      return {
+        ...base,
+        shadows: 0,
+        highlights: 0,
+        tonalWidth: 50,
+        midpoint: 50,
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'halftone':
       return {

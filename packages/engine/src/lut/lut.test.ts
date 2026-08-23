@@ -419,6 +419,33 @@ describe('exportLutToCube', () => {
     const result = parseCubeData(text);
     expect(result.transform.kind).toBe('1d');
   });
+
+  it('resamples a 1D LUT instead of repeating source entries', () => {
+    const lut = makeIdentityLut1D(3);
+    lut.r.set([0, 0.25, 1]);
+    const text = exportLutToCube(lut, { size: 5 });
+    const result = parseCubeData(text);
+    expect(result.transform.kind).toBe('1d');
+    if (result.transform.kind === '1d') {
+      expect(result.transform.r[2]).toBeCloseTo(0.25, 3);
+      expect(result.transform.r[1]).toBeCloseTo(0.125, 3);
+    }
+  });
+
+  it('flattens a shaper+3D LUT into a semantically equivalent 3D export', () => {
+    const shaper = makeIdentityLut1D(3);
+    shaper.r.set([0, 0.25, 1]);
+    const text = exportLutToCube(
+      { kind: 'shaper3d', shaper, lut3d: makeIdentityLut3D(3), metadata: {} },
+      { size: 5 },
+    );
+    const result = parseCubeData(text);
+    expect(result.transform.kind).toBe('3d');
+    if (result.transform.kind === '3d') {
+      expect(result.transform.size).toBe(5);
+      expect(result.transform.data[6]).toBeCloseTo(0.25, 3);
+    }
+  });
 });
 
 // ─── 3D Bake Applies Filters ───────────────────────────────────
@@ -502,6 +529,36 @@ describe('bakeFiltersToLut 3D applies filters', () => {
     expect(result.lut.data[idx]).toBeCloseTo(0, 1);
     expect(result.lut.data[idx + 1]).toBeCloseTo(0.5, 2);
     expect(result.lut.data[idx + 2]).toBeCloseTo(0.5, 2);
+  });
+
+  it('honors per-filter opacity while baking', () => {
+    const result = bakeFiltersToLut(
+      [
+        {
+          ...redBoost,
+          opacity: 0.5,
+        },
+      ],
+      { format: '3d', size: 9 },
+      fakeSurfaceFactory,
+    );
+    expect(result.lut.kind).toBe('3d');
+    if (result.lut.kind !== '3d') return;
+    const idx = ((4 * 9 + 4) * 9 + 4) * 3;
+    expect(result.lut.data[idx]).toBeCloseTo((0.5 + 0.7) / 2, 1);
+  });
+
+  it('rejects non-normal blend filters instead of baking the wrong transform', () => {
+    const result = bakeFiltersToLut(
+      [{ ...redBoost, blendMode: 'multiply' }],
+      { format: '3d', size: 3 },
+      fakeSurfaceFactory,
+    );
+    expect(result.incompatibleFilters).toHaveLength(1);
+    expect(result.lut.kind).toBe('3d');
+    if (result.lut.kind !== '3d') return;
+    const idx = ((1 * 3 + 1) * 3 + 1) * 3;
+    expect(result.lut.data[idx]).toBeCloseTo(0.5, 2);
   });
 });
 

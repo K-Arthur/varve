@@ -57,8 +57,8 @@ describe('Phase 5 — Path → Selection', () => {
   });
 
   it('composes a transform instead of re-flattening curves', () => {
-    const sel = rectPath();
-    const moved = transformAreaSelection(sel!, translate(5, 0));
+    const sel = rectPath()!;
+    const moved = transformAreaSelection(sel, translate(5, 0))!;
     expect(areaSelectionCoverageAt(moved, { x: 12, y: 5 })).toBe(1); // now 5..15
     expect(areaSelectionCoverageAt(moved, { x: 2, y: 5 })).toBe(0); // original span left behind
   });

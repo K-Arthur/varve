@@ -16,6 +16,7 @@ import { applyCurve, buildCurveLUT } from './adjustment/curves';
 import { applyLevels } from './adjustment/levels';
 import type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
 import { applySelectiveColor } from './adjustment/selectiveColor';
+import { applyShadowHighlight } from './adjustment/shadowHighlight';
 import { applyBlackAndWhite } from './blackAndWhite';
 import { gaussianBlurSeparable } from './blur';
 import {
@@ -23,7 +24,7 @@ import {
   type ColorHalftoneDotShape,
   type ColorHalftoneMode,
 } from './colorHalftone';
-import { mapBlendMode } from './compositeCanvas';
+import { blendPixels, mapBlendMode } from './compositeCanvas';
 import { applyDuotone } from './duotone';
 import { filterToCss, supportsCanvasFilter } from './filters';
 import { applyGradientMapFilter } from './gradientMap';
@@ -89,16 +90,21 @@ export function applyFilterWithCompositing(
     // This API is post-render: merely assigning ctx.filter here would only
     // affect a future draw and leave the existing pixels unchanged. Use the
     // portable software path when an intermediate surface is unavailable.
-    for (const filter of filters) {
-      applySoftwareFilter(target, filter, width, height, options);
-    }
+    for (const filter of filters)
+      applySoftwareFilterWithCompositing(target, filter, width, height, options);
     return;
   }
   current.context.drawImage(target.canvas, 0, 0);
 
   for (const f of filters) {
     const css = filterToCss(f);
-    const filtered = createRasterSurface(width, height);
+    let filtered: ReturnType<typeof createRasterSurface>;
+    try {
+      filtered = createRasterSurface(width, height);
+    } catch {
+      applySoftwareFilterWithCompositing(current.context, f, width, height, options);
+      continue;
+    }
     if (css && supportsCanvasFilter(filtered.context)) {
       filtered.context.filter = css;
       filtered.context.drawImage(current.canvas, 0, 0);
@@ -112,14 +118,24 @@ export function applyFilterWithCompositing(
       continue;
     }
 
-    const composed = createRasterSurface(width, height);
-    composed.context.drawImage(current.canvas, 0, 0);
-    composed.context.globalAlpha = f.opacity ?? 1;
-    composed.context.globalCompositeOperation = mapBlendMode(
-      f.blendMode ?? 'normal',
-    ) as GlobalCompositeOperation;
-    composed.context.drawImage(filtered.canvas, 0, 0);
-    current = composed;
+    try {
+      const composed = createRasterSurface(width, height);
+      composed.context.drawImage(current.canvas, 0, 0);
+      composed.context.globalAlpha = f.opacity ?? 1;
+      composed.context.globalCompositeOperation = mapBlendMode(
+        f.blendMode ?? 'normal',
+      ) as GlobalCompositeOperation;
+      composed.context.drawImage(filtered.canvas, 0, 0);
+      current = composed;
+    } catch {
+      const backdrop = current.context.getImageData(0, 0, width, height);
+      const source = filtered.context.getImageData(0, 0, width, height);
+      current.context.putImageData(
+        blendPixels(backdrop, source, f.blendMode ?? 'normal', f.opacity ?? 1),
+        0,
+        0,
+      );
+    }
   }
 
   target.save();
@@ -135,6 +151,22 @@ export function applyFilterWithCompositing(
   } finally {
     target.restore();
   }
+}
+
+/** Software-only fallback that preserves per-filter opacity and blend mode. */
+function applySoftwareFilterWithCompositing(
+  target: RasterCanvasContext,
+  filter: FilterIR,
+  width: number,
+  height: number,
+  options: FilterRenderOptions,
+): void {
+  const backdrop = target.getImageData(0, 0, width, height);
+  applySoftwareFilter(target, filter, width, height, options);
+  const opacity = filter.opacity ?? 1;
+  if (opacity >= 1 && (!filter.blendMode || filter.blendMode === 'normal')) return;
+  const source = target.getImageData(0, 0, width, height);
+  target.putImageData(blendPixels(backdrop, source, filter.blendMode ?? 'normal', opacity), 0, 0);
 }
 
 /**
@@ -251,6 +283,22 @@ export function applySoftwareFilter(
       ];
       const result = applySelectiveColor(imageData, params);
       ctx.putImageData(result, 0, 0);
+      break;
+    }
+    case 'shadowHighlight': {
+      const sf = filter as {
+        shadows: number;
+        highlights: number;
+        tonalWidth: number;
+        midpoint: number;
+      };
+      applyShadowHighlight(imageData, {
+        shadows: sf.shadows ?? 0,
+        highlights: sf.highlights ?? 0,
+        tonalWidth: sf.tonalWidth ?? 50,
+        midpoint: sf.midpoint ?? 50,
+      });
+      ctx.putImageData(imageData, 0, 0);
       break;
     }
     case 'exposure': {
@@ -722,6 +770,7 @@ function applyPortableCssFilter(data: ImageData, filter: FilterIR): void {
     const r = pixels[i]!;
     const g = pixels[i + 1]!;
     const b = pixels[i + 2]!;
+    if (pixels[i + 3] === 0) continue;
     switch (filter.kind) {
       case 'brightness': {
         const factor = Math.max(0, 1 + amount / 100);
@@ -831,6 +880,7 @@ function applyExposure(
   const factor = 2 ** value; // Exposure in EV
   const pixels = data.data;
   for (let i = 0; i < pixels.length; i += 4) {
+    if (pixels[i + 3] === 0) continue;
     const r = pixels[i]! / 255;
     const g = pixels[i + 1]! / 255;
     const b = pixels[i + 2]! / 255;
@@ -906,6 +956,7 @@ function applySharpen(data: ImageData, amount: number, radius: number, threshold
 function applyTemperature(data: ImageData, value: number): void {
   const pixels = data.data;
   for (let i = 0; i < pixels.length; i += 4) {
+    if (pixels[i + 3] === 0) continue;
     pixels[i] = clampByte(pixels[i]! + value); // Red: increase for warm
     pixels[i + 1] = clampByte(pixels[i + 1]!); // Green: unchanged
     pixels[i + 2] = clampByte(pixels[i + 2]! - value); // Blue: decrease for warm
@@ -919,6 +970,7 @@ function applyTemperature(data: ImageData, value: number): void {
 function applyTint(data: ImageData, value: number): void {
   const pixels = data.data;
   for (let i = 0; i < pixels.length; i += 4) {
+    if (pixels[i + 3] === 0) continue;
     pixels[i] = clampByte(pixels[i]! + value * 0.5); // Red: increase for magenta
     pixels[i + 1] = clampByte(pixels[i + 1]! - value); // Green: decrease for magenta
     pixels[i + 2] = clampByte(pixels[i + 2]! + value * 0.5); // Blue: increase for magenta
@@ -938,6 +990,7 @@ function applyColorBalance(
 ): void {
   const pixels = data.data;
   for (let i = 0; i < pixels.length; i += 4) {
+    if (pixels[i + 3] === 0) continue;
     const lum = 0.299 * pixels[i]! + 0.587 * pixels[i + 1]! + 0.114 * pixels[i + 2]!;
     // Determine tonal range weight
     let shadowW = Math.max(0, 1 - lum / 85);
@@ -985,6 +1038,7 @@ function applyChannelMixer(
 ): void {
   const pixels = data.data;
   for (let i = 0; i < pixels.length; i += 4) {
+    if (pixels[i + 3] === 0) continue;
     const sr = pixels[i]!;
     const sg = pixels[i + 1]!;
     const sb = pixels[i + 2]!;
@@ -1018,6 +1072,7 @@ function applyPhotoFilter(
   const db = (color.b / 255) * d;
 
   for (let i = 0; i < pixels.length; i += 4) {
+    if (pixels[i + 3] === 0) continue;
     const sr = pixels[i]! / 255;
     const sg = pixels[i + 1]! / 255;
     const sb = pixels[i + 2]! / 255;
@@ -1050,6 +1105,7 @@ function applyVibrance(data: ImageData, value: number): void {
   const pixels = data.data;
   const factor = value / 100;
   for (let i = 0; i < pixels.length; i += 4) {
+    if (pixels[i + 3] === 0) continue;
     const sr = pixels[i]! / 255;
     const sg = pixels[i + 1]! / 255;
     const sb = pixels[i + 2]! / 255;

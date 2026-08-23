@@ -969,6 +969,15 @@ export type FilterIR =
   | { kind: 'tint'; value: number; opacity: number; blendMode: string }
   | { kind: 'vibrance'; value: number; opacity: number; blendMode: string }
   | {
+      kind: 'shadowHighlight';
+      shadows: number;
+      highlights: number;
+      tonalWidth: number;
+      midpoint: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
       kind: 'levels';
       inputShadows: number;
       inputMidtones: number;

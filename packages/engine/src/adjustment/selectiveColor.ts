@@ -106,6 +106,14 @@ export function applySelectiveColor(
     let b = src[off + 2]!;
     const a = src[off + 3]!;
 
+    if (a === 0) {
+      dst[off] = r;
+      dst[off + 1] = g;
+      dst[off + 2] = b;
+      dst[off + 3] = a;
+      continue;
+    }
+
     for (const adj of adjustments) {
       const weight = getTargetWeight(r, g, b, adj.color);
       if (weight <= 0) continue;

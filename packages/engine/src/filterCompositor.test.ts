@@ -117,10 +117,49 @@ describe('filter compositing', () => {
       1,
     );
 
-    expect(Array.from(full!.data)).toEqual([255, 245, 0, 0, 235, 215, 195, 128, 0, 0, 0, 255]);
-    expect(Array.from(half!.data)).toEqual([
-      128, 128, 128, 0, 128, 128, 128, 128, 128, 128, 128, 255,
-    ]);
+    expect(Array.from(full!.data)).toEqual([0, 10, 255, 0, 235, 215, 195, 128, 0, 0, 0, 255]);
+    expect(Array.from(half!.data)).toEqual([0, 10, 255, 0, 128, 128, 128, 128, 128, 128, 128, 255]);
+  });
+
+  it('keeps hidden RGB unchanged across pointwise adjustments', () => {
+    const filters: FilterIR[] = [
+      {
+        kind: 'levels',
+        inputShadows: 64,
+        inputMidtones: 2,
+        inputHighlights: 192,
+        outputShadows: 0,
+        outputHighlights: 255,
+        channel: 'rgb',
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      {
+        kind: 'exposure',
+        value: 2,
+        offset: 0.2,
+        gammaCorrection: 0.5,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      {
+        kind: 'vibrance',
+        value: 100,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+    ];
+    for (const filter of filters) {
+      let output: ImageData | undefined;
+      const context = {
+        getImageData: () => makeTestImageData([[17, 33, 49, 0]], 1, 1),
+        putImageData: (data: ImageData) => {
+          output = data;
+        },
+      };
+      applySoftwareFilter(context as unknown as OffscreenCanvasRenderingContext2D, filter, 1, 1);
+      expect(Array.from(output!.data)).toEqual([17, 33, 49, 0]);
+    }
   });
 
   it('provides a software brightness fallback when ctx.filter is unavailable', () => {
@@ -283,6 +322,30 @@ describe('filter compositing', () => {
     // Non-CSS filter: the offscreen compositing path handles curves via
     // software pixel processing, so target.filter stays 'none'.
     expect(target.filter).toBe('none');
+  });
+
+  it('dispatches Shadow / Highlight through the software renderer', () => {
+    const source = makeTestImageData([[20, 30, 40, 255]], 1, 1);
+    const target = {
+      getImageData: () => source,
+      putImageData: (next: ImageData) => source.data.set(next.data),
+    } as unknown as Parameters<typeof applySoftwareFilter>[0];
+    applySoftwareFilter(
+      target,
+      {
+        kind: 'shadowHighlight',
+        shadows: 80,
+        highlights: 0,
+        tonalWidth: 50,
+        midpoint: 50,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      1,
+      1,
+    );
+    expect(source.data[0]).toBeGreaterThan(20);
+    expect(source.data[3]).toBe(255);
   });
 
   it('applies multiple CSS-compatible filters in order', () => {

@@ -293,6 +293,13 @@ const FILTER_PROPERTIES: Record<string, FilterProperties> = {
     hasCssPath: false,
     requiresRasterExport: true,
   },
+  shadowHighlight: {
+    name: 'Shadow / Highlight',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
   channelMixer: {
     name: 'Channel Mixer',
     capabilities: ['software-cpu'],
@@ -543,6 +550,8 @@ export function effectPixelExpansion(filter: FilterIR): [number, number, number,
       const pad = Math.ceil(64 * (filter.size ?? 1));
       return [pad, pad, pad, pad];
     }
+    // Pointwise operations: no spatial expansion needed.
+    case 'shadowHighlight':
     default:
       return [0, 0, 0, 0];
   }

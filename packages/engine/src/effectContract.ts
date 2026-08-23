@@ -2,7 +2,7 @@
  * Effect rendering contract — formal metadata for every adjustment and
  * effect in the system.
  *
- * Every effect in Strata follows this contract regardless of whether it
+ * Every effect in Varve follows this contract regardless of whether it
  * runs on CPU, GPU, or during export.  This module documents the per-effect
  * metadata and provides lookup infrastructure.
  *
@@ -297,6 +297,16 @@ const EFFECT_CONTRACTS: Record<string, EffectContractEntry> = {
     alphaConvention: 'straight',
     hasApproximatePreview: true,
     previewTolerance: 2,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'not-implemented',
+  },
+  shadowHighlight: {
+    name: 'Shadow / Highlight',
+    workingSpace: 'srgb-gamma',
+    alphaConvention: 'straight',
+    hasApproximatePreview: false,
+    previewTolerance: 0,
     requiresRasterForExport: true,
     cssFilterEquivalent: null,
     gpuStatus: 'not-implemented',

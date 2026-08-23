@@ -102,6 +102,14 @@ export function applyCurve(
 
   for (let i = 0; i < w * h; i++) {
     const off = i * 4;
+    const alpha = src[off + 3]!;
+    if (alpha === 0) {
+      dst[off] = src[off]!;
+      dst[off + 1] = src[off + 1]!;
+      dst[off + 2] = src[off + 2]!;
+      dst[off + 3] = alpha;
+      continue;
+    }
     if (channel === 'rgb' || channel === 'red') {
       dst[off] = lut[src[off]!]!;
     } else {
@@ -117,7 +125,7 @@ export function applyCurve(
     } else {
       dst[off + 2] = src[off + 2]!;
     }
-    dst[off + 3] = src[off + 3]!;
+    dst[off + 3] = alpha;
   }
 
   return result;

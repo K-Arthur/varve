@@ -2,15 +2,18 @@ import { applyCurve, buildCurveLUT } from './curves';
 import { autoLevelsParams, computeHistogram, computeHistogramStats } from './histogram';
 import { applyLevels, buildLevelsLUT } from './levels';
 import { applySelectiveColor } from './selectiveColor';
+import { applyShadowHighlight } from './shadowHighlight';
 
 export type { CurvePoint } from './curves';
 export type { Histogram, HistogramStats } from './histogram';
 export type { LevelParams } from './levels';
 export type { SelectiveColorParams, SelectiveColorTarget } from './selectiveColor';
+export type { ShadowHighlightParams } from './shadowHighlight';
 export {
   applyCurve,
   applyLevels,
   applySelectiveColor,
+  applyShadowHighlight,
   autoLevelsParams,
   buildCurveLUT,
   buildLevelsLUT,

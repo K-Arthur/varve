@@ -55,7 +55,14 @@ export function applyLevels(
 
   for (let i = 0; i < w * h; i++) {
     const off = i * 4;
-    dst[off + 3] = src[off + 3]!;
+    const alpha = src[off + 3]!;
+    dst[off + 3] = alpha;
+    if (alpha === 0) {
+      dst[off] = src[off]!;
+      dst[off + 1] = src[off + 1]!;
+      dst[off + 2] = src[off + 2]!;
+      continue;
+    }
     if (channel === 'rgb' || channel === 'red') dst[off] = lut[src[off]!]!;
     else dst[off] = src[off]!;
     if (channel === 'rgb' || channel === 'green') dst[off + 1] = lut[src[off + 1]!]!;

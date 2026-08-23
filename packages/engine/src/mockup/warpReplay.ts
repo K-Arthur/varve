@@ -171,11 +171,18 @@ export function paintWarpedImage(
   const fit = fitRect(imgW, imgH, 1, 1, p.fit === 'native' ? 'contain' : p.fit, p.alignX, p.alignY);
   if (!fit || fit.dw <= 0 || fit.dh <= 0) return;
 
+  // `warpImageToQuad` writes a zero-based raster whose dimensions are the
+  // quad's bounds. The primitive's quad, however, lives in local scene
+  // coordinates and may be offset (for example an ellipse's bounds can be
+  // negative, and mockup surfaces are commonly translated). Normalize the
+  // destination into that raster's coordinate system before inverse mapping;
+  // otherwise every pixel before `quad.x/y` is skipped and the surface can
+  // become transparent even though the geometry is valid.
   const quad: Quad = [
-    { x: p.quad[0][0], y: p.quad[0][1] },
-    { x: p.quad[1][0], y: p.quad[1][1] },
-    { x: p.quad[2][0], y: p.quad[2][1] },
-    { x: p.quad[3][0], y: p.quad[3][1] },
+    { x: p.quad[0][0] - bounds.x, y: p.quad[0][1] - bounds.y },
+    { x: p.quad[1][0] - bounds.x, y: p.quad[1][1] - bounds.y },
+    { x: p.quad[2][0] - bounds.x, y: p.quad[2][1] - bounds.y },
+    { x: p.quad[3][0] - bounds.x, y: p.quad[3][1] - bounds.y },
   ];
   const bilinear = (u: number, v: number): Vec2 => {
     const topX = quad[0].x + (quad[1].x - quad[0].x) * u;

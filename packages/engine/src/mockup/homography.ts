@@ -36,6 +36,8 @@ export type Quad = readonly [Vec2, Vec2, Vec2, Vec2];
 
 /** Minimum distance between distinct corners of a valid quad, in px. */
 const MIN_CORNER_DISTANCE = 1e-4;
+/** Prevent hostile/corrupt documents from overflowing intermediate math. */
+const MAX_COORDINATE_MAGNITUDE = 1e9;
 
 /**
  * Validate a quad for use as a homography source or destination.
@@ -48,7 +50,14 @@ const MIN_CORNER_DISTANCE = 1e-4;
 export function isQuadValid(quad: Quad): boolean {
   if (quad.length !== 4) return false;
   for (const p of quad) {
-    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return false;
+    if (
+      !Number.isFinite(p.x) ||
+      !Number.isFinite(p.y) ||
+      Math.abs(p.x) > MAX_COORDINATE_MAGNITUDE ||
+      Math.abs(p.y) > MAX_COORDINATE_MAGNITUDE
+    ) {
+      return false;
+    }
   }
   for (let i = 0; i < 4; i++) {
     const a = quad[i]!;

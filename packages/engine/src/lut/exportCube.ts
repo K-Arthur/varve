@@ -2,7 +2,8 @@
  * Export a LUT transform to Adobe .cube format.
  */
 
-import type { LutTransform } from './types';
+import type { Lut3D, LutTransform } from './types';
+import { sampleLut1D, sampleLut3D } from './interpolate';
 
 export interface CubeExportOptions {
   title?: string;
@@ -17,6 +18,29 @@ function formatFloat(v: number): string {
 
 function formatLine(r: number, g: number, b: number): string {
   return `${formatFloat(r)} ${formatFloat(g)} ${formatFloat(b)}`;
+}
+
+function exportSize(value: number | undefined, fallback: number): number {
+  const candidate = Number.isFinite(value) ? Math.round(value as number) : fallback;
+  return Math.max(2, Math.min(256, candidate));
+}
+
+function sample3dExportTransform(
+  transform: Lut3D | Extract<LutTransform, { kind: 'shaper3d' }>,
+  r: number,
+  g: number,
+  b: number,
+): [number, number, number] {
+  if (transform.kind === '3d') {
+    return sampleLut3D(transform, r, g, b, 'tetrahedral');
+  }
+
+  const shaped = [
+    sampleLut1D(transform.shaper, 'r', r),
+    sampleLut1D(transform.shaper, 'g', g),
+    sampleLut1D(transform.shaper, 'b', b),
+  ] as const;
+  return sampleLut3D(transform.lut3d, shaped[0], shaped[1], shaped[2], 'tetrahedral');
 }
 
 export function exportLutToCube(transform: LutTransform, options: CubeExportOptions = {}): string {
@@ -34,7 +58,7 @@ export function exportLutToCube(transform: LutTransform, options: CubeExportOpti
 
   if (transform.kind === '1d') {
     const lut = transform;
-    const size = options.size ?? lut.size;
+    const size = exportSize(options.size, lut.size);
     const domainMin = options.domainMin ?? lut.inputMin;
     const domainMax = options.domainMax ?? lut.inputMax;
 
@@ -49,14 +73,31 @@ export function exportLutToCube(transform: LutTransform, options: CubeExportOpti
     lines.push(`LUT_1D_SIZE ${size}`);
 
     for (let i = 0; i < size; i++) {
-      const srcIdx = Math.min(i, lut.size - 1);
-      lines.push(formatLine(lut.r[srcIdx]!, lut.g[srcIdx]!, lut.b[srcIdx]!));
+      const t = i / (size - 1);
+      const input = [
+        domainMin[0] + t * (domainMax[0] - domainMin[0]),
+        domainMin[1] + t * (domainMax[1] - domainMin[1]),
+        domainMin[2] + t * (domainMax[2] - domainMin[2]),
+      ] as const;
+      lines.push(
+        formatLine(
+          sampleLut1D(lut, 'r', input[0]),
+          sampleLut1D(lut, 'g', input[1]),
+          sampleLut1D(lut, 'b', input[2]),
+        ),
+      );
     }
-  } else if (transform.kind === '3d') {
-    const lut = transform;
-    const size = options.size ?? lut.size;
-    const domainMin = options.domainMin ?? lut.inputMin;
-    const domainMax = options.domainMax ?? lut.inputMax;
+  } else if (transform.kind === '3d' || transform.kind === 'shaper3d') {
+    const size = exportSize(
+      options.size,
+      transform.kind === '3d' ? transform.size : transform.lut3d.size,
+    );
+    const domainMin =
+      options.domainMin ??
+      (transform.kind === '3d' ? transform.inputMin : transform.lut3d.inputMin);
+    const domainMax =
+      options.domainMax ??
+      (transform.kind === '3d' ? transform.inputMax : transform.lut3d.inputMax);
 
     lines.push(
       'DOMAIN_MIN ' +
@@ -68,22 +109,19 @@ export function exportLutToCube(transform: LutTransform, options: CubeExportOpti
     );
     lines.push(`LUT_3D_SIZE ${size}`);
 
-    if (size === lut.size) {
-      for (let i = 0; i < lut.data.length; i += 3) {
-        lines.push(formatLine(lut.data[i]!, lut.data[i + 1]!, lut.data[i + 2]!));
-      }
-    } else {
-      const step = lut.size - 1 > 0 ? 1.0 / (lut.size - 1) : 1;
-      const dstStep = size - 1 > 0 ? 1.0 / (size - 1) : 1;
-      for (let b = 0; b < size; b++) {
-        for (let g = 0; g < size; g++) {
-          for (let r = 0; r < size; r++) {
-            const srcR = Math.min(Math.round((r * dstStep) / step), lut.size - 1);
-            const srcG = Math.min(Math.round((g * dstStep) / step), lut.size - 1);
-            const srcB = Math.min(Math.round((b * dstStep) / step), lut.size - 1);
-            const idx = ((srcB * lut.size + srcG) * lut.size + srcR) * 3;
-            lines.push(formatLine(lut.data[idx]!, lut.data[idx + 1]!, lut.data[idx + 2]!));
-          }
+    for (let b = 0; b < size; b++) {
+      for (let g = 0; g < size; g++) {
+        for (let r = 0; r < size; r++) {
+          const rb = r / (size - 1);
+          const gb = g / (size - 1);
+          const bb = b / (size - 1);
+          const value = sample3dExportTransform(
+            transform,
+            domainMin[0] + rb * (domainMax[0] - domainMin[0]),
+            domainMin[1] + gb * (domainMax[1] - domainMin[1]),
+            domainMin[2] + bb * (domainMax[2] - domainMin[2]),
+          );
+          lines.push(formatLine(value[0], value[1], value[2]));
         }
       }
     }
