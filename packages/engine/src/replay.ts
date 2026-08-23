@@ -45,7 +45,7 @@ import {
   resolveReplayImage,
 } from './mockup/warpReplay';
 import { pathFillRule, pathRings } from './pathCompound';
-import { placeGlyphsOnPath } from './pathText';
+import { flattenShapedRuns, placeClustersOnPath } from './pathText';
 import { getRasterLayerCache } from './rasterLayerCache';
 import {
   decideRasterStrategy,
@@ -2821,7 +2821,14 @@ function paintCanonicalText(
   target.fillStyle = originalFillStyle;
 }
 
-/** Paint text along a path (text-on-path). */
+/**
+ * Paint text along a path (text-on-path).
+ *
+ * Uses the same canonical shaper as point text (shapeText) so that kerning,
+ * ligatures, combining marks, BiDi visual order and tracking are all honoured
+ * by the path layout. The path still remains an independent editable object —
+ * we merely consume its geometry.
+ */
 function paintPathText(
   target: ReplayTarget,
   p: Extract<RenderItem['primitive'], { kind: 'text' }>,
@@ -2837,11 +2844,42 @@ function paintPathText(
   const fw = effectiveWeight(p);
   target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
   target.textBaseline = 'alphabetic';
+  target.textAlign = 'left';
 
-  const placements = placeGlyphsOnPath(displayText, shape, {
+  // Shape the text through the canonical pipeline so shaping, kerning,
+  // ligature and BiDi ordering match point text exactly.
+  let clusters: Array<{ text: string; advance: number }>;
+  if (target.measureText) {
+    const shaping = shapeText(
+      displayText,
+      p.fontFamily,
+      p.fontSize,
+      target as unknown as CanvasRenderingContext2D,
+      {
+        fontWeight: fw,
+        fontStyle: (p.fontStyle as 'normal' | 'italic' | undefined) ?? 'normal',
+        letterSpacing: p.letterSpacing,
+        tracking: p.tracking,
+        direction: (p.direction as 'ltr' | 'rtl' | 'auto' | undefined) ?? 'auto',
+        language: p.language,
+      },
+    );
+    clusters = flattenShapedRuns(shaping.runs, displayText);
+  } else {
+    // No measureText (e.g. pure WASM stub): fall back to grapheme clusters
+    // with an estimated advance so they at least stay attached to each other.
+    clusters = splitGraphemes(displayText).map((ch) => ({
+      text: ch,
+      advance: p.fontSize * 0.6,
+    }));
+  }
+
+  const placements = placeClustersOnPath(clusters, shape, {
     offset: settings.startOffset ?? 0,
+    endOffset: settings.endOffset,
     side: settings.side ?? 'top',
-    fontSize: p.fontSize,
+    baselineShift: settings.baselineShift,
+    flip: settings.flip,
   });
 
   const originalFillStyle = target.fillStyle;

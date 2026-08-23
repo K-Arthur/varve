@@ -175,13 +175,15 @@ export function shapeParagraphRuns(
         (gi < graphemes.length - 1 ? (style.letterSpacing ?? 0) : 0) +
         graphemeTracking(style.tracking ?? 0, style.fontSize, gi, graphemes.length);
       const advance = metrics.width + spacing;
+      const clusterStart = scriptedRun.start + graphemeStartOffset(graphemes, gi);
       glyphs.push({
         glyphId: 0,
         xAdvance: advance,
         yAdvance: 0,
         xOffset: 0,
         yOffset: 0,
-        clusterUtf16: scriptedRun.start + graphemeStartOffset(graphemes, gi),
+        clusterUtf16: clusterStart,
+        sourceEnd: clusterStart + g.length,
       });
       runWidth += advance;
     }
@@ -307,6 +309,7 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
         xOffset: 0,
         yOffset: 0,
         clusterUtf16,
+        sourceEnd: clusterUtf16 + g.length,
       });
       cursorX += metrics.width + spacing;
     }

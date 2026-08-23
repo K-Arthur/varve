@@ -769,6 +769,12 @@ export interface ShapedGlyph {
    * For ligatures this maps to the first codepoint of the cluster.
    */
   clusterUtf16: number;
+  /**
+   * UTF-16 index just past this glyph's cluster (exclusive end).
+   * Optional: native shaping backends may not populate it; fallback is
+   * clusterUtf16 + 1.
+   */
+  sourceEnd?: number;
 }
 
 /**
