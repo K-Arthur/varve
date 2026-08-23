@@ -1,10 +1,12 @@
 import { isImageShape } from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import { useEditor } from '../../../context';
+import { AdjustmentLayerAccessSection } from '../sections/AdjustmentLayerAccessSection';
 import { EffectsSection } from '../sections/EffectsSection';
 import { MaskSection } from '../sections/MaskSection';
 import { PaintLibrarySection } from '../sections/PaintLibrarySection';
 import { PaletteSection } from '../sections/PaletteSection';
+import { SmartFiltersSection } from '../sections/SmartFiltersSection';
 
 /** Full, persistent appearance workflows that need more room than Properties. */
 export function AppearancePanel() {
@@ -30,6 +32,8 @@ export function AppearancePanel() {
       {nodes.length === 1 && <MaskSection nodes={nodes} />}
       <PaintLibrarySection />
       {nodes.length === 1 && isImageShape(nodes[0]!) && <PaletteSection />}
+      <AdjustmentLayerAccessSection nodes={nodes} />
+      {nodes.length === 1 && <SmartFiltersSection nodes={nodes} />}
       {effectsCompatible && <EffectsSection nodes={nodes} />}
     </>
   );

@@ -169,6 +169,24 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'A potentially long reorderable stack needs dedicated vertical space.',
   },
+  'smart-filters': {
+    surface: 'appearance',
+    scope: 'selection',
+    frequency: 'occasional',
+    complexity: 'large-editor',
+    status: 'functional',
+    rationale:
+      'Object-local filters keep vector, text, raster, frame, and group content editable while exposing an ordered nondestructive stack.',
+  },
+  'adjustment-layer-access': {
+    surface: 'properties',
+    scope: 'mixed-selection',
+    frequency: 'occasional',
+    complexity: 'compact',
+    status: 'functional',
+    rationale:
+      'Creation belongs beside selection appearance controls so users can discover scoped adjustment layers without relying on a menu or shortcut.',
+  },
   typography: {
     surface: 'properties',
     scope: 'mixed-selection',

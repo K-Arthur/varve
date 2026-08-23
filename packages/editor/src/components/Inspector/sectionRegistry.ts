@@ -10,7 +10,12 @@
  *
  * Research basis: Figma section visibility, Sketch Inspector组织, APG Disclosure.
  */
-import { isAnimatedMediaNode, isImageShape, type SceneNode } from '@varve/scene';
+import {
+  isAdjustmentEligible,
+  isAnimatedMediaNode,
+  isImageShape,
+  type SceneNode,
+} from '@varve/scene';
 import type { WorkspaceMode } from '../../workspace/workspaceTypes';
 import type { SelectionKind } from './selection/selectionState';
 
@@ -34,6 +39,8 @@ export type SectionId =
   | 'background-removal'
   | 'stroke'
   | 'effects'
+  | 'smart-filters'
+  | 'adjustment-layer-access'
   | 'warp'
   | 'mockups'
   | 'typography'
@@ -352,6 +359,28 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     order: 250,
     category: 'appearance',
     isAvailable: (ctx) => isAllEffectNodes(ctx.selectedNodes),
+  },
+  {
+    id: 'smart-filters',
+    title: 'Object Filters',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 245,
+    category: 'appearance',
+    isAvailable: (ctx) => isSingleSelection(ctx) && ctx.selectedNodes[0]?.kind !== 'adjustment',
+  },
+  {
+    id: 'adjustment-layer-access',
+    title: 'Adjustment Layer',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 246,
+    category: 'appearance',
+    isAvailable: (ctx) =>
+      hasNodes(ctx) &&
+      ctx.selectedNodes.every((node) => node.kind !== 'adjustment' && isAdjustmentEligible(node)),
   },
   {
     id: 'warp',

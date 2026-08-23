@@ -147,8 +147,10 @@ import {
   booleanAnchorForNode,
   buildParentIndexMap,
   canBeClipMaskSource,
+  canHaveSmartFilters,
   clearGuides,
   clearLiveTrace as clearLiveTraceDoc,
+  cloneSmartFilters,
   convertDocumentColors as convertDocumentColorsDoc,
   createClippingMask as createClippingMaskDoc,
   createComponent,
@@ -164,6 +166,7 @@ import {
   createStory as createStoryDoc,
   createVariableStore,
   createVariant as createVariantDoc,
+  cryptoId,
   type Document,
   DocumentCodec,
   deepCloneSubtree,
@@ -181,6 +184,7 @@ import {
   duplicateSelectionSet as duplicateSelectionSetDoc,
   duplicateSMState,
   fillSlot as fillSlotDoc,
+  filterKindDisplayName,
   findOrCreateEmbeddedAsset,
   flattenLiveTrace as flattenLiveTraceDoc,
   type Guide,
@@ -198,6 +202,7 @@ import {
   groupNodes as groupNodesDoc,
   installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
+  isAdjustmentEligible,
   isClippingMaskGroup,
   isContainer,
   isImageShape,
@@ -208,9 +213,11 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
+  makeSmartFilter,
   makeTableNode,
   makeTextNode,
   markMaskStale,
+  moveChild,
   moveGuide as moveGuideDoc,
   moveNode,
   nextNodeId,
@@ -4218,6 +4225,7 @@ export function EditorProvider({
             ...node,
             id: newId,
             name: `${node.name} copy`,
+            ...(node.smartFilters ? { smartFilters: cloneSmartFilters(node.smartFilters) } : {}),
             transform: [
               node.transform[0],
               node.transform[1],
@@ -4362,6 +4370,7 @@ export function EditorProvider({
               ...node,
               id: newId,
               name: `${node.name} copy`,
+              ...(node.smartFilters ? { smartFilters: cloneSmartFilters(node.smartFilters) } : {}),
               transform: [
                 node.transform[0],
                 node.transform[1],
@@ -4480,6 +4489,7 @@ export function EditorProvider({
             ...node,
             id: newId,
             name: `${node.name} copy`,
+            ...(node.smartFilters ? { smartFilters: cloneSmartFilters(node.smartFilters) } : {}),
             transform: [
               node.transform[0],
               node.transform[1],
@@ -6984,17 +6994,57 @@ export function EditorProvider({
         const { id, doc: newDoc } = nextNodeId(state.document);
         const adjs = initialAdjustments ?? [];
         const sel = state.selection;
-        // Default scope: image-local when single eligible node selected,
-        // explicit-targets for multi-selection, undefined (legacy) otherwise
+        const selectedTargets = sel.flatMap((selectedId) => {
+          const target = state.document.nodes[selectedId];
+          return target && isAdjustmentEligible(target) ? [target] : [];
+        });
+
+        // A created adjustment is placed next to the selection, so its
+        // legacy sibling semantics and its explicit scope agree. Frames and
+        // groups are special: the adjustment becomes their last child and
+        // therefore filters the rendered result of that container only.
         let scope: import('@varve/scene').AdjustmentScope | undefined;
+        let parentId: NodeId | null = null;
+        let insertAfterId: NodeId | null = null;
+        let scopeLabel = '';
         if (sel.length === 1) {
           const firstId = sel[0]!;
           const target = state.document.nodes[firstId];
-          if (target && (target.kind === 'shape' || target.kind === 'rasterLayer')) {
+          if (target && (target.kind === 'frame' || target.kind === 'group')) {
+            scope = { mode: 'container-descendant', containerId: firstId, includeNested: true };
+            parentId = firstId;
+            scopeLabel = ` in ${target.name}`;
+          } else if (target && isAdjustmentEligible(target)) {
             scope = { mode: 'image-local', targetNodeId: firstId };
+            parentId = getParent(state.document, firstId);
+            insertAfterId = firstId;
+            scopeLabel = ' (selected object)';
           }
         } else if (sel.length > 1) {
-          scope = scopeForTargets(state.document, sel);
+          if (selectedTargets.length > 0) {
+            scope = { mode: 'explicit-targets', targetNodeIds: selectedTargets.map((n) => n.id) };
+            scopeLabel = ` (${selectedTargets.length} target${selectedTargets.length === 1 ? '' : 's'})`;
+
+            // Keep a multi-selection adjustment in the common parent when
+            // possible, immediately after the last selected sibling. This
+            // prevents it from accidentally capturing unrelated layers.
+            const selectedParents = selectedTargets.map((target) =>
+              getParent(state.document, target.id),
+            );
+            const firstParent = selectedParents[0] ?? null;
+            if (selectedParents.every((candidate) => candidate === firstParent)) {
+              parentId = firstParent;
+              const parent = parentId ? state.document.nodes[parentId] : undefined;
+              const siblings = parent && isContainer(parent)
+                ? parent.children
+                : state.document.rootChildren;
+              const selectedSiblingIndexes = selectedTargets
+                .map((target) => siblings.indexOf(target.id))
+                .filter((index) => index >= 0);
+              const lastSelectedIndex = Math.max(...selectedSiblingIndexes);
+              if (lastSelectedIndex >= 0) insertAfterId = siblings[lastSelectedIndex] ?? null;
+            }
+          }
         }
         const node = makeAdjustmentNode(
           id,
@@ -7008,7 +7058,7 @@ export function EditorProvider({
             outputWhite: 255,
           },
           {
-            name: `Adjustment ${id.slice(0, 4)}`,
+            name: `Adjustment${scopeLabel}`,
             opacity: 1,
             blendMode: 'normal',
             effects: [],
@@ -7016,24 +7066,79 @@ export function EditorProvider({
           },
         );
         const withAdjustments = { ...node, adjustments: adjs };
-        // Scope the adjustment to the active page like every other node
-        // (createShapeAt). Adding it to rootChildren would orphan it from the
-        // page content root that the renderer walks, making it invisible on
-        // the canvas.
-        const activePage = newDoc.pages?.find((p) => p.id === newDoc.activePageId);
-        const contentRootId = activePage?.contentRoot;
-        const doc =
-          contentRootId && newDoc.nodes[contentRootId]
-            ? addChild(newDoc, contentRootId, withAdjustments as import('@varve/scene').SceneNode)
-            : addNode(newDoc, withAdjustments as import('@varve/scene').SceneNode);
+        let doc: Document;
+        const adjustmentNode = withAdjustments as import('@varve/scene').SceneNode;
+        const parent = parentId ? newDoc.nodes[parentId] : undefined;
+        if (parentId && parent && isContainer(parent)) {
+          doc = addChild(newDoc, parentId, adjustmentNode);
+          if (insertAfterId) {
+            const insertedParent = doc.nodes[parentId];
+            const index =
+              insertedParent && isContainer(insertedParent)
+                ? insertedParent.children.indexOf(insertAfterId)
+                : -1;
+            if (index >= 0) doc = moveChild(doc, parentId, id, index + 1);
+          }
+        } else if (insertAfterId && newDoc.rootChildren.includes(insertAfterId)) {
+          doc = addNode(newDoc, adjustmentNode);
+          const index = doc.rootChildren.indexOf(insertAfterId);
+          doc = index >= 0 ? moveNode(doc, id, index + 1) : doc;
+        } else {
+          // With no scoped selection, retain the established active-page
+          // placement so the new layer is part of the rendered page tree.
+          const activePage = newDoc.pages?.find((p) => p.id === newDoc.activePageId);
+          const contentRootId = activePage?.contentRoot;
+          doc =
+            contentRootId && newDoc.nodes[contentRootId]
+              ? addChild(newDoc, contentRootId, adjustmentNode)
+              : addNode(newDoc, adjustmentNode);
+        }
         patch({ document: doc, selection: [id] });
-        const scopeName =
-          scope?.mode === 'image-local'
-            ? ' (image)'
-            : scope?.mode === 'explicit-targets'
-              ? ` (${sel.length} targets)`
-              : '';
-        announcerRef.current?.announce(`Created adjustment layer${scopeName}`);
+        announcerRef.current?.announce(`Created adjustment layer${scopeLabel}`);
+      },
+
+      addSmartFilterToSelected: (
+        kind: import('@varve/engine').AdjustmentKind,
+        overrides: Partial<import('@varve/engine').Adjustment> | undefined,
+      ) => {
+        const selection = stateRef.current.selection;
+        const eligible = selection.filter((id) => {
+          const node = stateRef.current.document.nodes[id];
+          return node ? canHaveSmartFilters(node) : false;
+        });
+        if (eligible.length === 0) {
+          announcerRef.current?.announce('Select an object to add an Object Filter');
+          toastHandler?.({
+            message: 'Object Filters require a selected object.',
+            type: 'info',
+          });
+          return;
+        }
+
+        const source = makeSmartFilter(cryptoId(), kind, overrides ?? {});
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of eligible) {
+            const node = nodes[id];
+            if (!node || !canHaveSmartFilters(node)) continue;
+            const cloned = cloneSmartFilters([source])[0];
+            if (!cloned) continue;
+            nodes[id] = {
+              ...node,
+              smartFilters: [...(node.smartFilters ?? []), cloned],
+            };
+          }
+          return { ...doc, nodes };
+        });
+        announcerRef.current?.announce(
+          `Added ${filterKindDisplayName(kind)} Object Filter to ${eligible.length} object${eligible.length === 1 ? '' : 's'}`,
+        );
+        if (eligible.length !== selection.length) {
+          toastHandler?.({
+            message: 'Object Filter added to compatible selected objects only.',
+            type: 'warning',
+          });
+        }
       },
 
       addAdjustmentToLayer: (nodeId, adjustment) => {
@@ -9625,6 +9730,7 @@ export function EditorProvider({
       switchTab: value.switchTab,
       closeTab: value.closeTab,
       createAdjustmentLayer: value.createAdjustmentLayer,
+      addSmartFilterToSelected: value.addSmartFilterToSelected,
       addAdjustmentToLayer: value.addAdjustmentToLayer,
       addLutAdjustment: value.addLutAdjustment,
       removeAdjustmentFromLayer: value.removeAdjustmentFromLayer,

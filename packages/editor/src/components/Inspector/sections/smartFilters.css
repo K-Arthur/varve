@@ -1,0 +1,166 @@
+.smart-filters__intro {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  margin-bottom: var(--space-2);
+}
+
+.smart-filters__stack {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.smart-filters__empty {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  margin: 0;
+  padding: var(--space-2) 0;
+}
+
+.smart-filters__row {
+  align-items: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-1);
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  min-height: 2rem;
+  padding: 0 var(--space-1);
+}
+
+.smart-filters__row--selected {
+  border-color: var(--color-accent);
+  background: var(--color-surface-selected);
+}
+
+.smart-filters__reorder {
+  display: grid;
+  gap: 0;
+}
+
+.smart-filters__reorder button,
+.smart-filters__visibility,
+.smart-filters__remove {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 1.25rem;
+  min-width: 1.25rem;
+  padding: 0;
+}
+
+.smart-filters__reorder button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.smart-filters__visibility:hover,
+.smart-filters__remove:hover,
+.smart-filters__reorder button:not(:disabled):hover {
+  color: var(--color-text-primary);
+}
+
+.smart-filters__name {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: var(--space-1);
+  justify-content: space-between;
+  min-width: 0;
+  padding: var(--space-1);
+  text-align: left;
+}
+
+.smart-filters__name > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smart-filters__meta,
+.smart-filters__editor-title > span:last-child {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.smart-filters__add-label,
+.smart-filters__opacity,
+.smart-filters__blend {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.smart-filters__add-label > span,
+.smart-filters__opacity > span,
+.smart-filters__blend > span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.smart-filters__add-label select {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  min-height: 2rem;
+  padding: 0 var(--space-2);
+  width: 100%;
+}
+
+.smart-filters__editor {
+  border-top: 1px solid var(--color-border-subtle);
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+}
+
+.smart-filters__editor-title,
+.smart-filters__opacity > span,
+.smart-filters__blend {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.smart-filters__opacity > input {
+  accent-color: var(--color-accent);
+  width: 100%;
+}
+
+.smart-filters__blend {
+  gap: var(--space-2);
+}
+
+.smart-filters__blend > :last-child {
+  min-width: 8rem;
+}
+
+.smart-filters__actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+
+.smart-filters__actions button {
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+}
+
+.smart-filters__actions button:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}

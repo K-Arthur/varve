@@ -954,6 +954,11 @@ export interface EditorContextValue {
 
   // Adjustment layers
   createAdjustmentLayer: (initialAdjustments?: Adjustment[]) => void;
+  /** Attach one object-local Object Filter to every compatible selected node. */
+  addSmartFilterToSelected: (
+    kind: import('@varve/engine').AdjustmentKind,
+    overrides?: Partial<import('@varve/engine').Adjustment>,
+  ) => void;
   addAdjustmentToLayer: (nodeId: NodeId, adjustment: Adjustment) => void;
   addLutAdjustment: (lutAdjustment: Adjustment) => void;
   removeAdjustmentFromLayer: (nodeId: NodeId, adjustmentId: string) => void;

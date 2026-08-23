@@ -28,6 +28,7 @@ import {
   type SectionAvailabilityContext,
   type SectionId,
 } from './sectionRegistry';
+import { AdjustmentLayerAccessSection } from './sections/AdjustmentLayerAccessSection';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AnimationSection } from './sections/AnimationSection';
 import { AppearanceSection } from './sections/AppearanceSection';
@@ -43,6 +44,7 @@ import { LayoutSection } from './sections/LayoutSection';
 import { MockupsSection } from './sections/MockupsSection';
 import { PathTextSection } from './sections/PathTextSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
+import { SmartFiltersSection } from './sections/SmartFiltersSection';
 import { StrokeSection } from './sections/StrokeSection';
 import { TableCellsSection, TableTracksSection } from './sections/TableCellsSection';
 import { TableSection } from './sections/TableSection';
@@ -535,6 +537,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       add('table-columns', <TableTracksSection tableId={node.id} />);
       add('table-rows', <TableTracksSection tableId={node.id} />);
       add('appearance', <AppearanceSection nodes={nodes} />);
+      add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
       return entries.sort((a, b) => a.order - b.order);
     }
 
@@ -551,6 +554,8 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     if (isFrame) add('layout', <LayoutSection node={node as import('@varve/scene').FrameNode} />);
     if (!isFrame) add('layout', <LayoutChildSection nodes={nodes} />);
     add('appearance', <AppearanceSection nodes={nodes} />);
+    add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
+    add('smart-filters', <SmartFiltersSection nodes={nodes} />);
     add('fills', <FillSection nodes={nodes} />);
     add('animation', <AnimationSection nodes={nodes} />);
     add('image-placement', <ImagePlacementSection nodes={nodes} />);
@@ -611,6 +616,7 @@ function MultiSelectionPanel({
 
     add('position-size', <PositionSizeSection nodes={nodes} />);
     add('appearance', <AppearanceSection nodes={nodes} />);
+    add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
     add('fills', <FillSection nodes={nodes} />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);
