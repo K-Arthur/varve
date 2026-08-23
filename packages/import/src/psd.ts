@@ -25,6 +25,51 @@ import type { Group as PsdGroup, Layer as PsdLayer } from '@webtoon/psd';
 import Psd from '@webtoon/psd';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
 
+/**
+ * Map PSD blend mode constants to Varve blend modes.
+ *
+ * `@webtoon/psd` ships `BlendMode` as a type-only declaration — the enum has no
+ * runtime value — so the keys are the raw PSD enum string values (see
+ * `@webtoon/psd`'s `BlendMode` definition). Several values carry intentional
+ * trailing spaces ("mul ", "div ", "hue ", "sat ", "lum "); those must be kept
+ * exact or lookups silently miss.
+ */
+const BLEND_MODE_MAP: Record<string, import('@varve/scene').BlendMode> = {
+  pass: 'passThrough',
+  norm: 'normal',
+  'mul ': 'multiply',
+  scrn: 'screen',
+  over: 'overlay',
+  dark: 'darken',
+  lite: 'lighten',
+  'div ': 'colorDodge',
+  idiv: 'colorBurn',
+  hLit: 'hardLight',
+  sLit: 'softLight',
+  diff: 'difference',
+  smud: 'exclusion',
+  'hue ': 'hue',
+  'sat ': 'saturation',
+  colr: 'color',
+  'lum ': 'luminosity',
+};
+
+/**
+ * Access the blendMode from a PSD Layer or Group via its underlying layerFrame.
+ * The @webtoon/psd classes keep layerFrame private, so we cast through unknown.
+ */
+function getPsdBlendMode(node: PsdLayer | PsdGroup): import('@varve/scene').BlendMode | undefined {
+  try {
+    const frame = (node as unknown as { layerFrame?: { layerProperties?: { blendMode?: string } } })
+      .layerFrame;
+    const mode = frame?.layerProperties?.blendMode;
+    if (mode && mode in BLEND_MODE_MAP) return BLEND_MODE_MAP[mode];
+  } catch {
+    // Swallow — if the internal shape changes, fall back to undefined (normal)
+  }
+  return undefined;
+}
+
 export function createPsdParser(): ImportParser {
   return {
     format: 'psd',
@@ -144,9 +189,11 @@ function convertPsdGroup(
   const { id, doc: d2 } = nextNodeId(d);
   d = d2;
 
+  const groupBlendMode = getPsdBlendMode(group);
   const groupNode = makeGroupNode(id, {
     name: group.name || 'Group',
     children: childIds,
+    ...(groupBlendMode ? { blendMode: groupBlendMode } : {}),
   });
 
   d = addNode(d, groupNode);
@@ -175,11 +222,13 @@ function convertPsdLayer(
     h: h || 100,
   };
 
+  const blendMode = getPsdBlendMode(layer);
   const layerNode = makeShapeNode(id, shape, {
     name: layer.name || 'Layer',
     transform: [1, 0, 0, 1, x, y] as Affine,
     opacity: layer.composedOpacity ?? layer.opacity / 255,
     visible: !layer.isHidden,
+    ...(blendMode ? { blendMode } : {}),
   });
 
   d = addNode(d, layerNode);

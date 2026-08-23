@@ -499,7 +499,6 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
           },
       ],
     },
-    },
     {
       id: 'selectParent',
       labelKey: 'menu.edit.selectParent',
