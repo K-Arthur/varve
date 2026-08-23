@@ -489,6 +489,15 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale:
       'Isometric grid provides angular alignment guides for isometric drawing. Shown inline in Properties empty state.',
   },
+  'layer-states': {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'occasional',
+    complexity: 'moderate',
+    status: 'functional',
+    rationale:
+      'Capture, apply, rename, and delete saved layer states from the selection. Layer states are a nondestructive focus workflow in the Layers panel.',
+  },
 };
 
 /** Features for a surface in the registry's stable default order. */

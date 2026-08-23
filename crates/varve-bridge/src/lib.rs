@@ -157,6 +157,9 @@ pub struct IpcEngineImageFillData {
     /// Vertical flip of image content.
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "flipV")]
     pub flip_v: Option<bool>,
+    /// Non-destructive four-corner perspective transform.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<varve_core::scene::FillPerspective>,
 }
 
 fn default_scale() -> f64 {
@@ -269,6 +272,7 @@ impl IpcEngineFill {
                 rotation: image.rotation,
                 flip_h: image.flip_h,
                 flip_v: image.flip_v,
+                perspective: image.perspective,
             },
             IpcEngineFill::Pattern {
                 pattern,
