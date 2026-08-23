@@ -86,6 +86,31 @@ export function canHaveSmartFilters(node: { kind: string }): boolean {
 }
 
 /**
+ * Return the enabled entries in a node-local stack.
+ *
+ * `smartFiltersEnabled` is an optional stack-level switch: absent means on,
+ * which keeps older documents compatible while giving the Inspector the same
+ * one-click bypass users expect from a nondestructive effect stack.
+ */
+export function activeSmartFilters(owner: {
+  smartFilters?: readonly Adjustment[];
+  smartFiltersEnabled?: boolean;
+}): Adjustment[] {
+  if (owner.smartFiltersEnabled === false) return [];
+  return (owner.smartFilters ?? []).filter(
+    (filter) => filter.visible !== false && (filter.opacity ?? 1) > 0,
+  );
+}
+
+/** Whether the node has at least one enabled, non-neutral Object Filter. */
+export function hasActiveSmartFilters(owner: {
+  smartFilters?: readonly Adjustment[];
+  smartFiltersEnabled?: boolean;
+}): boolean {
+  return activeSmartFilters(owner).length > 0;
+}
+
+/**
  * Clone a stack without sharing mutable parameter objects or filter identity.
  * JSON is sufficient for the adjustment wire contract and preserves unknown
  * future entries when a newer document is duplicated by an older build.

@@ -8,6 +8,7 @@
 import type { Adjustment, AdjustmentKind } from '@varve/engine';
 import { describe, expect, it } from 'vitest';
 import {
+  activeSmartFilters,
   canHaveSmartFilters,
   cloneSmartFilters,
   makeSmartFilter,
@@ -186,5 +187,12 @@ describe('cloneSmartFilters', () => {
     ];
     const cloned = cloneSmartFilters(src);
     expect(cloned.map((f) => f.kind)).toEqual(['invert', 'blur', 'grayscale']);
+  });
+
+  it('supports a stack-level bypass without mutating filter entries', () => {
+    const filters = [makeSmartFilter('bypass-1', 'invert')];
+    expect(activeSmartFilters({ smartFilters: filters })).toHaveLength(1);
+    expect(activeSmartFilters({ smartFilters: filters, smartFiltersEnabled: false })).toEqual([]);
+    expect(filters[0]?.visible).toBe(true);
   });
 });

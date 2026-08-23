@@ -156,6 +156,29 @@ describe('sceneNeedsStructuralCompositing', () => {
     };
     expect(sceneNeedsStructuralCompositing(doc)).toBe(true);
   });
+
+  it('does not route a bypassed container Object Filter through compositing', () => {
+    let doc = createDocument('Disabled Object Filter group');
+    const group = makeGroupNode('group');
+    doc = addNode(doc, group);
+    doc = addChild(
+      doc,
+      group.id,
+      makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }),
+    );
+    doc = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        group: {
+          ...doc.nodes.group!,
+          smartFilters: [makeSmartFilter('group-invert-disabled', 'invert')],
+          smartFiltersEnabled: false,
+        },
+      },
+    };
+    expect(sceneNeedsStructuralCompositing(doc)).toBe(false);
+  });
 });
 
 describe('sceneHasImageFills', () => {

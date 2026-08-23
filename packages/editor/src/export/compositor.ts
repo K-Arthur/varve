@@ -31,10 +31,12 @@ import {
   totalEffectExpansion,
 } from '@varve/engine';
 import {
+  activeSmartFilters,
   type Document,
   type Effect,
   type Fill,
   findCommonAncestor,
+  hasActiveSmartFilters,
   isMockupFrame,
   type NodeId,
   resolveAdjustmentScope,
@@ -358,10 +360,7 @@ function hasComplexBlend(node: SceneNode, cap: FlattenCapability): boolean {
 
 /** Object Filters are document-local effects, not SVG/PDF codegen primitives. */
 function hasVisibleSmartFilters(node: SceneNode): boolean {
-  return (
-    Array.isArray(node.smartFilters) &&
-    node.smartFilters.some((filter) => filter.visible !== false && filter.opacity > 0)
-  );
+  return hasActiveSmartFilters(node);
 }
 
 /**
@@ -593,8 +592,8 @@ function computeNodeBounds(
  * Check whether a node has any adjustment children that require rasterization.
  */
 function subtreeHasAdjustmentFilters(node: SceneNode, doc: Document): boolean {
-  const smartFilters = node.smartFilters ?? [];
-  if (smartFilters.some((filter) => filter.visible !== false && filter.opacity > 0)) {
+  const smartFilters = activeSmartFilters(node);
+  if (smartFilters.length > 0) {
     const irFilters = adjustmentsToFilters(smartFilters);
     if (anyRequiresRasterExport(irFilters)) return true;
   }
@@ -962,9 +961,9 @@ function collectVisibleAdjustments(node: SceneNode): Array<Record<string, unknow
     node.kind === 'adjustment'
       ? (node as unknown as { adjustments?: Array<Record<string, unknown>> }).adjustments
       : [];
-  const smartFilters = (node.smartFilters ?? []) as unknown as Array<Record<string, unknown>>;
+  const smartFilters = activeSmartFilters(node) as unknown as Array<Record<string, unknown>>;
   return [...(adjustments ?? []), ...smartFilters].filter(
-    (a) => a.visible !== false && (a.opacity as number) > 0,
+    (a) => a.visible !== false && ((a.opacity as number | undefined) ?? 1) > 0,
   );
 }
 

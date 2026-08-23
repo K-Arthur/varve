@@ -25,6 +25,7 @@ import {
 } from '@varve/engine';
 import type { Document, Fill, NodeId, SceneNode } from '@varve/scene';
 import {
+  activeSmartFilters,
   applyBindingsToNode,
   buildAllVariantCaches,
   createVariableStore,
@@ -239,7 +240,7 @@ export function sceneNodeToEngineNode(
     // Object Filters are object-local rendered-result filters. They share the
     // same Adjustment → FilterIR contract as adjustment layers, but remain on
     // the source node and therefore do not participate in backdrop scoping.
-    filters: adjustmentsToFilters(resolvedNode.smartFilters ?? []),
+    filters: adjustmentsToFilters(activeSmartFilters(resolvedNode)),
   };
 
   if (node.kind === 'shape') {

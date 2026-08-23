@@ -33,7 +33,7 @@ import {
 } from '@varve/engine';
 import { isRasterPyramidEnabled, setRasterPyramidEnabled } from '@varve/engine/rasterPyramid';
 import type { Document, Effect, ManagedColor, Mask, NodeId } from '@varve/scene';
-import { nodeEffectPadding, resolveAdjustmentScope } from '@varve/scene';
+import { activeSmartFilters, nodeEffectPadding, resolveAdjustmentScope } from '@varve/scene';
 import { managedColorToRgba, tryInvertAffine } from '@varve/shared';
 import { nodeWorldTransform } from '../scene/world';
 import { alphaBounds } from './surfaceBounds';
@@ -595,7 +595,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       }
       if (node.children.length === 0) return;
 
-      const smartFilters = adjustmentsToFilters(node.smartFilters ?? []);
+      const smartFilters = adjustmentsToFilters(activeSmartFilters(node));
       if (smartFilters.length > 0) {
         // Frame filters operate on the frame's already-composited children.
         // Render only the transformed frame bounds to an intermediate surface
@@ -705,13 +705,13 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
 
     if (node.kind === 'group') {
       const blendMode = node.blendMode ?? 'passThrough';
+      const smartFilters = adjustmentsToFilters(activeSmartFilters(node));
       const needsIsolation =
         node.isolated === true ||
         (blendMode !== 'normal' && blendMode !== 'passThrough') ||
         (node.opacity ?? 1) < 1 ||
-        (node.smartFilters ?? []).some((filter) => filter.visible && filter.opacity > 0);
+        smartFilters.length > 0;
       const visibleEffects = (node.effects ?? []).filter((effect) => effect.visible);
-      const smartFilters = adjustmentsToFilters(node.smartFilters ?? []);
       if ((needsIsolation || visibleEffects.length > 0) && node.children.length > 0) {
         const gopacity = node.opacity ?? 1;
 

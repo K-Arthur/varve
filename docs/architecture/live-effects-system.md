@@ -291,7 +291,10 @@ documents and existing integrations do not break.
 - **Object Filters** live on any renderable scene node (`smartFilters`). They
   process that node's own rendered result and work across vectors, text,
   raster-backed shapes, paths, frames, and groups. The stack runs in array
-  order and is cloned with fresh filter IDs during duplication and paste.
+  order and is cloned with fresh filter IDs during duplication and paste. The
+  stack has its own bypass (`smartFiltersEnabled`) so users can compare the
+  source and filtered result without deleting entries; each entry also retains
+  its own visibility, opacity, and blend mode.
 - **Adjustment Layers** remain scene nodes (`kind: "adjustment"`) because
   they process a backdrop scope rather than one node. Creating one from the
   Inspector or Object menu resolves its scope at creation time: selecting a
@@ -312,3 +315,9 @@ menubar and shortcut remain available as command-level access, but are no
 longer the only route. SVG/PDF export treats visible Object Filters as replay
 features and rasterizes the smallest affected boundary; raster export keeps
 the shared replay path so vector and raster content use the same filter math.
+
+Node masks remain the stack-level spatial mask for node-local workflows and
+stay separate from source pixels; adjustment-layer masks remain scope masks. A
+future per-entry mask would add a second spatial coordinate system and is
+intentionally not introduced until it can share the existing mask asset and
+selection machinery without changing these semantics.

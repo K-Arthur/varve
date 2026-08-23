@@ -1230,6 +1230,8 @@ export interface NodeBase {
    * these filters do not create a separate scene node or backdrop scope.
    */
   smartFilters?: Adjustment[];
+  /** Stack-level bypass for Object Filters; absent is enabled for compatibility. */
+  smartFiltersEnabled?: boolean;
 }
 
 export interface ShapeNode extends NodeBase {

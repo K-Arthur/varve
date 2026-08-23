@@ -51,6 +51,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
   const nodeId = node?.id;
   const compatible = node ? canHaveSmartFilters(node) : false;
   const filters = compatible && node ? (node.smartFilters ?? []) : [];
+  const stackEnabled = node?.smartFiltersEnabled !== false;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const editingRef = useRef(false);
 
@@ -155,6 +156,14 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
     [filters, nodeId, updateNode],
   );
 
+  const toggleStack = useCallback(() => {
+    if (!nodeId) return;
+    updateNode(nodeId, (current) => ({
+      ...current,
+      smartFiltersEnabled: current.smartFiltersEnabled === false,
+    }));
+  }, [nodeId, updateNode]);
+
   const selected = useMemo(
     () => filters.find((filter) => filter.id === selectedId) ?? null,
     [filters, selectedId],
@@ -164,23 +173,33 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
 
   return (
     <DisclosureSection title="Object Filters" sectionId="smart-filters">
-      <div className="smart-filters__intro">
-        Filters are attached to this object and keep the original content editable.
+      <div className="smart-filters__intro-row">
+        <div className="smart-filters__intro">
+          Filters are attached to this object and keep the original content editable.
+        </div>
+        <button
+          type="button"
+          className="smart-filters__stack-visibility"
+          onClick={toggleStack}
+          disabled={filters.length === 0}
+          aria-label={stackEnabled ? 'Disable all Object Filters' : 'Enable all Object Filters'}
+          aria-pressed={stackEnabled}
+        >
+          <SolidIcon
+            name={stackEnabled ? SOLID_CHROME_ICONS.visibility : SOLID_CHROME_ICONS.visibilityOff}
+            size="0.8em"
+          />
+        </button>
       </div>
 
-      <div className="smart-filters__stack" role="list" aria-label="Object Filter stack">
-        {filters.length === 0 && <p className="smart-filters__empty">No filters applied.</p>}
+      <ul className="smart-filters__stack" aria-label="Object Filter stack">
+        {filters.length === 0 && <li className="smart-filters__empty">No filters applied.</li>}
         {filters.map((filter, index) => (
-          <div
+          <li
             className={`smart-filters__row${selectedId === filter.id ? ' smart-filters__row--selected' : ''}`}
             key={filter.id}
-            role="listitem"
           >
-            <div
-              className="smart-filters__reorder"
-              role="group"
-              aria-label={`Reorder ${filterName(filter)}`}
-            >
+            <div className="smart-filters__reorder">
               <button
                 type="button"
                 disabled={index === 0}
@@ -233,9 +252,9 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
             >
               <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.7em" />
             </button>
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
 
       <label className="smart-filters__add-label">
         <span>Add Object Filter</span>

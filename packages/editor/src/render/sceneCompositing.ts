@@ -3,7 +3,7 @@
  * Flat worker replay cannot handle these — main-thread replaySubtree is required.
  */
 import type { Document, NodeId } from '@varve/scene';
-import { isInIsolatedSubtree } from '@varve/scene';
+import { hasActiveSmartFilters, isInIsolatedSubtree } from '@varve/scene';
 
 let _prevDoc: Document | null = null;
 let _prevResult = false;
@@ -32,11 +32,7 @@ function computeNeedsStructuralCompositing(doc: Document): boolean {
     ) {
       return true;
     }
-    if (
-      node.kind !== 'adjustment' &&
-      node.visible !== false &&
-      (node.smartFilters ?? []).some((filter) => filter.visible && filter.opacity > 0)
-    ) {
+    if (node.kind !== 'adjustment' && node.visible !== false && hasActiveSmartFilters(node)) {
       // Leaf filters can be replayed directly on their RenderItem, but a
       // container filter must see the already-composited subtree. Routing the
       // scene through structural replay gives groups/frames the same isolated
@@ -53,7 +49,7 @@ function computeNeedsStructuralCompositing(doc: Document): boolean {
         (node.blendMode && node.blendMode !== 'normal' && node.blendMode !== 'passThrough') ||
         (node.opacity !== undefined && node.opacity < 1) ||
         hasVisibleEffects ||
-        (node.smartFilters ?? []).some((filter) => filter.visible && filter.opacity > 0);
+        hasActiveSmartFilters(node);
       if (needsFlatten && node.children.length > 0) return true;
     }
   }

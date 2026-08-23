@@ -46,6 +46,16 @@ describe('scene raster masks', () => {
     ]);
   });
 
+  it('omits object-local filters from the IR when their stack is bypassed', () => {
+    const node = {
+      ...makeShapeNode('filtered-disabled', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }),
+      smartFilters: [makeSmartFilter('invert-disabled', 'invert')],
+      smartFiltersEnabled: false,
+    };
+    const converted = sceneNodeToEngineNode(node, {}, createDocument('Disabled Object Filter'));
+    expect(converted.filters).toEqual([]);
+  });
+
   it('renders a native raster alpha mask after save and reload', () => {
     const image = imageNode('image');
     let doc = addNode(createDocument('Native mask', true), image);

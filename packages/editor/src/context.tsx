@@ -4226,6 +4226,7 @@ export function EditorProvider({
             id: newId,
             name: `${node.name} copy`,
             ...(node.smartFilters ? { smartFilters: cloneSmartFilters(node.smartFilters) } : {}),
+            ...(node.smartFiltersEnabled === false ? { smartFiltersEnabled: false } : {}),
             transform: [
               node.transform[0],
               node.transform[1],
@@ -4371,6 +4372,7 @@ export function EditorProvider({
               id: newId,
               name: `${node.name} copy`,
               ...(node.smartFilters ? { smartFilters: cloneSmartFilters(node.smartFilters) } : {}),
+              ...(node.smartFiltersEnabled === false ? { smartFiltersEnabled: false } : {}),
               transform: [
                 node.transform[0],
                 node.transform[1],
@@ -4490,6 +4492,7 @@ export function EditorProvider({
             id: newId,
             name: `${node.name} copy`,
             ...(node.smartFilters ? { smartFilters: cloneSmartFilters(node.smartFilters) } : {}),
+            ...(node.smartFiltersEnabled === false ? { smartFiltersEnabled: false } : {}),
             transform: [
               node.transform[0],
               node.transform[1],

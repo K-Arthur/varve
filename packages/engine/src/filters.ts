@@ -1101,7 +1101,7 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
 
 export function adjustmentsToFilters(adjustments: readonly Adjustment[]): FilterIR[] {
   return adjustments
-    .filter((a) => a.visible && a.opacity > 0 && isKnownAdjustmentKind(a.kind))
+    .filter((a) => a.visible !== false && (a.opacity ?? 1) > 0 && isKnownAdjustmentKind(a.kind))
     .map(adjustmentToFilter);
 }
 
