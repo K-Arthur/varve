@@ -1099,9 +1099,58 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
   }
 }
 
-export function adjustmentsToFilters(adjustments: Adjustment[]): FilterIR[] {
-  return adjustments.filter((a) => a.visible && a.opacity > 0).map(adjustmentToFilter);
+export function adjustmentsToFilters(adjustments: readonly Adjustment[]): FilterIR[] {
+  return adjustments
+    .filter((a) => a.visible && a.opacity > 0 && isKnownAdjustmentKind(a.kind))
+    .map(adjustmentToFilter);
 }
+
+/** Runtime guard for forward-compatible document payloads. */
+export function isKnownAdjustmentKind(kind: unknown): kind is AdjustmentKind {
+  return typeof kind === 'string' && ADJUSTMENT_KINDS.has(kind as AdjustmentKind);
+}
+
+const ADJUSTMENT_KINDS: ReadonlySet<AdjustmentKind> = new Set<AdjustmentKind>([
+  'brightness',
+  'contrast',
+  'exposure',
+  'saturation',
+  'hueRotate',
+  'sepia',
+  'grayscale',
+  'invert',
+  'opacity',
+  'blur',
+  'sharpen',
+  'temperature',
+  'tint',
+  'vibrance',
+  'levels',
+  'curves',
+  'selectiveColor',
+  'colorBalance',
+  'channelMixer',
+  'photoFilter',
+  'halftone',
+  'gradientMap',
+  'tritone',
+  'colorHalftone',
+  'duotone',
+  'blackAndWhite',
+  'posterize',
+  'threshold',
+  'lut',
+  'dither',
+  'paletteSnap',
+  'bloom',
+  'rgbSplit',
+  'crt',
+  'vhs',
+  'lightShafts',
+  'lensFlare',
+  'lightLeak',
+  'caustics',
+]);
 
 /** Convert a single filter IR to a CSS filter string (Canvas2D fallback). */
 export function filterToCss(filter: FilterIR): string | null {

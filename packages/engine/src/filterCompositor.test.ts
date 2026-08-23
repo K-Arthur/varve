@@ -83,6 +83,46 @@ function mockTarget() {
 }
 
 describe('filter compositing', () => {
+  it('applies canonical partial/full invert to RGB and preserves alpha', () => {
+    const pixels: Array<[number, number, number, number]> = [
+      [0, 10, 255, 0],
+      [20, 40, 60, 128],
+      [255, 255, 255, 255],
+    ];
+    let full: ImageData | undefined;
+    let half: ImageData | undefined;
+    const fullContext = {
+      getImageData: () => makeTestImageData(pixels, 3, 1),
+      putImageData: (data: ImageData) => {
+        full = data;
+      },
+    };
+    const halfContext = {
+      getImageData: () => makeTestImageData(pixels, 3, 1),
+      putImageData: (data: ImageData) => {
+        half = data;
+      },
+    };
+
+    applySoftwareFilter(
+      fullContext as unknown as OffscreenCanvasRenderingContext2D,
+      { kind: 'invert', value: 100, opacity: 1, blendMode: 'normal' },
+      3,
+      1,
+    );
+    applySoftwareFilter(
+      halfContext as unknown as OffscreenCanvasRenderingContext2D,
+      { kind: 'invert', value: 50, opacity: 1, blendMode: 'normal' },
+      3,
+      1,
+    );
+
+    expect(Array.from(full!.data)).toEqual([255, 245, 0, 0, 235, 215, 195, 128, 0, 0, 0, 255]);
+    expect(Array.from(half!.data)).toEqual([
+      128, 133, 128, 0, 118, 108, 98, 128, 128, 128, 128, 255,
+    ]);
+  });
+
   it('provides a software brightness fallback when ctx.filter is unavailable', () => {
     const input = makeTestImageData([[100, 50, 25, 255]], 1, 1);
     let output: ImageData | undefined;

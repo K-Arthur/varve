@@ -350,6 +350,7 @@ export {
   filterChainToCss,
   filterKindDisplayName,
   filterToCss,
+  isKnownAdjustmentKind,
   makeAdjustment,
 } from './filters';
 export * from './font';
