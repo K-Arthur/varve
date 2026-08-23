@@ -15,6 +15,7 @@ import type { EditorContextValue, ToolId } from '../context';
 import { startTextEditing } from '../context';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
 import { getLifecycleCoordinator } from '../lifecycle';
+import { expandWarpAppearance } from '../warp/warpActions';
 import {
   areaSelectionFromMaskPixels,
   decodeRasterMaskDataUrl,
@@ -326,6 +327,7 @@ export function createActionHandlers(
     flipV: () => e.setSelectedFlipV(),
     repeatTransform: () => e.repeatLastTransform(),
     resizeImage: () => cb.onResizeImage?.(),
+    bakeWarp: () => expandWarpAppearance(e),
 
     // ── File ──
     newDocument: () => e.newDocument(),

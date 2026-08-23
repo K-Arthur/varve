@@ -61,6 +61,63 @@ type DragApply = (
   m: WarpModifier,
 ) => Record<string, unknown> | null;
 
+/**
+ * PerspectiveGrid — renders a grid of lines through the perspective corners
+ * to visualize the projective distortion. Lines in source space are straight
+ * and remain straight under projective mapping, so each grid line is a
+ * single SVG <line> between bilinearly-interpolated endpoints.
+ */
+function PerspectiveGrid({
+  corners,
+  normToScreen,
+  zoom,
+}: {
+  corners: PerspectiveModifier['corners'];
+  normToScreen: (p: NormalizedPoint) => { x: number; y: number };
+  zoom: number;
+}) {
+  const GRID_LINES = 5;
+  const stroke = 'rgba(255,255,255,0.3)';
+  const sw = 1 / Math.max(1, zoom * 0.5);
+
+  const bilinear = (
+    t: number,
+    s: number,
+    tl: NormalizedPoint,
+    tr: NormalizedPoint,
+    br: NormalizedPoint,
+    bl: NormalizedPoint,
+  ): NormalizedPoint => ({
+    x: (1 - t) * (1 - s) * tl.x + t * (1 - s) * tr.x + t * s * br.x + (1 - t) * s * bl.x,
+    y: (1 - t) * (1 - s) * tl.y + t * (1 - s) * tr.y + t * s * br.y + (1 - t) * s * bl.y,
+  });
+
+  const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
+
+  for (let i = 1; i < GRID_LINES; i++) {
+    const t = i / GRID_LINES;
+    const s0 = bilinear(t, 0, corners.tl, corners.tr, corners.br, corners.bl);
+    const s1 = bilinear(t, 1, corners.tl, corners.tr, corners.br, corners.bl);
+    const p0 = normToScreen(s0);
+    const p1 = normToScreen(s1);
+    lines.push({ x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y });
+
+    const t0 = bilinear(0, t, corners.tl, corners.tr, corners.br, corners.bl);
+    const t1 = bilinear(1, t, corners.tl, corners.tr, corners.br, corners.bl);
+    const q0 = normToScreen(t0);
+    const q1 = normToScreen(t1);
+    lines.push({ x1: q0.x, y1: q0.y, x2: q1.x, y2: q1.y });
+  }
+
+  return (
+    <g className="warp-overlay__perspective-grid" aria-hidden>
+      {lines.map((l, i) => (
+        <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={stroke} strokeWidth={sw} />
+      ))}
+    </g>
+  );
+}
+
 export function WarpOverlay({
   zoom,
   pan,
@@ -426,16 +483,20 @@ export function WarpOverlay({
         />
       )}
 
-      {modifier.kind === 'perspective' &&
-        (['tl', 'tr', 'br', 'bl'] as const).map((c) =>
-          renderHandle(
-            `corner-${c}`,
-            modifier.corners[c],
-            cornerDrag(c),
-            HANDLE_SIZE,
-            `Perspective ${CORNER_LABELS[c]} corner`,
-          ),
-        )}
+      {modifier.kind === 'perspective' && (
+        <>
+          <PerspectiveGrid corners={modifier.corners} normToScreen={normToScreen} zoom={zoom} />
+          {(['tl', 'tr', 'br', 'bl'] as const).map((c) =>
+            renderHandle(
+              `corner-${c}`,
+              modifier.corners[c],
+              cornerDrag(c),
+              HANDLE_SIZE,
+              `Perspective ${CORNER_LABELS[c]} corner`,
+            ),
+          )}
+        </>
+      )}
 
       {modifier.kind === 'envelope' && (
         <EnvelopeHandles

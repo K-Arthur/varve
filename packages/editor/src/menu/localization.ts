@@ -192,6 +192,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.object.flipV': 'Flip Vertical',
   'menu.object.repeatTransform': 'Repeat Transform',
   'menu.object.resizeImage': 'Resize Image…',
+  'menu.object.bakeWarp': 'Bake Warp to Path',
   'menu.object.audit': 'Audit',
   'menu.object.scanDebt': 'Scan for Debt',
   'menu.object.suggestNames': 'Suggest Names',
