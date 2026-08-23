@@ -2030,6 +2030,24 @@ function applyFrameLayout(doc: Document, parentId: string | null | undefined): D
 }
 
 /**
+ * Remap pathTextSettings.pathNodeId after a clone/duplicate when the
+ * referenced path was also cloned. If the path is outside the cloned
+ * subtree the original reference is still valid (in-document duplicate).
+ */
+function remapPathTextClonedNode(cloned: SceneNode, idMap: Record<string, string>): SceneNode {
+  if (cloned.kind === 'text' && cloned.pathTextSettings?.pathNodeId) {
+    const mapped = idMap[cloned.pathTextSettings.pathNodeId];
+    if (mapped) {
+      return {
+        ...cloned,
+        pathTextSettings: { ...cloned.pathTextSettings, pathNodeId: mapped },
+      };
+    }
+  }
+  return cloned;
+}
+
+/**
  * When a frame's dimensions change (via inspector or resize), propagate
  * constraints to its children so stretch/scale children get correct
  * position AND dimensions.  Mirrors TransformEngine.bakeNode's constraint
@@ -4131,6 +4149,20 @@ export function EditorProvider({
         );
         updateDoc((doc) => {
           let d = doc;
+          // Before removing paths, detach any texts that reference them
+          // so those texts don't silently become invisible. This is done
+          // in the same transaction so undo restores everything together.
+          const removing = new Set(sel);
+          for (const node of Object.values(d.nodes)) {
+            if (
+              node.kind === 'text' &&
+              node.pathTextSettings?.pathNodeId &&
+              removing.has(node.pathTextSettings.pathNodeId)
+            ) {
+              const { pathTextSettings: _dropped, ...rest } = node;
+              d = { ...d, nodes: { ...d.nodes, [node.id]: { ...rest, textMode: 'point' } } };
+            }
+          }
           for (const id of sel) d = removeNode(d, id);
           for (const pid of parentIds) d = applyFrameLayout(d, pid);
           return d;
@@ -4182,7 +4214,7 @@ export function EditorProvider({
           let idMap: Record<string, string> = { [nodeId]: newId };
 
           // Clone the node with a new ID and offset position
-          const cloned = {
+          let cloned = {
             ...node,
             id: newId,
             name: `${node.name} copy`,
@@ -4227,6 +4259,7 @@ export function EditorProvider({
               );
             }
           }
+          cloned = remapPathTextClonedNode(cloned, idMap);
 
           d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
           return [newId, d, idMap];
@@ -4325,7 +4358,7 @@ export function EditorProvider({
             let d = d1;
             let idMap: Record<string, string> = { [nodeId]: newId };
 
-            const cloned = {
+            let cloned = {
               ...node,
               id: newId,
               name: `${node.name} copy`,
@@ -4366,6 +4399,7 @@ export function EditorProvider({
                 );
               }
             }
+            cloned = remapPathTextClonedNode(cloned, idMap);
 
             d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
             return [newId, d, idMap];
@@ -4442,7 +4476,7 @@ export function EditorProvider({
           let d = d1;
           let idMap: Record<string, string> = { [nodeId]: newId };
 
-          const cloned = {
+          let cloned = {
             ...node,
             id: newId,
             name: `${node.name} copy`,
@@ -4483,6 +4517,7 @@ export function EditorProvider({
               );
             }
           }
+          cloned = remapPathTextClonedNode(cloned, idMap);
 
           d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
           return [newId, d, idMap];
