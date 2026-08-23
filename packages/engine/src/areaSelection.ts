@@ -7,7 +7,14 @@
  * bounded alpha mask.
  */
 
-import { applyAffine } from '@varve/shared';
+import {
+  applyAffine,
+  identity,
+  invertAffine,
+  multiplyAffine,
+  translate,
+  type Affine,
+} from '@varve/shared';
 
 export type AreaSelectionOperation = 'replace' | 'add' | 'subtract' | 'intersect';
 
@@ -553,4 +560,351 @@ export function rasterizeAreaSelection(
     }
   }
   return { data, width, height };
+}
+
+/**
+ * Phase 3 (Selection Transform).
+ *
+ * Apply an affine transform to an entire selection expression while keeping it
+ * analytical. Rectangles become four-corner polygons (a rotated/scaled rect is
+ * no longer axis-aligned), ellipses become sampled polygons (an arbitrary
+ * affine maps an ellipse to an ellipse, but the shape model has no rotation
+ * field, so we keep it exact as a polygon), polygons have their vertices
+ * transformed in place, and raster masks compose the new matrix with their
+ * own transform/inverse so they stay point-sampled and exact.
+ */
+export function transformAreaSelection(
+  selection: AreaSelection | null,
+  matrix: Affine,
+  generation = (selection?.generation ?? 0) + 1,
+): AreaSelection | null {
+  if (!selection) return null;
+  if (
+    !Array.isArray(matrix) ||
+    matrix.length !== 6 ||
+    !matrix.every((component) => Number.isFinite(component))
+  ) {
+    return null;
+  }
+  if (!Number.isFinite(generation) || generation < 0) return null;
+
+  const inverse = invertAffine(matrix);
+  const expression = transformExpression(selection.expression, matrix, inverse);
+  return {
+    coordinateSpace: selection.coordinateSpace,
+    generation: Math.floor(generation),
+    expression,
+  };
+}
+
+function transformShape(
+  shape: AreaSelectionShape,
+  matrix: Affine,
+  inverse: Affine,
+): AreaSelectionShape {
+  if (shape.kind === 'polygon') {
+    return {
+      kind: 'polygon',
+      points: shape.points.map((point) => {
+        const transformed = applyAffine(matrix, [point.x, point.y]);
+        return { x: transformed[0], y: transformed[1] };
+      }),
+      feather: shape.feather,
+      antialias: shape.antialias,
+    };
+  }
+
+  if (shape.kind === 'rectangle') {
+    const corners = (
+      [
+        [shape.x, shape.y],
+        [shape.x + shape.w, shape.y],
+        [shape.x + shape.w, shape.y + shape.h],
+        [shape.x, shape.y + shape.h],
+      ] as [number, number][]
+    ).map((corner) => {
+      const transformed = applyAffine(matrix, corner);
+      return { x: transformed[0], y: transformed[1] };
+    });
+    return {
+      kind: 'polygon',
+      points: corners,
+      feather: shape.feather,
+      antialias: shape.antialias,
+    };
+  }
+
+  if (shape.kind === 'ellipse') {
+    const cx = shape.x + shape.w / 2;
+    const cy = shape.y + shape.h / 2;
+    const rx = shape.w / 2;
+    const ry = shape.h / 2;
+    const steps = 48;
+    const points: SelectionPoint[] = [];
+    for (let i = 0; i < steps; i += 1) {
+      const angle = (i / steps) * Math.PI * 2;
+      const local: [number, number] = [cx + rx * Math.cos(angle), cy + ry * Math.sin(angle)];
+      const transformed = applyAffine(matrix, local);
+      points.push({ x: transformed[0], y: transformed[1] });
+    }
+    return { kind: 'polygon', points, feather: shape.feather, antialias: shape.antialias };
+  }
+
+  const tl = applyAffine(matrix, [shape.x, shape.y] as [number, number]);
+  const tr = applyAffine(matrix, [shape.x + shape.w, shape.y] as [number, number]);
+  const bl = applyAffine(matrix, [shape.x, shape.y + shape.h] as [number, number]);
+  const br = applyAffine(matrix, [shape.x + shape.w, shape.y + shape.h] as [number, number]);
+  const xs = [tl[0], tr[0], bl[0], br[0]];
+  const ys = [tl[1], tr[1], bl[1], br[1]];
+  const newX = Math.min(...xs);
+  const newY = Math.min(...ys);
+  const newW = Math.max(...xs) - Math.min(...xs);
+  const newH = Math.max(...ys) - Math.min(...ys);
+  // The sampled mask content is fixed; only its placement changes. The new
+  // inverse maps a document point into the *new* box space (so shapeCoverage's
+  // `(local - shape.x) / shape.w` subtraction lines up), which is the old
+  // inverse composed with the world matrix and shifted by the box displacement.
+  const newInverse = multiplyAffine(
+    translate(newX - shape.x, newY - shape.y),
+    multiplyAffine(shape.inverseTransform, inverse),
+  );
+  return {
+    kind: 'raster-mask',
+    x: newX,
+    y: newY,
+    w: newW,
+    h: newH,
+    width: shape.width,
+    height: shape.height,
+    data: new Uint8Array(shape.data),
+    boundary: [],
+    transform: invertAffine(newInverse),
+    inverseTransform: newInverse,
+    feather: shape.feather,
+    antialias: shape.antialias,
+  };
+}
+
+function transformExpression(
+  expression: AreaSelectionExpression,
+  matrix: Affine,
+  inverse: Affine,
+): AreaSelectionExpression {
+  if (expression.kind === 'shape') {
+    return { kind: 'shape', shape: transformShape(expression.shape, matrix, inverse) };
+  }
+  return {
+    kind: 'combine',
+    operation: expression.operation,
+    left: transformExpression(expression.left, matrix, inverse),
+    right: transformExpression(expression.right, matrix, inverse),
+  };
+}
+
+/**
+ * Phase 2 (Selection Refinement).
+ *
+ * Morphological and coverage operations on a selection. These are inherently
+ * raster operations, so the selection is rasterized over its (padded, bounded)
+ * document-space bounds and the result is re-wrapped as a bounded raster-mask
+ * shape. The analytical expression is intentionally dropped — refinement is a
+ * one-shot destructive transform of coverage values, never an interactive
+ * query — and rasterizing only the finite target keeps allocation bounded.
+ */
+export type AreaSelectionRefineOperation = 'grow' | 'shrink' | 'smooth' | 'threshold';
+
+export interface RefineAreaSelectionOptions {
+  /** Dilation/erosion radius in document units (grow/shrink). Default 1. */
+  amount?: number;
+  /** Gaussian-approximation sigma in document units (smooth). Default 1. */
+  sigma?: number;
+  /** Hard-coverage cut (0..1) for the threshold operation. Default 0.5. */
+  threshold?: number;
+  /** Coverage samples used when rasterizing the source. Default 1. */
+  samples?: number;
+}
+
+export function refineAreaSelection(
+  selection: AreaSelection | null,
+  operation: AreaSelectionRefineOperation,
+  options: RefineAreaSelectionOptions = {},
+  generation = (selection?.generation ?? 0) + 1,
+): AreaSelection | null {
+  if (!selection) return null;
+  if (!Number.isFinite(generation) || generation < 0) return null;
+
+  const bounds = areaSelectionBounds(selection.expression);
+  const amount = Math.max(0, Math.floor(finiteNonNegative(options.amount ?? 1)));
+  const sigma = finiteNonNegative(options.sigma ?? 1);
+  const threshold = Math.max(0, Math.min(1, Number.isFinite(options.threshold ?? 0.5) ? options.threshold! : 0.5));
+
+  let pad = 0;
+  if (operation === 'grow' || operation === 'shrink') pad = amount;
+  else if (operation === 'smooth') pad = Math.ceil(sigma * 3);
+
+  let x = bounds.x - pad;
+  let y = bounds.y - pad;
+  let width = Math.max(1, Math.ceil(bounds.w) + pad * 2);
+  let height = Math.max(1, Math.ceil(bounds.h) + pad * 2);
+
+  if (width > MAX_AREA_SELECTION_DIMENSION) {
+    const scale = MAX_AREA_SELECTION_DIMENSION / width;
+    x = bounds.x + (x - bounds.x) * scale;
+    width = MAX_AREA_SELECTION_DIMENSION;
+  }
+  if (height > MAX_AREA_SELECTION_DIMENSION) {
+    const scale = MAX_AREA_SELECTION_DIMENSION / height;
+    y = bounds.y + (y - bounds.y) * scale;
+    height = MAX_AREA_SELECTION_DIMENSION;
+  }
+  if (Number.isInteger(x) === false) x = Math.floor(x);
+  if (Number.isInteger(y) === false) y = Math.floor(y);
+
+  const source = rasterizeAreaSelection(selection, {
+    x,
+    y,
+    width,
+    height,
+    samples: Math.max(1, Math.min(MAX_SAMPLES, Math.floor(options.samples ?? 1))),
+  });
+
+  let data: Uint8Array;
+  switch (operation) {
+    case 'grow':
+      data = dilateMask(source.data, width, height, amount);
+      break;
+    case 'shrink':
+      data = erodeMask(source.data, width, height, amount);
+      break;
+    case 'smooth':
+      data = smoothMask(source.data, width, height, Math.max(1, Math.round(sigma)));
+      break;
+    case 'threshold':
+      data = new Uint8Array(source.data.length);
+      for (let i = 0; i < source.data.length; i += 1) {
+        data[i] = source.data[i]! / 255 >= threshold ? 255 : 0;
+      }
+      break;
+    default:
+      data = new Uint8Array(source.data);
+      break;
+  }
+
+  const refined = createAreaSelection({
+    kind: 'raster-mask',
+    x,
+    y,
+    w: width,
+    h: height,
+    width,
+    height,
+    data,
+    boundary: [],
+    transform: identity,
+    inverseTransform: identity,
+    feather: 0,
+    antialias: false,
+  });
+  if (!refined) return null;
+  return { ...refined, generation: Math.floor(generation) };
+}
+
+/** Separable max filter (morphological dilation) with box radius `r`. */
+function dilateMask(data: Uint8Array, width: number, height: number, r: number): Uint8Array {
+  const radius = Math.min(1024, Math.max(0, Math.floor(r)));
+  if (radius <= 0) return new Uint8Array(data);
+  const temp = new Uint8Array(width * height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let max = 0;
+      for (let k = -radius; k <= radius; k += 1) {
+        const xx = x + k;
+        if (xx < 0 || xx >= width) continue;
+        const value = data[y * width + xx]!;
+        if (value > max) max = value;
+      }
+      temp[y * width + x] = max;
+    }
+  }
+  const out = new Uint8Array(width * height);
+  for (let x = 0; x < width; x += 1) {
+    for (let y = 0; y < height; y += 1) {
+      let max = 0;
+      for (let k = -radius; k <= radius; k += 1) {
+        const yy = y + k;
+        if (yy < 0 || yy >= height) continue;
+        const value = temp[yy * width + x]!;
+        if (value > max) max = value;
+      }
+      out[y * width + x] = max;
+    }
+  }
+  return out;
+}
+
+/** Separable min filter (morphological erosion) with box radius `r`. */
+function erodeMask(data: Uint8Array, width: number, height: number, r: number): Uint8Array {
+  const radius = Math.min(1024, Math.max(0, Math.floor(r)));
+  if (radius <= 0) return new Uint8Array(data);
+  const temp = new Uint8Array(width * height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let min = 255;
+      for (let k = -radius; k <= radius; k += 1) {
+        const xx = x + k;
+        if (xx < 0 || xx >= width) continue;
+        const value = data[y * width + xx]!;
+        if (value < min) min = value;
+      }
+      temp[y * width + x] = min;
+    }
+  }
+  const out = new Uint8Array(width * height);
+  for (let x = 0; x < width; x += 1) {
+    for (let y = 0; y < height; y += 1) {
+      let min = 255;
+      for (let k = -radius; k <= radius; k += 1) {
+        const yy = y + k;
+        if (yy < 0 || yy >= height) continue;
+        const value = temp[yy * width + x]!;
+        if (value < min) min = value;
+      }
+      out[y * width + x] = min;
+    }
+  }
+  return out;
+}
+
+/** Separable box blur approximating a Gaussian with radius `r`. */
+function smoothMask(data: Uint8Array, width: number, height: number, r: number): Uint8Array {
+  const radius = Math.min(1024, Math.max(1, Math.floor(r)));
+  const temp = new Float32Array(width * height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let sum = 0;
+      let count = 0;
+      for (let k = -radius; k <= radius; k += 1) {
+        const xx = x + k;
+        if (xx < 0 || xx >= width) continue;
+        sum += data[y * width + xx]!;
+        count += 1;
+      }
+      temp[y * width + x] = sum / count;
+    }
+  }
+  const out = new Uint8Array(width * height);
+  for (let x = 0; x < width; x += 1) {
+    for (let y = 0; y < height; y += 1) {
+      let sum = 0;
+      let count = 0;
+      for (let k = -radius; k <= radius; k += 1) {
+        const yy = y + k;
+        if (yy < 0 || yy >= height) continue;
+        sum += temp[yy * width + x]!;
+        count += 1;
+      }
+      out[y * width + x] = Math.round(sum / count);
+    }
+  }
+  return out;
 }
