@@ -32,6 +32,7 @@ import {
 import { worldBBox } from './components/SpecPanel/measurement';
 import { composeFlattenedRasterAssetsForNode } from './export/compositor';
 import { collectGradientMapFlattenWarnings } from './export/gradientMapPreflight';
+import { injectPngPhys, ppiToPixelsPerMeter } from './export/pngDensity';
 import { loadSettings } from './settings';
 
 /** Resolve the default export colour space from settings. */
@@ -340,8 +341,18 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         color,
       });
       const fontWarnings = collectMissingFontWarnings(node);
+      let bytes = await blobToBytes(blob);
+      // Inject pHYs density metadata into PNG exports when the job has a
+      // defined output PPI (resolution mode or physical-size export). This
+      // embeds real density metadata that design tools (Photoshop, Figma,
+      // GIMP) honour when placing the image. Multiplier-only exports skip
+      // this — their PPI is undefined by design.
+      if (job.format === 'png' && job.outputPpi && job.outputPpi > 0) {
+        const ppm = ppiToPixelsPerMeter(job.outputPpi);
+        bytes = injectPngPhys(bytes, ppm, ppm, 1);
+      }
       return {
-        bytes: await blobToBytes(blob),
+        bytes,
         mimeType: blob.type || mime,
         warnings: [...fontWarnings, ...rasterWarnings],
         ...(resourceFailures.length > 0 ? { resourceFailures } : {}),
