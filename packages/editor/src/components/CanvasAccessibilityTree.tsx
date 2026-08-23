@@ -49,6 +49,7 @@ export function CanvasAccessibilityTree({
       id: string;
       name: string;
       kind: string;
+      depth: number;
       x: number;
       y: number;
       w: number;
@@ -57,7 +58,7 @@ export function CanvasAccessibilityTree({
       bgRemovalMethod?: string;
     }> = [];
 
-    for (const [id] of entries) {
+    for (const [id, info] of entries) {
       const n = doc.nodes[id];
       if (!n || n.visible === false) continue;
       const bounds = nodeWorldBounds(doc, id, parentIndex);
@@ -71,6 +72,7 @@ export function CanvasAccessibilityTree({
         id,
         name: n.name ?? 'Untitled',
         kind: n.kind,
+        depth: info?.depth ?? 0,
         x: Math.round(bounds.x),
         y: Math.round(bounds.y),
         w: Math.round(bounds.w),
@@ -89,17 +91,20 @@ export function CanvasAccessibilityTree({
 
   return (
     <div aria-hidden="false" className="sr-only">
-      {visibleNodes.map((node) => (
-        <span
-          key={node.id}
-          role="img"
-          aria-label={`${node.name}, ${node.kind}, at (${node.x}, ${node.y}), ${node.w} x ${node.h}${
-            node.backgroundRemoved
-              ? `, background removed (${node.bgRemovalMethod === 'quick' ? 'quick' : 'AI'})`
-              : ''
-          }`}
-        />
-      ))}
+      <ul role="list" aria-label="Canvas objects">
+        {visibleNodes.map((node) => (
+          <li
+            key={node.id}
+            role="listitem"
+            aria-level={node.depth + 1}
+            aria-label={`${node.name}, ${node.kind}, at (${node.x}, ${node.y}), ${node.w} x ${node.h}${
+              node.backgroundRemoved
+                ? `, background removed (${node.bgRemovalMethod === 'quick' ? 'quick' : 'AI'})`
+                : ''
+            }`}
+          />
+        ))}
+      </ul>
     </div>
   );
 }

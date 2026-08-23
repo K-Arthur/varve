@@ -441,7 +441,7 @@ function ShortcutsSection({ onOpenPalette }: { onOpenPalette: () => void }) {
           ? 'These shortcuts are owned by the browser and cannot be overridden in the web build.'
           : 'Varve desktop can register app shortcuts via Tauri; these remain reserved by the OS.'}
       </p>
-      <table className="settings-shortcuts-table">
+      <table className="settings-shortcuts-table" aria-label="Reserved keyboard shortcuts">
         <thead>
           <tr>
             <th scope="col">Shortcut</th>

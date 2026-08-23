@@ -236,7 +236,7 @@ export function FileList({
         style={{ height: '100%', overflow: 'auto' }}
       >
         {/* biome-ignore lint/a11y/useSemanticElements: ARIA row role required for virtualized list */}
-        <div role="row" aria-rowindex={0} className="file-row file-row--header" tabIndex={-1}>
+        <div role="row" aria-rowindex={1} className="file-row file-row--header" tabIndex={-1}>
           <div />
           {columns.map((col) => (
             <>

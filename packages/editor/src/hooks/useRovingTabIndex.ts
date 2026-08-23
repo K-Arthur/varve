@@ -20,6 +20,9 @@ export interface RovingTabIndexOptions {
   skipHidden?: boolean;
   /** If provided, called when the current index changes. */
   onIndexChange?: (index: number) => void;
+  /** Total number of items. When provided, overrides DOM children.length for
+   *  arrow navigation — avoids counting separators, spacers, etc. */
+  totalItems?: number;
 }
 
 export interface RovingTabIndexResult {
@@ -41,7 +44,7 @@ function clampIndex(idx: number, total: number): number {
 }
 
 export function useRovingTabIndex(options: RovingTabIndexOptions = {}): RovingTabIndexResult {
-  const { orientation = 'horizontal', wrap = true, onIndexChange } = options;
+  const { orientation = 'horizontal', wrap = true, onIndexChange, totalItems } = options;
   const [currentIndex, setCurrentIndex] = useState(0);
   const onIndexChangeRef = useRef(onIndexChange);
   onIndexChangeRef.current = onIndexChange;
@@ -92,7 +95,7 @@ export function useRovingTabIndex(options: RovingTabIndexOptions = {}): RovingTa
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      const total = (e.currentTarget as HTMLElement).children.length;
+      const total = totalItems ?? (e.currentTarget as HTMLElement).children.length;
       switch (e.key) {
         case 'ArrowRight':
           if (orientation === 'horizontal' || orientation === 'both') {
@@ -130,7 +133,7 @@ export function useRovingTabIndex(options: RovingTabIndexOptions = {}): RovingTa
         }
       }
     },
-    [orientation, moveFocus, focusFirst, focusLast],
+    [orientation, moveFocus, focusFirst, focusLast, totalItems],
   );
 
   return {

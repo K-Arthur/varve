@@ -62,7 +62,7 @@
 /* ── Pill chip group (P5 design direction: filter/mode toggle clusters) ── */
 .pill-group {
   display: inline-flex;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 .pill-group__btn {
   display: inline-flex;
@@ -250,7 +250,7 @@
   color: var(--color-interactive-default);
 }
 .varve-btn--sm {
-  height: var(--space-5);
+  height: var(--space-6);
   padding: 0 var(--space-2);
   font-size: var(--font-size-xs);
 }
@@ -972,8 +972,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
@@ -1301,9 +1301,9 @@
 .insp-slider__thumb {
   position: absolute;
   top: 50%;
-  width: 14px;
-  height: 14px;
-  margin-left: -7px;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
   background: var(--color-surface-overlay);
   border: 1px solid var(--color-border-strong);
   border-radius: 50%;
@@ -1316,7 +1316,7 @@
 /* ── NumberInput (drag-to-scrub) ──────────────────── */
 .varve-number-input {
   flex: 1;
-  height: var(--space-5);
+  height: var(--space-6);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
@@ -1377,8 +1377,8 @@
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: var(--space-4);
-  height: var(--space-4);
+  width: var(--space-6);
+  height: var(--space-6);
   border-radius: 50%;
   background: var(--color-interactive-default);
   border: 2px solid var(--color-surface-app);
@@ -1759,8 +1759,8 @@
 }
 .varve-radio__dot {
   position: relative;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--color-border-strong);
   background: var(--color-surface-raised);
@@ -1771,7 +1771,7 @@
 .varve-radio__dot::after {
   content: "";
   position: absolute;
-  inset: 4px;
+  inset: 5px;
   border-radius: var(--radius-pill);
   background: var(--color-text-on-accent);
   opacity: 0;
@@ -1822,8 +1822,8 @@
 }
 .varve-switch__track {
   position: relative;
-  width: 36px;
-  height: 20px;
+  width: 44px;
+  height: 24px;
   border-radius: var(--radius-pill);
   background: var(--color-border-strong);
   transition: background var(--duration-quick) var(--ease-standard);
@@ -1832,8 +1832,8 @@
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
   transition: transform var(--duration-quick) var(--ease-standard);
@@ -1842,7 +1842,7 @@
   background: var(--color-interactive-default);
 }
 .varve-switch__input:checked + .varve-switch__track .varve-switch__thumb {
-  transform: translateX(16px);
+  transform: translateX(20px);
 }
 .varve-switch__input:focus-visible + .varve-switch__track {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -1882,12 +1882,12 @@
   background: var(--color-accent-subtle);
 }
 .varve-toggle-btn--sm {
-  height: var(--space-4);
-  width: var(--space-4);
+  height: var(--space-6);
+  width: var(--space-6);
 }
 .varve-toggle-btn--md {
-  height: var(--space-5);
-  width: var(--space-5);
+  height: var(--space-6);
+  width: var(--space-6);
 }
 .varve-toggle-btn--lg {
   height: var(--space-6);

@@ -117,13 +117,13 @@ export function VariablePanel() {
       </div>
 
       {!collapsed && vars.length > 0 && (
-        <table className="variable-panel__table">
+        <table className="variable-panel__table" aria-label="Variables">
           <thead>
             <tr className="variable-panel__table-header">
               <th className="variable-panel__table-header th--name">Name</th>
               <th className="variable-panel__table-header th--value">Value</th>
               <th className="variable-panel__table-header th--resolved">Resolved</th>
-              <th className="variable-panel__table-header th--actions" />
+              <th className="variable-panel__table-header th--actions" aria-label="Actions" />
             </tr>
           </thead>
           <tbody>
@@ -150,6 +150,7 @@ export function VariablePanel() {
                           if (e.key === 'Escape') setEditingId(null);
                         }}
                         className="variable-panel__edit-input"
+                        aria-label="Variable value"
                       />
                     ) : (
                       <button

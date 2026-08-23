@@ -13,7 +13,7 @@ body {
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  overflow: clip;
   overscroll-behavior: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
@@ -36,7 +36,7 @@ body {
 #root {
   width: 100dvw;
   height: 100dvh;
-  overflow: hidden;
+  overflow: clip;
 }
 
 /* GPU compositing layer promotion — applied to containers that animate,

@@ -1,6 +1,7 @@
 import { exportDocumentToSvg } from '@varve/codegen';
 import {
   areaSelectionBounds,
+  areaSelectionFromColorRange,
   areaSelectionFromImageAlpha,
   areaSelectionFromImageLuminance,
   areaSelectionToPath,
@@ -11,28 +12,57 @@ import {
   sourcePixelToLocal,
   transformAreaSelection,
 } from '@varve/engine';
-import { translate, scaleXY, rotateRad, multiplyAffine, type Affine } from '@varve/shared';
 import { toDelimitedText } from '@varve/import';
 import { getImageFill, getOwnRasterMaskAsset, isImageShape, type TextNode } from '@varve/scene';
+import { type Affine, multiplyAffine, rotateRad, scaleXY, translate } from '@varve/shared';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import { executeNudge, getNudgeStep } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
 import { startTextEditing } from '../context';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
 import { getLifecycleCoordinator } from '../lifecycle';
-import { expandWarpAppearance } from '../warp/warpActions';
+import { nodeLocalBounds } from '../scene/world';
+import { deserializeAreaSelection, serializeAreaSelection } from '../tools/savedAreaSelections';
 import {
   areaSelectionFromMaskPixels,
   decodeRasterMaskDataUrl,
   encodeSelectionMaskPng,
   rasterizeAreaSelectionForNode,
 } from '../tools/selectionMask';
-import { deserializeAreaSelection, serializeAreaSelection } from '../tools/savedAreaSelections';
 import {
   pathPointsToSelectionCommands,
   selectionCommandsToPathRing,
 } from '../tools/selectionPathConversion';
-import { nodeLocalBounds } from '../scene/world';
+import { TOOL_REGISTRY } from '../tools/toolRegistry';
+import { expandWarpAppearance } from '../warp/warpActions';
+
+const TOOL_LABELS: Record<string, string> = Object.fromEntries(
+  TOOL_REGISTRY.map((t) => [t.id, t.label]),
+);
+
+let _toolAnnouncer: HTMLDivElement | null = null;
+function announceToolChange(toolId: string): void {
+  const label = TOOL_LABELS[toolId] ?? toolId;
+  if (!_toolAnnouncer) {
+    _toolAnnouncer = document.createElement('div');
+    _toolAnnouncer.setAttribute('role', 'status');
+    _toolAnnouncer.setAttribute('aria-live', 'polite');
+    _toolAnnouncer.setAttribute('aria-atomic', 'true');
+    Object.assign(_toolAnnouncer.style, {
+      position: 'absolute',
+      width: '1px',
+      height: '1px',
+      overflow: 'hidden',
+      clip: 'rect(0 0 0 0)',
+    });
+    document.body.appendChild(_toolAnnouncer);
+  }
+  _toolAnnouncer.textContent = '';
+  const el = _toolAnnouncer;
+  requestAnimationFrame(() => {
+    el.textContent = `${label} tool active`;
+  });
+}
 
 export interface ActionHandlerCallbacks {
   onOpenFile?: () => void;
@@ -64,7 +94,10 @@ export function createActionHandlers(
   const e = editor;
   const cb = callbacks ?? {};
 
-  const setTool = (tool: ToolId) => () => e.setTool(tool);
+  const setTool = (tool: ToolId) => () => {
+    e.setTool(tool);
+    announceToolChange(tool);
+  };
   const isAreaSelectionTool = (tool: ToolId): boolean =>
     tool === 'marquee' || tool === 'ellipseMarquee' || tool === 'pixelLasso';
   const activePageArea = () => {
@@ -228,7 +261,7 @@ export function createActionHandlers(
         : node.kind === 'path'
           ? node
           : null;
-    if (!path || !path.closed || !e.setAreaSelection) {
+    if (!path?.closed || !e.setAreaSelection) {
       e.announce('Select one closed path first');
       return;
     }
@@ -236,7 +269,7 @@ export function createActionHandlers(
       path.points,
       path.closed,
       e.getWorldTransform(id),
-      'holes' in path ? path.holes ?? [] : [],
+      'holes' in path ? (path.holes ?? []) : [],
     );
     const selection = createAreaSelection(
       {
@@ -262,7 +295,7 @@ export function createActionHandlers(
       return;
     }
     const ring = selectionCommandsToPathRing(areaSelectionToPath(selection));
-    if (!ring || !ring.closed) {
+    if (!ring?.closed) {
       e.announce('The selection did not produce a closed path');
       return;
     }
@@ -275,7 +308,7 @@ export function createActionHandlers(
     }
     e.announce('Pixel selection converted to path');
   };
-  const selectFromImage = async (mode: 'alpha' | 'luminance'): Promise<void> => {
+  const selectFromImage = async (mode: 'alpha' | 'luminance' | 'colorRange'): Promise<void> => {
     const id = e.state.selection.length === 1 ? e.state.selection[0] : undefined;
     const node = id ? e.state.document.nodes[id] : undefined;
     if (!id || !node || node.kind !== 'shape' || !isImageShape(node)) {
@@ -283,7 +316,9 @@ export function createActionHandlers(
       return;
     }
     const image = getImageFill(node)?.image;
-    const src = image?.assetId ? e.state.document.assets?.[image.assetId]?.dataUrl ?? image.src : image?.src;
+    const src = image?.assetId
+      ? (e.state.document.assets?.[image.assetId]?.dataUrl ?? image.src)
+      : image?.src;
     if (!image || !src) {
       e.announce('The image source is unavailable');
       return;
@@ -294,10 +329,17 @@ export function createActionHandlers(
       return;
     }
     const source = { data: pixels.data, width: pixels.width, height: pixels.height };
+    const foreground = e.state.foregroundColor;
     const sourceSelection =
       mode === 'alpha'
         ? areaSelectionFromImageAlpha(source)
-        : areaSelectionFromImageLuminance(source, { invert: true });
+        : mode === 'luminance'
+          ? areaSelectionFromImageLuminance(source, { invert: true })
+          : areaSelectionFromColorRange(
+              source,
+              { r: foreground[0], g: foreground[1], b: foreground[2] },
+              { tolerance: 0.08, feather: 0.04, mode: 'global' },
+            );
     const bounds = nodeLocalBounds(node, e.state.document);
     const placement = bounds
       ? computeImagePlacement({
@@ -342,12 +384,15 @@ export function createActionHandlers(
       p0.y - (px.y - p0.y) * (baseX + 0.5) - (py.y - p0.y) * (baseY + 0.5),
     ];
     e.setAreaSelection(
-      transformAreaSelection(
-        sourceSelection,
-        multiplyAffine(e.getWorldTransform(id), localMatrix),
-      ),
+      transformAreaSelection(sourceSelection, multiplyAffine(e.getWorldTransform(id), localMatrix)),
     );
-    e.announce(mode === 'alpha' ? 'Selected image alpha' : 'Selected image luminance');
+    e.announce(
+      mode === 'alpha'
+        ? 'Selected image alpha'
+        : mode === 'luminance'
+          ? 'Selected image luminance'
+          : 'Magic wand selected matching colour',
+    );
   };
   const areaSelectionTransformMatrix = (
     mode: 'move' | 'scale' | 'rotate',
@@ -515,6 +560,7 @@ export function createActionHandlers(
     selectionToPath,
     selectFromImageAlpha: () => void selectFromImage('alpha'),
     selectFromImageLuminance: () => void selectFromImage('luminance'),
+    selectFromImageColorRange: () => void selectFromImage('colorRange'),
     selectParent: () => e.selectParent(),
     selectChildren: () => e.selectChildren(),
     selectSiblings: () => e.selectSiblings(),
@@ -705,6 +751,7 @@ export function createActionHandlers(
     toolHand: setTool('hand'),
     toolZoom: setTool('zoom'),
     toolInspect: setTool('inspect'),
+    toolPixelProbe: setTool('pixelProbe'),
     toolSelectionPaint: setTool('selectionPaint'),
     toolPaint: setTool('paint'),
     toolEraser: setTool('eraser'),

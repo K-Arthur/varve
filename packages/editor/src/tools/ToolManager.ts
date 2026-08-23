@@ -69,11 +69,12 @@ export class ToolManager {
   setTool(id: ToolId, ctx?: ToolContext): void {
     if (id === this.activeId) return;
     const prev = this.activeTool;
+    const previousToolId = this.activeId;
     this.activeId = id;
     const next = this.activeTool;
     if (ctx) {
       prev.onDeactivate?.(ctx);
-      next.onActivate?.(ctx);
+      next.onActivate?.({ ...ctx, previousToolId });
     } else {
       // When called without context (e.g. during initialization), we do not
       // call lifecycle hooks — they require a valid context to avoid crashes
@@ -102,6 +103,7 @@ export class ToolManager {
         key: e.key,
       };
       this.cursorState = 'idle';
+      ctx.announce(`${id} tool active`);
     }, SPRING_LOAD_DELAY_MS);
     this.spring = { previousId: prevId, previousTool: prevTool, targetId: id, timer, key: e.key };
   }

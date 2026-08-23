@@ -1795,6 +1795,7 @@ function VariantDiffTable({ candidate }: { candidate: VariantCandidate }) {
       </div>
       <table
         style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-2xs)' }}
+        aria-label="Node property comparison"
       >
         <thead>
           <tr>
@@ -2868,7 +2869,11 @@ function SimilarTab() {
                   className="similarity-result"
                   onClick={() => setSelection(m.nodeId)}
                 >
-                  <img src={m.src} alt="" className="similarity-result__image" />
+                  <img
+                    src={m.src}
+                    alt={`Similarity result: ${Math.round(m.similarity * 100)}% match`}
+                    className="similarity-result__image"
+                  />
                   <span className="similarity-result__score">
                     {Math.round(m.similarity * 100)}%
                   </span>

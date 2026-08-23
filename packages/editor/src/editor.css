@@ -401,7 +401,7 @@ input[type="number"] {
   font-weight: var(--font-weight-medium);
   border-radius: var(--radius-sm);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .editor-menubar {
@@ -1226,7 +1226,7 @@ input[type="number"] {
   font-weight: var(--font-weight-semibold, 600);
   cursor: pointer;
   border: none;
-  line-height: 1.6;
+  line-height: var(--font-line-relaxed);
   margin-left: var(--space-1);
 }
 .editor-status__score-badge--good {
@@ -1496,7 +1496,7 @@ input[type="number"] {
 .workspace-tabs__strip {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
@@ -1708,6 +1708,8 @@ input[type="number"] {
 }
 .editor-menubar__doc-name-input:focus-visible {
   border-bottom-color: var(--color-interactive-default);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 /* ── Right-side controls in menubar ── */
@@ -1757,6 +1759,8 @@ input[type="number"] {
 .editor-menubar__zoom-input:focus-visible {
   border-color: var(--color-interactive-default);
   background: var(--elevation-surface-default);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 .editor-menubar__zoom-divider,
 .editor-menubar__zoom-unit {
@@ -1918,6 +1922,50 @@ input[type="number"] {
  * Layers drawer remains reachable instead of being visually/pointer-hidden by
  * the toolbar. */
 @media (max-width: 640px) {
+  /* Keep the application menus and workspace switcher readable on phone
+     widths. The document title is still available in the document tab row
+     immediately below; leaving it in this flex row makes it overlap Object /
+     Arrange before the browser can reach the later menu buttons. */
+  .editor-menubar {
+    gap: 0;
+    overflow: hidden;
+    padding-inline: var(--space-1);
+  }
+  .editor-menubar__center {
+    display: none;
+  }
+  .editor-menubar__side {
+    flex: 0 0 auto;
+    gap: 0;
+  }
+  .editor-menubar__left {
+    gap: 0;
+  }
+  .editor-menubar__item {
+    padding-inline: var(--space-1);
+    font-size: var(--font-size-2xs);
+  }
+  .editor-menubar__controls {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 0;
+    overflow: hidden;
+  }
+  .editor-menubar__controls .workspace-tabs {
+    justify-content: flex-start;
+  }
+  .editor-menubar .workspace-tabs__tab--active {
+    width: 1.75rem;
+    padding-inline: 0;
+  }
+  .editor-menubar .workspace-tabs__tab--active .workspace-tabs__label {
+    width: 0;
+    opacity: 0;
+  }
+  .editor-menubar__zoom,
+  .editor-menubar__zoom-divider {
+    display: none;
+  }
   .editor__fab {
     bottom: calc(28px + var(--space-3) + 52px);
   }
@@ -1997,7 +2045,7 @@ input[type="number"] {
 
 .history-panel__tab {
   flex: 1;
-  padding: 6px 8px;
+  padding: var(--space-1) var(--space-2);
   border: none;
   background: transparent;
   cursor: pointer;
@@ -2024,11 +2072,11 @@ input[type="number"] {
 }
 
 .history-panel__search {
-  padding: 6px 8px;
+  padding: var(--space-1) var(--space-2);
 }
 .history-panel__search-input {
   width: 100%;
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   background: var(--elevation-surface-default);
@@ -2042,11 +2090,11 @@ input[type="number"] {
 
 .history-panel__actions {
   display: flex;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
 }
 .history-panel__action-btn {
-  padding: 3px 8px;
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   background: var(--elevation-surface-default);
@@ -2060,15 +2108,15 @@ input[type="number"] {
 }
 
 .history-panel__form {
-  padding: 6px 8px;
+  padding: var(--space-1) var(--space-2);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   border-bottom: var(--border-micro);
 }
 .history-panel__form-input {
   width: 100%;
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   background: var(--elevation-surface-default);
@@ -2077,10 +2125,10 @@ input[type="number"] {
 }
 .history-panel__form-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .history-panel__form-actions button {
-  padding: 2px 8px;
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   background: var(--elevation-surface-default);
@@ -2097,7 +2145,7 @@ input[type="number"] {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 6px 8px;
+  padding: var(--space-1) var(--space-2);
   cursor: pointer;
   border-left: 3px solid transparent;
   transition: background 0.1s;
@@ -2124,7 +2172,7 @@ input[type="number"] {
 .history-panel__step-main {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .history-panel__step-label {
   color: var(--color-text-primary);
@@ -2137,7 +2185,7 @@ input[type="number"] {
 
 .history-panel__step-markers {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
   flex-wrap: wrap;
 }
 .history-panel__marker {
@@ -2166,7 +2214,7 @@ input[type="number"] {
 
 .history-panel__step-meta {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   color: var(--text-tertiary);
   font-size: 10px;
 }
@@ -2179,7 +2227,7 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 8px;
+  padding: var(--space-1) var(--space-2);
   border-left: 3px solid transparent;
   cursor: default;
 }
@@ -2190,7 +2238,7 @@ input[type="number"] {
 }
 .history-panel__branch-main {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   align-items: center;
 }
 .history-panel__branch-name {
@@ -2201,7 +2249,7 @@ input[type="number"] {
   font-size: 10px;
 }
 .history-panel__branch-switch {
-  padding: 2px 8px;
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   background: var(--elevation-surface-default);
@@ -2215,12 +2263,12 @@ input[type="number"] {
 
 /* Checkpoints */
 .history-panel__section-title {
-  padding: 8px 8px 4px;
+  padding: var(--space-2) var(--space-2) var(--space-1);
   font-size: 11px;
   font-weight: 600;
   color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--tracking-wide);
 }
 .history-panel__checkpoints {
   padding: 4px 0;
@@ -2228,8 +2276,8 @@ input[type="number"] {
 .history-panel__checkpoint {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
   cursor: pointer;
 }
 .history-panel__checkpoint:hover {
@@ -2244,7 +2292,7 @@ input[type="number"] {
   padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .history-panel__compare-label {
   display: flex;
@@ -2273,7 +2321,7 @@ input[type="number"] {
 }
 .history-panel__diff-stat {
   display: flex;
-  gap: 10px;
+  gap: var(--space-3);
   font-size: var(--font-size-xs);
   font-weight: 600;
 }
@@ -2299,8 +2347,8 @@ input[type="number"] {
 .history-panel__entities {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 6px 8px;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
 }
 .history-panel__entity {
   border: 1px solid var(--color-border-subtle);
@@ -2311,7 +2359,7 @@ input[type="number"] {
 .history-panel__entity-head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .history-panel__entity-id {
   font-family: var(--font-mono, monospace);
@@ -2355,7 +2403,7 @@ input[type="number"] {
 .history-panel__entity-change {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: 10px;
 }
 .history-panel__change-badge {
@@ -2401,10 +2449,10 @@ input[type="number"] {
 
 .history-panel__branch-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .history-panel__merge-status {
-  padding: 6px 8px;
+  padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   border-bottom: var(--border-micro);
@@ -2414,7 +2462,7 @@ input[type="number"] {
 .conflict-resolver {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
   padding: 16px;
   width: min(90vw, 520px);
   max-width: 720px;
@@ -2433,7 +2481,7 @@ input[type="number"] {
 .conflict-resolver__list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
   overflow-y: auto;
   max-height: 50vh;
 }
@@ -2466,7 +2514,7 @@ input[type="number"] {
 .conflict-resolver__item-values {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  gap: var(--space-2);
 }
 .conflict-resolver__value {
   display: flex;
@@ -2504,7 +2552,7 @@ input[type="number"] {
 .conflict-resolver__choice {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   font-size: var(--font-size-xs);
   cursor: pointer;
 }
@@ -2660,8 +2708,8 @@ input[type="number"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border: none;
   border-radius: 3px;
   background: transparent;
@@ -2720,7 +2768,7 @@ input[type="number"] {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -3289,7 +3337,7 @@ dialog.varve-dialog--settings[open] {
   max-width: 360px;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  line-height: 1.5;
+  line-height: var(--font-line-normal);
 }
 .welcome-dialog__options {
   display: flex;
@@ -3397,7 +3445,7 @@ dialog.varve-dialog--settings[open] {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  line-height: 1.5;
+  line-height: var(--font-line-normal);
 }
 .spotlight-overlay__actions {
   display: flex;
@@ -3489,7 +3537,7 @@ dialog.varve-dialog--settings[open] {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-lg);
   font-size: var(--font-size-sm);
-  line-height: 1.5;
+  line-height: var(--font-line-normal);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -3936,6 +3984,10 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-sm);
   outline: none;
 }
+.plugin-marketplace__search-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
 .plugin-marketplace__search-input::placeholder {
   color: var(--color-text-muted);
 }
@@ -4112,7 +4164,7 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
 }
 .plan-badge__expiry {
   font-size: var(--font-size-2xs);
@@ -4552,7 +4604,7 @@ dialog.varve-dialog--settings[open] {
   margin: 6px 0 0;
   color: var(--color-text-muted);
   font-size: 0.875rem;
-  line-height: 1.5;
+  line-height: var(--font-line-normal);
 }
 .crash-dialog__section {
   padding: 12px 24px;
@@ -4562,14 +4614,14 @@ dialog.varve-dialog--settings[open] {
   margin: 0 0 8px;
   font-size: 0.8125rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   color: var(--color-text-muted);
 }
 .crash-dialog__list {
   margin: 0;
   padding-left: 20px;
   font-size: 0.875rem;
-  line-height: 1.6;
+  line-height: var(--font-line-relaxed);
 }
 .crash-dialog__meta {
   margin: 10px 0 0;
@@ -4757,7 +4809,7 @@ dialog.varve-dialog--settings[open] {
   padding-left: 20px;
   font-size: 0.8125rem;
   color: var(--color-text-muted);
-  line-height: 1.6;
+  line-height: var(--font-line-relaxed);
 }
 .crash-dialog__attachments {
   margin: 0;
@@ -4793,7 +4845,7 @@ dialog.varve-dialog--settings[open] {
   margin: 8px 0 0;
   font-size: 0.75rem;
   color: var(--color-text-muted);
-  line-height: 1.5;
+  line-height: var(--font-line-normal);
 }
 
 /* ── Safe mode screen ────────────────────────────────────── */
@@ -4833,7 +4885,7 @@ dialog.varve-dialog--settings[open] {
 .safe-mode-screen__intro {
   margin: 0 0 6px;
   font-size: 0.9375rem;
-  line-height: 1.6;
+  line-height: var(--font-line-relaxed);
   color: var(--color-text-muted);
 }
 .safe-mode-screen__version {
@@ -4853,7 +4905,7 @@ dialog.varve-dialog--settings[open] {
 }
 .safe-mode-screen__option {
   display: flex;
-  gap: 10px;
+  gap: var(--space-3);
   padding: 8px 0;
   cursor: pointer;
 }
@@ -4906,7 +4958,7 @@ dialog.varve-dialog--settings[open] {
   margin: 0;
   font-size: 0.8125rem;
   color: var(--color-text-muted);
-  line-height: 1.5;
+  line-height: var(--font-line-normal);
 }
 
 /* ── Privacy & Diagnostics settings section ──────────────── */
@@ -4914,7 +4966,7 @@ dialog.varve-dialog--settings[open] {
   margin: 0 0 10px;
   font-size: 0.875rem;
   color: var(--color-text-muted);
-  line-height: 1.5;
+  line-height: var(--font-line-normal);
 }
 .privacy-section__choices {
   margin-bottom: 16px;
@@ -4935,7 +4987,7 @@ dialog.varve-dialog--settings[open] {
 .privacy-section__queue-item {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-3);
   align-items: center;
   padding: 8px 10px;
   border-bottom: var(--border-micro);
@@ -4987,7 +5039,7 @@ dialog.varve-dialog--settings[open] {
   margin-top: 16px;
   font-size: 0.75rem;
   color: var(--color-text-muted);
-  line-height: 1.5;
+  line-height: var(--font-line-normal);
 }
 
 /* ── Workspace customize dialog ── */
@@ -5290,7 +5342,7 @@ dialog.varve-dialog--settings[open] {
 
 .ref-image-picker__current {
   display: flex;
-  gap: 10px;
+  gap: var(--space-3);
   align-items: flex-start;
 }
 
@@ -5505,7 +5557,7 @@ dialog.varve-dialog--settings[open] {
 .color-conversion__explain {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  line-height: 1.5;
+  line-height: var(--font-line-normal);
   margin-top: 8px;
 }
 

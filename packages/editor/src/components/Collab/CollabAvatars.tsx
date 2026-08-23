@@ -23,7 +23,7 @@ export function CollabAvatars() {
               style={{ background: user.color }}
             >
               {user.avatar ? (
-                <img src={user.avatar} alt="" className="collab-avatars__img" />
+                <img src={user.avatar} alt={user.name} className="collab-avatars__img" />
               ) : (
                 <span className="collab-avatars__initial">{user.name.charAt(0).toUpperCase()}</span>
               )}

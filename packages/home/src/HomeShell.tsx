@@ -22,6 +22,7 @@ import { AssetBrowser } from './AssetBrowser';
 import { BatchActions } from './BatchActions';
 import { BreadcrumbNav, type BreadcrumbSegment } from './BreadcrumbNav';
 import { BulkImportDialog } from './BulkImportDialog';
+import { ConfirmDialogProvider, confirmDialog } from './confirmDialog';
 import { EmptyStates } from './EmptyStates';
 import { FileContextMenu, type FileMenuAction } from './FileContextMenu';
 import { FileGrid } from './FileGrid';
@@ -33,6 +34,7 @@ import { NewDesignDialog } from './NewDesignDialog';
 import { PerfProfile } from './PerfProfile';
 import { ProjectsView } from './ProjectsView';
 import { usePresetLibrary } from './presetLibrary';
+import { PromptDialogProvider, promptDialog } from './promptDialog';
 import { type SidebarEntry, SidebarNav } from './SidebarNav';
 import { TemplatesGallery } from './TemplatesGallery';
 import { TrashSection } from './TrashSection';
@@ -438,7 +440,7 @@ export function HomeShell({
   }, []);
 
   const handleContextAction = useCallback(
-    (action: FileMenuAction) => {
+    async (action: FileMenuAction) => {
       if (!contextFile) return;
       // When the right-clicked file is part of a multi-selection, stateful
       // actions (favorite/pin/trash/restore/purge/remove/hide) apply to every
@@ -473,7 +475,12 @@ export function HomeShell({
           for (const entry of selected) actions.restore(entry.id);
           break;
         case 'purge': {
-          if (confirm('Permanently delete these files? This cannot be undone.')) {
+          const confirmed = await confirmDialog(
+            'Permanently delete files',
+            'Permanently delete these files? This cannot be undone.',
+            { confirmLabel: 'Delete permanently', variant: 'danger' },
+          );
+          if (confirmed) {
             for (const entry of selected) actions.purge(entry.id);
           }
           break;
@@ -850,6 +857,8 @@ export function HomeShell({
 
   return (
     <DndContext sensors={sensors} collisionDetection={undefined} onDragEnd={handleDragEnd}>
+      <ConfirmDialogProvider />
+      <PromptDialogProvider />
       <section
         className={`varve-home ${view.state.sidebarCollapsed ? 'varve-home--collapsed' : ''} ${isDragOver ? 'varve-home--drag-over' : ''}`}
         aria-label="File drop zone"
@@ -879,7 +888,7 @@ export function HomeShell({
             onClick={() => setSidebarOpen(false)}
           />
         )}
-        <div
+        <aside
           ref={sidebarRef}
           className={`varve-home__sidebar ${sidebarOpen ? 'varve-home__sidebar--open' : ''}`}
         >
@@ -974,7 +983,7 @@ export function HomeShell({
             }}
             searchResultCount={view.visibleFiles.length}
           />
-        </div>
+        </aside>
         <div className="varve-home__toolbar">
           <HomeToolbar
             sidebarCollapsed={view.state.sidebarCollapsed}
@@ -1089,8 +1098,8 @@ export function HomeShell({
           onToggleFavoritePreset={(preset) => presetLibrary.toggleFavorite(preset.id)}
           onRecordRecentPreset={(preset) => presetLibrary.recordRecent(preset.id)}
           onSaveCustomPreset={presetLibrary.addCustomPreset}
-          onEditCustomPreset={(preset) => {
-            const name = window.prompt('Rename preset', preset.name);
+          onEditCustomPreset={async (preset) => {
+            const name = await promptDialog('Rename preset', preset.name);
             if (name && name !== preset.name) presetLibrary.updateCustomPreset(preset.id, { name });
           }}
           onDuplicateCustomPreset={(preset) => presetLibrary.duplicateCustomPreset(preset.id)}

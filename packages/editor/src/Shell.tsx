@@ -34,7 +34,7 @@ import { MinimapPanel } from './components/Minimap/MinimapPanel';
 import { PageNav } from './components/PageNav/PageNav';
 import { PagesPanel } from './components/PagesPanel/PagesPanel';
 import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
-import { PromptDialog, promptDialog } from './components/PromptDialog';
+import { ConfirmDialog, PromptDialog, promptDialog } from './components/PromptDialog';
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
 import { IconBrowserDialog, ResourcesPanel } from './components/ResourcesPanel/ResourcesPanel';
@@ -48,6 +48,7 @@ import {
   type ExportLayerHandle,
   FindReplaceLayer,
   type FindReplaceLayerHandle,
+  ImageResizeDialogHost,
   ImportProgress,
   ImportResults,
   OnboardingLayer,
@@ -325,6 +326,7 @@ function ShellInner({
       onOpenFile: () => fileRef.current?.click(),
       onImportFile: () => fileRef.current?.click(),
       onCustomizeWorkspace: () => setWorkspaceCustomizeOpen(true),
+      onResizeImage: editor.openImageResizeDialog,
     });
     if (staticActionsRegistered.current) return;
     staticActionsRegistered.current = true;
@@ -438,28 +440,30 @@ function ShellInner({
           {editorHeadingLabel(editor.state.sessions, editor.state.activeId)}
         </h1>
         {!distractionFreeMode && (
-          <Menubar
-            onBackToHome={onBackToHome}
-            onOpenSettings={() => {
-              setSettingsSection('general');
-              setSettingsOpen(true);
-            }}
-            onStartTour={() => onboardingLayerRef.current?.reopen()}
-            onOpenPalette={openPalette}
-            onOpenHelp={editorHelp.openContextualHelp}
-            onOpenHelpCenter={() => editorHelp.setHelpCenterOpen(true)}
-            onContactSupport={() => openVarveContact('support')}
-            onSendFeedback={() => openVarveContact('feedback')}
-            onReportSecurity={() => openVarveContact('security')}
-            onOpenPrivacy={() => openVarveContact('privacy')}
-            onWhatIsThis={editorHelp.toggleWhatIsThis}
-            onWhatsNew={() => editorHelp.setHelpCenterOpen(true)}
-            onOpenAbout={() => {
-              setSettingsSection('about');
-              setSettingsOpen(true);
-            }}
-            onBatchBgRemove={() => exportLayerRef.current?.openBatchBgRemove()}
-          />
+          <header>
+            <Menubar
+              onBackToHome={onBackToHome}
+              onOpenSettings={() => {
+                setSettingsSection('general');
+                setSettingsOpen(true);
+              }}
+              onStartTour={() => onboardingLayerRef.current?.reopen()}
+              onOpenPalette={openPalette}
+              onOpenHelp={editorHelp.openContextualHelp}
+              onOpenHelpCenter={() => editorHelp.setHelpCenterOpen(true)}
+              onContactSupport={() => openVarveContact('support')}
+              onSendFeedback={() => openVarveContact('feedback')}
+              onReportSecurity={() => openVarveContact('security')}
+              onOpenPrivacy={() => openVarveContact('privacy')}
+              onWhatIsThis={editorHelp.toggleWhatIsThis}
+              onWhatsNew={() => editorHelp.setHelpCenterOpen(true)}
+              onOpenAbout={() => {
+                setSettingsSection('about');
+                setSettingsOpen(true);
+              }}
+              onBatchBgRemove={() => exportLayerRef.current?.openBatchBgRemove()}
+            />
+          </header>
         )}
         <FloatingToolbar />
         {!distractionFreeMode && effectiveConfig.tabStrip && (
@@ -518,7 +522,7 @@ function ShellInner({
           </div>
         )}
         {!distractionFreeMode && (
-          <div
+          <aside
             className="editor__layers-panel editor__panel--glass"
             data-panel="layers"
             data-testid="layers-panel"
@@ -539,10 +543,10 @@ function ShellInner({
               width={widths.layers}
               onResize={(w) => setWidth('layers', w)}
             />
-          </div>
+          </aside>
         )}
         {!distractionFreeMode && (
-          <div
+          <aside
             className="editor__inspector-panel editor__panel--glass"
             data-panel="inspector"
             data-visible={inspectorVisible || undefined}
@@ -555,7 +559,7 @@ function ShellInner({
               width={widths.inspector}
               onResize={(w) => setWidth('inspector', w)}
             />
-          </div>
+          </aside>
         )}
         {libraryPanelVisible && !distractionFreeMode && !isDetached('library') && (
           // data-visible drives the <=899px drawer transform. Without it the
@@ -1020,6 +1024,7 @@ function ShellInner({
           onClose={() => editorHelp.setHelpCenterOpen(false)}
         />
         <PromptDialog />
+        <ConfirmDialog />
 
         {/* Logo small-size preview */}
         <LogoPreviewDialog />
@@ -1028,6 +1033,8 @@ function ShellInner({
         {editor.upscaleDialogOpen && (
           <UpscaleDialogHost open={editor.upscaleDialogOpen} onClose={editor.closeUpscaleDialog} />
         )}
+
+        <ImageResizeDialogHost />
 
         {/* Image Trace dialog */}
         {editor.vectorizeDialogOpen && <VectorizeDialogHost />}

@@ -56,6 +56,10 @@
   outline: none;
   min-width: 0;
 }
+.help-browser__search-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
 
 .help-browser__search-input::placeholder {
   color: var(--color-text-muted);

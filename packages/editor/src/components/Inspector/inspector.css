@@ -28,7 +28,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
 }
 
 /* Only the direct-child content pane scrolls; nested .insp-panel instances
@@ -92,7 +92,7 @@
   font: inherit;
   font-size: var(--font-size-2xs);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   cursor: pointer;
 }
 .insp-panel__sub-tab[aria-selected="true"] {
@@ -1391,7 +1391,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  letter-spacing: 0.01em;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   margin-bottom: var(--space-1);
 }
@@ -1463,6 +1463,8 @@
 }
 .insp-paint-library__search-input:focus-visible {
   border-color: var(--color-border-focus);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 .insp-paint-library__add-btn {
   display: flex;
@@ -1544,7 +1546,7 @@
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   line-height: 1.2;
 }
 .insp-paint-library__actions {
@@ -1684,6 +1686,16 @@
 .insp-canvas-props .insp-field__label {
   min-width: 4.5rem;
 }
+.insp-canvas-props .insp-field__control--inline {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.insp-canvas-props .insp-field__control--inline :where(label) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
 
 /* ---------- Slider (APG Slider) ---------- */
 .insp-slider {
@@ -1743,6 +1755,8 @@
 
 .typography__text-input:focus-visible {
   border-color: var(--color-interactive-default);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 /* ---------- Rich text span editor ---------- */
@@ -1771,6 +1785,8 @@
 
 .rich-span-editor__box:focus-visible {
   border-color: var(--color-interactive-default);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 .rich-span-editor__run {
@@ -1946,7 +1962,7 @@
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   padding: var(--space-1) 0 0;
 }
 .intelligence-tab--small {
@@ -2170,7 +2186,7 @@
   padding: 1px var(--space-1);
   border-radius: var(--radius-pill);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   font-weight: var(--font-weight-semibold);
   flex-shrink: 0;
 }
@@ -2610,6 +2626,41 @@
   font-feature-settings: "tnum";
 }
 
+/* ---------- Adjustment histogram channels ---------- */
+.histogram-widget__channels {
+  display: inline-flex;
+  gap: 2px;
+  align-self: flex-end;
+}
+
+.histogram-widget__channels label {
+  position: relative;
+  min-width: 1.5rem;
+  padding: 2px 4px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  cursor: pointer;
+}
+
+.histogram-widget__channels label input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.histogram-widget__channels label:hover,
+.histogram-widget__channels label.histogram-widget__channel--active,
+.histogram-widget__channels label:has(input:focus-visible) {
+  border-color: var(--color-accent-primary);
+  color: var(--color-text-primary);
+  background: var(--color-surface-selected);
+}
+
 /* ---------- Gap histogram ---------- */
 .intelligence-gap-histogram {
   display: flex;
@@ -2703,7 +2754,7 @@
   margin: 0 0 var(--space-1);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
@@ -4012,7 +4063,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
 }
 .email-preflight__group-count {
   color: var(--color-text-subtle);
