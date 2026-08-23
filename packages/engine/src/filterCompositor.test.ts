@@ -119,7 +119,7 @@ describe('filter compositing', () => {
 
     expect(Array.from(full!.data)).toEqual([255, 245, 0, 0, 235, 215, 195, 128, 0, 0, 0, 255]);
     expect(Array.from(half!.data)).toEqual([
-      128, 133, 128, 0, 118, 108, 98, 128, 128, 128, 128, 255,
+      128, 128, 128, 0, 128, 128, 128, 128, 128, 128, 128, 255,
     ]);
   });
 

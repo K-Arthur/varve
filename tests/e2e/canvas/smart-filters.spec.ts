@@ -5,7 +5,7 @@
  * duplicate, multi-filter stack, group/frame filters, undo/redo,
  * and visual inspection via screenshots.
  */
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 /** Select a layer by clicking it in the Layers panel. */
@@ -15,9 +15,9 @@ async function selectLayerInPanel(page: Page, index = 0) {
   await expect(item).toHaveAttribute('aria-selected', 'true');
 }
 
-/** Add a smart filter via the inspector dropdown. */
+/** Add an Object Filter via the inspector dropdown. */
 async function addSmartFilter(page: Page, kindLabel: string) {
-  const select = page.getByLabel('Add Smart Filter');
+  const select = page.getByLabel('Add Object Filter');
   await select.selectOption({ label: kindLabel });
   await page.waitForTimeout(200);
 }
@@ -41,7 +41,7 @@ async function readCanvasPixel(
       const px = Math.round((cx - rect.left) * dpr);
       const py = Math.round((cy - rect.top) * dpr);
       const data = ctx.getImageData(px, py, 1, 1).data;
-      return [data[0], data[1], data[2], data[3]];
+      return [data[0] ?? 0, data[1] ?? 0, data[2] ?? 0, data[3] ?? 0];
     },
     [x, y] as [number, number],
   );
@@ -73,7 +73,7 @@ test.describe('Smart Filters — Invert workflow', () => {
     await page.waitForTimeout(500);
 
     // Read pixel before — expect red-ish
-    const [r1, g1, b1, a1] = await readCanvasPixel(page, cx, cy);
+    const [r1] = await readCanvasPixel(page, cx, cy);
     expect(r1).toBeGreaterThan(200);
 
     // Select the layer
@@ -114,6 +114,7 @@ test.describe('Smart Filters — Invert workflow', () => {
     // Record original color
     const [origR] = await readCanvasPixel(page, cx, cy);
     expect(origR).toBeGreaterThan(200);
+    expect(origR).toBeGreaterThan(200);
 
     // Add filter
     await selectLayerInPanel(page, 0);
@@ -151,6 +152,7 @@ test.describe('Smart Filters — Invert workflow', () => {
     await page.waitForTimeout(500);
 
     const [origR] = await readCanvasPixel(page, cx, cy);
+    expect(origR).toBeGreaterThan(200);
 
     await selectLayerInPanel(page, 0);
     await addSmartFilter(page, 'Invert');
@@ -184,6 +186,7 @@ test.describe('Smart Filters — Invert workflow', () => {
     await page.waitForTimeout(500);
 
     const [origR] = await readCanvasPixel(page, cx, cy);
+    expect(origR).toBeGreaterThan(200);
 
     await selectLayerInPanel(page, 0);
     await addSmartFilter(page, 'Invert');
@@ -241,7 +244,7 @@ test.describe('Smart Filters — Invert workflow', () => {
     await selectLayerInPanel(page, 0);
     await page.waitForTimeout(500);
 
-    const smartFiltersSection = page.locator('text=Smart Filters').first();
+    const smartFiltersSection = page.getByText('Object Filters', { exact: true }).first();
     await expect(smartFiltersSection).toBeVisible({ timeout: 5000 });
   });
 
@@ -268,10 +271,8 @@ test.describe('Smart Filters — Invert workflow', () => {
   });
 });
 
-test.describe('Smart Filters — group and frame', () => {
+test.describe('Object Filters — group and frame', () => {
   test('frame with smart filter affects children', async ({ page }) => {
-    await navigateToEditor(page);
-
     // Create frame
     await page.keyboard.press('f');
     const canvas = page.locator('canvas.editor-canvas__content-layer');
@@ -296,7 +297,7 @@ test.describe('Smart Filters — group and frame', () => {
     await page.waitForTimeout(500);
 
     // Verify Smart Filters section is visible
-    const smartFiltersSection = page.locator('text=Smart Filters').first();
+    const smartFiltersSection = page.getByText('Object Filters', { exact: true }).first();
     await expect(smartFiltersSection).toBeVisible({ timeout: 5000 });
 
     await page.screenshot({
