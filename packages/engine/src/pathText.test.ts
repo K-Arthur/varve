@@ -5,12 +5,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  flattenShapedRuns,
+  type PathCluster,
   pathLength,
+  placeClustersOnPath,
   placeGlyphsOnPath,
   samplePathAtLength,
   transformPathShape,
 } from './pathText';
-import type { Shape } from './types';
+import type { Shape, ShapedRun } from './types';
 
 function approx(a: number, b: number, tol = 0.05): void {
   expect(Math.abs(a - b)).toBeLessThanOrEqual(tol);
@@ -119,9 +122,9 @@ describe('placeGlyphsOnPath — line', () => {
     const shape: Shape = { kind: 'line', from: [0, 0], to: [200, 0], tolerance: 0 };
     const glyphs = placeGlyphsOnPath('AB', shape, { fontSize: 16 });
     expect(glyphs.length).toBe(2);
-    // Side offset pushes above the line by default
-    approx(glyphs[0]?.y ?? 0, 16 * 0.3, 0.5);
-    approx(glyphs[1]?.y ?? 0, 16 * 0.3, 0.5);
+    // Baseline sits exactly on the path (top side, no lift)
+    approx(glyphs[0]?.y ?? 0, 0, 0.1);
+    approx(glyphs[1]?.y ?? 0, 0, 0.1);
     // x increases
     expect(glyphs[1]?.x ?? 0).toBeGreaterThan(glyphs[0]?.x ?? 0);
     // angle is 0 (horizontal right)
@@ -189,23 +192,26 @@ describe('placeGlyphsOnPath — offset and side', () => {
     const shape: Shape = { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 0 };
     const glyphs = placeGlyphsOnPath('A', shape, { fontSize: 16, offset: 0.5 });
     expect(glyphs.length).toBe(1);
-    // Starts at 50 + advance/2 = 50 + 4.8 = 54.8
-    approx(glyphs[0]?.x ?? 0, 54.8, 0.5);
+    // Left-baseline anchor: glyph left edge sits at 50.0
+    approx(glyphs[0]?.x ?? 0, 50, 0.5);
   });
 
-  it('side bottom places glyph below the path', () => {
+  it('side bottom rotates glyph 180° and puts baseline on the path', () => {
     const shape: Shape = { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 0 };
     const glyphs = placeGlyphsOnPath('A', shape, { fontSize: 16, side: 'bottom' });
     expect(glyphs.length).toBe(1);
-    // bottom = negative Y offset in screen space
-    approx(glyphs[0]?.y ?? 0, -16 * 0.3, 1);
+    // Baseline sits exactly on the path (y = 0), rotated 180°.
+    approx(glyphs[0]?.y ?? 0, 0, 0.1);
+    approx(glyphs[0]?.angle ?? 0, Math.PI, 0.05);
   });
 
-  it('side top places glyph above the path', () => {
+  it('side top keeps baseline on the path with no rotation', () => {
     const shape: Shape = { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 0 };
     const glyphs = placeGlyphsOnPath('A', shape, { fontSize: 16, side: 'top' });
     expect(glyphs.length).toBe(1);
-    approx(glyphs[0]?.y ?? 0, 16 * 0.3, 1);
+    // Baseline on the path (y = 0), tangent angle unchanged.
+    approx(glyphs[0]?.y ?? 0, 0, 0.1);
+    approx(glyphs[0]?.angle ?? 0, 0, 0.05);
   });
 });
 
@@ -278,5 +284,297 @@ describe('placeGlyphsOnPath — multi-glyph text', () => {
     const glyphs = placeGlyphsOnPath('ABCDEFGHIJ', shape, { fontSize: 20 });
     // 20 * 0.6 = 12px per glyph, path is 10px, so at most 1 glyph fits
     expect(glyphs.length).toBeLessThanOrEqual(2);
+  });
+});
+
+// ── placeClustersOnPath (shaped clusters) ──────────────────────────────
+
+describe('placeClustersOnPath', () => {
+  it('places shaped clusters along a circle', () => {
+    const shape: Shape = { kind: 'circle', cx: 0, cy: 0, r: 100 };
+    const clusters: PathCluster[] = [
+      { text: 'AV', advance: 18 }, // single cluster (ligature-like)
+      { text: 'o', advance: 10 },
+      { text: 'w', advance: 14 },
+    ];
+    const glyphs = placeClustersOnPath(clusters, shape, { fontSize: 16 });
+    expect(glyphs.length).toBe(3);
+    expect(glyphs[0]?.char).toBe('AV');
+    expect(glyphs[1]?.char).toBe('o');
+    expect(glyphs[2]?.char).toBe('w');
+    // All on circle (r ≈ 100)
+    for (const g of glyphs) {
+      approx(Math.hypot(g.x, g.y), 100, 1);
+    }
+  });
+
+  it('endOffset clips text to a sub-interval on an open path', () => {
+    const shape: Shape = { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 0 };
+    const clusters: PathCluster[] = [
+      { text: 'A', advance: 10 },
+      { text: 'B', advance: 10 },
+      { text: 'C', advance: 10 },
+      { text: 'D', advance: 10 },
+      { text: 'E', advance: 10 },
+      { text: 'F', advance: 10 },
+      { text: 'G', advance: 10 },
+    ];
+    // Usable interval: 0%–50% of 100px = [0–50]px
+    // A=0, B=10, C=20, D=30, E=40, F=50 (at boundary, included), G=60 (excluded)
+    const glyphs = placeClustersOnPath(clusters, shape, { offset: 0, endOffset: 0.5 });
+    expect(glyphs.length).toBe(6);
+    for (const g of glyphs) {
+      expect(g.x).toBeLessThanOrEqual(50.01);
+    }
+  });
+
+  it('endOffset wraps through the seam on closed paths', () => {
+    const shape: Shape = { kind: 'circle', cx: 0, cy: 0, r: 50 };
+    const clusters: PathCluster[] = [
+      { text: 'A', advance: 20 },
+      { text: 'B', advance: 20 },
+      { text: 'C', advance: 20 },
+      { text: 'D', advance: 20 },
+    ];
+    // Start at 80%, end at 20% → wraps through seam: 80%..100% + 0%..20%
+    const glyphs = placeClustersOnPath(clusters, shape, { offset: 0.8, endOffset: 0.2 });
+    // The interval wraps through the seam, so all four 20px clusters fit in
+    // the 40% forward arc rather than being rejected by an absolute end check.
+    expect(glyphs).toHaveLength(4);
+    for (const g of glyphs) {
+      expect(Number.isFinite(g.x)).toBe(true);
+      expect(Number.isFinite(g.y)).toBe(true);
+    }
+  });
+
+  it('baselineShift moves glyphs perpendicular to the path', () => {
+    const shape: Shape = { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 0 };
+    const clusters: PathCluster[] = [{ text: 'A', advance: 10 }];
+    const plain = placeClustersOnPath(clusters, shape, { baselineShift: 0 });
+    const shifted = placeClustersOnPath(clusters, shape, { baselineShift: 20 });
+    expect(plain[0]?.y).toBe(0);
+    // Shift of +20 should move glyph up (y negative) on a LTR horizontal line
+    expect(shifted[0]?.y).toBeLessThan(plain[0]?.y ?? 0);
+  });
+
+  it('side bottom rotates glyphs 180 degrees', () => {
+    const shape: Shape = { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 0 };
+    const clusters: PathCluster[] = [{ text: 'A', advance: 10 }];
+    const top = placeClustersOnPath(clusters, shape, { side: 'top' });
+    const bottom = placeClustersOnPath(clusters, shape, { side: 'bottom' });
+    approx(top[0]?.angle ?? 0, 0, 0.05);
+    approx(bottom[0]?.angle ?? 0, Math.PI, 0.05);
+  });
+
+  it('flip adds an independent 180 degree orientation change', () => {
+    const shape: Shape = { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 0 };
+    const normal = placeClustersOnPath([{ text: 'A', advance: 10 }], shape);
+    const flipped = placeClustersOnPath([{ text: 'A', advance: 10 }], shape, { flip: true });
+    approx(flipped[0]?.angle ?? 0, Math.PI, 0.05);
+    approx(normal[0]?.angle ?? 0, 0, 0.05);
+  });
+
+  it('normalizes non-finite offsets instead of producing NaN placements', () => {
+    const shape: Shape = { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 0 };
+    const glyphs = placeClustersOnPath([{ text: 'A', advance: 10 }], shape, {
+      offset: Number.NaN,
+      endOffset: Number.NaN,
+    });
+    expect(glyphs).toHaveLength(1);
+    expect(Number.isFinite(glyphs[0]?.x)).toBe(true);
+  });
+});
+
+describe('cubic arc-length parameterization', () => {
+  it('does not use raw cubic t as the distance coordinate', () => {
+    const shape: Shape = {
+      kind: 'path',
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: [0, 300] },
+        { x: 300, y: 0, handleIn: [-1, 0], handleOut: null },
+      ],
+      closed: false,
+      tolerance: 0,
+    };
+    const total = pathLength(shape);
+    const sample = samplePathAtLength(shape, total / 2);
+    // A raw-t midpoint would be x=37.5 for this strongly asymmetric curve;
+    // half the physical length is materially farther along the curve.
+    expect(sample.x).toBeGreaterThan(50);
+  });
+});
+
+// ── Ellipse arc-length accuracy ────────────────────────────────────────
+
+describe('ellipse arc-length parameterization', () => {
+  it('produces approximately uniform glyph spacing on a wide ellipse', () => {
+    const shape: Shape = { kind: 'ellipse', cx: 0, cy: 0, rx: 200, ry: 50 };
+    const clusters: PathCluster[] = Array.from({ length: 10 }, (_, i) => ({
+      text: `${i}`,
+      advance: 10,
+    }));
+    const glyphs = placeClustersOnPath(clusters, shape, { fontSize: 10 });
+    expect(glyphs.length).toBe(10);
+    // Check that consecutive x-distances don't vary wildly (within 15% of mean)
+    const gaps: number[] = [];
+    for (let i = 1; i < glyphs.length; i++) {
+      gaps.push(Math.hypot(glyphs[i]!.x - glyphs[i - 1]!.x, glyphs[i]!.y - glyphs[i - 1]!.y));
+    }
+    const meanGap = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    for (const gap of gaps) {
+      expect(gap).toBeGreaterThan(meanGap * 0.85);
+      expect(gap).toBeLessThan(meanGap * 1.15);
+    }
+  });
+});
+
+// ── flattenShapedRuns ──────────────────────────────────────────────────
+
+describe('flattenShapedRuns', () => {
+  it('flattens single LTR run into path clusters', () => {
+    const runs: ShapedRun[] = [
+      {
+        fontFamily: 'Arial',
+        fontSize: 16,
+        fontWeight: 400,
+        fontStyle: 'normal',
+        direction: 'ltr',
+        level: 0,
+        script: 'Latn',
+        glyphs: [
+          {
+            glyphId: 0,
+            xAdvance: 10,
+            yAdvance: 0,
+            xOffset: 0,
+            yOffset: 0,
+            clusterUtf16: 0,
+            sourceEnd: 1,
+          },
+          {
+            glyphId: 0,
+            xAdvance: 8,
+            yAdvance: 0,
+            xOffset: 0,
+            yOffset: 0,
+            clusterUtf16: 1,
+            sourceEnd: 2,
+          },
+        ],
+        width: 18,
+        ascent: 12,
+        descent: 4,
+      },
+    ];
+    const clusters = flattenShapedRuns(runs, 'Hi');
+    expect(clusters).toEqual([
+      { text: 'H', advance: 10 },
+      { text: 'i', advance: 8 },
+    ]);
+  });
+
+  it('skips newlines', () => {
+    const runs: ShapedRun[] = [
+      {
+        fontFamily: 'Arial',
+        fontSize: 16,
+        fontWeight: 400,
+        fontStyle: 'normal',
+        direction: 'ltr',
+        level: 0,
+        script: 'Latn',
+        glyphs: [
+          {
+            glyphId: 0,
+            xAdvance: 10,
+            yAdvance: 0,
+            xOffset: 0,
+            yOffset: 0,
+            clusterUtf16: 0,
+            sourceEnd: 1,
+          },
+          {
+            glyphId: 0,
+            xAdvance: 8,
+            yAdvance: 0,
+            xOffset: 0,
+            yOffset: 0,
+            clusterUtf16: 2,
+            sourceEnd: 3,
+          },
+        ],
+        width: 18,
+        ascent: 12,
+        descent: 4,
+      },
+    ];
+    const clusters = flattenShapedRuns(runs, 'H\ni');
+    expect(clusters).toEqual([
+      { text: 'H', advance: 10 },
+      { text: 'i', advance: 8 },
+    ]);
+  });
+
+  it('handles sourceEnd fallback when not provided', () => {
+    const runs: ShapedRun[] = [
+      {
+        fontFamily: 'Arial',
+        fontSize: 16,
+        fontWeight: 400,
+        fontStyle: 'normal',
+        direction: 'ltr',
+        level: 0,
+        script: 'Latn',
+        glyphs: [
+          { glyphId: 0, xAdvance: 10, yAdvance: 0, xOffset: 0, yOffset: 0, clusterUtf16: 0 },
+        ],
+        width: 10,
+        ascent: 12,
+        descent: 4,
+      },
+    ];
+    const clusters = flattenShapedRuns(runs, 'AB');
+    expect(clusters[0]?.text).toBe('A');
+  });
+
+  it('reverses only RTL runs for visual path traversal', () => {
+    const runs: ShapedRun[] = [
+      {
+        fontFamily: 'Arial',
+        fontSize: 16,
+        fontWeight: 400,
+        fontStyle: 'normal',
+        direction: 'rtl',
+        level: 1,
+        script: 'Arab',
+        glyphs: [
+          {
+            glyphId: 0,
+            xAdvance: 12,
+            yAdvance: 0,
+            xOffset: 0,
+            yOffset: 0,
+            clusterUtf16: 0,
+            sourceEnd: 1,
+          },
+          {
+            glyphId: 0,
+            xAdvance: 14,
+            yAdvance: 0,
+            xOffset: 0,
+            yOffset: 0,
+            clusterUtf16: 1,
+            sourceEnd: 2,
+          },
+        ],
+        width: 26,
+        ascent: 12,
+        descent: 4,
+      },
+    ];
+    expect(flattenShapedRuns(runs, 'אב')).toEqual([
+      { text: 'ב', advance: 14 },
+      { text: 'א', advance: 12 },
+    ]);
   });
 });
