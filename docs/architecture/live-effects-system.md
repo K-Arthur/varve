@@ -279,3 +279,36 @@ the effect parameters, so export and reload never need the original file.
 - Export asset metadata records content bounds; the rendered surface is
   expanded (bloom spill is inside the PNG but downstream placement uses the
   content rect).
+
+## 12. Object Filters and adjustment-layer scope
+
+Varve has two complementary nondestructive adjustment surfaces. The product
+name **Object Filters** is deliberate: it describes the node-local behavior
+without borrowing Photoshop's “Smart Filters” label. The serialized
+`smartFilters` field and internal compatibility names remain stable so saved
+documents and existing integrations do not break.
+
+- **Object Filters** live on any renderable scene node (`smartFilters`). They
+  process that node's own rendered result and work across vectors, text,
+  raster-backed shapes, paths, frames, and groups. The stack runs in array
+  order and is cloned with fresh filter IDs during duplication and paste.
+- **Adjustment Layers** remain scene nodes (`kind: "adjustment"`) because
+  they process a backdrop scope rather than one node. Creating one from the
+  Inspector or Object menu resolves its scope at creation time: selecting a
+  frame/group places it as the container's last child and uses
+  `container-descendant`; selecting a leaf places it after that sibling and
+  uses `image-local`; multi-selection uses `explicit-targets`.
+
+This placement is important. A frame-local adjustment is composited after its
+children but before the frame leaves its parent, so it cannot affect unrelated
+siblings outside the frame. A multi-selection never silently widens to all
+descendants of a shared container. The scope inspector exposes the same model
+for later changes and preserves a current image-local target when switching
+modes.
+
+The Inspector exposes Object Filters directly in Properties and Appearance,
+and exposes an “Add adjustment layer” action for eligible selections. The
+menubar and shortcut remain available as command-level access, but are no
+longer the only route. SVG/PDF export treats visible Object Filters as replay
+features and rasterizes the smallest affected boundary; raster export keeps
+the shared replay path so vector and raster content use the same filter math.
