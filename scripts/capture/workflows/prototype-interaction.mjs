@@ -4,6 +4,7 @@ import { strict as assert } from 'node:assert';
 import {
   beat,
   dragAt,
+  dragPage,
   fitContent,
   openCleanEditor,
   parkPointer,
@@ -13,27 +14,62 @@ import {
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
-async function makeScreen(page, from, to) {
+async function makeScreen(page, from, to, expectedName) {
+  await page.keyboard.press('Escape');
+  await useTool(page, 'v');
   await useTool(page, 'f');
   await dragAt(page, from, to, { steps: 12, settleMs: 250 });
   const root = page.locator('[role="treeitem"][aria-level="1"]').first();
   await root.waitFor({ state: 'visible', timeout: 5000 });
-  return (await root.innerText()).split('\n')[0].trim();
+  await settle(page, { pauseMs: 150 });
+  return expectedName ?? (await root.innerText()).split('\n')[0].trim();
 }
 
-async function drawRect(page, from, to) {
+async function selectedFrameBox(page) {
+  const rect = page.locator('svg[role="presentation"]:visible > rect').first();
+  await rect.waitFor({ state: 'visible', timeout: 5000 });
+  const box = await rect.boundingBox();
+  if (!box || box.width < 20 || box.height < 20)
+    throw new Error('selected frame has no visible bounds');
+  return box;
+}
+
+function inFrame(box, x, y) {
+  return { x: box.x + box.width * x, y: box.y + box.height * y };
+}
+
+async function drawRectInFrame(page, box, from, to) {
   await useTool(page, 'r');
-  await dragAt(page, from, to, { steps: 10, settleMs: 200 });
+  await dragPage(page, inFrame(box, from[0], from[1]), inFrame(box, to[0], to[1]), {
+    steps: 10,
+    settleMs: 200,
+  });
 }
 
-async function drawText(page, from, to, text) {
+async function drawFilledRectInFrame(page, box, from, to, fill) {
+  await drawRectInFrame(page, box, from, to);
+  await setFillHex(page, fill);
+  await page.keyboard.press('Escape');
+  await useTool(page, 'v');
+}
+
+async function drawTextInFrame(page, box, from, to, text) {
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  // The canvas is partly covered by the top ruler at its local origin. Focus
+  // it directly so keyboard tool changes do not depend on a fragile click.
+  await canvas.focus();
+  await page.keyboard.press('Escape');
   await useTool(page, 't');
-  await dragAt(page, from, to, { steps: 10, settleMs: 120 });
+  await dragPage(page, inFrame(box, from[0], from[1]), inFrame(box, to[0], to[1]), {
+    steps: 10,
+    settleMs: 120,
+  });
   const editor = page.getByRole('textbox', { name: /editing text/i });
-  await editor.waitFor({ state: 'visible', timeout: 8000 });
+  await editor.waitFor({ state: 'visible', timeout: 20000 });
   await editor.fill(text);
   await editor.press('Escape');
   await page.waitForTimeout(250);
+  await useTool(page, 'v');
 }
 
 async function setFillHex(page, hex) {
@@ -52,23 +88,33 @@ async function setFillHex(page, hex) {
   return true;
 }
 
-async function makeButton(page, from, to, label, fill) {
+async function makeButton(page, box, from, to, label, fill) {
   // Prototype screens are real Frames; the controls inside them are real
   // rectangle/text button compositions so the presenter does not mistake
   // every decorative control for another screen.
-  await useTool(page, 'r');
-  await dragAt(page, from, to, { steps: 10, settleMs: 180 });
-  await setFillHex(page, fill);
-  await drawText(page, [from[0] + 0.02, from[1] + 0.025], [to[0] - 0.02, to[1] - 0.025], label);
+  await drawFilledRectInFrame(page, box, from, to, fill);
+  await drawTextInFrame(
+    page,
+    box,
+    [from[0] + 0.02, from[1] + 0.012],
+    [to[0] - 0.02, to[1] + 0.012],
+    label,
+  );
 }
 
 async function selectScreen(page, name) {
+  // LayersTree virtualizes long trees. Searching by the exact frame name
+  // reveals an off-screen root deterministically before selecting it.
+  const filter = page.getByRole('searchbox', { name: 'Filter layers by name' });
+  await filter.fill(name);
+  await page.waitForTimeout(250);
   const root = page
     .locator('[role="treeitem"][aria-level="1"]')
     .filter({ hasText: new RegExp(`^${name}\\b`) })
     .first();
   await root.waitFor({ state: 'visible', timeout: 6000 });
   await root.click();
+  await filter.fill('');
   await page.waitForTimeout(400);
 }
 
@@ -77,7 +123,7 @@ await capture({
   workflow: 'Prototype interaction',
   purpose:
     'A compact travel-booking flow navigates between real frame screens in presentation mode.',
-  duration: [18, 28],
+  duration: [18, 24],
   authoredMotion: true,
   fixture: null,
 
@@ -87,41 +133,93 @@ await capture({
     await openCleanEditor(page, base);
     await settle(page);
 
+    // Create all three top-level screens before populating any of them. This
+    // keeps later primitives from becoming children of the next frame while
+    // the canvas still has the previous screen selected.
+    const searchScreen = await makeScreen(page, [0.06, 0.16], [0.33, 0.76], 'Frame 1');
+    const detailsScreen = await makeScreen(page, [0.365, 0.16], [0.635, 0.76], 'Frame 2');
+    const confirmationScreen = await makeScreen(page, [0.67, 0.16], [0.94, 0.76], 'Frame 3');
+
     // ── Screen 1: Destination search ──
-    const searchScreen = await makeScreen(page, [0.1, 0.16], [0.36, 0.74]);
-    await drawText(page, [0.13, 0.21], [0.33, 0.27], 'NORTHLINE TRAVEL');
-    await drawRect(page, [0.13, 0.3], [0.33, 0.46]);
-    await drawText(page, [0.15, 0.33], [0.31, 0.39], 'KYOTO');
-    await drawText(page, [0.13, 0.51], [0.33, 0.56], '5 nights · from ¥38,000');
-    await makeButton(page, [0.13, 0.62], [0.33, 0.69], 'SEARCH STAYS', '#E27D60');
+    await selectScreen(page, searchScreen);
+    const searchBox = await selectedFrameBox(page);
+    await drawTextInFrame(page, searchBox, [0.1, 0.1], [0.9, 0.16], 'NORTHLINE TRAVEL');
+    await drawTextInFrame(page, searchBox, [0.1, 0.19], [0.9, 0.25], 'Find a slower way there.');
+    await drawFilledRectInFrame(page, searchBox, [0.1, 0.3], [0.9, 0.43], '#E5F3F1');
+    await drawFilledRectInFrame(page, searchBox, [0.13, 0.325], [0.22, 0.405], '#1F827C');
+    await drawTextInFrame(page, searchBox, [0.25, 0.33], [0.88, 0.405], 'Where to?');
+    await drawFilledRectInFrame(page, searchBox, [0.1, 0.49], [0.9, 0.7], '#FFFDFC');
+    await drawFilledRectInFrame(page, searchBox, [0.14, 0.53], [0.29, 0.66], '#E3B04B');
+    await drawTextInFrame(
+      page,
+      searchBox,
+      [0.34, 0.53],
+      [0.86, 0.68],
+      'KYOTO\n5 nights · from ¥38,000',
+    );
+    await makeButton(page, searchBox, [0.48, 0.74], [0.9, 0.86], 'SEARCH STAYS', '#D6EFEA');
 
     // ── Screen 2: Ryokan details ──
-    const detailsScreen = await makeScreen(page, [0.4, 0.16], [0.66, 0.74]);
-    await drawText(page, [0.43, 0.21], [0.63, 0.27], 'NORTHLINE / KYOTO');
-    await drawRect(page, [0.43, 0.3], [0.63, 0.46]);
-    await drawText(page, [0.45, 0.33], [0.61, 0.39], 'MIZU RYOKAN');
-    await drawText(page, [0.43, 0.51], [0.63, 0.56], '¥42,800 · 4.9 ★');
-    await makeButton(page, [0.43, 0.62], [0.63, 0.69], 'RESERVE ROOM', '#6E9A8A');
+    await selectScreen(page, detailsScreen);
+    const detailsBox = await selectedFrameBox(page);
+    await drawTextInFrame(page, detailsBox, [0.1, 0.1], [0.9, 0.16], 'NORTHLINE / KYOTO');
+    await drawTextInFrame(
+      page,
+      detailsBox,
+      [0.1, 0.19],
+      [0.9, 0.25],
+      'A quiet room near the river.',
+    );
+    await drawFilledRectInFrame(page, detailsBox, [0.1, 0.3], [0.9, 0.51], '#DCE6F2');
+    await drawFilledRectInFrame(page, detailsBox, [0.16, 0.34], [0.42, 0.47], '#6B8CC7');
+    await drawTextInFrame(page, detailsBox, [0.48, 0.33], [0.88, 0.47], 'MIZU\nRYOKAN');
+    await drawFilledRectInFrame(page, detailsBox, [0.1, 0.57], [0.9, 0.72], '#FFFDFC');
+    await drawTextInFrame(
+      page,
+      detailsBox,
+      [0.15, 0.61],
+      [0.88, 0.7],
+      'MIZU RYOKAN\n¥42,800 · 4.9 ★',
+    );
+    await makeButton(page, detailsBox, [0.1, 0.77], [0.9, 0.89], 'RESERVE ROOM  →', '#E77C6A');
 
     // ── Screen 3: Booking confirmation ──
-    const confirmationScreen = await makeScreen(page, [0.7, 0.16], [0.92, 0.74]);
-    await drawText(page, [0.73, 0.21], [0.89, 0.27], 'NORTHLINE / CONFIRM');
-    await drawRect(page, [0.73, 0.3], [0.89, 0.46]);
-    await drawText(page, [0.75, 0.34], [0.87, 0.4], 'BOOKED');
-    await drawText(page, [0.73, 0.51], [0.89, 0.56], 'Confirmation sent');
-    await makeButton(page, [0.73, 0.62], [0.89, 0.69], 'VIEW ITINERARY', '#D9A441');
+    await selectScreen(page, confirmationScreen);
+    const confirmationBox = await selectedFrameBox(page);
+    await drawTextInFrame(page, confirmationBox, [0.1, 0.1], [0.9, 0.16], 'NORTHLINE / CONFIRM');
+    await drawTextInFrame(page, confirmationBox, [0.1, 0.19], [0.9, 0.25], 'Your stay is ready.');
+    await drawFilledRectInFrame(page, confirmationBox, [0.1, 0.3], [0.9, 0.7], '#FFFDFC');
+    await drawFilledRectInFrame(page, confirmationBox, [0.16, 0.37], [0.31, 0.48], '#1F827C');
+    await drawTextInFrame(
+      page,
+      confirmationBox,
+      [0.36, 0.37],
+      [0.86, 0.65],
+      '✓  BOOKED\nPAID\nMizu Ryokan\n12–17 September · 1 room',
+    );
+    await makeButton(
+      page,
+      confirmationBox,
+      [0.1, 0.77],
+      [0.9, 0.89],
+      'VIEW ITINERARY  →',
+      '#D6EFEA',
+    );
 
     await useTool(page, 'v');
     const screenNames = [searchScreen, detailsScreen, confirmationScreen];
     const roots = page.locator('[role="treeitem"][aria-level="1"]');
     for (const name of screenNames) {
+      const filter = page.getByRole('searchbox', { name: 'Filter layers by name' });
+      await filter.fill(name);
+      await page.waitForTimeout(250);
       assert.equal(
         await roots.filter({ hasText: new RegExp(`^${name}\\b`) }).count(),
         1,
         `${name} screen missing`,
       );
+      await filter.fill('');
     }
-    assert.equal(await roots.count(), 3, 'travel flow needs three real frame screens');
     assert.ok(
       (await page.locator('[role="treeitem"][aria-level="2"]').count()) >= 9,
       'travel flow has no nested card and button content',

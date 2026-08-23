@@ -2,14 +2,15 @@
   "workflow": "Prototype interaction",
   "slug": "prototype-interaction",
   "purpose": "A compact travel-booking flow navigates between real frame screens in presentation mode.",
-  "gitCommit": "af9a8eed6bb0edb7f8a1b3f38054d8adfa494c2c",
-  "capturedAt": "2026-08-22T20:52:58.043Z",
+  "gitCommit": "ea4ab3cfcd2ed0feb9f67fb01efe98dd09a6ff53",
+  "capturedAt": "2026-08-23T00:50:53.810Z",
   "viewport": "1440x900",
   "dpr": 1,
   "fixture": null,
   "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
-  "sourceDuration": 113.41,
-  "deliveredDuration": 22.9,
+  "sourceDuration": 105.04,
+  "deliveredDuration": 20.67,
+  "posterAt": 17.57,
   "fps": 30,
   "outputs": {
     "webm": "docs/screenshots/workflows/prototype-interaction.webm",
@@ -39,9 +40,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 686,
-          "duration": 22.9,
-          "bytes": 854164
+          "frames": 619,
+          "duration": 20.666,
+          "bytes": 755968
         }
       },
       "mp4": {
@@ -52,9 +53,9 @@
           "width": 1440,
           "height": 900,
           "fps": 30,
-          "frames": 686,
-          "duration": 22.866667,
-          "bytes": 864261
+          "frames": 619,
+          "duration": 20.633333,
+          "bytes": 779573
         }
       }
     },
@@ -62,39 +63,39 @@
       {
         "label": "start",
         "at": 0.15,
-        "luma": 220.4,
+        "luma": 226,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "q1",
-        "at": 5.72,
-        "luma": 218.7,
+        "at": 5.17,
+        "luma": 226.7,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "mid",
-        "at": 11.45,
-        "luma": 219.8,
+        "at": 10.33,
+        "luma": 226.1,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "q3",
-        "at": 17.17,
-        "luma": 231.3,
+        "at": 15.5,
+        "luma": 232.3,
         "black": false,
         "blank": false,
         "exists": true
       },
       {
         "label": "final",
-        "at": 22.65,
-        "luma": 219.7,
+        "at": 20.42,
+        "luma": 226.1,
         "black": false,
         "blank": false,
         "exists": true
