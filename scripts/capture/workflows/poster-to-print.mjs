@@ -13,6 +13,7 @@
  */
 import { strict as assert } from 'node:assert';
 import {
+  useTool as activateTool,
   beat,
   dragAt,
   fitContent,
@@ -22,7 +23,6 @@ import {
   openSection,
   parkPointer,
   settle,
-  useTool,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
@@ -55,15 +55,15 @@ async function openTextEditor(page) {
 }
 
 /** Places a text layer by dragging a box and typing into it. */
-async function addText(page, from, to, copy, { delay = 22 } = {}) {
-  await useTool(page, 't');
+async function addText(page, from, to, copy) {
+  await activateTool(page, 't');
   await dragAt(page, from, to);
   const editor = await openTextEditor(page);
   await editor.fill(copy);
   assert.equal(await editor.inputValue(), copy);
   await editor.press('Escape');
   await page.waitForTimeout(450);
-  await useTool(page, 'v');
+  await activateTool(page, 'v');
 }
 
 await capture({
@@ -103,35 +103,33 @@ await capture({
 
     // A live print composition built from real editable layers: paper field,
     // warm sun, dark accent bar, headline, and event information.
-    await useTool(page, 'r');
+    await activateTool(page, 'r');
     await dragAt(page, [0.08, 0.08], [0.92, 0.92], { steps: 18 });
     await setFillHex(page, '#F6F0E5');
-    await useTool(page, 'o');
+    await activateTool(page, 'o');
     await dragAt(page, [0.62, 0.2], [0.86, 0.48], { steps: 18 });
     await setFillHex(page, '#E69F45');
-    await useTool(page, 'r');
+    await activateTool(page, 'r');
     await dragAt(page, [0.12, 0.58], [0.17, 0.82], { steps: 12 });
     await setFillHex(page, '#243447');
 
     // ── Headline ───────────────────────────────────────────────────
-    await addText(page, [0.14, 0.14], [0.58, 0.34], 'NIGHT\nSESSIONS', { delay: 28 });
+    await addText(page, [0.14, 0.14], [0.58, 0.34], 'NIGHT\nSESSIONS');
     await parkPointer(page);
     await settle(page);
     await beat(page, 1100);
 
     // ── Geometric element ──────────────────────────────────────────
-    await useTool(page, 'e');
+    await activateTool(page, 'e');
     await dragAt(page, [0.16, 0.34], [0.84, 0.64], { steps: 22 });
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await parkPointer(page);
     await settle(page);
     await beat(page, 900);
 
     // ── Secondary event information ────────────────────────────────
-    await addText(page, [0.2, 0.58], [0.58, 0.65], 'FRI 12 SEPT · DOORS 8PM', { delay: 24 });
-    await addText(page, [0.2, 0.7], [0.82, 0.76], 'THE VARVE ROOMS · TICKETS AT THE DOOR', {
-      delay: 18,
-    });
+    await addText(page, [0.2, 0.58], [0.58, 0.65], 'FRI 12 SEPT · DOORS 8PM');
+    await addText(page, [0.2, 0.7], [0.82, 0.76], 'THE VARVE ROOMS · TICKETS AT THE DOOR');
     await parkPointer(page);
     await fitContent(page);
     await settle(page);
@@ -141,7 +139,7 @@ await capture({
     assertions.push(`${built.length} elements placed on camera from an empty page`);
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await parkPointer(page);
     await settle(page, { pauseMs: 200 });
     await beat(page, 1400);
@@ -229,7 +227,7 @@ await capture({
       await page.keyboard.press('Escape');
     }
     await page.keyboard.press('Escape');
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await page.keyboard.press('Control+a');
     await page.waitForTimeout(350);
     await page.keyboard.press('Shift+2');

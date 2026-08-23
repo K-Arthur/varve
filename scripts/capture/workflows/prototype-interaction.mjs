@@ -2,6 +2,7 @@
 /** Video C — a real travel-booking prototype interaction and preview route. */
 import { strict as assert } from 'node:assert';
 import {
+  useTool as activateTool,
   beat,
   dragAt,
   dragPage,
@@ -10,14 +11,13 @@ import {
   parkPointer,
   selectComboboxOption,
   settle,
-  useTool,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
 async function makeScreen(page, from, to, expectedName) {
   await page.keyboard.press('Escape');
-  await useTool(page, 'v');
-  await useTool(page, 'f');
+  await activateTool(page, 'v');
+  await activateTool(page, 'f');
   await dragAt(page, from, to, { steps: 12, settleMs: 250 });
   const root = page.locator('[role="treeitem"][aria-level="1"]').first();
   await root.waitFor({ state: 'visible', timeout: 5000 });
@@ -39,7 +39,7 @@ function inFrame(box, x, y) {
 }
 
 async function drawRectInFrame(page, box, from, to) {
-  await useTool(page, 'r');
+  await activateTool(page, 'r');
   await dragPage(page, inFrame(box, from[0], from[1]), inFrame(box, to[0], to[1]), {
     steps: 10,
     settleMs: 200,
@@ -50,7 +50,7 @@ async function drawFilledRectInFrame(page, box, from, to, fill) {
   await drawRectInFrame(page, box, from, to);
   await setFillHex(page, fill);
   await page.keyboard.press('Escape');
-  await useTool(page, 'v');
+  await activateTool(page, 'v');
 }
 
 async function drawTextInFrame(page, box, from, to, text) {
@@ -59,7 +59,7 @@ async function drawTextInFrame(page, box, from, to, text) {
   // it directly so keyboard tool changes do not depend on a fragile click.
   await canvas.focus();
   await page.keyboard.press('Escape');
-  await useTool(page, 't');
+  await activateTool(page, 't');
   await dragPage(page, inFrame(box, from[0], from[1]), inFrame(box, to[0], to[1]), {
     steps: 10,
     settleMs: 120,
@@ -69,7 +69,7 @@ async function drawTextInFrame(page, box, from, to, text) {
   await editor.fill(text);
   await editor.press('Escape');
   await page.waitForTimeout(250);
-  await useTool(page, 'v');
+  await activateTool(page, 'v');
 }
 
 async function setFillHex(page, hex) {
@@ -206,7 +206,7 @@ await capture({
       '#D6EFEA',
     );
 
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     const screenNames = [searchScreen, detailsScreen, confirmationScreen];
     const roots = page.locator('[role="treeitem"][aria-level="1"]');
     for (const name of screenNames) {
