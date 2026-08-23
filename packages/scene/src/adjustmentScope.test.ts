@@ -60,6 +60,10 @@ describe('isAdjustmentEligible', () => {
     expect(isAdjustmentEligible({ kind: 'frame' })).toBe(true);
     expect(isAdjustmentEligible({ kind: 'group' })).toBe(true);
   });
+  it('returns true for vector paths and table render results', () => {
+    expect(isAdjustmentEligible({ kind: 'path' })).toBe(true);
+    expect(isAdjustmentEligible({ kind: 'table' })).toBe(true);
+  });
 });
 
 describe('resolveAdjustmentScope', () => {
@@ -314,6 +318,12 @@ describe('scopeForTargets', () => {
     const doc = makeTestDoc();
     const scope = scopeForTargets(doc, ['t1', 't2']);
     expect(scope.mode).toBe('explicit-targets');
+  });
+
+  it('does not broaden a multi-selection into a shared container scope', () => {
+    const doc = makeTestDoc();
+    const scope = scopeForTargets(doc, ['t1', 't2']);
+    expect(scope).toEqual({ mode: 'explicit-targets', targetNodeIds: ['t1', 't2'] });
   });
 
   it('returns document for empty targets', () => {

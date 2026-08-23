@@ -8,6 +8,7 @@
 import type { ExportPreset } from './export-types';
 import { mintId } from './identity';
 import { nextNodeId } from './node-id';
+import { cloneSmartFilters } from './smartFilters';
 import { tableContentNodeIds } from './table';
 import { remapTableModelIds } from './tableOps';
 import type {
@@ -244,6 +245,10 @@ export function deepCloneSubtree(
       const result = clonePresets(presets, currentDoc);
       cloned = { ...cloned, presets: result.presets } as SceneNode;
       currentDoc = result.doc;
+    }
+
+    if (Array.isArray(node.smartFilters)) {
+      cloned = { ...cloned, smartFilters: cloneSmartFilters(node.smartFilters) } as SceneNode;
     }
 
     newNodes[newId] = cloned;

@@ -116,6 +116,7 @@ export * from './richTextIndex';
 export * from './richTextOps';
 export * from './selectionSet';
 export * from './sha256';
+export * from './smartFilters';
 export * from './smudge';
 export * from './spotLibraries';
 export * from './state-machine';

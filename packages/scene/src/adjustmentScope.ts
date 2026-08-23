@@ -37,8 +37,9 @@ export interface AdjustmentImpact {
 }
 
 /**
- * Eligible target types for adjustment application.
- * Only nodes that carry meaningful raster content.
+ * Eligible target types for adjustment application. Adjustments operate on
+ * the composited result of both raster and vector scene nodes, so vector
+ * paths/tables participate just like shapes, text, frames, and groups.
  */
 export function isAdjustmentEligible(node: { kind: string; visible?: boolean }): boolean {
   if (node.visible === false) return false;
@@ -46,6 +47,8 @@ export function isAdjustmentEligible(node: { kind: string; visible?: boolean }):
     node.kind === 'shape' ||
     node.kind === 'rasterLayer' ||
     node.kind === 'text' ||
+    node.kind === 'path' ||
+    node.kind === 'table' ||
     node.kind === 'frame' ||
     node.kind === 'group'
   );
@@ -283,28 +286,17 @@ function isDescendantOf(doc: Document, nodeId: NodeId, ancestorId: NodeId): bool
 
 /**
  * Create a scope for a given set of target node IDs.
- * Returns the narrowest scope that covers all targets:
+ * Returns a stable explicit scope for a given set of target node IDs:
  * - Single node → image-local
- * - All in same container → container-descendant
- * - Otherwise → explicit-targets
+ * - Multi-selection → explicit-targets
+ *
+ * A multi-selection must not silently expand to every descendant of a shared
+ * frame/group. Container scope is reserved for an explicit container
+ * selection, where the user can see that the whole container is targeted.
  */
-export function scopeForTargets(doc: Document, targetIds: NodeId[]): AdjustmentScope {
+export function scopeForTargets(_doc: Document, targetIds: NodeId[]): AdjustmentScope {
   if (targetIds.length === 0) return { mode: 'document' };
   if (targetIds.length === 1) return { mode: 'image-local', targetNodeId: targetIds[0] as NodeId };
-
-  // Check if all targets share a common container
-  const containerCounts = new Map<NodeId, number>();
-  for (const id of targetIds) {
-    const parentId = findParentId(doc, id);
-    if (parentId) {
-      containerCounts.set(parentId, (containerCounts.get(parentId) ?? 0) + 1);
-    }
-  }
-  for (const [cid, count] of containerCounts) {
-    if (count === targetIds.length) {
-      return { mode: 'container-descendant', containerId: cid, includeNested: true };
-    }
-  }
 
   return { mode: 'explicit-targets', targetNodeIds: [...targetIds] };
 }

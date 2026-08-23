@@ -1224,6 +1224,12 @@ export interface NodeBase {
   warps?: WarpModifier[];
   /** V2.16+: evaluation settings for the warp stack (quality/strokes/etc). */
   warpSettings?: WarpSettings;
+  /**
+   * Object-local nondestructive filter stack. Entries are evaluated in array
+   * order against this node's rendered result; unlike AdjustmentNode entries,
+   * these filters do not create a separate scene node or backdrop scope.
+   */
+  smartFilters?: Adjustment[];
 }
 
 export interface ShapeNode extends NodeBase {
