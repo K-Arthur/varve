@@ -828,9 +828,18 @@ export {
 export type { FillRule, PathShapeLike } from './pathCompound';
 export { pathFillRule, pathRings } from './pathCompound';
 export { expandStroke, offsetPath, roundCorners } from './pathOffset';
-export type { GlyphPlacement, GlyphPlaceOptions, PathSample } from './pathText';
+export type {
+  GlyphPlacement,
+  GlyphPlaceOptions,
+  PathCluster,
+  PathSample,
+  PathSampler,
+} from './pathText';
 export {
+  flattenShapedRuns,
+  makePathSampler,
   pathLength,
+  placeClustersOnPath,
   placeGlyphsOnPath,
   samplePathAtLength,
   transformPathShape,

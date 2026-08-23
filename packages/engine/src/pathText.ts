@@ -205,8 +205,8 @@ export function placeLinesOnPath(
   const hasEnd = endRaw !== undefined && Number.isFinite(endRaw);
   const endFraction = hasEnd ? Math.max(0, Math.min(1, endRaw!)) : 1;
 
-  // Blank paragraphs still consume a line slot.
-  const lineCount = Math.max(1, lines.length);
+  // Blank paragraphs still consume a line slot: iterating `lines` (not the
+  // filtered non-empty list) keeps ring index k aligned with paragraph index.
   const lineHeightPx =
     Number.isFinite(options.lineHeightPx) && options.lineHeightPx! > 0
       ? options.lineHeightPx!
@@ -331,7 +331,9 @@ function makeOffsetSampler(
   if (valid < 2 || !(total > 0)) return fallback;
 
   const sampleAt = (distance: number): PathSample => {
-    const d = closed ? ((distance % total) + total) % total : Math.max(0, Math.min(total, distance));
+    const d = closed
+      ? ((distance % total) + total) % total
+      : Math.max(0, Math.min(total, distance));
     let lo = 0;
     let hi = steps;
     while (hi - lo > 1) {
