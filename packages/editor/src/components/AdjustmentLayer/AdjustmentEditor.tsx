@@ -37,6 +37,12 @@ export interface AdjustmentEditorProps {
   onEditEnd?: () => void;
   /** Document for palette import sources (document swatches). */
   doc?: Document;
+  /**
+   * Source histogram for the adjustment's scope targets.
+   * Computed asynchronously by useAdjustmentHistogram.
+   * Used by Levels (HistogramWidget) and Curves (background display).
+   */
+  sourceHistogram?: import('@varve/engine').Histogram | null;
 }
 
 export function AdjustmentEditor({
@@ -45,6 +51,7 @@ export function AdjustmentEditor({
   onEditStart,
   onEditEnd,
   doc,
+  sourceHistogram,
 }: AdjustmentEditorProps) {
   const handleSlider = useCallback(
     (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,6 +116,7 @@ export function AdjustmentEditor({
           onChange={onChange}
           onEditStart={onEditStart}
           onEditEnd={onEditEnd}
+          sourceHistogram={sourceHistogram}
         />
       );
 
@@ -119,6 +127,7 @@ export function AdjustmentEditor({
           onChange={onChange}
           onEditStart={onEditStart}
           onEditEnd={onEditEnd}
+          sourceHistogram={sourceHistogram}
         />
       );
 
@@ -737,7 +746,7 @@ function paramsToLevelsAdjustmentPatch(
   };
 }
 
-function LevelsEditor({ adjustment, onChange, onEditStart, onEditEnd }: AdjustmentEditorProps) {
+function LevelsEditor({ adjustment, onChange, onEditStart, onEditEnd, sourceHistogram }: AdjustmentEditorProps) {
   const adj = adjustment as import('@varve/scene').LevelsAdjustment;
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
@@ -760,6 +769,7 @@ function LevelsEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustme
         />
       </div>
       <HistogramWidget
+        histogram={sourceHistogram ?? undefined}
         levels={levelsAdjustmentToParams(adj)}
         onChange={(params) => onChange(paramsToLevelsAdjustmentPatch(params))}
         onDragStart={onEditStart}

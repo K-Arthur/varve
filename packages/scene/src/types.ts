@@ -34,6 +34,7 @@ import type {
   SlugConfig,
 } from './colorManagement';
 import type { ExportPreset } from './export-types';
+import { normalizeImagePerspective } from './imagePerspective';
 import type { VariableModifier } from './modifiers';
 import type { TableModel } from './table';
 
@@ -770,6 +771,13 @@ export interface ImageFillData {
   /** Non-destructive upscale metadata. */
   upscale?: ImageFillUpscale;
   /**
+   * Non-destructive four-corner (perspective) transform. When present, the
+   * image fill is rendered through the engine's projective `warpedImage`
+   * primitive; the quad maps the node-box rectangle onto a convex quad in
+   * node-local space. The source pixels and crop are preserved.
+   */
+  perspective?: import('./imagePerspective').ImageFillPerspective;
+  /**
    * Per-usage animated-media playback settings (v2.20+). Only present on
    * fills whose asset is animated; multiple usages of one asset may carry
    * independent playback settings.
@@ -1161,6 +1169,12 @@ export interface NodeBase {
   order: string;
   visible: boolean;
   locked: boolean;
+  /**
+   * Solo view: when any node in the document is soloed, only soloed nodes are
+   * effectively visible (all others are hidden for display). Reversible and
+   * undo-friendly — it is just a boolean flag, never a destructive mutation.
+   */
+  solo?: boolean;
   /** F6: layer opacity 0-1 (default 1). */
   opacity: number;
   /** F6: CSS blend mode (default 'normal'). */
@@ -2287,6 +2301,7 @@ export function normalizeImageFillData(
     imageHeight ?? cropHeight,
   );
   const rotation = normalizeImageRotation(image.rotation);
+  const perspective = normalizeImagePerspective(image.perspective);
 
   const normalized: ImageFillData = {
     ...image,
@@ -2300,11 +2315,38 @@ export function normalizeImageFillData(
     ...(rotation !== undefined ? { rotation } : {}),
     ...(image.flipH !== undefined ? { flipH: image.flipH === true } : {}),
     ...(image.flipV !== undefined ? { flipV: image.flipV === true } : {}),
+    ...(perspective !== undefined ? { perspective } : {}),
   };
 
   if (imageWidth === undefined) delete normalized.imageWidth;
   if (imageHeight === undefined) delete normalized.imageHeight;
   if (crop === undefined) delete normalized.crop;
   if (rotation === undefined) delete normalized.rotation;
+  if (perspective === undefined) delete normalized.perspective;
   return normalized;
+}
+
+// ── Layer States (saved view/layer states — Varve-native, no Photoshop comps) ──
+
+export type LayerStateCategory = 'visibility' | 'transforms' | 'appearance';
+
+export interface AppearanceSnapshot {
+  opacity?: number;
+  blendMode?: BlendMode;
+  fill?: ManagedColor;
+}
+
+export interface LayerStateCapture {
+  visibility?: Record<NodeId, boolean>;
+  transforms?: Record<NodeId, Affine>;
+  appearance?: Record<NodeId, AppearanceSnapshot>;
+}
+
+export interface LayerState {
+  /** Stable id (never the node name). */
+  id: string;
+  name: string;
+  categories: LayerStateCategory[];
+  captured: LayerStateCapture;
+  createdAt: string;
 }

@@ -8,9 +8,9 @@
  * Research basis: Photoshop Levels panel histogram display.
  */
 import type { Histogram, LevelParams } from '@varve/engine';
-import { autoLevelsParams } from '@varve/engine';
+import { autoLevelsParams, computeHistogramStats } from '@varve/engine';
 import { Icon } from '@varve/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const WIDTH = 300;
 const HEIGHT = 130;
@@ -83,6 +83,16 @@ export function HistogramWidget({
   onDragStartRef.current = onDragStart;
   const onDragEndRef = useRef(onDragEnd);
   onDragEndRef.current = onDragEnd;
+
+  // Compute accessible histogram stats (visible to screen readers only).
+  const statsSummary = useMemo(() => {
+    if (!histogram || histogram.totalPixels === 0) return '';
+    const stats = computeHistogramStats(histogram.luminance, histogram.totalPixels);
+    return `Luminance histogram: mean ${stats.mean.toFixed(0)}, median ${stats.median}, ` +
+      `standard deviation ${stats.stdDev.toFixed(0)}, ` +
+      `5th percentile ${stats.percentile5}, 95th percentile ${stats.percentile95}. ` +
+      `${stats.blackClipped} pixels at black, ${stats.whiteClipped} pixels at white.`;
+  }, [histogram]);
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -276,6 +286,15 @@ export function HistogramWidget({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      {/* Visually hidden ARIA summary for screen readers. */}
+      {statsSummary && (
+        <div role="status" aria-live="polite" style={{
+          position: 'absolute', width: 1, height: 1, overflow: 'hidden',
+          clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0,
+        }}>
+          {statsSummary}
+        </div>
+      )}
       <canvas
         ref={canvasRef}
         width={WIDTH}

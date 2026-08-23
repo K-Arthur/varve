@@ -8,6 +8,7 @@ import { useEditor } from '../../context';
 import { NumberField } from '../Inspector/controls/NumberField';
 import { AdjustmentScopeSection } from '../Inspector/sections/AdjustmentScopeSection';
 import { AdjustmentEditor } from './AdjustmentEditor';
+import { useAdjustmentHistogram } from './useAdjustmentHistogram';
 import './adjustment.css';
 
 const ADJUSTMENT_KINDS: AdjustmentKind[] = [
@@ -108,6 +109,15 @@ export function AdjustmentPanel() {
   // render regardless (Rules of Hooks), so they cannot sit behind the
   // `if (!isAdjustmentNode) return null` early return.
   const nodeId = isAdjustmentNode ? selNode.id : undefined;
+  // Derive the adjustment node for the histogram hook (must be before early return).
+  const adjNodeRef = isAdjustmentNode ? (selNode as AdjustmentNode) : undefined;
+
+  // Source histogram for the adjustment layer's scope targets.
+  // The histogram shows the INPUT pixels (before this adjustment is applied).
+  const { histogram: sourceHistogram } = useAdjustmentHistogram(
+    state.document,
+    adjNodeRef,
+  );
 
   const [selectedAdjId, setSelectedAdjId] = useState<string | null>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -407,6 +417,7 @@ export function AdjustmentPanel() {
             onEditStart={startEditTransaction}
             onEditEnd={finishEditTransaction}
             doc={state.document}
+            sourceHistogram={sourceHistogram}
           />
           <div className="adj-panel__effect-controls">
             <label className="adj-editor__slider-row">

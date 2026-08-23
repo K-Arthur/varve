@@ -33,7 +33,7 @@ export {
 } from './adjustment/colorConversion';
 export type { CurvePoint } from './adjustment/curves';
 export type { Histogram, HistogramStats } from './adjustment/histogram';
-export { autoLevelsParams, computeHistogram } from './adjustment/histogram';
+export { autoLevelsParams, computeHistogram, computeHistogramStats } from './adjustment/histogram';
 export type { LevelParams } from './adjustment/levels';
 export type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
 export {

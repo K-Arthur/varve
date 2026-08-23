@@ -7,6 +7,7 @@
  */
 
 export * from './adjustmentScope';
+export * from './adjustmentNormalization';
 export * from './adjustments';
 export * from './assets';
 export * from './auditAdapter';
@@ -73,9 +74,11 @@ export * from './gridTypes';
 export * from './iconAsset';
 export * from './iconAttribution';
 export * from './identity';
+export * from './imagePerspective';
 export * from './intelligence';
 export * from './interaction-types';
 export * from './interactions';
+export * from './layerStates';
 export * from './library';
 export * from './liveTrace';
 export * from './logo/logoProject';
@@ -143,6 +146,7 @@ export * from './typographyPreflight';
 export * from './variables';
 export * from './variant-apply';
 export * from './version';
+export * from './visibility';
 export * from './warpBounds';
 export * from './warpMigration';
 export * from './warpOps';
