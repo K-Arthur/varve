@@ -162,6 +162,13 @@ pub struct GradientFill {
     pub tiling_mode: Option<String>, // "none", "repeat", "reflect"
 }
 
+/// Four-corner perspective quad for an image fill (node-local coords, same
+/// order as the scene model: [TL, TR, BR, BL] as [x, y] pairs).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FillPerspective {
+    pub quad: [[f64; 2]; 4],
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum FillIR {
@@ -237,6 +244,11 @@ pub enum FillIR {
         /// Vertical flip of image content.
         #[serde(default, skip_serializing_if = "Option::is_none", rename = "flipV")]
         flip_v: Option<bool>,
+        /// Non-destructive four-corner perspective transform. When present,
+        /// the image is rendered by triangle-subdividing the node box and
+        /// mapping each triangle via an affine (PDF CTM is affine-only).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        perspective: Option<FillPerspective>,
     },
     #[serde(rename = "pattern")]
     Pattern {

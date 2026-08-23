@@ -54,6 +54,7 @@ import type {
   DocumentGridSettings,
   FrameNode,
   Guide,
+  LayerState,
   LayoutGrid,
   NodeId,
   Page,
@@ -197,6 +198,9 @@ export interface Document {
 
   /** Node IDs of layers shared across all pages (visible on every page). */
   globalChildren?: NodeId[];
+
+  /** Saved layer states (sparse appearance/transform/visibility deltas). */
+  layerStates?: LayerState[];
 
   // ── Print production properties (v1.1) ────────────────────────────────────
 
