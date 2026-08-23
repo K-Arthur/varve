@@ -16,7 +16,13 @@ import type {
   SceneNode,
   ShapeNode,
 } from '@varve/scene';
-import { isAnimatedMediaNode, isContainer, isImageShape, nodeHasStyle } from '@varve/scene';
+import {
+  activeSmartFilters,
+  isAnimatedMediaNode,
+  isContainer,
+  isImageShape,
+  nodeHasStyle,
+} from '@varve/scene';
 import type { SolidIconName } from '@varve/ui';
 import { SOLID_CHROME_ICONS, SOLID_TOOL_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -197,9 +203,10 @@ export const LayersRow = memo(function LayersRow({
       ? [blendModeLabel, opacityLabel].filter(Boolean).join(' ')
       : null;
   const objectFilterCount = node.smartFilters?.length ?? 0;
-  const enabledObjectFilterCount =
-    node.smartFilters?.filter((filter) => filter.visible !== false && filter.opacity > 0).length ??
-    0;
+  // The stack-level bypass (smartFiltersEnabled) is renderer truth — derive
+  // the enabled count through the canonical resolver so the badge can never
+  // disagree with what sceneToEngine actually draws.
+  const enabledObjectFilterCount = objectFilterCount > 0 ? activeSmartFilters(node).length : 0;
 
   const handleIconDoubleClick = useCallback(
     (e?: React.MouseEvent) => {

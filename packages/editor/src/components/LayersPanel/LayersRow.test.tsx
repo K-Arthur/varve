@@ -149,6 +149,47 @@ describe('LayersRow Object Filter badge', () => {
     expect(badge).toHaveAttribute('aria-label', '1 of 2 Object Filters enabled');
     expect(container.querySelectorAll('[role="treeitem"]')).toHaveLength(1);
   });
+
+  it('agrees with the renderer when the whole filter stack is bypassed', () => {
+    // smartFiltersEnabled === false disables every entry for rendering
+    // (sceneToEngine/sceneCompositing consume activeSmartFilters). The row
+    // badge must report the same thing — not claim filters are still live.
+    const { container } = renderRow({
+      node: makeNode('n1', 'Layer 1', 'shape', {
+        smartFiltersEnabled: false,
+        smartFilters: [
+          { id: 'f1', kind: 'invert', visible: true, opacity: 1, blendMode: 'normal', value: 100 },
+          { id: 'f2', kind: 'blur', visible: true, opacity: 1, blendMode: 'normal', radius: 4 },
+        ],
+      }),
+    });
+    const badge = container.querySelector('.layers-row__object-filter-badge');
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent('0/2 filters');
+    expect(badge).toHaveAttribute('aria-label', '0 of 2 Object Filters enabled');
+  });
+
+  it('keeps the stack discoverable but honest when only some entries are disabled', () => {
+    const { container } = renderRow({
+      node: makeNode('n1', 'Layer 1', 'shape', {
+        smartFilters: [
+          { id: 'f1', kind: 'invert', visible: true, opacity: 1, blendMode: 'normal', value: 100 },
+          { id: 'f2', kind: 'blur', visible: false, opacity: 1, blendMode: 'normal', radius: 4 },
+          {
+            id: 'f3',
+            kind: 'blur',
+            visible: true,
+            opacity: 0,
+            blendMode: 'normal',
+            radius: 4,
+          },
+        ],
+      }),
+    });
+    const badge = container.querySelector('.layers-row__object-filter-badge');
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent('1/3 filters');
+  });
 });
 
 describe('LayersRow clipping relationship', () => {
