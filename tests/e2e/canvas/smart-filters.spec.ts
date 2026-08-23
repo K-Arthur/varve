@@ -37,9 +37,10 @@ async function readCanvasPixel(
       const ctx = canvas.getContext('2d');
       if (!ctx) return [0, 0, 0, 0];
       const rect = canvas.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      const px = Math.round((cx - rect.left) * dpr);
-      const py = Math.round((cy - rect.top) * dpr);
+      const scaleX = canvas.width / Math.max(1, rect.width);
+      const scaleY = canvas.height / Math.max(1, rect.height);
+      const px = Math.max(0, Math.min(canvas.width - 1, Math.round((cx - rect.left) * scaleX)));
+      const py = Math.max(0, Math.min(canvas.height - 1, Math.round((cy - rect.top) * scaleY)));
       const data = ctx.getImageData(px, py, 1, 1).data;
       return [data[0] ?? 0, data[1] ?? 0, data[2] ?? 0, data[3] ?? 0];
     },
@@ -92,6 +93,7 @@ test.describe('Object Filters — Invert workflow', () => {
 
     const before = await readCanvasPixel(page, cx, cy);
     expect(before[3]).toBeGreaterThan(0);
+    await canvas.screenshot({ path: 'reports/smart-filters/invert-before.png' });
 
     // Select the layer
     await selectLayerInPanel(page, 0);
@@ -102,12 +104,14 @@ test.describe('Object Filters — Invert workflow', () => {
 
     const after = await readCanvasPixel(page, cx, cy);
     expectInvertedPixel(before, after);
+    await expect(page.locator('.smart-filters__row')).toHaveCount(1);
 
     // Screenshot for visual inspection
     await page.screenshot({
       path: 'reports/smart-filters/invert-applied.png',
       clip: { x: box.x, y: box.y, width: box.width, height: box.height },
     });
+    await canvas.screenshot({ path: 'reports/smart-filters/invert-applied-canvas.png' });
   });
 
   test('toggle filter visibility — reverts to original', async ({ page }) => {
