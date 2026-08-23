@@ -132,6 +132,24 @@ export interface RasterizeAreaSelectionOptions {
 
 const MAX_SAMPLES = 8;
 
+/**
+ * Bounds on rasterized selection coverage, aligned with the native mask
+ * transfer limits in `selectionMask.ts` (16 384px per side, 16 777 216 px total).
+ * Rasterizing a selection never allocates a full pasteboard bitmap, but a
+ * requested target rectangle is still capped so a misbehaving caller cannot
+ * trigger an unbounded allocation.
+ */
+export const MAX_AREA_SELECTION_DIMENSION = 16_384;
+export const MAX_AREA_SELECTION_PIXELS = 16_777_216;
+
+/**
+ * Beyond this many combine nodes the selection expression is compacted into a
+ * bounded raster-mask shape so evaluation cost and memory stay predictable.
+ * The iterative evaluator below already removes the call-stack risk, but this
+ * guard also prevents pathological tree growth from bloating every consumer.
+ */
+const MAX_AREA_SELECTION_NODES = 4_096;
+
 function finiteNonNegative(value: number): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
@@ -217,7 +235,7 @@ export function combineAreaSelections(
     throw new Error('Area selections must use the same coordinate space');
   }
 
-  return {
+  return maybeCompact({
     coordinateSpace: current.coordinateSpace,
     generation,
     expression: {
@@ -226,7 +244,7 @@ export function combineAreaSelections(
       left: current.expression,
       right: incoming.expression,
     },
-  };
+  });
 }
 
 /**
@@ -240,7 +258,7 @@ export function invertAreaSelection(
   generation = Math.max(selection?.generation ?? 0, domain.generation) + 1,
 ): AreaSelection {
   if (!selection) return { ...domain, generation };
-  return {
+  return maybeCompact({
     coordinateSpace: domain.coordinateSpace,
     generation,
     expression: {
@@ -249,7 +267,7 @@ export function invertAreaSelection(
       left: domain.expression,
       right: selection.expression,
     },
-  };
+  });
 }
 
 export function areaSelectionBounds(expression: AreaSelectionExpression): {
@@ -380,11 +398,12 @@ function shapeCoverage(shape: AreaSelectionShape, point: SelectionPoint): number
   return smoothCoverage(inside ? distance : -distance, shape.feather);
 }
 
-function expressionCoverage(expression: AreaSelectionExpression, point: SelectionPoint): number {
-  if (expression.kind === 'shape') return shapeCoverage(expression.shape, point);
-  const left = expressionCoverage(expression.left, point);
-  const right = expressionCoverage(expression.right, point);
-  switch (expression.operation) {
+function combineCoverage(
+  left: number,
+  right: number,
+  operation: 'add' | 'subtract' | 'intersect',
+): number {
+  switch (operation) {
     case 'add':
       return Math.max(left, right);
     case 'subtract':
@@ -394,9 +413,103 @@ function expressionCoverage(expression: AreaSelectionExpression, point: Selectio
   }
 }
 
+/**
+ * Evaluate a selection expression at one document-space point.
+ *
+ * The implementation is iterative (explicit stack) rather than recursive so a
+ * deeply nested combine tree — e.g. hundreds of successive add/subtract
+ * gestures — cannot overflow the JavaScript call stack. A left-associative
+ * post-order traversal pushes combine nodes twice (once to schedule child
+ * evaluation, once to fold the result) and keeps an explicit result stack.
+ */
+function evaluateExpression(expression: AreaSelectionExpression, point: SelectionPoint): number {
+  const work: Array<{ node: AreaSelectionExpression; visited: boolean }> = [
+    { node: expression, visited: false },
+  ];
+  const results: number[] = [];
+  while (work.length > 0) {
+    const top = work.pop()!;
+    if (top.node.kind === 'shape') {
+      results.push(shapeCoverage(top.node.shape, point));
+      continue;
+    }
+    if (!top.visited) {
+      work.push({ node: top.node, visited: true });
+      // Push right before left so the left operand is evaluated and folded
+      // first, preserving left-associative combine semantics (subtract and
+      // intersect are not commutative).
+      work.push({ node: top.node.right, visited: false });
+      work.push({ node: top.node.left, visited: false });
+    } else {
+      const right = results.pop() ?? 0;
+      const left = results.pop() ?? 0;
+      results.push(combineCoverage(left, right, top.node.operation));
+    }
+  }
+  return results.pop() ?? 0;
+}
+
+function expressionNodeCount(expression: AreaSelectionExpression): number {
+  if (expression.kind === 'shape') return 1;
+  return 1 + expressionNodeCount(expression.left) + expressionNodeCount(expression.right);
+}
+
+/**
+ * Compact an arbitrarily deep expression into a single bounded raster-mask
+ * shape covering its own bounds. Used only when `expressionNodeCount` exceeds
+ * `MAX_AREA_SELECTION_NODES` so subsequent evaluation and rasterization stay
+ * bounded. Fractional coverage is preserved because the rasterization samples
+ * the expression at pixel centres.
+ */
+function compactAreaSelection(selection: AreaSelection): AreaSelection {
+  const bounds = areaSelectionBounds(selection.expression);
+  const width = Math.max(1, Math.ceil(bounds.w));
+  const height = Math.max(1, Math.ceil(bounds.h));
+  const mask = rasterizeAreaSelection(selection, {
+    x: bounds.x,
+    y: bounds.y,
+    width,
+    height,
+    samples: 1,
+  });
+  return {
+    coordinateSpace: 'document',
+    generation: selection.generation + 1,
+    expression: {
+      kind: 'shape',
+      shape: {
+        kind: 'raster-mask',
+        x: bounds.x,
+        y: bounds.y,
+        w: bounds.w,
+        h: bounds.h,
+        width: mask.width,
+        height: mask.height,
+        data: mask.data,
+        boundary: [],
+        transform: [1, 0, 0, 1, 0, 0],
+        inverseTransform: [1, 0, 0, 1, 0, 0],
+        feather: 0,
+        antialias: false,
+      },
+    },
+  };
+}
+
+function maybeCompact(selection: AreaSelection): AreaSelection {
+  if (expressionNodeCount(selection.expression) > MAX_AREA_SELECTION_NODES) {
+    try {
+      return compactAreaSelection(selection);
+    } catch {
+      return selection;
+    }
+  }
+  return selection;
+}
+
 /** Sample a selection expression at one document-space point. */
 export function areaSelectionCoverageAt(selection: AreaSelection, point: SelectionPoint): number {
-  return expressionCoverage(selection.expression, point);
+  return evaluateExpression(selection.expression, point);
 }
 
 /** Rasterize only the requested finite target bounds. */
@@ -415,6 +528,14 @@ export function rasterizeAreaSelection(
     throw new Error('Rasterization bounds must be finite, non-negative integers');
   }
 
+  if (
+    width > MAX_AREA_SELECTION_DIMENSION ||
+    height > MAX_AREA_SELECTION_DIMENSION ||
+    width * height > MAX_AREA_SELECTION_PIXELS
+  ) {
+    throw new Error('Rasterization bounds exceed area-selection memory limits');
+  }
+
   const samples = Math.max(1, Math.min(MAX_SAMPLES, Math.floor(options.samples ?? 1)));
   const data = new Uint8Array(width * height);
   for (let py = 0; py < height; py++) {
@@ -422,7 +543,7 @@ export function rasterizeAreaSelection(
       let total = 0;
       for (let sy = 0; sy < samples; sy++) {
         for (let sx = 0; sx < samples; sx++) {
-          total += expressionCoverage(selection.expression, {
+          total += evaluateExpression(selection.expression, {
             x: x + px + (sx + 0.5) / samples,
             y: y + py + (sy + 0.5) / samples,
           });

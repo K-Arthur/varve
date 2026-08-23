@@ -4,6 +4,8 @@ import {
   combineAreaSelections,
   createAreaSelection,
   invertAreaSelection,
+  MAX_AREA_SELECTION_DIMENSION,
+  MAX_AREA_SELECTION_PIXELS,
   rasterizeAreaSelection,
 } from './areaSelection';
 
@@ -100,5 +102,50 @@ describe('analytical area selection', () => {
     expect(() => rasterizeAreaSelection(selection, { x: 0, y: 0, width: 1.5, height: 2 })).toThrow(
       'Rasterization bounds',
     );
+  });
+
+  it('rejects rasterization requests that exceed the memory budget', () => {
+    const selection = rect(0, 0, 2, 2);
+    expect(() =>
+      rasterizeAreaSelection(selection, {
+        x: 0,
+        y: 0,
+        width: MAX_AREA_SELECTION_DIMENSION + 1,
+        height: 1,
+      }),
+    ).toThrow('memory limits');
+    expect(() =>
+      rasterizeAreaSelection(selection, {
+        x: 0,
+        y: 0,
+        width: MAX_AREA_SELECTION_DIMENSION,
+        height: Math.ceil((MAX_AREA_SELECTION_PIXELS + 1) / MAX_AREA_SELECTION_DIMENSION),
+      }),
+    ).toThrow('memory limits');
+  });
+
+  it('evaluates a deep combine tree without overflowing the call stack', () => {
+    // 1000 successive unions of the same rectangle stays under the compaction
+    // threshold and exercises the iterative evaluator's post-order traversal.
+    let selection = rect(0, 0, 10, 10);
+    for (let i = 0; i < 1000; i += 1) {
+      const next = combineAreaSelections(selection, rect(0, 0, 10, 10), 'add');
+      expect(next).not.toBeNull();
+      selection = next!;
+    }
+    expect(areaSelectionCoverageAt(selection, { x: 5, y: 5 })).toBe(1);
+    expect(areaSelectionCoverageAt(selection, { x: 50, y: 5 })).toBe(0);
+  });
+
+  it('compacts an extreme combine tree into a bounded raster mask', () => {
+    let selection = rect(0, 0, 10, 10);
+    for (let i = 0; i < 5000; i += 1) {
+      const next = combineAreaSelections(selection, rect(0, 0, 10, 10), 'add');
+      expect(next).not.toBeNull();
+      selection = next!;
+    }
+    // Far past MAX_AREA_SELECTION_NODES; still evaluates to valid coverage.
+    expect(areaSelectionCoverageAt(selection, { x: 5, y: 5 })).toBe(1);
+    expect(areaSelectionCoverageAt(selection, { x: 50, y: 5 })).toBe(0);
   });
 });
