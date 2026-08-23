@@ -92,6 +92,16 @@ function expectMapsThrough(
   });
   expect(actual?.x).toBeCloseTo(expected.x, 8);
   expect(actual?.y).toBeCloseTo(expected.y, 8);
+
+  const mapper = prepareImageMaskMapper({
+    document: doc,
+    node: doc.nodes.image!,
+    sourceWidth: 4000,
+    sourceHeight: 3000,
+  });
+  const roundTrip = mapper?.mapSourcePixelToWorld(expected);
+  expect(roundTrip?.x).toBeCloseTo(worldPoint.x, 8);
+  expect(roundTrip?.y).toBeCloseTo(worldPoint.y, 8);
 }
 
 describe('worldPointToImageMaskPixel', () => {

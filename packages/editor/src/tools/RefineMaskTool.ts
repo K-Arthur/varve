@@ -11,7 +11,7 @@
  * Research basis: Photoshop Refine Edge brush, GIMP foreground-select tool,
  *                 Canvas 2D ImageData compositing.
  */
-import { createBrushMask } from '@varve/engine';
+import { type AreaSelection, areaSelectionCoverageAt, createBrushMask } from '@varve/engine';
 import type { FrameNode, ShapeNode } from '@varve/scene';
 import { getOwnRasterMaskAsset, isImageShape, resolveNodePaints } from '@varve/scene';
 import { tryInvertAffine } from '@varve/shared';
@@ -30,6 +30,7 @@ interface RefineMaskOptions {
 
 interface MapperState {
   mapWorldPoint: (p: { x: number; y: number }) => { x: number; y: number } | null;
+  mapMaskPixelToWorld?: (p: { x: number; y: number }) => { x: number; y: number } | null;
   sourceWidth: number;
   sourceHeight: number;
 }
@@ -61,6 +62,8 @@ export class RefineMaskTool extends BaseTool {
   private lastPaintedPoint: { x: number; y: number } | null = null;
   private pendingLoad = false;
   private mapper: MapperState | null = null;
+  /** Frozen at pointer-down so an external selection change cannot alter a stroke. */
+  private strokeAreaSelection: AreaSelection | null = null;
   private coordinateSpace: 'source-image-pixels' | 'container-local-pixels' = 'source-image-pixels';
 
   override onActivate(ctx: ToolContext): void {
@@ -118,6 +121,7 @@ export class RefineMaskTool extends BaseTool {
     }
 
     this.maskSnapshot = cloneImageData(this.maskData);
+    this.strokeAreaSelection = ctx.areaSelection ?? null;
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     this.lastPaintedPoint = world;
@@ -133,7 +137,7 @@ export class RefineMaskTool extends BaseTool {
       currentWorld: world,
     };
 
-    this.paintStroke(world, e.altKey, e.pressure);
+    this.paintStroke(world, e.altKey, e.pressure, this.strokeAreaSelection);
 
     return { consumed: true, captured: true };
   }
@@ -154,7 +158,7 @@ export class RefineMaskTool extends BaseTool {
       const dist = Math.sqrt(dx * dx + dy * dy);
       const step = Math.max(1, this.options.brushSize * 0.3);
       if (dist < step) continue;
-      this.paintStroke(stroke.world, ctx.altKey, stroke.pressure);
+      this.paintStroke(stroke.world, ctx.altKey, stroke.pressure, this.strokeAreaSelection);
       this.lastPaintedPoint = stroke.world;
     }
   }
@@ -165,6 +169,7 @@ export class RefineMaskTool extends BaseTool {
     ctx.commitTransaction();
     this.maskSnapshot = null;
     this.lastPaintedPoint = null;
+    this.strokeAreaSelection = null;
   }
 
   override onDragCancel(ctx: ToolContext): void {
@@ -174,6 +179,7 @@ export class RefineMaskTool extends BaseTool {
     this.maskSnapshot = null;
     ctx.abortTransaction();
     this.lastPaintedPoint = null;
+    this.strokeAreaSelection = null;
   }
 
   setOptions(opts: Partial<RefineMaskOptions>): void {
@@ -236,7 +242,12 @@ export class RefineMaskTool extends BaseTool {
       sourceHeight,
     });
     this.mapper = prepared
-      ? { mapWorldPoint: prepared.mapWorldPoint, sourceWidth, sourceHeight }
+      ? {
+          mapWorldPoint: prepared.mapWorldPoint,
+          mapMaskPixelToWorld: prepared.mapSourcePixelToWorld,
+          sourceWidth,
+          sourceHeight,
+        }
       : null;
 
     if (maskDataUrl) {
@@ -268,6 +279,12 @@ export class RefineMaskTool extends BaseTool {
           x: (lx / fw) * maskWidth,
           y: (ly / fh) * maskHeight,
         };
+      },
+      mapMaskPixelToWorld: (p: { x: number; y: number }) => {
+        const local = { x: (p.x / maskWidth) * fw, y: (p.y / maskHeight) * fh };
+        const x = world[0] * local.x + world[2] * local.y + world[4];
+        const y = world[1] * local.x + world[3] * local.y + world[5];
+        return { x, y };
       },
       sourceWidth: maskWidth,
       sourceHeight: maskHeight,
@@ -305,6 +322,7 @@ export class RefineMaskTool extends BaseTool {
     this.lastPaintedPoint = null;
     this.pendingLoad = false;
     this.mapper = null;
+    this.strokeAreaSelection = null;
   }
 
   private getCoalescedStrokes(
@@ -332,6 +350,7 @@ export class RefineMaskTool extends BaseTool {
     world: { x: number; y: number },
     subtract: boolean,
     pressure: number = 0.5,
+    areaSelection: AreaSelection | null = this.strokeAreaSelection,
   ): void {
     if (!this.maskData) return;
 
@@ -359,7 +378,8 @@ export class RefineMaskTool extends BaseTool {
 
         const data = this.maskData.data;
         const maskWeight = this.brushMask ? this.brushMask[by * d + bx]! : 255;
-        const scaledWeight = Math.round(maskWeight * opacityScale);
+        const selectionWeight = this.areaSelectionCoverageAtMaskPixel(mx, my, areaSelection);
+        const scaledWeight = Math.round(maskWeight * opacityScale * selectionWeight);
         if (scaledWeight === 0) continue;
         const pixelIdx = (my * this.maskData.width + mx) * 4;
 
@@ -381,6 +401,30 @@ export class RefineMaskTool extends BaseTool {
         }
       }
     }
+  }
+
+  /** Sample the frozen document-space selection at a mask pixel centre. */
+  private areaSelectionCoverageAtMaskPixel(
+    maskX: number,
+    maskY: number,
+    selection: AreaSelection | null,
+  ): number {
+    if (!selection || !this.maskData) return 1;
+    const mapper = this.mapper;
+    const sourceWidth = mapper?.sourceWidth ?? this.maskData.width;
+    const sourceHeight = mapper?.sourceHeight ?? this.maskData.height;
+    const toWorld = (offsetX: number, offsetY: number): number => {
+      const sourcePoint = {
+        x: ((maskX + offsetX) / this.maskData!.width) * sourceWidth,
+        y: ((maskY + offsetY) / this.maskData!.height) * sourceHeight,
+      };
+      const world = mapper?.mapMaskPixelToWorld?.(sourcePoint) ?? sourcePoint;
+      return world ? areaSelectionCoverageAt(selection, world) : 0;
+    };
+    if (!selectionUsesAntialias(selection.expression)) return toWorld(0.5, 0.5);
+    return (
+      (toWorld(0.25, 0.25) + toWorld(0.75, 0.25) + toWorld(0.25, 0.75) + toWorld(0.75, 0.75)) / 4
+    );
   }
 
   private commitMask(ctx: ToolContext): void {
@@ -411,4 +455,9 @@ export class RefineMaskTool extends BaseTool {
       return null;
     }
   }
+}
+
+function selectionUsesAntialias(expression: AreaSelection['expression']): boolean {
+  if (expression.kind === 'shape') return expression.shape.antialias;
+  return selectionUsesAntialias(expression.left) || selectionUsesAntialias(expression.right);
 }

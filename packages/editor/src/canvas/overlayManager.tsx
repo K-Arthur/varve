@@ -88,7 +88,24 @@ function traceAreaSelectionBoundary(
       for (const corner of corners.slice(1)) ctx.lineTo(corner[0], corner[1]);
       ctx.closePath();
     }
-  } else {
+  } else if (shape.kind === 'path') {
+    for (const command of shape.commands) {
+      if (command.type === 'move') {
+        const point = applyAffine(shape.transform, [command.x, command.y]);
+        ctx.moveTo(point[0], point[1]);
+      } else if (command.type === 'line') {
+        const point = applyAffine(shape.transform, [command.x, command.y]);
+        ctx.lineTo(point[0], point[1]);
+      } else if (command.type === 'curve') {
+        const c1 = applyAffine(shape.transform, [command.cx1, command.cy1]);
+        const c2 = applyAffine(shape.transform, [command.cx2, command.cy2]);
+        const point = applyAffine(shape.transform, [command.x, command.y]);
+        ctx.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], point[0], point[1]);
+      } else {
+        ctx.closePath();
+      }
+    }
+  } else if (shape.kind === 'polygon') {
     const first = shape.points[0];
     if (!first) return;
     ctx.moveTo(first.x, first.y);

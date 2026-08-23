@@ -2,6 +2,8 @@
  * RefineMaskTool tests — TDD: transform-aware coordinate mapping,
  * pressure sensitivity, and coalesced events.
  */
+
+import { createAreaSelection } from '@varve/engine';
 import { describe, expect, it, vi } from 'vitest';
 import { RefineMaskTool } from '../RefineMaskTool';
 
@@ -266,6 +268,58 @@ describe('RefineMaskTool', () => {
     const highPressureAvg = averageMaskValue(maskData2);
 
     expect(highPressureAvg).toBeGreaterThan(lowPressureAvg);
+  });
+
+  it('clips a refinement stroke to the active area selection', () => {
+    const tool = new RefineMaskTool();
+    tool.setOptions({ brushSize: 10, hardness: 1 });
+    const maskData = createWhiteMaskImageData();
+    for (let i = 0; i < maskData.data.length; i += 4) {
+      maskData.data[i] = 128;
+      maskData.data[i + 1] = 128;
+      maskData.data[i + 2] = 128;
+      maskData.data[i + 3] = 128;
+    }
+    (tool as any).maskData = maskData;
+    (tool as any).nodeId = 'img-1';
+    (tool as any).mapper = {
+      mapWorldPoint: (p: { x: number; y: number }) => p,
+      mapMaskPixelToWorld: (p: { x: number; y: number }) => p,
+      sourceWidth: 50,
+      sourceHeight: 50,
+    };
+    const ctx = makeMinimalCtx({
+      areaSelection: createAreaSelection({
+        kind: 'rectangle',
+        x: 23,
+        y: 23,
+        w: 4,
+        h: 4,
+        feather: 0,
+        antialias: false,
+      }),
+    });
+
+    tool.onPointerDown(
+      { altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 1 } as any,
+      ctx,
+    );
+
+    expect(maskData.data[(25 * maskData.width + 25) * 4]).toBe(255);
+    expect(maskData.data[(20 * maskData.width + 25) * 4]).toBe(128);
+
+    // The stroke keeps its pointer-down selection snapshot even if editor
+    // state changes before a later/coalesced sample is processed.
+    ctx.areaSelection = null;
+    tool.onPointerMove(
+      {
+        pointerId: 1,
+        getCoalescedEvents: () => [{ clientX: 40, clientY: 25, pressure: 1 }],
+        pressure: 1,
+      } as any,
+      ctx,
+    );
+    expect(maskData.data[(25 * maskData.width + 40) * 4]).toBe(128);
   });
 
   it('mapper converts world coords on rotated image', () => {

@@ -6,7 +6,12 @@
  * independent of tool state lets refine, trimap, mouse, pen, and touch paths
  * share identical pixel targeting.
  */
-import { computeImagePlacement, type ImagePlacement, localToSourcePixel } from '@varve/engine';
+import {
+  computeImagePlacement,
+  type ImagePlacement,
+  localToSourcePixel,
+  sourcePixelToLocal,
+} from '@varve/engine';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
 import { buildParentIndexMap, resolveNodePaints } from '@varve/scene';
 import { applyAffine, tryInvertAffine } from '@varve/shared';
@@ -26,6 +31,8 @@ export interface PrepareImageMaskMapperOptions {
 export interface PreparedImageMaskMapper {
   readonly placement: ImagePlacement;
   mapWorldPoint(worldPoint: { x: number; y: number }): { x: number; y: number } | null;
+  /** Map a source-image pixel back into document space for selection clipping. */
+  mapSourcePixelToWorld(sourcePoint: { x: number; y: number }): { x: number; y: number } | null;
 }
 
 export interface WorldPointToImageMaskPixelOptions extends PrepareImageMaskMapperOptions {
@@ -68,13 +75,20 @@ export function prepareImageMaskMapper(
   if (!placement) return null;
 
   const parentIndex = options.parentIndex ?? buildParentIndexMap(document);
-  const inverseWorld = tryInvertAffine(nodeWorldTransform(document, node.id, parentIndex));
+  const worldTransform = nodeWorldTransform(document, node.id, parentIndex);
+  const inverseWorld = tryInvertAffine(worldTransform);
   if (!inverseWorld) return null;
   return {
     placement,
     mapWorldPoint(worldPoint) {
       const [x, y] = applyAffine(inverseWorld, [worldPoint.x, worldPoint.y]);
       return localToSourcePixel(placement, { x, y });
+    },
+    mapSourcePixelToWorld(sourcePoint) {
+      const local = sourcePixelToLocal(placement, sourcePoint);
+      if (!local) return null;
+      const [x, y] = applyAffine(worldTransform, [local.x, local.y]);
+      return { x, y };
     },
   };
 }

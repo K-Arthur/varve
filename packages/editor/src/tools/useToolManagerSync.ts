@@ -122,9 +122,7 @@ export function useToolManagerSync(
         const node = doc.nodes[ps.nodeId];
         if (!node || node.kind !== 'shape') return doc;
         const fills = node.fills ?? [];
-        const imgFill = fills.find(
-          (f): f is Extract<typeof f, { type: 'image' }> => f.type === 'image',
-        );
+        const imgFill = fills.find((f) => f.type === 'image' && f.image);
         if (!imgFill) return doc;
         if (!imgFill.image) return doc;
         const newImage = { ...imgFill.image, perspective: { quad: ps.quad } };
