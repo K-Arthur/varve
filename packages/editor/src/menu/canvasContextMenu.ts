@@ -369,6 +369,21 @@ export function buildCanvasContextMenuItems({
           } satisfies MenuEntry,
         ]
       : []),
+    // ── Export ───────────────────────────────────────────────────────────
+    ...(isSingleFrame
+      ? [
+          { id: 'ctx-sep-export', separator: true as const } satisfies MenuEntry,
+          {
+            id: 'ctx-export-frame',
+            label: 'Export Frame…',
+            onAction: () => {
+              record('exportFrame');
+              editor.setShowExportDialog(true);
+              closeMenu();
+            },
+          } satisfies MenuEntry,
+        ]
+      : []),
     // ── File thumbnail ──────────────────────────────────────────────────
     ...(hasSelection
       ? [

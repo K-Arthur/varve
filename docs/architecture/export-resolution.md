@@ -51,3 +51,36 @@ Output limits are resolved before rendering. If a raster job exceeds the
 runtime's axis or pixel budget, the plan records the requested and safe output
 dimensions and preflight surfaces an explicit acknowledgement finding instead
 of silently presenting the reduced dimensions as requested.
+
+## Inspector image diagnostics
+
+When a single image shape is selected, the Inspector shows an **Image
+Resolution** section with read-only diagnostics: source pixel dimensions
+(native asset size), placed size in millimeters, and effective resolution in
+PPI. When effective PPI falls below 300, a warning note is displayed. These
+values are derived from the canonical `effectiveRasterPpiForNode` calculation;
+they are not editable because they are computed from source pixels and the
+current placement transform.
+
+## Clone and duplication
+
+Duplicating or copy-pasting a node with export presets regenerates every
+preset id using the document's collision-resistant minting counter (prefix `p`).
+This prevents two independent copies from sharing the same preset ids, which
+would collapse batch plan lookups keyed by configuration id. Preset option
+sub-objects are shallow-cloned to avoid shared mutable state across nodes.
+
+## Frame context menu
+
+Right-clicking a single frame shows an **Export Frame…** entry that opens the
+Export Dialog with the frame pre-selected. The dialog resolves the frame's
+saved presets and shows output dimensions and preflight warnings before
+execution. This provides a quick path to export without navigating through the
+File menu or keyboard shortcuts.
+
+## Batch summary preview
+
+The Export Dialog shows a one-line aggregate summary above the file list:
+total file count and the largest output dimensions (e.g. "3 files · Largest:
+2400 × 1600 px"). This helps catch accidental high-resolution exports before
+execution, especially when many frames have multiple export presets.

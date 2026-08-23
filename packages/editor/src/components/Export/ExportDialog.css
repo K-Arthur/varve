@@ -67,6 +67,11 @@
   font-weight: 600;
   color: var(--color-text-primary);
 }
+.export-dialog__batch-summary {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
 .export-dialog__footer {
   display: flex;
   align-items: center;

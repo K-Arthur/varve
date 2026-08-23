@@ -469,6 +469,23 @@ export function ExportDialog({
     return jobs.map((job) => resolved.get(`${job.nodeId}-${job.presetId}`) ?? job);
   }, [jobs, exportBatch.jobs]);
 
+  const batchSummary = useMemo(() => {
+    if (displayJobs.length === 0) return null;
+    const count = displayJobs.length;
+    let maxPx = 0;
+    let largestW = 0;
+    let largestH = 0;
+    for (const job of displayJobs) {
+      const px = (job.dimensions?.w ?? 0) * (job.dimensions?.h ?? 0);
+      if (px > maxPx) {
+        maxPx = px;
+        largestW = job.dimensions?.w ?? 0;
+        largestH = job.dimensions?.h ?? 0;
+      }
+    }
+    return { count, largestW, largestH };
+  }, [displayJobs]);
+
   const findings = useMemo(
     () => preflightFindings(exportBatch, document, platformKind),
     [exportBatch, document, platformKind],
@@ -931,6 +948,13 @@ export function ExportDialog({
           <div className="export-dialog__body">
             <section className="export-dialog__section" aria-label="Jobs">
               <h3 className="export-dialog__section-title">Files to export</h3>
+              {batchSummary && (
+                <p className="export-dialog__batch-summary">
+                  {batchSummary.count} file{batchSummary.count !== 1 ? 's' : ''}
+                  {batchSummary.largestW > 0 &&
+                    ` · Largest: ${batchSummary.largestW} × ${batchSummary.largestH} px`}
+                </p>
+              )}
               <BatchJobList
                 jobs={displayJobs}
                 selectedIds={selectedIds}
