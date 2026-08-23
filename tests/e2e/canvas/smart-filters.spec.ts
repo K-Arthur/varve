@@ -152,6 +152,39 @@ test.describe('Object Filters — Invert workflow', () => {
     });
   });
 
+  test('bypass whole Object Filter stack — keeps entries intact', async ({ page }) => {
+    await page.keyboard.press('r');
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('Canvas not found');
+
+    const cx = box.x + 250;
+    const cy = box.y + 200;
+    await dragOnCanvas(page, 170, 140, 330, 260);
+    await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
+    await page.waitForTimeout(500);
+
+    const original = await readCanvasPixel(page, cx, cy);
+    await selectLayerInPanel(page, 0);
+    await addSmartFilter(page, 'Invert');
+    await page.waitForTimeout(500);
+    expectInvertedPixel(original, await readCanvasPixel(page, cx, cy));
+
+    const bypass = page.locator('button.smart-filters__stack-visibility');
+    await expect(bypass).toHaveAttribute('aria-label', 'Disable all Object Filters');
+    await bypass.click();
+    await expect(bypass).toHaveAttribute('aria-pressed', 'false');
+    await expect(bypass).toHaveAttribute('aria-label', 'Enable all Object Filters');
+    expectSamePixel(original, await readCanvasPixel(page, cx, cy));
+    await expect(page.locator('.smart-filters__row')).toHaveCount(1);
+
+    await page.screenshot({
+      path: 'reports/smart-filters/stack-bypassed.png',
+      clip: { x: box.x, y: box.y, width: box.width, height: box.height },
+    });
+  });
+
   test('remove filter — restores original', async ({ page }) => {
     await page.keyboard.press('r');
     const canvas = page.locator('canvas.editor-canvas__content-layer');
