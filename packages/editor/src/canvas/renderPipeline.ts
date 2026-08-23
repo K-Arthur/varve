@@ -26,10 +26,12 @@ import {
 } from '@varve/engine';
 import {
   applyBindingsToNode,
+  applySoloToDocument,
   buildAllVariantCaches,
   buildParentIndexMap,
   createVariableStore,
   type Document,
+  documentHasSolo,
   getEffectiveNode,
   isAnimatedMediaNode,
   isContainer,
@@ -67,6 +69,7 @@ import {
 import { admitWorkerImagePayload, workerSourceCapFor } from '../render/collectImageBitmaps';
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
 import { pathShapeInTextSpace } from '../render/pathTextGeometry';
+import { decoratePerspectiveImages, documentHasPerspectiveImage } from '../render/perspectiveImage';
 import { alphaBounds } from '../render/surfaceBounds';
 import {
   collectMasterOffsets,
@@ -480,7 +483,7 @@ export function renderContent(deps: RenderContentDeps): void {
     if (!ctx) return;
     const ctxNN = ctx;
     const s = stateRef.current;
-    const doc = s.document;
+    const doc = documentHasSolo(s.document) ? applySoloToDocument(s.document) : s.document;
     _showOriginalBgNodeId = s.showOriginalBgNodeId ?? null;
 
     // Render resources are session-derived. Retain only sources owned by the
@@ -660,6 +663,7 @@ export function renderContent(deps: RenderContentDeps): void {
       Boolean(renderWorkerRef.current) &&
       !workerFailedRef.current &&
       profileCanUseWorker &&
+      !documentHasPerspectiveImage(doc) &&
       sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&
       !sceneNeedsStructuralCompositing(doc);
     // One shared surface-validity result per frame: the prune gate and the
@@ -1728,6 +1732,7 @@ export function renderContent(deps: RenderContentDeps): void {
     });
     const workerReady =
       workerImageRefusal === null &&
+      !documentHasPerspectiveImage(doc) &&
       sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src));
 
     // Mockup surface decoration: compose mockup frames into the IR list
@@ -1760,6 +1765,18 @@ export function renderContent(deps: RenderContentDeps): void {
         mockupExtras.set(frameId, extras);
       }
     }
+
+    // Perspective (four-corner) image decoration: replace image items whose
+    // fill carries a `perspective` quad with a `warpedImage` primitive. Runs
+    // after mockup decoration (which only appends extras to the tail of `ir`,
+    // so `ir[i]` still corresponds to `nodeIds[i]`). The source subtrees are
+    // replayed through the structural path with the prune force flag set.
+    decoratePerspectiveImages({
+      doc,
+      nodeIds,
+      items: ir,
+      qualityScale: 1,
+    });
 
     replayStartTime = performance.now();
     if (needsStructural) {

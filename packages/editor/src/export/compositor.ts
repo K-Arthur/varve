@@ -44,6 +44,7 @@ import {
   type ShapeNode,
 } from '@varve/scene';
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
+import { decoratePerspectiveImages } from '../render/perspectiveImage';
 import { replayStructuredScene } from '../render/replayScene';
 import { flattenSceneToEngine } from '../render/sceneToEngine';
 import { settleEngineImageResources } from './resourceReadiness';
@@ -936,6 +937,18 @@ async function renderBoundaryToSurface(
     qualityScale: exportScale,
     cache: getExportMockupSurfaceCache(),
     insertIntoList: false,
+  });
+
+  // Perspective (four-corner) image decoration for the export path. Runs
+  // after mockup decoration (insertIntoList:false keeps `ir` in 1:1
+  // correspondence with nodeIds), so image items with a `perspective` quad
+  // are replaced by `warpedImage` primitives. Export pre-loads image
+  // resources (see settleEngineImageResources above) so baking never stalls.
+  decoratePerspectiveImages({
+    doc,
+    nodeIds: [boundaryNodeId, ...sourceIds],
+    items: ir,
+    qualityScale: exportScale,
   });
 
   const ctx = surface.context as CanvasRenderingContext2D;
