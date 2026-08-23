@@ -1,14 +1,20 @@
 import { exportDocumentToSvg } from '@varve/codegen';
 import {
   areaSelectionBounds,
+  areaSelectionFromImageAlpha,
+  areaSelectionFromImageLuminance,
+  areaSelectionToPath,
+  combineAreaSelections,
+  computeImagePlacement,
   createAreaSelection,
   invertAreaSelection,
   refineAreaSelection,
+  sourcePixelToLocal,
   transformAreaSelection,
 } from '@varve/engine';
 import { translate, scaleXY, rotateRad, multiplyAffine, type Affine } from '@varve/shared';
 import { toDelimitedText } from '@varve/import';
-import { getOwnRasterMaskAsset, isImageShape, type TextNode } from '@varve/scene';
+import { getImageFill, getOwnRasterMaskAsset, isImageShape, type TextNode } from '@varve/scene';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import { executeNudge, getNudgeStep } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
@@ -22,6 +28,12 @@ import {
   encodeSelectionMaskPng,
   rasterizeAreaSelectionForNode,
 } from '../tools/selectionMask';
+import { deserializeAreaSelection, serializeAreaSelection } from '../tools/savedAreaSelections';
+import {
+  pathPointsToSelectionCommands,
+  selectionCommandsToPathRing,
+} from '../tools/selectionPathConversion';
+import { nodeLocalBounds } from '../scene/world';
 
 export interface ActionHandlerCallbacks {
   onOpenFile?: () => void;
@@ -150,6 +162,193 @@ export function createActionHandlers(
     }
     const next = transformAreaSelection(sel, matrix);
     if (next) e.setAreaSelection(next);
+  };
+  const saveAreaSelection = (): void => {
+    const selection = e.state.areaSelection;
+    if (!selection) {
+      e.announce('Make a pixel selection before saving it');
+      return;
+    }
+    const existing = e.state.document.savedAreaSelections ?? [];
+    const id =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `saved-area-${Date.now()}-${existing.length}`;
+    const saved = {
+      id,
+      name: `Selection ${existing.length + 1}`,
+      pageId: e.state.document.activePageId,
+      selection: serializeAreaSelection(selection),
+      createdAt: Date.now(),
+    };
+    e.updateDoc((doc) => ({
+      ...doc,
+      savedAreaSelections: [...(doc.savedAreaSelections ?? []), saved],
+    }));
+    e.announce(`Saved area selection as ${saved.name}`);
+  };
+  const restoreLastSavedAreaSelection = (): void => {
+    const saved = e.state.document.savedAreaSelections?.at(-1);
+    if (!saved || !e.setAreaSelection) {
+      e.announce('No saved area selection is available');
+      return;
+    }
+    const selection = deserializeAreaSelection(saved);
+    if (!selection) {
+      e.announce('The saved area selection is invalid');
+      return;
+    }
+    e.setAreaSelection({
+      ...selection,
+      generation: Math.max(selection.generation, e.state.areaSelection?.generation ?? 0) + 1,
+    });
+    e.announce(`Restored ${saved.name}`);
+  };
+  const deleteLastSavedAreaSelection = (): void => {
+    const saved = e.state.document.savedAreaSelections?.at(-1);
+    if (!saved) {
+      e.announce('No saved area selection is available');
+      return;
+    }
+    e.updateDoc((doc) => ({
+      ...doc,
+      savedAreaSelections: (doc.savedAreaSelections ?? []).filter((item) => item.id !== saved.id),
+    }));
+    e.announce(`Deleted ${saved.name}`);
+  };
+  const pathToSelection = (): void => {
+    const id = e.state.selection.length === 1 ? e.state.selection[0] : undefined;
+    const node = id ? e.state.document.nodes[id] : undefined;
+    if (!node || !id) {
+      e.announce('Select one closed path first');
+      return;
+    }
+    const path =
+      node.kind === 'shape' && node.shape.kind === 'path'
+        ? node.shape
+        : node.kind === 'path'
+          ? node
+          : null;
+    if (!path || !path.closed || !e.setAreaSelection) {
+      e.announce('Select one closed path first');
+      return;
+    }
+    const commands = pathPointsToSelectionCommands(
+      path.points,
+      path.closed,
+      e.getWorldTransform(id),
+      'holes' in path ? path.holes ?? [] : [],
+    );
+    const selection = createAreaSelection(
+      {
+        kind: 'path',
+        commands,
+        transform: [1, 0, 0, 1, 0, 0],
+        feather: e.state.areaSelectionSettings.feather,
+        antialias: e.state.areaSelectionSettings.antialias,
+      },
+      (e.state.areaSelection?.generation ?? 0) + 1,
+    );
+    if (!selection) {
+      e.announce('The path could not be converted to a pixel selection');
+      return;
+    }
+    e.setAreaSelection(selection);
+    e.announce('Path converted to pixel selection');
+  };
+  const selectionToPath = (): void => {
+    const selection = e.state.areaSelection;
+    if (!selection) {
+      e.announce('Make a pixel selection first');
+      return;
+    }
+    const ring = selectionCommandsToPathRing(areaSelectionToPath(selection));
+    if (!ring || !ring.closed) {
+      e.announce('The selection did not produce a closed path');
+      return;
+    }
+    const previousTool = e.state.tool;
+    e.setTool('pen');
+    try {
+      e.createShapeAt(ring.points[0]!, undefined, undefined, ring.points, true);
+    } finally {
+      e.setTool(previousTool);
+    }
+    e.announce('Pixel selection converted to path');
+  };
+  const selectFromImage = async (mode: 'alpha' | 'luminance'): Promise<void> => {
+    const id = e.state.selection.length === 1 ? e.state.selection[0] : undefined;
+    const node = id ? e.state.document.nodes[id] : undefined;
+    if (!node || node.kind !== 'shape' || !isImageShape(node)) {
+      e.announce('Select one image first');
+      return;
+    }
+    const image = getImageFill(node)?.image;
+    const src = image?.assetId ? e.state.document.assets?.[image.assetId]?.dataUrl ?? image.src : image?.src;
+    if (!image || !src) {
+      e.announce('The image source is unavailable');
+      return;
+    }
+    const pixels = await decodeRasterMaskDataUrl(src);
+    if (!pixels || !e.setAreaSelection) {
+      e.announce('The image could not be decoded for selection');
+      return;
+    }
+    const source = { data: pixels.data, width: pixels.width, height: pixels.height };
+    const sourceSelection =
+      mode === 'alpha'
+        ? areaSelectionFromImageAlpha(source)
+        : areaSelectionFromImageLuminance(source, { invert: true });
+    const bounds = nodeLocalBounds(node, e.state.document);
+    const placement = bounds
+      ? computeImagePlacement({
+          fit: image.fit,
+          sourceWidth: pixels.width,
+          sourceHeight: pixels.height,
+          bounds,
+          x: image.x,
+          y: image.y,
+          scale: image.scale,
+          sourceCrop: image.crop,
+          rotation: image.rotation,
+          flipH: image.flipH,
+          flipV: image.flipV,
+        })
+      : null;
+    if (!sourceSelection || !placement) {
+      e.announce('The image geometry could not be mapped to document space');
+      return;
+    }
+    const baseX = image.crop?.x ?? 0;
+    const baseY = image.crop?.y ?? 0;
+    const p0 = sourcePixelToLocal(placement, { x: baseX + 0.5, y: baseY + 0.5 });
+    const px = sourcePixelToLocal(placement, {
+      x: Math.min(pixels.width - 0.5, baseX + 1.5),
+      y: baseY + 0.5,
+    });
+    const py = sourcePixelToLocal(placement, {
+      x: baseX + 0.5,
+      y: Math.min(pixels.height - 0.5, baseY + 1.5),
+    });
+    if (!p0 || !px || !py) {
+      e.announce('The visible image crop could not be mapped to document space');
+      return;
+    }
+    const localMatrix: Affine = [
+      px.x - p0.x,
+      px.y - p0.y,
+      py.x - p0.x,
+      py.y - p0.y,
+      p0.x - (px.x - p0.x) * (baseX + 0.5) - (py.x - p0.x) * (baseY + 0.5),
+      p0.y - (px.y - p0.y) * (baseX + 0.5) - (py.y - p0.y) * (baseY + 0.5),
+    ];
+    e.setAreaSelection(
+      transformAreaSelection(
+        sourceSelection,
+        multiplyAffine(e.getWorldTransform(id), localMatrix),
+      ),
+    );
+    e.announce(mode === 'alpha' ? 'Selected image alpha' : 'Selected image luminance');
   };
   const areaSelectionTransformMatrix = (
     mode: 'move' | 'scale' | 'rotate',
@@ -310,6 +509,13 @@ export function createActionHandlers(
       applyAreaTransform(areaSelectionTransformMatrix('rotate', { radians: Math.PI / 12 })),
     areaSelectionRotateCCW: () =>
       applyAreaTransform(areaSelectionTransformMatrix('rotate', { radians: -Math.PI / 12 })),
+    saveAreaSelection,
+    restoreLastSavedAreaSelection,
+    deleteLastSavedAreaSelection,
+    pathToSelection,
+    selectionToPath,
+    selectFromImageAlpha: () => void selectFromImage('alpha'),
+    selectFromImageLuminance: () => void selectFromImage('luminance'),
     selectParent: () => e.selectParent(),
     selectChildren: () => e.selectChildren(),
     selectSiblings: () => e.selectSiblings(),

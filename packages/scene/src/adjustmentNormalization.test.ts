@@ -74,6 +74,28 @@ describe('adjustment normalization', () => {
     expect(gradient.opacityStops[0]).not.toHaveProperty('color');
   });
 
+  it('clamps Shadow / Highlight controls before they reach the renderer', () => {
+    const result = normalizeAdjustmentStack(
+      [
+        {
+          id: 'shadow-1',
+          kind: 'shadowHighlight',
+          shadows: 900,
+          highlights: -20,
+          tonalWidth: Number.NaN,
+          midpoint: Number.POSITIVE_INFINITY,
+        },
+      ],
+      'layer-1',
+    );
+    expect(result.adjustments[0]).toMatchObject({
+      shadows: 100,
+      highlights: 0,
+      tonalWidth: 50,
+      midpoint: 50,
+    });
+  });
+
   it('drops unknown entries and repairs adjustment stacks at the codec boundary', () => {
     const doc = createDocument('Malformed adjustments', true);
     const adjustmentNode = makeAdjustmentNode('layer-1', 'levels', {
