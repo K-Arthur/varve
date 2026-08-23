@@ -196,6 +196,10 @@ export const LayersRow = memo(function LayersRow({
     blendModeLabel || opacityLabel
       ? [blendModeLabel, opacityLabel].filter(Boolean).join(' ')
       : null;
+  const objectFilterCount = node.smartFilters?.length ?? 0;
+  const enabledObjectFilterCount =
+    node.smartFilters?.filter((filter) => filter.visible !== false && filter.opacity > 0).length ??
+    0;
 
   const handleIconDoubleClick = useCallback(
     (e?: React.MouseEvent) => {
@@ -564,6 +568,25 @@ export const LayersRow = memo(function LayersRow({
 
         {/* Blend mode / opacity badge */}
         {badgeText && !editing && <span className="layers-row__badge">{badgeText}</span>}
+
+        {/* Object Filter indicator — filters are node-local, so keep their
+            presence discoverable in the layer tree without pretending they
+            are separate scene nodes. */}
+        {objectFilterCount > 0 && !editing && (
+          <Tooltip
+            label={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled`}
+          >
+            <span
+              className="layers-row__object-filter-badge"
+              role="status"
+              aria-label={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled`}
+            >
+              {enabledObjectFilterCount === objectFilterCount
+                ? `${objectFilterCount} filter${objectFilterCount === 1 ? '' : 's'}`
+                : `${enabledObjectFilterCount}/${objectFilterCount} filters`}
+            </span>
+          </Tooltip>
+        )}
 
         {/* Collaborator presence */}
         {presences && presences.length > 0 && !editing && (

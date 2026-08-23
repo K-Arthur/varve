@@ -133,6 +133,24 @@ describe('LayersRow blend mode / opacity badge', () => {
   });
 });
 
+describe('LayersRow Object Filter badge', () => {
+  it('keeps attached Object Filters discoverable without adding tree nodes', () => {
+    const { container } = renderRow({
+      node: makeNode('n1', 'Layer 1', 'shape', {
+        smartFilters: [
+          { id: 'f1', kind: 'invert', visible: true, opacity: 1, blendMode: 'normal', value: 100 },
+          { id: 'f2', kind: 'blur', visible: false, opacity: 1, blendMode: 'normal', radius: 4 },
+        ],
+      }),
+    });
+    const badge = container.querySelector('.layers-row__object-filter-badge');
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent('1/2 filters');
+    expect(badge).toHaveAttribute('aria-label', '1 of 2 Object Filters enabled');
+    expect(container.querySelectorAll('[role="treeitem"]')).toHaveLength(1);
+  });
+});
+
 describe('LayersRow clipping relationship', () => {
   it('identifies mask sources and clipped content accessibly', () => {
     const source = renderRow({ maskRole: 'source' });

@@ -6987,15 +6987,16 @@ export function EditorProvider({
       },
 
       createAdjustmentLayer: (initialAdjustments) => {
-        undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
+        const currentState = stateRef.current;
+        undoStackRef.current = [...undoStackRef.current.slice(-50), currentState.document];
         undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
         redoStackRef.current = [];
         redoLabelsRef.current = [];
-        const { id, doc: newDoc } = nextNodeId(state.document);
+        const { id, doc: newDoc } = nextNodeId(currentState.document);
         const adjs = initialAdjustments ?? [];
-        const sel = state.selection;
+        const sel = currentState.selection;
         const selectedTargets = sel.flatMap((selectedId) => {
-          const target = state.document.nodes[selectedId];
+          const target = currentState.document.nodes[selectedId];
           return target && isAdjustmentEligible(target) ? [target] : [];
         });
 
@@ -7009,14 +7010,14 @@ export function EditorProvider({
         let scopeLabel = '';
         if (sel.length === 1) {
           const firstId = sel[0]!;
-          const target = state.document.nodes[firstId];
+          const target = currentState.document.nodes[firstId];
           if (target && (target.kind === 'frame' || target.kind === 'group')) {
             scope = { mode: 'container-descendant', containerId: firstId, includeNested: true };
             parentId = firstId;
             scopeLabel = ` in ${target.name}`;
           } else if (target && isAdjustmentEligible(target)) {
             scope = { mode: 'image-local', targetNodeId: firstId };
-            parentId = getParent(state.document, firstId);
+            parentId = getParent(currentState.document, firstId);
             insertAfterId = firstId;
             scopeLabel = ' (selected object)';
           }
@@ -7029,15 +7030,14 @@ export function EditorProvider({
             // possible, immediately after the last selected sibling. This
             // prevents it from accidentally capturing unrelated layers.
             const selectedParents = selectedTargets.map((target) =>
-              getParent(state.document, target.id),
+              getParent(currentState.document, target.id),
             );
             const firstParent = selectedParents[0] ?? null;
             if (selectedParents.every((candidate) => candidate === firstParent)) {
               parentId = firstParent;
-              const parent = parentId ? state.document.nodes[parentId] : undefined;
-              const siblings = parent && isContainer(parent)
-                ? parent.children
-                : state.document.rootChildren;
+              const parent = parentId ? currentState.document.nodes[parentId] : undefined;
+              const siblings =
+                parent && isContainer(parent) ? parent.children : state.document.rootChildren;
               const selectedSiblingIndexes = selectedTargets
                 .map((target) => siblings.indexOf(target.id))
                 .filter((index) => index >= 0);

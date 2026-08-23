@@ -646,6 +646,17 @@
   flex-shrink: 0;
 }
 
+/* ─── Node-local Object Filter badge ──────────────────────── */
+.layers-row__object-filter-badge {
+  background: color-mix(in oklab, var(--color-accent) 14%, transparent);
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  flex-shrink: 0;
+  font-size: var(--font-size-2xs);
+  padding: 0 var(--space-1);
+  white-space: nowrap;
+}
+
 .layers-row__mask-role {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
