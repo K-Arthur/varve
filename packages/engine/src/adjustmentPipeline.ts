@@ -337,8 +337,11 @@ const FILTER_PROPERTIES: Record<string, FilterProperties> = {
   },
   colorHalftone: {
     name: 'Color Halftone',
-    capabilities: ['gpu-compute', 'software-cpu', 'raster-export'],
-    hasGpuPath: true,
+    capabilities: ['software-cpu', 'raster-export'],
+    // The standalone WebGPU helper is not wired into the canonical
+    // adjustment compositor; advertising it here would claim a path the
+    // renderer cannot select.
+    hasGpuPath: false,
     hasCssPath: false,
     requiresRasterExport: true,
   },

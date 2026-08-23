@@ -4,7 +4,6 @@ import {
   areaSelectionFromImageAlpha,
   areaSelectionFromImageLuminance,
   areaSelectionToPath,
-  combineAreaSelections,
   computeImagePlacement,
   createAreaSelection,
   invertAreaSelection,
@@ -279,7 +278,7 @@ export function createActionHandlers(
   const selectFromImage = async (mode: 'alpha' | 'luminance'): Promise<void> => {
     const id = e.state.selection.length === 1 ? e.state.selection[0] : undefined;
     const node = id ? e.state.document.nodes[id] : undefined;
-    if (!node || node.kind !== 'shape' || !isImageShape(node)) {
+    if (!id || !node || node.kind !== 'shape' || !isImageShape(node)) {
       e.announce('Select one image first');
       return;
     }
