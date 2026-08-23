@@ -158,8 +158,33 @@ export function nodeWorldBounds(
   id: NodeId,
   parentIndex?: Map<NodeId, NodeId>,
 ): Rect | null {
+  const node = doc.nodes[id];
   const bounds = sceneNodeWorldBounds(doc, id, parentIndex);
   if (!bounds) return null;
+
+  // Path text paints in the referenced path's world space, not inside the
+  // text node's original w/h rectangle. Keep a conservative bound around the
+  // path so selection, hit testing, spatial indexing, and reveal/fit helpers
+  // continue to follow the pixels after attachment. The bound is deliberately
+  // conservative: the exact glyph interval depends on shaping and is owned by
+  // the engine painter, while a broad bound never drops a visible glyph.
+  if (node?.kind === 'text' && node.textMode === 'path' && node.pathTextSettings) {
+    const pathBounds = nodeWorldBounds(doc, node.pathTextSettings.pathNodeId, parentIndex);
+    if (pathBounds) {
+      const fontSize = Number.isFinite(node.fontSize) ? Math.max(1, node.fontSize) : 16;
+      const baselineShift = Number.isFinite(node.pathTextSettings.baselineShift)
+        ? Math.abs(node.pathTextSettings.baselineShift ?? 0)
+        : 0;
+      const padding = Math.max(fontSize * 1.25, baselineShift + fontSize);
+      return {
+        x: pathBounds.x - padding,
+        y: pathBounds.y - padding,
+        w: pathBounds.w + padding * 2,
+        h: pathBounds.h + padding * 2,
+      };
+    }
+  }
+
   const placement = pagePlacementForNode(placementMapFor(doc), id);
   if (!placement) return bounds;
   return { x: bounds.x + placement.x, y: bounds.y + placement.y, w: bounds.w, h: bounds.h };

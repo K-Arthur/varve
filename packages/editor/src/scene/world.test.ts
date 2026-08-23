@@ -296,6 +296,48 @@ describe('nodeWorldBounds', () => {
     expect(b.h).toBeCloseTo(10, 4);
   });
 
+  it('follows the referenced path for text-on-path bounds', () => {
+    let doc = createDocument();
+    const path = makeShapeNode(
+      'path-1',
+      { kind: 'circle', cx: 100, cy: 80, r: 40 },
+      { name: 'Ring' },
+    );
+    const text = {
+      id: 'text-1',
+      kind: 'text' as const,
+      name: 'Label',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      order: 'b0',
+      transform: [1, 0, 0, 1, 0, 0] as Affine,
+      text: 'AROUND',
+      w: 80,
+      h: 20,
+      fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+      fontSize: 20,
+      fontFamily: 'Inter',
+      fontWeight: 400,
+      fontStyle: 'normal' as const,
+      lineHeight: 1.2,
+      letterSpacing: 0,
+      textAlign: 'left' as const,
+      direction: 'auto' as const,
+      strokes: [],
+      effects: [],
+      textMode: 'path' as const,
+      pathTextSettings: { pathNodeId: 'path-1', startOffset: 0, side: 'top' as const },
+    };
+    doc = addNode(doc, path);
+    doc = addNode(doc, text as never);
+
+    const bounds = nodeWorldBounds(doc, 'text-1');
+    expect(bounds).toEqual({ x: 35, y: 15, w: 130, h: 130 });
+  });
+
   it('returns null for non-existent nodes', () => {
     const doc = createDocument();
     expect(nodeWorldBounds(doc, 'nope')).toBeNull();

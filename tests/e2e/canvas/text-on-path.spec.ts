@@ -52,7 +52,10 @@ async function editSelectedText(page: import('@playwright/test').Page, value: st
 }
 
 function textLayer(page: import('@playwright/test').Page) {
-  return page.getByRole('treeitem').filter({ hasText: /\bText:/i }).first();
+  return page
+    .getByRole('treeitem')
+    .filter({ hasText: /\bText:/i })
+    .first();
 }
 
 /** Ellipse tool, then the text tool — the two nodes the attach needs. */
@@ -118,6 +121,7 @@ test.describe('text on path', () => {
     const before = await canvas.screenshot();
     const offset = page.getByRole('slider', { name: /start offset along path/i });
     await offset.fill('35');
+    await expect(offset).toHaveValue('35');
     await page.waitForTimeout(700);
 
     expect(Buffer.compare(before, await canvas.screenshot())).not.toBe(0);

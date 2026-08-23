@@ -399,6 +399,10 @@ export function assessNodeCapability(
   // Text nodes
   if (node.kind === 'text') {
     if (!cap.supportsText) return false;
+    // The native PDF writer currently supports straight text only. Route
+    // curved text through the affected-node raster boundary so PDF output
+    // matches the live Canvas2D result without flattening the whole page.
+    if (target === 'pdf' && node.textMode === 'path') return false;
   }
 
   // Groups and frames

@@ -1,21 +1,15 @@
 /**
  * Text-on-path controls.
  *
- * The engine has placed glyphs along any of the nine shape kinds for some
- * time (`placeGlyphsOnPath` in @varve/engine, wired through the replay
- * painter and both render pipelines), and the document model has carried
- * `textMode: 'path'` with a `pathTextSettings` record alongside it. Nothing
- * in the editor ever set either one, so the capability had no way in. This
- * section is that way in: it attaches a text node to a selected path and
- * exposes the settings the renderer actually reads.
+ * Exposes the settings the renderer reads: `startOffset`, `endOffset`,
+ * `side`, `flip` and `baselineShift`.
  *
- * Deliberately narrow: `startOffset` and `side` are the two fields
- * `paintPathText` consumes today. `flip`, `endOffset` and `baselineShift`
- * exist on the type but are not read by the renderer, so offering controls
- * for them would present settings that do nothing.
+ * Undo coalescing: a slider gesture (pointerDown → many changes →
+ * pointerUp) produces one undo entry by wrapping the entire interaction
+ * in a single begin/commit transaction pair.
  */
 import type { SceneNode, TextNode } from '@varve/scene';
-import { useCallback } from 'react';
+import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -32,15 +26,65 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
   const textNode = textNodes.length === 1 ? textNodes[0] : undefined;
   const attached = textNode?.textMode === 'path' && !!textNode.pathTextSettings;
 
+  // ── undo coalescing ───────────────────────────────────────────────────
+  // Track whether a slider gesture is in flight so the entire drag
+  // produces exactly one undo entry instead of one per intermediate value.
+  const inDragRef = useRef(false);
+
+  const beginDrag = useCallback(
+    (event?: ReactPointerEvent<HTMLInputElement>) => {
+      if (event && !event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }
+      if (!inDragRef.current) {
+        inDragRef.current = true;
+        beginTransaction();
+      }
+    },
+    [beginTransaction],
+  );
+
+  const commitDrag = useCallback(
+    (event?: ReactPointerEvent<HTMLInputElement>) => {
+      if (event?.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      if (inDragRef.current) {
+        inDragRef.current = false;
+        commitTransaction();
+      }
+    },
+    [commitTransaction],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (inDragRef.current) {
+        inDragRef.current = false;
+        commitTransaction();
+      }
+    };
+  }, [commitTransaction]);
+
+  // ── patching ──────────────────────────────────────────────────────────
   const patchSettings = useCallback(
     (patch: Partial<NonNullable<TextNode['pathTextSettings']>>) => {
       if (!textNode) return;
-      beginTransaction();
+      if (!inDragRef.current) {
+        // Keyboard / programmatic change outside a gesture: immediate undo.
+        beginTransaction();
+        updateNode(textNode.id, (n) => {
+          if (n.kind !== 'text' || !n.pathTextSettings) return n;
+          return { ...n, pathTextSettings: { ...n.pathTextSettings, ...patch } };
+        });
+        commitTransaction();
+        return;
+      }
+      // During a gesture the transaction is already open.
       updateNode(textNode.id, (n) => {
         if (n.kind !== 'text' || !n.pathTextSettings) return n;
         return { ...n, pathTextSettings: { ...n.pathTextSettings, ...patch } };
       });
-      commitTransaction();
     },
     [textNode, updateNode, beginTransaction, commitTransaction],
   );
@@ -65,7 +109,13 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
   if (!settings) return null;
 
   const pathNode = state.document.nodes[settings.pathNodeId];
-  const offsetPercent = Math.round((settings.startOffset ?? 0) * 100);
+  const percent = (value: number | undefined, fallback: number): number =>
+    Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value! * 100))) : fallback;
+  const offsetPercent = percent(settings.startOffset, 0);
+  const endPercent = percent(settings.endOffset, 100);
+  const baselinePx = Number.isFinite(settings.baselineShift)
+    ? Math.max(-100, Math.min(100, Math.round(settings.baselineShift! * 10) / 10))
+    : 0;
 
   return (
     <DisclosureSection title="Text on Path" sectionId="text-on-path" defaultExpanded={true}>
@@ -86,6 +136,9 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
               max={100}
               step={1}
               value={offsetPercent}
+              onPointerDown={beginDrag}
+              onPointerUp={commitDrag}
+              onPointerCancel={commitDrag}
               onChange={(e) => patchSettings({ startOffset: Number(e.target.value) / 100 })}
               aria-label="Start offset along path"
               aria-valuemin={0}
@@ -96,6 +149,57 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
           </div>
         </div>
       </div>
+      <div className="insp-field">
+        <label className="insp-field__label" htmlFor="path-text-end">
+          End
+        </label>
+        <div className="insp-field__control">
+          <div className="insp-slider">
+            <input
+              type="range"
+              id="path-text-end"
+              className="insp-slider__input"
+              min={0}
+              max={100}
+              step={1}
+              value={endPercent}
+              onPointerDown={beginDrag}
+              onPointerUp={commitDrag}
+              onPointerCancel={commitDrag}
+              onChange={(e) => patchSettings({ endOffset: Number(e.target.value) / 100 })}
+              aria-label="End offset along path"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={endPercent}
+            />
+            <span className="insp-slider__value">{endPercent}%</span>
+          </div>
+        </div>
+      </div>
+      <FieldRow label="Baseline">
+        <div className="insp-field__control">
+          <div className="insp-slider">
+            <input
+              type="range"
+              id="path-text-baseline"
+              className="insp-slider__input"
+              min={-100}
+              max={100}
+              step={0.5}
+              value={baselinePx}
+              onPointerDown={beginDrag}
+              onPointerUp={commitDrag}
+              onPointerCancel={commitDrag}
+              onChange={(e) => patchSettings({ baselineShift: Number(e.target.value) })}
+              aria-label="Baseline shift in pixels"
+              aria-valuemin={-100}
+              aria-valuemax={100}
+              aria-valuenow={baselinePx}
+            />
+            <span className="insp-slider__value">{baselinePx}px</span>
+          </div>
+        </div>
+      </FieldRow>
       <FieldRow label="Side">
         <SegmentedControl
           label="Side of path"
@@ -105,6 +209,17 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
             { value: 'bottom', label: 'Inside' },
           ]}
           onChange={(v) => patchSettings({ side: v as 'top' | 'bottom' })}
+        />
+      </FieldRow>
+      <FieldRow label="Flip">
+        <SegmentedControl
+          label="Flip glyph orientation"
+          value={settings.flip ? 'flipped' : 'normal'}
+          options={[
+            { value: 'normal', label: 'Normal' },
+            { value: 'flipped', label: 'Flipped' },
+          ]}
+          onChange={(v) => patchSettings({ flip: v === 'flipped' })}
         />
       </FieldRow>
       <div className="insp-actions">

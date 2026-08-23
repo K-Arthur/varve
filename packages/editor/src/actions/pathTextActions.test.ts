@@ -84,7 +84,9 @@ describe('attachTextToPath', () => {
     const { editor, announce, byId } = makeEditor([textNode()], ['text-1']);
     createActionHandlers(editor, {}).attachTextToPath?.();
 
-    expect(announce).toHaveBeenCalledWith('Select a text layer and a shape to place the text on');
+    expect(announce).toHaveBeenCalledWith(
+      'Select exactly one text layer and one shape to place the text on',
+    );
     expect(asText(byId['text-1']!).textMode).toBeUndefined();
   });
 
@@ -92,7 +94,9 @@ describe('attachTextToPath', () => {
     const { editor, announce } = makeEditor([circleNode()], ['circle-1']);
     createActionHandlers(editor, {}).attachTextToPath?.();
 
-    expect(announce).toHaveBeenCalledWith('Select a text layer and a shape to place the text on');
+    expect(announce).toHaveBeenCalledWith(
+      'Select exactly one text layer and one shape to place the text on',
+    );
   });
 
   it('preserves an offset the user already dialled in when re-attaching', () => {
@@ -109,6 +113,20 @@ describe('attachTextToPath', () => {
       startOffset: 0.25,
       side: 'bottom',
     });
+  });
+
+  it('does not choose arbitrary candidates from a mixed selection', () => {
+    const extra = { ...circleNode('circle-2'), name: 'Second ring' };
+    const { editor, byId, announce } = makeEditor(
+      [textNode(), circleNode(), extra],
+      ['text-1', 'circle-1', 'circle-2'],
+    );
+    createActionHandlers(editor, {}).attachTextToPath?.();
+
+    expect(announce).toHaveBeenCalledWith(
+      'Select exactly one text layer and one shape to place the text on',
+    );
+    expect(asText(byId['text-1']!).textMode).toBeUndefined();
   });
 });
 
@@ -140,6 +158,6 @@ describe('detachTextFromPath', () => {
     const { editor, announce } = makeEditor([textNode()], ['text-1']);
     createActionHandlers(editor, {}).detachTextFromPath?.();
 
-    expect(announce).toHaveBeenCalledWith('Select a text layer that is on a path');
+    expect(announce).toHaveBeenCalledWith('Select one text layer that is on a path');
   });
 });

@@ -170,6 +170,20 @@ function buildMenus(
       : 0;
   const hasNodes = nodeCount >= 1;
   const hasMultipleNodes = nodeCount >= 2;
+  const selectedNodes = state.selection
+    .map(
+      (id) =>
+        documentNodes?.[id] as { kind?: string; textMode?: string; shape?: unknown } | undefined,
+    )
+    .filter((node): node is { kind: string; textMode?: string; shape?: unknown } => Boolean(node));
+  const canAttachTextToPath =
+    selectedNodes.length === 2 &&
+    selectedNodes.some((node) => node.kind === 'text') &&
+    selectedNodes.some((node) => node.kind === 'shape' && node.shape != null);
+  const canDetachTextFromPath =
+    selectedNodes.length === 1 &&
+    selectedNodes[0]?.kind === 'text' &&
+    selectedNodes[0]?.textMode === 'path';
 
   /** Disabled helper: returns true when action cannot run in current context. */
   const dis = (action: string): boolean | undefined => {
@@ -249,10 +263,10 @@ function buildMenus(
       case 'extractPalette':
       case 'imageTrace':
         return !hasSelection;
-      // Attaching needs a text layer and a shape; detaching needs the text.
       case 'attachTextToPath':
+        return !canAttachTextToPath;
       case 'detachTextFromPath':
-        return !hasSelection;
+        return !canDetachTextFromPath;
       case 'batchBgRemove':
         // On-device inference; a deployment can withhold it entirely.
         return !hasSelection || isCapabilityRestricted('inference');

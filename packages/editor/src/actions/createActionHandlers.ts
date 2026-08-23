@@ -559,10 +559,18 @@ export function createActionHandlers(
      */
     attachTextToPath: () => {
       const selected = e.state.selection.map((id) => e.state.document.nodes[id]);
+      if (selected.length !== 2) {
+        e.announce?.('Select exactly one text layer and one shape to place the text on');
+        return;
+      }
       const textNode = selected.find((n) => n?.kind === 'text');
       const pathNode = selected.find((n) => n?.kind === 'shape' && !!n.shape);
       if (!textNode || !pathNode) {
-        e.announce?.('Select a text layer and a shape to place the text on');
+        e.announce?.('Select exactly one text layer and one shape to place the text on');
+        return;
+      }
+      if (textNode.locked || pathNode.locked || pathNode.visible === false) {
+        e.announce?.('Unlock and show both the text and path before attaching');
         return;
       }
       e.beginTransaction();
@@ -584,13 +592,16 @@ export function createActionHandlers(
       e.announce?.(`Text placed on ${pathNode.name}`);
     },
     detachTextFromPath: () => {
-      const textNode = e.state.selection
-        .map((id) => e.state.document.nodes[id])
-        .find((n) => n?.kind === 'text' && n.textMode === 'path');
-      if (!textNode) {
-        e.announce?.('Select a text layer that is on a path');
+      const selected = e.state.selection.map((id) => e.state.document.nodes[id]);
+      if (
+        selected.length !== 1 ||
+        selected[0]?.kind !== 'text' ||
+        selected[0].textMode !== 'path'
+      ) {
+        e.announce?.('Select one text layer that is on a path');
         return;
       }
+      const textNode = selected[0];
       e.beginTransaction();
       e.updateNode(textNode.id, (n) => {
         if (n.kind !== 'text') return n;

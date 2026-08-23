@@ -1132,8 +1132,9 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
       group: 'image',
       workspaces: ['design', 'print', 'drawing'],
       enabled: (ctx) => {
-        if (ctx.selection.hasText && ctx.selection.hasVector) return true;
-        return { reason: 'Select a text layer and a shape' };
+        if (ctx.selection.count === 2 && ctx.selection.hasText && ctx.selection.hasVector)
+          return true;
+        return { reason: 'Select exactly one text layer and one shape' };
       },
       run: () => runAction('attachTextToPath'),
     },
@@ -1144,8 +1145,8 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
       group: 'image',
       workspaces: ['design', 'print', 'drawing'],
       enabled: (ctx) => {
-        if (ctx.selection.hasText) return true;
-        return { reason: 'Select a text layer that is on a path' };
+        if (ctx.selection.isSingle && ctx.selection.hasText) return true;
+        return { reason: 'Select one text layer that is on a path' };
       },
       run: () => runAction('detachTextFromPath'),
     },

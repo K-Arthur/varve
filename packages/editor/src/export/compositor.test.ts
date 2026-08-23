@@ -535,6 +535,15 @@ describe('assessNodeCapability', () => {
       const doc = makeDoc({ t1: node });
       expect(assessNodeCapability(node, doc, 'pdf')).toBe(true);
     });
+
+    it('PDF rasterizes text on path at the affected node boundary', () => {
+      const node = makeTextNode('t1', {
+        textMode: 'path',
+        pathTextSettings: { pathNodeId: 'path-1', startOffset: 0.25 },
+      });
+      const doc = makeDoc({ t1: node });
+      expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
+    });
   });
 
   describe('transforms', () => {
