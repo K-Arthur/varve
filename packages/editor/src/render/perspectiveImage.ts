@@ -65,6 +65,16 @@ function sourceDataUrl(doc: Document, fill: ImageFillData): string | null {
   return fill.src ?? null;
 }
 
+function sourceRevision(doc: Document, fill: ImageFillData, src: string): string {
+  if (fill.assetId) {
+    const asset = doc.assets?.[fill.assetId];
+    // Embedded assets are content-addressed. Include the hash so replacing a
+    // payload under a reused id cannot serve an old baked perspective.
+    return `${fill.assetId}:${asset?.hash ?? `${src.length}:${src.slice(-64)}`}`;
+  }
+  return `${src.length}:${src.slice(-64)}`;
+}
+
 /** Bake the framed content (crop/fit/rotation/flip) into a node-box surface. */
 function bakePerspectiveSurface(
   doc: Document,
@@ -87,8 +97,8 @@ function bakePerspectiveSurface(
 
   const crop = fill.crop;
   const cropKey = crop ? `${crop.x},${crop.y},${crop.w},${crop.h}` : 'none';
-  const sourceRevision = fill.assetId ?? `${src.length}:${src.slice(-64)}`;
-  const cacheKey = `${node.id}|${sourceRevision}|${cropKey}|${fill.fit}|${fill.rotation ?? 0}|${fill.flipH ? 1 : 0}|${fill.flipV ? 1 : 0}|${fill.scale}|${fill.x},${fill.y}|${fill.imageWidth}x${fill.imageHeight}|${outW}x${outH}|${bucket}`;
+  const revision = sourceRevision(doc, fill, src);
+  const cacheKey = `${node.id}|${revision}|${cropKey}|${fill.fit}|${fill.rotation ?? 0}|${fill.flipH ? 1 : 0}|${fill.flipV ? 1 : 0}|${fill.scale}|${fill.x},${fill.y}|${fill.imageWidth}x${fill.imageHeight}|${outW}x${outH}|${bucket}`;
   const cached = perspectiveSurfaceCache.get(cacheKey);
   if (cached) return cached;
 
@@ -246,9 +256,12 @@ export function decoratePerspectiveImages(input: PerspectiveDecorateInput): void
       },
       fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
       fills: [],
-      strokes: [],
-      effects: [],
-      opacity: 1,
+      // The projective primitive replaces only the image paint. Preserve the
+      // surrounding item semantics so strokes, effects, filters, opacity and
+      // blend mode remain editable and export consistently.
+      strokes: item.strokes,
+      effects: item.effects,
+      opacity: item.opacity,
     };
     items[i] = warpedItem;
   }

@@ -58,6 +58,7 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'refineMask':
     case 'trimapEdit':
     case 'crop':
+    case 'perspective':
     case 'paint':
     case 'eraser':
     case 'smudge':

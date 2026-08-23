@@ -29,6 +29,7 @@ interface Props {
 }
 
 const HANDLE_R = 6;
+const HANDLE_HIT_SIZE = 28;
 const LABELS = ['TL', 'TR', 'BR', 'BL'] as const;
 
 function worldToLocal(
@@ -116,11 +117,24 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation }: Props) {
   );
 
   const onPointerUp = useCallback(
-    (_e: React.PointerEvent) => {
+    (e: React.PointerEvent) => {
       if (!drag) return;
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
       setDrag(null);
     },
     [drag],
+  );
+
+  const onPointerCancel = useCallback(
+    (e: React.PointerEvent) => {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+      setDrag(null);
+    },
+    [],
   );
 
   // ── Escape cancels ───────────────────────────────────────────────────
@@ -176,16 +190,18 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation }: Props) {
           onPointerDown={onPointerDown(i as 0 | 1 | 2 | 3)}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerCancel={onPointerCancel}
+          onLostPointerCapture={onPointerCancel}
           aria-label={`Perspective corner ${c!.label}`}
           style={{
             position: 'absolute',
-            left: c!.x - HANDLE_R,
-            top: c!.y - HANDLE_R,
-            width: HANDLE_R * 2,
-            height: HANDLE_R * 2,
+            left: c!.x - HANDLE_HIT_SIZE / 2,
+            top: c!.y - HANDLE_HIT_SIZE / 2,
+            width: HANDLE_HIT_SIZE,
+            height: HANDLE_HIT_SIZE,
             borderRadius: '50%',
-            background: 'rgba(128, 128, 255, 0.9)',
-            border: '2px solid white',
+            background: `radial-gradient(circle ${HANDLE_R}px, rgba(128, 128, 255, 0.95) ${HANDLE_R - 1}px, white ${HANDLE_R}px, white ${HANDLE_R + 2}px, transparent ${HANDLE_R + 3}px)`,
+            border: 0,
             cursor: 'grab',
             pointerEvents: 'auto',
             zIndex: CANVAS_INTERACTIVE_OVERLAY_Z_INDEX + 1,

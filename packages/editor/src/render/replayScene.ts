@@ -8,7 +8,7 @@
  * Supports enhanced masks: clip, alpha, luminance, inversion, feather, density.
  *
  * Research basis: W3C Compositing and Blending Level 1 group isolation;
- * WHATWG Canvas 2D clipping and state-stack behavior; Strata ADR-0001.
+ * WHATWG Canvas 2D clipping and state-stack behavior; Varve ADR-0001.
  */
 
 import {
