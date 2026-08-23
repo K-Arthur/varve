@@ -176,4 +176,34 @@ describe('path-text settings reach the painter', () => {
     >;
     expect(primitive.pathTextSettings).toMatchObject({ side: 'bottom', startOffset: 0.2 });
   });
+
+  it('carries fitToPath through to the render primitive', async () => {
+    const engine = await createEngine('stub');
+    const t = label(0.25, { endOffset: 0.75 });
+    // Manually set fitToPath since the label factory doesn't expose it
+    const tWithFit = {
+      ...t,
+      pathTextSettings: { ...t.pathTextSettings, fitToPath: true },
+    };
+    const doc = createDocument('badge', true);
+    const r = ring();
+    doc.nodes[r.id] = r;
+    doc.nodes[tWithFit.id] = tWithFit as import('@varve/scene').TextNode;
+    doc.rootChildren.push(r.id, tWithFit.id);
+    const engineNode = sceneNodeToEngineNode(
+      tWithFit as import('@varve/scene').SceneNode,
+      undefined,
+      doc,
+    );
+    const ir = await engine.buildIr({ nodes: [engineNode] } as never);
+    const primitive = (ir as Array<{ primitive: Record<string, unknown> }>)[0]?.primitive as Record<
+      string,
+      unknown
+    >;
+    expect(primitive.pathTextSettings).toMatchObject({
+      fitToPath: true,
+      startOffset: 0.25,
+      endOffset: 0.75,
+    });
+  });
 });

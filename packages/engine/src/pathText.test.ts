@@ -10,6 +10,7 @@ import {
   pathLength,
   placeClustersOnPath,
   placeGlyphsOnPath,
+  placeLinesOnPath,
   samplePathAtLength,
   transformPathShape,
 } from './pathText';
@@ -576,5 +577,91 @@ describe('flattenShapedRuns', () => {
       { text: 'ב', advance: 14 },
       { text: 'א', advance: 12 },
     ]);
+  });
+});
+
+// ── placeLinesOnPath ───────────────────────────────────────────────────
+
+describe('placeLinesOnPath', () => {
+  it('places line 1 offset along the up normal (lineHeight px away)', () => {
+    const shape: Shape = { kind: 'line', from: [0, 0], to: [200, 0], tolerance: 0 };
+    const line0: PathCluster[] = [{ text: 'A', advance: 10 }];
+    const line1: PathCluster[] = [{ text: 'B', advance: 10 }];
+    const glyphs = placeLinesOnPath([line0, line1], shape, { fontSize: 16, lineHeightPx: 20 });
+    expect(glyphs.length).toBe(2);
+    approx(glyphs[0]?.y ?? 0, 0, 0.1); // line 0 on path
+    approx(glyphs[1]?.y ?? 0, -20, 0.1); // line 1 offset 20px up (side top)
+  });
+
+  it('stacks line 1 inward for side bottom', () => {
+    const shape: Shape = { kind: 'line', from: [0, 0], to: [200, 0], tolerance: 0 };
+    const line0: PathCluster[] = [{ text: 'X', advance: 10 }];
+    const line1: PathCluster[] = [{ text: 'Y', advance: 10 }];
+    const glyphs = placeLinesOnPath([line0, line1], shape, {
+      fontSize: 16,
+      lineHeightPx: 24,
+      side: 'bottom',
+    });
+    approx(glyphs[0]?.y ?? 0, 0, 0.1);
+    approx(glyphs[1]?.y ?? 0, 24, 0.1); // downward on screen = outward for bottom side
+  });
+
+  it('blank paragraphs are skipped and do not consume ring slots', () => {
+    const shape: Shape = { kind: 'line', from: [0, 0], to: [200, 0], tolerance: 0 };
+    const line0: PathCluster[] = [{ text: 'A', advance: 10 }];
+    const empty: PathCluster[] = [];
+    const line2: PathCluster[] = [{ text: 'C', advance: 10 }];
+    const glyphs = placeLinesOnPath([line0, empty, line2], shape, {
+      fontSize: 16,
+      lineHeightPx: 20,
+    });
+    expect(glyphs.length).toBe(2);
+    approx(glyphs[0]?.y ?? 0, 0, 0.1);
+    approx(glyphs[1]?.y ?? 0, -20, 0.1); // placedLineIndex 1 → 1*20 up
+  });
+
+  it('multiline ring has outer ring larger than inner', () => {
+    const shape: Shape = { kind: 'circle', cx: 0, cy: 0, r: 80 };
+    const clusters: PathCluster[] = [{ text: 'X', advance: 10 }];
+    const glyphs = placeLinesOnPath([clusters, clusters], shape, {
+      fontSize: 16,
+      lineHeightPx: 15,
+    });
+    const r0 = Math.hypot(glyphs[0]?.x ?? 0, glyphs[0]?.y ?? 0);
+    const r1 = Math.hypot(glyphs[1]?.x ?? 0, glyphs[1]?.y ?? 0);
+    expect(r1).toBeGreaterThan(r0);
+  });
+});
+
+// ── fitToInterval ──────────────────────────────────────────────────────
+
+describe('fitToInterval', () => {
+  it('stretches single-line text to span the full interval', () => {
+    const shape: Shape = { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 0 };
+    const clusters: PathCluster[] = [
+      { text: 'A', advance: 10 },
+      { text: 'B', advance: 10 },
+    ];
+    const glyphs = placeLinesOnPath([clusters], shape, {
+      fontSize: 16,
+      offset: 0,
+      endOffset: 1,
+      fitToInterval: true,
+    });
+    expect(glyphs.length).toBe(2);
+    // First glyph at 0, second at 100 (full span)
+    approx(glyphs[0]?.x ?? 0, 0, 1);
+    approx(glyphs[1]?.x ?? 0, 90, 1); // advance=10 + extra=80 gap
+  });
+
+  it('single cluster does not crash', () => {
+    const shape: Shape = { kind: 'line', from: [0, 0], to: [50, 0], tolerance: 0 };
+    const clusters: PathCluster[] = [{ text: 'X', advance: 10 }];
+    const glyphs = placeLinesOnPath([clusters], shape, {
+      fontSize: 16,
+      fitToInterval: true,
+    });
+    expect(glyphs.length).toBe(1);
+    expect(Number.isFinite(glyphs[0]?.x)).toBe(true);
   });
 });
