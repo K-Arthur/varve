@@ -6,7 +6,7 @@
  */
 
 import type { ContainerNode, LayerColor, NodeId, SceneNode } from '@varve/scene';
-import { isContainer } from '@varve/scene';
+import { documentHasSolo, isContainer } from '@varve/scene';
 import {
   ContextMenu,
   type MenuEntry,
@@ -38,6 +38,7 @@ import './layers.css';
 import { VariablePanel } from '../../VariablePanel';
 import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
 import { TokenSyncPanel } from '../TokenSync/TokenSyncPanel';
+import { LayerStatesSection } from './LayerStatesSection';
 import { SelectionSetsSection } from './SelectionSetsSection';
 
 export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHandle | null> }) {
@@ -47,6 +48,8 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     removeSelected,
     setNodeLocked,
     setNodeVisible,
+    setNodeSolo,
+    exitSolo,
     reparentNode,
     groupSelected,
     ungroupSelected,
@@ -77,6 +80,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     showToast,
   } = useEditor();
   const [filterSpec, setFilterSpec] = useState<LayerFilterSpec>(DEFAULT_FILTER);
+  const anySolo = useMemo(() => documentHasSolo(state.document), [state.document]);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -305,6 +309,14 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     closeMenu();
   }, [selectAllOfType, closeMenu]);
 
+  const handleSoloFromMenu = useCallback(() => {
+    if (contextMenu) {
+      const id = contextMenu.id;
+      setNodeSolo(id, !state.document.nodes[id]?.solo);
+    }
+    closeMenu();
+  }, [contextMenu, setNodeSolo, state.document.nodes, closeMenu]);
+
   const COLOR_LABELS: Record<NonNullable<LayerColor>, string> = {
     red: 'Red',
     orange: 'Orange',
@@ -451,6 +463,19 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
                   <SolidIcon name={SOLID_CHROME_ICONS.image} size="0.85em" />
                 </button>
               </Tooltip>
+              {anySolo && (
+                <Tooltip label="Exit solo — show all layers">
+                  <button
+                    type="button"
+                    className="layers-panel__solo-exit-btn"
+                    onClick={() => exitSolo()}
+                    aria-label="Exit solo view"
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.star} size="0.85em" />
+                    <span>Exit Solo</span>
+                  </button>
+                </Tooltip>
+              )}
             </div>
           </TooltipProvider>
         </div>
@@ -479,6 +504,12 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
         filterSpec={filterSpec}
         onContextMenu={handleContextMenu}
         onContextMenuKeyboard={handleContextMenuKeyboard}
+        onToggleSolo={(id) => {
+          const ids =
+            state.selection.length > 1 && state.selection.includes(id) ? state.selection : [id];
+          const anySolo = ids.some((sid) => state.document.nodes[sid]?.solo);
+          for (const sid of ids) setNodeSolo(sid, !anySolo);
+        }}
       />
 
       {state.selection.length >= 2 && !isFiltering(filterSpec) && (
@@ -530,6 +561,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             handleSelectSameType,
             handleSelectSameLayerColor,
             handleSelectAllOfType,
+            handleSoloFromMenu,
             handleRevealOnCanvas,
             enableAutoReveal: () => updateLayerSettings({ autoReveal: true }),
             addMaskToSelected,
@@ -572,6 +604,8 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       </div>
 
       <SelectionSetsSection />
+
+      <LayerStatesSection />
     </div>
   );
 }
@@ -609,6 +643,7 @@ interface BuildLayerMenuItemsArgs {
   handleSelectSameType: () => void;
   handleSelectSameLayerColor: () => void;
   handleSelectAllOfType: () => void;
+  handleSoloFromMenu: () => void;
   handleRevealOnCanvas: () => void;
   enableAutoReveal: () => void;
   addMaskToSelected: (type: 'alpha' | 'clip' | 'luminance', sourceNodeId?: string) => void;
@@ -661,6 +696,7 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     handleSelectSameType,
     handleSelectSameLayerColor,
     handleSelectAllOfType,
+    handleSoloFromMenu,
     handleRevealOnCanvas,
     enableAutoReveal,
     addMaskToSelected,
@@ -682,6 +718,9 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     { id: 'copy', label: 'Copy', badge: 'Ctrl+C', onAction: handleCopy },
     { id: 'cut', label: 'Cut', badge: 'Ctrl+X', onAction: handleCut },
     { id: 'paste', label: 'Paste', badge: 'Ctrl+V', onAction: handlePaste },
+    { id: 'sep-order', separator: true },
+    { id: 'front', label: 'Bring to Front', badge: 'Ctrl+Shift+]', onAction: handleMoveToFront },
+    { id: 'back', label: 'Send to Back', badge: 'Ctrl+Shift+[', onAction: handleMoveToBack },
   ];
 
   if (contextMenuNode?.kind === 'group' && contextMenuNode.traceMetadata !== undefined) {
@@ -752,95 +791,123 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     },
   });
 
-  items.push(
-    { id: 'sep2', separator: true },
-    { id: 'group', label: 'Group', badge: 'Ctrl+G', disabled: !canGroup, onAction: handleGroup },
-    {
-      id: 'ungroup',
-      label: 'Ungroup',
-      badge: 'Ctrl+Shift+G',
-      disabled: !isGroupSelected,
-      onAction: handleUngroup,
-    },
-    {
-      id: 'detach',
-      label: 'Detach Instance',
-      disabled: !isInstanceSelected,
-      onAction: handleDetach,
-    },
-    {
-      id: 'sync',
-      label: 'Sync Component',
-      disabled: !isInstanceSelected,
-      onAction: handleSyncInstance,
-    },
-    {
-      id: 'publish',
-      label: 'Publish to Library',
-      disabled: !isComponentMasterSelected,
-      onAction: handlePublishToLibrary,
-    },
-    { id: 'sep3', separator: true },
-    { id: 'front', label: 'Bring to Front', badge: 'Ctrl+Shift+]', onAction: handleMoveToFront },
-    { id: 'back', label: 'Send to Back', badge: 'Ctrl+Shift+[', onAction: handleMoveToBack },
-  );
-
-  if (contextMenuIsContainer && !contextMenuHasMask) {
+  // Structure submenu — group/ungroup and component operations
+  const hasStructuralOps =
+    canGroup || isGroupSelected || isInstanceSelected || isComponentMasterSelected;
+  if (hasStructuralOps) {
     items.push(
-      { id: 'sep-mask-add', separator: true },
+      { id: 'sep2', separator: true },
       {
-        id: 'mask-alpha',
-        label: 'Add Alpha Mask',
-        onAction: () => {
-          addMaskToSelected('alpha');
-          closeMenu();
-        },
-      },
-      {
-        id: 'mask-clip',
-        label: 'Add Clip Mask',
-        onAction: () => {
-          addMaskToSelected('clip');
-          closeMenu();
-        },
-      },
-      {
-        id: 'mask-luminance',
-        label: 'Add Luminance Mask',
-        onAction: () => {
-          addMaskToSelected('luminance');
-          closeMenu();
-        },
+        id: 'structure-submenu',
+        label: 'Structure',
+        type: 'submenu' as const,
+        submenu: [
+          {
+            id: 'group',
+            label: 'Group',
+            badge: 'Ctrl+G',
+            disabled: !canGroup,
+            onAction: handleGroup,
+          },
+          {
+            id: 'ungroup',
+            label: 'Ungroup',
+            badge: 'Ctrl+Shift+G',
+            disabled: !isGroupSelected,
+            onAction: handleUngroup,
+          },
+          { id: 'struct-sep', separator: true },
+          {
+            id: 'detach',
+            label: 'Detach Instance',
+            disabled: !isInstanceSelected,
+            onAction: handleDetach,
+          },
+          {
+            id: 'sync',
+            label: 'Sync Component',
+            disabled: !isInstanceSelected,
+            onAction: handleSyncInstance,
+          },
+          {
+            id: 'publish',
+            label: 'Publish to Library',
+            disabled: !isComponentMasterSelected,
+            onAction: handlePublishToLibrary,
+          },
+        ],
       },
     );
   }
 
-  if (contextMenuHasMask) {
+  // Masking submenu
+  const hasMaskOps = contextMenuIsContainer || contextMenuHasMask;
+  if (hasMaskOps) {
+    const maskEntries: MenuEntry[] = [];
+    if (contextMenuIsContainer && !contextMenuHasMask) {
+      maskEntries.push(
+        {
+          id: 'mask-alpha',
+          label: 'Add Alpha Mask',
+          onAction: () => {
+            addMaskToSelected('alpha');
+            closeMenu();
+          },
+        },
+        {
+          id: 'mask-clip',
+          label: 'Add Clip Mask',
+          onAction: () => {
+            addMaskToSelected('clip');
+            closeMenu();
+          },
+        },
+        {
+          id: 'mask-luminance',
+          label: 'Add Luminance Mask',
+          onAction: () => {
+            addMaskToSelected('luminance');
+            closeMenu();
+          },
+        },
+      );
+    }
+    if (contextMenuHasMask) {
+      if (maskEntries.length > 0) maskEntries.push({ id: 'mask-sep', separator: true });
+      maskEntries.push(
+        {
+          id: 'mask-remove',
+          label: 'Remove Mask',
+          onAction: () => {
+            removeMaskFromSelected();
+            closeMenu();
+          },
+        },
+        {
+          id: 'mask-toggle',
+          label: 'Toggle Mask',
+          onAction: () => {
+            toggleMask();
+            closeMenu();
+          },
+        },
+        {
+          id: 'mask-invert',
+          label: 'Invert Mask',
+          onAction: () => {
+            invertMask();
+            closeMenu();
+          },
+        },
+      );
+    }
     items.push(
-      { id: 'sep-mask-edit', separator: true },
+      { id: 'sep-mask', separator: true },
       {
-        id: 'mask-remove',
-        label: 'Remove Mask',
-        onAction: () => {
-          removeMaskFromSelected();
-          closeMenu();
-        },
-      },
-      {
-        id: 'mask-toggle',
-        label: 'Toggle Mask',
-        onAction: () => {
-          toggleMask();
-          closeMenu();
-        },
-      },
-      {
-        id: 'mask-invert',
-        label: 'Invert Mask',
-        onAction: () => {
-          invertMask();
-          closeMenu();
-        },
+        id: 'masking-submenu',
+        label: 'Masking',
+        type: 'submenu' as const,
+        submenu: maskEntries,
       },
     );
   }
@@ -858,6 +925,13 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     { id: 'lock', label: 'Lock', onAction: () => handleLockFromMenu(true) },
     { id: 'hide', label: 'Hide', onAction: () => handleVisibilityFromMenu(false) },
   );
+
+  const soloed = documentNodes[nodeId]?.solo === true;
+  items.push({
+    id: 'solo',
+    label: soloed ? 'Unsolo' : 'Solo',
+    onAction: handleSoloFromMenu,
+  });
 
   const snapExcluded = documentNodes[nodeId]?.snapExcluded;
   items.push({
@@ -881,10 +955,16 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
         { id: 'color-none', label: 'No Color', onAction: () => handleSetLayerColor(null) },
       ],
     },
-    { id: 'sep6', separator: true },
-    { id: 'select-type', label: 'Select Same Type', onAction: handleSelectSameType },
-    { id: 'select-color', label: 'Select Same Color', onAction: handleSelectSameLayerColor },
-    { id: 'select-all-type', label: 'Select All of Type', onAction: handleSelectAllOfType },
+    {
+      id: 'select-submenu',
+      label: 'Select',
+      type: 'submenu' as const,
+      submenu: [
+        { id: 'select-type', label: 'Select Same Type', onAction: handleSelectSameType },
+        { id: 'select-color', label: 'Select Same Color', onAction: handleSelectSameLayerColor },
+        { id: 'select-all-type', label: 'Select All of Type', onAction: handleSelectAllOfType },
+      ],
+    },
     { id: 'sep7', separator: true },
     { id: 'reveal-canvas', label: 'Reveal on Canvas', onAction: handleRevealOnCanvas },
     {

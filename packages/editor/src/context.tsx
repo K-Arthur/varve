@@ -48,6 +48,7 @@ import { isCapabilityRestricted, setBumpThemeRevisionHandler } from './context/s
 import { useAutoBackupServices } from './context/useAutoBackupServices';
 import { type ImportedResourceSet, mergeImportedResources } from './import/mergeImportedResources';
 import { pathPointsWorldToLocal } from './tools/pathCoords';
+import { getLastRepeatTransform } from './transform/repeatTransform';
 
 /** Module-level bridge giving the BackupSettingsPanel access to the editor's
  *  BackupService without threading it through the EditorContextValue interface.
@@ -103,31 +104,14 @@ import {
   type PrototypeRuntime,
   processDelays as protoProcessDelays,
 } from '@varve/prototype';
-import type {
-  AdjustmentNode,
-  BitDepth,
-  ColorMode,
-  ContainerNode,
-  ExportPreset,
-  FacingPagesConfig,
-  Fill,
-  ImageFillData,
-  InstanceStatus,
-  LiveTraceParams,
-  ManagedColor,
-  MasterAppliesTo,
-  NodeId,
-  Slot,
-  SyncResult,
-  TableModel,
-  WorkingSpace,
-} from '@varve/scene';
 import {
+  type AdjustmentNode,
   type ArrangeOp,
   addChild,
   addComponentProperty as addComponentPropertyDoc,
   addGuide as addGuideDoc,
   addInteraction as addInteractionDoc,
+  addLayerState as addLayerStateDoc,
   addMask as addMaskDoc,
   addNode,
   addSMInput,
@@ -140,14 +124,19 @@ import {
   appendFrameToChain as appendFrameToChainDoc,
   applyConstraints,
   applyFormatToSelection as applyFormatToSelectionOp,
+  applyLayerState as applyLayerStateDoc,
   arrangeNode as arrangeNodeDoc,
   assignDocumentColorMode as assignDocumentColorModeDoc,
   assignMasterToPage as assignMasterToPageDoc,
+  type BitDepth,
   type BleedConfig,
   booleanAnchorForNode,
   buildParentIndexMap,
+  type ColorMode,
+  type ContainerNode,
   canBeClipMaskSource,
   canHaveSmartFilters,
+  captureLayerState as captureLayerStateDoc,
   clearGuides,
   clearLiveTrace as clearLiveTraceDoc,
   cloneSmartFilters,
@@ -183,6 +172,9 @@ import {
   duplicateMaster as duplicateMasterDoc,
   duplicateSelectionSet as duplicateSelectionSetDoc,
   duplicateSMState,
+  type ExportPreset,
+  type FacingPagesConfig,
+  type Fill,
   fillSlot as fillSlotDoc,
   filterKindDisplayName,
   findOrCreateEmbeddedAsset,
@@ -200,6 +192,8 @@ import {
   getParent,
   getSpreadForPage as getSpreadForPageDoc,
   groupNodes as groupNodesDoc,
+  type ImageFillData,
+  type InstanceStatus,
   installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
   isAdjustmentEligible,
@@ -207,8 +201,11 @@ import {
   isContainer,
   isImageShape,
   isPageOnLeftSide as isPageOnLeftSideDoc,
+  type LiveTraceParams,
   linkFrame as linkFrameDoc,
+  type ManagedColor,
   type MaskType,
+  type MasterAppliesTo,
   makeAdjustmentNode,
   makeFrameNode,
   makeGroupNode,
@@ -220,6 +217,7 @@ import {
   moveChild,
   moveGuide as moveGuideDoc,
   moveNode,
+  type NodeId,
   nextNodeId,
   pageBoundsInWorld,
   pasteboardBounds,
@@ -228,11 +226,13 @@ import {
   promoteToRichText as promoteToRichTextOp,
   pushMasterChanges as pushMasterChangesDoc,
   rebuildSpreads as rebuildSpreadsDoc,
+  recaptureLayerStateDoc,
   releaseClippingMask as releaseClippingMaskDoc,
   removeFrameFromChain as removeFrameFromChainDoc,
   removeFromSelectionSet as removeFromSelectionSetDoc,
   removeGuide as removeGuideDoc,
   removeInteraction as removeInteractionDoc,
+  removeLayerState as removeLayerStateDoc,
   removeMask as removeMaskDoc,
   removeNode,
   removeSMInput,
@@ -240,6 +240,7 @@ import {
   removeSMTransition,
   removeSpotFromLibrary as removeSpotFromLibraryDoc,
   removeStateMachine,
+  renameLayerState as renameLayerStateDoc,
   renameMaster as renameMasterDoc,
   renameNode,
   renameSelectionSet as renameSelectionSetDoc,
@@ -256,8 +257,10 @@ import {
   type SceneNode,
   type SelectionSet,
   type SelectionSetScope,
+  type Slot,
   type SlugConfig,
   type SMRuntime,
+  type SyncResult,
   initializeDefaultGridSettings as sceneInitializeGridSettings,
   setDocumentGrid as sceneSetDocumentGrid,
   setIsometricGrid as sceneSetIsometricGrid,
@@ -303,6 +306,7 @@ import {
   swapInstance as swapInstanceDoc,
   syncAllInstances as syncAllInstancesDoc,
   syncInstance as syncInstanceDoc,
+  type TableModel,
   toggleFacingPages as toggleFacingPagesDoc,
   toggleGuideLock as toggleGuideLockDoc,
   ungroupNode as ungroupNodeDoc,
@@ -316,6 +320,7 @@ import {
   type VariableValue,
   validateDocument,
   validateStateMachine as validateSM,
+  type WorkingSpace,
   walkNodes,
 } from '@varve/scene';
 import {
@@ -337,6 +342,7 @@ import {
   revealBoundsCamera,
   screenDeltaToWorld,
   transformRect,
+  tryInvertAffine,
   type Viewport,
   zoomAboutPoint,
 } from '@varve/shared';
@@ -1107,6 +1113,26 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   setNodeLocked: (id: NodeId, locked: boolean) => void;
   /** Toggle the visible state of a node. */
   setNodeVisible: (id: NodeId, visible: boolean) => void;
+  /** Capture a sparse layer state (visibility/transforms/appearance) for the selection. */
+  captureLayerState: (
+    name?: string,
+    categories?: Array<'visibility' | 'transforms' | 'appearance'>,
+  ) => import('@varve/scene').LayerState | null;
+  /** Apply a captured layer state to still-valid nodes. Returns the number of
+   *  node references in the state that no longer exist (conflict count). */
+  applyLayerState: (stateId: string) => number;
+  /** Re-capture a state's values from the current selection. */
+  recaptureLayerState: (stateId: string) => void;
+  /** Rename a captured layer state. */
+  renameLayerState: (stateId: string, name: string) => void;
+  /** Delete a captured layer state. */
+  deleteLayerState: (stateId: string) => void;
+  /** Duplicate a captured layer state. */
+  duplicateLayerState: (stateId: string) => void;
+  /** Set the solo flag on a node (reversible focus mode). */
+  setNodeSolo: (id: NodeId, solo: boolean) => void;
+  /** Clear the solo flag on every node. */
+  exitSolo: () => void;
   /** Toggle clipContent on a frame node. */
   setNodeClipContent: (id: NodeId, clipContent: boolean) => void;
   /** Set a layer color tag on a node (or null to remove). */
@@ -5053,6 +5079,33 @@ export function EditorProvider({
         });
       },
 
+      // Repeat the last transform gesture (resize/rotate/skew) on the
+      // current selection.
+      repeatLastTransform: () => {
+        const repeat = getLastRepeatTransform();
+        if (!repeat) return;
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            const nodeWorld = nodeWorldTransform(doc, id);
+            const newWorld = multiplyAffine(repeat.delta, nodeWorld);
+            const parent = getParent(doc, id);
+            const parentWorld = parent
+              ? nodeWorldTransform(doc, parent)
+              : ([1, 0, 0, 1, 0, 0] as Affine);
+            const parentInv = tryInvertAffine(parentWorld);
+            if (!parentInv) continue;
+            const newLocal = multiplyAffine(parentInv, newWorld);
+            nodes[id] = { ...node, transform: newLocal } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
       // F6: batch-edit skew — apply shear to the affine transform.
       setSelectedSkew: (skewXDeg: number, skewYDeg: number) => {
         const sel = state.selection;
@@ -6293,6 +6346,66 @@ export function EditorProvider({
 
       setNodeVisible: (id, visible) => {
         updateNodeProp(id, (n) => ({ ...n, visible }));
+      },
+
+      captureLayerState: (name, categories) => {
+        const sel = state.selection;
+        if (sel.length === 0) return null;
+        const cats = categories ?? ['visibility', 'transforms', 'appearance'];
+        const baseName = name?.trim() || `State ${(state.document.layerStates?.length ?? 0) + 1}`;
+        const set = captureLayerStateDoc(state.document, baseName, sel, cats);
+        updateDoc((doc) => addLayerStateDoc(doc, set));
+        return set;
+      },
+
+      applyLayerState: (stateId) => {
+        const ls = state.document.layerStates?.find((s) => s.id === stateId);
+        if (!ls) return 0;
+        const result = applyLayerStateDoc(state.document, ls);
+        updateDoc(() => result.doc);
+        return result.skipped.length;
+      },
+
+      recaptureLayerState: (stateId) => {
+        const ls = state.document.layerStates?.find((s) => s.id === stateId);
+        if (!ls) return;
+        const sel = state.selection;
+        updateDoc((doc) => recaptureLayerStateDoc(doc, ls, sel.length ? sel : undefined));
+      },
+
+      renameLayerState: (stateId, name) => {
+        if (!name.trim()) return;
+        updateDoc((doc) => renameLayerStateDoc(doc, stateId, name.trim()));
+      },
+
+      deleteLayerState: (stateId) => {
+        updateDoc((doc) => removeLayerStateDoc(doc, stateId));
+      },
+
+      duplicateLayerState: (stateId) => {
+        const ls = state.document.layerStates?.find((s) => s.id === stateId);
+        if (!ls) return;
+        const copy = { ...ls, id: `${ls.id}-${Date.now().toString(36)}`, name: `${ls.name} copy` };
+        updateDoc((doc) => addLayerStateDoc(doc, copy));
+      },
+
+      setNodeSolo: (id, solo) => {
+        updateNodeProp(id, (n) => ({ ...n, solo }));
+      },
+
+      exitSolo: () => {
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          let changed = false;
+          for (const nid of Object.keys(nodes)) {
+            const node = nodes[nid]!;
+            if (node.solo) {
+              nodes[nid] = { ...node, solo: false };
+              changed = true;
+            }
+          }
+          return changed ? { ...doc, nodes } : doc;
+        });
       },
 
       setNodeClipContent: (id, clipContent) => {
@@ -9615,6 +9728,7 @@ export function EditorProvider({
       setSelectedRotation: value.setSelectedRotation,
       setSelectedFlipH: value.setSelectedFlipH,
       setSelectedFlipV: value.setSelectedFlipV,
+      repeatLastTransform: value.repeatLastTransform,
       setSelectedSkew: value.setSelectedSkew,
       setSelectedCornerRadius: value.setSelectedCornerRadius,
       createSelectionSet: value.createSelectionSet,
@@ -9690,6 +9804,14 @@ export function EditorProvider({
       booleanOpRaster: value.booleanOpRaster,
       setNodeLocked: value.setNodeLocked,
       setNodeVisible: value.setNodeVisible,
+      captureLayerState: value.captureLayerState,
+      applyLayerState: value.applyLayerState,
+      recaptureLayerState: value.recaptureLayerState,
+      renameLayerState: value.renameLayerState,
+      deleteLayerState: value.deleteLayerState,
+      duplicateLayerState: value.duplicateLayerState,
+      setNodeSolo: value.setNodeSolo,
+      exitSolo: value.exitSolo,
       setNodeClipContent: value.setNodeClipContent,
       setLayerColor: value.setLayerColor,
       setNodeLayout: value.setNodeLayout,

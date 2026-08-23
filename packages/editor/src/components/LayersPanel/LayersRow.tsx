@@ -18,6 +18,7 @@ import type {
 } from '@varve/scene';
 import {
   activeSmartFilters,
+  documentHasSolo,
   isAnimatedMediaNode,
   isContainer,
   isImageShape,
@@ -54,6 +55,7 @@ export interface LayersRowProps {
   onDoubleClickIcon?: (id: NodeId) => void;
   onToggleVisibility: (id: NodeId) => void;
   onToggleLock: (id: NodeId) => void;
+  onToggleSolo?: (id: NodeId) => void;
   onToggleSelectionCheckbox?: (id: NodeId) => void;
   onFocus: (idx: number) => void;
   idx: number;
@@ -140,6 +142,7 @@ export const LayersRow = memo(function LayersRow({
   onDoubleClickIcon,
   onToggleVisibility,
   onToggleLock,
+  onToggleSolo,
   onToggleSelectionCheckbox,
   onFocus,
   idx,
@@ -282,12 +285,18 @@ export const LayersRow = memo(function LayersRow({
     }
   }, [editing, node.name]);
 
+  const anySolo = doc ? documentHasSolo(doc) : false;
+  const isSoloed = node.solo === true;
+  const soloDimmed = anySolo && !isSoloed;
+
   const rowClass = [
     'layers-row',
     selected ? 'layers-row--selected' : '',
     focused ? 'layers-row--focused' : '',
     !node.visible ? 'layers-row--hidden' : '',
     node.locked ? 'layers-row--locked' : '',
+    isSoloed ? 'layers-row--soloed' : '',
+    soloDimmed ? 'layers-row--solo-dimmed' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -576,6 +585,19 @@ export const LayersRow = memo(function LayersRow({
         {/* Blend mode / opacity badge */}
         {badgeText && !editing && <span className="layers-row__badge">{badgeText}</span>}
 
+        {/* Effects badge — drop shadow, blur, glow, etc. */}
+        {'effects' in node && node.effects && node.effects.length > 0 && !editing && (
+          <Tooltip label={`${node.effects.length} effect${node.effects.length === 1 ? '' : 's'}`}>
+            <span
+              className="layers-row__effects-badge"
+              role="status"
+              aria-label={`${node.effects.length} effect${node.effects.length === 1 ? '' : 's'}`}
+            >
+              {node.effects.length}fx
+            </span>
+          </Tooltip>
+        )}
+
         {/* Object Filter indicator — filters are node-local, so keep their
             presence discoverable in the layer tree without pretending they
             are separate scene nodes. */}
@@ -667,6 +689,25 @@ export const LayersRow = memo(function LayersRow({
             />
           )}
         </button>
+
+        {/* Solo toggle — focus the canvas on just this layer (and any others also soloed). */}
+        {onToggleSolo && (
+          <button
+            type="button"
+            className={`layers-row__toggle ${
+              isSoloed ? 'layers-row__toggle--solo-on' : 'layers-row__toggle--solo-off'
+            }`}
+            tabIndex={-1}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSolo(node.id);
+            }}
+            aria-label={isSoloed ? `Unsolo ${node.name}` : `Solo ${node.name}`}
+            aria-pressed={isSoloed}
+          >
+            <SolidIcon name={SOLID_CHROME_ICONS.star} size="0.85em" />
+          </button>
+        )}
       </div>
     </>
   );

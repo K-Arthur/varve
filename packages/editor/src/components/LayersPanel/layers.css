@@ -115,6 +115,23 @@
   background: var(--color-surface-hover);
 }
 
+.layers-panel__solo-exit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+}
+
+.layers-panel__solo-exit-btn:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
 .layers-panel__collapse-all-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
@@ -304,6 +321,14 @@
 
 .layers-row--locked {
   cursor: not-allowed;
+}
+
+.layers-row--solo-dimmed {
+  opacity: 0.35;
+}
+
+.layers-row--soloed {
+  background-color: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 /* ─── Disclosure ────────────────────────────────────────────── */
@@ -657,6 +682,21 @@
   white-space: nowrap;
 }
 
+/* ─── Effects badge (drop shadow, blur, glow, etc.) ───────── */
+.layers-row__effects-badge {
+  background: color-mix(
+    in oklab,
+    var(--color-accent-secondary, var(--color-accent)) 14%,
+    transparent
+  );
+  border-radius: var(--radius-sm);
+  color: var(--color-accent-secondary, var(--color-accent));
+  flex-shrink: 0;
+  font-size: var(--font-size-2xs);
+  padding: 0 var(--space-1);
+  white-space: nowrap;
+}
+
 .layers-row__mask-role {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
@@ -707,6 +747,15 @@
 }
 
 .layers-row__toggle--locked-off {
+  opacity: 0.25;
+}
+
+.layers-row__toggle--solo-on {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.layers-row__toggle--solo-off {
   opacity: 0.25;
 }
 

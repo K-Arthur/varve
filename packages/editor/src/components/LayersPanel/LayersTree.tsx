@@ -382,6 +382,8 @@ export interface LayersTreeProps {
   onContextMenu?: (e: React.MouseEvent, id: NodeId) => void;
   /** Keyboard-triggered context menu (Shift+F10 / Menu key) for the focused row. */
   onContextMenuKeyboard?: (id: NodeId) => void;
+  /** Toggle the solo flag on a node (focus mode). */
+  onToggleSolo?: (id: NodeId) => void;
 }
 
 /** Handlers exposed to the parent DndContext and LayersPanel via ref. */
@@ -406,7 +408,7 @@ export interface LayersDnDHandle {
 }
 
 export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function LayersTree(
-  { filterSpec = DEFAULT_FILTER, onContextMenu, onContextMenuKeyboard },
+  { filterSpec = DEFAULT_FILTER, onContextMenu, onContextMenuKeyboard, onToggleSolo },
   ref,
 ) {
   const {
@@ -1530,6 +1532,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                     const anyVisible = ids.some((sid) => state.document.nodes[sid]?.visible);
                     for (const sid of ids) setNodeVisible(sid, !anyVisible);
                   }}
+                  onToggleSolo={onToggleSolo}
                   onToggleLock={(id) => {
                     const ids =
                       state.selection.length > 1 && state.selection.includes(id)
@@ -1581,6 +1584,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
               onRenameCancel={() => {}}
               onToggleVisibility={() => {}}
               onToggleLock={() => {}}
+              onToggleSolo={onToggleSolo}
               onFocus={() => {}}
               idx={-1}
               onDoubleClickIcon={undefined}
@@ -1621,6 +1625,7 @@ interface SortableVirtualRowProps {
   onRenameCycle?: (direction: 'next' | 'previous') => void;
   onToggleVisibility: (id: NodeId) => void;
   onToggleLock: (id: NodeId) => void;
+  onToggleSolo?: (id: NodeId) => void;
   onToggleSelectionCheckbox?: (id: NodeId) => void;
   onFocus: (idx: number) => void;
   idx: number;
@@ -1656,6 +1661,7 @@ function SortableVirtualRow({
   onRenameCycle,
   onToggleVisibility,
   onToggleLock,
+  onToggleSolo,
   onToggleSelectionCheckbox,
   onFocus,
   idx,
@@ -1762,6 +1768,7 @@ function SortableVirtualRow({
         onRenameCycle={onRenameCycle}
         onToggleVisibility={onToggleVisibility}
         onToggleLock={onToggleLock}
+        onToggleSolo={onToggleSolo}
         onToggleSelectionCheckbox={onToggleSelectionCheckbox}
         onFocus={onFocus}
         idx={idx}
