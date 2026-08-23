@@ -5,6 +5,8 @@
  * and other node-to-node references are remapped.
  */
 
+import type { ExportPreset } from './export-types';
+import { mintId } from './identity';
 import { nextNodeId } from './node-id';
 import { tableContentNodeIds } from './table';
 import { remapTableModelIds } from './tableOps';
@@ -104,6 +106,36 @@ function remapScope(
  * The caller is responsible for adding the cloned nodes to a document
  * and updating any external references.
  */
+/**
+ * Clone per-node export presets into fresh, unshared objects with freshly
+ * minted ids. A duplicated/pasted node must not alias the source node's
+ * preset array (mutating one would corrupt the other) nor reuse its preset
+ * ids (batch plans key configurations by preset id, so shared ids would
+ * collapse plan lookups across nodes).
+ */
+function clonePresets(
+  presets: ExportPreset[],
+  doc: { nextId: number },
+): {
+  presets: ExportPreset[];
+  doc: { nextId: number };
+} {
+  let counter = doc;
+  const cloned = presets.map((preset) => {
+    const id = mintId('p', counter.nextId);
+    counter = { ...counter, nextId: counter.nextId + 1 };
+    return {
+      ...preset,
+      ...(preset.raster ? { raster: { ...preset.raster } } : {}),
+      ...(preset.vector ? { vector: { ...preset.vector } } : {}),
+      ...(preset.print ? { print: { ...preset.print } } : {}),
+      ...(preset.code ? { code: { ...preset.code } } : {}),
+      id,
+    };
+  });
+  return { presets: cloned, doc: counter };
+}
+
 export function deepCloneSubtree(
   nodes: Record<NodeId, SceneNode>,
   nextIdCounter: number,
@@ -205,6 +237,15 @@ export function deepCloneSubtree(
       cloned = { ...node, id: newId } as SceneNode;
     }
 
+    // Clone per-node export presets so duplicated/pasted nodes do not share
+    // mutable arrays or ids with the original (§60 persistence invariant).
+    const presets = (node as { presets?: ExportPreset[] }).presets;
+    if (Array.isArray(presets) && presets.length > 0) {
+      const result = clonePresets(presets, currentDoc);
+      cloned = { ...cloned, presets: result.presets } as SceneNode;
+      currentDoc = result.doc;
+    }
+
     newNodes[newId] = cloned;
     return newId;
   }
@@ -295,6 +336,27 @@ export function deepCloneSubtree(
       if (originalScope) {
         const remapped = remapScope(originalScope, idMap, dropForeign);
         (newNodes[newId] as import('./types').AdjustmentNode).scope = remapped;
+      }
+    }
+    // Remap pathTextSettings.pathNodeId: if the referenced path was cloned,
+    // point at the new clone. Under dropForeign (cross-document paste), a
+    // foreign path that was not included in the clone is invalid — detach
+    // rather than leave a dangling ID. Under same-document duplicate, the
+    // original path still exists in the document so an unmapped reference
+    // remains valid.
+    if (original.kind === 'text' && original.pathTextSettings) {
+      const pathId = original.pathTextSettings.pathNodeId;
+      const mappedPath = idMap.get(pathId);
+      if (mappedPath) {
+        (newNodes[newId] as import('./types').TextNode).pathTextSettings = {
+          ...original.pathTextSettings,
+          pathNodeId: mappedPath,
+        };
+      } else if (dropForeign) {
+        const { pathTextSettings: _dropped, ...rest } = newNodes[
+          newId
+        ] as import('./types').TextNode;
+        newNodes[newId] = { ...rest, textMode: 'point' } as SceneNode;
       }
     }
   }

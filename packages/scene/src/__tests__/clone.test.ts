@@ -410,4 +410,115 @@ describe('deepCloneSubtree', () => {
     expect(clonedContent).toBeDefined();
     expect(clonedContent?.id).not.toBe(content.id);
   });
+
+  it('clones presets with fresh ids, not sharing the source array or ids', () => {
+    let doc = createDocument();
+    const a = shape(doc, 'Img');
+    doc = a.doc;
+    const originalPreset = {
+      id: 'preset-legacy-1',
+      format: 'png' as const,
+      scale: { mode: 'multiplier' as const, value: 2 },
+      suffix: '@2x',
+      enabled: true,
+      raster: { quality: 0.9, transparency: true },
+    };
+    const nodeWithPresets = { ...a.node, presets: [originalPreset] } as any;
+    doc = addNode(doc, nodeWithPresets);
+
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, a.id);
+    const cloned = result.nodes[result.rootId]!;
+
+    // Clone has its own presets array (not the same reference).
+    expect(cloned.presets).toBeDefined();
+    expect(cloned.presets).not.toBe((doc.nodes[a.id] as any).presets);
+    expect(cloned.presets).toHaveLength(1);
+
+    // Preset id is freshly minted with 'p' prefix, not the original.
+    const clonedPreset = cloned.presets![0]!;
+    expect(clonedPreset.id).not.toBe('preset-legacy-1');
+    expect(clonedPreset.id.startsWith('p')).toBe(true);
+
+    // Preset option sub-objects are cloned (not shared references).
+    expect(clonedPreset.raster).not.toBe(originalPreset.raster);
+    expect(clonedPreset.raster).toEqual(originalPreset.raster);
+
+    // Format/scale/suffix are preserved.
+    expect(clonedPreset.format).toBe('png');
+    expect(clonedPreset.suffix).toBe('@2x');
+  });
+
+  it('does not produce shared preset ids across two clones of the same node', () => {
+    let doc = createDocument();
+    const a = shape(doc, 'Node');
+    doc = a.doc;
+    doc = addNode(doc, {
+      ...a.node,
+      presets: [
+        {
+          id: 'preset-a',
+          format: 'png',
+          scale: { mode: 'multiplier', value: 1 },
+          suffix: '',
+          enabled: true,
+        },
+        {
+          id: 'preset-b',
+          format: 'jpg',
+          scale: { mode: 'multiplier', value: 2 },
+          suffix: '@2x',
+          enabled: true,
+        },
+      ],
+    } as any);
+
+    const clone1 = deepCloneSubtree(doc.nodes, doc.nextId, a.id);
+    const clone2 = deepCloneSubtree(doc.nodes, clone1.nextId, a.id);
+
+    expect(clone1.nodes[clone1.rootId]!.presets).toHaveLength(2);
+    expect(clone2.nodes[clone2.rootId]!.presets).toHaveLength(2);
+
+    const ids1 = clone1.nodes[clone1.rootId]!.presets!.map((p) => p.id);
+    const ids2 = clone2.nodes[clone2.rootId]!.presets!.map((p) => p.id);
+
+    // No id collisions between the two clones.
+    const allIds = [...ids1, ...ids2];
+    expect(new Set(allIds).size).toBe(allIds.length);
+  });
+
+  it('remaps a path-text reference when its path is cloned in the same subtree', () => {
+    let doc = createDocument();
+    const path = shape(doc, 'Ring');
+    doc = path.doc;
+    const textIdResult = nextNodeId(doc);
+    doc = textIdResult.doc;
+    const text = makeTextNode(textIdResult.id, 'BADGE', {
+      textMode: 'path',
+      pathTextSettings: { pathNodeId: path.id, startOffset: 0.25, side: 'top' },
+    });
+    doc = addNode(doc, path.node);
+    doc = addNode(doc, text);
+    const groupIdResult = nextNodeId(doc);
+    doc = groupIdResult.doc;
+    const group = makeGroupNode(groupIdResult.id, {
+      name: 'Badge group',
+      children: [path.id, text.id],
+    });
+    doc = addNode(doc, group);
+
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, group.id);
+    const clonedGroup = result.nodes[result.rootId] as GroupNode;
+    const clonedPath = clonedGroup.children
+      .map((id) => result.nodes[id])
+      .find((node) => node?.kind === 'shape');
+    const clonedText = clonedGroup.children
+      .map((id) => result.nodes[id])
+      .find((node) => node?.kind === 'text');
+
+    expect(clonedPath).toBeDefined();
+    expect(clonedText?.kind).toBe('text');
+    if (clonedText?.kind !== 'text' || !clonedPath) return;
+    expect(clonedText.pathTextSettings?.pathNodeId).toBe(clonedPath.id);
+    expect(clonedText.pathTextSettings?.pathNodeId).not.toBe(path.id);
+  });
 });
