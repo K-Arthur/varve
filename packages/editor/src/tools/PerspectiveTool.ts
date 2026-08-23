@@ -66,6 +66,7 @@ export class PerspectiveTool extends BaseTool {
   cancel(ctx: ToolContext): void {
     this.state = null;
     this.originalQuad = null;
+    this.notify();
     ctx.announce('Perspective cancelled');
     ctx.setTool('select');
   }
@@ -169,5 +170,5 @@ export class PerspectiveTool extends BaseTool {
 }
 
 function cloneQuad(quad: PerspectiveQuad): PerspectiveQuad {
-  return quad.map(([x, y]) => [x, y] as [number, number]) as PerspectiveQuad;
+  return quad.map(([x, y]) => [x, y] as [number, number]) as unknown as PerspectiveQuad;
 }
