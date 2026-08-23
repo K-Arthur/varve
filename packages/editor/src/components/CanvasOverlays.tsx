@@ -22,6 +22,7 @@ import { DebugOverlayHost } from '../debug/DebugOverlayHost';
 import { SelectionOverlay } from '../SelectionOverlay';
 import { nodeWorldBounds } from '../scene/world';
 import type { CropTool } from '../tools/CropTool';
+import type { PerspectiveTool } from '../tools/PerspectiveTool';
 import type { SnapGuide } from '../tools/snapping';
 import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './AlignmentOverlay';
 import { CanvasAccessibilityTree } from './CanvasAccessibilityTree';
@@ -49,6 +50,7 @@ import { TextEditOverlay } from './TextEditOverlay';
 import { TextThreadOverlay } from './TextThreadOverlay';
 import { VariantBox } from './VariantBox/VariantBox';
 import { WarpOverlay } from './WarpOverlay';
+import { PerspectiveOverlay } from './PerspectiveOverlay';
 import { ZoomIndicator } from './ZoomIndicator';
 
 export interface CanvasOverlaysProps {
@@ -82,6 +84,7 @@ export interface CanvasOverlaysProps {
   hoveredNode: SceneNode | null;
   canvasSize: { width: number; height: number };
   cropTool: CropTool | null;
+  perspectiveTool: PerspectiveTool | null;
   buildToolCtx: (ev: PointerEvent) => import('../tools').ToolContext;
   renameDialog: { defaultValue: string } | null;
   setRenameDialog: (v: { defaultValue: string } | null) => void;
@@ -120,6 +123,7 @@ export function CanvasOverlays({
   hoveredNode,
   canvasSize,
   cropTool,
+  perspectiveTool,
   buildToolCtx,
   renameDialog,
   setRenameDialog,
@@ -384,6 +388,9 @@ export function CanvasOverlays({
       )}
       {editor.state.warpEdit && (
         <WarpOverlay zoom={zoom} pan={pan} cameraRotation={cameraRotation} />
+      )}
+      {tool === 'perspective' && perspectiveTool && (
+        <PerspectiveOverlay tool={perspectiveTool} zoom={zoom} pan={pan} cameraRotation={cameraRotation} />
       )}
       {showMeshWarp && warpMesh && (
         <MeshWarpOverlay

@@ -299,6 +299,15 @@ export const TOOL_REGISTRY = [
     aliases: ['trim'],
   },
   {
+    id: 'perspective',
+    label: 'Perspective',
+    icon: 'Spline',
+    category: 'raster',
+    kind: 'tool',
+    shortcutId: 'toolPerspective',
+    aliases: ['perspective warp'],
+  },
+  {
     id: 'paint',
     label: 'Paint Brush',
     icon: 'Brush',

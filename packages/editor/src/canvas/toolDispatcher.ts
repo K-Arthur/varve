@@ -36,6 +36,7 @@ import { TableTool } from '../tools/TableTool';
 import { TextTool } from '../tools/TextTool';
 import { TrimapEditTool } from '../tools/TrimapEditTool';
 import { WarpTool } from '../tools/WarpTool';
+import { PerspectiveTool } from '../tools/PerspectiveTool';
 import { ZoomTool } from '../tools/ZoomTool';
 
 let toolManager: ToolManager | null = null;
@@ -79,6 +80,7 @@ export function getToolManager(): ToolManager {
     toolManager.register('ellipseMarquee', () => new MarqueeTool('ellipse'));
     toolManager.register('table', () => new TableTool());
     toolManager.register('warp', () => new WarpTool());
+    toolManager.register('perspective', () => new PerspectiveTool());
   }
   return toolManager;
 }

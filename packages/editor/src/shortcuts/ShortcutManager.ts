@@ -264,6 +264,7 @@ export const SHORTCUT_DEFS = {
   toolHand: { binding: { key: 'h' }, label: 'Hand tool', category: 'Tools' },
   toolZoom: { binding: { key: 'z' }, label: 'Zoom tool', category: 'Tools' },
   toolCrop: { binding: { key: 'c' }, label: 'Crop tool', category: 'Tools' },
+  toolPerspective: { binding: { key: 'p' }, label: 'Perspective tool', category: 'Tools' },
   toolInspect: { binding: { key: 'i' }, label: 'Inspect mode', category: 'Tools' },
   toolPaint: { binding: { key: 'b' }, label: 'Paint brush', category: 'Tools' },
   toolEraser: { binding: { key: 'e' }, label: 'Eraser', category: 'Tools' },

@@ -504,6 +504,7 @@ export function createActionHandlers(
     toolEraser: setTool('eraser'),
     toolSmudge: setTool('smudge'),
     toolCrop: setTool('crop'),
+    toolPerspective: setTool('perspective'),
     toolScale: setTool('scale'),
     toolSlice: setTool('slice'),
     toolCloneStamp: setTool('cloneStamp'),

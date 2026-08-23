@@ -186,6 +186,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.object.invertMask': 'Invert Mask',
   'menu.object.newAdjustmentLayer': 'New Adjustment Layer',
   'menu.object.cropImage': 'Crop Image',
+  'menu.object.perspectiveImage': 'Perspective Image',
   'menu.object.extractPalette': 'Extract Palette',
   'menu.object.batchBgRemove': 'Batch Background Removal',
   'menu.object.flipH': 'Flip Horizontal',

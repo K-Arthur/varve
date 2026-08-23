@@ -262,6 +262,7 @@ function buildMenus(
       case 'invertMask':
         return !hasSelection;
       case 'toolCrop':
+      case 'toolPerspective':
       case 'extractPalette':
       case 'imageTrace':
         return !hasSelection;
@@ -1080,6 +1081,13 @@ function buildMenus(
           disabled: dis('toolCrop'),
         },
         {
+          label: 'Perspective Image',
+          shortcut: formatShortcut(SHORTCUT_DEFS.toolPerspective.binding),
+          ariaKeyshortcut: ks('toolPerspective'),
+          action: 'toolPerspective',
+          disabled: dis('toolPerspective'),
+        },
+        {
           label: 'Extract Palette',
           action: 'extractPalette',
           disabled: dis('extractPalette'),
@@ -1558,6 +1566,7 @@ const WORKSPACE_ITEM_FILTER: Record<string, WorkspaceMode[]> = {
   releaseClippingMask: ['design', 'print', 'drawing', 'image', 'logo'],
   batchBgRemove: ['design', 'image'],
   toolCrop: ['design', 'print', 'image'],
+  toolPerspective: ['design', 'print', 'image'],
   extractPalette: ['design', 'drawing', 'image'],
   addAlphaMask: ['design', 'print', 'drawing', 'image', 'logo'],
   addClipMask: ['design', 'print', 'drawing', 'image', 'logo'],

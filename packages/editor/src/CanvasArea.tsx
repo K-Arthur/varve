@@ -15,6 +15,7 @@ import {
   buildVariableDependencyMap,
   canBeClipMaskSource,
   type Document,
+  documentHasSolo,
   getChangedVariableIds,
   isImageShape,
   type NodeId,
@@ -82,6 +83,7 @@ import {
 import { loadSettings } from './settings';
 import type { DraftShape, ToolContext } from './tools';
 import type { CropTool } from './tools/CropTool';
+import type { PerspectiveTool } from './tools/PerspectiveTool';
 import type { collectSourceEvents } from './tools/inputNormalizer';
 import { createSnapSession, type SnapGuide, type SnapSession } from './tools/snapping';
 import { useToolManagerSync } from './tools/useToolManagerSync';
@@ -658,6 +660,16 @@ export function CanvasArea({
   }, [renameDialog]);
 
   const tm = useToolManagerSync(editor, state, buildToolCtx);
+
+  // Re-render the canvas when solo state changes (non-destructive visibility focus).
+  const prevSoloRef = useRef(documentHasSolo(state.document));
+  useEffect(() => {
+    const hasSolo = documentHasSolo(state.document);
+    if (hasSolo !== prevSoloRef.current) {
+      prevSoloRef.current = hasSolo;
+      requestRedrawRef.current?.();
+    }
+  });
 
   // Re-render the canvas whenever an async image finishes loading.
   useEffect(() => {
@@ -1341,6 +1353,7 @@ export function CanvasArea({
         hoveredNode={hoveredNode}
         canvasSize={canvasSize}
         cropTool={tm.current?.getTool<CropTool>('crop') ?? null}
+        perspectiveTool={tm.current?.getTool<PerspectiveTool>('perspective') ?? null}
         buildToolCtx={buildToolCtx}
         renameDialog={renameDialog}
         setRenameDialog={setRenameDialog}

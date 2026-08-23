@@ -1277,6 +1277,16 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
       run: () => runAction('toolCrop'),
     },
     {
+      id: 'toolPerspective',
+      labelKey: 'menu.object.perspectiveImage',
+      accelerator: a('p', true, true),
+      kind: 'command',
+      group: 'image',
+      workspaces: ['design', 'print', 'image'],
+      enabled: enabledWithSelection,
+      run: () => runAction('toolPerspective'),
+    },
+    {
       id: 'extractPalette',
       labelKey: 'menu.object.extractPalette',
       kind: 'command',

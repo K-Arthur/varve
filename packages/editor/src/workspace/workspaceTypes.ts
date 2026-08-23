@@ -578,6 +578,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'hand' },
         { toolId: 'zoom' },
         { toolId: 'crop', groupStart: true },
+        { toolId: 'perspective' },
         { toolId: 'eyedropper' },
         { toolId: 'paint', groupStart: true },
         { toolId: 'eraser' },

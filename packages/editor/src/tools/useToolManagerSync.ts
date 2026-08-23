@@ -4,6 +4,7 @@ import { getToolManager } from '../canvas/toolDispatcher';
 import type { EditorState } from '../context/types';
 import { type CropState, commitImageCropExtended } from '../imageCrop';
 import type { CropTool } from './CropTool';
+import type { PerspectiveTool } from './PerspectiveTool';
 import type { PaintTool } from './PaintTool';
 import type { PencilTool } from './PencilTool';
 import type { RefineMaskTool } from './RefineMaskTool';
@@ -109,6 +110,38 @@ export function useToolManagerSync(
       editor.announce('Crop applied');
     });
     return () => crop.setCommitHandler(null);
+  }, [editor, state.tool]);
+
+  // ── Perspective tool commit ──────────────────────────────────────────
+  useEffect(() => {
+    if (!tm.current) return;
+    const perspective = tm.current.getTool<PerspectiveTool>('perspective');
+    if (!perspective) return;
+    perspective.setCommitHandler((ps) => {
+      editor.updateDoc((doc) => {
+        const node = doc.nodes[ps.nodeId];
+        if (!node || node.kind !== 'shape') return doc;
+        const fills = node.fills ?? [];
+        const imgFill = fills.find(
+          (f): f is Extract<typeof f, { type: 'image' }> => f.type === 'image',
+        );
+        if (!imgFill) return doc;
+        if (!imgFill.image) return doc;
+        const newImage = { ...imgFill.image, perspective: { quad: ps.quad } };
+        const newFills = fills.map((f) =>
+          f === imgFill ? { ...f, image: newImage } : f,
+        );
+        return {
+          ...doc,
+          nodes: {
+            ...doc.nodes,
+            [ps.nodeId]: { ...node, fills: newFills },
+          },
+        };
+      });
+      editor.announce('Perspective applied');
+    });
+    return () => perspective.setCommitHandler(null);
   }, [editor, state.tool]);
 
   return tm;
