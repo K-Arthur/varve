@@ -809,6 +809,27 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     [setFocusIdx],
   );
 
+  const handleTreeFocus = useCallback(
+    (event: React.FocusEvent<HTMLDivElement>) => {
+      treeHadFocusRef.current = true;
+      // The tree root is a Tab stop so keyboard users can enter the panel,
+      // but APG tree navigation is row-based. Promote the current roving row
+      // immediately when focus lands on the root; otherwise the first Arrow
+      // key changes state while the browser still reports the root as focused.
+      //
+      // However, when focus arrives from inside the tree (e.g. Tab from a
+      // row back to the root), do NOT promote — that would re-trap focus
+      // inside the tree and prevent Tab/Shift+Tab from leaving.
+      if (event.target !== event.currentTarget) return;
+      const related = event.relatedTarget as HTMLElement | null;
+      if (related && event.currentTarget.contains(related)) return;
+      const nodeId = entries[focusIdx]?.node.id;
+      const row = nodeId ? rowRefs.current.get(nodeId) : undefined;
+      row?.focus({ preventScroll: true });
+    },
+    [entries, focusIdx],
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
@@ -1464,7 +1485,11 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
         role="tree"
         aria-label="Layers"
         aria-multiselectable="true"
-        tabIndex={-1}
+        // Keep the tree root in the normal Tab order. Rows still use roving
+        // tabindex for arrow navigation, but keyboard users must have a
+        // reliable way to reach the panel without guessing its Tab position.
+        tabIndex={0}
+        onFocus={handleTreeFocus}
         onKeyDown={handleKeyDown}
         onContextMenu={handleContextMenu}
       >

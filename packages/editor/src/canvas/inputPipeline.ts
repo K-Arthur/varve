@@ -92,6 +92,9 @@ export interface UseCanvasInputsOptions {
     parentIndex: Map<string, string>;
     documentId: string;
   } | null>;
+  /** Ref tracking whether the canvas element currently has focus.
+   *  Used to let Tab/Shift+Tab pass through when focus arrives from outside. */
+  canvasFocusedRef?: MutableRefObject<boolean>;
 }
 
 export interface UseCanvasInputsResult {
@@ -154,6 +157,7 @@ export function useCanvasInputs({
   rootNodes,
   snapSessionRef: externalSnapSessionRef,
   snapIndexRef: externalSnapIndexRef,
+  canvasFocusedRef,
 }: UseCanvasInputsOptions): UseCanvasInputsResult {
   const touchPointers = useRef(new Map<number, { x: number; y: number }>());
   // Rate limiters for the expanded interaction traces (wheel / keyboard /
@@ -931,6 +935,13 @@ export function useCanvasInputs({
         // Tab falls through to normal focus navigation so the canvas is
         // never a hard keyboard trap — Escape clears selection, then Tab
         // leaves the canvas for the next region.
+        //
+        // When focus arrives from outside the canvas (e.g. Shift+Tab from
+        // the layers panel), canvasFocusedRef is still false because focus
+        // moved to the canvas *before* this keydown fired. In that case,
+        // let Tab fall through for normal browser focus navigation so the
+        // user can keep moving backward/forward through the editor regions.
+        if (canvasFocusedRef && !canvasFocusedRef.current) return;
         if (selArr.length === 0) return;
         e.preventDefault();
         const { nodes, idx } = paintOrder();

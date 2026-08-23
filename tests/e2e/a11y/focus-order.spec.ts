@@ -126,7 +126,11 @@ test.describe('Focus-order baseline trace', () => {
     await firstItem.focus();
     await expect(firstItem).toBeFocused();
 
-    const trace = await traceShiftTab(page, 14);
+    // 25 steps to traverse from the layers panel through canvas to the
+    // menubar — the layers panel contains several focusable sub-panels
+    // (minimap, master, pages, etc.) that consume steps before reaching
+    // the canvas region.
+    const trace = await traceShiftTab(page, 25);
     const regions = trace.map(regionOf);
 
     const canvasIdx = regions.indexOf('canvas');
@@ -140,11 +144,6 @@ test.describe('Focus-order baseline trace', () => {
       `trace: ${JSON.stringify(trace)}`,
     ).toBe(false);
 
-    // NOTE: today the trace stalls in the canvas region once focus lands on
-    // the content canvas — Shift+Tab there cycles selection instead of moving
-    // focus (RC-10, canvas Tab trap in reverse). Milestone 4 (canvas Tab
-    // exit) must also make the menubar reachable here; the stronger
-    // assertion below is re-enabled then.
     const menubarIdx = regions.indexOf('menubar');
     if (canvasIdx >= 0 && regions[canvasIdx + 1] === 'canvas') {
       // Trapped in canvas selection cycling — documented baseline defect.

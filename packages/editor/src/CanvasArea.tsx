@@ -81,10 +81,10 @@ import {
   type TransformCache,
 } from './scene/transformCache';
 import { loadSettings } from './settings';
-import type { DraftShape, ToolContext } from './tools';
+import type { DraftShape, PixelProbe, ToolContext } from './tools';
 import type { CropTool } from './tools/CropTool';
-import type { PerspectiveTool } from './tools/PerspectiveTool';
 import type { collectSourceEvents } from './tools/inputNormalizer';
+import type { PerspectiveTool } from './tools/PerspectiveTool';
 import { createSnapSession, type SnapGuide, type SnapSession } from './tools/snapping';
 import { useToolManagerSync } from './tools/useToolManagerSync';
 
@@ -263,7 +263,9 @@ export function CanvasArea({
   // Track keyboard focus on the inner canvas to drive the parent section's
   // focus-visible ring. Mouse clicks fire focus but we suppress the ring
   // for them — only :focus-visible (keyboard) shows it.
+  const canvasFocusedRef = useRef(false);
   const handleCanvasFocus = useCallback(() => {
+    canvasFocusedRef.current = true;
     const canvas = contentCanvasRef.current;
     if (!canvas) return;
     const section = canvas.closest('.editor-canvas') as HTMLElement | null;
@@ -274,6 +276,7 @@ export function CanvasArea({
   }, []);
 
   const handleCanvasBlur = useCallback(() => {
+    canvasFocusedRef.current = false;
     const canvas = contentCanvasRef.current;
     if (!canvas) return;
     const section = canvas.closest('.editor-canvas') as HTMLElement | null;
@@ -361,6 +364,7 @@ export function CanvasArea({
   }
 
   const [draft, setDraft] = useState<DraftShape | null>(null);
+  const [pixelProbe, setPixelProbe] = useState<PixelProbe | null>(null);
   const [dropTargetFrameId, setDropTargetFrameId] = useState<NodeId | null>(null);
   const [maskDropTargetId, setMaskDropTargetId] = useState<NodeId | null>(null);
   const maskDropTargetRef = useRef<NodeId | null>(null);
@@ -741,6 +745,7 @@ export function CanvasArea({
         pendingAutoTextEditRef,
         nodeEditTargetId,
         setDraft,
+        setPixelProbe,
         setDropTargetFrameId,
         setSnapGuides,
         setDeepSelectionCandidates,
@@ -925,6 +930,7 @@ export function CanvasArea({
     snapSessionRef: snapSessionRef,
     snapIndexRef: snapIndexRef,
     rootNodes,
+    canvasFocusedRef,
   });
 
   // ─── Cursor ───────────────────────────────────────────────────────────────
@@ -1360,6 +1366,7 @@ export function CanvasArea({
         renameDialogRef={renameDialogRef}
         renameInputRef={renameInputRef}
         artboardRect={artboardRect}
+        pixelProbe={pixelProbe}
       />
       {deepSelectionCandidates && (
         <TouchCandidateMenu
