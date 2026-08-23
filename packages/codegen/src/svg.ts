@@ -10,6 +10,7 @@ import {
   computeImagePlacement,
   type ImagePlacement,
   type ImagePlacementRect,
+  pathLength,
   transformPathShape,
 } from '@varve/engine';
 import type {
@@ -1259,14 +1260,39 @@ ${shapeInner}`
       styleParts.push(...compositing.styles);
       if (styleParts.length > 0) attrs.push(`style="${styleParts.join(' ')}"`);
 
-      const content =
-        pathText && textNode.pathTextSettings
-          ? `<textPath href="#${pathTextSvgId(textNode.id, textNode.pathTextSettings.pathNodeId)}" startOffset="${fmt(
-              Number.isFinite(textNode.pathTextSettings.startOffset)
-                ? Math.max(0, Math.min(1, textNode.pathTextSettings.startOffset!)) * 100
-                : 0,
-            )}%">${pathTextSvgContent(textNode)}</textPath>`
-          : buildTextContent(textNode, indent);
+      const content = (() => {
+        if (!pathText || !textNode.pathTextSettings) {
+          return buildTextContent(textNode, indent);
+        }
+        const pts = textNode.pathTextSettings;
+        const href = pathTextSvgId(textNode.id, pts.pathNodeId);
+        const startOffsetPct = fmt(
+          Number.isFinite(pts.startOffset) ? Math.max(0, Math.min(1, pts.startOffset!)) * 100 : 0,
+        );
+        let attrs = `href="#${href}" startOffset="${startOffsetPct}%"`;
+        if (pts.fitToPath) {
+          const pathNode = doc.nodes[pts.pathNodeId] as
+            | { shape?: import('@varve/engine').Shape; transform?: Affine }
+            | undefined;
+          if (pathNode?.shape) {
+            const textTransform = nodeEffectiveTransform(textNode);
+            const pathTransform = nodeEffectiveTransform(pathNode as SceneNode);
+            const textInverse = tryInvertAffine(textTransform);
+            const relative = textInverse
+              ? multiplyAffine(textInverse, pathTransform)
+              : pathTransform;
+            const transformed = transformPathShape(pathNode.shape, relative);
+            const totalLen = pathLength(transformed);
+            const startFrac = Math.max(0, Math.min(1, pts.startOffset ?? 0));
+            const endFrac = Math.max(0, Math.min(1, pts.endOffset ?? 1));
+            const intervalLen = totalLen * Math.max(0, endFrac - startFrac);
+            if (intervalLen > 0) {
+              attrs += ` textLength="${fmt(intervalLen)}" lengthAdjust="spacing"`;
+            }
+          }
+        }
+        return `<textPath ${attrs}>${pathTextSvgContent(textNode)}</textPath>`;
+      })();
       const missingPath = textNode.textMode === 'path' && textNode.pathTextSettings && !pathText;
       const missingComment = missingPath
         ? `${indent}<!-- varve: path text — referenced path ${textNode.pathTextSettings!.pathNodeId} not found, exported as flat text -->\n`

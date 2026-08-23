@@ -170,6 +170,32 @@ describe('exportNodeToSvg', () => {
     expect(svg).toContain('<path id="varve-circle-1--text-1"');
   });
 
+  it('emits textLength when fitToPath is enabled', () => {
+    let doc = createDocument('Fit text SVG');
+    const circle = makeShapeNode(
+      'circle-1',
+      { kind: 'circle', cx: 100, cy: 100, r: 80 },
+      { name: 'Ring' },
+    );
+    const text = makeTextNode('text-1', 'FIT ME', {
+      name: 'FitLabel',
+      textMode: 'path',
+      pathTextSettings: {
+        pathNodeId: 'circle-1',
+        startOffset: 0.25,
+        endOffset: 0.75,
+        side: 'top',
+        fitToPath: true,
+      },
+    });
+    doc = addNode(doc, circle);
+    doc = addNode(doc, text);
+    doc.rootChildren.push(circle.id, text.id);
+    const svg = exportNodeToSvg(text, doc);
+    expect(svg).toContain('textLength=');
+    expect(svg).toContain('lengthAdjust="spacing"');
+  });
+
   it('falls back to flat text when referenced path is missing', () => {
     const doc = createDocument('Orphan path text');
     const text = makeTextNode('text-1', 'LOST', {
