@@ -45,7 +45,7 @@ import {
   resolveReplayImage,
 } from './mockup/warpReplay';
 import { pathFillRule, pathRings } from './pathCompound';
-import { flattenShapedRuns, placeClustersOnPath } from './pathText';
+import { flattenShapedRuns, placeLinesOnPath } from './pathText';
 import { getRasterLayerCache } from './rasterLayerCache';
 import {
   decideRasterStrategy,
@@ -2826,8 +2826,9 @@ function paintCanonicalText(
  *
  * Uses the same canonical shaper as point text (shapeText) so that kerning,
  * ligatures, combining marks, BiDi visual order and tracking are all honoured
- * by the path layout. The path still remains an independent editable object —
- * we merely consume its geometry.
+ * by the path layout. For multiline text, each paragraph is shaped separately
+ * and laid on a successive parallel offset curve (stacked outward on the
+ * glyph side).
  */
 function paintPathText(
   target: ReplayTarget,
@@ -2846,40 +2847,49 @@ function paintPathText(
   target.textBaseline = 'alphabetic';
   target.textAlign = 'left';
 
-  // Shape the text through the canonical pipeline so shaping, kerning,
-  // ligature and BiDi ordering match point text exactly.
-  let clusters: Array<{ text: string; advance: number }>;
-  if (target.measureText) {
-    const shaping = shapeText(
-      displayText,
-      p.fontFamily,
-      p.fontSize,
-      target as unknown as CanvasRenderingContext2D,
-      {
-        fontWeight: fw,
-        fontStyle: (p.fontStyle as 'normal' | 'italic' | undefined) ?? 'normal',
-        letterSpacing: p.letterSpacing,
-        tracking: p.tracking,
-        direction: (p.direction as 'ltr' | 'rtl' | 'auto' | undefined) ?? 'auto',
-        language: p.language,
-      },
-    );
-    clusters = flattenShapedRuns(shaping.runs, displayText);
-  } else {
+  const paragraphs = displayText.split('\n');
+
+  // Shape each paragraph through the canonical pipeline so shaping, kerning,
+  // ligature and BiDi ordering match point text exactly. Each paragraph is
+  // shaped independently so flattenShapedRuns slices by the correct local
+  // clusterUtf16 indices.
+  const lines: Array<Array<{ text: string; advance: number }>> = paragraphs.map((paragraph) => {
+    if (paragraph.length === 0) return [];
+    if (target.measureText) {
+      const shaping = shapeText(
+        paragraph,
+        p.fontFamily,
+        p.fontSize,
+        target as unknown as CanvasRenderingContext2D,
+        {
+          fontWeight: fw,
+          fontStyle: (p.fontStyle as 'normal' | 'italic' | undefined) ?? 'normal',
+          letterSpacing: p.letterSpacing,
+          tracking: p.tracking,
+          direction: (p.direction as 'ltr' | 'rtl' | 'auto' | undefined) ?? 'auto',
+          language: p.language,
+        },
+      );
+      return flattenShapedRuns(shaping.runs, paragraph);
+    }
     // No measureText (e.g. pure WASM stub): fall back to grapheme clusters
     // with an estimated advance so they at least stay attached to each other.
-    clusters = splitGraphemes(displayText).map((ch) => ({
+    return splitGraphemes(paragraph).map((ch) => ({
       text: ch,
       advance: p.fontSize * 0.6,
     }));
-  }
+  });
 
-  const placements = placeClustersOnPath(clusters, shape, {
+  const lineHeightPx = p.fontSize * (p.lineHeight ?? 1.4);
+
+  const placements = placeLinesOnPath(lines, shape, {
     offset: settings.startOffset ?? 0,
     endOffset: settings.endOffset,
     side: settings.side ?? 'top',
     baselineShift: settings.baselineShift,
     flip: settings.flip,
+    lineHeightPx,
+    fitToInterval: settings.fitToPath,
   });
 
   const originalFillStyle = target.fillStyle;
@@ -2887,7 +2897,6 @@ function paintPathText(
   for (const glyph of placements) {
     target.save();
     target.transform(1, 0, 0, 1, glyph.x, glyph.y);
-    // Apply rotation via transform: [cos, sin, -sin, cos, 0, 0]
     const c = Math.cos(glyph.angle);
     const s = Math.sin(glyph.angle);
     target.transform(c, s, -s, c, 0, 0);

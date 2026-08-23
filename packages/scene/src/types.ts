@@ -1099,6 +1099,12 @@ export interface PathTextSettings {
   side?: 'top' | 'bottom';
   flip?: boolean;
   baselineShift?: number;
+  /**
+   * Stretch or squeeze inter-cluster tracking so each line spans the
+   * usable interval exactly. Glyph shapes are never distorted; spacing
+   * absorbs the difference. Off by default — path layout always clips.
+   */
+  fitToPath?: boolean;
 }
 
 export type AdaptiveContrastPolicy = 'wcag-aa' | 'wcag-aaa' | 'custom';

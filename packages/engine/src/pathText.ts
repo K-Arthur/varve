@@ -205,8 +205,9 @@ export function placeLinesOnPath(
   const hasEnd = endRaw !== undefined && Number.isFinite(endRaw);
   const endFraction = hasEnd ? Math.max(0, Math.min(1, endRaw!)) : 1;
 
-  // Blank paragraphs still consume a line slot: iterating `lines` (not the
-  // filtered non-empty list) keeps ring index k aligned with paragraph index.
+  // Blank paragraphs produce no clusters and are skipped; `lines.length`
+  // (not nonEmpty.length) determines the raw paragraph count for any
+  // future paragraph-aware logic.
   const lineHeightPx =
     Number.isFinite(options.lineHeightPx) && options.lineHeightPx! > 0
       ? options.lineHeightPx!
