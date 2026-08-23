@@ -2,7 +2,7 @@
  * Text-on-path controls.
  *
  * Exposes the settings the renderer reads: `startOffset`, `endOffset`,
- * `side`, `flip` and `baselineShift`.
+ * `side`, `flip`, `baselineShift` and `fitToPath`.
  *
  * Undo coalescing: a slider gesture (pointerDown → many changes →
  * pointerUp) produces one undo entry by wrapping the entire interaction
@@ -220,6 +220,17 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
             { value: 'flipped', label: 'Flipped' },
           ]}
           onChange={(v) => patchSettings({ flip: v === 'flipped' })}
+        />
+      </FieldRow>
+      <FieldRow label="Fit">
+        <SegmentedControl
+          label="Fit text to path interval"
+          value={settings.fitToPath ? 'fit' : 'clip'}
+          options={[
+            { value: 'clip', label: 'Clip' },
+            { value: 'fit', label: 'Fit' },
+          ]}
+          onChange={(v) => patchSettings({ fitToPath: v === 'fit' })}
         />
       </FieldRow>
       <div className="insp-actions">
