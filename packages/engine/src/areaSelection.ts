@@ -1111,6 +1111,143 @@ export function areaSelectionToPath(selection: AreaSelection): PathCommand[] {
 }
 
 /**
+ * Phase 4 (Selection Paint / Quick Mask).
+ *
+ * The quick-mask working plane is an `AlphaMask` (255 = selected) bounded to the
+ * selection's document bounds and capped at `MAX_AREA_SELECTION_DIMENSION`. Brush
+ * dabs are circular with a hardness-driven falloff; `add` lifts coverage toward
+ * 255, `subtract` pulls it toward 0. Each dab is composited independently so a
+ * stroke composes deterministically. The painted plane is re-wrapped as a
+ * `raster-mask` selection; the editor owns the apply/cancel lifecycle and the
+ * per-stroke undo entry around this primitive.
+ */
+export type MaskBrushMode = 'add' | 'subtract';
+
+export interface MaskBrushStamp {
+  /** Document-space centre. */
+  x: number;
+  y: number;
+  /** Document-space radius. */
+  radius: number;
+  /** 0 = fully soft (linear falloff), 1 = hard edge. */
+  hardness: number;
+  mode: MaskBrushMode;
+}
+
+export interface PaintMaskOptions {
+  /** Pixel resolution cap for the working plane. Defaults to `MAX_AREA_SELECTION_DIMENSION`. */
+  resolution?: number;
+}
+
+function brushAlpha(distance: number, hardness: number): number {
+  if (distance >= 1) return 0;
+  if (hardness >= 1) return 1;
+  if (hardness <= 0) return 1 - distance;
+  const inner = 1 - hardness;
+  if (distance <= inner) return 1;
+  return 1 - (distance - inner) / hardness;
+}
+
+function applyMaskStamps(
+  data: Uint8Array,
+  width: number,
+  height: number,
+  bounds: { x: number; y: number; w: number; h: number },
+  stamps: readonly MaskBrushStamp[],
+): void {
+  const scaleX = width / Math.max(bounds.w, 1e-6);
+  const scaleY = height / Math.max(bounds.h, 1e-6);
+  for (const stamp of stamps) {
+    const cx = (stamp.x - bounds.x) * scaleX;
+    const cy = (stamp.y - bounds.y) * scaleY;
+    const rx = Math.max(0.5, stamp.radius * scaleX);
+    const ry = Math.max(0.5, stamp.radius * scaleY);
+    const minX = Math.max(0, Math.floor(cx - rx));
+    const maxX = Math.min(width - 1, Math.ceil(cx + rx));
+    const minY = Math.max(0, Math.floor(cy - ry));
+    const maxY = Math.min(height - 1, Math.ceil(cy + ry));
+    for (let py = minY; py <= maxY; py += 1) {
+      for (let px = minX; px <= maxX; px += 1) {
+        const nx = (px + 0.5 - cx) / rx;
+        const ny = (py + 0.5 - cy) / ry;
+        const distance = Math.sqrt(nx * nx + ny * ny);
+        const alpha = brushAlpha(distance, stamp.hardness);
+        if (alpha <= 0) continue;
+        const idx = py * width + px;
+        if (stamp.mode === 'add') {
+          const value = alpha * 255;
+          data[idx] = Math.max(data[idx]!, value);
+        } else {
+          const value = (1 - alpha) * 255;
+          data[idx] = Math.min(data[idx]!, value);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Phase 4 — bake brush dabs into the active selection, returning a new bounded
+ * `raster-mask` selection. The editor uses this as the deterministic core of
+ * quick-mask painting: open (rasterize current selection), paint (repeat calls
+ * or one batched call per stroke), apply/cancel, one undo entry per stroke.
+ */
+export function paintSelectionMask(
+  selection: AreaSelection,
+  stamps: readonly MaskBrushStamp[],
+  options: PaintMaskOptions = {},
+): AreaSelection | null {
+  const bounds = areaSelectionBounds(selection.expression);
+  if (bounds.w <= 0 || bounds.h <= 0) return null;
+  const cap = options.resolution ?? MAX_AREA_SELECTION_DIMENSION;
+  let width = Math.max(1, Math.min(cap, Math.ceil(bounds.w)));
+  let height = Math.max(1, Math.min(cap, Math.ceil(bounds.h)));
+  // Respect the pixel budget: scale the working plane down uniformly (keeping
+  // aspect) rather than throwing, so an oversized selection still paints.
+  if (width * height > MAX_AREA_SELECTION_PIXELS) {
+    const scale = Math.sqrt(MAX_AREA_SELECTION_PIXELS / (width * height));
+    width = Math.max(1, Math.floor(width * scale));
+    height = Math.max(1, Math.floor(height * scale));
+  }
+  let mask: AlphaMask;
+  try {
+    mask = rasterizeAreaSelection(selection, {
+      x: bounds.x,
+      y: bounds.y,
+      width,
+      height,
+    });
+  } catch {
+    return null;
+  }
+  applyMaskStamps(mask.data, mask.width, mask.height, bounds, stamps);
+  const transform: Affine = [
+    bounds.w / width,
+    0,
+    0,
+    bounds.h / height,
+    bounds.x,
+    bounds.y,
+  ];
+  const inverseTransform = invertAffine(transform);
+  return createAreaSelection({
+    kind: 'raster-mask',
+    x: 0,
+    y: 0,
+    w: width,
+    h: height,
+    width: mask.width,
+    height: mask.height,
+    data: mask.data,
+    boundary: [],
+    transform,
+    inverseTransform,
+    feather: 0,
+    antialias: false,
+  });
+}
+
+/**
  * Phase 2 (Selection Refinement).
  *
  * Morphological and coverage operations on a selection. These are inherently

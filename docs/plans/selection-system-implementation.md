@@ -152,4 +152,20 @@ The most critical missing capability. `PolygonSelectionShape` exists in the engi
     current object path/shape into a `PathSelectionShape`) and `selectionToPath` (convert
     the active area selection into a vector path node). Deferred until the Layer States WIP
     tree is stable and scene path-node creation is settled.
-- **Phases 4, 6–8** — pending.
+- **Phase 4 (Selection Paint / Quick Mask)** — DONE (engine). `paintSelectionMask(selection,
+  stamps, options)` in `packages/engine/src/areaSelection.ts` rasterizes the active
+  selection to a bounded `AlphaMask` working plane and composites circular brush dabs
+  (`MaskBrushStamp`: doc-space centre/radius, `hardness`-driven falloff, `add` lifts
+  coverage toward 255 / `subtract` pulls toward 0). Each dab composites independently so
+  a stroke is deterministic; the painted plane is re-wrapped as a bounded `raster-mask`
+  selection. Working-plane resolution is capped at `MAX_AREA_SELECTION_DIMENSION` and
+  scaled down uniformly to respect `MAX_AREA_SELECTION_PIXELS` (16.7M) rather than
+  throwing. `MaskBrushStamp`/`MaskBrushMode`/`PaintMaskOptions`/`paintSelectionMask`
+  exported from the engine barrel. 6 unit tests in `areaSelectionPaint.test.ts` (41
+  area-selection tests pass).
+  - **Editor UI wiring for Phase 4** — pending (next turn): a Quick Mask tool that opens
+    (rasterize current selection), paints (repeated `paintSelectionMask` calls or one
+    batched call per stroke), applies/cancels, with **one undo entry per stroke** (the
+    lifecycle the engine primitive is built around). Deferred until the Layer States WIP
+    tree is stable.
+- **Phases 6–8** — pending.
