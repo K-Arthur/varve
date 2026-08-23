@@ -794,7 +794,7 @@ function transformExpression(
 }
 
 /**
- * Phase 5 (Path ↔ Selection).
+ * Phase 5 (Path to/from Selection).
  *
  * A closed vector path is flattened (Bézier curves sampled to a bounded polygon)
  * so coverage/bounds queries reuse the polygon machinery. The flatten is cached
@@ -1259,7 +1259,22 @@ export function paintSelectionMask(
   stamps: readonly MaskBrushStamp[],
   options: PaintMaskOptions = {},
 ): AreaSelection | null {
-  const bounds = areaSelectionBounds(selection.expression);
+  const sourceBounds = areaSelectionBounds(selection.expression);
+  let minX = sourceBounds.x;
+  let minY = sourceBounds.y;
+  let maxX = sourceBounds.x + sourceBounds.w;
+  let maxY = sourceBounds.y + sourceBounds.h;
+  // Quick-mask add strokes are allowed to grow a selection beyond its current
+  // analytical bounds. Subtract-only strokes retain the smaller source plane,
+  // while mixed strokes expand only for their additive dabs.
+  for (const stamp of stamps) {
+    if (stamp.mode !== 'add' || !Number.isFinite(stamp.radius) || stamp.radius <= 0) continue;
+    minX = Math.min(minX, stamp.x - stamp.radius);
+    minY = Math.min(minY, stamp.y - stamp.radius);
+    maxX = Math.max(maxX, stamp.x + stamp.radius);
+    maxY = Math.max(maxY, stamp.y + stamp.radius);
+  }
+  const bounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
   if (bounds.w <= 0 || bounds.h <= 0) return null;
   const size = boundedPlaneSize(bounds.w, bounds.h, options.resolution ?? MAX_AREA_SELECTION_DIMENSION);
   let mask: AlphaMask;

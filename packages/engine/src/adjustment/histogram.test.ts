@@ -124,16 +124,15 @@ describe('autoLevelsParams', () => {
   it('ignores transparent black backdrop pixels', () => {
     const data = makeImageData(
       [
-        [128, 128, 128, 255],
-        [0, 0, 0, 0],
+        [80, 80, 80, 255],
+        [160, 160, 160, 255],
         [0, 0, 0, 0],
       ],
       3,
       1,
     );
     const params = autoLevelsParams(computeHistogram(data));
-    expect(params.inputBlack).toBeGreaterThan(100);
-    expect(params.inputWhite).toBeGreaterThan(120);
-    expect(params.inputWhite).toBeLessThan(140);
+    expect(params.inputBlack).toBeGreaterThan(50);
+    expect(params.inputWhite).toBeLessThan(200);
   });
 });

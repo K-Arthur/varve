@@ -90,7 +90,7 @@ export class SelectionPaintTool implements Tool {
 
   private addStamp(e: PointerEvent, ctx: ToolContext): void {
     const point = ctx.canvasToWorld(e.clientX, e.clientY);
-    const radius = 18 / Math.max(ctx.zoom, 0.01);
+    const radius = 18 / Math.max(ctx.zoom ?? 1, 0.01);
     const previous = this.stamps[this.stamps.length - 1];
     if (previous && Math.hypot(point.x - previous.x, point.y - previous.y) < radius * 0.2) return;
     this.stamps.push({

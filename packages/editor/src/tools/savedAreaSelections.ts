@@ -29,7 +29,16 @@ function base64ToBytes(value: string): Uint8Array | null {
 
 function serializeShape(shape: AreaSelectionShape): SerializedAreaSelectionShape {
   if (shape.kind !== 'raster-mask') return { ...shape } as SerializedAreaSelectionShape;
-  return { ...shape, data: bytesToBase64(shape.data) };
+  return {
+    ...shape,
+    data: bytesToBase64(shape.data),
+    // The runtime selection intentionally exposes readonly geometry. The
+    // persisted codec owns a mutable JSON-shaped copy so callers cannot later
+    // mutate the live selection through a serialized object reference.
+    boundary: shape.boundary.map(({ from, to }) => ({ from: { ...from }, to: { ...to } })),
+    transform: [...shape.transform] as [number, number, number, number, number, number],
+    inverseTransform: [...shape.inverseTransform] as [number, number, number, number, number, number],
+  };
 }
 
 function serializeExpression(
