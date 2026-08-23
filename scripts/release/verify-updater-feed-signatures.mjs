@@ -26,7 +26,10 @@ import { createHash, webcrypto as crypto } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-const repoRoot = resolve(import.meta.dirname, '../../..');
+// This file lives at <repo>/scripts/release/. Two parents reach the
+// repository root; three would resolve one directory above the checkout and
+// make the default config lookup fail only in the final release job.
+const repoRoot = resolve(import.meta.dirname, '../..');
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
