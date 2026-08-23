@@ -109,6 +109,64 @@ export function AdjustmentEditor({
         </div>
       );
 
+    case 'shadowHighlight':
+      return (
+        <div className="adj-editor__slider-row">
+          <div className="adj-editor__slider-label">
+            <span>Shadows</span>
+            <span>{adjustment.shadows}</span>
+          </div>
+          <input
+            type="range"
+            className="adj-editor__slider"
+            min={0}
+            max={100}
+            value={adjustment.shadows}
+            onChange={handleSlider('shadows')}
+            aria-label="Shadows"
+          />
+          <div className="adj-editor__slider-label">
+            <span>Highlights</span>
+            <span>{adjustment.highlights}</span>
+          </div>
+          <input
+            type="range"
+            className="adj-editor__slider"
+            min={0}
+            max={100}
+            value={adjustment.highlights}
+            onChange={handleSlider('highlights')}
+            aria-label="Highlights"
+          />
+          <div className="adj-editor__slider-label">
+            <span>Tonal width</span>
+            <span>{adjustment.tonalWidth}</span>
+          </div>
+          <input
+            type="range"
+            className="adj-editor__slider"
+            min={0}
+            max={100}
+            value={adjustment.tonalWidth}
+            onChange={handleSlider('tonalWidth')}
+            aria-label="Tonal width"
+          />
+          <div className="adj-editor__slider-label">
+            <span>Midpoint</span>
+            <span>{adjustment.midpoint}</span>
+          </div>
+          <input
+            type="range"
+            className="adj-editor__slider"
+            min={0}
+            max={100}
+            value={adjustment.midpoint}
+            onChange={handleSlider('midpoint')}
+            aria-label="Midpoint"
+          />
+        </div>
+      );
+
     case 'levels':
       return (
         <LevelsEditor
@@ -433,6 +491,9 @@ export function AdjustmentEditor({
         />
       );
 
+    case 'shadowHighlight':
+      return <ShadowHighlightEditor adjustment={adjustment} onChange={onChange} />;
+
     case 'halftone':
       return <HalftoneEditor adjustment={adjustment} onChange={onChange} />;
 
@@ -746,7 +807,13 @@ function paramsToLevelsAdjustmentPatch(
   };
 }
 
-function LevelsEditor({ adjustment, onChange, onEditStart, onEditEnd, sourceHistogram }: AdjustmentEditorProps) {
+function LevelsEditor({
+  adjustment,
+  onChange,
+  onEditStart,
+  onEditEnd,
+  sourceHistogram,
+}: AdjustmentEditorProps) {
   const adj = adjustment as import('@varve/scene').LevelsAdjustment;
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
@@ -1510,6 +1577,78 @@ function PhotoFilterEditor({
             onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
           }
           aria-label="Preserve luminosity"
+        />
+      </div>
+    </div>
+  );
+}
+
+function ShadowHighlightEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+  const adj = adjustment as import('@varve/engine').ShadowHighlightAdjustment;
+  const handleSlider = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange({ [key]: Number(e.target.value) } as unknown as Partial<Adjustment>);
+  };
+
+  return (
+    <div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Shadows</span>
+          <span>{adj.shadows}</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          value={adj.shadows}
+          onChange={handleSlider('shadows')}
+          aria-label="Shadow brightening"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Highlights</span>
+          <span>{adj.highlights}</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          value={adj.highlights}
+          onChange={handleSlider('highlights')}
+          aria-label="Highlight recovery"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Tonal Width</span>
+          <span>{adj.tonalWidth}</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          value={adj.tonalWidth}
+          onChange={handleSlider('tonalWidth')}
+          aria-label="Tonal width"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Midpoint</span>
+          <span>{adj.midpoint}</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          value={adj.midpoint}
+          onChange={handleSlider('midpoint')}
+          aria-label="Midpoint"
         />
       </div>
     </div>

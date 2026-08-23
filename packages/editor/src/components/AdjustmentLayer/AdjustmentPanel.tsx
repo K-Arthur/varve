@@ -25,6 +25,7 @@ const ADJUSTMENT_KINDS: AdjustmentKind[] = [
   'temperature',
   'tint',
   'vibrance',
+  'shadowHighlight',
   'sepia',
   'grayscale',
   'invert',

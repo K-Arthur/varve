@@ -137,6 +137,28 @@ describe('AdjustmentEditor — levels', () => {
   });
 });
 
+describe('AdjustmentEditor — shadow / highlight', () => {
+  it('renders recovery controls for the persisted adjustment kind', () => {
+    render(
+      <AdjustmentEditor
+        adjustment={{
+          ...base,
+          kind: 'shadowHighlight',
+          shadows: 20,
+          highlights: 30,
+          tonalWidth: 50,
+          midpoint: 50,
+        }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('slider', { name: 'Shadows' })).toBeTruthy();
+    expect(screen.getByRole('slider', { name: 'Highlights' })).toBeTruthy();
+    expect(screen.getByRole('slider', { name: 'Tonal width' })).toBeTruthy();
+    expect(screen.getByRole('slider', { name: 'Midpoint' })).toBeTruthy();
+  });
+});
+
 describe('AdjustmentEditor — color controls', () => {
   it('renders editable colors for duotone without passing an invalid ColorPicker prop', () => {
     render(

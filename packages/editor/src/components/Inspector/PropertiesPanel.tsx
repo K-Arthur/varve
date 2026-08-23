@@ -51,6 +51,7 @@ import { TableSection } from './sections/TableSection';
 import { TypographySection } from './sections/TypographySection';
 import { WarpSection } from './sections/WarpSection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
+import { LayerStatesSection } from '../LayersPanel/LayerStatesSection';
 
 import './inspector.css';
 
@@ -567,6 +568,8 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       add('warp', <WarpSection nodes={nodes} node={node} />);
     }
 
+    add('layer-states', <LayerStatesSection />);
+
     return entries.sort((a, b) => a.order - b.order);
   }, [nodes, node, isFrame, isComponentInstance, isRect, state]);
 
@@ -623,6 +626,8 @@ function MultiSelectionPanel({
     if (nodes.some((n) => 'warps' in n) || state.tool === 'warp') {
       add('warp', <WarpSection nodes={nodes} node={nodes[0]} />);
     }
+
+    add('layer-states', <LayerStatesSection />);
 
     return entries.sort((a, b) => a.order - b.order);
   }, [nodes, state, summary.sharedKind]);

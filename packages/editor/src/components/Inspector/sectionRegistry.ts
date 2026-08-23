@@ -77,7 +77,8 @@ export type SectionId =
   | 'table-cells'
   | 'table-columns'
   | 'table-rows'
-  | 'ai-tools-hint';
+  | 'ai-tools-hint'
+  | 'layer-states';
 
 // ---------------------------------------------------------------------------
 // Section categories for management UI grouping
@@ -541,6 +542,20 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     // a one-click way to reach them — never neither.
     isAvailable: (ctx) =>
       isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode !== 'image',
+  },
+  {
+    id: 'layer-states',
+    title: 'Layer States',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 305,
+    category: 'advanced',
+    // Available whenever there is something to capture (a selection) or
+    // previously captured states to apply. The section component renders
+    // nothing when both are empty.
+    isAvailable: (ctx) =>
+      hasNodes(ctx) || (ctx.document?.layerStates?.length ?? 0) > 0,
   },
   {
     id: 'image-enhancement',
