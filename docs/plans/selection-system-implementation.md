@@ -183,4 +183,17 @@ The most critical missing capability. `PolygonSelectionShape` exists in the engi
   - **Editor UI wiring for Phase 7** — pending (next turn): plumb image-node pixels into
     these entry points (magic wand / colour-range command, luminosity-mask command).
     Deferred until the Layer States WIP tree is stable.
-- **Phases 6, 8** — pending.
+- **Phase 8 (Coverage Math)** — DONE (engine). New module
+  `packages/engine/src/areaSelectionComposite.ts`: `blendAreaSelections(a, b,
+  'add'|'subtract'|'multiply'|'min'|'max')` rasterizes both selections onto one shared
+  bounded working plane sized from the union of their bounds and blends coverage per
+  pixel (add clamps, subtract is literal byte difference, multiply/min/max compose soft
+  edges numerically rather than booleanly — unlike `combineAreaSelections`, which builds
+  analytical expressions and stays the canonical structural combine). Results re-wrap
+  through the shared budgeted plane path. 7 unit tests in
+  `areaSelectionComposite.test.ts` (58 area-selection tests pass).
+  - **Selection Sources panel** — pending: editor UI surface for these blends plus
+    alpha/luminance/saved sources. Deferred with the other UI wiring.
+- **Phases 6** — pending. Blocked on the scene document model
+  (`document.savedSelections`): those files are currently owned by the in-flight Layer
+  States WIP, so the data-model change waits until that lands.

@@ -85,6 +85,13 @@ export type {
   RefineAreaSelectionOptions,
 } from './areaSelection';
 export {
+  blendAreaSelections,
+} from './areaSelectionComposite';
+export type {
+  AreaSelectionBlend,
+  BlendAreaSelectionsOptions,
+} from './areaSelectionComposite';
+export {
   areaSelectionFromColorRange,
   areaSelectionFromImageAlpha,
   areaSelectionFromImageLuminance,
