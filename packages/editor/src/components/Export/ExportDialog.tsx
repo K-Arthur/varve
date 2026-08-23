@@ -54,6 +54,7 @@ import {
 import { FocusTrap, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { applyExportBatchPaths } from '../../exportBatchPaths';
+import { estimateExportBytes } from '../../export/estimateSize';
 import {
   type ExportProgressEvent,
   type ExportReport,
@@ -228,7 +229,7 @@ export function buildJobs(nodes: SceneNode[], document?: Document): ExportJob[] 
         print: preset.print,
         dimensions,
         outputPpi: planItem?.outputResolutionPpi,
-        estimatedSize: 1024 * 50,
+        estimatedSize: estimateExportBytes(dimensions.w, dimensions.h, format),
         status: 'pending',
       });
     }
