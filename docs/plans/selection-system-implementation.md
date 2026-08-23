@@ -106,3 +106,50 @@ The most critical missing capability. `PolygonSelectionShape` exists in the engi
 6. **Phase 6** (Saved Selections) — depends on stable area selection model
 7. **Phase 7** (Image Sources) — depends on raster mask infrastructure
 8. **Phase 8** (Coverage Math) — advanced, after core is solid
+
+## Progress (2026-08-23)
+
+- **Phase 1 (Pixel Lasso)** — DONE. `PixelLassoTool` + shared `LassoGesture`, wired
+  in `toolRegistry`/`ShortcutManager`/workspace toolbar; 46 selection unit tests green.
+- **Phase 2 (Refinement)** — DONE (engine). `refineAreaSelection(selection,
+  'grow'|'shrink'|'smooth'|'threshold', options)` in `packages/engine/src/areaSelection.ts`.
+  Bounded rasterization (padded, capped at `MAX_AREA_SELECTION_DIMENSION`/`PIXELS`)
+  with separable max/min dilation and box-blur smoothing; result re-wrapped as a
+  bounded `raster-mask` shape.
+- **Phase 3 (Transform)** — DONE (engine). `transformAreaSelection(selection, matrix)`
+  in `packages/engine/src/areaSelection.ts`. Rectangles → 4-corner polygons,
+  ellipses → 48-point polygons, polygons transform vertices in place, raster masks
+  compose the matrix with their own transform/inverse (exact, point-sampled).
+  Analytical expression preserved.
+- **Editor UI wiring for P1 (Phase 2/3)** — DONE (code complete, committed on
+  `selection/editor-ui`). Commands in `actions/createActionHandlers.ts`:
+  `areaSelectionGrow`, `areaSelectionShrink`, `areaSelectionSmooth`,
+  `areaSelectionThreshold` (refine) and `areaSelectionNudge{Up,Down,Left,Right}`,
+  `areaSelectionScale{Up,Down}`, `areaSelectionRotate{CW,CCW}` (transform about the
+  selection centre). Registration via a `pixelSelectionOps` block in
+  `actions/registerAll.ts` (command palette + keywords, no shortcut bindings to
+  avoid collisions). An Edit ▸ Pixel Selection submenu in `menu/defs.ts` with items
+  enabled only when an area selection exists. Engine barrel (`index.ts`) now exports
+  `refineAreaSelection`/`transformAreaSelection` + their types. 5 unit tests added to
+  `createActionHandlers.test.ts`.
+  - **Validation BLOCKED**: the editor test suite cannot load because of an unrelated,
+    in-progress Layer States/PSD WIP module-load crash at
+    `packages/import/src/psd.ts:31` (`PsdBlendMode.PassThrough` undefined). The editor
+    typechecks clean in a stable tree, but the WIP tree is also being live-mutated by
+    concurrent agents (intermittent `MenuContext.state` reverts), so editor
+    tests/typecheck cannot be re-validated until that WIP lands.
+- **Phase 5 (Path ↔ Selection)** — DONE (engine). `PathSelectionShape` added to the
+  `AreaSelectionShape` union in `packages/engine/src/areaSelection.ts`; Bézier paths are
+  flattened (bounded 64 segments/curve, cached per shape object) so coverage/bounds reuse
+  the polygon machinery. `transformAreaSelection` composes the path's `transform` (curves
+  stay exact). New `areaSelectionToPath(selection)` converts any selection to a closed
+  vector path in document space: analytical shapes emit their exact contour; raster and
+  combined expressions are traced from a bounded mask via Moore-Neighbor contour tracing
+  (Jacob's stopping criterion) + Douglas–Peucker simplification. `PathCommand`/
+  `PathSelectionShape`/`areaSelectionToPath` exported from the engine barrel. 10 unit
+  tests in `packages/engine/src/areaSelectionPath.test.ts` (35 area-selection tests pass).
+  - **Editor UI wiring for Phase 5** — pending (next turn): `pathToSelection` (convert the
+    current object path/shape into a `PathSelectionShape`) and `selectionToPath` (convert
+    the active area selection into a vector path node). Deferred until the Layer States WIP
+    tree is stable and scene path-node creation is settled.
+- **Phases 4, 6–8** — pending.

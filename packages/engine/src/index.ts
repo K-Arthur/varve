@@ -54,6 +54,8 @@ export type {
   AreaSelectionShape,
   AreaSelectionStyle,
   EllipseSelectionShape,
+  PathCommand,
+  PathSelectionShape,
   PolygonSelectionShape,
   RasterizeAreaSelectionOptions,
   RasterMaskSelectionShape,
@@ -63,6 +65,7 @@ export type {
 export {
   areaSelectionBounds,
   areaSelectionCoverageAt,
+  areaSelectionToPath,
   combineAreaSelections,
   createAreaSelection,
   DEFAULT_AREA_SELECTION_SETTINGS,

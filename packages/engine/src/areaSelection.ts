@@ -48,6 +48,30 @@ export interface SelectionPoint {
   y: number;
 }
 
+/**
+ * A single segment of a closed vector path. Coordinates are path-local; the
+ * owning `PathSelectionShape.transform` maps them into document space.
+ */
+export type PathCommand =
+  | { type: 'move'; x: number; y: number }
+  | { type: 'line'; x: number; y: number }
+  | { type: 'curve'; cx1: number; cy1: number; cx2: number; cy2: number; x: number; y: number }
+  | { type: 'close' };
+
+/**
+ * Phase 5 (Path → Selection). The area inside a closed Bezier path. Curves are
+ * flattened to a polygon (bounded segment count) for coverage/bounds queries;
+ * `transformAreaSelection` composes `transform` instead of re-flattening, so the
+ * curves stay exact across edits.
+ */
+export interface PathSelectionShape {
+  kind: 'path';
+  commands: readonly PathCommand[];
+  transform: readonly [number, number, number, number, number, number];
+  feather: number;
+  antialias: boolean;
+}
+
 export interface RectangleSelectionShape {
   kind: 'rectangle';
   x: number;
@@ -103,7 +127,8 @@ export type AreaSelectionShape =
   | RectangleSelectionShape
   | EllipseSelectionShape
   | PolygonSelectionShape
-  | RasterMaskSelectionShape;
+  | RasterMaskSelectionShape
+  | PathSelectionShape;
 
 export type AreaSelectionExpression =
   | { kind: 'shape'; shape: AreaSelectionShape }
@@ -157,6 +182,31 @@ export const MAX_AREA_SELECTION_PIXELS = 16_777_216;
  */
 const MAX_AREA_SELECTION_NODES = 4_096;
 
+const IDENTITY_AFFINE: readonly [number, number, number, number, number, number] = [1, 0, 0, 1, 0, 0];
+
+/** Segments sampled per cubic Bézier when flattening a path (bounded). */
+const MAX_PATH_FLATTEN_SEGMENTS = 64;
+
+/** Cap on contour points before simplification when tracing a raster mask. */
+const MAX_CONTOUR_POINTS = 512;
+
+function isFiniteCommand(command: PathCommand): boolean {
+  if (command.type === 'move' || command.type === 'line') {
+    return Number.isFinite(command.x) && Number.isFinite(command.y);
+  }
+  if (command.type === 'curve') {
+    return (
+      Number.isFinite(command.cx1) &&
+      Number.isFinite(command.cy1) &&
+      Number.isFinite(command.cx2) &&
+      Number.isFinite(command.cy2) &&
+      Number.isFinite(command.x) &&
+      Number.isFinite(command.y)
+    );
+  }
+  return true;
+}
+
 function finiteNonNegative(value: number): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
@@ -202,6 +252,17 @@ export function createAreaSelection(
     normalized = {
       ...shape,
       data: new Uint8Array(shape.data),
+      feather: finiteNonNegative(shape.feather),
+      antialias: Boolean(shape.antialias),
+    };
+  } else if (shape.kind === 'path') {
+    if (shape.commands.length < 2 || !shape.commands.every(isFiniteCommand)) {
+      return null;
+    }
+    normalized = {
+      kind: 'path',
+      commands: shape.commands,
+      transform: shape.transform ?? IDENTITY_AFFINE,
       feather: finiteNonNegative(shape.feather),
       antialias: Boolean(shape.antialias),
     };
@@ -293,6 +354,14 @@ export function areaSelectionBounds(expression: AreaSelectionExpression): {
       return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
     }
     if (shape.kind === 'raster-mask') return { x: shape.x, y: shape.y, w: shape.w, h: shape.h };
+    if (shape.kind === 'path') {
+      const pts = flattenPath(shape);
+      const xs = pts.map((p) => p.x);
+      const ys = pts.map((p) => p.y);
+      const x = Math.min(...xs);
+      const y = Math.min(...ys);
+      return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+    }
     return { x: shape.x, y: shape.y, w: shape.w, h: shape.h };
   }
 
@@ -392,6 +461,19 @@ function shapeCoverage(shape: AreaSelectionShape, point: SelectionPoint): number
     const top = at(x0, y0) * (1 - tx) + at(x1, y0) * tx;
     const bottom = at(x0, y1) * (1 - tx) + at(x1, y1) * tx;
     return top * (1 - ty) + bottom * ty;
+  }
+
+  if (shape.kind === 'path') {
+    const pts = flattenPath(shape);
+    const inside = pointInPolygon(point, pts);
+    let distance = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < pts.length; i++) {
+      distance = Math.min(
+        distance,
+        pointSegmentDistance(point, pts[i]!, pts[(i + 1) % pts.length]!),
+      );
+    }
+    return smoothCoverage(inside ? distance : -distance, shape.feather);
   }
 
   const inside = pointInPolygon(point, shape.points);
@@ -650,6 +732,16 @@ function transformShape(
     return { kind: 'polygon', points, feather: shape.feather, antialias: shape.antialias };
   }
 
+  if (shape.kind === 'path') {
+    return {
+      kind: 'path',
+      commands: shape.commands,
+      transform: multiplyAffine(matrix, shape.transform),
+      feather: shape.feather,
+      antialias: shape.antialias,
+    };
+  }
+
   const tl = applyAffine(matrix, [shape.x, shape.y] as [number, number]);
   const tr = applyAffine(matrix, [shape.x + shape.w, shape.y] as [number, number]);
   const bl = applyAffine(matrix, [shape.x, shape.y + shape.h] as [number, number]);
@@ -699,6 +791,323 @@ function transformExpression(
     left: transformExpression(expression.left, matrix, inverse),
     right: transformExpression(expression.right, matrix, inverse),
   };
+}
+
+/**
+ * Phase 5 (Path ↔ Selection).
+ *
+ * A closed vector path is flattened (Bézier curves sampled to a bounded polygon)
+ * so coverage/bounds queries reuse the polygon machinery. The flatten is cached
+ * per shape object; `transformAreaSelection` re-composes the path's `transform`
+ * rather than re-flattening, keeping the curves exact across edits.
+ */
+const pathFlattenCache = new WeakMap<PathSelectionShape, SelectionPoint[]>();
+
+function flattenCubic(
+  p0: SelectionPoint,
+  c1: SelectionPoint,
+  c2: SelectionPoint,
+  p1: SelectionPoint,
+  segments: number,
+): SelectionPoint[] {
+  const pts: SelectionPoint[] = [];
+  for (let i = 1; i <= segments; i += 1) {
+    const t = i / segments;
+    const mt = 1 - t;
+    const a = mt * mt * mt;
+    const b = 3 * mt * mt * t;
+    const c = 3 * mt * t * t;
+    const d = t * t * t;
+    pts.push({
+      x: a * p0.x + b * c1.x + c * c2.x + d * p1.x,
+      y: a * p0.y + b * c1.y + c * c2.y + d * p1.y,
+    });
+  }
+  return pts;
+}
+
+function flattenPath(shape: PathSelectionShape): SelectionPoint[] {
+  const cached = pathFlattenCache.get(shape);
+  if (cached) return cached;
+  const pts: SelectionPoint[] = [];
+  let cur: SelectionPoint | null = null;
+  for (const cmd of shape.commands) {
+    if (cmd.type === 'move' || cmd.type === 'line') {
+      cur = { x: cmd.x, y: cmd.y };
+      const t = applyAffine(shape.transform, [cur.x, cur.y]);
+      pts.push({ x: t[0], y: t[1] });
+    } else if (cmd.type === 'curve') {
+      const start = cur ?? { x: cmd.x, y: cmd.y };
+      const sampled = flattenCubic(
+        start,
+        { x: cmd.cx1, y: cmd.cy1 },
+        { x: cmd.cx2, y: cmd.cy2 },
+        { x: cmd.x, y: cmd.y },
+        MAX_PATH_FLATTEN_SEGMENTS,
+      );
+      for (const s of sampled) {
+        const t = applyAffine(shape.transform, [s.x, s.y]);
+        pts.push({ x: t[0], y: t[1] });
+      }
+      cur = { x: cmd.x, y: cmd.y };
+    }
+    // 'close' contributes no new vertex
+  }
+  pathFlattenCache.set(shape, pts);
+  return pts;
+}
+
+/**
+ * Moore-Neighbor boundary tracing (Jacob's stopping criterion) of a thresholded
+ * mask. Returns an ordered loop of pixel centres; the loop is closed implicitly
+ * by polygon wrap. Bounded by a step guard so a malformed mask cannot loop.
+ */
+function traceContour(
+  data: Uint8Array,
+  width: number,
+  height: number,
+): Array<[number, number]> {
+  const filled = (x: number, y: number): boolean => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return false;
+    return data[y * width + x]! >= 128;
+  };
+  let sx = -1;
+  let sy = -1;
+  for (let y = 0; y < height && sx < 0; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (filled(x, y)) {
+        sx = x;
+        sy = y;
+        break;
+      }
+    }
+  }
+  if (sx < 0) return [];
+  // Clockwise 8-neighborhood starting at East.
+  const N: ReadonlyArray<readonly [number, number]> = [
+    [1, 0],
+    [1, 1],
+    [0, 1],
+    [-1, 1],
+    [-1, 0],
+    [-1, -1],
+    [0, -1],
+    [1, -1],
+  ];
+  const boundary: Array<[number, number]> = [[sx, sy]];
+  let cx = sx;
+  let cy = sy;
+  // Entered from the West (index 4); resume scanning at its clockwise successor.
+  let b = (4 + 1) % 8;
+  let guard = 0;
+  const maxSteps = width * height * 8 + 16;
+  while (guard < maxSteps) {
+    guard += 1;
+    let found = -1;
+    for (let i = 0; i < 8; i += 1) {
+      const dir = (b + i) % 8;
+      const neighbor = N[dir]!;
+      if (filled(cx + neighbor[0], cy + neighbor[1])) {
+        found = dir;
+        break;
+      }
+    }
+    if (found < 0) break; // isolated pixel
+    const neighbor = N[found]!;
+    cx += neighbor[0];
+    cy += neighbor[1];
+    boundary.push([cx, cy]);
+    if (cx === sx && cy === sy && boundary.length > 2) break;
+    b = (found + 6) % 8; // Jacob's: step back two before resuming
+  }
+  if (boundary.length > 1) {
+    const first = boundary[0]!;
+    const last = boundary[boundary.length - 1]!;
+    if (first[0] === last[0] && first[1] === last[1]) boundary.pop();
+  }
+  return boundary;
+}
+
+function perpendicularDistance(
+  p: [number, number],
+  a: [number, number],
+  b: [number, number],
+): number {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+  let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+}
+
+/** Douglas–Peucker polyline simplification (iterative, bounded stack). */
+function douglasPeucker(
+  points: Array<[number, number]>,
+  epsilon: number,
+): Array<[number, number]> {
+  if (points.length < 3) return points.slice();
+  const keep = new Array<boolean>(points.length).fill(false);
+  keep[0] = true;
+  keep[points.length - 1] = true;
+  const stack: Array<[number, number]> = [[0, points.length - 1]];
+  while (stack.length > 0) {
+    const [start, end] = stack.pop()!;
+    let dmax = 0;
+    let idx = -1;
+    const a = points[start]!;
+    const b = points[end]!;
+    for (let i = start + 1; i < end; i += 1) {
+      const d = perpendicularDistance(points[i]!, a, b);
+      if (d > dmax) {
+        dmax = d;
+        idx = i;
+      }
+    }
+    if (dmax > epsilon && idx > 0) {
+      keep[idx] = true;
+      stack.push([start, idx]);
+      stack.push([idx, end]);
+    }
+  }
+  return points.filter((_, i) => keep[i]);
+}
+
+function contourToPath(points: Array<[number, number]>, pixelSize: number): PathCommand[] {
+  let pts = points;
+  if (pts.length > MAX_CONTOUR_POINTS) {
+    const step = pts.length / MAX_CONTOUR_POINTS;
+    const resampled: Array<[number, number]> = [];
+    for (let i = 0; i < MAX_CONTOUR_POINTS; i += 1) {
+      resampled.push(pts[Math.floor(i * step)]!);
+    }
+    pts = resampled;
+  }
+  const simplified = douglasPeucker(pts, pixelSize * 0.5);
+  if (simplified.length < 2) return [];
+  const cmds: PathCommand[] = [];
+  simplified.forEach(([x, y], i) => {
+    cmds.push(i === 0 ? { type: 'move', x, y } : { type: 'line', x, y });
+  });
+  cmds.push({ type: 'close' });
+  return cmds;
+}
+
+function maskContourToPath(
+  data: Uint8Array,
+  width: number,
+  height: number,
+  originX: number,
+  originY: number,
+  worldW: number,
+  worldH: number,
+  transform: readonly [number, number, number, number, number, number],
+): PathCommand[] {
+  const contour = traceContour(data, width, height);
+  if (contour.length === 0) return [];
+  const doc = contour.map(([px, py]) => {
+    const lx = originX + ((px + 0.5) / width) * worldW;
+    const ly = originY + ((py + 0.5) / height) * worldH;
+    const d = applyAffine(transform, [lx, ly]);
+    return [d[0], d[1]] as [number, number];
+  });
+  return contourToPath(doc, worldW / width);
+}
+
+function traceSelectionToPath(selection: AreaSelection): PathCommand[] {
+  const bounds = areaSelectionBounds(selection.expression);
+  const width = Math.max(1, Math.min(MAX_AREA_SELECTION_DIMENSION, Math.ceil(bounds.w)));
+  const height = Math.max(1, Math.min(MAX_AREA_SELECTION_DIMENSION, Math.ceil(bounds.h)));
+  const mask = rasterizeAreaSelection(selection, {
+    x: bounds.x,
+    y: bounds.y,
+    width,
+    height,
+  });
+  return maskContourToPath(mask.data, mask.width, mask.height, bounds.x, bounds.y, bounds.w, bounds.h, IDENTITY_AFFINE);
+}
+
+/**
+ * Phase 5.2 — Convert the active area selection into a closed vector path
+ * (document space). Analytical shapes emit their exact contour; raster and
+ * combined selections are traced from a bounded mask with Douglas–Peucker
+ * simplification. Returns `[]` for an empty selection.
+ */
+export function areaSelectionToPath(selection: AreaSelection): PathCommand[] {
+  if (selection.expression.kind !== 'shape') return traceSelectionToPath(selection);
+  const shape = selection.expression.shape;
+  if (shape.kind === 'rectangle') {
+    return [
+      { type: 'move', x: shape.x, y: shape.y },
+      { type: 'line', x: shape.x + shape.w, y: shape.y },
+      { type: 'line', x: shape.x + shape.w, y: shape.y + shape.h },
+      { type: 'line', x: shape.x, y: shape.y + shape.h },
+      { type: 'close' },
+    ];
+  }
+  if (shape.kind === 'ellipse') {
+    const cx = shape.x + shape.w / 2;
+    const cy = shape.y + shape.h / 2;
+    const rx = shape.w / 2;
+    const ry = shape.h / 2;
+    const steps = 48;
+    const cmds: PathCommand[] = [];
+    for (let i = 0; i < steps; i += 1) {
+      const angle = (i / steps) * Math.PI * 2;
+      const x = cx + rx * Math.cos(angle);
+      const y = cy + ry * Math.sin(angle);
+      cmds.push(i === 0 ? { type: 'move', x, y } : { type: 'line', x, y });
+    }
+    cmds.push({ type: 'close' });
+    return cmds;
+  }
+  if (shape.kind === 'polygon') {
+    const cmds: PathCommand[] = [];
+    shape.points.forEach((pt, i) => {
+      cmds.push(i === 0 ? { type: 'move', x: pt.x, y: pt.y } : { type: 'line', x: pt.x, y: pt.y });
+    });
+    cmds.push({ type: 'close' });
+    return cmds;
+  }
+  if (shape.kind === 'path') {
+    return shape.commands.map((cmd) => {
+      if (cmd.type === 'move') {
+        const d = applyAffine(shape.transform, [cmd.x, cmd.y]);
+        return { type: 'move', x: d[0], y: d[1] };
+      }
+      if (cmd.type === 'line') {
+        const d = applyAffine(shape.transform, [cmd.x, cmd.y]);
+        return { type: 'line', x: d[0], y: d[1] };
+      }
+      if (cmd.type === 'curve') {
+        const c1 = applyAffine(shape.transform, [cmd.cx1, cmd.cy1]);
+        const c2 = applyAffine(shape.transform, [cmd.cx2, cmd.cy2]);
+        const d = applyAffine(shape.transform, [cmd.x, cmd.y]);
+        return {
+          type: 'curve',
+          cx1: c1[0],
+          cy1: c1[1],
+          cx2: c2[0],
+          cy2: c2[1],
+          x: d[0],
+          y: d[1],
+        };
+      }
+      return { type: 'close' };
+    });
+  }
+  // raster-mask
+  return maskContourToPath(
+    shape.data,
+    shape.width,
+    shape.height,
+    shape.x,
+    shape.y,
+    shape.w,
+    shape.h,
+    shape.transform,
+  );
 }
 
 /**
