@@ -633,6 +633,37 @@ describe('placeLinesOnPath', () => {
   });
 });
 
+// ── reverse direction ──────────────────────────────────────────────────
+
+describe('reverse direction', () => {
+  it('reverses the traversal along the path', () => {
+    const shape: Shape = { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 0 };
+    const clusters: PathCluster[] = [
+      { text: 'A', advance: 10 },
+      { text: 'B', advance: 10 },
+    ];
+    const normal = placeLinesOnPath([clusters], shape, { fontSize: 16, offset: 0 });
+    const reversed = placeLinesOnPath([clusters], shape, {
+      fontSize: 16,
+      offset: 0,
+      reverse: true,
+    });
+    expect(normal.length).toBe(2);
+    expect(reversed.length).toBe(2);
+    // Reversed text starts from the end of the path
+    expect(reversed[0]?.x).toBeGreaterThan(normal[0]?.x!);
+  });
+
+  it('flips glyph angle by pi when reversed', () => {
+    const shape: Shape = { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 0 };
+    const clusters: PathCluster[] = [{ text: 'A', advance: 10 }];
+    const normal = placeLinesOnPath([clusters], shape, { fontSize: 16 });
+    const reversed = placeLinesOnPath([clusters], shape, { fontSize: 16, reverse: true });
+    approx(normal[0]?.angle ?? 0, 0, 0.05);
+    approx(reversed[0]?.angle ?? 0, Math.PI, 0.05);
+  });
+});
+
 // ── fitToInterval ──────────────────────────────────────────────────────
 
 describe('fitToInterval', () => {

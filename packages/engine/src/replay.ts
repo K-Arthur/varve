@@ -2890,6 +2890,7 @@ function paintPathText(
     flip: settings.flip,
     lineHeightPx,
     fitToInterval: settings.fitToPath,
+    reverse: settings.reverse,
   });
 
   const originalFillStyle = target.fillStyle;

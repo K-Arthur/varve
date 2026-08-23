@@ -280,38 +280,87 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
     const dominant = dominantScript(runText);
     const scriptTag = scriptCodeToTag(dominant);
 
-    // Measure each grapheme individually for an accurate advance.
-    // For complex scripts (Arabic, Devanagari, Thai) the browser's native
-    // shaping engine applies GSUB/GPOS when measuring substrings that
-    // include joining characters; measuring per-grapheme is the pragmatic
-    // approximation that avoids double-advance from pairwise kerning.
-    for (let gi = 0; gi < graphemes.length; gi++) {
+    // Measure graphemes for advances.  Inter-grapheme kerning is captured
+    // by measuring contiguous non-space sub-strings (words) as single
+    // measureText calls, then distributing the measured width proportionally
+    // among the graphemes in that word.  This preserves ligature integrity
+    // (a ligature is already a single grapheme cluster) while letting the
+    // browser apply pair kerning across grapheme boundaries within a word.
+    //
+    // Spaces and singletons are measured individually (no kerning applies).
+    let gi = 0;
+    while (gi < graphemes.length) {
       const g = graphemes[gi]!;
-      const clusterUtf16 =
-        bidiRun.start +
-        (() => {
-          // Find the UTF-16 offset of this grapheme within the run text.
-          let offset = 0;
-          for (let j = 0; j < gi; j++) offset += graphemes[j]!.length;
-          return offset;
-        })();
 
-      // Measure the grapheme width.
-      const metrics = ctx.measureText(g);
-      const spacing =
-        (gi < graphemes.length - 1 ? letterSpacing : 0) +
-        graphemeTracking(tracking, fontSize, gi, graphemes.length);
+      // Find the extent of the current word (contiguous non-space graphemes).
+      let wordEnd = gi + 1;
+      while (wordEnd < graphemes.length && graphemes[wordEnd] !== ' ') wordEnd += 1;
+      const wordLen = wordEnd - gi;
 
-      glyphs.push({
-        glyphId: 0, // 0 = unknown (browser path); native path fills real IDs
-        xAdvance: metrics.width + spacing,
-        yAdvance: 0,
-        xOffset: 0,
-        yOffset: 0,
-        clusterUtf16,
-        sourceEnd: clusterUtf16 + g.length,
-      });
-      cursorX += metrics.width + spacing;
+      if (wordLen <= 1 || graphemes[gi] === ' ') {
+        // Single grapheme or space — measure individually.
+        const clusterUtf16 = bidiRun.start + graphemeStartOffset(graphemes, gi);
+        const metrics = ctx.measureText(g);
+        const spacing =
+          (gi < graphemes.length - 1 ? letterSpacing : 0) +
+          graphemeTracking(tracking, fontSize, gi, graphemes.length);
+        glyphs.push({
+          glyphId: 0,
+          xAdvance: metrics.width + spacing,
+          yAdvance: 0,
+          xOffset: 0,
+          yOffset: 0,
+          clusterUtf16,
+          sourceEnd: clusterUtf16 + g.length,
+        });
+        cursorX += metrics.width + spacing;
+        gi += 1;
+        continue;
+      }
+
+      // Multi-grapheme word: measure the whole string for kerning.
+      const wordStr = graphemes.slice(gi, wordEnd).join('');
+      const wordWidth = ctx.measureText(wordStr).width;
+
+      // Measure individual graphemes to get proportional widths.
+      const widths: number[] = [];
+      let totalIndividual = 0;
+      for (let wi = gi; wi < wordEnd; wi++) {
+        const w = ctx.measureText(graphemes[wi]!).width;
+        widths.push(w);
+        totalIndividual += w;
+      }
+
+      // Distribute the kerned word width proportionally.
+      let distributed = 0;
+      for (let wi = 0; wi < wordLen; wi++) {
+        const idx = gi + wi;
+        const clusterUtf16 = bidiRun.start + graphemeStartOffset(graphemes, idx);
+        const gStr = graphemes[idx]!;
+        // Last grapheme absorbs any rounding remainder.
+        const w =
+          wi === wordLen - 1
+            ? wordWidth - distributed
+            : totalIndividual > 0
+              ? (widths[wi]! / totalIndividual) * wordWidth
+              : 0;
+        const spacing =
+          (idx < graphemes.length - 1 ? letterSpacing : 0) +
+          graphemeTracking(tracking, fontSize, idx, graphemes.length);
+        glyphs.push({
+          glyphId: 0,
+          xAdvance: w + spacing,
+          yAdvance: 0,
+          xOffset: 0,
+          yOffset: 0,
+          clusterUtf16,
+          sourceEnd: clusterUtf16 + gStr.length,
+        });
+        cursorX += w + spacing;
+        distributed += w;
+      }
+
+      gi = wordEnd;
     }
 
     const fontSizeNum = fontSize;

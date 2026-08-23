@@ -1105,6 +1105,14 @@ export interface PathTextSettings {
    * absorbs the difference. Off by default — path layout always clips.
    */
   fitToPath?: boolean;
+  /**
+   * Reverse the visual reading direction: glyphs are placed from the end
+   * of the usable interval toward the start and each glyph's tangent
+   * angle is flipped by π. Combined with `side`, this lets bottom-of-circle
+   * text read left-to-right in the normal orientation, which is the
+   * standard for badges and seals.
+   */
+  reverse?: boolean;
 }
 
 export type AdaptiveContrastPolicy = 'wcag-aa' | 'wcag-aaa' | 'custom';

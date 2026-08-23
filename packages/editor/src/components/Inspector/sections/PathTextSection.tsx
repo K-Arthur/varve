@@ -233,6 +233,17 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
           onChange={(v) => patchSettings({ fitToPath: v === 'fit' })}
         />
       </FieldRow>
+      <FieldRow label="Direction">
+        <SegmentedControl
+          label="Reading direction"
+          value={settings.reverse ? 'reversed' : 'normal'}
+          options={[
+            { value: 'normal', label: 'Normal' },
+            { value: 'reversed', label: 'Reversed' },
+          ]}
+          onChange={(v) => patchSettings({ reverse: v === 'reversed' })}
+        />
+      </FieldRow>
       <div className="insp-actions">
         <button type="button" className="insp-btn-sm" onClick={detach}>
           Detach from path

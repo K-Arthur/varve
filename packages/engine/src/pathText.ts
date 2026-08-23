@@ -81,6 +81,13 @@ export interface GlyphPlaceOptions {
    * is longer than the interval).
    */
   fitToInterval?: boolean;
+  /**
+   * Reverse the reading direction: traverse the path from end toward start,
+   * flipping each glyph's tangent angle by π. Combined with `side` this
+   * makes bottom-of-circle text read left-to-right in the normal orientation,
+   * which is the standard for circular badges and seals.
+   */
+  reverse?: boolean;
 }
 
 /**
@@ -251,16 +258,22 @@ export function placeLinesOnPath(
       extraTracking = (usableDistance - naturalWidth) / (clusters.length - 1);
     }
 
+    // Reverse: walk the path backwards from startDistance, clusters read
+    // left-to-right on the reversed path. On a closed path this wraps
+    // through the seam naturally.
+    const rev = options.reverse ?? false;
+    const ordered = rev ? [...clusters].reverse() : clusters;
+
     let cursorExtra = 0;
-    for (const cluster of clusters) {
+    for (const cluster of ordered) {
       if (cluster.text.length === 0 || !(cluster.advance >= 0)) continue;
 
       const relativeDistance = cursorExtra;
-      const anchor = startDistance + cursorExtra;
+      const anchor = rev ? endDistance - cursorExtra : startDistance + cursorExtra;
       cursorExtra += cluster.advance + extraTracking;
 
       if (relativeDistance > usableDistance + CLIP_EPSILON) break;
-      if (openEnded && anchor > lineLen + CLIP_EPSILON) break;
+      if (openEnded && (rev ? anchor < -CLIP_EPSILON : anchor > lineLen + CLIP_EPSILON)) break;
 
       const pt = sample(anchor);
       if (!Number.isFinite(pt.x) || !Number.isFinite(pt.y) || !Number.isFinite(pt.angle)) {
@@ -277,7 +290,7 @@ export function placeLinesOnPath(
         char: cluster.text,
         x: px,
         y: py,
-        angle: pt.angle + flip,
+        angle: pt.angle + flip + (rev ? Math.PI : 0),
         advance: cluster.advance,
       });
     }
