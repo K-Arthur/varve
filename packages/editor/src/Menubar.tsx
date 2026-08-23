@@ -195,6 +195,8 @@ function buildMenus(
       case 'delete':
       case 'selectAll':
         return !hasDocument;
+      case 'smartFilterInvert':
+        return !hasSelection;
       case 'group':
       case 'ungroup':
         return !hasMultipleSelection;
@@ -1043,6 +1045,16 @@ function buildMenus(
           shortcut: formatShortcut(SHORTCUT_DEFS.newAdjustmentLayer.binding),
           ariaKeyshortcut: ks('newAdjustmentLayer'),
           action: 'newAdjustmentLayer',
+        },
+        {
+          label: 'Object Filter',
+          items: [
+            {
+              label: 'Invert',
+              action: 'smartFilterInvert',
+              disabled: dis('smartFilterInvert'),
+            },
+          ],
         },
         {
           label: 'Create Clipping Mask',

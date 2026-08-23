@@ -416,6 +416,7 @@ export function createActionHandlers(
     },
     tidySelected: () => e.tidySelected?.(4),
     newAdjustmentLayer: () => e.createAdjustmentLayer(),
+    smartFilterInvert: () => e.addSmartFilterToSelected('invert'),
     openInspectorProperties: () => e.setInspectorTab('properties'),
     openAppearancePanel: () => e.setInspectorTab('appearance'),
     openAdjustmentsPanel: () => e.setInspectorTab('adjustments'),

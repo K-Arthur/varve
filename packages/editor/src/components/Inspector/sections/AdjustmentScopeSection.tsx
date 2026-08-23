@@ -74,13 +74,15 @@ export function AdjustmentScopeSection({
     (newMode: string) => {
       switch (newMode) {
         case 'image-local': {
-          // Convert to single-target scope targeting first eligible node
-          const eligible = Object.values(doc.nodes).filter(
-            (n) => n.kind === 'shape' || n.kind === 'rasterLayer',
-          );
-          if (eligible.length > 0 && eligible[0]) {
-            if (eligible[0]) onChangeScope({ mode: 'image-local', targetNodeId: eligible[0].id });
-          }
+          // Preserve the current target when possible. Otherwise choose the
+          // first eligible raster or vector node rather than silently falling
+          // back to an arbitrary image-only target.
+          const currentTarget =
+            scope?.mode === 'image-local' ? doc.nodes[scope.targetNodeId] : undefined;
+          const eligible = Object.values(doc.nodes).filter((n) => isAdjustmentEligible(n));
+          const target =
+            currentTarget && isAdjustmentEligible(currentTarget) ? currentTarget : eligible[0];
+          if (target) onChangeScope({ mode: 'image-local', targetNodeId: target.id });
           break;
         }
         case 'explicit-targets': {
