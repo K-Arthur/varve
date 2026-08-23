@@ -10,6 +10,7 @@ import type { Affine } from '@varve/engine';
 import type { Document, ManagedColor, Mask, NodeId, SceneNode, VectorMaskData } from '@varve/scene';
 import { activePageNodes, isImageShape, resolveMask } from '@varve/scene';
 import { applyAffine, managedColorToRgba, multiplyAffine } from '@varve/shared';
+import { buildPerspectiveImageSvg } from './perspectiveSvg';
 import { nodeEffectiveTransform, svgCompositing } from './shared';
 import {
   collectPathTextDefs,
@@ -682,13 +683,36 @@ function nodeToSvg(
           if (!placement) return '';
           const clipId = `clip-${node.id}`;
           const cropClipId = `crop-${node.id}`;
-          const contentTransform = imageContentTransform(placement);
+          const perspectiveImage = img.perspective
+            ? buildPerspectiveImageSvg({
+                href,
+                w: placement.bounds.w,
+                h: placement.bounds.h,
+                quad: img.perspective.quad,
+                nodeId: node.id,
+                indent: `${indent}    `,
+                minify: options.minify === true,
+                placement,
+                sourceWidth: placement.sourceWidth,
+                sourceHeight: placement.sourceHeight,
+              })
+            : null;
+          // The perspective emitter already folds crop/rotation/flip into
+          // each triangle's source mapping. Applying the legacy content
+          // transform or crop clip as well would transform the result twice.
+          const contentTransform = perspectiveImage ? '' : imageContentTransform(placement);
           const contentTransformAttr = contentTransform ? ` transform="${contentTransform}"` : '';
-          const cropDef = img.crop
-            ? `${indent}  <clipPath id="${cropClipId}" clipPathUnits="userSpaceOnUse"><rect ${svgRect(placement.sampleDrawRect)} /></clipPath>${options.minify ? '' : '\n'}`
-            : '';
-          const cropAttr = img.crop ? ` clip-path="url(#${cropClipId})"` : '';
-          const imageTag = `${indent}    <image href="${href}" ${svgRect(placement.drawRect)} preserveAspectRatio="none" />`;
+          const cropDef =
+            img.crop && !perspectiveImage
+              ? `${indent}  <clipPath id="${cropClipId}" clipPathUnits="userSpaceOnUse"><rect ${svgRect(placement.sampleDrawRect)} /></clipPath>${options.minify ? '' : '\n'}`
+              : '';
+          const cropAttr = img.crop && !perspectiveImage ? ` clip-path="url(#${cropClipId})"` : '';
+          // Perspective (four-corner) fill: SVG has no projective primitive,
+          // so emit a triangle-subdivided approximation instead of the flat
+          // <image>. Falls back to the flat emit when the quad is invalid.
+          const imageTag =
+            perspectiveImage ??
+            `${indent}    <image href="${href}" ${svgRect(placement.drawRect)} preserveAspectRatio="none" />`;
           const outerMaskAttr = maskUri ? ` ${maskAttr}="${maskUri}"` : '';
           const nl = options.minify ? '' : '\n';
           return [
