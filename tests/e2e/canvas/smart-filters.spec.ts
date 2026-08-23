@@ -66,7 +66,7 @@ test.describe('Smart Filters — Invert workflow', () => {
     const cy = box.y + 200;
 
     // Draw rect
-    await dragOnCanvas(page, cx - 80, cy - 60, cx + 80, cy + 60);
+    await dragOnCanvas(page, 170, 140, 330, 260);
     await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
 
     // Wait for paint
@@ -107,13 +107,12 @@ test.describe('Smart Filters — Invert workflow', () => {
 
     const cx = box.x + 250;
     const cy = box.y + 200;
-    await dragOnCanvas(page, cx - 80, cy - 60, cx + 80, cy + 60);
+    await dragOnCanvas(page, 170, 140, 330, 260);
     await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
     await page.waitForTimeout(500);
 
     // Record original color
     const [origR] = await readCanvasPixel(page, cx, cy);
-    expect(origR).toBeGreaterThan(200);
     expect(origR).toBeGreaterThan(200);
 
     // Add filter
@@ -147,7 +146,7 @@ test.describe('Smart Filters — Invert workflow', () => {
 
     const cx = box.x + 250;
     const cy = box.y + 200;
-    await dragOnCanvas(page, cx - 80, cy - 60, cx + 80, cy + 60);
+    await dragOnCanvas(page, 170, 140, 330, 260);
     await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
     await page.waitForTimeout(500);
 
@@ -181,7 +180,7 @@ test.describe('Smart Filters — Invert workflow', () => {
 
     const cx = box.x + 250;
     const cy = box.y + 200;
-    await dragOnCanvas(page, cx - 80, cy - 60, cx + 80, cy + 60);
+    await dragOnCanvas(page, 170, 140, 330, 260);
     await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
     await page.waitForTimeout(500);
 
@@ -210,9 +209,7 @@ test.describe('Smart Filters — Invert workflow', () => {
     const box = await canvas.boundingBox();
     if (!box) throw new Error('Canvas not found');
 
-    const cx = box.x + 250;
-    const cy = box.y + 200;
-    await dragOnCanvas(page, cx - 80, cy - 60, cx + 80, cy + 60);
+    await dragOnCanvas(page, 170, 140, 330, 260);
     await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
     await page.waitForTimeout(500);
 
@@ -238,7 +235,7 @@ test.describe('Smart Filters — Invert workflow', () => {
     const box = await canvas.boundingBox();
     if (!box) throw new Error('Canvas not found');
 
-    await dragOnCanvas(page, box.x + 150, box.y + 150, box.x + 350, box.y + 300);
+    await dragOnCanvas(page, 150, 150, 350, 300);
     await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
 
     await selectLayerInPanel(page, 0);
@@ -257,7 +254,7 @@ test.describe('Smart Filters — Invert workflow', () => {
 
     const before = await canvas.screenshot();
 
-    await dragOnCanvas(page, box.x + 150, box.y + 150, box.x + 350, box.y + 300);
+    await dragOnCanvas(page, 150, 150, 350, 300);
     await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
     await page.waitForTimeout(500);
 
@@ -280,13 +277,13 @@ test.describe('Object Filters — group and frame', () => {
     const box = await canvas.boundingBox();
     if (!box) throw new Error('Canvas not found');
 
-    await dragOnCanvas(page, box.x + 100, box.y + 100, box.x + 400, box.y + 400);
+    await dragOnCanvas(page, 100, 100, 400, 400);
     await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
     await page.waitForTimeout(300);
 
     // Create a rect inside the frame
     await page.keyboard.press('r');
-    await dragOnCanvas(page, box.x + 150, box.y + 150, box.x + 350, box.y + 350);
+    await dragOnCanvas(page, 150, 150, 350, 350);
     await page.waitForTimeout(300);
 
     // Select the frame in the layers panel (first item = frame)
