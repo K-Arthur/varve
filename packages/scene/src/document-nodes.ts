@@ -49,25 +49,50 @@ export function addChild(
 ): Document {
   const parent = doc.nodes[parentId];
   if (!parent || !isContainer(parent)) return doc;
-  const children = parent.children;
+  if (parentId === child.id || containsDescendant(doc, child.id, parentId)) return doc;
+
+  const nodes = { ...doc.nodes };
+  let rootChildren = doc.rootChildren.filter((id) => id !== child.id);
+  const globalChildren = doc.globalChildren?.filter((id) => id !== child.id);
+  const oldParentId = getParent(doc, child.id);
+  if (oldParentId) {
+    const oldParent = nodes[oldParentId];
+    if (oldParent && isContainer(oldParent)) {
+      const updated = { ...oldParent, children: oldParent.children.filter((id) => id !== child.id) };
+      if ('slots' in oldParent && oldParent.slots) {
+        const slots = Object.fromEntries(
+          Object.entries(oldParent.slots).filter(([, value]) => value !== child.id),
+        );
+        (updated as FrameNode).slots = Object.keys(slots).length > 0 ? slots : undefined;
+      }
+      if (updated.mask?.sourceNodeId === child.id && oldParentId !== parentId) {
+        (updated as SceneNode & { mask?: unknown }).mask = undefined;
+      }
+      nodes[oldParentId] = updated as SceneNode;
+    }
+  }
+
+  const targetParent = nodes[parentId];
+  if (!targetParent || !isContainer(targetParent)) return doc;
+  const children = targetParent.children.filter((id) => id !== child.id);
   const lastChildId = children.length > 0 ? children[children.length - 1]! : null;
-  const lastChild = lastChildId ? doc.nodes[lastChildId] : null;
+  const lastChild = nodes[lastChildId ?? ''];
   const order = generateKeyBetween(lastChild?.order ?? null, null);
   const indexed = { ...child, order };
   const newChildren = [...children, child.id];
-  const updated = { ...parent, children: newChildren } as SceneNode;
-  if ('slots' in parent && slotId) {
-    (updated as FrameNode).slots = { ...(parent.slots ?? {}), [slotId]: child.id };
-  } else if ('slots' in parent && slotId === undefined) {
-    (updated as FrameNode).slots = parent.slots;
+  const updated = { ...targetParent, children: newChildren } as SceneNode;
+  if ('slots' in targetParent && slotId) {
+    (updated as FrameNode).slots = { ...(targetParent.slots ?? {}), [slotId]: child.id };
+  } else if ('slots' in targetParent && slotId === undefined) {
+    (updated as FrameNode).slots = targetParent.slots;
   }
+  nodes[parentId] = updated;
+  nodes[child.id] = indexed;
   const result = {
     ...doc,
-    nodes: {
-      ...doc.nodes,
-      [parentId]: updated,
-      [child.id]: indexed,
-    },
+    rootChildren,
+    ...(globalChildren ? { globalChildren } : {}),
+    nodes,
   };
   devValidate(result);
   return result;
@@ -81,15 +106,14 @@ export function removeNode(doc: Document, id: NodeId): Document {
 
   // Collect all descendants to remove
   const toRemove = new Set<NodeId>();
-  function collect(nid: NodeId) {
-    if (toRemove.has(nid)) return;
+  const pending = [id];
+  while (pending.length > 0) {
+    const nid = pending.pop()!;
+    if (toRemove.has(nid)) continue;
     toRemove.add(nid);
     const n = nodes[nid];
-    if (n && isContainer(n)) {
-      for (const cId of n.children) collect(cId);
-    }
+    if (n && isContainer(n)) pending.push(...n.children);
   }
-  collect(id);
   const removedRasterAssetIds = new Set(
     [...toRemove]
       .map((nodeId) => nodes[nodeId]?.mask?.rasterMask?.assetId)
@@ -124,15 +148,51 @@ export function removeNode(doc: Document, id: NodeId): Document {
     rootChildren = doc.rootChildren.filter((x) => !toRemove.has(x));
   }
 
-  // Clear mask references that point to any removed node
-  for (const removedId of toRemove) {
-    for (const [id, nodeEntry] of Object.entries(nodes)) {
-      const n = nodeEntry as SceneNode & { mask?: import('./types').Mask };
-      if (n.mask?.sourceNodeId === removedId) {
-        const { mask: _unused, ...rest } = n;
-        nodes = { ...nodes, [id]: rest as SceneNode };
+  // Clear strong references that point to any removed node.
+  for (const [nodeId, nodeEntry] of Object.entries(nodes)) {
+    if (toRemove.has(nodeId)) continue;
+    let nextNode = nodeEntry;
+    let changed = false;
+    const mask = nextNode.mask;
+    if (
+      (mask?.sourceNodeId && toRemove.has(mask.sourceNodeId)) ||
+      (mask?.matteSource?.kind === 'scene-node' && toRemove.has(mask.matteSource.nodeId))
+    ) {
+      const { mask: _mask, ...rest } = nextNode;
+      nextNode = rest as SceneNode;
+      changed = true;
+    }
+    if (nextNode.kind === 'adjustment' && nextNode.scope) {
+      if (nextNode.scope.mode === 'explicit-targets') {
+        const targetNodeIds = nextNode.scope.targetNodeIds.filter((targetId) => !toRemove.has(targetId));
+        if (targetNodeIds.length !== nextNode.scope.targetNodeIds.length) {
+          nextNode = { ...nextNode, scope: { ...nextNode.scope, targetNodeIds } } as SceneNode;
+          changed = true;
+        }
+      } else if (nextNode.scope.mode === 'image-local' && toRemove.has(nextNode.scope.targetNodeId)) {
+        nextNode = { ...nextNode, scope: { mode: 'document' } } as SceneNode;
+        changed = true;
       }
     }
+    const effects = 'effects' in nextNode ? nextNode.effects : undefined;
+    if (
+      effects?.some((effect) => {
+        const source = effect.mask?.source;
+        return source?.kind === 'scene-node' && toRemove.has(source.nodeId);
+      })
+    ) {
+      nextNode = {
+        ...nextNode,
+        effects: effects.map((effect) => {
+          const source = effect.mask?.source;
+          return source?.kind === 'scene-node' && toRemove.has(source.nodeId)
+            ? { ...effect, mask: undefined }
+            : effect;
+        }),
+      } as SceneNode;
+      changed = true;
+    }
+    if (changed) nodes[nodeId] = nextNode;
   }
 
   // Delete all collected nodes
@@ -158,10 +218,47 @@ export function removeNode(doc: Document, id: NodeId): Document {
       );
     if (!stillReferenced) delete assets[assetId];
   }
+  const remainingComponents = Object.fromEntries(
+    Object.entries(doc.components).filter(([, component]) => !toRemove.has(component.masterRootId)),
+  );
+  for (const [nodeId, node] of Object.entries(nodes)) {
+    if (node.kind === 'frame' && node.componentId && !remainingComponents[node.componentId]) {
+      nodes[nodeId] = { ...node, componentId: undefined } as SceneNode;
+    }
+  }
+  const globalChildren = doc.globalChildren?.filter((nodeId) => !toRemove.has(nodeId));
+  const selectionSets = doc.selectionSets
+    ? {
+        ...doc.selectionSets,
+        sets: doc.selectionSets.sets.map((set) => ({
+          ...set,
+          nodeIds: set.nodeIds.filter((nodeId) => !toRemove.has(nodeId)),
+        })),
+      }
+    : undefined;
+  const layerStates = doc.layerStates?.map((state) => ({
+    ...state,
+    captured: {
+      ...state.captured,
+      visibility: state.captured.visibility
+        ? Object.fromEntries(Object.entries(state.captured.visibility).filter(([nodeId]) => !toRemove.has(nodeId)))
+        : undefined,
+      transforms: state.captured.transforms
+        ? Object.fromEntries(Object.entries(state.captured.transforms).filter(([nodeId]) => !toRemove.has(nodeId)))
+        : undefined,
+      appearance: state.captured.appearance
+        ? Object.fromEntries(Object.entries(state.captured.appearance).filter(([nodeId]) => !toRemove.has(nodeId)))
+        : undefined,
+    },
+  }));
   const result = {
     ...doc,
     rootChildren,
+    ...(globalChildren ? { globalChildren } : {}),
     nodes,
+    components: remainingComponents,
+    selectionSets,
+    layerStates,
     rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
     assets: Object.keys(assets).length > 0 ? assets : undefined,
   };
@@ -333,6 +430,7 @@ export function reparentNode(
 
   const oldParentId = getParent(doc, id);
   let rootChildren = [...doc.rootChildren];
+  const globalChildren = doc.globalChildren?.filter((childId) => childId !== id);
   if (oldParentId) {
     const oldParent = nodes[oldParentId] as SceneNode | undefined;
     if (oldParent && isContainer(oldParent)) {
@@ -370,7 +468,7 @@ export function reparentNode(
   if (newParentId) {
     const newParent = nodes[newParentId];
     if (!newParent || !isContainer(newParent)) return { ...doc, rootChildren, nodes };
-    const children = [...newParent.children];
+    const children = newParent.children.filter((childId) => childId !== id);
     const clamped = Math.max(0, Math.min(toIndex, children.length));
     children.splice(clamped, 0, id);
     const newOrder = generateOrder(children, clamped);
@@ -391,19 +489,36 @@ export function reparentNode(
     } as SceneNode;
   }
 
-  const result = { ...doc, rootChildren, nodes };
+  const result = {
+    ...doc,
+    rootChildren,
+    ...(globalChildren ? { globalChildren } : {}),
+    nodes,
+  };
   devValidate(result);
   return result;
 }
 
 function isAncestor(doc: Document, parent: NodeId, child: NodeId): boolean {
   if (parent === child) return true;
-  const node = doc.nodes[child];
-  if (!node || !isContainer(node)) return false;
-  for (const c of node.children) {
-    if (isAncestor(doc, parent, c)) return true;
+  const pending = [child];
+  const visited = new Set<NodeId>();
+  while (pending.length > 0) {
+    const current = pending.pop()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const node = doc.nodes[current];
+    if (!node || !isContainer(node)) continue;
+    for (const childId of node.children) {
+      if (childId === parent) return true;
+      pending.push(childId);
+    }
   }
   return false;
+}
+
+function containsDescendant(doc: Document, root: NodeId, target: NodeId): boolean {
+  return isAncestor(doc, target, root);
 }
 
 /**

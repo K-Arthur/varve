@@ -20,8 +20,9 @@ import {
 } from './assets';
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
-import { type DocumentLike, findParentCycle } from './document-utils';
+import { type DocumentLike, findParentCycle, validateAndRepairDocument } from './document-utils';
 import { normalizeDocumentEffects } from './effects';
+import { normalizeAdjustmentStack } from './adjustmentNormalization';
 import { isIconAssetReferenced, validateIconAsset } from './iconAsset';
 import { normalizeLogoProject } from './logo/logoProject';
 import {
@@ -765,6 +766,49 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   document = sanitizeIconAssetState(document, warnings);
   document = sanitizeMockupState(document, warnings);
   document = normalizeDocumentEffects(document);
+
+  // Adjustment and object-local filter entries share the engine's FilterIR
+  // contract, but they are still persisted scene data and need the same
+  // defensive normalization as legacy visual effects. Without this pass a
+  // malformed NaN/Infinity value can reach a kernel or a raster allocation.
+  const normalizedNodes: Record<NodeId, SceneNode> = {};
+  for (const [nodeId, node] of Object.entries(document.nodes)) {
+    let nextNode = node;
+    if (node.kind === 'adjustment' && node.adjustments !== undefined) {
+      const result = normalizeAdjustmentStack(node.adjustments, nodeId);
+      if (result.changed) {
+        nextNode = { ...nextNode, adjustments: result.adjustments } as SceneNode;
+      }
+      if (result.dropped > 0) {
+        warnings.push(
+          warning(
+            'document.invalid-adjustment',
+            `Adjustment layer ${nodeId} dropped ${result.dropped} unknown or malformed filter entr${result.dropped === 1 ? 'y' : 'ies'}`,
+            'warning',
+            `${nodeId}.adjustments`,
+          ),
+        );
+      }
+    }
+    if (nextNode.smartFilters !== undefined) {
+      const result = normalizeAdjustmentStack(nextNode.smartFilters, nodeId);
+      if (result.changed) {
+        nextNode = { ...nextNode, smartFilters: result.adjustments } as SceneNode;
+      }
+      if (result.dropped > 0) {
+        warnings.push(
+          warning(
+            'document.invalid-smart-filter',
+            `Object filter stack on ${nodeId} dropped ${result.dropped} unknown or malformed filter entr${result.dropped === 1 ? 'y' : 'ies'}`,
+            'warning',
+            `${nodeId}.smartFilters`,
+          ),
+        );
+      }
+    }
+    normalizedNodes[nodeId] = nextNode;
+  }
+  document = { ...document, nodes: normalizedNodes };
   if (!document.selectionSets) {
     document = { ...document, selectionSets: createEmptySelectionSetsData() };
   }
@@ -935,7 +979,14 @@ export const DocumentCodec = {
       ),
     );
 
-    return { ok: true, document: normalized.document, warnings };
+    const repaired = validateAndRepairDocument(normalized.document);
+    if (repaired.repaired.changed) {
+      warnings.unshift(
+        warning('document.repaired', 'Document references were repaired at load time', 'warning'),
+      );
+    }
+
+    return { ok: true, document: repaired.repaired.doc as Document, warnings };
   },
 
   encode(doc: Document): string {

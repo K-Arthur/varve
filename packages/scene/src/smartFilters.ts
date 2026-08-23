@@ -34,6 +34,7 @@ export const SMART_FILTER_KINDS: readonly AdjustmentKind[] = [
   'blur',
   'sharpen',
   'photoFilter',
+  'shadowHighlight',
   'duotone',
   'blackAndWhite',
   'posterize',
