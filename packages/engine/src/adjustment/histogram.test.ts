@@ -59,6 +59,9 @@ describe('computeHistogram', () => {
     const hist = computeHistogram(data);
     expect(hist.opaquePixels).toBe(1);
     expect(hist.totalPixels).toBe(2);
+    expect(hist.luminance[0]).toBe(0);
+    expect(hist.red[0]).toBe(0);
+    expect(hist.alpha[0]).toBe(1);
   });
 
   it('handles empty image', () => {
@@ -116,5 +119,21 @@ describe('autoLevelsParams', () => {
     const params = autoLevelsParams(hist);
     expect(params.inputBlack).toBeLessThanOrEqual(10);
     expect(params.inputWhite).toBeGreaterThanOrEqual(245);
+  });
+
+  it('ignores transparent black backdrop pixels', () => {
+    const data = makeImageData(
+      [
+        [128, 128, 128, 255],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+      ],
+      3,
+      1,
+    );
+    const params = autoLevelsParams(computeHistogram(data));
+    expect(params.inputBlack).toBeGreaterThan(100);
+    expect(params.inputWhite).toBeGreaterThan(120);
+    expect(params.inputWhite).toBeLessThan(140);
   });
 });

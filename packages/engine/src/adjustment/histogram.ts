@@ -45,13 +45,18 @@ export function computeHistogram(imageData: ImageData): Histogram {
     const b = data[off + 2]!;
     const a = data[off + 3]!;
 
-    const l = luminance(r, g, b);
-    lum[l]!++;
-    red[r]!++;
-    green[g]!++;
-    blue[b]!++;
     alpha[a]!++;
-    if (a > 0) opaquePixels++;
+    // Empty backdrop pixels must not bias Levels/Curves toward black. Keep
+    // their alpha count for diagnostics, but only include visible samples in
+    // the RGB/luminance distributions used for tonal correction.
+    if (a > 0) {
+      const l = luminance(r, g, b);
+      lum[l]!++;
+      red[r]!++;
+      green[g]!++;
+      blue[b]!++;
+      opaquePixels++;
+    }
   }
 
   return {
@@ -83,6 +88,10 @@ export function computeHistogramStats(histogram: Uint32Array, totalPixels: numbe
   let median = 0;
   let medianFound = false;
 
+  let sampleTotal = 0;
+  for (let i = 0; i < BINS; i++) sampleTotal += histogram[i]!;
+  if (sampleTotal === 0) sampleTotal = Math.max(0, totalPixels);
+
   for (let i = 0; i < BINS; i++) {
     const c = histogram[i]!;
     if (c > 0) {
@@ -91,7 +100,7 @@ export function computeHistogramStats(histogram: Uint32Array, totalPixels: numbe
       count += c;
     }
     cumCount += c;
-    if (!medianFound && cumCount >= totalPixels / 2) {
+    if (!medianFound && cumCount >= sampleTotal / 2) {
       median = i;
       medianFound = true;
     }
@@ -108,11 +117,11 @@ export function computeHistogramStats(histogram: Uint32Array, totalPixels: numbe
   let p95Found = false;
   for (let i = 0; i < BINS; i++) {
     cumCount += histogram[i]!;
-    if (!p5Found && cumCount >= totalPixels * 0.05) {
+    if (!p5Found && cumCount >= sampleTotal * 0.05) {
       p5 = i;
       p5Found = true;
     }
-    if (!p95Found && cumCount >= totalPixels * 0.95) {
+    if (!p95Found && cumCount >= sampleTotal * 0.95) {
       p95 = i;
       p95Found = true;
     }
@@ -137,7 +146,8 @@ export function autoLevelsParams(
   inputWhite: number;
   gamma: number;
 } {
-  const total = histogram.totalPixels;
+  const total = histogram.opaquePixels;
+  if (total <= 0) return { inputBlack: 0, inputWhite: 255, gamma: 1 };
   const clipCount = Math.round((total * clipPercent) / 100);
 
   let inputBlack = 0;
