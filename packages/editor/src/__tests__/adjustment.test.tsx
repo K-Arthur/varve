@@ -2,7 +2,15 @@
 
 import { cleanup, render, waitFor } from '@testing-library/react';
 import type { Adjustment } from '@varve/engine';
-import { makeAdjustment } from '@varve/scene';
+import {
+  addChild,
+  addNode,
+  createDocument,
+  DocumentCodec,
+  makeAdjustment,
+  makeFrameNode,
+  makeShapeNode,
+} from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EditorContextValue } from '../context';
 import { EditorProvider, useEditor } from '../context';
@@ -76,6 +84,58 @@ describe('adjustment layer', () => {
       expect(node.adjustments?.[0]?.kind).toBe('brightness');
       expect(node.adjustments?.[0]).toMatchObject({ value: 20 });
     }
+  });
+
+  it('places a frame adjustment inside the frame with descendant scope', async () => {
+    const { getCtx } = setup();
+    let doc = createDocument('Frame adjustment', true);
+    const frame = makeFrameNode('frame', { name: 'Artwork', w: 200, h: 160 });
+    const child = makeShapeNode('child', { kind: 'rect', x: 0, y: 0, w: 80, h: 80 });
+    doc = addNode(doc, frame);
+    doc = addChild(doc, frame.id, child);
+    getCtx().loadDocument(DocumentCodec.encode(doc));
+    await waitFor(() => expect(getCtx().state.document.nodes.frame).toBeDefined());
+
+    getCtx().setSelection(frame.id);
+    await waitFor(() => expect(getCtx().state.selection).toEqual([frame.id]));
+    getCtx().createAdjustmentLayer();
+
+    await waitFor(() => expect(getCtx().state.selection).toHaveLength(1));
+    const adjustment = getNode(getCtx(), firstSelectedId(getCtx()));
+    expect(adjustment.kind).toBe('adjustment');
+    expect(adjustment.kind === 'adjustment' && adjustment.scope).toEqual({
+      mode: 'container-descendant',
+      containerId: frame.id,
+      includeNested: true,
+    });
+    expect(getCtx().state.document.nodes[frame.id]?.kind).toBe('frame');
+    const frameAfter = getCtx().state.document.nodes[frame.id];
+    expect(frameAfter?.kind === 'frame' && frameAfter.children.at(-1)).toBe(adjustment.id);
+  });
+
+  it('places a leaf adjustment beside the selected object with image-local scope', async () => {
+    const { getCtx } = setup();
+    let doc = createDocument('Leaf adjustment', true);
+    const frame = makeFrameNode('frame', { name: 'Artwork', w: 200, h: 160 });
+    const child = makeShapeNode('child', { kind: 'rect', x: 0, y: 0, w: 80, h: 80 });
+    doc = addNode(doc, frame);
+    doc = addChild(doc, frame.id, child);
+    getCtx().loadDocument(DocumentCodec.encode(doc));
+    await waitFor(() => expect(getCtx().state.document.nodes.child).toBeDefined());
+
+    getCtx().setSelection(child.id);
+    await waitFor(() => expect(getCtx().state.selection).toEqual([child.id]));
+    getCtx().createAdjustmentLayer();
+
+    await waitFor(() => expect(getCtx().state.selection).toHaveLength(1));
+    const adjustment = getNode(getCtx(), firstSelectedId(getCtx()));
+    expect(adjustment.kind).toBe('adjustment');
+    expect(adjustment.kind === 'adjustment' && adjustment.scope).toEqual({
+      mode: 'image-local',
+      targetNodeId: child.id,
+    });
+    const frameAfter = getCtx().state.document.nodes[frame.id];
+    expect(frameAfter?.kind === 'frame' && frameAfter.children).toEqual([child.id, adjustment.id]);
   });
 
   it('creates LUT adjustment layers at visible layer opacity', async () => {
