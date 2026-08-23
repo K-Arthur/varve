@@ -250,4 +250,102 @@ describe('runExportPreflight', () => {
     const b = runExportPreflight(doc, request([config]));
     expect(a.findings.map((f) => f.id)).toEqual(b.findings.map((f) => f.id));
   });
+
+  it('warns when a placed image has effective PPI below the enforceDpi target', () => {
+    // 400×300 source image placed in a 4000×3000 shape → effective PPI ≈ 9.6.
+    const base = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4000, h: 3000 }, { name: 'Photo' });
+    const imgShape = {
+      ...base,
+      fills: [
+        {
+          type: 'image' as const,
+          image: { src: '', fit: 'fill' as const, x: 0, y: 0, scale: 1, imageWidth: 400, imageHeight: 300 },
+        },
+      ],
+    };
+    const doc = {
+      ...createDocument('Doc', true),
+      rootChildren: ['n1'],
+      nodes: { n1: imgShape },
+    } as ReturnType<typeof createDocument> & {
+      rootChildren: string[];
+      nodes: Record<string, typeof imgShape>;
+    };
+
+    const config = createExportConfiguration({
+      id: 'c1',
+      target: { type: 'node', nodeId: 'n1' },
+      format: 'png',
+      scale: { mode: 'multiplier', value: 1 },
+      print: { enforceDpi: 300 },
+    });
+    const result = runExportPreflight(doc, request([config]));
+    const finding = result.findings.find((f) => f.code === 'low-effective-resolution');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('warning');
+    expect(finding?.nodeIds).toEqual(['n1']);
+    expect(finding?.description).toContain('10');
+  });
+
+  it('does not warn when effective PPI meets the enforceDpi target', () => {
+    // 4000×3000 source in a 200×100 shape → effective PPI = 600.
+    const base = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }, { name: 'Sharp' });
+    const imgShape = {
+      ...base,
+      fills: [
+        {
+          type: 'image' as const,
+          image: { src: '', fit: 'fill' as const, x: 0, y: 0, scale: 1, imageWidth: 4000, imageHeight: 3000 },
+        },
+      ],
+    };
+    const doc = {
+      ...createDocument('Doc', true),
+      rootChildren: ['n1'],
+      nodes: { n1: imgShape },
+    } as ReturnType<typeof createDocument> & {
+      rootChildren: string[];
+      nodes: Record<string, typeof imgShape>;
+    };
+
+    const config = createExportConfiguration({
+      id: 'c1',
+      target: { type: 'node', nodeId: 'n1' },
+      format: 'png',
+      scale: { mode: 'multiplier', value: 1 },
+      print: { enforceDpi: 300 },
+    });
+    const result = runExportPreflight(doc, request([config]));
+    expect(result.findings.some((f) => f.code === 'low-effective-resolution')).toBe(false);
+  });
+
+  it('does not warn for tile fills which have no whole-object PPI', () => {
+    const base = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4000, h: 3000 }, { name: 'Tile' });
+    const imgShape = {
+      ...base,
+      fills: [
+        {
+          type: 'image' as const,
+          image: { src: '', fit: 'tile' as const, x: 0, y: 0, scale: 1, imageWidth: 100, imageHeight: 100 },
+        },
+      ],
+    };
+    const doc = {
+      ...createDocument('Doc', true),
+      rootChildren: ['n1'],
+      nodes: { n1: imgShape },
+    } as ReturnType<typeof createDocument> & {
+      rootChildren: string[];
+      nodes: Record<string, typeof imgShape>;
+    };
+
+    const config = createExportConfiguration({
+      id: 'c1',
+      target: { type: 'node', nodeId: 'n1' },
+      format: 'png',
+      print: { enforceDpi: 300 },
+    });
+    const result = runExportPreflight(doc, request([config]));
+    expect(result.findings.some((f) => f.code === 'low-effective-resolution')).toBe(false);
+  });
 });
