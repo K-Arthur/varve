@@ -15,6 +15,7 @@ import { HealingBrushTool } from '../tools/HealingBrushTool';
 import { LassoTool } from '../tools/LassoTool';
 import { LineTool } from '../tools/LineTool';
 import { PixelLassoTool } from '../tools/PixelLassoTool';
+import { SelectionPaintTool } from '../tools/SelectionPaintTool';
 import { MarqueeTool } from '../tools/MarqueeTool';
 import { NodeEditTool } from '../tools/NodeEditTool';
 import { PageTool } from '../tools/PageTool';
@@ -78,6 +79,7 @@ export function getToolManager(): ToolManager {
     toolManager.register('pixelLasso', () => new PixelLassoTool());
     toolManager.register('marquee', () => new MarqueeTool());
     toolManager.register('ellipseMarquee', () => new MarqueeTool('ellipse'));
+    toolManager.register('selectionPaint', () => new SelectionPaintTool());
     toolManager.register('table', () => new TableTool());
     toolManager.register('warp', () => new WarpTool());
     toolManager.register('perspective', () => new PerspectiveTool());

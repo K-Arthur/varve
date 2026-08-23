@@ -402,6 +402,34 @@ export function registerEditorActions(
     const action = r.get(id);
     if (action) action.keywords = [...keywords];
   }
+  reg('toolSelectionPaint', 'Paint Selection', 'edit', handlers.toolSelectionPaint ?? (() => {}));
+  reg('saveAreaSelection', 'Save Area Selection', 'edit', handlers.saveAreaSelection ?? (() => {}));
+  reg(
+    'restoreLastSavedAreaSelection',
+    'Restore Last Saved Area Selection',
+    'edit',
+    handlers.restoreLastSavedAreaSelection ?? (() => {}),
+  );
+  reg(
+    'deleteLastSavedAreaSelection',
+    'Delete Last Saved Area Selection',
+    'edit',
+    handlers.deleteLastSavedAreaSelection ?? (() => {}),
+  );
+  reg('pathToSelection', 'Path to Selection', 'edit', handlers.pathToSelection ?? (() => {}));
+  reg('selectionToPath', 'Selection to Path', 'edit', handlers.selectionToPath ?? (() => {}));
+  reg(
+    'selectFromImageAlpha',
+    'Select from Image Alpha',
+    'edit',
+    handlers.selectFromImageAlpha ?? (() => {}),
+  );
+  reg(
+    'selectFromImageLuminance',
+    'Select from Image Luminance',
+    'edit',
+    handlers.selectFromImageLuminance ?? (() => {}),
+  );
   reg('mergeSelected', 'Merge Selected', 'object', handlers.mergeSelected ?? (() => {}));
   // Master page operations
   reg('createMaster', 'Create Master', 'object', handlers.createMaster ?? (() => {}));

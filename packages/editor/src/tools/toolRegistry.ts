@@ -425,6 +425,14 @@ export const TOOL_REGISTRY = [
     aliases: ['ellipse selection', 'circle selection', 'area selection'],
   },
   {
+    id: 'selectionPaint',
+    label: 'Selection Paint',
+    icon: 'Paintbrush',
+    category: 'selection',
+    kind: 'tool',
+    aliases: ['quick mask', 'paint selection', 'selection mask'],
+  },
+  {
     id: 'table',
     label: 'Table',
     icon: 'Table',

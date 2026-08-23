@@ -367,6 +367,7 @@ export type {
   SelectiveColorAdjustment,
   SepiaAdjustment,
   SharpenAdjustment,
+  ShadowHighlightAdjustment,
   TemperatureAdjustment,
   ThresholdAdjustment,
   TintAdjustment,

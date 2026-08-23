@@ -500,6 +500,7 @@ export function createActionHandlers(
     toolHand: setTool('hand'),
     toolZoom: setTool('zoom'),
     toolInspect: setTool('inspect'),
+    toolSelectionPaint: setTool('selectionPaint'),
     toolPaint: setTool('paint'),
     toolEraser: setTool('eraser'),
     toolSmudge: setTool('smudge'),

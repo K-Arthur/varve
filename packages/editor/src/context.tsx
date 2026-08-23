@@ -3674,6 +3674,7 @@ export function EditorProvider({
             'crop',
             'paint',
             'eraser',
+            'selectionPaint',
           ];
           if (nonDrawingTools.includes(activeTool)) {
             throw new Error(`createShapeAt called for non-drawing tool: ${activeTool}`);

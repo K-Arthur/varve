@@ -327,6 +327,8 @@ export interface Document {
 
   /** Named selection sets for saving and restoring selections. */
   selectionSets?: import('./selectionSet').SelectionSetsData;
+  /** Named persistent coverage selections; distinct from node SelectionSets. */
+  savedAreaSelections?: import('./savedAreaSelection').SavedAreaSelection[];
 
   // ── Email template properties (v2.21+) ─────────────────────────────────────
 
@@ -380,6 +382,7 @@ export function createDocument(
     components: {},
     nextId: 1,
     selectionSets: createEmptySelectionSetsData(),
+    savedAreaSelections: [],
   };
 
   if (param2 === true) {
