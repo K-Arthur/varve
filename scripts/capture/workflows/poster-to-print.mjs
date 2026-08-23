@@ -26,12 +26,42 @@ import {
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
+async function setFillHex(page, hex) {
+  const swatch = page.locator('.insp-swatch[aria-label="Fill colour"]');
+  if (!(await swatch.isVisible({ timeout: 3000 }).catch(() => false))) return false;
+  await swatch.click();
+  const dialog = page.getByRole('dialog', { name: /pick fill colour/i });
+  await dialog.waitFor({ state: 'visible', timeout: 3000 });
+  const field = dialog.getByRole('textbox', { name: 'Hex color' });
+  await field.fill(hex);
+  await field.press('Enter');
+  await page.waitForTimeout(350);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(250);
+  return true;
+}
+
+async function openTextEditor(page) {
+  const editor = page.getByRole('textbox', { name: /editing text/i });
+  if (await editor.isVisible({ timeout: 500 }).catch(() => false)) return editor;
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(250);
+  if (await editor.isVisible({ timeout: 800 }).catch(() => false)) return editor;
+  const edit = page.getByRole('button', { name: /^Edit$/ }).last();
+  await edit.waitFor({ state: 'visible', timeout: 5000 });
+  await edit.click();
+  await editor.waitFor({ state: 'visible', timeout: 8000 });
+  return editor;
+}
+
 /** Places a text layer by dragging a box and typing into it. */
 async function addText(page, from, to, copy, { delay = 22 } = {}) {
   await useTool(page, 't');
   await dragAt(page, from, to);
-  await page.keyboard.type(copy, { delay });
-  await page.keyboard.press('Escape');
+  const editor = await openTextEditor(page);
+  await editor.fill(copy);
+  assert.equal(await editor.inputValue(), copy);
+  await editor.press('Escape');
   await page.waitForTimeout(450);
   await useTool(page, 'v');
 }
@@ -42,6 +72,7 @@ await capture({
   purpose: 'Building an A3 poster from an empty page and taking it into print production.',
   fixture: null,
   duration: [26, 82],
+  posterAt: 0.95,
 
   async sequence(ctx) {
     const { page, base, begin } = ctx;
@@ -70,8 +101,20 @@ await capture({
     begin();
     await beat(page, 1200);
 
+    // A live print composition built from real editable layers: paper field,
+    // warm sun, dark accent bar, headline, and event information.
+    await useTool(page, 'r');
+    await dragAt(page, [0.08, 0.08], [0.92, 0.92], { steps: 18 });
+    await setFillHex(page, '#F6F0E5');
+    await useTool(page, 'o');
+    await dragAt(page, [0.62, 0.2], [0.86, 0.48], { steps: 18 });
+    await setFillHex(page, '#E69F45');
+    await useTool(page, 'r');
+    await dragAt(page, [0.12, 0.58], [0.17, 0.82], { steps: 12 });
+    await setFillHex(page, '#243447');
+
     // ── Headline ───────────────────────────────────────────────────
-    await addText(page, [0.08, 0.1], [0.92, 0.28], 'NIGHT\nSESSIONS');
+    await addText(page, [0.14, 0.14], [0.58, 0.34], 'NIGHT\nSESSIONS', { delay: 28 });
     await parkPointer(page);
     await settle(page);
     await beat(page, 1100);
@@ -85,8 +128,10 @@ await capture({
     await beat(page, 900);
 
     // ── Secondary event information ────────────────────────────────
-    await addText(page, [0.08, 0.7], [0.92, 0.8], 'FRI 12 SEPT · DOORS 8PM');
-    await addText(page, [0.08, 0.84], [0.92, 0.93], 'THE VARVE ROOMS · TICKETS AT THE DOOR');
+    await addText(page, [0.2, 0.58], [0.58, 0.65], 'FRI 12 SEPT · DOORS 8PM', { delay: 24 });
+    await addText(page, [0.2, 0.7], [0.82, 0.76], 'THE VARVE ROOMS · TICKETS AT THE DOOR', {
+      delay: 18,
+    });
     await parkPointer(page);
     await fitContent(page);
     await settle(page);
@@ -94,6 +139,11 @@ await capture({
     const built = await layerNames(page);
     assert.ok(built.length >= 4, `poster has only ${built.length} elements`);
     assertions.push(`${built.length} elements placed on camera from an empty page`);
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await useTool(page, 'v');
+    await parkPointer(page);
+    await settle(page, { pauseMs: 200 });
     await beat(page, 1400);
 
     // ── Bleed ──────────────────────────────────────────────────────
@@ -169,9 +219,26 @@ await capture({
     }
     await beat(page, 2600);
 
+    // Close the production dialog for a clean hero frame at the end of the
+    // clip; the export surface has already been asserted above.
+    const closeExport = dialog.getByRole('button', { name: /close|cancel/i }).first();
+    if (await closeExport.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await closeExport.click();
+      await page.waitForTimeout(600);
+    } else {
+      await page.keyboard.press('Escape');
+    }
+    await page.keyboard.press('Escape');
+    await useTool(page, 'v');
+    await page.keyboard.press('Control+a');
+    await page.waitForTimeout(350);
+    await page.keyboard.press('Shift+2');
+    await page.waitForTimeout(900);
+    await page.keyboard.press('Control+Shift+a');
+    await page.waitForTimeout(450);
     await parkPointer(page);
     await settle(page);
-    await beat(page, 1200);
+    await beat(page, 4200);
 
     return assertions;
   },
