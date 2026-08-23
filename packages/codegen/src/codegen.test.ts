@@ -146,6 +146,43 @@ describe('exportNodeToSvg', () => {
     expect(out).toContain('opacity="0.25"');
     expect(out).toContain('style="mix-blend-mode: plus-darker;"');
   });
+
+  it('emits <textPath> for text in path mode', () => {
+    let doc = createDocument('Path text SVG');
+    const circle = makeShapeNode(
+      'circle-1',
+      { kind: 'circle', cx: 100, cy: 100, r: 80 },
+      { name: 'Ring' },
+    );
+    const text = makeTextNode('text-1', 'HELLO', {
+      name: 'Label',
+      textMode: 'path',
+      pathTextSettings: { pathNodeId: 'circle-1', startOffset: 0.25, side: 'top' },
+    });
+    doc = addNode(doc, circle);
+    doc = addNode(doc, text);
+    doc.rootChildren.push(circle.id, text.id);
+    const svg = exportNodeToSvg(text, doc);
+    expect(svg).toContain('<textPath');
+    expect(svg).toContain('href="#varve-circle-1--text-1"');
+    expect(svg).toContain('startOffset="25%"');
+    expect(svg).toContain('<defs>');
+    expect(svg).toContain('<path id="varve-circle-1--text-1"');
+  });
+
+  it('falls back to flat text when referenced path is missing', () => {
+    const doc = createDocument('Orphan path text');
+    const text = makeTextNode('text-1', 'LOST', {
+      name: 'Orphan',
+      textMode: 'path',
+      pathTextSettings: { pathNodeId: 'missing-1', startOffset: 0, side: 'top' },
+    });
+    addNode(doc, text);
+    doc.rootChildren.push(text.id);
+    const svg = exportNodeToSvg(text, doc);
+    expect(svg).toContain('<!-- varve: path text');
+    expect(svg).toContain('LOST');
+  });
 });
 
 describe('exportNodeToCss', () => {

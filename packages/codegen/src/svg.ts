@@ -10,6 +10,7 @@ import {
   computeImagePlacement,
   type ImagePlacement,
   type ImagePlacementRect,
+  transformPathShape,
 } from '@varve/engine';
 import type {
   ImageFillData,
@@ -28,6 +29,7 @@ import {
   multiplyAffine,
   rotateDeg,
   textWrap,
+  tryInvertAffine,
 } from '@varve/shared';
 import {
   adjustmentStackTargetGaps,
@@ -222,6 +224,71 @@ function pathToData(shape: Extract<import('@varve/engine').Shape, { kind: 'path'
     commands.push(...ringToCommands(hole, true));
   }
   return commands.join(' ');
+}
+
+/** Stable, XML-safe id used by native SVG textPath references. */
+export function pathTextSvgId(textNodeId: string, pathNodeId?: string): string {
+  const identity = pathNodeId ? `${pathNodeId}--${textNodeId}` : textNodeId;
+  const safe = Array.from(identity)
+    .map((char) => (/[A-Za-z0-9_.-]/.test(char) ? char : `-${char.codePointAt(0)!.toString(16)}-`))
+    .join('');
+  return `varve-${safe || 'missing'}`;
+}
+
+/**
+ * Emit the geometry consumed by one native SVG textPath. The path is kept in
+ * the text node's local space so the text and its referenced path retain the
+ * same relative transform as the canvas renderer.
+ */
+export function pathTextSvgDef(
+  textNode: TextNode,
+  doc: SceneDocument,
+  indent = '  ',
+): string | null {
+  if (textNode.textMode !== 'path' || !textNode.pathTextSettings) return null;
+  const pathNode = doc.nodes[textNode.pathTextSettings.pathNodeId];
+  if (pathNode?.kind !== 'shape' || !pathNode.shape) return null;
+
+  const textTransform = nodeEffectiveTransform(textNode);
+  const pathTransform = nodeEffectiveTransform(pathNode);
+  const textInverse = tryInvertAffine(textTransform);
+  const relativeTransform = textInverse
+    ? multiplyAffine(textInverse, pathTransform)
+    : pathTransform;
+  const path = transformPathShape(exportShapeOf(pathNode, doc), relativeTransform);
+  if (path.kind !== 'path') return null;
+  const fillRule = path.fillRule ?? (path.holes && path.holes.length > 0 ? 'evenodd' : undefined);
+  const fillRuleAttr = fillRule ? ` fill-rule="${fillRule}"` : '';
+  return `${indent}<path id="${pathTextSvgId(textNode.id, pathNode.id)}" d="${escapeXml(pathToData(path))}" fill="none"${fillRuleAttr} data-varve-path-node="${escapeXml(pathNode.id)}" data-varve-path-text-node="${escapeXml(textNode.id)}" />`;
+}
+
+/** Collect path-text defs from a node and its descendants, without hiding the source path. */
+export function collectPathTextDefs(doc: SceneDocument, node: SceneNode): string[] {
+  const defs: string[] = [];
+  const seenPathIds = new Set<string>();
+  const visit = (current: SceneNode): void => {
+    if (current.kind === 'text') {
+      const pathId = current.pathTextSettings?.pathNodeId;
+      const def = pathTextSvgDef(current, doc);
+      const definitionId = pathId ? pathTextSvgId(current.id, pathId) : undefined;
+      if (definitionId && def && !seenPathIds.has(definitionId)) {
+        seenPathIds.add(definitionId);
+        defs.push(def);
+      }
+    }
+    for (const child of getChildren(doc, current)) visit(child);
+  };
+  visit(node);
+  return defs;
+}
+
+export function pathTextSvgContent(node: TextNode): string {
+  let text = node.text ?? '';
+  if (node.textCase === 'uppercase') text = text.toUpperCase();
+  else if (node.textCase === 'lowercase') text = text.toLowerCase();
+  else if (node.textCase === 'capitalize')
+    text = text.replace(/\b\w/g, (char) => char.toUpperCase());
+  return escapeXml(text.replace(/[\r\n]+/g, ' '));
 }
 
 export interface SvgExportOptions {
@@ -810,6 +877,10 @@ function collectSubtreeMaskDefs(doc: SceneDocument, node: SceneNode): string[] {
   return defs;
 }
 
+function collectSubtreePathTextDefs(doc: SceneDocument, node: SceneNode): string[] {
+  return collectPathTextDefs(doc, node);
+}
+
 function buildTextContent(node: TextNode, indent: string): string {
   const baseY = 0;
   const lineHeight = (node.lineHeight ?? 1.2) * (node.fontSize ?? 16);
@@ -1124,6 +1195,10 @@ ${shapeInner}`
     }
     case 'text': {
       const textNode = node as TextNode;
+      const pathText =
+        textNode.textMode === 'path' &&
+        textNode.pathTextSettings &&
+        pathTextSvgDef(textNode, doc) !== null;
       const attrs: string[] = [
         `x="0"`,
         `y="0"`,
@@ -1144,6 +1219,19 @@ ${shapeInner}`
       if (textNode.lineHeight) attrs.push(`line-height="${textNode.lineHeight}"`);
       if (textNode.textDecoration && textNode.textDecoration !== 'none') {
         attrs.push(`text-decoration="${textNode.textDecoration}"`);
+      }
+      if (pathText && textNode.pathTextSettings) {
+        const settings = textNode.pathTextSettings;
+        attrs.push(
+          'data-varve-text-mode="path"',
+          `data-varve-path-node="${escapeXml(settings.pathNodeId)}"`,
+          `data-varve-path-side="${settings.side ?? 'top'}"`,
+          `data-varve-path-end-offset="${settings.endOffset ?? ''}"`,
+          `data-varve-path-flip="${settings.flip === true ? 'true' : 'false'}"`,
+        );
+        if (settings.baselineShift !== undefined && Number.isFinite(settings.baselineShift)) {
+          attrs.push(`data-varve-baseline-shift="${settings.baselineShift}"`);
+        }
       }
 
       const styleParts: string[] = [];
@@ -1171,8 +1259,19 @@ ${shapeInner}`
       styleParts.push(...compositing.styles);
       if (styleParts.length > 0) attrs.push(`style="${styleParts.join(' ')}"`);
 
-      const content = buildTextContent(textNode, indent);
-      const textTag = `${indent}${warpNotBakedComment(node)}<text ${attrs.join(' ')}${withTransform}>\n${content}\n${indent}</text>`;
+      const content =
+        pathText && textNode.pathTextSettings
+          ? `<textPath href="#${pathTextSvgId(textNode.id, textNode.pathTextSettings.pathNodeId)}" startOffset="${fmt(
+              Number.isFinite(textNode.pathTextSettings.startOffset)
+                ? Math.max(0, Math.min(1, textNode.pathTextSettings.startOffset!)) * 100
+                : 0,
+            )}%">${pathTextSvgContent(textNode)}</textPath>`
+          : buildTextContent(textNode, indent);
+      const missingPath = textNode.textMode === 'path' && textNode.pathTextSettings && !pathText;
+      const missingComment = missingPath
+        ? `${indent}<!-- varve: path text — referenced path ${textNode.pathTextSettings!.pathNodeId} not found, exported as flat text -->\n`
+        : '';
+      const textTag = `${indent}${missingComment}${warpNotBakedComment(node)}<text ${attrs.join(' ')}${withTransform}>\n${content}\n${indent}</text>`;
       return buildMaskedNode(textTag, node, doc, indent);
     }
     case 'frame':
@@ -1305,8 +1404,9 @@ export function exportNodeToSvg(
     h: opts?.viewBoxHeight ?? Math.max(1, (bounds?.maxY ?? 160) - (bounds?.minY ?? 0)),
   };
   const maskDefs = collectSubtreeMaskDefs(doc, node);
+  const pathTextDefs = collectSubtreePathTextDefs(doc, node);
   const gradDefs = collectGradientDefs(node, node.id, doc, opts?.preserveColorSpace ?? false);
-  const allDefs = [...maskDefs, ...gradDefs];
+  const allDefs = [...maskDefs, ...pathTextDefs, ...gradDefs];
   const defsSection = allDefs.length > 0 ? `  <defs>\n${allDefs.join('\n')}\n  </defs>\n` : '';
   const inner = nodeToSvgTag(
     node,
@@ -1341,12 +1441,40 @@ export function exportNodeToSvg(
  */
 export function svgTargetGaps(
   node: SceneNode,
-  _doc: SceneDocument,
+  doc: SceneDocument,
   flattenedNodes?: Set<string>,
 ): TargetGap[] {
   const gaps: TargetGap[] = [
     ...adjustmentStackTargetGaps(node, undefined, flattenedNodes?.has(node.id)),
   ];
+
+  if (node.kind === 'text' && node.textMode === 'path' && node.pathTextSettings) {
+    const settings = node.pathTextSettings;
+    if (!pathTextSvgDef(node, doc)) {
+      gaps.push({
+        nodeId: node.id,
+        nodeName: node.name,
+        feature: 'text on path with missing path geometry',
+        severity: 'error',
+        fallback: 'Repair the path reference or detach the text before SVG export',
+      });
+    } else if (
+      settings.side === 'bottom' ||
+      settings.flip === true ||
+      settings.baselineShift !== undefined ||
+      settings.endOffset !== undefined ||
+      node.richText
+    ) {
+      gaps.push({
+        nodeId: node.id,
+        nodeName: node.name,
+        feature: 'advanced text-on-path settings',
+        severity: 'warning',
+        fallback:
+          'SVG keeps native <textPath> semantics and Varve data attributes; rasterize or outline this text for exact side, flip, baseline, interval, or rich-text fidelity',
+      });
+    }
+  }
 
   if (isImageShape(node)) {
     gaps.push({
@@ -1403,6 +1531,20 @@ export function svgTargetGaps(
         unbakeable === 'text'
           ? 'SVG <text> cannot carry a nonlinear warp — outline the text (Expand Appearance) or rasterize before export; it currently exports undeformed'
           : 'Container warps are not baked per child — Expand Appearance on the leaves, or rasterize the group; it currently exports undeformed',
+    });
+  }
+
+  // Rich text on path: SVG <textPath> cannot carry per-run font overrides,
+  // so rich formatting is exported as plain text (the paint layer already
+  // flattens it).
+  if (node.kind === 'text' && node.textMode === 'path' && node.richText) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: 'rich text on path',
+      severity: 'info',
+      fallback:
+        'SVG <textPath> uses a single font — rich text formatting (mixed families, weights, colours) is exported as plain text; the canvas renderer already flattens it',
     });
   }
 

@@ -201,6 +201,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/wasm-backends.md` | WASM backend architecture |
 | `architecture/motion-system.md` | Motion/animation architecture |
 | `architecture/text-pipeline.md` | Multilingual text rendering and layout |
+| `architecture/text-on-path.md` | Text-on-path data, rendering, editing, export, and fidelity limits |
 | `architecture/loading-system.md` | Loading experience system |
 | `architecture/workspace-system.md` | Workspace mode contract, resolution, and persistence |
 | `architecture/lifecycle-system.md` | Quit/close/exit lifecycle and shutdown architecture |

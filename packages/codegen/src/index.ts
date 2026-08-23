@@ -11,7 +11,15 @@ import type { Document, ManagedColor, Mask, NodeId, SceneNode, VectorMaskData } 
 import { activePageNodes, isImageShape, resolveMask } from '@varve/scene';
 import { applyAffine, managedColorToRgba, multiplyAffine } from '@varve/shared';
 import { nodeEffectiveTransform, svgCompositing } from './shared';
-import { imageContentTransform, imagePlacementForShape, svgRect } from './svg';
+import {
+  collectPathTextDefs,
+  imageContentTransform,
+  imagePlacementForShape,
+  pathTextSvgContent,
+  pathTextSvgDef,
+  pathTextSvgId,
+  svgRect,
+} from './svg';
 import { exportShapeOf } from './warpBake';
 
 export { timelineToCSSKeyframes } from './animation-css';
@@ -733,7 +741,20 @@ function nodeToSvg(
       return tag;
     }
     case 'text': {
-      const tag = `${indent}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" font-family="${node.fontFamily ?? 'Inter'}" font-weight="${node.fontWeight ?? 400}" transform="${transform}"${compositingSuffix}>${escapeXml(node.text)}</text>`;
+      const pathDef = pathTextSvgDef(node, doc, indent);
+      const pathContent =
+        pathDef && node.pathTextSettings
+          ? `<textPath href="#${pathTextSvgId(node.id, node.pathTextSettings.pathNodeId)}" startOffset="${Math.max(0, Math.min(1, node.pathTextSettings.startOffset ?? 0)) * 100}%">${pathTextSvgContent(node)}</textPath>`
+          : escapeXml(node.text);
+      const pathAttrs =
+        pathDef && node.pathTextSettings
+          ? ` data-varve-text-mode="path" data-varve-path-node="${escapeXml(node.pathTextSettings.pathNodeId)}" data-varve-path-side="${node.pathTextSettings.side ?? 'top'}"`
+          : '';
+      const missingComment =
+        node.textMode === 'path' && node.pathTextSettings && !pathDef
+          ? `<!-- varve: path text — referenced path ${node.pathTextSettings.pathNodeId} not found, exported as flat text -->\n${indent}`
+          : '';
+      const tag = `${indent}${missingComment}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" font-family="${node.fontFamily ?? 'Inter'}" font-weight="${node.fontWeight ?? 400}" transform="${transform}"${pathAttrs}${compositingSuffix}>${pathContent}</text>`;
       if (maskUri) {
         return `${indent}<g ${maskAttr}="${maskUri}" transform="${transform}">\n${tag}\n${indent}</g>`;
       }
@@ -798,8 +819,19 @@ export function exportDocumentToSvgAdvanced(
 
   // Collect mask defs across all visible root subtrees
   const maskDefs = docCollectMaskDefs(doc, visibleRootIds);
+  const pathTextDefs = visibleRootIds.flatMap((id) => {
+    const node = doc.nodes[id];
+    return node ? collectPathTextDefs(doc, node) : [];
+  });
+  const uniquePathTextDefs = pathTextDefs.filter((def, index, all) => {
+    const id = def.match(/\bid="([^"]+)"/)?.[1];
+    if (!id) return true;
+    return all.findIndex((candidate) => candidate.match(/\bid="([^"]+)"/)?.[1] === id) === index;
+  });
   const defsSection =
-    maskDefs.length > 0 ? `  <defs>${nl}${maskDefs.join(nl)}${nl}  </defs>${nl}` : '';
+    maskDefs.length > 0 || uniquePathTextDefs.length > 0
+      ? `  <defs>${nl}${[...maskDefs, ...uniquePathTextDefs].join(nl)}${nl}  </defs>${nl}`
+      : '';
 
   const children = visibleRootIds
     .map((id: NodeId) => {
