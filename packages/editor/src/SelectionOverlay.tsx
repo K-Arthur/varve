@@ -30,6 +30,7 @@ import { useEditor } from './context';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { type SnapBoxOptions, snapSelectionBox } from './tools/snapping';
 import { type SkewAxis, TransformEngine } from './transform/TransformEngine';
+import { storeRepeatTransform } from './transform/repeatTransform';
 
 const HANDLE_HALF = 4;
 const ROT_OFFSET = 20;
@@ -770,6 +771,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     const drag = dragRef.current;
     dragRef.current = null;
     if (drag) {
+      storeRepeatTransform(drag.engine.getLastDelta(), state.selection);
       updateDoc((doc) => drag.engine.commit(doc));
       commitTransaction();
     }
@@ -786,6 +788,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     const sk = skewDragRef.current;
     skewDragRef.current = null;
     if (sk) {
+      storeRepeatTransform(sk.engine.getLastDelta(), state.selection);
       updateDoc((doc) => sk.engine.commit(doc));
       commitTransaction();
     }

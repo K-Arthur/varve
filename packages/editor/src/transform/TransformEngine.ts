@@ -84,6 +84,11 @@ export class TransformEngine {
     this.initialBox = this.computeBoxFromDoc(doc);
   }
 
+  /** The most recent delta matrix applied by resize/rotate/skew. */
+  getLastDelta(): Affine {
+    return this.lastDelta;
+  }
+
   getInitialBox(): SelectionBox {
     return this.initialBox;
   }

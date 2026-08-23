@@ -42,6 +42,15 @@ describe('computeCropResize', () => {
     expect(next.y + next.h / 2).toBeCloseTo(start.y + start.h / 2);
     expect(next.w / next.h).toBeCloseTo(start.w / start.h);
   });
+
+  it('uses explicit aspectRatio when provided', () => {
+    const square = { x: 0, y: 0, w: 100, h: 100 };
+    const next = computeCropResize(square, 'se', 30, 20, bounds, {
+      preserveAspect: true,
+      aspectRatio: 16 / 9,
+    });
+    expect(next.w / next.h).toBeCloseTo(16 / 9);
+  });
 });
 
 describe('CropOverlay', () => {

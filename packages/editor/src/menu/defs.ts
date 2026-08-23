@@ -412,16 +412,12 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
       label: () => 'Pixel Selection',
       kind: 'submenu',
       group: 'selection',
-      items: (ctx) => {
-        const hasSelection = (): true | { reason: string } =>
-          ctx.state.areaSelection ? true : { reason: 'No pixel selection' };
-        return [
+      items: [
           {
             id: 'areaSelectionGrow',
             label: () => 'Grow',
             kind: 'command',
             group: 'refine',
-            enabled: hasSelection,
             run: () => runAction('areaSelectionGrow'),
           },
           {
@@ -429,7 +425,6 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
             label: () => 'Shrink',
             kind: 'command',
             group: 'refine',
-            enabled: hasSelection,
             run: () => runAction('areaSelectionShrink'),
           },
           {
@@ -437,7 +432,6 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
             label: () => 'Smooth',
             kind: 'command',
             group: 'refine',
-            enabled: hasSelection,
             run: () => runAction('areaSelectionSmooth'),
           },
           {
@@ -445,7 +439,6 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
             label: () => 'Threshold',
             kind: 'command',
             group: 'refine',
-            enabled: hasSelection,
             run: () => runAction('areaSelectionThreshold'),
           },
           {
@@ -453,7 +446,6 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
             label: () => 'Nudge Up',
             kind: 'command',
             group: 'transform',
-            enabled: hasSelection,
             run: () => runAction('areaSelectionNudgeUp'),
           },
           {
@@ -461,7 +453,6 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
             label: () => 'Nudge Down',
             kind: 'command',
             group: 'transform',
-            enabled: hasSelection,
             run: () => runAction('areaSelectionNudgeDown'),
           },
           {
@@ -469,7 +460,6 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
             label: () => 'Nudge Left',
             kind: 'command',
             group: 'transform',
-            enabled: hasSelection,
             run: () => runAction('areaSelectionNudgeLeft'),
           },
           {
@@ -477,7 +467,6 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
             label: () => 'Nudge Right',
             kind: 'command',
             group: 'transform',
-            enabled: hasSelection,
             run: () => runAction('areaSelectionNudgeRight'),
           },
           {
@@ -485,7 +474,6 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
             label: () => 'Scale Up',
             kind: 'command',
             group: 'transform',
-            enabled: hasSelection,
             run: () => runAction('areaSelectionScaleUp'),
           },
           {
@@ -493,7 +481,6 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
             label: () => 'Scale Down',
             kind: 'command',
             group: 'transform',
-            enabled: hasSelection,
             run: () => runAction('areaSelectionScaleDown'),
           },
           {
@@ -501,7 +488,6 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
             label: () => 'Rotate Clockwise',
             kind: 'command',
             group: 'transform',
-            enabled: hasSelection,
             run: () => runAction('areaSelectionRotateCW'),
           },
           {
@@ -509,11 +495,10 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
             label: () => 'Rotate Counter-Clockwise',
             kind: 'command',
             group: 'transform',
-            enabled: hasSelection,
             run: () => runAction('areaSelectionRotateCCW'),
           },
-        ];
-      },
+      ],
+    },
     },
     {
       id: 'selectParent',
@@ -1182,11 +1167,18 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
     {
       id: 'repeatTransform',
       labelKey: 'menu.object.repeatTransform',
-      accelerator: a('t', true),
       kind: 'command',
       group: 'transform',
       enabled: enabledWithSelection,
       run: () => runAction('repeatTransform'),
+    },
+    {
+      id: 'resizeImage',
+      labelKey: 'menu.object.resizeImage',
+      kind: 'command',
+      group: 'transform',
+      enabled: enabledWithSelection,
+      run: () => runAction('resizeImage'),
     },
     {
       id: 'newAdjustmentLayer',

@@ -190,6 +190,8 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.object.batchBgRemove': 'Batch Background Removal',
   'menu.object.flipH': 'Flip Horizontal',
   'menu.object.flipV': 'Flip Vertical',
+  'menu.object.repeatTransform': 'Repeat Transform',
+  'menu.object.resizeImage': 'Resize Image…',
   'menu.object.audit': 'Audit',
   'menu.object.scanDebt': 'Scan for Debt',
   'menu.object.suggestNames': 'Suggest Names',

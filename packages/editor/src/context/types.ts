@@ -775,6 +775,7 @@ export interface EditorContextValue {
   setSelectedRotation: (value: number) => void;
   setSelectedFlipH: () => void;
   setSelectedFlipV: () => void;
+  repeatLastTransform: () => void;
   setSelectedCornerRadius: (value: number | [number, number, number, number]) => void;
   setSelectedConstraint: (constraint: import('@varve/scene').Constraints) => void;
   alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;

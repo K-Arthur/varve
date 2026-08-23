@@ -32,6 +32,7 @@ import {
   isImageShape,
   nodeLocalBounds,
   normalizeImageCropRect,
+  normalizeImageRotation,
 } from '@varve/scene';
 import {
   computeVisibleContentBounds,
@@ -63,6 +64,8 @@ export interface CropState {
   fillOffsetY?: number;
   /** Fit mode override. Undefined = keep current. */
   fillFit?: ImageFit;
+  /** Straighten angle in degrees. Applied to image rotation on commit. */
+  straightenAngle?: number;
 }
 
 /**
@@ -304,7 +307,7 @@ export function commitImageCropExtended(
   const W = bounds.w;
   const H = bounds.h;
 
-  const { viewport, fillScale, fillOffsetX, fillOffsetY, fillFit } = cropState;
+  const { viewport, fillScale, fillOffsetX, fillOffsetY, fillFit, straightenAngle } = cropState;
   const x = clamp(viewport.x, 0, Math.max(0, W - 1));
   const y = clamp(viewport.y, 0, Math.max(0, H - 1));
   const w = clamp(viewport.w, 1, W - x);
@@ -326,6 +329,10 @@ export function commitImageCropExtended(
   if (fillOffsetX !== undefined) newImage.x = fillOffsetX;
   if (fillOffsetY !== undefined) newImage.y = fillOffsetY;
   if (fillFit !== undefined) newImage.fit = fillFit;
+  if (straightenAngle !== undefined && Math.abs(straightenAngle) > 0.01) {
+    const existing = newImage.rotation ?? 0;
+    newImage.rotation = normalizeImageRotation((((existing + straightenAngle) % 360) + 360) % 360);
+  }
 
   if (!noViewportChange) {
     const sourceCrop = nodeLocalToSourceCrop(

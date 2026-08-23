@@ -119,6 +119,17 @@ export class CropTool extends BaseTool {
     this.notify();
   }
 
+  /** Set the straighten angle in degrees. Applied to image rotation on commit. */
+  setStraightenAngle(angle: number): void {
+    if (!this.cropState) return;
+    this.cropState = { ...this.cropState, straightenAngle: angle };
+    this.notify();
+  }
+
+  getStraightenAngle(): number {
+    return this.cropState?.straightenAngle ?? 0;
+  }
+
   /** Set the fill scale (zoom level). */
   setFillScale(scale: number): void {
     if (!this.cropState) return;

@@ -41,6 +41,7 @@ export interface ActionHandlerCallbacks {
   onBatchBgRemove?: () => void;
   onReopenLast?: () => void;
   onFindReplace?: () => void;
+  onResizeImage?: () => void;
   onCustomizeWorkspace?: () => void;
 }
 
@@ -324,6 +325,7 @@ export function createActionHandlers(
     flipH: () => e.setSelectedFlipH(),
     flipV: () => e.setSelectedFlipV(),
     repeatTransform: () => e.repeatLastTransform(),
+    resizeImage: () => cb.onResizeImage?.(),
 
     // ── File ──
     newDocument: () => e.newDocument(),
