@@ -31,6 +31,7 @@ describe('Inspector feature ownership', () => {
       'stroke',
       'animation',
       'image-placement',
+      'image-resolution',
       'typography',
       'text-on-path',
       'page-print',

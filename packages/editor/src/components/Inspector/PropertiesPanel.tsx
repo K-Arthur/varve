@@ -37,6 +37,7 @@ import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { FillSection } from './sections/FillSection';
 import { IconSection } from './sections/IconSection';
 import { ImagePlacementSection } from './sections/ImagePlacementSection';
+import { ImageResolutionSection } from './sections/ImageResolutionSection';
 import { LayoutChildSection } from './sections/LayoutChildSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { MockupsSection } from './sections/MockupsSection';
@@ -553,6 +554,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('fills', <FillSection nodes={nodes} />);
     add('animation', <AnimationSection nodes={nodes} />);
     add('image-placement', <ImagePlacementSection nodes={nodes} />);
+    add('image-resolution', <ImageResolutionSection nodes={nodes} />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);
     add('text-on-path', <PathTextSection nodes={nodes} />);

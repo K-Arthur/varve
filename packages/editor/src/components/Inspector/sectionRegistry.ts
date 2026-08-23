@@ -29,6 +29,7 @@ export type SectionId =
   | 'fills'
   | 'paint-library'
   | 'image-placement'
+  | 'image-resolution'
   | 'image-enhancement'
   | 'background-removal'
   | 'stroke'
@@ -459,6 +460,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     canHide: true,
     essential: false,
     order: 270,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
+    id: 'image-resolution',
+    title: 'Image Resolution',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 271,
     category: 'advanced',
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
   },
