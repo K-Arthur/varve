@@ -12,6 +12,81 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-23
+
+### Added
+
+- **Image Enhance** — batch enhancement processes every image in a
+  multi-selection in one run, with combined tile progress, per-image
+  announcements ("Enhancing image 2 of 3…"), immediate cancellation, and
+  a failure summary instead of stopping silently mid-queue. A validated
+  Real-ESRGAN Anime x4 (6B) ONNX model (checksum-pinned download) now
+  backs Illustration mode, restoring preview/apply parity for that mode.
+  Deblur strength is user-controllable, the dialog reports real
+  per-stage progress while restoration runs, and output stays
+  non-destructive with a quality policy (faithful/balanced) choice.
+- **Canonical export resolution model** — export scale decisions are now
+  computed by one shared resolution engine in `@varve/scene`
+  (`export/resolution`, documented in
+  `docs/architecture/export-resolution.md`), and batch export exposes
+  explicit resolution controls.
+- **Text on Path becomes reachable** — the engine could always place type
+  along a path, but nothing in the UI ever set the required fields.
+  Object ▸ Text on Path now attaches a selected text layer to a selected
+  shape, and a Text on Path inspector section exposes the start offset
+  and which side of the curve the glyphs sit on.
+- **Linux download guidance** — the website download page adds a
+  distro-family picker table, grouped install commands, expanded
+  Arch/CachyOS troubleshooting, and per-format system requirements, and
+  now recommends the AppImage as the primary Linux format.
+- **Verified workflow recordings** — a deterministic capture pipeline
+  (`scripts/capture/`) records real interactions against seeded demo
+  documents, verifies them frame-by-frame, and publishes the resulting
+  workflow videos to the website product page.
+
+### Changed
+
+- Git LFS is no longer used anywhere in the repository (bandwidth budget
+  exhausted): all media is committed directly and CI no longer fetches
+  LFS objects.
+- The stable updater feed now signs Linux AppImage and Windows NSIS
+  artifacts for both x86_64 and ARM64, generates the macOS `.app.tar.gz`
+  target when a signed bundle exists, and verifies signatures
+  cryptographically before publication; the v0.2.0 feed was re-signed
+  and republished under these targets.
+- Release version stamping also updates AUR packaging metadata and
+  AppStream metainfo.
+- ONNX Runtime failures report the platform-specific remedy instead of a
+  generic message, and the runtime library is staged before every
+  desktop build path.
+
+### Fixed
+
+- **Variable fonts apply their axes** — `fvar` parsing matches how
+  OpenType actually stores the table, the selected `wght` value reaches
+  the Canvas2D painter on every text path, variation settings survive
+  onto the painted shape, and the variable-axis panel is reachable
+  without scrolling the inspector sideways.
+- **Pixel-art scaling at non-power-of-two sizes** — EPX/HQx/xBR no longer
+  splice a nearest-neighbor remainder into the middle of the algorithm at
+  scales like 3x; the 2x passes stay intact.
+- **Timeline drag** preserves keyframe progress during the drag gesture.
+- Prototype, codegen, variants, and timeline workflows were repaired
+  where editor action registration had broken them, and text-on-path
+  actions see live selection state.
+- **Image Enhance reliability** — tiled inference routes to the right
+  capability, tiled recomposition memory is bounded, edge tiles produce
+  correct output dimensions, stale previews clear when the operation
+  changes, stale-result errors surface to the UI instead of returning
+  silently, and the Auto analysis no longer produces NaN JPEG-blockiness
+  scores. Compression-artifact removal remains unavailable by design:
+  the dialog says so rather than degrading another model.
+
+### Security
+
+- The basic-auth-URL secret scanner no longer false-positives on JSON-LD
+  structured data.
+
 ## [0.2.0] - 2026-08-20
 
 ### Added

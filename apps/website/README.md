@@ -6,7 +6,7 @@ documentation, downloads, and community.
 ## Architecture
 
 - **Framework**: Astro 7 with static output (`astro build`)
-- **Content**: `src/pages/` (42 pages), `src/components/`, `src/data/`
+- **Content**: `src/pages/` (64 pages), `src/components/`, `src/data/`
 - **Deployment**: GitHub Pages via `.github/workflows/website-deploy.yml`
 - **Testing**: Vitest unit tests (`src/test/`), Playwright E2E (`tests/e2e/`)
 
@@ -34,7 +34,7 @@ pnpm test:website:e2e       # Playwright E2E (build first)
 
 | Path | Purpose |
 |------|---------|
-| `src/pages/` | Astro page components (42 pages) |
+| `src/pages/` | Astro page components (64 pages) |
 | `src/components/` | Shared Astro components (header, footer, CTA) |
 | `src/data/` | Release manifest, structured data |
 | `src/test/` | Vitest unit tests |

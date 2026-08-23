@@ -44,6 +44,8 @@ export interface PathTextSettings {
   side?: 'top' | 'bottom';
   flip?: boolean;
   baselineShift?: number;
+  fitToPath?: boolean;
+  reverse?: boolean;
 }
 
 export interface CharacterFormat {

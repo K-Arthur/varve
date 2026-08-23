@@ -20,6 +20,7 @@
  */
 import { strict as assert } from 'node:assert';
 import {
+  useTool as activateTool,
   beat,
   canvasPixels,
   dragAt,
@@ -31,7 +32,6 @@ import {
   parkPointer,
   selectLayer,
   settle,
-  useTool,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
@@ -65,9 +65,9 @@ await capture({
     await settle(page);
 
     // Build the label before the cut — this clip is about colour, not drawing.
-    await useTool(page, 'r');
+    await activateTool(page, 'r');
     await dragAt(page, [0.28, 0.12], [0.72, 0.88], { steps: 20 });
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     // Captured now rather than guessed at later: layers are not named after
     // what they contain, and the default names differ by primitive.
     const canName = (await layerNames(page))[0].trim().split('\n')[0];
@@ -75,9 +75,9 @@ await capture({
     await page.waitForTimeout(400);
     // A strongly saturated orange sits well outside a coated CMYK gamut.
     const painted = await setFillHex(page, '#FF4B1F');
-    await useTool(page, 'o');
+    await activateTool(page, 'o');
     await dragAt(page, [0.36, 0.3], [0.64, 0.58], { steps: 18 });
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await parkPointer(page);
     await fitContent(page);
     await settle(page);

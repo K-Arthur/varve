@@ -2,6 +2,7 @@
 /** Video E — real timeline keyframes, seek, drag and playback. */
 import { strict as assert } from 'node:assert';
 import {
+  useTool as activateTool,
   beat,
   canvasPixels,
   dragAt,
@@ -9,7 +10,6 @@ import {
   openCleanEditor,
   parkPointer,
   settle,
-  useTool,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
@@ -28,14 +28,14 @@ await capture({
     await openCleanEditor(page, base);
     await settle(page);
 
-    await useTool(page, 'r');
+    await activateTool(page, 'r');
     await dragAt(page, [0.24, 0.3], [0.48, 0.56], { steps: 12, settleMs: 220 });
-    await useTool(page, 't');
+    await activateTool(page, 't');
     await dragAt(page, [0.18, 0.2], [0.74, 0.28], { steps: 12, settleMs: 120 });
     const editor = page.getByRole('textbox', { name: /editing text/i });
     await editor.fill('KINETIC WEATHER');
     await editor.press('Escape');
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await page.getByRole('treeitem').filter({ hasText: /text/i }).first().click();
     await fitContent(page);
     await parkPointer(page);

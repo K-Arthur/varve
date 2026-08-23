@@ -30,10 +30,7 @@
           "evidence": [
             {
               "file": "docs/release/linux-ecosystem-readiness.md",
-              "anchors": [
-                "current manifest is a stub",
-                "`exit 1`"
-              ],
+              "anchors": ["current manifest is a stub", "`exit 1`"],
               "missing": []
             }
           ],
@@ -51,10 +48,7 @@
           "evidence": [
             {
               "file": "apps/web/package.json",
-              "anchors": [
-                "Full scaffold lands in task 0.9",
-                "typecheck deferred to task 0.9"
-              ],
+              "anchors": ["Full scaffold lands in task 0.9", "typecheck deferred to task 0.9"],
               "missing": []
             }
           ],
@@ -114,11 +108,7 @@
           "evidence": [
             {
               "file": "packages/editor/src/components/Export/ExportDialog.tsx",
-              "anchors": [
-                "video (WebCodecs;",
-                "Chromium recommended",
-                "Video export unavailable"
-              ],
+              "anchors": ["video (WebCodecs;", "Chromium recommended", "Video export unavailable"],
               "missing": []
             }
           ],
@@ -132,9 +122,7 @@
     },
     "stalePolicy": "Capture fails if any evidence file/anchor disappears or the count is not five."
   },
-  "artifacts": [
-    "current-limitations.json"
-  ],
+  "artifacts": ["current-limitations.json"],
   "productAssertions": [
     "Flatpak is not shippable yet remains current at a890cada6ae6c67520f6fbf12a5fc1cead33d468",
     "The separate web app is still a scaffold remains current at a890cada6ae6c67520f6fbf12a5fc1cead33d468",

@@ -164,10 +164,11 @@ and may be used for:
   model dialog and verified against a pinned checksum when one is available.
 - **Online font and icon search**, when you invoke those providers.
 - **Update checks**, only after you enable them. The published stable feed
-  carries Tauri-signed metadata for Linux AppImage (x86_64) and Windows
-  NSIS (x86_64) builds. macOS, Linux package formats, and ARM64 builds
-  update manually. Update checks send only your current version, platform,
-  architecture, and release channel — no document data or device identifiers.
+  carries Tauri-signed metadata for Linux AppImage and Windows NSIS builds
+  on both x86_64 and ARM64. macOS, the Linux `.deb`/`.rpm` packages, and
+  non-AppImage installs update manually. Update checks send only your
+  current version, platform, architecture, and release channel — no
+  document data or device identifiers.
 - **Optional cloud providers**, only when you configure and invoke one (for
   example, a user-supplied background-removal endpoint).
 - **Consent-gated aggregate analytics**. Crash reports remain local unless a
@@ -261,7 +262,7 @@ scripts/    release, screenshot, and quality-gate tooling
 Varve is in **public beta**. The latest published application release is
 `v0.2.0` (published installer releases are `v0.1.0`, `v0.1.1`, `v0.1.2`, and
 `v0.2.0`), covering Linux, macOS (Apple Silicon), and Windows. The checkout
-represented by this source tree is version `<!-- VARVE_VERSION -->0.2.0<!-- /VARVE_VERSION -->`. Versioning follows [SemVer](https://semver.org/); release notes are
+represented by this source tree is version `<!-- VARVE_VERSION -->0.2.1<!-- /VARVE_VERSION -->`. Versioning follows [SemVer](https://semver.org/); release notes are
 kept in [CHANGELOG.md](CHANGELOG.md). Expect rough edges, and keep backups —
 the `.varve` document format can still change between releases. Documents
 saved with the legacy `.strata` extension (from before the project's rename

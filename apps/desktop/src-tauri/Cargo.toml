@@ -1,6 +1,6 @@
 [package]
 name = "varve-desktop"
-version = "0.2.0"
+version = "0.2.1"
 description = "Varve desktop app (Tauri 2) — native engine backend."
 edition = "2021"
 license = "FSL-1.1-MIT"

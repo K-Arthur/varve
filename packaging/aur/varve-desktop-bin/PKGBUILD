@@ -11,7 +11,7 @@
 
 pkgname=varve-desktop-bin
 _appname=varve-desktop
-pkgver=0.2.0
+pkgver=0.2.1
 pkgrel=1
 pkgdesc="Local-first design suite for vector, layout, typography, motion and print"
 arch=('x86_64')

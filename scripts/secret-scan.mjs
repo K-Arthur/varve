@@ -199,7 +199,7 @@ const RULES = [
     // Disallow JSON punctuation from the password segment so minified
     // JSON-LD (`"@context":"https://schema.org"... "email":"support@..."`)
     // does not look like `https://host:password@`.
-    re: /\bhttps?:\/\/[^\s/:@]+:[^\s/@"',}\]\{]{6,}@/g,
+    re: /\bhttps?:\/\/[^\s/:@]+:[^\s/@"',}\]{]{6,}@/g,
   },
   {
     id: 'netrc',

@@ -1,6 +1,6 @@
 {
   "name": "varve",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Varve — local-first design suite for vector, layout, typography, motion, prototyping, and print production.",
   "homepage": "https://varve.studio",

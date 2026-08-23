@@ -77,31 +77,82 @@ describe('PNG pHYs metadata', () => {
     const sig = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
     // IHDR: 1×1 RGBA 8-bit (25 bytes).
     const ihdr = new Uint8Array([
-      0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52,
-      0, 0, 0, 1, 0, 0, 0, 1,
-      8, 6, 0, 0, 0,
-      0x1f, 0x15, 0xc4, 0x89, // placeholder CRC (won't matter for pHYs test)
+      0,
+      0,
+      0,
+      13,
+      0x49,
+      0x48,
+      0x44,
+      0x52,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      8,
+      6,
+      0,
+      0,
+      0,
+      0x1f,
+      0x15,
+      0xc4,
+      0x89, // placeholder CRC (won't matter for pHYs test)
     ]);
     // pHYs chunk: len=9, type=pHYs, ppuX=11811, ppuY=2835, unit=1.
     const ppuX = 11811;
     const ppuY = 2835;
     const physBytes = new Uint8Array([
-      0, 0, 0, 9, 0x70, 0x48, 0x59, 0x73,
-      (ppuX >>> 24) & 0xff, (ppuX >>> 16) & 0xff, (ppuX >>> 8) & 0xff, ppuX & 0xff,
-      (ppuY >>> 24) & 0xff, (ppuY >>> 16) & 0xff, (ppuY >>> 8) & 0xff, ppuY & 0xff,
+      0,
+      0,
+      0,
+      9,
+      0x70,
+      0x48,
+      0x59,
+      0x73,
+      (ppuX >>> 24) & 0xff,
+      (ppuX >>> 16) & 0xff,
+      (ppuX >>> 8) & 0xff,
+      ppuX & 0xff,
+      (ppuY >>> 24) & 0xff,
+      (ppuY >>> 16) & 0xff,
+      (ppuY >>> 8) & 0xff,
+      ppuY & 0xff,
       1,
-      0x00, 0x00, 0x00, 0x00, // placeholder CRC
+      0x00,
+      0x00,
+      0x00,
+      0x00, // placeholder CRC
     ]);
     // IDAT + IEND minimal.
     const idatIend = new Uint8Array([
-      0, 0, 0, 0, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82, // IEND with correct CRC
+      0,
+      0,
+      0,
+      0,
+      0x49,
+      0x45,
+      0x4e,
+      0x44,
+      0xae,
+      0x42,
+      0x60,
+      0x82, // IEND with correct CRC
     ]);
 
     const png = new Uint8Array(sig.length + ihdr.length + physBytes.length + idatIend.length);
     let off = 0;
-    png.set(sig, off); off += sig.length;
-    png.set(ihdr, off); off += ihdr.length;
-    png.set(physBytes, off); off += physBytes.length;
+    png.set(sig, off);
+    off += sig.length;
+    png.set(ihdr, off);
+    off += ihdr.length;
+    png.set(physBytes, off);
+    off += physBytes.length;
     png.set(idatIend, off);
 
     const phys = readPngPhys(png);

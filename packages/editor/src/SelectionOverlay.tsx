@@ -805,6 +805,49 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const topLeftScreen = overlayWorldToScreen(box.cx - box.w / 2, box.cy - box.h / 2);
   const rotationDeg = (box.rotation * 180) / Math.PI;
 
+  const resizeHandleTargets = (() => {
+    const { indices } = visibleHandles(box.w, box.h, state.zoom, isSingle);
+    return HANDLE_KEYS.slice(0, 8).map((key, i) => {
+      if (!indices.has(i)) return null;
+      const [hx, hy] = handles[key];
+      const [sx, sy] = overlayWorldToScreen(hx, hy);
+      return (
+        <Fragment key={key}>
+          {/* Hit target is 24x24 (WCAG 2.5.8 minimum) while the painted
+              handle stays HANDLE_HALF*2 — pointer/touch accuracy must not
+              be tied to the visual handle size. */}
+          <rect
+            x={sx - 12}
+            y={sy - 12}
+            width={24}
+            height={24}
+            fill="transparent"
+            style={{
+              pointerEvents: hasInteractiveHandles ? 'auto' : 'none',
+              cursor: hasInteractiveHandles ? HANDLE_CURSORS[i] : 'default',
+            }}
+            onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, i) : undefined}
+            onPointerUp={hasInteractiveHandles ? handlePointerUp : undefined}
+            onPointerCancel={hasInteractiveHandles ? handlePointerUp : undefined}
+            onLostPointerCapture={hasInteractiveHandles ? handlePointerUp : undefined}
+          />
+          <rect
+            x={sx - HANDLE_HALF}
+            y={sy - HANDLE_HALF}
+            width={HANDLE_HALF * 2}
+            height={HANDLE_HALF * 2}
+            fill="var(--color-surface-overlay)"
+            stroke="var(--color-interactive-default)"
+            strokeWidth={1.5}
+            rx={1}
+            aria-label={HANDLE_LABELS[i]}
+            pointerEvents="none"
+          />
+        </Fragment>
+      );
+    });
+  })();
+
   return (
     <svg
       role="presentation"
@@ -876,49 +919,6 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             </>
           );
         })()}
-
-      {(() => {
-        const { indices } = visibleHandles(box.w, box.h, state.zoom, isSingle);
-        return HANDLE_KEYS.slice(0, 8).map((key, i) => {
-          if (!indices.has(i)) return null;
-          const [hx, hy] = handles[key];
-          const [sx, sy] = overlayWorldToScreen(hx, hy);
-          return (
-            <Fragment key={key}>
-              {/* Hit target is 24x24 (WCAG 2.5.8 minimum) while the painted
-                  handle stays HANDLE_HALF*2 — pointer/touch accuracy must not
-                  be tied to the visual handle size. */}
-              <rect
-                x={sx - 12}
-                y={sy - 12}
-                width={24}
-                height={24}
-                fill="transparent"
-                style={{
-                  pointerEvents: hasInteractiveHandles ? 'auto' : 'none',
-                  cursor: hasInteractiveHandles ? HANDLE_CURSORS[i] : 'default',
-                }}
-                onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, i) : undefined}
-                onPointerUp={hasInteractiveHandles ? handlePointerUp : undefined}
-                onPointerCancel={hasInteractiveHandles ? handlePointerUp : undefined}
-                onLostPointerCapture={hasInteractiveHandles ? handlePointerUp : undefined}
-              />
-              <rect
-                x={sx - HANDLE_HALF}
-                y={sy - HANDLE_HALF}
-                width={HANDLE_HALF * 2}
-                height={HANDLE_HALF * 2}
-                fill="var(--color-surface-overlay)"
-                stroke="var(--color-interactive-default)"
-                strokeWidth={1.5}
-                rx={1}
-                aria-label={HANDLE_LABELS[i]}
-                pointerEvents="none"
-              />
-            </Fragment>
-          );
-        });
-      })()}
 
       {hasInteractiveHandles && (
         <>
@@ -1026,6 +1026,12 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             );
           });
         })()}
+
+      {/* Resize targets follow skew targets in SVG paint order. The two
+          handle families share edge midpoints; resize must win at the
+          standard edge-handle hit point, while the painted skew diamond
+          remains discoverable by its own accessible label. */}
+      {resizeHandleTargets}
 
       {cornerHandlePos &&
         (() => {

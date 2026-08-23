@@ -522,7 +522,7 @@ describe('AssetExportControls', () => {
       );
 
       expect(screen.getByText(/preflight warning/)).toBeInTheDocument();
-      expect(screen.getByText('Large output size')).toBeInTheDocument();
+      expect(screen.getByText('Output dimensions were limited')).toBeInTheDocument();
     });
   });
 });

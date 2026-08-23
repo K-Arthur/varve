@@ -42,11 +42,7 @@ const VECTOR_BASE_KB: Partial<Record<ExportFormat, number>> = {
  * is too high for pixel-area-based estimation).
  * Code formats: minimal output, return a small baseline.
  */
-export function estimateExportBytes(
-  width: number,
-  height: number,
-  format: ExportFormat,
-): number {
+export function estimateExportBytes(width: number, height: number, format: ExportFormat): number {
   const px = Math.max(1, width) * Math.max(1, height);
 
   const bpp = RASTER_BPP[format];

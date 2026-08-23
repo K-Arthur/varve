@@ -16,7 +16,6 @@ import {
   beat,
   canvasPixels,
   dismissDialogs,
-  dragAt,
   dragPage,
   fitContent,
   importImage,

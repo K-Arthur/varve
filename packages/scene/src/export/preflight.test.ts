@@ -253,13 +253,28 @@ describe('runExportPreflight', () => {
 
   it('warns when a placed image has effective PPI below the enforceDpi target', () => {
     // 400×300 source image placed in a 4000×3000 shape → effective PPI ≈ 9.6.
-    const base = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4000, h: 3000 }, { name: 'Photo' });
+    const base = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 4000, h: 3000 },
+      { name: 'Photo' },
+    );
     const imgShape = {
       ...base,
       fills: [
         {
           type: 'image' as const,
-          image: { src: '', fit: 'fill' as const, x: 0, y: 0, scale: 1, imageWidth: 400, imageHeight: 300 },
+          image: {
+            src: '',
+            fit: 'fill' as const,
+            x: 0,
+            y: 0,
+            scale: 1,
+            imageWidth: 400,
+            imageHeight: 300,
+          },
+          opacity: 1,
+          blendMode: 'normal' as const,
+          visible: true,
         },
       ],
     };
@@ -289,13 +304,28 @@ describe('runExportPreflight', () => {
 
   it('does not warn when effective PPI meets the enforceDpi target', () => {
     // 4000×3000 source in a 200×100 shape → effective PPI = 600.
-    const base = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }, { name: 'Sharp' });
+    const base = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+      { name: 'Sharp' },
+    );
     const imgShape = {
       ...base,
       fills: [
         {
           type: 'image' as const,
-          image: { src: '', fit: 'fill' as const, x: 0, y: 0, scale: 1, imageWidth: 4000, imageHeight: 3000 },
+          image: {
+            src: '',
+            fit: 'fill' as const,
+            x: 0,
+            y: 0,
+            scale: 1,
+            imageWidth: 4000,
+            imageHeight: 3000,
+          },
+          opacity: 1,
+          blendMode: 'normal' as const,
+          visible: true,
         },
       ],
     };
@@ -320,13 +350,28 @@ describe('runExportPreflight', () => {
   });
 
   it('does not warn for tile fills which have no whole-object PPI', () => {
-    const base = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4000, h: 3000 }, { name: 'Tile' });
+    const base = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 4000, h: 3000 },
+      { name: 'Tile' },
+    );
     const imgShape = {
       ...base,
       fills: [
         {
           type: 'image' as const,
-          image: { src: '', fit: 'tile' as const, x: 0, y: 0, scale: 1, imageWidth: 100, imageHeight: 100 },
+          image: {
+            src: '',
+            fit: 'tile' as const,
+            x: 0,
+            y: 0,
+            scale: 1,
+            imageWidth: 100,
+            imageHeight: 100,
+          },
+          opacity: 1,
+          blendMode: 'normal' as const,
+          visible: true,
         },
       ],
     };

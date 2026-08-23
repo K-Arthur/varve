@@ -11,10 +11,7 @@
       "evidence": [
         {
           "file": "docs/release/linux-ecosystem-readiness.md",
-          "anchors": [
-            "current manifest is a stub",
-            "`exit 1`"
-          ],
+          "anchors": ["current manifest is a stub", "`exit 1`"],
           "missing": []
         }
       ],
@@ -32,10 +29,7 @@
       "evidence": [
         {
           "file": "apps/web/package.json",
-          "anchors": [
-            "Full scaffold lands in task 0.9",
-            "typecheck deferred to task 0.9"
-          ],
+          "anchors": ["Full scaffold lands in task 0.9", "typecheck deferred to task 0.9"],
           "missing": []
         }
       ],
@@ -53,10 +47,7 @@
       "evidence": [
         {
           "file": "docs/architecture/render-pipeline.md",
-          "anchors": [
-            "WebKitGTK (Linux Tauri) has no WebGPU",
-            "Canvas2D is the production path"
-          ],
+          "anchors": ["WebKitGTK (Linux Tauri) has no WebGPU", "Canvas2D is the production path"],
           "missing": []
         }
       ],
@@ -95,11 +86,7 @@
       "evidence": [
         {
           "file": "packages/editor/src/components/Export/ExportDialog.tsx",
-          "anchors": [
-            "video (WebCodecs;",
-            "Chromium recommended",
-            "Video export unavailable"
-          ],
+          "anchors": ["video (WebCodecs;", "Chromium recommended", "Video export unavailable"],
           "missing": []
         }
       ],

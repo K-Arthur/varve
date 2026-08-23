@@ -14,6 +14,7 @@
  */
 import { strict as assert } from 'node:assert';
 import {
+  useTool as activateTool,
   beat,
   canvasPixels,
   dragAt,
@@ -24,7 +25,6 @@ import {
   parkPointer,
   setRange,
   settle,
-  useTool,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
@@ -46,12 +46,12 @@ await capture({
 
     // Set the specimen up before the cut: this clip is about the axes, not
     // about typing.
-    await useTool(page, 't');
+    await activateTool(page, 't');
     await dragAt(page, [0.08, 0.3], [0.9, 0.56]);
     await page.keyboard.type('Aa', { delay: 40 });
     await page.keyboard.press('Escape');
     await page.waitForTimeout(400);
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await page.getByRole('treeitem').first().click();
     await page.waitForTimeout(400);
     // Selecting reveals and zooms to the layer; fit so the specimen is framed

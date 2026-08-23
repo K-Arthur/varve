@@ -89,7 +89,6 @@ test.describe('background-removed image transforms', () => {
     const initialRight = await handleBox(page, 'Right resize handle');
     const startX = initialRight.x + initialRight.width / 2;
     const startY = initialRight.y + initialRight.height / 2;
-
     await page.keyboard.down('Alt');
     await page.mouse.move(startX, startY);
     await page.mouse.down();
@@ -99,19 +98,26 @@ test.describe('background-removed image transforms', () => {
 
     const centeredLeft = await handleBox(page, 'Left resize handle');
     const centeredRight = await handleBox(page, 'Right resize handle');
+    const centeredWidth = Number(
+      await page.getByRole('spinbutton', { name: 'W (px)' }).inputValue(),
+    );
     expect(centeredLeft.x).toBeGreaterThan(initialLeft.x + 20);
     expect(centeredRight.x).toBeLessThan(initialRight.x - 20);
 
     await closeOpenDialogs(page);
-    await page.getByRole('button', { name: 'Undo', exact: true }).click();
-    await expect
-      .poll(async () => (await handleBox(page, 'Right resize handle')).x)
-      .toBeCloseTo(initialRight.x, 0);
+    await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
+    await page
+      .locator('[role="menu"]')
+      .getByRole('menuitem', { name: /^Undo\b/ })
+      .click();
 
-    await page.getByRole('button', { name: 'Redo', exact: true }).click();
+    const redoButton = page.getByRole('button', { name: 'Redo', exact: true });
+    await expect(redoButton).toBeEnabled();
+    await redoButton.click();
+    await layer.click();
     await expect
-      .poll(async () => (await handleBox(page, 'Right resize handle')).x)
-      .toBeCloseTo(centeredRight.x, 0);
+      .poll(async () => Number(await page.getByRole('spinbutton', { name: 'W (px)' }).inputValue()))
+      .toBeCloseTo(centeredWidth, 0);
 
     const ctrlStart = await handleBox(page, 'Right resize handle');
     const ctrlX = ctrlStart.x + ctrlStart.width / 2;

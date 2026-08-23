@@ -76,19 +76,31 @@ fix is available.
   suspected leaked credentials should be reported through an advisory
   even if GitHub's scanning has already flagged them.
 
-## Known unresolved dependency advisories
+## Known dependency advisories and mitigations
 
-Advisories that are open and cannot be remediated yet, with the reason and
-the mitigation in place. Verified on 2026-08-13 via Dependabot alerts and
-`pnpm audit` / `cargo audit`.
+The repository is checked against the GitHub Dependabot API and the resolved
+dependency graphs. On 2026-08-22, GitHub reported no Dependabot alerts,
+`cargo audit` reported no Rust vulnerabilities, and `pnpm audit` reported one
+remaining development-only advisory. The remaining advisory is mitigated
+locally because its upstream package has not published a fixed release.
 
 - **GHSA-jmr9-qjv8-65gv — extract-zip 2.0.1 (npm, dev-only)**. Unvalidated
   symlink path traversal during archive extraction. No patched release
-  exists (2.0.1 is the latest on npm; the advisory has no fix version).
+  exists on npm (2.0.1 remains the latest published version).
   Pulled in only by `@wdio/utils -> @puppeteer/browsers` for downloading
   official browser binaries in the dev/test toolchain — archives are
   trusted, downloads are pinned by checksum, and the code path never runs
-  in production. Tracked upstream; re-check on each alert review.
+  in production. A pnpm patch rejects absolute and out-of-tree symlink
+  targets before extraction; the lockfile and
+  `scripts/security/dependency-hardening.test.mjs` enforce that patch.
+  Tracked upstream; re-check on each alert review.
+
+- **GHSA-ggr8-5vv4-36mx — deepmerge-ts 7.1.5 (npm, dev-only)**. Recursive
+  object graphs can exhaust the stack. WDIO still declares the vulnerable
+  7.x range, so the workspace pins the compatible patched 8.0.0 release via
+  a documented override. The resolved graph no longer contains 7.x; remove
+  the override when WDIO widens its dependency range.
+
 - **GHSA-wrw7-89jp-8q8g — glib 0.18.x (cargo, desktop runtime)**.
   Unsoundness in `Iterator`/`DoubleEndedIterator` impls for
   `glib::VariantStrIter`; fixed in glib 0.20.0. The whole gtk-rs 0.18 stack

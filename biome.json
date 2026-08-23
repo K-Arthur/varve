@@ -11,7 +11,8 @@
       "**/*.css",
       "**/*.mjs",
       "!apps/desktop/public/models/manifest.json",
-      "!apps/desktop/public/models/siglip-tokenizer.json"
+      "!apps/desktop/public/models/siglip-tokenizer.json",
+      "!packaging/flatpak/*.json"
     ]
   },
   "overrides": [

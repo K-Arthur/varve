@@ -1,6 +1,6 @@
 {
   "name": "@varve/desktop",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Varve desktop app (Tauri 2) — Vite + React frontend.",
   "type": "module",

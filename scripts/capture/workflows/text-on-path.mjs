@@ -10,6 +10,7 @@
  */
 import { strict as assert } from 'node:assert';
 import {
+  useTool as activateTool,
   beat,
   canvasPixels,
   dragAt,
@@ -21,7 +22,6 @@ import {
   selectLayer,
   setRange,
   settle,
-  useTool,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
@@ -75,9 +75,9 @@ await capture({
     await beat(page, 600);
 
     // ── The ring ───────────────────────────────────────────────────
-    await useTool(page, 'o');
+    await activateTool(page, 'o');
     await dragAt(page, [0.22, 0.12], [0.78, 0.72], { steps: 20 });
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     // Keep the path visible as a ring instead of an opaque disc so the real
     // glyphs remain readable when the text is attached to it.
     await setFillHex(page, '#39D0C600');
@@ -92,14 +92,14 @@ await capture({
     await beat(page, 500);
 
     // ── The label ──────────────────────────────────────────────────
-    await useTool(page, 't');
+    await activateTool(page, 't');
     await dragAt(page, [0.06, 0.86], [0.42, 0.94]);
     const labelEditor = await openTextEditor(page);
     await labelEditor.fill('VELO CLUB · EST 1974');
     assert.equal(await labelEditor.inputValue(), 'VELO CLUB · EST 1974');
     await labelEditor.press('Escape');
     await page.waitForTimeout(350);
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await parkPointer(page);
     await settle(page, { pauseMs: 150 });
 
@@ -219,7 +219,7 @@ await capture({
     assertions.push('the ring stays independently editable and the text follows it');
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await fitContent(page);
     await parkPointer(page);
     await settle(page, { pauseMs: 200 });

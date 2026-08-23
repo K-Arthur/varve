@@ -191,7 +191,7 @@ export function placeClustersOnPath(
  * Returns placements flattened line-by-line in order.
  */
 export function placeLinesOnPath(
-  lines: readonly PathCluster[][],
+  lines: readonly (readonly PathCluster[])[],
   shape: Shape,
   options: GlyphPlaceOptions = {},
 ): GlyphPlacement[] {

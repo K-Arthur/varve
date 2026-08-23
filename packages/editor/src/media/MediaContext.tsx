@@ -59,6 +59,10 @@ export function MediaProvider({
 }: MediaProviderProps) {
   const frameKeyRef = useRef<string | null>(null);
   const playingRef = useRef(false);
+  // Stepping loads the engine helpers asynchronously. A later command (for
+  // example Play immediately after three keyboard steps) must invalidate an
+  // older step result before it applies a stale seek that pauses playback.
+  const commandVersionRef = useRef(0);
 
   const patch = useCallback(
     (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
@@ -130,6 +134,7 @@ export function MediaProvider({
   }, [state.media.source, state.media.isPlaying, patchMedia, patch, stateRef]);
 
   const playMedia = useCallback(() => {
+    commandVersionRef.current += 1;
     playingRef.current = true;
     const stamp = tickMediaPresentation(
       stateRef.current.document,
@@ -150,6 +155,7 @@ export function MediaProvider({
   }, [patch, stateRef]);
 
   const pauseMedia = useCallback(() => {
+    commandVersionRef.current += 1;
     playingRef.current = false;
     patchMedia({ isPlaying: false });
   }, [patchMedia]);
@@ -161,6 +167,7 @@ export function MediaProvider({
 
   const seekMedia = useCallback(
     (timeMs: number) => {
+      commandVersionRef.current += 1;
       const clamped = Math.max(0, timeMs);
       const stamp = tickMediaPresentation(stateRef.current.document, clamped);
       patch({
@@ -178,7 +185,9 @@ export function MediaProvider({
   const stepMediaFrame = useCallback(
     (direction: 1 | -1) => {
       const media = stateRef.current.media;
+      const commandVersion = ++commandVersionRef.current;
       void import('@varve/engine').then(({ frameIndexForTime, timeForFrame, buildFrameTiming }) => {
+        if (commandVersion !== commandVersionRef.current) return;
         const doc = stateRef.current.document;
         if (!doc) return;
         // step on the first animated usage of the first selected animated node

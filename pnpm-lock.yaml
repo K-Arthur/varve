@@ -11,6 +11,7 @@ overrides:
   qs: 6.15.2
   serialize-javascript: 7.1.0
   brace-expansion@2: 2.1.4
+  deepmerge-ts: 8.0.0
   brace-expansion@5: 5.0.9
   adm-zip: 0.6.0
   nanoid@3: 3.3.18
@@ -3773,8 +3774,8 @@ packages:
     resolution: {integrity: sha512-h5k/5U50IJJFpzfL6nO9jaaumfjO/f2NjK/oYB2Djzm4p9L+3T9qWpZqZ2hAbLPuuYq9wrU08WQyBTL5GbPk5Q==}
     engines: {node: '>=6'}
 
-  deepmerge-ts@7.1.5:
-    resolution: {integrity: sha512-HOJkrhaYsweh+W+e74Yn7YStZOilkoPb6fycpwNLKzSPtruFs48nYis0zy5yJz1+ktUhHxoRDJ27RQAWLIJVJw==}
+  deepmerge-ts@8.0.0:
+    resolution: {integrity: sha512-ICNjaP0ML+eSdEpJYQC46XiAn/UjAdwbEl0dE8p85ZTeNDinN4Kd4+9jS4OSAuH7st6eC7rQhsqTF5zIDaUm2g==}
     engines: {node: '>=16.0.0'}
 
   default-browser-id@5.0.1:
@@ -8917,7 +8918,7 @@ snapshots:
       '@wdio/logger': 9.29.1
       '@wdio/types': 9.30.1
       '@wdio/utils': 9.30.1
-      deepmerge-ts: 7.1.5
+      deepmerge-ts: 8.0.0
       glob: 10.5.0
       import-meta-resolve: 4.2.0
       jiti: 2.7.0
@@ -9053,7 +9054,7 @@ snapshots:
       '@wdio/logger': 9.29.1
       '@wdio/types': 9.30.1
       '@wdio/utils': 9.30.1
-      deepmerge-ts: 7.1.5
+      deepmerge-ts: 8.0.0
       expect-webdriverio: 5.7.0(@wdio/globals@9.29.1)(@wdio/logger@9.29.1)(webdriverio@9.30.1)
       webdriver: 9.30.1
       webdriverio: 9.30.1
@@ -9124,7 +9125,7 @@ snapshots:
       '@wdio/logger': 9.29.1
       '@wdio/types': 9.30.1
       decamelize: 6.0.1
-      deepmerge-ts: 7.1.5
+      deepmerge-ts: 8.0.0
       edgedriver: 6.3.0
       geckodriver: 6.1.1
       get-port: 7.2.0
@@ -9737,7 +9738,7 @@ snapshots:
 
   deep-eql@5.0.2: {}
 
-  deepmerge-ts@7.1.5: {}
+  deepmerge-ts@8.0.0: {}
 
   default-browser-id@5.0.1: {}
 
@@ -12571,7 +12572,7 @@ snapshots:
       '@wdio/protocols': 9.30.1
       '@wdio/types': 9.30.1
       '@wdio/utils': 9.30.1
-      deepmerge-ts: 7.1.5
+      deepmerge-ts: 8.0.0
       https-proxy-agent: 7.0.6
       undici: 6.28.0
       ws: 8.21.3

@@ -120,6 +120,31 @@ async function expectGuideAttrs(
   expect(dash?.[1]).toBeCloseTo(4 / z, 1);
 }
 
+/** Install the save picker before the editor bootstraps its platform adapter. */
+async function installSaveCapture(page: import('@playwright/test').Page) {
+  await page.addInitScript(() => {
+    const win = window as unknown as Record<string, unknown>;
+    win.__varveSavedDoc = null;
+    win.showSaveFilePicker = async (opts: { suggestedName?: string }) => {
+      return {
+        name: opts.suggestedName ?? 'document.varve',
+        queryPermission: async () => 'granted',
+        createWritable: async () => ({
+          write: async (data: string | ArrayBuffer | Uint8Array) => {
+            win.__varveSavedDoc =
+              typeof data === 'string'
+                ? data
+                : new TextDecoder().decode(
+                    data instanceof ArrayBuffer ? new Uint8Array(data) : data,
+                  );
+          },
+          close: async () => undefined,
+        }),
+      };
+    };
+  });
+}
+
 /** Shared prelude: flat doc → one page + a rect crossing right/bottom trim. */
 async function seedPrintDocument(page: import('@playwright/test').Page) {
   await page.addInitScript(() => {
@@ -228,35 +253,8 @@ test.describe('Bleed print workflow', () => {
   test('bleed follows the page, resizes with constant distance, undoes, persists, exports', async ({
     page,
   }) => {
+    await installSaveCapture(page);
     await seedPrintDocument(page);
-
-    // Capture the saved document so persistence can be asserted on the
-    // actual bytes the save coordinator writes.
-    // This test has already navigated through the editor setup. Install the
-    // picker stub in the live page; addInitScript would only affect a future
-    // navigation and would leave Save waiting on a real browser picker.
-    await page.evaluate(() => {
-      const win = window as unknown as Record<string, unknown>;
-      win.__varveSavedDoc = null;
-      win.showSaveFilePicker = async (opts: { suggestedName?: string }) => {
-        return {
-          name: opts.suggestedName ?? 'document.varve',
-          queryPermission: async () => 'granted',
-          createWritable: async () => ({
-            write: async (data: string | ArrayBuffer | Uint8Array) => {
-              const text =
-                typeof data === 'string'
-                  ? data
-                  : new TextDecoder().decode(
-                      data instanceof ArrayBuffer ? new Uint8Array(data) : data,
-                    );
-              win.__varveSavedDoc = text;
-            },
-            close: async () => undefined,
-          }),
-        };
-      };
-    });
 
     await activatePageToolAndPage(page);
     await setBleed(page, '20');
@@ -355,8 +353,10 @@ test.describe('Bleed print workflow', () => {
       .getByRole('menubar')
       .getByRole('menuitem', { name: /^File$/ })
       .click();
-    // The accessible name includes the accelerator ("Save Ctrl+S").
-    await page.getByRole('menuitem', { name: /^Save Ctrl\+S$/ }).click();
+    // The new-document flow may already have an internal library identity;
+    // Save As is the explicit user-destination path and exercises the real
+    // browser file picker deterministically.
+    await page.getByRole('menuitem', { name: /^Save As…/ }).click();
     await page.waitForTimeout(600);
     const saved = await page.evaluate(
       () => (window as unknown as Record<string, string | null>).__varveSavedDoc,

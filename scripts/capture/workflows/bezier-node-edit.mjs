@@ -10,6 +10,7 @@
  */
 import { strict as assert } from 'node:assert';
 import {
+  useTool as activateTool,
   beat,
   canvasPixels,
   clickAt,
@@ -21,7 +22,6 @@ import {
   parkPointer,
   selectLayer,
   settle,
-  useTool,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
@@ -50,7 +50,7 @@ await capture({
     // ── Draw the ribbon ────────────────────────────────────────────
     // Pen tool. Two clicks inside 300ms mean "finish", so anchors are
     // spaced above that; clickCanvas already holds for 350ms.
-    await useTool(page, 'p');
+    await activateTool(page, 'p');
     await beat(page, 350);
 
     // Click-drag pulls a tangent out of the anchor as it is placed — this is
@@ -67,7 +67,7 @@ await capture({
     await page.waitForTimeout(700);
     // Committing leaves the pen tool active, and the selection quick bar
     // belongs to the select tool — switch back before looking for it.
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await page.waitForTimeout(300);
 
     // The pen tool must have produced a path, not a rectangle or a freehand
@@ -153,7 +153,7 @@ await capture({
     await page.waitForTimeout(700);
     assertions.push('redo restored it');
 
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await parkPointer(page);
     await settle(page);
     await beat(page, 585);

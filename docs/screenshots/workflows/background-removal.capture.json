@@ -29,9 +29,7 @@
     "inputSha256": "ba47ffa59a548b137050727632c5e69840b1b345520cbcd4418b4c60d4591e39",
     "modelManifestVersion": 3
   },
-  "artifacts": [
-    "background-removal-model.json"
-  ],
+  "artifacts": ["background-removal-model.json"],
   "productAssertions": [
     "AI Balanced was chosen from the production Background Removal inspector",
     "inference progress/review appeared only after a real model-backed request",

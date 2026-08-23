@@ -2,6 +2,7 @@
 /** Video G — the exact same editorial spread under Varve's light/dark UI themes. */
 import { strict as assert } from 'node:assert';
 import {
+  useTool as activateTool,
   beat,
   chooseTheme,
   currentZoom,
@@ -10,7 +11,6 @@ import {
   openCleanEditor,
   parkPointer,
   settle,
-  useTool,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
@@ -27,16 +27,16 @@ await capture({
     const assertions = [];
     await openCleanEditor(page, base);
     await settle(page);
-    await useTool(page, 'f');
+    await activateTool(page, 'f');
     await dragAt(page, [0.16, 0.18], [0.84, 0.8], { steps: 14, settleMs: 220 });
-    await useTool(page, 'r');
+    await activateTool(page, 'r');
     await dragAt(page, [0.22, 0.28], [0.78, 0.62], { steps: 12, settleMs: 220 });
-    await useTool(page, 't');
+    await activateTool(page, 't');
     await dragAt(page, [0.25, 0.34], [0.72, 0.46], { steps: 12, settleMs: 120 });
     const editor = page.getByRole('textbox', { name: /editing text/i });
     await editor.fill('THE LONG WEEKEND');
     await editor.press('Escape');
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await fitContent(page);
     await parkPointer(page);
     await settle(page);

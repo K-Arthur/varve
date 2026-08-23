@@ -799,15 +799,17 @@ describe('exportNodeToReact', () => {
       w: 360,
       h: 220,
     });
-    const card = makeShapeNode(
-      'card',
+    const card = makeGroupNode('card', { name: 'Card' });
+    const cardSurface = makeShapeNode(
+      'card-surface',
       { kind: 'rect', x: 0, y: 0, w: 360, h: 220 },
-      { name: 'Card' },
+      { name: 'Card surface' },
     );
     const title = makeTextNode('title', 'Pro <plan>', { fontSize: 24, name: 'Title' });
     const withFrame = addNode(doc, frame);
     const withCard = addChild(withFrame, 'frame', card);
-    const withTitle = addChild(withCard, 'card', title);
+    const withSurface = addChild(withCard, 'card', cardSurface);
+    const withTitle = addChild(withSurface, 'card', title);
     const exported = exportNodeToReact(withTitle.nodes.frame!, withTitle);
 
     expect(exported).toContain('style={{ transform:');

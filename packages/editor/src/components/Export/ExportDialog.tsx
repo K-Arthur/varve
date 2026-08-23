@@ -53,8 +53,8 @@ import {
 } from '@varve/scene/export';
 import { FocusTrap, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { applyExportBatchPaths } from '../../exportBatchPaths';
 import { estimateExportBytes } from '../../export/estimateSize';
+import { applyExportBatchPaths } from '../../exportBatchPaths';
 import {
   type ExportProgressEvent,
   type ExportReport,
@@ -953,7 +953,7 @@ export function ExportDialog({
                 <p className="export-dialog__batch-summary">
                   {batchSummary.count} file{batchSummary.count !== 1 ? 's' : ''}
                   {batchSummary.largestW > 0 &&
-                    ` · Largest: ${batchSummary.largestW} × ${batchSummary.largestH} px`}
+                    ` · Largest: ${batchSummary.largestW} x ${batchSummary.largestH} px`}
                 </p>
               )}
               <BatchJobList

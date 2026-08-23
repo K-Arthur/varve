@@ -2,6 +2,7 @@
 /** Video D — Smart Animate correspondence on an expanding weather card. */
 import { strict as assert } from 'node:assert';
 import {
+  useTool as activateTool,
   beat,
   dragAt,
   fitContent,
@@ -12,7 +13,6 @@ import {
   selectLayer,
   setNumberField,
   settle,
-  useTool,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
@@ -32,11 +32,11 @@ await capture({
 
     // Build one state with a named child, then duplicate the whole screen so
     // Smart Animate receives real matching layer identities.
-    await useTool(page, 'f');
+    await activateTool(page, 'f');
     await dragAt(page, [0.1, 0.2], [0.43, 0.68], { steps: 12, settleMs: 220 });
-    await useTool(page, 'r');
+    await activateTool(page, 'r');
     await dragAt(page, [0.17, 0.34], [0.36, 0.47], { steps: 12, settleMs: 220 });
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     // Remember what the card is called before duplication renames the copy.
     const collapsedCardName = (
       await page.getByRole('treeitem').filter({ hasText: /rect/i }).first().innerText()
@@ -94,7 +94,7 @@ await capture({
     assertions.push(
       `renamed the duplicate's card ${JSON.stringify(duplicatedName)} back to ${JSON.stringify(collapsedCardName)} so Smart Animate can correspond the layers`,
     );
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
 
     const screens = (await layerNames(page)).filter((name) => /frame/i.test(name));
     assert.equal(screens.length, 2, 'Smart Animate needs two duplicated frame states');

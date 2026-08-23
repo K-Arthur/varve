@@ -22,15 +22,9 @@
         "packages/editor/src/canvas/renderPipeline.ts",
         "packages/engine/src/engine.ts"
       ],
-      "visibilityAndCulling": [
-        "packages/editor/src/canvas/renderPipeline.ts"
-      ],
-      "renderIrReplay": [
-        "packages/engine/src/replay.ts"
-      ],
-      "canvas2dCompositor": [
-        "packages/compositor/src/canvas2d/backend.ts"
-      ],
+      "visibilityAndCulling": ["packages/editor/src/canvas/renderPipeline.ts"],
+      "renderIrReplay": ["packages/engine/src/replay.ts"],
+      "canvas2dCompositor": ["packages/compositor/src/canvas2d/backend.ts"],
       "optionalWebGpuRouter": [
         "packages/compositor/src/router.ts",
         "packages/compositor/src/webgpu/backend.ts"
@@ -63,9 +57,7 @@
       "cacheEntries": 8,
       "profileTier": "balanced",
       "redrawReason": "clean",
-      "invalidationReasons": [
-        "worker-present"
-      ],
+      "invalidationReasons": ["worker-present"],
       "frameSource": "worker-reply",
       "dirtyAreaRatio": 0,
       "dirtyRects": 0,

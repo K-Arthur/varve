@@ -494,17 +494,12 @@ export class SelectTool extends BaseTool {
           .filter((n): n is import('@varve/scene').SceneNode => Boolean(n)),
       );
     } else {
-      // Commit transaction for move gesture
-      if (this.isMoveGesture) {
-        ctx.commitTransaction();
-      }
       // After move, re-parent if inside a frame.
       // Hold Ctrl to bypass auto-reparent (Space is used for Hand tool spring).
       const endInteraction = interactionSession.freeze();
       if (!endInteraction.bypassSnap) {
         const sel = ctx.selection;
         if (sel.length >= 1) {
-          ctx.beginTransaction();
           // Track insertion index per parent so batch inserts into the same
           // target frame use incrementing indices (Fix 4).
           const insertIndexByParent = new Map<string | null, number>();
@@ -578,6 +573,15 @@ export class SelectTool extends BaseTool {
           }
           ctx.commitTransaction();
         }
+      }
+
+      // The move and its optional reparent are one user gesture. Commit only
+      // after the reparent pass has run; committing before it and immediately
+      // opening another transaction lets React queue the two updates against
+      // the same stale document, so redo restores the moved local transform
+      // without restoring the destination parent.
+      if (this.isMoveGesture && (endInteraction.bypassSnap || ctx.selection.length === 0)) {
+        ctx.commitTransaction();
       }
     }
     this.marqueeActive = false;

@@ -651,7 +651,7 @@ describe('reverse direction', () => {
     expect(normal.length).toBe(2);
     expect(reversed.length).toBe(2);
     // Reversed text starts from the end of the path
-    expect(reversed[0]?.x).toBeGreaterThan(normal[0]?.x!);
+    expect(reversed[0]?.x).toBeGreaterThan(normal[0]?.x ?? Number.NEGATIVE_INFINITY);
   });
 
   it('flips glyph angle by pi when reversed', () => {

@@ -3,6 +3,7 @@
 import { strict as assert } from 'node:assert';
 import { createRequire } from 'node:module';
 import {
+  useTool as activateTool,
   beat,
   dragAt,
   fitContent,
@@ -10,7 +11,6 @@ import {
   parkPointer,
   selectLayer,
   settle,
-  useTool,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
@@ -32,16 +32,16 @@ await capture({
     await openCleanEditor(page, base);
     await settle(page);
 
-    await useTool(page, 'f');
+    await activateTool(page, 'f');
     await dragAt(page, [0.2, 0.18], [0.8, 0.78], { steps: 14, settleMs: 220 });
-    await useTool(page, 'r');
+    await activateTool(page, 'r');
     await dragAt(page, [0.25, 0.32], [0.75, 0.66], { steps: 12, settleMs: 220 });
-    await useTool(page, 't');
+    await activateTool(page, 't');
     await dragAt(page, [0.3, 0.38], [0.7, 0.46], { steps: 12, settleMs: 120 });
     const editor = page.getByRole('textbox', { name: /editing text/i });
     await editor.fill('Pro plan — $29 / month');
     await editor.press('Escape');
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await selectLayer(page, /frame/i);
     await fitContent(page);
     await parkPointer(page);

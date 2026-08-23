@@ -2,28 +2,26 @@
 /** Video A — real auto-layout: a music-player playlist row system. */
 import { strict as assert } from 'node:assert';
 import {
+  useTool as activateTool,
   beat,
   canvasPixels,
   dragAt,
   fitContent,
-  layerNames,
   openCleanEditor,
   parkPointer,
   selectComboboxOption,
-  selectLayer,
   setNumberField,
   settle,
-  useTool,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
 async function drawRect(page, from, to) {
-  await useTool(page, 'r');
+  await activateTool(page, 'r');
   await dragAt(page, from, to, { steps: 12, settleMs: 220 });
 }
 
 async function drawText(page, from, to, text) {
-  await useTool(page, 't');
+  await activateTool(page, 't');
   await dragAt(page, from, to, { steps: 12, settleMs: 120 });
   const editor = page.getByRole('textbox', { name: /editing text/i });
   await editor.waitFor({ state: 'visible', timeout: 8000 });
@@ -46,26 +44,26 @@ await capture({
     await settle(page);
 
     // Build a distinct music-player card: one parent frame and three row frames.
-    await useTool(page, 'f');
+    await activateTool(page, 'f');
     await dragAt(page, [0.08, 0.14], [0.92, 0.86], { steps: 14, settleMs: 250 });
-    await useTool(page, 'f');
+    await activateTool(page, 'f');
     await dragAt(page, [0.14, 0.25], [0.86, 0.38], { steps: 12, settleMs: 220 });
     await drawRect(page, [0.17, 0.28], [0.25, 0.35]);
     await drawText(page, [0.29, 0.27], [0.61, 0.32], 'Night Drive');
     await drawText(page, [0.63, 0.27], [0.78, 0.32], '04:12');
 
-    await useTool(page, 'f');
+    await activateTool(page, 'f');
     await dragAt(page, [0.14, 0.45], [0.86, 0.58], { steps: 12, settleMs: 220 });
     await drawRect(page, [0.17, 0.48], [0.25, 0.55]);
     await drawText(page, [0.29, 0.47], [0.61, 0.52], 'Glass Signals');
     await drawText(page, [0.63, 0.47], [0.78, 0.52], '03:48');
 
-    await useTool(page, 'f');
+    await activateTool(page, 'f');
     await dragAt(page, [0.14, 0.65], [0.86, 0.78], { steps: 12, settleMs: 220 });
     await drawRect(page, [0.17, 0.68], [0.25, 0.75]);
     await drawText(page, [0.29, 0.67], [0.61, 0.72], 'Low Tide');
     await drawText(page, [0.63, 0.67], [0.78, 0.72], '05:06');
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
 
     // The parent is the only frame clicked in its empty upper-left padding.
     await page.mouse.click(
@@ -148,7 +146,7 @@ await capture({
     } else {
       throw new Error('text layer did not enter real text editing mode');
     }
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await parkPointer(page);
     await settle(page);
     assert.notEqual(

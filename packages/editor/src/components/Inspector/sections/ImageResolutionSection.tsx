@@ -75,7 +75,7 @@ export function ImageResolutionSection({ nodes }: ImageResolutionSectionProps) {
           <span className="insp-field__label">Source pixels</span>
           <div className="insp-field__control">
             <span>
-              {nativeWidth} × {nativeHeight} px
+              {nativeWidth} x {nativeHeight} px
             </span>
           </div>
         </div>
@@ -84,7 +84,7 @@ export function ImageResolutionSection({ nodes }: ImageResolutionSectionProps) {
           <span className="insp-field__label">Placed size</span>
           <div className="insp-field__control">
             <span>
-              {placedWidthMm.toFixed(1)} × {placedHeightMm.toFixed(1)} mm
+              {placedWidthMm.toFixed(1)} x {placedHeightMm.toFixed(1)} mm
             </span>
           </div>
         </div>

@@ -17,6 +17,7 @@ import { strict as assert } from 'node:assert';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  useTool as activateTool,
   beat,
   dragAt,
   fitContent,
@@ -25,7 +26,6 @@ import {
   parkPointer,
   selectLayer,
   settle,
-  useTool,
 } from '../core/editor.mjs';
 import { capture, ROOT } from '../core/run.mjs';
 
@@ -70,28 +70,28 @@ await capture({
 
     // ── Build the icon set before the cut ──────────────────────────
     // Primitives, one Bézier, and type — the mix the export has to handle.
-    await useTool(page, 'o');
+    await activateTool(page, 'o');
     await dragAt(page, [0.08, 0.16], [0.3, 0.38], { steps: 16 });
-    await useTool(page, 'r');
+    await activateTool(page, 'r');
     await dragAt(page, [0.39, 0.18], [0.59, 0.36], { steps: 16 });
-    await useTool(page, 'o');
+    await activateTool(page, 'o');
     await dragAt(page, [0.68, 0.16], [0.9, 0.38], { steps: 16 });
 
     // A drawn Bézier: a comet arc.
-    await useTool(page, 'p');
+    await activateTool(page, 'p');
     await dragAt(page, [0.1, 0.62], [0.18, 0.54]);
     await dragAt(page, [0.3, 0.7], [0.38, 0.62]);
     await dragAt(page, [0.52, 0.56], [0.6, 0.5]);
     await page.keyboard.press('Enter');
     await page.waitForTimeout(600);
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
 
-    await useTool(page, 't');
+    await activateTool(page, 't');
     await dragAt(page, [0.08, 0.82], [0.72, 0.92]);
     await page.keyboard.type('ORBIT · ICON SET', { delay: 25 });
     await page.keyboard.press('Escape');
     await page.waitForTimeout(450);
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
 
     await parkPointer(page);
     await fitContent(page);

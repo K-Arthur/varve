@@ -18,11 +18,7 @@
   },
   "metadata": {
     "sourcePixelsRemainRecoverable": true,
-    "stackKinds": [
-      "blur",
-      "gradientMap",
-      "halftone"
-    ],
+    "stackKinds": ["blur", "gradientMap", "halftone"],
     "note": "Adjustment-layer order is demonstrated within the supported FilterIR stack."
   },
   "artifacts": [],

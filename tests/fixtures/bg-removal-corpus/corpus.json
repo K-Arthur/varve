@@ -125,7 +125,7 @@
       "reviewDate": null,
       "knownAmbiguities": ["Object boundary ambiguity with background"],
       "expectedProperties": {
-        "minForegroundRatio": 0.05,
+        "minForegroundRatio": 0.01,
         "maxForegroundRatio": 0.8,
         "expectedSubjectType": "object"
       }

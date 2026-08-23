@@ -2,6 +2,7 @@
 /** Video B — real reusable component and variant semantics. */
 import { strict as assert } from 'node:assert';
 import {
+  useTool as activateTool,
   beat,
   canvasPixels,
   dragAt,
@@ -9,10 +10,8 @@ import {
   layerNames,
   openCleanEditor,
   parkPointer,
-  selectLayer,
   setNumberField,
   settle,
-  useTool,
 } from '../core/editor.mjs';
 import { capture } from '../core/run.mjs';
 
@@ -25,14 +24,14 @@ async function openObjectAction(page, label) {
 }
 
 async function addText(page, from, to, copy) {
-  await useTool(page, 't');
+  await activateTool(page, 't');
   await dragAt(page, from, to, { steps: 10, settleMs: 120 });
   const editor = page.getByRole('textbox', { name: /editing text/i });
   await editor.waitFor({ state: 'visible', timeout: 8000 });
   await editor.fill(copy);
   await editor.press('Escape');
   await page.waitForTimeout(300);
-  await useTool(page, 'v');
+  await activateTool(page, 'v');
 }
 
 async function setFillHex(page, hex) {
@@ -70,22 +69,22 @@ await capture({
     // varied fills make the later component/variant change legible on camera.
 
     // Three visually distinct ticket buttons with the same frame structure.
-    await useTool(page, 'f');
+    await activateTool(page, 'f');
     await dragAt(page, [0.1, 0.32], [0.34, 0.54], { steps: 12, settleMs: 220 });
     await setFillHex(page, '#F4C95D');
     await addText(page, [0.13, 0.37], [0.31, 0.42], 'STANDARD');
     await addText(page, [0.13, 0.45], [0.31, 0.5], 'BOOK TICKET');
-    await useTool(page, 'f');
+    await activateTool(page, 'f');
     await dragAt(page, [0.39, 0.32], [0.66, 0.56], { steps: 12, settleMs: 220 });
     await setFillHex(page, '#F28F6B');
     await addText(page, [0.42, 0.37], [0.63, 0.42], 'FLEX');
     await addText(page, [0.42, 0.47], [0.63, 0.52], 'BOOK TICKET');
-    await useTool(page, 'f');
+    await activateTool(page, 'f');
     await dragAt(page, [0.71, 0.32], [0.93, 0.58], { steps: 12, settleMs: 220 });
     await setFillHex(page, '#9CC5A1');
     await addText(page, [0.74, 0.37], [0.91, 0.42], 'FLEX PLUS');
     await addText(page, [0.74, 0.49], [0.91, 0.54], 'BOOK TICKET');
-    await useTool(page, 'v');
+    await activateTool(page, 'v');
     await fitContent(page);
     await parkPointer(page);
     await settle(page);

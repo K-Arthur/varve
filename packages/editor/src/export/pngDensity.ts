@@ -39,7 +39,13 @@ function writeUint32BE(buf: Uint8Array, offset: number, value: number): void {
 }
 
 function readUint32BE(buf: Uint8Array, offset: number): number {
-  return ((buf[offset]! << 24) | (buf[offset + 1]! << 16) | (buf[offset + 2]! << 8) | buf[offset + 3]!) >>> 0;
+  return (
+    ((buf[offset]! << 24) |
+      (buf[offset + 1]! << 16) |
+      (buf[offset + 2]! << 8) |
+      buf[offset + 3]!) >>>
+    0
+  );
 }
 
 /** Minimum valid PNG: 8-byte signature + IHDR (13 data + 12 overhead) + IEND (0 data + 12 overhead). */
@@ -70,7 +76,10 @@ export function injectPngPhys(
   const expectedSig = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
   let sigOk = true;
   for (let i = 0; i < 8; i++) {
-    if (sig[i] !== expectedSig[i]) { sigOk = false; break; }
+    if (sig[i] !== expectedSig[i]) {
+      sigOk = false;
+      break;
+    }
   }
   if (!sigOk) return png;
 
@@ -84,7 +93,12 @@ export function injectPngPhys(
 
   while (offset + 8 <= png.length) {
     const length = readUint32BE(png, offset);
-    const type = String.fromCharCode(png[offset + 4]!, png[offset + 5]!, png[offset + 6]!, png[offset + 7]!);
+    const type = String.fromCharCode(
+      png[offset + 4]!,
+      png[offset + 5]!,
+      png[offset + 6]!,
+      png[offset + 7]!,
+    );
 
     if (offset + 12 + length > png.length) break; // truncated chunk data
 
@@ -140,15 +154,18 @@ export function ppiToPixelsPerMeter(ppi: number): number {
  * Read the pHYs chunk from a PNG byte stream.
  * Returns null when no pHYs chunk is present or the PNG is malformed.
  */
-export function readPngPhys(
-  png: Uint8Array,
-): { ppuX: number; ppuY: number; unit: 0 | 1 } | null {
+export function readPngPhys(png: Uint8Array): { ppuX: number; ppuY: number; unit: 0 | 1 } | null {
   if (png.length < MIN_PNG_SIZE) return null;
 
   let offset = 8;
   while (offset + 8 <= png.length) {
     const length = readUint32BE(png, offset);
-    const type = String.fromCharCode(png[offset + 4]!, png[offset + 5]!, png[offset + 6]!, png[offset + 7]!);
+    const type = String.fromCharCode(
+      png[offset + 4]!,
+      png[offset + 5]!,
+      png[offset + 6]!,
+      png[offset + 7]!,
+    );
 
     if (type === 'pHYs' && offset + 12 + length >= png.length) return null; // truncated
 

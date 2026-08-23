@@ -327,39 +327,35 @@ export function registerEditorActions(
   // with a SHORTCUT_DEFS entry already take the unguarded path above — these
   // two have no shortcut, so they need it spelled out. `remove` first, since
   // `register` warns about duplicates in development.
-  {
-    r.remove('attachTextToPath');
-    r.register(
-      {
-        id: 'attachTextToPath',
-        label: 'Text on Path',
-        category: 'object',
-        keywords: [
-          'text on path',
-          'type on path',
-          'curved text',
-          'text path',
-          'textpath',
-          'circular text',
-          'attach text',
-          'follow path',
-        ],
-      },
-      handlers.attachTextToPath ?? (() => {}),
-    );
-  }
-  {
-    r.remove('detachTextFromPath');
-    r.register(
-      {
-        id: 'detachTextFromPath',
-        label: 'Detach Text from Path',
-        category: 'object',
-        keywords: ['detach text', 'remove text from path', 'straighten text', 'unattach'],
-      },
-      handlers.detachTextFromPath ?? (() => {}),
-    );
-  }
+  r.remove('attachTextToPath');
+  r.register(
+    {
+      id: 'attachTextToPath',
+      label: 'Text on Path',
+      category: 'object',
+      keywords: [
+        'text on path',
+        'type on path',
+        'curved text',
+        'text path',
+        'textpath',
+        'circular text',
+        'attach text',
+        'follow path',
+      ],
+    },
+    handlers.attachTextToPath ?? (() => {}),
+  );
+  r.remove('detachTextFromPath');
+  r.register(
+    {
+      id: 'detachTextFromPath',
+      label: 'Detach Text from Path',
+      category: 'object',
+      keywords: ['detach text', 'remove text from path', 'straighten text', 'unattach'],
+    },
+    handlers.detachTextFromPath ?? (() => {}),
+  );
   // Mask operations (reachable via Object menu and Layers context menu)
   const maskOps = [
     ['addAlphaMask', 'Add Alpha Mask', ['mask', 'alpha', 'transparency']],

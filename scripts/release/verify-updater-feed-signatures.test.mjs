@@ -8,7 +8,7 @@ import { createHash, webcrypto as crypto, randomBytes } from 'node:crypto';
  * (both "ED" prehashed and "Ed" raw), writes them into a feed fixture,
  * and runs the verifier.  Tests both the happy path and failure modes.
  */
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const tmpDir = mkdtempSync('/tmp/updater-feed-test-');
@@ -26,10 +26,6 @@ const { publicKey, privateKey } = await crypto.subtle.generateKey('Ed25519', tru
   'verify',
 ]);
 const rawPk = Buffer.from(await crypto.subtle.exportKey('raw', publicKey));
-const rawSk = Buffer.from(await crypto.subtle.exportKey('pkcs8', privateKey));
-// Extract seed from PKCS8 (first 32 bytes after 16-byte header in PKCS8 Ed25519)
-const seed = rawSk.subarray(16, 48);
-
 // Construct minisign public key string
 const keyIdBytes = randomBytes(8);
 const algoBytes = Buffer.from('Ed');
