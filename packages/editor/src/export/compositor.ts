@@ -356,6 +356,14 @@ function hasComplexBlend(node: SceneNode, cap: FlattenCapability): boolean {
   return false;
 }
 
+/** Object Filters are document-local effects, not SVG/PDF codegen primitives. */
+function hasVisibleSmartFilters(node: SceneNode): boolean {
+  return (
+    Array.isArray(node.smartFilters) &&
+    node.smartFilters.some((filter) => filter.visible !== false && filter.opacity > 0)
+  );
+}
+
 /**
  * Check whether a node has rotation/skew that the target can't handle.
  */
@@ -389,6 +397,11 @@ export function assessNodeCapability(
   if (node.kind === 'adjustment') {
     if (!cap.supportsAdjustments) return false;
   }
+
+  // Keep the live preview and every export format honest: Object Filters are
+  // rendered by the shared replay compositor and are not emitted by the SVG
+  // or PDF code generators. Raster export already returned above.
+  if (hasVisibleSmartFilters(node) && !cap.supportsAdjustments) return false;
 
   // Shape nodes: check shape kind
   if (node.kind === 'shape') {
@@ -580,6 +593,12 @@ function computeNodeBounds(
  * Check whether a node has any adjustment children that require rasterization.
  */
 function subtreeHasAdjustmentFilters(node: SceneNode, doc: Document): boolean {
+  const smartFilters = node.smartFilters ?? [];
+  if (smartFilters.some((filter) => filter.visible !== false && filter.opacity > 0)) {
+    const irFilters = adjustmentsToFilters(smartFilters);
+    if (anyRequiresRasterExport(irFilters)) return true;
+  }
+
   if (node.kind === 'adjustment') {
     const rawFilters =
       (node as unknown as { adjustments?: Array<Record<string, unknown>> }).adjustments ?? [];
@@ -939,9 +958,14 @@ async function renderBoundaryToSurface(
 
 /** Visible adjustments attached to a node (kind + base fields). */
 function collectVisibleAdjustments(node: SceneNode): Array<Record<string, unknown>> {
-  const adjustments = (node as unknown as { adjustments?: Array<Record<string, unknown>> })
-    .adjustments;
-  return (adjustments ?? []).filter((a) => a.visible !== false && (a.opacity as number) > 0);
+  const adjustments =
+    node.kind === 'adjustment'
+      ? (node as unknown as { adjustments?: Array<Record<string, unknown>> }).adjustments
+      : [];
+  const smartFilters = (node.smartFilters ?? []) as unknown as Array<Record<string, unknown>>;
+  return [...(adjustments ?? []), ...smartFilters].filter(
+    (a) => a.visible !== false && (a.opacity as number) > 0,
+  );
 }
 
 // ── Main entry point ─────────────────────────────────────────────────────────

@@ -347,6 +347,29 @@ describe('assessNodeCapability', () => {
     });
   });
 
+  it('rasterizes visible Object Filters for SVG/PDF but keeps raster native', () => {
+    const node = makeShapeNode(
+      'filtered',
+      { kind: 'rect' },
+      {
+        smartFilters: [
+          {
+            id: 'invert',
+            kind: 'invert',
+            value: 100,
+            visible: true,
+            opacity: 1,
+            blendMode: 'normal',
+          },
+        ] as any,
+      },
+    );
+    const doc = makeDoc({ filtered: node });
+    expect(assessNodeCapability(node, doc, 'svg')).toBe(false);
+    expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
+    expect(assessNodeCapability(node, doc, 'raster')).toBe(true);
+  });
+
   describe('gradients', () => {
     it('SVG supports linear gradients', () => {
       const node = makeShapeNode(

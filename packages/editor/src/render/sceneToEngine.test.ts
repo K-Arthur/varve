@@ -12,6 +12,7 @@ import {
   DocumentCodec,
   makeFrameNode,
   makeShapeNode,
+  makeSmartFilter,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { flattenSceneToEngine, sceneNodeToEngineNode } from './sceneToEngine';
@@ -34,6 +35,17 @@ function imageNode(id: string) {
 }
 
 describe('scene raster masks', () => {
+  it('propagates object-local filters into the shared engine IR', () => {
+    const node = {
+      ...makeShapeNode('filtered', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }),
+      smartFilters: [makeSmartFilter('invert', 'invert')],
+    };
+    const converted = sceneNodeToEngineNode(node, {}, createDocument('Object Filter'));
+    expect(converted.filters).toEqual([
+      expect.objectContaining({ kind: 'invert', value: 100, opacity: 1 }),
+    ]);
+  });
+
   it('renders a native raster alpha mask after save and reload', () => {
     const image = imageNode('image');
     let doc = addNode(createDocument('Native mask', true), image);

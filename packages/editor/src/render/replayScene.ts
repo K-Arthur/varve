@@ -594,6 +594,93 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
         for (const extra of extras) replayIr(target as unknown as ReplayTarget, [extra]);
       }
       if (node.children.length === 0) return;
+
+      const smartFilters = adjustmentsToFilters(node.smartFilters ?? []);
+      if (smartFilters.length > 0) {
+        // Frame filters operate on the frame's already-composited children.
+        // Render only the transformed frame bounds to an intermediate surface
+        // so the editable frame and its descendants remain scene nodes.
+        const frameTransform = item?.transform ?? nodeWorldTransform(input.document, nodeId);
+        const sourceBounds = item
+          ? primitiveBounds(item.primitive)
+          : { x: 0, y: 0, w: node.w, h: node.h };
+        const [a = 1, b = 0, c = 0, d = 1, e = 0, f = 0] = frameTransform;
+        const corners: Array<[number, number]> = [
+          [sourceBounds.x, sourceBounds.y],
+          [sourceBounds.x + sourceBounds.w, sourceBounds.y],
+          [sourceBounds.x, sourceBounds.y + sourceBounds.h],
+          [sourceBounds.x + sourceBounds.w, sourceBounds.y + sourceBounds.h],
+        ];
+        const worldCorners: Array<[number, number]> = corners.map(([x, y]) => [
+          a * x + c * y + e,
+          b * x + d * y + f,
+        ]);
+        const minX = Math.min(...worldCorners.map(([x]) => x));
+        const minY = Math.min(...worldCorners.map(([, y]) => y));
+        const maxX = Math.max(...worldCorners.map(([x]) => x));
+        const maxY = Math.max(...worldCorners.map(([, y]) => y));
+        const [expL, expT, expR, expB] = totalEffectExpansion(smartFilters);
+        const width = Math.max(1, maxX - minX + expL + expR);
+        const height = Math.max(1, maxY - minY + expT + expB);
+        const renderScale = Math.max(
+          1,
+          Math.hypot(target.getTransform().a, target.getTransform().b),
+        );
+        let surface: CompositeCanvas;
+        try {
+          surface = new CompositeCanvas({
+            width,
+            height,
+            devicePixelRatio: renderScale,
+            testCanvas: document.createElement('canvas'),
+          });
+        } catch {
+          // A missing intermediate surface must not hide the source content.
+          replayChildren(nodeId, target);
+          return;
+        }
+
+        const surfaceContext = surface.ctx;
+        surfaceContext.save();
+        surfaceContext.translate(-minX + expL, -minY + expT);
+        if (node.clipContent !== false) {
+          surfaceContext.beginPath();
+          surfaceContext.moveTo(a * 0 + c * 0 + e, b * 0 + d * 0 + f);
+          surfaceContext.lineTo(a * node.w + c * 0 + e, b * node.w + d * 0 + f);
+          surfaceContext.lineTo(a * node.w + c * node.h + e, b * node.w + d * node.h + f);
+          surfaceContext.lineTo(a * 0 + c * node.h + e, b * 0 + d * node.h + f);
+          surfaceContext.closePath();
+          surfaceContext.clip();
+        }
+        replayChildren(nodeId, surfaceContext as unknown as SceneContext);
+        surfaceContext.restore();
+        applyFilterWithCompositing(
+          surfaceContext as unknown as CanvasRenderingContext2D,
+          smartFilters,
+          surface.width,
+          surface.height,
+        );
+
+        target.save();
+        try {
+          target.globalAlpha = node.opacity ?? 1;
+          target.globalCompositeOperation =
+            node.blendMode && node.blendMode !== 'passThrough'
+              ? (mapBlendMode(node.blendMode) as GlobalCompositeOperation)
+              : 'source-over';
+          target.drawImage(
+            surface.canvas as CanvasImageSource,
+            minX - expL,
+            minY - expT,
+            width,
+            height,
+          );
+        } finally {
+          target.restore();
+        }
+        return;
+      }
+
       if (node.clipContent === false) {
         replayChildren(nodeId, target);
         return;
@@ -621,8 +708,10 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       const needsIsolation =
         node.isolated === true ||
         (blendMode !== 'normal' && blendMode !== 'passThrough') ||
-        (node.opacity ?? 1) < 1;
+        (node.opacity ?? 1) < 1 ||
+        (node.smartFilters ?? []).some((filter) => filter.visible && filter.opacity > 0);
       const visibleEffects = (node.effects ?? []).filter((effect) => effect.visible);
+      const smartFilters = adjustmentsToFilters(node.smartFilters ?? []);
       if ((needsIsolation || visibleEffects.length > 0) && node.children.length > 0) {
         const gopacity = node.opacity ?? 1;
 
@@ -681,6 +770,18 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
           gCtx.translate(-minX + padding, -minY + padding);
           replayChildren(nodeId, gCtx as unknown as SceneContext);
           gCtx.restore();
+
+          // A container Object Filter evaluates the fully composited subtree,
+          // before the node's outer effects and parent opacity/blend. This is
+          // intentionally separate from adjustment-layer backdrop capture.
+          if (smartFilters.length > 0) {
+            applyFilterWithCompositing(
+              gCtx as unknown as CanvasRenderingContext2D,
+              smartFilters,
+              gCanvas.width,
+              gCanvas.height,
+            );
+          }
 
           const dx = minX - padding;
           const dy = minY - padding;

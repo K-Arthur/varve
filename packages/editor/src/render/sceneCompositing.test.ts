@@ -8,6 +8,7 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
+  makeSmartFilter,
   patternFill,
   solidFill,
 } from '@varve/scene';
@@ -133,6 +134,26 @@ describe('sceneNeedsStructuralCompositing', () => {
       adjustments: [makeAdjustment('brightness-1', 'brightness', { value: 20 })],
     });
 
+    expect(sceneNeedsStructuralCompositing(doc)).toBe(true);
+  });
+
+  it('routes container Object Filters through structural compositing', () => {
+    let doc = createDocument('Object Filter group');
+    const group = makeGroupNode('group');
+    doc = addNode(doc, group);
+    doc = addChild(doc, group.id, {
+      ...makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }),
+      smartFilters: [makeSmartFilter('invert', 'invert')],
+    });
+    expect(sceneNeedsStructuralCompositing(doc)).toBe(false);
+
+    doc = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        group: { ...doc.nodes.group!, smartFilters: [makeSmartFilter('group-invert', 'invert')] },
+      },
+    };
     expect(sceneNeedsStructuralCompositing(doc)).toBe(true);
   });
 });

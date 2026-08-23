@@ -32,6 +32,17 @@ function computeNeedsStructuralCompositing(doc: Document): boolean {
     ) {
       return true;
     }
+    if (
+      node.kind !== 'adjustment' &&
+      node.visible !== false &&
+      (node.smartFilters ?? []).some((filter) => filter.visible && filter.opacity > 0)
+    ) {
+      // Leaf filters can be replayed directly on their RenderItem, but a
+      // container filter must see the already-composited subtree. Routing the
+      // scene through structural replay gives groups/frames the same isolated
+      // surface semantics as their existing group effects.
+      if (node.kind === 'group' || node.kind === 'frame') return true;
+    }
     if (node.kind === 'frame' && node.children.length > 0 && node.clipContent !== false) {
       return true;
     }
@@ -41,7 +52,8 @@ function computeNeedsStructuralCompositing(doc: Document): boolean {
         node.isolated === true ||
         (node.blendMode && node.blendMode !== 'normal' && node.blendMode !== 'passThrough') ||
         (node.opacity !== undefined && node.opacity < 1) ||
-        hasVisibleEffects;
+        hasVisibleEffects ||
+        (node.smartFilters ?? []).some((filter) => filter.visible && filter.opacity > 0);
       if (needsFlatten && node.children.length > 0) return true;
     }
   }

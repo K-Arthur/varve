@@ -236,6 +236,10 @@ export function sceneNodeToEngineNode(
     rotation: node.rotation ?? 0,
     strokes: 'strokes' in node ? (node.strokes ?? []) : [],
     effects: 'effects' in node ? resolveEffectMasksForEngine(node.effects ?? [], doc) : [],
+    // Object Filters are object-local rendered-result filters. They share the
+    // same Adjustment → FilterIR contract as adjustment layers, but remain on
+    // the source node and therefore do not participate in backdrop scoping.
+    filters: adjustmentsToFilters(resolvedNode.smartFilters ?? []),
   };
 
   if (node.kind === 'shape') {
