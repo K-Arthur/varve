@@ -69,11 +69,13 @@ export {
   areaSelectionBounds,
   areaSelectionCoverageAt,
   areaSelectionToPath,
+  boundedPlaneSize,
   combineAreaSelections,
-  paintSelectionMask,
   createAreaSelection,
   DEFAULT_AREA_SELECTION_SETTINGS,
   invertAreaSelection,
+  maskAreaSelectionFromPlane,
+  paintSelectionMask,
   rasterizeAreaSelection,
   refineAreaSelection,
   transformAreaSelection,
@@ -82,6 +84,16 @@ export type {
   AreaSelectionRefineOperation,
   RefineAreaSelectionOptions,
 } from './areaSelection';
+export {
+  areaSelectionFromColorRange,
+  areaSelectionFromImageAlpha,
+  areaSelectionFromImageLuminance,
+} from './areaSelectionImage';
+export type {
+  ColorRangeOptions,
+  ImageCoverageOptions,
+  ImageRgbaSource,
+} from './areaSelectionImage';
 export type {
   BackgroundRemovalOptions,
   BackgroundRemovalResult,

@@ -168,4 +168,19 @@ The most critical missing capability. `PolygonSelectionShape` exists in the engi
     batched call per stroke), applies/cancels, with **one undo entry per stroke** (the
     lifecycle the engine primitive is built around). Deferred until the Layer States WIP
     tree is stable.
-- **Phases 6–8** — pending.
+- **Phase 7 (Image-Derived Selections)** — DONE (engine). New module
+  `packages/engine/src/areaSelectionImage.ts`: `areaSelectionFromImageAlpha` /
+  `areaSelectionFromImageLuminance` (7.1 — proportional coverage with optional
+  `threshold` binarization and `invert`) and `areaSelectionFromColorRange` (7.2 — OKLab
+  perceptual distance via `@varve/shared`'s `linearSrgbToOklab`, `tolerance` +
+  `feather` band, `global`/`contiguous` flood-fill modes with doc-space seed).
+  All produce bounded `raster-mask` selections over the image frame; sources are plain
+  RGBA8 buffers (decoding stays with the caller) and every plane goes through
+  `boundedPlaneSize`. Shared plane helpers (`boundedPlaneSize`,
+  `maskAreaSelectionFromPlane`) were extracted from `paintSelectionMask` so quick-mask
+  painting and image sourcing use one wrap/budget path. 10 unit tests in
+  `areaSelectionImage.test.ts` (51 area-selection tests pass).
+  - **Editor UI wiring for Phase 7** — pending (next turn): plumb image-node pixels into
+    these entry points (magic wand / colour-range command, luminosity-mask command).
+    Deferred until the Layer States WIP tree is stable.
+- **Phases 6, 8** — pending.

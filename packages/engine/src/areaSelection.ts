@@ -1187,6 +1187,68 @@ function applyMaskStamps(
 }
 
 /**
+ * Working-plane size for a document-space rect: capped per dimension, then
+ * scaled down uniformly to respect `MAX_AREA_SELECTION_PIXELS`. Shared by
+ * quick-mask painting and the image-derived selection sources.
+ */
+export function boundedPlaneSize(
+  width: number,
+  height: number,
+  cap: number = MAX_AREA_SELECTION_DIMENSION,
+): { width: number; height: number } {
+  let w = Math.max(1, Math.min(cap, Math.ceil(width)));
+  let h = Math.max(1, Math.min(cap, Math.ceil(height)));
+  if (w * h > MAX_AREA_SELECTION_PIXELS) {
+    const scale = Math.sqrt(MAX_AREA_SELECTION_PIXELS / (w * h));
+    w = Math.max(1, Math.floor(w * scale));
+    h = Math.max(1, Math.floor(h * scale));
+  }
+  return { width: w, height: h };
+}
+
+/** Wrap an 8-bit coverage plane as a raster-mask selection over a document frame. */
+export function maskAreaSelectionFromPlane(
+  plane: AlphaMask,
+  frame: { x: number; y: number; w: number; h: number },
+): AreaSelection | null {
+  if (
+    !Number.isInteger(plane.width) ||
+    !Number.isInteger(plane.height) ||
+    plane.width <= 0 ||
+    plane.height <= 0 ||
+    plane.data.length !== plane.width * plane.height ||
+    ![frame.x, frame.y, frame.w, frame.h].every(Number.isFinite) ||
+    frame.w <= 0 ||
+    frame.h <= 0
+  ) {
+    return null;
+  }
+  const transform: Affine = [
+    frame.w / plane.width,
+    0,
+    0,
+    frame.h / plane.height,
+    frame.x,
+    frame.y,
+  ];
+  return createAreaSelection({
+    kind: 'raster-mask',
+    x: 0,
+    y: 0,
+    w: plane.width,
+    h: plane.height,
+    width: plane.width,
+    height: plane.height,
+    data: plane.data,
+    boundary: [],
+    transform,
+    inverseTransform: invertAffine(transform),
+    feather: 0,
+    antialias: false,
+  });
+}
+
+/**
  * Phase 4 — bake brush dabs into the active selection, returning a new bounded
  * `raster-mask` selection. The editor uses this as the deterministic core of
  * quick-mask painting: open (rasterize current selection), paint (repeat calls
@@ -1199,52 +1261,20 @@ export function paintSelectionMask(
 ): AreaSelection | null {
   const bounds = areaSelectionBounds(selection.expression);
   if (bounds.w <= 0 || bounds.h <= 0) return null;
-  const cap = options.resolution ?? MAX_AREA_SELECTION_DIMENSION;
-  let width = Math.max(1, Math.min(cap, Math.ceil(bounds.w)));
-  let height = Math.max(1, Math.min(cap, Math.ceil(bounds.h)));
-  // Respect the pixel budget: scale the working plane down uniformly (keeping
-  // aspect) rather than throwing, so an oversized selection still paints.
-  if (width * height > MAX_AREA_SELECTION_PIXELS) {
-    const scale = Math.sqrt(MAX_AREA_SELECTION_PIXELS / (width * height));
-    width = Math.max(1, Math.floor(width * scale));
-    height = Math.max(1, Math.floor(height * scale));
-  }
+  const size = boundedPlaneSize(bounds.w, bounds.h, options.resolution ?? MAX_AREA_SELECTION_DIMENSION);
   let mask: AlphaMask;
   try {
     mask = rasterizeAreaSelection(selection, {
       x: bounds.x,
       y: bounds.y,
-      width,
-      height,
+      width: size.width,
+      height: size.height,
     });
   } catch {
     return null;
   }
   applyMaskStamps(mask.data, mask.width, mask.height, bounds, stamps);
-  const transform: Affine = [
-    bounds.w / width,
-    0,
-    0,
-    bounds.h / height,
-    bounds.x,
-    bounds.y,
-  ];
-  const inverseTransform = invertAffine(transform);
-  return createAreaSelection({
-    kind: 'raster-mask',
-    x: 0,
-    y: 0,
-    w: width,
-    h: height,
-    width: mask.width,
-    height: mask.height,
-    data: mask.data,
-    boundary: [],
-    transform,
-    inverseTransform,
-    feather: 0,
-    antialias: false,
-  });
+  return maskAreaSelectionFromPlane(mask, bounds);
 }
 
 /**
