@@ -711,7 +711,10 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         working-directory: apps/desktop
         run: |
-          APPIMAGE=$(find "${TAURI_BUNDLE_DIR}/appimage" -maxdepth 1 -name '*.AppImage' -print -quit)
+          # This step runs from apps/desktop while TAURI_BUNDLE_DIR is rooted
+          # at the repository checkout. Resolve it explicitly so ARM64 Linux
+          # builds do not search under apps/desktop/apps/desktop/... .
+          APPIMAGE=$(find "${GITHUB_WORKSPACE}/${TAURI_BUNDLE_DIR}/appimage" -maxdepth 1 -name '*.AppImage' -print -quit)
           if [ -n "$APPIMAGE" ]; then
             echo "Re-signing pruned AppImage for updater: $APPIMAGE"
             pnpm tauri signer sign "$APPIMAGE" --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
