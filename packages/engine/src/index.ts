@@ -68,6 +68,12 @@ export {
   DEFAULT_AREA_SELECTION_SETTINGS,
   invertAreaSelection,
   rasterizeAreaSelection,
+  refineAreaSelection,
+  transformAreaSelection,
+} from './areaSelection';
+export type {
+  AreaSelectionRefineOperation,
+  RefineAreaSelectionOptions,
 } from './areaSelection';
 export type {
   BackgroundRemovalOptions,

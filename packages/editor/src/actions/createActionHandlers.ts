@@ -1,5 +1,12 @@
 import { exportDocumentToSvg } from '@varve/codegen';
-import { createAreaSelection, invertAreaSelection } from '@varve/engine';
+import {
+  areaSelectionBounds,
+  createAreaSelection,
+  invertAreaSelection,
+  refineAreaSelection,
+  transformAreaSelection,
+} from '@varve/engine';
+import { translate, scaleXY, rotateRad, multiplyAffine, type Affine } from '@varve/shared';
 import { toDelimitedText } from '@varve/import';
 import { getOwnRasterMaskAsset, isImageShape, type TextNode } from '@varve/scene';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
@@ -129,6 +136,42 @@ export function createActionHandlers(
     });
     e.announce('Raster mask loaded as pixel selection');
   };
+  const applyAreaTransform = (matrix: Affine | null): void => {
+    if (!matrix) {
+      e.announce('Make a pixel selection first');
+      return;
+    }
+    const sel = e.state.areaSelection;
+    if (!sel || !e.setAreaSelection) {
+      e.announce('Make a pixel selection first');
+      return;
+    }
+    const next = transformAreaSelection(sel, matrix);
+    if (next) e.setAreaSelection(next);
+  };
+  const areaSelectionTransformMatrix = (
+    mode: 'move' | 'scale' | 'rotate',
+    params: { dx?: number; dy?: number; factor?: number; radians?: number },
+  ): Affine | null => {
+    const sel = e.state.areaSelection;
+    if (!sel) return null;
+    if (mode === 'move') return translate(params.dx ?? 0, params.dy ?? 0);
+    const bounds = areaSelectionBounds(sel.expression);
+    const cx = bounds.x + bounds.w / 2;
+    const cy = bounds.y + bounds.h / 2;
+    if (mode === 'scale') {
+      const factor = params.factor ?? 1;
+      return multiplyAffine(
+        translate(cx, cy),
+        multiplyAffine(scaleXY(factor, factor), translate(-cx, -cy)),
+      );
+    }
+    const radians = params.radians ?? 0;
+    return multiplyAffine(
+      translate(cx, cy),
+      multiplyAffine(rotateRad(radians), translate(-cx, -cy)),
+    );
+  };
   const updateSelectedText = (update: (node: TextNode) => TextNode): void => {
     const selectedId = e.state.selection.length === 1 ? e.state.selection[0] : undefined;
     if (!selectedId) return;
@@ -194,6 +237,77 @@ export function createActionHandlers(
       }
       e.invertSelection();
     },
+
+    // ── Pixel selection refinement (Phase 2) & transform (Phase 3) ──
+    // These act on the active document-space AreaSelection (the output of the
+    // marquee / pixel-lasso tools). Refinement is a bounded raster operation;
+    // transform keeps the selection analytical.
+    areaSelectionGrow: () => {
+      const sel = e.state.areaSelection;
+      if (!sel || !e.setAreaSelection) {
+        e.announce('Make a pixel selection first');
+        return;
+      }
+      const next = refineAreaSelection(sel, 'grow', { amount: 1 });
+      if (next) {
+        e.setAreaSelection(next);
+        e.announce('Selection grown by 1 px');
+      }
+    },
+    areaSelectionShrink: () => {
+      const sel = e.state.areaSelection;
+      if (!sel || !e.setAreaSelection) {
+        e.announce('Make a pixel selection first');
+        return;
+      }
+      const next = refineAreaSelection(sel, 'shrink', { amount: 1 });
+      if (next) {
+        e.setAreaSelection(next);
+        e.announce('Selection shrunk by 1 px');
+      }
+    },
+    areaSelectionSmooth: () => {
+      const sel = e.state.areaSelection;
+      if (!sel || !e.setAreaSelection) {
+        e.announce('Make a pixel selection first');
+        return;
+      }
+      const next = refineAreaSelection(sel, 'smooth', { sigma: 1 });
+      if (next) {
+        e.setAreaSelection(next);
+        e.announce('Selection softened');
+      }
+    },
+    areaSelectionThreshold: () => {
+      const sel = e.state.areaSelection;
+      if (!sel || !e.setAreaSelection) {
+        e.announce('Make a pixel selection first');
+        return;
+      }
+      const next = refineAreaSelection(sel, 'threshold', { threshold: 0.5 });
+      if (next) {
+        e.setAreaSelection(next);
+        e.announce('Selection thresholded to a hard mask');
+      }
+    },
+    areaSelectionNudgeUp: () =>
+      applyAreaTransform(areaSelectionTransformMatrix('move', { dy: -1 })),
+    areaSelectionNudgeDown: () =>
+      applyAreaTransform(areaSelectionTransformMatrix('move', { dy: 1 })),
+    areaSelectionNudgeLeft: () =>
+      applyAreaTransform(areaSelectionTransformMatrix('move', { dx: -1 })),
+    areaSelectionNudgeRight: () =>
+      applyAreaTransform(areaSelectionTransformMatrix('move', { dx: 1 })),
+    areaSelectionScaleUp: () =>
+      applyAreaTransform(areaSelectionTransformMatrix('scale', { factor: 1.1 })),
+    areaSelectionScaleDown: () =>
+      applyAreaTransform(areaSelectionTransformMatrix('scale', { factor: 1 / 1.1 })),
+    // Positive radians read clockwise on screen (Y-down), matching the shared
+    // affine convention used by the engine's rotateRad.
+    areaSelectionRotateCW: () =>
+      applyAreaTransform(areaSelectionTransformMatrix('rotate', { radians: Math.PI / 12 })),
+    areaSelectionRotateCCW: () =>
+      applyAreaTransform(areaSelectionTransformMatrix('rotate', { radians: -Math.PI / 12 })),
     selectParent: () => e.selectParent(),
     selectChildren: () => e.selectChildren(),
     selectSiblings: () => e.selectSiblings(),
@@ -209,6 +323,7 @@ export function createActionHandlers(
     selectionHistoryForward: () => e.selectNextSelection(),
     flipH: () => e.setSelectedFlipH(),
     flipV: () => e.setSelectedFlipV(),
+    repeatTransform: () => e.repeatLastTransform(),
 
     // ── File ──
     newDocument: () => e.newDocument(),

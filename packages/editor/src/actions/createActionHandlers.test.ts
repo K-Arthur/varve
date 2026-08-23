@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { areaSelectionCoverageAt, createAreaSelection } from '@varve/engine';
 import type { EditorContextValue } from '../context';
 import { setStartTextEditingHandler } from '../context';
 import { createActionHandlers } from './createActionHandlers';
@@ -218,5 +219,78 @@ describe('createActionHandlers — text formatting', () => {
     expect(updatedDocument?.nodes.t1).not.toBe(originalNode);
     expect(updatedDocument?.nodes.t1.fontWeight).toBe(700);
     expect(originalNode.fontWeight).toBe(400);
+  });
+});
+
+describe('createActionHandlers — pixel selection refine & transform', () => {
+  const rectSelection = () =>
+    createAreaSelection({ kind: 'rectangle', x: 0, y: 0, w: 10, h: 10, feather: 0, antialias: false });
+
+  it('refuses to refine with no active pixel selection', () => {
+    const setAreaSelection = vi.fn();
+    const editor = makeEditorMock({
+      state: {} as unknown as EditorContextValue['state'],
+      setAreaSelection,
+    });
+    createActionHandlers(editor).areaSelectionGrow?.();
+    expect(editor.announce).toHaveBeenCalledWith('Make a pixel selection first');
+    expect(setAreaSelection).not.toHaveBeenCalled();
+  });
+
+  it('grows the active selection outward by one pixel', () => {
+    const setAreaSelection = vi.fn();
+    const editor = makeEditorMock({
+      state: { areaSelection: rectSelection() } as unknown as EditorContextValue['state'],
+      setAreaSelection,
+    });
+    createActionHandlers(editor).areaSelectionGrow?.();
+    expect(setAreaSelection).toHaveBeenCalledTimes(1);
+    const next = setAreaSelection.mock.calls[0]![0];
+    expect(areaSelectionCoverageAt(next, { x: 5, y: 5 })).toBe(1);
+    expect(areaSelectionCoverageAt(next, { x: -1, y: 5 })).toBe(1);
+  });
+
+  it('shrinks the active selection inward by one pixel', () => {
+    const setAreaSelection = vi.fn();
+    const editor = makeEditorMock({
+      state: { areaSelection: rectSelection() } as unknown as EditorContextValue['state'],
+      setAreaSelection,
+    });
+    createActionHandlers(editor).areaSelectionShrink?.();
+    const next = setAreaSelection.mock.calls[0]![0];
+    expect(areaSelectionCoverageAt(next, { x: 5, y: 5 })).toBe(1);
+    expect(areaSelectionCoverageAt(next, { x: 0.5, y: 5 })).toBe(0);
+  });
+
+  it('nudges the active selection by translating it', () => {
+    const setAreaSelection = vi.fn();
+    const editor = makeEditorMock({
+      state: { areaSelection: rectSelection() } as unknown as EditorContextValue['state'],
+      setAreaSelection,
+    });
+    createActionHandlers(editor).areaSelectionNudgeRight?.();
+    const next = setAreaSelection.mock.calls[0]![0];
+    expect(areaSelectionCoverageAt(next, { x: 10.5, y: 5 })).toBe(1);
+    expect(areaSelectionCoverageAt(next, { x: -0.5, y: 5 })).toBe(0);
+  });
+
+  it('hardens a feathered selection through threshold', () => {
+    const selection = createAreaSelection({
+      kind: 'rectangle',
+      x: 0,
+      y: 0,
+      w: 4,
+      h: 4,
+      feather: 2,
+      antialias: false,
+    });
+    const setAreaSelection = vi.fn();
+    const editor = makeEditorMock({
+      state: { areaSelection: selection } as unknown as EditorContextValue['state'],
+      setAreaSelection,
+    });
+    createActionHandlers(editor).areaSelectionThreshold?.();
+    const next = setAreaSelection.mock.calls[0]![0];
+    expect(areaSelectionCoverageAt(next, { x: 2, y: 2 })).toBe(1);
   });
 });

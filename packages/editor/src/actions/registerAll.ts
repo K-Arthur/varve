@@ -379,6 +379,29 @@ export function registerEditorActions(
     'object',
     handlers.rasterizeSelection ?? (() => {}),
   );
+  // Pixel selection refinement & transform (reachable via the Edit ▸ Pixel
+  // Selection submenu and the command palette). No shortcuts are bound so they
+  // never collide with object-selection or tool bindings; discoverability is
+  // via the menu submenu and palette keywords.
+  const pixelSelectionOps = [
+    ['areaSelectionGrow', 'Grow Selection', ['selection', 'pixel', 'grow', 'expand', 'dilate']],
+    ['areaSelectionShrink', 'Shrink Selection', ['selection', 'pixel', 'shrink', 'contract', 'erode']],
+    ['areaSelectionSmooth', 'Smooth Selection', ['selection', 'pixel', 'smooth', 'soften', 'blur']],
+    ['areaSelectionThreshold', 'Threshold Selection', ['selection', 'pixel', 'threshold', 'hard', 'flatten']],
+    ['areaSelectionNudgeUp', 'Nudge Selection Up', ['selection', 'pixel', 'move', 'nudge', 'translate']],
+    ['areaSelectionNudgeDown', 'Nudge Selection Down', ['selection', 'pixel', 'move', 'nudge', 'translate']],
+    ['areaSelectionNudgeLeft', 'Nudge Selection Left', ['selection', 'pixel', 'move', 'nudge', 'translate']],
+    ['areaSelectionNudgeRight', 'Nudge Selection Right', ['selection', 'pixel', 'move', 'nudge', 'translate']],
+    ['areaSelectionScaleUp', 'Scale Selection Up', ['selection', 'pixel', 'scale', 'enlarge']],
+    ['areaSelectionScaleDown', 'Scale Selection Down', ['selection', 'pixel', 'scale']],
+    ['areaSelectionRotateCW', 'Rotate Selection Clockwise', ['selection', 'pixel', 'rotate']],
+    ['areaSelectionRotateCCW', 'Rotate Selection Counter-Clockwise', ['selection', 'pixel', 'rotate']],
+  ] as const;
+  for (const [id, label, keywords] of pixelSelectionOps) {
+    reg(id, label, 'edit', handlers[id] ?? (() => {}));
+    const action = r.get(id);
+    if (action) action.keywords = [...keywords];
+  }
   reg('mergeSelected', 'Merge Selected', 'object', handlers.mergeSelected ?? (() => {}));
   // Master page operations
   reg('createMaster', 'Create Master', 'object', handlers.createMaster ?? (() => {}));
