@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-width: 340px;
+  width: min(90vw, 340px);
 }
 
 .auto-arrange__fieldset {

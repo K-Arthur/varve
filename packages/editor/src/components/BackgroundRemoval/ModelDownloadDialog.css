@@ -12,7 +12,7 @@
   border: var(--border-micro);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
-  min-width: 360px;
+  width: min(90vw, 360px);
   max-width: 440px;
   box-shadow: var(--elevation-shadow-overlay);
 }

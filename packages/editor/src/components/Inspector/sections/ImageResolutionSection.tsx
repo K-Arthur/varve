@@ -90,7 +90,7 @@ export function ImageResolutionSection({ nodes }: ImageResolutionSectionProps) {
         </div>
 
         <div className="insp-field">
-          <span className="insp-field__label">Effective resolution</span>
+          <span className="insp-field__label insp-field__label--wrap">Effective resolution</span>
           <div className="insp-field__control">
             <span style={belowThreshold ? { color: 'var(--color-feedback-warning)' } : undefined}>
               {ppiLabel}

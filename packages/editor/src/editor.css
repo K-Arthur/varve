@@ -1,3 +1,12 @@
+/* ── Minimum viewport ───────────────────────────────── */
+/* Varve is a design tool — viewports narrower than 600px make panels,
+ * toolbars, and inspector controls overlap beyond usability.  Enforce a
+ * floor so the browser shows a horizontal scrollbar instead of a broken
+ * layout. */
+html {
+  min-width: 600px;
+}
+
 /* ── Error boundary ─────────────────────────────────── */
 .error-boundary {
   display: flex;
@@ -977,6 +986,7 @@ input[type="number"] {
   height: 28px;
   background: var(--elevation-surface-sunken);
   border-top: var(--border-micro);
+  overflow: hidden;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
@@ -1903,6 +1913,15 @@ input[type="number"] {
     bottom: calc(28px + var(--space-3));
   }
 }
+/* At phone widths the horizontally-scrollable tool strip occupies the same
+ * lower edge as the drawer affordances. Lift the FABs above that strip so the
+ * Layers drawer remains reachable instead of being visually/pointer-hidden by
+ * the toolbar. */
+@media (max-width: 640px) {
+  .editor__fab {
+    bottom: calc(28px + var(--space-3) + 52px);
+  }
+}
 .editor__fab--layers {
   left: var(--space-3);
 }
@@ -2397,7 +2416,7 @@ input[type="number"] {
   flex-direction: column;
   gap: 10px;
   padding: 16px;
-  min-width: 520px;
+  width: min(90vw, 520px);
   max-width: 720px;
   max-height: 70vh;
 }

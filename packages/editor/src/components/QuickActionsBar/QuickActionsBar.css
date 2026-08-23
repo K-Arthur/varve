@@ -1,6 +1,6 @@
 .quick-actions-bar {
   z-index: calc(var(--z-overlay) + 1);
-  width: 320px;
+  width: min(90vw, 320px);
   max-height: 420px;
   display: flex;
   flex-direction: column;
