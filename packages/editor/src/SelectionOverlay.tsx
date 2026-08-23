@@ -380,7 +380,8 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const parentIndex = useMemo(() => buildParentIndexMap(state.document), [state.document]);
 
   const box = useMemo<SelectionBox | null>(() => {
-    if (state.tool === 'marquee' || state.tool === 'ellipseMarquee') return null;
+    if (state.tool === 'marquee' || state.tool === 'ellipseMarquee' || state.tool === 'pixelLasso')
+      return null;
     const candidates = state.selection
       .map((id) => {
         const node = state.document.nodes[id];

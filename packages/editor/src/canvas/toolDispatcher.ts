@@ -14,6 +14,7 @@ import { HandTool } from '../tools/HandTool';
 import { HealingBrushTool } from '../tools/HealingBrushTool';
 import { LassoTool } from '../tools/LassoTool';
 import { LineTool } from '../tools/LineTool';
+import { PixelLassoTool } from '../tools/PixelLassoTool';
 import { MarqueeTool } from '../tools/MarqueeTool';
 import { NodeEditTool } from '../tools/NodeEditTool';
 import { PageTool } from '../tools/PageTool';
@@ -73,6 +74,7 @@ export function getToolManager(): ToolManager {
     toolManager.register('smudge', () => new SmudgeTool());
     toolManager.register('sam2Segment', () => new Sam2SegmentationTool());
     toolManager.register('lasso', () => new LassoTool());
+    toolManager.register('pixelLasso', () => new PixelLassoTool());
     toolManager.register('marquee', () => new MarqueeTool());
     toolManager.register('ellipseMarquee', () => new MarqueeTool('ellipse'));
     toolManager.register('table', () => new TableTool());

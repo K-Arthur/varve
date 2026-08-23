@@ -46,7 +46,7 @@ export function createActionHandlers(
 
   const setTool = (tool: ToolId) => () => e.setTool(tool);
   const isAreaSelectionTool = (tool: ToolId): boolean =>
-    tool === 'marquee' || tool === 'ellipseMarquee';
+    tool === 'marquee' || tool === 'ellipseMarquee' || tool === 'pixelLasso';
   const activePageArea = () => {
     const page = e.state.document.pages?.find(
       (candidate) => candidate.id === e.state.document.activePageId,

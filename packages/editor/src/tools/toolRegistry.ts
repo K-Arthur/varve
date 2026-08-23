@@ -391,6 +391,15 @@ export const TOOL_REGISTRY = [
     aliases: ['freeform selection'],
   },
   {
+    id: 'pixelLasso',
+    label: 'Pixel Lasso',
+    icon: 'Lasso',
+    category: 'selection',
+    kind: 'tool',
+    shortcutId: 'toolPixelLasso',
+    aliases: ['pixel selection lasso', 'area lasso', 'freehand pixel selection'],
+  },
+  {
     id: 'marquee',
     label: 'Rectangular Marquee',
     icon: 'SquareDashed',

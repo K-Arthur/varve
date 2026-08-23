@@ -71,6 +71,7 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'clone':
     case 'contentAwareFill':
     case 'lasso':
+    case 'pixelLasso':
     case 'marquee':
     case 'ellipseMarquee':
     case 'warp':

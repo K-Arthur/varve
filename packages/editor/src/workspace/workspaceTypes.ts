@@ -500,7 +500,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         {
           id: 'pixel-selection',
           label: 'Pixel selection',
-          tools: ['marquee', 'ellipseMarquee'],
+          tools: ['marquee', 'ellipseMarquee', 'pixelLasso'],
         },
         {
           id: 'retouch',
@@ -603,7 +603,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         {
           id: 'pixel-selection',
           label: 'Pixel selection',
-          tools: ['marquee', 'ellipseMarquee'],
+          tools: ['marquee', 'ellipseMarquee', 'pixelLasso'],
         },
         {
           id: 'retouch',

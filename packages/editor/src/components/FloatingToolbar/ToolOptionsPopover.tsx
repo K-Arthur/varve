@@ -26,7 +26,7 @@ const ImageCropSection = lazy(() =>
 );
 
 const BRUSH_TOOLS = new Set<ToolId>(['paint', 'eraser', 'pencil', 'smudge']);
-const MARQUEE_TOOLS = new Set<ToolId>(['marquee', 'ellipseMarquee']);
+const MARQUEE_TOOLS = new Set<ToolId>(['marquee', 'ellipseMarquee', 'pixelLasso']);
 
 function AreaSelectionOptions({
   tool,
