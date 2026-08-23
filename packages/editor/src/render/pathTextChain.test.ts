@@ -32,7 +32,10 @@ const ring = (): ShapeNode =>
     effects: [],
   }) as unknown as ShapeNode;
 
-const label = (startOffset: number): TextNode =>
+const label = (
+  startOffset: number,
+  overrides?: { endOffset?: number; baselineShift?: number; side?: 'top' | 'bottom' },
+): TextNode =>
   ({
     id: 'text-1',
     kind: 'text',
@@ -59,7 +62,13 @@ const label = (startOffset: number): TextNode =>
     strokes: [],
     effects: [],
     textMode: 'path',
-    pathTextSettings: { pathNodeId: 'ring-1', startOffset, side: 'top' },
+    pathTextSettings: {
+      pathNodeId: 'ring-1',
+      startOffset,
+      side: overrides?.side ?? 'top',
+      ...(overrides?.endOffset != null ? { endOffset: overrides.endOffset } : {}),
+      ...(overrides?.baselineShift != null ? { baselineShift: overrides.baselineShift } : {}),
+    },
   }) as unknown as TextNode;
 
 function build(startOffset: number) {
@@ -115,5 +124,56 @@ describe('path-text settings reach the painter', () => {
     );
     const primitive = textItem?.primitive as unknown as Record<string, unknown>;
     expect(primitive.pathShape).toBeDefined();
+  });
+
+  it('carries endOffset through to the render primitive', async () => {
+    const engine = await createEngine('stub');
+    const t = label(0.1, { endOffset: 0.6 });
+    const doc = createDocument('badge', true);
+    const r = ring();
+    doc.nodes[r.id] = r;
+    doc.nodes[t.id] = t;
+    doc.rootChildren.push(r.id, t.id);
+    const engineNode = sceneNodeToEngineNode(t, undefined, doc);
+    const ir = await engine.buildIr({ nodes: [engineNode] } as never);
+    const primitive = (ir as Array<{ primitive: Record<string, unknown> }>)[0]?.primitive as Record<
+      string,
+      unknown
+    >;
+    expect(primitive.pathTextSettings).toMatchObject({ endOffset: 0.6 });
+  });
+
+  it('carries baselineShift through to the render primitive', async () => {
+    const engine = await createEngine('stub');
+    const t = label(0, { baselineShift: 12 });
+    const doc = createDocument('badge', true);
+    const r = ring();
+    doc.nodes[r.id] = r;
+    doc.nodes[t.id] = t;
+    doc.rootChildren.push(r.id, t.id);
+    const engineNode = sceneNodeToEngineNode(t, undefined, doc);
+    const ir = await engine.buildIr({ nodes: [engineNode] } as never);
+    const primitive = (ir as Array<{ primitive: Record<string, unknown> }>)[0]?.primitive as Record<
+      string,
+      unknown
+    >;
+    expect(primitive.pathTextSettings).toMatchObject({ baselineShift: 12 });
+  });
+
+  it('carries side bottom through to the render primitive', async () => {
+    const engine = await createEngine('stub');
+    const t = label(0.2, { side: 'bottom' });
+    const doc = createDocument('badge', true);
+    const r = ring();
+    doc.nodes[r.id] = r;
+    doc.nodes[t.id] = t;
+    doc.rootChildren.push(r.id, t.id);
+    const engineNode = sceneNodeToEngineNode(t, undefined, doc);
+    const ir = await engine.buildIr({ nodes: [engineNode] } as never);
+    const primitive = (ir as Array<{ primitive: Record<string, unknown> }>)[0]?.primitive as Record<
+      string,
+      unknown
+    >;
+    expect(primitive.pathTextSettings).toMatchObject({ side: 'bottom', startOffset: 0.2 });
   });
 });
