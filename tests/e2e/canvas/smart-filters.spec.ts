@@ -47,15 +47,33 @@ async function readCanvasPixel(
   );
 }
 
-test.describe('Smart Filters — Invert workflow', () => {
+function expectInvertedPixel(
+  before: [number, number, number, number],
+  after: [number, number, number, number],
+) {
+  expect(Math.abs(after[0] - (255 - before[0]))).toBeLessThanOrEqual(4);
+  expect(Math.abs(after[1] - (255 - before[1]))).toBeLessThanOrEqual(4);
+  expect(Math.abs(after[2] - (255 - before[2]))).toBeLessThanOrEqual(4);
+  expect(after[3]).toBe(before[3]);
+}
+
+function expectSamePixel(
+  expected: [number, number, number, number],
+  actual: [number, number, number, number],
+) {
+  expect(actual).toEqual(expected);
+}
+
+test.describe('Object Filters — Invert workflow', () => {
   test.describe.configure({ mode: 'serial' });
 
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });
 
-  test('add invert filter to a red rect — canvas pixels change', async ({ page }) => {
-    // Create a red rectangle
+  test('add invert filter to a rectangle — canvas pixels change', async ({ page }) => {
+    // Create a rectangle. Its default fill is intentionally not assumed: the
+    // test compares the rendered pixel with its sampled inverse instead.
     await page.keyboard.press('r');
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     await expect(canvas).toBeVisible({ timeout: 15000 });
@@ -72,9 +90,8 @@ test.describe('Smart Filters — Invert workflow', () => {
     // Wait for paint
     await page.waitForTimeout(500);
 
-    // Read pixel before — expect red-ish
-    const [r1] = await readCanvasPixel(page, cx, cy);
-    expect(r1).toBeGreaterThan(200);
+    const before = await readCanvasPixel(page, cx, cy);
+    expect(before[3]).toBeGreaterThan(0);
 
     // Select the layer
     await selectLayerInPanel(page, 0);
@@ -83,13 +100,8 @@ test.describe('Smart Filters — Invert workflow', () => {
     await addSmartFilter(page, 'Invert');
     await page.waitForTimeout(500);
 
-    // Read pixel after — expect cyan-ish (inverted red)
-    const [r2, g2, b2, a2] = await readCanvasPixel(page, cx, cy);
-    // Inverted red (255,0,0) should be (0,255,255)
-    expect(r2).toBeLessThan(50);
-    expect(g2).toBeGreaterThan(200);
-    expect(b2).toBeGreaterThan(200);
-    expect(a2).toBe(255); // alpha preserved
+    const after = await readCanvasPixel(page, cx, cy);
+    expectInvertedPixel(before, after);
 
     // Screenshot for visual inspection
     await page.screenshot({
@@ -112,24 +124,23 @@ test.describe('Smart Filters — Invert workflow', () => {
     await page.waitForTimeout(500);
 
     // Record original color
-    const [origR] = await readCanvasPixel(page, cx, cy);
-    expect(origR).toBeGreaterThan(200);
+    const original = await readCanvasPixel(page, cx, cy);
 
     // Add filter
     await selectLayerInPanel(page, 0);
     await addSmartFilter(page, 'Invert');
     await page.waitForTimeout(500);
 
-    const [invR] = await readCanvasPixel(page, cx, cy);
-    expect(invR).toBeLessThan(50);
+    const inverted = await readCanvasPixel(page, cx, cy);
+    expectInvertedPixel(original, inverted);
 
     // Toggle visibility off (click the eye icon button)
     const eyeBtn = page.locator('button.smart-filters__visibility').first();
     await eyeBtn.click();
     await page.waitForTimeout(500);
 
-    const [toggledR] = await readCanvasPixel(page, cx, cy);
-    expect(toggledR).toBeGreaterThan(200);
+    const toggled = await readCanvasPixel(page, cx, cy);
+    expectSamePixel(original, toggled);
 
     await page.screenshot({
       path: 'reports/smart-filters/invert-toggled-off.png',
@@ -150,8 +161,7 @@ test.describe('Smart Filters — Invert workflow', () => {
     await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
     await page.waitForTimeout(500);
 
-    const [origR] = await readCanvasPixel(page, cx, cy);
-    expect(origR).toBeGreaterThan(200);
+    const original = await readCanvasPixel(page, cx, cy);
 
     await selectLayerInPanel(page, 0);
     await addSmartFilter(page, 'Invert');
@@ -162,8 +172,8 @@ test.describe('Smart Filters — Invert workflow', () => {
     await removeBtn.click();
     await page.waitForTimeout(500);
 
-    const [removedR] = await readCanvasPixel(page, cx, cy);
-    expect(removedR).toBeGreaterThan(200);
+    const removed = await readCanvasPixel(page, cx, cy);
+    expectSamePixel(original, removed);
 
     await page.screenshot({
       path: 'reports/smart-filters/invert-removed.png',
@@ -184,22 +194,21 @@ test.describe('Smart Filters — Invert workflow', () => {
     await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
     await page.waitForTimeout(500);
 
-    const [origR] = await readCanvasPixel(page, cx, cy);
-    expect(origR).toBeGreaterThan(200);
+    const original = await readCanvasPixel(page, cx, cy);
 
     await selectLayerInPanel(page, 0);
     await addSmartFilter(page, 'Invert');
     await page.waitForTimeout(500);
 
-    const [invR] = await readCanvasPixel(page, cx, cy);
-    expect(invR).toBeLessThan(50);
+    const inverted = await readCanvasPixel(page, cx, cy);
+    expectInvertedPixel(original, inverted);
 
     // Undo
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(500);
 
-    const [undoR] = await readCanvasPixel(page, cx, cy);
-    expect(undoR).toBeGreaterThan(200);
+    const undone = await readCanvasPixel(page, cx, cy);
+    expectSamePixel(original, undone);
   });
 
   test('multiple filters coexist — blur + invert both apply', async ({ page }) => {
