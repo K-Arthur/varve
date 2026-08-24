@@ -10,22 +10,10 @@
  * - Screenshot verification at each step
  */
 import { expect, type Page, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { addColorVariable, navigateToEditor } from '../shared';
 
 async function createColorVariable(page: Page, name: string, hexColor: string): Promise<void> {
-  // Click + Add button
-  await page.getByRole('button', { name: /add/i }).click();
-
-  // Fill name
-  const nameInput = page.getByRole('textbox', { name: /name/i });
-  await nameInput.fill(name);
-
-  // Fill value (hex color)
-  const valueInput = page.getByRole('textbox', { name: /value/i });
-  await valueInput.fill(hexColor);
-
-  // Press Enter to add
-  await valueInput.press('Enter');
+  await addColorVariable(page, name, hexColor);
 }
 
 test.describe('Linked variable color modifiers - visual verification', () => {
@@ -64,18 +52,14 @@ test.describe('Linked variable color modifiers - visual verification', () => {
       fullPage: false,
     });
 
-    // Click on the value to edit
-    const valueCell = page.getByText('#ff0000');
-    if (await valueCell.isVisible()) {
-      await valueCell.click();
-
-      // Edit the value
-      const editInput = page.getByRole('textbox', { name: /edit/i });
-      if (await editInput.isVisible()) {
-        await editInput.fill('#00ff00');
-        await editInput.press('Enter');
-      }
-    }
+    // The panel shows both authored and resolved values. Edit the authored
+    // value button rather than using an ambiguous text locator.
+    const variables = page.getByTestId('layers-panel');
+    await variables.getByRole('button', { name: '#ff0000', exact: true }).click();
+    const editInput = variables.getByRole('textbox', { name: 'Variable value' });
+    await editInput.fill('#00ff00');
+    await editInput.press('Enter');
+    await expect(variables.getByRole('button', { name: '#00ff00', exact: true })).toBeVisible();
 
     // Take screenshot after edit
     await page.screenshot({
@@ -204,10 +188,17 @@ test.describe('Linked variable color modifiers - visual verification', () => {
       fullPage: false,
     });
 
-    // Reload page
+    // Persist explicitly, then reload and reopen from Home. Browser reloads
+    // intentionally return to Home rather than preserving the editor route.
+    await page.getByRole('menuitem', { name: 'File', exact: true }).click();
+    await page.getByRole('menuitem', { name: /^Save\s+Ctrl\+S$/i }).click();
+    await expect(page.getByRole('button', { name: /^Saved\b/i })).toBeVisible({ timeout: 15000 });
     await page.reload({ waitUntil: 'domcontentloaded' });
-
-    // Wait for editor to load
+    await page.locator('.varve-home__toolbar').waitFor({ state: 'visible', timeout: 30000 });
+    await page
+      .getByRole('gridcell', { name: /^Untitled \d+,/i })
+      .first()
+      .dblclick();
     await page.locator('.layers-panel').waitFor({ timeout: 15000 });
 
     // Take screenshot after reload

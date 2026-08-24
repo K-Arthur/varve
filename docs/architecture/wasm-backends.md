@@ -56,7 +56,7 @@ Coarse scene-level calls only (avoid per-node WASM transitions):
 ## Build
 
 ```bash
-just wasm-build          # wasm-pack all targets
+just wasm-build          # baseline + preferred SIMD engine artifact
 cargo test --target wasm32-unknown-unknown --workspace
 ```
 

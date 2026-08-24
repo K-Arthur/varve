@@ -3,12 +3,12 @@
  * (ADR-0016 workflow 3).
  */
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { activateTableTool, navigateToEditor } from '../shared';
 
 async function openCreateFromData(page: import('@playwright/test').Page): Promise<void> {
   // Activate the table tool; the contextual 'Table from data' button opens
   // the structured-import dialog.
-  await page.getByRole('button', { name: 'Table', exact: true }).first().click();
+  await activateTableTool(page);
   await page.getByRole('button', { name: 'Table from data' }).click();
   await expect(page.getByRole('dialog', { name: 'Create table from data' })).toBeVisible({
     timeout: 10000,

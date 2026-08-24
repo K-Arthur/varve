@@ -1940,6 +1940,24 @@ fn render_effects(
                     buf.extend(format!("% backgroundBlur radius={radius:.2}\n").as_bytes());
                 }
             }
+            Effect::DepthBlur {
+                depth_map_id,
+                blur_strength,
+                visible,
+                ..
+            } => {
+                // Depth-aware blur depends on an image-space depth resource and
+                // is currently replayed by the Canvas2D/WASM renderer only.
+                // Keep print output honest instead of dropping it silently.
+                if *visible {
+                    buf.extend(
+                        format!(
+                            "% depthBlur depthMapId={depth_map_id} blurStrength={blur_strength:.2} (not rendered in basic PDF)\n"
+                        )
+                        .as_bytes(),
+                    );
+                }
+            }
             Effect::OuterGlow { visible, .. } => {
                 if *visible {
                     buf.extend(b"% outerGlow (not rendered in basic PDF)\n");
@@ -4926,6 +4944,30 @@ mod tests {
         let result = render_effects(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("innerShadow"), "should have comment");
+    }
+
+    #[test]
+    fn render_effects_depth_blur_commented() {
+        // Depth blur relies on an image-space resource unavailable to the
+        // vector PDF renderer. Export must acknowledge that limitation rather
+        // than silently omitting a visible effect.
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.effects = vec![Effect::DepthBlur {
+            id: Some("depth-blur-1".into()),
+            depth_map_id: "depth-map-1".into(),
+            depth_map: None,
+            focus_depth: 0.5,
+            focus_range: 0.2,
+            blur_strength: 12.0,
+            falloff: 1.0,
+            invert: false,
+            edge_protection: 0.035,
+            visible: true,
+        }];
+        let result = render_effects(&node, 100.0, false, None);
+        let s = String::from_utf8_lossy(&result);
+        assert!(s.contains("depthBlur depthMapId=depth-map-1"), "got: {s}");
+        assert!(s.contains("not rendered in basic PDF"), "got: {s}");
     }
 
     // ── embed_image tests ──────────────────────────────────────────────

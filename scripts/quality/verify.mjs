@@ -7,6 +7,8 @@
  *
  * Usage:
  *   pnpm verify:quick        Tier 0 (format/lint on touched) + Tier 1 (direct tests)
+ *   pnpm verify:triage       Tier 0–4 even when a final full gate is required;
+ *                            stops E2E after a bounded number of failures
  *   pnpm verify:affected     Tiers 0–4, risk-aware
  *   pnpm verify:full         full repository gate (Tier 5)
  *   pnpm verify:plan         print the plan without running anything
@@ -14,6 +16,7 @@
  * Environment:
  *   VARVE_TEST_WORKERS       vitest --maxWorkers override
  *   VARVE_E2E_WORKERS        playwright --workers override
+ *   VARVE_E2E_MAX_FAILURES   playwright --max-failures override (triage defaults to 5)
  *   VARVE_HEAVY_TASK_PARALLELISM=0   opt out of heavy-task lease
  *   VARVE_FULL_GATE=1        permit full-suite execution without a reason
  *
@@ -77,23 +80,17 @@ function runVitestFiles(files) {
   return cmd(args);
 }
 
-function runE2eDomains(domains) {
+let e2eMaxFailures;
+
+function runE2ePaths(paths) {
   // Domain -> path resolution: consult the impact config first (some domains
   // map to specific spec files, e.g. keyboard specs live under tests/e2e/canvas/),
   // fall back to the conventional directory.
   const args = ['pnpm', 'exec', 'playwright', 'test'];
-  for (const d of domains) {
-    if (d === 'visual') continue; // handled by project selection
-    const paths = IMPACT_CONFIG.e2eDomains[d];
-    if (paths?.length) {
-      // Impact config uses `/**` to describe a recursive domain for glob
-      // matching. Playwright accepts the directory itself, but interprets the
-      // raw glob as a regular-expression filter and rejects the `**` token.
-      args.push(...paths.map((path) => path.replace(/\/\*\*$/, '')));
-    } else args.push(`tests/e2e/${d}`);
-  }
+  args.push(...paths);
   const workers = process.env.VARVE_E2E_WORKERS;
   if (workers) args.push('--workers', workers);
+  if (e2eMaxFailures) args.push('--max-failures', e2eMaxFailures);
   // CachyOS local validation installs Chromium only. Browser farms can opt
   // into the complete matrix with VARVE_E2E_PROJECTS=chromium,firefox,webkit.
   const projects = (process.env.VARVE_E2E_PROJECTS ?? 'chromium')
@@ -101,11 +98,22 @@ function runE2eDomains(domains) {
     .map((project) => project.trim())
     .filter(Boolean);
   for (const project of projects) args.push(`--project=${project}`);
-  if (domains.includes('visual'))
-    args.push('--project=chromium-visual-1x', '--project=chromium-visual-2x');
-  if (domains.length === 1 && domains[0] === 'visual')
-    args.push('--project=chromium-visual-1x', '--project=chromium-visual-2x');
   return cmd(args);
+}
+
+function runE2eDomains(domains) {
+  const paths = [];
+  for (const d of domains) {
+    if (d === 'visual') continue; // handled by project selection
+    const domainPaths = IMPACT_CONFIG.e2eDomains[d];
+    if (domainPaths?.length) {
+      // Impact config uses `/**` to describe a recursive domain for glob
+      // matching. Playwright accepts the directory itself, but interprets the
+      // raw glob as a regular-expression filter and rejects the `**` token.
+      paths.push(...domainPaths.map((path) => path.replace(/\/\*\*$/, '')));
+    } else paths.push(`tests/e2e/${d}`);
+  }
+  return runE2ePaths(paths);
 }
 
 const HEAVY = new Set([
@@ -154,6 +162,8 @@ function runLane(lane) {
     status = cmd(biomeTouchedArgs());
   } else if (lane.startsWith('js-unit:file:')) {
     status = runVitestFiles([lane.slice('js-unit:file:'.length)]);
+  } else if (lane.startsWith('e2e:file:')) {
+    status = runE2ePaths([lane.slice('e2e:file:'.length)]);
   } else if (lane.startsWith('e2e:') && lane !== 'e2e:all' && lane !== 'e2e:visual') {
     status = runE2eDomains([lane.slice('e2e:'.length)]);
   } else if (lane === 'js-unit:all') {
@@ -209,6 +219,8 @@ function main() {
   const args = process.argv.slice(2);
   const mode = args[0];
   const planOpts = parseArgs(['node', 'x', ...args.slice(1)]);
+  e2eMaxFailures = process.env.VARVE_E2E_MAX_FAILURES;
+  if (mode === 'triage' && !e2eMaxFailures) e2eMaxFailures = '5';
 
   if (mode === 'plan') {
     let files;
@@ -272,7 +284,7 @@ function main() {
     process.exit(0);
   }
 
-  // quick / affected
+  // quick / triage / affected
   let files;
   let base;
   if (planOpts.since) {
@@ -296,16 +308,24 @@ function main() {
     for (const l of [...plan.tiers[0], ...plan.tiers[1]]) {
       if (runLane(l) !== 0) process.exit(1);
     }
-  } else if (mode === 'affected') {
+  } else if (mode === 'affected' || mode === 'triage') {
+    if (mode === 'triage') {
+      console.log(`Triage mode: Playwright stops after ${e2eMaxFailures} failure(s).`);
+    }
     if (plan.full) {
-      console.log('\nEscalation to full gate required. Rerun with: pnpm verify:full');
-      process.exit(2);
+      if (mode === 'affected') {
+        console.log('\nEscalation to full gate required. Rerun with: pnpm verify:full');
+        process.exit(2);
+      }
+      console.log(
+        '\nFinal full gate required after triage. Continuing with the affected lanes to expose cheap, downstream failures before that checkpoint.',
+      );
     }
     for (const l of flatten(plan)) {
       if (runLane(l) !== 0) process.exit(1);
     }
   } else {
-    console.error(`verify: unknown mode '${mode}'. Use: quick | affected | full | plan`);
+    console.error(`verify: unknown mode '${mode}'. Use: quick | triage | affected | full | plan`);
     process.exit(2);
   }
 

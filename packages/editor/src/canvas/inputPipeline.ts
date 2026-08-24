@@ -33,6 +33,7 @@ import {
   isInteractionTracingEnabled,
   recordInteractionSpan,
 } from '../performance/interactionTrace';
+import { shouldIgnoreShortcutTarget } from '../shortcuts/ShortcutManager';
 import type { ToolContext, ToolManager } from '../tools';
 import { computeEdgeVelocity } from '../tools/autoPan';
 import { interactionSession } from '../tools/InteractionContext';
@@ -851,6 +852,30 @@ export function useCanvasInputs({
       disposePinchBridge?.();
     };
   }, [contentCanvasRef, stateRef, editor, commitCamera, tmRef, buildToolCtx]);
+
+  // Crop is a modal editing state. It can be entered from a Layers row or an
+  // Inspector button, both of which legitimately keep focus outside the
+  // canvas. Letting the window-level shortcut registry win in that case made
+  // CropTool's F key activate the Frame tool instead of cycling the image fit.
+  // Capture only crop's consumed modal keys, before generic shortcuts, while
+  // preserving normal typing ownership for form fields and other widgets.
+  useEffect(() => {
+    const handleModalCropKey = (e: KeyboardEvent) => {
+      if (stateRef.current.tool !== 'crop') return;
+      if (e.defaultPrevented || e.isComposing || shouldIgnoreShortcutTarget(e.target as Element)) {
+        return;
+      }
+      const tmInst = tmRef.current;
+      if (!tmInst) return;
+      const ctx = buildToolCtx({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
+      if (!tmInst.handleKeyDown(e, ctx)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    window.addEventListener('keydown', handleModalCropKey, true);
+    return () => window.removeEventListener('keydown', handleModalCropKey, true);
+  }, [stateRef, tmRef, buildToolCtx]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLCanvasElement>) => {

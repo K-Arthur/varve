@@ -12,10 +12,10 @@
  * - Screenshot verification at each step
  */
 import { expect, type Page, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { activateTableTool, dragOnCanvas, navigateToEditor } from '../shared';
 
 async function insertTable(page: Page, _rows = 4, _cols = 4): Promise<void> {
-  await page.getByRole('button', { name: 'Table', exact: true }).first().click();
+  await activateTableTool(page);
   await dragOnCanvas(page, 200, 160, 700, 460);
 }
 
@@ -295,11 +295,19 @@ test.describe('Native tables - visual verification', () => {
       fullPage: false,
     });
 
-    // Reload page
+    // Persist explicitly, then reload and reopen from Home. Browser reloads
+    // intentionally return to Home rather than preserving the editor route.
+    await page.getByRole('menuitem', { name: 'File', exact: true }).click();
+    await page.getByRole('menuitem', { name: /^Save\s+Ctrl\+S$/i }).click();
+    await expect(page.getByRole('button', { name: /^Saved\b/i })).toBeVisible({ timeout: 15000 });
     await page.reload({ waitUntil: 'domcontentloaded' });
-
-    // Wait for editor to load
+    await page.locator('.varve-home__toolbar').waitFor({ state: 'visible', timeout: 30000 });
+    await page
+      .getByRole('gridcell', { name: /^Untitled \d+,/i })
+      .first()
+      .dblclick();
     await page.locator('.layers-panel').waitFor({ timeout: 15000 });
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
     // Take screenshot after reload
     await page.screenshot({

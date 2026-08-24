@@ -227,7 +227,10 @@ export class CropTool extends BaseTool {
       fillScale: imageFill?.scale ?? 1,
       fillOffsetX: imageFill?.x ?? 0,
       fillOffsetY: imageFill?.y ?? 0,
-      fillFit: imageFill?.fit ?? 'crop',
+      // Keep the same default as computeImagePlacement. Treating an omitted
+      // historical fit as `crop` silently changed an untouched image when
+      // the crop mode was accepted.
+      fillFit: imageFill?.fit ?? 'fill',
     };
     this.notify();
     ctx.announce('Crop mode — drag handles, scroll to zoom, Enter to apply, Esc to cancel');

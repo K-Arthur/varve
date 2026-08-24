@@ -35,6 +35,21 @@ policy: `docs/quality/validation-strategy.md`. Executable planner:
 7. Record exactly what was run, what passed, and what was skipped as
    unrelated (the Agent Validation Report template, below).
 
+### Failure-resolution and release candidates
+
+For a large integration or release candidate, do not restart a broad E2E
+gate after every individual repair. Run `pnpm verify:triage` once to collect
+a bounded failure set. Triage still runs the affected closure when the
+planner requires a final full gate, exposing downstream compile failures
+before that expensive checkpoint. Classify and repair each failure, and run its affected
+compiler check, exact spec, and direct unit checks after each repair. Changes
+under `tests/e2e/` automatically select `pnpm typecheck:e2e` before
+Playwright. When the candidate is frozen, run `pnpm verify:affected` once
+and then the required release `pnpm verify:full` gate. Shared E2E
+infrastructure (`tests/e2e/shared.ts`,
+`tests/e2e/helpers/**`, and fixtures), runner configuration, renderer, and
+other integration surfaces deliberately retain broad validation scope.
+
 Skipping affected tests is prohibited. Running unrelated tests is
 discouraged — it consumes shared developer resources and delays feedback.
 
@@ -442,7 +457,7 @@ just install-dev-icons
 | Baseline bench + goldens | `packages/engine/src/bench/`, `packages/engine/src/__goldens__/` |
 | Compositor | `packages/compositor/` — Canvas2D + WebGPU scaffold |
 | Render worker | `packages/editor/src/render/` — OffscreenCanvas |
-| WASM build | `just wasm-build` → `apps/desktop/public/wasm/` |
+| WASM build | `just wasm-build` → baseline + preferred SIMD artifacts in `apps/desktop/public/wasm/` |
 | Architecture docs | `docs/architecture/render-pipeline.md`, `docs/architecture/wasm-backends.md` |
 
 ## Canvas System

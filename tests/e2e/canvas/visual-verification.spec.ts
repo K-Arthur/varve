@@ -5,11 +5,11 @@
  * at each step of the workflow.
  */
 import { expect, type Page, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { activateTableTool, addColorVariable, dragOnCanvas, navigateToEditor } from '../shared';
 
 // Helper to insert a table
 async function insertTable(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Table', exact: true }).first().click();
+  await activateTableTool(page);
   await dragOnCanvas(page, 200, 160, 700, 460);
 }
 
@@ -23,12 +23,7 @@ async function enterTableEditMode(page: Page): Promise<void> {
 
 // Helper to create a color variable
 async function createColorVariable(page: Page, name: string, hexColor: string): Promise<void> {
-  await page.getByRole('button', { name: /add/i }).click();
-  const nameInput = page.getByRole('textbox', { name: /name/i });
-  await nameInput.fill(name);
-  const valueInput = page.getByRole('textbox', { name: /value/i });
-  await valueInput.fill(hexColor);
-  await valueInput.press('Enter');
+  await addColorVariable(page, name, hexColor);
 }
 
 test.describe('Table and modifier visual verification', () => {
@@ -126,26 +121,22 @@ test.describe('Table and modifier visual verification', () => {
     await expect(page.getByText('Primary')).toBeVisible();
     await expect(page.getByText('Secondary')).toBeVisible();
 
-    // Step 3: Edit a variable
-    const valueCell = page.getByText('#39d0c6');
-    if (await valueCell.isVisible()) {
-      await valueCell.click();
-      const editInput = page.getByRole('textbox', { name: /edit/i });
-      if (await editInput.isVisible()) {
-        await editInput.fill('#00ff88');
-        await editInput.press('Enter');
-      }
-    }
+    // Step 3: Edit the authored value, not the duplicate resolved preview.
+    const variables = page.getByTestId('layers-panel');
+    await variables.getByRole('button', { name: '#39d0c6', exact: true }).click();
+    const editInput = variables.getByRole('textbox', { name: 'Variable value' });
+    await editInput.fill('#00ff88');
+    await editInput.press('Enter');
 
     await page.screenshot({ path: 'test-results/visual/10-variable-edited.png', fullPage: false });
 
     // Step 4: Verify the variable was updated
-    await expect(page.getByText('#00ff88')).toBeVisible();
+    await expect(variables.getByRole('button', { name: '#00ff88', exact: true })).toBeVisible();
   });
 
   test('Table import from CSV', async ({ page }) => {
     // Step 1: Open import dialog
-    await page.getByRole('button', { name: 'Table', exact: true }).first().click();
+    await activateTableTool(page);
     await page.getByRole('button', { name: 'Table from data' }).click();
 
     await expect(page.getByRole('dialog', { name: 'Create table from data' })).toBeVisible({
@@ -183,9 +174,9 @@ Thingamajig,$29.99,Misc`;
     // Step 2: Enter edit mode and merge cells
     await enterTableEditMode(page);
 
-    // Select first two cells
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('Shift+ArrowLeft');
+    // Select the first two cells so the inspector exposes the merge command.
+    await page.locator('.table-edit-overlay').click({ position: { x: 300, y: 280 } });
+    await page.keyboard.press('Shift+ArrowRight');
 
     await page.screenshot({ path: 'test-results/visual/14-cells-selected.png', fullPage: false });
 

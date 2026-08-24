@@ -2,7 +2,7 @@
  * Debug: capture console errors when creating a variable.
  */
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { addColorVariable, navigateToEditor } from '../shared';
 
 test('debug variable creation crash', async ({ page }) => {
   const errors: string[] = [];
@@ -13,12 +13,7 @@ test('debug variable creation crash', async ({ page }) => {
 
   await navigateToEditor(page);
 
-  await page.getByTestId('layers-panel').getByRole('button', { name: '+ Add' }).click();
-  const nameInput = page.getByRole('textbox', { name: /name/i });
-  await nameInput.fill('TestColor');
-  const valueInput = page.getByRole('textbox', { name: /value/i });
-  await valueInput.fill('#39d0c6');
-  await valueInput.press('Enter');
+  await addColorVariable(page, 'TestColor', '#39d0c6');
   await page.waitForTimeout(1000);
 
   const state = await page.evaluate(() => ({

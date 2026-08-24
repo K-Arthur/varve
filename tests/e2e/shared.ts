@@ -144,6 +144,37 @@ export async function navigateToHome(page: Page) {
 }
 
 /**
+ * Activate the Table tool whether it is directly visible or responsive
+ * overflow has moved the Layout group into More tools.
+ */
+export async function activateTableTool(page: Page): Promise<void> {
+  const toolbar = page.getByTestId('toolbar');
+  const directTableTool = toolbar.locator('[data-tool="table"]');
+  if (await directTableTool.isVisible().catch(() => false)) {
+    await directTableTool.click();
+    return;
+  }
+
+  await toolbar.getByRole('button', { name: 'More tools' }).click();
+  // ContextMenu is portal-mounted. Its role name is not exposed reliably in
+  // Chromium's accessibility tree, so anchor on its stable rendered class.
+  const overflow = page.locator('.varve-ctxmenu');
+  await overflow.getByText('Layout', { exact: true }).click();
+  await page.locator('.varve-menu__submenu').getByText('Table', { exact: true }).click();
+}
+
+/** Create a color variable through the Layers panel's scoped add form. */
+export async function addColorVariable(page: Page, name: string, value: string): Promise<void> {
+  const layersPanel = page.getByTestId('layers-panel');
+  await layersPanel.getByRole('button', { name: '+ Add', exact: true }).click();
+  const addForm = layersPanel.locator('.variable-panel__add-form');
+  await addForm.getByPlaceholder('name', { exact: true }).fill(name);
+  const valueInput = addForm.getByPlaceholder('value', { exact: true });
+  await valueInput.fill(value);
+  await valueInput.press('Enter');
+}
+
+/**
  * Seed the canvas with `count` distinct rectangles so the layers tree is
  * populated.  Uses the Rect tool shortcut (r) + drag across the canvas.
  */

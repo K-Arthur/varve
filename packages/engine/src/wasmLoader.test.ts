@@ -4,15 +4,18 @@ import { describe, expect, it } from 'vitest';
 import { createWasmEngineFromModule } from './engine';
 import { wasmHitTestFallback } from './wasmLoader';
 
-const WASM_ARTIFACT = resolve(process.cwd(), 'apps/desktop/public/wasm/varve_wasm_bg.wasm');
+const WASM_ARTIFACTS = [
+  resolve(process.cwd(), 'apps/desktop/public/wasm/varve_wasm_bg.wasm'),
+  resolve(process.cwd(), 'apps/desktop/public/wasm/varve_wasm_simd_bg.wasm'),
+];
 
 describe('wasmLoader', () => {
-  it('wasm build artifact exists when just wasm-build has been run', () => {
-    if (!existsSync(WASM_ARTIFACT)) {
-      console.warn('Skipping: run `just wasm-build` to produce varve_wasm_bg.wasm');
+  it('keeps every loader-selected artifact current when just wasm-build has run', () => {
+    if (!WASM_ARTIFACTS.every(existsSync)) {
+      console.warn('Skipping: run `just wasm-build` to produce baseline and SIMD WASM artifacts');
       return;
     }
-    expect(existsSync(WASM_ARTIFACT)).toBe(true);
+    expect(WASM_ARTIFACTS.every(existsSync)).toBe(true);
   });
   it('createWasmEngineFromModule builds IR from JSON', async () => {
     const mod = {

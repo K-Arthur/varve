@@ -32,7 +32,14 @@ build-js:
     pnpm -r --filter "./packages/*" run build
 
 # --- WASM build (web engine backend) ---
+# The loader prefers SIMD when it is present. Keep both artifacts in lockstep:
+# rebuilding only the baseline leaves a stale SIMD binary that the browser will
+# select first and can silently exercise an older bridge contract.
 wasm-build:
+    just wasm-build-base
+    just wasm-build-simd
+
+wasm-build-base:
     rustup target add wasm32-unknown-unknown
     cd crates/varve-wasm && wasm-pack build --target web --out-dir ../../apps/desktop/public/wasm --out-name varve_wasm
     which wasm-opt 2>/dev/null && wasm-opt -O3 -o apps/desktop/public/wasm/varve_wasm_bg.wasm apps/desktop/public/wasm/varve_wasm_bg.wasm || echo "wasm-opt not on PATH — skipping manual optimization"
@@ -53,7 +60,7 @@ wasm-build-colour:
     cd crates/varve-colour && wasm-pack build --target web --out-dir ../../apps/desktop/public/wasm --out-name varve_colour -- --features wasm
     which wasm-opt 2>/dev/null && wasm-opt -O3 -o apps/desktop/public/wasm/varve_colour_bg.wasm apps/desktop/public/wasm/varve_colour_bg.wasm || echo "wasm-opt not on PATH — skipping manual optimization"
 
-wasm-build-all: wasm-build wasm-build-simd wasm-build-colour
+wasm-build-all: wasm-build wasm-build-colour
 
 wasm-size:
     ls -lh apps/desktop/public/wasm/varve_wasm_bg.wasm apps/desktop/public/wasm/varve_wasm_simd_bg.wasm apps/desktop/public/wasm/varve_colour_bg.wasm 2>/dev/null

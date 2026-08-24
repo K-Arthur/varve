@@ -41,6 +41,25 @@ describe('CropTool', () => {
     expect(tool.getNodeId()).toBe('i1');
   });
 
+  it('uses the placement default for legacy image fills without a fit mode', () => {
+    const tool = new CropTool();
+    const ctx = makeCtx();
+    const node = ctx.document.nodes.i1;
+    if (node?.kind !== 'shape') throw new Error('expected image shape');
+    const image = node.fills?.[0]?.image;
+    if (!image) throw new Error('expected image fill');
+    const legacyImage: Partial<typeof image> = { ...image };
+    delete legacyImage.fit;
+    ctx.document.nodes.i1 = {
+      ...node,
+      fills: [{ ...node.fills![0]!, image: legacyImage as typeof image }],
+    };
+
+    tool.onActivate(ctx as never);
+
+    expect(tool.getCropState()?.fillFit).toBe('fill');
+  });
+
   it('re-enters an existing crop using the rendered fill placement', () => {
     const ctx = makeCtx();
     const node = ctx.document.nodes.i1;

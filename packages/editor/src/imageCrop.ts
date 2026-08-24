@@ -325,10 +325,23 @@ export function commitImageCropExtended(
   // Apply transform overrides before mapping the viewport. Crop coordinates
   // must describe the previewed placement, not the previous committed one.
   const newImage: typeof fill.image = { ...fill.image };
-  if (fillScale !== undefined) newImage.scale = fillScale;
-  if (fillOffsetX !== undefined) newImage.x = fillOffsetX;
-  if (fillOffsetY !== undefined) newImage.y = fillOffsetY;
-  if (fillFit !== undefined) newImage.fit = fillFit;
+  // CropTool always reports effective placement values, including defaults
+  // for legacy image fills that omit scale/offset/fit. Only materialize an
+  // override when it is a real visual change; otherwise accepting an
+  // untouched crop creates a fake history entry and Undo removes the prior
+  // document edit instead of the crop.
+  if (fillScale !== undefined && Math.abs(fillScale - (fill.image.scale ?? 1)) > 1e-9) {
+    newImage.scale = fillScale;
+  }
+  if (fillOffsetX !== undefined && Math.abs(fillOffsetX - (fill.image.x ?? 0)) > 1e-9) {
+    newImage.x = fillOffsetX;
+  }
+  if (fillOffsetY !== undefined && Math.abs(fillOffsetY - (fill.image.y ?? 0)) > 1e-9) {
+    newImage.y = fillOffsetY;
+  }
+  if (fillFit !== undefined && fillFit !== (fill.image.fit ?? 'fill')) {
+    newImage.fit = fillFit;
+  }
   if (straightenAngle !== undefined && Math.abs(straightenAngle) > 0.01) {
     const existing = newImage.rotation ?? 0;
     newImage.rotation = normalizeImageRotation((((existing + straightenAngle) % 360) + 360) % 360);
@@ -362,7 +375,8 @@ export function commitImageCropExtended(
     newImage.scale !== fill.image.scale ||
     newImage.x !== fill.image.x ||
     newImage.y !== fill.image.y ||
-    newImage.fit !== fill.image.fit;
+    newImage.fit !== fill.image.fit ||
+    newImage.rotation !== fill.image.rotation;
   if (!imgChanged) return doc;
 
   const fills = (shapeNode.fills ?? []).map((f) => {

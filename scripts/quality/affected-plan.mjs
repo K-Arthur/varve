@@ -321,10 +321,15 @@ function buildPlan(files, { includeReverse = true } = {}) {
   const changedPkgs = new Set();
   const changedCrates = new Set();
   const directTestFiles = new Set();
+  const directE2eFiles = new Set();
   const e2eDomains = new Set();
   const benchDomains = new Set();
   const audits = new Set();
   const riskFlags = [];
+  let e2eTypecheckRequired = files.some(
+    (f) =>
+      (f.startsWith('tests/e2e/') && /\.(ts|tsx|json)$/.test(f)) || f === 'playwright.config.ts',
+  );
 
   const fullEscalation = IMPACT_CONFIG.fullEscalationPaths.some((g) =>
     files.some((f) => matchesGlob(f, g)),
@@ -344,19 +349,35 @@ function buildPlan(files, { includeReverse = true } = {}) {
 
     // direct related test: source colocated test, or the test itself
     if (/\.(test|spec)\.(ts|tsx)$/.test(f)) {
-      if (f.includes('/tests/e2e/')) {
-        if (f.startsWith('apps/website/')) {
-          plan.tiers[4].push('website-e2e');
-        } else {
+      if (f.startsWith('tests/e2e/')) {
+        // A changed Playwright spec proves only its own declared workflow.
+        // Keep it at Tier 1 instead of expanding to every spec in its
+        // directory; renderer, config, and helper changes below retain
+        // their domain/full-suite blast radius.
+        directE2eFiles.add(f);
+      } else if (f.includes('/tests/e2e/')) {
+        if (f.startsWith('apps/website/')) plan.tiers[4].push('website-e2e');
+        else {
           const dom = e2eDomainFor(f);
           if (dom) e2eDomains.add(dom);
         }
-      } else if (f.startsWith('tests/e2e/')) {
-        const dom = e2eDomainFor(f);
-        if (dom) e2eDomains.add(dom);
-        directTestFiles.add(f);
       } else {
         directTestFiles.add(f);
+      }
+    } else if (f.startsWith('tests/e2e/')) {
+      // Shared E2E infrastructure can affect every browser workflow. A
+      // domain-local helper is narrower, but still affects every spec in
+      // that domain. This prevents a helper edit being mislabeled as a
+      // direct-spec-only change.
+      if (
+        f === 'tests/e2e/shared.ts' ||
+        f.startsWith('tests/e2e/helpers/') ||
+        f.startsWith('tests/e2e/fixtures/')
+      ) {
+        e2eDomains.add('all');
+      } else {
+        const dom = e2eDomainFor(f);
+        if (dom && dom !== 'loose') e2eDomains.add(dom);
       }
     } else if (c.kind === 'js' && !f.startsWith('tests/')) {
       // source file: sibling test file, or package tests
@@ -379,8 +400,10 @@ function buildPlan(files, { includeReverse = true } = {}) {
     for (const rule of IMPACT_CONFIG.impactRules) {
       if (rule.paths.some((g) => matchesGlob(f, g))) {
         for (const lane of rule.require) {
-          if (lane.startsWith('e2e:')) e2eDomains.add(lane.slice(4));
-          else if (lane.startsWith('bench:')) benchDomains.add(lane.slice(6));
+          if (lane.startsWith('e2e:')) {
+            e2eTypecheckRequired = true;
+            e2eDomains.add(lane.slice(4));
+          } else if (lane.startsWith('bench:')) benchDomains.add(lane.slice(6));
           else if (lane.startsWith('audit:')) audits.add(lane);
           else if (
             lane === 'policy' ||
@@ -419,9 +442,17 @@ function buildPlan(files, { includeReverse = true } = {}) {
   }
 
   // Tier 1: direct related test files
+  // Playwright discovers TypeScript tests at runtime, so it does not catch
+  // every source-level type error before opening a browser. Keep the E2E
+  // compiler check in front of the exact changed spec (or the broadened
+  // shared-harness suite) to make feedback both earlier and cheaper.
+  if (e2eTypecheckRequired) plan.tiers[1].push('typecheck:e2e');
   for (const f of [...directTestFiles]) {
     if (f.startsWith('tests/e2e/')) continue;
     plan.tiers[1].push(`js-unit:file:${f}`);
+  }
+  for (const f of [...directE2eFiles]) {
+    plan.tiers[1].push(`e2e:file:${f}`);
   }
 
   // Tier 2: changed packages
@@ -545,13 +576,15 @@ function buildPlan(files, { includeReverse = true } = {}) {
   for (let t = 0; t <= 4; t++) {
     for (const lane of plan.tiers[t]) {
       if (lane.startsWith('js-unit:file:')) selectedTestFiles += 1;
+      else if (lane.startsWith('e2e:file:')) selectedTestFiles += 1;
       else if (lane.startsWith('js-unit:')) {
         const name = lane.slice('js-unit:'.length);
         const dir = pkgDirByName.get(name);
         if (dir) selectedTestFiles += countTests(dir);
       } else if (lane.startsWith('e2e:')) {
         const dom = lane.slice('e2e:'.length);
-        if (dom === 'visual' || dom === 'all') selectedTestFiles += countTests('tests/e2e/visual');
+        if (dom === 'all') selectedTestFiles += countTests('tests/e2e');
+        else if (dom === 'visual') selectedTestFiles += countTests('tests/e2e/visual');
         else selectedTestFiles += countTests(`tests/e2e/${dom}`);
       } else if (lane === 'website-unit') {
         selectedTestFiles += countTests('apps/website/src/test');

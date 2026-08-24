@@ -2865,9 +2865,15 @@ export function EditorProvider({
   });
 
   const updateDoc = useCallback((fn: (doc: Document) => Document) => {
-    areaUndoStackRef.current = [];
-    areaRedoStackRef.current = [];
     setState((s) => {
+      const newDoc = fn(s.document);
+      // Document mutations conventionally return the existing reference for a
+      // no-op. Do not turn those no-ops (for example, accepting an untouched
+      // crop) into a history entry that makes Undo skip a real preceding edit.
+      if (newDoc === s.document) return s;
+
+      areaUndoStackRef.current = [];
+      areaRedoStackRef.current = [];
       if (!inTransactionRef.current) {
         undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
         undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
@@ -2876,7 +2882,6 @@ export function EditorProvider({
         redoSelStackRef.current = [];
         redoLabelsRef.current = [];
       }
-      const newDoc = fn(s.document);
       if (onMutationRef.current) {
         lastMutatedDocRef.current = JSON.stringify(newDoc);
       }

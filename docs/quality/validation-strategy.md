@@ -40,6 +40,7 @@ reasons, and what is deliberately skipped.
 | `pnpm verify:plan --staged` | Plan for staged changes only | Before commit |
 | `pnpm verify:plan --since <ref>` | Plan against an arbitrary base | CI/branch work |
 | `pnpm verify:quick` | Tier 0 + Tier 1 (touched + direct tests) | Trivial/localized edits |
+| `pnpm verify:triage` | Tiers 0–4, but Playwright stops after five failures by default; still runs when a final full gate is required | First discovery pass after a large integration or merge batch |
 | `pnpm verify:affected` | Tiers 0–4, risk-aware | **Default inner loop for agents** |
 | `pnpm verify:full` | Full repository gate (Tier 5) | Release checkpoints, explicit request, high-risk changes |
 | `just gate` | Full Cascade Review gate (kept as compatibility alias) | Human release gate |
@@ -50,6 +51,7 @@ Environment overrides:
 
 - `VARVE_TEST_WORKERS` — vitest `--maxWorkers` bound
 - `VARVE_E2E_WORKERS` — playwright `--workers` bound
+- `VARVE_E2E_MAX_FAILURES` — override Playwright's bounded failure count in `verify:triage`
 - `VARVE_HEAVY_TASK_PARALLELISM=0` — opt out of the heavy-task lease
 - `VARVE_FULL_GATE=1` / `VARVE_FULL_GATE_REASON` — permit/justify full gate
 
@@ -137,12 +139,13 @@ files and impact rules; you can run a domain directly with
   signal, not just a cost problem.)
 - A changed file's test was not selected -> the test may not be colocated
   or the implicit dependency is not registered; add an impact rule.
-- A test-only change fans out to the whole monorepo -> it does not
-  anymore: test files (`.test`/`.spec` under `packages/`/`apps/`) run the
-  changed test directly (Tier 1) and never trigger package/reverse-
-  dependent fanout, unless the change is to shared test infrastructure
-  (`tests/unit/**`, e2e helpers/fixtures), which broadens via the
-  `test-infra-broaden` impact rule.
+- A test-only change fans out to an entire E2E domain -> every selected
+  browser lane first runs `pnpm typecheck:e2e`, catching compiler errors
+  before a browser server starts. Direct Playwright specs then run as
+  `e2e:file:<path>` at Tier 1. A domain-local E2E helper broadens to that
+  domain; `tests/e2e/shared.ts`, `tests/e2e/helpers/**`, and fixtures
+  broaden to `e2e:all`. This is intentional: shared harness changes can
+  affect every consumer even when the changed file is a test.
 - Uncertain impact -> escalate conservatively. The system must answer:
   what changed? what can depend on it? which tests prove those contracts?
   what implicit integrations need extra validation? If it cannot answer
@@ -179,3 +182,26 @@ Every Varve agent MUST:
 
 Skipping affected tests is prohibited. Running unrelated tests is
 discouraged: it consumes shared developer resources and delays feedback.
+
+## Failure-resolution and release-candidate loop
+
+For a large merge/integration or a release candidate, use a three-stage
+loop instead of restarting a broad browser gate after every individual fix:
+
+1. Run `pnpm verify:triage` once to discover a bounded set of independent
+   failures. It deliberately continues through the affected closure when the
+   planner also requires a final full gate, catching downstream type/compile
+   failures before the expensive checkpoint. Preserve its log and classify
+   every failure as product defect, stale assertion, or environmental failure.
+2. Repair each classified failure and rerun its affected compiler check,
+   exact spec, and direct unit tests until they pass. Do not repeatedly rerun
+   unrelated, previously green E2E domains while the candidate is still
+   changing.
+3. Once the candidate is frozen, run `pnpm verify:affected` exactly once,
+   then run the required release `pnpm verify:full` checkpoint. A failed
+   final checkpoint starts a new failure-resolution batch.
+
+This is not a cache of old passes: every code change still receives direct
+validation, and the final gates re-execute the relevant broad suite against
+the exact frozen commit. It removes duplicate work without weakening release
+evidence.

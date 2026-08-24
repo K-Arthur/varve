@@ -1,8 +1,9 @@
 /**
- * ImageCropSection — crop, trim, expand, and reset controls for image nodes.
+ * ImageCropSection — trim, expand, and bounds-reset controls for image nodes.
  *
  * Appears when a single ShapeNode with an image fill is selected.
- * Provides: Edit Crop, fit mode, trim to subject, expand bounds, and reset.
+ * Crop entry and fit mode belong to ImagePlacementSection; this companion
+ * section owns crop-bound operations that alter the image or its frame.
  *
  * Research basis: Figma image crop inspector, Sketch image trimming,
  * Canva background removal bounds.

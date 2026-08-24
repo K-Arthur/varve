@@ -368,6 +368,24 @@ pub enum Effect {
         radius: f64,
         visible: bool,
     },
+    /// Depth-aware content blur. `depth_map` remains an opaque resource at
+    /// this boundary so the native IR transport preserves the exact payload
+    /// consumed by the Canvas2D/WASM replay backend.
+    #[serde(rename = "depthBlur")]
+    DepthBlur {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        depth_map_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        depth_map: Option<serde_json::Value>,
+        focus_depth: f64,
+        focus_range: f64,
+        blur_strength: f64,
+        falloff: f64,
+        invert: bool,
+        edge_protection: f64,
+        visible: bool,
+    },
     #[serde(rename = "outerGlow")]
     OuterGlow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -714,6 +732,31 @@ mod tests {
                 "channelShiftMode": "seeded",
                 "blendMode": "screen",
                 "opacity": 0.8,
+                "visible": true
+            },
+            {
+                "type": "depthBlur",
+                "id": "depth-1",
+                "depthMapId": "depth-map-1",
+                "depthMap": {
+                    "id": "depth-map-1",
+                    "schemaVersion": 1,
+                    "width": 2,
+                    "height": 2,
+                    "dataBase64": "AAAAAA==",
+                    "byteLength": 4,
+                    "depthType": "relative",
+                    "unit": "normalized",
+                    "nearFarConvention": "nearIsLow",
+                    "inferenceVersion": 1,
+                    "preprocessingVersion": 1
+                },
+                "focusDepth": 0.5,
+                "focusRange": 0.2,
+                "blurStrength": 12.0,
+                "falloff": 1.0,
+                "invert": false,
+                "edgeProtection": 0.035,
                 "visible": true
             }
         ]);

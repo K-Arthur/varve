@@ -11,23 +11,15 @@
  * 7. Verifying persistence
  */
 import { expect, type Page, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { activateTableTool, addColorVariable, dragOnCanvas, navigateToEditor } from '../shared';
 
 async function insertTable(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Table', exact: true }).first().click();
+  await activateTableTool(page);
   await dragOnCanvas(page, 200, 160, 700, 460);
 }
 
 async function createColorVariable(page: Page, name: string, hexColor: string): Promise<void> {
-  await page
-    .getByTestId('layers-panel')
-    .getByRole('button', { name: '+ Add', exact: true })
-    .click();
-  const nameInput = page.getByRole('textbox', { name: /name/i });
-  await nameInput.fill(name);
-  const valueInput = page.getByRole('textbox', { name: /value/i });
-  await valueInput.fill(hexColor);
-  await valueInput.press('Enter');
+  await addColorVariable(page, name, hexColor);
 }
 
 test.describe('Combined table + variable modifier workflow', () => {

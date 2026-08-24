@@ -126,8 +126,8 @@ just gate                # Full gate (format-check + lint + test + gates)
 
 ```bash
 # WASM builds
-just wasm-build          # Build WASM engine backend
-just wasm-build-all      # All WASM variants
+just wasm-build          # Baseline + SIMD engine artifacts (the loader prefers SIMD)
+just wasm-build-all      # Engine artifacts + colour WASM
 
 # Packaging
 just package-linux       # AppImage + .deb + .rpm (Linux)

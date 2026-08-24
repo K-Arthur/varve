@@ -8,13 +8,13 @@
  * inspector), and captures before/after screenshots for manual review.
  */
 import { expect, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { activateTableTool, dragOnCanvas, navigateToEditor } from '../shared';
 
 test('merged header cell: structural span + review screenshots', async ({ page }) => {
   await navigateToEditor(page);
 
   // Insert 4x4 table
-  await page.getByRole('button', { name: 'Table', exact: true }).first().click();
+  await activateTableTool(page);
   await dragOnCanvas(page, 200, 160, 700, 460);
 
   // Screenshot: fresh table (no merge)

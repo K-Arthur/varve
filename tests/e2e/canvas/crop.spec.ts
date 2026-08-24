@@ -85,26 +85,18 @@ test.describe('Image crop — interactive tool', () => {
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
 
-    // Check initial fit badge shows "crop"
+    // Imports preserve their chosen image fit. Cycle from the actual current
+    // value rather than assuming every importer starts in crop mode.
     const badge = page.locator('.crop-overlay__badge');
-    await expect(badge).toHaveText('crop', { timeout: 3000 });
+    const fitCycle = ['crop', 'fit', 'fill', 'stretch', 'tile'];
+    const initialFit = (await badge.textContent())?.trim() ?? '';
+    expect(fitCycle).toContain(initialFit);
+    const initialIndex = fitCycle.indexOf(initialFit);
 
-    // Press F to cycle
-    await page.keyboard.press('f');
-    await expect(badge).toHaveText('fit', { timeout: 3000 });
-
-    await page.keyboard.press('f');
-    await expect(badge).toHaveText('fill', { timeout: 3000 });
-
-    await page.keyboard.press('f');
-    await expect(badge).toHaveText('stretch', { timeout: 3000 });
-
-    await page.keyboard.press('f');
-    await expect(badge).toHaveText('tile', { timeout: 3000 });
-
-    // Cycle back to crop
-    await page.keyboard.press('f');
-    await expect(badge).toHaveText('crop', { timeout: 3000 });
+    for (let step = 1; step <= fitCycle.length; step++) {
+      await page.keyboard.press('f');
+      await expect(badge).toHaveText(fitCycle[(initialIndex + step) % fitCycle.length]!);
+    }
   });
 
   test('Done button commits crop', async ({ page }) => {

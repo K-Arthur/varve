@@ -49,6 +49,7 @@ function pnpmLs() {
 function resolveLane(lane) {
   if (lane === 'format:touched' || lane === 'lint:touched') return 'biome (changed files)';
   if (lane.startsWith('js-unit:file:')) return 'vitest <file>';
+  if (lane.startsWith('e2e:file:')) return 'playwright <file>';
   if (lane.startsWith('e2e:') && lane !== 'e2e:all' && lane !== 'e2e:visual')
     return 'playwright <domain paths>';
   if (lane.startsWith('bench:')) return 'pnpm bench:<domain>';
@@ -61,6 +62,7 @@ describe('validation infrastructure presence', () => {
     for (const script of [
       'verify:plan',
       'verify:quick',
+      'verify:triage',
       'verify:affected',
       'verify:full',
       'e2e:visual',
@@ -86,6 +88,14 @@ describe('validation infrastructure presence', () => {
     expect(doc).toMatch(/Tier 0/);
     expect(doc).toMatch(/Tier 5/);
     expect(doc).toMatch(/verify:affected/);
+  });
+
+  it('keeps triage useful when a later full gate is mandatory', () => {
+    const verify = readFileSync(join(ROOT, 'scripts/quality/verify.mjs'), 'utf-8');
+    expect(verify).toMatch(
+      /mode === 'affected'\) \{\n\s*console\.log\('\\nEscalation to full gate/,
+    );
+    expect(verify).toMatch(/Final full gate required after triage\. Continuing/);
   });
 
   it('impact config parses and is not stale', () => {
@@ -183,6 +193,7 @@ describe('planner fixture classes', () => {
 
   it('canvas renderer -> renderer tests + canvas E2E + bench', () => {
     const plan = buildPlan(['packages/editor/src/canvas/cameraState.ts']);
+    expect(plan.tiers[1]).toContain('typecheck:e2e');
     expect(plan.tiers[4]).toContain('e2e:canvas');
     expect(plan.tiers[4]).toContain('bench:render');
   });
@@ -340,5 +351,22 @@ describe('planner validation budget and test-only changes', () => {
     expect(plan.tiers[1].some((l) => l.includes('product.test.ts'))).toBe(true);
     expect(plan.tiers[3]).toHaveLength(0);
     expect(plan.full).toBe(false);
+  });
+
+  it('direct E2E spec change runs that spec without selecting its whole domain', () => {
+    const plan = buildPlan(['tests/e2e/canvas/tools.spec.ts']);
+    expect(plan.tiers[1]).toContain('typecheck:e2e');
+    expect(plan.tiers[1]).toContain('e2e:file:tests/e2e/canvas/tools.spec.ts');
+    expect(plan.tiers[4]).not.toContain('e2e:canvas');
+  });
+
+  it('shared E2E helper change broadens to the complete browser suite', () => {
+    const plan = buildPlan(['tests/e2e/shared.ts']);
+    expect(plan.tiers[1]).toContain('typecheck:e2e');
+    expect(plan.tiers[4]).toContain('e2e:all');
+  });
+
+  it('resolves the E2E compiler lane to the E2E tsconfig', () => {
+    expect(resolveLane('typecheck:e2e')).toBe('pnpm typecheck:e2e');
   });
 });

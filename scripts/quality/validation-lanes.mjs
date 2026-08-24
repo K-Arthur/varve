@@ -42,6 +42,7 @@ export const LANES = {
   // ── Tier 1: direct related tests ─────────────────────────────────────
   'js-unit:all': 'pnpm exec vitest run',
   'typecheck:all': 'pnpm typecheck',
+  'typecheck:e2e': 'pnpm typecheck:e2e',
 
   // ── Tier 2/3: package-scoped (filled in dynamically per package) ─────
   // js-unit:<pkg>        -> vitest run packages/<dir>
@@ -87,6 +88,7 @@ export const HEAVY_LANES = new Set([
 ]);
 
 export function laneCommand(lane, pkgDir) {
+  if (lane === 'typecheck:e2e') return LANES[lane];
   if (lane.startsWith('js-unit:') && !lane.endsWith(':all')) {
     const name = lane.slice('js-unit:'.length);
     ensurePackageDirs();

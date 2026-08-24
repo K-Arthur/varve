@@ -213,24 +213,17 @@ test.describe('Deep Selection', () => {
     await page.mouse.click(canvasBox.x + 400, canvasBox.y + 350);
     await page.waitForTimeout(200);
 
-    // Create a selection set via the API (exposed for testing)
-    await page.evaluate(() => {
-      const win = window as unknown as Record<string, unknown>;
-      if (win.__strataTest) {
-        (win.__strataTest as { createSelectionSet: (name: string) => void }).createSelectionSet(
-          'Test Set',
-        );
-      }
-    });
-    await page.waitForTimeout(200);
+    // Save through the Layers panel rather than a removed private test API.
+    const saveSelection = page.getByRole('button', { name: /save current selection/i });
+    await saveSelection.click();
 
     // Deselect
     await page.keyboard.press('Escape');
     await page.waitForTimeout(200);
 
     // Verify selection set exists in the panel
-    const selectionSetsList = page.locator('.selection-sets__list');
-    await expect(selectionSetsList).toBeAttached();
+    const selectionSetsList = page.getByRole('listbox', { name: 'Selection sets' });
+    await expect(selectionSetsList).toBeVisible();
 
     // Click the selection set to restore it
     const setItem = page.locator('.selection-sets__name-btn');

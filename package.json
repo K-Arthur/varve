@@ -46,6 +46,7 @@
     "audit:product-truth": "node scripts/release/verify-product-truth.mjs",
     "verify:plan": "node scripts/quality/verify.mjs plan",
     "verify:quick": "node scripts/quality/verify.mjs quick",
+    "verify:triage": "node scripts/quality/verify.mjs triage",
     "verify:affected": "node scripts/quality/verify.mjs affected",
     "verify:full": "node scripts/quality/verify.mjs full",
     "verify:lease": "node scripts/quality/heavy-lease.mjs",

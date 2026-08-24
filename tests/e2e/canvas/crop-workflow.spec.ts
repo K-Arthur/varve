@@ -27,9 +27,11 @@ test.describe('Image crop workflow — trim, expand, convert, reset', () => {
     await page.getByRole('treeitem').first().click();
     await page.waitForTimeout(300);
 
-    // Verify the Crop & Bounds section exists in the inspector
-    const cropSection = page.locator('text=Crop & Bounds');
-    await expect(cropSection.first()).toBeVisible({ timeout: 5000 });
+    // The inspector is scrollable; prove the registered section is reachable
+    // instead of assuming its header is initially above the fold.
+    const cropSection = page.getByRole('button', { name: 'Crop & Bounds', exact: true });
+    await cropSection.scrollIntoViewIfNeeded();
+    await expect(cropSection).toBeVisible({ timeout: 5000 });
   });
 
   test('Edit Crop button enters crop mode from inspector', async ({ page }) => {
@@ -49,31 +51,20 @@ test.describe('Image crop workflow — trim, expand, convert, reset', () => {
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
   });
 
-  test('Fit mode segmented control in inspector changes image fit', async ({ page }) => {
+  test('Fit mode segmented control in Image Placement changes image fit', async ({ page }) => {
     test.setTimeout(60000);
     await importImageFile(page, 'test-image.png');
     await selectImageNode(page);
     await page.getByRole('treeitem').first().click();
     await page.waitForTimeout(300);
 
-    // Find fit-mode buttons in the Crop & Bounds section
-    const cropButtons = page.getByRole('button', { name: /fill|fit|crop|stretch|tile/i });
-    const cropBtnCount = await cropButtons.count();
-    if (cropBtnCount > 0) {
-      // Click "Fill" to switch to fill mode
-      const fillBtn = page.getByRole('button', { name: /^fill$/i });
-      if (
-        await fillBtn
-          .first()
-          .isVisible({ timeout: 1000 })
-          .catch(() => false)
-      ) {
-        await fillBtn.first().click();
-        await page.waitForTimeout(200);
-      }
-    }
-    // The section should still be visible
-    await expect(page.locator('text=Crop & Bounds').first()).toBeVisible({ timeout: 3000 });
+    const placement = page
+      .locator('.insp-disclosure')
+      .filter({ has: page.getByRole('button', { name: 'Image Placement', exact: true }) });
+    await placement.scrollIntoViewIfNeeded();
+    const fillBtn = placement.getByRole('radio', { name: 'Fill', exact: true });
+    await fillBtn.click();
+    await expect(fillBtn).toHaveAttribute('aria-checked', 'true');
   });
 
   test('Trim to Subject button is visible for image with mask', async ({ page }) => {
@@ -208,7 +199,7 @@ test.describe('Image crop workflow — trim, expand, convert, reset', () => {
     await page.waitForTimeout(300);
 
     // Open the Object menu
-    await page.getByRole('button', { name: /^object$/i }).click();
+    await page.getByRole('menuitem', { name: /^object$/i }).click();
     await page.waitForTimeout(300);
 
     // Verify crop commands exist in the menu
@@ -234,7 +225,7 @@ test.describe('Image crop workflow — trim, expand, convert, reset', () => {
     await page.waitForTimeout(300);
 
     // Open Object menu
-    await page.getByRole('button', { name: /^object$/i }).click();
+    await page.getByRole('menuitem', { name: /^object$/i }).click();
     await page.waitForTimeout(300);
 
     // Try to find "Convert to Crop && Expand" in the menu
@@ -256,7 +247,18 @@ test.describe('Image crop workflow — trim, expand, convert, reset', () => {
 
     // Enter crop, commit, undo
     await enterCropMode(page);
-    await page.waitForTimeout(200);
+    await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
+
+    // Make a real crop mutation. Without this, accepting the untouched crop
+    // is deliberately a no-op, so Undo would correctly revert the import.
+    const eastHandle = page.getByRole('button', { name: 'Resize crop e', exact: true });
+    const eastBox = await eastHandle.boundingBox();
+    if (!eastBox) throw new Error('missing east crop handle');
+    await page.mouse.move(eastBox.x + eastBox.width / 2, eastBox.y + eastBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(eastBox.x + eastBox.width / 2 - 20, eastBox.y + eastBox.height / 2);
+    await page.mouse.up();
+
     await page.keyboard.press('Enter');
     await page.waitForTimeout(200);
 

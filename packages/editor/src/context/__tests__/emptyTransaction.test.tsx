@@ -57,6 +57,24 @@ describe('EditorProvider empty-transaction history', () => {
     await waitFor(() => expect(get().state.document.nodes[id]).toBeUndefined());
   });
 
+  it('does not record an undo entry for a direct no-op document update', async () => {
+    const get = mount();
+    await waitFor(() => expect(get()).toBeDefined());
+
+    act(() => {
+      get().setTool('rect');
+      get().createShapeAt({ x: 10, y: 10 }, { w: 100, h: 60 });
+    });
+    await waitFor(() => expect(get().state.selection).toHaveLength(1));
+    const id = get().state.selection[0]!;
+
+    act(() => get().updateDoc((doc) => doc));
+
+    // Undo must reach the creation, rather than consuming the no-op update.
+    act(() => get().undo());
+    await waitFor(() => expect(get().state.document.nodes[id]).toBeUndefined());
+  });
+
   it('still records exactly one entry for a transaction that does change the document', async () => {
     const get = mount();
     await waitFor(() => expect(get()).toBeDefined());

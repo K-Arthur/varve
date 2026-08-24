@@ -174,6 +174,11 @@ test.describe('Depth Blur workflow', () => {
     page,
   }) => {
     test.setTimeout(180000);
+    const wasmBuildFailures: string[] = [];
+    page.on('console', (message) => {
+      const text = message.text();
+      if (text.includes('[strata-engine] wasm buildIr failed')) wasmBuildFailures.push(text);
+    });
     await importTestImage(page);
     await page.locator('.layers-panel').getByRole('treeitem').click();
     const section = await openDepthBlurSection(page);
@@ -192,7 +197,7 @@ test.describe('Depth Blur workflow', () => {
     });
 
     // Focus picker: click the far (right) side of the depth preview.
-    await section.getByRole('button', { name: /pick focus/i }).click();
+    await section.getByRole('button', { name: 'Pick Focus', exact: true }).click();
     const preview = section.locator('.insp-depth-heatmap__canvas');
     await preview.waitFor({ state: 'visible' });
     const box = (await preview.boundingBox())!;
@@ -207,6 +212,16 @@ test.describe('Depth Blur workflow', () => {
       timeout: 15000,
     });
     await expect(section.getByRole('button', { name: /save depth blur/i })).toBeVisible();
+    // Render at least two frames after saving. The native/WASM bridge must
+    // carry the depth resource through `buildIr`, rather than quietly falling
+    // back to the JS stub renderer for the remainder of the document session.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    expect(wasmBuildFailures).toEqual([]);
 
     // The canvas node now carries a Depth Blur effect; removing it cleans up.
     await section.getByRole('button', { name: /remove depth blur/i }).click();
@@ -231,8 +246,10 @@ test.describe('Depth Blur workflow', () => {
     });
 
     await section.getByRole('button', { name: /create depth mask/i }).click();
-    // The mask becomes a native raster mask on the layer row.
-    await expect(page.getByRole('treeitem').getByText(/mask/i).first()).toBeVisible({
+    // The mask is exposed as an accessible badge on its owner row. The
+    // displayed type may be alpha/luminance rather than the literal word
+    // "mask", so assert the semantic label rather than rendered text.
+    await expect(page.getByRole('treeitem').getByLabel(/mask$/i)).toBeVisible({
       timeout: 15000,
     });
   });

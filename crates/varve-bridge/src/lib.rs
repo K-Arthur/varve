@@ -705,6 +705,46 @@ mod tests {
     }
 
     #[test]
+    fn parse_depth_blur_effect_preserves_the_depth_resource_for_replay() {
+        let json = serde_json::json!([{
+            "id": "depth-image",
+            "name": "Depth image",
+            "transform": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            "shape": { "kind": "rect", "x": 0.0, "y": 0.0, "w": 10.0, "h": 10.0 },
+            "fill": { "space": "rgb", "r": 0.0, "g": 0.0, "b": 0.0, "a": 255.0 },
+            "effects": [{
+                "type": "depthBlur",
+                "id": "depth-1",
+                "depthMapId": "depth-map-1",
+                "depthMap": {
+                    "id": "depth-map-1",
+                    "schemaVersion": 1,
+                    "width": 2,
+                    "height": 2,
+                    "dataBase64": "AAAAAA==",
+                    "byteLength": 4,
+                    "depthType": "relative",
+                    "unit": "normalized",
+                    "nearFarConvention": "nearIsLow",
+                    "inferenceVersion": 1,
+                    "preprocessingVersion": 1
+                },
+                "focusDepth": 0.5,
+                "focusRange": 0.2,
+                "blurStrength": 12.0,
+                "falloff": 1.0,
+                "invert": false,
+                "edgeProtection": 0.035,
+                "visible": true
+            }]
+        }]);
+
+        let scene = parse_engine_nodes_json(&json.to_string()).expect("deserialize depth blur");
+        let effects = serde_json::to_value(&scene[0].effects).expect("serialize depth blur");
+        assert_eq!(effects, json[0]["effects"]);
+    }
+
+    #[test]
     fn parse_text_shape_preserves_canvas_layout_semantics() {
         // This mirrors the current TS SceneNode payload: dimensions and text mode
         // are carried by the shape while the remaining layout fields are on the

@@ -165,6 +165,39 @@ describe('commitImageCrop', () => {
     expect(n.fills?.[0]?.image?.crop).toBeUndefined();
   });
 
+  it('does not materialize omitted placement defaults when accepting an untouched crop', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 80,
+      h: 60,
+      imageWidth: 80,
+      imageHeight: 60,
+    });
+    const image = img.fills?.[0]?.image;
+    if (!image) throw new Error('expected image fill');
+    const legacyImage: Partial<typeof image> = { ...image };
+    delete legacyImage.scale;
+    delete legacyImage.x;
+    delete legacyImage.y;
+    delete legacyImage.fit;
+    const legacy = {
+      ...img,
+      fills: [{ ...img.fills![0]!, image: legacyImage as typeof image }],
+    };
+    doc = { ...doc, nodes: { ...doc.nodes, i1: legacy }, rootChildren: ['i1'] };
+
+    const next = commitImageCropExtended(doc, 'i1', {
+      viewport: { x: 0, y: 0, w: 80, h: 60 },
+      fillScale: 1,
+      fillOffsetX: 0,
+      fillOffsetY: 0,
+      fillFit: 'fill',
+    });
+
+    expect(next).toBe(doc);
+  });
+
   it('removes an existing crop when re-edited back to the full frame', () => {
     let doc = createDocument('t', true);
     const img = makeImageShapeNode('i1', {

@@ -3,13 +3,13 @@
  * No variable creation (avoids crash from unrelated workspace changes).
  */
 import { expect, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { activateTableTool, dragOnCanvas, navigateToEditor } from '../shared';
 
 test('table visual check with inspector', async ({ page }) => {
   await navigateToEditor(page);
 
   // Insert table
-  await page.getByRole('button', { name: 'Table', exact: true }).first().click();
+  await activateTableTool(page);
   await dragOnCanvas(page, 200, 160, 700, 460);
   await page.waitForTimeout(500);
 

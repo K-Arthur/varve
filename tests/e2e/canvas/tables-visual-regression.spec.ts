@@ -5,10 +5,10 @@
  * visual comparison to detect rendering regressions.
  */
 import { expect, type Page, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { activateTableTool, dragOnCanvas, navigateToEditor } from '../shared';
 
 async function insertTable(page: Page, width = 500, height = 300): Promise<void> {
-  await page.getByRole('button', { name: 'Table', exact: true }).first().click();
+  await activateTableTool(page);
   await dragOnCanvas(page, 200, 160, 200 + width, 160 + height);
 }
 
@@ -104,12 +104,6 @@ test.describe('Table visual regression', () => {
   test('Table with collapsed borders', async ({ page }) => {
     await insertTable(page, 400, 240);
 
-    // Ensure border mode is collapsed (default)
-    const collapseBtn = page.getByRole('button', { name: /collapse/i });
-    if (await collapseBtn.isVisible()) {
-      await collapseBtn.click();
-    }
-
     await page.waitForTimeout(500);
 
     await page.screenshot({
@@ -196,9 +190,9 @@ test.describe('Table visual regression', () => {
     await canvas.dblclick({ position: { x: 350, y: 300 } });
     await expect(page.locator('.table-edit-overlay')).toBeVisible({ timeout: 10000 });
 
-    // Select first two cells
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('Shift+ArrowLeft');
+    // Select the first two cells so the inspector exposes the merge command.
+    await page.locator('.table-edit-overlay').click({ position: { x: 250, y: 190 } });
+    await page.keyboard.press('Shift+ArrowRight');
 
     // Merge cells
     await page.getByRole('button', { name: 'Merge cells' }).click();

@@ -5,23 +5,18 @@
  * applies an alpha modifier, and captures screenshots for manual review.
  */
 import { expect, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { activateTableTool, addColorVariable, dragOnCanvas, navigateToEditor } from '../shared';
 
 test('table appearance variable binding with modifier', async ({ page }) => {
   await navigateToEditor(page);
 
   // Insert a table
-  await page.getByRole('button', { name: 'Table', exact: true }).first().click();
+  await activateTableTool(page);
   await dragOnCanvas(page, 200, 160, 700, 460);
   await page.waitForTimeout(400);
 
   // Create a color variable via the Variables panel
-  await page.getByTestId('layers-panel').getByRole('button', { name: '+ Add' }).click();
-  const nameInput = page.getByRole('textbox', { name: /name/i });
-  await nameInput.fill('Brand Teal');
-  const valueInput = page.getByRole('textbox', { name: /value/i });
-  await valueInput.fill('#39d0c6');
-  await valueInput.press('Enter');
+  await addColorVariable(page, 'Brand Teal', '#39d0c6');
   await expect(page.getByText('Brand Teal')).toBeVisible({ timeout: 5000 });
 
   // Select the table via the layers panel so the inspector shows it

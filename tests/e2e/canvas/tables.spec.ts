@@ -2,11 +2,18 @@
  * E2E: native responsive tables (ADR-0016 workflow 1).
  */
 import { expect, type Page, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { activateTableTool, dragOnCanvas, navigateToEditor } from '../shared';
 
 async function insertTable(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Table', exact: true }).first().click();
+  await activateTableTool(page);
   await dragOnCanvas(page, 200, 160, 700, 460);
+}
+
+async function enterTableEditMode(page: Page): Promise<void> {
+  await page.keyboard.press('v');
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  await canvas.dblclick({ position: { x: 250, y: 220 } });
+  await expect(page.locator('.table-edit-overlay')).toBeVisible({ timeout: 10000 });
 }
 
 test.describe('Native tables', () => {
@@ -25,10 +32,7 @@ test.describe('Native tables', () => {
     page,
   }) => {
     await insertTable(page);
-    await page.keyboard.press('v');
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    await canvas.dblclick({ position: { x: 250, y: 220 } });
-    await expect(page.getByText('Cells', { exact: true }).first()).toBeVisible({ timeout: 10000 });
+    await enterTableEditMode(page);
     await page.locator('.table-edit-overlay').click({ position: { x: 400, y: 250 } });
     await page.keyboard.press('Enter');
     const editor = page.locator('textarea.table-cell-editor');
@@ -40,30 +44,30 @@ test.describe('Native tables', () => {
 
   test('header merge commits a spanned cell', async ({ page }) => {
     await insertTable(page);
-    await page.keyboard.press('v');
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    await canvas.dblclick({ position: { x: 250, y: 220 } });
-    await expect(page.getByText('Cells', { exact: true }).first()).toBeVisible({ timeout: 10000 });
-    await page.locator('.table-edit-overlay').click({ position: { x: 400, y: 250 } });
-    await page.keyboard.press('Enter');
-    const editor = page.locator('textarea.table-cell-editor');
-    await editor.fill('Merged header');
-    await page.keyboard.press('Enter');
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('Shift+ArrowLeft');
+    await enterTableEditMode(page);
+    await page.locator('.table-edit-overlay').click({ position: { x: 300, y: 280 } });
+    await page.keyboard.press('Shift+ArrowRight');
     await page.getByRole('button', { name: 'Merge cells' }).click();
-    await expect(page.getByText('Merge cells')).toHaveCount(0, { timeout: 5000 });
+    await page.locator('.table-edit-overlay').click({ position: { x: 400, y: 280 } });
+    await expect(page.getByRole('spinbutton', { name: /column span/i })).toHaveValue('2', {
+      timeout: 5000,
+    });
   });
 
   test('keyboard navigation moves between cells', async ({ page }) => {
     await insertTable(page);
-    await page.keyboard.press('v');
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    await canvas.dblclick({ position: { x: 250, y: 220 } });
-    await expect(page.getByText('Cells', { exact: true }).first()).toBeVisible({ timeout: 10000 });
+    await enterTableEditMode(page);
+    await page.locator('.table-edit-overlay').click({ position: { x: 300, y: 280 } });
+    const activeCell = page.locator('.table-edit-overlay svg rect').last();
+    const [beforeX, beforeY] = await Promise.all([
+      activeCell.getAttribute('x'),
+      activeCell.getAttribute('y'),
+    ]);
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowDown');
-    await expect(page.getByText('Cells', { exact: true }).first()).toBeVisible({ timeout: 5000 });
+    await expect
+      .poll(async () => [await activeCell.getAttribute('x'), await activeCell.getAttribute('y')])
+      .not.toEqual([beforeX, beforeY]);
   });
 
   test('reload boots back to a functional home screen', async ({ page }) => {

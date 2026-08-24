@@ -39,6 +39,7 @@ import { ConstraintSection } from './sections/ConstraintSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { FillSection } from './sections/FillSection';
 import { IconSection } from './sections/IconSection';
+import { ImageCropSection } from './sections/ImageCropSection';
 import { ImagePlacementSection } from './sections/ImagePlacementSection';
 import { ImageResolutionSection } from './sections/ImageResolutionSection';
 import { LayoutChildSection } from './sections/LayoutChildSection';
@@ -565,6 +566,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('image-placement', <ImagePlacementSection nodes={nodes} />);
     add('image-perspective', <PerspectiveSection nodes={nodes} sectionId="image-perspective" />);
     add('image-resolution', <ImageResolutionSection nodes={nodes} />);
+    add('image-crop', <ImageCropSection nodes={nodes} sectionId="image-crop" />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);
     add('text-on-path', <PathTextSection nodes={nodes} />);

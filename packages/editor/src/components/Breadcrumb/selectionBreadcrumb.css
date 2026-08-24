@@ -1,4 +1,10 @@
 .selection-breadcrumb {
+  /* The breadcrumb is a direct child of the editor grid. Without an explicit
+   * area it is auto-placed beneath the menubar/tab strip, which leaves the
+   * visible control covered by editor chrome and impossible to click. */
+  grid-area: canvas;
+  align-self: start;
+  z-index: var(--z-raised);
   display: flex;
   align-items: center;
   gap: 2px;
