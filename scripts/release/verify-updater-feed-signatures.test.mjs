@@ -99,16 +99,12 @@ function toFeedSignature(signResult) {
 
   // Override tauri.conf.json in the repo root (the script reads it from there)
   const confPath = join(fixtureDir, 'tauri.conf.json');
-  const feedPath = join(releaseDir, 'varve-update-stable.json');
-
   try {
     const out = execFileSync(
       'node',
       [
         join(process.cwd(), 'scripts/release/verify-updater-feed-signatures.mjs'),
-        '--feed',
-        feedPath,
-        '--release-dir',
+        '--dir',
         releaseDir,
         '--tauri-conf',
         confPath,

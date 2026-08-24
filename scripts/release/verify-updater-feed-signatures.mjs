@@ -177,15 +177,15 @@ async function main() {
   if (!pubKeyConf) die('no updater pubkey in tauri.conf.json');
   const pubKey = parsePubKey(pubKeyConf);
 
-  // Feed path: --feed takes absolute/relative; else --dir determines directory.
-  const feedPath = args.feed
-    ? resolve(args.feed)
-    : resolve(repoRoot, args.dir ?? 'dist', 'release', 'varve-update-stable.json');
-
-  // Artifact directory: --release-dir overrides; else same base as feed.
+  // --dir names the exact directory containing both the feed and artifacts.
+  // This matches the release workflow's `--dir dist/release` invocation;
+  // treating it as a parent would incorrectly look under `release/release`.
   const releaseDir = args['release-dir']
     ? resolve(args['release-dir'])
-    : resolve(repoRoot, args.dir ?? 'dist', 'release');
+    : args.dir
+      ? resolve(args.dir)
+      : resolve(repoRoot, 'dist', 'release');
+  const feedPath = args.feed ? resolve(args.feed) : join(releaseDir, 'varve-update-stable.json');
 
   const feed = readJSON(feedPath);
   if (!feed) die(`cannot read feed: ${feedPath}`);
