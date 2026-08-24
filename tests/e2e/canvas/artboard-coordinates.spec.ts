@@ -177,6 +177,11 @@ test.describe('Artboard-local coordinates', () => {
 
     const zoomPercent = Number(await page.locator('#menubar-zoom').inputValue());
     const screenDelta = 500 * (zoomPercent / 100);
+    // A browser pointer stream quantizes the fractional screen delta to CSS
+    // pixels. At a fit-all zoom that can account for several world pixels,
+    // while a reparent teleport would be hundreds; keep the assertion tight
+    // enough to distinguish the two.
+    const reparentTolerance = 8;
     // Drag the child 500 world px right into artboard B. Deriving the start
     // from the overlay keeps the test correct if the viewport origin is
     // fractional, while the zoom conversion keeps the world delta exact.
@@ -197,7 +202,7 @@ test.describe('Artboard-local coordinates', () => {
     // reparented into B without an additional teleport. Its world X is now
     // about 610, so its B-local X remains about 110 (not a second jump to the
     // destination frame's origin).
-    await readField(page, 'X', 110, 5);
+    await readField(page, 'X', 110, reparentTolerance);
     await readField(page, 'Y', 60, 5);
 
     // Undo the reparent: back in A at local (60,60).
@@ -215,6 +220,6 @@ test.describe('Artboard-local coordinates', () => {
     await page.waitForTimeout(600);
     await childRow.click();
     await page.waitForTimeout(350);
-    await readField(page, 'X', 110, 5);
+    await readField(page, 'X', 110, reparentTolerance);
   });
 });
