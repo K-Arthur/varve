@@ -2017,6 +2017,39 @@ function computeDocumentUnionBoundsUncached(
   return union;
 }
 
+/**
+ * A frame drawn over existing artwork should adopt the artwork the gesture
+ * clearly covers, even if a fractional camera/pointer conversion leaves one
+ * edge just outside the new frame. Center containment or a majority overlap
+ * excludes nearby incidental artwork while matching the visible intent.
+ */
+function shouldCaptureFrameSibling(
+  frameBounds: { x: number; y: number; w: number; h: number },
+  siblingBounds: { x: number; y: number; w: number; h: number },
+): boolean {
+  const siblingCenterX = siblingBounds.x + siblingBounds.w / 2;
+  const siblingCenterY = siblingBounds.y + siblingBounds.h / 2;
+  const centerInside =
+    siblingCenterX >= frameBounds.x &&
+    siblingCenterY >= frameBounds.y &&
+    siblingCenterX <= frameBounds.x + frameBounds.w &&
+    siblingCenterY <= frameBounds.y + frameBounds.h;
+  if (centerInside) return true;
+
+  const intersectionWidth = Math.max(
+    0,
+    Math.min(siblingBounds.x + siblingBounds.w, frameBounds.x + frameBounds.w) -
+      Math.max(siblingBounds.x, frameBounds.x),
+  );
+  const intersectionHeight = Math.max(
+    0,
+    Math.min(siblingBounds.y + siblingBounds.h, frameBounds.y + frameBounds.h) -
+      Math.max(siblingBounds.y, frameBounds.y),
+  );
+  const siblingArea = siblingBounds.w * siblingBounds.h;
+  return siblingArea > 0 && (intersectionWidth * intersectionHeight) / siblingArea >= 0.5;
+}
+
 /** Live canvas viewport, falling back to the window when the canvas is unmounted. */
 function resolveCanvasViewport(): Viewport {
   const canvasEl =
@@ -3910,18 +3943,12 @@ export function EditorProvider({
               }
             }
 
-            // Capture fully-contained siblings
+            // Capture the siblings the new frame meaningfully covers.
             for (const siblingId of siblings) {
               const siblingBounds = nodeWorldBounds(newDoc, siblingId, parentIndex);
               if (!siblingBounds) continue;
 
-              // Check full containment (sibling must be entirely inside frame)
-              if (
-                siblingBounds.x >= frameBounds.x &&
-                siblingBounds.y >= frameBounds.y &&
-                siblingBounds.x + siblingBounds.w <= frameBounds.x + frameBounds.w &&
-                siblingBounds.y + siblingBounds.h <= frameBounds.y + frameBounds.h
-              ) {
+              if (shouldCaptureFrameSibling(frameBounds, siblingBounds)) {
                 // Reparent sibling into the new frame with transform preservation
                 const siblingNode = newDoc.nodes[siblingId];
                 if (siblingNode && !siblingNode.locked) {

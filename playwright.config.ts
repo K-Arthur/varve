@@ -2,6 +2,11 @@ import { defineConfig, devices } from '@playwright/test';
 
 const e2ePort = process.env.VARVE_E2E_PORT ?? '1420';
 const e2eBaseUrl = `http://localhost:${e2ePort}`;
+// Canvas E2E includes software-rendered canvases and on-device model
+// inference. Two local browser workers can contend for those resources hard
+// enough to terminate an unrelated page mid-test. Keep the reliable default
+// serial, while preserving the documented override for capable hosts.
+const e2eWorkers = Number(process.env.VARVE_E2E_WORKERS ?? '1');
 
 // Isolated output directories per execution: concurrent agents (or parallel
 // local runs) must never overwrite each other's reports/screenshots. A
@@ -20,7 +25,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : 2,
+  workers: e2eWorkers,
   outputDir: `test-results/${outputSuffix}`,
   // 180s: measured cold first-paint on a fresh vite transform cache is ~100s
   // on this machine and worse on CI runners (shared cache, slower disks). A

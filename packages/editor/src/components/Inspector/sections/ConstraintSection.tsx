@@ -11,6 +11,7 @@ import { getParent } from '@varve/scene';
 import { Select } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
+import { ConstraintPinControl } from '../controls/ConstraintPinControl';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
 const HORIZONTAL_OPTIONS: { value: ConstraintAxis; label: string }[] = [
@@ -28,34 +29,6 @@ const VERTICAL_OPTIONS: { value: ConstraintAxis; label: string }[] = [
   { value: 'stretch', label: 'Top & Bottom' },
   { value: 'scale', label: 'Scale' },
 ];
-
-/** Small visual preview of the current constraint pair. */
-function ConstraintPreview({ h, v }: { h: ConstraintAxis; v: ConstraintAxis }) {
-  const hSize = h === 'stretch' ? '100%' : h === 'scale' ? '60%' : '40%';
-  const vSize = v === 'stretch' ? '100%' : v === 'scale' ? '60%' : '40%';
-
-  return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 28 28"
-      fill="none"
-      role="img"
-      aria-label={`Constraint ${h} x ${v}`}
-      className="insp-constraint__preview"
-    >
-      <rect x="2" y="2" width="24" height="24" rx="2" className="insp-constraint__preview-frame" />
-      <rect
-        x={h === 'min' ? 4 : h === 'center' ? 10 : 4}
-        y={v === 'min' ? 4 : v === 'center' ? 10 : 4}
-        width={hSize === '100%' ? 20 : 8}
-        height={vSize === '100%' ? 20 : 8}
-        rx={1}
-        className="insp-constraint__preview-child"
-      />
-    </svg>
-  );
-}
 
 interface ConstraintSectionProps {
   nodes: SceneNode[];
@@ -106,6 +79,16 @@ export function ConstraintSection({ nodes }: ConstraintSectionProps) {
     [currentConstraint, setSelectedConstraint],
   );
 
+  const handleVisualEditorChange = useCallback(
+    (horizontal: string, vertical: string) => {
+      setSelectedConstraint({
+        horizontal: horizontal as ConstraintAxis,
+        vertical: vertical as ConstraintAxis,
+      });
+    },
+    [setSelectedConstraint],
+  );
+
   if (!hasFrameParent) return null;
 
   return (
@@ -134,10 +117,14 @@ export function ConstraintSection({ nodes }: ConstraintSectionProps) {
           </div>
         </div>
         <div className="insp-field">
-          <span className="insp-field__label">Preview</span>
-          <div className="insp-field__control insp-constraint__preview-wrap">
+          <span className="insp-field__label">Visual editor</span>
+          <div className="insp-field__control insp-constraint__editor-wrap">
             {currentConstraint ? (
-              <ConstraintPreview h={currentConstraint.horizontal} v={currentConstraint.vertical} />
+              <ConstraintPinControl
+                horizontal={currentConstraint.horizontal}
+                vertical={currentConstraint.vertical}
+                onChange={handleVisualEditorChange}
+              />
             ) : (
               <span className="insp-field__mixed">Mixed</span>
             )}

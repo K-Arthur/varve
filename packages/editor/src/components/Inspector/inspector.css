@@ -3775,25 +3775,11 @@
   list-style: disc;
 }
 
-/* ─── Constraint preview (frame children) ────────────── */
-.insp-constraint__preview-wrap {
+/* ─── Constraint editor (frame children) ─────────────── */
+.insp-constraint__editor-wrap {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-}
-.insp-constraint__preview {
-  display: block;
-  flex-shrink: 0;
-}
-.insp-constraint__preview-frame {
-  fill: none;
-  stroke: var(--color-border-strong);
-  stroke-width: 1;
-}
-.insp-constraint__preview-child {
-  fill: var(--color-accent-on-subtle);
-  stroke: var(--color-interactive-default);
-  stroke-width: 1;
 }
 .insp-field__mixed {
   font-size: var(--font-size-xs);

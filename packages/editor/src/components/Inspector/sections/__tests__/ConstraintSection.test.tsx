@@ -139,7 +139,7 @@ describe('ConstraintSection', () => {
     expect(screen.getByText('Center')).toBeTruthy();
   });
 
-  it('renders preview SVG', () => {
+  it('renders the interactive visual constraint editor', () => {
     const node = {
       id: 'c1',
       kind: 'shape' as const,
@@ -158,7 +158,7 @@ describe('ConstraintSection', () => {
       constraints: { horizontal: 'min' as const, vertical: 'min' as const },
     };
     renderWithProvider(<ConstraintSection nodes={[node]} />);
-    const svg = document.querySelector('.insp-constraint__preview');
-    expect(svg).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Visual constraint editor' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Pin left edge' })).toBeTruthy();
   });
 });

@@ -28,12 +28,19 @@ test.describe('Constraint visual controls and persistence', () => {
     await page.keyboard.press('r');
     await dragOnCanvas(page, 180, 180, 320, 280);
 
-    // Switch to select and click child
+    // Switch to select and Ctrl+click through the containing frame. The
+    // default frame hit target is the container; constraints belong to the
+    // child, so make the deep-selection intent explicit.
     await page.keyboard.press('v');
     await page.waitForTimeout(300);
-    // Click in the center of the child rect
+    await page.keyboard.down('Control');
     await page.mouse.click(frameBox.x + 250, frameBox.y + 230);
+    await page.keyboard.up('Control');
     await page.waitForTimeout(300);
+
+    await expect(
+      page.locator('[role="treeitem"][data-layer-type="shape"]', { hasText: 'Rectangle 1' }),
+    ).toHaveAttribute('aria-selected', 'true');
 
     return frameBox;
   }
@@ -56,9 +63,9 @@ test.describe('Constraint visual controls and persistence', () => {
     await leftPin.click();
     await page.waitForTimeout(200);
 
-    // The horizontal dropdown should show "Left"
+    // The custom ARIA combobox should show "Left".
     const hSelect = page.getByRole('combobox', { name: 'Horizontal constraint' });
-    await expect(hSelect).toHaveValue('min');
+    await expect(hSelect).toHaveText('Left');
   });
 
   test('clicking pin right sets horizontal constraint to Right', async ({ page }) => {
@@ -70,7 +77,7 @@ test.describe('Constraint visual controls and persistence', () => {
     await page.waitForTimeout(200);
 
     const hSelect = page.getByRole('combobox', { name: 'Horizontal constraint' });
-    await expect(hSelect).toHaveValue('max');
+    await expect(hSelect).toHaveText('Right');
   });
 
   test('clicking stretch horizontally sets horizontal to Left & Right', async ({ page }) => {
@@ -82,7 +89,19 @@ test.describe('Constraint visual controls and persistence', () => {
     await page.waitForTimeout(200);
 
     const hSelect = page.getByRole('combobox', { name: 'Horizontal constraint' });
-    await expect(hSelect).toHaveValue('stretch');
+    await expect(hSelect).toHaveText('Left & Right');
+  });
+
+  test('clicking stretch vertically sets vertical constraint to Top & Bottom', async ({ page }) => {
+    test.setTimeout(60000);
+    await createFrameAndChild(page);
+
+    const stretchV = page.getByRole('button', { name: 'Stretch vertically', exact: true });
+    await stretchV.click();
+    await page.waitForTimeout(200);
+
+    const vSelect = page.getByRole('combobox', { name: 'Vertical constraint' });
+    await expect(vSelect).toHaveText('Top & Bottom');
   });
 
   test('clicking center sets both axes to Center', async ({ page }) => {
@@ -95,8 +114,8 @@ test.describe('Constraint visual controls and persistence', () => {
 
     const hSelect = page.getByRole('combobox', { name: 'Horizontal constraint' });
     const vSelect = page.getByRole('combobox', { name: 'Vertical constraint' });
-    await expect(hSelect).toHaveValue('center');
-    await expect(vSelect).toHaveValue('center');
+    await expect(hSelect).toHaveText('Center');
+    await expect(vSelect).toHaveText('Center');
   });
 
   test('dropdown and pin control stay synchronized', async ({ page }) => {
@@ -105,7 +124,8 @@ test.describe('Constraint visual controls and persistence', () => {
 
     // Set via dropdown
     const hSelect = page.getByRole('combobox', { name: 'Horizontal constraint' });
-    await hSelect.selectOption({ label: 'Right' });
+    await hSelect.click();
+    await page.getByRole('option', { name: 'Right', exact: true }).click();
     await page.waitForTimeout(200);
 
     // Pin control should reflect the change — right pin should be active

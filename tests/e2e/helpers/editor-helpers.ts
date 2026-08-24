@@ -191,7 +191,8 @@ export async function setConstraintViaDropdown(
 ): Promise<void> {
   const label = axis === 'horizontal' ? 'Horizontal constraint' : 'Vertical constraint';
   const select = page.getByRole('combobox', { name: label });
-  await select.selectOption({ label: value });
+  await select.click();
+  await page.getByRole('option', { name: value, exact: true }).click();
   await page.waitForTimeout(100);
 }
 

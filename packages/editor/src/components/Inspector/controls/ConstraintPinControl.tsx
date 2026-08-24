@@ -260,16 +260,18 @@ function getZoneStyle(zone: Zone): React.CSSProperties {
       return { ...base, left: 0, top: 28, width: 36, height: 40 };
     case 'right':
       return { ...base, left: 84, top: 28, width: 36, height: 40 };
+    // The central controls share the child rectangle. Give each its own
+    // horizontal target band so a real pointer can reach every action.
     case 'stretch-h':
-      return { ...base, left: 36, top: 28, width: 48, height: 40 };
+      return { ...base, left: 36, top: 28, width: 48, height: 12 };
     case 'top':
       return { ...base, left: 36, top: 0, width: 48, height: 28 };
     case 'bottom':
       return { ...base, left: 36, top: 68, width: 48, height: 28 };
     case 'stretch-v':
-      return { ...base, left: 36, top: 28, width: 48, height: 40 };
+      return { ...base, left: 36, top: 56, width: 48, height: 12 };
     case 'center':
-      return { ...base, left: 36, top: 28, width: 48, height: 40 };
+      return { ...base, left: 36, top: 40, width: 48, height: 16 };
     case 'scale':
       return { ...base, right: 0, bottom: 0, width: 28, height: 16 };
   }
