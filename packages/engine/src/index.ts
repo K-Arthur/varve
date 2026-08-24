@@ -33,7 +33,13 @@ export {
 } from './adjustment/colorConversion';
 export type { CurvePoint } from './adjustment/curves';
 export type { Histogram, HistogramStats } from './adjustment/histogram';
-export { autoLevelsParams, computeHistogram, computeHistogramStats } from './adjustment/histogram';
+export {
+  autoContrastParams,
+  autoLevelsParams,
+  autoWhiteBalanceParams,
+  computeHistogram,
+  computeHistogramStats,
+} from './adjustment/histogram';
 export type { LevelParams } from './adjustment/levels';
 export type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
 export {
@@ -50,6 +56,7 @@ export type {
   AreaSelection,
   AreaSelectionExpression,
   AreaSelectionOperation,
+  AreaSelectionRefineOperation,
   AreaSelectionSettings,
   AreaSelectionShape,
   AreaSelectionStyle,
@@ -63,6 +70,7 @@ export type {
   RasterizeAreaSelectionOptions,
   RasterMaskSelectionShape,
   RectangleSelectionShape,
+  RefineAreaSelectionOptions,
   SelectionPoint,
 } from './areaSelection';
 export {
@@ -81,25 +89,19 @@ export {
   transformAreaSelection,
 } from './areaSelection';
 export type {
-  AreaSelectionRefineOperation,
-  RefineAreaSelectionOptions,
-} from './areaSelection';
-export {
-  blendAreaSelections,
-} from './areaSelectionComposite';
-export type {
   AreaSelectionBlend,
   BlendAreaSelectionsOptions,
 } from './areaSelectionComposite';
-export {
-  areaSelectionFromColorRange,
-  areaSelectionFromImageAlpha,
-  areaSelectionFromImageLuminance,
-} from './areaSelectionImage';
+export { blendAreaSelections } from './areaSelectionComposite';
 export type {
   ColorRangeOptions,
   ImageCoverageOptions,
   ImageRgbaSource,
+} from './areaSelectionImage';
+export {
+  areaSelectionFromColorRange,
+  areaSelectionFromImageAlpha,
+  areaSelectionFromImageLuminance,
 } from './areaSelectionImage';
 export type {
   BackgroundRemovalOptions,
@@ -352,6 +354,7 @@ export type {
   GrayscaleAdjustment,
   HalftoneAdjustment,
   HueRotateAdjustment,
+  HueSaturationAdjustment,
   InvertAdjustment,
   LensFlareAdjustment,
   LevelsAdjustment,
@@ -366,8 +369,8 @@ export type {
   SaturationAdjustment,
   SelectiveColorAdjustment,
   SepiaAdjustment,
-  SharpenAdjustment,
   ShadowHighlightAdjustment,
+  SharpenAdjustment,
   TemperatureAdjustment,
   ThresholdAdjustment,
   TintAdjustment,

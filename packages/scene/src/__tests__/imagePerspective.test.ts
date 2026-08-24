@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { ImageFillData } from '../types';
-import { normalizeImageFillData } from '../types';
 import {
   defaultPerspectiveQuad,
   isPerspectiveQuadValid,
   normalizeImagePerspective,
-  perspectiveQuadToEngineQuad,
   type PerspectiveQuad,
+  perspectiveQuadToEngineQuad,
 } from '../imagePerspective';
+import type { ImageFillData } from '../types';
+import { normalizeImageFillData } from '../types';
 
 const SQUARE: PerspectiveQuad = [
   [0, 0],

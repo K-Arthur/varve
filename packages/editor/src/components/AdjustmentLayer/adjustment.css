@@ -54,6 +54,32 @@
   color: var(--color-text-secondary);
 }
 
+.adj-panel__auto-btn {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: var(--font-size-2xs);
+  justify-content: center;
+  min-height: var(--space-5);
+  padding: 0 var(--space-1);
+  white-space: nowrap;
+}
+
+.adj-panel__auto-btn:hover:not(:disabled) {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+}
+
+.adj-panel__auto-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .adj-panel__item {
   display: flex;
   align-items: center;
@@ -293,32 +319,53 @@
 
 .adj-editor__slider {
   width: 100%;
-  height: var(--space-1);
+  min-width: 0;
+  height: var(--space-2);
   -webkit-appearance: none;
   appearance: none;
-  background: var(--color-surface-base);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
+  box-sizing: border-box;
   outline: none;
   cursor: pointer;
 }
 
+.adj-editor__slider::-webkit-slider-runnable-track {
+  height: var(--space-1);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+}
+
+.adj-editor__slider::-moz-range-track {
+  height: var(--space-1);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+}
+
 .adj-editor__slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: var(--space-2);
-  height: var(--space-2);
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: 50%;
+  background: var(--color-interactive-default);
+  cursor: pointer;
+  border: 2px solid var(--color-surface-raised);
+  margin-top: calc((var(--space-1) - var(--space-3)) / 2);
+}
+
+.adj-editor__slider::-moz-range-thumb {
+  width: var(--space-3);
+  height: var(--space-3);
   border-radius: 50%;
   background: var(--color-interactive-default);
   cursor: pointer;
   border: 2px solid var(--color-surface-raised);
 }
 
-.adj-editor__slider::-moz-range-thumb {
-  width: var(--space-2);
-  height: var(--space-2);
-  border-radius: 50%;
-  background: var(--color-interactive-default);
-  cursor: pointer;
-  border: 2px solid var(--color-surface-raised);
+.adj-editor__slider:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
 }
 
 .adj-editor__number {

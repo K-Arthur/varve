@@ -181,3 +181,60 @@ export function autoLevelsParams(
     gamma: Math.max(0.1, Math.min(10, (inputWhite - inputBlack) / 128)),
   };
 }
+
+/** Auto Contrast endpoints using the same opaque-pixel clipping policy as Auto Levels. */
+export function autoContrastParams(
+  histogram: Histogram,
+  clipPercent = 0.5,
+): { inputBlack: number; inputWhite: number } {
+  const total = histogram.opaquePixels;
+  if (total <= 0) return { inputBlack: 0, inputWhite: 255 };
+  const clipCount = Math.round((total * clipPercent) / 100);
+  let inputBlack = 0;
+  let running = 0;
+  for (let i = 0; i < BINS; i += 1) {
+    running += histogram.luminance[i]!;
+    if (running > clipCount) {
+      inputBlack = i;
+      break;
+    }
+  }
+  let inputWhite = 255;
+  running = 0;
+  for (let i = BINS - 1; i >= 0; i -= 1) {
+    running += histogram.luminance[i]!;
+    if (running > clipCount) {
+      inputWhite = i;
+      break;
+    }
+  }
+  if (inputWhite <= inputBlack) return { inputBlack: 0, inputWhite: 255 };
+  return {
+    inputBlack: Math.max(0, inputBlack - 2),
+    inputWhite: Math.min(255, inputWhite + 2),
+  };
+}
+
+/** Conservative neutralising correction expressed in Color Balance units. */
+export function autoWhiteBalanceParams(histogram: Histogram): {
+  cyanRed: number;
+  magentaGreen: number;
+  yellowBlue: number;
+} {
+  const total = histogram.opaquePixels;
+  if (total <= 0) return { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 };
+  const mean = (channel: Uint32Array) => {
+    let sum = 0;
+    for (let i = 0; i < BINS; i += 1) sum += i * channel[i]!;
+    return sum / total;
+  };
+  const red = mean(histogram.red);
+  const green = mean(histogram.green);
+  const blue = mean(histogram.blue);
+  const neutral = (red + green + blue) / 3;
+  return {
+    cyanRed: Math.max(-100, Math.min(100, Math.round((neutral - red) * 0.6))),
+    magentaGreen: Math.max(-100, Math.min(100, Math.round((neutral - green) * 0.6))),
+    yellowBlue: Math.max(-100, Math.min(100, Math.round((neutral - blue) * 0.6))),
+  };
+}

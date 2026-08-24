@@ -440,7 +440,7 @@ function ShellInner({
           {editorHeadingLabel(editor.state.sessions, editor.state.activeId)}
         </h1>
         {!distractionFreeMode && (
-          <header>
+          <header className="editor-shell__menubar">
             <Menubar
               onBackToHome={onBackToHome}
               onOpenSettings={() => {

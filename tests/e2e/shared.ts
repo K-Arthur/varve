@@ -63,7 +63,21 @@ export async function navigateToEditor(page: Page, path = '/') {
     await createInDialog.waitFor({ timeout: 45000 });
   }
   await createInDialog.click({ timeout: 15000 });
-  await page.locator('.layers-panel').waitFor({ timeout: 30000 });
+  const layersPanel = page.locator('.layers-panel');
+  try {
+    await layersPanel.waitFor({ timeout: 30000 });
+  } catch (error) {
+    // Web storage can swap from the in-memory boot platform to IndexedDB
+    // between creation and the open callback. If that narrow race leaves the
+    // newly-created file on Home, open the just-created card and continue;
+    // this keeps canvas specs focused on the editor interaction they cover.
+    const createdFile = page.getByRole('gridcell').first();
+    if (!(await createdFile.isVisible({ timeout: 1000 }).catch(() => false))) {
+      throw error;
+    }
+    await createdFile.click({ timeout: 10000 });
+    await layersPanel.waitFor({ timeout: 30000 });
+  }
 
   // Startup state can restore more than one modal (for example Settings over
   // the first-run welcome dialog). Clicking either close button is then

@@ -15,7 +15,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .layer-states__create-btn {
@@ -118,8 +118,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: var(--space-5);
+  height: var(--space-5);
   padding: 0;
   color: var(--color-text-muted);
   background: transparent;

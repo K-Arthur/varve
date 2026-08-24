@@ -105,10 +105,12 @@ export class SelectTool extends BaseTool {
 
   private visibilityHandler: (() => void) | null = null;
 
-  override onActivate(_ctx: ToolContext): void {
+  override onActivate(ctx: ToolContext): void {
     // Returning to the object-selection domain removes any raster boundary so
-    // node handles and pixel ants cannot be mistaken for one selection.
-    _ctx.setAreaSelection?.(null);
+    // node handles and pixel ants cannot be mistaken for one selection. Apply
+    // from Selection Paint is the exception: the user has explicitly finished
+    // editing and expects the analytical selection to remain available.
+    if (ctx.previousToolId !== 'selectionPaint') ctx.setAreaSelection?.(null);
     this.visibilityHandler = () => {
       if (document.hidden && this.nudgeGestureActive) {
         this.nudgeGestureActive = false;

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type AreaSelection,
   areaSelectionCoverageAt,
   createAreaSelection,
   maskAreaSelectionFromPlane,
-  type AreaSelection,
 } from './areaSelection';
 import { blendAreaSelections } from './areaSelectionComposite';
 
@@ -18,10 +18,7 @@ const columnPlane = (columns: number[]): AreaSelection => {
       data[y * 4 + x] = columns[x]!;
     }
   }
-  return maskAreaSelectionFromPlane(
-    { data, width: 4, height: 4 },
-    { x: 0, y: 0, w: 4, h: 4 },
-  )!;
+  return maskAreaSelectionFromPlane({ data, width: 4, height: 4 }, { x: 0, y: 0, w: 4, h: 4 })!;
 };
 
 const coverage = (sel: AreaSelection, x: number): number =>

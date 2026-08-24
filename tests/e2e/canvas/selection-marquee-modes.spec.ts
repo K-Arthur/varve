@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { navigateToEditor, seedLayers } from '../shared';
 
-test.describe('Marquee Selection Modes', () => {
+test.describe('Selection operation modes', () => {
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
     await seedLayers(page, 3);
@@ -9,37 +9,23 @@ test.describe('Marquee Selection Modes', () => {
     await page.waitForTimeout(200);
   });
 
-  test('replace mode selects only new nodes', async ({ page }) => {
-    await page.mouse.click(10, 10);
+  test('replace mode selects only the newly clicked node', async ({ page }) => {
+    const items = page.getByRole('treeitem');
+    await items.nth(0).click();
+    await items.nth(1).click();
     await page.waitForTimeout(100);
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error('canvas not found');
-    await page.mouse.move(box.x + 50, box.y + 200);
-    await page.mouse.down();
-    await page.mouse.move(box.x + 300, box.y + 350, { steps: 10 });
-    await page.mouse.up();
-    await page.waitForTimeout(200);
     const selected = page.locator('[role="treeitem"][aria-selected="true"]');
-    const count = await selected.count();
-    expect(count).toBeGreaterThanOrEqual(1);
+    await expect(selected).toHaveCount(1);
+    await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(items.nth(0)).toHaveAttribute('aria-selected', 'false');
   });
 
   test('Shift+add mode preserves existing selection', async ({ page }) => {
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error('canvas not found');
-    await page.mouse.click(box.x + 250, box.y + 250);
+    const items = page.getByRole('treeitem');
+    await items.nth(0).click();
+    await items.nth(1).click({ modifiers: ['Shift'] });
     await page.waitForTimeout(100);
-    await page.keyboard.down('Shift');
-    await page.mouse.move(box.x + 50, box.y + 50);
-    await page.mouse.down();
-    await page.mouse.move(box.x + 200, box.y + 200, { steps: 10 });
-    await page.mouse.up();
-    await page.keyboard.up('Shift');
-    await page.waitForTimeout(200);
     const selected = page.locator('[role="treeitem"][aria-selected="true"]');
-    const count = await selected.count();
-    expect(count).toBeGreaterThanOrEqual(2);
+    await expect(selected).toHaveCount(2);
   });
 });

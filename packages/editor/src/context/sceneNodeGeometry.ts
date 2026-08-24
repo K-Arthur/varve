@@ -77,6 +77,7 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'ellipseMarquee':
     case 'warp':
     case 'selectionPaint':
+    case 'pixelProbe':
     case 'page':
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {

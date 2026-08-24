@@ -1,6 +1,7 @@
 import type { FileEntry } from '@varve/platform';
 import { formatBytes, formatRelativeTime } from '@varve/platform';
 import { Button, Icon } from '@varve/ui';
+import { confirmDialog } from './confirmDialog';
 
 export interface TrashSectionProps {
   files: FileEntry[];
@@ -10,9 +11,15 @@ export interface TrashSectionProps {
 }
 
 export function TrashSection({ files, onRestore, onPurge, onRefresh }: TrashSectionProps) {
-  const handlePurgeAll = () => {
+  const handlePurgeAll = async () => {
     if (files.length === 0) return;
-    if (confirm(`Permanently delete all ${files.length} trashed files? This cannot be undone.`)) {
+    if (
+      await confirmDialog(
+        'Empty trash',
+        `Permanently delete all ${files.length} trashed files? This cannot be undone.`,
+        { confirmLabel: 'Delete permanently', variant: 'danger' },
+      )
+    ) {
       Promise.all(files.map((f) => onPurge(f.id))).then(onRefresh);
     }
   };
@@ -44,8 +51,14 @@ export function TrashSection({ files, onRestore, onPurge, onRefresh }: TrashSect
               <Button
                 variant="danger"
                 size="sm"
-                onClick={() => {
-                  if (confirm(`Permanently delete "${file.name}"? This cannot be undone.`)) {
+                onClick={async () => {
+                  if (
+                    await confirmDialog(
+                      'Delete permanently',
+                      `Permanently delete "${file.name}"? This cannot be undone.`,
+                      { confirmLabel: 'Delete', variant: 'danger' },
+                    )
+                  ) {
                     onPurge(file.id);
                   }
                 }}

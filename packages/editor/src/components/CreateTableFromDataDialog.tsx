@@ -158,11 +158,11 @@ export function CreateTableFromDataDialog() {
             onChange={(e) => setInput(e.target.value)}
             placeholder={'Paste spreadsheet data (tab or comma separated) or a Markdown table…'}
             rows={6}
-            style={{ fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
+            style={{ fontFamily: 'monospace', fontSize: 'var(--font-size-xs)', resize: 'vertical' }}
           />
 
           <div className="insp-field-row__split" style={{ gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12 }}>
+            <span style={{ fontSize: 'var(--font-size-xs)' }}>
               Format
               <Select
                 label="Input format"
@@ -177,7 +177,7 @@ export function CreateTableFromDataDialog() {
                 onChange={(v) => setDelimiter(v as typeof delimiter)}
               />
             </span>
-            <label style={{ fontSize: 12 }}>
+            <label style={{ fontSize: 'var(--font-size-xs)' }}>
               <input
                 type="checkbox"
                 checked={headerRow}
@@ -185,23 +185,35 @@ export function CreateTableFromDataDialog() {
               />{' '}
               First row is a header
             </label>
-            <span style={{ fontSize: 12, opacity: 0.7 }}>
+            <span style={{ fontSize: 'var(--font-size-xs)', opacity: 0.7 }}>
               {rows.length} rows x {cols} columns
             </span>
           </div>
 
           {error && (
-            <div style={{ color: 'var(--color-feedback-danger, #d64545)', fontSize: 12 }}>
+            <div
+              style={{
+                color: 'var(--color-feedback-danger, #d64545)',
+                fontSize: 'var(--font-size-xs)',
+              }}
+            >
               {error}
             </div>
           )}
           {commitError && (
-            <div style={{ color: 'var(--color-feedback-danger, #d64545)', fontSize: 12 }}>
+            <div
+              style={{
+                color: 'var(--color-feedback-danger, #d64545)',
+                fontSize: 'var(--font-size-xs)',
+              }}
+            >
               {commitError}
             </div>
           )}
           {parsed.warnings.length > 0 && (
-            <div style={{ fontSize: 11, opacity: 0.7 }}>{parsed.warnings.join('; ')}</div>
+            <div style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>
+              {parsed.warnings.join('; ')}
+            </div>
           )}
 
           {rows.length > 0 && (
@@ -217,7 +229,14 @@ export function CreateTableFromDataDialog() {
                   <tr>
                     {Array.from({ length: cols }, (_, c) => (
                       // biome-ignore lint/suspicious/noArrayIndexKey: preview columns are stateless; header labels can repeat
-                      <th key={c} style={{ fontSize: 11, padding: '2px 6px', textAlign: 'left' }}>
+                      <th
+                        key={c}
+                        style={{
+                          fontSize: 'var(--font-size-2xs)',
+                          padding: '2px 6px',
+                          textAlign: 'left',
+                        }}
+                      >
                         {headerRow && rows[0]?.[c] ? rows[0][c] : `C${c + 1}`}
                       </th>
                     ))}
@@ -229,7 +248,10 @@ export function CreateTableFromDataDialog() {
                     <tr key={ri}>
                       {Array.from({ length: cols }, (_, c) => (
                         // biome-ignore lint/suspicious/noArrayIndexKey: preview cells are stateless; content repeats across the table
-                        <td key={c} style={{ fontSize: 11, padding: '2px 6px' }}>
+                        <td
+                          key={c}
+                          style={{ fontSize: 'var(--font-size-2xs)', padding: '2px 6px' }}
+                        >
                           {r[c] ?? ''}
                         </td>
                       ))}
@@ -238,7 +260,7 @@ export function CreateTableFromDataDialog() {
                 </tbody>
               </table>
               {truncated && (
-                <div style={{ fontSize: 11, padding: 4, opacity: 0.7 }}>
+                <div style={{ fontSize: 'var(--font-size-2xs)', padding: 4, opacity: 0.7 }}>
                   … and {rows.length - previewRows.length} more rows
                 </div>
               )}

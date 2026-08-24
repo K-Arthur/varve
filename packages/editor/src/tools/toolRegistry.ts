@@ -205,6 +205,15 @@ export const TOOL_REGISTRY = [
     aliases: ['measure', 'handoff'],
   },
   {
+    id: 'pixelProbe',
+    label: 'Pixel Info',
+    icon: 'Pipette',
+    category: 'inspect',
+    kind: 'tool',
+    shortcutId: 'toolPixelProbe',
+    aliases: ['sampler', 'color sampler', 'pixel probe', 'info'],
+  },
+  {
     id: 'booleanUnion',
     label: 'Boolean Union',
     icon: 'Combine',

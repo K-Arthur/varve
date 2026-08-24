@@ -152,8 +152,8 @@ describe('AdjustmentEditor — shadow / highlight', () => {
         onChange={vi.fn()}
       />,
     );
-    expect(screen.getByRole('slider', { name: 'Shadows' })).toBeTruthy();
-    expect(screen.getByRole('slider', { name: 'Highlights' })).toBeTruthy();
+    expect(screen.getByRole('slider', { name: 'Shadow brightening' })).toBeTruthy();
+    expect(screen.getByRole('slider', { name: 'Highlight recovery' })).toBeTruthy();
     expect(screen.getByRole('slider', { name: 'Tonal width' })).toBeTruthy();
     expect(screen.getByRole('slider', { name: 'Midpoint' })).toBeTruthy();
   });

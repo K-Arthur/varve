@@ -264,8 +264,20 @@ export const SHORTCUT_DEFS = {
   toolHand: { binding: { key: 'h' }, label: 'Hand tool', category: 'Tools' },
   toolZoom: { binding: { key: 'z' }, label: 'Zoom tool', category: 'Tools' },
   toolCrop: { binding: { key: 'c' }, label: 'Crop tool', category: 'Tools' },
-  toolPerspective: { binding: { key: 'p' }, label: 'Perspective tool', category: 'Tools' },
+  // Keep perspective distinct from the Pen tool.  A duplicate single-key
+  // binding made the registry's winner depend on registration order, so
+  // pressing P could silently activate either tool.
+  toolPerspective: {
+    binding: { key: 'w', alt: true, shift: true },
+    label: 'Perspective tool',
+    category: 'Tools',
+  },
   toolInspect: { binding: { key: 'i' }, label: 'Inspect mode', category: 'Tools' },
+  toolPixelProbe: {
+    binding: { key: 'i', shift: true },
+    label: 'Pixel Info tool',
+    category: 'Tools',
+  },
   toolPaint: { binding: { key: 'b' }, label: 'Paint brush', category: 'Tools' },
   toolEraser: { binding: { key: 'e' }, label: 'Eraser', category: 'Tools' },
   toolSmudge: { binding: { key: 'u' }, label: 'Smudge tool', category: 'Tools' },
@@ -625,7 +637,9 @@ export const SHORTCUT_DEFS = {
     category: 'Motion',
   },
   addKeyframe: {
-    binding: { key: 'i', shift: true },
+    // Shift+I is reserved for the Pixel Info tool; keep the motion command
+    // on the same letter with Alt so both actions remain deterministic.
+    binding: { key: 'i', alt: true },
     label: 'Add Keyframe at Playhead',
     category: 'Motion',
   },

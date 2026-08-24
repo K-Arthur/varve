@@ -4,6 +4,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createDocument } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ConfirmDialog } from '../PromptDialog';
 import { buildJobs, ExportDialog } from './ExportDialog';
 
 vi.mock('../../motion/videoExportBridge', () => ({
@@ -474,16 +475,20 @@ describe('ExportDialog', () => {
     // as a user clicking "Export anyway".
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(
-      <ExportDialog
-        isOpen={true}
-        onClose={() => {}}
-        nodes={[node]}
-        document={doc}
-        onExport={onExport}
-      />,
+      <>
+        <ExportDialog
+          isOpen={true}
+          onClose={() => {}}
+          nodes={[node]}
+          document={doc}
+          onExport={onExport}
+        />
+        <ConfirmDialog />
+      </>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Export \(1\)/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Export anyway' }));
 
     await waitFor(() => expect(onExport).toHaveBeenCalledOnce());
     confirmSpy.mockRestore();

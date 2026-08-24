@@ -10,11 +10,11 @@
  * same budgeted path as every other raster-mask producer.
  */
 import {
+  type AreaSelection,
   areaSelectionBounds,
   boundedPlaneSize,
   maskAreaSelectionFromPlane,
   rasterizeAreaSelection,
-  type AreaSelection,
 } from './areaSelection';
 
 export type AreaSelectionBlend = 'add' | 'subtract' | 'multiply' | 'min' | 'max';
@@ -38,11 +38,7 @@ function unionFrame(
   return { x, y, w: right - x, h: bottom - y };
 }
 
-function blendBytes(
-  operation: AreaSelectionBlend,
-  a: number,
-  b: number,
-): number {
+function blendBytes(operation: AreaSelectionBlend, a: number, b: number): number {
   switch (operation) {
     case 'add':
       return Math.min(255, a + b);

@@ -1,5 +1,5 @@
 /**
- * HistogramWidget — luminance histogram display with level sliders.
+ * HistogramWidget — channel-selectable histogram display with level sliders.
  *
  * Canvas-based bar chart (256 bars for 256 bins). Three draggable triangles
  * below the histogram represent black point, gamma, and white point for
@@ -18,18 +18,27 @@ const BAR_AREA_H = 100;
 const TRI_Y = BAR_AREA_H + 4;
 const TRI_SIZE = 8;
 
+export type HistogramChannel = 'luminance' | 'red' | 'green' | 'blue';
+
 export interface HistogramWidgetProps {
   histogram?: Histogram;
   levels: LevelParams;
   onChange: (levels: LevelParams) => void;
   onDragStart?: () => void;
   onDragEnd?: () => void;
+  channel?: HistogramChannel;
+  onChannelChange?: (channel: HistogramChannel) => void;
 }
 
-function drawHistogram(ctx: CanvasRenderingContext2D, histogram: Histogram, barColor: string) {
+function drawHistogram(
+  ctx: CanvasRenderingContext2D,
+  histogram: Histogram,
+  barColor: string,
+  channel: HistogramChannel,
+) {
   ctx.clearRect(0, 0, WIDTH, BAR_AREA_H);
 
-  const data = histogram.luminance;
+  const data = histogram[channel];
   const total = histogram.totalPixels;
   if (total === 0) return;
 
@@ -75,6 +84,8 @@ export function HistogramWidget({
   onChange,
   onDragStart,
   onDragEnd,
+  channel = 'luminance',
+  onChannelChange,
 }: HistogramWidgetProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragType, setDragType] = useState<'black' | 'gamma' | 'white' | null>(null);
@@ -87,12 +98,15 @@ export function HistogramWidget({
   // Compute accessible histogram stats (visible to screen readers only).
   const statsSummary = useMemo(() => {
     if (!histogram || histogram.totalPixels === 0) return '';
-    const stats = computeHistogramStats(histogram.luminance, histogram.totalPixels);
-    return `Luminance histogram: mean ${stats.mean.toFixed(0)}, median ${stats.median}, ` +
+    const stats = computeHistogramStats(histogram[channel], histogram.opaquePixels);
+    const channelLabel = channel === 'luminance' ? 'Luminance' : channel.toUpperCase();
+    return (
+      `${channelLabel} histogram: mean ${stats.mean.toFixed(0)}, median ${stats.median}, ` +
       `standard deviation ${stats.stdDev.toFixed(0)}, ` +
       `5th percentile ${stats.percentile5}, 95th percentile ${stats.percentile95}. ` +
-      `${stats.blackClipped} pixels at black, ${stats.whiteClipped} pixels at white.`;
-  }, [histogram]);
+      `${stats.blackClipped} pixels at black, ${stats.whiteClipped} pixels at white.`
+    );
+  }, [channel, histogram]);
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -110,7 +124,7 @@ export function HistogramWidget({
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
     if (histogram) {
-      drawHistogram(ctx, histogram, mutedColor);
+      drawHistogram(ctx, histogram, mutedColor, channel);
     }
 
     const blackX = (levels.inputBlack / 255) * WIDTH;
@@ -120,7 +134,7 @@ export function HistogramWidget({
     drawTriangle(ctx, blackX, accentColor, 'B', mutedColor);
     drawTriangle(ctx, gammaX, interactiveColor, 'G', mutedColor);
     drawTriangle(ctx, whiteX, accentColor, 'W', mutedColor);
-  }, [histogram, levels]);
+  }, [channel, histogram, levels]);
 
   useEffect(() => {
     redraw();
@@ -288,13 +302,46 @@ export function HistogramWidget({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
       {/* Visually hidden ARIA summary for screen readers. */}
       {statsSummary && (
-        <div role="status" aria-live="polite" style={{
-          position: 'absolute', width: 1, height: 1, overflow: 'hidden',
-          clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0,
-        }}>
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            overflow: 'hidden',
+            clip: 'rect(0,0,0,0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}
+        >
           {statsSummary}
         </div>
       )}
+      <div className="histogram-widget__channels" role="radiogroup" aria-label="Histogram channel">
+        {(
+          [
+            ['luminance', 'Luma'],
+            ['red', 'R'],
+            ['green', 'G'],
+            ['blue', 'B'],
+          ] as const
+        ).map(([value, label]) => (
+          <label
+            key={value}
+            className={channel === value ? 'histogram-widget__channel--active' : undefined}
+          >
+            <input
+              type="radio"
+              name="histogram-channel"
+              value={value}
+              checked={channel === value}
+              onChange={() => onChannelChange?.(value)}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
       <canvas
         ref={canvasRef}
         width={WIDTH}

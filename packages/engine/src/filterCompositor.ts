@@ -13,6 +13,7 @@
  */
 
 import { applyCurve, buildCurveLUT } from './adjustment/curves';
+import { applyHueSaturation } from './adjustment/hueSaturation';
 import { applyLevels } from './adjustment/levels';
 import type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
 import { applySelectiveColor } from './adjustment/selectiveColor';
@@ -194,6 +195,10 @@ export function applySoftwareFilter(
       ctx.putImageData(imageData, 0, 0);
       break;
     }
+    case 'hueSaturation':
+      applyHueSaturation(imageData, filter.ranges);
+      ctx.putImageData(imageData, 0, 0);
+      break;
     case 'blur': {
       ctx.putImageData(
         gaussianBlurSeparable(imageData, Math.max(0, Math.round(filter.radius))),

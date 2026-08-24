@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   applyHomography,
   isQuadValid,
-  solveHomography,
   type Quad,
+  solveHomography,
   type Vec2,
 } from '../mockup/homography';
 

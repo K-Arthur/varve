@@ -8,11 +8,7 @@
  * image scales into the selection memory budget instead of throwing.
  */
 import { linearSrgbToOklab, srgbToLinearUnit } from '@varve/shared';
-import {
-  boundedPlaneSize,
-  maskAreaSelectionFromPlane,
-  type AreaSelection,
-} from './areaSelection';
+import { type AreaSelection, boundedPlaneSize, maskAreaSelectionFromPlane } from './areaSelection';
 
 export interface ImageRgbaSource {
   /** Row-major RGBA8 bytes; length must equal width*height*4. */
@@ -109,7 +105,11 @@ function alphaSelection(
   options: ImageCoverageOptions,
 ): AreaSelection | null {
   if (!validSource(source)) return null;
-  const size = boundedPlaneSize(source.width, source.height, options.resolution ?? Number.POSITIVE_INFINITY);
+  const size = boundedPlaneSize(
+    source.width,
+    source.height,
+    options.resolution ?? Number.POSITIVE_INFINITY,
+  );
   const alpha = sampleChannel(source, size.width, size.height, 3);
   for (let i = 0; i < alpha.length; i += 1) {
     alpha[i] = encodeCoverage(alpha[i]! / 255, options);
@@ -138,7 +138,11 @@ export function areaSelectionFromImageLuminance(
   options: ImageCoverageOptions = {},
 ): AreaSelection | null {
   if (!validSource(source)) return null;
-  const size = boundedPlaneSize(source.width, source.height, options.resolution ?? Number.POSITIVE_INFINITY);
+  const size = boundedPlaneSize(
+    source.width,
+    source.height,
+    options.resolution ?? Number.POSITIVE_INFINITY,
+  );
   const r = sampleChannel(source, size.width, size.height, 0);
   const g = sampleChannel(source, size.width, size.height, 1);
   const b = sampleChannel(source, size.width, size.height, 2);
@@ -183,7 +187,11 @@ export function areaSelectionFromColorRange(
   const feather = options.feather ?? 0;
   const reach = options.tolerance + feather;
 
-  const size = boundedPlaneSize(source.width, source.height, options.resolution ?? Number.POSITIVE_INFINITY);
+  const size = boundedPlaneSize(
+    source.width,
+    source.height,
+    options.resolution ?? Number.POSITIVE_INFINITY,
+  );
   const planeW = size.width;
   const planeH = size.height;
   const scaleX = source.width / planeW;
@@ -200,18 +208,18 @@ export function areaSelectionFromColorRange(
       const idx = srcY * source.width + srcX;
       const base = idx * 4;
       const alpha = source.data[base + 3]! / 255;
-      const distance = oklabDistance(targetLab, oklabOf(
-        source.data[base]!,
-        source.data[base + 1]!,
-        source.data[base + 2]!,
-      ));
+      const distance = oklabDistance(
+        targetLab,
+        oklabOf(source.data[base]!, source.data[base + 1]!, source.data[base + 2]!),
+      );
       let amount = 0;
       if (alpha > 0 && distance <= reach) {
-        amount = distance <= options.tolerance
-          ? 1
-          : feather > 0
-            ? 1 - (distance - options.tolerance) / feather
-            : 0;
+        amount =
+          distance <= options.tolerance
+            ? 1
+            : feather > 0
+              ? 1 - (distance - options.tolerance) / feather
+              : 0;
         amount *= alpha;
       }
       if (distance <= reach) near[py * planeW + px] = 1;

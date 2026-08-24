@@ -71,8 +71,8 @@ function computeWorldBounds(
 
     // Map the four corners of the node's local bbox through its transform.
     // Most nodes are rect-based; fall back to a unit square for non-rect.
-    let lx = shape?.x ?? 0;
-    let ly = shape?.y ?? 0;
+    const lx = shape?.x ?? 0;
+    const ly = shape?.y ?? 0;
     let lw = shape?.w ?? 100;
     let lh = shape?.h ?? 100;
     if (lw <= 0 || lh <= 0) {

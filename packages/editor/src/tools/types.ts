@@ -76,7 +76,21 @@ export type DraftShape =
   | { kind: 'frame'; x: number; y: number; w: number; h: number; label?: string }
   | { kind: 'freehand'; points: { x: number; y: number }[]; label?: string };
 
+export interface PixelProbe {
+  screenX: number;
+  screenY: number;
+  worldX: number;
+  worldY: number;
+  red: number;
+  green: number;
+  blue: number;
+  alpha: number;
+  hex: string;
+}
+
 export interface ToolContext {
+  /** Tool that was active immediately before this lifecycle activation. */
+  previousToolId?: ToolId;
   document: Document;
   selection: NodeId[];
   zoom: number;
@@ -115,6 +129,8 @@ export interface ToolContext {
   /** Separate analytical pixel selection; does not use the node selection array. */
   areaSelection?: AreaSelection | null;
   setAreaSelection?: (selection: AreaSelection | null) => void;
+  /** Commit one undoable analytical selection change, typically one paint stroke. */
+  commitAreaSelection?: (selection: AreaSelection) => void;
   areaSelectionSettings?: AreaSelectionSettings;
   setAreaSelectionSettings?: (patch: Partial<AreaSelectionSettings>) => void;
   setMaskPreviewMode: (mode: MaskPreviewMode) => void;
@@ -178,6 +194,7 @@ export interface ToolContext {
   announceSelection: (selected: SceneNode[]) => void;
   announceOperation: (op: string, result: string) => void;
   setDraft: (draft: DraftShape | null) => void;
+  setPixelProbe?: (probe: PixelProbe | null) => void;
   setDropTargetFrame: (id: NodeId | null) => void;
   rootNodes: () => SceneNode[];
   getNode: (id: NodeId) => SceneNode | undefined;

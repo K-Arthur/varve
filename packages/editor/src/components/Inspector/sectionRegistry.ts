@@ -34,6 +34,7 @@ export type SectionId =
   | 'fills'
   | 'paint-library'
   | 'image-placement'
+  | 'image-perspective'
   | 'image-resolution'
   | 'image-enhancement'
   | 'background-removal'
@@ -494,6 +495,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
   },
   {
+    id: 'image-perspective',
+    title: 'Perspective',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 272,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
     id: 'image-resolution',
     title: 'Image Resolution',
     defaultExpanded: true,
@@ -554,8 +565,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     // Available whenever there is something to capture (a selection) or
     // previously captured states to apply. The section component renders
     // nothing when both are empty.
-    isAvailable: (ctx) =>
-      hasNodes(ctx) || (ctx.document?.layerStates?.length ?? 0) > 0,
+    isAvailable: (ctx) => hasNodes(ctx) || (ctx.document?.layerStates?.length ?? 0) > 0,
   },
   {
     id: 'image-enhancement',

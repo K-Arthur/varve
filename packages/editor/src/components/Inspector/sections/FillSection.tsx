@@ -512,7 +512,7 @@ function FillRow({
                 : 'rgba(214,69,69,0.08)',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 4,
+              gap: 'var(--space-1)',
               cursor: 'pointer',
             }}
             onClick={onOpenModifier}

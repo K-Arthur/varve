@@ -1,12 +1,12 @@
-import { describe, expect, it } from 'vitest';
 import { translate } from '@varve/shared';
+import { describe, expect, it } from 'vitest';
 import {
   areaSelectionBounds,
   areaSelectionCoverageAt,
   areaSelectionToPath,
   createAreaSelection,
-  transformAreaSelection,
   type PathCommand,
+  transformAreaSelection,
 } from './areaSelection';
 
 const rectPath = (tx = 0, ty = 0): ReturnType<typeof createAreaSelection> =>

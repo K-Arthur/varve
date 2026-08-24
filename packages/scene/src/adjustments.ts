@@ -36,6 +36,7 @@ export type {
   HalftoneAdjustment,
   HalftonePreset,
   HueRotateAdjustment,
+  HueSaturationAdjustment,
   InvertAdjustment,
   LensFlareAdjustment,
   LevelsAdjustment,

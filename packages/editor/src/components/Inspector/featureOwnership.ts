@@ -247,6 +247,14 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale: 'Fit and placement are basic selected-image properties.',
     duplicates: 'ImageFillControls and Crop & Bounds also expose fit.',
   },
+  'image-perspective': {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'occasional',
+    complexity: 'moderate',
+    status: 'functional',
+    rationale: 'Numeric four-corner controls complement the direct-manipulation perspective tool.',
+  },
   'image-resolution': {
     surface: 'properties',
     scope: 'selection',

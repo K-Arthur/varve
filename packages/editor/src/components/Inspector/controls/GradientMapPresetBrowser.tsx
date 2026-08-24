@@ -9,6 +9,7 @@ import { ContextMenu, IconButton, SearchField, ToggleButton } from '@varve/ui';
 import { type KeyboardEvent, useMemo, useRef, useState } from 'react';
 import { gradientPresetToCss } from '../../../gradientPresets/thumbnail';
 import { useRovingTabIndex } from '../../../hooks';
+import { confirmDialog, promptDialog } from '../../PromptDialog';
 
 type Category = 'all' | 'favorites' | 'recent';
 
@@ -88,8 +89,8 @@ export function GradientMapPresetBrowser({
       items.push({
         id: 'rename',
         label: 'Rename',
-        onAction: () => {
-          const name = window.prompt('Rename preset', displayName(context.preset));
+        onAction: async () => {
+          const name = await promptDialog('Rename preset', displayName(context.preset));
           if (name?.trim()) onRename(id, name.trim());
         },
       });
@@ -108,8 +109,18 @@ export function GradientMapPresetBrowser({
       items.push({
         id: 'delete',
         label: 'Delete',
-        onAction: () => {
-          if (window.confirm(`Delete preset "${displayName(context.preset)}"?`)) onDelete(id);
+        onAction: async () => {
+          if (
+            await confirmDialog(
+              'Delete preset',
+              `Delete preset "${displayName(context.preset)}"?`,
+              {
+                confirmLabel: 'Delete',
+                variant: 'danger',
+              },
+            )
+          )
+            onDelete(id);
         },
       });
     }

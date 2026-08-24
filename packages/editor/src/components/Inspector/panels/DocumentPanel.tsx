@@ -734,7 +734,7 @@ function IsometricGridSection() {
                   style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 11, opacity: 0.7 }}>Angle</span>
+                    <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>Angle</span>
                     <input
                       type="number"
                       min="0"
@@ -750,10 +750,17 @@ function IsometricGridSection() {
                       style={{ width: 70 }}
                       aria-label={`Axis ${index + 1} angle ${axis.angle} degrees`}
                     />
-                    <span style={{ fontSize: 11, opacity: 0.7 }}>deg</span>
+                    <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>deg</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <label
+                      style={{
+                        fontSize: 'var(--font-size-2xs)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 3,
+                      }}
+                    >
                       <input
                         type="checkbox"
                         checked={axis.visible}
@@ -778,7 +785,7 @@ function IsometricGridSection() {
                       swatchStyle={{ background: axis.color ?? 'rgb(128,128,128)' }}
                       documentColorMode={documentColorMode}
                     />
-                    <span style={{ fontSize: 11, opacity: 0.7 }}>
+                    <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>
                       {Math.round((axis.opacity ?? 1) * 100)}%
                     </span>
                     <input
@@ -798,7 +805,7 @@ function IsometricGridSection() {
                         className="insp-btn"
                         onClick={() => removeAxis(index)}
                         aria-label={`Remove axis ${index + 1}`}
-                        style={{ fontSize: 11, padding: '1px 4px' }}
+                        style={{ fontSize: 'var(--font-size-2xs)', padding: '1px 4px' }}
                       >
                         &times;
                       </button>
@@ -825,7 +832,10 @@ function IsometricGridSection() {
               <div className="insp-field" role="alert">
                 <div
                   className="insp-field__control"
-                  style={{ fontSize: 11, color: 'var(--color-feedback-warning)' }}
+                  style={{
+                    fontSize: 'var(--font-size-2xs)',
+                    color: 'var(--color-feedback-warning)',
+                  }}
                 >
                   {axisValidation.errors.join('; ')}
                 </div>

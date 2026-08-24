@@ -3,8 +3,8 @@
  * for screen-reader navigation.
  *
  * Instead of treating the entire canvas as one opaque image (`role="img"`),
- * each visible node gets a hidden `<span>` with `role="img"` and an
- * `aria-label` describing its name, kind, position, and size.
+ * each visible node gets a hidden list item with an `aria-label` describing
+ * its name, kind, position, and size.
  *
  * Research basis: WCAG 2.2 §1.1.1 (Non-text Content), WAI-ARIA img role,
  * and Figma's undocumented accessibility tree (inferred behaviour).
@@ -91,12 +91,10 @@ export function CanvasAccessibilityTree({
 
   return (
     <div aria-hidden="false" className="sr-only">
-      <ul role="list" aria-label="Canvas objects">
+      <ul aria-label="Canvas objects">
         {visibleNodes.map((node) => (
           <li
             key={node.id}
-            role="listitem"
-            aria-level={node.depth + 1}
             aria-label={`${node.name}, ${node.kind}, at (${node.x}, ${node.y}), ${node.w} x ${node.h}${
               node.backgroundRemoved
                 ? `, background removed (${node.bgRemovalMethod === 'quick' ? 'quick' : 'AI'})`

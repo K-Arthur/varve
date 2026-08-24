@@ -45,7 +45,7 @@ function makeDoc(nodes: SceneNode[]): Document {
 }
 
 describe('CanvasAccessibilityTree', () => {
-  it('renders visible nodes as hidden spans', () => {
+  it('renders visible nodes as hidden list items', () => {
     const doc = makeDoc([makeNode({ id: 'n1', name: 'Rectangle 1', kind: 'shape' })]);
     const walkNodes = vi.fn(() => {
       const m = new Map<string, { depth: number; parentId: string | null }>();
@@ -71,17 +71,18 @@ describe('CanvasAccessibilityTree', () => {
     expect(hiddenDiv.getAttribute('aria-hidden')).toBe('false');
     expect(hiddenDiv.className).toContain('sr-only');
 
-    const spans = hiddenDiv.querySelectorAll('span');
-    expect(spans.length).toBe(1);
+    const list = hiddenDiv.querySelector('ul[aria-label="Canvas objects"]');
+    expect(list).not.toBeNull();
+    const items = hiddenDiv.querySelectorAll('li');
+    expect(items.length).toBe(1);
 
-    const span = spans[0] as HTMLSpanElement;
-    expect(span.getAttribute('role')).toBe('img');
-    expect(span.getAttribute('aria-label')).toContain('Rectangle 1');
-    expect(span.getAttribute('aria-label')).toContain('shape');
-    expect(span.getAttribute('aria-label')).toContain('10');
-    expect(span.getAttribute('aria-label')).toContain('20');
-    expect(span.getAttribute('aria-label')).toContain('100');
-    expect(span.getAttribute('aria-label')).toContain('80');
+    const item = items[0] as HTMLLIElement;
+    expect(item.getAttribute('aria-label')).toContain('Rectangle 1');
+    expect(item.getAttribute('aria-label')).toContain('shape');
+    expect(item.getAttribute('aria-label')).toContain('10');
+    expect(item.getAttribute('aria-label')).toContain('20');
+    expect(item.getAttribute('aria-label')).toContain('100');
+    expect(item.getAttribute('aria-label')).toContain('80');
   });
 
   it('off-screen nodes excluded', () => {
@@ -115,9 +116,9 @@ describe('CanvasAccessibilityTree', () => {
       />,
     );
 
-    const spans = container.querySelectorAll('span');
-    expect(spans.length).toBe(1);
-    expect(spans[0]?.getAttribute('aria-label')).toContain('Visible');
+    const items = container.querySelectorAll('li');
+    expect(items.length).toBe(1);
+    expect(items[0]?.getAttribute('aria-label')).toContain('Visible');
     // isWorldRectInViewport called for both nodes
     expect(isWorldRectInViewport).toHaveBeenCalledTimes(2);
   });
@@ -143,7 +144,7 @@ describe('CanvasAccessibilityTree', () => {
       />,
     );
 
-    expect(container.querySelectorAll('span').length).toBe(1);
+    expect(container.querySelectorAll('li').length).toBe(1);
 
     // Re-render with different viewport — walkNodes and nodeWorldBounds called again
     isWorldRectInViewport.mockClear();
@@ -160,7 +161,7 @@ describe('CanvasAccessibilityTree', () => {
       />,
     );
 
-    expect(container.querySelectorAll('span').length).toBe(0);
+    expect(container.querySelectorAll('li').length).toBe(0);
   });
 
   it('updates when document changes', () => {
@@ -187,8 +188,8 @@ describe('CanvasAccessibilityTree', () => {
       />,
     );
 
-    expect(container.querySelectorAll('span').length).toBe(1);
-    expect(container.querySelector('span')?.getAttribute('aria-label')).toContain('Rect A');
+    expect(container.querySelectorAll('li').length).toBe(1);
+    expect(container.querySelector('li')?.getAttribute('aria-label')).toContain('Rect A');
 
     rerender(
       <CanvasAccessibilityTree
@@ -201,9 +202,9 @@ describe('CanvasAccessibilityTree', () => {
       />,
     );
 
-    const spans = container.querySelectorAll('span');
-    expect(spans.length).toBe(1);
-    expect(spans[0]?.getAttribute('aria-label')).toContain('Rect B');
+    const items = container.querySelectorAll('li');
+    expect(items.length).toBe(1);
+    expect(items[0]?.getAttribute('aria-label')).toContain('Rect B');
   });
 
   it('descriptions include name, kind, dimensions', () => {
@@ -234,7 +235,7 @@ describe('CanvasAccessibilityTree', () => {
       />,
     );
 
-    const label = container.querySelector('span')?.getAttribute('aria-label') ?? '';
+    const label = container.querySelector('li')?.getAttribute('aria-label') ?? '';
     expect(label).toContain('My Circle');
     expect(label).toContain('shape');
     expect(label).toContain('20');

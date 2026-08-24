@@ -107,7 +107,7 @@ export function ComponentSection({ node }: { node: FrameNode }) {
           <div className="insp-empty-message" style={{ padding: '0 0 var(--space-1)' }}>
             Overridden properties
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
             {overrides.map((prop) => (
               <span
                 key={prop}

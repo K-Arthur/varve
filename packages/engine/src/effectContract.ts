@@ -8,12 +8,13 @@
  *
  * Working color space
  * ────────────────────
- * Most effects operate in sRGB gamma-encoded space (gamma ≈ 2.2), matching
- * the browser Canvas2D default. Blur and bloom use linear-light stages for
- * correct colour bleeding and highlight accumulation, while palette matching
- * may use OKLab according to its explicit metric. Full ICC-aware processing
- * (Display P3, embedded image profiles, CMYK proofing) is a future milestone
- * tracked in docs/architecture/color-management.md.
+ * Each effect declares its working space here rather than relying on an
+ * implicit renderer default. Most effects operate in sRGB gamma-encoded space
+ * (gamma ≈ 2.2); blur and bloom use linear-light stages for correct colour
+ * bleeding and highlight accumulation, while palette matching may use OKLab
+ * according to its explicit metric. Document/profile conversion and soft
+ * proofing are separate colour-management stages, described in
+ * docs/architecture/color-management.md.
  *
  * Alpha conventions
  * ─────────────────
@@ -89,6 +90,16 @@ const EFFECT_CONTRACTS: Record<string, EffectContractEntry> = {
     previewTolerance: 0,
     requiresRasterForExport: false,
     cssFilterEquivalent: 'saturate(%)',
+    gpuStatus: 'not-implemented',
+  },
+  hueSaturation: {
+    name: 'Hue / Saturation',
+    workingSpace: 'srgb-gamma',
+    alphaConvention: 'straight',
+    hasApproximatePreview: false,
+    previewTolerance: 0,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
     gpuStatus: 'not-implemented',
   },
   hueRotate: {

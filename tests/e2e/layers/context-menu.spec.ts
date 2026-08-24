@@ -16,7 +16,7 @@ test.describe('Layers Panel - Context Menu', () => {
     await firstItem.click({ button: 'right' });
     await page.waitForTimeout(100);
 
-    const menu = page.locator('.layers-context-menu');
+    const menu = page.locator('.varve-ctxmenu');
     await expect(menu).toBeVisible();
 
     const renameItem = menu.locator('button:has-text("Rename")');
@@ -39,7 +39,7 @@ test.describe('Layers Panel - Context Menu', () => {
     await items.first().click({ button: 'right' });
     await page.waitForTimeout(100);
 
-    const menu = page.locator('.layers-context-menu');
+    const menu = page.locator('.varve-ctxmenu');
     await expect(menu).toBeVisible();
 
     const deleteItem = menu.locator('button:has-text("Delete")');
@@ -67,7 +67,7 @@ test.describe('Layers Panel - Context Menu', () => {
     await items.nth(0).click({ button: 'right' });
     await page.waitForTimeout(100);
 
-    const menu = page.locator('.layers-context-menu');
+    const menu = page.locator('.varve-ctxmenu');
     await expect(menu).toBeVisible();
 
     // has-text("Group") also matches "Ungroup" — anchor to the start so
@@ -108,7 +108,7 @@ test.describe('Layers Panel - Context Menu', () => {
       await groupItem.click({ button: 'right' });
       await page.waitForTimeout(100);
 
-      const menu = page.locator('.layers-context-menu');
+      const menu = page.locator('.varve-ctxmenu');
       const ungroupItem = menu.locator('button:has-text("Ungroup")');
       if ((await ungroupItem.count()) > 0) {
         await expect(ungroupItem).not.toBeDisabled();
@@ -134,7 +134,7 @@ test.describe('Layers Panel - Context Menu', () => {
     await items.last().click({ button: 'right' });
     await page.waitForTimeout(100);
 
-    const menu = page.locator('.layers-context-menu');
+    const menu = page.locator('.varve-ctxmenu');
     await expect(menu).toBeVisible();
 
     const frontItem = menu.locator('button:has-text("Bring to Front")');
@@ -159,7 +159,7 @@ test.describe('Layers Panel - Context Menu', () => {
     await items.first().click({ button: 'right' });
     await page.waitForTimeout(100);
 
-    const menu = page.locator('.layers-context-menu');
+    const menu = page.locator('.varve-ctxmenu');
     await expect(menu).toBeVisible();
 
     const backItem = menu.locator('button:has-text("Send to Back")');
@@ -181,11 +181,11 @@ test.describe('Layers Panel - Context Menu', () => {
     await firstItem.click({ button: 'right' });
     await page.waitForTimeout(100);
 
-    const menu = page.locator('.layers-context-menu');
+    const menu = page.locator('.varve-ctxmenu');
     await expect(menu).toBeVisible();
 
     // Click the "Red" color tag button
-    const redBtn = menu.locator('.layers-context-menu__color-tag-btn--red');
+    const redBtn = menu.getByRole('menuitem', { name: /^Red$/i });
     if ((await redBtn.count()) > 0) {
       await redBtn.click();
       await page.waitForTimeout(100);
@@ -209,7 +209,7 @@ test.describe('Layers Panel - Context Menu', () => {
     await items.first().click({ button: 'right' });
     await page.waitForTimeout(100);
 
-    const menu = page.locator('.layers-context-menu');
+    const menu = page.locator('.varve-ctxmenu');
     await expect(menu).toBeVisible();
 
     const selectSameType = menu.locator('button:has-text("Select Same Type")');
@@ -240,8 +240,8 @@ test.describe('Layers Panel - Context Menu', () => {
     // First set a color tag on the first item
     await firstItem.click({ button: 'right' });
     await page.waitForTimeout(100);
-    const menu = page.locator('.layers-context-menu');
-    const redBtn = menu.locator('.layers-context-menu__color-tag-btn--red');
+    const menu = page.locator('.varve-ctxmenu');
+    const redBtn = menu.getByRole('menuitem', { name: /^Red$/i });
     if ((await redBtn.count()) > 0) {
       await redBtn.click();
       await page.waitForTimeout(100);
@@ -250,9 +250,9 @@ test.describe('Layers Panel - Context Menu', () => {
       await firstItem.click({ button: 'right' });
       await page.waitForTimeout(100);
 
-      const selectSameColor = page.locator(
-        '.layers-context-menu button:has-text("Select Same Color")',
-      );
+      const selectSameColor = page
+        .locator('.varve-ctxmenu')
+        .getByRole('menuitem', { name: /^Select Same Color$/i });
       if ((await selectSameColor.count()) > 0) {
         await selectSameColor.click();
         await page.waitForTimeout(200);

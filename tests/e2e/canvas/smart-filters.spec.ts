@@ -18,7 +18,8 @@ async function selectLayerInPanel(page: Page, index = 0) {
 /** Add an Object Filter via the inspector dropdown. */
 async function addSmartFilter(page: Page, kindLabel: string) {
   const select = page.getByLabel('Add Object Filter');
-  await select.selectOption({ label: kindLabel });
+  await select.click();
+  await page.getByRole('option', { name: kindLabel, exact: true }).click();
   await page.waitForTimeout(200);
 }
 

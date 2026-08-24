@@ -1,6 +1,8 @@
-import type { Color, CurvePoint } from '@varve/engine';
 import {
+  autoContrastParams,
   COLOR_HALFTONE_PRESETS,
+  type Color,
+  type CurvePoint,
   HALFTONE_PRESETS,
   LUT_INPUT_SPACE_LABELS,
   parseLutFile,
@@ -69,6 +71,7 @@ export function AdjustmentEditor({
     },
     [onChange],
   );
+  const [hueSaturationRange, setHueSaturationRange] = useState('master');
 
   switch (adjustment.kind) {
     case 'brightness':
@@ -105,64 +108,6 @@ export function AdjustmentEditor({
             value={adjustment.value}
             onChange={handleSlider('value')}
             aria-label="Contrast"
-          />
-        </div>
-      );
-
-    case 'shadowHighlight':
-      return (
-        <div className="adj-editor__slider-row">
-          <div className="adj-editor__slider-label">
-            <span>Shadows</span>
-            <span>{adjustment.shadows}</span>
-          </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
-            min={0}
-            max={100}
-            value={adjustment.shadows}
-            onChange={handleSlider('shadows')}
-            aria-label="Shadows"
-          />
-          <div className="adj-editor__slider-label">
-            <span>Highlights</span>
-            <span>{adjustment.highlights}</span>
-          </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
-            min={0}
-            max={100}
-            value={adjustment.highlights}
-            onChange={handleSlider('highlights')}
-            aria-label="Highlights"
-          />
-          <div className="adj-editor__slider-label">
-            <span>Tonal width</span>
-            <span>{adjustment.tonalWidth}</span>
-          </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
-            min={0}
-            max={100}
-            value={adjustment.tonalWidth}
-            onChange={handleSlider('tonalWidth')}
-            aria-label="Tonal width"
-          />
-          <div className="adj-editor__slider-label">
-            <span>Midpoint</span>
-            <span>{adjustment.midpoint}</span>
-          </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
-            min={0}
-            max={100}
-            value={adjustment.midpoint}
-            onChange={handleSlider('midpoint')}
-            aria-label="Midpoint"
           />
         </div>
       );
@@ -283,6 +228,67 @@ export function AdjustmentEditor({
           />
         </div>
       );
+
+    case 'hueSaturation': {
+      const ranges = adjustment.ranges as Record<
+        string,
+        { hue: number; saturation: number; lightness: number }
+      >;
+      const activeRange = hueSaturationRange;
+      const active = ranges[activeRange] ??
+        ranges.master ?? { hue: 0, saturation: 0, lightness: 0 };
+      const updateRange = (key: 'hue' | 'saturation' | 'lightness', value: number) =>
+        onChange({
+          ranges: {
+            ...ranges,
+            [activeRange]: { ...active, [key]: value },
+          },
+        } as Partial<Adjustment>);
+      return (
+        <div className="adj-editor__group">
+          <Select
+            label="Hue/Saturation range"
+            value={activeRange}
+            options={[
+              { value: 'master', label: 'Master' },
+              { value: 'reds', label: 'Reds' },
+              { value: 'yellows', label: 'Yellows' },
+              { value: 'greens', label: 'Greens' },
+              { value: 'cyans', label: 'Cyans' },
+              { value: 'blues', label: 'Blues' },
+              { value: 'magentas', label: 'Magentas' },
+            ]}
+            onChange={setHueSaturationRange}
+          />
+          {(
+            [
+              ['hue', 'Hue', -180, 180, '°'],
+              ['saturation', 'Saturation', -100, 100, '%'],
+              ['lightness', 'Lightness', -100, 100, '%'],
+            ] as const
+          ).map(([key, label, min, max, unit]) => (
+            <div className="adj-editor__slider-row" key={key}>
+              <div className="adj-editor__slider-label">
+                <span>{label}</span>
+                <span>
+                  {active[key]}
+                  {unit}
+                </span>
+              </div>
+              <input
+                type="range"
+                className="adj-editor__slider"
+                min={min}
+                max={max}
+                value={active[key]}
+                onChange={(event) => updateRange(key, Number(event.target.value))}
+                aria-label={`${label} ${activeRange}`}
+              />
+            </div>
+          ))}
+        </div>
+      );
+    }
 
     case 'hueRotate':
       return (
@@ -818,6 +824,14 @@ function LevelsEditor({
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
+  const histogramChannel = adj.channel === 'rgb' ? 'luminance' : adj.channel;
+  const handleAutoContrast = () => {
+    if (!sourceHistogram) return;
+    onEditStart?.();
+    const auto = autoContrastParams(sourceHistogram);
+    onChange({ inputShadows: auto.inputBlack, inputHighlights: auto.inputWhite });
+    onEditEnd?.();
+  };
 
   return (
     <div>
@@ -839,9 +853,22 @@ function LevelsEditor({
         histogram={sourceHistogram ?? undefined}
         levels={levelsAdjustmentToParams(adj)}
         onChange={(params) => onChange(paramsToLevelsAdjustmentPatch(params))}
+        channel={histogramChannel}
+        onChannelChange={(channel) =>
+          handleSelect('channel')(channel === 'luminance' ? 'rgb' : channel)
+        }
         onDragStart={onEditStart}
         onDragEnd={onEditEnd}
       />
+      <button
+        type="button"
+        className="insp-add-btn"
+        onClick={handleAutoContrast}
+        disabled={!sourceHistogram}
+        aria-label="Auto Contrast"
+      >
+        Auto Contrast
+      </button>
     </div>
   );
 }
@@ -867,7 +894,13 @@ export function curvePointsToCurvesPoints(
   }));
 }
 
-function CurvesEditor({ adjustment, onChange, onEditStart, onEditEnd }: AdjustmentEditorProps) {
+function CurvesEditor({
+  adjustment,
+  onChange,
+  onEditStart,
+  onEditEnd,
+  sourceHistogram,
+}: AdjustmentEditorProps) {
   const adj = adjustment as import('@varve/scene').CurvesAdjustment;
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
@@ -882,6 +915,7 @@ function CurvesEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustme
         }
         channel={adj.channel as 'rgb' | 'red' | 'green' | 'blue'}
         onChannelChange={handleSelect('channel')}
+        histogram={sourceHistogram ?? undefined}
         onDragStart={onEditStart}
         onDragEnd={onEditEnd}
       />

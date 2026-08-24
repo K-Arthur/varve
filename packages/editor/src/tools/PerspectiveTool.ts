@@ -76,7 +76,10 @@ export class PerspectiveTool extends BaseTool {
     if (!this.state) return;
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
     const quad = [...this.state.quad] as MutablePoint[];
-    quad[corner] = [x, y];
+    // Pointer deltas are camera-scaled floating-point values. Keep the
+    // persisted quad precise enough for pixel placement without exposing
+    // binary-fraction noise in the Inspector's numeric controls.
+    quad[corner] = [Math.round(x * 100) / 100, Math.round(y * 100) / 100];
     const nextQuad = quad as unknown as PerspectiveQuad;
     if (!isPerspectiveQuadValid(nextQuad)) return;
     this.state = { ...this.state, quad: nextQuad };
@@ -124,9 +127,9 @@ export class PerspectiveTool extends BaseTool {
       return;
     }
 
-    const imageFill = (node.fills ?? []).find(
-      (f: { type: string }) => f.type === 'image',
-    )?.image as { perspective?: { quad: PerspectiveQuad } } | undefined;
+    const imageFill = (node.fills ?? []).find((f: { type: string }) => f.type === 'image')?.image as
+      | { perspective?: { quad: PerspectiveQuad } }
+      | undefined;
 
     const persistedQuad = imageFill?.perspective?.quad;
     const currentQuad: PerspectiveQuad =

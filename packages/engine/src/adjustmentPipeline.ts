@@ -188,6 +188,13 @@ const FILTER_PROPERTIES: Record<string, FilterProperties> = {
     hasCssPath: true,
     requiresRasterExport: false,
   },
+  hueSaturation: {
+    name: 'Hue / Saturation',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
   hueRotate: {
     name: 'Hue Rotate',
     capabilities: ['css-canvas', 'software-cpu'],
@@ -554,7 +561,6 @@ export function effectPixelExpansion(filter: FilterIR): [number, number, number,
       return [pad, pad, pad, pad];
     }
     // Pointwise operations: no spatial expansion needed.
-    case 'shadowHighlight':
     default:
       return [0, 0, 0, 0];
   }

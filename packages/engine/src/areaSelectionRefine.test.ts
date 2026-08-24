@@ -1,12 +1,12 @@
-import { describe, expect, it } from 'vitest';
 import { applyAffine, rotateDeg, scaleXY, translate } from '@varve/shared';
+import { describe, expect, it } from 'vitest';
 import {
+  type AreaSelectionRefineOperation,
   areaSelectionBounds,
   areaSelectionCoverageAt,
   createAreaSelection,
   refineAreaSelection,
   transformAreaSelection,
-  type AreaSelectionRefineOperation,
 } from './areaSelection';
 
 function rect(
@@ -30,7 +30,15 @@ function rect(
 }
 
 function ellipse(x: number, y: number, w: number, h: number) {
-  const selection = createAreaSelection({ kind: 'ellipse', x, y, w, h, feather: 0, antialias: false });
+  const selection = createAreaSelection({
+    kind: 'ellipse',
+    x,
+    y,
+    w,
+    h,
+    feather: 0,
+    antialias: false,
+  });
   if (!selection) throw new Error('invalid test selection');
   return selection;
 }
@@ -71,7 +79,9 @@ describe('transformAreaSelection', () => {
       h: 4,
       width: 4,
       height: 4,
-      data: new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]),
+      data: new Uint8Array([
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+      ]),
       boundary: [],
       transform: [1, 0, 0, 1, 0, 0],
       inverseTransform: [1, 0, 0, 1, 0, 0],
@@ -148,7 +158,11 @@ describe('refineAreaSelection', () => {
 
   it('keeps every operation bounded inside the selection bounds', () => {
     for (const op of ops) {
-      const result = refineAreaSelection(rect(0, 0, 8, 8), op, { amount: 2, sigma: 2, threshold: 0.5 });
+      const result = refineAreaSelection(rect(0, 0, 8, 8), op, {
+        amount: 2,
+        sigma: 2,
+        threshold: 0.5,
+      });
       expect(result).not.toBeNull();
       const bounds = areaSelectionBounds(result!.expression);
       const pad = op === 'grow' || op === 'shrink' ? 2 : op === 'smooth' ? 6 : 0;

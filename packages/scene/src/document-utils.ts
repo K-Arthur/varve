@@ -179,18 +179,18 @@ export function validateDocument(doc: DocumentLike): DocValidationResult {
 
   for (const [nid, node] of Object.entries(doc.nodes)) {
     for (const childId of childrenOf(node)) {
-        if (!doc.nodes[childId]) {
-          errors.push(`Container ${nid} references non-existent child ${childId}`);
-        }
+      if (!doc.nodes[childId]) {
+        errors.push(`Container ${nid} references non-existent child ${childId}`);
+      }
     }
   }
 
   const childToParent = new Map<NodeId, NodeId[]>();
   for (const [nid, node] of Object.entries(doc.nodes)) {
     for (const childId of childrenOf(node)) {
-        const existing = childToParent.get(childId) ?? [];
-        existing.push(nid as NodeId);
-        childToParent.set(childId, existing);
+      const existing = childToParent.get(childId) ?? [];
+      existing.push(nid as NodeId);
+      childToParent.set(childId, existing);
     }
   }
   for (const [childId, parents] of childToParent) {

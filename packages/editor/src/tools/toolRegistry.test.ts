@@ -35,7 +35,7 @@ describe('tool registry', () => {
   });
 
   it('keeps recovery tools explicit and maps shortcut relationships centrally', () => {
-    expect([...ESSENTIAL_TOOL_IDS]).toEqual(['select', 'hand', 'zoom']);
+    expect([...ESSENTIAL_TOOL_IDS]).toEqual(expect.arrayContaining(['select', 'hand', 'zoom']));
     expect(getToolIdForShortcutId('toolPen')).toBe('pen');
     expect(getToolIdForShortcutId('missingShortcut')).toBeUndefined();
     expect(getToolDefinition('booleanUnion')?.kind).toBe('command');

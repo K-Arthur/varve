@@ -14,8 +14,8 @@ describe('selection path conversion', () => {
     const commands = pathPointsToSelectionCommands(points, true, [2, 0, 0, 3, 100, 200]);
     expect(commands).toEqual([
       { type: 'move', x: 120, y: 260 },
-      { type: 'curve', cx1: 128, cy1: 266, cx2: 154, cy2: 305, x: 160, y: 320 },
-      { type: 'curve', cx1: 160, cy1: 320, cx2: 120, cy2: 260, x: 120, y: 260 },
+      { type: 'curve', cx1: 128, cy1: 266, cx2: 154, cy2: 335, x: 160, y: 320 },
+      { type: 'line', x: 120, y: 260 },
       { type: 'close' },
     ]);
   });

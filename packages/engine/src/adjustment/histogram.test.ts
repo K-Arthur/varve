@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { autoLevelsParams, computeHistogram, computeHistogramStats } from './histogram';
+import {
+  autoContrastParams,
+  autoLevelsParams,
+  autoWhiteBalanceParams,
+  computeHistogram,
+  computeHistogramStats,
+} from './histogram';
 
 function makeImageData(pixels: number[][], w: number, h: number): ImageData {
   const data = new ImageData(w, h);
@@ -134,5 +140,30 @@ describe('autoLevelsParams', () => {
     const params = autoLevelsParams(computeHistogram(data));
     expect(params.inputBlack).toBeGreaterThan(50);
     expect(params.inputWhite).toBeLessThan(200);
+  });
+});
+
+describe('automatic tonal/color corrections', () => {
+  it('computes Auto Contrast without changing gamma', () => {
+    const hist = computeHistogram(
+      makeImageData(
+        [
+          [40, 40, 40, 255],
+          [200, 200, 200, 255],
+        ],
+        2,
+        1,
+      ),
+    );
+    expect(autoContrastParams(hist).inputBlack).toBeLessThan(40);
+    expect(autoContrastParams(hist).inputWhite).toBeGreaterThan(200);
+  });
+
+  it('returns a correction toward the neutral channel mean', () => {
+    const hist = computeHistogram(makeImageData([[200, 100, 100, 255]], 1, 1));
+    const correction = autoWhiteBalanceParams(hist);
+    expect(correction.cyanRed).toBeLessThan(0);
+    expect(correction.magentaGreen).toBeGreaterThan(0);
+    expect(correction.yellowBlue).toBeGreaterThan(0);
   });
 });

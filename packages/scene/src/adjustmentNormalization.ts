@@ -9,10 +9,10 @@
  */
 
 import {
-  adjustmentDefaults,
   type Adjustment,
   type AdjustmentBlendMode,
   type AdjustmentKind,
+  adjustmentDefaults,
   isKnownAdjustmentKind,
 } from '@varve/engine';
 
@@ -38,6 +38,10 @@ const BLEND_MODES: readonly AdjustmentBlendMode[] = [
 
 const ENUMS: Record<string, readonly string[]> = {
   channel: ['rgb', 'red', 'green', 'blue'],
+  pattern: ['dot', 'line', 'cross', 'circle'],
+  dotShape: ['round', 'elliptical', 'square', 'diamond', 'line'],
+  method: ['am', 'fm'],
+  previewChannel: ['k', 'c', 'm', 'y', 'cmyk'],
   outputChannel: ['red', 'green', 'blue'],
   colorRange: [
     'reds',
@@ -81,6 +85,7 @@ const KIND_NUMERIC_RANGES: Record<string, Record<string, [number, number]>> = {
   saturation: { value: [-100, 100] },
   vibrance: { value: [-100, 100] },
   hueRotate: { value: [-180, 180] },
+  hueSaturation: { hue: [-180, 180], saturation: [-100, 100], lightness: [-100, 100] },
   sepia: { value: [0, 100] },
   grayscale: { value: [0, 100] },
   invert: { value: [0, 100] },
@@ -225,7 +230,8 @@ function normalizeValue(
   }
   if (typeof fallback === 'boolean') return typeof value === 'boolean' ? value : fallback;
   if (typeof fallback === 'string') {
-    const allowed = ENUMS[key];
+    const allowed =
+      kind === 'halftone' && key === 'channel' ? ['k', 'c', 'm', 'y', 'cmyk'] : ENUMS[key];
     return allowed?.includes(value as string) ? value : fallback;
   }
   if (Array.isArray(fallback)) return normalizeColor(value, fallback);

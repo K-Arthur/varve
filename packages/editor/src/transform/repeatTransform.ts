@@ -21,10 +21,14 @@ let lastTransform: RepeatTransformState | null = null;
 /** Store the last successful transform for repeat. */
 export function storeRepeatTransform(delta: Affine, selection: readonly string[]): void {
   if (
-    delta[0] === 1 && delta[1] === 0 &&
-    delta[2] === 0 && delta[3] === 1 &&
-    delta[4] === 0 && delta[5] === 0
-  ) return;
+    delta[0] === 1 &&
+    delta[1] === 0 &&
+    delta[2] === 0 &&
+    delta[3] === 1 &&
+    delta[4] === 0 &&
+    delta[5] === 0
+  )
+    return;
   lastTransform = { delta, selectionSnapshot: [...selection] };
 }
 

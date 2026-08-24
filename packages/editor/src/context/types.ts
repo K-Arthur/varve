@@ -509,6 +509,8 @@ export interface EditorState {
   warpEdit: { nodeId: NodeId; modifierId: string } | null;
   /** Whether the upscale dialog is open. */
   upscaleDialogOpen: boolean;
+  /** Whether the source-pixel image resize dialog is open. */
+  imageResizeDialogOpen: boolean;
   /** Whether the Image Trace (vectorize) dialog is open. */
   vectorizeDialogOpen: boolean;
   /** Re-trace target for the Image Trace dialog (Edit Trace workflow). */
@@ -1042,6 +1044,14 @@ export interface EditorContextValue {
   openUpscaleDialog: () => void;
   closeUpscaleDialog: () => void;
 
+  // Source-pixel image resize dialog
+  imageResizeDialogOpen: boolean;
+  openImageResizeDialog: () => void;
+  closeImageResizeDialog: () => void;
+  resizeSelectedImage: (
+    request: import('../imageResize').ImageResizeRequest & { nodeId: NodeId },
+  ) => Promise<void>;
+
   // Image Trace dialog
   vectorizeDialogOpen: boolean;
   openVectorizeDialog: (prefill?: { replaceGroupId: string } | null) => void;
@@ -1365,6 +1375,8 @@ export interface EditorContextValue {
   setQuickMaskCoverage: (coverage: Uint8Array, width: number, height: number) => void;
   /** Replace the analytical pixel selection without dirtying the document. */
   setAreaSelection?: (selection: AreaSelection | null) => void;
+  /** Commit one undoable analytical selection change without dirtying the document. */
+  commitAreaSelection?: (selection: AreaSelection) => void;
   /** Update ephemeral pixel-marquee controls without dirtying the document. */
   setAreaSelectionSettings: (patch: Partial<AreaSelectionSettings>) => void;
   paintQuickMask: (x: number, y: number, radius: number, value: number) => void;

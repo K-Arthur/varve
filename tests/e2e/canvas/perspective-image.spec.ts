@@ -15,9 +15,9 @@ test.describe('Image perspective transform', () => {
     await layer.waitFor({ timeout: 15000 });
     await layer.click();
 
-    // The perspective command uses the explicit modifier binding so it does
-    // not collide with the ordinary Pen shortcut.
-    await page.keyboard.press('Control+Alt+p');
+    // Perspective has an explicit modifier binding so it cannot collide with
+    // the ordinary Pen shortcut (or the colour-blindness view commands).
+    await page.keyboard.press('Alt+Shift+w');
     const handles = page.locator('button[aria-label^="Perspective corner"]');
     await expect(handles).toHaveCount(4, { timeout: 10000 });
 
@@ -41,7 +41,7 @@ test.describe('Image perspective transform', () => {
 
     // Cancel a second session after changing a corner: the overlay should
     // disappear without leaving a second visible interaction surface.
-    await page.keyboard.press('Control+Alt+p');
+    await page.keyboard.press('Alt+Shift+w');
     await expect(handles).toHaveCount(4, { timeout: 10000 });
     await page.keyboard.press('Escape');
     await expect(handles).toHaveCount(0);

@@ -16,6 +16,7 @@ const handlers = {
   renameLayerState: vi.fn(),
   deleteLayerState: vi.fn(),
   duplicateLayerState: vi.fn(),
+  announce: vi.fn(),
 };
 
 // `mock`-prefixed so vitest hoists it for the factory below.

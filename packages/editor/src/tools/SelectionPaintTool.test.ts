@@ -64,4 +64,19 @@ describe('SelectionPaintTool', () => {
     expect(ctx.areaSelection).toBe(before);
     expect(ctx.setAreaSelection).not.toHaveBeenCalled();
   });
+
+  it('commits one undoable selection change per completed stroke', () => {
+    const tool = new SelectionPaintTool();
+    const ctx = makeContext();
+    ctx.commitAreaSelection = vi.fn((next: typeof ctx.areaSelection) => {
+      ctx.areaSelection = next;
+    });
+    tool.onActivate(ctx);
+    tool.onPointerDown(pointer(25, 25), ctx);
+    tool.onPointerMove(pointer(30, 30), ctx);
+    tool.onPointerUp(pointer(35, 35), ctx);
+
+    expect(ctx.commitAreaSelection).toHaveBeenCalledTimes(1);
+    expect(ctx.setAreaSelection).not.toHaveBeenCalled();
+  });
 });

@@ -355,7 +355,10 @@ export function FloatingToolbar() {
     state.tool as ToolId,
   );
   if (!config.floatingToolbar) return null;
-  if (state.tool === 'crop') return null;
+  // Modal image-edit tools provide their own focused handles and completion
+  // actions. Keeping the global palette mounted here would cover the lower
+  // perspective corners and steal pointer input from the active transform.
+  if (state.tool === 'crop' || state.tool === 'perspective') return null;
 
   const isDrawingMode = workspaceMode === 'drawing';
 

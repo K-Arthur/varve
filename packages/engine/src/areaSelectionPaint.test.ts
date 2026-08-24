@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type AreaSelection,
   areaSelectionCoverageAt,
   createAreaSelection,
-  paintSelectionMask,
-  type AreaSelection,
   type MaskBrushStamp,
+  paintSelectionMask,
   type RasterMaskSelectionShape,
 } from './areaSelection';
 

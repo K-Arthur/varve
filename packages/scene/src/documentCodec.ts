@@ -10,6 +10,7 @@
  * drift seen when each surface parses raw JSON independently.
  */
 
+import { normalizeAdjustmentStack } from './adjustmentNormalization';
 import {
   hashContent,
   isAssetReferenced,
@@ -22,7 +23,6 @@ import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
 import { type DocumentLike, findParentCycle, validateAndRepairDocument } from './document-utils';
 import { normalizeDocumentEffects } from './effects';
-import { normalizeAdjustmentStack } from './adjustmentNormalization';
 import { isIconAssetReferenced, validateIconAsset } from './iconAsset';
 import { normalizeLogoProject } from './logo/logoProject';
 import {
@@ -34,6 +34,7 @@ import {
 import { sanitizeMockupState } from './mockup/normalize';
 import { resolveNodePaints } from './paint';
 import { deserializeTiles, type SerializableTiles } from './rasterLayer';
+import { normalizeSavedAreaSelections } from './savedAreaSelection';
 import { createEmptySelectionSetsData } from './selectionSet';
 import { emptyTableModel } from './table';
 import { normalizeTableModelDefensively } from './tableOps';
@@ -766,6 +767,19 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   document = sanitizeIconAssetState(document, warnings);
   document = sanitizeMockupState(document, warnings);
   document = normalizeDocumentEffects(document);
+
+  const savedSelections = normalizeSavedAreaSelections(document.savedAreaSelections);
+  document = { ...document, savedAreaSelections: savedSelections.selections };
+  if (savedSelections.dropped > 0) {
+    warnings.push(
+      warning(
+        'document.invalid-saved-selection',
+        `Dropped ${savedSelections.dropped} malformed saved area selection${savedSelections.dropped === 1 ? '' : 's'}`,
+        'warning',
+        'savedAreaSelections',
+      ),
+    );
+  }
 
   // Adjustment and object-local filter entries share the engine's FilterIR
   // contract, but they are still persisted scene data and need the same

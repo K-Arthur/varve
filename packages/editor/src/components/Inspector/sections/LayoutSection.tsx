@@ -256,7 +256,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
             </>
           )}
           <FieldRow label="Padding">
-            <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+            <div style={{ display: 'flex', gap: 'var(--space-1)', flex: 1 }}>
               {(['T', 'R', 'B', 'L'] as const).map((side, i) => (
                 <input
                   key={side}

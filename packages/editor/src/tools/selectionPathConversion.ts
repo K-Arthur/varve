@@ -1,5 +1,5 @@
 import type { PathCommand, PathPoint } from '@varve/engine';
-import { applyAffine, type Affine } from '@varve/shared';
+import { type Affine, applyAffine } from '@varve/shared';
 
 export interface SelectionPathRing {
   points: PathPoint[];
@@ -74,7 +74,9 @@ export function pathPointsToSelectionCommands(
 }
 
 /** Convert one closed area-selection contour into scene-compatible path points. */
-export function selectionCommandsToPathRing(commands: readonly PathCommand[]): SelectionPathRing | null {
+export function selectionCommandsToPathRing(
+  commands: readonly PathCommand[],
+): SelectionPathRing | null {
   const points: PathPoint[] = [];
   let currentIndex = -1;
   let closed = false;

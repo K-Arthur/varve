@@ -72,3 +72,36 @@ Reason: These are focused Tier 0-1 changes (new tool + integration wiring). The 
 - Spatial index + transform cache performance preserved
 - Selection snapshot at stroke start invariant maintained
 - Bounded rasterization limits enforced
+
+## Deferred UI completion update — 2026-08-23
+
+The deferred selection work is now wired through the front-facing editor:
+
+- Selection Paint has an explicit Apply/Cancel session, preserves the active
+  boundary when Apply returns to Select, restores the session baseline on
+  Cancel/Escape, and commits one analytical undo entry per completed stroke.
+- Saved area selections are document-backed through the Layer States-owned
+  `savedAreaSelections` model. The Selection Sources panel supports naming,
+  load/replace, add, subtract, intersect, rename, duplicate, and delete.
+- Path → selection and selection → path commands are available from both the
+  Pixel Selection menu and the Selection Sources panel.
+- Image alpha, luminance, and foreground-colour magic-wand sources are exposed
+  through the same menu and panel, with invalid source types disabled.
+- Selection Paint is reachable from the Photo/Draw pixel-selection toolbar
+  flyout and the Pixel Selection menu.
+
+### Final validation
+
+- Focused Vitest closure: **55 tests passed across 9 files**.
+- Editor package typecheck: **passed**.
+- E2E TypeScript check: **passed**.
+- Focused Chromium Playwright: **passed**, including toolbar reachability,
+  pointer painting, Apply, Cancel, named save, add, rename, duplicate, and
+  delete; generated screenshots were inspected for layout and boundary
+  persistence.
+- `audit:docs`, `audit:emoji`, and `audit:tokens`: **passed**; token audit
+  reports 135/135 pairs across three themes.
+- Full gate was escalated as required. Repository-wide formatting warnings and
+  existing architecture-budget warnings remain in concurrent unrelated WIP;
+  the full gate's workspace package typechecks pass. Direct E2E typecheck also
+  passes.

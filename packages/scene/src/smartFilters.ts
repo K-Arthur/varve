@@ -20,6 +20,7 @@ export const SMART_FILTER_KINDS: readonly AdjustmentKind[] = [
   'curves',
   'exposure',
   'saturation',
+  'hueSaturation',
   'hueRotate',
   'colorBalance',
   'selectiveColor',

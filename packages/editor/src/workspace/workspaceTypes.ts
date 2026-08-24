@@ -304,6 +304,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'zoom' },
         { toolId: 'slice' },
         { toolId: 'eyedropper' },
+        { toolId: 'pixelProbe' },
         { toolId: 'scale' },
         { toolId: 'inspect' },
         { toolId: 'sam2Segment', groupStart: true },
@@ -400,6 +401,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'zoom' },
         { toolId: 'slice' },
         { toolId: 'eyedropper' },
+        { toolId: 'pixelProbe' },
         { toolId: 'scale' },
         { toolId: 'inspect' },
         { toolId: 'sam2Segment', groupStart: true },
@@ -492,6 +494,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'zoom' },
         { toolId: 'text' },
         { toolId: 'eyedropper' },
+        { toolId: 'pixelProbe' },
         { toolId: 'frame' },
         { toolId: 'table' },
         { toolId: 'sam2Segment', groupStart: true },
@@ -500,7 +503,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         {
           id: 'pixel-selection',
           label: 'Pixel selection',
-          tools: ['marquee', 'ellipseMarquee', 'pixelLasso'],
+          tools: ['marquee', 'ellipseMarquee', 'pixelLasso', 'selectionPaint'],
         },
         {
           id: 'retouch',
@@ -580,6 +583,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'crop', groupStart: true },
         { toolId: 'perspective' },
         { toolId: 'eyedropper' },
+        { toolId: 'pixelProbe' },
         { toolId: 'paint', groupStart: true },
         { toolId: 'eraser' },
         { toolId: 'smudge' },
@@ -604,7 +608,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         {
           id: 'pixel-selection',
           label: 'Pixel selection',
-          tools: ['marquee', 'ellipseMarquee', 'pixelLasso'],
+          tools: ['marquee', 'ellipseMarquee', 'pixelLasso', 'selectionPaint'],
         },
         {
           id: 'retouch',
@@ -696,6 +700,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'pencil' },
         { toolId: 'scale', groupStart: true },
         { toolId: 'eyedropper' },
+        { toolId: 'pixelProbe' },
         { toolId: 'sam2Segment', groupStart: true },
       ],
       flyouts: [
@@ -794,6 +799,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'arrow' },
         { toolId: 'scale', groupStart: true },
         { toolId: 'eyedropper' },
+        { toolId: 'pixelProbe' },
         { toolId: 'sam2Segment', groupStart: true },
       ],
       flyouts: [
@@ -883,6 +889,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'arrow' },
         { toolId: 'scale', groupStart: true },
         { toolId: 'eyedropper' },
+        { toolId: 'pixelProbe' },
         { toolId: 'inspect' },
         { toolId: 'sam2Segment', groupStart: true },
       ],

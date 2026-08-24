@@ -173,9 +173,30 @@ function buildMenus(
   const selectedNodes = state.selection
     .map(
       (id) =>
-        documentNodes?.[id] as { kind?: string; textMode?: string; shape?: unknown } | undefined,
+        documentNodes?.[id] as
+          | {
+              kind?: string;
+              textMode?: string;
+              shape?: unknown;
+              fills?: Array<{ type?: string; image?: { src?: string } }>;
+            }
+          | undefined,
     )
-    .filter((node): node is { kind: string; textMode?: string; shape?: unknown } => Boolean(node));
+    .filter(
+      (
+        node,
+      ): node is {
+        kind: string;
+        textMode?: string;
+        shape?: unknown;
+        fills?: Array<{ type?: string; image?: { src?: string } }>;
+      } => Boolean(node),
+    );
+  const hasSelectedImage = selectedNodes.some(
+    (node) =>
+      node.kind === 'shape' &&
+      node.fills?.some((fill) => fill.type === 'image' && Boolean(fill.image?.src)),
+  );
   const canAttachTextToPath =
     selectedNodes.length === 2 &&
     selectedNodes.some((node) => node.kind === 'text') &&
@@ -266,6 +287,8 @@ function buildMenus(
       case 'extractPalette':
       case 'imageTrace':
         return !hasSelection;
+      case 'resizeImage':
+        return !hasSelectedImage;
       case 'attachTextToPath':
         return !canAttachTextToPath;
       case 'detachTextFromPath':
@@ -1039,6 +1062,11 @@ function buildMenus(
           ariaKeyshortcut: ks('flipV'),
           action: 'flipV',
           disabled: !hasSelection,
+        },
+        {
+          label: 'Resize Image…',
+          action: 'resizeImage',
+          disabled: dis('resizeImage'),
         },
         { label: '---' },
         {

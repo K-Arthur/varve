@@ -177,12 +177,14 @@ export function paintWarpedImage(
   // negative, and mockup surfaces are commonly translated). Normalize the
   // destination into that raster's coordinate system before inverse mapping;
   // otherwise every pixel before `quad.x/y` is skipped and the surface can
-  // become transparent even though the geometry is valid.
+  // become transparent even though the geometry is valid. Scale the
+  // normalized coordinates with the output raster; the raster is rendered at
+  // camera scale before it is drawn back into the scene-space bounds.
   const quad: Quad = [
-    { x: p.quad[0][0] - bounds.x, y: p.quad[0][1] - bounds.y },
-    { x: p.quad[1][0] - bounds.x, y: p.quad[1][1] - bounds.y },
-    { x: p.quad[2][0] - bounds.x, y: p.quad[2][1] - bounds.y },
-    { x: p.quad[3][0] - bounds.x, y: p.quad[3][1] - bounds.y },
+    { x: (p.quad[0][0] - bounds.x) * scale, y: (p.quad[0][1] - bounds.y) * scale },
+    { x: (p.quad[1][0] - bounds.x) * scale, y: (p.quad[1][1] - bounds.y) * scale },
+    { x: (p.quad[2][0] - bounds.x) * scale, y: (p.quad[2][1] - bounds.y) * scale },
+    { x: (p.quad[3][0] - bounds.x) * scale, y: (p.quad[3][1] - bounds.y) * scale },
   ];
   const bilinear = (u: number, v: number): Vec2 => {
     const topX = quad[0].x + (quad[1].x - quad[0].x) * u;

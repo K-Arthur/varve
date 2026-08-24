@@ -12,8 +12,7 @@ test.describe('Layers Panel - Accessibility', () => {
     // How many Tab-able elements precede the layers tree depends on what
     // else is in the shell (toolbar, menubar, contextual-help affordances,
     // etc.), which changes over time — don't hardcode a press count. Press
-    // Tab until the tree (or a row inside it, since roving tabindex means
-    // the tree container itself has tabIndex=-1) receives focus, or give up
+    // Tab until the tree (or a row inside it) receives focus, or give up
     // after a generous bound.
     const isTreeFocused = async () =>
       page.evaluate(() => {
@@ -21,8 +20,12 @@ test.describe('Layers Panel - Accessibility', () => {
         return el?.getAttribute('role') === 'tree' || el?.closest('[role="tree"]') !== null;
       });
 
+    // With a selected object, the canvas intentionally uses Tab/Shift+Tab to
+    // cycle through paint-order selection. Escape clears that transient
+    // canvas interaction so this check exercises ordinary shell focus order.
+    await page.keyboard.press('Escape');
     let focused = false;
-    for (let i = 0; i < 20 && !focused; i++) {
+    for (let i = 0; i < 80 && !focused; i++) {
       await page.keyboard.press('Tab');
       focused = await isTreeFocused();
     }
@@ -86,20 +89,22 @@ test.describe('Layers Panel - Accessibility', () => {
     await tree.focus();
 
     // Focus starts on the first item (drawing auto-selects it); ArrowDown
-    // moves to the second item.
+    // moves to and selects the second item.
     await page.keyboard.press('ArrowDown');
     await page.waitForTimeout(50);
     await expect(items.nth(1)).toBeFocused();
 
-    // Space should toggle selection of the second item
-    await page.keyboard.press(' ');
-    await page.waitForTimeout(50);
     await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true');
 
-    // Space again should deselect
+    // Space toggles selection of the focused item off, then back on.
     await page.keyboard.press(' ');
     await page.waitForTimeout(50);
     await expect(items.nth(1)).toHaveAttribute('aria-selected', 'false');
+
+    // Space again restores the selection.
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(50);
+    await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true');
   });
 
   test('f2 starts rename', async ({ page }) => {

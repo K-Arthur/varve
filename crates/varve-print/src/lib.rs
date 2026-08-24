@@ -667,6 +667,258 @@ fn pdf_image_matrix(
     ]
 }
 
+const PERSPECTIVE_GRID: usize = 8;
+
+fn perspective_quad_valid(quad: &[[f64; 2]; 4]) -> bool {
+    if quad.iter().flatten().any(|v| !v.is_finite()) {
+        return false;
+    }
+    let mut sign = 0.0;
+    for i in 0..4 {
+        let a = quad[i];
+        let b = quad[(i + 1) % 4];
+        let c = quad[(i + 2) % 4];
+        let cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+        if cross.abs() < 1e-9 {
+            return false;
+        }
+        if sign == 0.0 {
+            sign = cross.signum();
+        } else if cross.signum() != sign {
+            return false;
+        }
+    }
+    sign != 0.0
+}
+
+fn bilinear_quad_point(quad: &[[f64; 2]; 4], u: f64, v: f64) -> [f64; 2] {
+    let top = [
+        quad[0][0] + (quad[1][0] - quad[0][0]) * u,
+        quad[0][1] + (quad[1][1] - quad[0][1]) * u,
+    ];
+    let bottom = [
+        quad[3][0] + (quad[2][0] - quad[3][0]) * u,
+        quad[3][1] + (quad[2][1] - quad[3][1]) * u,
+    ];
+    [
+        top[0] + (bottom[0] - top[0]) * v,
+        top[1] + (bottom[1] - top[1]) * v,
+    ]
+}
+
+fn solve_linear3(mut matrix: [[f64; 4]; 3]) -> Option<[f64; 3]> {
+    for column in 0..3 {
+        let mut pivot = column;
+        for row in (column + 1)..3 {
+            if matrix[row][column].abs() > matrix[pivot][column].abs() {
+                pivot = row;
+            }
+        }
+        if matrix[pivot][column].abs() < 1e-12 {
+            return None;
+        }
+        matrix.swap(column, pivot);
+        let divisor = matrix[column][column];
+        for value in &mut matrix[column][column..4] {
+            *value /= divisor;
+        }
+        for row in 0..3 {
+            if row == column {
+                continue;
+            }
+            let factor = matrix[row][column];
+            let pivot_row = matrix[column];
+            for (offset, value) in matrix[row][column..4].iter_mut().enumerate() {
+                let index = column + offset;
+                *value -= factor * pivot_row[index];
+            }
+        }
+    }
+    Some([matrix[0][3], matrix[1][3], matrix[2][3]])
+}
+
+/// Affine map from three source points to three PDF destination points.
+/// PDF's `cm` is affine-only, so the projective quad is subdivided into small
+/// source/destination triangles and each triangle clips the shared image XObject.
+fn triangle_affine(src: [[f64; 2]; 3], dst: [[f64; 2]; 3]) -> Option<[f64; 6]> {
+    let x = [
+        [src[0][0], src[0][1], 1.0, dst[0][0]],
+        [src[1][0], src[1][1], 1.0, dst[1][0]],
+        [src[2][0], src[2][1], 1.0, dst[2][0]],
+    ];
+    let y = [
+        [src[0][0], src[0][1], 1.0, dst[0][1]],
+        [src[1][0], src[1][1], 1.0, dst[1][1]],
+        [src[2][0], src[2][1], 1.0, dst[2][1]],
+    ];
+    let [a, c, e] = solve_linear3(x)?;
+    let [b, d, f] = solve_linear3(y)?;
+    Some([a, b, c, d, e, f])
+}
+
+fn inverse_affine(matrix: [f64; 6]) -> Option<[f64; 6]> {
+    let det = matrix[0] * matrix[3] - matrix[2] * matrix[1];
+    if !det.is_finite() || det.abs() < 1e-12 {
+        return None;
+    }
+    let a = matrix[3] / det;
+    let b = -matrix[1] / det;
+    let c = -matrix[2] / det;
+    let d = matrix[0] / det;
+    Some([
+        a,
+        b,
+        c,
+        d,
+        -(a * matrix[4] + c * matrix[5]),
+        -(b * matrix[4] + d * matrix[5]),
+    ])
+}
+
+fn render_perspective_triangles(
+    node: &SceneNode,
+    page_height: f64,
+    image_name: &str,
+    image_width: f64,
+    image_height: f64,
+    fit: &str,
+    fill_x: f64,
+    fill_y: f64,
+    fill_scale: f64,
+    crop: Option<(f64, f64, f64, f64)>,
+    rotation: f64,
+    flip_h: bool,
+    flip_v: bool,
+    opacity: f64,
+    quad: &[[f64; 2]; 4],
+    state: &mut ImageRenderState<'_>,
+) -> String {
+    if !perspective_quad_valid(quad)
+        || image_width <= 0.0
+        || image_height <= 0.0
+        || !image_width.is_finite()
+        || !image_height.is_finite()
+    {
+        return String::new();
+    }
+    let (bounds_x, bounds_y, bounds_w, bounds_h) = shape_local_bounds(node);
+    if bounds_w <= 0.0 || bounds_h <= 0.0 {
+        return String::new();
+    }
+    let (draw_w, draw_h, draw_ox, draw_oy) = compute_pdf_image_placement(
+        fit,
+        image_width,
+        image_height,
+        bounds_w,
+        bounds_h,
+        fill_scale,
+    );
+    if draw_w <= 0.0 || draw_h <= 0.0 {
+        return String::new();
+    }
+    let draw_x = bounds_x + fill_x + draw_ox;
+    let draw_y = bounds_y + fill_y + draw_oy;
+    let sample = crop.unwrap_or((0.0, 0.0, image_width, image_height));
+    let sample_draw = (
+        draw_x + sample.0 / image_width * draw_w,
+        draw_y + sample.1 / image_height * draw_h,
+        sample.2 / image_width * draw_w,
+        sample.3 / image_height * draw_h,
+    );
+    if sample_draw.2 <= 0.0 || sample_draw.3 <= 0.0 {
+        return String::new();
+    }
+
+    let radians = rotation.to_radians();
+    let (sin, cos) = radians.sin_cos();
+    let sx = if flip_h { -1.0 } else { 1.0 };
+    let sy = if flip_v { -1.0 } else { 1.0 };
+    let linear = [cos * sx, sin * sx, -sin * sy, cos * sy, 0.0, 0.0];
+    let cx = draw_x + draw_w / 2.0;
+    let cy = draw_y + draw_h / 2.0;
+    let content = [
+        linear[0],
+        linear[1],
+        linear[2],
+        linear[3],
+        cx - linear[0] * cx - linear[2] * cy,
+        cy - linear[1] * cx - linear[3] * cy,
+    ];
+    let inverse = match inverse_affine(content) {
+        Some(value) => value,
+        None => return String::new(),
+    };
+
+    let mut grid = vec![vec![[0.0; 2]; PERSPECTIVE_GRID + 1]; PERSPECTIVE_GRID + 1];
+    for (row, grid_row) in grid.iter_mut().enumerate() {
+        for (col, cell) in grid_row.iter_mut().enumerate() {
+            let u = col as f64 / PERSPECTIVE_GRID as f64;
+            let v = row as f64 / PERSPECTIVE_GRID as f64;
+            let local = [bounds_x + bounds_w * u, bounds_y + bounds_h * v];
+            let untransformed = apply_pdf_affine(inverse, local[0], local[1]);
+            let source_x =
+                sample.0 + ((untransformed.0 - sample_draw.0) / sample_draw.2) * sample.2;
+            let source_y =
+                sample.1 + ((untransformed.1 - sample_draw.1) / sample_draw.3) * sample.3;
+            *cell = [source_x, source_y];
+        }
+    }
+
+    let mut result = String::new();
+    if opacity < 1.0 {
+        let gs_name = state.get_or_create_opacity_gs(opacity);
+        result.push_str(&format!("/{gs_name} gs\n"));
+    }
+    let world_matrix = node_affine(node);
+    for (row, rows) in grid.windows(2).enumerate() {
+        let top = &rows[0];
+        let bottom = &rows[1];
+        for (col, _) in top.iter().enumerate().take(PERSPECTIVE_GRID) {
+            let u0 = col as f64 / PERSPECTIVE_GRID as f64;
+            let u1 = (col + 1) as f64 / PERSPECTIVE_GRID as f64;
+            let v0 = row as f64 / PERSPECTIVE_GRID as f64;
+            let v1 = (row + 1) as f64 / PERSPECTIVE_GRID as f64;
+            let destinations = [
+                bilinear_quad_point(quad, u0, v0),
+                bilinear_quad_point(quad, u1, v0),
+                bilinear_quad_point(quad, u1, v1),
+                bilinear_quad_point(quad, u0, v1),
+            ];
+            let sources = [top[col], top[col + 1], bottom[col + 1], bottom[col]];
+            let triangles = [(0, 1, 3), (1, 2, 3)];
+            for (a, b, c) in triangles {
+                let source_triangle = [sources[a], sources[b], sources[c]];
+                let destination_triangle = [destinations[a], destinations[b], destinations[c]];
+                let destination_page = destination_triangle.map(|point| {
+                    let (world_x, world_y) = apply_pdf_affine(world_matrix, point[0], point[1]);
+                    [world_x, page_height - world_y]
+                });
+                let source_triangle_normalized = source_triangle.map(|point| {
+                    [
+                        (point[0] / image_width).clamp(0.0, 1.0),
+                        1.0 - (point[1] / image_height).clamp(0.0, 1.0),
+                    ]
+                });
+                let Some(matrix) = triangle_affine(source_triangle_normalized, destination_page)
+                else {
+                    continue;
+                };
+                let clip = source_triangle_normalized;
+                result.push_str("q\n");
+                result.push_str(&format!(
+                    "{:.6} {:.6} {:.6} {:.6} {:.6} {:.6} cm\n",
+                    matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]
+                ));
+                result.push_str(&format!(
+                    "{:.6} {:.6} m\n{:.6} {:.6} l\n{:.6} {:.6} l\nh W n\n/{image_name} Do\nQ\n",
+                    clip[0][0], clip[0][1], clip[1][0], clip[1][1], clip[2][0], clip[2][1]
+                ));
+            }
+        }
+    }
+    result
+}
+
 fn shape_pdf_bounds(node: &SceneNode, page_height: f64) -> (f64, f64, f64, f64) {
     let (x, y, w, h) = shape_local_bounds(node);
     let matrix = node_affine(node);
@@ -999,6 +1251,7 @@ fn render_fills(
                         rotation: fill_rotation,
                         flip_h,
                         flip_v,
+                        perspective,
                         ..
                     } => {
                         match &mut image_state {
@@ -1099,85 +1352,135 @@ fn render_fills(
                                                 state.counter += 1;
                                                 state.refs.push((name.clone(), obj_ref));
 
-                                                let (bounds_x, bounds_y, bw, bh) =
-                                                    shape_local_bounds(node);
-
-                                                // Compute the full-source placement. A crop
-                                                // remains a sample within this destination; it
-                                                // never changes fit aspect or stretches itself
-                                                // back over the object bounds.
-                                                let (draw_w, draw_h, draw_ox, draw_oy) =
-                                                    compute_pdf_image_placement(
-                                                        fill_fit,
-                                                        img_w,
-                                                        img_h,
-                                                        bw,
-                                                        bh,
-                                                        *fill_scale,
-                                                    );
-                                                let draw_x = bounds_x + fill_x + draw_ox;
-                                                let draw_y = bounds_y + fill_y + draw_oy;
-
-                                                let flip_h_val = *flip_h == Some(true);
-                                                let flip_v_val = *flip_v == Some(true);
-                                                let rot = fill_rotation.unwrap_or(0.0);
-                                                let content_matrix = image_content_affine(
-                                                    node, draw_x, draw_y, draw_w, draw_h, rot,
-                                                    flip_h_val, flip_v_val,
-                                                );
-
-                                                // Crop clipping uses the same transformed
-                                                // proportional destination as the full image
-                                                // and its embedded SMask.
-                                                if let Some((src_x, src_y, src_w, src_h)) =
-                                                    normalized_crop
-                                                {
-                                                    let sample_x = draw_x + src_x / img_w * draw_w;
-                                                    let sample_y = draw_y + src_y / img_h * draw_h;
-                                                    let sample_w = src_w / img_w * draw_w;
-                                                    let sample_h = src_h / img_h * draw_h;
-                                                    buf.extend_from_slice(
-                                                        transformed_rect_clip(
-                                                            content_matrix,
+                                                if let Some(perspective) = perspective.as_ref() {
+                                                    let normalized_crop =
+                                                        crop.as_ref().and_then(|c| {
+                                                            if !c.x.is_finite()
+                                                                || !c.y.is_finite()
+                                                                || !c.w.is_finite()
+                                                                || !c.h.is_finite()
+                                                                || c.w <= 0.0
+                                                                || c.h <= 0.0
+                                                            {
+                                                                return None;
+                                                            }
+                                                            let x = c.x.clamp(0.0, img_w);
+                                                            let y = c.y.clamp(0.0, img_h);
+                                                            let right = (c.x + c.w).clamp(x, img_w);
+                                                            let bottom =
+                                                                (c.y + c.h).clamp(y, img_h);
+                                                            (right > x && bottom > y).then_some((
+                                                                x,
+                                                                y,
+                                                                right - x,
+                                                                bottom - y,
+                                                            ))
+                                                        });
+                                                    let perspective_ops =
+                                                        render_perspective_triangles(
+                                                            node,
                                                             page_height,
-                                                            sample_x,
-                                                            sample_y,
-                                                            sample_w,
-                                                            sample_h,
+                                                            &name,
+                                                            img_w,
+                                                            img_h,
+                                                            fill_fit,
+                                                            *fill_x,
+                                                            *fill_y,
+                                                            *fill_scale,
+                                                            normalized_crop,
+                                                            fill_rotation.unwrap_or(0.0),
+                                                            *flip_h == Some(true),
+                                                            *flip_v == Some(true),
+                                                            *opacity,
+                                                            &perspective.quad,
+                                                            state,
+                                                        );
+                                                    buf.extend_from_slice(
+                                                        perspective_ops.as_bytes(),
+                                                    );
+                                                } else {
+                                                    let (bounds_x, bounds_y, bw, bh) =
+                                                        shape_local_bounds(node);
+
+                                                    // Compute the full-source placement. A crop
+                                                    // remains a sample within this destination; it
+                                                    // never changes fit aspect or stretches itself
+                                                    // back over the object bounds.
+                                                    let (draw_w, draw_h, draw_ox, draw_oy) =
+                                                        compute_pdf_image_placement(
+                                                            fill_fit,
+                                                            img_w,
+                                                            img_h,
+                                                            bw,
+                                                            bh,
+                                                            *fill_scale,
+                                                        );
+                                                    let draw_x = bounds_x + fill_x + draw_ox;
+                                                    let draw_y = bounds_y + fill_y + draw_oy;
+
+                                                    let flip_h_val = *flip_h == Some(true);
+                                                    let flip_v_val = *flip_v == Some(true);
+                                                    let rot = fill_rotation.unwrap_or(0.0);
+                                                    let content_matrix = image_content_affine(
+                                                        node, draw_x, draw_y, draw_w, draw_h, rot,
+                                                        flip_h_val, flip_v_val,
+                                                    );
+
+                                                    // Crop clipping uses the same transformed
+                                                    // proportional destination as the full image
+                                                    // and its embedded SMask.
+                                                    if let Some((src_x, src_y, src_w, src_h)) =
+                                                        normalized_crop
+                                                    {
+                                                        let sample_x =
+                                                            draw_x + src_x / img_w * draw_w;
+                                                        let sample_y =
+                                                            draw_y + src_y / img_h * draw_h;
+                                                        let sample_w = src_w / img_w * draw_w;
+                                                        let sample_h = src_h / img_h * draw_h;
+                                                        buf.extend_from_slice(
+                                                            transformed_rect_clip(
+                                                                content_matrix,
+                                                                page_height,
+                                                                sample_x,
+                                                                sample_y,
+                                                                sample_w,
+                                                                sample_h,
+                                                            )
+                                                            .as_bytes(),
+                                                        );
+                                                    }
+
+                                                    // Apply per-fill opacity via ExtGState
+                                                    if *opacity < 1.0 {
+                                                        let gs_name = state
+                                                            .get_or_create_opacity_gs(*opacity);
+                                                        buf.extend(
+                                                            format!("/{gs_name} gs\n").as_bytes(),
+                                                        );
+                                                    }
+                                                    let image_matrix = pdf_image_matrix(
+                                                        content_matrix,
+                                                        page_height,
+                                                        draw_x,
+                                                        draw_y,
+                                                        draw_w,
+                                                        draw_h,
+                                                    );
+                                                    buf.extend(
+                                                        format!(
+                                                            "{:.4} {:.4} {:.4} {:.4} {:.4} {:.4} cm\n",
+                                                            image_matrix[0],
+                                                            image_matrix[1],
+                                                            image_matrix[2],
+                                                            image_matrix[3],
+                                                            image_matrix[4],
+                                                            image_matrix[5],
                                                         )
                                                         .as_bytes(),
                                                     );
+                                                    buf.extend(format!("/{name} Do\n").as_bytes());
                                                 }
-
-                                                // Apply per-fill opacity via ExtGState
-                                                if *opacity < 1.0 {
-                                                    let gs_name =
-                                                        state.get_or_create_opacity_gs(*opacity);
-                                                    buf.extend(
-                                                        format!("/{gs_name} gs\n").as_bytes(),
-                                                    );
-                                                }
-                                                let image_matrix = pdf_image_matrix(
-                                                    content_matrix,
-                                                    page_height,
-                                                    draw_x,
-                                                    draw_y,
-                                                    draw_w,
-                                                    draw_h,
-                                                );
-                                                buf.extend(
-                                                    format!(
-                                                        "{:.4} {:.4} {:.4} {:.4} {:.4} {:.4} cm\n",
-                                                        image_matrix[0],
-                                                        image_matrix[1],
-                                                        image_matrix[2],
-                                                        image_matrix[3],
-                                                        image_matrix[4],
-                                                        image_matrix[5],
-                                                    )
-                                                    .as_bytes(),
-                                                );
-                                                buf.extend(format!("/{name} Do\n").as_bytes());
                                             }
                                             Err(e) => {
                                                 buf.extend(
@@ -3215,6 +3518,7 @@ fn get_ascender(opts: &PdfOptions, font_size: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use varve_core::scene::FillPerspective;
     use varve_core::{
         Affine, BlendMode, Circle, EngineColor, FillIR, GradientStop, Point, Rect, Stroke,
     };
@@ -3656,6 +3960,7 @@ mod tests {
             rotation: None,
             flip_h: None,
             flip_v: None,
+            perspective: None,
         }]);
         let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
@@ -3980,6 +4285,7 @@ mod tests {
             rotation: None,
             flip_h: None,
             flip_v: None,
+            perspective: None,
         }]);
         node
     }
@@ -3997,6 +4303,64 @@ mod tests {
             }],
             patterns: Vec::new(),
         }
+    }
+
+    #[test]
+    fn render_fills_image_perspective_subdivides_into_pdf_triangles() {
+        let mut node = image_fill_node(1, 0.0, 0.0, 100.0, 80.0);
+        node.fills = Some(vec![FillIR::Image {
+            src: "perspective-src".into(),
+            fit: "stretch".into(),
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+            image_width: Some(32.0),
+            image_height: Some(32.0),
+            opacity: 0.8,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+            alpha_mask: None,
+            crop: None,
+            rotation: None,
+            flip_h: None,
+            flip_v: None,
+            perspective: Some(FillPerspective {
+                quad: [[0.0, 0.0], [100.0, 8.0], [92.0, 80.0], [0.0, 72.0]],
+            }),
+        }]);
+        let manifest = image_manifest("perspective-src", 32, 32);
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let result = render_fills(
+            &node,
+            200.0,
+            false,
+            Some(&mut state),
+            Some(&manifest),
+            None,
+            None,
+            false,
+        );
+        let content = String::from_utf8_lossy(&result);
+        assert_eq!(
+            state
+                .refs
+                .iter()
+                .filter(|(name, _)| name.starts_with("Im"))
+                .count(),
+            1,
+            "perspective reuses one image XObject"
+        );
+        assert_eq!(
+            content.matches("/Im0 Do").count(),
+            PERSPECTIVE_GRID * PERSPECTIVE_GRID * 2
+        );
+        assert!(content.matches("cm").count() >= PERSPECTIVE_GRID * PERSPECTIVE_GRID * 2);
+        assert!(
+            content.contains("/GS800 gs"),
+            "per-fill opacity should remain applied"
+        );
+        assert!(!content.contains("image fill not rendered"));
     }
 
     #[test]
@@ -4052,6 +4416,7 @@ mod tests {
             rotation: Some(90.0),
             flip_h: Some(true),
             flip_v: None,
+            perspective: None,
         }]);
         let manifest = image_manifest("image-src", 200, 100);
         let mut doc = Document::new();
@@ -4116,6 +4481,7 @@ mod tests {
             rotation: None,
             flip_h: None,
             flip_v: None,
+            perspective: None,
         }]);
         let manifest = image_manifest("affine-src", 100, 80);
         let mut doc = Document::new();
@@ -4206,6 +4572,7 @@ mod tests {
                 rotation: None,
                 flip_h: None,
                 flip_v: None,
+                perspective: None,
             }]),
             corner_radius: None,
             filters: None,
@@ -4252,6 +4619,7 @@ mod tests {
             rotation: None,
             flip_h: None,
             flip_v: None,
+            perspective: None,
         }]);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
@@ -4321,6 +4689,7 @@ mod tests {
                 rotation: None,
                 flip_h: None,
                 flip_v: None,
+                perspective: None,
             },
         ]);
         let mut doc = Document::new();

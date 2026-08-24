@@ -120,6 +120,11 @@ export class MockupSurfaceCache {
   get size(): number {
     return this.entries.size;
   }
+
+  /** Encoded surfaces currently retained by the cache. */
+  sources(): readonly string[] {
+    return [...this.entries.values()].map((entry) => entry.dataUrl);
+  }
 }
 
 export interface MockupDecorateInput {

@@ -16,16 +16,16 @@
  * combining the content transform and the perspective warp into one matrix.
  */
 
+import type { ImagePlacement } from '@varve/engine';
 import {
   applyHomography,
-  isQuadValid,
-  solveHomography,
   type Homography,
+  isQuadValid,
   type Quad,
+  solveHomography,
   type Vec2,
 } from '@varve/engine';
-import type { ImagePlacement } from '@varve/engine';
-import { perspectiveQuadToEngineQuad, type PerspectiveQuad } from '@varve/scene';
+import { type PerspectiveQuad, perspectiveQuadToEngineQuad } from '@varve/scene';
 
 export interface PerspectiveSvgInput {
   href: string;
@@ -90,10 +90,7 @@ function contentInverse(
  * Solve a 2D affine transform mapping source triangle to destination triangle.
  * Returns an SVG `matrix(a b c d e f)` string; identity when degenerate.
  */
-export function triAffine(
-  srcTri: readonly [Pt, Pt, Pt],
-  dstTri: readonly [Pt, Pt, Pt],
-): string {
+export function triAffine(srcTri: readonly [Pt, Pt, Pt], dstTri: readonly [Pt, Pt, Pt]): string {
   const M: number[][] = [
     [srcTri[0].x, srcTri[0].y, 1, 0, 0, 0, dstTri[0].x],
     [0, 0, 0, srcTri[0].x, srcTri[0].y, 1, dstTri[0].y],
@@ -121,7 +118,8 @@ export function triAffine(
     if (Math.abs(M[col]![col] as number) < 1e-12) return 'matrix(1 0 0 1 0 0)';
     for (let row = col + 1; row < 6; row++) {
       const f = (M[row]![col] as number) / (M[col]![col] as number);
-      for (let j = col; j < 7; j++) M[row]![j] = (M[row]![j] as number) - f * (M[col]![j] as number);
+      for (let j = col; j < 7; j++)
+        M[row]![j] = (M[row]![j] as number) - f * (M[col]![j] as number);
     }
   }
   const x = new Float64Array(6);
@@ -180,7 +178,13 @@ export function buildPerspectiveImageSvg(input: PerspectiveSvgInput): string | n
         const cx = p.drawRect.x + p.drawRect.w / 2;
         const cy = p.drawRect.y + p.drawRect.h / 2;
         return buildSamplingGrid(gridSize, w, h, (pt) => {
-          const inv = contentInverse(pt, p.rotation, p.flipH, p.flipV, cx, cy);
+          // Perspective source coordinates are logical box coordinates
+          // (0..w, 0..h), while the canonical image placement may be rooted
+          // at non-zero local bounds (ellipses, paths, and translated shape
+          // geometries). Convert back into that placement space before
+          // applying the inverse content transform, matching live replay.
+          const local = { x: p.bounds.x + pt.x, y: p.bounds.y + pt.y };
+          const inv = contentInverse(local, p.rotation, p.flipH, p.flipV, cx, cy);
           return {
             x: ((inv.x - p.drawRect.x) / p.drawRect.w) * p.sourceWidth,
             y: ((inv.y - p.drawRect.y) / p.drawRect.h) * p.sourceHeight,
@@ -194,36 +198,33 @@ export function buildPerspectiveImageSvg(input: PerspectiveSvgInput): string | n
 
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
-      emitTriangle(parts, input.nodeId, row, col, 'a', [
-        srcGrid[row]![col]!,
-        srcGrid[row]![col + 1]!,
-        srcGrid[row + 1]![col]!,
-      ], [
-        destGrid[row]![col]!,
-        destGrid[row]![col + 1]!,
-        destGrid[row + 1]![col]!,
-      ], input);
-      emitTriangle(parts, input.nodeId, row, col, 'b', [
-        srcGrid[row]![col + 1]!,
-        srcGrid[row + 1]![col + 1]!,
-        srcGrid[row + 1]![col]!,
-      ], [
-        destGrid[row]![col + 1]!,
-        destGrid[row + 1]![col + 1]!,
-        destGrid[row + 1]![col]!,
-      ], input);
+      emitTriangle(
+        parts,
+        input.nodeId,
+        row,
+        col,
+        'a',
+        [srcGrid[row]![col]!, srcGrid[row]![col + 1]!, srcGrid[row + 1]![col]!],
+        [destGrid[row]![col]!, destGrid[row]![col + 1]!, destGrid[row + 1]![col]!],
+        input,
+      );
+      emitTriangle(
+        parts,
+        input.nodeId,
+        row,
+        col,
+        'b',
+        [srcGrid[row]![col + 1]!, srcGrid[row + 1]![col + 1]!, srcGrid[row + 1]![col]!],
+        [destGrid[row]![col + 1]!, destGrid[row + 1]![col + 1]!, destGrid[row + 1]![col]!],
+        input,
+      );
     }
   }
 
   return parts.join(nl);
 }
 
-function buildSamplingGrid(
-  gridSize: number,
-  w: number,
-  h: number,
-  map?: (p: Pt) => Pt,
-): Pt[][] {
+function buildSamplingGrid(gridSize: number, w: number, h: number, map?: (p: Pt) => Pt): Pt[][] {
   const grid: Pt[][] = [];
   for (let row = 0; row <= gridSize; row++) {
     grid[row] = [];

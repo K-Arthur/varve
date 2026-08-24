@@ -951,6 +951,12 @@ export type FilterIR =
       blendMode: string;
     }
   | { kind: 'saturation'; value: number; opacity: number; blendMode: string }
+  | {
+      kind: 'hueSaturation';
+      ranges: import('./adjustment/hueSaturation').HueSaturationParams;
+      opacity: number;
+      blendMode: string;
+    }
   | { kind: 'hueRotate'; value: number; opacity: number; blendMode: string }
   | { kind: 'sepia'; value: number; opacity: number; blendMode: string }
   | { kind: 'grayscale'; value: number; opacity: number; blendMode: string }

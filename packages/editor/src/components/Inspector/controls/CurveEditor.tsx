@@ -7,9 +7,9 @@
  *
  * Research basis: Photoshop Curves panel; SVG pointer-event compositing.
  */
-import type { CurvePoint } from '@varve/engine';
+import type { CurvePoint, Histogram } from '@varve/engine';
 import { Icon } from '@varve/ui';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const WIDTH = 300;
 const HEIGHT = 240;
@@ -140,6 +140,8 @@ export interface CurveEditorProps {
    */
   channel?: Channel;
   onChannelChange?: (channel: Channel) => void;
+  /** Optional source histogram painted behind the SVG curve grid. */
+  histogram?: Histogram;
 }
 
 export function CurveEditor({
@@ -149,6 +151,7 @@ export function CurveEditor({
   onDragEnd,
   channel: channelProp,
   onChannelChange,
+  histogram,
 }: CurveEditorProps) {
   const [internalChannel, setInternalChannel] = useState<Channel>('rgb');
   const channel = channelProp ?? internalChannel;
@@ -333,6 +336,28 @@ export function CurveEditor({
   const grid = gridLines();
   const labels = gridLabels();
 
+  useEffect(() => {
+    const canvas = svgRef.current?.previousElementSibling;
+    if (!(canvas instanceof HTMLCanvasElement)) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    if (!histogram) return;
+    const data = histogram[channel === 'rgb' ? 'luminance' : channel];
+    let max = 0;
+    for (let i = 0; i < 256; i += 1) max = Math.max(max, data[i]!);
+    if (max <= 0) return;
+    const computed = getComputedStyle(document.documentElement);
+    ctx.fillStyle = computed.getPropertyValue('--color-accent-primary').trim() || '#39d0c6';
+    ctx.globalAlpha = 0.18;
+    const barW = PLOT_W / 256;
+    for (let i = 0; i < 256; i += 1) {
+      const height = (data[i]! / max) * PLOT_H;
+      ctx.fillRect(PADDING + i * barW, PADDING + PLOT_H - height, Math.max(1, barW), height);
+    }
+    ctx.globalAlpha = 1;
+  }, [channel, histogram]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
       <div
@@ -370,88 +395,110 @@ export function CurveEditor({
           <Icon name="RotateCcw" label={undefined} size="0.85em" />
         </button>
       </div>
-      <svg
-        ref={svgRef}
-        role="img"
-        width={WIDTH}
-        height={HEIGHT}
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+      <div
         style={{
+          position: 'relative',
+          width: WIDTH,
+          height: HEIGHT,
           background: 'var(--color-surface-sunken)',
           borderRadius: 'var(--radius-sm)',
-          cursor: dragIndex !== null ? 'grabbing' : 'crosshair',
-          touchAction: 'none',
-          userSelect: 'none',
         }}
-        aria-label="Curve editor. Use arrow keys to move selected point, Tab to cycle, Delete to remove."
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-        onDoubleClick={handleDoubleClick}
-        onKeyDown={handleKeyDown}
       >
-        <rect
-          x={PADDING}
-          y={PADDING}
-          width={PLOT_W}
-          height={PLOT_H}
-          fill="none"
-          stroke="var(--color-border-subtle)"
-          strokeWidth="1"
+        <canvas
+          width={WIDTH}
+          height={HEIGHT}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: WIDTH,
+            height: HEIGHT,
+            borderRadius: 'var(--radius-sm)',
+            pointerEvents: 'none',
+          }}
         />
-        {grid.map((l) => (
-          <line
-            key={`${l.x1}-${l.y1}-${l.x2}-${l.y2}`}
-            x1={l.x1}
-            y1={l.y1}
-            x2={l.x2}
-            y2={l.y2}
+        <svg
+          ref={svgRef}
+          role="img"
+          width={WIDTH}
+          height={HEIGHT}
+          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+          style={{
+            background: 'transparent',
+            borderRadius: 'var(--radius-sm)',
+            cursor: dragIndex !== null ? 'grabbing' : 'crosshair',
+            touchAction: 'none',
+            userSelect: 'none',
+          }}
+          aria-label="Curve editor. Use arrow keys to move selected point, Tab to cycle, Delete to remove."
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          onDoubleClick={handleDoubleClick}
+          onKeyDown={handleKeyDown}
+        >
+          <rect
+            x={PADDING}
+            y={PADDING}
+            width={PLOT_W}
+            height={PLOT_H}
+            fill="none"
             stroke="var(--color-border-subtle)"
-            strokeWidth="0.5"
-            opacity="0.5"
+            strokeWidth="1"
           />
-        ))}
-        {labels.map((l) => (
-          <text
-            key={`${l.isX}-${l.x}-${l.y}`}
-            x={l.isX ? l.x : l.x}
-            y={l.isX ? l.y : l.y}
-            fill="var(--color-text-muted)"
-            fontSize="8"
-            textAnchor={l.isX ? 'middle' : 'end'}
-            dominantBaseline={l.isX ? 'text-after-edge' : 'central'}
-          >
-            {l.label}
-          </text>
-        ))}
-        <path
-          d={path}
-          fill="none"
-          stroke="var(--color-accent-primary)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        {sorted.map((p, i) => {
-          const c = toSvgCoord(p);
-          return (
-            <circle
-              // biome-ignore lint/suspicious/noArrayIndexKey: control points move during drag; index is the stable identity (content keys would remount mid-interaction)
-              key={i}
-              cx={c.sx}
-              cy={c.sy}
-              r={HANDLE_R}
-              fill={
-                dragIndex === i ? 'var(--color-accent-primary)' : 'var(--color-surface-overlay)'
-              }
-              stroke="var(--color-accent-primary)"
-              strokeWidth="2"
-              style={{ cursor: 'grab' }}
+          {grid.map((l) => (
+            <line
+              key={`${l.x1}-${l.y1}-${l.x2}-${l.y2}`}
+              x1={l.x1}
+              y1={l.y1}
+              x2={l.x2}
+              y2={l.y2}
+              stroke="var(--color-border-subtle)"
+              strokeWidth="0.5"
+              opacity="0.5"
             />
-          );
-        })}
-      </svg>
+          ))}
+          {labels.map((l) => (
+            <text
+              key={`${l.isX}-${l.x}-${l.y}`}
+              x={l.isX ? l.x : l.x}
+              y={l.isX ? l.y : l.y}
+              fill="var(--color-text-muted)"
+              fontSize="8"
+              textAnchor={l.isX ? 'middle' : 'end'}
+              dominantBaseline={l.isX ? 'text-after-edge' : 'central'}
+            >
+              {l.label}
+            </text>
+          ))}
+          <path
+            d={path}
+            fill="none"
+            stroke="var(--color-accent-primary)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {sorted.map((p, i) => {
+            const c = toSvgCoord(p);
+            return (
+              <circle
+                // biome-ignore lint/suspicious/noArrayIndexKey: control points move during drag; index is the stable identity (content keys would remount mid-interaction)
+                key={i}
+                cx={c.sx}
+                cy={c.sy}
+                r={HANDLE_R}
+                fill={
+                  dragIndex === i ? 'var(--color-accent-primary)' : 'var(--color-surface-overlay)'
+                }
+                stroke="var(--color-accent-primary)"
+                strokeWidth="2"
+                style={{ cursor: 'grab' }}
+              />
+            );
+          })}
+        </svg>
+      </div>
     </div>
   );
 }

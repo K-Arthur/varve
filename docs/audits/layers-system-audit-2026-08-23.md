@@ -51,9 +51,10 @@ Important gaps found during archaeology:
 - Component instance validation treated `FrameNode.componentId` as if it were
   itself a node ID. Component IDs actually resolve through
   `Document.components`, whose definition then points to `masterRootId`.
-- The repository had a sparse Layer State model under active development but it
-  was not exported, canonically ordered, normalized at the document boundary,
-  or covered by a UI command path.
+- The repository had a sparse Layer State model under active development. Its
+  export, document-boundary normalization, Layers entry point, and editor
+  commands were completed during this pass; the remaining limitation is the
+  intentionally sparse capture scope rather than document duplication.
 
 ## Capability matrix
 
@@ -74,7 +75,9 @@ Status means the end-to-end contract, not merely the presence of a field.
 | Live effects/filter stacks | Complete | Partial for all stack actions | Partial disclosure | Complete for supported effects | Partial | Complete | Partial | Partial, preflighted | Complete |
 | Source-preserving images | Embedded source + transforms/crop | Partial | Partial | Complete | Partial | Complete | Partial | Partial | Partial |
 | Selection sets | Complete | Complete | Complete | Session selection | N/A | Complete | Partial | N/A | Complete |
-| Layer States | Partial: sparse model delivered here | Model ops only | Deferred | Applying model is pure, no UI path | N/A | Complete after normalization | N/A | N/A | Unit coverage |
+| Layer States | Partial: sparse stable-ID model | Complete capture/apply/rename/duplicate/delete/recapture commands | Complete entry point and section | Complete as pure document application | N/A | Complete after normalization | N/A | N/A | Unit, component, and workflow coverage |
+| Solo View | Complete node flag + hierarchical effective visibility | Complete | Complete row toggle and exit affordance | Complete through render-pipeline document projection | Partial | Complete | Partial | Complete Canvas2D path | Unit + workflow coverage |
+| Selection Paint / saved area selections | Complete analytical/raster selection model | Complete quick-mask, save/restore/delete, path conversion, alpha/luminance source actions | Partial command-palette/menu path; dedicated panel remains optional | Complete area-selection overlay and mask consumers | N/A | Complete bounded serialization | Partial | N/A | Unit coverage; E2E pending |
 | Per-node export presets | Complete | Complete | Complete in Spec/Export UI | Complete | Partial | Complete | Partial | Complete/preflighted | Complete |
 | Developer handoff/codegen | Complete for supported emitters | Complete | Complete in Codegen panel | N/A | N/A | Complete | Partial | Complete with warnings | Complete |
 | Reveal Through/Punch Through | Deferred | Deferred | Deferred | Deferred | Deferred | Deferred | Deferred | Deferred | Deferred |
@@ -116,8 +119,22 @@ Layer States use stable IDs and sparse maps for visibility, transforms, and
 appearance. They do not clone the document. Applying a stale state skips IDs
 that no longer exist; document normalization filters malformed or duplicate
 state entries. The model is persisted and included in canonical document key
-ordering, but there is not yet a Layers-panel command/UI workflow, so the
-capability remains Partial.
+ordering. The Layers panel now exposes capture, apply, rename, duplicate,
+delete, and recapture actions; it remains Partial because capture is currently
+sparse and does not yet offer per-category inclusion controls or a conflict
+report for large document changes.
+
+### Solo View and selection workflows
+
+Solo is a reversible node flag. The render pipeline projects effective
+visibility without mutating stored visibility, preserves the ancestor path of
+soloed descendants, and keeps soloed containers traversable. The Layers panel
+shows the active state and provides a single exit affordance.
+
+Area selection now also has a registered Selection Paint tool, bounded image
+alpha/luminance sources, path conversion, and named saved selections. Raster
+payloads are validated and size-bounded at the document boundary; the
+selection model remains separate from node Selection Sets.
 
 ## Competitive-reference translation and IP safeguards
 
@@ -140,14 +157,15 @@ an engineering claim.
 
 ## Remaining limitations and next milestones
 
-- A temporary Solo View and mask-only diagnostic view should be added as
-  session/viewport state, not by rewriting persisted visibility.
+- A mask-only diagnostic view should be added as session/viewport state; Solo
+  is now implemented as a reversible persisted node flag with a non-mutating
+  render projection.
 - Lock inheritance/partial capabilities need one shared policy consumed by all
   tools; the current contract is primarily node-level locking.
 - WebGPU blend/mask/effect support needs an explicit backend matrix and pixel
   fixtures before being advertised as parity.
-- Layer States need editor commands, Inspector/Layers entry points, undo
-  grouping, conflict reporting, and E2E/visual coverage.
+- Layer States still need per-category capture controls, conflict reporting,
+  and dedicated visual/E2E coverage beyond the combined layer workflow spec.
 - Linked external assets are intentionally deferred; embedded source data is
   preserved today, but missing-file/relink semantics are not yet a product
   contract.

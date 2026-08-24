@@ -5,7 +5,9 @@ import { applyShadowHighlight } from './shadowHighlight';
 
 function image(...pixels: [number, number, number, number][]): ImageData {
   const data = new Uint8ClampedArray(pixels.length * 4);
-  pixels.forEach((pixel, index) => data.set(pixel, index * 4));
+  pixels.forEach((pixel, index) => {
+    data.set(pixel, index * 4);
+  });
   return new ImageData(data, pixels.length, 1);
 }
 

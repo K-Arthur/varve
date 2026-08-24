@@ -167,7 +167,7 @@ describe('composeToolbar — built-in workspace configs', () => {
       expect.objectContaining({
         kind: 'flyout',
         id: 'pixel-selection',
-        tools: ['marquee', 'ellipseMarquee', 'pixelLasso'],
+        tools: ['marquee', 'ellipseMarquee', 'pixelLasso', 'selectionPaint'],
       }),
     ]);
   });

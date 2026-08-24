@@ -29,8 +29,8 @@ import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from './canvas/overlayZIndex';
 import { useEditor } from './context';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { type SnapBoxOptions, snapSelectionBox } from './tools/snapping';
-import { type SkewAxis, TransformEngine } from './transform/TransformEngine';
 import { storeRepeatTransform } from './transform/repeatTransform';
+import { type SkewAxis, TransformEngine } from './transform/TransformEngine';
 
 const HANDLE_HALF = 4;
 const ROT_OFFSET = 20;

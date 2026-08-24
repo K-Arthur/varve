@@ -4,9 +4,9 @@ import { getToolManager } from '../canvas/toolDispatcher';
 import type { EditorState } from '../context/types';
 import { type CropState, commitImageCropExtended } from '../imageCrop';
 import type { CropTool } from './CropTool';
-import type { PerspectiveTool } from './PerspectiveTool';
 import type { PaintTool } from './PaintTool';
 import type { PencilTool } from './PencilTool';
+import type { PerspectiveTool } from './PerspectiveTool';
 import type { RefineMaskTool } from './RefineMaskTool';
 import type { SmudgeTool } from './SmudgeTool';
 import type { TrimapEditTool } from './TrimapEditTool';
@@ -126,9 +126,7 @@ export function useToolManagerSync(
         if (!imgFill) return doc;
         if (!imgFill.image) return doc;
         const newImage = { ...imgFill.image, perspective: { quad: ps.quad } };
-        const newFills = fills.map((f) =>
-          f === imgFill ? { ...f, image: newImage } : f,
-        );
+        const newFills = fills.map((f) => (f === imgFill ? { ...f, image: newImage } : f));
         return {
           ...doc,
           nodes: {

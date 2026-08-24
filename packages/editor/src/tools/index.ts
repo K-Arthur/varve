@@ -8,6 +8,7 @@ export {
   isDrawTool,
   isNavTool,
   NAV_TOOL_IDS,
+  type PixelProbe,
   type Tool,
   type ToolContext,
   type ToolCursorState,

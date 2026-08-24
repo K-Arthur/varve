@@ -406,13 +406,17 @@ function ExpandControls({
   const [padding, setPadding] = useState(20);
   const [fromCenter, setFromCenter] = useState(false);
 
+  const sides = fromCenter
+    ? { top: padding, right: padding, bottom: padding, left: padding }
+    : undefined;
+
   const handleExpand = useCallback(() => {
-    expandImageBounds(padding);
-  }, [padding, expandImageBounds]);
+    expandImageBounds(padding, sides);
+  }, [padding, sides, expandImageBounds]);
 
   const handleConvertAndExpand = useCallback(() => {
-    convertToCropAndExpand?.(padding);
-  }, [padding, convertToCropAndExpand]);
+    convertToCropAndExpand?.(padding, sides);
+  }, [padding, sides, convertToCropAndExpand]);
 
   return (
     <DisclosureSection title="Expand Bounds" defaultExpanded={false}>

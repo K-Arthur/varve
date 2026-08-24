@@ -87,11 +87,11 @@ export function TableAppearanceSection({ tableId, table, onSetAppearance, onSetB
     bindings?.[key] as PropertyBinding | undefined;
 
   return (
-    <div className="insp-field" style={{ gap: 6 }}>
+    <div className="insp-field" style={{ gap: 'var(--space-2)' }}>
       <div className="insp-field__label insp-field__label--wrap">Appearance variables</div>
       <div
         className="insp-field__control"
-        style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
       >
         {PAINT_KEYS.map((key) => {
           const color = appearanceColor(table, key);
@@ -167,7 +167,7 @@ export function TableAppearanceSection({ tableId, table, onSetAppearance, onSetB
                       : 'rgba(214,69,69,0.08)',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 4,
+                    gap: 'var(--space-1)',
                     cursor: 'pointer',
                   }}
                   onClick={() => {

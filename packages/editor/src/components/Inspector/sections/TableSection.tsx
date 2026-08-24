@@ -349,7 +349,14 @@ function ResponsiveRulesSection({
           </button>
         )}
         {showAdd && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--space-2)',
+              marginTop: 4,
+            }}
+          >
             <div className="insp-field-row__split">
               <NumberField
                 label="Min width"

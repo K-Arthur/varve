@@ -24,6 +24,7 @@ export type AdjustmentKind =
   | 'contrast'
   | 'exposure'
   | 'saturation'
+  | 'hueSaturation'
   | 'hueRotate'
   | 'sepia'
   | 'grayscale'
@@ -105,6 +106,10 @@ export interface ExposureAdjustment extends AdjustmentBase {
 export interface SaturationAdjustment extends AdjustmentBase {
   kind: 'saturation';
   value: number;
+}
+export interface HueSaturationAdjustment extends AdjustmentBase {
+  kind: 'hueSaturation';
+  ranges: import('./adjustment/hueSaturation').HueSaturationParams;
 }
 export interface HueRotateAdjustment extends AdjustmentBase {
   kind: 'hueRotate';
@@ -653,6 +658,7 @@ export type Adjustment =
   | ContrastAdjustment
   | ExposureAdjustment
   | SaturationAdjustment
+  | HueSaturationAdjustment
   | HueRotateAdjustment
   | SepiaAdjustment
   | GrayscaleAdjustment
@@ -707,6 +713,8 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
       };
     case 'saturation':
       return { kind: 'saturation', value: adjustment.value, ...base };
+    case 'hueSaturation':
+      return { kind: 'hueSaturation', ranges: adjustment.ranges, ...base };
     case 'hueRotate':
       return { kind: 'hueRotate', value: adjustment.value, ...base };
     case 'sepia':
@@ -1138,6 +1146,7 @@ const ADJUSTMENT_KINDS: ReadonlySet<AdjustmentKind> = new Set<AdjustmentKind>([
   'contrast',
   'exposure',
   'saturation',
+  'hueSaturation',
   'hueRotate',
   'sepia',
   'grayscale',
@@ -1202,6 +1211,7 @@ export function filterToCss(filter: FilterIR): string | null {
       return `saturate(${100 + filter.value * 0.7}%)`;
     case 'exposure':
     case 'sharpen':
+    case 'hueSaturation':
     case 'temperature':
     case 'tint':
     case 'levels':
@@ -1263,6 +1273,8 @@ export function filterKindDisplayName(kind: AdjustmentKind): string {
   switch (kind) {
     case 'hueRotate':
       return 'Hue Rotate';
+    case 'hueSaturation':
+      return 'Hue / Saturation';
     case 'colorBalance':
       return 'Color Balance';
     case 'channelMixer':
@@ -1322,6 +1334,16 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
     case 'saturation':
     case 'vibrance':
       return { ...base, value: 0 } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'hueSaturation':
+      return {
+        ...base,
+        ranges: Object.fromEntries(
+          ['master', 'reds', 'yellows', 'greens', 'cyans', 'blues', 'magentas'].map((range) => [
+            range,
+            { hue: 0, saturation: 0, lightness: 0 },
+          ]),
+        ),
+      } as Omit<Adjustment, 'id' | 'kind'>;
     case 'exposure':
       return { ...base, value: 0, offset: 0, gammaCorrection: 1 } as Omit<
         Adjustment,

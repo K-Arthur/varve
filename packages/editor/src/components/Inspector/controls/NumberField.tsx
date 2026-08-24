@@ -29,6 +29,8 @@ export interface NumberFieldProps {
   max?: number;
   /** Unit suffix folded into the accessible name and aria-valuetext (px, %, deg…). */
   unit?: string;
+  /** Optional compact visual label while preserving the full accessible name. */
+  displayLabel?: string;
   /** Resolved numeric variable aliases for `{name}` math expressions. */
   aliases?: Record<string, number>;
   disabled?: boolean;
@@ -67,6 +69,7 @@ export function NumberField({
   min = -Infinity,
   max = Infinity,
   unit,
+  displayLabel,
   aliases = {},
   disabled = false,
   mixed = false,
@@ -236,7 +239,7 @@ export function NumberField({
         className={`insp-field__label${disabled ? ' insp-field__label--disabled' : ''}`}
         onPointerDown={disabled ? undefined : handleLabelPointerDown}
       >
-        {name}
+        {displayLabel ?? name}
       </label>
       <div className="insp-field__control">
         <input

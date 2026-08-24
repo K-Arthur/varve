@@ -27,6 +27,7 @@ export function LayerStatesSection() {
     renameLayerState,
     deleteLayerState,
     duplicateLayerState,
+    announce,
   } = useEditor();
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,8 +46,10 @@ export function LayerStatesSection() {
     (stateId: string) => {
       const skipped = applyLayerState(stateId);
       setLastSkipped(skipped > 0 ? { id: stateId, count: skipped } : null);
+      const applied = states.find((s) => s.id === stateId);
+      if (applied) announce(`Applied layer state "${applied.name}"`);
     },
-    [applyLayerState],
+    [applyLayerState, states, announce],
   );
 
   const handleRenameStart = useCallback((stateId: string, name: string) => {

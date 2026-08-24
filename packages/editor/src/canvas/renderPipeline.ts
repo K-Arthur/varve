@@ -69,7 +69,11 @@ import {
 import { admitWorkerImagePayload, workerSourceCapFor } from '../render/collectImageBitmaps';
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
 import { pathShapeInTextSpace } from '../render/pathTextGeometry';
-import { decoratePerspectiveImages, documentHasPerspectiveImage } from '../render/perspectiveImage';
+import {
+  decoratePerspectiveImages,
+  documentHasPerspectiveImage,
+  perspectiveSurfaceCache,
+} from '../render/perspectiveImage';
 import { alphaBounds } from '../render/surfaceBounds';
 import {
   collectMasterOffsets,
@@ -495,6 +499,10 @@ export function renderContent(deps: RenderContentDeps): void {
     for (const asset of Object.values(doc.assets ?? {})) activeImageSources.add(asset.dataUrl);
     for (const asset of Object.values(doc.rasterMaskAssets ?? {}))
       activeImageSources.add(asset.dataUrl);
+    for (const source of perspectiveSurfaceCache.sources()) activeImageSources.add(source);
+    for (const source of mockupSurfaceCacheRef.current?.sources() ?? []) {
+      activeImageSources.add(source);
+    }
     if (doc.assets !== undefined || doc.rasterMaskAssets !== undefined) {
       getImageCache().retainSources(activeImageSources);
     }

@@ -19,10 +19,12 @@ import type { InspectorTab, IntelligenceTab } from '../../context/types';
 import { docVariableStore } from '../../docVariableStore';
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import { getDefaultInspectorTab, getVisibleInspectorTabs } from '../../workspace/workspaceTypes';
+import { LayerStatesSection } from '../LayersPanel/LayerStatesSection';
 import { PanelDragHandle } from '../PanelDragHandle';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
+import { SelectionSourcesPanel } from './SelectionSourcesPanel';
 import {
   getSectionDefinition,
   type SectionAvailabilityContext,
@@ -43,6 +45,7 @@ import { LayoutChildSection } from './sections/LayoutChildSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { MockupsSection } from './sections/MockupsSection';
 import { PathTextSection } from './sections/PathTextSection';
+import { PerspectiveSection } from './sections/PerspectiveSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
 import { SmartFiltersSection } from './sections/SmartFiltersSection';
 import { StrokeSection } from './sections/StrokeSection';
@@ -51,7 +54,6 @@ import { TableSection } from './sections/TableSection';
 import { TypographySection } from './sections/TypographySection';
 import { WarpSection } from './sections/WarpSection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
-import { LayerStatesSection } from '../LayersPanel/LayerStatesSection';
 
 import './inspector.css';
 
@@ -284,6 +286,7 @@ export function PropertiesPanel() {
           <div className="insp-panel__header">
             <SectionManagerTrigger />
           </div>
+          <SelectionSourcesPanel />
           <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
             {summary.kind === 'empty' && <EmptySelectionState />}
             {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
@@ -560,6 +563,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('fills', <FillSection nodes={nodes} />);
     add('animation', <AnimationSection nodes={nodes} />);
     add('image-placement', <ImagePlacementSection nodes={nodes} />);
+    add('image-perspective', <PerspectiveSection nodes={nodes} sectionId="image-perspective" />);
     add('image-resolution', <ImageResolutionSection nodes={nodes} />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);

@@ -27,6 +27,7 @@ import {
   type ImageFillPerspective,
   isPerspectiveQuadValid,
   type NodeId,
+  nodeLocalBounds,
   type SceneNode,
 } from '@varve/scene';
 import { MockupSurfaceCache } from './mockup/mockupIr';
@@ -104,7 +105,7 @@ function bakePerspectiveSurface(
 
   const imageCache = getImageCache();
   const entry = imageCache.get(src);
-  if (!entry || entry.state !== 'loaded' || !entry.image) {
+  if (entry?.state !== 'loaded' || !entry.image) {
     if (!entry || entry.state === 'idle') imageCache.load(src).catch(() => undefined);
     return null; // not loaded yet: placeholder this frame, reframe on load
   }
@@ -216,15 +217,15 @@ export function decoratePerspectiveImages(input: PerspectiveDecorateInput): void
   for (let i = 0; i < nodeIds.length; i++) {
     const nodeId = nodeIds[i]!;
     const node = doc.nodes[nodeId];
-    if (!node || node.kind !== 'shape') continue;
+    if (node?.kind !== 'shape') continue;
     const fill = imageFillOf(node);
     if (!fill?.perspective || !isPerspectiveQuadValid(fill.perspective.quad)) continue;
     const item = items[i];
     if (!item) continue;
 
-    const shape = node.shape;
-    const w = 'w' in shape ? shape.w : 100;
-    const h = 'h' in shape ? shape.h : 100;
+    const shapeBounds = nodeLocalBounds(node, doc);
+    const w = shapeBounds?.w ?? ('w' in node.shape ? node.shape.w : 0);
+    const h = shapeBounds?.h ?? ('h' in node.shape ? node.shape.h : 0);
     if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) continue;
 
     const quad = fill.perspective.quad;

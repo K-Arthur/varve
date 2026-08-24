@@ -9,9 +9,9 @@
  */
 
 import type { CollabUser } from '@varve/collab';
-import type { MeshWarp } from '@varve/engine';
+import type { Adjustment, MeshWarp } from '@varve/engine';
 import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@varve/scene';
-import { activePageNodes, walkNodes } from '@varve/scene';
+import { activePageNodes, resolveAdjustmentScope, walkNodes } from '@varve/scene';
 import type { RulerMode } from '@varve/shared';
 import { computeFloatingOrigin, isWorldRectInViewport, worldToScreen } from '@varve/shared';
 
@@ -21,6 +21,7 @@ import type { GridOverlayMode } from '../context/types';
 import { DebugOverlayHost } from '../debug/DebugOverlayHost';
 import { SelectionOverlay } from '../SelectionOverlay';
 import { nodeWorldBounds } from '../scene/world';
+import type { PixelProbe } from '../tools';
 import type { CropTool } from '../tools/CropTool';
 import type { PerspectiveTool } from '../tools/PerspectiveTool';
 import type { SnapGuide } from '../tools/snapping';
@@ -40,9 +41,11 @@ import { NodeEditOverlay } from './NodeEditOverlay';
 import { OnionSkinOverlay } from './OnionSkinOverlay';
 import { PagePrintOverlays } from './PagePrintOverlays';
 import { PageToolOverlay } from './PageToolOverlay';
+import { PerspectiveOverlay } from './PerspectiveOverlay';
 import { Ruler } from './Ruler/Ruler';
 import { SelectionQuickBarHost } from './SelectionQuickBar/SelectionQuickBarHost';
 import { SnapGuidesOverlay } from './SnapGuidesOverlay';
+import { SpatialFilterOverlay } from './SpatialFilterOverlay';
 import { MeasureOverlay } from './SpecPanel/MeasureOverlay';
 import { TableCellEditor } from './TableEditOverlay/TableCellEditor';
 import { TableEditOverlay } from './TableEditOverlay/TableEditOverlay';
@@ -50,7 +53,6 @@ import { TextEditOverlay } from './TextEditOverlay';
 import { TextThreadOverlay } from './TextThreadOverlay';
 import { VariantBox } from './VariantBox/VariantBox';
 import { WarpOverlay } from './WarpOverlay';
-import { PerspectiveOverlay } from './PerspectiveOverlay';
 import { ZoomIndicator } from './ZoomIndicator';
 
 export interface CanvasOverlaysProps {
@@ -91,6 +93,7 @@ export interface CanvasOverlaysProps {
   renameDialogRef: React.RefObject<HTMLDialogElement | null>;
   renameInputRef: React.RefObject<HTMLInputElement | null>;
   artboardRect: { x: number; y: number; w: number; h: number } | null;
+  pixelProbe: PixelProbe | null;
 }
 
 export function CanvasOverlays({
@@ -130,6 +133,7 @@ export function CanvasOverlays({
   renameDialogRef,
   renameInputRef,
   artboardRect,
+  pixelProbe,
 }: CanvasOverlaysProps) {
   const editor = useEditor();
   const showOverlays = canvasMode !== 'preview';
@@ -158,6 +162,110 @@ export function CanvasOverlays({
   const showGradientHandles = selection.length >= 1;
 
   const showMeshWarp = warpMesh !== null && selection.length >= 1;
+
+  const renderSpatialFilter = (() => {
+    if (selection.length !== 1) return null;
+    const nodeId = selection[0] as NodeId;
+    const node = doc.nodes[nodeId];
+    if (!node) return null;
+    const stack = node.kind === 'adjustment' ? (node.adjustments ?? []) : (node.smartFilters ?? []);
+    const candidate = stack.find((entry) => {
+      if (entry.kind === 'rgbSplit') return entry.mode === 'radial';
+      return ['lensFlare', 'lightShafts', 'lightLeak'].includes(entry.kind);
+    });
+    if (!candidate) return null;
+    // Adjustment nodes are metadata containers and do not have drawable
+    // geometry of their own. Resolve their scope to the affected artwork so
+    // spatial controls land on the same bounds users see on canvas.
+    const boundIds =
+      node.kind === 'adjustment' ? resolveAdjustmentScope(doc, node.scope, node.id) : [nodeId];
+    const bounds = boundIds.reduce<ReturnType<typeof editor.getWorldBounds>>((union, id) => {
+      const current = editor.getWorldBounds(id);
+      if (!current) return union;
+      if (!union) return current;
+      const right = Math.max(union.x + union.w, current.x + current.w);
+      const bottom = Math.max(union.y + union.h, current.y + current.h);
+      const x = Math.min(union.x, current.x);
+      const y = Math.min(union.y, current.y);
+      return { x, y, w: right - x, h: bottom - y };
+    }, null);
+    if (!bounds) return null;
+    const spatial = (() => {
+      switch (candidate.kind) {
+        case 'rgbSplit':
+          return {
+            label: 'RGB split center',
+            x: candidate.centerX,
+            y: candidate.centerY,
+            key: 'center' as const,
+          };
+        case 'lensFlare':
+          return {
+            label: 'Lens flare source',
+            x: candidate.sourceX,
+            y: candidate.sourceY,
+            key: 'source' as const,
+          };
+        case 'lightShafts':
+          return {
+            label: 'Light source',
+            x: candidate.lightX,
+            y: candidate.lightY,
+            key: 'light' as const,
+          };
+        case 'lightLeak':
+          return {
+            label: 'Light leak origin',
+            x: candidate.x,
+            y: candidate.y,
+            key: 'origin' as const,
+          };
+        default:
+          return null;
+      }
+    })();
+    if (!spatial) return null;
+    return (
+      <SpatialFilterOverlay
+        label={spatial.label}
+        center={{ x: spatial.x, y: spatial.y }}
+        bounds={bounds}
+        canvasElement={contentCanvasRef.current}
+        canvasToWorld={editor.canvasToWorld}
+        worldToCanvas={editor.worldToCanvas}
+        onChange={({ x, y }) => {
+          editor.updateNode(nodeId, (current) => {
+            const patch = (() => {
+              switch (candidate.kind) {
+                case 'rgbSplit':
+                  return { centerX: x, centerY: y };
+                case 'lensFlare':
+                  return { sourceX: x, sourceY: y };
+                case 'lightShafts':
+                  return { lightX: x, lightY: y };
+                case 'lightLeak':
+                  return { x, y };
+              }
+            })();
+            if (current.kind === 'adjustment') {
+              return {
+                ...current,
+                adjustments: (current.adjustments ?? []).map((entry) =>
+                  entry.id === candidate.id ? ({ ...entry, ...patch } as Adjustment) : entry,
+                ),
+              };
+            }
+            return {
+              ...current,
+              smartFilters: (current.smartFilters ?? []).map((entry) =>
+                entry.id === candidate.id ? ({ ...entry, ...patch } as Adjustment) : entry,
+              ),
+            };
+          });
+        }}
+      />
+    );
+  })();
 
   const renderVariantBox = (() => {
     if (selection.length !== 1) return null;
@@ -390,7 +498,13 @@ export function CanvasOverlays({
         <WarpOverlay zoom={zoom} pan={pan} cameraRotation={cameraRotation} />
       )}
       {tool === 'perspective' && perspectiveTool && (
-        <PerspectiveOverlay tool={perspectiveTool} zoom={zoom} pan={pan} cameraRotation={cameraRotation} />
+        <PerspectiveOverlay
+          tool={perspectiveTool}
+          zoom={zoom}
+          pan={pan}
+          cameraRotation={cameraRotation}
+          buildToolCtx={buildToolCtx}
+        />
       )}
       {showMeshWarp && warpMesh && (
         <MeshWarpOverlay
@@ -426,6 +540,48 @@ export function CanvasOverlays({
           />
         )}
       <SelectionOverlay canvasRef={contentCanvasRef} />
+      {renderSpatialFilter}
+      {pixelProbe && (
+        <div
+          data-testid="pixel-probe-overlay"
+          style={{
+            position: 'absolute',
+            left: pixelProbe.screenX,
+            top: pixelProbe.screenY,
+            transform: 'translate(10px, 10px)',
+            zIndex: 80,
+            pointerEvents: 'none',
+            minWidth: 132,
+            padding: 'var(--space-2)',
+            border: '1px solid var(--color-border-accent)',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--elevation-surface-raised)',
+            color: 'var(--color-text-primary)',
+            boxShadow: 'var(--shadow-md)',
+            fontSize: 'var(--font-size-xs)',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          <strong>Pixel Info</strong>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+            <span
+              aria-hidden="true"
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: 2,
+                background: pixelProbe.hex,
+                border: '1px solid var(--color-border-subtle)',
+              }}
+            />
+            <span>{pixelProbe.hex.toUpperCase()}</span>
+          </div>
+          <div>
+            RGB {pixelProbe.red}, {pixelProbe.green}, {pixelProbe.blue}
+          </div>
+          <div>Alpha {pixelProbe.alpha}</div>
+        </div>
+      )}
       <CanvasNameLabels
         doc={doc}
         zoom={zoom}

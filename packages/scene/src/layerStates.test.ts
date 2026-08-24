@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import type { Affine } from '@varve/engine';
-import type { ManagedColor, NodeId, SceneNode } from './types';
+import { describe, expect, it } from 'vitest';
 import type { Document } from './document';
 import {
   addLayerState,
@@ -11,11 +10,15 @@ import {
   removeLayerState,
   renameLayerState,
 } from './layerStates';
+import type { ManagedColor, NodeId, SceneNode } from './types';
 
 const IDENTITY: Affine = [1, 0, 0, 1, 0, 0];
 const fill = { space: 'srgb', components: [0, 0, 0, 1] } as unknown as ManagedColor;
 
-function shape(id: NodeId, over: Partial<{ visible: boolean; opacity: number; x: number }> = {}): SceneNode {
+function shape(
+  id: NodeId,
+  over: Partial<{ visible: boolean; opacity: number; x: number }> = {},
+): SceneNode {
   return {
     kind: 'shape',
     id,
@@ -79,7 +82,9 @@ describe('layerStates — capture / apply / integrity', () => {
     const { doc: applied } = applyLayerState(d, state);
     // appearance/transform not captured → opacity stays as authored
     expect((applied.nodes.a as SceneNode & { opacity: number }).opacity).toBe(1);
-    expect((applied.nodes.a as unknown as SceneNode & { transform?: Affine }).transform).toEqual(IDENTITY);
+    expect((applied.nodes.a as unknown as SceneNode & { transform?: Affine }).transform).toEqual(
+      IDENTITY,
+    );
   });
 
   it('recaptures current values while keeping id/name', () => {

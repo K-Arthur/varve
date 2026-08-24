@@ -2,8 +2,8 @@
  * Export a LUT transform to Adobe .cube format.
  */
 
-import type { Lut3D, LutTransform } from './types';
 import { sampleLut1D, sampleLut3D } from './interpolate';
+import type { Lut3D, LutTransform } from './types';
 
 export interface CubeExportOptions {
   title?: string;

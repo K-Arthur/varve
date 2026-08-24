@@ -45,6 +45,20 @@ describe('HistogramWidget', () => {
     expect(screen.getByText('Auto')).toBeTruthy();
   });
 
+  it('exposes channel switching buttons', () => {
+    const onChannelChange = vi.fn();
+    render(
+      <HistogramWidget
+        histogram={mockHistogram}
+        levels={defaultLevels}
+        onChange={vi.fn()}
+        onChannelChange={onChannelChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole('radio', { name: 'R' }));
+    expect(onChannelChange).toHaveBeenCalledWith('red');
+  });
+
   it('calls onDragStart when pointer down on slider', () => {
     const onDragStart = vi.fn();
     const onDragEnd = vi.fn();

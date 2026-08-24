@@ -8,6 +8,21 @@ import {
   type ToolbarSlot,
 } from '../../workspace/toolbarComposition';
 
+/**
+ * Keep the workspace's primary action groups in the row at normal desktop
+ * widths without making those tools non-customizable. The registry's
+ * `essential` flag is reserved for recovery/navigation tools; these are a
+ * responsive presentation floor only.
+ */
+const FRONT_FACING_TOOL_IDS = new Set<ToolId>([
+  'paint',
+  'cloneStamp',
+  'booleanUnion',
+  'booleanSubtract',
+  'booleanIntersect',
+  'booleanExclude',
+]);
+
 interface ResponsiveToolbarGroups {
   rootRef: RefObject<HTMLDivElement | null>;
   visibleGroups: ToolbarGroup[];
@@ -29,7 +44,11 @@ export function useToolbarOverflow(
     const pinned = new Set<string>();
     for (const group of groups) {
       const ids = group.slots.flatMap(getToolbarSlotToolIds);
-      if (ids.some((id) => ESSENTIAL_TOOL_IDS.has(id) || id === activeTool)) {
+      if (
+        ids.some(
+          (id) => ESSENTIAL_TOOL_IDS.has(id) || FRONT_FACING_TOOL_IDS.has(id) || id === activeTool,
+        )
+      ) {
         pinned.add(group.id);
       }
     }

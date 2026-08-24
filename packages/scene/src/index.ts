@@ -6,8 +6,8 @@
  * stable shapes.
  */
 
-export * from './adjustmentScope';
 export * from './adjustmentNormalization';
+export * from './adjustmentScope';
 export * from './adjustments';
 export * from './assets';
 export * from './auditAdapter';
@@ -117,8 +117,8 @@ export * from './rasterLayer';
 export * from './retouchRaster';
 export * from './richTextIndex';
 export * from './richTextOps';
-export * from './selectionSet';
 export * from './savedAreaSelection';
+export * from './selectionSet';
 export * from './sha256';
 export * from './smartFilters';
 export * from './smudge';

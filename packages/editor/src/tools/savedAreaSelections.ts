@@ -10,7 +10,8 @@ function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';
   for (let index = 0; index < bytes.length; index += 0x8000) {
     const end = Math.min(bytes.length, index + 0x8000);
-    for (let cursor = index; cursor < end; cursor += 1) binary += String.fromCharCode(bytes[cursor]!);
+    for (let cursor = index; cursor < end; cursor += 1)
+      binary += String.fromCharCode(bytes[cursor]!);
   }
   return typeof btoa === 'function' ? btoa(binary) : '';
 }
@@ -37,14 +38,22 @@ function serializeShape(shape: AreaSelectionShape): SerializedAreaSelectionShape
     // mutate the live selection through a serialized object reference.
     boundary: shape.boundary.map(({ from, to }) => ({ from: { ...from }, to: { ...to } })),
     transform: [...shape.transform] as [number, number, number, number, number, number],
-    inverseTransform: [...shape.inverseTransform] as [number, number, number, number, number, number],
+    inverseTransform: [...shape.inverseTransform] as [
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+    ],
   };
 }
 
 function serializeExpression(
   expression: AreaSelectionExpression,
 ): SerializedAreaSelectionExpression {
-  if (expression.kind === 'shape') return { kind: 'shape', shape: serializeShape(expression.shape) };
+  if (expression.kind === 'shape')
+    return { kind: 'shape', shape: serializeShape(expression.shape) };
   return {
     kind: 'combine',
     operation: expression.operation,
@@ -77,9 +86,7 @@ function deserializeExpression(
   }
   const left = deserializeExpression(expression.left);
   const right = deserializeExpression(expression.right);
-  return left && right
-    ? { kind: 'combine', operation: expression.operation, left, right }
-    : null;
+  return left && right ? { kind: 'combine', operation: expression.operation, left, right } : null;
 }
 
 export function deserializeAreaSelection(saved: SavedAreaSelection): AreaSelection | null {

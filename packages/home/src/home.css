@@ -71,6 +71,13 @@
     animation: none;
     transition: none;
   }
+  /* Disable decorative hover transforms for motion-sensitive users */
+  .file-card.bento-cell:hover,
+  .template-card:hover,
+  .file-card__fav:hover {
+    transform: none;
+    transition: none;
+  }
 }
 /* Narrow viewports (WCAG 1.4.10): tighten toolbar chrome so the wrapped
  * rows at <=640px don't eat vertical space unnecessarily. */

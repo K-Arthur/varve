@@ -19,10 +19,10 @@ import {
   makeGradientPreset,
 } from '@varve/scene';
 import { useCallback, useState } from 'react';
-
 import { useEditor } from '../../../context';
 import { openGradientFilePicker, parseGradientFile } from '../../../gradientPresets/importFile';
 import { useGradientPresetLibrary } from '../../../gradientPresets/library';
+import { confirmDialog } from '../../PromptDialog';
 import { GradientImportDialog, type GradientImportScope } from './GradientImportDialog';
 import { GradientMapEditor } from './GradientMapEditor';
 import { GradientMapPresetBrowser } from './GradientMapPresetBrowser';
@@ -112,14 +112,16 @@ export function GradientMapAdjustmentSection({
   }, []);
 
   const handleDeletePreset = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const doc = editor.state.document;
       if (gradientPresetIsReferenced(doc, id)) {
         const name = library.presets.find((p) => p.id === id)?.name ?? 'This preset';
         if (
-          !window.confirm(
+          !(await confirmDialog(
+            'Delete referenced preset',
             `${name} is used in this document. Delete it anyway? The document keeps its own embedded copy.`,
-          )
+            { confirmLabel: 'Delete', variant: 'danger' },
+          ))
         ) {
           return;
         }

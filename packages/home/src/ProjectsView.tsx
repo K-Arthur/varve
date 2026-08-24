@@ -2,6 +2,7 @@ import type { FileEntry, Folder, Platform, Project } from '@varve/platform';
 import { Button, SemanticIcon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BreadcrumbSegment } from './BreadcrumbNav';
+import { confirmDialog } from './confirmDialog';
 import { FileGrid } from './FileGrid';
 import { FolderView } from './FolderView';
 
@@ -148,8 +149,14 @@ export function ProjectsView({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
-              if (confirm(`Delete project "${project.name}"? Files will become unfiled.`)) {
+            onClick={async () => {
+              if (
+                await confirmDialog(
+                  'Delete project',
+                  `Delete project "${project.name}"? Files will become unfiled.`,
+                  { confirmLabel: 'Delete', variant: 'danger' },
+                )
+              ) {
                 onDelete(project.id);
               }
             }}

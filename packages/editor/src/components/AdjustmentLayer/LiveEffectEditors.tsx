@@ -813,6 +813,7 @@ export function RgbSplitEditor({ adjustment, onChange }: LiveEffectEditorProps) 
             min={0}
             max={1}
             step={0.01}
+            format={(v) => v.toFixed(2)}
             onChange={(v) => p({ centerX: v })}
             ariaLabel="Optical center X"
           />
@@ -822,6 +823,7 @@ export function RgbSplitEditor({ adjustment, onChange }: LiveEffectEditorProps) 
             min={0}
             max={1}
             step={0.01}
+            format={(v) => v.toFixed(2)}
             onChange={(v) => p({ centerY: v })}
             ariaLabel="Optical center Y"
           />
@@ -1115,6 +1117,7 @@ export function LightShaftsEditor({ adjustment, onChange }: LiveEffectEditorProp
         min={-0.2}
         max={1.2}
         step={0.01}
+        format={(v) => v.toFixed(2)}
         onChange={(v) => p({ lightX: v })}
         ariaLabel="Light position X"
       />
@@ -1124,6 +1127,7 @@ export function LightShaftsEditor({ adjustment, onChange }: LiveEffectEditorProp
         min={-0.2}
         max={1.2}
         step={0.01}
+        format={(v) => v.toFixed(2)}
         onChange={(v) => p({ lightY: v })}
         ariaLabel="Light position Y"
       />
@@ -1369,6 +1373,7 @@ export function LightLeakEditor({ adjustment, onChange }: LiveEffectEditorProps)
         min={0}
         max={1}
         step={0.01}
+        format={(v) => v.toFixed(2)}
         onChange={(v) => p({ x: v })}
         ariaLabel="Leak position X"
       />
@@ -1378,6 +1383,7 @@ export function LightLeakEditor({ adjustment, onChange }: LiveEffectEditorProps)
         min={0}
         max={1}
         step={0.01}
+        format={(v) => v.toFixed(2)}
         onChange={(v) => p({ y: v })}
         ariaLabel="Leak position Y"
       />

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { AdjustmentNode, NodeId, SceneNode } from './types';
 import {
+  type DocumentLike,
   repairDocument,
   validateAndRepairDocument,
   validateDocument,
-  type DocumentLike,
 } from './document-utils';
+import type { AdjustmentNode, NodeId, SceneNode } from './types';
 
 function leaf(id: NodeId): SceneNode {
   return { kind: 'shape', id, name: id, visible: true } as unknown as SceneNode;

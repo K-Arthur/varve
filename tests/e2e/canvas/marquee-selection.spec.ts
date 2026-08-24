@@ -90,4 +90,70 @@ test.describe('pixel marquee selection', () => {
     );
     await page.screenshot({ path: testInfo.outputPath('ellipse-selection.png') });
   });
+
+  test('enters Selection Paint and commits a real pointer stroke', async ({ page }, testInfo) => {
+    await page.setViewportSize(VIEWPORT);
+    await navigateToEditor(page);
+    await switchToPhotoWorkspace(page);
+
+    const toolbar = page.locator('[data-testid="toolbar"]');
+    await toolbar.getByRole('button', { name: 'Pixel selection menu' }).click();
+    await expect(page.getByRole('menuitem', { name: 'Selection Paint' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await toolbar.locator('[data-tool="marquee"]').click();
+    const surface = page.locator('canvas.editor-canvas__content-layer');
+    const box = await surface.boundingBox();
+    if (!box) throw new Error('editor canvas content surface not found');
+    await page.mouse.move(box.x + 260, box.y + 220);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 520, box.y + 420, { steps: 6 });
+    await page.mouse.up();
+
+    const sources = page.getByTestId('selection-sources-panel');
+    await expect(sources).toBeVisible();
+    await expect(sources.getByRole('button', { name: 'Magic wand' })).toBeVisible();
+    await sources.getByRole('button', { name: 'Paint selection' }).click();
+    await expect(sources.getByRole('region', { name: 'Selection paint controls' })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('selection-paint-session.png') });
+
+    await page.mouse.move(box.x + 390, box.y + 320);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 410, box.y + 335, { steps: 3 });
+    await page.mouse.up();
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      'Selection painted',
+      { timeout: 5000 },
+    );
+    await page.screenshot({ path: testInfo.outputPath('selection-painted-session.png') });
+    await sources.getByRole('button', { name: 'Apply' }).click();
+    await expect(sources.getByRole('region', { name: 'Selection paint controls' })).toBeHidden();
+    await sources.getByRole('button', { name: 'Paint selection' }).click();
+    await expect(sources.getByRole('region', { name: 'Selection paint controls' })).toBeVisible();
+    await sources.getByRole('button', { name: 'Cancel' }).click();
+    await expect(sources.getByRole('region', { name: 'Selection paint controls' })).toBeHidden();
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      'Selection paint cancelled',
+      { timeout: 5000 },
+    );
+    await sources.getByLabel('Saved selection name').fill('Primary selection');
+    await sources.getByRole('button', { name: 'Save selection' }).click();
+    const savedRegion = sources.getByRole('region', { name: 'Saved area selections' });
+    await expect(savedRegion).toContainText('Primary selection');
+    await savedRegion.getByRole('button', { name: 'Add Primary selection' }).click();
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      'Added Primary selection',
+      { timeout: 5000 },
+    );
+    await savedRegion.getByRole('button', { name: 'Rename Primary selection' }).click();
+    const rename = savedRegion.getByRole('textbox', { name: 'Rename Primary selection' });
+    await rename.fill('Renamed selection');
+    await rename.press('Enter');
+    await expect(savedRegion).toContainText('Renamed selection');
+    await savedRegion.getByRole('button', { name: 'Duplicate Renamed selection' }).click();
+    await expect(savedRegion).toContainText('Renamed selection copy');
+    await savedRegion.getByRole('button', { name: 'Delete Renamed selection copy' }).click();
+    await expect(savedRegion).not.toContainText('Renamed selection copy');
+    await page.screenshot({ path: testInfo.outputPath('saved-selection-sources.png') });
+    await page.screenshot({ path: testInfo.outputPath('selection-painted.png') });
+  });
 });

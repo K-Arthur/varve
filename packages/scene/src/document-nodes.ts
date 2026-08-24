@@ -52,13 +52,16 @@ export function addChild(
   if (parentId === child.id || containsDescendant(doc, child.id, parentId)) return doc;
 
   const nodes = { ...doc.nodes };
-  let rootChildren = doc.rootChildren.filter((id) => id !== child.id);
+  const rootChildren = doc.rootChildren.filter((id) => id !== child.id);
   const globalChildren = doc.globalChildren?.filter((id) => id !== child.id);
   const oldParentId = getParent(doc, child.id);
   if (oldParentId) {
     const oldParent = nodes[oldParentId];
     if (oldParent && isContainer(oldParent)) {
-      const updated = { ...oldParent, children: oldParent.children.filter((id) => id !== child.id) };
+      const updated = {
+        ...oldParent,
+        children: oldParent.children.filter((id) => id !== child.id),
+      };
       if ('slots' in oldParent && oldParent.slots) {
         const slots = Object.fromEntries(
           Object.entries(oldParent.slots).filter(([, value]) => value !== child.id),
@@ -102,7 +105,7 @@ export function addChild(
 export function removeNode(doc: Document, id: NodeId): Document {
   if (!doc.nodes[id]) return doc;
 
-  let nodes = { ...doc.nodes };
+  const nodes = { ...doc.nodes };
 
   // Collect all descendants to remove
   const toRemove = new Set<NodeId>();
@@ -164,12 +167,17 @@ export function removeNode(doc: Document, id: NodeId): Document {
     }
     if (nextNode.kind === 'adjustment' && nextNode.scope) {
       if (nextNode.scope.mode === 'explicit-targets') {
-        const targetNodeIds = nextNode.scope.targetNodeIds.filter((targetId) => !toRemove.has(targetId));
+        const targetNodeIds = nextNode.scope.targetNodeIds.filter(
+          (targetId) => !toRemove.has(targetId),
+        );
         if (targetNodeIds.length !== nextNode.scope.targetNodeIds.length) {
           nextNode = { ...nextNode, scope: { ...nextNode.scope, targetNodeIds } } as SceneNode;
           changed = true;
         }
-      } else if (nextNode.scope.mode === 'image-local' && toRemove.has(nextNode.scope.targetNodeId)) {
+      } else if (
+        nextNode.scope.mode === 'image-local' &&
+        toRemove.has(nextNode.scope.targetNodeId)
+      ) {
         nextNode = { ...nextNode, scope: { mode: 'document' } } as SceneNode;
         changed = true;
       }
@@ -241,13 +249,19 @@ export function removeNode(doc: Document, id: NodeId): Document {
     captured: {
       ...state.captured,
       visibility: state.captured.visibility
-        ? Object.fromEntries(Object.entries(state.captured.visibility).filter(([nodeId]) => !toRemove.has(nodeId)))
+        ? Object.fromEntries(
+            Object.entries(state.captured.visibility).filter(([nodeId]) => !toRemove.has(nodeId)),
+          )
         : undefined,
       transforms: state.captured.transforms
-        ? Object.fromEntries(Object.entries(state.captured.transforms).filter(([nodeId]) => !toRemove.has(nodeId)))
+        ? Object.fromEntries(
+            Object.entries(state.captured.transforms).filter(([nodeId]) => !toRemove.has(nodeId)),
+          )
         : undefined,
       appearance: state.captured.appearance
-        ? Object.fromEntries(Object.entries(state.captured.appearance).filter(([nodeId]) => !toRemove.has(nodeId)))
+        ? Object.fromEntries(
+            Object.entries(state.captured.appearance).filter(([nodeId]) => !toRemove.has(nodeId)),
+          )
         : undefined,
     },
   }));

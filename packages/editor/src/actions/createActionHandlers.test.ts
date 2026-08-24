@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
 import { areaSelectionCoverageAt, createAreaSelection } from '@varve/engine';
+import { describe, expect, it, vi } from 'vitest';
 import type { EditorContextValue } from '../context';
 import { setStartTextEditingHandler } from '../context';
 import { createActionHandlers } from './createActionHandlers';
@@ -224,7 +224,15 @@ describe('createActionHandlers — text formatting', () => {
 
 describe('createActionHandlers — pixel selection refine & transform', () => {
   const rectSelection = () =>
-    createAreaSelection({ kind: 'rectangle', x: 0, y: 0, w: 10, h: 10, feather: 0, antialias: false });
+    createAreaSelection({
+      kind: 'rectangle',
+      x: 0,
+      y: 0,
+      w: 10,
+      h: 10,
+      feather: 0,
+      antialias: false,
+    });
 
   it('refuses to refine with no active pixel selection', () => {
     const setAreaSelection = vi.fn();

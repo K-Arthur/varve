@@ -10,10 +10,13 @@ test.describe('Floating toolbar adapts per workspace mode', () => {
   });
 
   async function switchTo(page: import('@playwright/test').Page, label: string) {
-    await page
-      .locator('.workspace-tabs__tab')
-      .filter({ hasText: new RegExp(`^${label}$`) })
-      .click();
+    const workspace = page.getByRole('radio', { name: `${label} workspace` });
+    if (await workspace.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await workspace.click();
+      return;
+    }
+    await page.getByLabel('More workspaces').click();
+    await page.getByRole('menuitemradio', { name: new RegExp(`^${label}(?:\\s|$)`, 'i') }).click();
   }
 
   test('Design mode: no paint/retouch tools, shapes and boolean ops available', async ({
@@ -46,9 +49,12 @@ test.describe('Floating toolbar adapts per workspace mode', () => {
     await switchTo(page, 'Photo');
     await expect(page.locator('[data-tool="frame"]')).not.toBeVisible();
     await expect(page.getByLabel('Boolean operations menu')).not.toBeVisible();
-    await expect(page.locator('[data-tool="cloneStamp"]')).toBeVisible();
-    await expect(page.locator('[data-tool="healBrush"]')).toBeVisible();
-    await expect(page.locator('[data-tool="spotHeal"]')).toBeVisible();
-    await expect(page.getByLabel('Shapes menu')).toBeVisible();
+    await expect(page.getByLabel('Retouch menu')).toBeVisible();
+    await page.getByLabel('Retouch menu').click();
+    await expect(page.getByRole('menuitem', { name: 'Clone Stamp' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Healing Brush' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Spot Heal' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByLabel('Retouch menu')).toBeVisible();
   });
 });

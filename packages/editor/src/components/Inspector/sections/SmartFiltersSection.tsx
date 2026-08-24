@@ -46,13 +46,15 @@ function filterName(filter: Adjustment): string {
 }
 
 export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
-  const { updateNode, beginTransaction, commitTransaction } = useEditor();
+  const { updateNode, beginTransaction, commitTransaction, announce } = useEditor();
   const node = nodes.length === 1 ? nodes[0] : undefined;
   const nodeId = node?.id;
   const compatible = node ? canHaveSmartFilters(node) : false;
   const filters = compatible && node ? (node.smartFilters ?? []) : [];
   const stackEnabled = node?.smartFiltersEnabled !== false;
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const draggedFilterIdRef = useRef<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const editingRef = useRef(false);
 
   const finishTransaction = useCallback(() => {
@@ -105,20 +107,23 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
         smartFilters: [...(current.smartFilters ?? []), filter],
       }));
       setSelectedId(filter.id);
+      announce(`Added ${filterKindDisplayName(kind)} filter`);
     },
-    [nodeId, updateNode],
+    [nodeId, updateNode, announce],
   );
 
   const removeFilter = useCallback(
     (filterId: string) => {
       if (!nodeId) return;
+      const filter = filters.find((f) => f.id === filterId);
       updateNode(nodeId, (current) => ({
         ...current,
         smartFilters: (current.smartFilters ?? []).filter((filter) => filter.id !== filterId),
       }));
       setSelectedId((current) => (current === filterId ? null : current));
+      if (filter) announce(`Removed ${filterName(filter)} filter`);
     },
-    [nodeId, updateNode],
+    [nodeId, updateNode, announce, filters],
   );
 
   const reorderFilter = useCallback(
@@ -135,6 +140,31 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
       });
     },
     [nodeId, updateNode],
+  );
+
+  const handleFilterDragStart = useCallback(
+    (event: React.DragEvent<HTMLLIElement>, filterId: string) => {
+      draggedFilterIdRef.current = filterId;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', filterId);
+      startTransaction();
+    },
+    [startTransaction],
+  );
+
+  const handleFilterDrop = useCallback(
+    (event: React.DragEvent<HTMLLIElement>, targetIndex: number) => {
+      event.preventDefault();
+      const draggedId = draggedFilterIdRef.current;
+      const sourceIndex = draggedId ? filters.findIndex((filter) => filter.id === draggedId) : -1;
+      if (sourceIndex >= 0 && sourceIndex !== targetIndex && draggedId) {
+        reorderFilter(draggedId, sourceIndex < targetIndex ? targetIndex - 1 : targetIndex);
+      }
+      draggedFilterIdRef.current = null;
+      setDragOverId(null);
+      finishTransaction();
+    },
+    [filters, finishTransaction, reorderFilter],
   );
 
   const duplicateFilter = useCallback(
@@ -196,8 +226,23 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
         {filters.length === 0 && <li className="smart-filters__empty">No filters applied.</li>}
         {filters.map((filter, index) => (
           <li
-            className={`smart-filters__row${selectedId === filter.id ? ' smart-filters__row--selected' : ''}`}
+            className={`smart-filters__row${selectedId === filter.id ? ' smart-filters__row--selected' : ''}${dragOverId === filter.id ? ' smart-filters__row--drag-over' : ''}`}
             key={filter.id}
+            draggable={filters.length > 1}
+            onDragStart={(event) => handleFilterDragStart(event, filter.id)}
+            onDragOver={(event) => {
+              if (!draggedFilterIdRef.current || draggedFilterIdRef.current === filter.id) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = 'move';
+              setDragOverId(filter.id);
+            }}
+            onDragLeave={() => setDragOverId((current) => (current === filter.id ? null : current))}
+            onDrop={(event) => handleFilterDrop(event, index)}
+            onDragEnd={() => {
+              draggedFilterIdRef.current = null;
+              setDragOverId(null);
+              finishTransaction();
+            }}
           >
             <div className="smart-filters__reorder">
               <button
@@ -256,24 +301,21 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
         ))}
       </ul>
 
-      <label className="smart-filters__add-label">
+      <div className="smart-filters__add-label">
         <span>Add Object Filter</span>
-        <select
+        <Select
+          label="Add Object Filter"
           value=""
-          aria-label="Add Object Filter"
-          onChange={(event) => {
-            const kind = event.target.value as AdjustmentKind;
-            if (kind) addFilter(kind);
+          placeholder="Choose a filter…"
+          options={SMART_FILTER_KINDS.map((kind) => ({
+            value: kind,
+            label: filterKindDisplayName(kind),
+          }))}
+          onChange={(value) => {
+            if (value) addFilter(value as AdjustmentKind);
           }}
-        >
-          <option value="">Choose a filter…</option>
-          {SMART_FILTER_KINDS.map((kind) => (
-            <option value={kind} key={kind}>
-              {filterKindDisplayName(kind)}
-            </option>
-          ))}
-        </select>
-      </label>
+        />
+      </div>
 
       {selected && (
         <div

@@ -1,9 +1,28 @@
-.image-resize-dialog {
+.image-resize-backdrop {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 340px;
+  inset: 0;
+  z-index: var(--z-overlay, 1000);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(2px);
+}
+
+.image-resize-backdrop__dismiss {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.image-resize-dialog {
+  width: min(340px, 100%);
+  max-height: min(90vh, 520px);
+  overflow: auto;
   background: var(--elevation-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
@@ -69,8 +88,9 @@
 }
 
 .image-resize-dialog__input--short {
-  flex: 0;
+  flex: 0 0 60px;
   width: 60px;
+  box-sizing: border-box;
 }
 
 .image-resize-dialog__unit {

@@ -96,11 +96,14 @@ export function SelectionQuickBar({
   activeActionIds = [],
 }: SelectionQuickBarProps) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const [menuFocusIdx, setMenuFocusIdx] = useState(0);
   const moreRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
+  const menuItemsRef = useRef<(HTMLButtonElement | null)[]>([]);
   const [barHeight, setBarHeight] = useState(ESTIMATED_BAR_HEIGHT);
   const pending = useMemo(() => new Set(pendingActionIds), [pendingActionIds]);
   const active = useMemo(() => new Set(activeActionIds), [activeActionIds]);
+  const moreActions = profile.moreActions ?? [];
 
   useLayoutEffect(() => {
     const el = barRef.current;
@@ -114,6 +117,8 @@ export function SelectionQuickBar({
 
   useEffect(() => {
     if (!moreOpen) return;
+    setMenuFocusIdx(0);
+    menuItemsRef.current[0]?.focus();
     const onDoc = (e: MouseEvent) => {
       if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
         setMoreOpen(false);
@@ -215,14 +220,44 @@ export function SelectionQuickBar({
                 <Icon name="ChevronDown" size={14} />
               </button>
               {moreOpen && (
-                <div className="selection-quick-bar__menu" role="menu" aria-label="More actions">
-                  {profile.moreActions!.map((a) => {
+                <div
+                  className="selection-quick-bar__menu"
+                  role="menu"
+                  aria-label="More actions"
+                  onKeyDown={(e) => {
+                    const count = moreActions.length;
+                    if (count === 0) return;
+                    let next = menuFocusIdx;
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      next = (menuFocusIdx + 1) % count;
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      next = (menuFocusIdx - 1 + count) % count;
+                    } else if (e.key === 'Home') {
+                      e.preventDefault();
+                      next = 0;
+                    } else if (e.key === 'End') {
+                      e.preventDefault();
+                      next = count - 1;
+                    } else {
+                      return;
+                    }
+                    setMenuFocusIdx(next);
+                    menuItemsRef.current[next]?.focus();
+                  }}
+                >
+                  {moreActions.map((a, i) => {
                     const isActive = active.has(a.id);
                     return (
                       <button
                         key={a.id}
+                        ref={(el) => {
+                          menuItemsRef.current[i] = el;
+                        }}
                         type="button"
                         role="menuitem"
+                        tabIndex={i === menuFocusIdx ? 0 : -1}
                         className={`selection-quick-bar__menuitem${isActive ? ' selection-quick-bar__menuitem--active' : ''}`}
                         disabled={pending.has(a.id)}
                         onClick={() => handleAction(a.id)}

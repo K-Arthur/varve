@@ -8,12 +8,12 @@
  */
 
 import {
+  type Affine,
   applyAffine,
   identity,
   invertAffine,
   multiplyAffine,
   translate,
-  type Affine,
 } from '@varve/shared';
 
 export type AreaSelectionOperation = 'replace' | 'add' | 'subtract' | 'intersect';
@@ -182,7 +182,9 @@ export const MAX_AREA_SELECTION_PIXELS = 16_777_216;
  */
 const MAX_AREA_SELECTION_NODES = 4_096;
 
-const IDENTITY_AFFINE: readonly [number, number, number, number, number, number] = [1, 0, 0, 1, 0, 0];
+const IDENTITY_AFFINE: readonly [number, number, number, number, number, number] = [
+  1, 0, 0, 1, 0, 0,
+];
 
 /** Segments sampled per cubic Bézier when flattening a path (bounded). */
 const MAX_PATH_FLATTEN_SEGMENTS = 64;
@@ -862,11 +864,7 @@ function flattenPath(shape: PathSelectionShape): SelectionPoint[] {
  * mask. Returns an ordered loop of pixel centres; the loop is closed implicitly
  * by polygon wrap. Bounded by a step guard so a malformed mask cannot loop.
  */
-function traceContour(
-  data: Uint8Array,
-  width: number,
-  height: number,
-): Array<[number, number]> {
+function traceContour(data: Uint8Array, width: number, height: number): Array<[number, number]> {
   const filled = (x: number, y: number): boolean => {
     if (x < 0 || y < 0 || x >= width || y >= height) return false;
     return data[y * width + x]! >= 128;
@@ -943,10 +941,7 @@ function perpendicularDistance(
 }
 
 /** Douglas–Peucker polyline simplification (iterative, bounded stack). */
-function douglasPeucker(
-  points: Array<[number, number]>,
-  epsilon: number,
-): Array<[number, number]> {
+function douglasPeucker(points: Array<[number, number]>, epsilon: number): Array<[number, number]> {
   if (points.length < 3) return points.slice();
   const keep = new Array<boolean>(points.length).fill(false);
   keep[0] = true;
@@ -1025,7 +1020,16 @@ function traceSelectionToPath(selection: AreaSelection): PathCommand[] {
     width,
     height,
   });
-  return maskContourToPath(mask.data, mask.width, mask.height, bounds.x, bounds.y, bounds.w, bounds.h, IDENTITY_AFFINE);
+  return maskContourToPath(
+    mask.data,
+    mask.width,
+    mask.height,
+    bounds.x,
+    bounds.y,
+    bounds.w,
+    bounds.h,
+    IDENTITY_AFFINE,
+  );
 }
 
 /**
@@ -1223,14 +1227,7 @@ export function maskAreaSelectionFromPlane(
   ) {
     return null;
   }
-  const transform: Affine = [
-    frame.w / plane.width,
-    0,
-    0,
-    frame.h / plane.height,
-    frame.x,
-    frame.y,
-  ];
+  const transform: Affine = [frame.w / plane.width, 0, 0, frame.h / plane.height, frame.x, frame.y];
   return createAreaSelection({
     kind: 'raster-mask',
     x: 0,
@@ -1276,7 +1273,11 @@ export function paintSelectionMask(
   }
   const bounds = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
   if (bounds.w <= 0 || bounds.h <= 0) return null;
-  const size = boundedPlaneSize(bounds.w, bounds.h, options.resolution ?? MAX_AREA_SELECTION_DIMENSION);
+  const size = boundedPlaneSize(
+    bounds.w,
+    bounds.h,
+    options.resolution ?? MAX_AREA_SELECTION_DIMENSION,
+  );
   let mask: AlphaMask;
   try {
     mask = rasterizeAreaSelection(selection, {
@@ -1327,7 +1328,10 @@ export function refineAreaSelection(
   const bounds = areaSelectionBounds(selection.expression);
   const amount = Math.max(0, Math.floor(finiteNonNegative(options.amount ?? 1)));
   const sigma = finiteNonNegative(options.sigma ?? 1);
-  const threshold = Math.max(0, Math.min(1, Number.isFinite(options.threshold ?? 0.5) ? options.threshold! : 0.5));
+  const threshold = Math.max(
+    0,
+    Math.min(1, Number.isFinite(options.threshold ?? 0.5) ? options.threshold! : 0.5),
+  );
 
   let pad = 0;
   if (operation === 'grow' || operation === 'shrink') pad = amount;

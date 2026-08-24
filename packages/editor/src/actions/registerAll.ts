@@ -152,6 +152,7 @@ export function registerEditorActions(
     ['resetAllWorkspaces', 'Reset All Workspaces', 'view'],
     ['customizeWorkspace', 'Customize Workspace', 'view'],
     ['batchBgRemove', 'Batch Background Removal', 'object'],
+    ['resizeImage', 'Resize Image…', 'object'],
     ['extractPalette', 'Extract Color Palette', 'object'],
     ['auditSelection', 'Audit Selection', 'object'],
     ['auditPage', 'Audit Page', 'object'],
@@ -385,17 +386,45 @@ export function registerEditorActions(
   // via the menu submenu and palette keywords.
   const pixelSelectionOps = [
     ['areaSelectionGrow', 'Grow Selection', ['selection', 'pixel', 'grow', 'expand', 'dilate']],
-    ['areaSelectionShrink', 'Shrink Selection', ['selection', 'pixel', 'shrink', 'contract', 'erode']],
+    [
+      'areaSelectionShrink',
+      'Shrink Selection',
+      ['selection', 'pixel', 'shrink', 'contract', 'erode'],
+    ],
     ['areaSelectionSmooth', 'Smooth Selection', ['selection', 'pixel', 'smooth', 'soften', 'blur']],
-    ['areaSelectionThreshold', 'Threshold Selection', ['selection', 'pixel', 'threshold', 'hard', 'flatten']],
-    ['areaSelectionNudgeUp', 'Nudge Selection Up', ['selection', 'pixel', 'move', 'nudge', 'translate']],
-    ['areaSelectionNudgeDown', 'Nudge Selection Down', ['selection', 'pixel', 'move', 'nudge', 'translate']],
-    ['areaSelectionNudgeLeft', 'Nudge Selection Left', ['selection', 'pixel', 'move', 'nudge', 'translate']],
-    ['areaSelectionNudgeRight', 'Nudge Selection Right', ['selection', 'pixel', 'move', 'nudge', 'translate']],
+    [
+      'areaSelectionThreshold',
+      'Threshold Selection',
+      ['selection', 'pixel', 'threshold', 'hard', 'flatten'],
+    ],
+    [
+      'areaSelectionNudgeUp',
+      'Nudge Selection Up',
+      ['selection', 'pixel', 'move', 'nudge', 'translate'],
+    ],
+    [
+      'areaSelectionNudgeDown',
+      'Nudge Selection Down',
+      ['selection', 'pixel', 'move', 'nudge', 'translate'],
+    ],
+    [
+      'areaSelectionNudgeLeft',
+      'Nudge Selection Left',
+      ['selection', 'pixel', 'move', 'nudge', 'translate'],
+    ],
+    [
+      'areaSelectionNudgeRight',
+      'Nudge Selection Right',
+      ['selection', 'pixel', 'move', 'nudge', 'translate'],
+    ],
     ['areaSelectionScaleUp', 'Scale Selection Up', ['selection', 'pixel', 'scale', 'enlarge']],
     ['areaSelectionScaleDown', 'Scale Selection Down', ['selection', 'pixel', 'scale']],
     ['areaSelectionRotateCW', 'Rotate Selection Clockwise', ['selection', 'pixel', 'rotate']],
-    ['areaSelectionRotateCCW', 'Rotate Selection Counter-Clockwise', ['selection', 'pixel', 'rotate']],
+    [
+      'areaSelectionRotateCCW',
+      'Rotate Selection Counter-Clockwise',
+      ['selection', 'pixel', 'rotate'],
+    ],
   ] as const;
   for (const [id, label, keywords] of pixelSelectionOps) {
     reg(id, label, 'edit', handlers[id] ?? (() => {}));
@@ -429,6 +458,12 @@ export function registerEditorActions(
     'Select from Image Luminance',
     'edit',
     handlers.selectFromImageLuminance ?? (() => {}),
+  );
+  reg(
+    'selectFromImageColorRange',
+    'Magic Wand Select from Image',
+    'edit',
+    handlers.selectFromImageColorRange ?? (() => {}),
   );
   reg('mergeSelected', 'Merge Selected', 'object', handlers.mergeSelected ?? (() => {}));
   // Master page operations

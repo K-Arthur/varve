@@ -1,20 +1,13 @@
+import type { PerspectiveQuad } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { buildPerspectiveImageSvg, triAffine } from './perspectiveSvg';
-import type { PerspectiveQuad } from '@varve/scene';
 
 /** Parse an SVG `matrix(a b c d e f)` string into numeric coefficients. */
 function parseMatrix(s: string): [number, number, number, number, number, number] {
   const m = /matrix\(([-\d.e]+) ([-\d.e]+) ([-\d.e]+) ([-\d.e]+) ([-\d.e]+) ([-\d.e]+)\)/.exec(s);
   expect(m, `not a matrix string: ${s}`).toBeTruthy();
   if (!m) return [1, 0, 0, 1, 0, 0];
-  return [
-    Number(m[1]),
-    Number(m[2]),
-    Number(m[3]),
-    Number(m[4]),
-    Number(m[5]),
-    Number(m[6]),
-  ];
+  return [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6])];
 }
 
 function applyMatrix(
@@ -152,7 +145,9 @@ describe('buildPerspectiveImageSvg', () => {
     expect(svg).not.toBeNull();
     // Grid size 1 → cell (0,0) covers the whole box; triangle 'a' has source
     // corners (0,0),(w,0),(0,h) which must land on quad TL, TR, BL exactly.
-    const first = parseMatrix((svg?.match(/matrix\(([^)]+)\)/g) ?? [''])[0] || 'matrix(1 0 0 1 0 0)');
+    const first = parseMatrix(
+      (svg?.match(/matrix\(([^)]+)\)/g) ?? [''])[0] || 'matrix(1 0 0 1 0 0)',
+    );
     const checks: Array<[{ x: number; y: number }, readonly [number, number]]> = [
       [{ x: 0, y: 0 }, trap[0]],
       [{ x: BOX, y: 0 }, trap[1]],
@@ -201,6 +196,44 @@ describe('buildPerspectiveImageSvg', () => {
       expect(Math.abs(Math.abs(M[0]) - 0.5)).toBeLessThan(1e-6);
       expect(Math.abs(Math.abs(M[3]) - 0.5)).toBeLessThan(1e-6);
     }
+  });
+
+  it('accounts for non-zero shape-local bounds when sampling perspective content', () => {
+    const svg = buildPerspectiveImageSvg({
+      href: 'img.png',
+      w: BOX,
+      h: BOX,
+      quad: [
+        [20, 30],
+        [120, 30],
+        [120, 130],
+        [20, 130],
+      ],
+      nodeId: 'n-offset',
+      indent: '',
+      minify: false,
+      gridSize: 1,
+      placement: {
+        fit: 'fill',
+        sourceWidth: BOX,
+        sourceHeight: BOX,
+        bounds: { x: 20, y: 30, w: BOX, h: BOX },
+        drawRect: { x: 20, y: 30, w: BOX, h: BOX },
+        sourceRect: { x: 0, y: 0, w: BOX, h: BOX },
+        sampleDrawRect: { x: 20, y: 30, w: BOX, h: BOX },
+        rotation: 0,
+        flipH: false,
+        flipV: false,
+      },
+      sourceWidth: BOX,
+      sourceHeight: BOX,
+    });
+    expect(svg).not.toBeNull();
+    const first = parseMatrix((svg?.match(/matrix\(([^)]+)\)/g) ?? [])[0]!);
+    expect(first[0]).toBeCloseTo(1, 6);
+    expect(first[3]).toBeCloseTo(1, 6);
+    expect(first[4]).toBeCloseTo(20, 6);
+    expect(first[5]).toBeCloseTo(30, 6);
   });
 
   it('returns null for a crossed (invalid) quad', () => {

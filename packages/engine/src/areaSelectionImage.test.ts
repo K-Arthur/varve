@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  areaSelectionCoverageAt,
   type AreaSelection,
+  areaSelectionCoverageAt,
   type RasterMaskSelectionShape,
 } from './areaSelection';
 import {
@@ -70,7 +70,9 @@ describe('Phase 7.1 — alpha/luminance selections', () => {
   });
 
   it('returns null for malformed sources', () => {
-    expect(areaSelectionFromImageAlpha({ data: new Uint8Array(3), width: 2, height: 2 })).toBeNull();
+    expect(
+      areaSelectionFromImageAlpha({ data: new Uint8Array(3), width: 2, height: 2 }),
+    ).toBeNull();
     expect(
       areaSelectionFromImageLuminance({ data: new Uint8Array(4), width: -1, height: 1 }),
     ).toBeNull();
@@ -131,7 +133,11 @@ describe('Phase 7.2 — colour range selection', () => {
     const src = rgbaSource(1, 1, [RED]);
     expect(areaSelectionFromColorRange(src, { r: 0, g: 0, b: 0 }, { tolerance: 0 })).toBeNull();
     expect(
-      areaSelectionFromColorRange(src, { r: 0, g: 0, b: 0 }, { tolerance: 0.1, mode: 'contiguous' }),
+      areaSelectionFromColorRange(
+        src,
+        { r: 0, g: 0, b: 0 },
+        { tolerance: 0.1, mode: 'contiguous' },
+      ),
     ).toBeNull();
     expect(
       areaSelectionFromColorRange(

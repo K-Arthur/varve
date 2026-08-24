@@ -1,7 +1,7 @@
 import { createDocument, makeImageShapeNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
-import type { ToolContext } from '../types';
 import { PerspectiveTool } from '../PerspectiveTool';
+import type { ToolContext } from '../types';
 
 function makeContext() {
   const document = createDocument('perspective-test', true);

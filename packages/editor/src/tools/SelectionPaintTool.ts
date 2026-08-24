@@ -1,4 +1,4 @@
-import { paintSelectionMask, type AreaSelection, type MaskBrushStamp } from '@varve/engine';
+import { type AreaSelection, type MaskBrushStamp, paintSelectionMask } from '@varve/engine';
 import type { CursorSpec, GestureResult, Tool, ToolContext, ToolCursorState } from './types';
 
 /**
@@ -13,6 +13,7 @@ export class SelectionPaintTool implements Tool {
 
   private pointerId = -1;
   private strokeSelection: AreaSelection | null = null;
+  private sessionOriginalSelection: AreaSelection | null = null;
   private sessionSelection: AreaSelection | null = null;
   private stamps: MaskBrushStamp[] = [];
 
@@ -21,7 +22,8 @@ export class SelectionPaintTool implements Tool {
   }
 
   onActivate(ctx: ToolContext): void {
-    this.sessionSelection = ctx.areaSelection ?? null;
+    this.sessionOriginalSelection = ctx.areaSelection ?? null;
+    this.sessionSelection = this.sessionOriginalSelection;
     this.stamps = [];
     if (!this.sessionSelection) ctx.announce('Create a pixel selection before painting it');
   }
@@ -29,6 +31,7 @@ export class SelectionPaintTool implements Tool {
   onDeactivate(_ctx: ToolContext): void {
     this.pointerId = -1;
     this.strokeSelection = null;
+    this.sessionOriginalSelection = null;
     this.sessionSelection = null;
     this.stamps = [];
   }
@@ -74,18 +77,24 @@ export class SelectionPaintTool implements Tool {
   onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
     if (e.key !== 'Escape') return false;
     if (this.pointerId !== -1) {
+      ctx.releasePointerCapture(this.pointerId);
       this.pointerId = -1;
       this.strokeSelection = null;
       this.stamps = [];
       ctx.announce('Selection paint stroke cancelled');
       return true;
     }
-    if (this.sessionSelection && ctx.setAreaSelection) {
-      ctx.setAreaSelection(this.sessionSelection);
+    if (ctx.setAreaSelection) {
+      ctx.setAreaSelection(this.sessionOriginalSelection);
       ctx.announce('Selection paint cancelled');
       return true;
     }
     return false;
+  }
+
+  /** Selection captured when the paint session began, for an explicit Cancel. */
+  getOriginalSelection(): AreaSelection | null {
+    return this.sessionOriginalSelection;
   }
 
   private addStamp(e: PointerEvent, ctx: ToolContext): void {
@@ -109,7 +118,9 @@ export class SelectionPaintTool implements Tool {
       ctx.announce('Selection paint exceeded the bounded working area');
       return;
     }
-    ctx.setAreaSelection(next);
+    if (ctx.commitAreaSelection) ctx.commitAreaSelection(next);
+    else ctx.setAreaSelection(next);
     this.sessionSelection = next;
+    ctx.announce('Selection painted');
   }
 }

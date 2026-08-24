@@ -430,7 +430,7 @@ function StrokeRow({
           {/* Per-side weights for rects/frames */}
           {hasRectLike && (
             <FieldRow label="Per-side">
-              <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+              <div style={{ display: 'flex', gap: 'var(--space-1)', flex: 1 }}>
                 {(['T', 'R', 'B', 'L'] as const).map((side, i) => (
                   <input
                     key={side}

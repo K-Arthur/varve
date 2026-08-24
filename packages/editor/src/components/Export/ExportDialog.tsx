@@ -64,6 +64,7 @@ import { LIFECYCLE_COMMIT_EVENT } from '../../lifecycle';
 import { createVideoFrameRenderer } from '../../motion/videoExportBridge';
 import { loadSettings } from '../../settings';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
+import { confirmDialog } from '../PromptDialog';
 import { BatchJobList } from './BatchJobList';
 import { DestinationPicker } from './DestinationPicker';
 import { ExportProgressBar } from './ExportProgressBar';
@@ -544,8 +545,10 @@ export function ExportDialog({
   const handleExport = useCallback(async () => {
     const blockingErrors = findings.filter((f) => f.severity === 'error');
     if (blockingErrors.length > 0) {
-      const proceed = window.confirm(
+      const proceed = await confirmDialog(
+        'Preflight errors found',
         `Preflight found ${blockingErrors.length} error${blockingErrors.length === 1 ? '' : 's'} that may make the exported file${blockingErrors.length === 1 ? '' : 's'} unusable (e.g. missing fonts, out-of-gamut colors). Export anyway?`,
+        { confirmLabel: 'Export anyway', variant: 'danger' },
       );
       if (!proceed) return;
     }

@@ -9,23 +9,25 @@
  * by useToolManagerSync which calls `tool.commit()`.
  */
 
+import { isPerspectiveQuadValid } from '@varve/scene';
 import {
   computeFloatingOrigin,
   screenDeltaToWorld,
   worldToScreen as sharedWorldToScreen,
 } from '@varve/shared';
-import { getEditorViewport } from '../canvas/cameraState';
-import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../canvas/overlayZIndex';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getEditorViewport } from '../canvas/cameraState';
 import { useEditor } from '../context';
 import { nodeWorldTransform } from '../scene/world';
 import type { PerspectiveState, PerspectiveTool } from '../tools/PerspectiveTool';
+import type { ToolContext } from '../tools/types';
 
 interface Props {
   tool: PerspectiveTool;
   zoom: number;
   pan: { x: number; y: number };
   cameraRotation: number;
+  buildToolCtx: (ev: PointerEvent) => ToolContext;
 }
 
 const HANDLE_R = 6;
@@ -43,8 +45,8 @@ function worldToLocal(
   return { x: (d * dx - c * dy) / det, y: (-b * dx + a * dy) / det };
 }
 
-export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation }: Props) {
-  const { state } = useEditor();
+export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation, buildToolCtx }: Props) {
+  const { state, setTool } = useEditor();
   const doc = state.document;
   const ps: PerspectiveState | null = tool.current;
   const [drag, setDrag] = useState<{
@@ -61,6 +63,21 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation }: Props) {
 
   const worldMat = ps ? nodeWorldTransform(doc, ps.nodeId) : null;
 
+  const commit = useCallback(() => {
+    const current = tool.current;
+    if (!current || !isPerspectiveQuadValid(current.quad)) return;
+    tool.commit(buildToolCtx({} as PointerEvent));
+    // The overlay can own focus, so its window-level key handler may run
+    // without the canvas key pipeline. Keep confirmation deterministic by
+    // explicitly leaving the modal tool after a valid commit.
+    setTool('select');
+  }, [buildToolCtx, setTool, tool]);
+
+  const cancel = useCallback(() => {
+    tool.cancel(buildToolCtx({} as PointerEvent));
+    setTool('select');
+  }, [buildToolCtx, setTool, tool]);
+
   // ── Coordinate conversion ────────────────────────────────────────────
   const nodeToScreen = useCallback(
     (nx: number, ny: number): { x: number; y: number } | null => {
@@ -71,13 +88,7 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation }: Props) {
       const viewport = getEditorViewport();
       const camera = { zoom, pan, rotation: cameraRotation };
       const origin = computeFloatingOrigin(camera, viewport);
-      const [x, y] = sharedWorldToScreen(
-        camera,
-        wx,
-        wy,
-        viewport,
-        origin,
-      );
+      const [x, y] = sharedWorldToScreen(camera, wx, wy, viewport, origin);
       return { x, y };
     },
     [worldMat, zoom, pan, cameraRotation],
@@ -127,29 +138,35 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation }: Props) {
     [drag],
   );
 
-  const onPointerCancel = useCallback(
-    (e: React.PointerEvent) => {
-      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      }
-      setDrag(null);
-    },
-    [],
-  );
+  const onPointerCancel = useCallback((e: React.PointerEvent) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    setDrag(null);
+  }, []);
 
-  // ── Escape cancels ───────────────────────────────────────────────────
+  // ── Keyboard completion/cancellation ─────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && dragRef.current) {
+      if (e.key === 'Enter') {
         e.preventDefault();
-        tool.restoreOriginal();
-        redraw((value) => value + 1);
-        setDrag(null);
+        commit();
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (dragRef.current) {
+          tool.restoreOriginal();
+          redraw((value) => value + 1);
+          setDrag(null);
+        } else {
+          cancel();
+        }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [tool]);
+  }, [cancel, commit, tool]);
 
   if (!ps || !worldMat) return null;
 
@@ -170,13 +187,13 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation }: Props) {
           inset: 0,
           pointerEvents: 'none',
           overflow: 'visible',
-          zIndex: CANVAS_INTERACTIVE_OVERLAY_Z_INDEX,
+          zIndex: 'var(--z-overlay)',
         }}
       >
         <polygon
           points={corners.map((c) => `${c!.x},${c!.y}`).join(' ')}
-          fill="rgba(128, 128, 255, 0.06)"
-          stroke="rgba(128, 128, 255, 0.85)"
+          fill="color-mix(in oklch, var(--color-accent-primary) 6%, transparent)"
+          stroke="color-mix(in oklch, var(--color-accent-primary) 85%, transparent)"
           strokeWidth={1.5}
           strokeDasharray="6 3"
         />
@@ -192,6 +209,15 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation }: Props) {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerCancel}
           onLostPointerCapture={onPointerCancel}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commit();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              cancel();
+            }
+          }}
           aria-label={`Perspective corner ${c!.label}`}
           style={{
             position: 'absolute',
@@ -200,14 +226,54 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation }: Props) {
             width: HANDLE_HIT_SIZE,
             height: HANDLE_HIT_SIZE,
             borderRadius: '50%',
-            background: `radial-gradient(circle ${HANDLE_R}px, rgba(128, 128, 255, 0.95) ${HANDLE_R - 1}px, white ${HANDLE_R}px, white ${HANDLE_R + 2}px, transparent ${HANDLE_R + 3}px)`,
+            background: `radial-gradient(circle ${HANDLE_R}px, color-mix(in oklch, var(--color-accent-primary) 95%, transparent) ${HANDLE_R - 1}px, var(--color-surface-raised) ${HANDLE_R}px, var(--color-surface-raised) ${HANDLE_R + 2}px, transparent ${HANDLE_R + 3}px)`,
             border: 0,
             cursor: 'grab',
             pointerEvents: 'auto',
-            zIndex: CANVAS_INTERACTIVE_OVERLAY_Z_INDEX + 1,
+            // Stay above the selection quick bar while editing. The top
+            // corners can otherwise be visually present but pointer-inert
+            // beneath that contextual toolbar.
+            zIndex: 'var(--z-overlay)',
           }}
         />
       ))}
+
+      <div
+        role="toolbar"
+        aria-label="Perspective editing actions"
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          gap: 'var(--space-3)',
+          padding: 'var(--space-1)',
+          border: '1px solid var(--color-border-subtle)',
+          borderRadius: 'var(--radius-md)',
+          background: 'var(--elevation-surface-raised)',
+          boxShadow: 'var(--shadow-md)',
+          pointerEvents: 'auto',
+          zIndex: 'var(--z-overlay)',
+        }}
+      >
+        <button
+          type="button"
+          className="varve-btn varve-btn--primary varve-btn--sm"
+          onClick={commit}
+          aria-label="Apply perspective"
+        >
+          Apply
+        </button>
+        <button
+          type="button"
+          className="varve-btn varve-btn--ghost varve-btn--sm"
+          onClick={cancel}
+          aria-label="Cancel perspective"
+        >
+          Cancel
+        </button>
+      </div>
     </>
   );
 }

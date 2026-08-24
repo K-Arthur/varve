@@ -1305,6 +1305,16 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   openUpscaleDialog: () => void;
   /** Close the upscale dialog. */
   closeUpscaleDialog: () => void;
+  /** Whether the source-pixel resize dialog is open. */
+  imageResizeDialogOpen: boolean;
+  /** Open the source-pixel resize dialog for the selected image. */
+  openImageResizeDialog: () => void;
+  /** Close the source-pixel resize dialog. */
+  closeImageResizeDialog: () => void;
+  /** Resize source pixels while preserving image placement and crop. */
+  resizeSelectedImage: (
+    request: import('./imageResize').ImageResizeRequest & { nodeId: NodeId },
+  ) => Promise<void>;
   /** Whether the Image Trace (vectorize) dialog is open. */
   vectorizeDialogOpen: boolean;
   /** Re-trace target for the Image Trace dialog (Edit Trace workflow). */
@@ -2421,6 +2431,7 @@ export function EditorProvider({
       revision: 0,
       warpEdit: null,
       upscaleDialogOpen: false,
+      imageResizeDialogOpen: false,
       vectorizeDialogOpen: false,
       vectorizeDialogPrefill: null,
       paletteExtractDialogOpen: false,
@@ -2467,6 +2478,9 @@ export function EditorProvider({
   const redoSelStackRef = useRef<NodeId[][]>([]);
   const undoLabelsRef = useRef<string[]>([]);
   const redoLabelsRef = useRef<string[]>([]);
+  /** Ephemeral selection history; one entry is created per committed paint stroke. */
+  const areaUndoStackRef = useRef<Array<AreaSelection | null>>([]);
+  const areaRedoStackRef = useRef<Array<AreaSelection | null>>([]);
   /** Persistent-history API ref (assigned after the hook runs; used by
    *  stable callbacks and the derived undo-state sync below). */
   const persistentHistoryRef = useRef<PersistentHistoryApi | null>(null);
@@ -2495,6 +2509,8 @@ export function EditorProvider({
     redoSelStackRef.current = [];
     undoLabelsRef.current = [];
     redoLabelsRef.current = [];
+    areaUndoStackRef.current = [];
+    areaRedoStackRef.current = [];
   }, []);
 
   /**
@@ -2533,6 +2549,8 @@ export function EditorProvider({
       redoSelStackRef.current = [];
       undoLabelsRef.current = [];
       redoLabelsRef.current = [];
+      areaUndoStackRef.current = [];
+      areaRedoStackRef.current = [];
       return {
         ...s,
         document: doc,
@@ -2814,6 +2832,8 @@ export function EditorProvider({
   });
 
   const updateDoc = useCallback((fn: (doc: Document) => Document) => {
+    areaUndoStackRef.current = [];
+    areaRedoStackRef.current = [];
     setState((s) => {
       if (!inTransactionRef.current) {
         undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
@@ -3137,6 +3157,38 @@ export function EditorProvider({
   });
   /** Ref to the persistent-history API for use inside stable callbacks. */
   persistentHistoryRef.current = persistentHistory;
+
+  const setAreaSelection = useCallback((selection: AreaSelection | null) => {
+    // Non-paint selection changes establish a new ephemeral history branch.
+    areaUndoStackRef.current = [];
+    areaRedoStackRef.current = [];
+    setState((s) => {
+      const nextGeneration =
+        selection === null
+          ? (s.areaSelection?.generation ?? 0) + 1
+          : Math.max(selection.generation, (s.areaSelection?.generation ?? 0) + 1);
+      return {
+        ...s,
+        areaSelection: selection === null ? null : { ...selection, generation: nextGeneration },
+      };
+    });
+  }, []);
+
+  const commitAreaSelection = useCallback((selection: AreaSelection) => {
+    setState((s) => {
+      const nextGeneration = Math.max(selection.generation, (s.areaSelection?.generation ?? 0) + 1);
+      areaUndoStackRef.current = [...areaUndoStackRef.current.slice(-49), s.areaSelection ?? null];
+      areaRedoStackRef.current = [];
+      return {
+        ...s,
+        areaSelection: { ...selection, generation: nextGeneration },
+        canUndo: true,
+        canRedo: false,
+        undoLabel: 'Paint Selection',
+        redoLabel: 'Redo',
+      };
+    });
+  }, []);
 
   const value = useMemo<EditorContextValue>(
     () => ({
@@ -4171,37 +4223,49 @@ export function EditorProvider({
       removeSelected: () => {
         const sel = state.selection;
         if (sel.length === 0) return;
-        if (
-          sel.length > 5 &&
-          !window.confirm(`Are you sure you want to delete ${sel.length} objects?`)
-        )
-          return;
-        const parentIds = new Set(
-          sel
-            .map((id) => getParentFast(state.document, id, parentCacheRef.current))
-            .filter((pid): pid is string => Boolean(pid)),
-        );
-        updateDoc((doc) => {
-          let d = doc;
-          // Before removing paths, detach any texts that reference them
-          // so those texts don't silently become invisible. This is done
-          // in the same transaction so undo restores everything together.
-          const removing = new Set(sel);
-          for (const node of Object.values(d.nodes)) {
-            if (
-              node.kind === 'text' &&
-              node.pathTextSettings?.pathNodeId &&
-              removing.has(node.pathTextSettings.pathNodeId)
-            ) {
-              const { pathTextSettings: _dropped, ...rest } = node;
-              d = { ...d, nodes: { ...d.nodes, [node.id]: { ...rest, textMode: 'point' } } };
+        const doRemove = () => {
+          const parentIds = new Set(
+            sel
+              .map((id) => getParentFast(state.document, id, parentCacheRef.current))
+              .filter((pid): pid is string => Boolean(pid)),
+          );
+          updateDoc((doc) => {
+            let d = doc;
+            // Before removing paths, detach any texts that reference them
+            // so those texts don't silently become invisible. This is done
+            // in the same transaction so undo restores everything together.
+            const removing = new Set(sel);
+            for (const node of Object.values(d.nodes)) {
+              if (
+                node.kind === 'text' &&
+                node.pathTextSettings?.pathNodeId &&
+                removing.has(node.pathTextSettings.pathNodeId)
+              ) {
+                const { pathTextSettings: _dropped, ...rest } = node;
+                d = { ...d, nodes: { ...d.nodes, [node.id]: { ...rest, textMode: 'point' } } };
+              }
             }
-          }
-          for (const id of sel) d = removeNode(d, id);
-          for (const pid of parentIds) d = applyFrameLayout(d, pid);
-          return d;
-        });
-        patch({ selection: [] });
+            for (const id of sel) d = removeNode(d, id);
+            for (const pid of parentIds) d = applyFrameLayout(d, pid);
+            return d;
+          });
+          patch({ selection: [] });
+        };
+        if (sel.length > 5) {
+          import('./components/PromptDialog')
+            .then(({ confirmDialog }) =>
+              confirmDialog(
+                'Delete objects',
+                `Are you sure you want to delete ${sel.length} objects?`,
+                { confirmLabel: 'Delete', variant: 'danger' },
+              ),
+            )
+            .then((confirmed) => {
+              if (confirmed) doRemove();
+            });
+          return;
+        }
+        doRemove();
       },
 
       renameSelected: (name) => {
@@ -5809,6 +5873,21 @@ export function EditorProvider({
       removeFrameFromChain,
 
       undo: () => {
+        const previousAreaSelection = areaUndoStackRef.current.pop();
+        if (previousAreaSelection !== undefined) {
+          areaRedoStackRef.current = [...areaRedoStackRef.current, state.areaSelection ?? null];
+          patch({
+            areaSelection: previousAreaSelection,
+            canUndo: areaUndoStackRef.current.length > 0 || undoStackRef.current.length > 0,
+            canRedo: true,
+            undoLabel:
+              areaUndoStackRef.current.length > 0
+                ? 'Paint Selection'
+                : (undoLabelsRef.current[undoLabelsRef.current.length - 1] ?? 'Undo'),
+            redoLabel: 'Paint Selection',
+          });
+          return;
+        }
         // Persistent history (ADR-0019 Model A): when attached, undo moves
         // the branch head through the revision store. Falls back to the
         // in-memory stack for mutation paths not yet migrated.
@@ -5839,6 +5918,21 @@ export function EditorProvider({
       },
 
       redo: () => {
+        const nextAreaSelection = areaRedoStackRef.current.pop();
+        if (nextAreaSelection !== undefined) {
+          areaUndoStackRef.current = [...areaUndoStackRef.current, state.areaSelection ?? null];
+          patch({
+            areaSelection: nextAreaSelection,
+            canUndo: true,
+            canRedo: areaRedoStackRef.current.length > 0 || redoStackRef.current.length > 0,
+            undoLabel: 'Paint Selection',
+            redoLabel:
+              areaRedoStackRef.current.length > 0
+                ? 'Paint Selection'
+                : (redoLabelsRef.current[redoLabelsRef.current.length - 1] ?? 'Redo'),
+          });
+          return;
+        }
         // Persistent history: redo returns to the most recently abandoned
         // child of the current head.
         const persistent = persistentHistoryRef.current;
@@ -6873,18 +6967,8 @@ export function EditorProvider({
         }));
       },
 
-      setAreaSelection: (selection: AreaSelection | null) => {
-        setState((s) => {
-          const nextGeneration =
-            selection === null
-              ? (s.areaSelection?.generation ?? 0) + 1
-              : Math.max(selection.generation, (s.areaSelection?.generation ?? 0) + 1);
-          return {
-            ...s,
-            areaSelection: selection === null ? null : { ...selection, generation: nextGeneration },
-          };
-        });
-      },
+      setAreaSelection,
+      commitAreaSelection,
 
       setAreaSelectionSettings: (patch: Partial<AreaSelectionSettings>) => {
         setState((s) => {
@@ -7064,43 +7148,48 @@ export function EditorProvider({
         const text = textNode.text ?? '';
         const charCount = text.length;
 
-        // Warn for large text
-        if (
-          charCount > 5000 &&
-          !window.confirm(
-            `This text has ${charCount} characters and will produce ${charCount} vector paths. Proceed?`,
-          )
-        )
-          return;
+        void (async () => {
+          // Warn for large text
+          if (charCount > 5000) {
+            const proceed = await import('./components/PromptDialog').then(({ confirmDialog }) =>
+              confirmDialog(
+                'Large text warning',
+                `This text has ${charCount} characters and will produce ${charCount} vector paths. Proceed?`,
+                { confirmLabel: 'Proceed' },
+              ),
+            );
+            if (!proceed) return;
+          }
 
-        // Confirmation copy: lossy operation
-        if (
-          !window.confirm(
-            'Convert this text to vector outlines?\n\n' +
-              'Outlined text can no longer be edited as text.\n' +
-              'Undo is available within this session, but the change is permanent after save and reopen.\n\n' +
-              'Proceed?',
-          )
-        )
-          return;
+          // Confirmation copy: lossy operation
+          const confirmed = await import('./components/PromptDialog').then(({ confirmDialog }) =>
+            confirmDialog(
+              'Convert to outlines',
+              'Outlined text can no longer be edited as text. ' +
+                'Undo is available within this session, but the change is permanent after save and reopen.',
+              { confirmLabel: 'Convert' },
+            ),
+          );
+          if (!confirmed) return;
 
-        // Dynamic import to avoid circular deps
-        void import('./context/convertTextOutline').then(({ convertTextOutline }) =>
-          convertTextOutline(state.document, nodeId, fontFamily, {
-            onWarn: (msg) => {
-              announcerRef.current?.announce(msg);
-              toastHandler?.({ message: msg, type: 'warning', duration: 5000 });
-            },
-            onResult: (newDoc) => {
-              updateDoc(() => newDoc);
-              announcerRef.current?.announce('Text converted to outlines');
-              toastHandler?.({ message: 'Text converted to vector paths.', type: 'success' });
-            },
-            onError: (err) => {
-              toastHandler?.({ message: err, type: 'error' });
-            },
-          }),
-        );
+          // Dynamic import to avoid circular deps
+          void import('./context/convertTextOutline').then(({ convertTextOutline }) =>
+            convertTextOutline(state.document, nodeId, fontFamily, {
+              onWarn: (msg) => {
+                announcerRef.current?.announce(msg);
+                toastHandler?.({ message: msg, type: 'warning', duration: 5000 });
+              },
+              onResult: (newDoc) => {
+                updateDoc(() => newDoc);
+                announcerRef.current?.announce('Text converted to outlines');
+                toastHandler?.({ message: 'Text converted to vector paths.', type: 'success' });
+              },
+              onError: (err) => {
+                toastHandler?.({ message: err, type: 'error' });
+              },
+            }),
+          );
+        })();
       },
 
       createAdjustmentLayer: (initialAdjustments) => {
@@ -7211,6 +7300,10 @@ export function EditorProvider({
               : addNode(newDoc, adjustmentNode);
         }
         patch({ document: doc, selection: [id] });
+        // Creation is an editing workflow: reveal the Adjustment tab so the
+        // newly-created layer is immediately actionable instead of leaving
+        // its controls behind the Properties tab's access summary.
+        requestInspectorTab('adjustments');
         announcerRef.current?.announce(`Created adjustment layer${scopeLabel}`);
       },
 
@@ -8560,6 +8653,18 @@ export function EditorProvider({
       closeUpscaleDialog: () => {
         patch({ upscaleDialogOpen: false });
       },
+      imageResizeDialogOpen: state.imageResizeDialogOpen,
+      openImageResizeDialog: () => {
+        const image = selectedImageShape(stateRef.current.document, stateRef.current.selection);
+        if (!image) {
+          announcerRef.current?.announce('Select an image layer first');
+          return;
+        }
+        patch({ imageResizeDialogOpen: true });
+      },
+      closeImageResizeDialog: () => {
+        patch({ imageResizeDialogOpen: false });
+      },
       vectorizeDialogOpen: state.vectorizeDialogOpen,
       vectorizeDialogPrefill: state.vectorizeDialogPrefill,
       openVectorizeDialog: (prefill) => {
@@ -9043,6 +9148,144 @@ export function EditorProvider({
           throw normalized;
         } finally {
           if (processingImageNodeRef.current === processingNodeId) {
+            imageProcessingAbortRef.current = null;
+            processingImageNodeRef.current = null;
+          }
+        }
+      },
+
+      resizeSelectedImage: async (
+        request: import('./imageResize').ImageResizeRequest & { nodeId: NodeId },
+      ) => {
+        const imageNode = stateRef.current.document.nodes[request.nodeId];
+        if (imageNode?.kind !== 'shape' || !isImageShape(imageNode)) {
+          announcerRef.current?.announce('Select an image layer first');
+          return;
+        }
+        const { imageShapeSrc, getImageFill, findOrCreateEmbeddedAsset, mimeTypeFromDataUrl } =
+          await import('@varve/scene');
+        const imageFill = getImageFill(imageNode);
+        const sourceData = imageFill?.type === 'image' ? imageFill.image : undefined;
+        if (!sourceData?.src) {
+          announcerRef.current?.announce('The selected image has no source pixels');
+          return;
+        }
+
+        const { resizeImageCrop, resizeImageData, resizeMaskDataUrl } = await import(
+          './imageResize'
+        );
+
+        imageProcessingAbortRef.current?.abort();
+        const controller = new AbortController();
+        imageProcessingAbortRef.current = controller;
+        processingImageNodeRef.current = request.nodeId;
+        announcerRef.current?.announce('Resizing image pixels...');
+        try {
+          const engine = await import('@varve/engine');
+          const sourceImage = await engine.getImageCache().load(imageShapeSrc(imageNode));
+          if (controller.signal.aborted) return;
+          const sourceWidth = Math.max(1, sourceImage.width);
+          const sourceHeight = Math.max(1, sourceImage.height);
+          const sourceCanvas = document.createElement('canvas');
+          sourceCanvas.width = sourceWidth;
+          sourceCanvas.height = sourceHeight;
+          const sourceContext = sourceCanvas.getContext('2d');
+          if (!sourceContext) throw new Error('Canvas pixel processing is unavailable');
+          sourceContext.drawImage(sourceImage, 0, 0, sourceWidth, sourceHeight);
+          const resized = resizeImageData(
+            sourceContext.getImageData(0, 0, sourceWidth, sourceHeight),
+            request,
+            controller.signal,
+          );
+          const outputCanvas = document.createElement('canvas');
+          outputCanvas.width = resized.width;
+          outputCanvas.height = resized.height;
+          const outputContext = outputCanvas.getContext('2d');
+          if (!outputContext) throw new Error('Canvas image encoding is unavailable');
+          outputContext.putImageData(resized, 0, 0);
+          const dataUrl = outputCanvas.toDataURL('image/png');
+
+          const oldMaskDataUrl = imageNode.backgroundRemoval?.maskDataUrl;
+          const resizedMaskDataUrl = oldMaskDataUrl
+            ? await resizeMaskDataUrl(
+                oldMaskDataUrl,
+                resized.width,
+                resized.height,
+                controller.signal,
+              )
+            : undefined;
+          if (controller.signal.aborted) return;
+
+          const current = stateRef.current;
+          if (current.document.nodes[request.nodeId] !== imageNode) {
+            throw new Error('stale-result: source changed before resizing completed');
+          }
+
+          updateDoc((doc) => {
+            const node = doc.nodes[request.nodeId];
+            if (node?.kind !== 'shape') return doc;
+            const fill = getImageFill(node);
+            if (fill?.type !== 'image' || !fill.image) return doc;
+            const { document: withAsset, assetId } = findOrCreateEmbeddedAsset(doc, {
+              dataUrl,
+              mimeType: mimeTypeFromDataUrl(dataUrl),
+              naturalWidth: resized.width,
+              naturalHeight: resized.height,
+            });
+            const nextImage: ImageFillData = {
+              ...fill.image,
+              src: dataUrl,
+              assetId,
+              imageWidth: resized.width,
+              imageHeight: resized.height,
+              crop: resizeImageCrop(
+                fill.image.crop,
+                sourceWidth,
+                sourceHeight,
+                resized.width,
+                resized.height,
+              ),
+              // A resize changes the displayed asset; an earlier upscale
+              // recipe would otherwise claim provenance for different bytes.
+              upscale: undefined,
+            };
+            let imageSeen = false;
+            const fills = (node.fills ?? []).map((candidate) => {
+              if (!imageSeen && candidate.type === 'image' && candidate.image) {
+                imageSeen = true;
+                return { ...candidate, image: nextImage };
+              }
+              return candidate;
+            });
+            return {
+              ...withAsset,
+              nodes: {
+                ...withAsset.nodes,
+                [request.nodeId]: {
+                  ...node,
+                  fills,
+                  ...(resizedMaskDataUrl && node.backgroundRemoval
+                    ? {
+                        backgroundRemoval: {
+                          ...node.backgroundRemoval,
+                          maskDataUrl: resizedMaskDataUrl,
+                        },
+                      }
+                    : {}),
+                },
+              },
+            };
+          });
+          announcerRef.current?.announce(
+            `Image pixels resized to ${resized.width} by ${resized.height}`,
+          );
+        } catch (error) {
+          if (controller.signal.aborted) throw new Error('cancelled');
+          const message = error instanceof Error ? error.message : String(error);
+          announcerRef.current?.announce(`Image resize failed: ${message}`);
+          throw error instanceof Error ? error : new Error(message);
+        } finally {
+          if (processingImageNodeRef.current === request.nodeId) {
             imageProcessingAbortRef.current = null;
             processingImageNodeRef.current = null;
           }

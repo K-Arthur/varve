@@ -24,7 +24,7 @@ import {
   type TransformCache,
 } from '../scene/transformCache';
 import { nodeWorldBounds } from '../scene/world';
-import type { DraftShape, ToolContext } from '../tools';
+import type { DraftShape, PixelProbe, ToolContext } from '../tools';
 import type { collectSourceEvents } from '../tools/inputNormalizer';
 import {
   createSnapSession,
@@ -77,6 +77,7 @@ export interface ToolContextDeps {
   pendingAutoTextEditRef: React.MutableRefObject<boolean>;
   nodeEditTargetId: string | null;
   setDraft: (draft: DraftShape | null) => void;
+  setPixelProbe: (probe: PixelProbe | null) => void;
   setDropTargetFrameId: (id: NodeId | null) => void;
   setSnapGuides: (guides: SnapGuide[]) => void;
   setDeepSelectionCandidates: (candidates: DeepSelectionCandidateSet | null) => void;
@@ -129,6 +130,7 @@ export function buildToolContext(
     setMaskPreviewMode: (mode) => e.setMaskPreviewMode(mode),
     areaSelection: s.areaSelection ?? null,
     setAreaSelection: (selection) => e.setAreaSelection?.(selection),
+    commitAreaSelection: (selection) => e.commitAreaSelection?.(selection),
     areaSelectionSettings: s.areaSelectionSettings,
     setAreaSelectionSettings: (patch) => e.setAreaSelectionSettings(patch),
     snapEnabled: s.snapEnabled,
@@ -164,6 +166,7 @@ export function buildToolContext(
     announceSelection: (selected) => e.announceSelection(selected),
     announceOperation: (op, result) => e.announceOperation(op, result),
     setDraft: deps.setDraft,
+    setPixelProbe: deps.setPixelProbe,
     rootNodes: () => deps.rootNodes(),
     getNode: (id) => s.document.nodes[id],
 

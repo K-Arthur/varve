@@ -2,6 +2,7 @@ import type { MasterAppliesTo, MasterPage } from '@varve/scene';
 import { Select, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../context';
+import { confirmDialog } from '../PromptDialog';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
 import './master-panel.css';
 
@@ -151,8 +152,17 @@ export function MasterPanel() {
                   <button
                     type="button"
                     className="master-panel__action-btn master-panel__action-btn--danger"
-                    onClick={() => {
-                      if (window.confirm(`Delete master "${master.name}"?`)) {
+                    onClick={async () => {
+                      if (
+                        await confirmDialog(
+                          'Delete master page',
+                          `Delete master "${master.name}"?`,
+                          {
+                            confirmLabel: 'Delete',
+                            variant: 'danger',
+                          },
+                        )
+                      ) {
                         deleteMaster(master.id);
                       }
                     }}

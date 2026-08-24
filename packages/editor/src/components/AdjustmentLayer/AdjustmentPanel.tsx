@@ -1,5 +1,9 @@
-import type { AdjustmentBlendMode, BlendMode } from '@varve/engine';
-import { filterKindDisplayName } from '@varve/engine';
+import {
+  type AdjustmentBlendMode,
+  autoWhiteBalanceParams,
+  type BlendMode,
+  filterKindDisplayName,
+} from '@varve/engine';
 import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@varve/scene';
 import { makeAdjustment } from '@varve/scene';
 import { Select, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
@@ -18,6 +22,7 @@ const ADJUSTMENT_KINDS: AdjustmentKind[] = [
   'curves',
   'exposure',
   'saturation',
+  'hueSaturation',
   'hueRotate',
   'colorBalance',
   'selectiveColor',
@@ -115,14 +120,12 @@ export function AdjustmentPanel() {
 
   // Source histogram for the adjustment layer's scope targets.
   // The histogram shows the INPUT pixels (before this adjustment is applied).
-  const { histogram: sourceHistogram } = useAdjustmentHistogram(
-    state.document,
-    adjNodeRef,
-  );
+  const { histogram: sourceHistogram } = useAdjustmentHistogram(state.document, adjNodeRef);
 
   const [selectedAdjId, setSelectedAdjId] = useState<string | null>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const addBtnRef = useRef<HTMLButtonElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
   const editTransactionRef = useRef(false);
 
   const startEditTransaction = useCallback(() => {
@@ -147,6 +150,13 @@ export function AdjustmentPanel() {
     [commitTransaction],
   );
 
+  useEffect(() => {
+    if (!isAdjustmentNode || !selectedAdjId) return;
+    requestAnimationFrame(() => {
+      editorRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }, [isAdjustmentNode, selectedAdjId]);
+
   const handleAddAdjustment = useCallback(
     (kind: AdjustmentKind) => {
       if (!nodeId) return;
@@ -162,6 +172,23 @@ export function AdjustmentPanel() {
     },
     [nodeId, updateNode],
   );
+
+  const handleAutoWhiteBalance = useCallback(() => {
+    if (!nodeId || !sourceHistogram) return;
+    const correction = autoWhiteBalanceParams(sourceHistogram);
+    const id = localAdjId();
+    const auto = makeAdjustment(id, 'colorBalance', {
+      shadows: correction,
+      midtones: correction,
+      highlights: correction,
+      preserveLuminosity: true,
+    } as Partial<Adjustment>);
+    updateNode(nodeId, (n) => {
+      if (n.kind !== 'adjustment') return n;
+      return { ...n, adjustments: [...(n.adjustments ?? []), auto] } as SceneNode;
+    });
+    setSelectedAdjId(id);
+  }, [nodeId, sourceHistogram, updateNode]);
 
   const handleRemoveAdjustment = useCallback(
     (adjId: string) => {
@@ -295,6 +322,15 @@ export function AdjustmentPanel() {
       <div className="adj-panel__stack">
         <div className="adj-panel__stack-header">
           <span className="adj-panel__stack-title">Filter Stack</span>
+          <button
+            type="button"
+            className="adj-panel__auto-btn"
+            onClick={handleAutoWhiteBalance}
+            disabled={!sourceHistogram}
+            aria-label="Auto White Balance"
+          >
+            Auto WB
+          </button>
         </div>
 
         {adjustments.map((adj, index) => (
@@ -389,6 +425,7 @@ export function AdjustmentPanel() {
 
       {selectedAdj && (
         <div
+          ref={editorRef}
           className="adj-panel__editor"
           onPointerDownCapture={(event) => {
             if ((event.target as Element).matches('input[type="range"]')) {
