@@ -133,24 +133,33 @@ test.describe('Brush / Paint tool — drawing and persistence', () => {
   });
 
   test('paint tool undo visibly changes the canvas (dabs removed)', async ({ page }) => {
+    const contentCanvas = page.locator('canvas.editor-canvas__content-layer');
+    const beforePaint = await contentCanvas.screenshot();
+
     await page.keyboard.press('b');
     await page.waitForTimeout(200);
 
-    const contentCanvas = page.locator('canvas.editor-canvas__content-layer');
-
     await dragOnCanvas(page, 200, 200, 350, 300);
-    await page.waitForTimeout(300);
+    // Rendering is asynchronous. Establish that the paint frame arrived
+    // before using it as the undo baseline; otherwise two pre-paint captures
+    // can make a valid undo look like a no-op on a busy browser.
+    await expect
+      .poll(async () => Buffer.compare(beforePaint, await contentCanvas.screenshot()), {
+        timeout: 10000,
+      })
+      .not.toBe(0);
 
     const afterPaint = await contentCanvas.screenshot();
 
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(400);
-
-    const afterUndo = await contentCanvas.screenshot();
     // Undo removes the dab pixels — canvas after undo differs from
     // canvas after paint. The raster layer node persists (it is a
     // container), but the pixel content is reverted.
-    expect(Buffer.compare(afterPaint, afterUndo)).not.toBe(0);
+    await expect
+      .poll(async () => Buffer.compare(afterPaint, await contentCanvas.screenshot()), {
+        timeout: 10000,
+      })
+      .not.toBe(0);
   });
 
   test('rapid short strokes produce at least one layer', async ({ page }) => {
