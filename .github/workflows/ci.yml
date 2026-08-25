@@ -444,7 +444,15 @@ jobs:
     # leg near 15m of tests plus ~3m of setup, which leaves real headroom for
     # the retry cost of a failing test rather than sitting on the limit.
     name: E2E (Playwright) ${{ matrix.shard }}/8
-    timeout-minutes: 30
+    # 40, not 30: a test that exhausts the 180s per-test timeout costs 9
+    # minutes with `retries: 2`, and Playwright shards by file rather than by
+    # runtime, so one such test lands entirely in one shard. In run
+    # 32894540118 that is exactly what happened — six shards finished in
+    # 14.7-20.2m, while shard 5 (warp.spec.ts:168 hanging) was cancelled at
+    # 30.3m with its results one test from the end. The ceiling still catches
+    # a genuine runaway; it no longer throws away a shard's findings because
+    # one known-broken test ate the budget.
+    timeout-minutes: 40
     runs-on: ubuntu-latest
     needs: [rust, changes]
     if: ${{ needs.changes.outputs.e2e == 'true' || needs.changes.outputs.visual == 'true' }}

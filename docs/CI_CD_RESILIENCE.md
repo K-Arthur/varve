@@ -638,6 +638,29 @@ problem. To diagnose:
 A cancelled job skips every `if: failure()` step. Use `if: always()` for
 anything that must survive a timeout.
 
+### One hanging test costs nine minutes
+
+`retries: 2` means three attempts. A test that exhausts the 180s per-test
+timeout therefore burns **9 minutes**, and Playwright shards by file rather
+than by runtime, so all of that lands in a single shard. This dominates shard
+balance far more than test count does.
+
+Measured in run 32894540118 (8 shards): six shards finished in 14.7-20.2m,
+and the only two containing a 180s-timeout test were the outliers — shard 7
+at 26.7m (`quick.spec.ts`, since deleted: a committed debug file with no
+assertions that could never pass) and shard 5 cancelled at 30.3m
+(`warp.spec.ts:168`, a genuine hang).
+
+So when a shard overruns, look for a 180s timeout before adding shards:
+
+```bash
+gh api "repos/K-Arthur/varve/actions/jobs/<job_id>/logs" \
+  | grep -c 'Test timeout of 180000ms exceeded'
+```
+
+Each hit is ~9 minutes. Fixing or quarantining one such test is worth more
+than doubling the shard count, because more shards cannot split a single test.
+
 ### Known failures the E2E timeout was hiding
 
 The E2E job was cancelled at 30m on every run that executed it, which meant
@@ -651,6 +674,11 @@ deliberately left untriaged here rather than papered over:
 | `tests/e2e/canvas/depth-blur.spec.ts:231` | same, depth-range mask on the image node |
 | `visual/replay.spec.ts` → `node-types-1x` | 158 pixels (ratio 0.01) differ from the baseline |
 | `visual/replay.spec.ts` → `multilingual-text-1x` | same class of drift |
+| `tests/e2e/inspector/ownership.spec.ts:109` | failed all three attempts — deterministic |
+| `tests/e2e/canvas/upscale-dialog-visual.spec.ts:20` | failed all three attempts |
+| `tests/e2e/canvas/visual.spec.ts:11` | failed all three attempts |
+| `tests/e2e/canvas/warp.spec.ts:168` | hangs to the 180s timeout on every attempt — ~9 min/run |
+| `tests/e2e/home/empty-states.spec.ts:49` | failed once, passed on retry — genuinely flaky, not a regression |
 
 For the visual set, do **not** simply regenerate the baselines. Review the
 artifact first — `varve-visual-diff-<run_id>` contains real
