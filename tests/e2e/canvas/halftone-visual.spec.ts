@@ -426,6 +426,10 @@ test.describe('Halftone visual verification', () => {
     // to the artwork when panning. A document-anchored pattern must produce
     // pixel-identical output at the same document location before and after
     // a pan of the viewport.
+    // HandTool adds inertial continuation after a drag. This assertion is
+    // about one exact camera translation, so disable that nonessential motion
+    // rather than letting the test's sample window depend on pointer timing.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await drawRect(page, 100, 100, 600, 400);
     await addHalftoneAdjustment(page);
     await setSlider(page, 'frequency', 20);

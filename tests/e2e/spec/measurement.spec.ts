@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 function getCanvas(page: import('@playwright/test').Page) {
-  return page.getByRole('img', { name: 'Design canvas' });
+  return page.getByTestId('editor-canvas');
 }
 
 test.describe('Spec Panel Measurement', () => {
@@ -12,7 +12,7 @@ test.describe('Spec Panel Measurement', () => {
   });
 
   async function activateTool(page: import('@playwright/test').Page, name: string) {
-    const btn = page.getByRole('button', { name });
+    const btn = page.getByRole('button', { name, exact: true });
     await btn.waitFor({ state: 'visible', timeout: 5000 });
     await btn.click();
     await page.waitForTimeout(200);
@@ -21,32 +21,33 @@ test.describe('Spec Panel Measurement', () => {
   test('enter inspect mode via shortcut I shows spec panel on selection', async ({ page }) => {
     // Create a rect first
     await activateTool(page, 'Rectangle');
-    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
     await page.waitForTimeout(500);
 
     // Switch to inspect mode
     await activateTool(page, 'Inspect');
 
     // Click on canvas to select the rect
-    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
     await page.waitForTimeout(300);
 
-    // Spec panel should be visible with node name
-    const specPanel = page.locator('.spec-panel');
-    await expect(specPanel).toBeVisible({ timeout: 5000 });
+    // Inspect mode now keeps the selection in the unified Inspector rather
+    // than opening the retired standalone SpecPanel surface.
+    const inspector = page.getByRole('region', { name: 'Inspector' });
+    await expect(inspector).toBeVisible({ timeout: 5000 });
 
     // Should show node name
-    const name = specPanel.locator('.spec-panel__name');
+    const name = inspector.locator('.insp-panel__node-name');
     await expect(name).toBeVisible();
   });
 
   test('measurement overlay shows dimension label for selected node', async ({ page }) => {
     await activateTool(page, 'Rectangle');
-    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
     await page.waitForTimeout(500);
 
     await activateTool(page, 'Inspect');
-    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
     await page.waitForTimeout(500);
 
     // Measure overlay SVG should be rendered
@@ -59,37 +60,32 @@ test.describe('Spec Panel Measurement', () => {
 
   test('spec panel shows layout readout with width and height', async ({ page }) => {
     await activateTool(page, 'Rectangle');
-    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
     await page.waitForTimeout(500);
 
     await activateTool(page, 'Inspect');
-    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
     await page.waitForTimeout(300);
 
-    // Should render layout section with W/H
-    const layoutSection = page.locator('.spec-panel__section').filter({ hasText: /Layout/i });
+    // The unified Inspector exposes the same geometry through Position & Size.
+    const layoutSection = page.getByRole('button', { name: 'Position & Size' });
     await expect(layoutSection).toBeVisible({ timeout: 5000 });
-    await expect(layoutSection).toContainText(/Width|Height/);
+    await expect(page.getByLabel('W (px)')).toBeVisible();
+    await expect(page.getByLabel('H (px)')).toBeVisible();
   });
 
-  test('copy button copies value and announces', async ({ page }) => {
+  test('unified Inspector exposes accessible geometry fields', async ({ page }) => {
     await activateTool(page, 'Rectangle');
-    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
     await page.waitForTimeout(500);
 
     await activateTool(page, 'Inspect');
-    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
     await page.waitForTimeout(300);
 
-    // Find the first copy button in measurement readout
-    const copyBtn = page.locator('.spec-row__copy').first();
-    await expect(copyBtn).toBeVisible({ timeout: 5000 });
-
-    // Click copy button
-    await copyBtn.click();
-
-    // Check for the CopyButton's own aria-live announcement
-    const liveRegion = copyBtn.locator('..').locator('[aria-live="polite"]');
-    await expect(liveRegion).toContainText(/copied/i);
+    await expect(page.getByLabel('X (px)')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByLabel('Y (px)')).toBeVisible();
+    await expect(page.getByLabel('W (px)')).toBeVisible();
+    await expect(page.getByLabel('H (px)')).toBeVisible();
   });
 });

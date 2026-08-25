@@ -142,7 +142,7 @@ test.describe('Gradient Map Adjustment', () => {
     }
 
     // Verify the gradient bar is rendered (gm-editor__bar)
-    const gradientBar = page.locator('.gm-editor__bar');
+    const gradientBar = page.getByRole('slider', { name: /Gradient map stop bar/ }).first();
     await expect(gradientBar).toBeVisible({ timeout: 5000 });
 
     // The bar should have an accessible slider role

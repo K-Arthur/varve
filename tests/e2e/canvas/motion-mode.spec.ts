@@ -38,13 +38,36 @@ async function navigateToEditor(page: import('@playwright/test').Page) {
   }
 }
 
+async function switchWorkspace(page: import('@playwright/test').Page, label: string) {
+  const tab = page.locator(`.workspace-tabs__tab[aria-label="${label} workspace"]`);
+  if (await tab.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await tab.click();
+    return;
+  }
+  await page.getByRole('button', { name: 'More workspaces' }).click();
+  await page
+    .getByRole('menu', { name: 'More workspaces' })
+    .getByText(label, { exact: true })
+    .click();
+}
+
+const switchToMotion = (page: import('@playwright/test').Page) => switchWorkspace(page, 'Motion');
+
+async function createTimeline(page: import('@playwright/test').Page) {
+  const emptyCreate = page.getByTestId('timeline-create-empty');
+  if (await emptyCreate.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await emptyCreate.click();
+    return;
+  }
+  await page.getByRole('button', { name: 'Create timeline' }).first().click();
+}
+
 test.describe('Motion Mode', () => {
   test('1. Motion workspace layout has timeline panel', async ({ page }) => {
     await navigateToEditor(page);
 
     // Switch to Motion workspace via menubar button
-    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
-    await motionBtn.click();
+    await switchToMotion(page);
 
     // Timeline panel should be visible
     await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
@@ -53,16 +76,17 @@ test.describe('Motion Mode', () => {
     await expect(page.locator('.layers-panel')).toBeVisible();
     await expect(page.locator('.editor__inspector-panel')).toBeVisible();
 
-    // Playback controls should be present
-    await expect(page.locator('.timeline-playback-controls')).toBeVisible();
+    // A new document starts with an intentionally empty timeline workspace.
+    // Playback controls appear after the first timeline is created.
+    await expect(page.locator('.timeline-panel__empty')).toContainText('No timeline selected');
+    await expect(page.getByTestId('timeline-create-empty')).toBeVisible();
   });
 
   test('2. Create timeline and see empty state', async ({ page }) => {
     await navigateToEditor(page);
 
     // Switch to Motion workspace
-    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
-    await motionBtn.click();
+    await switchToMotion(page);
     await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
 
     // Click "Create timeline" button in empty state
@@ -78,21 +102,22 @@ test.describe('Motion Mode', () => {
     }
 
     // Timeline selector should show the new timeline
-    const selector = page.locator('.timeline-panel__selector');
-    await expect(selector).not.toHaveValue('');
+    const selector = page.getByRole('combobox', { name: 'Select timeline' });
+    await expect(selector).toContainText('Timeline 1');
 
     // Playback controls should show a duration
-    const duration = page.locator('.timeline-playback-time').last();
+    const duration = page.getByRole('timer', { name: 'Duration' });
     await expect(duration).toBeVisible();
+    await expect(duration).toHaveText('00:05.000');
   });
 
   test('3. Keyboard shortcuts work in Motion mode', async ({ page }) => {
     await navigateToEditor(page);
 
     // Switch to Motion workspace
-    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
-    await motionBtn.click();
+    await switchToMotion(page);
     await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
+    await createTimeline(page);
 
     // Toggle graph editor with G shortcut (only works when not in text input)
     await page.keyboard.press('g');
@@ -108,22 +133,20 @@ test.describe('Motion Mode', () => {
     await navigateToEditor(page);
 
     // Switch to Motion workspace
-    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
-    await motionBtn.click();
+    await switchToMotion(page);
     await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
+    await createTimeline(page);
 
     // Verify loop toggle button
-    const loopBtn = page
-      .locator('.timeline-playback-btn')
-      .filter({ has: page.locator('svg') })
-      .nth(2);
+    const loopBtn = page.getByRole('button', { name: /enable loop|disable loop/i });
     await expect(loopBtn).toBeVisible();
 
     // Verify speed selector
-    const speedSelect = page.locator('.timeline-playback-speed');
+    const speedSelect = page.getByRole('combobox', { name: 'Playback speed' });
     await expect(speedSelect).toBeVisible();
-    await speedSelect.selectOption('2');
-    await expect(speedSelect).toHaveValue('2');
+    await speedSelect.click();
+    await page.getByRole('option', { name: '2x', exact: true }).click();
+    await expect(speedSelect).toContainText('2x');
   });
 
   test('5. Workspace switcher preserves document', async ({ page }) => {
@@ -135,13 +158,11 @@ test.describe('Motion Mode', () => {
     // (simplified - just verify workspace switching doesn't crash)
 
     // Switch to Motion workspace
-    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
-    await motionBtn.click();
+    await switchToMotion(page);
     await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
 
     // Switch back to Design workspace
-    const designBtn = page.locator('.workspace-tabs__tab[title*="Design"]');
-    await designBtn.click();
+    await switchWorkspace(page, 'Design');
 
     // Timeline should be hidden in Design workspace
     await expect(page.locator('.editor__timeline-panel')).not.toBeVisible();
@@ -154,12 +175,12 @@ test.describe('Motion Mode', () => {
     await navigateToEditor(page);
 
     // Switch to Motion workspace
-    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
-    await motionBtn.click();
+    await switchToMotion(page);
     await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
+    await createTimeline(page);
 
     // Verify onion skin toggle button exists
-    const onionBtn = page.getByRole('button', { name: /onion skin/i });
+    const onionBtn = page.getByRole('button', { name: /onion skinning/i });
     await expect(onionBtn).toBeVisible({ timeout: 5000 });
   });
 
@@ -167,8 +188,7 @@ test.describe('Motion Mode', () => {
     await navigateToEditor(page);
 
     // Switch to Motion workspace
-    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
-    await motionBtn.click();
+    await switchToMotion(page);
     await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
 
     // Zoom controls

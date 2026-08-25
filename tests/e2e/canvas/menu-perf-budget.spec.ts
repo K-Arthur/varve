@@ -70,17 +70,13 @@ test.describe('Menu performance budgets', () => {
 
       const menu = document.querySelector('[role="menu"]');
       if (!menu) return -1;
-      const submenuItems = menu.querySelectorAll('[aria-haspopup="menu"]');
-      let targetIdx = -1;
-      for (let i = 0; i < submenuItems.length; i++) {
-        const text = submenuItems[i]?.textContent?.toLowerCase() ?? '';
-        if (text.includes('open recent') || text.includes('export')) {
-          targetIdx = i;
-          break;
-        }
-      }
-      if (targetIdx < 0) return -1;
-      const item = submenuItems[targetIdx] as HTMLElement;
+      // Submenu triggers use aria-haspopup="true". The File menu always has
+      // the Logo submenu, while Open Recent is conditional and Export is a
+      // direct action, so the old text-based probe returned -1 on a clean
+      // document.
+      const submenuItem = menu.querySelector('[aria-haspopup="true"]');
+      if (!(submenuItem instanceof HTMLElement)) return -1;
+      const item = submenuItem;
 
       mark('menu:perf:submenu:start');
       item.click();

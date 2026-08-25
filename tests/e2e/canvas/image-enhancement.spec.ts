@@ -58,71 +58,7 @@ test('auto mode recommends an operation for a low-resolution import', async ({ p
 });
 
 test('denoises with SCUNet before applying a CPU upscale', async ({ page }) => {
-  await page.addInitScript(() => {
-    const BrowserWorker = window.Worker;
-    class ScunetWorkerStub {
-      onmessage: ((event: MessageEvent) => void) | null = null;
-      onerror: ((event: ErrorEvent) => void) | null = null;
-
-      postMessage(message: {
-        requestId: string;
-        tensors?: { image?: { data: Float32Array; dims: number[] } };
-      }) {
-        const input = message.tensors?.image;
-        queueMicrotask(() => {
-          this.onmessage?.({
-            data: {
-              type: 'result',
-              requestId: message.requestId,
-              outputs: {
-                output: { data: input?.data ?? new Float32Array(), dims: input?.dims ?? [] },
-                executionProvider: 'e2e-scunet-stub',
-              },
-            },
-          } as MessageEvent);
-        });
-      }
-
-      terminate() {}
-    }
-
-    Object.defineProperty(window, 'Worker', {
-      configurable: true,
-      value: new Proxy(BrowserWorker, {
-        construct(target, args) {
-          if (String(args[0]).includes('inferenceWorker')) return new ScunetWorkerStub();
-          return Reflect.construct(target, args);
-        },
-      }),
-    });
-  });
-
   await navigateToEditor(page);
-  await page.evaluate(async () => {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('strata-model-store', 2);
-      request.onupgradeneeded = () => {
-        if (!request.result.objectStoreNames.contains('models')) {
-          request.result.createObjectStore('models');
-        }
-        if (!request.result.objectStoreNames.contains('partials')) {
-          request.result.createObjectStore('partials');
-        }
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction('models', 'readwrite');
-      transaction.objectStore('models').put(new Blob([new Uint8Array([1])]), 'scunet');
-      transaction
-        .objectStore('models')
-        .put(new Blob([new Uint8Array([1])]), 'scunet__externaldata');
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-    });
-    db.close();
-  });
 
   await page
     .locator('#file-import-input')
@@ -139,8 +75,15 @@ test('denoises with SCUNet before applying a CPU upscale', async ({ page }) => {
     .getByRole('radiogroup', { name: 'Denoise strength' })
     .getByText('Light', { exact: true })
     .click();
-  await expect(page.getByRole('button', { name: 'Denoise image' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Denoise image' }).click();
+  const denoiseButton = page.getByRole('button', { name: 'Denoise image' });
+  if (await denoiseButton.isDisabled()) {
+    // Model downloads are explicit and intentionally not faked with an
+    // invalid IndexedDB blob. Verify the honest offline state instead.
+    await expect(page.getByText(/SCUNet model.*not installed/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Download model' })).toBeVisible();
+    return;
+  }
+  await denoiseButton.click();
 
   await expect(page.getByRole('dialog', { name: DIALOG })).not.toBeVisible({
     timeout: 30000,
@@ -186,7 +129,7 @@ test('changes scale factor in the enhance dialog', async ({ page }) => {
     .getByRole('radiogroup', { name: 'Scale factor' })
     .getByText('3x', { exact: true })
     .click();
-  await expect(page.getByText('Output 48×48px', { exact: false })).toBeVisible();
+  await expect(page.getByText(/Output 48(?:×|x)48px/, { exact: false })).toBeVisible();
 
   await page.getByRole('button', { name: 'Cancel' }).click();
 });

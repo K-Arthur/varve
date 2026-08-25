@@ -77,7 +77,7 @@ test.describe('Workflow efficiency — keyboard shortcuts & command layer', () =
 
   test('Command palette (Ctrl+/) opens and shows shortcuts', async ({ page }) => {
     await page.keyboard.press('Control+/');
-    const palette = page.locator('[role="dialog"]').filter({ hasText: /keyboard shortcuts/i });
+    const palette = page.getByRole('dialog', { name: 'Command palette', exact: true });
     await expect(palette).toBeVisible({ timeout: 5000 });
     await page.keyboard.press('Escape');
     await expect(palette).not.toBeVisible({ timeout: 3000 });

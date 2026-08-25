@@ -10,7 +10,7 @@
  * artifact collection on every release).
  */
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -23,11 +23,15 @@ import {
 
 const no7z = null;
 
-function tempFile(bytes) {
+function withTempFile(bytes, filename, fn) {
   const dir = mkdtempSync(join(tmpdir(), 'varve-size-gate-'));
-  const path = join(dir, 'Varve-0.1.3-windows-x86_64.exe');
+  const path = join(dir, filename);
   writeFileSync(path, Buffer.alloc(bytes));
-  return path;
+  try {
+    return fn(path);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 test('classifies NSIS payload entries by role', () => {
@@ -55,61 +59,64 @@ test('detects the embedded WebView2 mode from payload entries', () => {
 });
 
 test('status is ok inside warn threshold', () => {
-  const path = tempFile(50_000_000);
-  const r = analyzeInstaller({
-    installerPath: path,
-    baseline: DEFAULT_BASELINE,
-    overrideReason: null,
-    sevenZip: no7z,
+  withTempFile(50_000_000, 'Varve-0.1.3-windows-x86_64.exe', (path) => {
+    const r = analyzeInstaller({
+      installerPath: path,
+      baseline: DEFAULT_BASELINE,
+      overrideReason: null,
+      sevenZip: no7z,
+    });
+    assert.equal(r.status, 'ok');
+    assert.equal(r.decomposed, false);
   });
-  assert.equal(r.status, 'ok');
-  assert.equal(r.decomposed, false);
 });
 
 test('status warns past warnRatio and blocks past blockRatio', () => {
-  const warnPath = tempFile(70_000_000);
-  const warn = analyzeInstaller({
-    installerPath: warnPath,
-    baseline: DEFAULT_BASELINE,
-    overrideReason: null,
-    sevenZip: no7z,
+  withTempFile(70_000_000, 'Varve-0.1.3-windows-x86_64.exe', (warnPath) => {
+    const warn = analyzeInstaller({
+      installerPath: warnPath,
+      baseline: DEFAULT_BASELINE,
+      overrideReason: null,
+      sevenZip: no7z,
+    });
+    assert.equal(warn.status, 'warn');
   });
-  assert.equal(warn.status, 'warn');
 
-  const blockPath = tempFile(80_000_000);
-  const block = analyzeInstaller({
-    installerPath: blockPath,
-    baseline: DEFAULT_BASELINE,
-    overrideReason: null,
-    sevenZip: no7z,
+  withTempFile(80_000_000, 'Varve-0.1.3-windows-x86_64.exe', (blockPath) => {
+    const block = analyzeInstaller({
+      installerPath: blockPath,
+      baseline: DEFAULT_BASELINE,
+      overrideReason: null,
+      sevenZip: no7z,
+    });
+    assert.equal(block.status, 'block');
   });
-  assert.equal(block.status, 'block');
 });
 
 test('an explicit override converts a block into block-overridden and records the reason', () => {
-  const path = tempFile(80_000_000);
-  const r = analyzeInstaller({
-    installerPath: path,
-    baseline: DEFAULT_BASELINE,
-    overrideReason: 'intentional model addition',
-    sevenZip: no7z,
+  withTempFile(80_000_000, 'Varve-0.1.3-windows-x86_64.exe', (path) => {
+    const r = analyzeInstaller({
+      installerPath: path,
+      baseline: DEFAULT_BASELINE,
+      overrideReason: 'intentional model addition',
+      sevenZip: no7z,
+    });
+    assert.equal(r.status, 'block-overridden');
+    assert.equal(r.overrideReason, 'intentional model addition');
   });
-  assert.equal(r.status, 'block-overridden');
-  assert.equal(r.overrideReason, 'intentional model addition');
 });
 
 test('artifacts without a baseline entry are reported without a gate', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'varve-size-gate-'));
-  const path = join(dir, 'Varve-0.1.3-linux-x86_64.AppImage');
-  writeFileSync(path, Buffer.alloc(1024));
-  const r = analyzeInstaller({
-    installerPath: path,
-    baseline: DEFAULT_BASELINE,
-    overrideReason: null,
-    sevenZip: no7z,
+  withTempFile(1024, 'Varve-0.1.3-linux-x86_64.AppImage', (path) => {
+    const r = analyzeInstaller({
+      installerPath: path,
+      baseline: DEFAULT_BASELINE,
+      overrideReason: null,
+      sevenZip: no7z,
+    });
+    assert.equal(r.expectedBytes, null);
+    assert.equal(r.status, 'ok');
   });
-  assert.equal(r.expectedBytes, null);
-  assert.equal(r.status, 'ok');
 });
 
 function test(name, fn) {

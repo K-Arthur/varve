@@ -132,6 +132,34 @@ export async function navigateToEditor(page: Page, path = '/') {
   }
 }
 
+/** Activate a workspace whether its responsive tab is visible or in More. */
+export async function switchWorkspace(page: Page, label: string) {
+  const tab = page.locator(`.workspace-tabs__tab[aria-label="${label} workspace"]`);
+  if (await tab.isVisible({ timeout: 1000 }).catch(() => false)) {
+    // Workspace switching updates the tab strip in the same React commit as
+    // the mode change. Playwright's geometry-based click can therefore hold a
+    // handle to the old button long enough to observe it being detached. The
+    // current button's native click dispatches the React handler atomically
+    // and avoids a 180s actionability timeout on a harmless rerender.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await page
+          .locator(`.workspace-tabs__tab[aria-label="${label} workspace"]`)
+          .evaluate((element) => (element as HTMLButtonElement).click());
+        return;
+      } catch {
+        await page.waitForTimeout(50);
+      }
+    }
+    throw new Error(`Workspace tab detached while switching to ${label}`);
+  }
+  await page.getByRole('button', { name: 'More workspaces' }).click();
+  await page
+    .getByRole('menu', { name: 'More workspaces' })
+    .getByText(label, { exact: true })
+    .click();
+}
+
 /**
  * Navigate to the home screen and wait for it to render.
  */

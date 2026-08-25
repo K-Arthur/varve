@@ -104,7 +104,7 @@ test.describe('Color Effects Adjustments', () => {
     await expect(intensitySlider).toBeVisible({ timeout: 3000 });
     const preserveLumCheckbox = page.locator('input[aria-label="Preserve luminosity"]');
     await expect(preserveLumCheckbox).toBeVisible({ timeout: 3000 });
-    const interpSelect = page.locator('button[aria-label="Interpolation method"]');
+    const interpSelect = page.getByRole('combobox', { name: 'Interpolation method' });
     await expect(interpSelect).toBeVisible({ timeout: 3000 });
   });
 
@@ -126,7 +126,7 @@ test.describe('Color Effects Adjustments', () => {
       return;
     }
 
-    const interpSelect = page.locator('button[aria-label="Interpolation method"]');
+    const interpSelect = page.getByRole('combobox', { name: 'Interpolation method' });
     await expect(interpSelect).toBeVisible({ timeout: 5000 });
     await expect(interpSelect).toContainText('Smooth');
 

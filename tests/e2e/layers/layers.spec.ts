@@ -51,7 +51,7 @@ test.describe('Layers Panel - APG Tree View', () => {
     const firstItem = page.getByRole('treeitem').first();
     await firstItem.click({ button: 'right' });
 
-    const menu = page.locator('.layers-context-menu');
+    const menu = page.locator('.varve-ctxmenu');
     await expect(menu).toBeVisible();
 
     await page.keyboard.press('Escape');

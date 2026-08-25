@@ -5,6 +5,9 @@ test.describe('Layers Panel - Multi-Page', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
+    // A blank editor starts without a page. Create the first page so these
+    // tests exercise the page strip rather than waiting for a hidden nav.
+    await page.getByTestId('layers-panel').getByRole('button', { name: 'Add page' }).click();
     await page.waitForSelector('[role="tablist"][aria-label="Page navigation"]');
   });
 
@@ -19,11 +22,11 @@ test.describe('Layers Panel - Multi-Page', () => {
   });
 
   test('clicking page thumbnail switches active page', async ({ page }) => {
-    const addBtn = page.locator('[aria-label="Add page"]');
+    const addBtn = page.locator('.page-nav__add-btn');
     await addBtn.click();
-    await page.waitForTimeout(200);
 
     const tabs = page.locator('[role="tablist"][aria-label="Page navigation"] [role="tab"]');
+    await expect(tabs).toHaveCount(2);
     const count = await tabs.count();
     expect(count).toBeGreaterThanOrEqual(2);
 
@@ -41,25 +44,25 @@ test.describe('Layers Panel - Multi-Page', () => {
   });
 
   test('adding a new page creates new thumbnail', async ({ page }) => {
-    const addBtn = page.locator('[aria-label="Add page"]');
+    const addBtn = page.locator('.page-nav__add-btn');
     const tabsBefore = page.locator('[role="tablist"][aria-label="Page navigation"] [role="tab"]');
     const beforeCount = await tabsBefore.count();
 
     await addBtn.click();
-    await page.waitForTimeout(200);
 
     const tabsAfter = page.locator('[role="tablist"][aria-label="Page navigation"] [role="tab"]');
+    await expect(tabsAfter).toHaveCount(beforeCount + 1);
     const afterCount = await tabsAfter.count();
     expect(afterCount).toBe(beforeCount + 1);
   });
 
   test('deleting a page removes its thumbnail', async ({ page }) => {
     // Add a second page first
-    const addBtn = page.locator('[aria-label="Add page"]');
+    const addBtn = page.locator('.page-nav__add-btn');
     await addBtn.click();
-    await page.waitForTimeout(200);
 
     const tabs = page.locator('[role="tablist"][aria-label="Page navigation"] [role="tab"]');
+    await expect(tabs).toHaveCount(2);
     const beforeCount = await tabs.count();
     expect(beforeCount).toBeGreaterThanOrEqual(2);
 
@@ -68,15 +71,10 @@ test.describe('Layers Panel - Multi-Page', () => {
     await page.waitForTimeout(100);
 
     // Click delete in context menu
-    const deleteBtn = page.locator(
-      '.page-nav__item + .strata-context-menu button:has-text("Delete page"), .page-nav__item ~ .strata-context-menu button:has-text("Delete page"), [role="menu"] button:has-text("Delete page")',
-    );
+    const deleteBtn = page.getByRole('menuitem', { name: /Delete page and contents/i });
     if ((await deleteBtn.count()) > 0) {
       await deleteBtn.click();
-      await page.waitForTimeout(200);
-
-      const afterCount = await tabs.count();
-      expect(afterCount).toBe(beforeCount - 1);
+      await expect(tabs).toHaveCount(beforeCount - 1);
     }
   });
 
@@ -91,7 +89,7 @@ test.describe('Layers Panel - Multi-Page', () => {
       await page.waitForTimeout(100);
 
       // Delete button should be disabled
-      const deleteBtn = page.locator('button:has-text("Delete page")');
+      const deleteBtn = page.getByRole('menuitem', { name: /Delete page and contents/i });
       if ((await deleteBtn.count()) > 0) {
         await expect(deleteBtn).toBeDisabled();
       }
@@ -100,21 +98,21 @@ test.describe('Layers Panel - Multi-Page', () => {
 
   test('each page shows its own content in layers tree', async ({ page }) => {
     // Add a second page
-    const addBtn = page.locator('[aria-label="Add page"]');
+    const addBtn = page.locator('.page-nav__add-btn');
     await addBtn.click();
-    await page.waitForTimeout(200);
 
     const tabs = page.locator('[role="tablist"][aria-label="Page navigation"] [role="tab"]');
-    const tree = page.getByRole('tree', { name: /layers/i });
+    await expect(tabs).toHaveCount(2);
+    const layersPanel = page.getByTestId('layers-panel');
 
     // Switch between pages and verify tree re-renders
     await tabs.nth(0).click();
     await page.waitForTimeout(100);
-    await expect(tree).toBeAttached();
+    await expect(layersPanel).toBeAttached();
 
     await tabs.nth(1).click();
     await page.waitForTimeout(100);
-    await expect(tree).toBeAttached();
+    await expect(layersPanel).toBeAttached();
   });
 
   test('global children visible across all pages', async ({ page }) => {
@@ -124,7 +122,7 @@ test.describe('Layers Panel - Multi-Page', () => {
     await tabs.first().click();
     await page.waitForTimeout(100);
 
-    const tree = page.getByRole('tree', { name: /layers/i });
-    await expect(tree).toBeAttached();
+    const layersPanel = page.getByTestId('layers-panel');
+    await expect(layersPanel).toBeAttached();
   });
 });

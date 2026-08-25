@@ -20,6 +20,12 @@ test.describe('Native tables', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
+    // Section visibility is user-configurable and persists across browser
+    // contexts. Table editing needs the optional Cells section visible.
+    const manager = page.getByRole('button', { name: /Customize sections/ });
+    await manager.click();
+    const sectionDialog = page.getByRole('dialog', { name: 'Customize sections' });
+    await sectionDialog.getByRole('button', { name: 'Show all sections' }).click();
   });
 
   test('insert a table with the table tool and see it in the layers panel', async ({ page }) => {
@@ -45,8 +51,12 @@ test.describe('Native tables', () => {
   test('header merge commits a spanned cell', async ({ page }) => {
     await insertTable(page);
     await enterTableEditMode(page);
-    await page.locator('.table-edit-overlay').click({ position: { x: 300, y: 280 } });
-    await page.keyboard.press('Shift+ArrowRight');
+    const overlay = page.locator('.table-edit-overlay');
+    await overlay.click({ position: { x: 300, y: 280 } });
+    // Table cell selection is a pointer interaction in the overlay; using a
+    // shift-click keeps the test on that interaction path and avoids the
+    // global shortcut manager stealing Shift+ArrowRight from the overlay.
+    await overlay.click({ position: { x: 400, y: 280 }, modifiers: ['Shift'] });
     await page.getByRole('button', { name: 'Merge cells' }).click();
     await page.locator('.table-edit-overlay').click({ position: { x: 400, y: 280 } });
     await expect(page.getByRole('spinbutton', { name: /column span/i })).toHaveValue('2', {

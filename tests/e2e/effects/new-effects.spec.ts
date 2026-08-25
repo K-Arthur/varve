@@ -150,7 +150,9 @@ test.describe('New Adjustment Effects', () => {
     }
 
     const visibilityToggle = page
-      .locator('.adj-panel__adjustment-row button[aria-label*="toggle"]')
+      .getByRole('treeitem')
+      .filter({ hasText: /Adjustment/i })
+      .getByRole('button', { name: /^(Hide|Show) / })
       .first();
     await expect(visibilityToggle).toBeVisible({ timeout: 5000 });
     await visibilityToggle.click();

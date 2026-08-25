@@ -5,6 +5,9 @@ test.describe('Glass Material Effects', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
+    // Effects live in the unified Inspector's Appearance tab; the old test
+    // targeted the retired standalone disclosure on Properties.
+    await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
   });
 
   test('applies glass material to a rectangle and verifies effect controls appear', async ({

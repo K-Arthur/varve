@@ -32,7 +32,7 @@ test.describe
 
       // The 100x100 fixture upscaled 2x must read exactly 200x200 in the
       // dialog's output info before applying.
-      await expect(page.getByText('Output 200×200px', { exact: false })).toBeVisible();
+      await expect(page.getByText('Output 200x200px', { exact: false })).toBeVisible();
 
       await page.getByRole('button', { name: 'Upscale image' }).click();
       await expect(page.getByRole('dialog', { name: 'Enhance image' })).not.toBeVisible({
@@ -51,7 +51,7 @@ test.describe
         .getByRole('radiogroup', { name: 'Output behavior' })
         .getByText('Replace source', { exact: true })
         .click();
-      await expect(page.getByText('Output 200×200px', { exact: false })).toBeVisible();
+      await expect(page.getByText('Output 200x200px', { exact: false })).toBeVisible();
       await page.getByRole('button', { name: 'Upscale image' }).click();
       await expect(page.getByRole('dialog', { name: 'Enhance image' })).not.toBeVisible({
         timeout: 30000,

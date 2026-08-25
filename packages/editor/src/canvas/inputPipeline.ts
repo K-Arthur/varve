@@ -456,7 +456,11 @@ export function useCanvasInputs({
                 },
                 elapsedMs,
               );
-              editor.panBy(delta.x, delta.y);
+              // Edge velocity describes the direction the artwork should
+              // travel under the stationary pointer. Camera pan translates
+              // artwork in the opposite screen-space direction, so invert
+              // it here (right-edge scrolling moves the camera left).
+              editor.panBy(-delta.x, -delta.y);
               const heldPointer = activeDragPointer.current;
               const activeTool = tmRef.current;
               if (heldPointer && activeTool) {

@@ -15,7 +15,7 @@
   <a href="https://github.com/sponsors/K-Arthur"><img src="https://img.shields.io/github/sponsors/K-Arthur?label=sponsors" alt="GitHub Sponsors"></a>
 </p>
 
-> **Public beta.** The latest published application release is `v0.2.0`.
+> **Public beta.** The latest published application release is `v0.2.1`.
 > Installers are published for Linux, macOS, and Windows. Core workflows are
 > usable today, but the `.varve` document format and interfaces can still
 > change, and Windows/macOS builds are not yet code-signed. The release
@@ -260,8 +260,8 @@ scripts/    release, screenshot, and quality-gate tooling
 ## Project status
 
 Varve is in **public beta**. The latest published application release is
-`v0.2.0` (published installer releases are `v0.1.0`, `v0.1.1`, `v0.1.2`, and
-`v0.2.0`), covering Linux, macOS (Apple Silicon), and Windows. The checkout
+`v0.2.1` (published installer releases are `v0.1.0`, `v0.1.1`, `v0.1.2`,
+`v0.2.0`, and `v0.2.1`), covering Linux, macOS (Apple Silicon), and Windows. The checkout
 represented by this source tree is version `<!-- VARVE_VERSION -->0.2.1<!-- /VARVE_VERSION -->`. Versioning follows [SemVer](https://semver.org/); release notes are
 kept in [CHANGELOG.md](CHANGELOG.md). Expect rough edges, and keep backups —
 the `.varve` document format can still change between releases. Documents

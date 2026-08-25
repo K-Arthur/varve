@@ -26,23 +26,34 @@ async function installSavePickerStub(page: Page): Promise<void> {
     win.__varveLastSuggested = null;
     win.__varveCancelNext = false;
     win.__varveFailWrites = false;
-    win.showSaveFilePicker = async (opts: { suggestedName?: string }) => {
-      pickerCalls += 1;
-      win.__varveLastSuggested = opts.suggestedName ?? null;
-      if (win.__varveCancelNext) return undefined;
-      return {
-        name: opts.suggestedName ?? 'document.varve',
-        queryPermission: async () => 'granted',
-        createWritable: async () => ({
-          write: async () => {
-            if (win.__varveFailWrites) {
-              throw new Error('QuotaExceededError: The write failed');
-            }
-          },
-          close: async () => undefined,
-        }),
-      };
-    };
+    Object.defineProperty(win, 'showOpenFilePicker', {
+      configurable: true,
+      writable: true,
+      value: async () => {
+        throw new DOMException('Not implemented in test', 'AbortError');
+      },
+    });
+    Object.defineProperty(win, 'showSaveFilePicker', {
+      configurable: true,
+      writable: true,
+      value: async (opts: { suggestedName?: string }) => {
+        pickerCalls += 1;
+        win.__varveLastSuggested = opts.suggestedName ?? null;
+        if (win.__varveCancelNext) return undefined;
+        return {
+          name: opts.suggestedName ?? 'document.varve',
+          queryPermission: async () => 'granted',
+          createWritable: async () => ({
+            write: async () => {
+              if (win.__varveFailWrites) {
+                throw new Error('QuotaExceededError: The write failed');
+              }
+            },
+            close: async () => undefined,
+          }),
+        };
+      },
+    });
   });
 }
 
@@ -60,6 +71,14 @@ async function openFileMenu(page: Page): Promise<void> {
     .getByRole('menuitem', { name: /^File$/ })
     .click();
   await page.getByRole('menu').first().waitFor({ state: 'visible', timeout: 5000 });
+}
+
+/** Home-created documents are intentionally backed by Varve Library storage.
+ * Start a fresh editor tab for the file-picker contract under test. */
+async function startUnboundDocument(page: Page): Promise<void> {
+  await openFileMenu(page);
+  await page.locator('.editor-menubar__menu-item').filter({ hasText: /^New/ }).first().click();
+  await expect(saveStatus(page)).toHaveText('Not saved');
 }
 
 /** The save-status segment in the status bar. */
@@ -82,8 +101,7 @@ async function makeDirty(page: Page): Promise<void> {
 test('first Save opens the location picker and reports Saved', async ({ page }) => {
   await installSavePickerStub(page);
   await navigateToCleanEditor(page);
-
-  await expect(saveStatus(page)).toHaveText('Not saved');
+  await startUnboundDocument(page);
   await page.keyboard.press(`${mod('s')}`);
   await expect(saveStatus(page)).toHaveText('Saved');
 
@@ -95,6 +113,7 @@ test('first Save opens the location picker and reports Saved', async ({ page }) 
 test('subsequent Save reuses the chosen target without re-picking', async ({ page }) => {
   await installSavePickerStub(page);
   await navigateToCleanEditor(page);
+  await startUnboundDocument(page);
 
   await page.keyboard.press(`${mod('s')}`);
   await expect(saveStatus(page)).toHaveText('Saved');
@@ -109,6 +128,7 @@ test('subsequent Save reuses the chosen target without re-picking', async ({ pag
 test('Save As re-picks and adopts the new destination', async ({ page }) => {
   await installSavePickerStub(page);
   await navigateToCleanEditor(page);
+  await startUnboundDocument(page);
 
   await page.keyboard.press(`${mod('s')}`);
   await expect(saveStatus(page)).toHaveText('Saved');
@@ -118,7 +138,10 @@ test('Save As re-picks and adopts the new destination', async ({ page }) => {
   // Headless Chromium intercepts Ctrl+Shift+S at the browser level, so
   // drive Save As through the File menu — the same action-registry path.
   await openFileMenu(page);
-  await page.getByRole('menu').getByRole('menuitem', { name: 'Save As…' }).click();
+  await page
+    .locator('.editor-menubar__menu-item')
+    .filter({ hasText: /^Save As/ })
+    .click();
   await expect(page.getByRole('menu')).toHaveCount(0, { timeout: 5000 });
 
   await expect(saveStatus(page)).toHaveText('Saved');
@@ -130,6 +153,7 @@ test('Save As re-picks and adopts the new destination', async ({ page }) => {
 test('cancelled Save As changes nothing', async ({ page }) => {
   await installSavePickerStub(page);
   await navigateToCleanEditor(page);
+  await startUnboundDocument(page);
 
   await page.keyboard.press(`${mod('s')}`);
   await expect(saveStatus(page)).toHaveText('Saved');
@@ -139,7 +163,10 @@ test('cancelled Save As changes nothing', async ({ page }) => {
     (window as unknown as Record<string, unknown>).__varveCancelNext = true;
   });
   await openFileMenu(page);
-  await page.getByRole('menu').getByRole('menuitem', { name: 'Save As…' }).click();
+  await page
+    .locator('.editor-menubar__menu-item')
+    .filter({ hasText: /^Save As/ })
+    .click();
 
   // Cancellation is normal: not a failure, and nothing is adopted.
   await expect(saveStatus(page)).toHaveText('Modified');
@@ -149,6 +176,7 @@ test('cancelled Save As changes nothing', async ({ page }) => {
 test('Save a Copy writes elsewhere, keeps the active target and dirty state', async ({ page }) => {
   await installSavePickerStub(page);
   await navigateToCleanEditor(page);
+  await startUnboundDocument(page);
 
   await page.keyboard.press(`${mod('s')}`);
   await expect(saveStatus(page)).toHaveText('Saved');
@@ -158,7 +186,10 @@ test('Save a Copy writes elsewhere, keeps the active target and dirty state', as
 
   // File → Save a Copy…
   await openFileMenu(page);
-  await page.getByRole('menu').getByRole('menuitem', { name: 'Save a Copy…' }).click();
+  await page
+    .locator('.editor-menubar__menu-item')
+    .filter({ hasText: /^Save a Copy/ })
+    .click();
 
   await expect(page.getByRole('menu')).toHaveCount(0, { timeout: 5000 });
   expect(await pickerCalls(page)).toBe(2);
@@ -171,6 +202,7 @@ test('Save a Copy writes elsewhere, keeps the active target and dirty state', as
 test('write failure keeps the document dirty and reports Save failed', async ({ page }) => {
   await installSavePickerStub(page);
   await navigateToCleanEditor(page);
+  await startUnboundDocument(page);
 
   await makeDirty(page);
   await page.evaluate(() => {
@@ -191,6 +223,7 @@ test('write failure keeps the document dirty and reports Save failed', async ({ 
 test('stale save finishing after a new edit keeps the document dirty', async ({ page }) => {
   await installSavePickerStub(page);
   await navigateToCleanEditor(page);
+  await startUnboundDocument(page);
 
   await page.keyboard.press(`${mod('s')}`);
   await expect(saveStatus(page)).toHaveText('Saved');

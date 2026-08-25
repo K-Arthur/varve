@@ -34,7 +34,7 @@ test.describe('Logo panel', () => {
     await expect(page.getByRole('menuitem', { name: 'Fonts Panel' })).toHaveCount(0);
 
     // Switch via the workspace radio (deterministic), then reopen View.
-    await page.getByRole('radio', { name: 'Logo' }).click({ force: true });
+    await page.getByRole('radio', { name: 'Logo workspace', exact: true }).click({ force: true });
     await expect(page.getByTestId('logo-panel')).toBeVisible({ timeout: 15000 });
     await page.getByRole('menuitem', { name: /^View/i }).click();
     await expect(logoItem).toBeVisible();
@@ -48,11 +48,11 @@ test.describe('Logo panel', () => {
     const panel = page.getByTestId('logo-panel');
     await expect(panel).toBeVisible({ timeout: 15000 });
     await expect(panel.getByText(/No logo project yet/i)).toBeVisible();
-    await panel.getByRole('button', { name: /Start logo project/i }).click();
+    await panel.getByRole('button', { name: /Start (a )?logo project/i }).click();
     await expect(panel.getByText(/Concept 1/i).first()).toBeVisible({ timeout: 15000 });
     await expect(panel.getByText('Brand name')).toBeVisible();
     await expect(panel.getByRole('button', { name: /Add concept/i })).toBeVisible();
-    await expect(panel.getByText(/Export Package/i)).toBeVisible();
+    await expect(panel.getByText('Export Package', { exact: true })).toBeVisible();
   });
 
   test('typography section exposes kerning mode and glyph controls for a wordmark', async ({
@@ -61,6 +61,8 @@ test.describe('Logo panel', () => {
     await page.keyboard.press('Control+Shift+6');
     const panel = page.getByTestId('logo-panel');
     await expect(panel).toBeVisible({ timeout: 15000 });
+    await panel.getByRole('button', { name: /Start (a )?logo project/i }).click();
+    await expect(panel.getByText('Brand name')).toBeVisible({ timeout: 15000 });
     // Create a text wordmark with the text tool.
     await page.keyboard.press('t');
     await page.mouse.click(400, 300);
@@ -89,6 +91,8 @@ test.describe('Logo panel', () => {
     await page.keyboard.press('Control+Shift+6');
     const panel = page.getByTestId('logo-panel');
     await expect(panel).toBeVisible({ timeout: 15000 });
+    await panel.getByRole('button', { name: /Start (a )?logo project/i }).click();
+    await expect(panel.getByText('Brand name')).toBeVisible({ timeout: 15000 });
     await expect(panel.getByText(/Select an image layer to vectorize it/i).first()).toBeVisible();
   });
 
@@ -96,16 +100,16 @@ test.describe('Logo panel', () => {
     await page.keyboard.press('Control+Shift+6');
     const panel = page.getByTestId('logo-panel');
     await expect(panel).toBeVisible({ timeout: 15000 });
-    await panel.getByRole('button', { name: /Start logo project/i }).click();
-    const exportSection = panel.getByText(/Export Package/i);
+    await panel.getByRole('button', { name: /Start (a )?logo project/i }).click();
+    const exportSection = panel.getByText('Export Package', { exact: true });
     await expect(exportSection).toBeVisible({ timeout: 15000 });
     // Concept target listed with a checkbox.
     await expect(panel.getByText(/Concept 1 \(concept\)/i)).toBeVisible();
     // Format checkboxes present.
-    await expect(panel.getByLabel('SVG')).toBeVisible();
-    await expect(panel.getByLabel('ICO')).toBeVisible();
-    await expect(panel.getByLabel('ICNS')).toBeVisible();
-    await expect(panel.getByLabel('PDF')).toBeVisible();
+    await expect(panel.getByRole('checkbox', { name: 'SVG' })).toBeVisible();
+    await expect(panel.getByRole('checkbox', { name: 'ICO' })).toBeVisible();
+    await expect(panel.getByRole('checkbox', { name: 'ICNS' })).toBeVisible();
+    await expect(panel.getByRole('checkbox', { name: 'PDF' })).toBeVisible();
     // Naming preview shows the deterministic zip name.
     await expect(panel.getByText(/-Logo-Package\.zip/i)).toBeVisible();
     await expect(panel.getByRole('button', { name: /Export package/i })).toBeVisible();

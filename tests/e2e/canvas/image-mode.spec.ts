@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { navigateToEditor, switchWorkspace } from '../shared';
 
 const VIEWPORT = { width: 1280, height: 800 };
 
@@ -67,11 +67,19 @@ test.describe('Image Editing Mode', () => {
       .setInputFiles(path.resolve('tests/e2e/fixtures/test-image.png'));
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
-    for (const workspace of ['Photo', 'Draw', 'Print', 'Motion', 'Logo', 'Codegen', 'Design']) {
+    for (const workspace of [
+      'Photo',
+      'Draw',
+      'Print',
+      'Motion',
+      'Logo',
+      'Codegen & Audit',
+      'Design',
+    ]) {
+      await switchWorkspace(page, workspace);
       const workspaceRadio = page.getByRole('radio', {
         name: new RegExp(`^${workspace} workspace$`),
       });
-      await workspaceRadio.click();
       await expect(workspaceRadio).toBeChecked();
       await expect(page.getByRole('treeitem')).toHaveCount(1);
       await expect(page.getByRole('treeitem').filter({ hasText: /test-image/i })).toBeVisible();

@@ -320,6 +320,7 @@ function ShellInner({
         setSettingsSection('general');
         setSettingsOpen(true);
       },
+      onOpenPalette: openPalette,
       onBatchBgRemove: () => exportLayerRef.current?.openBatchBgRemove(),
       onFindReplace: () => findReplaceLayerRef.current?.open(),
       onInsertIcon: () => setIconBrowserOpen(true),
@@ -448,6 +449,7 @@ function ShellInner({
                 setSettingsOpen(true);
               }}
               onStartTour={() => onboardingLayerRef.current?.reopen()}
+              onGettingStarted={() => onboardingLayerRef.current?.openWelcome()}
               onOpenPalette={openPalette}
               onOpenHelp={editorHelp.openContextualHelp}
               onOpenHelpCenter={() => editorHelp.setHelpCenterOpen(true)}
@@ -842,7 +844,7 @@ function ShellInner({
                         intensity: 1,
                         linearize: false,
                         visible: true,
-                        opacity: 0,
+                        opacity: 1,
                       },
                     );
                     editor.addLutAdjustment(lutAdj);

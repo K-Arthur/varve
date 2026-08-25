@@ -39,7 +39,7 @@ test.describe('offline-first', () => {
     });
 
     // The banner appears and its copy is honest: local-first, no fake sync.
-    const banner = page.getByRole('status');
+    const banner = page.locator('.editor-offline-banner');
     await expect(banner).toBeVisible();
     await expect(banner).toContainText(/all tools keep working locally/i);
     await expect(banner).not.toContainText(/sync/i);
@@ -51,9 +51,11 @@ test.describe('offline-first', () => {
     // The on-device Design Assistant still answers (it never used the network).
     await page.keyboard.press('Control+Alt+l'); // Resources panel
     await page.getByRole('tab', { name: 'Assistant' }).click();
-    const textarea = page.getByLabel('Chat message');
+    const textarea = page.locator('.ai-panel__textarea');
     await textarea.fill('scan for design debt');
-    await page.getByLabel('Send message').click();
+    // Submit from the field so the floating canvas toolbar cannot intercept
+    // the send button at this viewport.
+    await textarea.press('Control+Enter');
     await expect(page.locator('.ai-panel__bubble--assistant').last()).toContainText(
       /design debt/i,
       { timeout: 10000 },
@@ -66,6 +68,6 @@ test.describe('offline-first', () => {
       downloadThroughput: -1,
       uploadThroughput: -1,
     });
-    await expect(banner).toBeHidden();
+    await expect(banner).toHaveAttribute('aria-hidden', 'true');
   });
 });

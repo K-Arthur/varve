@@ -28,7 +28,9 @@ test.describe('Frame and text placement', () => {
     await page.keyboard.press('Escape');
 
     await expect(page.getByRole('treeitem').filter({ hasText: /text/i })).toHaveCount(1);
-    await expect(page.getByText('220 by 120', { exact: true })).toBeVisible();
+    // The status bar uses the multiplication sign (and some browser fonts
+    // expose it as a plain x), not the old prose "by" label.
+    await expect(page.locator('.selection-info-bar__dimensions')).toHaveText(/220\s*[×x]\s*120/);
   });
 
   test('text placed in a translated frame remains under the pointer', async ({ page }) => {

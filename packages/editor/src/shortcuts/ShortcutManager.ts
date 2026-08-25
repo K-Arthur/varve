@@ -272,6 +272,7 @@ export const SHORTCUT_DEFS = {
     label: 'Perspective tool',
     category: 'Tools',
   },
+  toolWarp: { binding: { key: 'w' }, label: 'Warp tool', category: 'Tools' },
   toolInspect: { binding: { key: 'i' }, label: 'Inspect mode', category: 'Tools' },
   toolPixelProbe: {
     binding: { key: 'i', shift: true },

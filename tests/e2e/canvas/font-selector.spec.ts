@@ -15,11 +15,9 @@ test.describe('Font selector', () => {
     await dragOnCanvas(page, 200, 200, 400, 250);
     await page.waitForTimeout(500);
 
-    // Click on the canvas to place text
-    await page.mouse.click(300, 225);
-    await page.waitForTimeout(300);
-
-    // Verify a text node appears in layers
+    // TextTool enters editing mode after the drag, so the floating text bar is
+    // already the active formatting surface. Clicking the canvas here would
+    // commit the editor and hide the very bar this test is exercising.
     const treeItems = page.getByRole('treeitem');
     await expect(treeItems.first()).toContainText(/text/i, { timeout: 10000 });
 
@@ -46,8 +44,7 @@ test.describe('Font selector', () => {
     // Select text tool
     await page.keyboard.press('t');
     await dragOnCanvas(page, 200, 200, 400, 250);
-    await page.mouse.click(300, 225);
-    await page.waitForTimeout(300);
+    await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
 
     const fontSelector = page.locator('.font-selector').first();
     await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
@@ -66,8 +63,6 @@ test.describe('Font selector', () => {
     // Select text tool
     await page.keyboard.press('t');
     await dragOnCanvas(page, 200, 200, 400, 250);
-    await page.mouse.click(300, 225);
-    await page.waitForTimeout(300);
 
     const fontSelector = page.locator('.font-selector').first();
     await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
@@ -97,6 +92,10 @@ test.describe('Font selector', () => {
   });
 
   test('font selector warns when font is unknown', async ({ page }) => {
+    await page.keyboard.press('t');
+    await dragOnCanvas(page, 200, 200, 400, 250);
+    await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
+
     const fontSelector = page.locator('.font-selector').first();
     await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
 
@@ -113,6 +112,10 @@ test.describe('Font selector', () => {
   });
 
   test('font selector displays variable font badge', async ({ page }) => {
+    await page.keyboard.press('t');
+    await dragOnCanvas(page, 200, 200, 400, 250);
+    await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
+
     const fontSelector = page.locator('.font-selector').first();
     await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
 

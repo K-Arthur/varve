@@ -34,7 +34,8 @@ test.describe('Image resize UI', () => {
     await page.getByRole('button', { name: 'Unlock aspect ratio' }).click();
     await page.locator('#resize-height').fill('150');
     await expect(page.locator('#resize-width')).toHaveValue('200');
-    await page.locator('#resize-resample').selectOption('lanczos3');
+    await page.getByRole('combobox', { name: 'Resample method' }).click();
+    await page.getByRole('option', { name: 'Lanczos 3', exact: true }).click();
     await page.screenshot({ path: path.join(REVIEW_DIR, '02-configured.png'), fullPage: false });
 
     await dialog.getByRole('button', { name: 'Apply' }).click();

@@ -108,9 +108,11 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
   await page.keyboard.press('Control+s');
   await page.waitForTimeout(1200);
   await page.goto('/', { timeout: 60000, waitUntil: 'domcontentloaded' });
-  const fileRow = page.locator('.file-row:not(.file-row--header)').first();
+  // Home uses cards in the current responsive layout; gridcell is the stable
+  // semantic contract shared by both the card and legacy row presentations.
+  const fileRow = page.getByRole('gridcell').first();
   await fileRow.waitFor({ timeout: 20000 });
-  await fileRow.click();
+  await fileRow.dblclick();
   await page.locator('.layers-panel').waitFor({ timeout: 20000 });
   // The mockup survived save/reopen: select its layer, section is back.
   const mockupLayer = page
@@ -121,7 +123,17 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
   await expect(page.locator('.mockups-section')).toBeVisible({ timeout: 8000 });
   await expect(page.locator('.mockups-section').getByText(/Linked to node/)).toBeVisible();
 
-  // 7. Export PNG: select the mockup frame, open Export, capture the download.
+  // 7. Add a PNG export configuration, then open Export and capture the
+  // download. The advanced dialog only lists nodes with enabled presets.
+  await page.locator('[role="tablist"] button[role="tab"]', { hasText: /^export$/i }).click();
+  await page.getByRole('button', { name: 'PNG', exact: true }).click();
+  await page.getByRole('button', { name: 'Add configuration' }).click();
+  // Headless Chromium exposes the File System Access picker, which cannot be
+  // completed by an E2E worker. Exercise the browser-download fallback used
+  // when that capability is unavailable.
+  await page.evaluate(() => {
+    delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+  });
   const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
   await page.keyboard.press('Control+e');
   const exportDialog = page.getByRole('dialog');
@@ -148,6 +160,7 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
 
   // 8. Replace the template via the Mockups panel (browser window).
   await page.getByRole('tab', { name: /mockups/i }).click();
+  await page.getByRole('tab', { name: /^properties$/i }).click();
   await applyTemplate(page, 'Browser Window');
   await expect(page.locator('.mockups-section').getByText('Browser Window')).toBeVisible({
     timeout: 8000,

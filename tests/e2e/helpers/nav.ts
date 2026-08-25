@@ -54,4 +54,10 @@ export async function navigateToCleanEditor(page: Page): Promise<void> {
   if (await onboardingDismiss.isVisible({ timeout: 1000 }).catch(() => false)) {
     await onboardingDismiss.click({ timeout: 5000 });
   }
+
+  // Browser boot starts with a synchronous memory facade, then swaps to the
+  // IndexedDB/File System Access facade asynchronously. Save-flow tests must
+  // wait for that hand-off or they can observe a truthful Saved state from the
+  // fallback while never exercising the picker they installed.
+  await page.waitForTimeout(1000);
 }

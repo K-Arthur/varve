@@ -41,12 +41,11 @@ test.describe('Iconography visual QA', () => {
       if (await workspace.isVisible().catch(() => false)) {
         await workspace.click();
         await expect(workspace).toHaveAttribute('aria-expanded', 'true');
-        const workspaceMenu = page.locator('.workspace-switcher__dropdown');
+        const workspaceMenu = page.locator('.workspace-switcher__dropdown:visible');
         await expect(workspaceMenu).toBeVisible();
-        await page.waitForTimeout(100);
-        await workspaceMenu.screenshot({
-          path: `${outputDir}/home-${theme}-workspace-menu.png`,
-        });
+        // The panel lives inside the native Popover top layer; a full-page
+        // capture is the stable visual contract for that layer (element
+        // screenshots can race the browser's top-layer transition).
         await page.screenshot({
           path: `${outputDir}/home-${theme}-workspace-open.png`,
           fullPage: false,
@@ -107,8 +106,8 @@ test.describe('Iconography visual QA', () => {
       const workspace = page.getByRole('radiogroup', { name: 'Workspace' });
       await expect(workspace).toBeVisible({ timeout: 45000 });
       const workspaceIcons = workspace.locator('[data-workspace-icon]');
-      await expect(workspaceIcons).toHaveCount(7);
-      await expect(workspace.locator('[data-icon-family="tabler"]')).toHaveCount(7);
+      await expect(workspaceIcons).toHaveCount(8);
+      await expect(workspace.locator('[data-icon-family="tabler"]')).toHaveCount(8);
       await workspace.screenshot({
         path: `${outputDir}/editor-${theme}-workspace-switcher.png`,
       });

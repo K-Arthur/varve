@@ -1,27 +1,26 @@
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
+async function seedShortcutTip(page: import('@playwright/test').Page): Promise<void> {
+  await page.addInitScript(() => {
+    const now = Date.now();
+    localStorage.removeItem('strata:dismissed-tips');
+    localStorage.setItem(
+      'strata:actions',
+      JSON.stringify(
+        Array.from({ length: 12 }, (_, index) => ({
+          actionId: 'menu:group',
+          timestamp: now - (12 - index) * 1000,
+        })),
+      ),
+    );
+  });
+}
+
 test.describe('shortcut tip chip', () => {
   test('tip chip appears and can be dismissed', async ({ page }) => {
+    await seedShortcutTip(page);
     await navigateToEditor(page);
-
-    // Inject action records via the ActionTracker singleton
-    await page.evaluate(() => {
-      const tracker = (window as any).__actionTracker;
-      if (!tracker) return;
-
-      // Simulate 12 menu:group uses without the shortcut
-      for (let i = 0; i < 12; i++) {
-        tracker.record('menu:group', undefined);
-      }
-    });
-
-    // Wait for the poll interval — for test purposes we trigger it manually
-    await page.evaluate(() => {
-      // Force a re-check by triggering the poll
-      const ev = new CustomEvent('varve:force-tip-poll');
-      window.dispatchEvent(ev);
-    });
 
     // The tip chip should appear in the status bar
     const tipChip = page.locator('.editor-status__tip-chip');
@@ -33,15 +32,8 @@ test.describe('shortcut tip chip', () => {
   });
 
   test('tip chip click opens keyboard shortcuts palette', async ({ page }) => {
+    await seedShortcutTip(page);
     await navigateToEditor(page);
-
-    await page.evaluate(() => {
-      const tracker = (window as any).__actionTracker;
-      if (!tracker) return;
-      for (let i = 0; i < 12; i++) {
-        tracker.record('menu:group', undefined);
-      }
-    });
 
     const tipChip = page.locator('.editor-status__tip-chip');
     await expect(tipChip).toBeVisible({ timeout: 5000 });

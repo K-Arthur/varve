@@ -37,6 +37,8 @@ test('email preview controls switch viewport and generated code remains read-onl
   await page.getByTestId('email-panel').getByRole('button', { name: 'Code' }).click();
   const generated = page.getByRole('region', { name: 'Generated email HTML (read-only)' });
   await expect(generated).toBeVisible();
-  await expect(generated.locator('pre')).toBeVisible();
+  const generatedCode = generated.getByRole('textbox', { name: 'Generated email HTML' });
+  await expect(generatedCode).toBeVisible();
+  await expect(generatedCode).toHaveAttribute('readonly', '');
   await expect(page.getByTitle('Email browser preview')).toBeHidden();
 });

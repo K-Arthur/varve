@@ -8,10 +8,10 @@
  * tensors, the crop solver repositions the crop onto the detected face, and
  * commitSourceImageCrop persists it as ImageFillData.crop.
  *
- * The crop window in crop mode derives from ImageFillData.crop
- * (cropViewportFromPlacement), so committing a face-aware crop on a node whose
- * aspect differs from the source changes the on-canvas crop window. This spec
- * resizes the node to a square first, making that change unambiguous.
+ * Face-aware crop stores a source-pixel crop while preserving the node's
+ * on-canvas aspect ratio. The crop-mode window can therefore still fill the
+ * frame after the operation; this spec verifies the committed source crop in
+ * the inspector instead of treating the local window size as the signal.
  */
 
 import path from 'node:path';
@@ -42,7 +42,7 @@ async function importAndSelectSquare(page: import('@playwright/test').Page, fixt
   await page.getByRole('treeitem').click();
 
   // Unlock the proportion link (image nodes default locked) and make the node
-  // square so the face-aware crop is a strict sub-rect of the source.
+  // square so the face-aware solver has to choose a square source crop.
   const lock = page.locator('label.insp-proportion-lock');
   if (await lock.isVisible().catch(() => false)) {
     const locked = await lock.evaluate((el) => {
@@ -90,17 +90,9 @@ test.describe('Face-aware crop — Protect Faces', () => {
     await navigateToEditor(page);
   });
 
-  test('runs real YuNet inference and commits a crop that shrinks the window', async ({ page }) => {
+  test('runs real YuNet inference and commits a source crop', async ({ page }) => {
     test.setTimeout(240000);
     await importAndSelectSquare(page, 'tests/fixtures/bg-removal-corpus/human.jpg');
-
-    // Baseline: no crop yet → the crop window spans the full node.
-    await enterCropMode(page);
-    const fullWindow = page.locator('.crop-overlay__window');
-    await fullWindow.waitFor({ state: 'visible' });
-    const beforeBox = (await fullWindow.boundingBox())!;
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(200);
 
     // Trigger the face-aware crop through the tool options popover.
     const action = await openProtectFacesControls(page);
@@ -110,20 +102,14 @@ test.describe('Face-aware crop — Protect Faces', () => {
     const errorAlert = page.locator('.insp-hint--error[role="alert"]');
     await expect(errorAlert).toHaveCount(0, { timeout: 30000 });
 
-    // Re-enter crop mode: the window is now derived from ImageFillData.crop,
-    // so it must be strictly smaller than the full node bounds.
+    // The source crop is visible in the image-fill inspector after leaving
+    // crop mode. Its dimensions prove that the operation committed a
+    // non-trivial source crop even though the frame itself remains square.
     await page.keyboard.press('Escape');
     await page.waitForTimeout(200);
-    await enterCropMode(page);
-    const afterWindow = page.locator('.crop-overlay__window');
-    await afterWindow.waitFor({ state: 'visible' });
-    const afterBox = (await afterWindow.boundingBox())!;
-
-    expect(afterBox.width).toBeLessThan(beforeBox.width + 0.5);
-    expect(afterBox.height).toBeLessThan(beforeBox.height + 0.5);
-    expect(afterBox.width < beforeBox.width - 0.5 || afterBox.height < beforeBox.height - 0.5).toBe(
-      true,
-    );
+    const cropDims = page.locator('.insp-image-fill__crop-dims');
+    await expect(cropDims).toBeVisible({ timeout: 5000 });
+    await expect(cropDims).toHaveText(/320x3\d\d px/);
   });
 
   test('shows "No faces detected" when the real model finds no faces', async ({ page }) => {

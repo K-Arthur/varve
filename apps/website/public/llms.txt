@@ -10,9 +10,9 @@
 - It is free with no subscription and no feature lockouts. Only the Community Edition exists today.
 - Desktop builds use a native Rust engine; the same engine compiles to WASM for web builds (the web build is not yet deployed as a hosted app).
 
-## Release status (verified against the repository state on 2026-08-21)
+## Release status (verified against the repository state on 2026-08-24)
 
-- Status: public beta. The latest published application release, **Varve 0.2.0**, was published 2026-08-21; the first public release was **0.1.0**. Published installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon dmg), and Windows (x86_64 and ARM64 NSIS installers). Windows and macOS installers are not code-signed; updater metadata is signed separately.
+- Status: public beta. The latest published application release, **Varve 0.2.1**, was published 2026-08-24; the first public release was **0.1.0**. Published installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon dmg), and Windows (x86_64 and ARM64 NSIS installers). Windows and macOS installers are not code-signed; updater metadata is signed separately.
 - The download page renders every artifact from the verified release manifest (SHA-256 checksums, SBOMs, system requirements); nothing is hand-typed.
 - Windows and macOS builds are **not code-signed** yet — the download page shows the verification steps for each platform.
 - The document format (`.varve`) may still change in ways that break older files; keep backups. Documents saved by pre-release builds with the legacy `.strata` extension remain openable through the versioned migration pipeline.
@@ -45,7 +45,7 @@
 - Does Varve have real-time collaboration? Not yet. Collaboration is UI scaffolding only, with no transport or wire protocol.
 - Can I use Varve for professional print work? It has CMYK management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and preflight checks, but it is in public beta — test thoroughly before critical production use.
 - Does Varve support ARM processors? Yes. Apple Silicon (macOS), Linux ARM64, and Windows ARM64 are all published. There is no Intel macOS build.
-- Has Varve shipped a release? Yes: the latest published application release is Varve 0.2.0 (2026-08-21), public beta, with Linux (x86_64 and ARM64), macOS (Apple Silicon), and Windows (x86_64 and ARM64) installers. Expect rough edges and a possibly-changing file format. The separate `varve-models-v1` release contains optional AI model artifacts, not an application installer.
+- Has Varve shipped a release? Yes: the latest published application release is Varve 0.2.1 (2026-08-24), public beta, with Linux (x86_64 and ARM64), macOS (Apple Silicon), and Windows (x86_64 and ARM64) installers. Expect rough edges and a possibly-changing file format. The separate `varve-models-v1` release contains optional AI model artifacts, not an application installer.
 
 ## Documentation
 

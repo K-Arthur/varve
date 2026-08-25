@@ -2064,6 +2064,9 @@ export function Menubar({
         case 'startTour':
           onStartTour?.();
           return;
+        case 'gettingStarted':
+          onGettingStarted?.();
+          return;
         case 'shortcutPalette':
           onOpenPalette?.();
           return;

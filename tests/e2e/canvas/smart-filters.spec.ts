@@ -316,6 +316,10 @@ test.describe('Object Filters — Invert workflow', () => {
 });
 
 test.describe('Object Filters — group and frame', () => {
+  test.beforeEach(async ({ page }) => {
+    await navigateToEditor(page);
+  });
+
   test('frame with smart filter affects children', async ({ page }) => {
     // Create frame
     await page.keyboard.press('f');

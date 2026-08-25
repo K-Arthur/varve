@@ -449,31 +449,41 @@ export function IconBrowser({
       const descriptor = item.descriptor;
       setInsertError(null);
 
-      // Cached (or already-fetched) icon inserts without any network work.
+      // Always pass through acquisition for insertion. A preview may already
+      // have an SVG in React state without the local-record list having
+      // observed its IndexedDB write; the cache check is cheap and makes the
+      // one-action insert contract deterministic for the Downloaded filter.
       let svg = item.svg;
-      if (!svg) {
-        setAcquiringIds((prev) => new Set(prev).add(descriptor.canonicalId));
-        try {
-          const result = await acquisition.current.acquire(descriptor, {
-            signal: previewSignalRef.current?.signal,
-          });
-          svg = result.svg;
-          setPreviews((prev) => new Map(prev).set(descriptor.canonicalId, result.svg));
-        } catch (err) {
-          const message =
-            err instanceof IconAcquisitionError
-              ? acquisitionErrorMessage(err)
-              : 'Could not load this icon — check the connection and try again.';
-          setInsertError(message);
-          setSelectedId(descriptor.canonicalId);
-          return;
-        } finally {
-          setAcquiringIds((prev) => {
-            const next = new Set(prev);
-            next.delete(descriptor.canonicalId);
-            return next;
-          });
-        }
+      setAcquiringIds((prev) => new Set(prev).add(descriptor.canonicalId));
+      try {
+        const result = await acquisition.current.acquire(descriptor, {
+          signal: previewSignalRef.current?.signal,
+        });
+        svg = result.svg;
+        setPreviews((prev) => new Map(prev).set(descriptor.canonicalId, result.svg));
+        setLocalRecords((prev) => {
+          const index = prev.findIndex(
+            (record) => record.canonicalId === result.record.canonicalId,
+          );
+          if (index < 0) return [result.record, ...prev];
+          const next = [...prev];
+          next[index] = result.record;
+          return next;
+        });
+      } catch (err) {
+        const message =
+          err instanceof IconAcquisitionError
+            ? acquisitionErrorMessage(err)
+            : 'Could not load this icon — check the connection and try again.';
+        setInsertError(message);
+        setSelectedId(descriptor.canonicalId);
+        return;
+      } finally {
+        setAcquiringIds((prev) => {
+          const next = new Set(prev);
+          next.delete(descriptor.canonicalId);
+          return next;
+        });
       }
       if (!svg) return;
 

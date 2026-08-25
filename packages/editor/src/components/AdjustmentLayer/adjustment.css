@@ -301,6 +301,7 @@
 
 .adj-panel__effect-action:hover {
   background: var(--color-interactive-hover);
+  color: var(--color-text-on-accent);
 }
 
 .adj-editor__slider-row {

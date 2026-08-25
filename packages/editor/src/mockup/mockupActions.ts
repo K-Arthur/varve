@@ -80,7 +80,11 @@ export function applyMockupToSources(
   if (!sourceNode) return null;
 
   const { template } = resolved;
-  const frameId = `mockup-${template.id}-${Date.now().toString(36)}`;
+  // Reserve the ID synchronously. `updateDoc` evaluates its updater during
+  // React's state flush, so an ID assigned inside that updater is not
+  // available when the post-transaction selection is applied.
+  const templateDoc = addMockupTemplate(doc, template).document;
+  const { id: createdNodeId } = nextNodeId(templateDoc);
 
   // Placement: to the right of the first source, fitted to ~600px height.
   const sourceBounds = editor.getWorldBounds(sourceIds[0]!);
@@ -101,8 +105,8 @@ export function applyMockupToSources(
       const added = addMockupTemplate(current, template);
       const withTemplate = added.document;
       const resolvedTemplateId = added.templateId;
-      const { id, doc: next } = nextNodeId(withTemplate);
-      const nodeId = id;
+      const { doc: next } = nextNodeId(withTemplate);
+      const nodeId = createdNodeId;
       const frame = makeFrameNode(nodeId, {
         transform: [1, 0, 0, 1, x, y],
         w: frameW,
@@ -128,8 +132,8 @@ export function applyMockupToSources(
   } finally {
     editor.commitTransaction();
   }
-  editor.setSelection(frameId);
-  return frameId;
+  editor.setSelection(createdNodeId);
+  return createdNodeId;
 }
 
 /** Apply the given template to the current selection (single/multi). */

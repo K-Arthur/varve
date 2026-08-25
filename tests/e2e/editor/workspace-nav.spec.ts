@@ -15,6 +15,7 @@ const ALL_WORKSPACES = [
   'Motion',
   'Codegen & Audit',
   'Logo',
+  'Email',
 ] as const;
 
 async function workspaceGroup(page: Page) {

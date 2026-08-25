@@ -61,7 +61,10 @@ async function createRect(page: Page) {
  * option's accessible name rather than a loose substring.
  */
 async function addWarp(page: Page, presetLabel: string) {
-  await page.getByRole('button', { name: /^warp$/i }).click();
+  // Warp is a registered keyboard tool, but is intentionally omitted from the
+  // compact Design toolbar. Use its public W shortcut so this covers the same
+  // user path without depending on a hidden toolbar affordance.
+  await page.keyboard.press('w');
   await page.waitForTimeout(200);
   await page.getByRole('combobox', { name: /add warp preset/i }).click();
   await page

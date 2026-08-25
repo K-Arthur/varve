@@ -758,6 +758,7 @@ export function createActionHandlers(
     toolSmudge: setTool('smudge'),
     toolCrop: setTool('crop'),
     toolPerspective: setTool('perspective'),
+    toolWarp: setTool('warp'),
     toolScale: setTool('scale'),
     toolSlice: setTool('slice'),
     toolCloneStamp: setTool('cloneStamp'),

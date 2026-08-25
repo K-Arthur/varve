@@ -20,7 +20,7 @@ async function createRect(
   await page.keyboard.press('r');
   await page.mouse.move(canvasBox.x + x, canvasBox.y + y);
   await page.mouse.down();
-  await page.mouse.move(canvasBox.x + x + w / 2, canvasBox.y + y / h / 2);
+  await page.mouse.move(canvasBox.x + x + w / 2, canvasBox.y + y + h / 2);
   await page.mouse.move(canvasBox.x + x + w, canvasBox.y + y + h);
   await page.mouse.up();
   await page.keyboard.press('v');

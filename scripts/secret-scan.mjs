@@ -198,7 +198,10 @@ const RULES = [
     id: 'basic-auth-url',
     // Disallow JSON punctuation from the password segment so minified
     // JSON-LD (`"@context":"https://schema.org"... "email":"support@..."`)
-    // does not look like `https://host:password@`.
+    // does not look like a scheme + host + colon + credential + "@" URL.
+    // (No literal example is spelled out here on purpose: this file is
+    // itself part of the tracked tree the scanner walks, and a same-shaped
+    // example in this comment would match this very rule.)
     re: /\bhttps?:\/\/[^\s/:@]+:[^\s/@"',}\]{]{6,}@/g,
   },
   {

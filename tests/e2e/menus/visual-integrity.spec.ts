@@ -49,14 +49,23 @@ test.describe('Menubar visual integrity', () => {
     const menuLayer = page.locator('.editor-menubar__menu');
     const menu = menuLayer.getByRole('menu', { name: 'Object' });
 
-    await expect(menu.getByRole('menuitem', { name: 'Detect Duplicates' })).toBeVisible();
+    const finalCommand = menu.getByRole('menuitem', { name: 'Detect Duplicates' });
+    // Long menus are intentionally viewport-constrained by FloatingPortal;
+    // verify the final command is reachable in that scroll surface instead
+    // of requiring the whole command list to fit above the fold.
+    await finalCommand.scrollIntoViewIfNeeded();
+    await expect(finalCommand).toBeVisible();
     const geometry = await menuLayer.evaluate((element) => ({
       clientHeight: element.clientHeight,
       scrollHeight: element.scrollHeight,
       bottom: element.getBoundingClientRect().bottom,
+      scrollTop: element.scrollTop,
     }));
     expect(geometry.bottom).toBeLessThanOrEqual(1080);
-    expect(geometry.scrollHeight).toBeLessThanOrEqual(geometry.clientHeight);
+    expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight);
+    expect(geometry.scrollTop).toBeGreaterThan(0);
+    const finalRect = await finalCommand.evaluate((element) => element.getBoundingClientRect());
+    expect(finalRect.bottom).toBeLessThanOrEqual(1080);
   });
 
   for (const theme of ['light', 'dark', 'high-contrast'] as const) {

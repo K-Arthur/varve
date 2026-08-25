@@ -56,6 +56,10 @@ export function TextEditOverlay({
 }: TextEditOverlayProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const composingRef = useRef(false);
+  const pendingTextRef = useRef<string | null>(null);
+  const updateTimerRef = useRef<number | null>(null);
+  const onUpdateTextRef = useRef(onUpdateText);
+  onUpdateTextRef.current = onUpdateText;
   const ctx = useEditor();
 
   // Compute screen-space position from world-space transform
@@ -97,21 +101,46 @@ export function TextEditOverlay({
     node.w ?? Math.max(textSize.width, node.text.length === 0 ? (node.fontSize ?? 16) * 3 : 0);
   const h = node.h ?? textSize.height;
 
+  const flushPendingText = useCallback(() => {
+    const pending = pendingTextRef.current;
+    pendingTextRef.current = null;
+    if (updateTimerRef.current !== null) {
+      window.clearTimeout(updateTimerRef.current);
+      updateTimerRef.current = null;
+    }
+    if (pending !== null) onUpdateTextRef.current(pending);
+  }, []);
+
+  const scheduleTextUpdate = useCallback((text: string) => {
+    pendingTextRef.current = text;
+    if (updateTimerRef.current !== null) return;
+    // Text input can arrive much faster than the canvas can replay a large
+    // document. Coalesce bursts and flush synchronously on blur/commit so the
+    // model remains current without recursively rendering once per keystroke.
+    updateTimerRef.current = window.setTimeout(() => {
+      updateTimerRef.current = null;
+      const pending = pendingTextRef.current;
+      pendingTextRef.current = null;
+      if (pending !== null) onUpdateTextRef.current(pending);
+    }, 100);
+  }, []);
+
   const handleInput = useCallback(() => {
     const ta = textareaRef.current;
     if (!ta || composingRef.current) return;
-    onUpdateText(ta.value);
-  }, [onUpdateText]);
+    scheduleTextUpdate(ta.value);
+  }, [scheduleTextUpdate]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        flushPendingText();
         onCommit();
       }
       // Enter inserts newline for multi-line text
     },
-    [onCommit],
+    [flushPendingText, onCommit],
   );
 
   const handleCompositionStart = useCallback(() => {
@@ -122,15 +151,27 @@ export function TextEditOverlay({
     composingRef.current = false;
     const ta = textareaRef.current;
     if (ta) {
-      onUpdateText(ta.value);
+      flushPendingText();
+      onUpdateTextRef.current(ta.value);
     }
-  }, [onUpdateText]);
+  }, [flushPendingText]);
 
   const handleBlur = useCallback(() => {
     if (!composingRef.current) {
+      flushPendingText();
       onCommit();
     }
-  }, [onCommit]);
+  }, [flushPendingText, onCommit]);
+
+  useEffect(() => {
+    return () => {
+      if (updateTimerRef.current !== null) {
+        window.clearTimeout(updateTimerRef.current);
+      }
+      updateTimerRef.current = null;
+      pendingTextRef.current = null;
+    };
+  }, []);
 
   // Report grapheme-aware caret position to editor state so the span editor
   // can apply formatting to the selected range. Maps UTF-16 textarea offsets

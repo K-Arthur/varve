@@ -40,6 +40,15 @@ async function typeSpecimen(page: import('@playwright/test').Page, family: strin
   await page.waitForTimeout(600);
 }
 
+async function openVariableAxes(page: import('@playwright/test').Page) {
+  const trigger = page
+    .locator('button.insp-disclosure__trigger')
+    .filter({ hasText: 'Variable Font Axes' });
+  await expect(trigger).toBeVisible({ timeout: 10000 });
+  if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+}
+
 test.describe('variable font axes', () => {
   test.describe.configure({ mode: 'serial' });
 
@@ -51,16 +60,14 @@ test.describe('variable font axes', () => {
     test.setTimeout(120000);
     await typeSpecimen(page, 'Geist Variable');
 
-    const section = page.getByRole('button', { name: /variable font axes/i });
-    await expect(section).toBeVisible({ timeout: 10000 });
-    await section.click();
+    await openVariableAxes(page);
     await expect(page.getByRole('slider', { name: /Weight \(wght\)/ })).toBeVisible();
   });
 
   test('the axis range comes from the font, not a generic table', async ({ page }) => {
     test.setTimeout(120000);
     await typeSpecimen(page, 'Geist Variable');
-    await page.getByRole('button', { name: /variable font axes/i }).click();
+    await openVariableAxes(page);
 
     const slider = page.getByRole('slider', { name: /Weight \(wght\)/ });
     // Geist declares 100-900. The generic fallback would say 1-1000.
@@ -71,7 +78,7 @@ test.describe('variable font axes', () => {
   test('dragging an axis redraws the glyphs', async ({ page }) => {
     test.setTimeout(120000);
     await typeSpecimen(page, 'Geist Variable');
-    await page.getByRole('button', { name: /variable font axes/i }).click();
+    await openVariableAxes(page);
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const before = await canvas.screenshot();

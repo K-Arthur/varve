@@ -307,6 +307,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'pixelProbe' },
         { toolId: 'scale' },
         { toolId: 'inspect' },
+        { toolId: 'warp', groupStart: true },
         { toolId: 'sam2Segment', groupStart: true },
       ],
       flyouts: [

@@ -74,7 +74,10 @@ function isPaper(c: { r: number; g: number; b: number } | null): boolean {
 }
 
 function isBoard(c: { r: number; g: number; b: number } | null): boolean {
-  return !!c && c.r < 200 && c.g < 200 && c.b < 200;
+  // The board token is intentionally close to neutral 200 in the current
+  // theme. Keep a margin for color-management/antialiasing differences while
+  // remaining well below the paper fill tested above.
+  return !!c && c.r < 220 && c.g < 225 && c.b < 230;
 }
 
 test.describe('Shared multipage canvas (M5)', () => {
@@ -86,8 +89,9 @@ test.describe('Shared multipage canvas (M5)', () => {
   });
 
   test('renders all pages on one pasteboard, not only the active page', async ({ page }) => {
+    const addPage = page.getByTestId('layers-panel').getByRole('button', { name: 'Add page' });
     for (let i = 0; i < 2; i++) {
-      await page.getByRole('button', { name: 'Add page' }).click();
+      await addPage.click();
     }
     // Fit the active page (page 1) for a deterministic camera.
     await page.keyboard.press('Shift+3');
@@ -115,8 +119,19 @@ test.describe('Shared multipage canvas (M5)', () => {
   test('paints content at its page placement and hit-tests across pages', async ({ page }) => {
     // Page 2 becomes the active page; content created there must render at
     // page 2's placed position (not at the pasteboard origin).
-    await page.getByRole('button', { name: 'Add page' }).click();
-    await page.getByRole('tab', { name: 'Page: Page 2' }).click();
+    const addPage = page.getByTestId('layers-panel').getByRole('button', { name: 'Add page' });
+    // A new document starts without pages, so the first add creates Page 1;
+    // create both pages needed for the cross-page placement assertion.
+    await addPage.click();
+    await addPage.click();
+    const page2Tab = page.getByRole('tab', { name: 'Page: Page 2' });
+    await page2Tab.waitFor({ state: 'visible', timeout: 10000 });
+    // PageNav tabs are sortable and may be replaced in the same React commit
+    // that adds a page; dispatch on the current node to avoid a stale DnD
+    // actionability handle.
+    await page2Tab.evaluate((element) => (element as HTMLElement).click());
+    await expect(page2Tab).toHaveAttribute('aria-selected', 'true', { timeout: 5000 });
+    await page.waitForTimeout(100);
     await page.keyboard.press('Shift+3');
     await page.waitForTimeout(300);
 
@@ -128,12 +143,17 @@ test.describe('Shared multipage canvas (M5)', () => {
     await page.keyboard.press('r');
     await dragOnCanvas(page, toScreen(150, 100 + 1224, cam), toScreen(350, 260 + 1224, cam));
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
-    await page.waitForTimeout(400);
+    // The page switch and first shape frame can cross a worker replay; wait
+    // for the settled frame before sampling the backing canvas.
+    await page.waitForTimeout(1200);
 
     // The rect's fill must appear at the placed position on screen…
     const center = toScreen(250, 180 + 1224, cam);
     const pixel = await pixelAtCanvasRel(page, center.x, center.y);
-    expect(pixel && (pixel.r < 130 || pixel.g < 130 || pixel.b < 130)).toBe(true);
+    expect(
+      pixel && (pixel.r < 130 || pixel.g < 130 || pixel.b < 130),
+      `page 2 fill at ${JSON.stringify(center)}: ${JSON.stringify(pixel)}`,
+    ).toBe(true);
 
     // …and not at the unplaced origin (which with this camera is far off
     // screen — world (250,180) maps outside the canvas).
@@ -148,7 +168,7 @@ test.describe('Shared multipage canvas (M5)', () => {
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
     await page.mouse.click(box!.x + center.x, box!.y + center.y);
-    await expect(page.locator('svg:has(filter#selection-glow)')).toBeVisible({
+    await expect(page.locator('.selection-info-bar')).toContainText('Rect', {
       timeout: 10000,
     });
   });

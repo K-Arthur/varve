@@ -30,10 +30,14 @@ test.describe('Export panel — browser download path', () => {
     await selectExportTab(page);
 
     await expect(page.getByRole('tab', { name: /export/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'PNG', exact: true })).toBeVisible();
+    await expect(
+      page.locator('.spec-export__group').first().getByRole('button', { name: 'PNG', exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: 'JPEG', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'WebP', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'SVG', exact: true })).toBeVisible();
+    await expect(
+      page.locator('.spec-export__group').first().getByRole('button', { name: 'SVG', exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: 'PDF', exact: true })).toBeVisible();
   });
 
@@ -41,7 +45,10 @@ test.describe('Export panel — browser download path', () => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
-    await page.getByRole('button', { name: 'SVG', exact: true }).click();
+    await page
+      .locator('.spec-export__group')
+      .getByRole('button', { name: 'SVG', exact: true })
+      .click();
     await page.getByRole('button', { name: /download/i }).click();
 
     const msg = await getExportMessage(page);
@@ -54,7 +61,10 @@ test.describe('Export panel — browser download path', () => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
-    await page.getByRole('button', { name: 'PNG', exact: true }).click();
+    await page
+      .locator('.spec-export__group')
+      .getByRole('button', { name: 'PNG', exact: true })
+      .click();
     await page.getByRole('button', { name: /download/i }).click();
 
     const msg = await getExportMessage(page);
@@ -93,7 +103,10 @@ test.describe('Export panel — browser download path', () => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
-    await page.getByRole('button', { name: 'PNG', exact: true }).click();
+    await page
+      .locator('.spec-export__group')
+      .getByRole('button', { name: 'PNG', exact: true })
+      .click();
 
     await page.getByRole('button', { name: /^1x$/i }).click();
     await page.getByRole('button', { name: /download/i }).click();
@@ -112,7 +125,10 @@ test.describe('Export panel — browser download path', () => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
-    await page.getByRole('button', { name: 'PNG', exact: true }).click();
+    await page
+      .locator('.spec-export__group')
+      .getByRole('button', { name: 'PNG', exact: true })
+      .click();
     await page.getByRole('button', { name: /download/i }).click();
 
     const msg = await getExportMessage(page);

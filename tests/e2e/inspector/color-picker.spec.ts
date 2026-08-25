@@ -152,14 +152,16 @@ test.describe('Color picker workflow', () => {
     await hexInput.press('Enter');
     await waitForSwatchBackground(page, 'rgb(255, 136, 0)');
 
-    // Nudge the hue slider by keyboard several steps — one committed value.
-    const hue = page.getByRole('slider', { name: 'Hue' });
-    await hue.focus();
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
+    // Drag the hue slider through several intermediate values — one
+    // committed gesture, matching the transaction contract.
+    const hue = page.locator('.color-slider--hue .insp-slider__track');
+    const hueBox = await hue.boundingBox();
+    if (!hueBox) throw new Error('Hue slider not found');
+    const y = hueBox.y + hueBox.height / 2;
+    await page.mouse.move(hueBox.x + hueBox.width * 0.35, y);
+    await page.mouse.down();
+    await page.mouse.move(hueBox.x + hueBox.width * 0.5, y, { steps: 5 });
+    await page.mouse.up();
     await page.getByRole('button', { name: /^done$/i }).click();
 
     // Single undo restores the pre-drag color in one step.

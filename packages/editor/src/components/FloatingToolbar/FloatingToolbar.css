@@ -20,6 +20,10 @@
   margin: 0;
 }
 
+.floating-toolbar--modal-options {
+  pointer-events: auto;
+}
+
 .floating-toolbar [role="toolbar"] {
   display: flex;
   align-items: center;

@@ -63,7 +63,7 @@ test.describe('Layers Panel - Drag & Drop', () => {
     await expect(importInput).toBeVisible({ visible: false });
     await expect(importInput).toHaveAttribute(
       'accept',
-      '.svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,.eps,.psd,.psb,.sketch',
+      '.svg,.png,.jpg,.jpeg,.webp,.avif,.gif,.bmp,.pdf,.ai,.eps,.psd,.psb,.sketch,.fig,.fig.json,.cube,.3dl,.clf,.ctf',
     );
   });
 });

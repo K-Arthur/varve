@@ -13,7 +13,7 @@ test.describe('Logo workflow', () => {
 
   test('switches to the Logo workspace via shortcut', async ({ page }) => {
     await page.keyboard.press('Control+Shift+6');
-    await expect(page.getByRole('radio', { name: 'Logo', exact: true })).toBeChecked();
+    await expect(page.getByRole('radio', { name: 'Logo workspace', exact: true })).toBeChecked();
   });
 
   test('New Logo Project creates an artboard + concept and selects it', async ({ page }) => {
@@ -28,9 +28,19 @@ test.describe('Logo workflow', () => {
 
   test('geometry menu exposes logo path operations', async ({ page }) => {
     await page.getByRole('menuitem', { name: /^Object/i }).click();
-    await expect(page.getByRole('menuitem', { name: /Expand Stroke to Outline/i })).toBeVisible();
-    await expect(page.getByRole('menuitem', { name: /Mirror Duplicate/i }).first()).toBeVisible();
-    await expect(page.getByRole('menuitem', { name: /Radial Duplicate/i })).toBeVisible();
+    const pathItem = page.getByRole('menuitem', { name: /^Path/ });
+    // Object is taller than the viewport at this size; bring the submenu
+    // trigger into the scrollable menubar surface before opening it.
+    await pathItem.scrollIntoViewIfNeeded();
+    await pathItem.hover();
+    const pathMenu = page.locator('[role="menu"][aria-label="Path"]');
+    await expect(
+      pathMenu.getByRole('menuitem', { name: /Expand Stroke to Outline/i }),
+    ).toBeVisible();
+    await expect(
+      pathMenu.getByRole('menuitem', { name: /Mirror Duplicate/i }).first(),
+    ).toBeVisible();
+    await expect(pathMenu.getByRole('menuitem', { name: /Radial Duplicate/i })).toBeVisible();
     await page.keyboard.press('Escape');
   });
 

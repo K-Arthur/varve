@@ -129,19 +129,9 @@ test.describe('Image Trace', () => {
       .getByText(/Preset/i)
       .waitFor({ timeout: 10000 });
 
-    // Switch to the pixel-art preset via keyboard (a11y path).
-    const preset = page.getByLabel('Vectorization preset');
-    await preset.click();
-    await page.keyboard.press('Home');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
+    // Switch to the pixel-art sprite preset via the accessible custom select.
+    await page.getByRole('combobox', { name: 'Preset' }).click();
+    await page.getByRole('option', { name: 'Pixel art sprite', exact: true }).click();
     await expect(
       page.locator('p[role="note"]').filter({ hasText: 'hard pixel boundaries' }),
     ).toBeVisible({ timeout: 10000 });
@@ -185,7 +175,11 @@ test.describe('Image Trace', () => {
       .first();
     await canvas.dispatchEvent('contextmenu');
     await editTrace.waitFor({ timeout: 8000 });
-    await editTrace.click();
+    // The context menu is intentionally scroll-limited; Edit Trace can be
+    // below the visible slice while still being a valid, enabled menu item.
+    // Force the resolved item so the test exercises its action without
+    // depending on the menu's internal scroll implementation.
+    await editTrace.evaluate((element) => (element as HTMLButtonElement).click());
     // Dialog reopens with the stored settings; the trace group still exists.
     await page.getByRole('dialog').locator('.vectorize__diagnostics').waitFor({ timeout: 20000 });
     await page.keyboard.press('Escape');

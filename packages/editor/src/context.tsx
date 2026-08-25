@@ -322,6 +322,7 @@ import {
   validateStateMachine as validateSM,
   type WorkingSpace,
   walkNodes,
+  worldToPage,
 } from '@varve/scene';
 import {
   alignBBox,
@@ -567,6 +568,19 @@ function viewportCenterWorld(cam: {
     : { width: window.innerWidth, height: window.innerHeight - 120 };
   const [x, y] = editorScreenToWorld(cam, vp.width / 2, vp.height / 2, vp);
   return { x, y };
+}
+
+/** Convert a placed-world point into the local space stored under a page root. */
+function pageContentPoint(
+  doc: Document,
+  pageId: NodeId,
+  point: { x: number; y: number },
+): {
+  x: number;
+  y: number;
+} {
+  const local = worldToPage(doc, pageId, [point.x, point.y]);
+  return local ? { x: local[0], y: local[1] } : point;
 }
 
 function gatherSubtreeNodes(doc: Document, ids: NodeId[]): SceneNode[] {
@@ -2969,10 +2983,14 @@ export function EditorProvider({
   // P5: Wired to @varve/collab transaction hooks for Yjs integration
   const beginTransaction = useCallback(() => {
     inTransactionRef.current = true;
-    txSnapshotRef.current = state.document;
-    txSelRef.current = state.selection;
+    // Gesture callbacks can be retained by portaled controls across a
+    // document render. Read the synchronous ref so a transaction always
+    // snapshots the document the user is actually seeing, not the closure's
+    // previous render.
+    txSnapshotRef.current = stateRef.current.document;
+    txSelRef.current = stateRef.current.selection;
     getTransactionHooks().onBeginTransaction();
-  }, [state.document, state.selection]);
+  }, []);
 
   const commitTransaction = useCallback(() => {
     // Queue finalization behind any document updater scheduled by the same
@@ -3910,7 +3928,11 @@ export function EditorProvider({
             const activePage = d2.pages?.find((p) => p.id === d2.activePageId);
             const contentRootId = activePage?.contentRoot;
             if (contentRootId && d2.nodes[contentRootId]) {
-              newDoc = addChild(d2, contentRootId, node);
+              const local = activePage ? pageContentPoint(d2, activePage.id, world) : world;
+              newDoc = addChild(d2, contentRootId, {
+                ...node,
+                transform: [1, 0, 0, 1, local.x, local.y],
+              } as SceneNode);
             } else {
               newDoc = addNode(d2, node);
             }
@@ -4042,7 +4064,11 @@ export function EditorProvider({
             const activePage = d2.pages?.find((p) => p.id === d2.activePageId);
             const contentRootId = activePage?.contentRoot;
             if (contentRootId && d2.nodes[contentRootId]) {
-              newDoc = addChild(d2, contentRootId, node);
+              const local = activePage ? pageContentPoint(d2, activePage.id, world) : world;
+              newDoc = addChild(d2, contentRootId, {
+                ...node,
+                transform: [1, 0, 0, 1, local.x, local.y],
+              } as SceneNode);
             } else {
               newDoc = addNode(d2, node);
             }
@@ -4132,9 +4158,22 @@ export function EditorProvider({
           // showing in the Layers panel. Mirrors createShapeAt.
           const activePage = d2.pages?.find((p) => p.id === d2.activePageId);
           const contentRootId = activePage?.contentRoot;
+          const localCenter = activePage
+            ? pageContentPoint(d2, activePage.id, { x: center[0], y: center[1] })
+            : { x: center[0], y: center[1] };
           const newDoc =
             contentRootId && d2.nodes[contentRootId]
-              ? addChild(d2, contentRootId, node)
+              ? addChild(d2, contentRootId, {
+                  ...node,
+                  transform: [
+                    1,
+                    0,
+                    0,
+                    1,
+                    localCenter.x - preset.w / 2,
+                    localCenter.y - preset.h / 2,
+                  ],
+                } as SceneNode)
               : addNode(d2, node);
 
           return { ...s, document: newDoc, selection: [id] };
@@ -8199,13 +8238,13 @@ export function EditorProvider({
       fitActivePage: () => {
         const doc = state.document;
         const pageId = doc.activePageId;
-        const page = doc.pages?.find((p) => p.id === pageId);
-        if (!page) return;
+        const bounds = pageId ? pageBoundsInWorld(doc, pageId) : null;
+        if (!bounds) return;
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
         const vp: Viewport = canvasEl
           ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
           : { width: window.innerWidth, height: window.innerHeight - 120 };
-        patch(fitBoundsToState({ x: 0, y: 0, w: page.width, h: page.height }, vp));
+        patch(fitBoundsToState(bounds, vp));
       },
       fitActiveFrame: () => {
         const sel = state.selection[0];

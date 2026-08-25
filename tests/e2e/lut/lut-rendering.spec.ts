@@ -13,7 +13,7 @@ test('LUT changes real photo colors — nature photograph', async ({ page }) => 
     page.waitForEvent('filechooser'),
     page.locator('#file-import-input').evaluate((el: HTMLInputElement) => el.click()),
   ]);
-  await fileChooser.setFiles(path.join(PHOTO_FIXTURES, 'nature-photograph.png'));
+  await fileChooser.setFiles(path.join(PHOTO_FIXTURES, 'photo-fixture.jpg'));
   await page.waitForTimeout(3000);
 
   // Screenshot BEFORE LUT
@@ -21,7 +21,9 @@ test('LUT changes real photo colors — nature photograph', async ({ page }) => 
 
   // Read pixel color from the center of the imported image
   const colorBefore = await page.evaluate(() => {
-    const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+    const canvas = document.querySelector(
+      'canvas.editor-canvas__content-layer',
+    ) as HTMLCanvasElement;
     if (!canvas) return null;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
@@ -65,7 +67,9 @@ test('LUT changes real photo colors — nature photograph', async ({ page }) => 
 
   // Read pixel color from the same position
   const colorAfter = await page.evaluate(() => {
-    const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+    const canvas = document.querySelector(
+      'canvas.editor-canvas__content-layer',
+    ) as HTMLCanvasElement;
     if (!canvas) return null;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
@@ -115,12 +119,14 @@ test('LUT changes real photo colors — portrait', async ({ page }) => {
     page.waitForEvent('filechooser'),
     page.locator('#file-import-input').evaluate((el: HTMLInputElement) => el.click()),
   ]);
-  await fileChooser.setFiles(path.join(PHOTO_FIXTURES, 'realistic-portrait.png'));
+  await fileChooser.setFiles(path.join(PHOTO_FIXTURES, 'subject-photo.png'));
   await page.waitForTimeout(3000);
 
   // Read pixel from face area (center of image)
   const colorBefore = await page.evaluate(() => {
-    const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+    const canvas = document.querySelector(
+      'canvas.editor-canvas__content-layer',
+    ) as HTMLCanvasElement;
     if (!canvas) return null;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
@@ -155,7 +161,9 @@ test('LUT changes real photo colors — portrait', async ({ page }) => {
   await page.waitForTimeout(3000);
 
   const colorAfter = await page.evaluate(() => {
-    const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+    const canvas = document.querySelector(
+      'canvas.editor-canvas__content-layer',
+    ) as HTMLCanvasElement;
     if (!canvas) return null;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;

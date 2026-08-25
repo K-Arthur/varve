@@ -1,11 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-const BASE = process.env.VARVE_E2E_PORT
-  ? `http://localhost:${process.env.VARVE_E2E_PORT}`
-  : 'http://localhost:5199';
-
 async function navigateToEditor(page: import('@playwright/test').Page) {
-  await page.goto(BASE);
+  await page.goto('/');
   await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 15000 });
   await page.getByRole('button', { name: /^new$/i }).click();
   await page
@@ -32,7 +28,7 @@ async function navigateToEditor(page: import('@playwright/test').Page) {
 
 test.describe('onboarding visual verification', () => {
   test('welcome dialog renders correctly', async ({ page }) => {
-    await page.goto(BASE);
+    await page.goto('/');
     await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 15000 });
     await page.getByRole('button', { name: /^new$/i }).click();
     await page

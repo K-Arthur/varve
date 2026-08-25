@@ -358,7 +358,18 @@ export function FloatingToolbar() {
   // Modal image-edit tools provide their own focused handles and completion
   // actions. Keeping the global palette mounted here would cover the lower
   // perspective corners and steal pointer input from the active transform.
-  if (state.tool === 'crop' || state.tool === 'perspective') return null;
+  if (state.tool === 'perspective') return null;
+  if (state.tool === 'crop') {
+    // CropOverlay owns the handles, but crop-specific actions (Protect Faces,
+    // trim, and bounds reset) still need a reachable options entry point.
+    // The old early return removed ToolOptionsPopover together with the main
+    // palette, leaving those actions inaccessible in crop mode.
+    return (
+      <div className="floating-toolbar floating-toolbar--modal-options">
+        <ToolOptionsPopover />
+      </div>
+    );
+  }
 
   const isDrawingMode = workspaceMode === 'drawing';
 

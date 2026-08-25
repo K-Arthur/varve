@@ -167,7 +167,7 @@ Channels derive from the tag shape, which `release.yml` already implements:
 
 | Channel | Tag | Prerelease | Audience |
 |---|---|---|---|
-| `stable` | `v0.2.0` | no | Everyone |
+| `stable` | `v0.2.1` | no | Everyone |
 | `beta` | `v0.2.0-beta.1` | yes | Opt-in testers |
 | `nightly` | not tagged | n/a | Built on demand; never auto-updated |
 

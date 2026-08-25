@@ -1,7 +1,7 @@
 # Varve — Platform & Architecture Support Matrix
 
-**Date:** 2026-08-21
-**Applies to:** the current release line (v0.2.0 published 2026-08-21;
+**Date:** 2026-08-24
+**Applies to:** the current release line (v0.2.1 published 2026-08-24;
 v0.1.1 published 2026-08-12; v0.1.0 published 2026-08-09)
 
 The guiding rule: **do not advertise a platform we have not run the application on.**

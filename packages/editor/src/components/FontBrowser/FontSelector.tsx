@@ -64,8 +64,8 @@ export function FontSelector({
   }, [allFamilies, query]);
 
   const hasMatch = useMemo(
-    () => allFamilies.some((f) => normalize(f) === normalize(value)),
-    [allFamilies, value],
+    () => allFamilies.some((f) => normalize(f) === normalize(query)),
+    [allFamilies, query],
   );
 
   const sections = useMemo(() => {
@@ -236,7 +236,7 @@ export function FontSelector({
           }
           autoComplete="off"
         />
-        {!hasMatch && value && (
+        {!hasMatch && query.trim() && (
           <Tooltip label="Font not in catalog">
             <span className="font-selector__warning" role="img" aria-label="Font not in catalog">
               !

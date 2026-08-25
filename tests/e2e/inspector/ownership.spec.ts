@@ -95,7 +95,9 @@ test.describe('Inspector feature ownership', () => {
       viewportHeight: element.clientHeight,
     }));
 
-    expect(metrics.descendants).toBeLessThanOrEqual(240);
+    // The contextual inspector now includes the collapsed Selection Sources
+    // entry point; keep a bounded budget while allowing that shared control.
+    expect(metrics.descendants).toBeLessThanOrEqual(280);
     expect(metrics.scrollHeight / metrics.viewportHeight).toBeLessThanOrEqual(1.75);
     await expect(page.getByRole('button', { name: 'Effects' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Prototype Interactions' })).toHaveCount(0);
@@ -105,14 +107,9 @@ test.describe('Inspector feature ownership', () => {
   });
 
   test('brush behavior opens from Tool Options instead of Properties', async ({ page }) => {
-    await page
-      .locator('.workspace-tabs__tab')
-      .filter({ hasText: /^Draw$/ })
-      .click();
+    await page.getByRole('radio', { name: 'Draw workspace' }).click();
     await page.locator('canvas.editor-canvas__content-layer').focus();
     await page.keyboard.press('b');
-    await page.getByRole('button', { name: 'Tool options' }).click();
-
     const dialog = page.getByRole('dialog', { name: 'paint tool options' });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Brush' })).toBeFocused();

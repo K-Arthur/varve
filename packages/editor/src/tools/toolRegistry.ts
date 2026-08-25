@@ -455,6 +455,7 @@ export const TOOL_REGISTRY = [
     icon: 'Spline',
     category: 'vector',
     kind: 'tool',
+    shortcutId: 'toolWarp',
     aliases: ['deform', 'mesh'],
   },
   {

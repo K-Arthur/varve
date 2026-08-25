@@ -54,7 +54,7 @@ async function selectQuickMethod(page: import('@playwright/test').Page): Promise
 }
 
 async function clickRemoveBackground(page: import('@playwright/test').Page): Promise<void> {
-  const removeBgBtn = page.getByRole('button', { name: /remove bg/i });
+  const removeBgBtn = page.getByRole('button', { name: /remove background/i });
   if (await removeBgBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
     await removeBgBtn.click();
     return;

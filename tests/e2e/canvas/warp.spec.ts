@@ -85,7 +85,7 @@ test.describe('warp: non-destructive lifecycle', () => {
   }) => {
     await createRect(page);
     // Add a skew warp via the Object menu command path.
-    await page.getByRole('button', { name: /^warp$/i }).click();
+    await page.keyboard.press('w');
     await page.waitForTimeout(200);
     // The warp tool auto-adds an envelope; switch it to skew via the Inspector.
     await page.getByRole('combobox', { name: /add warp preset/i }).click();
@@ -138,7 +138,7 @@ test.describe('warp: non-destructive lifecycle', () => {
     await page.keyboard.press('v');
 
     // Apply an arc bend via the warp tool preset flow.
-    await page.getByRole('button', { name: /^warp$/i }).click();
+    await page.keyboard.press('w');
     await page.waitForTimeout(200);
     await page.getByRole('combobox', { name: /add warp preset/i }).click();
     await page.getByRole('option', { name: /arc up/i }).click();
@@ -172,7 +172,7 @@ test.describe('warp: non-destructive lifecycle', () => {
     await page.keyboard.press('Control+v');
     await page.waitForTimeout(200);
 
-    await page.getByRole('button', { name: /^warp$/i }).click();
+    await page.keyboard.press('w');
     await page.waitForTimeout(200);
     await page.getByRole('combobox', { name: /add warp preset/i }).click();
     await page.getByRole('option', { name: /4×4 mesh/i }).click();

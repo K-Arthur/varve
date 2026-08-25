@@ -68,21 +68,28 @@ test.describe('Zoom camera stability', () => {
     if (!canvasBox) throw new Error('content canvas not found');
 
     await page.keyboard.press('r');
-    await dragOnCanvas(page, 60, 45, 80, 65);
+    // Keep the test shape large enough that the 24px resize hit targets do not
+    // cover its centre; this assertion is about moving/repainting, not handle
+    // hit-testing for a tiny object.
+    await dragOnCanvas(page, 60, 45, 140, 105);
     // The auto-namer may label a small square rect "Icon placeholder"
     // instead of "Rectangle N" — match either so creation is verified.
     await expect(
       page.getByRole('treeitem').filter({ hasText: /rectangle|icon placeholder/i }),
     ).toHaveCount(1);
     const beforeMove = await selectionRect(page);
-
+    // The selection overlay paints from React state while the pointer tool
+    // reads its authoritative selection through stateRef. Let that commit
+    // reach the input pipeline before starting the move gesture.
+    await page.waitForTimeout(50);
     // Moving a leaf takes the renderer's partial-redraw path. A leaked clip
     // from that path previously made the next camera-only redraw appear blank.
+    // Snapping is not part of this render-pipeline assertion; disable it so a
+    // tiny placeholder cannot be held on a coincident guide during the drag.
+    const disableSnap = page.getByRole('button', { name: 'Disable snapping', exact: true });
+    if (await disableSnap.isVisible().catch(() => false)) await disableSnap.click();
     await page.keyboard.press('v');
-    await page.mouse.move(canvasBox.x + 70, canvasBox.y + 55);
-    await page.mouse.down();
-    await page.mouse.move(canvasBox.x + 85, canvasBox.y + 70);
-    await page.mouse.up();
+    await dragOnCanvas(page, 100, 75, 140, 115);
     const afterMove = await selectionRect(page);
     expect(afterMove.x - beforeMove.x).toBeGreaterThan(10);
     expect(afterMove.y - beforeMove.y).toBeGreaterThan(10);

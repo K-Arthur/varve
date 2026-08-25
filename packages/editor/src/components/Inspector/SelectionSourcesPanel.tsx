@@ -148,7 +148,7 @@ export function SelectionSourcesPanel() {
   };
 
   return (
-    <DisclosureSection title="Selection Sources" id="selection-sources" defaultExpanded>
+    <DisclosureSection title="Selection Sources" id="selection-sources" defaultExpanded={false}>
       <div className="insp-selection-sources" data-testid="selection-sources-panel">
         <p className="insp-selection-sources__description">
           Build, refine, reuse, and convert document-space coverage without changing layer
