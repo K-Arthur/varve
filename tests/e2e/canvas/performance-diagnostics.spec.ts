@@ -46,9 +46,9 @@ test.describe('Canvas performance diagnostics', () => {
         page.evaluate(() => {
           const handle = (
             window as unknown as {
-              __strataPerf?: PerformanceDiagnosticsHandle;
+              __varvePerf?: PerformanceDiagnosticsHandle;
             }
-          ).__strataPerf;
+          ).__varvePerf;
           return handle?.interactions.getTraces(10).length ?? 0;
         }),
       )
@@ -57,9 +57,9 @@ test.describe('Canvas performance diagnostics', () => {
     const diagnostics = await page.evaluate(() => {
       const handle = (
         window as unknown as {
-          __strataPerf?: PerformanceDiagnosticsHandle;
+          __varvePerf?: PerformanceDiagnosticsHandle;
         }
-      ).__strataPerf;
+      ).__varvePerf;
       if (!handle) return null;
       const traces = handle.interactions.getTraces(10);
       const drag = [...traces]
@@ -119,9 +119,9 @@ test.describe('Canvas performance diagnostics', () => {
         page.evaluate(() => {
           const handle = (
             window as unknown as {
-              __strataPerf?: PerformanceDiagnosticsHandle;
+              __varvePerf?: PerformanceDiagnosticsHandle;
             }
-          ).__strataPerf;
+          ).__varvePerf;
           return handle?.interactions
             .getTraces(10)
             .some(
@@ -140,9 +140,9 @@ test.describe('Canvas performance diagnostics', () => {
         page.evaluate(() => {
           const handle = (
             window as unknown as {
-              __strataPerf?: PerformanceDiagnosticsHandle;
+              __varvePerf?: PerformanceDiagnosticsHandle;
             }
-          ).__strataPerf;
+          ).__varvePerf;
           return handle?.interactions
             .getTraces(10)
             .some(

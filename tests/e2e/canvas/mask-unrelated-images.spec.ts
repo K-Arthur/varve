@@ -306,8 +306,8 @@ test.describe('raster mask must not disturb unrelated canvas content', () => {
     const h1 = await fullCanvasHash(page);
     await page.evaluate(() => {
       (
-        window as unknown as { __strataPerf?: { forceFullRedraw: () => void } }
-      ).__strataPerf?.forceFullRedraw();
+        window as unknown as { __varvePerf?: { forceFullRedraw: () => void } }
+      ).__varvePerf?.forceFullRedraw();
     });
     await page.waitForTimeout(800);
     const h2 = await fullCanvasHash(page);
@@ -366,8 +366,8 @@ test.describe('raster mask must not disturb unrelated canvas content', () => {
     const aAfterStroke = await regionHash(page, aRect);
     await page.evaluate(() => {
       (
-        window as unknown as { __strataPerf?: { forceFullRedraw: () => void } }
-      ).__strataPerf?.forceFullRedraw();
+        window as unknown as { __varvePerf?: { forceFullRedraw: () => void } }
+      ).__varvePerf?.forceFullRedraw();
     });
     await page.waitForTimeout(800);
     const aAfterOracle = await regionHash(page, aRect);

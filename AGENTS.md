@@ -255,7 +255,7 @@ own guards (`surfaceMatchesBackingStore`, byte-exact camera equality) were
 sound and were not the cause.
 
 When touching any pixel-reuse logic, run the oracle instead of eyeballing it:
-hash the surface after the interaction, call `window.__strataPerf.forceFullRedraw()`
+hash the surface after the interaction, call `window.__varvePerf.forceFullRedraw()`
 at the same camera, hash again. Equal hashes mean the screen matches what a
 full redraw would have produced. Frame-rate and handler-time metrics cannot
 detect this class of bug. Background: `docs/architecture/render-pipeline.md`

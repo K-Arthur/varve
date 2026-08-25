@@ -113,7 +113,7 @@ JS = r"""
         await waitFor(() => document.querySelector('.layers-panel') || document.querySelector('canvas'), 30000, 'editor');
         await sleep(4000);
       }
-      const p = window.__strataPerf || window.__varvePerf;
+      const p = window.__varvePerf;
       if (!p) { window.__rc = JSON.stringify({ error: 'no perf handle', log }); return; }
       const cv = contentCanvas();
       if (!cv) { window.__rc = JSON.stringify({ error: 'no canvas', log }); return; }

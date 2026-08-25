@@ -391,13 +391,13 @@ test.describe('browser build readiness', () => {
     const snapshot = await page.evaluate(async () => {
       const handle = (
         window as unknown as {
-          __strataPerf?: {
+          __varvePerf?: {
             renderPath: () => unknown;
             capabilities: () => unknown;
             forceFullRedraw: () => void;
           };
         }
-      ).__strataPerf;
+      ).__varvePerf;
       if (!handle) return { installed: false };
       return {
         installed: true,

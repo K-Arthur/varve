@@ -187,7 +187,7 @@ def main() -> int:
             log.push('no canvas to interact with');
           }
 
-          const p = window.__strataPerf || window.__varvePerf;
+          const p = window.__varvePerf;
           if (!p) {
             window.__rp = JSON.stringify({
               error: 'no perf handle',

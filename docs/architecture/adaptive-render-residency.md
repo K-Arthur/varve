@@ -63,7 +63,7 @@ RSS. Browser and WebView allocations remain partly opaque.
 - `shouldChangeRasterBucket` with promotion and demotion hysteresis;
 - `AdaptiveResidencyManager` for byte estimates, priorities, pins, pressure,
   cost-aware eviction, promotion/demotion counters, and document ownership;
-- a pull-based diagnostic snapshot through `window.__strataPerf.residency()`
+- a pull-based diagnostic snapshot through `window.__varvePerf.residency()`
   when performance diagnostics are enabled.
 
 The render pipeline records the visible image working set into the ledger. The

@@ -4,7 +4,7 @@ Incremental-vs-full repaint oracle, executed in the system WebKitGTK.
 
 For each gesture: perform it, let the canvas settle, capture the content
 canvas, force an authoritative full redraw of the *same* document and camera
-via `window.__strataPerf.forceFullRedraw()`, capture again, and compare.
+via `window.__varvePerf.forceFullRedraw()`, capture again, and compare.
 
 Any pixel that differs is a pixel the incremental path got wrong — a stale
 origin, a ghost trail, an uncleared region or a seam. Comparing against a
@@ -153,7 +153,7 @@ ORACLE_JS = r"""
         await sleep(4000);
       }
 
-      const p = window.__strataPerf || window.__varvePerf;
+      const p = window.__varvePerf;
       if (!p) { window.__oracle = JSON.stringify({ error: 'no perf handle', log }); return; }
       if (!p.forceFullRedraw) {
         window.__oracle = JSON.stringify({ error: 'no forceFullRedraw hook', log });

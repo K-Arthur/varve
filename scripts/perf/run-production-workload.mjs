@@ -285,11 +285,11 @@ async function openFixtureEditor(page, fixtureId) {
   // The perf handle (and therefore the fixture applier) is installed by
   // CanvasArea on mount, so an editor page must exist first.
   await openEditorCanvas(page);
-  await page.waitForFunction(() => Boolean(window.__varvePerf ?? window.__strataPerf), {
+  await page.waitForFunction(() => Boolean(window.__varvePerf), {
     timeout: 30_000,
   });
   const seeded = await page.evaluate(async (id) => {
-    const perf = window.__varvePerf ?? window.__strataPerf;
+    const perf = window.__varvePerf;
     if (!perf?.fixtures?.apply) return { ok: false, error: 'fixtures.apply missing' };
     return perf.fixtures.apply(id);
   }, fixtureId);
@@ -400,7 +400,7 @@ async function buildScene(page, box, duplications, spread = true) {
   await page.waitForTimeout(150);
 
   const nodeCount = await page.evaluate(() => {
-    const perf = window.__varvePerf ?? window.__strataPerf;
+    const perf = window.__varvePerf;
     const frames = perf?.getFrames?.(3) ?? [];
     return frames.length ? frames[frames.length - 1].nodeCount : 0;
   });
@@ -885,7 +885,7 @@ try {
   if (FIXTURE) {
     const opened = await openFixtureEditor(page, FIXTURE);
     box = opened.box;
-    await page.waitForFunction(() => Boolean(window.__varvePerf ?? window.__strataPerf), {
+    await page.waitForFunction(() => Boolean(window.__varvePerf), {
       timeout: 30_000,
     });
     partial.fixture = {
@@ -903,7 +903,7 @@ try {
     console.log(`Fixture opened: ${FIXTURE} (${opened.seeded?.nodeCount} nodes)`);
   } else {
     box = await openEditorCanvas(page);
-    await page.waitForFunction(() => Boolean(window.__varvePerf ?? window.__strataPerf), {
+    await page.waitForFunction(() => Boolean(window.__varvePerf), {
       timeout: 30_000,
     });
     partial.sceneSpread = args.get('no-spread') !== 'true';
@@ -936,7 +936,7 @@ try {
       }
 
       await page.evaluate(() => {
-        const perf = window.__varvePerf ?? window.__strataPerf;
+        const perf = window.__varvePerf;
         perf?.reset?.();
         perf?.interactions?.reset?.();
         perf?.nodeWork?.reset?.();
@@ -963,7 +963,7 @@ try {
       }
 
       const measured = await page.evaluate(() => {
-        const perf = window.__varvePerf ?? window.__strataPerf;
+        const perf = window.__varvePerf;
         const traces = perf?.interactions?.getTraces?.(50) ?? [];
         const distribution = (values) => {
           const sorted = [...values].sort((a, b) => a - b);

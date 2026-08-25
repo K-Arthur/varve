@@ -150,7 +150,7 @@ cannot leave the editor stuck.
 | Gesture sensitivity settings | Not exposed (defaults follow platform) |
 | `zoomBy`/`zoomAtScreenPoint`/`panToWorldPoint` convenience API | Absorbed by existing `commitCamera`/`computeZoom*`; not re-exported |
 | Viewport-rotation gestures (touch twist) | Not implemented; rotation via toolbar/shortcuts only |
-| Diagnostics HUD toggle | Ring buffer exists; opt-in via `?perf=1` query param. Exposed as `window.__strataPerf` (see `drawDiagnostics.ts`); input diagnostics module (`inputDiagnostics.ts`) provides a ring buffer of normalized events but does not currently expose a window global |
+| Diagnostics HUD toggle | Ring buffer exists; opt-in via `?perf=1` query param. Exposed as `window.__varvePerf` (see `drawDiagnostics.ts`); input diagnostics module (`inputDiagnostics.ts`) provides a ring buffer of normalized events but does not currently expose a window global |
 
 ## 7. Manual hardware checklist (release gate)
 

@@ -25,7 +25,7 @@ The scripts read `?perf=1` to opt in to the diagnostics ring-buffer handle
 (see `packages/editor/src/canvas/drawDiagnostics.ts`).
 
 The `?perf=1` query string enables the editor diagnostics handle (currently
-exposed under the legacy `window.__strataPerf` name). Production workload
+exposed under the legacy `window.__varvePerf` name). Production workload
 tooling also accepts `window.__varvePerf` so a future public rename remains
 compatible. The handle exposes the frame-diagnostics ring buffer (`totalMs`,
 `buildIrMs`, `replayMs`, `hashMs`, `nodeCount`, render path, cache stats)

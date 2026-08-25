@@ -266,7 +266,7 @@ Observed symptoms, all from that one cause:
    resident scene was refused forever — a refused frame transfers nothing, so
    residency could never grow past the cap.
 4. When changing any of this, run the oracle rather than eyeballing it: hash
-   the surface after an interaction, call `window.__strataPerf.forceFullRedraw()`
+   the surface after an interaction, call `window.__varvePerf.forceFullRedraw()`
    at the same camera, hash again. Equal hashes mean every pixel on screen is
    what a full redraw would have produced. `tests/e2e/canvas/many-image-render.spec.ts`
    is the coverage-based regression guard for the specific failure above.

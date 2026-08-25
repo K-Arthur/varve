@@ -68,11 +68,11 @@ test.describe('Canvas interaction soak', () => {
         page.evaluate(() => {
           const handle = (
             window as unknown as {
-              __strataPerf?: {
+              __varvePerf?: {
                 workerBitmapBudget: () => BitmapBudgetSnapshot | null;
               };
             }
-          ).__strataPerf;
+          ).__varvePerf;
           const bitmap = handle?.workerBitmapBudget();
           return (bitmap?.pendingBytes ?? 0) + (bitmap?.inFlightBytes ?? 0);
         }),
@@ -82,7 +82,7 @@ test.describe('Canvas interaction soak', () => {
     const diagnostics = await page.evaluate<SoakDiagnostics | null>(() => {
       const handle = (
         window as unknown as {
-          __strataPerf?: {
+          __varvePerf?: {
             getFrames: (count: number) => unknown[];
             interactions: {
               getTraces: (count: number) => Array<{ spans: unknown[]; frames: unknown[] }>;
@@ -91,7 +91,7 @@ test.describe('Canvas interaction soak', () => {
             workerBitmapBudget: () => BitmapBudgetSnapshot | null;
           };
         }
-      ).__strataPerf;
+      ).__varvePerf;
       if (!handle) return null;
       const traces = handle.interactions.getTraces(50);
       return {

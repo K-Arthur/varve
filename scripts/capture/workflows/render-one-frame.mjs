@@ -91,7 +91,7 @@ await capture({
     await beat(page, 5000);
 
     const perf = await page.evaluate(() => {
-      const handle = window.__strataPerf;
+      const handle = window.__varvePerf;
       return {
         enabled: Boolean(handle?.isEnabled?.()),
         frame: handle?.getLast?.() ?? null,
@@ -117,8 +117,8 @@ await capture({
     await page.keyboard.press('ArrowDown');
     await settle(page, { pauseMs: 700 });
     const edited = await page.evaluate(() => ({
-      frame: window.__strataPerf?.getLast?.() ?? null,
-      path: window.__strataPerf?.renderPath?.() ?? null,
+      frame: window.__varvePerf?.getLast?.() ?? null,
+      path: window.__varvePerf?.renderPath?.() ?? null,
     }));
     assert.ok(edited.frame?.frameIndex >= perf.frame.frameIndex, 'edit did not commit a frame');
     // A single-node move is intentionally reported as a dirty-node replay by
@@ -135,16 +135,16 @@ await capture({
     );
     await beat(page, 6500);
 
-    await page.evaluate(() => window.__strataPerf?.freeze?.(true));
+    await page.evaluate(() => window.__varvePerf?.freeze?.(true));
     await page.waitForTimeout(500);
     assert.equal(
-      await page.evaluate(() => window.__strataPerf?.isFrozen?.()),
+      await page.evaluate(() => window.__varvePerf?.isFrozen?.()),
       true,
       'diagnostics frame could not be frozen',
     );
     assertions.push('the exact next frame is frozen for inspection; the HUD is observability only');
     await beat(page, 6500);
-    await page.evaluate(() => window.__strataPerf?.freeze?.(false));
+    await page.evaluate(() => window.__varvePerf?.freeze?.(false));
     await parkPointer(page);
     await beat(page, 5500);
     return assertions;

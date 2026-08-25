@@ -318,7 +318,7 @@ function invalidatePaintedSurface(): boolean {
 
 export function installPerfDiagnosticsHandle(): void {
   // The draw-diagnostics handle also flips snap metrics and interaction
-  // tracing on so interaction probes reading window.__strataPerf see frame,
+  // tracing on so interaction probes reading window.__varvePerf see frame,
   // snap, and pointer-to-present data together. Gated to the same explicit
   // ?perf=1 opt-in as the frame diagnostics.
   if (typeof window !== 'undefined' && window.location.search.includes('perf=1')) {
@@ -336,18 +336,18 @@ export function installPerfDiagnosticsHandle(): void {
 
 /**
  * Merge the snap, interaction, worker-budget, frame-budget and capability
- * getters into the dev-only `window.__strataPerf` handle so probes and E2E
+ * getters into the dev-only `window.__varvePerf` handle so probes and E2E
  * tests can read every subsystem from one place. Inert unless ?perf=1.
  */
 function augmentPerfDiagnosticsHandle(): void {
   if (typeof window === 'undefined') return;
   if (!window.location.search.includes('perf=1')) return;
   const target = window as unknown as {
-    __strataPerf?: Record<string, unknown>;
+    __varvePerf?: Record<string, unknown>;
   };
-  if (!target.__strataPerf || typeof target.__strataPerf !== 'object') return;
-  target.__strataPerf = {
-    ...target.__strataPerf,
+  if (!target.__varvePerf || typeof target.__varvePerf !== 'object') return;
+  target.__varvePerf = {
+    ...target.__varvePerf,
     fixtures: {
       /** Seed a deterministic corpus fixture into the home database. */
       seed: seedCorpusFixture,

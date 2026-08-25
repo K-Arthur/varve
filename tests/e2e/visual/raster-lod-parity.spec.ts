@@ -23,7 +23,7 @@ import { expect, test } from '@playwright/test';
 
 declare global {
   interface Window {
-    __strataPerf?: {
+    __varvePerf?: {
       fixtures: {
         apply: (id: string) => Promise<{ ok: boolean }>;
       };
@@ -57,9 +57,7 @@ async function openEditorWithFixture(page: import('@playwright/test').Page): Pro
     .getByRole('button', { name: /create/i })
     .click();
   await page.locator('.layers-panel').waitFor({ timeout: 10000 });
-  const applied = await page.evaluate(() =>
-    window.__strataPerf?.fixtures.apply('paint-raster-lod'),
-  );
+  const applied = await page.evaluate(() => window.__varvePerf?.fixtures.apply('paint-raster-lod'));
   expect(applied?.ok).toBe(true);
   // Wait for the fixture's raster layer to appear in the layers panel.
   await page
@@ -79,14 +77,14 @@ test('pyramid tiles are seam-free and parity-bounded at 25% zoom', async ({ page
   await openEditorWithFixture(page);
 
   // Park the camera at 25% zoom: L2 tiles, 4x minification.
-  await page.evaluate(() => window.__strataPerf?.camera.setZoom(0.25));
+  await page.evaluate(() => window.__varvePerf?.camera.setZoom(0.25));
   await page.waitForTimeout(400);
 
   // Wait for the pyramid to generate the visible tiles.
   await page
     .waitForFunction(
       () => {
-        const d = window.__strataPerf?.rasterLod.diagnostics();
+        const d = window.__varvePerf?.rasterLod.diagnostics();
         return !!d && d.residency.residentTiles > 0 && d.scheduler.queued === 0;
       },
       undefined,
@@ -98,16 +96,16 @@ test('pyramid tiles are seam-free and parity-bounded at 25% zoom', async ({ page
   await page.waitForTimeout(500);
 
   const pyramidShot = await screenshotCanvas(page);
-  const pyramidDiag = await page.evaluate(() => window.__strataPerf?.rasterLod.diagnostics());
+  const pyramidDiag = await page.evaluate(() => window.__varvePerf?.rasterLod.diagnostics());
 
   // Retained arm: disable the pyramid in both realms and force a full redraw.
   await page.evaluate(() => {
-    window.__strataPerf?.rasterLod.disable();
-    window.__strataPerf?.forceFullRedraw();
+    window.__varvePerf?.rasterLod.disable();
+    window.__varvePerf?.forceFullRedraw();
   });
   await page.waitForTimeout(500);
   const retainedShot = await screenshotCanvas(page);
-  await page.evaluate(() => window.__strataPerf?.rasterLod.enable());
+  await page.evaluate(() => window.__varvePerf?.rasterLod.enable());
 
   // In-page pixel analysis (both shots are PNG buffers).
   const metrics = await page.evaluate(

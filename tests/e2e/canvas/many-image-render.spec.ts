@@ -160,7 +160,7 @@ test.describe('many-image canvas rendering', () => {
   test('paints every image after fit-all when the document exceeds the worker transfer budget', async ({
     page,
   }) => {
-    // `?perf=1` exposes `__strataPerf.forceFullRedraw`, the oracle below.
+    // `?perf=1` exposes `__varvePerf.forceFullRedraw`, the oracle below.
     await page.setViewportSize(VIEWPORT);
     await navigateToEditor(page, '/?perf=1');
 
@@ -213,8 +213,8 @@ test.describe('many-image canvas rendering', () => {
       const live = await surfaceState(page);
       await page.evaluate(() => {
         (
-          window as unknown as { __strataPerf?: { forceFullRedraw?: () => void } }
-        ).__strataPerf?.forceFullRedraw?.();
+          window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
+        ).__varvePerf?.forceFullRedraw?.();
       });
       await page.waitForTimeout(700);
       const authoritative = await surfaceState(page);

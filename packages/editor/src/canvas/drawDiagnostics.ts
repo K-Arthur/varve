@@ -164,13 +164,13 @@ export function isDiagnosticsFrozen(): boolean {
  * frame diagnostics ring buffer without console flooding. Gated to explicit
  * `?perf=1` opt-in (which also enables the ring buffer) so normal usage never
  * pays for it and the handle is inert (never installed) otherwise. Exposed as
- * `window.__strataPerf`.
+ * `window.__varvePerf`.
  */
 export function installPerfDiagnosticsHandle(): void {
   if (typeof window === 'undefined') return;
   if (!window.location.search.includes('perf=1')) return;
   const globalThisAny = window as unknown as {
-    __strataPerf?: {
+    __varvePerf?: {
       enable: (on: boolean) => void;
       reset: () => void;
       getFrames: (n: number) => FrameDiagnostics[];
@@ -180,7 +180,7 @@ export function installPerfDiagnosticsHandle(): void {
       isFrozen: () => boolean;
     };
   };
-  if (globalThisAny.__strataPerf) {
+  if (globalThisAny.__varvePerf) {
     // StrictMode double-mounts effects in dev; the settings-driven
     // enableDrawDiagnostics(false) on the second pass would otherwise leave
     // the ring buffer dead. perf=1 always wins while the page is open.
@@ -188,7 +188,7 @@ export function installPerfDiagnosticsHandle(): void {
     return;
   }
   enableDrawDiagnostics(true);
-  globalThisAny.__strataPerf = {
+  globalThisAny.__varvePerf = {
     enable: enableDrawDiagnostics,
     reset: resetDiagnostics,
     getFrames: getRecentFrames,

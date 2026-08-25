@@ -104,8 +104,8 @@ test('selected-frame image import remains nested, clipped, and pixel-stable', as
 
   const beforeFullRedraw = await canvasHash(page);
   await page.evaluate(async () => {
-    const perf = (window as Window & { __strataPerf?: { forceFullRedraw?: () => boolean } })
-      .__strataPerf;
+    const perf = (window as Window & { __varvePerf?: { forceFullRedraw?: () => boolean } })
+      .__varvePerf;
     perf?.forceFullRedraw?.();
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   });
@@ -141,8 +141,8 @@ test('large imagery converges after rapid zoom without losing settled pixels', a
   ).toBeGreaterThan(12);
   const settledHash = await canvasHash(page);
   await page.evaluate(async () => {
-    const perf = (window as Window & { __strataPerf?: { forceFullRedraw?: () => boolean } })
-      .__strataPerf;
+    const perf = (window as Window & { __varvePerf?: { forceFullRedraw?: () => boolean } })
+      .__varvePerf;
     perf?.forceFullRedraw?.();
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   });
