@@ -79,6 +79,28 @@ image, motion, logo, codegen.
 | selectAll | Select All | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | selectNone | Select None | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | invertSelection | Invert Selection | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| pixelSelection | Pixel Selection (submenu) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| toolSelectionPaint | Paint Selection | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| saveAreaSelection | Save Area Selection | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| restoreLastSavedAreaSelection | Restore Last Saved Area Selection | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| deleteLastSavedAreaSelection | Delete Last Saved Area Selection | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| pathToSelection | Path to Selection | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| selectionToPath | Selection to Path | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| selectFromImageAlpha | Select from Image Alpha | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| selectFromImageLuminance | Select from Image Luminance | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| selectFromImageColorRange | Magic Wand from Image | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| areaSelectionGrow | Grow | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| areaSelectionShrink | Shrink | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| areaSelectionSmooth | Smooth | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| areaSelectionThreshold | Threshold | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| areaSelectionNudgeUp | Nudge Up | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| areaSelectionNudgeDown | Nudge Down | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| areaSelectionNudgeLeft | Nudge Left | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| areaSelectionNudgeRight | Nudge Right | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| areaSelectionScaleUp | Scale Up | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| areaSelectionScaleDown | Scale Down | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| areaSelectionRotateCW | Rotate Clockwise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| areaSelectionRotateCCW | Rotate Counter-Clockwise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | selectParent | Select Parent | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | selectChildren | Select Children | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | delete | Delete | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -169,6 +191,9 @@ image, motion, logo, codegen.
 | ungroup | Ungroup | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | flipH | Flip Horizontal | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | flipV | Flip Vertical | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| repeatTransform | Repeat Transform | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| resizeImage | Resize Image… | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| bakeWarp | Bake Warp to Path | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | newAdjustmentLayer | New Adjustment Layer | ✓ | ✓ | – | ✓ | – | – | – |
 | createClippingMask | Create Clipping Mask | ✓ | ✓ | ✓ | ✓ | – | – | – |
 | releaseClippingMask | Release Clipping Mask | ✓ | ✓ | ✓ | ✓ | – | – | – |
@@ -177,6 +202,7 @@ image, motion, logo, codegen.
 | attachTextToPath | Text on Path | ✓ | ✓ | ✓ | – | – | – | – |
 | detachTextFromPath | Detach Text from Path | ✓ | ✓ | ✓ | – | – | – | – |
 | toolCrop | Crop Image | ✓ | ✓ | – | ✓ | – | – | – |
+| toolPerspective | Perspective Image | ✓ | ✓ | – | ✓ | – | – | – |
 | extractPalette | Extract Palette | ✓ | – | ✓ | ✓ | – | – | – |
 | addAlphaMask | Add Alpha Mask | ✓ | ✓ | ✓ | ✓ | – | – | – |
 | createMaskFromSelection | Create Mask from Selection | ✓ | ✓ | ✓ | ✓ | – | – | – |

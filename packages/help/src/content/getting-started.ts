@@ -5,7 +5,7 @@ export const GETTING_STARTED: Record<string, HelpArticle> = {
     id: 'getting-started:overview',
     title: 'What is Varve?',
     summary: 'An overview of the local-first, cross-platform design suite.',
-    body: 'Varve is a local-first, cross-platform design suite for creating user interfaces, prototypes, illustrations, and print designs. Unlike cloud-only tools, Varve runs natively on your machine with a Rust-powered engine for high performance. Your data stays on your device unless you choose to sync. Varve supports vector editing, raster image manipulation, typography, animation, prototyping, and print production in a single application. The editor provides a canvas-based workspace with layers, inspector panels, timeline animation, and prototype preview.',
+    body: 'Varve is a local-first, cross-platform design suite for creating user interfaces, prototypes, illustrations, and print designs. Unlike cloud-only tools, Varve runs natively on your machine with a Rust-powered engine for high performance. Your data stays on your device — no mandatory cloud sync, no account required. Varve supports vector editing, raster image manipulation, typography, animation, prototyping, and print production in a single application. The editor provides a canvas-based workspace with layers, inspector panels, timeline animation, and prototype preview.',
     keywords: ['varve', 'overview', 'design', 'local-first', 'cross-platform', 'introduction'],
     category: 'Getting Started',
     related: ['getting-started:creating', 'getting-started:interface'],
