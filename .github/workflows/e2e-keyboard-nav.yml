@@ -92,7 +92,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps ${{ matrix.browser }}
+        # Always include chromium: tests/e2e/global-setup.ts warms the vite
+        # dev server with a hardcoded chromium.launch() before any project's
+        # tests run, regardless of --project. On firefox/webkit legs only
+        # the matrix browser was installed, so that warm-up launch failed
+        # with "Executable doesn't exist" and took the whole job down before
+        # a single test ran. `install` is idempotent, so this is a no-op on
+        # the chromium leg.
+        run: npx playwright install --with-deps chromium ${{ matrix.browser }}
       - name: Verify toolchain
         run: |
           node --version
