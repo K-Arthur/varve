@@ -2,13 +2,16 @@
 /**
  * Fail the build when a bundled asset is a Git LFS pointer instead of real content.
  *
- * Audit RB-1: `.gitattributes` routes `*.onnx` through Git LFS, and
- * `actions/checkout` does not fetch LFS content unless explicitly asked. The
- * result is a 133-byte text file sitting where a 64 MB model should be — which
- * builds fine, packages fine, uploads fine, and fails at runtime in front of a
- * user with an opaque ONNX parse error.
- *
- * This is the guard that turns that silent failure into a loud build failure.
+ * Audit RB-1 (historical): `.gitattributes` used to route `*.onnx` through Git
+ * LFS, and `actions/checkout` does not fetch LFS content unless explicitly
+ * asked, so a 133-byte pointer text file could sit where a 64 MB model should
+ * be — which builds fine, packages fine, uploads fine, and fails at runtime in
+ * front of a user with an opaque ONNX parse error. LFS was retired
+ * 2026-08-20 (see `.gitattributes`) after the 980 MB ddcolor source exhausted
+ * the free-tier bandwidth quota; bundled models are committed directly now.
+ * This guard stays as defense-in-depth: it still fails loudly if a
+ * contributor's local LFS config or a future re-adoption ever produces a
+ * pointer file in a bundled model's place.
  *
  * Also checks the inverse hazard: an asset marked `bundled: false` in the model
  * manifest that is nonetheless staged in `public/`, where Vite copies it into

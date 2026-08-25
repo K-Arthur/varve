@@ -424,15 +424,17 @@ jobs:
         if: matrix.enabled
         with:
           # Bundled models (u2netp.onnx, realesr-general-x4v3.onnx) are
-          # LFS-tracked, so the checkout MUST fetch LFS or the build would
-          # package 133-byte pointers. The repo is public, so LFS bandwidth is
-          # free and unmetered. The large on-demand models (ddcolor 980 MB,
-          # ddcolor-tiny 220 MB, font-classify 64 MB) are downloaded at runtime
-          # and never touched here. The pointer guard below still fails the
-          # build with instructions rather than silently shipping a pointer.
+          # committed directly, not Git LFS (LFS was retired 2026-08-20 —
+          # see .gitattributes — after the 980 MB ddcolor source exhausted
+          # the free-tier LFS bandwidth quota), so a normal checkout gets
+          # real weights. The large on-demand models (ddcolor 980 MB,
+          # ddcolor-tiny 220 MB, font-classify 64 MB) are downloaded at
+          # runtime and never touched here. The pointer guard below still
+          # fails the build loudly if a stray LFS pointer ever gets
+          # committed instead of real content.
           ref: ${{ needs.preflight.outputs.tag }}
 
-      - name: Verify no bundled asset is an LFS pointer
+      - name: Verify no bundled asset is a Git LFS pointer
         if: matrix.enabled
         run: node scripts/release/check-bundled-assets.mjs
 
