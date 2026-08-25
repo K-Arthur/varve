@@ -25,8 +25,8 @@ export function WelcomeDialog({
         </div>
         <h2 className="welcome-dialog__heading">Welcome to Varve</h2>
         <p className="welcome-dialog__subtitle">
-          A local-first design application for vector, layout, typography, motion, prototyping,
-          and print. Your work stays on your machine.
+          A local-first design application for vector, layout, typography, motion, prototyping, and
+          print. Your work stays on your machine.
         </p>
 
         <div className="welcome-dialog__options">

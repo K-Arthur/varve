@@ -47,6 +47,19 @@
       "linter": { "enabled": false }
     },
     {
+      "includes": [
+        ".architecture-baseline.json",
+        ".health-baseline.json",
+        ".typecheck-baseline.json",
+        ".render-perf-baseline.json",
+        ".render-perf-results.json",
+        ".replay-browser-baseline.json",
+        ".replay-browser-results.json",
+        ".rust-coverage-baseline.json"
+      ],
+      "formatter": { "enabled": false }
+    },
+    {
       "includes": ["**/*.test.*", "**/__tests__/**", "tests/**", "scripts/**"],
       "linter": {
         "rules": {
