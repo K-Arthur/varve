@@ -256,7 +256,8 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/onnx-inference-architecture.md` | ONNX inference architecture |
 | `architecture/semantic-asset-similarity.md` | Local image-to-image similarity, duplicate lanes, model/runtime boundaries, and current limitations |
 | `quality/semantic-asset-similarity-benchmark.md` | Exact-search scale baseline and held-out retrieval evaluation contract |
-| `architecture/object-selection-system.md` | Object Selection prompts, transient masks, runtime boundary, and persistence |
+| `architecture/object-selection-system.md` | AI Object Selection (SAM2 prompts, transient masks, runtime boundary, persistence) — distinct from the pixel/node selection tools below |
+| `architecture/selection-system.md` | Node selection, pixel/area selection tools (marquee, lasso, quick mask), refinement, transform, image-derived sources, and Saved Area Selections |
 | `architecture/offline-first.md` | Offline-first UX contract and network boundary |
 | `architecture/int8-quantization.md` | INT8 model quantization |
 | `architecture/realesrgan-packaging.md` | Real-ESRGAN model packaging |
@@ -451,6 +452,8 @@ records; check the current code before acting on their findings.
 | `audits/figma-import-audit-2026-08-20.md` | Figma acquisition, semantic conversion, editor integration, fidelity matrix, and backlog |
 | `audits/email-current-state-audit-2026-08-20.md` | Email template system baseline audit (moved from `docs/email/`, 2026-08-22) |
 | `audits/font-replacement-audit-2026-08-20.md` | Missing-font detection, ranked replacement UX, rich-text coverage, manifest provenance, and validation |
+| `audits/selection-system-audit-2026-08-23.md` | Pixel/node selection gap analysis preceding the selection-system work — see `architecture/selection-system.md` for current state |
+| `audits/selection-validation-report-2026-08-23.md` | Selection-system delivery and validation record, including the UI wiring landed after the implementation plan's "pending" notes |
 
 ## Website-specific (current state)
 

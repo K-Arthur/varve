@@ -11,7 +11,7 @@
 - `packages/editor/src/actions/createActionHandlers.ts` (area-selection tool check)
 - `packages/editor/src/workspace/toolbarComposition.test.ts` (test update)
 - `docs/audits/selection-system-audit-2026-08-23.md` (new — audit report)
-- `docs/plans/selection-system-implementation.md` (new — implementation plan)
+- `docs/plans/archived/selection-system-implementation.md` (new — implementation plan; archived 2026-08-24 as complete, see `docs/architecture/selection-system.md`)
 
 ## Validation plan
 Per `pnpm verify:plan`: Tier 0 (format/lint on touched files) + Tier 1 (related tests).
@@ -53,7 +53,7 @@ Reason: These are focused Tier 0-1 changes (new tool + integration wiring). The 
 ### What was delivered
 1. **Architecture audit** (`docs/audits/selection-system-audit-2026-08-23.md`) — comprehensive evidence-based capability matrix of Varve's entire selection system, covering node selection (mature), area selection (partial), and all missing capabilities.
 
-2. **Implementation plan** (`docs/plans/selection-system-implementation.md`) — phased plan from P0 (pixel lasso) through P2 (coverage math).
+2. **Implementation plan** (`docs/plans/archived/selection-system-implementation.md`) — phased plan from P0 (pixel lasso) through P2 (coverage math).
 
 3. **Pixel Lasso Tool** — the most critical missing capability:
    - Freehand mode: drag to draw polygon, pointer sampling with distance threshold

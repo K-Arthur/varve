@@ -1,5 +1,14 @@
 # Selection System Implementation Plan — 2026-08-23
 
+Status: **complete** (Phases 1–8, including the UI wiring this plan marks
+"pending" below — that wiring landed later the same day and by the 0.2.1
+release on 2026-08-24; see the "Deferred UI completion update" section of
+`docs/audits/selection-validation-report-2026-08-23.md`). Canonical
+architecture doc: `docs/architecture/selection-system.md`. Original gap
+analysis: `docs/audits/selection-system-audit-2026-08-23.md`. Archived here
+as a historical planning record — the phase-by-phase "DONE"/"pending" notes
+below reflect the plan's state mid-implementation, not current status.
+
 ## Phase 1: Pixel Lasso Tool (P0 — Highest Impact)
 
 The most critical missing capability. `PolygonSelectionShape` exists in the engine but no tool creates it.
