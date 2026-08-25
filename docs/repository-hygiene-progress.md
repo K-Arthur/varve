@@ -1,10 +1,77 @@
 # Repository Hygiene Audit — Progress Ledger
 
-**Date:** 2026-07-26 (pass 1, complete) / **2026-08-04 (pass 2, complete) / 2026-08-12 (pass 3, complete) / 2026-08-16 (pass 4, complete) / 2026-08-21 (pass 5, complete)**
+**Date:** 2026-07-26 (pass 1, complete) / **2026-08-04 (pass 2, complete) / 2026-08-12 (pass 3, complete) / 2026-08-16 (pass 4, complete) / 2026-08-21 (pass 5, complete) / 2026-08-22 (pass 6, complete) / 2026-08-24 to 2026-08-25 (pass 7, complete)**
 **Branch:** master
 
-> Working ledger for hygiene audits. Pass 6 is documented below; pass 1–5
+> Working ledger for hygiene audits. Pass 7 is documented below; pass 1–6
 > history is retained further down.
+
+---
+
+## Pass 7 (2026-08-24)
+
+Post-0.2.1-release drift sweep (release shipped same day, commit `abe6a17d`
+through `9b3410a3`). Full-scope documentation truth audit per the standing
+methodology; focused on drift accumulated since pass 6 (2026-08-22) rather
+than re-auditing already-verified areas. Three parallel read-only research
+passes covered: (a) new 0.2.1 feature docs vs. code, (b) getting-started/dev
+docs vs. reality, (c) release/signing/CI docs vs. workflows. Result (b) and
+most of (c) found no genuine problems — this repo's release/signing docs
+already followed the "document credential-dependent vs. implemented, never
+overclaim" discipline the audit calls for.
+
+| File or Pattern | Category | Tracked? | Decision | Status |
+| --------------- | -------- | -------: | -------- | ------ |
+| `.github/workflows/release.yml` (checkout step comment, ~line 426) + `scripts/release/check-bundled-assets.mjs` (header comment) | Stale: both claimed `.onnx` models are "LFS-tracked" via `.gitattributes`; LFS was fully retired 2026-08-20 (980 MB ddcolor source exhausted the free bandwidth quota) and models are committed directly | Yes | Rewrote both comments to describe the current no-LFS state; kept the pointer-guard rationale as defense-in-depth against a future accidental LFS re-adoption. Flagged but not actioned in pass 6 ("out of docs scope"). | Done |
+| `CHANGELOG.md` `## [0.2.1]` "Changed" — updater feed bullet | Overclaim: stated the v0.2.0 feed "was re-signed and republished under these targets" (Windows NSIS + macOS), but the committed `apps/website/public/updates/stable.json` (last touched 2026-08-22, before the tag) only has `linux-x86_64`/`linux-aarch64` entries — the feed generator gained Windows/macOS *capability*, but that republish only actually covered Linux | Yes | Rewrote the bullet to separate "generator now supports these targets" (true) from "the v0.2.0 republish covered Linux AppImage targets only" (what actually happened); this is the same gap pass 6 flagged as "cannot substantiate, flag for release-owner confirmation" — it has since shipped as dated release-note text, so left un-fixed it would now actively mislead a user about cross-platform auto-update coverage | Done |
+| `docs/plans/selection-system-implementation.md` | Completed plan masquerading as active work — phases 4/6/7/8 marked "pending" (2026-08-23) for editor UI wiring that landed later the same day (`2671cf33`) and shipped in 0.2.1; verified against real code (`SelectionSourcesPanel.tsx`, `context.tsx` quick-mask state, `createActionHandlers.ts` refine/transform actions, `menu/defs.ts` Pixel Selection submenu) — all present and wired | Yes | Added a status banner (complete, points at the new architecture doc and the validation report's "Deferred UI completion" section) and archived to `docs/plans/archived/` per the pass 3–6 convention; fixed the two path references in `docs/audits/selection-validation-report-2026-08-23.md` | Done |
+| Missing canonical architecture doc for the pixel/node selection-tool system (pixel lasso, quick mask, refine, transform, image-derived sources, saved area selections) | Missing documentation — a major 0.2.1 feature area had only a dated pre-work audit and a now-archived plan, no current-state doc | No (new) | Wrote `docs/architecture/selection-system.md`, verified against source (menu defs, action handlers, engine modules) rather than restating the plan/audit; indexed in `docs/README.md` with a disambiguating note against the pre-existing `architecture/object-selection-system.md` (AI/SAM2 object selection — a different system) | Done |
+| `docs/release/linux-ecosystem-readiness.md` (:20, :155), `docs/release/distribution-decision-matrix.md` (:32) | Stale version-gate labels — AUR readiness gated on "v0.1.3" / "Later — v0.1.1"; repo is now at v0.2.1, AppStream metainfo has shipped since v0.2.0 (3 `<release>` entries in the metainfo XML), and today's commit `9b3410a3` re-verified the PKGBUILD against the real published v0.2.1 AppImage | Yes | Updated gate labels to reflect current reality: technically ready now, blocked only on human AUR account/push steps (already accurately described elsewhere in the same doc) — not a version milestone | Done |
+| `docs/README.md` index gaps | New 2026-08-23 dated audits (`selection-system-audit-2026-08-23.md`, `selection-validation-report-2026-08-23.md`) unindexed since pass 6 predates them | Yes | Added rows | Done |
+
+### Investigated, no action needed (pass 7)
+
+- Old-name audit (the pre-rename product name — see TRADEMARKS.md for the retired name itself): ~300 grep hits across code/docs/tests. Spot-checked a representative sample — the `.strata` legacy document-file extension (intentional compatibility, documented in README/CHANGELOG/TRADEMARKS.md/tauri.conf.json) and inline comments citing section numbers of the original pre-rename planning document for historical design rationale. All defensible per the repo's own stated rename policy (TRADEMARKS.md, README.md "Architecture" section); no blind rename performed. The one debug-global identifier found (`window.__strataPerf`) was a real rename candidate, not defensible the way the file-format extension is — see the pass 7 follow-up below, it was renamed.
+- `docs/architecture/pages-layers-frames-shapes-system.md` doesn't mention the new Layer States "Solo View" feature — considered adding a section, but that doc's scope is pages/masters/spreads/page-numbering specifically, not layer visibility; Solo View is already documented in detail in `docs/audits/layers-system-audit-2026-08-23.md` §"Solo View and selection workflows." Left as-is rather than force a topical mismatch.
+- Perspective tool (new 0.2.1 feature): no dedicated architecture doc exists. Self-contained tool (four-corner transform + its own Inspector section); judged proportionate to leave undocumented at the architecture level per the same standard applied to other single-tool additions.
+- `docs/release/linux-ecosystem-readiness.md` / `docs/release/website.md`: don't mention the new website Linux distro-family download picker. Website content itself carries this; judged low-value to duplicate in release-engineering docs.
+- Coverage Math (`blendAreaSelections()`, Phase 8 of the selection work) confirmed engine-only with no editor UI — documented as a known limitation in the new `selection-system.md` rather than silently omitted.
+
+### Verification (pass 7)
+
+| Gate | Result |
+|------|--------|
+| `node scripts/audit-docs.mjs` | Passed (596 docs, 141 links, 161 ADRs indexed) |
+| `node scripts/audit-contacts.mjs` | Passed (5423 files) |
+| `node scripts/audit-emoji.mjs` | Passed (3762 files) |
+| `node scripts/validate-workflows.mjs` | All 10 workflows valid (covers the release.yml comment edit) |
+| `node scripts/release/check-bundled-assets.mjs` | Ran; reports pre-existing local-only gitignored model files unrelated to this pass's comment-only edit (not a regression) |
+| Biome on touched files | Clean |
+| `git status` review | Confirmed several concurrent, unrelated in-progress edits from other sessions in this shared repo (website pages under `apps/website/src/pages/`, `docs/brand/github-repository-presence.md`) — left untouched, not committed, not reviewed as part of this pass |
+
+### Pass 7 follow-up (2026-08-25) — the three items flagged above as deferred
+
+All three items above ("investigated, no action needed" bullet 1's debug
+global, and the two carried-over pass-6 items) were requested to be
+addressed rather than left deferred. Re-investigated each and acted:
+
+| Item | What investigation found | Action | Status |
+| ---- | ------------------------- | ------ | ------ |
+| `window.__strataPerf` debug-perf global | Live, actively-used identifier (not just historical): read by 6 E2E specs and 3 perf/capture tooling scripts (`.mjs`/`.py`) at runtime. Two of those scripts already carried `window.__varvePerf ?? window.__strataPerf` fallback checks — evidence a rename to `__varvePerf` (the repo's established `window.__varve*` debug-hook convention, e.g. `__varveCrashTest`, `__varveSimilarityTest`) had been started and left half-done. | Renamed in the 2 source files that install the handle, the 6 E2E specs, 3 perf/capture scripts (removing the now-dead fallback branches), and current docs (`AGENTS.md`, `scripts/perf/README.md`, 3 current-state architecture docs). Left untouched in dated/historical records (`docs/audits/`, `docs/perf/` dated reports, `docs/architecture/interaction-latency-2026-08-10.md`, `docs/plans/branch-consolidation.md`) per this repo's policy of not retroactively editing point-in-time snapshots. Verified: editor typecheck clean, Python/`.mjs` files parse, Biome clean. | Done |
+| `docs/architecture/icon-system.md` "duplicate cluster" (4 docs) | Not actually 4 overlapping docs on close read. `icon-system.md`'s own H1 is "ADR-0006 — Icon System Architecture" — it was a misfiled ADR living outside `docs/adr/` and missing from the ADR index (sequence jumped 0005→0008). That misfiling was the actual root cause: it collided by basename with the unrelated `docs/design/icon-system.md`, making the pair look like duplicates. `icon-library.md` (user-facing icon search/insert/cache) and `icon-system-naming.md` (naming rules only, already explicitly deferring "current-state contract" to `design/icon-system.md` in its own opening line) are cleanly scoped already — no merge needed. | `git mv` to `docs/adr/0006-icon-system-architecture.md`, added to the ADR index table. Fixed a genuinely broken in-file link discovered along the way: the ADR (and `docs/audits/icon-library-implementation-report-2026-08-04.md`, 2 places) cited `docs/architecture/icon-system-audit-2026-08-02.md`, which moved to `docs/historical/` in an earlier pass. | Done |
+| `.architecture-baseline.json` vs `.health-baseline.json` disagreement | Read the actual CI-mode comparison logic in `scripts/audit-architecture.mjs` rather than guessing: only the per-package cycle-identity allowlist and the global `max_cycles`/`max_layer_violations` ceilings fail the build. The stored `hubFiles` snapshot and `max_unstable` are informational-only, never compared in `--ci` mode — so the two baselines disagreeing was cosmetic, not a functional gate risk. Confirmed both `audit-health.mjs` and `audit-architecture.mjs --ci` passed cleanly against the live tree (15 cycles, 0 layer violations, unchanged from pass 6) before touching anything. | Ran `--update` alone first as a mistake: with only `--update` (no `--ci`/`--all`) the script's `RUN_ALL` flag logic skips every check, so it silently wrote a hollowed-out baseline (`"cycles": {}`), which would have disabled the cycle-regression gate entirely. Caught via `git diff` before staging anything; reverted from a pre-update backup; re-ran correctly as `--update --ci`. That run tightens more than it loosens: 2 now-fixed cycles drop out of the editor package's allowlist (`max_cycles` 19→17), hub-file counts refresh to live values (e.g. `CanvasArea.tsx` 3375→1415 lines — a real refactor since 2026-08-10, not a measurement bug). Re-ran `--ci` once more against the new baseline to confirm it still passes. `.health-baseline.json` untouched — separately gated, already passing with margin. | Done |
+
+### Verification (pass 7 follow-up)
+
+| Gate | Result |
+|------|--------|
+| `pnpm --filter @varve/editor typecheck` | Passed |
+| `python3 -m py_compile` on the 3 touched perf/webkit scripts | Passed |
+| `node --check` on the 2 touched `.mjs` scripts | Passed |
+| `node scripts/audit-docs.mjs` | Passed (596 docs, 141 links, 162 ADRs indexed — was 161) |
+| `node scripts/audit-architecture.mjs --ci` (before and after the baseline update) | Passed both times, exit 0 |
+| `node scripts/audit-health.mjs` | Passed |
+| Biome on all touched files | Clean |
 
 ---
 
