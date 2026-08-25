@@ -18,7 +18,7 @@
       "mae": 0.0005697004962712526,
       "psnr_db": 45.77186965942383,
       "pearson_r": 0.9999450991942205,
-      "correlation_loss": 5.4900805779523054e-05,
+      "correlation_loss": 5.4900805779523054e-5,
       "nan_fraction": 0.0,
       "inf_fraction": 0.0,
       "output_range_violation": 0.0,
@@ -46,9 +46,7 @@
       "int8_latency_ms": 1542.9671549936756,
       "speedup": 0.18671696546025998,
       "passed": false,
-      "failure_reasons": [
-        "Correlation loss 0.0765 > 0.03"
-      ]
+      "failure_reasons": ["Correlation loss 0.0765 > 0.03"]
     }
   ],
   "overall_passed": false,

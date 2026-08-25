@@ -15,9 +15,7 @@
   "opset_version": 11,
   "ir_version": 6,
   "quantized_node_count": 0,
-  "excluded_nodes": [
-    "Conv_787"
-  ],
+  "excluded_nodes": ["Conv_787"],
   "validation_passed": true,
   "validation_details": {
     "output_graph_valid": true,
