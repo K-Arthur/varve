@@ -35,36 +35,88 @@ function mkdirp(dir) {
 
 mkdirp(OUT_DIR);
 
-const entries = [];
+/**
+ * Find every directory holding a `-diff.png`, at any depth.
+ *
+ * This used to read only the immediate children of test-results/. Once
+ * playwright.config.ts started isolating each execution under its own
+ * `outputDir` (`test-results/run-<pid>-<port>/`), the diff images moved a
+ * level deeper, every child looked like a directory with no PNGs in it, and
+ * the manifest came back empty on a genuinely failing run — which is exactly
+ * what happened the first time the visual job actually got to execute.
+ * Walking makes this independent of how the output directory is nested.
+ */
+function findDiffDirs(dir, depth = 0) {
+  if (depth > 4) return [];
+  const found = [];
+  let children;
+  try {
+    children = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return found;
+  }
+  if (children.some((c) => c.isFile() && c.name.endsWith('-diff.png'))) {
+    found.push(dir);
+  }
+  for (const child of children) {
+    if (child.isDirectory()) found.push(...findDiffDirs(path.join(dir, child.name), depth + 1));
+  }
+  return found;
+}
 
-for (const testDir of readdirSync(TEST_RESULTS)) {
-  const full = path.join(TEST_RESULTS, testDir);
-  if (!statSync(full).isDirectory()) continue;
+/** Playwright appends `-retryN`; the highest attempt is the settled result. */
+function retryOf(dirName) {
+  const match = /-retry(\d+)$/.exec(dirName);
+  return match ? Number(match[1]) : 0;
+}
+
+const byFixture = new Map();
+
+for (const full of findDiffDirs(TEST_RESULTS)) {
   const files = readdirSync(full);
   const diffFile = files.find((f) => f.endsWith('-diff.png'));
   if (!diffFile) continue; // only report actual pixel-comparison failures
 
   const baseName = diffFile.replace('-diff.png', '');
-  const actualFile = files.find((f) => f === `${baseName}-actual.png`);
-  const expectedCandidate = readdirSync(SNAPSHOTS_DIR).find((f) => f.startsWith(baseName));
+  const attempt = retryOf(path.basename(full));
+  const existing = byFixture.get(baseName);
+  if (existing && existing.attempt >= attempt) continue;
 
-  const slug = `${testDir}-${baseName}`;
-  const copy = (srcDir, file, label) => {
-    if (!file) return null;
-    const src = path.join(srcDir, file);
-    const destName = `${slug}-${label}.png`;
-    copyFileSync(src, path.join(OUT_DIR, destName));
-    return destName;
-  };
-
-  entries.push({
-    name: baseName,
-    testDir,
-    baseline: expectedCandidate ? copy(SNAPSHOTS_DIR, expectedCandidate, 'baseline') : null,
-    current: copy(full, actualFile, 'current'),
-    diff: copy(full, diffFile, 'diff'),
+  // Resolve only — nothing is copied until the winning attempt is known, so
+  // a superseded retry never leaves orphan images in the report directory.
+  byFixture.set(baseName, {
+    attempt,
+    dir: full,
+    baseName,
+    testDir: path.relative(TEST_RESULTS, full).replace(/[\\/]/g, '-'),
+    actualFile: files.find((f) => f === `${baseName}-actual.png`),
+    diffFile,
+    expectedCandidate: existsSync(SNAPSHOTS_DIR)
+      ? readdirSync(SNAPSHOTS_DIR).find((f) => f.startsWith(baseName))
+      : undefined,
   });
 }
+
+const entries = [...byFixture.values()]
+  .sort((a, b) => a.baseName.localeCompare(b.baseName))
+  .map((found) => {
+    const slug = `${found.testDir}-${found.baseName}`;
+    const copy = (srcDir, file, label) => {
+      if (!file) return null;
+      const destName = `${slug}-${label}.png`;
+      copyFileSync(path.join(srcDir, file), path.join(OUT_DIR, destName));
+      return destName;
+    };
+    return {
+      name: found.baseName,
+      testDir: found.testDir,
+      baseline: found.expectedCandidate
+        ? copy(SNAPSHOTS_DIR, found.expectedCandidate, 'baseline')
+        : null,
+      current: copy(found.dir, found.actualFile, 'current'),
+      diff: copy(found.dir, found.diffFile, 'diff'),
+    };
+  });
 
 writeFileSync(
   path.join(OUT_DIR, 'manifest.json'),
