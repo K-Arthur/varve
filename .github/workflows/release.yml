@@ -1237,7 +1237,10 @@ jobs:
   # ── 5. Draft — create the GitHub release, then verify the uploaded bytes ───
   draft:
     name: Draft Release
-    needs: [preflight, verify]
+    # signing-preflight is required for its outputs, which the release notes
+    # report. It carries the same `if:` as this job and already completes
+    # upstream via bundle -> verify, so naming it here adds no wait.
+    needs: [preflight, verify, signing-preflight]
     if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ubuntu-latest
     timeout-minutes: 20

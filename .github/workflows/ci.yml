@@ -254,6 +254,25 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install JS dependencies (frozen)
         run: pnpm install --frozen-lockfile
+      # Pinned release + checksum rather than a third-party action: this job
+      # is the workflow supply-chain gate, so it should not take on another
+      # action dependency to do its work. validate-workflows.mjs runs
+      # actionlint when it is on PATH and skips it when it is not.
+      - name: Install actionlint (pinned + checksummed)
+        env:
+          ACTIONLINT_VERSION: 1.7.7
+          ACTIONLINT_SHA256: 023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757
+        run: |
+          set -euo pipefail
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+            -o "$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${archive}"
+          echo "${ACTIONLINT_SHA256}  ${archive}" | sha256sum --check --strict -
+          tar -xzf "$archive" actionlint
+          install -m 0755 actionlint /usr/local/bin/actionlint
+          rm -f "$archive" actionlint
+          actionlint -version
       - name: Validate workflow YAML + structure
         run: node scripts/validate-workflows.mjs
       - name: Static pin check (no mutable refs)

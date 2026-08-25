@@ -92,13 +92,19 @@ test("never deletes a contributor's own hook", () => {
   assert.equal(existsSync(mine), true, 'unowned hook must be left alone');
 });
 
-test('the repository itself is configured to use the tracked hooks', () => {
-  assert.equal(
-    git(REPO_ROOT, 'config', '--local', '--get', 'core.hooksPath'),
-    HOOKS_DIR,
-    'run `node scripts/install-git-hooks.mjs` to repair',
-  );
-});
+// Local-only: the installer deliberately no-ops in CI, so a CI checkout has
+// no core.hooksPath and asserting on it there would fail every run.
+if (process.env.CI) {
+  console.log('  skip  repository hooks config (CI checkout is not configured by design)');
+} else {
+  test('the repository itself is configured to use the tracked hooks', () => {
+    assert.equal(
+      git(REPO_ROOT, 'config', '--local', '--get', 'core.hooksPath'),
+      HOOKS_DIR,
+      'run `node scripts/install-git-hooks.mjs` to repair',
+    );
+  });
+}
 
 test('the gating hooks are tracked and executable', () => {
   const tracked = git(REPO_ROOT, 'ls-files', '-s', HOOKS_DIR);

@@ -11,7 +11,7 @@
  *   node scripts/validate-workflows.mjs --staged     # Validate only staged workflows
  */
 
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -645,6 +645,36 @@ function validateRepoInvariants() {
   return errors;
 }
 
+/**
+ * Semantic validation via actionlint, when it is installed.
+ *
+ * The structural checks above cannot see what actionlint sees — an
+ * `if:`/`run:` expression naming a job that is missing from `needs` parses as
+ * perfectly valid YAML and silently evaluates to an empty string at runtime.
+ * That is exactly how the release notes lost their signing status. Treat
+ * actionlint as an upgrade rather than a hard dependency: contributors
+ * without it still get the structural checks, and CI installs it.
+ */
+function runActionlint(files) {
+  const probe = spawnSync('actionlint', ['-version'], { encoding: 'utf-8' });
+  if (probe.error) {
+    console.log('\nactionlint not installed — skipping semantic validation');
+    console.log('  install: https://github.com/rhysd/actionlint/releases');
+    return true;
+  }
+
+  const result = spawnSync('actionlint', ['-color=false', ...files], { encoding: 'utf-8' });
+  const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
+  if (result.status === 0) {
+    console.log(`\nactionlint ${probe.stdout.trim().split('\n')[0]}: no findings`);
+    return true;
+  }
+
+  console.log('\n❌ actionlint findings:');
+  console.log(output);
+  return false;
+}
+
 function main() {
   const flags = parseArgs();
   const files = getWorkflowFiles(flags);
@@ -687,6 +717,10 @@ function main() {
       }
       process.exit(1);
     }
+  }
+
+  if (!runActionlint(files)) {
+    process.exit(1);
   }
 
   console.log('\n✅ All workflows are valid');

@@ -1,0 +1,9 @@
+# actionlint configuration.
+#
+# windows-11-arm is a real GitHub-hosted runner label, but actionlint's
+# built-in label list has not caught up, so it reports the release workflow's
+# Windows ARM64 legs as unknown runners. Declaring the label here keeps the
+# lint output empty, so a genuine finding is never lost in known noise.
+self-hosted-runner:
+  labels:
+    - windows-11-arm
