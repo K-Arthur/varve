@@ -42,7 +42,17 @@ export default defineConfig({
   },
   // HTML report isolation: each execution writes its own directory so a
   // concurrent agent's `playwright-report` is never clobbered.
-  reporter: [['html', { outputFolder: `playwright-report/${outputSuffix}` }]],
+  //
+  // The HTML reporter writes only when the run finishes, and on its own it
+  // prints nothing while running. A CI job that hit its wall-clock limit
+  // therefore produced no progress, no failing-test name and no report at
+  // all — 30 minutes of output was a single "Running N tests" line. Always
+  // pair it with a streaming reporter: `github` also emits file-anchored
+  // annotations for failures, `list` is the local equivalent.
+  reporter: [
+    process.env.CI ? ['github'] : ['list'],
+    ['html', { outputFolder: `playwright-report/${outputSuffix}`, open: 'never' }],
+  ],
   projects: [
     // clipboard-read/write permission grants are only supported by
     // Chromium's Permissions API — Firefox and WebKit fail context/page
