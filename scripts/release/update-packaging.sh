@@ -30,7 +30,7 @@ AUR_DIR="$REPO_ROOT/packaging/aur/varve-desktop-bin"
 FLATPAK_DIR="$REPO_ROOT/packaging/flatpak"
 GITHUB_URL="https://github.com/K-Arthur/varve"
 SHA256_URL="$GITHUB_URL/releases/download/v$VERSION/SHA256SUMS.txt"
-DEB_NAME="Varve-${VERSION}-linux-x86_64.deb"
+AUR_SOURCE_NAME="Varve-${VERSION}-linux-x86_64.AppImage"
 
 # Parse options
 SKIP_SOURCES=false
@@ -52,14 +52,14 @@ info "Fetching SHA256SUMS.txt for v$VERSION..."
 SHA256SUMS=$(curl -sfL "$SHA256_URL" 2>/dev/null) || \
   die "Could not fetch $SHA256_URL — release may not be published yet."
 
-DEB_SHA256=$(echo "$SHA256SUMS" | grep "$DEB_NAME" | awk '{print $1}') || \
-  die "Could not find $DEB_NAME in SHA256SUMS.txt"
+AUR_SOURCE_SHA256=$(echo "$SHA256SUMS" | grep "$AUR_SOURCE_NAME" | awk '{print $1}') || \
+  die "Could not find $AUR_SOURCE_NAME in SHA256SUMS.txt"
 
-if [[ -z "$DEB_SHA256" ]]; then
-  die "Empty sha256 for $DEB_NAME"
+if [[ -z "$AUR_SOURCE_SHA256" ]]; then
+  die "Empty sha256 for $AUR_SOURCE_NAME"
 fi
 
-info "SHA256 for $DEB_NAME: $DEB_SHA256"
+info "SHA256 for $AUR_SOURCE_NAME: $AUR_SOURCE_SHA256"
 
 # ── 2. Update AUR PKGBUILD sha256sums ───────────────────────────────────────
 info "Updating PKGBUILD sha256sums..."
@@ -69,12 +69,12 @@ if [[ ! -f "$PKGBUILD" ]]; then
 fi
 
 # Replace the sha256sums line — the pattern matches the single-quoted hash.
-sed -i "s/^sha256sums=('[^']*')/sha256sums=('$DEB_SHA256')/" "$PKGBUILD"
+sed -i "s/^sha256sums=('[^']*')/sha256sums=('$AUR_SOURCE_SHA256')/" "$PKGBUILD"
 
 # Verify the replacement
 NEW_HASH=$(grep "^sha256sums=" "$PKGBUILD" | sed "s/sha256sums=('//;s/')//" )
-if [[ "$NEW_HASH" != "$DEB_SHA256" ]]; then
-  die "sha256sums replacement failed — got '$NEW_HASH' instead of '$DEB_SHA256'"
+if [[ "$NEW_HASH" != "$AUR_SOURCE_SHA256" ]]; then
+  die "sha256sums replacement failed — got '$NEW_HASH' instead of '$AUR_SOURCE_SHA256'"
 fi
 
 info "PKGBUILD sha256sums updated: $NEW_HASH"

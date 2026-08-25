@@ -41,7 +41,7 @@ conflicts=("${_appname}" "${_appname}-git")
 options=('!strip' '!debug')
 
 source=("Varve-${pkgver}-linux-x86_64.AppImage::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-x86_64.AppImage")
-sha256sums=('1ea6d1931bde5b1a253bc49ce1ba599e58368a6a2453d1e52c7c7caa81e2405f')  # from SHA256SUMS.txt
+sha256sums=('67f29114a33dd3d588c6750b03d16c814e3be6981cf04237e80dfc04d32367e5')  # from SHA256SUMS.txt
 noextract=("Varve-${pkgver}-linux-x86_64.AppImage")
 
 prepare() {
