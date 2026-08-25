@@ -43,6 +43,34 @@ update, not for someone reading the commit log.
   (`scripts/capture/`) records real interactions against seeded demo
   documents, verifies them frame-by-frame, and publishes the resulting
   workflow videos to the website product page.
+- **Selection tools** — a pixel-lasso area-selection tool, a quick-mask
+  paint tool, and image-derived selections join rectangle/ellipse
+  marquee selection. Selections can be transformed, refined (feather,
+  contract/expand, smooth), and saved for reuse across a session, with
+  a dedicated panel for managing saved selections and reviewing where
+  the current selection came from.
+- **Layer States** — layers gain a Solo View toggle and per-layer
+  visibility state that survives independently of the old show/hide
+  toggle, with an effects badge and layer context menu to manage them.
+- **Perspective tool** — an interactive four-corner perspective
+  transform with a live overlay, correct Canvas2D and SVG-export
+  rendering, and its own Inspector section.
+- **Smart Filters and adjustment layers** — a non-destructive filter
+  stack can be applied per-object, with menu and command-palette
+  entries and an object filter stack that respects layer-level bypass.
+- **Shadow/Highlight adjustment**, Levels/Curves editors backed by real
+  histogram data, and general adjustment-layer normalization fixes.
+- **Crop and transform** — named crop aspect ratios, crop guides,
+  straighten, repeat-transform, and a rebuilt Image Resize dialog.
+- **Find Similar** — natural-language and image-based asset search in
+  the Intelligence panel, backed by a local DINOv2 embedding pipeline.
+- **Warp tool** is now reachable from the Design toolbar and its `W`
+  keyboard shortcut; it previously existed but had no way to activate
+  it.
+- **Accessibility** — a full audit pass across the editor (focus order,
+  ARIA roles/labels, keyboard reachability), plus a specific fix
+  reversing Tab order so it flows from the layers panel into the canvas
+  instead of skipping it.
 
 ### Changed
 
@@ -81,7 +109,50 @@ update, not for someone reading the commit log.
   silently, and the Auto analysis no longer produces NaN JPEG-blockiness
   scores. Compression-artifact removal remains unavailable by design:
   the dialog says so rather than degrading another model.
-
+- **Visual constraint editor** — the Constraints inspector section
+  rendered a passive preview even though the interactive pin-control
+  component already existed; it's now wired up and usable. Its
+  horizontal/vertical/center-stretch pin targets previously overlapped
+  in the same hit area so only the last one was clickable — they're
+  now separate targets.
+- **Drawing a frame around an existing image** no longer requires the
+  image to be fully inside the frame before it's adopted — the
+  original center-hit-or-≥50%-overlap rule is restored.
+- **Multi-page documents** — objects created on any page after the
+  first had the page's canvas placement applied twice, landing (and
+  hit-testing) in the wrong position; fitting or viewing a non-first
+  page also ignored its actual placement and always fit at world
+  origin. Both are fixed.
+- **Mockup creation** selected a placeholder ID instead of the frame
+  node it had actually just created, so the Inspector's mockup section
+  never appeared after applying a mockup to a source image.
+- **Imported LUTs** (`.cube`) were applied at zero opacity, so an
+  imported LUT adjustment never visibly did anything until manually
+  adjusted.
+- **Icon library** — inserting an icon and immediately switching to
+  the Downloaded filter could miss the icon just inserted, due to a
+  cache-refresh race; the panel now reflects an insert immediately.
+- **Typing or pasting large amounts of text** could crash the editor
+  with a React "maximum update depth exceeded" error in the text tool;
+  rapid keystrokes are now coalesced into bounded updates, while blur,
+  Escape, and IME completion still flush immediately.
+- **Cross-artboard drag** reparenting and its undo/redo now land at the
+  precise expected position.
+- **Edge auto-pan** while dragging near a canvas boundary moved content
+  in the opposite of the intended direction; the pan direction is
+  corrected.
+- **Help ▸ Getting Started** did nothing when clicked; it now opens
+  onboarding.
+- **Responsive floating toolbar** — tools that don't fit the current
+  window width (including Table) now live in an accessible "More
+  tools" overflow menu instead of being unreachable.
+- **Crop tool history** — committing a crop without changing anything
+  no longer pushes an undo step, so Undo after an untouched crop
+  correctly reverts the prior action instead of the no-op crop.
+- **Depth Blur** now renders through the native/WASM engine path — the
+  effect existed only in the Canvas2D/JS layer, so the native scene
+  representation didn't recognize it and every use silently took the
+  slower fallback path.
 - **Background removal (INT8/fast mode)** — the small-download and
   low-memory variant of the U²-Net Light model produced a near-blank
   mask; a runtime safety check already kept it from ever being served,
