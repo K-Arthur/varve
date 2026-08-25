@@ -270,6 +270,13 @@ jobs:
           python3 -m pip install onnxruntime
 
       - name: Load each bundled model and verify graph metadata
+        # Explicit bash: this step's inline Python uses backslash-escaped
+        # quotes (entry[\"id\"]) that only survive bash's `run:` quoting.
+        # windows-latest defaults to pwsh, whose escaping rules are
+        # different and corrupt the script (`SyntaxError: '[' was never
+        # closed`) before Python ever sees it. Git Bash ships on all three
+        # hosted runner OSes, so this doesn't need per-OS branching.
+        shell: bash
         run: |
           python3 -c "
           import onnxruntime as ort
