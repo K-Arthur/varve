@@ -1,3 +1,43 @@
 #!/bin/sh
-command -v git-lfs >/dev/null 2>&1 || { printf >&2 "\n%s\n\n" "This repository is configured for Git LFS but 'git-lfs' was not found on your path. If you no longer wish to use Git LFS, remove this hook by deleting the 'pre-push' file in the hooks directory (set by 'core.hookspath'; usually '.git/hooks')."; exit 2; }
-git lfs pre-push "$@"
+# Varve pre-push hook.
+# Tracked in .githooks and activated by `core.hooksPath=.githooks`, which
+# scripts/install-git-hooks.mjs sets during `pnpm install` (prepare).
+# Do not copy this into .git/hooks: Git ignores that directory entirely
+# while core.hooksPath is set, which is how this gate was once silently
+# disabled.
+
+set -e
+
+# Do not run inside CI.
+if [ -n "$CI" ]; then
+  exit 0
+fi
+
+# Affected-first validation (see docs/quality/validation-strategy.md):
+# the default push gate runs the impact-aware verification, not the full
+# suite. Explicitly opt into the full gate with VARVE_FULL_GATE=1 or by
+# running `just gate-full` before pushing.
+if [ -n "$VARVE_FULL_GATE" ]; then
+  echo "Running full pre-push gate (VARVE_FULL_GATE set)..."
+  just gate-full
+else
+  echo "Running affected pre-push validation (pnpm verify:affected)..."
+  echo "For the full gate instead: VARVE_FULL_GATE=1 git push"
+  pnpm verify:affected
+fi
+
+# Informational pipeline health check. Never blocks the push — it warns when
+# remote CI cannot run (GitHub billing block / runner outage / Actions
+# incident) so the developer knows a red run is infra, not code.
+if node scripts/ci-health.mjs --quiet; then
+  :
+else
+  echo "(ci-health check unavailable — skipping pipeline health warning)"
+fi
+
+# GitHub Actions incident warning (e.g. "major_outage" — jobs queue forever
+# then die with "not acquired by Runner"). Pushing into an outage produces
+# zero signal, so surface it before the push. Still never blocks.
+if ! node scripts/ci-health.mjs --status --quiet; then
+  node scripts/ci-health.mjs --status || echo "(could not check githubstatus.com — skipping incident warning)"
+fi

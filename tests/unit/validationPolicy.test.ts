@@ -127,14 +127,14 @@ describe('validation infrastructure presence', () => {
   });
 
   it('pre-commit stays cheap (no full-suite commands)', () => {
-    const hook = readFileSync(join(ROOT, '.github/hooks/pre-commit'), 'utf-8');
+    const hook = readFileSync(join(ROOT, '.githooks/pre-commit'), 'utf-8');
     expect(hook).not.toMatch(/vitest run(?! tests\/unit\/validationPolicy)/);
     expect(hook).not.toMatch(/playwright test/);
     expect(hook).not.toMatch(/cargo test --workspace/);
   });
 
   it('pre-push does not unconditionally force the full gate', () => {
-    const hook = readFileSync(join(ROOT, '.github/hooks/pre-push'), 'utf-8');
+    const hook = readFileSync(join(ROOT, '.githooks/pre-push'), 'utf-8');
     expect(hook).toMatch(/verify:affected|verify:quick/);
     expect(hook).toMatch(/VARVE_FULL_GATE/);
   });

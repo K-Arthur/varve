@@ -6,7 +6,7 @@
  * Why this exists alongside gitleaks: gitleaks is the deep-history tool (run
  * `gitleaks detect --log-opts="--all"` for a full forensic pass) and is
  * recommended for the pre-commit path when installed (see
- * .github/hooks/pre-commit). This scanner is the always-present, fast inner
+ * .githooks/pre-commit). This scanner is the always-present, fast inner
  * loop: it inspects only what git actually tracks (or only staged additions
  * with --staged), needs zero installation, and fails a commit or CI run in
  * well under a second.

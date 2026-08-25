@@ -1,6 +1,10 @@
 #!/bin/sh
 # Varve pre-commit hook.
-# Installed by scripts/install-git-hooks.mjs (triggered from package.json prepare).
+# Tracked in .githooks and activated by `core.hooksPath=.githooks`, which
+# scripts/install-git-hooks.mjs sets during `pnpm install` (prepare).
+# Do not copy this into .git/hooks: Git ignores that directory entirely
+# while core.hooksPath is set, which is how this gate was once silently
+# disabled.
 
 set -e
 

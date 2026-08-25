@@ -1,55 +1,114 @@
 #!/usr/bin/env node
+import { spawnSync } from 'node:child_process';
 /**
- * Install Varve git hooks from .github/hooks into .git/hooks.
+ * Point Git at the repository's tracked hooks in `.githooks`.
  *
  * Runs automatically during pnpm install via the `prepare` script.
  * Skips installation in CI environments.
+ *
+ * History: the hooks used to be copied from `.github/hooks` into `.git/hooks`.
+ * That silently stopped working once `git lfs install` set `core.hooksPath` to
+ * `.githooks`, because Git ignores `.git/hooks` entirely whenever
+ * `core.hooksPath` is set. The pre-commit format/lint gate and the pre-push
+ * validation gate were both dead for as long as that config was in place, and
+ * unformatted code reached master as a result. The hooks are now tracked in
+ * `.githooks` and this script only has to make the config agree.
  */
-import { chmodSync, copyFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const repoRoot = join(__dirname, '..');
-const sourceDir = join(repoRoot, '.github', 'hooks');
-const targetDir = join(repoRoot, '.git', 'hooks');
+export const HOOKS_DIR = '.githooks';
 
-if (process.env.CI || process.env.NODE_ENV === 'ci') {
-  console.log('install-git-hooks: skipping in CI');
-  process.exit(0);
+/** Hooks this repository owns, and the marker proving a file is our copy. */
+const OWNED_HOOKS = ['pre-commit', 'pre-push', 'commit-msg'];
+const OWNED_MARKER =
+  /^# Varve (pre-commit|pre-push|commit-msg) hook\.|commit-msg hook: reject AI tool attribution/m;
+
+function git(root, args) {
+  const result = spawnSync('git', ['-C', root, ...args], { encoding: 'utf-8' });
+  return { status: result.status, stdout: (result.stdout ?? '').trim() };
 }
 
-// In a linked git worktree, `.git` is a file (pointing at the main repo's
-// worktrees/<name> gitdir), not a directory — hooks live at the main repo
-// instead. Skip rather than crash the install.
-try {
-  if (!statSync(join(repoRoot, '.git')).isDirectory()) {
-    console.log('install-git-hooks: skipping (linked worktree, not the main .git directory)');
-    process.exit(0);
+/**
+ * Remove hook copies left in `.git/hooks` by the old copy-based installer.
+ * Only files carrying our own header are removed — a contributor's unrelated
+ * hook is never touched.
+ */
+export function removeStaleCopies(root, gitDir) {
+  const removed = [];
+  for (const hook of OWNED_HOOKS) {
+    const stale = join(gitDir, 'hooks', hook);
+    if (!existsSync(stale)) continue;
+    let contents = '';
+    try {
+      contents = readFileSync(stale, 'utf-8');
+    } catch {
+      continue;
+    }
+    if (!OWNED_MARKER.test(contents)) continue;
+    rmSync(stale, { force: true });
+    removed.push(stale);
   }
-} catch {
-  process.exit(0);
+  return removed;
 }
 
-function install(name) {
-  const source = join(sourceDir, name);
-  const target = join(targetDir, name);
+export function installHooks(root, { log = console.log } = {}) {
+  if (!existsSync(join(root, HOOKS_DIR))) {
+    log(`install-git-hooks: skipping (${HOOKS_DIR} not found)`);
+    return { changed: false, skipped: true };
+  }
 
-  try {
-    statSync(source);
-  } catch {
+  const current = git(root, ['config', '--local', '--get', 'core.hooksPath']).stdout;
+  let changed = false;
+
+  if (current !== HOOKS_DIR) {
+    const set = git(root, ['config', '--local', 'core.hooksPath', HOOKS_DIR]);
+    if (set.status !== 0) {
+      log('install-git-hooks: could not set core.hooksPath; hooks are NOT active');
+      return { changed: false, failed: true };
+    }
+    log(
+      current
+        ? `install-git-hooks: core.hooksPath ${current} -> ${HOOKS_DIR}`
+        : `install-git-hooks: core.hooksPath set to ${HOOKS_DIR}`,
+    );
+    changed = true;
+  }
+
+  // `git rev-parse --git-dir` resolves linked worktrees to their real gitdir,
+  // so stale copies are cleaned up from wherever they actually live.
+  const gitDirOut = git(root, ['rev-parse', '--absolute-git-dir']);
+  if (gitDirOut.status === 0 && gitDirOut.stdout) {
+    for (const stale of removeStaleCopies(root, gitDirOut.stdout)) {
+      log(`install-git-hooks: removed stale copy ${stale}`);
+      changed = true;
+    }
+  }
+
+  return { changed, hooksPath: HOOKS_DIR };
+}
+
+function main() {
+  if (process.env.CI || process.env.NODE_ENV === 'ci') {
+    console.log('install-git-hooks: skipping in CI');
     return;
   }
 
-  mkdirSync(targetDir, { recursive: true });
-  copyFileSync(source, target);
-  chmodSync(target, 0o755);
-  console.log(`install-git-hooks: installed ${target}`);
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+  // Not a git checkout (tarball install, vendored copy): nothing to configure.
+  if (git(root, ['rev-parse', '--git-dir']).status !== 0) {
+    console.log('install-git-hooks: skipping (not a git repository)');
+    return;
+  }
+
+  const result = installHooks(root);
+  if (!result.changed && !result.skipped && !result.failed) {
+    console.log(`install-git-hooks: hooks already active (core.hooksPath=${HOOKS_DIR})`);
+  }
 }
 
-const hooks = readdirSync(sourceDir);
-for (const hook of hooks) {
-  if (!hook.includes('.')) {
-    install(hook);
-  }
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
 }

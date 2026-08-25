@@ -149,8 +149,8 @@ for f in "$CI_LOCAL" "$INSTALL_CI" \
   "$ROOT/scripts/tauri-e2e.sh" \
   "$ROOT/scripts/validate-pdf.sh" \
   "$ROOT/scripts/verify-webgpu.sh" \
-  "$ROOT/.github/hooks/pre-commit" \
-  "$ROOT/.github/hooks/pre-push"; do
+  "$ROOT/.githooks/pre-commit" \
+  "$ROOT/.githooks/pre-push"; do
   if [ -f "$f" ]; then
     if bash -n "$f" 2>/dev/null; then ok "bash -n $f"; else bad "bash -n $f"; fi
   else
