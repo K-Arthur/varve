@@ -29,7 +29,7 @@ Scores are 1–5, higher is better, except *Maintenance* and *Friction* where hi
 | **Static download page** | $0 | $0 | 3 | 1 | 3 | none | No | manual | 5 | 2 | **Primary front door** |
 | **AppImage** | $0 | $0 | 3 | 2 | 2 | none | No | manual | 5 | 1 | **Ship (Linux primary)** |
 | **`.deb` / `.rpm` direct** | $0 | $0 | 3 | 2 | 1 | none | No | pkg mgr | 4 | 1 | **Ship (Linux fallback)** |
-| **AUR (`-bin`)** | $0 | $0 | 4 | 1 | 4 (Arch) | none | No | AUR helper | 4 | 2 | **Later — v0.1.1** |
+| **AUR (`-bin`)** | $0 | $0 | 4 | 1 | 4 (Arch) | none | No | AUR helper | 4 | 2 | **Ready — blocked on human AUR account/push, not on a version gate** |
 | **Flathub** | $0 | $0 | 5 | 1 | 5 | 1–4 weeks | No (Flathub signs) | automatic | 4 | 4 | **Later — v0.2** |
 | **Microsoft Store** | **$0** | $0 | 5 | 1 | 4 | 1–3 days | **No — MS re-signs** | automatic | 3 | 3 | **Strong candidate — Windows** |
 | **Direct unsigned Windows** | $0 | $0 | 1 | 5 | 1 | none | No | manual | 5 | 1 | **Ship with warning (alpha)** |

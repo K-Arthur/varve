@@ -17,7 +17,7 @@
 | **AI can prepare** | PKGBUILD is prepared (done above). Release automation could bump `pkgver`/`sha256sums` in CI — the `sha256sums` field must be filled from the published `SHA256SUMS.txt` before submission. |
 | **Human must do** | (1) Create AUR account (identity verification, requires real name/email). (2) Initialize `aur.git` repo. (3) Push `PKGBUILD` + `.SRCINFO`. |
 | **Maintenance cost** | Low — bump `pkgver` + `sha256sums` per release. A future CI script can automate the diff. |
-| **Recommend** | **Now** — submit after v0.1.3 (first release shipping AppStream metainfo). No additional technical work needed. |
+| **Recommend** | **Now** — AppStream metainfo has shipped since v0.2.0. No additional technical work needed; blocked only on the human AUR account/push steps below. |
 
 ### AUR prep checklist (human steps)
 
@@ -152,7 +152,7 @@ git push
 
 | Channel | Status | Blocker | Next step | When |
 |---|---|---|---|---|
-| **AUR** | Ready (internal prototype) | AUR account creation | Submit PKGBUILD | v0.1.3 |
+| **AUR** | Ready (PKGBUILD verified against the published v0.2.1 AppImage) | AUR account creation | Submit PKGBUILD | Now |
 | **Flathub** | Blocked (AI policy) | Exception request + human manifest authoring | Founder decision on exception | v0.2+ |
 | **Snap** | Rejected | Confinement vs. print/fonts | — | — |
 | **winget** | Ready (manifest draftable) | Windows build verification + PR submission | After Windows CI stable | v0.2+ |
