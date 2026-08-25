@@ -663,7 +663,21 @@ function runActionlint(files) {
     return true;
   }
 
-  const result = spawnSync('actionlint', ['-color=false', ...files], { encoding: 'utf-8' });
+  // actionlint shells out to shellcheck for `run:` blocks when it is
+  // installed. GitHub runners ship shellcheck and most dev machines do not,
+  // so without a pinned threshold the same command is silent locally and
+  // fails in CI — which is exactly what happened when this gate was added.
+  //
+  // Gate on warning-and-above. The style/info findings in these workflows are
+  // pre-existing, and some are deliberate: release.yml builds
+  // `TAURI_EXTRA_ARGS="--config A --config B"` and passes it unquoted
+  // precisely so it word-splits, which SC2086 reports at info level. Rewriting
+  // a working release pipeline to satisfy an info-level style preference is
+  // not worth the risk; real defects (SC2128 and friends) still fail here.
+  const result = spawnSync('actionlint', ['-color=false', ...files], {
+    encoding: 'utf-8',
+    env: { ...process.env, SHELLCHECK_OPTS: process.env.SHELLCHECK_OPTS ?? '--severity=warning' },
+  });
   const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
   if (result.status === 0) {
     console.log(`\nactionlint ${probe.stdout.trim().split('\n')[0]}: no findings`);

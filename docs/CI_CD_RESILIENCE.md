@@ -391,10 +391,31 @@ checksum-verified release in `pipeline-validate`:
 
 ```bash
 # Arch / CachyOS
+sudo pacman -S shellcheck
 yay -S actionlint       # or: go install github.com/rhysd/actionlint/cmd/actionlint@latest
 
 actionlint               # checks every workflow directly
 just validate-workflows  # structure + actionlint together
+```
+
+**Install shellcheck too, not just actionlint.** actionlint shells out to
+shellcheck for every `run:` block *when shellcheck is on PATH*, and silently
+skips that entire class of check when it is not. GitHub runners ship
+shellcheck and most dev machines do not, so actionlint without shellcheck is
+quiet locally and fails in CI on the same commit — which is exactly what
+happened when this gate was first added.
+
+`validate-workflows.mjs` pins `SHELLCHECK_OPTS=--severity=warning` so local
+and CI agree, and gates on warning-and-above. Style and info findings do not
+fail the build: they are pre-existing here, and some are deliberate —
+`release.yml` builds `TAURI_EXTRA_ARGS="--config A --config B"` and passes it
+unquoted *so that it word-splits*, which SC2086 reports at info level.
+Rewriting a working release pipeline to satisfy an info-level style
+preference is not worth the risk. Override the threshold when you want the
+full picture:
+
+```bash
+SHELLCHECK_OPTS='--severity=style' node scripts/validate-workflows.mjs
 ```
 
 `.github/actionlint.yaml` declares `windows-11-arm`, a real GitHub-hosted

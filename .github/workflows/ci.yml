@@ -273,6 +273,10 @@ jobs:
           install -m 0755 actionlint /usr/local/bin/actionlint
           rm -f "$archive" actionlint
           actionlint -version
+          # actionlint runs shellcheck over `run:` blocks only when shellcheck
+          # is present. Runners ship it; assert that so a runner image change
+          # cannot silently downgrade this job to structure-only checks.
+          shellcheck --version | head -2
       - name: Validate workflow YAML + structure
         run: node scripts/validate-workflows.mjs
       - name: Static pin check (no mutable refs)
