@@ -309,12 +309,40 @@ effective lockfile and patch contract instead of hiding the advisory.
 
 ## Pre-commit / pre-push hooks
 
-Hooks are installed automatically by `pnpm install` through the `prepare` script.
+The hooks are **tracked in `.githooks/`** and activated by
+`core.hooksPath=.githooks`, which `pnpm install` sets through the `prepare`
+script (`scripts/install-git-hooks.mjs`). Nothing is copied into `.git/hooks`.
 
 - `pre-commit` — runs `biome check --staged`, `pnpm audit:emoji`, `audit-health`, workflow validation, and — when workflow files are staged — the SHA pin `--check` and `--verify` gates.
-- `pre-push` — runs `just gate` (format-check, lint, tests, token/emoji audits).
+- `pre-push` — runs the affected-first validation (`pnpm verify:affected`), or the full gate with `VARVE_FULL_GATE=1`.
+- `commit-msg` — rejects AI tool attribution trailers.
 
-Both hooks bail out in CI. If you want to skip them manually, use `git commit --no-verify` or `git push --no-verify` (not recommended for code that will run CI).
+Both gating hooks bail out in CI. To skip them manually, use
+`git commit --no-verify` or `git push --no-verify` (not recommended for code
+that will run CI).
+
+### Do not copy hooks into `.git/hooks`
+
+Git reads hooks from **either** `.git/hooks` **or** `core.hooksPath` — never
+both. Whenever `core.hooksPath` is set, `.git/hooks` is ignored completely.
+
+This is not hypothetical: `git lfs install` sets `core.hooksPath=.githooks`,
+and the installer used to copy the hooks into `.git/hooks` regardless. Both
+the pre-commit and pre-push gates were therefore silently inert, which is how
+unformatted files reached master and broke `lint` on every platform in run
+32847356048. Git LFS is no longer used here, and its hooks — which `exit 2`
+when `git-lfs` is absent — have been removed from `.githooks/`.
+
+Verify the gate is live at any time:
+
+```bash
+git config --get core.hooksPath        # must print .githooks
+node scripts/install-git-hooks.mjs     # repairs it, idempotent
+node scripts/install-git-hooks.test.mjs
+```
+
+The last command is part of `pnpm test:ci:tools`, so a hooks directory Git
+does not actually read now fails the suite instead of failing silently.
 
 ## Failure-prevention checklist
 
@@ -340,6 +368,63 @@ just pin-actions
 just pin-actions-verify
 just ci-tools-test
 ```
+
+## Workflow validation: structure and semantics
+
+`scripts/validate-workflows.mjs` runs two different kinds of check.
+
+1. **Structural** (always): YAML parses, required keys exist, repo-wide
+   invariants such as timeouts and concurrency hold.
+2. **Semantic** (`actionlint`, when installed): the checks structure cannot
+   express — undefined `needs` references, bad expression types, shellcheck
+   over `run:` blocks, unknown runner labels.
+
+The second class matters because those bugs are *invisible* to YAML parsing.
+An expression referencing a job that is missing from `needs` is valid YAML and
+evaluates to an empty string at runtime. That is precisely how the Draft
+Release notes reported blank Windows and macOS signing status for as long as
+they did.
+
+Install actionlint locally to get the semantic pass — the validator skips it
+with install guidance if it is absent, and CI installs a pinned,
+checksum-verified release in `pipeline-validate`:
+
+```bash
+# Arch / CachyOS
+yay -S actionlint       # or: go install github.com/rhysd/actionlint/cmd/actionlint@latest
+
+actionlint               # checks every workflow directly
+just validate-workflows  # structure + actionlint together
+```
+
+`.github/actionlint.yaml` declares `windows-11-arm`, a real GitHub-hosted
+runner label that actionlint 1.7.7 does not know about yet. Keep that list
+minimal: known noise buries real findings.
+
+## E2E sharding
+
+The chromium Playwright project is ~1030 tests, and `playwright.config.ts`
+pins `workers` to 1 deliberately — software-rendered canvas plus on-device
+model inference contend hard enough in parallel to kill an unrelated page
+mid-test. Serially that does not fit in a 30-minute job, so CI shards the
+project across four jobs (`--shard=N/4`) instead of raising the worker count,
+which preserves serial execution *inside* each job.
+
+Reproduce one shard exactly as CI runs it:
+
+```bash
+pnpm exec playwright test --project=chromium --shard=1/4
+```
+
+Two reporters are always configured. The `html` reporter writes only when a
+run finishes and prints nothing while running, so on its own a job that hits
+its wall-clock limit produces no progress, no failing-test name and no report
+at all. CI therefore also uses the `github` reporter (streams progress,
+annotates failures at their source line) and local runs use `list`.
+
+A job that exceeds `timeout-minutes` is **cancelled, not failed**, so
+`if: failure()` steps are skipped. Anything needed to diagnose a timeout must
+use `if: always()`.
 
 ## Notes for CachyOS / Arch Linux
 
@@ -494,3 +579,36 @@ Two historical classes, both fixed:
   the viewport-constrained max height, clipping the final command. Grouped
   under `Object > Path` (both `menu/defs.ts` and `Menubar.tsx` `buildMenus`).
   Guarded by `tests/e2e/menus/visual-integrity.spec.ts`.
+
+### The E2E job is cancelled at 30 minutes with a single "Running N tests" line
+
+The job hit `timeout-minutes`. Historically the only reporter was `html`,
+which prints nothing while running and writes its report only at the end, so
+a timed-out run left no progress output, no failing-test name and no report —
+there was no way to tell a slow suite from one hung test.
+
+Both are fixed (sharding + the `github` reporter, see **E2E sharding**), so if
+you see this again it is a genuine regression rather than the old capacity
+problem. To diagnose:
+
+1. Read the streamed progress in the job log — the last test named is where
+   it stopped.
+2. Download the `varve-e2e-report-<run_id>-shard<N>` artifact; it uploads
+   under `if: always()` and so survives a cancellation.
+3. Reproduce that shard locally: `pnpm exec playwright test --project=chromium --shard=N/4`.
+
+A cancelled job skips every `if: failure()` step. Use `if: always()` for
+anything that must survive a timeout.
+
+### A commit with obvious format or lint errors reached master
+
+The local gate was not running. Check first:
+
+```bash
+git config --get core.hooksPath   # must print .githooks
+```
+
+Git reads hooks from `.git/hooks` **or** `core.hooksPath`, never both, so a
+`core.hooksPath` set by any other tool silently disables every hook that was
+copied into `.git/hooks`. Repair with `node scripts/install-git-hooks.mjs`,
+and see **Do not copy hooks into `.git/hooks`** above for the full history.
