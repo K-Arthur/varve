@@ -70,7 +70,7 @@ export interface PrecisionSelection {
  * In a full implementation this would be derived from the manifest.
  */
 const INT8_VARIANTS: Record<string, { int8Id: string; fp32Bytes: number; int8Bytes: number }> = {
-  u2netp: { int8Id: 'u2netp-int8', fp32Bytes: 4_574_861, int8Bytes: 1_321_716 },
+  u2netp: { int8Id: 'u2netp-int8', fp32Bytes: 4_574_861, int8Bytes: 1_376_269 },
   'upscale-realesr-general': {
     int8Id: 'upscale-realesr-general-int8',
     fp32Bytes: 4_866_438,

@@ -83,7 +83,7 @@
       "id": "u2netp-int8",
       "filename": "u2netp-int8.onnx",
       "localPath": "/models/quantized/u2netp-int8.onnx",
-      "sha256": "7b3355af9c9f76d75c3ad263f711c4ef20f812bae426b798d89c80e098b9edf3",
+      "sha256": "9759400e77755569631f27656e205417d6d6b926bd161dce33f94c700f55c0be",
       "bundled": true,
       "remoteUrl": "",
       "precision": "int8",
