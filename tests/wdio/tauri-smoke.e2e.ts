@@ -18,6 +18,36 @@ async function ensureHome(): Promise<void> {
   await browser.$('[data-testid="new-file-button"]').waitForDisplayed({ timeout: 30000 });
 }
 
+/**
+ * Activate Rectangle through the same responsive toolbar path a user sees.
+ * Native CI can start the app in a narrower decorated window than Chromium,
+ * which moves the Shapes group into More tools rather than rendering its
+ * primary button in the row.
+ */
+async function activateRectangleTool(): Promise<void> {
+  const rectangleTool = await browser.$('[data-tool="rect"]');
+  if (await rectangleTool.isDisplayed().catch(() => false)) {
+    await rectangleTool.click();
+    return;
+  }
+
+  const moreTools = await browser.$('[data-testid="toolbar-more-tools"]');
+  await moreTools.waitForDisplayed({ timeout: 5000 });
+  await moreTools.click();
+
+  const shapesCategory = await browser.$(
+    '//div[contains(@class, "varve-ctxmenu")]//button[.//span[normalize-space()="Shapes"]]',
+  );
+  await shapesCategory.waitForDisplayed({ timeout: 5000 });
+  await shapesCategory.click();
+
+  const rectangleItem = await browser.$(
+    '//div[contains(@class, "varve-menu__submenu")]//button[.//span[normalize-space()="Rectangle"]]',
+  );
+  await rectangleItem.waitForDisplayed({ timeout: 5000 });
+  await rectangleItem.click();
+}
+
 describe('Tauri Desktop: Application Lifecycle', () => {
   it('should load the application and show the home screen', async () => {
     // Wait for the app-ready custom event (added for testability)
@@ -122,12 +152,11 @@ describe('Tauri Desktop: Create and Edit Document', () => {
     const canvasEl = await browser.$('[data-testid="editor-canvas"]');
     await canvasEl.waitForDisplayed({ timeout: 15000 });
 
-    // Select the current visible tool control. The embedded WebKit driver
-    // does not consistently deliver keyboard events to the canvas, while the
-    // toolbar is the same user-facing path used by mouse and touch input.
-    const rectangleTool = await browser.$('[data-tool="rect"]');
-    await rectangleTool.waitForDisplayed({ timeout: 5000 });
-    await rectangleTool.click();
+    // Select the rectangle through the responsive toolbar. The embedded
+    // WebKit driver does not consistently deliver keyboard events to the
+    // canvas, while the toolbar is the same user-facing path used by mouse
+    // and touch input.
+    await activateRectangleTool();
 
     // Dispatch the same pointer sequence directly on the real canvas node.
     // This avoids WebKitGTK's embedded-driver coordinate translation, which
