@@ -2,7 +2,7 @@
   "model_id": "u2netp",
   "fp32_model_path": "apps/desktop/public/models/u2netp.onnx",
   "int8_model_path": "apps/desktop/public/models/quantized/u2netp-int8.onnx",
-  "ort_version": "1.27.0",
+  "ort_version": "1.29.0",
   "thresholds": {
     "max_mae": 0.05,
     "min_psnr_db": 25.0,
@@ -14,48 +14,44 @@
   "metrics": [
     {
       "input_name": "synthetic_portrait",
-      "iou": 0.0,
-      "mae": 0.41767337918281555,
-      "psnr_db": 3.816399574279785,
-      "pearson_r": -0.0034370656813232925,
-      "correlation_loss": 1.0034370656813234,
+      "iou": 0.999321494583655,
+      "mae": 0.0005697004962712526,
+      "psnr_db": 45.77186965942383,
+      "pearson_r": 0.9999450991942205,
+      "correlation_loss": 5.4900805779523054e-5,
       "nan_fraction": 0.0,
       "inf_fraction": 0.0,
       "output_range_violation": 0.0,
       "fp32_output_mean": 0.4176732897758484,
-      "int8_output_mean": 1.0552350460102389e-7,
-      "fp32_latency_ms": 1369.0746560168918,
-      "int8_latency_ms": 8864.404514984926,
-      "speedup": 0.15444631996458702,
-      "passed": false,
-      "failure_reasons": [
-        "MAE 0.4177 > 0.05",
-        "PSNR 3.8dB < 25.0",
-        "Correlation loss 1.0034 > 0.03"
-      ]
+      "int8_output_mean": 0.41764700412750244,
+      "fp32_latency_ms": 292.8415149799548,
+      "int8_latency_ms": 1541.3543690228835,
+      "speedup": 0.18998973945595451,
+      "passed": true,
+      "failure_reasons": []
     },
     {
       "input_name": "synthetic_random_123",
       "iou": 0.0,
-      "mae": 0.000531475234311074,
-      "psnr_db": 57.94371032714844,
-      "pearson_r": 0.0013513639081482779,
-      "correlation_loss": 0.9986486360918517,
+      "mae": 0.00040623481618240476,
+      "psnr_db": 60.48641586303711,
+      "pearson_r": 0.9234559566346675,
+      "correlation_loss": 0.07654404336533249,
       "nan_fraction": 0.0,
       "inf_fraction": 0.0,
       "output_range_violation": 0.0,
       "fp32_output_mean": 0.0005314052104949951,
-      "int8_output_mean": 1.1179567138697166e-7,
-      "fp32_latency_ms": 1802.0869300235063,
-      "int8_latency_ms": 6895.669844991062,
-      "speedup": 0.2613360225377557,
+      "int8_output_mean": 0.0009153564460575581,
+      "fp32_latency_ms": 288.09814498526976,
+      "int8_latency_ms": 1542.9671549936756,
+      "speedup": 0.18671696546025998,
       "passed": false,
-      "failure_reasons": ["Correlation loss 0.9986 > 0.03"]
+      "failure_reasons": ["Correlation loss 0.0765 > 0.03"]
     }
   ],
   "overall_passed": false,
-  "mean_mae": 0.2091024272085633,
-  "mean_psnr_db": 30.88005495071411,
-  "mean_speedup": 0.20789117125117135,
-  "generation_timestamp": "2026-07-21T06:49:48Z"
+  "mean_mae": 0.0004879676562268287,
+  "mean_psnr_db": 53.12914276123047,
+  "mean_speedup": 0.18835335245810725,
+  "generation_timestamp": "2026-08-25T01:36:09Z"
 }

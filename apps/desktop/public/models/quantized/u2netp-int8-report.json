@@ -3,25 +3,25 @@
   "source_filename": "u2netp.onnx",
   "output_filename": "u2netp-int8.onnx",
   "source_sha256": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
-  "output_sha256": "7b3355af9c9f76d75c3ad263f711c4ef20f812bae426b798d89c80e098b9edf3",
+  "output_sha256": "9759400e77755569631f27656e205417d6d6b926bd161dce33f94c700f55c0be",
   "source_size_bytes": 4574861,
-  "output_size_bytes": 1321716,
-  "compression_ratio": 3.461,
+  "output_size_bytes": 1376269,
+  "compression_ratio": 3.324,
   "weight_type": "QInt8",
   "per_channel": true,
   "reduce_range": false,
-  "ort_version": "1.27.0",
+  "ort_version": "1.29.0",
   "onnx_version": "1.22.0",
   "opset_version": 11,
   "ir_version": 6,
   "quantized_node_count": 0,
-  "excluded_nodes": [],
+  "excluded_nodes": ["Conv_787"],
   "validation_passed": true,
   "validation_details": {
     "output_graph_valid": true,
-    "node_count": 1769,
-    "initializer_count": 595
+    "node_count": 1763,
+    "initializer_count": 592
   },
-  "generation_timestamp": "2026-07-21T07:24:35Z",
-  "duration_seconds": 1.09
+  "generation_timestamp": "2026-08-25T01:31:18Z",
+  "duration_seconds": 0.38
 }
