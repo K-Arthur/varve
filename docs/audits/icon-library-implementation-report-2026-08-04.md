@@ -1,8 +1,8 @@
 # Icon Library — Implementation Report (2026-08-04)
 
 Companion docs: `docs/architecture/icon-library.md` (current-state
-architecture), `docs/architecture/icon-system.md` (ADR-0006, updated),
-`docs/architecture/icon-system-audit-2026-08-02.md` (historical evidence).
+architecture), `docs/adr/0006-icon-system-architecture.md` (ADR-0006, updated),
+`docs/historical/icon-system-audit-2026-08-02.md` (historical evidence).
 
 ## 1. Executive summary
 
@@ -75,7 +75,7 @@ attribution reports). See the architecture doc for the full diagram.
 - **Root** — `scripts/generate-starter-pack.mjs`, `THIRD_PARTY_NOTICES`,
   `tests/unit/csp-icon-providers.test.ts`,
   `tests/e2e/icons/icon-library.spec.ts`,
-  `docs/architecture/icon-library.md`, `docs/architecture/icon-system.md`.
+  `docs/architecture/icon-library.md`, `docs/adr/0006-icon-system-architecture.md`.
 
 ## 5. Provider and pack support matrix
 

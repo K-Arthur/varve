@@ -36,6 +36,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `adr/0003-compositor-backend-selection.md` | Canvas2D vs WebGPU backend |
 | `adr/0004-wasm-crate-boundary.md` | WASM crate boundary decisions |
 | `adr/0005-offline-model-bundling.md` | Offline model bundling for AI features |
+| `adr/0006-icon-system-architecture.md` | Icon system architecture: SVG sanitization, provider abstraction, document icon asset model (moved from `docs/architecture/icon-system.md`, which misfiled this ADR outside `docs/adr/` and out of this index) |
 | `adr/0008-accessibility-remediation.md` | Accessibility remediation |
 | `adr/0009-document-color-architecture.md` | Document colour architecture |
 | `adr/0010-coordinate-architecture.md` | Coordinate architecture |
@@ -206,7 +207,6 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/workspace-system.md` | Workspace mode contract, resolution, and persistence |
 | `architecture/lifecycle-system.md` | Quit/close/exit lifecycle and shutdown architecture |
 | `architecture/logo-system.md` | Logo workspace system |
-| `architecture/icon-system.md` | Icon infrastructure |
 | `architecture/typography-platform.md` | Typography platform |
 | `architecture/colour-management.md` | Colour management and ICC |
 | `architecture/security-csp.md` | Content Security Policy |
@@ -252,7 +252,8 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/focus-navigation.md` | Focus and keyboard navigation contract |
 | `architecture/input-system-behavior-matrix.md` | Input behavior matrix |
 | `architecture/inspector-feature-ownership.md` | Inspector feature ownership |
-| `architecture/icon-library.md` / `architecture/icon-system-naming.md` | Icon library; icon naming rules and visual standards (current-state contract in `design/icon-system.md`) |
+| `architecture/icon-library.md` | User-facing icon library: search, acquisition, cache, licensing (distinct from internal UI icons — see `design/icon-system.md` and `adr/0006-icon-system-architecture.md`) |
+| `architecture/icon-system-naming.md` | Internal UI icon naming rules and visual standards (current-state contract in `design/icon-system.md`) |
 | `architecture/onnx-inference-architecture.md` | ONNX inference architecture |
 | `architecture/semantic-asset-similarity.md` | Local image-to-image similarity, duplicate lanes, model/runtime boundaries, and current limitations |
 | `quality/semantic-asset-similarity-benchmark.md` | Exact-search scale baseline and held-out retrieval evaluation contract |
