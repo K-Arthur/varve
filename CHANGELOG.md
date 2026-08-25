@@ -77,11 +77,15 @@ update, not for someone reading the commit log.
 - Git LFS is no longer used anywhere in the repository (bandwidth budget
   exhausted): all media is committed directly and CI no longer fetches
   LFS objects.
-- The stable updater feed now signs Linux AppImage and Windows NSIS
-  artifacts for both x86_64 and ARM64, generates the macOS `.app.tar.gz`
-  target when a signed bundle exists, and verifies signatures
-  cryptographically before publication; the v0.2.0 feed was re-signed
-  and republished under these targets.
+- The updater feed generator (`scripts/release/generate-updater-feed.mjs`)
+  now supports Linux AppImage and Windows NSIS targets for both x86_64
+  and ARM64, and the macOS `.app.tar.gz` target when a signed bundle
+  exists, verifying signatures cryptographically before publication.
+  The live v0.2.0 feed (`apps/website/public/updates/stable.json`) was
+  re-signed and republished for its Linux x86_64/ARM64 AppImage targets
+  only — Windows and macOS artifacts were not re-signed as part of that
+  republish, so the feed does not yet carry `windows-*` or
+  `darwin-aarch64` entries.
 - Release version stamping also updates AUR packaging metadata and
   AppStream metainfo.
 - ONNX Runtime failures report the platform-specific remedy instead of a
