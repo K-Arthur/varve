@@ -5,7 +5,7 @@
 The user-facing icon library (online discovery, acquisition, cache,
 pack manager, licensing) is implemented and documented in
 `docs/architecture/icon-library.md` (current state, 2026-08-04).
-`docs/architecture/icon-system-audit-2026-08-02.md` is historical
+`docs/historical/icon-system-audit-2026-08-02.md` is historical
 evidence; verify any claim against the code before relying on it.
 
 The four distinct icon categories are:
