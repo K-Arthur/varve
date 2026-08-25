@@ -12,7 +12,7 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
-## [0.2.1] - 2026-08-23
+## [0.2.1] - 2026-08-24
 
 ### Added
 
@@ -81,6 +81,13 @@ update, not for someone reading the commit log.
   silently, and the Auto analysis no longer produces NaN JPEG-blockiness
   scores. Compression-artifact removal remains unavailable by design:
   the dialog says so rather than degrading another model.
+
+- **Background removal (INT8/fast mode)** — the small-download and
+  low-memory variant of the U²-Net Light model produced a near-blank
+  mask; a runtime safety check already kept it from ever being served,
+  so this never reached a shipped build, but the fast/small-download
+  option is now actually usable instead of silently falling back to the
+  full-precision model.
 
 ### Security
 
