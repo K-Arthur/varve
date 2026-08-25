@@ -49,8 +49,14 @@ export default defineConfig({
   // all — 30 minutes of output was a single "Running N tests" line. Always
   // pair it with a streaming reporter: `github` also emits file-anchored
   // annotations for failures, `list` is the local equivalent.
+  // `github` annotates failures at their source line but prints nothing for
+  // passing tests, so a shard that simply ran out of wall clock without
+  // failing still logged nothing at all (run 32888711333, shards 2-4). `list`
+  // is what actually answers "how far did it get before it was killed", so
+  // both are always on in CI.
   reporter: [
-    process.env.CI ? ['github'] : ['list'],
+    ['list'],
+    ...(process.env.CI ? [['github'] as const] : []),
     ['html', { outputFolder: `playwright-report/${outputSuffix}`, open: 'never' }],
   ],
   projects: [
