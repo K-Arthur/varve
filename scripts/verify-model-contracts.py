@@ -227,7 +227,14 @@ def compare_contracts(
     declared_outputs = declared.get("outputs", [])
     actual_outputs = actual_graph["outputs"]
 
-    if len(declared_outputs) != len(actual_outputs):
+    # A graph can carry more outputs than we declare (e.g. u2netp's ONNX
+    # export also exposes 6 unused deep-supervision side outputs alongside
+    # the one final mask actually read at runtime — see
+    # packages/engine/src/backgroundRemoval/worker.ts, which only ever
+    # requests session.outputNames[0]). Those extras aren't a supply-chain
+    # risk since nothing consumes them; only *fewer* outputs than declared
+    # means something we depend on is missing.
+    if len(actual_outputs) < len(declared_outputs):
         violations.append({
             "kind": "output_count",
             "expected": len(declared_outputs),
@@ -243,11 +250,12 @@ def compare_contracts(
             })
             continue
         actual = actual_outputs[i]
-        if decl["name"] != actual["name"]:
+        allowed_names = [decl["name"], *decl.get("alternateNames", [])]
+        if actual["name"] not in allowed_names:
             violations.append({
                 "kind": "output_name",
                 "index": i,
-                "expected": decl["name"],
+                "expected": " or ".join(allowed_names),
                 "actual": actual["name"],
             })
         if not normalize_dtype(decl["dtype"], actual["dtype"]):
