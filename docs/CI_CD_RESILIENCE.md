@@ -428,20 +428,37 @@ The chromium Playwright project is ~1030 tests, and `playwright.config.ts`
 pins `workers` to 1 deliberately — software-rendered canvas plus on-device
 model inference contend hard enough in parallel to kill an unrelated page
 mid-test. Serially that does not fit in a 30-minute job, so CI shards the
-project across four jobs (`--shard=N/4`) instead of raising the worker count,
+project across eight jobs (`--shard=N/8`) instead of raising the worker count,
 which preserves serial execution *inside* each job.
+
+**The shard count is measured, not chosen.** A first attempt at four shards
+still hit the ceiling on every leg (run 32888711333). Shard 1 was the only
+one to reach its summary — 241 tests in 27.0m, about 6.7s per test — which
+puts the whole project near 115 minutes of serial work. Four ways is ~29m of
+tests plus ~3m of setup, exactly the limit. Eight puts each leg near 15m of
+tests, leaving headroom for the retry cost of a failure rather than sitting
+on the ceiling.
+
+If the suite grows, re-derive it the same way rather than nudging the number:
+take a completed shard's `N passed (Tm)` line, divide for per-test cost,
+multiply by the total from `--list`, and divide by the budget you want.
 
 Reproduce one shard exactly as CI runs it:
 
 ```bash
-pnpm exec playwright test --project=chromium --shard=1/4
+pnpm exec playwright test --project=chromium --shard=1/8
 ```
 
 Two reporters are always configured. The `html` reporter writes only when a
 run finishes and prints nothing while running, so on its own a job that hits
 its wall-clock limit produces no progress, no failing-test name and no report
-at all. CI therefore also uses the `github` reporter (streams progress,
-annotates failures at their source line) and local runs use `list`.
+at all. Both `list` and `github` therefore run in CI, and `list` runs locally.
+
+They answer different questions and neither substitutes for the other. The
+`github` reporter annotates failures at their source line but prints *nothing*
+for passing tests — so a shard that simply ran out of wall clock without
+failing still logged nothing, which is what shards 2-4 of run 32888711333
+did. `list` is what answers "how far did it get before it was killed".
 
 A job that exceeds `timeout-minutes` is **cancelled, not failed**, so
 `if: failure()` steps are skipped. Anything needed to diagnose a timeout must
@@ -616,10 +633,52 @@ problem. To diagnose:
    it stopped.
 2. Download the `varve-e2e-report-<run_id>-shard<N>` artifact; it uploads
    under `if: always()` and so survives a cancellation.
-3. Reproduce that shard locally: `pnpm exec playwright test --project=chromium --shard=N/4`.
+3. Reproduce that shard locally: `pnpm exec playwright test --project=chromium --shard=N/8`.
 
 A cancelled job skips every `if: failure()` step. Use `if: always()` for
 anything that must survive a timeout.
+
+### Known failures the E2E timeout was hiding
+
+The E2E job was cancelled at 30m on every run that executed it, which meant
+several real failures downstream of that point had never once been reported.
+Sharding made them visible. They are product issues, not CI issues, and are
+deliberately left untriaged here rather than papered over:
+
+| Test | Symptom |
+| --- | --- |
+| `tests/e2e/canvas/depth-blur.spec.ts:173` | `expect(received).toBe(expected)` — failed all three attempts, so deterministic rather than flaky |
+| `tests/e2e/canvas/depth-blur.spec.ts:231` | same, depth-range mask on the image node |
+| `visual/replay.spec.ts` → `node-types-1x` | 158 pixels (ratio 0.01) differ from the baseline |
+| `visual/replay.spec.ts` → `multilingual-text-1x` | same class of drift |
+
+For the visual set, do **not** simply regenerate the baselines. Review the
+artifact first — `varve-visual-diff-<run_id>` contains real
+baseline/current/diff images (it reported an empty manifest until the
+nested-output fix), and `tests/e2e/visual/review.html` renders them.
+
+What the diff actually shows: the rectangle, circle and ellipse are
+pixel-identical, and the delta is confined to the glyph edges of the text
+sample — so this is text rasterization or text layout, not shape geometry.
+Both the 1x and 2x variants drift, which argues against DPR-specific
+antialiasing noise.
+
+That leaves two candidate explanations, and they need opposite fixes:
+
+1. **Runner font drift.** The baselines were captured on `fe04a50b`
+   (2026-07-25) and are compared against whatever `ubuntu-24.04` image is
+   current; a freetype/fontconfig bump shifts glyph edges by a few pixels.
+   Regenerating on runner infrastructure is then correct.
+2. **A real change from the text-pipeline rework.** Several commits landed
+   after the baselines were taken — `2e2d3ccd` (route plain replay through
+   canonical layout), `fc1d63e2` (render rich spans from layout snapshots),
+   `48c091b9` (key shaping cache by font revisions), `e819da58` (NBSP units,
+   descending-run grouping). Any of these could legitimately move glyphs, in
+   which case the baseline is stale *and* the change wants reviewing on its
+   own merits.
+
+Distinguish them by checking out `fe04a50b`'s renderer against the current
+runner: identical output means (1), different output means (2).
 
 ### A commit with obvious format or lint errors reached master
 
