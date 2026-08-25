@@ -272,9 +272,15 @@ MODEL_CONFIGS: dict[str, QuantizationConfig] = {
         weight_type="QInt8",
         per_channel=True,
         reduce_range=False,
-        # u2netp is Conv/Relu/Resize-heavy. Quantize Conv and MatMul.
-        # Exclude Resize (uses fp32 coordinates) and Sigmoid (sensitive tail).
-        nodes_to_exclude=[],
+        # Conv_787's weight tensor spans ~5 orders of magnitude across output
+        # channels (widest channel [-5.57, 0.10], narrowest [-9e-5, 1e-6]).
+        # Quantizing it alone — with everything else quantized normally —
+        # reproduces the full quality-validation failure (corr -0.004, MAE
+        # 0.42, PSNR 3.8dB on synthetic_portrait); excluding only this one
+        # node restores correlation to 0.9999 against the FP32 baseline.
+        # Bisected empirically: see the quantization quality investigation
+        # (2026-08-24) for the node-by-node search that isolated it.
+        nodes_to_exclude=["Conv_787"],
         op_types_to_quantize=["Conv", "MatMul", "Gemm"],
     ),
     "realesr-general-x4v3": QuantizationConfig(
