@@ -2,7 +2,7 @@ import { createEngine, type Engine, getFontRegistry } from '@varve/engine';
 import { FontCatalog } from '@varve/engine/font';
 import type { Platform } from '@varve/platform';
 import type { ExportBatch, ExportFormat, SceneNode, ShapeNode } from '@varve/scene';
-import { isImageShape } from '@varve/scene';
+import { isExportRegion, isImageShape } from '@varve/scene';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { durationBucket, getDesktopAnalytics } from '../../analytics/desktopAnalytics';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
@@ -24,15 +24,19 @@ function isRasterExport(format: ExportFormat): boolean {
 
 /**
  * Nodes the batch dialog can export: every document node that carries at least
- * one export preset, plus image shapes (the background-removal pre-pass needs
- * them). This is sourced from the full document node table rather than
- * `rootNodes()`, because page-scoped content lives under the active page's
- * content root — a node created on a page would otherwise never appear in the
- * export dialog.
+ * one export preset, every Export Region, plus image shapes (the
+ * background-removal pre-pass needs them). This is sourced from the full
+ * document node table rather than `rootNodes()`, because page-scoped content
+ * lives under the active page's content root — a node created on a page would
+ * otherwise never appear in the export dialog.
+ *
+ * Export Regions are listed whether or not they still carry a preset: a region
+ * exists only to be exported, so one whose presets were all removed should
+ * still be visible here rather than silently dropping out of the dialog.
  */
 function exportableNodes(doc: { nodes: Record<string, SceneNode> }): SceneNode[] {
   return Object.values(doc.nodes).filter(
-    (node) => (node.presets?.length ?? 0) > 0 || isImageShape(node),
+    (node) => (node.presets?.length ?? 0) > 0 || isExportRegion(node) || isImageShape(node),
   );
 }
 

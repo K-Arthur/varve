@@ -163,6 +163,7 @@ const NODE_KIND_KEY_ORDER: Record<string, readonly string[]> = {
   ],
   group: ['transform', 'children', 'isolated', 'effects'],
   frame: [
+    'frameRole',
     'transform',
     'w',
     'h',

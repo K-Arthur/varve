@@ -145,6 +145,7 @@ function getShapeKindName(node: SceneNode): string | null {
 }
 
 function getDefaultKindName(node: SceneNode): string {
+  if (node.kind === 'frame' && node.frameRole === 'exportRegion') return 'Export Region';
   if (node.kind === 'shape') {
     return getShapeKindName(node) ?? KIND_NAMES[node.kind] ?? 'Shape';
   }
@@ -157,6 +158,14 @@ export function suggestName(
   index?: number,
   imageLabels?: Map<NodeId, string>,
 ): NamingSuggestion {
+  if (node.kind === 'frame' && node.frameRole === 'exportRegion') {
+    return {
+      name: 'Export Region 0',
+      confidence: 'low',
+      matchedRule: '17-default',
+    };
+  }
+
   // 1. Text with button-like content -> "Button: {text}" (high)
   if (node.kind === 'text' && isButtonLikeText(node.text)) {
     return {

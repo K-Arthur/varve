@@ -11,7 +11,7 @@
  * Research basis: Figma/Sketch right-sidebar inspector; APG Disclosure,
  * Spinbutton, Combobox, Radiogroup, Slider patterns.
  */
-import { isImageShape, type SceneNode } from '@varve/scene';
+import { isExportRegion, isImageShape, type SceneNode } from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { setInspectorTabHandler, useEditor } from '../../context';
@@ -506,7 +506,11 @@ function EmptySelectionState() {
 function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
   const { state } = useEditor();
   const node = nodes[0] as SceneNode;
-  const isFrame = node.kind === 'frame';
+  // An Export Region is stored as a frame but is not a layout container: it
+  // owns no children, so auto-layout, clipping and child-slot controls would
+  // all be inert switches. Treat it as a plain rectangular region here.
+  const isExportRegionNode = isExportRegion(node);
+  const isFrame = node.kind === 'frame' && !isExportRegionNode;
   const isComponentInstance = isFrame && (node as import('@varve/scene').FrameNode).componentId;
   const isRect =
     node.kind === 'shape' && (node as import('@varve/scene').ShapeNode).shape.kind === 'rect';
@@ -577,14 +581,16 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('layer-states', <LayerStatesSection />);
 
     return entries.sort((a, b) => a.order - b.order);
-  }, [nodes, node, isFrame, isComponentInstance, isRect, state]);
+  }, [nodes, node, isFrame, isExportRegionNode, isComponentInstance, isRect, state]);
 
   return (
     <>
       <header className="insp-panel__node-header">
         <p className="insp-panel__node-name">
           {node.name}
-          <span className="insp-panel__node-kind">{node.kind}</span>
+          <span className="insp-panel__node-kind">
+            {isExportRegionNode ? 'export region' : node.kind}
+          </span>
         </p>
       </header>
       {sectionEntries.map((entry) => (

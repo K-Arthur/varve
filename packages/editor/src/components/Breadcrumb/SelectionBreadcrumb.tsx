@@ -1,5 +1,5 @@
 import type { Document, NodeId } from '@varve/scene';
-import { isContainer } from '@varve/scene';
+import { isContainer, isExportRegion } from '@varve/scene';
 import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
@@ -56,8 +56,10 @@ function buildBreadcrumbPath(
     path.push({
       id,
       name: node.name || node.kind,
-      kind: node.kind,
-      isContainer: isContainer(node),
+      // Export Regions are frames structurally but never containers: they
+      // hold no content, so entering one has nothing to isolate.
+      kind: isExportRegion(node) ? 'exportRegion' : node.kind,
+      isContainer: isContainer(node) && !isExportRegion(node),
     });
   }
 
@@ -107,6 +109,8 @@ function BreadcrumbBar({ segments }: BreadcrumbBarProps) {
 
   const kindLabel = (kind: string): string => {
     switch (kind) {
+      case 'exportRegion':
+        return 'Export Region';
       case 'frame':
         return 'Frame';
       case 'group':

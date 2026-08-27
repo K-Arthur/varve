@@ -8,7 +8,14 @@
  * Research basis: Figma selection info bar, Illustrator properties panel.
  */
 
-import { type Document, getParent, isContainer, type NodeId, type SceneNode } from '@varve/scene';
+import {
+  type Document,
+  getParent,
+  isContainer,
+  isExportRegion,
+  type NodeId,
+  type SceneNode,
+} from '@varve/scene';
 import { Icon, type IconName } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../context';
@@ -40,6 +47,7 @@ function getNodeTypeIcon(node: SceneNode): IconName {
         return 'Square';
     }
   }
+  if (isExportRegion(node)) return 'Crop';
   if (node.kind === 'frame') return 'Frame';
   if (node.kind === 'group') return 'Group';
   if (node.kind === 'text') return 'Type';
@@ -48,6 +56,9 @@ function getNodeTypeIcon(node: SceneNode): IconName {
 }
 
 function getNodeTypeLabel(node: SceneNode): string {
+  // An Export Region is stored as a frame; naming it one here is the same
+  // masquerade the Export Region tool was renamed to end.
+  if (isExportRegion(node)) return 'Export Region';
   if (node.kind === 'shape') {
     const s = node.shape;
     switch (s.kind) {

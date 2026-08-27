@@ -4,6 +4,7 @@ import {
   addNode,
   addPage,
   createDocument,
+  makeFrameNode,
   makeGroupNode,
   makeShapeNode,
   validateDocument,
@@ -20,6 +21,27 @@ const PNG_2X2_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACAQAAAABazTCJAAAADElEQVQI12M4wHAAAAMEAYHFO6KpAAAAAElFTkSuQmCC';
 
 describe('DocumentCodec', () => {
+  it('round-trips the export-region frame role', () => {
+    let doc = createDocument('Export region', true);
+    doc = addNode(
+      doc,
+      makeFrameNode('export-region', {
+        name: 'Export Region 1',
+        frameRole: 'exportRegion',
+        children: [],
+      }),
+    );
+
+    const result = DocumentCodec.decode(DocumentCodec.encode(doc));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.nodes['export-region']).toMatchObject({
+      kind: 'frame',
+      frameRole: 'exportRegion',
+    });
+  });
+
   it('decodes, migrates, and validates serialized documents', () => {
     const legacy = {
       id: 'doc-legacy',

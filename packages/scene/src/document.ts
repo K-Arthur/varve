@@ -650,6 +650,7 @@ export function makeFrameNode(
     Pick<
       FrameNode,
       | 'name'
+      | 'frameRole'
       | 'layerColor'
       | 'transform'
       | 'fill'
@@ -678,6 +679,7 @@ export function makeFrameNode(
     id,
     kind: 'frame',
     name: opts.name ?? 'Frame',
+    ...(opts.frameRole ? { frameRole: opts.frameRole } : {}),
     layerColor: opts.layerColor ?? null,
     order: opts.order ?? 'a0',
     visible: opts.visible ?? true,

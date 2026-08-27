@@ -1482,6 +1482,13 @@ export interface GridItemPlacement {
 
 export interface FrameNode extends NodeBase {
   kind: 'frame';
+  /**
+   * Semantic frame role. `exportRegion` marks an export-only region: it is
+   * stored as a frame for schema and tooling compatibility, but it paints
+   * nothing, adopts no children, and offers no auto-layout. Absent means an
+   * ordinary frame.
+   */
+  frameRole?: 'frame' | 'exportRegion';
   transform: Affine;
   /** Frame width in world-space px. Set at creation; updated by resize. */
   w: number;
@@ -1751,6 +1758,27 @@ export type ContainerNode = GroupNode | FrameNode;
 /** True if the node is a container (has a children array). */
 export function isContainer(node: SceneNode): node is ContainerNode {
   return node.kind === 'frame' || node.kind === 'group';
+}
+
+/**
+ * A rectangular, non-painting marker naming an area to export.
+ *
+ * It is stored as a FrameNode so every existing transform, resize, clipboard,
+ * codec and layer path keeps working unchanged — but it is not artwork and not
+ * a layout container.
+ */
+export type ExportRegionNode = FrameNode & { frameRole: 'exportRegion' };
+
+/**
+ * True if the node is an Export Region.
+ *
+ * Callers must not adopt content into one, paint its fill, or offer it
+ * frame/auto-layout semantics. `isContainer` still reports true — the node
+ * really does have a (always empty) children array — so guard adoption with
+ * this predicate rather than by kind alone.
+ */
+export function isExportRegion(node: SceneNode): node is ExportRegionNode {
+  return node.kind === 'frame' && node.frameRole === 'exportRegion';
 }
 
 /** True if the node is a native table. */

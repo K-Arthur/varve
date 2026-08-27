@@ -4,6 +4,7 @@ import {
   type Document,
   type GroupNode,
   activePageNodes as getActivePageNodes,
+  isExportRegion,
   type NodeId,
   walkNodes,
   worldToPageAtPoint,
@@ -40,7 +41,9 @@ export interface FindContainingSurfaceOptions {
  * does that, and a surprise container breaks later transforms and export
  * membership.
  *
- * Locked and hidden nodes are skipped.
+ * Locked and hidden nodes are skipped, and so are Export Regions: they are
+ * frames structurally, but adopting artwork into an export marker is exactly
+ * the frame masquerade the Export Region tool exists to stop.
  */
 export function findContainingFrameInDoc(
   doc: Document,
@@ -75,6 +78,8 @@ export function findContainingFrameInDoc(
     const n = entry.node;
     if (n.locked || n.visible === false) continue;
     if (n.kind !== 'frame' && n.kind !== 'group') continue;
+    // An Export Region marks an area to export; it never owns content.
+    if (isExportRegion(n)) continue;
 
     // Skip if frame index is provided and this node isn't in the candidate set
     if (candidates && !candidates.has(nid)) continue;

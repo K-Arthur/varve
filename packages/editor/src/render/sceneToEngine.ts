@@ -30,6 +30,7 @@ import {
   buildAllVariantCaches,
   createVariableStore,
   getEffectiveNode,
+  isExportRegion,
   nodeLocalBoundsSource,
   resolveAllStyles,
   resolveNodePaints,
@@ -361,6 +362,23 @@ export function sceneNodeToEngineNode(
       height: node.h ?? 240,
       ...(docNodes ? { nodes: docNodes } : {}),
     });
+  }
+
+  if (isExportRegion(node)) {
+    // An Export Region names an area to export; it is never artwork. Painting
+    // its frame fill is what made the old Slice tool look like it had dropped
+    // an opaque grey frame onto the canvas. It still compiles to a rect so
+    // hit-testing, bounds and selection keep working — it just paints
+    // nothing, and its dashed boundary is drawn by ExportRegionOverlay.
+    return {
+      ...base,
+      shape: { kind: 'rect', x: 0, y: 0, w: node.w, h: node.h },
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+      fills: [],
+      strokes: [],
+      effects: [],
+      filters: [],
+    };
   }
 
   if (node.kind === 'frame') {
