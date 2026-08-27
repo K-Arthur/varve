@@ -245,7 +245,16 @@ test.describe('Layers Panel — real drag & drop', () => {
     const source = rows.nth(0);
     const before = await rowNames(page);
     await source.locator('[class*="toggle--locked-off"]').click();
-    await dragRowToRow(page, before[0]!, before[1]!, 0.35, 'layers-dnd-visual-locked');
+    // A locked source must be shown as an invalid drop *before* release, not
+    // silently refused by reparentNode after the fact.
+    await dragRowToRow(
+      page,
+      before[0]!,
+      before[1]!,
+      0.35,
+      'layers-dnd-visual-locked',
+      'layers-row--drop-invalid',
+    );
     expect(await rowNames(page)).toEqual(before);
   });
 
