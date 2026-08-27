@@ -208,6 +208,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/lifecycle-system.md` | Quit/close/exit lifecycle and shutdown architecture |
 | `architecture/logo-system.md` | Logo workspace system |
 | `architecture/typography-platform.md` | Typography platform |
+| `architecture/font-text-geometry.md` | Font readiness, derived text layout, and interaction bounds |
 | `architecture/colour-management.md` | Colour management and ICC |
 | `architecture/security-csp.md` | Content Security Policy |
 | `architecture/onboarding-help-system.md` | Help/onboarding system |

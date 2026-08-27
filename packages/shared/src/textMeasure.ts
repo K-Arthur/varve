@@ -218,7 +218,9 @@ export function textWrap(
       }
     }
 
-    if (currentLine.length > 0) {
+    // Empty paragraphs and trailing newlines still occupy a line box. Dropping
+    // them makes scene bounds disagree with the renderer and the textarea.
+    if (currentLine.length > 0 || (para.length === 0 && paragraphs.length > 1)) {
       result.push({
         text: currentLine,
         width: currentWidth,

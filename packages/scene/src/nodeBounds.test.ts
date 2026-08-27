@@ -50,6 +50,25 @@ describe('nodeLocalBounds', () => {
     expect(bounds!.h).toBeGreaterThan(0);
   });
 
+  it('includes explicit blank and trailing lines in point-text height', () => {
+    const one = makeTextNode('one', 'A', { w: undefined, h: undefined });
+    const three = makeTextNode('three', 'A\n\nB', { w: undefined, h: undefined });
+    expect(nodeLocalBounds(three)!.h).toBeGreaterThan(nodeLocalBounds(one)!.h);
+    expect(nodeLocalBounds(three)!.h).toBeCloseTo(nodeLocalBounds(one)!.h * 3);
+  });
+
+  it('derives auto-height from wrapped content without changing its container width', () => {
+    const text = makeTextNode('wrapped', 'one two three four', {
+      w: 40,
+      h: 12,
+      textResizing: 'autoHeight',
+      textMode: 'area',
+    });
+    const bounds = nodeLocalBounds(text)!;
+    expect(bounds.w).toBe(40);
+    expect(bounds.h).toBeGreaterThan(12);
+  });
+
   it('returns null for groups (bounds derive from children)', () => {
     expect(nodeLocalBounds({ kind: 'group' } as unknown as SceneNode)).toBeNull();
   });

@@ -367,6 +367,27 @@ describe('FontRegistry', () => {
 });
 
 describe('FontRegistry DOM-dependent', () => {
+  it('bridges CSS FontFaceSet completion into the registry revision stream', () => {
+    if (!hasDom() || !document.fonts || typeof document.fonts.dispatchEvent !== 'function') return;
+    const reg = new FontRegistry([]);
+    const listener = vi.fn();
+    reg.subscribe(listener);
+    document.fonts.dispatchEvent(new Event('loadingdone'));
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('prefetches only requested document families and advances the revision', async () => {
+    if (!hasDom() || !document.fonts || typeof document.fonts.load !== 'function') return;
+    const reg = new FontRegistry([]);
+    const load = vi.spyOn(document.fonts, 'load').mockResolvedValue([]);
+    const listener = vi.fn();
+    reg.subscribe(listener);
+    await reg.ensureDocumentFonts(['Geist Variable', 'Geist Variable', 'IBM Plex Sans Variable']);
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenCalled();
+    load.mockRestore();
+  });
+
   it('injectGoogleFontLink creates a link element for google source', () => {
     if (!hasDom()) return; // skip if no DOM
     const reg = new FontRegistry([]);

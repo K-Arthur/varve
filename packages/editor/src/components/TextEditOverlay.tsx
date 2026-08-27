@@ -16,12 +16,12 @@ import {
   buildWorldToScreenAffine,
   computeFloatingOrigin,
   DEFAULT_ARTWORK_FONT_FAMILY,
-  measureText,
   multiplyAffine,
 } from '@varve/shared';
 import { useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor } from '../context';
+import { nodeLocalBounds } from '../scene/world';
 
 interface TextEditOverlayProps {
   node: TextNode;
@@ -88,18 +88,12 @@ export function TextEditOverlay({
     screenMatrix[4] + canvasLeft,
     screenMatrix[5] + canvasTop,
   ];
-  const textSize = measureText(node.text, {
-    fontSize: node.fontSize ?? 16,
-    fontFamily: node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
-    fontWeight: node.fontWeight,
-    fontStyle: node.fontStyle,
-    letterSpacing: node.letterSpacing,
-    lineHeight: node.lineHeight,
-    textCase: node.textCase,
-  });
-  const w =
-    node.w ?? Math.max(textSize.width, node.text.length === 0 ? (node.fontSize ?? 16) * 3 : 0);
-  const h = node.h ?? textSize.height;
+  // Keep the editing affordance on the same local bounds used by selection,
+  // hit testing, and the scene graph. This avoids a second single-line metric
+  // implementation for wrapped and explicitly multi-line text.
+  const localBounds = nodeLocalBounds(node);
+  const w = localBounds?.w ?? node.w ?? Math.max((node.fontSize ?? 16) * 3, 20);
+  const h = localBounds?.h ?? node.h ?? Math.max((node.fontSize ?? 16) * 1.4, 20);
 
   const flushPendingText = useCallback(() => {
     const pending = pendingTextRef.current;

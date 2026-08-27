@@ -128,11 +128,25 @@ export class FontRegistry {
   private _listeners: Set<() => void> = new Set();
   /** Monotone revision for invalidating derived text layout. */
   private _revision = 0;
+  /** The browser FontFaceSet is also a font source (not all faces are loaded by this registry). */
+  private readonly handleFontSetChange = (): void => {
+    this._notify();
+  };
 
   constructor(initial?: FontEntry[]) {
     for (const entry of initial ?? DEFAULT_FONTS) {
       this.register(entry);
     }
+    this.observeDocumentFonts();
+  }
+
+  /** Bridge CSS/@fontsource readiness into the single font revision stream. */
+  private observeDocumentFonts(): void {
+    if (typeof document === 'undefined' || !document.fonts) return;
+    const fontSet = document.fonts;
+    if (typeof fontSet.addEventListener !== 'function') return;
+    fontSet.addEventListener('loadingdone', this.handleFontSetChange);
+    fontSet.addEventListener('loadingerror', this.handleFontSetChange);
   }
 
   /** Subscribe to font-load events. Returns an unsubscribe function. */
@@ -293,6 +307,23 @@ export class FontRegistry {
   async loadAll(): Promise<void> {
     const families = [...new Set(this.families())];
     await Promise.all(families.map((f) => this.load(f)));
+  }
+
+  /**
+   * Start the exact CSS face loads needed by a document. CSS-managed bundled
+   * faces do not necessarily pass through FontRegistry.load(), so this closes
+   * that gap without loading every installed family.
+   */
+  async ensureDocumentFonts(families: readonly string[]): Promise<void> {
+    if (typeof document === 'undefined' || !document.fonts || families.length === 0) return;
+    const unique = [...new Set(families)].filter((family) => family.length > 0);
+    await Promise.all(
+      unique.map((family) =>
+        document.fonts.load(`normal 400 16px "${family.replaceAll('"', '\\"')}"`, 'BESbswy'),
+      ),
+    );
+    await document.fonts.ready;
+    this._notify();
   }
 
   private async doLoad(family: string): Promise<void> {

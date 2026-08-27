@@ -370,9 +370,8 @@ export function CanvasArea({
   const maskDropTargetRef = useRef<NodeId | null>(null);
   // Incremented by the image cache subscriber so drawContent re-runs after async image loads.
   const [imageCacheStamp, setImageCacheStamp] = useState(0);
-  // Independent stamp for font loads — previously both used imageCacheStamp, so a font
-  // loading during an image-heavy frame could clear the pending image-laden state.
   const [fontLoadStamp, setFontLoadStamp] = useState(0);
+  const prefetchedFontKeyRef = useRef('');
   // Explicit redraw counter — bumped by requestRedraw() to guarantee drawContent
   // identity changes (and thus a RAF reschedule) on every mutation path, even when
   // rootNodes/zoom/pan etc. are unchanged due to React batching edge cases.
@@ -698,6 +697,23 @@ export function CanvasArea({
     });
     return unsub;
   }, []);
+
+  useEffect(() => {
+    const families = new Set<string>();
+    for (const node of Object.values(state.document.nodes)) {
+      if (node.kind !== 'text') continue;
+      if (node.fontFamily) families.add(node.fontFamily);
+      for (const paragraph of node.richText?.paragraphs ?? []) {
+        for (const run of paragraph.runs) {
+          if (run.format?.fontFamily) families.add(run.format.fontFamily);
+        }
+      }
+    }
+    const key = [...families].sort().join('\u0000');
+    if (key === prefetchedFontKeyRef.current) return;
+    prefetchedFontKeyRef.current = key;
+    void getFontRegistry().ensureDocumentFonts([...families]);
+  }, [state.document]);
 
   // Auto-enter text edit mode after creating a text node via TextTool
   useEffect(() => {
