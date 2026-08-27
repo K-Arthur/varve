@@ -1,7 +1,9 @@
 import type { Fill } from '@varve/scene';
 import { imageFill } from '@varve/scene';
 import type { AnimatedAssetMetadata } from '@varve/shared';
-import { bytesToDataUrl } from './bitmap';
+import UPNG from 'upng-js';
+import UTIF from 'utif';
+import { bytesToDataUrl, detectImageMime } from './bitmap';
 import {
   displayedDimensions,
   extractImageSourceMetadata,
@@ -38,7 +40,8 @@ export interface InspectedImageSource {
  * agree with the decoded image.
  */
 export function inspectImageSource(data: Uint8Array): InspectedImageSource {
-  const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+  const sourceBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+  const bytes = normalizeRasterBytes(sourceBytes);
   const inspection = inspectRasterBytes(bytes);
   const metadata = extractImageSourceMetadata(bytes, inspection.mimeType);
   const displayed = displayedDimensions(inspection.width, inspection.height, metadata);
@@ -73,7 +76,8 @@ export function importImageAsFill(
   filename: string,
   options?: ImageImportOptions,
 ): Fill {
-  const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+  const sourceBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+  const bytes = normalizeRasterBytes(sourceBytes);
   const inspection = inspectImageSource(bytes);
   const src =
     options?.embedAsDataUrl !== false ? bytesToDataUrl(bytes, inspection.mimeType) : filename;
@@ -89,6 +93,19 @@ export function importImageAsFill(
         },
       }
     : fill;
+}
+
+/** Convert TIFF to PNG because browser image elements do not decode TIFF. */
+function normalizeRasterBytes(data: Uint8Array): Uint8Array {
+  if (detectImageMime(data) !== 'image/tiff') return data;
+  const buffer = new Uint8Array(data).buffer;
+  const ifds = UTIF.decode(buffer);
+  const first = ifds[0];
+  if (!first) throw new Error('TIFF contains no image frames');
+  UTIF.decodeImage(buffer, first);
+  const rgba = UTIF.toRGBA8(first);
+  const encoded = UPNG.encode([new Uint8Array(rgba).slice().buffer], first.width, first.height, 0);
+  return new Uint8Array(encoded);
 }
 
 export interface BitmapInfo {

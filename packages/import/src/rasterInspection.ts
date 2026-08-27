@@ -13,6 +13,9 @@ const DECODABLE_RASTER_MIME_TYPES = new Set([
   'image/avif',
   'image/gif',
   'image/bmp',
+  // TIFF is normalized to PNG before browser rendering, but must pass the
+  // encoded-raster validation gate first.
+  'image/tiff',
 ]);
 
 export interface RasterInspection {

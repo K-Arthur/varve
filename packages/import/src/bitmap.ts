@@ -153,7 +153,7 @@ function readWebpDimensions(data: Uint8Array): ImageDimensions {
     const raw2 = readUint16BE(data, 28);
     const w = raw & 0x3fff;
     const h = raw2 & 0x3fff;
-    if (w === 0 && h === 0 && data.length >= 30) {
+    if ((w === 0 || h === 0) && data.length >= 30) {
       return {
         w: readUint16LE(data, 26) & 0x3fff || 0,
         h: readUint16LE(data, 28) & 0x3fff || 0,
@@ -230,48 +230,37 @@ function readBmpDimensions(data: Uint8Array): ImageDimensions {
 function readAvifDimensions(data: Uint8Array): ImageDimensions {
   // AVIF uses ISOBMFF boxes. Scan top-level boxes for 'meta', then scan
   // its children for 'ispe' (ImageSpatialExtents).
-  let offset = 0;
-  while (offset + 8 <= data.length) {
-    const boxSize = readUint32BE(data, offset);
-    const boxType = String.fromCharCode(
-      data[offset + 4] ?? 0,
-      data[offset + 5] ?? 0,
-      data[offset + 6] ?? 0,
-      data[offset + 7] ?? 0,
-    );
-    if (boxType === 'ispe') {
-      if (offset + 20 > data.length) return { w: 0, h: 0 };
-      const w = readUint32BE(data, offset + 12);
-      const h = readUint32BE(data, offset + 16);
-      return { w, h };
-    }
-    if (boxType === 'meta') {
-      // meta is a full box: 4 bytes version+flags after type
-      // Scan children inside meta box (offset+12 to offset+boxSize)
-      let inner = offset + 12;
-      const metaEnd = boxSize > 0 ? offset + boxSize : data.length;
-      while (inner + 8 <= metaEnd && inner + 8 <= data.length) {
-        const innerSize = readUint32BE(data, inner);
-        const innerType = String.fromCharCode(
-          data[inner + 4] ?? 0,
-          data[inner + 5] ?? 0,
-          data[inner + 6] ?? 0,
-          data[inner + 7] ?? 0,
-        );
-        if (innerType === 'ispe') {
-          if (inner + 20 > data.length) return { w: 0, h: 0 };
-          const w = readUint32BE(data, inner + 12);
-          const h = readUint32BE(data, inner + 16);
-          return { w, h };
-        }
-        if (innerSize < 8) break;
-        inner += innerSize;
+  const scan = (start: number, end: number): ImageDimensions => {
+    let offset = start;
+    while (offset + 8 <= end && offset + 8 <= data.length) {
+      const boxSize = readUint32BE(data, offset);
+      const boxType = String.fromCharCode(
+        data[offset + 4] ?? 0,
+        data[offset + 5] ?? 0,
+        data[offset + 6] ?? 0,
+        data[offset + 7] ?? 0,
+      );
+      if (boxType === 'ispe') {
+        if (offset + 20 > data.length) return { w: 0, h: 0 };
+        const w = readUint32BE(data, offset + 12);
+        const h = readUint32BE(data, offset + 16);
+        return { w, h };
       }
+      if (boxType === 'meta' || boxType === 'iprp' || boxType === 'ipco') {
+        // meta is a full box: 4 bytes version+flags after type
+        // Scan children inside meta box (offset+12 to offset+boxSize)
+        const childStart = boxType === 'meta' ? offset + 12 : offset + 8;
+        const boxEnd = boxSize > 0 ? Math.min(offset + boxSize, end) : end;
+        const nested = scan(childStart, boxEnd);
+        if (nested.w > 0 && nested.h > 0) return nested;
+      }
+      if (boxSize < 8) break;
+      offset += boxSize;
     }
-    if (boxSize < 8) break;
-    offset += boxSize;
-  }
-  return { w: 0, h: 0 };
+    return { w: 0, h: 0 };
+  };
+
+  return scan(0, data.length);
 }
 
 export function detectImageMime(data: Uint8Array): string | null {
