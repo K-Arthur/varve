@@ -4,6 +4,7 @@ import {
   filterSnapTargets,
   pageSnapTargets,
   snapPosition,
+  snapSelectionBox,
   snapSize,
   snapTargetSearchRect,
 } from '../snapping';
@@ -211,6 +212,39 @@ describe('snapSize', () => {
     expect(result.guide).toBeDefined();
     expect(result.guide?.type).toBe('size-match');
     expect(result.guide?.label).toBe('200px');
+  });
+});
+
+describe('snapSelectionBox', () => {
+  it('snaps an axis-aligned bounding-box edge to the matching object edge', () => {
+    const result = snapSelectionBox(
+      { cx: 53, cy: 250, w: 100, h: 60, rotation: 0 },
+      { otherBounds: [box(0, 0, 100, 100)] },
+    );
+
+    expect(result.cx).toBe(50);
+    expect(result.cy).toBe(250);
+  });
+
+  it('combines independent horizontal and vertical object-edge winners', () => {
+    const result = snapSelectionBox(
+      { cx: 53, cy: 54, w: 100, h: 100, rotation: 0 },
+      {
+        otherBounds: [box(0, 500, 100, 100), box(500, 0, 100, 100)],
+      },
+    );
+
+    expect(result.cx).toBe(50);
+    expect(result.cy).toBe(50);
+  });
+
+  it('uses only the centre anchor for a rotated box', () => {
+    const result = snapSelectionBox(
+      { cx: 53, cy: 250, w: 100, h: 60, rotation: Math.PI / 4 },
+      { otherBounds: [box(0, 0, 100, 100)] },
+    );
+
+    expect(result.cx).toBe(50);
   });
 });
 
