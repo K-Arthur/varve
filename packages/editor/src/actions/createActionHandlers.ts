@@ -13,7 +13,13 @@ import {
   transformAreaSelection,
 } from '@varve/engine';
 import { toDelimitedText } from '@varve/import';
-import { getImageFill, getOwnRasterMaskAsset, isImageShape, type TextNode } from '@varve/scene';
+import {
+  arrangeNode as arrangeNodeDoc,
+  getImageFill,
+  getOwnRasterMaskAsset,
+  isImageShape,
+  type TextNode,
+} from '@varve/scene';
 import { type Affine, multiplyAffine, rotateRad, scaleXY, translate } from '@varve/shared';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import { executeNudge, getNudgeStep } from '../commands/nudge';
@@ -963,6 +969,11 @@ export function createActionHandlers(
             }
           : n,
       );
+      // Path text must paint after its referenced shape. `arrangeNode` handles
+      // both root and nested siblings without changing the current selection.
+      if (e.state.document.rootChildren) {
+        e.updateDoc((doc) => arrangeNodeDoc(doc, textNode.id, 'front'));
+      }
       e.commitTransaction();
       e.announce?.(`Text placed on ${pathNode.name}`);
     },
