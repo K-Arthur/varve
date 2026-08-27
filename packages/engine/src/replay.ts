@@ -1126,6 +1126,11 @@ function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
       paintShapeFill(target, item);
     }
   } else if (fill.type === 'image') {
+    // An image fill with no source yet is deliberately transparent: the grey
+    // loading/error placeholders exist only for sources that are actually
+    // loading or have failed. An empty (just-created) image fill on top of a
+    // solid must not paper over the fills beneath it.
+    if (!fill.src) return;
     target.save();
     try {
       target.beginPath();
@@ -1136,6 +1141,7 @@ function paintFill(target: ReplayTarget, fill: FillIR, item: RenderItem): void {
       target.restore();
     }
   } else if (fill.type === 'pattern') {
+    if (!fill.tileSrc) return;
     target.save();
     try {
       target.beginPath();
@@ -2790,6 +2796,16 @@ function paintCanonicalText(
           ? effectiveWeight(p)
           : Math.max(1, Math.min(1000, run.sourceRun.fontWeight));
       target.font = `${style}${weight} ${run.sourceRun.fontSize}px "${run.sourceRun.fontFamily}"`;
+      if (isComplexScriptRun(run.sourceRun.script) && !p.shaping) {
+        // Canvas must shape joining scripts as a complete run. Painting each
+        // grapheme independently loses Arabic/Indic contextual forms and can
+        // make clusters overlap even though layout geometry is correct.
+        const runText = snapshot.text.slice(run.sourceStart, run.sourceEnd);
+        if (runText.length > 0) {
+          target.fillText(runText, p.x + xOffset + run.x, p.y + verticalOffset + line.baseline);
+        }
+        continue;
+      }
       for (const glyph of run.glyphs) {
         const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
         if (cluster.length === 0 || cluster.includes('\n')) continue;
@@ -2819,6 +2835,32 @@ function paintCanonicalText(
     }
   }
   target.fillStyle = originalFillStyle;
+}
+
+const COMPLEX_SCRIPT_TAGS = new Set([
+  'arab',
+  'hebr',
+  'dev2',
+  'beng',
+  'guru',
+  'gujr',
+  'orya',
+  'taml',
+  'telu',
+  'knda',
+  'mlym',
+  'sinh',
+  'thai',
+  'laoo',
+  'tibt',
+  'mymr',
+  'khmr',
+  'hang',
+  'hani',
+]);
+
+function isComplexScriptRun(script: string): boolean {
+  return COMPLEX_SCRIPT_TAGS.has(script);
 }
 
 /**

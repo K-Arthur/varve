@@ -1549,6 +1549,65 @@ describe('multi-item compositing edge cases', () => {
     expect(positions[0]).toEqual([30, 40]);
   });
 
+  it('an image fill with a loading src still paints the loading placeholder', () => {
+    const rec = recorder();
+    let drawImageCalled = false;
+    rec.target.drawImage = () => {
+      drawImageCalled = true;
+    };
+    replayIr(rec.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        fills: [
+          {
+            type: 'image',
+            src: 'https://example.invalid/not-loaded.png',
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      },
+    ]);
+    expect(rec.calls).toContain('clip(0)');
+    // Placeholder path paints: fillStyle assigned (loading grey) + fillRect.
+    expect(rec.calls.filter((c) => c === 'set fillStyle').length).toBeGreaterThanOrEqual(2);
+    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
+    expect(drawImageCalled).toBe(false);
+  });
+
+  it('a pattern fill with an empty tileSrc renders transparent (no grey rectangle)', () => {
+    const rec = recorder();
+    replayIr(rec.target, [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
+        fills: [
+          {
+            type: 'pattern',
+            tileSrc: '',
+            spacing: 0,
+            rotation: 0,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      },
+    ]);
+    expect(rec.calls).not.toContain('clip(0)');
+    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(false);
+    expect(rec.calls.filter((c) => c === 'fill(0)').length).toBe(0);
+    expect(rec.props.fillStyle).toBeUndefined();
+  });
+
   it.each([
     { name: 'zero repeat increment', width: 8, height: 8, spacing: -8 },
     { name: 'zero natural dimensions', width: 0, height: 0, spacing: 0 },
@@ -1746,11 +1805,11 @@ describe('multi-item compositing edge cases', () => {
     expect(getImageCache().state('missing-tile.png')).toBe('loading');
   });
 
-  it('image fill with empty src renders placeholder', () => {
+  it('image fill with empty src is transparent (no placeholder)', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
-      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
       fills: [
         {
           type: 'image',
@@ -1767,8 +1826,12 @@ describe('multi-item compositing edge cases', () => {
       primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     replayIr(rec.target, [item]);
-    // Empty src: renders via fillRect placeholder
-    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(true);
+    // An empty image fill contributes nothing: no clip, no placeholder fillRect,
+    // and no paint at all (fills[] is authoritative over the legacy item.fill).
+    expect(rec.calls).not.toContain('clip(0)');
+    expect(rec.calls.some((c) => c.startsWith('fillRect'))).toBe(false);
+    expect(rec.calls.filter((c) => c === 'fill(0)').length).toBe(0);
+    expect(rec.props.fillStyle).toBeUndefined();
   });
 
   it('image fill ignored when visible is false', () => {
