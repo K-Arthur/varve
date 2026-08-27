@@ -107,7 +107,11 @@ async function capture(page: Page, locator: string, name: string) {
   if (await el.count()) {
     await el.screenshot({ path }).catch(() => {});
   }
-  if (path) await test.info().attach(name, { path, contentType: 'image/png' }).catch(() => {});
+  if (path)
+    await test
+      .info()
+      .attach(name, { path, contentType: 'image/png' })
+      .catch(() => {});
 }
 
 test.describe('warp: direct manipulation latency', () => {
@@ -235,7 +239,9 @@ test.describe('warp: direct manipulation latency', () => {
       return g.__synth?.done === true;
     });
     const synthSamples = await page.evaluate(() => {
-      const g = window as unknown as { __synth?: { samples: { t: number; x: number; y: number }[] } };
+      const g = window as unknown as {
+        __synth?: { samples: { t: number; x: number; y: number }[] };
+      };
       return g.__synth!.samples;
     });
     const burstSamples = synthSamples.filter((s) => s.t >= burstStartedAt - 1);
