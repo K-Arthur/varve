@@ -13,6 +13,7 @@ import {
   nextNodeId,
 } from '@varve/scene';
 import type { ImportOptions } from '../types';
+import { droppedElementFeature, resolveSvgImageHref } from './resourcePolicy';
 import {
   adjustNodePosition,
   composeTransforms,
@@ -242,12 +243,20 @@ function convertImage(
   el: ParsedElement,
   transforms: string[],
   opts: ImportOptions,
-): { node: SceneNode; warnings: string[] } {
+  unsupported: string[],
+): { node: SceneNode; warnings: string[] } | null {
   const x = parseFloat(el.attrs.x ?? '0') * opts.scale;
   const y = parseFloat(el.attrs.y ?? '0') * opts.scale;
   const w = parseFloat(el.attrs.width ?? '100') * opts.scale;
   const h = parseFloat(el.attrs.height ?? '100') * opts.scale;
-  const href = el.attrs.href ?? el.attrs['xlink:href'] ?? '';
+  const decision = resolveSvgImageHref(el.attrs.href ?? el.attrs['xlink:href'] ?? '');
+  if (!decision.allowed) {
+    // Dropping the node beats leaving an invisible placeholder the user
+    // cannot explain. The report names what went missing and why.
+    unsupported.push(decision.feature);
+    return null;
+  }
+  const href = decision.href;
   const transform = composeTransforms(transforms);
 
   const node: SceneNode = {
@@ -438,12 +447,13 @@ function buildMaskSourceNode(
   transforms: string[],
   opts: ImportOptions,
   warnings: string[],
+  unsupported: string[],
 ): { doc: Document; sourceId: string | null } {
   const childNodes: string[] = [];
   let d = doc;
 
   for (const child of defEl.children) {
-    const r = convertElement(child, d, defs, transforms, opts, warnings);
+    const r = convertElement(child, d, defs, transforms, opts, warnings, unsupported);
     d = r.doc;
     childNodes.push(...r.ids);
   }
@@ -489,8 +499,17 @@ function applySvgClipOrMask(
   defs: Map<string, ParsedElement>,
   transforms: string[],
   warnings: string[],
+  unsupported: string[],
 ): Document {
-  const { doc: d2, sourceId } = buildMaskSourceNode(defEl, doc, defs, transforms, opts, warnings);
+  const { doc: d2, sourceId } = buildMaskSourceNode(
+    defEl,
+    doc,
+    defs,
+    transforms,
+    opts,
+    warnings,
+    unsupported,
+  );
   if (!sourceId) {
     warnings.push('clipPath/mask definition is empty — skipping');
     return d2;
@@ -525,6 +544,7 @@ function applyGroupClipOrMask(
   transforms: string[],
   opts: ImportOptions,
   warnings: string[],
+  unsupported: string[],
 ): Document {
   let d = doc;
 
@@ -532,7 +552,17 @@ function applyGroupClipOrMask(
   if (clipRef) {
     const clipDef = defs.get(clipRef);
     if (clipDef) {
-      d = applySvgClipOrMask(d, groupId, clipDef, 'clip', opts, defs, transforms, warnings);
+      d = applySvgClipOrMask(
+        d,
+        groupId,
+        clipDef,
+        'clip',
+        opts,
+        defs,
+        transforms,
+        warnings,
+        unsupported,
+      );
     } else {
       warnings.push(`clip-path references unknown id: #${clipRef}`);
     }
@@ -543,7 +573,17 @@ function applyGroupClipOrMask(
     const maskDef = defs.get(maskRef);
     if (maskDef) {
       const maskType = maskTypeFromElement(maskDef);
-      d = applySvgClipOrMask(d, groupId, maskDef, maskType, opts, defs, transforms, warnings);
+      d = applySvgClipOrMask(
+        d,
+        groupId,
+        maskDef,
+        maskType,
+        opts,
+        defs,
+        transforms,
+        warnings,
+        unsupported,
+      );
     } else {
       warnings.push(`mask references unknown id: #${maskRef}`);
     }
@@ -560,6 +600,7 @@ function wrapNodeInMaskedGroup(
   transforms: string[],
   opts: ImportOptions,
   warnings: string[],
+  unsupported: string[],
 ): { doc: Document; groupId: string } | null {
   const clipRef = parseUrlReference(el.attrs['clip-path'] ?? '');
   const maskRef = parseUrlReference(el.attrs.mask ?? '');
@@ -584,7 +625,7 @@ function wrapNodeInMaskedGroup(
     ...d,
     rootChildren: [...d.rootChildren.filter((nid) => nid !== nodeId), groupId],
   };
-  d = applyGroupClipOrMask(d, groupId, el, defs, transforms, opts, warnings);
+  d = applyGroupClipOrMask(d, groupId, el, defs, transforms, opts, warnings, unsupported);
   return { doc: d, groupId };
 }
 
@@ -595,15 +636,33 @@ export function convertElement(
   inheritedTransform: string[],
   opts: ImportOptions,
   warnings: string[],
+  unsupported: string[],
   visitedIds = new Set<string>(),
 ): { doc: Document; ids: string[] } {
+  const dropped = droppedElementFeature(el.tag);
+  if (dropped) {
+    // Inert either way — nothing here is inserted into the DOM — but a
+    // silent drop reads as corrupt output, so name it in the report.
+    unsupported.push(dropped);
+    return { doc, ids: [] };
+  }
+
   const ids: string[] = [];
 
   if (el.tag === 'defs') return { doc, ids };
 
   if (el.tag === 'svg') {
     for (const child of el.children) {
-      const r = convertElement(child, doc, defs, inheritedTransform, opts, warnings, visitedIds);
+      const r = convertElement(
+        child,
+        doc,
+        defs,
+        inheritedTransform,
+        opts,
+        warnings,
+        unsupported,
+        visitedIds,
+      );
       doc = r.doc;
       ids.push(...r.ids);
     }
@@ -617,7 +676,16 @@ export function convertElement(
     let gDoc = doc;
     const gIds: string[] = [];
     for (const child of el.children) {
-      const r = convertElement(child, gDoc, defs, transforms, opts, warnings, visitedIds);
+      const r = convertElement(
+        child,
+        gDoc,
+        defs,
+        transforms,
+        opts,
+        warnings,
+        unsupported,
+        visitedIds,
+      );
       gDoc = r.doc;
       gIds.push(...r.ids);
     }
@@ -650,7 +718,7 @@ export function convertElement(
         ...gDoc,
         rootChildren: [...gDoc.rootChildren.filter((nid) => !gIds.includes(nid)), id],
       };
-      gDoc = applyGroupClipOrMask(gDoc, id, el, defs, transforms, opts, warnings);
+      gDoc = applyGroupClipOrMask(gDoc, id, el, defs, transforms, opts, warnings, unsupported);
       ids.push(id);
       return { doc: gDoc, ids };
     }
@@ -678,6 +746,7 @@ export function convertElement(
           [...transforms, useTransform],
           opts,
           warnings,
+          unsupported,
           visitedIds,
         );
         visitedIds.delete(refId);
@@ -716,7 +785,7 @@ export function convertElement(
       result = convertText(el, transforms, opts);
       break;
     case 'image':
-      result = convertImage(el, transforms, opts);
+      result = convertImage(el, transforms, opts, unsupported);
       break;
     default:
       break;
@@ -732,7 +801,16 @@ export function convertElement(
     const clipRef = parseUrlReference(el.attrs['clip-path'] ?? '');
     const maskRef = parseUrlReference(el.attrs.mask ?? '');
     if (clipRef || maskRef) {
-      const wrapped = wrapNodeInMaskedGroup(doc, id, el, defs, transforms, opts, warnings);
+      const wrapped = wrapNodeInMaskedGroup(
+        doc,
+        id,
+        el,
+        defs,
+        transforms,
+        opts,
+        warnings,
+        unsupported,
+      );
       if (wrapped) {
         doc = wrapped.doc;
         ids.length = 0;

@@ -32,6 +32,7 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
   }
 
   const warnings: string[] = [];
+  const unsupported: string[] = [];
   let doc = createDocument('Imported SVG');
   const nodeIds: string[] = [];
 
@@ -55,12 +56,17 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
   const defs = collectDefs(root);
 
   for (const child of root.children) {
-    const { doc: d, ids } = convertElement(child, doc, defs, [], opts, warnings);
+    const { doc: d, ids } = convertElement(child, doc, defs, [], opts, warnings, unsupported);
     doc = d;
     nodeIds.push(...ids);
   }
 
-  return { document: doc, nodeIds, warnings };
+  return {
+    document: doc,
+    nodeIds,
+    warnings,
+    ...(unsupported.length > 0 ? { unsupportedFeatures: [...new Set(unsupported)] } : {}),
+  };
 }
 
 export { parseSvgColor } from './svg/shared';
