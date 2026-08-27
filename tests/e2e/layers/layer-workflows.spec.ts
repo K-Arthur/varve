@@ -281,6 +281,33 @@ test.describe('layer workflows', () => {
     await page.screenshot({ path: SHOT('locked-layer-no-drag'), fullPage: false });
   });
 
+  test('child rows show inherited lock state while the ancestor remains unlockable', async ({
+    page,
+  }) => {
+    const rows = page.getByRole('treeitem');
+    await rows.nth(0).click();
+    await rows.nth(1).click({ modifiers: ['Control'] });
+    await callCtx(page, 'groupSelected');
+    await expect(page.getByRole('treeitem').filter({ hasText: /Group/ }).first()).toBeVisible();
+
+    const group = page.getByRole('treeitem').filter({ hasText: /Group/ }).first();
+    const groupId = await group.getAttribute('data-node-id');
+    if (!groupId) throw new Error('group id unavailable');
+    await callCtx(page, 'setNodeLocked', groupId, true);
+
+    const child = page
+      .getByRole('treeitem')
+      .filter({ hasText: /Rectangle/ })
+      .first();
+    await expect(child).toHaveClass(/layers-row--locked/);
+    await expect(child.getByRole('button', { name: /locked by an ancestor/i })).toBeVisible();
+    await expect(group.getByRole('button', { name: /unlock group/i })).toBeVisible();
+    await page.getByTestId('layers-panel').screenshot({ path: SHOT('inherited-lock-state') });
+
+    await group.getByRole('button', { name: /unlock group/i }).click();
+    await expect(child).not.toHaveClass(/layers-row--locked/);
+  });
+
   test('hidden layer disappears from canvas', async ({ page }) => {
     const firstRow = page.getByRole('treeitem').first();
     await firstRow.click();

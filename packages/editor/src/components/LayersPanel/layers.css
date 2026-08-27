@@ -997,6 +997,13 @@
   background: var(--color-interactive-hover);
 }
 
+.layers-row--drop-invalid {
+  border-color: var(--color-feedback-error);
+  background: color-mix(in srgb, var(--color-feedback-error) 16%, transparent);
+  outline: 2px solid var(--color-feedback-error);
+  outline-offset: -2px;
+}
+
 /* Clip-into drop preview: the target row is a clipping mask source, so the
    drop will clip the dragged layer(s) to it. The hint chip is rendered by
    the virtualizer wrapper (sibling of the row) while the preview is active. */

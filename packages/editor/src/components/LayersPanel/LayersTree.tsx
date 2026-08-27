@@ -22,16 +22,14 @@
  * WICG virtual-scroller principles.
  */
 
-import {
-  type DragEndEvent,
-  type DragMoveEvent,
-  type DragOverEvent,
-  DragOverlay,
-  type DragStartEvent,
-  type Over,
+import type {
+  DragEndEvent,
+  DragMoveEvent,
+  DragOverEvent,
+  DragStartEvent,
+  Over,
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type { ContainerNode, Document, NodeId } from '@varve/scene';
 import {
@@ -236,6 +234,19 @@ export function computeMultiMoveSteps(
   return ascendingOrder.map((id, i) => ({ id, index: adjustedBase + i }));
 }
 
+/** Return true when applying the planned splice steps leaves this sibling list unchanged. */
+export function isNoOpMove(
+  targetSiblings: NodeId[],
+  steps: Array<{ id: NodeId; index: number }>,
+): boolean {
+  let result = [...targetSiblings];
+  for (const step of steps) {
+    result = result.filter((id) => id !== step.id);
+    result.splice(Math.max(0, Math.min(step.index, result.length)), 0, step.id);
+  }
+  return result.every((id, index) => id === targetSiblings[index]);
+}
+
 /**
  * Decide whether the search index can be patched in place or needs a full
  * rebuild, given the previous and current document. `prevIndex` is mutated
@@ -397,6 +408,8 @@ export interface LayersDnDHandle {
   dropIndicator: {
     nodeId: NodeId;
     zone: 'before' | 'after' | 'into';
+    /** True when the target would create a hierarchy cycle. */
+    invalid?: boolean;
     /** True when the drop target is a clipping mask source and the zone is
      *  'into' — the drop will clip the dragged layer(s) to that matte. */
     clipInto?: boolean;
@@ -543,6 +556,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   const lastPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const rowRefs = useRef<Map<NodeId, HTMLDivElement>>(new Map());
+  // The semantic target must survive a same-frame pointer-up before React
+  // commits the indicator state update.
+  const dropIndicatorRef = useRef<LayersDnDHandle['dropIndicator']>(null);
   const autoExpandTimerRef = useRef<number | null>(null);
   const autoScrollRafRef = useRef<number | null>(null);
 
@@ -1122,6 +1138,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       setActiveId(event.active.id as NodeId);
+      dropIndicatorRef.current = null;
+      setDropIndicator(null);
       cancelAutoScroll();
     },
     [cancelAutoScroll],
@@ -1157,12 +1175,18 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       if (!overId) {
         const candidate = over?.id as NodeId | undefined;
         if (!candidate || candidate === activeNodeId) {
+          dropIndicatorRef.current = null;
           setDropIndicator(null);
           cancelAutoExpand();
           return;
         }
         const el = rowRefs.current.get(candidate);
-        if (!el) return;
+        if (!el) {
+          dropIndicatorRef.current = null;
+          setDropIndicator(null);
+          cancelAutoExpand();
+          return;
+        }
         overId = candidate;
         overEl = el;
       }
@@ -1175,22 +1199,20 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       const overNode = doc.nodes[overId as NodeId];
       const overIsContainer = overNode && isContainer(overNode);
 
-      const isDescendant =
-        overIsContainer &&
-        (function isAncestor(id: NodeId, target: NodeId): boolean {
-          if (id === target) return true;
-          const node = doc.nodes[target];
-          if (!node || !isContainer(node)) return false;
-          return node.children.some((c) => isAncestor(id, c));
-        })(activeNodeId, overId);
+      const isDescendant = isDescendantFast(doc, activeNodeId, overId, parentCacheRef.current);
 
       const zone = computeDropZone(relativeY, !!overIsContainer, !!isDescendant);
 
       // Dropping into the middle band of a clipping mask source row means
       // "clip the dragged layer(s) to this matte" — the drop preview signals
       // the resulting clipping relationship, not a plain reorder.
-      const clipInto = resolveDropClipTarget(doc, overId, zone)?.clipInto ?? false;
-      setDropIndicator({ nodeId: overId, zone, clipInto });
+      const invalid = !!isDescendant;
+      const clipInto = invalid
+        ? false
+        : (resolveDropClipTarget(doc, overId, zone)?.clipInto ?? false);
+      const nextIndicator = { nodeId: overId, zone, clipInto, invalid } as const;
+      dropIndicatorRef.current = nextIndicator;
+      setDropIndicator(nextIndicator);
 
       if (!isDescendant && overIsContainer && zone === 'into' && !expanded.has(overId)) {
         startAutoExpand(overId);
@@ -1226,24 +1248,31 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
-      const { active, over } = event;
+      const { active } = event;
       setActiveId(null);
       cancelAutoExpand();
       cancelAutoScroll();
-      if (!over || !dropIndicator || dropIndicator.nodeId === active.id) {
+      const resolvedIndicator = dropIndicatorRef.current;
+      if (
+        !resolvedIndicator ||
+        resolvedIndicator.nodeId === active.id ||
+        resolvedIndicator.invalid
+      ) {
+        dropIndicatorRef.current = null;
         setDropIndicator(null);
         return;
       }
 
       const activeNodeId = active.id as NodeId;
-      const { zone } = dropIndicator;
+      const { zone } = resolvedIndicator;
       // Use the app-computed indicator target as the authoritative overId,
       // not dnd-kit's event.over.id.  dnd-kit's rectIntersection collision
       // detection can pick the huge canvas-drop-zone droppable over small
       // row droppables (the same false-positive hijack that DnDShell
       // guards against with its canvas bounds check), so the layers handler
       // must trust its own pointer-position-based calculation.
-      const overId = dropIndicator.nodeId;
+      const overId = resolvedIndicator.nodeId;
+      dropIndicatorRef.current = null;
       setDropIndicator(null);
 
       const doc = state.document;
@@ -1283,6 +1312,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
           const siblings = (overParentNode as ContainerNode).children;
           const steps = computeMultiMoveSteps(siblings, moveIds, dropTarget.index);
 
+          if (isNoOpMove(siblings, steps)) return;
           if (isMulti) beginTransaction();
           for (const step of steps) reparentNode(step.id, dropTarget.parentId, step.index);
           if (isMulti) commitTransaction();
@@ -1302,6 +1332,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
             : [];
         const steps = computeMultiMoveSteps(children, moveIds, children.length);
 
+        if (isNoOpMove(children, steps)) return;
         if (isMulti) beginTransaction();
         for (const step of steps) reparentNode(step.id, overId, step.index);
         if (isMulti) commitTransaction();
@@ -1330,6 +1361,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       const basePosition = zone === 'before' ? overIdx + 1 : overIdx;
       const steps = computeMultiMoveSteps(targetSiblings, moveIds, basePosition);
 
+      if (isNoOpMove(targetSiblings, steps)) return;
       if (isMulti) beginTransaction();
       for (const step of steps) reparentNode(step.id, targetParentId, step.index);
       if (isMulti) commitTransaction();
@@ -1358,6 +1390,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   const handleDragCancel = useCallback(() => {
     setActiveId(null);
+    dropIndicatorRef.current = null;
     setDropIndicator(null);
     cancelAutoExpand();
     cancelAutoScroll();
@@ -1475,149 +1508,109 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     );
   }
 
-  const activeEntry = activeId ? entries.find((e) => e.node.id === activeId) : null;
-
   return (
-    <>
+    <div
+      ref={treeRef}
+      className="layers-panel__tree"
+      role="tree"
+      aria-label="Layers"
+      aria-multiselectable="true"
+      // Keep the tree root in the normal Tab order. Rows still use roving
+      // tabindex for arrow navigation, but keyboard users must have a
+      // reliable way to reach the panel without guessing its Tab position.
+      tabIndex={0}
+      onFocus={handleTreeFocus}
+      onKeyDown={handleKeyDown}
+      onContextMenu={handleContextMenu}
+    >
       <div
-        ref={treeRef}
-        className="layers-panel__tree"
-        role="tree"
-        aria-label="Layers"
-        aria-multiselectable="true"
-        // Keep the tree root in the normal Tab order. Rows still use roving
-        // tabindex for arrow navigation, but keyboard users must have a
-        // reliable way to reach the panel without guessing its Tab position.
-        tabIndex={0}
-        onFocus={handleTreeFocus}
-        onKeyDown={handleKeyDown}
-        onContextMenu={handleContextMenu}
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          position: 'relative',
+        }}
       >
-        <div
-          style={{
-            height: `${virtualizer.getTotalSize()}px`,
-            position: 'relative',
-          }}
+        <SortableContext
+          items={entries.map((e) => e.node.id)}
+          strategy={verticalListSortingStrategy}
         >
-          <SortableContext
-            items={entries.map((e) => e.node.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            {virtualizer.getVirtualItems().map((virtualItem) => {
-              const entry = entries[virtualItem.index];
-              if (!entry) return null;
-              const { node, depth, parentId } = entry;
-              const parentMask = parentId ? state.document.nodes[parentId]?.mask : undefined;
-              const maskRole = parentMask?.sourceNodeId
-                ? parentMask.sourceNodeId === node.id
-                  ? 'source'
-                  : 'content'
-                : undefined;
-              const selected = isSelected(node.id);
-              const focused = virtualItem.index === focusIdx;
-              const isExpanded = expanded.has(node.id);
-              const dropClass =
-                dropIndicator?.nodeId === node.id ? `layers-row--drop-${dropIndicator.zone}` : '';
-              const dropClip = dropIndicator?.nodeId === node.id && dropIndicator.clipInto === true;
+          {virtualizer.getVirtualItems().map((virtualItem) => {
+            const entry = entries[virtualItem.index];
+            if (!entry) return null;
+            const { node, depth, parentId } = entry;
+            const parentMask = parentId ? state.document.nodes[parentId]?.mask : undefined;
+            const maskRole = parentMask?.sourceNodeId
+              ? parentMask.sourceNodeId === node.id
+                ? 'source'
+                : 'content'
+              : undefined;
+            const selected = isSelected(node.id);
+            const focused = virtualItem.index === focusIdx;
+            const isExpanded = expanded.has(node.id);
+            const dropClass =
+              dropIndicator?.nodeId === node.id
+                ? `layers-row--drop-${dropIndicator.zone}${dropIndicator.invalid ? ' layers-row--drop-invalid' : ''}`
+                : '';
+            const dropClip = dropIndicator?.nodeId === node.id && dropIndicator.clipInto === true;
 
-              return (
-                <SortableVirtualRow
-                  key={virtualItem.key}
-                  node={node}
-                  depth={depth}
-                  selected={selected}
-                  focused={focused}
-                  expanded={isExpanded}
-                  editing={renamingId === node.id}
-                  virtualItem={virtualItem}
-                  virtualizer={virtualizer}
-                  dropClass={dropClass}
-                  dropClip={dropClip}
-                  hasMotion={animatedNodes.has(node.id)}
-                  keyframeCount={keyframeCounts.get(node.id) ?? 0}
-                  maskRole={maskRole}
-                  onToggleExpand={toggleExpand}
-                  onExpandSubtree={handleExpandSubtree}
-                  onCollapseSubtree={handleCollapseSubtree}
-                  onExpandToDepth1={handleExpandToDepth1}
-                  onSelect={handleSelect}
-                  onRename={handleRename}
-                  onRenameStart={handleRenameStart}
-                  onRenameCommit={handleRenameCommit}
-                  onRenameCancel={handleRenameCancel}
-                  onRenameCycle={handleRenameCycle}
-                  onToggleVisibility={(id) => {
-                    // If the clicked node is part of a multi-selection, toggle
-                    // all selected nodes (Figma/Sketch behaviour). Otherwise
-                    // toggle just the single node.
-                    const ids =
-                      state.selection.length > 1 && state.selection.includes(id)
-                        ? state.selection
-                        : [id];
-                    const anyVisible = ids.some((sid) => state.document.nodes[sid]?.visible);
-                    for (const sid of ids) setNodeVisible(sid, !anyVisible);
-                  }}
-                  onToggleSolo={onToggleSolo}
-                  onToggleLock={(id) => {
-                    const ids =
-                      state.selection.length > 1 && state.selection.includes(id)
-                        ? state.selection
-                        : [id];
-                    const anyLocked = ids.some((sid) => state.document.nodes[sid]?.locked);
-                    for (const sid of ids) setNodeLocked(sid, !anyLocked);
-                  }}
-                  onToggleSelectionCheckbox={(id) => {
-                    toggleSelection(id, true, 'layers');
-                  }}
-                  onFocus={handleRowFocus}
-                  idx={virtualItem.index}
-                  rowRefs={rowRefs}
-                  selectedIds={selectedIdSet}
-                />
-              );
-            })}
-          </SortableContext>
-        </div>
+            return (
+              <SortableVirtualRow
+                key={virtualItem.key}
+                node={node}
+                depth={depth}
+                selected={selected}
+                focused={focused}
+                expanded={isExpanded}
+                editing={renamingId === node.id}
+                virtualItem={virtualItem}
+                virtualizer={virtualizer}
+                dropClass={dropClass}
+                dropClip={dropClip}
+                hasMotion={animatedNodes.has(node.id)}
+                keyframeCount={keyframeCounts.get(node.id) ?? 0}
+                maskRole={maskRole}
+                onToggleExpand={toggleExpand}
+                onExpandSubtree={handleExpandSubtree}
+                onCollapseSubtree={handleCollapseSubtree}
+                onExpandToDepth1={handleExpandToDepth1}
+                onSelect={handleSelect}
+                onRename={handleRename}
+                onRenameStart={handleRenameStart}
+                onRenameCommit={handleRenameCommit}
+                onRenameCancel={handleRenameCancel}
+                onRenameCycle={handleRenameCycle}
+                onToggleVisibility={(id) => {
+                  // If the clicked node is part of a multi-selection, toggle
+                  // all selected nodes (Figma/Sketch behaviour). Otherwise
+                  // toggle just the single node.
+                  const ids =
+                    state.selection.length > 1 && state.selection.includes(id)
+                      ? state.selection
+                      : [id];
+                  const anyVisible = ids.some((sid) => state.document.nodes[sid]?.visible);
+                  for (const sid of ids) setNodeVisible(sid, !anyVisible);
+                }}
+                onToggleSolo={onToggleSolo}
+                onToggleLock={(id) => {
+                  const ids =
+                    state.selection.length > 1 && state.selection.includes(id)
+                      ? state.selection
+                      : [id];
+                  const anyLocked = ids.some((sid) => state.document.nodes[sid]?.locked);
+                  for (const sid of ids) setNodeLocked(sid, !anyLocked);
+                }}
+                onToggleSelectionCheckbox={(id) => {
+                  toggleSelection(id, true, 'layers');
+                }}
+                onFocus={handleRowFocus}
+                idx={virtualItem.index}
+                rowRefs={rowRefs}
+                selectedIds={selectedIdSet}
+              />
+            );
+          })}
+        </SortableContext>
       </div>
-
-      <DragOverlay dropAnimation={null}>
-        {activeEntry && (
-          <div className="layers-row layers-row--dragging" style={{ width: 260 }}>
-            <LayersRow
-              node={activeEntry.node}
-              depth={activeEntry.depth}
-              selected={false}
-              focused={false}
-              expanded={false}
-              editing={false}
-              totalRows={1}
-              doc={state.document}
-              maskRole={
-                activeEntry.parentId &&
-                state.document.nodes[activeEntry.parentId]?.mask?.sourceNodeId
-                  ? state.document.nodes[activeEntry.parentId]?.mask?.sourceNodeId ===
-                    activeEntry.node.id
-                    ? 'source'
-                    : 'content'
-                  : undefined
-              }
-              onToggleExpand={() => {}}
-              onSelect={() => {}}
-              onRename={() => {}}
-              onRenameStart={() => {}}
-              onRenameCommit={() => {}}
-              onRenameCancel={() => {}}
-              onToggleVisibility={() => {}}
-              onToggleLock={() => {}}
-              onToggleSolo={onToggleSolo}
-              onFocus={() => {}}
-              idx={-1}
-              onDoubleClickIcon={undefined}
-            />
-          </div>
-        )}
-      </DragOverlay>
-    </>
+    </div>
   );
 });
 
@@ -1700,8 +1693,6 @@ function SortableVirtualRow({
     attributes,
     listeners,
     setNodeRef: setSortableRef,
-    transform,
-    transition,
     isDragging,
   } = useSortable({
     id: node.id,
@@ -1735,19 +1726,16 @@ function SortableVirtualRow({
         })()
       : undefined;
 
-  // CSS.Transform.toString(null) returns undefined; interpolating that yields
-  // "undefined translateY(…)" — an invalid transform the browser drops
-  // entirely, stacking every row at top:0. Only compose it when present.
-  const dndTransform = transform ? CSS.Transform.toString(transform) : '';
   const style = {
     position: 'absolute' as const,
     top: 0,
     left: 0,
     width: '100%',
-    transform: isDragging
-      ? `translateY(${virtualItem.start}px)`
-      : `translateY(${virtualItem.start}px) ${dndTransform}`.trimEnd(),
-    transition: `${transition || ''}`,
+    // A sortable transform assumes every item has a stable DOM rectangle.
+    // Virtual rows do not: applying both transforms makes the visible row and
+    // the hit-tested row diverge during scroll and mount/unmount.
+    transform: `translateY(${virtualItem.start}px)`,
+    transition: 'none',
     opacity: isDragging ? 0.3 : undefined,
   };
 

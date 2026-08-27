@@ -1,5 +1,5 @@
 import { fireEvent, render } from '@testing-library/react';
-import type { SceneNode } from '@varve/scene';
+import { createDocument, type Document, type SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { LayersRow } from './LayersRow';
 
@@ -60,6 +60,21 @@ function renderRow(props?: Partial<React.ComponentProps<typeof LayersRow>>) {
   return render(<LayersRow {...defaultProps} />);
 }
 
+function lockedParentDocument(): { doc: Document; parent: SceneNode; child: SceneNode } {
+  const parent = makeNode('parent', 'Parent', 'frame', { locked: true, children: ['child'] });
+  const child = makeNode('child', 'Child');
+  const base = createDocument('locked-ancestor');
+  return {
+    doc: {
+      ...base,
+      rootChildren: ['parent'],
+      nodes: { parent, child },
+    },
+    parent,
+    child,
+  };
+}
+
 describe('LayersRow roving tabindex', () => {
   it('gives the treeitem tabIndex=0 when focused', () => {
     const { container } = renderRow({ focused: true });
@@ -71,6 +86,37 @@ describe('LayersRow roving tabindex', () => {
     const { container } = renderRow({ focused: false });
     const row = container.querySelector('[role="treeitem"]');
     expect(row?.getAttribute('tabindex')).toBe('-1');
+  });
+});
+
+describe('LayersRow effective lock state', () => {
+  it('shows an inherited lock and explains why the child cannot be unlocked here', () => {
+    const { doc, child } = lockedParentDocument();
+    const { container } = renderRow({ node: child, doc, depth: 1 });
+    const row = container.querySelector('[role="treeitem"]');
+    const lock = container.querySelector('button[aria-label*="locked by an ancestor"]');
+
+    expect(row).toHaveClass('layers-row--locked');
+    expect(lock).toHaveClass('layers-row__toggle--locked-on');
+    expect(lock).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('keeps visibility management available for an effectively locked child', () => {
+    const { doc, child } = lockedParentDocument();
+    const onToggleVisibility = vi.fn();
+    const { container } = renderRow({ node: child, doc, onToggleVisibility });
+    const visibility = container.querySelector('button[aria-label="Hide Child"]');
+
+    expect(visibility).not.toBeNull();
+    fireEvent.click(visibility!);
+    expect(onToggleVisibility).toHaveBeenCalledWith('child');
+  });
+
+  it('keeps unlocking available on the ancestor row', () => {
+    const { doc, parent } = lockedParentDocument();
+    const { container } = renderRow({ node: parent, doc });
+
+    expect(container.querySelector('button[aria-label="Unlock Parent"]')).not.toBeNull();
   });
 });
 

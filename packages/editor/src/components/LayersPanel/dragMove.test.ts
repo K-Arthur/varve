@@ -20,6 +20,7 @@ import { describe, expect, it } from 'vitest';
 import {
   computeDropZone,
   computeMultiMoveSteps,
+  isNoOpMove,
   resolveDragMoveIds,
   resolveDropClipTarget,
 } from './LayersTree';
@@ -179,6 +180,28 @@ describe('computeMultiMoveSteps', () => {
       arr.splice(index, 0, id);
     }
     expect(arr).toEqual(['A', 'B', 'C', 'X', 'Y']);
+  });
+});
+
+describe('isNoOpMove', () => {
+  it('recognizes an adjacent drop that preserves the sibling list', () => {
+    expect(isNoOpMove(['A', 'B', 'C'], [{ id: 'B', index: 1 }])).toBe(true);
+  });
+
+  it('recognizes a multi-node plan that preserves the sibling list', () => {
+    expect(
+      isNoOpMove(
+        ['A', 'B', 'C', 'D'],
+        [
+          { id: 'B', index: 1 },
+          { id: 'D', index: 3 },
+        ],
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects a plan that changes order', () => {
+    expect(isNoOpMove(['A', 'B', 'C'], [{ id: 'C', index: 0 }])).toBe(false);
   });
 });
 

@@ -21,6 +21,7 @@ import {
   documentHasSolo,
   isAnimatedMediaNode,
   isContainer,
+  isExportRegion,
   isImageShape,
   nodeHasStyle,
 } from '@varve/scene';
@@ -28,6 +29,7 @@ import type { SolidIconName } from '@varve/ui';
 import { SOLID_CHROME_ICONS, SOLID_TOOL_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { autoName } from '../../intelligence/autoNamer';
+import { isNodeEffectivelyLocked } from '../../scene/world';
 import type { PresenceData } from './PresenceIndicator';
 import { PresenceIndicator } from './PresenceIndicator';
 import { useThumbnail } from './useThumbnail';
@@ -108,6 +110,9 @@ function nodeTypeIcon(n: SceneNode): SolidIconName {
     if (isImageShape(n)) return NODE_ICONS.image ?? SOLID_TOOL_ICONS.rect;
     return NODE_ICONS[(n as ShapeNode).shape.kind] ?? SOLID_TOOL_ICONS.rect;
   }
+  // An Export Region is a frame structurally, but showing it with the frame
+  // icon is what let the old Slice output pass for an ordinary container.
+  if (isExportRegion(n)) return SOLID_TOOL_ICONS.slice;
   return NODE_ICONS[n.kind] ?? SOLID_TOOL_ICONS.rect;
 }
 
@@ -173,6 +178,7 @@ export const LayersRow = memo(function LayersRow({
   const showThumbnail = isImageShape(node) && thumbnailDataUrl != null;
   const isInstance =
     isFrame && 'componentId' in node && (node as { componentId?: string }).componentId != null;
+  const isEffectivelyLocked = doc ? isNodeEffectivelyLocked(doc, node.id) : node.locked;
 
   // Compute mixed visibility/lock state for multi-selection toggles.
   // When multiple nodes are selected, the toggle icon reflects whether ALL
@@ -190,7 +196,7 @@ export const LayersRow = memo(function LayersRow({
     if (!hasMultiSelection || !selectedIds) return false;
     const vals = [...selectedIds].map((id) => {
       const n = doc?.nodes[id];
-      return n ? 'locked' in n && n.locked : false;
+      return n ? (doc ? isNodeEffectivelyLocked(doc, id) : 'locked' in n && n.locked) : false;
     });
     return vals.some((v) => v !== vals[0]);
   }, [hasMultiSelection, selectedIds, doc]);
@@ -294,7 +300,7 @@ export const LayersRow = memo(function LayersRow({
     selected ? 'layers-row--selected' : '',
     focused ? 'layers-row--focused' : '',
     !node.visible ? 'layers-row--hidden' : '',
-    node.locked ? 'layers-row--locked' : '',
+    isEffectivelyLocked ? 'layers-row--locked' : '',
     isSoloed ? 'layers-row--soloed' : '',
     soloDimmed ? 'layers-row--solo-dimmed' : '',
   ]
@@ -662,7 +668,7 @@ export const LayersRow = memo(function LayersRow({
           className={`layers-row__toggle ${
             isMixedLocked
               ? 'layers-row__toggle--locked-mixed'
-              : node.locked
+              : isEffectivelyLocked
                 ? 'layers-row__toggle--locked-on'
                 : 'layers-row__toggle--locked-off'
           }`}
@@ -674,17 +680,19 @@ export const LayersRow = memo(function LayersRow({
           aria-label={
             isMixedLocked
               ? `Mixed lock for selection`
-              : node.locked
-                ? `Unlock ${node.name}`
-                : `Lock ${node.name}`
+              : isEffectivelyLocked && !node.locked
+                ? `${node.name} is locked by an ancestor`
+                : isEffectivelyLocked
+                  ? `Unlock ${node.name}`
+                  : `Lock ${node.name}`
           }
-          aria-pressed={isMixedLocked ? undefined : node.locked}
+          aria-pressed={isMixedLocked ? undefined : isEffectivelyLocked}
         >
           {isMixedLocked ? (
             <SolidIcon name={SOLID_CHROME_ICONS.minus} size="0.85em" />
           ) : (
             <SolidIcon
-              name={node.locked ? SOLID_CHROME_ICONS.lock : SOLID_CHROME_ICONS.unlock}
+              name={isEffectivelyLocked ? SOLID_CHROME_ICONS.lock : SOLID_CHROME_ICONS.unlock}
               size="0.85em"
             />
           )}

@@ -54,7 +54,14 @@ function rowByName(page: Page, name: string): Locator {
 
 /** Drag one row onto another with real pointer events. offsetFraction -0.35
  *  targets the before band, +0.35 the after band, 0 the into (middle) band. */
-async function dragRowToRow(page: Page, fromName: string, toName: string, offsetFraction: number) {
+async function dragRowToRow(
+  page: Page,
+  fromName: string,
+  toName: string,
+  offsetFraction: number,
+  screenshotName?: string,
+  expectedIndicator?: string,
+) {
   const from = rowByName(page, fromName);
   await from.scrollIntoViewIfNeeded();
   const fromBox = await from.boundingBox();
@@ -79,6 +86,12 @@ async function dragRowToRow(page: Page, fromName: string, toName: string, offset
     );
   }
   await page.waitForTimeout(120);
+  if (screenshotName) {
+    await page.getByTestId('layers-panel').screenshot({
+      path: `test-results/${screenshotName}.png`,
+    });
+  }
+  if (expectedIndicator) await expect(page.locator(`.${expectedIndicator}`)).toBeVisible();
   await page.mouse.up();
 }
 
@@ -119,11 +132,26 @@ test.describe('Layers Panel — real drag & drop', () => {
     const firstName = names[0];
     if (!lastName || !firstName) throw new Error('missing row names');
 
-    await dragRowToRow(page, lastName, firstName, -0.35);
+    await dragRowToRow(page, lastName, firstName, -0.35, 'layers-dnd-visual-before');
     await page.waitForTimeout(250);
 
     const after = await rowNames(page);
     expect(after[0]).toBe(lastName);
+  });
+
+  test('dragging a row below another shows the after target and reorders the tree', async ({
+    page,
+  }) => {
+    const names = await rowNames(page);
+    const firstName = names[0];
+    const secondName = names[1];
+    if (!firstName || !secondName) throw new Error('missing row names');
+
+    await dragRowToRow(page, firstName, secondName, 0.35, 'layers-dnd-visual-after');
+    await page.waitForTimeout(250);
+
+    const after = await rowNames(page);
+    expect(after[1]).toBe(firstName);
   });
 
   test('dropping into a frame reparents the layer', async ({ page }) => {
@@ -146,7 +174,7 @@ test.describe('Layers Panel — real drag & drop', () => {
     const rectBefore = rowByName(page, 'Rectangle');
     const levelBefore = await rectBefore.getAttribute('aria-level');
 
-    await dragRowToRow(page, 'Rectangle', 'Frame', 0);
+    await dragRowToRow(page, 'Rectangle', 'Frame', 0, 'layers-dnd-visual-into');
     await page.waitForTimeout(300);
 
     const namesAfter = await rowNames(page);
@@ -210,5 +238,102 @@ test.describe('Layers Panel — real drag & drop', () => {
       .locator('.layers-row--drop-before, .layers-row--drop-after, .layers-row--drop-into')
       .count();
     expect(stuck).toBe(0);
+  });
+
+  test('locked row cannot be reparented through the Layers panel', async ({ page }) => {
+    const rows = page.getByRole('treeitem');
+    const source = rows.nth(0);
+    const before = await rowNames(page);
+    await source.locator('[class*="toggle--locked-off"]').click();
+    await dragRowToRow(page, before[0]!, before[1]!, 0.35, 'layers-dnd-visual-locked');
+    expect(await rowNames(page)).toEqual(before);
+  });
+
+  test('locked row skips rename and delete but still toggles visibility', async ({ page }) => {
+    const row = page.getByRole('treeitem').first();
+    const originalName = (await row.locator('.layers-row__name').textContent())?.trim();
+    if (!originalName) throw new Error('locked row name unavailable');
+    await row.locator('[class*="toggle--locked-off"]').click();
+
+    await row.click();
+    await page.keyboard.press('F2');
+    const renameInput = row.locator('input[aria-label^="Rename "]');
+    await expect(renameInput).toBeVisible();
+    await renameInput.fill('Should Not Rename');
+    await renameInput.press('Enter');
+    await expect(row.locator('.layers-row__name')).toHaveText(originalName);
+
+    await row.click();
+    await page.keyboard.press('Delete');
+    await expect(page.getByRole('treeitem')).toHaveCount(3);
+
+    const visibility = row.locator('.layers-row__toggle--visibility-on');
+    await visibility.click();
+    await expect(row).toHaveClass(/layers-row--hidden/);
+    await row.locator('.layers-row__toggle--visibility-off').click();
+    await expect(row).not.toHaveClass(/layers-row--hidden/);
+  });
+
+  test('auto-scrolls a virtualized tree while dragging at the panel edge', async ({ page }) => {
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('canvas not found');
+    for (let i = 0; i < 40; i++) {
+      await page.keyboard.press('r');
+      await page.mouse.move(canvasBox.x + 80 + (i % 4) * 110, canvasBox.y + 80 + (i % 5) * 70);
+      await page.mouse.down();
+      await page.mouse.move(canvasBox.x + 120 + (i % 4) * 110, canvasBox.y + 120 + (i % 5) * 70);
+      await page.mouse.up();
+      await page.waitForTimeout(100);
+    }
+    await expect(page.getByText('43 layers', { exact: true })).toBeVisible({ timeout: 10000 });
+    expect(await page.getByRole('treeitem').count()).toBeLessThan(43);
+    const tree = page.getByRole('tree', { name: /layers/i });
+    const source = page.getByRole('treeitem').first();
+    const sourceBox = await source.boundingBox();
+    const treeBox = await tree.boundingBox();
+    if (!sourceBox || !treeBox) throw new Error('virtualized drag geometry unavailable');
+
+    await page.mouse.move(sourceBox.x + 8, sourceBox.y + sourceBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(sourceBox.x + 8, sourceBox.y + sourceBox.height / 2 - 12);
+    for (let i = 0; i < 18; i++) {
+      await page.mouse.move(treeBox.x + treeBox.width / 2, treeBox.y + treeBox.height - 4);
+      await page.waitForTimeout(45);
+    }
+    expect(await tree.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await page
+      .getByTestId('layers-panel')
+      .screenshot({ path: 'test-results/layers-dnd-visual-autoscroll.png' });
+    await page.mouse.up();
+  });
+
+  test('rejects a cycle with visible invalid feedback', async ({ page }) => {
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas not found');
+    await page.keyboard.press('f');
+    await page.mouse.move(box.x + 600, box.y + 480);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 760, box.y + 600);
+    await page.mouse.up();
+    await page.waitForTimeout(250);
+    await page.keyboard.press('Escape');
+
+    const frame = rowByName(page, 'Frame');
+    await frame.waitFor({ timeout: 5000 });
+    await dragRowToRow(page, 'Rectangle', 'Frame', 0);
+    const child = rowByName(page, 'Rectangle');
+    const before = await rowNames(page);
+    await dragRowToRow(
+      page,
+      'Frame',
+      'Rectangle',
+      0,
+      'layers-dnd-visual-invalid',
+      'layers-row--drop-invalid',
+    );
+    expect(await rowNames(page)).toEqual(before);
+    await expect(child).toHaveAttribute('aria-level', '2');
   });
 });
