@@ -18,15 +18,14 @@ import {
   pathPointsLocalToWorld,
   pathPointsWorldToLocal,
 } from './pathCoords';
-import type {
-  CursorSpec,
-  GestureResult,
-  PenConstructionPoint,
-  ToolContext,
-  ToolCursorState,
-} from './types';
+import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
-type PenPoint = PenConstructionPoint;
+interface PenPoint {
+  x: number;
+  y: number;
+  handleIn: { x: number; y: number } | null;
+  handleOut: { x: number; y: number } | null;
+}
 
 enum PenState {
   Idle,
@@ -43,8 +42,6 @@ export class PenTool extends BaseTool {
   private points: PenPoint[] = [];
   private lastPointTime = 0;
   private dragStartCanvas: { x: number; y: number } | null = null;
-  private dragStartPointCount = 0;
-  private continuationBasePointCount = 0;
   /** When non-null, we're continuing this existing path node. */
   private continuePathId: string | null = null;
 
@@ -55,19 +52,13 @@ export class PenTool extends BaseTool {
   override onActivate(_ctx: ToolContext): void {
     this.penState = PenState.Idle;
     this.points = [];
-    this.lastPointTime = 0;
     this.dragStartCanvas = null;
-    this.dragStartPointCount = 0;
-    this.continuationBasePointCount = 0;
-    this.continuePathId = null;
   }
 
   override onDeactivate(ctx: ToolContext): void {
     this.penState = PenState.Idle;
     this.points = [];
     this.dragStartCanvas = null;
-    this.dragStartPointCount = 0;
-    this.continuationBasePointCount = 0;
     this.continuePathId = null;
     ctx.setDraft(null);
   }
@@ -79,7 +70,7 @@ export class PenTool extends BaseTool {
     const node = ctx.getNode(hit.nodeId);
     if (node?.kind !== 'shape' || node.shape.kind !== 'path') return false;
     const pts = node.shape.points;
-    if (pts.length < 1 || node.shape.closed) return false;
+    if (pts.length < 1) return false;
 
     const wm = nodeWorldTransform(ctx.document, hit.nodeId);
     const threshold = 8 / ctx.zoom;
@@ -88,24 +79,14 @@ export class PenTool extends BaseTool {
     if (distLast > threshold && distFirst > threshold) return false;
 
     const worldPts = pathPointsLocalToWorld(pts, wm);
-    const fromFirst = distFirst <= distLast;
-    const oriented = fromFirst
-      ? [...worldPts].reverse().map((p) => ({
-          ...p,
-          handleIn: p.handleOut,
-          handleOut: p.handleIn,
-        }))
-      : worldPts;
     this.continuePathId = hit.nodeId;
-    this.points = oriented.map((p) => ({
+    this.points = worldPts.map((p) => ({
       x: p.x,
       y: p.y,
       handleIn: p.handleIn ? { x: p.handleIn[0], y: p.handleIn[1] } : null,
       handleOut: p.handleOut ? { x: p.handleOut[0], y: p.handleOut[1] } : null,
     }));
-    this.continuationBasePointCount = this.points.length;
     this.penState = PenState.Placing;
-    this.syncDraft(ctx, null);
     ctx.announce('Continuing path');
     return true;
   }
@@ -122,8 +103,6 @@ export class PenTool extends BaseTool {
       this.penState = PenState.Dragging;
       this.points = [{ x: world.x, y: world.y, handleIn: null, handleOut: null }];
       this.dragStartCanvas = { x: canvas.x, y: canvas.y };
-      this.dragStartPointCount = 0;
-      this.syncDraft(ctx, null);
       ctx.announce('Path started');
       return { consumed: true };
     }
@@ -148,19 +127,25 @@ export class PenTool extends BaseTool {
       }
       this.lastPointTime = now;
 
-      const constrained = this.constrainPoint(prev, world, e.shiftKey);
-      const newPoint: PenPoint = {
-        x: constrained.x,
-        y: constrained.y,
-        handleIn: null,
-        handleOut: null,
-      };
+      let newPoint: PenPoint;
+      if (e.shiftKey) {
+        const dx = world.x - prev.x;
+        const dy = world.y - prev.y;
+        const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+        const len = Math.sqrt(dx * dx + dy * dy);
+        newPoint = {
+          x: prev.x + len * Math.cos(angle),
+          y: prev.y + len * Math.sin(angle),
+          handleIn: null,
+          handleOut: null,
+        };
+      } else {
+        newPoint = { x: world.x, y: world.y, handleIn: null, handleOut: null };
+      }
 
-      this.dragStartPointCount = this.points.length;
       this.points.push(newPoint);
       this.penState = PenState.Dragging;
       this.dragStartCanvas = { x: canvas.x, y: canvas.y };
-      this.syncDraft(ctx, world);
       ctx.announce(`Point ${this.points.length}`);
       return { consumed: true };
     }
@@ -208,7 +193,14 @@ export class PenTool extends BaseTool {
         pt.handleOut = null;
       }
 
-      this.syncDraft(ctx, world);
+      ctx.setDraft({
+        kind: 'line',
+        x1: pt.x + (pt.handleOut?.x ?? 0),
+        y1: pt.y + (pt.handleOut?.y ?? 0),
+        x2: world.x,
+        y2: world.y,
+        label: 'drag to set handles',
+      });
       return;
     }
 
@@ -217,17 +209,21 @@ export class PenTool extends BaseTool {
       const last = this.points[this.points.length - 1];
       if (!last) return;
 
-      const pointer = this.constrainPoint(last, world, e.shiftKey);
-      const closedPreview = this.distanceToFirst(pointer) < 8 / ctx.zoom;
-      this.syncDraft(ctx, pointer, closedPreview);
+      ctx.setDraft({
+        kind: 'line',
+        x1: last.x,
+        y1: last.y,
+        x2: world.x,
+        y2: world.y,
+        label: `to (${Math.round(world.x)}, ${Math.round(world.y)})`,
+      });
     }
   }
 
-  override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
+  override onPointerUp(_e: PointerEvent, _ctx: ToolContext): void {
     if (this.penState === PenState.Dragging) {
       this.penState = PenState.Placing;
       this.dragStartCanvas = null;
-      this.syncDraft(ctx, ctx.canvasToWorld(e.clientX, e.clientY));
     }
   }
 
@@ -236,17 +232,13 @@ export class PenTool extends BaseTool {
       if (e.key === 'Escape') {
         if (this.penState === PenState.Dragging) {
           this.dragStartCanvas = null;
-          if (this.dragStartPointCount === 0) {
+          if (this.points.length <= 1) {
             this.penState = PenState.Idle;
             this.points = [];
-            this.continuePathId = null;
-            this.continuationBasePointCount = 0;
-            ctx.setDraft(null);
           } else {
-            this.points.length = this.dragStartPointCount;
             this.penState = PenState.Placing;
-            this.syncDraft(ctx, null);
           }
+          ctx.setDraft(null);
           ctx.announce('Path cancelled');
           return true;
         }
@@ -266,14 +258,6 @@ export class PenTool extends BaseTool {
         this.dragStartCanvas = null;
         this.commitPath(ctx, false);
         ctx.announce('Path finished');
-        return true;
-      }
-      if ((e.key === 'Backspace' || e.key === 'Delete') && this.penState === PenState.Placing) {
-        if (this.points.length > this.continuationBasePointCount) {
-          this.points.pop();
-          this.syncDraft(ctx, null);
-          ctx.announce(`Point ${this.points.length} removed`);
-        }
         return true;
       }
     }
@@ -330,49 +314,5 @@ export class PenTool extends BaseTool {
     this.points = [];
     this.dragStartCanvas = null;
     this.continuePathId = null;
-    this.continuationBasePointCount = 0;
-  }
-
-  private constrainPoint(
-    anchor: PenPoint,
-    point: { x: number; y: number },
-    constrained: boolean,
-  ): { x: number; y: number } {
-    if (!constrained) return point;
-    const dx = point.x - anchor.x;
-    const dy = point.y - anchor.y;
-    const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
-    const length = Math.sqrt(dx * dx + dy * dy);
-    return { x: anchor.x + length * Math.cos(angle), y: anchor.y + length * Math.sin(angle) };
-  }
-
-  private distanceToFirst(point: { x: number; y: number }): number {
-    const first = this.points[0];
-    if (!first) return Number.POSITIVE_INFINITY;
-    return Math.hypot(point.x - first.x, point.y - first.y);
-  }
-
-  private syncDraft(
-    ctx: ToolContext,
-    pointer: { x: number; y: number } | null,
-    closedPreview = false,
-  ) {
-    if (this.points.length === 0) {
-      ctx.setDraft(null);
-      return;
-    }
-    ctx.setDraft({
-      kind: 'bezier-path',
-      points: this.points.map((point) => ({
-        ...point,
-        handleIn: point.handleIn ? { ...point.handleIn } : null,
-        handleOut: point.handleOut ? { ...point.handleOut } : null,
-      })),
-      activePointIndex: this.points.length - 1,
-      pointer,
-      closedPreview,
-      isDragging: this.penState === PenState.Dragging,
-      label: closedPreview ? 'Click first anchor to close path' : 'Pen construction',
-    });
   }
 }

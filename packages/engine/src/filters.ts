@@ -19,48 +19,59 @@ import type { BorderMode, RgbSplitMode } from './liveEffects/rgbSplit';
 import type { LutInputSpace, LutInterpolation } from './lut/types';
 import type { Color, FilterIR } from './types';
 
-export type AdjustmentKind =
-  | 'brightness'
-  | 'contrast'
-  | 'exposure'
-  | 'saturation'
-  | 'hueSaturation'
-  | 'hueRotate'
-  | 'sepia'
-  | 'grayscale'
-  | 'invert'
-  | 'opacity'
-  | 'blur'
-  | 'sharpen'
-  | 'temperature'
-  | 'tint'
-  | 'vibrance'
-  | 'levels'
-  | 'curves'
-  | 'selectiveColor'
-  | 'colorBalance'
-  | 'channelMixer'
-  | 'photoFilter'
-  | 'shadowHighlight'
-  | 'halftone'
-  | 'gradientMap'
-  | 'tritone'
-  | 'colorHalftone'
-  | 'duotone'
-  | 'blackAndWhite'
-  | 'posterize'
-  | 'threshold'
-  | 'lut'
-  | 'dither'
-  | 'paletteSnap'
-  | 'bloom'
-  | 'rgbSplit'
-  | 'crt'
-  | 'vhs'
-  | 'lightShafts'
-  | 'lensFlare'
-  | 'lightLeak'
-  | 'caustics';
+/**
+ * Canonical catalog for the shared nondestructive-effect parameter model.
+ *
+ * Object Filters and Adjustment Layers have different attachment semantics,
+ * but never different filter-kind catalogs. Keeping the runtime validation
+ * source and the type source together prevents a kind becoming serializable
+ * while unreachable in one of the two interfaces.
+ */
+export const ADJUSTMENT_KINDS = [
+  'brightness',
+  'contrast',
+  'exposure',
+  'saturation',
+  'hueSaturation',
+  'hueRotate',
+  'sepia',
+  'grayscale',
+  'invert',
+  'opacity',
+  'blur',
+  'sharpen',
+  'temperature',
+  'tint',
+  'vibrance',
+  'levels',
+  'curves',
+  'selectiveColor',
+  'colorBalance',
+  'channelMixer',
+  'photoFilter',
+  'shadowHighlight',
+  'halftone',
+  'gradientMap',
+  'tritone',
+  'colorHalftone',
+  'duotone',
+  'blackAndWhite',
+  'posterize',
+  'threshold',
+  'lut',
+  'dither',
+  'paletteSnap',
+  'bloom',
+  'rgbSplit',
+  'crt',
+  'vhs',
+  'lightShafts',
+  'lensFlare',
+  'lightLeak',
+  'caustics',
+] as const;
+
+export type AdjustmentKind = (typeof ADJUSTMENT_KINDS)[number];
 
 export type AdjustmentBlendMode =
   | 'normal'
@@ -1138,52 +1149,8 @@ export function adjustmentsToFilters(adjustments: readonly Adjustment[]): Filter
 
 /** Runtime guard for forward-compatible document payloads. */
 export function isKnownAdjustmentKind(kind: unknown): kind is AdjustmentKind {
-  return typeof kind === 'string' && ADJUSTMENT_KINDS.has(kind as AdjustmentKind);
+  return typeof kind === 'string' && (ADJUSTMENT_KINDS as readonly string[]).includes(kind);
 }
-
-const ADJUSTMENT_KINDS: ReadonlySet<AdjustmentKind> = new Set<AdjustmentKind>([
-  'brightness',
-  'contrast',
-  'exposure',
-  'saturation',
-  'hueSaturation',
-  'hueRotate',
-  'sepia',
-  'grayscale',
-  'invert',
-  'opacity',
-  'blur',
-  'sharpen',
-  'temperature',
-  'tint',
-  'vibrance',
-  'levels',
-  'curves',
-  'selectiveColor',
-  'colorBalance',
-  'channelMixer',
-  'photoFilter',
-  'shadowHighlight',
-  'halftone',
-  'gradientMap',
-  'tritone',
-  'colorHalftone',
-  'duotone',
-  'blackAndWhite',
-  'posterize',
-  'threshold',
-  'lut',
-  'dither',
-  'paletteSnap',
-  'bloom',
-  'rgbSplit',
-  'crt',
-  'vhs',
-  'lightShafts',
-  'lensFlare',
-  'lightLeak',
-  'caustics',
-]);
 
 /** Convert a single filter IR to a CSS filter string (Canvas2D fallback). */
 export function filterToCss(filter: FilterIR): string | null {

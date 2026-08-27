@@ -1694,6 +1694,8 @@ export function renderContent(deps: RenderContentDeps): void {
             mask: adjMask,
             doc,
             camera: cam,
+            regionX: bx,
+            regionY: by,
             replayNode: (nodeId, ctx) => replaySubtreeToCtx(nodeId, ctx),
             getWorldTransform: (nodeId) => getCachedWorldTransform(cache, doc, nodeId),
           });

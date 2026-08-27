@@ -9,53 +9,15 @@
  */
 
 import type { Adjustment, AdjustmentKind } from '@varve/engine';
-import { filterKindDisplayName, makeAdjustment } from '@varve/engine';
+import { ADJUSTMENT_KINDS, filterKindDisplayName, makeAdjustment } from '@varve/engine';
 import { cryptoId } from './document-utils';
 
-/** All adjustment kinds are valid object-filter entries; the UI may expose a subset. */
-export const SMART_FILTER_KINDS: readonly AdjustmentKind[] = [
-  'brightness',
-  'contrast',
-  'levels',
-  'curves',
-  'exposure',
-  'saturation',
-  'hueSaturation',
-  'hueRotate',
-  'colorBalance',
-  'selectiveColor',
-  'channelMixer',
-  'temperature',
-  'tint',
-  'vibrance',
-  'sepia',
-  'grayscale',
-  'invert',
-  'opacity',
-  'blur',
-  'sharpen',
-  'photoFilter',
-  'shadowHighlight',
-  'duotone',
-  'blackAndWhite',
-  'posterize',
-  'threshold',
-  'halftone',
-  'gradientMap',
-  'tritone',
-  'colorHalftone',
-  'lut',
-  'dither',
-  'paletteSnap',
-  'bloom',
-  'rgbSplit',
-  'crt',
-  'vhs',
-  'lightShafts',
-  'lensFlare',
-  'lightLeak',
-  'caustics',
-];
+/**
+ * All registered adjustment kinds are valid Object Filter entries. This alias
+ * preserves the public scene API while ensuring the editor's two attachment
+ * surfaces cannot drift into different parameter catalogs.
+ */
+export const SMART_FILTER_KINDS: readonly AdjustmentKind[] = ADJUSTMENT_KINDS;
 
 /**
  * Create an object filter for the object-local workflow.

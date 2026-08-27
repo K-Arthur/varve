@@ -18,6 +18,8 @@ import {
 import type { Document, Mask, NodeId, SceneNode } from '@varve/scene';
 import type { TransformCache } from '../scene/transformCache';
 
+type RasterContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+
 /**
  * Trace a vector-mask point list (PathPoint[] with optional bezier handles)
  * into the given context as a single path.
@@ -73,18 +75,27 @@ export function clipFrameQuadToCtx(
 
 export interface AdjustmentSpatialMaskOptions {
   /** The filtered backdrop canvas context (device space). */
-  backdropCtx: CanvasRenderingContext2D;
+  backdropCtx: RasterContext;
   /** The adjustment node's mask (must be visible). */
   mask: Mask;
   doc: Document;
   /** Current camera transform (doc → device). */
   camera: DOMMatrix;
   /**
+   * Device-space origin represented by backdrop pixel (0, 0).
+   *
+   * Adjustment surfaces are deliberately cropped to their scoped targets.
+   * Mask geometry remains in document/device space, so it must be translated
+   * into this surface before it can be used as a destination-in source.
+   */
+  regionX: number;
+  regionY: number;
+  /**
    * Replay any scene node into a context — used to render the mask source
    * under the camera transform. Must force full-subtree replay (the matte
    * may lie outside the dirty set).
    */
-  replayNode: (nodeId: NodeId, ctx: CanvasRenderingContext2D) => void;
+  replayNode: (nodeId: NodeId, ctx: RasterContext) => void;
   /** Resolve a node's world transform (linked masks follow the matte). */
   getWorldTransform: (nodeId: NodeId) => readonly [number, number, number, number, number, number];
 }
@@ -100,7 +111,8 @@ export interface AdjustmentSpatialMaskOptions {
  * any clip with invert/feather/density) go through the post-processing path.
  */
 export function applyAdjustmentSpatialMask(options: AdjustmentSpatialMaskOptions): void {
-  const { backdropCtx, mask, doc, camera, replayNode, getWorldTransform } = options;
+  const { backdropCtx, mask, doc, camera, regionX, regionY, replayNode, getWorldTransform } =
+    options;
 
   const maskSrcId = mask.sourceNodeId;
   const maskSource = maskSrcId ? doc.nodes[maskSrcId] : undefined;
@@ -118,7 +130,13 @@ export function applyAdjustmentSpatialMask(options: AdjustmentSpatialMaskOptions
       : (mask.transform ?? getWorldTransform(maskSrcId))
     : (mask.transform ?? ([1, 0, 0, 1, 0, 0] as const));
 
-  const fillClipGeometry = (ctx: CanvasRenderingContext2D): void => {
+  const setMaskSurfaceTransform = (ctx: RasterContext): void => {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.translate(-regionX, -regionY);
+    ctx.transform(camera.a, camera.b, camera.c, camera.d, camera.e, camera.f);
+  };
+
+  const fillClipGeometry = (ctx: RasterContext): void => {
     if (maskHasVector && mask.vectorMask) {
       ctx.transform(...maskWorldTransform);
       traceVectorMaskPoints(ctx, mask.vectorMask.points, mask.vectorMask.closed);
@@ -137,14 +155,14 @@ export function applyAdjustmentSpatialMask(options: AdjustmentSpatialMaskOptions
     }
   };
   const drawMaskAtDevice = (maskCtx: CanvasRenderingContext2D): void => {
-    // The backdrop canvas is in device space (its context was translated by
-    // -bx/-by when sampling; the caller resets to identity), so the mask
-    // source must be replayed under the camera transform, not the backdrop's
-    // local space.
+    // The backdrop's local origin is the cropped target's device-space
+    // origin, not the document origin. Project the document mask through
+    // camera and then into that cropped surface. This shared transform is the
+    // reason masks line up the same way in the live canvas and export replay.
+    setMaskSurfaceTransform(maskCtx);
     if (maskHasVector) {
       fillClipGeometry(maskCtx);
     } else if (maskSrcId) {
-      maskCtx.setTransform(camera.a, camera.b, camera.c, camera.d, camera.e, camera.f);
       replayNode(maskSrcId, maskCtx);
     }
   };
@@ -158,14 +176,14 @@ export function applyAdjustmentSpatialMask(options: AdjustmentSpatialMaskOptions
   backdropCtx.setTransform(1, 0, 0, 1, 0, 0);
   if (hardClip) {
     backdropCtx.globalCompositeOperation = 'destination-in';
+    setMaskSurfaceTransform(backdropCtx);
     if (maskHasVector) {
       fillClipGeometry(backdropCtx);
     } else if (maskSrcId) {
-      backdropCtx.transform(camera.a, camera.b, camera.c, camera.d, camera.e, camera.f);
       fillClipGeometry(backdropCtx);
     }
   } else {
-    applyMaskAlpha(backdropCtx, drawMaskAtDevice, {
+    applyMaskAlpha(backdropCtx as CanvasRenderingContext2D, drawMaskAtDevice, {
       luminance: mask.type === 'luminance',
       inverted: mask.inverted === true,
       feather: mask.feather,

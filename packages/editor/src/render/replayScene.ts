@@ -35,6 +35,7 @@ import { isRasterPyramidEnabled, setRasterPyramidEnabled } from '@varve/engine/r
 import type { Document, Effect, ManagedColor, Mask, NodeId } from '@varve/scene';
 import { activeSmartFilters, nodeEffectPadding, resolveAdjustmentScope } from '@varve/scene';
 import { managedColorToRgba, tryInvertAffine } from '@varve/shared';
+import { applyAdjustmentSpatialMask } from '../canvas/maskReplay';
 import { nodeWorldTransform } from '../scene/world';
 import { alphaBounds } from './surfaceBounds';
 
@@ -1014,103 +1015,21 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       );
 
       // Spatial mask: limits WHERE the adjustment result is visible (scope
-      // limits WHAT content is processed). Applied to the filtered backdrop
-      // in place — transparent mask regions keep the original backdrop, so
-      // the unfiltered content shows through. Parity with the live canvas.
+      // limits WHAT content is processed). This is deliberately shared with
+      // the live renderer: the backdrop is cropped, so document-space mask
+      // geometry must be translated into this surface before masking.
       const adjMask = adjNode.mask && adjNode.mask.visible !== false ? adjNode.mask : null;
       if (adjMask) {
-        const adjMaskSrcId = adjMask.sourceNodeId;
-        const adjMaskSource = adjMaskSrcId ? input.document.nodes[adjMaskSrcId] : undefined;
-        const adjMaskHasVector = !!adjMask.vectorMask && adjMask.vectorMask.points.length > 0;
-        const adjMaskUsable =
-          adjMaskHasVector ||
-          (adjMaskSrcId !== undefined &&
-            adjMaskSource !== undefined &&
-            adjMaskSource.kind !== 'adjustment');
-        if (adjMaskUsable) {
-          const adjMaskWorldTransform = adjMaskSrcId
-            ? adjMask.linked !== false
-              ? nodeWorldTransform(input.document, adjMaskSrcId)
-              : (adjMask.transform ?? nodeWorldTransform(input.document, adjMaskSrcId))
-            : (adjMask.transform ?? ([1, 0, 0, 1, 0, 0] as const));
-          const traceAdjMaskPath = (ctx: SceneContext): void => {
-            if (adjMaskHasVector && adjMask.vectorMask) {
-              const points = adjMask.vectorMask.points;
-              if (points.length > 0) {
-                ctx.beginPath();
-                ctx.moveTo(points[0]!.x, points[0]!.y);
-                for (let i = 1; i < points.length; i++) {
-                  const p = points[i]!;
-                  const prev = points[i - 1]!;
-                  if (p.handleIn || p.handleOut) {
-                    ctx.bezierCurveTo(
-                      prev.handleOut?.[0] ?? prev.x,
-                      prev.handleOut?.[1] ?? prev.y,
-                      p.handleIn?.[0] ?? p.x,
-                      p.handleIn?.[1] ?? p.y,
-                      p.x,
-                      p.y,
-                    );
-                  } else {
-                    ctx.lineTo(p.x, p.y);
-                  }
-                }
-                if (adjMask.vectorMask.closed) ctx.closePath();
-              }
-            } else if (adjMaskSrcId && adjMaskSource) {
-              ctx.beginPath();
-              traceSceneNodeOutline(
-                ctx as CanvasRenderingContext2D,
-                adjMaskSource as unknown as Parameters<typeof traceSceneNodeOutline>[1],
-              );
-              ctx.closePath();
-            }
-          };
-          const hardClip =
-            adjMask.type === 'clip' &&
-            adjMask.inverted !== true &&
-            (adjMask.feather ?? 0) <= 0 &&
-            (adjMask.density ?? 1) >= 1;
-          bCtx.save();
-          bCtx.setTransform(1, 0, 0, 1, 0, 0);
-          if (hardClip) {
-            bCtx.globalCompositeOperation = 'destination-in';
-            if (adjMaskHasVector) {
-              bCtx.transform(...adjMaskWorldTransform);
-              traceAdjMaskPath(bCtx);
-              bCtx.fillStyle = 'rgba(255,255,255,1)';
-              bCtx.fill(adjMask.vectorMask!.fillRule ?? 'nonzero');
-            } else if (adjMaskSrcId) {
-              bCtx.transform(cam.a, cam.b, cam.c, cam.d, cam.e, cam.f);
-              bCtx.transform(...adjMaskWorldTransform);
-              traceAdjMaskPath(bCtx);
-              bCtx.fillStyle = 'rgba(255,255,255,1)';
-              bCtx.fill(adjMask.fillRule ?? 'nonzero');
-            }
-          } else {
-            applyMaskAlpha(
-              bCtx as CanvasRenderingContext2D,
-              (maskCtx) => {
-                if (adjMaskHasVector && adjMask.vectorMask) {
-                  maskCtx.transform(...adjMaskWorldTransform);
-                  traceAdjMaskPath(maskCtx);
-                  maskCtx.fillStyle = 'rgba(255,255,255,1)';
-                  maskCtx.fill(adjMask.vectorMask.fillRule ?? 'nonzero');
-                } else if (adjMaskSrcId) {
-                  maskCtx.setTransform(cam.a, cam.b, cam.c, cam.d, cam.e, cam.f);
-                  replayNode(adjMaskSrcId, maskCtx);
-                }
-              },
-              {
-                luminance: adjMask.type === 'luminance',
-                inverted: adjMask.inverted === true,
-                feather: adjMask.feather,
-                density: adjMask.density,
-              },
-            );
-          }
-          bCtx.restore();
-        }
+        applyAdjustmentSpatialMask({
+          backdropCtx: bCtx,
+          mask: adjMask,
+          doc: input.document,
+          camera: cam,
+          regionX: bx,
+          regionY: by,
+          replayNode: (maskNodeId, maskCtx) => replayNode(maskNodeId, maskCtx as SceneContext),
+          getWorldTransform: (maskNodeId) => nodeWorldTransform(input.document, maskNodeId),
+        });
       }
 
       target.save();

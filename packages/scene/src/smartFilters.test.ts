@@ -5,7 +5,7 @@
  * SMART_FILTER_KINDS, and the invert-preset special case.
  */
 
-import type { Adjustment, AdjustmentKind } from '@varve/engine';
+import { ADJUSTMENT_KINDS, type Adjustment, type AdjustmentKind } from '@varve/engine';
 import { describe, expect, it } from 'vitest';
 import {
   activeSmartFilters,
@@ -24,6 +24,10 @@ function narrow<K extends Adjustment['kind']>(
 }
 
 describe('SMART_FILTER_KINDS', () => {
+  it('uses the same shared catalog as Adjustment Layers', () => {
+    expect(SMART_FILTER_KINDS).toEqual(ADJUSTMENT_KINDS);
+  });
+
   it('contains invert', () => {
     expect(SMART_FILTER_KINDS).toContain('invert');
   });

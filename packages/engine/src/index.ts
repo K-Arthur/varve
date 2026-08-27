@@ -379,6 +379,7 @@ export type {
   VibranceAdjustment,
 } from './filters';
 export {
+  ADJUSTMENT_KINDS,
   adjustmentDefaults,
   adjustmentsToFilters,
   adjustmentToFilter,

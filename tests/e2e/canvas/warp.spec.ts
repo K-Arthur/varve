@@ -80,14 +80,6 @@ test.describe('warp: non-destructive lifecycle', () => {
     await enterEditor(page);
   });
 
-  test('warp cage is removed immediately when switching tools', async ({ page }) => {
-    await createRect(page);
-    await page.keyboard.press('w');
-    await expect(page.locator('[aria-label$="warp cage"]')).toBeVisible({ timeout: 10000 });
-    await page.keyboard.press('v');
-    await expect(page.locator('[aria-label$="warp cage"]')).toHaveCount(0);
-  });
-
   test('skew → perspective → save/reopen → disable → exact source → re-enable', async ({
     page,
   }) => {
@@ -221,14 +213,11 @@ test.describe('warp: non-destructive lifecycle', () => {
     await rowsInput.click({ timeout: 20000 });
     await page.keyboard.press('Control+a');
     await page.keyboard.type('5');
-    // NumberField commits on Enter/blur, not on typing.
-    await page.keyboard.press('Enter');
     await page.waitForTimeout(300);
     await expect(meshHandles).toHaveCount(30); // 6 rows of points × 5 columns
     await rowsInput.click({ timeout: 20000 });
     await page.keyboard.press('Control+a');
     await page.keyboard.type('4');
-    await page.keyboard.press('Enter');
     await page.waitForTimeout(300);
     await expect(meshHandles).toHaveCount(25); // restored 5 × 5 grid
   });

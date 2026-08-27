@@ -1,4 +1,5 @@
 import {
+  ADJUSTMENT_KINDS,
   type AdjustmentBlendMode,
   autoWhiteBalanceParams,
   type BlendMode,
@@ -14,50 +15,6 @@ import { AdjustmentScopeSection } from '../Inspector/sections/AdjustmentScopeSec
 import { AdjustmentEditor } from './AdjustmentEditor';
 import { useAdjustmentHistogram } from './useAdjustmentHistogram';
 import './adjustment.css';
-
-const ADJUSTMENT_KINDS: AdjustmentKind[] = [
-  'brightness',
-  'contrast',
-  'levels',
-  'curves',
-  'exposure',
-  'saturation',
-  'hueSaturation',
-  'hueRotate',
-  'colorBalance',
-  'selectiveColor',
-  'channelMixer',
-  'temperature',
-  'tint',
-  'vibrance',
-  'shadowHighlight',
-  'sepia',
-  'grayscale',
-  'invert',
-  'opacity',
-  'blur',
-  'sharpen',
-  'photoFilter',
-  'duotone',
-  'blackAndWhite',
-  'posterize',
-  'threshold',
-  'halftone',
-  'gradientMap',
-  'tritone',
-  'colorHalftone',
-  'lut',
-  'dither',
-  'paletteSnap',
-  'bloom',
-  'rgbSplit',
-  'crt',
-  'vhs',
-  'lightShafts',
-  'lensFlare',
-  'lightLeak',
-  'caustics',
-];
 
 const ADJUSTMENT_BLEND_OPTIONS: { value: AdjustmentBlendMode; label: string }[] = [
   { value: 'normal', label: 'Normal' },
