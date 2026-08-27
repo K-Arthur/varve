@@ -227,6 +227,7 @@ function ShellInner({
     );
   }, [openFile, editor]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const importAbortRef = useRef<AbortController | null>(null);
   const [importProgress, setImportProgress] = useState<{
     current: number;
@@ -325,7 +326,7 @@ function ShellInner({
       onFindReplace: () => findReplaceLayerRef.current?.open(),
       onInsertIcon: () => setIconBrowserOpen(true),
       onOpenFile: () => fileRef.current?.click(),
-      onImportFile: () => fileRef.current?.click(),
+      onImportFile: () => importFileRef.current?.click(),
       onCustomizeWorkspace: () => setWorkspaceCustomizeOpen(true),
       onResizeImage: editor.openImageResizeDialog,
     });
@@ -808,6 +809,7 @@ function ShellInner({
 
         <input
           id="file-import-input"
+          ref={importFileRef}
           type="file"
           accept=".svg,.png,.jpg,.jpeg,.webp,.avif,.gif,.bmp,.pdf,.ai,.eps,.psd,.psb,.sketch,.fig,.fig.json,.cube,.3dl,.clf,.ctf"
           multiple
