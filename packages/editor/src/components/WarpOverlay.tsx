@@ -25,7 +25,14 @@ import {
   type SkewModifier,
   type WarpModifier,
 } from '@varve/engine';
-import { nodeLocalBoundsSource, nodeWorldTransform, updateWarp, warpsOnNode } from '@varve/scene';
+import type { Document } from '@varve/scene';
+import {
+  isContainer,
+  nodeLocalBoundsSource,
+  nodeWorldTransform,
+  updateWarp,
+  warpsOnNode,
+} from '@varve/scene';
 import type { Affine, Rect } from '@varve/shared';
 import {
   applyAffine,
@@ -36,8 +43,28 @@ import {
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../canvas/overlayZIndex';
 import { useEditor } from '../context';
+import { LatestPointerQueue } from './latestPointerQueue';
 
 const HANDLE_SIZE = 7;
+type PointerSample = { clientX: number; clientY: number; pointerId: number };
+
+function targetContainsSelection(doc: Document, targetId: string, selection: readonly string[]) {
+  if (selection.includes(targetId)) return true;
+  const visited = new Set<string>();
+  const visit = (nodeId: string): boolean => {
+    if (visited.has(nodeId)) return false;
+    visited.add(nodeId);
+    const node = doc.nodes[nodeId];
+    if (!node || !isContainer(node)) return false;
+    return node.children.some((childId) => selection.includes(childId) || visit(childId));
+  };
+  return visit(targetId);
+}
+
+type PointerCaptureTarget = {
+  setPointerCapture?: (pointerId: number) => void;
+  releasePointerCapture?: (pointerId: number) => void;
+};
 
 /** Spoken corner names — "tl" does not read usefully in a screen reader. */
 const CORNER_LABELS: Record<'tl' | 'tr' | 'br' | 'bl', string> = {
@@ -111,8 +138,16 @@ function PerspectiveGrid({
 
   return (
     <g className="warp-overlay__perspective-grid" aria-hidden>
-      {lines.map((l, i) => (
-        <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={stroke} strokeWidth={sw} />
+      {lines.map((l) => (
+        <line
+          key={`${l.x1}-${l.y1}-${l.x2}-${l.y2}`}
+          x1={l.x1}
+          y1={l.y1}
+          x2={l.x2}
+          y2={l.y2}
+          stroke={stroke}
+          strokeWidth={sw}
+        />
       ))}
     </g>
   );
@@ -127,8 +162,15 @@ export function WarpOverlay({
   pan: { x: number; y: number };
   cameraRotation: number;
 }) {
-  const { state, updateDoc, beginTransaction, commitTransaction, abortTransaction, announce } =
-    useEditor();
+  const {
+    state,
+    updateDoc,
+    beginTransaction,
+    commitTransaction,
+    abortTransaction,
+    announce,
+    setWarpEdit,
+  } = useEditor();
   const doc = state.document;
   const target = state.warpEdit;
   const [drag, setDrag] = useState<{
@@ -143,23 +185,109 @@ export function WarpOverlay({
      * cursor.
      */
     startModifier: WarpModifier;
+    pointerId: number;
+    captureTarget: PointerCaptureTarget;
   } | null>(null);
   const dragRef = useRef(drag);
   dragRef.current = drag;
   const [selectedPoints, setSelectedPoints] = useState<Set<number>>(new Set());
   const [foldover, setFoldover] = useState<{ foldover: boolean; severity: string } | null>(null);
+  const pointerRafRef = useRef<number | null>(null);
+  const pendingPointerRef = useRef<PointerSample | null>(null);
+  const previewModifierRef = useRef<WarpModifier | null>(null);
 
   const node = target ? doc.nodes[target.nodeId] : undefined;
   const modifier =
     target && node ? (warpsOnNode(node).find((w) => w.id === target.modifierId) ?? null) : null;
+  const selectionOwnsTarget = target
+    ? targetContainsSelection(doc, target.nodeId, state.selection)
+    : false;
 
   const sourceBounds: Rect | null = node ? nodeLocalBoundsSource(node, doc) : null;
   const worldMat: Affine | null = target ? nodeWorldTransform(doc, target.nodeId) : null;
 
+  const applyHandleDelta = useCallback(
+    (apply: DragApply, dxWorld: number, dyWorld: number, base: WarpModifier): boolean => {
+      if (!target) return false;
+      const patch = apply(dxWorld, dyWorld, base);
+      if (!patch) return false;
+      previewModifierRef.current = { ...base, ...patch } as WarpModifier;
+      updateDoc((doc2) => updateWarp(doc2, target.nodeId, target.modifierId, patch as never));
+      return true;
+    },
+    [target, updateDoc],
+  );
+
+  const flushLatestPointer = useCallback(() => {
+    pointerRafRef.current = null;
+    const sample = pendingPointerRef.current;
+    pendingPointerRef.current = null;
+    const d = dragRef.current;
+    if (!sample || !d) return;
+    const [dxWorld, dyWorld] = screenDeltaToWorld(
+      { zoom, pan, rotation: cameraRotation },
+      sample.clientX - d.startClient.x,
+      sample.clientY - d.startClient.y,
+    );
+    applyHandleDelta(d.apply, dxWorld, dyWorld, d.startModifier);
+  }, [applyHandleDelta, cameraRotation, pan, zoom]);
+
+  const flushLatestPointerRef = useRef(flushLatestPointer);
+  flushLatestPointerRef.current = flushLatestPointer;
+  const pointerQueueRef = useRef<LatestPointerQueue<PointerSample> | null>(null);
+  if (pointerQueueRef.current === null) {
+    pointerQueueRef.current = new LatestPointerQueue(
+      (callback) => {
+        const frame = requestAnimationFrame(callback);
+        pointerRafRef.current = frame;
+        return frame;
+      },
+      (frame) => cancelAnimationFrame(frame),
+      (sample) => {
+        pendingPointerRef.current = sample;
+        flushLatestPointerRef.current();
+      },
+    );
+  }
+
+  const scheduleLatestPointer = useCallback((e: React.PointerEvent) => {
+    pointerQueueRef.current?.push({
+      clientX: e.clientX,
+      clientY: e.clientY,
+      pointerId: e.pointerId,
+    });
+  }, []);
+
   useEffect(() => {
     setSelectedPoints(new Set());
     setFoldover(null);
+    previewModifierRef.current = null;
   }, [target?.nodeId, target?.modifierId]);
+
+  useEffect(() => {
+    if (target && (!node || !modifier || !selectionOwnsTarget)) setWarpEdit(null);
+  }, [modifier, node, selectionOwnsTarget, setWarpEdit, target]);
+
+  // A tool switch unmounts the overlay before ToolManager's lifecycle effect
+  // runs. Cancel the queued sample and close the transaction at the component
+  // boundary as well, so a pointer capture or RAF cannot mutate the next tool.
+  useEffect(() => {
+    return () => {
+      pointerQueueRef.current?.cancelPending();
+      pointerRafRef.current = null;
+      pendingPointerRef.current = null;
+      previewModifierRef.current = null;
+      const active = dragRef.current;
+      if (active) {
+        try {
+          active.captureTarget.releasePointerCapture?.(active.pointerId);
+        } catch {
+          // The browser may already have released the pointer.
+        }
+        abortTransaction();
+      }
+    };
+  }, [abortTransaction]);
 
   const worldDeltaToLocal = useCallback(
     (dx: number, dy: number): { x: number; y: number } => {
@@ -195,34 +323,48 @@ export function WarpOverlay({
 
   const endDrag = useCallback(
     (ok: boolean) => {
-      if (!dragRef.current) return;
+      const active = dragRef.current;
+      if (!active) return;
+      if (ok) pointerQueueRef.current?.flushPending();
+      else pointerQueueRef.current?.cancelPending();
+      pointerRafRef.current = null;
+      if (!ok) pendingPointerRef.current = null;
       setDrag(null);
+      try {
+        active.captureTarget.releasePointerCapture?.(active.pointerId);
+      } catch {
+        // Pointer capture may have been released by the browser already.
+      }
       if (ok) {
-        commitTransaction();
+        let shouldCommit = true;
         if (target && sourceBounds) {
           const nodeAtEnd = doc.nodes[target.nodeId];
-          const analysis = analyzeFoldover(
-            sourceBounds,
-            nodeAtEnd ? warpsOnNode(nodeAtEnd) : undefined,
-            {
-              settings: (
-                nodeAtEnd as { warpSettings?: import('@varve/engine').WarpSettings } | undefined
-              )?.warpSettings,
-            },
-          );
+          const finalModifier = previewModifierRef.current;
+          const finalWarps = nodeAtEnd
+            ? warpsOnNode(nodeAtEnd).map((warp) =>
+                finalModifier && warp.id === target.modifierId ? finalModifier : warp,
+              )
+            : undefined;
+          const analysis = analyzeFoldover(sourceBounds, finalWarps, {
+            settings: (
+              nodeAtEnd as { warpSettings?: import('@varve/engine').WarpSettings } | undefined
+            )?.warpSettings,
+          });
           setFoldover({ foldover: analysis.foldover, severity: analysis.severity });
           const policy =
             (nodeAtEnd as { warpSettings?: { foldoverPolicy?: string } } | undefined)?.warpSettings
               ?.foldoverPolicy ?? 'warn';
-          if (analysis.foldover && policy === 'prevent') {
-            abortTransaction();
-          }
+          shouldCommit = !(analysis.foldover && policy === 'prevent');
         }
+        if (shouldCommit) commitTransaction();
+        else abortTransaction();
+        previewModifierRef.current = null;
       } else {
         abortTransaction();
+        previewModifierRef.current = null;
       }
     },
-    [commitTransaction, abortTransaction, target, sourceBounds, doc],
+    [commitTransaction, abortTransaction, target, sourceBounds, doc, flushLatestPointer],
   );
 
   useEffect(() => {
@@ -232,11 +374,21 @@ export function WarpOverlay({
         endDrag(false);
       }
     };
+    const cancelForContextLoss = () => {
+      if (dragRef.current) endDrag(false);
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('blur', cancelForContextLoss);
+    document.addEventListener('visibilitychange', cancelForContextLoss);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('blur', cancelForContextLoss);
+      document.removeEventListener('visibilitychange', cancelForContextLoss);
+    };
   }, [endDrag]);
 
-  if (!target || !node || !modifier || !sourceBounds || !worldMat) return null;
+  if (!target || !selectionOwnsTarget || !node || !modifier || !sourceBounds || !worldMat)
+    return null;
 
   const settings = (node as { warpSettings?: import('@varve/engine').WarpSettings }).warpSettings;
   const foldoverPolicy = settings?.foldoverPolicy ?? 'warn';
@@ -247,40 +399,31 @@ export function WarpOverlay({
     e.preventDefault();
     e.stopPropagation();
     beginTransaction();
-    setDrag({ key, startClient: { x: e.clientX, y: e.clientY }, apply, startModifier: modifier });
-  };
-
-  /**
-   * Apply a world-space delta through a handle's drag function as one atomic
-   * change, relative to `base`. Shared by pointer dragging (relative to the
-   * drag-start snapshot, inside an open transaction) and keyboard nudging
-   * (relative to the current value, opening and committing its own).
-   */
-  const applyHandleDelta = (
-    apply: DragApply,
-    dxWorld: number,
-    dyWorld: number,
-    base: WarpModifier,
-  ): boolean => {
-    if (!target) return false;
-    const patch = apply(dxWorld, dyWorld, base);
-    if (!patch) return false;
-    updateDoc((doc2) => updateWarp(doc2, target.nodeId, target.modifierId, patch as never));
-    return true;
+    const captureTarget = e.currentTarget as unknown as PointerCaptureTarget;
+    try {
+      captureTarget.setPointerCapture?.(e.pointerId);
+    } catch {
+      // Some WebKitGTK versions reject capture on SVG nodes; the parent SVG
+      // listener still handles the normal in-canvas path.
+    }
+    previewModifierRef.current = modifier;
+    setDrag({
+      key,
+      pointerId: e.pointerId,
+      captureTarget,
+      startClient: { x: e.clientX, y: e.clientY },
+      apply,
+      startModifier: modifier,
+    });
   };
 
   const handleDragMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
-    if (!d) return;
-    // Handle deltas are world-space. Converting here (rather than treating CSS
-    // pixels as world units) keeps the cage locked to the cursor at any zoom
-    // level or camera rotation.
-    const [dxWorld, dyWorld] = screenDeltaToWorld(
-      { zoom, pan, rotation: cameraRotation },
-      e.clientX - d.startClient.x,
-      e.clientY - d.startClient.y,
-    );
-    applyHandleDelta(d.apply, dxWorld, dyWorld, d.startModifier);
+    if (!d || e.pointerId !== d.pointerId) return;
+    // Pointer devices can deliver more samples than the display can present.
+    // Keep only the newest sample and evaluate it once per frame; stale samples
+    // must never queue behind the pointer.
+    scheduleLatestPointer(e);
   };
 
   /**
@@ -447,10 +590,13 @@ export function WarpOverlay({
         zIndex: CANVAS_INTERACTIVE_OVERLAY_Z_INDEX + 1,
       }}
       onPointerMove={handleDragMove}
-      onPointerUp={() => {
-        if (dragRef.current) endDrag(true);
+      onPointerUp={(e) => {
+        if (dragRef.current?.pointerId === e.pointerId) endDrag(true);
       }}
-      onPointerCancel={() => {
+      onPointerCancel={(e) => {
+        if (dragRef.current?.pointerId === e.pointerId) endDrag(false);
+      }}
+      onLostPointerCapture={() => {
         if (dragRef.current) endDrag(false);
       }}
       // Not presentational: this subtree owns the focusable cage handles, so
