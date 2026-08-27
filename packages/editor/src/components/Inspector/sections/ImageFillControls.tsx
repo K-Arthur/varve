@@ -86,13 +86,6 @@ export function ImageFillControls({
     [image, onChange],
   );
 
-  // File picking must not depend on React's delegated change event: when the
-  // OS file dialog is open, the inspector can re-key this control's subtree
-  // (image-shape discovery, thumbnail refresh), detaching the DOM node while
-  // the dialog is still up. A native change listener bound directly to the
-  // input fires even on a detached node; React's root-delegated listener
-  // silently loses the event. This is the difference between "image chosen"
-  // and "click file, nothing happens".
   const handleFileChange = useCallback(
     (e: Event) => {
       const input = e.target as HTMLInputElement;
@@ -128,12 +121,54 @@ export function ImageFillControls({
     [image, onChange, registerAsset],
   );
 
+  // Ref-forwarded handler so all listeners can stay attached once per node
+  // lifetime while always invoking the logic for the CURRENT render.
+  const handleFileChangeRef = useRef(handleFileChange);
   useEffect(() => {
+    handleFileChangeRef.current = handleFileChange;
+  });
+
+  // The file-pick change must never be missed. Two mechanisms:
+  //  1. a node-bound native listener attached once per node lifetime — fires
+  //     even if the node detached mid-dialog (native listeners survive
+  //     detach; React's root delegation and effect cleanup on remount do
+  //     not);
+  //  2. a document-capture fallback armed while a pick is pending — covers
+  //     a subtree remount replacing the input while the OS dialog is open.
+  const pickPendingRef = useRef(false);
+  useEffect(() => {
+    const dispatch = (e: Event) => {
+      pickPendingRef.current = false;
+      handleFileChangeRef.current(e);
+    };
+    const nodeHandler = (e: Event) => dispatch(e);
     const input = fileRef.current;
-    if (!input) return;
-    input.addEventListener('change', handleFileChange);
-    return () => input.removeEventListener('change', handleFileChange);
-  }, [handleFileChange]);
+    input?.addEventListener('change', nodeHandler);
+    const onDocChange = (e: Event) => {
+      if (!pickPendingRef.current) return;
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement) || target.type !== 'file') return;
+      if (target === fileRef.current) return; // node listener handled it
+      if (!target.classList.contains('insp-image-fill__file')) return;
+      dispatch(e);
+    };
+    const onDocClick = (e: Event) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement) || target.type !== 'file') return;
+      if (!target.classList.contains('insp-image-fill__file')) return;
+      pickPendingRef.current = true;
+    };
+    document.addEventListener('change', onDocChange, true);
+    document.addEventListener('click', onDocClick, true);
+    return () => {
+      // The node listener is intentionally NOT removed on cleanup: if the
+      // node is detached by a remount while the OS dialog is open, removing
+      // it here would lose the user's file choice. The node is garbage
+      // collected with its listener when the remount fully replaces it.
+      document.removeEventListener('change', onDocChange, true);
+      document.removeEventListener('click', onDocClick, true);
+    };
+  }, []);
 
   const clearImage = useCallback(() => {
     onChange({ ...image, src: '', assetId: undefined });

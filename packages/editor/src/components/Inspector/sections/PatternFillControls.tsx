@@ -24,11 +24,6 @@ export function PatternFillControls({
   const fileRef = useRef<HTMLInputElement>(null);
   const hasSrc = Boolean(pattern.tileSrc);
 
-  // Direct native listener (NOT React's delegated onChange): the file dialog
-  // can overlap an inspector subtree re-key, which detaches the DOM node
-  // while the dialog is open. A native listener on the node itself still
-  // receives the change; React's root-delegated listener loses it and the
-  // user's file choice silently vanishes.
   const handleFileChange = useCallback(
     (e: Event) => {
       const input = e.target as HTMLInputElement;
@@ -47,12 +42,49 @@ export function PatternFillControls({
     [pattern, onChange],
   );
 
+  // Ref-forwarded handler so all listeners stay attached once per node
+  // lifetime while always invoking the logic for the CURRENT render.
+  const handleFileChangeRef = useRef(handleFileChange);
   useEffect(() => {
+    handleFileChangeRef.current = handleFileChange;
+  });
+
+  // The file-pick change must never be missed: a node-bound native listener
+  // (survives detach mid-dialog) plus a document-capture fallback for a
+  // subtree remount that replaces the input while the OS dialog is open.
+  const pickPendingRef = useRef(false);
+  useEffect(() => {
+    const dispatch = (e: Event) => {
+      pickPendingRef.current = false;
+      handleFileChangeRef.current(e);
+    };
+    const nodeHandler = (e: Event) => dispatch(e);
     const input = fileRef.current;
-    if (!input) return;
-    input.addEventListener('change', handleFileChange);
-    return () => input.removeEventListener('change', handleFileChange);
-  }, [handleFileChange]);
+    input?.addEventListener('change', nodeHandler);
+    const onDocChange = (e: Event) => {
+      if (!pickPendingRef.current) return;
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement) || target.type !== 'file') return;
+      if (target === fileRef.current) return; // node listener handled it
+      if (!target.classList.contains('insp-image-fill__file')) return;
+      dispatch(e);
+    };
+    const onDocClick = (e: Event) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement) || target.type !== 'file') return;
+      if (!target.classList.contains('insp-image-fill__file')) return;
+      pickPendingRef.current = true;
+    };
+    document.addEventListener('change', onDocChange, true);
+    document.addEventListener('click', onDocClick, true);
+    return () => {
+      // The node listener is intentionally NOT removed on cleanup: if the
+      // node is detached by a remount while the OS dialog is open, removing
+      // it here would lose the user's file choice.
+      document.removeEventListener('change', onDocChange, true);
+      document.removeEventListener('click', onDocClick, true);
+    };
+  }, []);
 
   const clearTile = useCallback(() => {
     onChange({ ...pattern, tileSrc: '' });

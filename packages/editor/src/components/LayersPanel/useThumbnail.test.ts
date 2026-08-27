@@ -1,9 +1,9 @@
 import { act, renderHook } from '@testing-library/react';
-import { getImageCache, resetImageCache } from '@varve/engine';
+import { resetImageCache } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { thumbnailCacheKey } from './thumbnailCache';
-import { sharedThumbnailCache, useThumbnail } from './useThumbnail';
+import { sharedThumbnailCache, thumbnailImageCache, useThumbnail } from './useThumbnail';
 
 function makeShapeNode(id: string): SceneNode {
   return {
@@ -126,7 +126,7 @@ describe('useThumbnail caching', () => {
         },
       ],
     } as unknown as SceneNode;
-    const loadAtSize = vi.spyOn(getImageCache(), 'loadAtSize').mockResolvedValue({
+    const loadAtSize = vi.spyOn(thumbnailImageCache, 'loadAtSize').mockResolvedValue({
       width: 28,
       height: 21,
     } as ImageBitmap);

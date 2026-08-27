@@ -35,7 +35,7 @@ const PADDING = 2;
  * from the render path (Thumbnail System invariant: background thumbnail
  * work must never compete with canvas interaction).
  */
-const thumbnailImageCache = new ImageCache({
+export const thumbnailImageCache = new ImageCache({
   maxEntries: 128,
   maxBytes: 16 * 1024 * 1024,
 });
