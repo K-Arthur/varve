@@ -678,25 +678,54 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
   let bestYDiff = Infinity;
   let bestYPriority = -1;
 
-  // Snap position (center) — priority: center
+  // Use the same-anchor edge/center matching as move snapping. Resize
+  // gestures already call this resolver through TransformEngine, so teaching
+  // this path about edges fixes handle-drag snapping without inventing a
+  // parallel candidate model. An oriented box has no world-axis-aligned edges
+  // at arbitrary rotation; its centre is still meaningful, but edge matching
+  // is intentionally restricted to axis-aligned selections.
   if (otherBounds.length > 0) {
+    const isAxisAligned = Math.abs(Math.sin(box.rotation)) < 1e-9;
+    const boxEdges = {
+      left: box.cx - box.w / 2,
+      right: box.cx + box.w / 2,
+      centerX: box.cx,
+      top: box.cy - box.h / 2,
+      bottom: box.cy + box.h / 2,
+      centerY: box.cy,
+    };
     for (const b of otherBounds) {
-      const bCx = b.x + b.w / 2;
-      const bCy = b.y + b.h / 2;
+      const targetEdges = {
+        left: b.x,
+        right: b.x + b.w,
+        centerX: b.x + b.w / 2,
+        top: b.y,
+        bottom: b.y + b.h,
+        centerY: b.y + b.h / 2,
+      };
 
-      const xDiff = Math.abs(box.cx - bCx);
-      const yDiff = Math.abs(box.cy - bCy);
-
-      if (xDiff < thresh && compete(SNAP_PRIORITY.center, xDiff, bestXPriority, bestXDiff)) {
-        bestXDiff = xDiff;
-        bestXPriority = SNAP_PRIORITY.center;
-        snappedCx = bCx;
+      for (const key of ['left', 'centerX', 'right'] as const) {
+        if (!isAxisAligned && key !== 'centerX') continue;
+        const diff = boxEdges[key] - targetEdges[key];
+        const absDiff = Math.abs(diff);
+        const priority = key === 'centerX' ? SNAP_PRIORITY.center : SNAP_PRIORITY.edge;
+        if (absDiff < thresh && compete(priority, absDiff, bestXPriority, bestXDiff)) {
+          bestXDiff = absDiff;
+          bestXPriority = priority;
+          snappedCx = box.cx - diff;
+        }
       }
 
-      if (yDiff < thresh && compete(SNAP_PRIORITY.center, yDiff, bestYPriority, bestYDiff)) {
-        bestYDiff = yDiff;
-        bestYPriority = SNAP_PRIORITY.center;
-        snappedCy = bCy;
+      for (const key of ['top', 'centerY', 'bottom'] as const) {
+        if (!isAxisAligned && key !== 'centerY') continue;
+        const diff = boxEdges[key] - targetEdges[key];
+        const absDiff = Math.abs(diff);
+        const priority = key === 'centerY' ? SNAP_PRIORITY.center : SNAP_PRIORITY.edge;
+        if (absDiff < thresh && compete(priority, absDiff, bestYPriority, bestYDiff)) {
+          bestYDiff = absDiff;
+          bestYPriority = priority;
+          snappedCy = box.cy - diff;
+        }
       }
     }
   }
