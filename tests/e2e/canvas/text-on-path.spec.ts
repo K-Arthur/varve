@@ -107,7 +107,7 @@ test.describe('text on path', () => {
     });
   });
 
-  test('the attached text redraws when the start offset moves', async ({ page }) => {
+  test('the attached text redraws when the start offset moves', async ({ page }, testInfo) => {
     test.setTimeout(120000);
     await drawRingAndLabel(page);
     await page.keyboard.press('Control+a');
@@ -116,15 +116,20 @@ test.describe('text on path', () => {
     await page.getByRole('menuitem', { name: /^Text on Path$/ }).click();
     await page.waitForTimeout(600);
     await textLayer(page).click();
+    await page.getByRole('button', { name: 'Fit sel' }).click();
+    await page.waitForTimeout(500);
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const before = await canvas.screenshot();
+    await canvas.screenshot({ path: testInfo.outputPath('text-on-path-before-offset.png') });
     const offset = page.getByRole('slider', { name: /start offset along path/i });
     await offset.fill('35');
     await expect(offset).toHaveValue('35');
     await page.waitForTimeout(700);
 
-    expect(Buffer.compare(before, await canvas.screenshot())).not.toBe(0);
+    const after = await canvas.screenshot();
+    await canvas.screenshot({ path: testInfo.outputPath('text-on-path-after-offset.png') });
+    expect(Buffer.compare(before, after)).not.toBe(0);
   });
 
   test('detaching removes the section and keeps the path', async ({ page }) => {

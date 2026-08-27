@@ -75,16 +75,42 @@ test.describe('variable font axes', () => {
     await expect(slider).toHaveAttribute('max', '900');
   });
 
-  test('dragging an axis redraws the glyphs', async ({ page }) => {
+  test('dragging an axis redraws the glyphs', async ({ page }, testInfo) => {
     test.setTimeout(120000);
     await typeSpecimen(page, 'Geist Variable');
     await openVariableAxes(page);
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const before = await canvas.screenshot();
+    await canvas.screenshot({ path: testInfo.outputPath('variable-font-before-weight.png') });
     await page.getByRole('slider', { name: /Weight \(wght\)/ }).fill('900');
     await page.waitForTimeout(800);
 
-    expect(Buffer.compare(before, await canvas.screenshot())).not.toBe(0);
+    const after = await canvas.screenshot();
+    await canvas.screenshot({ path: testInfo.outputPath('variable-font-after-weight.png') });
+    expect(Buffer.compare(before, after)).not.toBe(0);
+    const inkPixels = await page.evaluate(() => {
+      const element = document.querySelector(
+        'canvas.editor-canvas__content-layer',
+      ) as HTMLCanvasElement | null;
+      if (!element) return 0;
+      const pixels = element
+        .getContext('2d')
+        ?.getImageData(0, 0, element.width, element.height).data;
+      if (!pixels) return 0;
+      let count = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (
+          pixels[i]! < 180 &&
+          pixels[i + 1]! < 180 &&
+          pixels[i + 2]! < 180 &&
+          pixels[i + 3]! > 0
+        ) {
+          count += 1;
+        }
+      }
+      return count;
+    });
+    expect(inkPixels).toBeGreaterThan(20);
   });
 });

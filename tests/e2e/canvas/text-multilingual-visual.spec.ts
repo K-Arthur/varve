@@ -32,5 +32,21 @@ test('renders multilingual text in the editor canvas', async ({ page }, testInfo
 
   const outputDir = process.env.VARVE_VISUAL_QA_DIR ?? testInfo.outputDir;
   await expect(canvas).toBeVisible();
+  const inkPixels = await page.evaluate(() => {
+    const element = document.querySelector(
+      'canvas.editor-canvas__content-layer',
+    ) as HTMLCanvasElement | null;
+    if (!element) return 0;
+    const pixels = element.getContext('2d')?.getImageData(0, 0, element.width, element.height).data;
+    if (!pixels) return 0;
+    let count = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (pixels[i]! < 180 && pixels[i + 1]! < 180 && pixels[i + 2]! < 180 && pixels[i + 3]! > 0) {
+        count += 1;
+      }
+    }
+    return count;
+  });
+  expect(inkPixels).toBeGreaterThan(100);
   await canvas.screenshot({ path: `${outputDir}/editor-multilingual-text.png` });
 });
