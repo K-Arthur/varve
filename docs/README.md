@@ -217,6 +217,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/canvas2d-system.md` | Canvas 2D system contract |
 | `architecture/image-lifecycle.md` | Raster ingestion, asset, decode, cache, worker, compositor, and lifecycle contract |
 | `architecture/figma-import-system.md` | Figma REST/plugin JSON import: acquisition, normalization, conversion, and fidelity |
+| `architecture/import-system.md` | File > Import: Open/Import separation, ingestion pipeline, format registry, SVG fidelity and security |
 | `architecture/image-geometry.md` | Image crop, placement, and transform contract |
 | `architecture/raster-assets.md` | Canonical raster asset architecture: metadata, resource handles, worker residency, export barrier |
 | `architecture/export-resolution.md` | Geometry, physical sizing, output PPI, effective raster PPI, and batch export semantics |

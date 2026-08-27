@@ -45,6 +45,12 @@ web build are unaffected. Each line is a real browser limit, not an artificial l
 **Raster and vector export stay.** PNG, JPEG, WebP, and SVG all work, so a visitor
 can always take their work out — the demo is not a trap.
 
+**Import stays too.** File > Import ingests PNG, JPEG, SVG and the rest of the
+supported formats entirely client-side, so there is no browser limit to honour
+and nothing to withhold — a visitor can bring their own artwork into the sample
+document. Covered by the demo spec's import test; see
+`architecture/import-system.md` for the pipeline and its security policy.
+
 Gating sits at choke points, not leaves: `requestWorkspaceSwitch` is where tabs,
 shortcuts, the command palette, deep links, and action handlers all converge, so
 refusing there closes every route at once. Export is refused per job rather than per
@@ -180,8 +186,9 @@ an opaque loading overlay that never went away. Only the image showed it.
   `packages/editor/src/capabilities/restrictions.test.ts` — restriction semantics.
 - E2E: `tests/e2e/browser/try-demo.spec.ts` — boots with `?try=1`, verifies sample
   doc, banner, WASM load, persistence, storage denial, mobile viewport, workspace
-  gating, clean boot (no covering modal), and stale-asset recovery *inside the
-  viewport* (it once rendered below the fold, unreachable).
+  gating, clean boot (no covering modal), File > Import of a PNG and an SVG, and
+  stale-asset recovery *inside the viewport* (it once rendered below the fold,
+  unreachable).
 - Smoke: `scripts/website/smoke-pages.mjs` checks `/try/` returns 200 and the
   WASM asset serves with `application/wasm`.
 
