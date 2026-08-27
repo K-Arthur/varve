@@ -117,12 +117,26 @@ guard is in `paintFill`, shared by all replay paths).
   not wired: the component derives geometry from the obsolete
   `node.x/y/w/h` shape and needs porting to `node.shape` + world
   transforms and integration into the overlay/pointer system.
-- Pattern fill after an Image → Pattern conversion can keep the
-  translucent load-fallback grey on the canvas in the browser even though
-  the tile is cached (observed 2026-08-27, reproduced in
-  `fill-menu-probe` diagnostics; the solid → pattern path is
-  deterministic). Suspected stale subtree-IR/repaint coordination for
-  pattern payload changes; the scene→IR flattening itself is covered by a
-  regression test and correct.
 - SVG patterns are not supported (arbitrary SVG is not accepted as a tile
   source beyond what `image/*` permits).
+- A pattern tile can still show the translucent load-fallback grey for the
+  duration of its decode (a normal first-frame loading state); a tile that
+  fails to decode stays grey by design (`ImageLoadError` state).
+
+### Historical fixes (2026-08-27)
+
+Two failure modes previously left pattern fills (and occasionally image
+fills) on the grey loading fallback even after the source had loaded:
+
+1. **File-pick loss on inspector remount.** The change listener was
+   re-attached per render with an effect cleanup, so an inspector subtree
+   remount while the OS file dialog was open removed the listener and
+   silently dropped the chosen file. Fixed with a node-bound native
+   listener attached once per node lifetime (ref-forwarded handler), plus
+   a document-capture fallback armed while a pick is pending.
+2. **Thumbnail-cache eviction.** The Layers panel thumbnail renderer shared
+   the engine's single render-critical `ImageCache`; its `loadAtSize`
+   traffic could evict (LRU) a freshly loaded pattern tile between frames.
+   Thumbnails now use their own bounded `ImageCache` instance
+   (`thumbnailImageCache` in `useThumbnail.ts`), isolating their traffic
+   from the render path.
