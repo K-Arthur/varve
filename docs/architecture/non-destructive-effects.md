@@ -104,23 +104,38 @@ the smallest necessary raster boundary.
 
 | Content | Object Filter input | Adjustment Layer participation | Mask/export behavior |
 | --- | --- | --- | --- |
-| Rectangle / ellipse | Rendered fill, stroke, and node result | Eligible | Node and adjustment masks work; vector export rasterises only unsupported effects |
-| Path | Rendered path result | Eligible | Same scope/mask rules as shapes |
-| Text | Shaped text result | Eligible | Text remains editable; raster fallback is limited to the affected boundary |
-| Raster-backed shape / PNG | Decoded, placed image result | Eligible | Original asset remains referenced; crop/transform remain scene data |
+| Rectangle | Rendered fill/stroke/node result | Eligible | Node and adjustment masks work; unsupported vector effects rasterise only the affected boundary |
+| Ellipse | Rendered fill/stroke/node result | Eligible | Same as rectangle |
+| Vector path | Rendered path result | Eligible | Source path remains editable; effect output is replay-time |
+| Text | Shaped text result | Eligible | Text/layout data remain editable; export falls back only where needed |
+| Image-filled shape | Decoded, positioned fill within the node result | Eligible | Asset reference, crop, and transform remain scene data |
+| Transparent PNG | Same rendered image result | Eligible | Straight-alpha contract prevents transparent RGB from becoming visible under colour-only effects |
+| Semi-transparent PNG | Same rendered image result | Eligible | Premultiplied sampling prevents edge fringes for spatial effects |
+| JPEG / opaque PNG | Same rendered image result | Eligible | Normal asset/fill behavior; no alpha-specific branch is needed |
 | Animated raster frame | Current decoded frame result | Eligible | Frame timing remains media state; effects are replay-time |
 | Frame | Composed frame result | Eligible and may scope descendants | Frame clipping intersects with masks |
-| Group | Composed group result | Eligible and may scope descendants | Group isolation, opacity, and blend remain structural |
-| Nested group | Its own composed subtree | Eligible, but parent target suppresses duplicate child replay | Prevents filtering the same pixels twice |
+| Group | Composed group result | Eligible and may scope descendants | Isolation, opacity, and blend remain structural |
+| Nested frame/group | Its own composed subtree | Eligible; a parent target suppresses duplicate child replay | Prevents filtering the same pixels twice |
+| Component definition | Its frame render result | Eligible as a frame | Component data stays structural, not a raster snapshot |
+| Component instance | Its resolved frame render result | Eligible as a frame | Instance links/overrides remain independent of effects |
+| Masked content | Node result under its existing mask model | Eligible | Node mask and adjustment mask keep separate ownership/meaning |
+| Clipped content | Clipped node/container result | Eligible | Clip intersection is preserved during structural replay |
+| Multiple fills | Composited node render result | Eligible | Per-fill filtering is not a separate feature |
+| Multiple Object Filters | Ordered stack result | Eligible for a subsequent adjustment | Entry visibility, opacity, and blend stay attached to each entry |
 | Adjustment node | Not eligible | Never a target | Prevents recursive backdrop replay |
 | Hidden / deleted node | No input | Excluded | Saved scope remains safe after deletion or visibility change |
 
 ## 5. Smart Content decision
 
-An image node already separates an asset reference from placement, crop,
-transform, masks, Object Filters, and Adjustment Layers. Editing any of those
-properties therefore leaves the source raster untouched and undoable; there
-is no destructive resample step to repair with a `SmartObject` abstraction.
+An image is currently a renderable scene node (normally a shape with an image
+fill) whose source is an inline URL/data URL or document asset reference. It
+separates that source from placement, crop/fit, transform, masks, Object
+Filters, and Adjustment Layers. Editing any of those properties leaves the
+source raster untouched and undoable; there is no destructive resample step to
+repair with a `SmartObject` abstraction. The Inspector's **Replace image**
+workflow retains the fill's placement properties, records the new natural
+dimensions, and marks a source-dependent raster mask stale so background
+removal is not silently reused for different pixels.
 
 Varve does **not** introduce Photoshop-style Smart Objects at this time. That
 name would imply capabilities the current document model does not offer:
@@ -128,6 +143,10 @@ name would imply capabilities the current document model does not offer:
 | Capability | Current state | Decision |
 | --- | --- | --- |
 | Non-destructive raster placement and effects | Supported by image asset references plus scene nodes | Keep the existing model |
+| Replace source while retaining placement/effects | Supported by Image Fill replacement | Preserve crop/fit/transform and mark source-derived masks stale |
+| Repeated transforms without source resampling | Supported by retained source plus scene transform | Keep transform as scene data |
+| Multiple instances of component content | Supported by frame-based component instances | This is distinct from embedded raster/document content |
+| Source-resolution metadata | Supported for embedded image assets and image fill dimensions | Refresh when a replacement is decoded |
 | Nested editable document rendered as one object | Not supported | Add a `ContentSource`/nested-document boundary only when this is a product requirement |
 | Linked external file, relink, modification detection | Not supported as a Smart Content workflow | Design explicit link provenance and recovery before shipping it |
 | Independent embedded-source edit session | Not supported | Requires ownership, versioning, export, and undo semantics beyond an effect attachment |
