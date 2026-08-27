@@ -45,12 +45,24 @@ export function listSupportedExtensions(): string[] {
 }
 
 /**
+ * Extensions whose bare form must not appear in the picker, mapped to what
+ * the picker should advertise instead.
+ *
+ * The Figma parser claims `json` so that content lookup works, but File >
+ * Open is the `.json` command: advertising bare `.json` under Import puts
+ * Varve's own documents in the artwork picker, where they parse as a failed
+ * Figma decode. Browsers match `accept` by filename suffix, so `.fig.json`
+ * still offers real Figma exports without claiming every JSON file.
+ */
+const PICKER_EXTENSION_OVERRIDES: Record<string, string> = { json: 'fig.json' };
+
+/**
  * The complete `accept` string for the import picker, including LUT formats
  * that the shell routes to a dedicated handler.
  */
 export function getImportAcceptString(): string {
   const exts = [...listSupportedExtensions(), ...LUT_IMPORT_EXTENSIONS];
-  return exts.map((e) => `.${e}`).join(',');
+  return exts.map((e) => `.${PICKER_EXTENSION_OVERRIDES[e] ?? e}`).join(',');
 }
 
 export function registerParser(parser: ImportParser): void {

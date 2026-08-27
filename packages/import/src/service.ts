@@ -16,7 +16,12 @@ import { importFile } from './import';
 import { createPdfParser } from './pdf';
 import { createPsdParser } from './psd';
 import { inspectRasterBytes } from './rasterInspection';
-import { getParserForData, getParserForExtension, registerParser } from './registry';
+import {
+  getParserForData,
+  getParserForExtension,
+  RASTER_IMPORT_EXTENSIONS,
+  registerParser,
+} from './registry';
 import { createSketchParser } from './sketch';
 import { createSvgParser } from './svg';
 import type { ImportOptions } from './types';
@@ -125,7 +130,24 @@ function dataFor(input: ImportFileInput): string | Uint8Array {
 }
 
 function isRasterFallbackFormat(format: string): boolean {
-  return ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'avif'].includes(format);
+  return (RASTER_IMPORT_EXTENSIONS as readonly string[]).includes(format);
+}
+
+/**
+ * A Varve document that arrived through Import rather than Open.
+ *
+ * `.varve`, `.strata` and `.json` documents belong to File > Open, which
+ * loads them into their own tab. Reaching Import means the user picked the
+ * wrong command — and because the Figma parser also claims `.json`, the
+ * failure they would otherwise see is an opaque Figma decode error. Detect
+ * it by the version stamp `serializeDocument` writes, plus the scene shape.
+ */
+function looksLikeVarveDocument(data: string | Uint8Array): boolean {
+  const text = typeof data === 'string' ? data : new TextDecoder().decode(data.slice(0, 4096));
+  if (!text.trimStart().startsWith('{')) return false;
+  return (
+    text.includes('"formatVersion"') && text.includes('"nodes"') && text.includes('"rootChildren"')
+  );
 }
 
 function warning(message: string): FidelityIssue {
@@ -174,6 +196,27 @@ async function importOne(
   const rasterCandidate =
     data instanceof Uint8Array &&
     (isRasterFallbackFormat(format) || detectImageMime(data) !== null);
+
+  if (looksLikeVarveDocument(data)) {
+    return {
+      name: input.name,
+      source: input.source,
+      format: 'varve-document',
+      status: 'unsupported',
+      byteCount: byteCount(input),
+      durationMs: performance.now() - started,
+      nodeCount: 0,
+      artifacts: [],
+      warnings: [],
+      unsupportedFeatures: [
+        {
+          code: 'format.varve-document',
+          feature: 'Varve document',
+          message: `"${input.name}" is a Varve document. Use File > Open to open it in its own tab; Import is for adding images, SVGs and other external artwork to the document you already have open.`,
+        },
+      ],
+    };
+  }
 
   if (!parser && !rasterCandidate) {
     return {
