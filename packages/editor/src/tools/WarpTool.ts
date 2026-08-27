@@ -28,6 +28,9 @@ export class WarpTool extends BaseTool {
 
   override onActivate(ctx: ToolContext): void {
     super.onActivate?.(ctx);
+    // A previous document/selection can have left a transient target behind;
+    // Warp activation always establishes a fresh authoritative edit surface.
+    ctx.setWarpEdit?.(null);
     if (ctx.selection.length === 0) return;
     const ids = ctx.selection;
     const reasons = ids
@@ -62,6 +65,16 @@ export class WarpTool extends BaseTool {
     } finally {
       ctx.commitTransaction();
     }
+  }
+
+  /**
+   * WarpOverlay owns the pointer gesture, but the tool owns the edit surface.
+   * Abort first so an uncommitted handle drag cannot survive the tool switch,
+   * then clear the target so no cage can outlive Warp mode.
+   */
+  override onDeactivate(ctx: ToolContext): void {
+    ctx.abortTransaction();
+    ctx.setWarpEdit?.(null);
   }
 
   override onKeyDown(event: KeyboardEvent, ctx: ToolContext): boolean {
