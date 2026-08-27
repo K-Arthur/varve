@@ -2,7 +2,7 @@
 // Plan: Refactor to move SubjectPickerOverlay and other overlay imports to a dedicated overlay registry module.
 import { HelpBrowser } from '@varve/help';
 import type { Platform } from '@varve/platform';
-import { type Document, getAllRules, registerBuiltinRules, type SceneNode } from '@varve/scene';
+import { getAllRules, registerBuiltinRules } from '@varve/scene';
 import { ContextMenu, Icon, ToastProvider, Tooltip, useToast } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -66,6 +66,7 @@ import { StateMachinePanel } from './components/StateMachinePanel';
 import { WorkspaceCustomizeDialog } from './components/WorkspaceCustomizeDialog';
 import { EditorProvider, setToastHandler, useEditor } from './context';
 import { useCollabPresence } from './hooks/useCollabPresence';
+import { useFileImport } from './importing/useFileImport';
 import { LayersPanel } from './LayersPanel';
 import { ContextualHelpPanel, resetOnboarding, useEditorHelp, WhatIsThis } from './onboard';
 import { StatusBar } from './StatusBar';
@@ -227,16 +228,7 @@ function ShellInner({
     );
   }, [openFile, editor]);
   const fileRef = useRef<HTMLInputElement>(null);
-  const importFileRef = useRef<HTMLInputElement>(null);
-  const importAbortRef = useRef<AbortController | null>(null);
-  const [importProgress, setImportProgress] = useState<{
-    current: number;
-    total: number;
-    fileName: string;
-  } | null>(null);
-  const [importReport, setImportReport] = useState<import('@varve/import').ImportReport | null>(
-    null,
-  );
+  const fileImport = useFileImport(editor);
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -257,9 +249,6 @@ function ShellInner({
   const findReplaceLayerRef = useRef<FindReplaceLayerHandle | null>(null);
   const onboardingLayerRef = useRef<OnboardingLayerHandle | null>(null);
 
-  useEffect(() => {
-    return () => importAbortRef.current?.abort();
-  }, []);
   const { shellStyle, widths, setWidth } = usePanelWidths();
   useWorkspacePanelWidths(editor.state.workspaceMode, widths, setWidth);
 
@@ -326,7 +315,7 @@ function ShellInner({
       onFindReplace: () => findReplaceLayerRef.current?.open(),
       onInsertIcon: () => setIconBrowserOpen(true),
       onOpenFile: () => fileRef.current?.click(),
-      onImportFile: () => importFileRef.current?.click(),
+      onImportFile: fileImport.openPicker,
       onCustomizeWorkspace: () => setWorkspaceCustomizeOpen(true),
       onResizeImage: editor.openImageResizeDialog,
     });
@@ -502,16 +491,16 @@ function ShellInner({
         />
         <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
         <AuditOverlayHost viewport={{ width: window.innerWidth, height: window.innerHeight }} />
-        {importProgress && (
+        {fileImport.progress && (
           <ImportProgress
-            current={importProgress.current}
-            total={importProgress.total}
-            fileName={importProgress.fileName}
-            onCancel={() => importAbortRef.current?.abort()}
+            current={fileImport.progress.current}
+            total={fileImport.progress.total}
+            fileName={fileImport.progress.fileName}
+            onCancel={fileImport.cancel}
           />
         )}
-        {importReport && (
-          <ImportResults result={importReport} onClose={() => setImportReport(null)} />
+        {fileImport.report && (
+          <ImportResults result={fileImport.report} onClose={fileImport.dismissReport} />
         )}
         <ImageCompareOverlay
           active={editor.state.beforeAfterCompare}
@@ -809,123 +798,12 @@ function ShellInner({
 
         <input
           id="file-import-input"
-          ref={importFileRef}
+          ref={fileImport.inputRef}
           type="file"
-          accept=".svg,.png,.jpg,.jpeg,.webp,.avif,.gif,.bmp,.pdf,.ai,.eps,.psd,.psb,.sketch,.fig,.fig.json,.cube,.3dl,.clf,.ctf"
+          accept={fileImport.accept}
           multiple
           style={{ display: 'none' }}
-          onChange={async (e) => {
-            const files = Array.from(e.target.files ?? []);
-            if (files.length === 0) return;
-            try {
-              // Route LUT files to the LUT-specific handler
-              const lutFiles = files.filter((f) => /\.(cube|3dl|clf|ctf)$/i.test(f.name));
-              if (lutFiles.length > 0) {
-                const { parseCubeData, parse3dlData, makeAdjustment } = await import(
-                  '@varve/engine'
-                );
-                for (const file of lutFiles) {
-                  const text = await file.text();
-                  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-                  try {
-                    let result: { transform: unknown };
-                    if (ext === 'cube') {
-                      result = parseCubeData(text);
-                    } else {
-                      result = parse3dlData(text);
-                    }
-                    const json = JSON.stringify(result.transform);
-                    const lutAdj = makeAdjustment(
-                      `lut-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                      'lut',
-                      {
-                        lutJson: json,
-                        originalFilename: file.name,
-                        inputSpace: 'sRGB' as const,
-                        interpolation: 'tetrahedral' as const,
-                        intensity: 1,
-                        linearize: false,
-                        visible: true,
-                        opacity: 1,
-                      },
-                    );
-                    editor.addLutAdjustment(lutAdj);
-                    editor.announce(`Imported LUT: ${file.name}`);
-                  } catch (err) {
-                    editor.announce(
-                      `LUT import failed: ${err instanceof Error ? err.message : String(err)}`,
-                    );
-                  }
-                }
-                // Filter out LUT files from the remaining import
-                const remaining = files.filter((f) => !/\.(cube|3dl|clf|ctf)$/i.test(f.name));
-                if (remaining.length === 0) {
-                  e.target.value = '';
-                  return;
-                }
-                // Fall through to normal import for remaining files
-              }
-              const importFiles = files.filter((f) => !/\.(cube|3dl|clf|ctf)$/i.test(f.name));
-              if (importFiles.length === 0) {
-                e.target.value = '';
-                return;
-              }
-              const abortController = new AbortController();
-              importAbortRef.current = abortController;
-              setImportReport(null);
-              setImportProgress({
-                current: 0,
-                total: importFiles.length,
-                fileName: importFiles[0]!.name,
-              });
-              const { ImportService } = await import('@varve/import');
-              const report = await ImportService.importFiles(
-                await Promise.all(
-                  importFiles.map(async (file) => ({
-                    name: file.name,
-                    source: 'file-picker' as const,
-                    size: file.size,
-                    bytes: new Uint8Array(await file.arrayBuffer()),
-                  })),
-                ),
-                {
-                  center: true,
-                  embedImages: true,
-                  onProgress: (current, total, file) =>
-                    setImportProgress({ current, total, fileName: file.name }),
-                },
-                abortController.signal,
-              );
-              const parsedItems: { node: SceneNode; sourceDoc: Document }[] = [];
-              for (const fileReport of report.files) {
-                for (const artifact of fileReport.artifacts) {
-                  for (const id of artifact.nodeIds) {
-                    const node = artifact.document.nodes[id];
-                    if (node) parsedItems.push({ node, sourceDoc: artifact.document });
-                  }
-                }
-              }
-              if (parsedItems.length > 0) editor.batchImportNodes(parsedItems);
-              const hasIssues =
-                report.partialCount > 0 ||
-                report.failureCount > 0 ||
-                report.warnings.length > 0 ||
-                report.files.some((file) => file.unsupportedFeatures.length > 0);
-              if (hasIssues) setImportReport(report);
-              editor.announce(
-                `Imported ${report.successCount + report.partialCount} file${report.successCount + report.partialCount === 1 ? '' : 's'}; ${report.failureCount} failed`,
-              );
-            } catch (err) {
-              if (err instanceof Error && err.name === 'AbortError') return;
-              editor.announce(
-                err instanceof Error ? `Import failed: ${err.message}` : 'Import failed',
-              );
-            } finally {
-              importAbortRef.current = null;
-              setImportProgress(null);
-              e.target.value = '';
-            }
-          }}
+          onChange={fileImport.onFilesSelected}
         />
 
         {/* Settings dialog */}

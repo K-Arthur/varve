@@ -1,3 +1,4 @@
+/// <reference path="./image-codecs.d.ts" />
 import type { Fill } from '@varve/scene';
 import { imageFill } from '@varve/scene';
 import type { AnimatedAssetMetadata } from '@varve/shared';
