@@ -22,23 +22,11 @@
  * WICG virtual-scroller principles.
  */
 
-import type {
-  DragEndEvent,
-  DragMoveEvent,
-  DragOverEvent,
-  DragStartEvent,
-  Over,
-} from '@dnd-kit/core';
+import type { DragEndEvent, DragMoveEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type { ContainerNode, Document, NodeId } from '@varve/scene';
-import {
-  getInstanceStatus,
-  getKeyframeCount,
-  getNodesInTimeline,
-  getParent,
-  isContainer,
-} from '@varve/scene';
+import { getInstanceStatus, getKeyframeCount, getNodesInTimeline, isContainer } from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import type React from 'react';
 import {
@@ -60,6 +48,7 @@ import {
 } from '../../scene/parentIndexCache';
 import { loadSettings } from '../../settings';
 import { LayersRow } from './LayersRow';
+import { type LayerDropTarget, resolveRootLevelSiblings } from './layerDropResolver';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
 import {
@@ -72,6 +61,7 @@ import {
 import { usePresence } from './presenceStore';
 import { computeDocumentDiff, type FlatEntry, useFlatTree } from './useFlatTree';
 import { useLayerNavigation } from './useLayerNavigation';
+import { useLayersDnD } from './useLayersDnD';
 import { sharedThumbnailCache } from './useThumbnail';
 import { useTreeFocus } from './useTreeFocus';
 import { useTypeAhead } from './useTypeAhead';
@@ -210,42 +200,10 @@ export function resolveDragMoveIds(
 }
 
 /**
- * Compute (id, index) insertion steps for landing a multi-node move
- * contiguously at `basePosition` in `targetSiblings`, applied as a sequence
- * of single-item splice-style inserts (matching how `reparentNode` is called
- * one node at a time). `moveIdsVisualOrder` must be in panel/entries order
- * (front-most/highest-array-index first, since flattenTree walks children
- * back-to-front) — this function reverses it to ascending array-index order
- * so each call's index composes correctly against the previous ones and the
- * group's original relative order is preserved either way you read it.
+ * Move planning lives in `layerMovePlan`. Re-exported because these are part
+ * of this module's established public surface.
  */
-export function computeMultiMoveSteps(
-  targetSiblings: NodeId[],
-  moveIdsVisualOrder: NodeId[],
-  basePosition: number,
-): Array<{ id: NodeId; index: number }> {
-  const shiftCount = moveIdsVisualOrder.filter((id) => {
-    const idx = targetSiblings.indexOf(id);
-    return idx !== -1 && idx < basePosition;
-  }).length;
-  const adjustedBase = basePosition - shiftCount;
-
-  const ascendingOrder = [...moveIdsVisualOrder].reverse();
-  return ascendingOrder.map((id, i) => ({ id, index: adjustedBase + i }));
-}
-
-/** Return true when applying the planned splice steps leaves this sibling list unchanged. */
-export function isNoOpMove(
-  targetSiblings: NodeId[],
-  steps: Array<{ id: NodeId; index: number }>,
-): boolean {
-  let result = [...targetSiblings];
-  for (const step of steps) {
-    result = result.filter((id) => id !== step.id);
-    result.splice(Math.max(0, Math.min(step.index, result.length)), 0, step.id);
-  }
-  return result.every((id, index) => id === targetSiblings[index]);
-}
+export { computeMultiMoveSteps, isNoOpMove } from './layerMovePlan';
 
 /**
  * Decide whether the search index can be patched in place or needs a full
@@ -299,80 +257,21 @@ export function computeKeyframeCounts(
 }
 
 /**
- * Compute the drop zone for a drag-over row from the pointer's relative
- * vertical position within that row (0 = top edge, 1 = bottom edge). The
- * middle third of a container row (and only a container, and never a
- * descendant of the node being dragged — that would create a cycle) is the
- * "into" band; otherwise the row is split top/bottom into before/after.
+ * Drop-target semantics live in `layerDropResolver` so the indicator, the
+ * auto-expand timer and the final mutation all read one implementation.
+ * Re-exported here because they are part of this module's established public
+ * surface.
  */
-export function computeDropZone(
-  relativeY: number,
-  overIsContainer: boolean,
-  isDescendant: boolean,
-): 'before' | 'after' | 'into' {
-  if (overIsContainer && !isDescendant && relativeY > 0.33 && relativeY < 0.67) {
-    return 'into';
-  }
-  return relativeY < 0.5 ? 'before' : 'after';
-}
-
-export interface DropClipTarget {
-  /** True when the drop clips the dragged layer(s) to the mask source. */
-  clipInto: boolean;
-  /** The container to reparent into when clipInto (the matte's parent). */
-  parentId: NodeId | null;
-  /** The insertion index inside parentId (immediately after the matte). */
-  index: number;
-}
-
-/**
- * Resolve the semantic target of a drop whose zone is 'into':
- *
- * - Dropping into the middle band of a clipping **mask source** row clips
- *   the dragged layer(s) to that matte: they become siblings of the matte,
- *   ordered immediately after it (the matte must stay at the head of the
- *   run). The mask already applies to every other child, so no mask mutation
- *   is needed — only a reparent/reorder.
- * - Any other 'into' drop is a plain container drop (reparent into the
- *   container itself).
- *
- * Returns null when the target cannot be resolved (dangling node).
- */
-export function resolveDropClipTarget(
-  doc: Document,
-  overId: NodeId,
-  zone: 'before' | 'after' | 'into',
-): DropClipTarget | null {
-  const overNode = doc.nodes[overId];
-  if (!overNode) return null;
-  if (zone !== 'into') return { clipInto: false, parentId: null, index: 0 };
-
-  const overParentId = getParent(doc, overId);
-  const overParent = overParentId ? doc.nodes[overParentId] : undefined;
-  const overParentMask = overParent
-    ? (overParent as { mask?: { visible?: boolean; sourceNodeId?: NodeId } }).mask
-    : undefined;
-  const isMatteRow = overParentMask?.visible !== false && overParentMask?.sourceNodeId === overId;
-  if (isMatteRow && overParentId && overParent && isContainer(overParent)) {
-    const siblings = (overParent as ContainerNode).children;
-    const sourceIdx = siblings.indexOf(overId);
-    return { clipInto: true, parentId: overParentId, index: sourceIdx + 1 };
-  }
-  return { clipInto: false, parentId: null, index: 0 };
-}
-
-/**
- * The sibling list for "top level of the active page" — NOT doc.rootChildren,
- * which holds each page's contentRoot group id, not page content. Must match
- * what reparentNode resolves a null parentId to, or drop/reorder indices are
- * computed against the wrong list.
- */
-export function resolveRootLevelSiblings(doc: Document): NodeId[] {
-  const activePage = doc.pages?.find((p) => p.id === doc.activePageId);
-  const contentRootId = activePage?.contentRoot;
-  const contentRoot = contentRootId ? doc.nodes[contentRootId] : undefined;
-  return contentRoot && isContainer(contentRoot) ? contentRoot.children : doc.rootChildren;
-}
+export {
+  computeDropZone,
+  type DropClipTarget,
+  type LayerDropTarget,
+  type LayerDropZone,
+  type RowGeometry,
+  resolveDropClipTarget,
+  resolveLayerDropTarget,
+  resolveRootLevelSiblings,
+} from './layerDropResolver';
 
 export function expandToDepth1(
   doc: Document,
@@ -405,15 +304,12 @@ export interface LayersDnDHandle {
   handleDragEnd: (event: DragEndEvent) => void;
   handleDragCancel: () => void;
   activeId: NodeId | null;
-  dropIndicator: {
-    nodeId: NodeId;
-    zone: 'before' | 'after' | 'into';
-    /** True when the target would create a hierarchy cycle. */
-    invalid?: boolean;
-    /** True when the drop target is a clipping mask source and the zone is
-     *  'into' — the drop will clip the dragged layer(s) to that matte. */
-    clipInto?: boolean;
-  } | null;
+  /**
+   * The one resolved answer to "where does this drag land?" — the same value
+   * that paints the indicator and that drag end commits. `null` means the
+   * pointer is not over the Layers tree at all.
+   */
+  dropIndicator: LayerDropTarget | null;
   collapseAll: () => void;
   collapseOthers: (containerId: NodeId) => void;
   startRename: (id: NodeId) => void;
@@ -452,7 +348,6 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     return init;
   });
   const [renamingId, setRenamingId] = useState<NodeId | null>(null);
-  const [activeId, setActiveId] = useState<NodeId | null>(null);
   // True while DOM focus is inside the tree (or was dropped to body by a
   // focused row being removed) — drives focus retargeting after deletes,
   // filtering, and collapse.
@@ -488,12 +383,6 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       });
     }
   }, [renamingId]);
-
-  const [dropIndicator, setDropIndicator] = useState<{
-    nodeId: NodeId;
-    zone: 'before' | 'after' | 'into';
-    clipInto?: boolean;
-  } | null>(null);
 
   // Search index: patched incrementally on property-only document changes
   // (renames are the common case while a search/filter is active) instead of
@@ -554,13 +443,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   );
   const { handleTypeAhead } = useTypeAhead();
 
-  const lastPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  /** Mounted row elements, for roving-tabindex focus management. */
   const rowRefs = useRef<Map<NodeId, HTMLDivElement>>(new Map());
-  // The semantic target must survive a same-frame pointer-up before React
-  // commits the indicator state update.
-  const dropIndicatorRef = useRef<LayersDnDHandle['dropIndicator']>(null);
-  const autoExpandTimerRef = useRef<number | null>(null);
-  const autoScrollRafRef = useRef<number | null>(null);
+  /** The scrollable content element — its rect carries the scroll offset. */
+  const treeContentRef = useRef<HTMLDivElement | null>(null);
 
   // Roving tabindex: move actual DOM focus to the newly-focused row whenever
   // focusIdx changes *while the user is already keyboard-navigating inside
@@ -610,6 +496,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   const entriesRef = useRef(entries);
   entriesRef.current = entries;
+  // Read inside the drag pipeline, which runs from a document-level pointer
+  // listener and must never see a render-stale expansion set.
+  const expandedRef = useRef(expanded);
+  expandedRef.current = expanded;
   const virtualizerRef = useRef<{
     scrollToIndex: (index: number, options?: Record<string, unknown>) => void;
     getVirtualItems: () => Array<{ index: number }>;
@@ -1083,318 +973,45 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   // DnD ----------------------------------------------------------------
 
-  const cancelAutoExpand = useCallback(() => {
-    if (autoExpandTimerRef.current !== null) {
-      clearTimeout(autoExpandTimerRef.current);
-      autoExpandTimerRef.current = null;
-    }
-  }, []);
-
-  const startAutoExpand = useCallback(
-    (nodeId: NodeId) => {
-      cancelAutoExpand();
-      autoExpandTimerRef.current = window.setTimeout(() => {
-        setExpanded((prev) => {
-          if (prev.has(nodeId)) return prev;
-          const next = new Set(prev);
-          next.add(nodeId);
-          return next;
-        });
-        autoExpandTimerRef.current = null;
-      }, 600);
-    },
-    [cancelAutoExpand],
-  );
-
-  const cancelAutoScroll = useCallback(() => {
-    if (autoScrollRafRef.current !== null) {
-      cancelAnimationFrame(autoScrollRafRef.current);
-      autoScrollRafRef.current = null;
-    }
-  }, []);
-
-  const handleAutoScroll = useCallback((pointerY: number) => {
-    if (autoScrollRafRef.current !== null) return;
-    const container = treeRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const threshold = 80;
-
-    if (pointerY - rect.top < threshold) {
-      const speed = ((threshold - (pointerY - rect.top)) / threshold) * 12;
-      autoScrollRafRef.current = requestAnimationFrame(() => {
-        container.scrollBy(0, -Math.max(1, speed));
-        autoScrollRafRef.current = null;
-      });
-    } else if (rect.bottom - pointerY < threshold) {
-      const speed = ((threshold - (rect.bottom - pointerY)) / threshold) * 12;
-      autoScrollRafRef.current = requestAnimationFrame(() => {
-        container.scrollBy(0, Math.max(1, speed));
-        autoScrollRafRef.current = null;
-      });
-    }
-  }, []);
-
-  const handleDragStart = useCallback(
-    (event: DragStartEvent) => {
-      setActiveId(event.active.id as NodeId);
-      dropIndicatorRef.current = null;
-      setDropIndicator(null);
-      cancelAutoScroll();
-    },
-    [cancelAutoScroll],
-  );
-
-  // Shared by handleDragMove/handleDragOver: dnd-kit only fires onDragOver
-  // when the collision-detection winner (`over`) changes, which happens
-  // right as the pointer crosses into a row — necessarily near that row's
-  // top/bottom edge, never its middle. Without recomputing on every move,
-  // the drop zone gets stuck at whatever 'before'/'after' was true on entry
-  // and can never reach the middle-third 'into' zone, so dropping onto a
-  // frame row never works (reordering "works" only because it's edge-based).
-  // We also cannot trust dnd-kit's `over` at all — its rectIntersection
-  // collision can spuriously pick the huge canvas-drop-zone over small row
-  // droppables — so we resolve the target row by hit-testing the pointer
-  // against live row rects.
-  const updateDropIndicator = useCallback(
-    (over: Over | null, activeNodeId: NodeId) => {
-      // Resolve target row by pointer position, not by dnd-kit's `over`.
-      let overId: NodeId | undefined;
-      let overEl: HTMLElement | undefined;
-      const py = lastPointerRef.current.y;
-      for (const [id, el] of rowRefs.current.entries()) {
-        if (id === activeNodeId) continue;
-        const r = el.getBoundingClientRect();
-        if (py >= r.top && py <= r.bottom) {
-          overId = id as NodeId;
-          overEl = el;
-          break;
-        }
-      }
-      // Fallback to dnd-kit's over when pointer is in a gap between rows.
-      if (!overId) {
-        const candidate = over?.id as NodeId | undefined;
-        if (!candidate || candidate === activeNodeId) {
-          dropIndicatorRef.current = null;
-          setDropIndicator(null);
-          cancelAutoExpand();
-          return;
-        }
-        const el = rowRefs.current.get(candidate);
-        if (!el) {
-          dropIndicatorRef.current = null;
-          setDropIndicator(null);
-          cancelAutoExpand();
-          return;
-        }
-        overId = candidate;
-        overEl = el;
-      }
-
-      if (!overEl || !overId) return;
-
-      const rect = overEl.getBoundingClientRect();
-      const relativeY = (lastPointerRef.current.y - rect.top) / rect.height;
-      const doc = state.document;
-      const overNode = doc.nodes[overId as NodeId];
-      const overIsContainer = overNode && isContainer(overNode);
-
-      const isDescendant = isDescendantFast(doc, activeNodeId, overId, parentCacheRef.current);
-
-      const zone = computeDropZone(relativeY, !!overIsContainer, !!isDescendant);
-
-      // Dropping into the middle band of a clipping mask source row means
-      // "clip the dragged layer(s) to this matte" — the drop preview signals
-      // the resulting clipping relationship, not a plain reorder.
-      const invalid = !!isDescendant;
-      const clipInto = invalid
-        ? false
-        : (resolveDropClipTarget(doc, overId, zone)?.clipInto ?? false);
-      const nextIndicator = { nodeId: overId, zone, clipInto, invalid } as const;
-      dropIndicatorRef.current = nextIndicator;
-      setDropIndicator(nextIndicator);
-
-      if (!isDescendant && overIsContainer && zone === 'into' && !expanded.has(overId)) {
-        startAutoExpand(overId);
-      } else {
-        cancelAutoExpand();
-      }
-    },
-    [state.document, expanded, cancelAutoExpand, startAutoExpand],
-  );
-
-  const handleDragMove = useCallback(
-    (event: DragMoveEvent) => {
-      const { activatorEvent, delta, over, active } = event;
-      if (activatorEvent instanceof MouseEvent || activatorEvent instanceof PointerEvent) {
-        lastPointerRef.current = {
-          x: activatorEvent.clientX + delta.x,
-          y: activatorEvent.clientY + delta.y,
-        };
-      }
-      updateDropIndicator(over, active.id as NodeId);
-      handleAutoScroll(lastPointerRef.current.y);
-    },
-    [updateDropIndicator, handleAutoScroll],
-  );
-
-  const handleDragOver = useCallback(
-    (event: DragOverEvent) => {
-      updateDropIndicator(event.over, event.active.id as NodeId);
-      handleAutoScroll(lastPointerRef.current.y);
-    },
-    [updateDropIndicator, handleAutoScroll],
-  );
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { active } = event;
-      setActiveId(null);
-      cancelAutoExpand();
-      cancelAutoScroll();
-      const resolvedIndicator = dropIndicatorRef.current;
-      if (
-        !resolvedIndicator ||
-        resolvedIndicator.nodeId === active.id ||
-        resolvedIndicator.invalid
-      ) {
-        dropIndicatorRef.current = null;
-        setDropIndicator(null);
-        return;
-      }
-
-      const activeNodeId = active.id as NodeId;
-      const { zone } = resolvedIndicator;
-      // Use the app-computed indicator target as the authoritative overId,
-      // not dnd-kit's event.over.id.  dnd-kit's rectIntersection collision
-      // detection can pick the huge canvas-drop-zone droppable over small
-      // row droppables (the same false-positive hijack that DnDShell
-      // guards against with its canvas bounds check), so the layers handler
-      // must trust its own pointer-position-based calculation.
-      const overId = resolvedIndicator.nodeId;
-      dropIndicatorRef.current = null;
-      setDropIndicator(null);
-
-      const doc = state.document;
-      const overNode = doc.nodes[overId];
-      const activeNode = doc.nodes[activeNodeId];
-      if (!overNode || !activeNode) return;
-
-      // Dragging a row that's part of a multi-selection carries the whole
-      // selection along (Figma/Sketch/Illustrator convention), not just the
-      // row under the pointer.
-      const moveIds = resolveDragMoveIds(
-        doc,
+  // Dragging a row that's part of a multi-selection carries the whole
+  // selection along (Figma/Sketch/Illustrator convention), not just the row
+  // under the pointer.
+  const resolveMoveIds = useCallback(
+    (activeNodeId: NodeId) =>
+      resolveDragMoveIds(
+        state.document,
         state.selection,
-        entries,
+        entriesRef.current,
         activeNodeId,
         parentCacheRef.current,
-      );
-
-      // Never drop a moving node's own subtree onto/into itself.
-      if (moveIds.some((id) => isDescendantFast(doc, id, overId, parentCacheRef.current))) {
-        return;
-      }
-
-      const isMulti = moveIds.length > 1;
-
-      if (zone === 'into') {
-        // Dropping onto the middle band of a clipping mask source row clips
-        // the dragged layer(s) to that matte: they become siblings of the
-        // matte, ordered immediately after it (the matte itself must stay at
-        // the head of the run so the relationship stays legible). The mask
-        // already applies to every other child, so no mask mutation is
-        // needed — only a reparent/reorder.
-        const dropTarget = resolveDropClipTarget(doc, overId, zone);
-        if (dropTarget?.clipInto && dropTarget.parentId) {
-          const overParentNode = doc.nodes[dropTarget.parentId];
-          if (!overParentNode || !isContainer(overParentNode)) return;
-          const siblings = (overParentNode as ContainerNode).children;
-          const steps = computeMultiMoveSteps(siblings, moveIds, dropTarget.index);
-
-          if (isNoOpMove(siblings, steps)) return;
-          if (isMulti) beginTransaction();
-          for (const step of steps) reparentNode(step.id, dropTarget.parentId, step.index);
-          if (isMulti) commitTransaction();
-
-          announce(
-            isMulti
-              ? `Moved ${moveIds.length} layers into the clipping group`
-              : `Clipped ${activeNode.name} to ${overNode.name}`,
-          );
-          return;
-        }
-
-        const overContainer = doc.nodes[overId];
-        const children =
-          overContainer && isContainer(overContainer)
-            ? (overContainer as ContainerNode).children
-            : [];
-        const steps = computeMultiMoveSteps(children, moveIds, children.length);
-
-        if (isNoOpMove(children, steps)) return;
-        if (isMulti) beginTransaction();
-        for (const step of steps) reparentNode(step.id, overId, step.index);
-        if (isMulti) commitTransaction();
-
-        announce(
-          isMulti
-            ? `Moved ${moveIds.length} layers into ${overNode.name}`
-            : `Moved ${activeNode.name} into ${overNode.name}`,
-        );
-        return;
-      }
-
-      const overEntry = entries.find((e) => e.node.id === overId);
-      const targetParentId = overEntry?.parentId ?? null;
-      const targetSiblings = targetParentId
-        ? ((doc.nodes[targetParentId] as ContainerNode | undefined)?.children ??
-          resolveRootLevelSiblings(doc))
-        : resolveRootLevelSiblings(doc);
-
-      let overIdx = targetSiblings.indexOf(overId);
-      if (overIdx < 0) overIdx = targetSiblings.length;
-
-      // Visual before/after is inverted vs raw array order (panel is
-      // front-most-first, raw is back-to-front).  Dropping "before" a row
-      // visually (above it) means inserting *after* it in the raw array.
-      const basePosition = zone === 'before' ? overIdx + 1 : overIdx;
-      const steps = computeMultiMoveSteps(targetSiblings, moveIds, basePosition);
-
-      if (isNoOpMove(targetSiblings, steps)) return;
-      if (isMulti) beginTransaction();
-      for (const step of steps) reparentNode(step.id, targetParentId, step.index);
-      if (isMulti) commitTransaction();
-
-      announce(
-        isMulti
-          ? `Moved ${moveIds.length} layers ${zone === 'before' ? 'above' : 'below'} ${overNode.name}`
-          : zone === 'before'
-            ? `Moved ${activeNode.name} above ${overNode.name}`
-            : `Moved ${activeNode.name} below ${overNode.name}`,
-      );
-    },
-    [
-      state.document,
-      state.selection,
-      entries,
-      dropIndicator,
-      reparentNode,
-      announce,
-      cancelAutoExpand,
-      cancelAutoScroll,
-      beginTransaction,
-      commitTransaction,
-    ],
+      ),
+    [state.document, state.selection],
   );
 
-  const handleDragCancel = useCallback(() => {
-    setActiveId(null);
-    dropIndicatorRef.current = null;
-    setDropIndicator(null);
-    cancelAutoExpand();
-    cancelAutoScroll();
-  }, [cancelAutoExpand, cancelAutoScroll]);
+  const {
+    activeId,
+    dropIndicator,
+    handleDragStart,
+    handleDragMove,
+    handleDragOver,
+    handleDragEnd,
+    handleDragCancel,
+  } = useLayersDnD({
+    doc: state.document,
+    selection: state.selection,
+    treeRef,
+    treeContentRef,
+    virtualizer,
+    entriesRef,
+    expandedRef,
+    parentCacheRef,
+    setExpanded,
+    resolveMoveIds,
+    reparentNode,
+    announce,
+    beginTransaction,
+    commitTransaction,
+  });
 
   // Expose DnD handlers and collapse methods to parent via ref
   useImperativeHandle(
@@ -1455,34 +1072,34 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     Object.values(filterSpec.attributes).some((v) => v !== undefined) ||
     filterSpec.blendModes.length > 0;
 
-  if (entries.length === 0 && !isFiltering) {
-    return (
-      <div className="layers-panel__empty">
-        <EmptyState
-          illustration={
-            <svg
-              width="48"
-              height="48"
-              viewBox="0 0 48 48"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              aria-hidden
-            >
-              <title>No layers</title>
-              <rect x="8" y="6" width="32" height="10" rx="2" opacity="0.6" />
-              <rect x="8" y="20" width="32" height="10" rx="2" opacity="0.4" />
-              <rect x="8" y="34" width="32" height="10" rx="2" opacity="0.2" />
-            </svg>
-          }
-          headline="No layers yet"
-          description="Add a shape to get started"
-        />
-      </div>
-    );
-  }
-
-  if (entries.length === 0 && isFiltering) {
+  const emptyState = (() => {
+    if (entries.length > 0) return null;
+    if (!isFiltering) {
+      return (
+        <div className="layers-panel__empty">
+          <EmptyState
+            illustration={
+              <svg
+                width="48"
+                height="48"
+                viewBox="0 0 48 48"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                aria-hidden
+              >
+                <title>No layers</title>
+                <rect x="8" y="6" width="32" height="10" rx="2" opacity="0.6" />
+                <rect x="8" y="20" width="32" height="10" rx="2" opacity="0.4" />
+                <rect x="8" y="34" width="32" height="10" rx="2" opacity="0.2" />
+              </svg>
+            }
+            headline="No layers yet"
+            description="Add a shape to get started"
+          />
+        </div>
+      );
+    }
     return (
       <div className="layers-panel__empty">
         <EmptyState
@@ -1506,7 +1123,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
         />
       </div>
     );
-  }
+  })();
 
   return (
     <div
@@ -1523,7 +1140,17 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       onKeyDown={handleKeyDown}
       onContextMenu={handleContextMenu}
     >
+      {emptyState}
+      {dropIndicator && dropIndicator.targetId === null ? (
+        <div
+          className={`layers-panel__drop-root${dropIndicator.valid ? '' : ' layers-panel__drop-root--invalid'}`}
+          role="status"
+        >
+          Move to top level
+        </div>
+      ) : null}
       <div
+        ref={treeContentRef}
         style={{
           height: `${virtualizer.getTotalSize()}px`,
           position: 'relative',
@@ -1547,10 +1174,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
             const focused = virtualItem.index === focusIdx;
             const isExpanded = expanded.has(node.id);
             const dropClass =
-              dropIndicator?.nodeId === node.id
-                ? `layers-row--drop-${dropIndicator.zone}${dropIndicator.invalid ? ' layers-row--drop-invalid' : ''}`
+              dropIndicator?.targetId === node.id
+                ? `layers-row--drop-${dropIndicator.zone}${dropIndicator.valid ? '' : ' layers-row--drop-invalid'}`
                 : '';
-            const dropClip = dropIndicator?.nodeId === node.id && dropIndicator.clipInto === true;
+            const dropClip = dropIndicator?.targetId === node.id && dropIndicator.clipInto === true;
 
             return (
               <SortableVirtualRow

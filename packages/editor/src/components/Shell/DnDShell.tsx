@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core';
 import type { NodeId } from '@varve/scene';
 import { computeFloatingOrigin, screenToWorld } from '@varve/shared';
-import { type ReactNode, useCallback, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorContextValue } from '../../context';
 import type { DragNodeData } from '../../dnd-types';
 import type { LayersDnDHandle } from '../LayersPanel/LayersTree';
@@ -24,7 +24,12 @@ export interface DnDShellProps {
 export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const lastPointerPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [activeDragNode, setActiveDragNode] = useState<{ id: NodeId; name: string } | null>(null);
+  const [activeDragNode, setActiveDragNode] = useState<{
+    id: NodeId;
+    name: string;
+    /** Extra layers travelling with this one, for the "+N" badge. */
+    extraCount: number;
+  } | null>(null);
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
@@ -33,7 +38,15 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
       if (data?.type === 'layer') {
         const node = editor.state.document.nodes[data.nodeId];
         if (node) {
-          setActiveDragNode({ id: data.nodeId, name: node.name });
+          // Dragging one row of a multi-selection moves the whole selection,
+          // so a preview showing a single name misrepresents the operation.
+          const selection = editor.state.selection;
+          const movingCount = selection.includes(data.nodeId) ? selection.length : 1;
+          setActiveDragNode({
+            id: data.nodeId,
+            name: node.name,
+            extraCount: Math.max(0, movingCount - 1),
+          });
         }
       }
     },
@@ -53,6 +66,17 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
     },
     [layersDndRef],
   );
+
+  // dnd-kit folds scroll compensation into `delta`, so the reconstruction
+  // above drifts once a scrollable ancestor moves. The canvas-drop hit test
+  // needs the true cursor, so track it directly for the life of the drag.
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent) => {
+      lastPointerPos.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    return () => window.removeEventListener('pointermove', onPointerMove);
+  }, []);
 
   const handleDragOver = useCallback(
     (event: import('@dnd-kit/core').DragOverEvent) => {
@@ -156,6 +180,9 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
             }}
           >
             {activeDragNode.name}
+            {activeDragNode.extraCount > 0 ? (
+              <span className="drag-overlay__count"> +{activeDragNode.extraCount}</span>
+            ) : null}
           </div>
         ) : null}
       </DragOverlay>

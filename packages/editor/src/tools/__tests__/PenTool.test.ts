@@ -131,7 +131,7 @@ describe('PenTool', () => {
     expect(ctx.announce).toHaveBeenCalledWith('Path started');
   });
 
-  it('onPointerMove during Placing publishes the complete Pen construction draft', () => {
+  it('onPointerMove during Placing uses line draft, not rect', () => {
     const tool = new PenTool();
     const ctx = makeCtx();
     tool.onActivate?.(ctx);
@@ -141,16 +141,10 @@ describe('PenTool', () => {
 
     tool.onPointerMove?.(makePointerEvent(200, 150), ctx);
 
-    expect(ctx.setDraft).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        kind: 'bezier-path',
-        pointer: { x: 200, y: 150 },
-        points: [expect.objectContaining({ x: 100, y: 100 })],
-      }),
-    );
+    expect(ctx.setDraft).toHaveBeenCalledWith(expect.objectContaining({ kind: 'line' }));
   });
 
-  it('rubber-band draft keeps the last anchor separate from the future pointer segment', () => {
+  it('rubber-band shows line from last point to cursor', () => {
     const tool = new PenTool();
     const ctx = makeCtx();
     tool.onActivate?.(ctx);
@@ -160,51 +154,14 @@ describe('PenTool', () => {
 
     tool.onPointerMove?.(makePointerEvent(200, 150), ctx);
 
-    expect(ctx.setDraft).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        kind: 'bezier-path',
-        pointer: { x: 200, y: 150 },
-        isDragging: false,
-      }),
-    );
-  });
-
-  it('publishes placed anchors and live handles before commit', () => {
-    const tool = new PenTool();
-    const ctx = makeCtx();
-    tool.onActivate?.(ctx);
-
-    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
-    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
-    vi.advanceTimersByTime(500);
-    tool.onPointerDown?.(makePointerEvent(220, 160), ctx);
-    tool.onPointerMove?.(makePointerEvent(280, 220), ctx);
-
-    const draft = vi.mocked(ctx.setDraft).mock.lastCall?.[0];
-    expect(draft).toMatchObject({ kind: 'bezier-path', isDragging: true });
-    if (draft?.kind !== 'bezier-path') return;
-    expect(draft.points).toHaveLength(2);
-    expect(draft.points[1]?.handleIn).not.toBeNull();
-    expect(draft.points[1]?.handleOut).not.toBeNull();
-    expect(ctx.createShapeAt).not.toHaveBeenCalled();
-  });
-
-  it('marks the first anchor as a close target without committing', () => {
-    const tool = new PenTool();
-    const ctx = makeCtx();
-    tool.onActivate?.(ctx);
-
-    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
-    tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
-    vi.advanceTimersByTime(500);
-    tool.onPointerDown?.(makePointerEvent(200, 100), ctx);
-    tool.onPointerUp?.(makePointerEvent(200, 100), ctx);
-    tool.onPointerMove?.(makePointerEvent(103, 102), ctx);
-
-    expect(ctx.setDraft).toHaveBeenLastCalledWith(
-      expect.objectContaining({ kind: 'bezier-path', closedPreview: true }),
-    );
-    expect(ctx.createShapeAt).not.toHaveBeenCalled();
+    expect(ctx.setDraft).toHaveBeenCalledWith({
+      kind: 'line',
+      x1: 100,
+      y1: 100,
+      x2: 200,
+      y2: 150,
+      label: 'to (200, 150)',
+    });
   });
 
   it('commitPath clears draft and creates path shape', () => {

@@ -217,6 +217,15 @@ export const LayersRow = memo(function LayersRow({
   // disagree with what sceneToEngine actually draws.
   const enabledObjectFilterCount = objectFilterCount > 0 ? activeSmartFilters(node).length : 0;
 
+  /**
+   * Keep a control's own gesture out of dnd-kit's hands. The row is draggable
+   * from anywhere (Figma/Illustrator convention) which means its pointerdown
+   * listener sits above every button, toggle and checkbox inside it.
+   */
+  const stopDragActivation = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
+  }, []);
+
   const handleIconDoubleClick = useCallback(
     (e?: React.MouseEvent) => {
       e?.stopPropagation();
@@ -350,6 +359,7 @@ export const LayersRow = memo(function LayersRow({
         <label
           className={`layers-row__selection-checkbox ${selected ? 'layers-row__selection-checkbox--selected' : ''}`}
           tabIndex={-1}
+          onPointerDown={stopDragActivation}
           aria-label={
             selected ? `Remove ${node.name} from selection` : `Add ${node.name} to selection`
           }
@@ -375,6 +385,7 @@ export const LayersRow = memo(function LayersRow({
             type="button"
             className="layers-row__disclosure"
             tabIndex={-1}
+            onPointerDown={stopDragActivation}
             onClick={(e) => {
               e.stopPropagation();
               if (e.altKey) {
@@ -639,6 +650,7 @@ export const LayersRow = memo(function LayersRow({
                 : 'layers-row__toggle--visibility-off'
           }`}
           tabIndex={-1}
+          onPointerDown={stopDragActivation}
           onClick={(e) => {
             e.stopPropagation();
             onToggleVisibility(node.id);
@@ -673,6 +685,7 @@ export const LayersRow = memo(function LayersRow({
                 : 'layers-row__toggle--locked-off'
           }`}
           tabIndex={-1}
+          onPointerDown={stopDragActivation}
           onClick={(e) => {
             e.stopPropagation();
             onToggleLock(node.id);
@@ -706,6 +719,7 @@ export const LayersRow = memo(function LayersRow({
               isSoloed ? 'layers-row__toggle--solo-on' : 'layers-row__toggle--solo-off'
             }`}
             tabIndex={-1}
+            onPointerDown={stopDragActivation}
             onClick={(e) => {
               e.stopPropagation();
               onToggleSolo(node.id);

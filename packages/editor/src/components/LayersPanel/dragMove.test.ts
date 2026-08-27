@@ -181,6 +181,73 @@ describe('computeMultiMoveSteps', () => {
     }
     expect(arr).toEqual(['A', 'B', 'C', 'X', 'Y']);
   });
+
+  /**
+   * Each step is applied by a separate reparentNode call, so a plan is only
+   * correct if it composes: members of the run that have not moved yet are
+   * still occupying slots underneath the insertion point. Slot arithmetic
+   * against the *original* array silently drifts by one per pending member,
+   * which is what scrambled multi-row drags.
+   */
+  describe('composed application (one reparentNode call per step)', () => {
+    const apply = (siblings: string[], steps: Array<{ id: string; index: number }>): string[] => {
+      let arr = [...siblings];
+      for (const { id, index } of steps) {
+        arr = arr.filter((x) => x !== id);
+        arr.splice(Math.max(0, Math.min(index, arr.length)), 0, id);
+      }
+      return arr;
+    };
+
+    it('moves a non-contiguous pair to the end of the list', () => {
+      const siblings = ['A', 'B', 'C', 'D', 'E'];
+      const steps = computeMultiMoveSteps(siblings, ['D', 'B'], siblings.length);
+      expect(apply(siblings, steps)).toEqual(['A', 'C', 'E', 'B', 'D']);
+    });
+
+    it('moves a non-contiguous pair to the front of the list', () => {
+      const siblings = ['A', 'B', 'C', 'D', 'E'];
+      const steps = computeMultiMoveSteps(siblings, ['D', 'B'], 0);
+      expect(apply(siblings, steps)).toEqual(['B', 'D', 'A', 'C', 'E']);
+    });
+
+    it('moves a contiguous pair downward past a stationary sibling', () => {
+      const siblings = ['A', 'B', 'C', 'D', 'E'];
+      const steps = computeMultiMoveSteps(siblings, ['C', 'B'], 4);
+      expect(apply(siblings, steps)).toEqual(['A', 'D', 'B', 'C', 'E']);
+    });
+
+    it('moves a contiguous pair upward past a stationary sibling', () => {
+      const siblings = ['A', 'B', 'C', 'D', 'E'];
+      const steps = computeMultiMoveSteps(siblings, ['D', 'C'], 1);
+      expect(apply(siblings, steps)).toEqual(['A', 'C', 'D', 'B', 'E']);
+    });
+
+    it('moves three non-adjacent nodes as one contiguous run', () => {
+      const siblings = ['A', 'B', 'C', 'D', 'E', 'F'];
+      const steps = computeMultiMoveSteps(siblings, ['E', 'C', 'A'], 6);
+      expect(apply(siblings, steps)).toEqual(['B', 'D', 'F', 'A', 'C', 'E']);
+    });
+
+    it('keeps a single-node move on its existing formula', () => {
+      const siblings = ['A', 'B', 'C'];
+      expect(apply(siblings, computeMultiMoveSteps(siblings, ['A'], 3))).toEqual(['B', 'C', 'A']);
+      expect(apply(siblings, computeMultiMoveSteps(siblings, ['C'], 0))).toEqual(['C', 'A', 'B']);
+    });
+
+    it('interleaves arrivals from another container with local movers', () => {
+      const siblings = ['A', 'B', 'C'];
+      // 'X' arrives from a different parent; 'B' is already here.
+      const steps = computeMultiMoveSteps(siblings, ['X', 'B'], 2);
+      expect(apply(siblings, steps)).toEqual(['A', 'B', 'X', 'C']);
+    });
+
+    it('clamps a base position past the end of the sibling list', () => {
+      const siblings = ['A', 'B'];
+      const steps = computeMultiMoveSteps(siblings, ['A'], 99);
+      expect(apply(siblings, steps)).toEqual(['B', 'A']);
+    });
+  });
 });
 
 describe('isNoOpMove', () => {

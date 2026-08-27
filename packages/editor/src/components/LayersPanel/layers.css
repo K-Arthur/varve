@@ -987,14 +987,39 @@
 /* ─── Drop zone indicators (DnD) ────────────────────────────── */
 .layers-row--drop-before {
   border-top: 2px solid var(--color-interactive-default);
+  box-shadow: inset 0 3px 0 -1px var(--color-interactive-default);
 }
 
 .layers-row--drop-after {
   border-bottom: 2px solid var(--color-interactive-default);
+  box-shadow: inset 0 -3px 0 -1px var(--color-interactive-default);
 }
 
 .layers-row--drop-into {
   background: var(--color-interactive-hover);
+}
+
+/* Dropping in the empty space below the last row moves to the page's top
+   level. Without a visible affordance the only way out of a container was to
+   aim at some other root-level row, which does not exist when one container
+   holds everything. */
+.layers-panel__drop-root {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  margin: 0 var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-top: 2px solid var(--color-interactive-default);
+  background: color-mix(in srgb, var(--color-interactive-default) 16%, transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.layers-panel__drop-root--invalid {
+  border-top-color: var(--color-feedback-error);
+  background: color-mix(in srgb, var(--color-feedback-error) 16%, transparent);
 }
 
 .layers-row--drop-invalid {
