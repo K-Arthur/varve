@@ -199,7 +199,11 @@ warped containers resolves to the container in v1.
   (text + icon, never color-only); Escape aborts the drag
   (abortTransaction); pixel-grid snap when snapping is enabled.
   Drag deltas convert through `screenDeltaToWorld`, so handles track the
-  cursor at any zoom or camera rotation.
+  cursor at any zoom or camera rotation. Pointer samples are latest-value
+  coalesced through one `requestAnimationFrame`; obsolete samples are dropped
+  rather than queued behind the pointer. The resulting modifier update remains
+  inside one canonical transaction, so the artwork and cage consume the same
+  per-frame document state and one drag produces one undo entry.
 - **Keyboard**: every handle is a focus stop (`role="button"`, `tabIndex=0`).
   Arrow keys nudge 1px, Shift+Arrow 10px — one undo step per press, routed
   through the same `DragApply` function pointer dragging uses. Mesh points
@@ -216,6 +220,10 @@ warped containers resolves to the container in v1.
   Appearance with warning, Remove All Warps.
 - All colors trace to design tokens; handles have high-contrast and
   reduced-motion variants (`WarpSection.css`).
+- The cage is rendered only while the Warp tool is authoritative. Deactivation,
+  pointer cancellation, lost capture, window blur, tab visibility changes, and
+  unmount all abort an in-flight transaction and clear the transient edit
+  target.
 
 ## 15. Multimodal boundary
 
