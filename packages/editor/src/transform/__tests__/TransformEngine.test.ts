@@ -201,6 +201,69 @@ describe('TransformEngine.resize — image aspect ratio', () => {
   });
 });
 
+function makeTextNode(id: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    kind: 'text' as const,
+    name: `Text ${id}`,
+    order: 'a0',
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blendMode: 'normal' as const,
+    rotation: 0,
+    fill: [0, 0, 0, 255] as [number, number, number, number],
+    strokes: [] as [],
+    effects: [] as [],
+    transform: [1, 0, 0, 1, 0, 0] as Affine,
+    text: 'Area text that wraps across more than one line',
+    fontSize: 16,
+    fontFamily: 'Test Sans',
+    lineHeight: 1.4,
+    ...overrides,
+  };
+}
+
+describe('TransformEngine.bakeNode — text resizing contract', () => {
+  it('widens a fixed area box instead of scaling its type', () => {
+    const node = makeTextNode('t1', { w: 200, h: 100, textMode: 'area', textResizing: 'fixed' });
+    const doc = makeDoc({ t1: node });
+    const engine = new TransformEngine(doc, ['t1'], { bakeOnCommit: true });
+
+    const resized = engine.resize([400, 100], 'e', { proportional: false }, doc);
+    const baked = engine.commit(resized).nodes.t1 as unknown as typeof node;
+
+    expect(baked.fontSize).toBe(16);
+    expect(baked.w).toBeGreaterThan(300);
+    expect(baked.h).toBeCloseTo(100, 0);
+  });
+
+  it('leaves auto-height without a stored height so the wrap keeps owning it', () => {
+    const node = makeTextNode('t1', { w: 200, textMode: 'area', textResizing: 'autoHeight' });
+    const doc = makeDoc({ t1: node });
+    const engine = new TransformEngine(doc, ['t1'], { bakeOnCommit: true });
+
+    const resized = engine.resize([400, 300], 'se', { proportional: false }, doc);
+    const baked = engine.commit(resized).nodes.t1 as unknown as typeof node;
+
+    expect(baked.fontSize).toBe(16);
+    expect(baked.w).toBeGreaterThan(300);
+    expect(baked.h).toBeUndefined();
+  });
+
+  it('scales the type for auto-width text, which owns no container', () => {
+    const node = makeTextNode('t1', { text: 'Point text', textResizing: 'autoWidth' });
+    const doc = makeDoc({ t1: node });
+    const engine = new TransformEngine(doc, ['t1'], { bakeOnCommit: true });
+
+    const resized = engine.resize([400, 200], 'se', { proportional: true }, doc);
+    const baked = engine.commit(resized).nodes.t1 as unknown as typeof node;
+
+    expect(baked.fontSize).toBeGreaterThan(16);
+    expect(baked.w).toBeUndefined();
+  });
+});
+
 describe('TransformEngine.bakeNode — image-node commit', () => {
   it('shrinks a background-removed image from its centre without dropping mask metadata', () => {
     const img = makeBackgroundRemovedRaster('cutout', 200, 120);

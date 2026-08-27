@@ -1,5 +1,6 @@
 import type { Shape } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
+import { textNodeLocalBounds } from '@varve/scene';
 
 /**
  * Collect all files from a DataTransfer, recursively enumerating folders
@@ -111,8 +112,8 @@ function nodeLocalBoundsSimple(
   const ty = node.transform[5] ?? 0;
 
   if (node.kind === 'text') {
-    const fSize = node.fontSize ?? 16;
-    return { x: tx, y: ty, w: (node.text?.length ?? 1) * fSize * 0.6, h: fSize * 1.4 };
+    const bounds = textNodeLocalBounds(node);
+    return { x: tx, y: ty, w: bounds.w, h: bounds.h };
   }
   if (node.kind === 'shape') {
     const s = node.shape as Shape;

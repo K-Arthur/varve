@@ -9,6 +9,7 @@
  * `@varve/editor/src/thumbnail/`.
  */
 
+import { textMeasureRevision } from '@varve/shared';
 import { createEngine } from '../engine';
 import { type CachedImage, getImageCache } from '../imageCache';
 import { resolveImageResourceHandle } from '../imageResourceRegistry';
@@ -201,10 +202,13 @@ function simpleHash(input: string): string {
 
 function computeCacheKey(nodes: SceneNode[], opts: ThumbnailOptions): string {
   const contentKey = nodes
-    .map(
-      (n) =>
-        `${n.id}:${n.kind}:${JSON.stringify(n.shape)}:${JSON.stringify(n.fill)}:${JSON.stringify(n.fills)}`,
-    )
+    .map((n) => {
+      const base = `${n.id}:${n.kind}:${JSON.stringify(n.shape)}:${JSON.stringify(n.fill)}:${JSON.stringify(n.fills)}`;
+      // Text nodes have no `shape`, so without this the key is blind to the
+      // string, its styling, and the face it is finally set in.
+      if (n.kind !== 'text') return base;
+      return `${base}:${n.text}:${n.fontFamily}:${n.fontSize}:${n.fontWeight}:${n.fontStyle}:${textMeasureRevision()}`;
+    })
     .join('|');
   const hash = simpleHash(contentKey);
   const optsKey = `${opts.maxWidth ?? DEFAULT_THUMBNAIL_WIDTH}x${opts.maxHeight ?? DEFAULT_THUMBNAIL_HEIGHT}-${opts.fit ?? 'contain'}`;

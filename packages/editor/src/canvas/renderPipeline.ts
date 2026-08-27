@@ -75,6 +75,7 @@ import {
   perspectiveSurfaceCache,
 } from '../render/perspectiveImage';
 import { alphaBounds } from '../render/surfaceBounds';
+import { documentNeedsWorkerFonts } from '../render/workerFonts';
 import {
   collectMasterOffsets,
   offsetWorldBounds,
@@ -136,6 +137,23 @@ import type { NodeHashMemo, SubtreeIrCache } from './subtreeIrCache';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './visualBounds';
 
 let _showOriginalBgNodeId: string | null = null;
+
+/**
+ * Whether the worker can be trusted with this document's text.
+ *
+ * True when the document has no text in a declared web family, or when the
+ * worker has echoed back the face set it was given. A document whose text uses
+ * only system families renders identically in either realm and keeps the
+ * worker fast path.
+ */
+function workerHasFontsForDocument(
+  host: { fontsReady: boolean; declaredFontFamilies: ReadonlySet<string> } | null,
+  doc: Document,
+): boolean {
+  if (!host) return false;
+  if (host.fontsReady) return true;
+  return !documentNeedsWorkerFonts(doc, host.declaredFontFamilies);
+}
 
 export function toEngineNode(node: SceneNode, doc: Document): EngineNode {
   return sceneNodeToEngineNode(
@@ -673,7 +691,13 @@ export function renderContent(deps: RenderContentDeps): void {
       profileCanUseWorker &&
       !documentHasPerspectiveImage(doc) &&
       sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&
-      !sceneNeedsStructuralCompositing(doc);
+      !sceneNeedsStructuralCompositing(doc) &&
+      // The worker realm has its own FontFaceSet and does not inherit the
+      // document's @font-face rules. Until it has adopted them, text in a
+      // declared family would be drawn there in a substituted face — the same
+      // wrong typography this whole area is about, arriving by a different
+      // route. Decided synchronously, before the frame picks its branch.
+      workerHasFontsForDocument(renderWorkerRef.current, doc);
     // One shared surface-validity result per frame: the prune gate and the
     // paint gate must agree, or a pruned replay lands on a fully cleared
     // surface and erases every node outside the dirty region.

@@ -11,6 +11,7 @@
 import type { Affine, Point, Shape } from '@varve/engine';
 import { applyAffine } from '@varve/engine';
 import type { ContainerNode, Document, SceneNode } from '@varve/scene';
+import { textNodeLocalBounds } from '@varve/scene';
 import { nodeWorldBounds } from '../../scene/world';
 
 export interface AABB {
@@ -124,18 +125,9 @@ function shapeLocalBBox(shape: Shape): AABB {
 
 function approximateTextBBox(node: SceneNode): AABB | null {
   if (node.kind !== 'text') return null;
-  if (node.w !== undefined || node.h !== undefined) {
-    return {
-      x: 0,
-      y: 0,
-      w: node.w ?? Math.max(node.text.length * node.fontSize * 0.6, node.fontSize * 3),
-      h: node.h ?? node.fontSize * (node.lineHeight ?? 1.4),
-    };
-  }
-  const size = node.fontSize;
-  const w = node.text.length * size * 0.6;
-  const h = size * 1.4;
-  return { x: 0, y: 0, w, h };
+  // Redlining is a measurement surface; the number it prints has to be the
+  // number the canvas draws, not a character count.
+  return textNodeLocalBounds(node);
 }
 
 export function getAccumulatedTransform(
