@@ -355,4 +355,53 @@ test.describe('browser demo (/try)', () => {
       contentType: 'image/png',
     });
   });
+  test('File > Import works in the demo: images and SVG are not withheld', async ({ page }) => {
+    // The demo withholds inference and print production because a browser tab
+    // genuinely cannot do them justice. Import is not on that list, and it
+    // should not be: PNG/JPEG/SVG ingest is entirely client-side, so a
+    // visitor must be able to bring their own artwork into the sample
+    // document. This guards both halves — that import stays reachable, and
+    // that the picker offers artwork rather than Varve documents.
+    await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.layers-panel', { timeout: 60000 });
+    await dismissRecoveryDialog(page);
+
+    const before = await page.getByRole('treeitem').count();
+
+    await page.getByRole('menubar').getByRole('menuitem', { name: 'File' }).click();
+    await page.getByRole('menuitem', { name: /import/i }).click();
+
+    const accept = await page.locator('#file-import-input').getAttribute('accept');
+    expect(accept).toContain('.png');
+    expect(accept).toContain('.svg');
+    expect(accept).not.toContain('.varve');
+
+    await page.locator('#file-import-input').setInputFiles([
+      {
+        name: 'visitor.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l5fNwAAAAABJRU5ErkJggg==',
+          'base64',
+        ),
+      },
+      {
+        name: 'visitor.svg',
+        mimeType: 'image/svg+xml',
+        buffer: Buffer.from('<svg><rect x="4" y="4" width="80" height="50" fill="#1f8a70"/></svg>'),
+      },
+    ]);
+
+    await expect(page.getByRole('treeitem').filter({ hasText: 'visitor.png' })).toBeVisible({
+      timeout: 30000,
+    });
+    // The PNG plus the SVG's rect land on top of the sample document.
+    await expect(page.getByRole('treeitem')).toHaveCount(before + 2, { timeout: 30000 });
+
+    await page.screenshot({ path: 'reports/try-demo/import.png', fullPage: true });
+    await test.info().attach('demo-import.png', {
+      path: 'reports/try-demo/import.png',
+      contentType: 'image/png',
+    });
+  });
 });
