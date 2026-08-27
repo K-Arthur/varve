@@ -1,7 +1,7 @@
 /**
  * Render worker host — latest-only OffscreenCanvas replay with render-revision guards.
  */
-import type { SceneNode as EngineNode, RenderItem } from '@varve/engine';
+import { type SceneNode as EngineNode, getFontRegistry, type RenderItem } from '@varve/engine';
 import { asRenderRevision, type Camera, type RenderRevision, type Viewport } from '@varve/shared';
 import {
   isInteractionTracingEnabled,
@@ -17,6 +17,7 @@ import {
   estimateRgbaBytes,
   RenderBitmapBudget,
 } from './renderBitmapBudget';
+import { fontFaceSetKey, harvestDocumentFontFaces, type WorkerFontFace } from './workerFonts';
 import { buildWorkerRenderSpan } from './workerRenderSpan';
 
 /** Default byte budget for main-thread-visible render-worker bitmaps. */
@@ -52,7 +53,8 @@ export type WorkerCommand =
   /** Clock-calibration ping; `t0` is main.performance.now() before posting. */
   | { type: 'clockPing'; seq: number; t0: number }
   /** Toggle the raster LOD pyramid in the worker realm (ADR-0214 D15). */
-  | { type: 'setRasterLod'; enabled: boolean };
+  | { type: 'setRasterLod'; enabled: boolean }
+  | { type: 'fonts'; faces: WorkerFontFace[]; key: string };
 
 /**
  * Worker-side timing for one render, in the *worker's* `performance.now()`
@@ -97,7 +99,8 @@ export type WorkerResponse =
   | { type: 'hitTestResult'; nodeId: number | null; docVersion: number }
   | { type: 'error'; message: string; docVersion?: number; renderRevision?: RenderRevision }
   /** Clock-calibration pong; `t1`/`t2` are worker.performance.now(). */
-  | { type: 'clockPong'; seq: number; t0: number; t1: number; t2: number };
+  | { type: 'clockPong'; seq: number; t0: number; t1: number; t2: number }
+  | { type: 'fontsAdopted'; key: string };
 
 export interface RenderWorkerHost {
   /** Returns false when the host refused the command or postMessage failed. */
@@ -124,6 +127,15 @@ export interface RenderWorkerHost {
   getClockCalibration(): ClockCalibration | null;
   /** Exactly-once frame accounting counters (see `frameLifecycle.ts`). */
   getFrameLedgerState(): FrameLedgerCounters;
+  /**
+   * Whether the worker realm holds the same declared font faces the document
+   * does. Synchronous by construction: the pipeline has to decide a frame's
+   * path before it renders, and an async answer arrives too late to stop a
+   * frame that has already been drawn with substituted typography.
+   */
+  readonly fontsReady: boolean;
+  /** Families the document declares via `@font-face`, for the pipeline gate. */
+  readonly declaredFontFamilies: ReadonlySet<string>;
 }
 
 export interface RenderWorkerHostOptions {
@@ -206,6 +218,44 @@ export function createRenderWorkerHost(
   let clockPingSeq = 0;
   const clockCalibrator = new WorkerClockCalibrator();
   const maxRestarts = 5;
+  let declaredFaces: WorkerFontFace[] = [];
+  let declaredFontKey = fontFaceSetKey(declaredFaces);
+  let declaredFontFamilies: ReadonlySet<string> = new Set<string>();
+  let adoptedFontKey: string | null = null;
+
+  /**
+   * Re-read the document's faces and hand any new ones to the worker.
+   *
+   * Called on worker (re)start and whenever the font registry reports a
+   * change: a family the user downloads or restores mid-session appears as a
+   * new `@font-face` rule, and a worker that never hears about it would keep
+   * substituting for it indefinitely. Re-harvesting happens only on those
+   * events, never per frame — the rules are constant in between.
+   */
+  function provisionFonts(): void {
+    const faces = harvestDocumentFontFaces();
+    const key = fontFaceSetKey(faces);
+    if (key === declaredFontKey && adoptedFontKey === key) return;
+    declaredFaces = faces;
+    declaredFontKey = key;
+    declaredFontFamilies = new Set(faces.map((face) => face.family));
+    if (faces.length === 0) {
+      adoptedFontKey = key;
+      return;
+    }
+    adoptedFontKey = null;
+    try {
+      postToWorker({ type: 'fonts', faces, key });
+    } catch {
+      // The worker will simply never report the faces as adopted, and the
+      // pipeline keeps text frames on the main thread — correct, just slower.
+    }
+  }
+
+  const unsubscribeFonts = getFontRegistry().subscribe(() => {
+    if (!worker || permanentFailure) return;
+    provisionFonts();
+  });
 
   /**
    * Send a calibration exchange when tracing is on and the current estimate is
@@ -403,6 +453,10 @@ export function createRenderWorkerHost(
           closeResponseResources(msg);
           return;
         }
+        if (msg.type === 'fontsAdopted') {
+          if (msg.key === declaredFontKey) adoptedFontKey = msg.key;
+          return;
+        }
         if (msg.type === 'clockPong') {
           clockCalibrator.addExchange({
             t0: msg.t0,
@@ -534,6 +588,12 @@ export function createRenderWorkerHost(
           markPermanentFailure();
           return;
         }
+        // The replacement realm starts with an empty FontFaceSet, so the
+        // previous adoption means nothing. Forget it and hand the faces over
+        // again; text frames stay on the main thread until it confirms.
+        adoptedFontKey = null;
+        declaredFontKey = '';
+        provisionFonts();
         const delay = Math.min(2 ** restartCount, 30) * 1000;
         restartTimeout = setTimeout(() => {
           if (permanentFailure) return;
@@ -649,6 +709,8 @@ export function createRenderWorkerHost(
     },
     terminate() {
       permanentFailure = true;
+      adoptedFontKey = null;
+      unsubscribeFonts();
       clearRestartTimeout();
       worker?.terminate();
       worker = null;
@@ -676,8 +738,15 @@ export function createRenderWorkerHost(
     get bitmapBudget() {
       return bitmapBudget;
     },
+    get fontsReady() {
+      return adoptedFontKey === declaredFontKey;
+    },
+    get declaredFontFamilies() {
+      return declaredFontFamilies;
+    },
   };
   registerWorkerHostForDiagnostics(host);
+  provisionFonts();
   return host;
 }
 

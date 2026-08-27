@@ -12,6 +12,7 @@
  * Figma text layout engine, HarfBuzz line breaking.
  */
 
+import { measureAdvanceWidth } from '@varve/shared';
 import type { OpenTypeFeatureMap, VariableFontSettings } from './types';
 
 export interface RichTextRun {
@@ -105,10 +106,6 @@ function buildVariationSettings(variableFontSettings?: VariableFontSettings): st
   return `font-variation-settings: ${axes}`;
 }
 
-function estimateTextWidth(text: string, fontSize: number): number {
-  return text.length * fontSize * 0.55;
-}
-
 /** Cached offscreen canvas for measureText calls (created lazily). */
 let measureCanvas: HTMLCanvasElement | null = null;
 
@@ -127,7 +124,9 @@ export function measureRunWidth(text: string, font: string, fontSize: number): n
     ctx.font = font;
     return ctx.measureText(text).width;
   }
-  return estimateTextWidth(text, fontSize);
+  // No DOM: fall back to the one estimate the whole codebase shares, so a
+  // headless path does not disagree with the browser one by a second constant.
+  return measureAdvanceWidth(text, { fontSize, fontFamily: font });
 }
 
 /** CJK Unicode range detection for line breaking. */
