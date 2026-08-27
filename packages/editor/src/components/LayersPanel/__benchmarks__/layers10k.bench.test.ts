@@ -20,6 +20,7 @@ import {
 import { describe, expect, test } from 'vitest';
 import { getOrCreateParentCache, getParentFast } from '../../../scene/parentIndexCache';
 import { buildSpatialIndex, queryPoint } from '../../../scene/spatialIndex';
+import { type RowGeometry, resolveLayerDropTarget } from '../layerDropResolver';
 import { DEFAULT_FILTER, type LayerFilterSpec } from '../layerFilterTypes';
 import { createSearchIndex, searchIndex } from '../layerSearchIndex';
 import { flattenTree } from '../useFlatTree';
@@ -306,6 +307,121 @@ describe('Style Resolution Performance', () => {
 
       expect(resolved.size).toBeGreaterThanOrEqual(100);
       expect(elapsed).toBeLessThan(200);
+    },
+    BENCH_TIMEOUT,
+  );
+});
+
+// ── Drag target resolution ──────────────────────────────────────────────────
+
+/**
+ * Resolving a drop target runs at pointer frequency, so its cost has to be
+ * independent of document size. It is: geometry comes from the virtualizer's
+ * measurement array (no DOM reads at all) and the row lookup is a binary
+ * search, so the work per pointer sample is O(log N) regardless of how many
+ * layers the document holds.
+ *
+ * The number that used to matter — mounted rows measured per sample — is now
+ * zero. The previous implementation called getBoundingClientRect() once per
+ * mounted row on every pointermove.
+ */
+describe('Drag drop-target resolution', () => {
+  const ROW = 28;
+  const doc = build10kDoc();
+  const expanded = new Set<NodeId>(doc.rootChildren);
+  const entries = flattenTree(doc, expanded);
+  const geometry: RowGeometry[] = entries.map((_, i) => ({
+    start: i * ROW,
+    end: (i + 1) * ROW,
+  }));
+
+  test(
+    '10K pointer samples across a 10K-row tree resolve under 150ms',
+    () => {
+      const SAMPLES = 10_000;
+      const parentCache = getOrCreateParentCache(doc, null);
+      const isDescendant = (ancestorId: NodeId, nodeId: NodeId) => {
+        let current: NodeId | null | undefined = nodeId;
+        while (current) {
+          if (current === ancestorId) return true;
+          current = getParentFast(doc, current, parentCache);
+        }
+        return false;
+      };
+      const activeIds = [entries[0]!.node.id];
+
+      const start = performance.now();
+      let resolved = 0;
+      for (let i = 0; i < SAMPLES; i++) {
+        // Sweep the pointer across the whole (virtual) list height, so the
+        // binary search is exercised at every depth rather than one hot row.
+        const contentTop = 0;
+        const pointerY = ((i * 7919) % (entries.length * ROW)) + 0.5;
+        const target = resolveLayerDropTarget({
+          doc,
+          entries,
+          geometry,
+          pointerY,
+          viewport: { top: 0, bottom: entries.length * ROW },
+          contentTop,
+          activeIds,
+          isDescendant,
+        });
+        if (target) resolved++;
+      }
+      const elapsed = performance.now() - start;
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `[bench] drop resolve: ${entries.length} rows, ${SAMPLES} samples, ` +
+          `${elapsed.toFixed(1)}ms total, ${((elapsed / SAMPLES) * 1000).toFixed(1)}us/sample`,
+      );
+
+      expect(resolved).toBe(SAMPLES);
+      expect(elapsed).toBeLessThan(150);
+    },
+    BENCH_TIMEOUT,
+  );
+
+  test(
+    'per-sample cost does not grow with document size',
+    () => {
+      const measure = (rows: number): number => {
+        const geo: RowGeometry[] = Array.from({ length: rows }, (_, i) => ({
+          start: i * ROW,
+          end: (i + 1) * ROW,
+        }));
+        const slice = entries.slice(0, rows);
+        const activeIds = [slice[0]!.node.id];
+        const isDescendant = (a: NodeId, b: NodeId) => a === b;
+        const SAMPLES = 20_000;
+        const start = performance.now();
+        for (let i = 0; i < SAMPLES; i++) {
+          resolveLayerDropTarget({
+            doc,
+            entries: slice,
+            geometry: geo,
+            pointerY: ((i * 7919) % (rows * ROW)) + 0.5,
+            viewport: { top: 0, bottom: rows * ROW },
+            contentTop: 0,
+            activeIds,
+            isDescendant,
+          });
+        }
+        return (performance.now() - start) / SAMPLES;
+      };
+
+      const small = measure(100);
+      const large = measure(10_000);
+      // eslint-disable-next-line no-console
+      console.log(
+        `[bench] drop resolve per sample: 100 rows ${(small * 1000).toFixed(2)}us, ` +
+          `10000 rows ${(large * 1000).toFixed(2)}us`,
+      );
+
+      // A 100x larger tree must not cost anywhere near 100x. Logarithmic
+      // growth plus measurement noise, so allow a generous 8x ceiling.
+      expect(large).toBeLessThan(Math.max(small * 8, 0.02));
     },
     BENCH_TIMEOUT,
   );

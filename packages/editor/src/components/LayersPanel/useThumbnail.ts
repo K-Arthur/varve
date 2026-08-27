@@ -14,7 +14,7 @@
  * Research basis: OffscreenCanvas (WICG), idle-until-urgent pattern.
  */
 
-import { getImageCache } from '@varve/engine';
+import { ImageCache } from '@varve/engine';
 import type { Document, SceneNode, ShapeNode } from '@varve/scene';
 import { isImageShape } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
@@ -24,6 +24,21 @@ import { ThumbnailCache, thumbnailCacheKey } from './thumbnailCache';
 const THUMB_W = 28;
 const THUMB_H = 28;
 const PADDING = 2;
+
+/**
+ * Thumbnails must never compete with render-critical image memory. The Layers
+ * panel regenerates thumbnails on every document change and re-mounts rows on
+ * virtualizer churn; sharing the engine's single `ImageCache` let that traffic
+ * evict (LRU) image/pattern-fill entries the canvas still needs, leaving
+ * freshly loaded tiles missing on the next frame and repainting the loading
+ * fallback. A dedicated instance isolates thumbnail load/eviction traffic
+ * from the render path (Thumbnail System invariant: background thumbnail
+ * work must never compete with canvas interaction).
+ */
+const thumbnailImageCache = new ImageCache({
+  maxEntries: 128,
+  maxBytes: 16 * 1024 * 1024,
+});
 
 async function renderNodeToCanvas(
   node: SceneNode,
@@ -75,7 +90,7 @@ async function renderNodeToCanvas(
     const imgFill = (node as ShapeNode).fills?.find((f) => f.type === 'image' && f.image?.src);
     if (imgFill?.image) {
       try {
-        const img = await getImageCache().loadAtSize(
+        const img = await thumbnailImageCache.loadAtSize(
           imgFill.image.src,
           Math.max(THUMB_W, THUMB_H),
           imgFill.image.imageWidth && imgFill.image.imageHeight
@@ -206,7 +221,7 @@ async function renderNodeToCanvas(
   const maskAsset = rasterMaskRef && doc ? doc.rasterMaskAssets?.[rasterMaskRef] : undefined;
   if (maskAsset?.dataUrl) {
     try {
-      const maskImg = await getImageCache().loadAtSize(
+      const maskImg = await thumbnailImageCache.loadAtSize(
         maskAsset.dataUrl,
         Math.max(THUMB_W, THUMB_H),
         maskAsset.width && maskAsset.height

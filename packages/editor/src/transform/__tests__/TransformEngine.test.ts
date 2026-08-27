@@ -491,3 +491,67 @@ describe('TransformEngine.bakeNode — frame child constraints', () => {
     expect(movedChild.transform[5]).toBe(30);
   });
 });
+
+describe('TransformEngine — authoritative vector geometry baking', () => {
+  it('converts a non-uniformly resized circle to an exact editable cubic path', () => {
+    const circle = {
+      ...makeVectorShape('circle1', 20, 20),
+      shape: { kind: 'circle' as const, cx: 0, cy: 0, r: 10 },
+    };
+    const doc = makeDoc({ circle1: circle });
+    const engine = new TransformEngine(doc, ['circle1'], { bakeOnCommit: true });
+
+    // The east handle changes only the horizontal dimension (20 → 30).
+    const preview = engine.resize([20, 0], 'e', { proportional: false }, doc);
+    const committed = engine.commit(preview);
+    const shape = (committed.nodes.circle1 as typeof circle).shape;
+
+    // A one-radius primitive cannot represent an ellipse. The committed path
+    // retains the curve handles that the node editor and SVG exporter use.
+    expect(shape.kind).toBe('path');
+    if (shape.kind !== 'path') return;
+    expect(shape.closed).toBe(true);
+    expect(shape.points).toHaveLength(4);
+    expect(shape.points[0]).toMatchObject({ x: 15, y: 0 });
+    expect(shape.points[0]?.handleIn).toEqual([0, -5.522847498307936]);
+    expect(shape.points[0]?.handleOut).toEqual([0, 5.522847498307936]);
+
+    // No visual-only scale matrix is left behind after commit.
+    const node = committed.nodes.circle1 as typeof circle;
+    expect(node.transform[0]).toBeCloseTo(1);
+    expect(node.transform[3]).toBeCloseTo(1);
+  });
+
+  it('keeps fractional path anchors and Bézier handles in persisted geometry', () => {
+    const path = {
+      ...makeVectorShape('path1', 1, 1),
+      shape: {
+        kind: 'path' as const,
+        closed: false,
+        tolerance: 0,
+        points: [
+          { x: 10.125, y: -4.375, handleIn: null, handleOut: [4.25, -2.5] as [number, number] },
+          { x: 60.125, y: -4.375, handleIn: [-3.5, 1.75] as [number, number], handleOut: null },
+        ],
+      },
+    };
+    const doc = makeDoc({ path1: path });
+    const engine = new TransformEngine(doc, ['path1'], { bakeOnCommit: true });
+
+    // East-edge resize: 50 world units → 62.5 (a 1.25× horizontal scale).
+    const preview = engine.resize([72.625, -4.375], 'e', { proportional: false }, doc);
+    const committed = engine.commit(preview);
+    const shape = (committed.nodes.path1 as typeof path).shape;
+
+    expect(shape.kind).toBe('path');
+    if (shape.kind !== 'path') return;
+    expect(shape.points[0]?.x).toBeCloseTo(12.65625, 12);
+    expect(shape.points[0]?.y).toBeCloseTo(-4.375, 12);
+    expect(shape.points[0]?.handleOut?.[0]).toBeCloseTo(5.3125, 12);
+    expect(shape.points[0]?.handleOut?.[1]).toBeCloseTo(-2.5, 12);
+    expect(shape.points[1]?.x).toBeCloseTo(75.15625, 12);
+    expect(shape.points[1]?.y).toBeCloseTo(-4.375, 12);
+    expect(shape.points[1]?.handleIn?.[0]).toBeCloseTo(-4.375, 12);
+    expect(shape.points[1]?.handleIn?.[1]).toBeCloseTo(1.75, 12);
+  });
+});
