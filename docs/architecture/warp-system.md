@@ -49,13 +49,15 @@ Modifier kinds (`packages/engine/src/warp/types.ts`):
 |------|----------|-------|
 | `skew` | skewX, skewY (deg), origin (normalized) | exact affine around pivot |
 | `perspective` | 4 corners (normalized) | exact homography (DLT) |
-| `envelope` | 4 corners + 8 edge controls | Coons-patch interior |
+| `envelope` | 4 corners + 8 edge controls | Coons-patch interior; corners and edge controls share the [-2, 3] editing domain |
 | `mesh-warp` | rows/columns/points | bilinear cells; bicubic = Catmull–Rom |
 | `bend` | mode, amount, axis, origin, wavelength | arc/arch/bulge/shell/flag/wave/rise |
 
 Validation: known kinds sanitized on ingest (finite values, clamped ranges,
 mesh dimension caps, stack cap); unknown future kinds preserved inert with
-diagnostics. Migrations: `2.15 → 2.16` (`warpMigration.ts`) sanitizes
+diagnostics. Envelope corner validation matches the edge control domain so a
+corner dragged outward of the source box (the tool's primary gesture) is a
+real edit, not a silent no-op. Migrations: `2.15 → 2.16` (`warpMigration.ts`) sanitizes
 `warps`/`warpSettings` on load.
 
 ## 4. Coordinate spaces

@@ -10,7 +10,7 @@ import {
 } from '../geometry';
 import { makeWarpPlan, validateWarpPlan } from '../plan';
 import { splitGraphemesText, warpTextToClusterAdjustments } from '../text';
-import type { WarpModifier } from '../types';
+import { validateWarpModifier, type WarpModifier } from '../types';
 
 const BOUNDS = { x: 10, y: 20, w: 200, h: 100 };
 
@@ -157,6 +157,52 @@ describe('foldover analysis', () => {
     const result = analyzeFoldover(BOUNDS, [identity]);
     expect(result.foldover).toBe(false);
     expect(result.severity).toBe('none');
+  });
+});
+
+describe('envelope corner editing domain', () => {
+  const CORNERS = makeWarpPreset('four-edge');
+
+  it('accepts a corner dragged outward past the unit square', () => {
+    const moved = {
+      ...CORNERS,
+      corners: { ...CORNERS.corners, tr: { x: 1.3, y: 0.45 } },
+    };
+    expect(validateWarpModifier(moved)).not.toBeNull();
+  });
+
+  it('rejects a corner outside the extended editing domain (same as edges)', () => {
+    const out = {
+      ...CORNERS,
+      corners: { ...CORNERS.corners, tr: { x: 3.5, y: 0 } },
+    };
+    const validated = validateWarpModifier(out);
+    expect(validated).toBeNull();
+    const edgesOut = {
+      ...CORNERS,
+      edges: { ...CORNERS.edges, top: [{ x: 4, y: 0 }, { x: 0.7, y: -0.1 }] },
+    };
+    expect(validateWarpModifier(edgesOut)).toBeNull();
+  });
+
+  it('deforms the artwork outward when a corner extends past the source box', () => {
+    const moved = {
+      ...CORNERS,
+      corners: { ...CORNERS.corners, tr: { x: 1.3, y: 0.45 } },
+    } as WarpModifier;
+    const { shape } = warpShapeToPath(
+      { kind: 'rect', x: 10, y: 20, w: 200, h: 100 },
+      [moved],
+      BOUNDS,
+      {
+        quality: { profile: 'export', tolerance: 1e-7 },
+        settings: undefined,
+      },
+    );
+    expect(shape.kind).toBe('path');
+    if (shape.kind !== 'path') return;
+    const xs = shape.points.map((p) => p.x);
+    expect(Math.max(...xs)).toBeGreaterThan(BOUNDS.x + BOUNDS.w + 5);
   });
 });
 
