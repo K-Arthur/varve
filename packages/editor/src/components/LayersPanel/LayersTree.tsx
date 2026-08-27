@@ -1141,14 +1141,6 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       onContextMenu={handleContextMenu}
     >
       {emptyState}
-      {dropIndicator && dropIndicator.targetId === null ? (
-        <div
-          className={`layers-panel__drop-root${dropIndicator.valid ? '' : ' layers-panel__drop-root--invalid'}`}
-          role="status"
-        >
-          Move to top level
-        </div>
-      ) : null}
       <div
         ref={treeContentRef}
         style={{
@@ -1237,6 +1229,16 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
           })}
         </SortableContext>
       </div>
+      {/* Sits after the rows so it neither displaces them nor implies "drop at
+          the top"; sticky so it stays reachable once the list is scrolled. */}
+      {dropIndicator && dropIndicator.targetId === null ? (
+        <div
+          className={`layers-panel__drop-root${dropIndicator.valid ? '' : ' layers-panel__drop-root--invalid'}`}
+          role="status"
+        >
+          Move to top level
+        </div>
+      ) : null}
     </div>
   );
 });
