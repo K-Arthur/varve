@@ -225,6 +225,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/palette-extraction-system.md` | Deterministic local image palette, harmony, and WCAG pair analysis |
 | `architecture/thumbnail-system.md` | Unified thumbnail system (ADR-0218) |
 | `architecture/coordinate-system.md` | Coordinate-space contract: spaces, storage, composition, reparenting, migration (ADR-0219) |
+| `architecture/transform-system.md` | Canonical transform-session, geometry-baking, snapping, alignment, and precision contract |
 | `architecture/asset-search-system.md` | Asset Browser retrieval lanes, vector identity, model/runtime gate, and degradation contract |
 | `architecture/background-removal-system.md` | Background-removal system contract and local-first workflow |
 | `architecture/blend-evaluation-policy.md` | Blend evaluation policy and compositing operations |
