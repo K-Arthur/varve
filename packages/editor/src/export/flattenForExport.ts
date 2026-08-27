@@ -16,6 +16,7 @@ import {
   type LiveEffectKind,
 } from '@varve/engine/liveEffects';
 import type { Document, SceneNode, ShapeNode } from '@varve/scene';
+import { textNodeLocalBounds } from '@varve/scene';
 
 // Accelerated live-effect dispatch chain: native (Tauri) → WebGPU (web) →
 // CPU reference kernels. Interactive preview stays synchronous CPU; export
@@ -164,9 +165,11 @@ function computeSubtreeBounds(
   }
 
   if (node.kind === 'text') {
-    const fs = node.fontSize ?? 16;
-    const textLen = (node as unknown as { text?: string }).text?.length ?? 1;
-    return { x: tx, y: ty, w: textLen * fs * 0.6, h: fs * 1.4 };
+    // Export must crop to the same rectangle the canvas draws into. A
+    // character-count estimate with a single line's height cut multi-line text
+    // off at the first line and mis-sized every non-average face.
+    const bounds = textNodeLocalBounds(node);
+    return { x: tx, y: ty, w: bounds.w, h: bounds.h };
   }
 
   if (node.kind === 'frame' || node.kind === 'group') {

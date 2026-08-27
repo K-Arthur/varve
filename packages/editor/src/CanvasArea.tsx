@@ -2,13 +2,7 @@
 
 import { useDroppable } from '@dnd-kit/core';
 import { type CompositorBackend, createCompositorBackend } from '@varve/compositor';
-import {
-  createEngine,
-  type Engine,
-  getFontRegistry,
-  getImageCache,
-  prewarmWasmEngine,
-} from '@varve/engine';
+import { createEngine, type Engine, getImageCache, prewarmWasmEngine } from '@varve/engine';
 import { type ImportFileInput, ImportService } from '@varve/import';
 import {
   buildAllVariantCaches,
@@ -54,6 +48,7 @@ import {
 import { renderContent } from './canvas/renderPipeline';
 import { NodeHashMemo, SubtreeIrCache } from './canvas/subtreeIrCache';
 import { buildToolContext } from './canvas/toolContext';
+import { useDocumentFontReadiness } from './canvas/useDocumentFonts';
 import { TouchCandidateMenu } from './components/Breadcrumb/TouchCandidateMenu';
 import { CanvasOverlays } from './components/CanvasOverlays';
 import { type EditorState, setStartTextEditingHandler, useEditor } from './context';
@@ -371,7 +366,6 @@ export function CanvasArea({
   // Incremented by the image cache subscriber so drawContent re-runs after async image loads.
   const [imageCacheStamp, setImageCacheStamp] = useState(0);
   const [fontLoadStamp, setFontLoadStamp] = useState(0);
-  const prefetchedFontKeyRef = useRef('');
   // Explicit redraw counter — bumped by requestRedraw() to guarantee drawContent
   // identity changes (and thus a RAF reschedule) on every mutation path, even when
   // rootNodes/zoom/pan etc. are unchanged due to React batching edge cases.
@@ -685,35 +679,17 @@ export function CanvasArea({
     return unsub;
   }, [budgets.imageCacheBytes]);
 
-  // Re-render the canvas whenever async fonts finish loading.
-  // Without this, dynamic fonts (Google Fonts, FontFace) render in the
-  // fallback typeface on the first frame and never update.
-  // Uses its own stamp (not imageCacheStamp) so font loading never clears
-  // the pending image-laden state on a frame.
-  useEffect(() => {
-    const unsub = getFontRegistry().subscribe(() => {
-      setFontLoadStamp((n) => n + 1);
-      requestRedrawRef.current?.();
-    });
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    const families = new Set<string>();
-    for (const node of Object.values(state.document.nodes)) {
-      if (node.kind !== 'text') continue;
-      if (node.fontFamily) families.add(node.fontFamily);
-      for (const paragraph of node.richText?.paragraphs ?? []) {
-        for (const run of paragraph.runs) {
-          if (run.format?.fontFamily) families.add(run.format.fontFamily);
-        }
-      }
-    }
-    const key = [...families].sort().join('\u0000');
-    if (key === prefetchedFontKeyRef.current) return;
-    prefetchedFontKeyRef.current = key;
-    void getFontRegistry().ensureDocumentFonts([...families]);
-  }, [state.document]);
+  // Font readiness is derived presentation state: it invalidates every cache
+  // holding font-dependent geometry and repaints, and it never touches the
+  // document, selection, or history.
+  useDocumentFontReadiness(state.document, () => {
+    invalidateTransformCache(transformCacheRef.current);
+    subtreeIrCacheRef.current.invalidate();
+    engineNodeMemoRef.current.clear();
+    snapIndexRef.current = null;
+    setFontLoadStamp((n) => n + 1);
+    requestRedrawRef.current?.();
+  });
 
   // Auto-enter text edit mode after creating a text node via TextTool
   useEffect(() => {

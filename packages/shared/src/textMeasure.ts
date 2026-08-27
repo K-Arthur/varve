@@ -15,8 +15,13 @@ export interface TextMeasureOptions {
   fontWeight?: number;
   fontStyle?: 'normal' | 'italic';
   letterSpacing?: number;
+  /** Typographic tracking in 1/1000 em, matching the renderer's `tracking`. */
+  tracking?: number;
   lineHeight?: number;
+  /** Extra leading between paragraphs, in px. Not applied before the first. */
+  paragraphSpacing?: number;
   textCase?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  variableAxes?: Record<string, number>;
 }
 
 export interface MeasuredLine {
@@ -71,11 +76,66 @@ function estimateCharWidth(fontSize: number): number {
   return fontSize * CHAR_WIDTH_RATIO;
 }
 
-function estimateTextWidth(text: string, fontSize: number, letterSpacing: number = 0): number {
-  const charWidth = estimateCharWidth(fontSize);
-  const totalCharWidth = text.length * charWidth;
-  const totalSpacing = text.length > 0 ? (text.length - 1) * letterSpacing : 0;
-  return totalCharWidth + totalSpacing;
+/**
+ * A source of real glyph advances for a font that is actually loaded.
+ *
+ * The estimate below is character-count-based and therefore identical for
+ * every family — which is why scene bounds could never move when a font
+ * became ready. A runtime backend (Canvas2D in the browser) registers here so
+ * every existing `measureText` / `textWrap` / `measureRun` caller becomes
+ * font-accurate without acquiring a rendering dependency of its own.
+ *
+ * `revision` must change whenever the set of usable faces changes, so caches
+ * built on these measurements can be identified as stale.
+ */
+export interface TextAdvanceMeasurer {
+  /** Advance width in px, or `null` when this font cannot be measured yet. */
+  measureAdvance(text: string, options: TextMeasureOptions): number | null;
+  /** Monotone identity of the currently usable face set. */
+  revision(): string;
+}
+
+let advanceMeasurer: TextAdvanceMeasurer | null = null;
+
+/** Install (or clear, with `null`) the runtime glyph-advance backend. */
+export function setTextAdvanceMeasurer(next: TextAdvanceMeasurer | null): void {
+  advanceMeasurer = next;
+}
+
+/**
+ * Identity of the measurements this module currently produces.
+ *
+ * Any cache holding font-dependent geometry must include this in its key or
+ * compare it before reuse: a box measured against a fallback face must not
+ * survive the real face becoming usable.
+ */
+export function textMeasureRevision(): string {
+  return advanceMeasurer?.revision() ?? 'text-measure:estimated';
+}
+
+/** Per-character spacing the renderer adds after each glyph (letter + tracking). */
+function perCharSpacing(
+  options: Pick<TextMeasureOptions, 'letterSpacing' | 'tracking' | 'fontSize'>,
+): number {
+  const ls = options.letterSpacing ?? 0;
+  const tracking = options.tracking ?? 0;
+  return ls + (tracking * (options.fontSize ?? DEFAULT_FONT_SIZE)) / 1000;
+}
+
+/**
+ * Width of one line: real advances when a backend is installed, the
+ * deterministic estimate otherwise, plus letter-spacing/tracking gaps.
+ *
+ * Spacing is counted between glyphs (n - 1), not after the last one — the
+ * trailing advance moves the caret but paints no ink, so including it would
+ * make every selection box wider than the text it encloses.
+ */
+export function measureAdvanceWidth(text: string, options: TextMeasureOptions): number {
+  if (text.length === 0) return 0;
+  const fs = options.fontSize ?? DEFAULT_FONT_SIZE;
+  const measured = advanceMeasurer?.measureAdvance(text, options) ?? null;
+  const base = measured ?? text.length * estimateCharWidth(fs);
+  return base + (text.length - 1) * perCharSpacing(options);
 }
 
 function estimateLineHeight(fontSize: number, lineHeight?: number): number {
@@ -95,7 +155,6 @@ export function measureTextWithCanvas(
 ): TextMetricsResult {
   const fs = options.fontSize ?? DEFAULT_FONT_SIZE;
   const lh = options.lineHeight ?? DEFAULT_LINE_HEIGHT;
-  const ls = options.letterSpacing ?? 0;
   const displayText = applyTextCase(text, options.textCase);
 
   ctx.font = buildFontString(options);
@@ -110,7 +169,7 @@ export function measureTextWithCanvas(
   for (const rawLine of rawLines) {
     const metrics = ctx.measureText(rawLine);
     const canvasWidth = metrics.width;
-    const spacingWidth = rawLine.length > 0 ? (rawLine.length - 1) * ls : 0;
+    const spacingWidth = rawLine.length > 0 ? (rawLine.length - 1) * perCharSpacing(options) : 0;
     const lineWidth = canvasWidth + spacingWidth;
     const lineHeight = estimateLineHeight(fs, lh);
 
@@ -140,7 +199,6 @@ export function measureTextWithCanvas(
 export function measureText(text: string, options: TextMeasureOptions): TextMeasureResult {
   const fs = options.fontSize ?? DEFAULT_FONT_SIZE;
   const lh = options.lineHeight ?? DEFAULT_LINE_HEIGHT;
-  const ls = options.letterSpacing ?? 0;
   const displayText = applyTextCase(text, options.textCase);
 
   const rawLines = displayText.split('\n');
@@ -148,29 +206,33 @@ export function measureText(text: string, options: TextMeasureOptions): TextMeas
   let maxWidth = 0;
   let totalHeight = 0;
 
+  const paragraphSpacing = options.paragraphSpacing ?? 0;
   for (const rawLine of rawLines) {
-    const w = estimateTextWidth(rawLine, fs, ls);
+    const w = measureAdvanceWidth(rawLine, options);
     const h = estimateLineHeight(fs, lh);
     lines.push({ text: rawLine, width: w, height: h });
     maxWidth = Math.max(maxWidth, w);
     totalHeight += h;
   }
+  // Explicit breaks start new paragraphs, and the renderer leads each one
+  // after the first by `paragraphSpacing`. Bounds that omit it stop short of
+  // the last line.
+  totalHeight += Math.max(0, rawLines.length - 1) * paragraphSpacing;
 
   return { lines, width: maxWidth, height: totalHeight };
 }
 
 function measureTextWidth(
   text: string,
-  fs: number,
-  ls: number,
+  options: TextMeasureOptions,
   ctx?: CanvasRenderingContext2D,
 ): number {
   if (ctx) {
     const metrics = ctx.measureText(text);
-    const spacingWidth = text.length > 0 ? (text.length - 1) * ls : 0;
+    const spacingWidth = text.length > 0 ? (text.length - 1) * perCharSpacing(options) : 0;
     return metrics.width + spacingWidth;
   }
-  return estimateTextWidth(text, fs, ls);
+  return measureAdvanceWidth(text, options);
 }
 
 export function textWrap(
@@ -181,7 +243,6 @@ export function textWrap(
 ): MeasuredLine[] {
   const fs = options.fontSize ?? DEFAULT_FONT_SIZE;
   const lh = options.lineHeight ?? DEFAULT_LINE_HEIGHT;
-  const ls = options.letterSpacing ?? 0;
   const displayText = applyTextCase(text, options.textCase);
 
   if (ctx) {
@@ -197,8 +258,8 @@ export function textWrap(
     let currentWidth = 0;
 
     for (const word of words) {
-      const wordWidth = measureTextWidth(word, fs, ls, ctx);
-      const spaceWidth = currentLine.length > 0 ? measureTextWidth(' ', fs, ls, ctx) : 0;
+      const wordWidth = measureTextWidth(word, options, ctx);
+      const spaceWidth = currentLine.length > 0 ? measureTextWidth(' ', options, ctx) : 0;
 
       if (currentLine.length > 0 && currentWidth + spaceWidth + wordWidth > maxWidth) {
         result.push({
@@ -292,17 +353,17 @@ export function measureRun(
 ): MeasuredRun {
   const fs = format.fontSize ?? DEFAULT_FONT_SIZE;
   const lh = format.lineHeight ?? DEFAULT_LINE_HEIGHT;
-  const ls = format.letterSpacing ?? 0;
   const displayText = applyTextCase(text, format.textCase);
 
   let width: number;
   if (ctx) {
     ctx.font = buildFontStringFromRun(format);
     const metrics = ctx.measureText(displayText);
-    const spacingWidth = displayText.length > 0 ? (displayText.length - 1) * ls : 0;
+    const spacingWidth =
+      displayText.length > 0 ? (displayText.length - 1) * perCharSpacing(format) : 0;
     width = metrics.width + spacingWidth;
   } else {
-    width = estimateTextWidth(displayText, fs, ls);
+    width = measureAdvanceWidth(displayText, format);
   }
 
   const height = estimateLineHeight(fs, lh);

@@ -37,7 +37,13 @@ import type { FlatEntry } from './useFlatTree';
  * fast on a high-refresh monitor.
  */
 const AUTO_SCROLL_THRESHOLD_PX = 56;
-const AUTO_SCROLL_PX_PER_MS = 0.9;
+const AUTO_SCROLL_PX_PER_MS = 0.45;
+/**
+ * Longest frame allowed to contribute to a scroll step. A GC pause or a heavy
+ * re-render produces a large `dt`, and without this cap that single frame
+ * teleports the list past whatever the user was aiming at.
+ */
+const AUTO_SCROLL_MAX_FRAME_MS = 32;
 
 /**
  * How long a container row must be hovered before it springs open. Long
@@ -284,7 +290,8 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
         return;
       }
 
-      const dt = autoScrollLastTsRef.current === 0 ? 16 : ts - autoScrollLastTsRef.current;
+      const elapsed = autoScrollLastTsRef.current === 0 ? 16 : ts - autoScrollLastTsRef.current;
+      const dt = Math.min(elapsed, AUTO_SCROLL_MAX_FRAME_MS);
       autoScrollLastTsRef.current = ts;
 
       const rect = container.getBoundingClientRect();
@@ -301,6 +308,10 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
         direction = 1;
         intensity = Math.min(1, (threshold - (rect.bottom - pointerY)) / threshold);
       }
+      // Squared ramp: barely creeping at the outer edge of the band, full
+      // speed only right at the panel edge. A linear ramp makes the useful
+      // slow range too narrow to aim with.
+      intensity *= intensity;
 
       if (direction === 0) {
         autoScrollLastTsRef.current = 0;

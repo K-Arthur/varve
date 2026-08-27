@@ -36,8 +36,13 @@ interface TextEditOverlayProps {
   worldY?: number;
   /** Pre-composed world transform matrix. */
   worldTransform?: Affine;
-  /** Called when editing completes (Escape or blur). */
-  onCommit: () => void;
+  /**
+   * Called when editing completes (Escape or blur), with the textarea's final
+   * value. The caller cannot read it from the node instead: the last
+   * keystrokes are still in the coalescing buffer flushed just above, and the
+   * scene update it schedules has not been applied yet.
+   */
+  onCommit: (finalText: string) => void;
   /** Called when content changes. */
   onUpdateText: (text: string) => void;
 }
@@ -130,7 +135,7 @@ export function TextEditOverlay({
       if (e.key === 'Escape') {
         e.preventDefault();
         flushPendingText();
-        onCommit();
+        onCommit(textareaRef.current?.value ?? '');
       }
       // Enter inserts newline for multi-line text
     },
@@ -152,8 +157,9 @@ export function TextEditOverlay({
 
   const handleBlur = useCallback(() => {
     if (!composingRef.current) {
+      const finalText = textareaRef.current?.value ?? '';
       flushPendingText();
-      onCommit();
+      onCommit(finalText);
     }
   }, [flushPendingText, onCommit]);
 

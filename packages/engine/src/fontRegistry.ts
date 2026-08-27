@@ -12,6 +12,8 @@
  * Research basis: CSS Font Loading API, Figma font system, Google Fonts API.
  */
 
+import { invalidateCanvasTextMeasurements } from './canvasTextMeasurer';
+
 export interface FontEntry {
   family: string;
   weight: number;
@@ -34,6 +36,13 @@ export interface FontEntry {
 }
 
 export type FontLoadState = 'unknown' | 'loading' | 'loaded' | 'error';
+
+/** One face a document references: family plus the weight/style it uses. */
+export interface DocumentFontFace {
+  family: string;
+  weight?: number;
+  style?: 'normal' | 'italic';
+}
 
 /**
  * Axis definitions for the variable fonts the desktop app bundles, read from
@@ -128,6 +137,8 @@ export class FontRegistry {
   private _listeners: Set<() => void> = new Set();
   /** Monotone revision for invalidating derived text layout. */
   private _revision = 0;
+  /** Set while a coalesced notification is pending (see `_scheduleNotify`). */
+  private _notifyScheduled = false;
   /** The browser FontFaceSet is also a font source (not all faces are loaded by this registry). */
   private readonly handleFontSetChange = (): void => {
     this._notify();
@@ -149,6 +160,22 @@ export class FontRegistry {
     fontSet.addEventListener('loadingerror', this.handleFontSetChange);
   }
 
+  /**
+   * Stop observing the browser font set.
+   *
+   * Each registry adds listeners to the one global `document.fonts`. Without
+   * this, replacing the singleton (tests, workspace teardown) leaves the
+   * previous instance subscribed forever, so every later `loadingdone` fans
+   * out to registries nobody reads.
+   */
+  dispose(): void {
+    this._listeners.clear();
+    if (typeof document === 'undefined' || !document.fonts) return;
+    if (typeof document.fonts.removeEventListener !== 'function') return;
+    document.fonts.removeEventListener('loadingdone', this.handleFontSetChange);
+    document.fonts.removeEventListener('loadingerror', this.handleFontSetChange);
+  }
+
   /** Subscribe to font-load events. Returns an unsubscribe function. */
   subscribe(fn: () => void): () => void {
     this._listeners.add(fn);
@@ -156,8 +183,36 @@ export class FontRegistry {
   }
 
   private _notify(): void {
-    this._revision++;
+    this._bumpRevision();
     for (const fn of this._listeners) fn();
+  }
+
+  private _bumpRevision(): void {
+    this._revision++;
+    // Every cached advance was measured against the previous face set. Drop
+    // them here rather than at each subscriber, so a subscriber that forgets
+    // cannot serve a fallback measurement after the real face is usable.
+    invalidateCanvasTextMeasurements();
+  }
+
+  /**
+   * Advance the revision now; coalesce the listener fan-out.
+   *
+   * System enumeration registers hundreds of families in a loop, and each one
+   * changes what is resolvable. Notifying per entry would schedule hundreds of
+   * full redraws for a single logical event. The revision still moves
+   * synchronously, because it is a cache identity: anything measured after the
+   * registration must not be filed under the pre-registration key, even inside
+   * the same tick.
+   */
+  private _scheduleNotify(): void {
+    this._bumpRevision();
+    if (this._notifyScheduled) return;
+    this._notifyScheduled = true;
+    queueMicrotask(() => {
+      this._notifyScheduled = false;
+      for (const fn of this._listeners) fn();
+    });
   }
 
   /** Register a font entry (e.g., from system enumeration or Google Fonts API). */
@@ -170,7 +225,11 @@ export class FontRegistry {
       bundled && !entry.axisDefinitions ? { ...entry, axisDefinitions: bundled } : entry,
     );
     this.entries.set(entry.family, existing);
-    this._revision++;
+    // Registration changes what can be resolved and drawn — restored faces and
+    // system enumeration both arrive this way. Bumping the revision without
+    // telling anyone left the canvas showing the fallback until an unrelated
+    // interaction happened to redraw it.
+    this._scheduleNotify();
   }
 
   /** Stable process-local identity for font-dependent layout cache keys. */
@@ -253,7 +312,9 @@ export class FontRegistry {
     const entries = this.entries.get(family);
     if (!entries?.length || axes.length === 0) return;
     for (const entry of entries) entry.axisDefinitions = axes;
-    this._revision++;
+    // Axis ranges parsed from the binary can change the resolved variation
+    // settings, and therefore the advances, of text already on canvas.
+    this._notify();
   }
 
   /** Get all standard axis definitions. */
@@ -310,19 +371,38 @@ export class FontRegistry {
   }
 
   /**
-   * Start the exact CSS face loads needed by a document. CSS-managed bundled
-   * faces do not necessarily pass through FontRegistry.load(), so this closes
-   * that gap without loading every installed family.
+   * Start the exact CSS face loads a document needs.
+   *
+   * CSS-managed bundled faces do not necessarily pass through
+   * `FontRegistry.load()`, so `document.fonts.ready` alone proves nothing: it
+   * resolves once the loads that have *already started* finish, and an unused
+   * `@font-face` never starts one. Requesting each face the document actually
+   * references closes that gap without pulling in every installed family.
+   *
+   * Weight and style are part of the request. Asking only for `normal 400`
+   * leaves a document's bold and italic text painting in a synthesised or
+   * fallback face until something else happens to request it.
    */
-  async ensureDocumentFonts(families: readonly string[]): Promise<void> {
-    if (typeof document === 'undefined' || !document.fonts || families.length === 0) return;
-    const unique = [...new Set(families)].filter((family) => family.length > 0);
+  async ensureDocumentFonts(faces: readonly DocumentFontFace[]): Promise<void> {
+    if (typeof document === 'undefined' || !document.fonts || faces.length === 0) return;
+    const unique = new Map<string, DocumentFontFace>();
+    for (const face of faces) {
+      if (!face.family) continue;
+      const key = `${face.style ?? 'normal'}:${face.weight ?? 400}:${face.family}`;
+      if (!unique.has(key)) unique.set(key, face);
+    }
+    if (unique.size === 0) return;
     await Promise.all(
-      unique.map((family) =>
-        document.fonts.load(`normal 400 16px "${family.replaceAll('"', '\\"')}"`, 'BESbswy'),
-      ),
+      [...unique.values()].map(async (face) => {
+        const descriptor = `${face.style ?? 'normal'} ${face.weight ?? 400} 16px "${face.family.replaceAll('"', '\\"')}"`;
+        try {
+          await document.fonts.load(descriptor, 'BESbswy');
+        } catch {
+          // A face the browser cannot produce is a resolution result, not a
+          // reason to abandon the rest of the document's fonts.
+        }
+      }),
     );
-    await document.fonts.ready;
     this._notify();
   }
 
@@ -590,6 +670,7 @@ export function getFontRegistry(): FontRegistry {
 }
 
 export function resetFontRegistry(): void {
+  globalRegistry?.dispose();
   globalRegistry = null;
 }
 

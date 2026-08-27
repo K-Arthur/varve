@@ -13,7 +13,7 @@
  * - Figma: relativeTransform carries rotation/translation, geometry is separate.
  */
 
-import type { PathPoint, Shape } from '@varve/engine';
+import { type PathPoint, type Shape, transformPathShape } from '@varve/engine';
 import { reflowLayoutChildren, resizeNodeGeometry } from '@varve/layout';
 import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
 import { applyConstraints, getParent } from '@varve/scene';
@@ -28,6 +28,7 @@ import {
   type ResizeHandle,
   type ResizeOptions,
   resizeSelectionBox,
+  resolveTextGeometryMode,
   rotateRad,
   rotateSelectionBox,
   type SelectionBox,
@@ -313,6 +314,29 @@ export class TransformEngine {
           updates[node.id] = { ...node, transform: localTransform } as SceneNode;
           return { nodeUpdates: updates };
         }
+        // Which dimension a text node owns decides what a resize means.
+        //
+        // Auto-width text has no container: its box *is* its content, so the
+        // only thing a handle can change is the type size. Area text does have
+        // a container, and dragging its handle is a request to change that
+        // container — scaling the font instead left the box at its old size
+        // with larger text spilling out of it, and no way to widen a text
+        // frame at all.
+        const mode = resolveTextGeometryMode(node);
+        if (mode === 'fixed' || mode === 'autoHeight') {
+          const baseWidth = node.w ?? nodeLocalBounds(node, currentDoc)?.w ?? 0;
+          const width = Math.max(1, baseWidth * Math.abs(scaleX));
+          updates[node.id] = {
+            ...node,
+            transform: [1, 0, 0, 1, translateX, translateY] as Affine,
+            rotation,
+            w: width,
+            // Auto-height derives its height from the wrap, so a vertical drag
+            // has nothing to write; only a fixed container stores one.
+            ...(mode === 'fixed' ? { h: Math.max(1, (node.h ?? 0) * Math.abs(scaleY)) } : {}),
+          } as SceneNode;
+          return { nodeUpdates: updates };
+        }
         const avgScale = Math.max((scaleX + scaleY) / 2, 0.01);
         updates[node.id] = {
           ...node,
@@ -486,6 +510,22 @@ export class TransformEngine {
   }
 
   private scaleShape(shape: Shape, sx: number, sy: number): Shape | null {
+    // A circle, polygon, or star has only one radius in its persisted model.
+    // Applying an anisotropic scale by picking the larger factor (the old
+    // behaviour) makes the committed model disagree with the preview affine.
+    // Convert those cases to their exact cubic path representation instead.
+    // The same conversion safely represents reflections without storing
+    // negative primitive dimensions/radii, which Canvas2D and bounds code do
+    // not consistently support.
+    const requiresPathGeometry =
+      sx <= 0 ||
+      sy <= 0 ||
+      ((shape.kind === 'circle' || shape.kind === 'polygon' || shape.kind === 'star') &&
+        Math.abs(sx - sy) > 1e-9);
+    if (requiresPathGeometry) {
+      return transformPathShape(shape, [sx, 0, 0, sy, 0, 0] as Affine);
+    }
+
     switch (shape.kind) {
       case 'rect':
         return {
@@ -508,7 +548,7 @@ export class TransformEngine {
           ...shape,
           cx: shape.cx * sx,
           cy: shape.cy * sy,
-          r: shape.r * Math.max(sx, sy),
+          r: shape.r * sx,
         };
       case 'line':
         return {
@@ -527,15 +567,15 @@ export class TransformEngine {
           ...shape,
           cx: shape.cx * sx,
           cy: shape.cy * sy,
-          radius: shape.radius * Math.max(sx, sy),
+          radius: shape.radius * sx,
         };
       case 'star':
         return {
           ...shape,
           cx: shape.cx * sx,
           cy: shape.cy * sy,
-          outerRadius: shape.outerRadius * Math.max(sx, sy),
-          innerRadius: shape.innerRadius * Math.max(sx, sy),
+          outerRadius: shape.outerRadius * sx,
+          innerRadius: shape.innerRadius * sx,
         };
       case 'path':
         return {

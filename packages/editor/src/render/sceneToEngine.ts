@@ -36,6 +36,7 @@ import {
   resolveNodePaints,
   resolveRasterMaskAsset,
   nodeWorldTransform as sceneLocalWorldTransform,
+  textNodeLocalBounds,
   warpsOnNode,
 } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
@@ -276,10 +277,15 @@ export function sceneNodeToEngineNode(
   if (node.kind === 'text') {
     const fontSize = node.fontSize ?? 14;
     const text = node.text ?? '';
-    const measuredWidth = Math.max(text.length * fontSize * 0.55, fontSize * 3);
-    const measuredHeight = fontSize * (node.lineHeight ?? 1.4);
-    const width = node.w ?? measuredWidth;
-    const height = node.h ?? measuredHeight;
+    // The box the renderer lays out in must be the box the editor selects,
+    // hit-tests, and edits. This used to be `text.length * fontSize * 0.55`
+    // with a single line's height, which disagreed with scene bounds on width
+    // (a different per-character constant) and on height (every multi-line
+    // node was one line tall here), so vertical alignment, clip/ellipsis
+    // overflow, and soft wrapping all ran against the wrong rectangle.
+    const geometry = textNodeLocalBounds(node);
+    const width = geometry.w;
+    const height = geometry.h;
     const textMode = node.textMode ?? (node.w === undefined ? 'point' : 'area');
     const textShape = {
       kind: 'text' as const,
@@ -462,6 +468,21 @@ export function flattenSceneToEngine(
 
     let effective = getEffectiveNode(document, id, variantCaches) ?? raw;
     effective = applyBindingsToNode(effective, variableStore);
+
+    // TEMP DIAGNOSTIC (remove)
+    const effFills = (effective as { fills?: unknown }).fills as
+      | Array<{
+          type?: string;
+          pattern?: { tileSrc?: string };
+        }>
+      | undefined;
+    if (effFills?.some((f) => f.type === 'pattern')) {
+      console.debug(
+        `[flatten-diag] node=${String(raw.id).slice(0, 8)} name=${raw.name} fills=${effFills
+          .map((f) => `${f.type}${(f.pattern?.tileSrc?.length ?? 0) > 0 ? '+tile' : ''}`)
+          .join(',')}`,
+      );
+    }
 
     if (effective.kind === 'table') {
       // Native tables compile with document context so rich scene-content

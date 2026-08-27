@@ -15,6 +15,14 @@
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
+/**
+ * Smallest text container a drag may produce, in world units. Sized from the
+ * 16px default type: roughly three ems wide and one line tall, which is the
+ * point below which the box has no room for a caret.
+ */
+const MIN_TEXT_BOX_WIDTH = 48;
+const MIN_TEXT_BOX_HEIGHT = 23;
+
 export class TextTool extends BaseTool {
   id = 'text' as const;
 
@@ -42,9 +50,20 @@ export class TextTool extends BaseTool {
 
     if (this.isBelowThreshold(ctx)) {
       ctx.createTextNodeAt(this.drag.startWorld, undefined, parentId, '');
-    } else if (rect.w > 0 && rect.h > 0) {
-      ctx.createTextNodeAt({ x: rect.x, y: rect.y }, { w: rect.w, h: rect.h }, parentId, '');
+      return;
     }
+    // A drag along a single axis is still a request for a text box. The
+    // threshold above is per-axis, so a purely horizontal sweep cleared it
+    // while leaving `rect.h` at zero — the old `w > 0 && h > 0` guard then
+    // dropped the gesture and created nothing at all, with no feedback. Clamp
+    // instead: a container smaller than one line of type cannot be typed into
+    // or clicked anyway.
+    ctx.createTextNodeAt(
+      { x: rect.x, y: rect.y },
+      { w: Math.max(rect.w, MIN_TEXT_BOX_WIDTH), h: Math.max(rect.h, MIN_TEXT_BOX_HEIGHT) },
+      parentId,
+      '',
+    );
   }
 
   override onDragCancel(ctx: ToolContext): void {

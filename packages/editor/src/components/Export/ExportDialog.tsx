@@ -39,6 +39,7 @@ import {
   imageShapeW,
   isImageShape,
   pageBleedMm,
+  textNodeLocalBounds,
 } from '@varve/scene';
 import {
   buildExportPlan,
@@ -117,10 +118,8 @@ function nodeBaseDimensions(node: SceneNode): { w: number; h: number } {
     return { w: Math.max(1, node.w), h: Math.max(1, node.h) };
   }
   if (node.kind === 'text') {
-    return {
-      w: Math.max(1, node.text.length * node.fontSize * 0.6),
-      h: Math.max(1, node.fontSize * 1.4),
-    };
+    const bounds = textNodeLocalBounds(node);
+    return { w: Math.max(1, bounds.w), h: Math.max(1, bounds.h) };
   }
   if (node.kind !== 'shape') return { w: 200, h: 160 };
   if (node.fills?.some((f) => f.type === 'image' && !!f.image?.src)) {

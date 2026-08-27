@@ -42,6 +42,7 @@ import {
   resolveAdjustmentScope,
   type SceneNode,
   type ShapeNode,
+  textNodeLocalBounds,
 } from '@varve/scene';
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
 import { decoratePerspectiveImages } from '../render/perspectiveImage';
@@ -522,9 +523,11 @@ function computeNodeBounds(
   }
 
   if (node.kind === 'text') {
-    const fs = node.fontSize ?? 16;
-    const textLen = (node as unknown as { text?: string }).text?.length ?? 1;
-    return { x: tx, y: ty, w: textLen * fs * 0.6, h: fs * 1.4 };
+    // Export must crop to the same rectangle the canvas draws into. A
+    // character-count estimate with a single line's height cut multi-line text
+    // off at the first line and mis-sized every non-average face.
+    const bounds = textNodeLocalBounds(node);
+    return { x: tx, y: ty, w: bounds.w, h: bounds.h };
   }
 
   if (node.kind === 'frame' || node.kind === 'group') {

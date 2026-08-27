@@ -16,7 +16,7 @@
  */
 import { getFontRegistry } from '@varve/engine';
 import type { SceneNode, TextNode } from '@varve/scene';
-import { resolveNodeFills } from '@varve/scene';
+import { resolveNodeFills, textNodeGeometry } from '@varve/scene';
 import { Select } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -32,6 +32,41 @@ import { RichTextSpanEditor } from '../controls/RichTextSpanEditor';
 import type { SegmentedOption } from '../controls/SegmentedControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
 import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionState';
+
+/**
+ * Switch a text node's resizing contract, keeping `w`/`h` meaning what the new
+ * mode says they mean.
+ *
+ * `w`/`h` are container geometry. A mode that has no container must not keep
+ * them — they would sit in the document as a measurement nothing honours, and
+ * the Inspector would report a size the canvas does not use. A mode that does
+ * have a container needs one to exist, so it is materialised from the layout
+ * the node currently occupies rather than left undefined for the next edit to
+ * invent.
+ */
+function applyTextResizing(node: TextNode, mode: TextNode['textResizing']): TextNode {
+  const geometry = textNodeGeometry(node);
+  if (mode === 'autoWidth') {
+    const { w: _w, h: _h, ...rest } = node;
+    return { ...rest, textResizing: mode, textMode: node.textMode === 'path' ? 'path' : 'point' };
+  }
+  if (mode === 'autoHeight') {
+    const { h: _h, ...rest } = node;
+    return {
+      ...rest,
+      textResizing: mode,
+      textMode: node.textMode === 'path' ? 'path' : 'area',
+      w: node.w ?? geometry.bounds.w,
+    };
+  }
+  return {
+    ...node,
+    textResizing: mode,
+    textMode: node.textMode === 'path' ? 'path' : 'area',
+    w: node.w ?? geometry.bounds.w,
+    h: node.h ?? geometry.bounds.h,
+  };
+}
 
 export interface TypographySectionProps {
   nodes: SceneNode[];
@@ -452,10 +487,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             value={isMixed(resizingRaw) ? 'fixed' : resizingRaw}
             options={RESIZING_OPTIONS.map((o) => ({ value: o.value as string, label: o.label }))}
             onChange={(v) =>
-              batchUpdate((n) => ({
-                ...n,
-                textResizing: v as TextNode['textResizing'],
-              }))
+              batchUpdate((n) => applyTextResizing(n, v as TextNode['textResizing']))
             }
           />
         </FieldRow>

@@ -187,6 +187,11 @@ export {
   blendSoftLight,
 } from './blendModes';
 export { gaussianBlurSeparable } from './blur';
+export {
+  installCanvasTextMeasurer,
+  invalidateCanvasTextMeasurements,
+  resetCanvasTextMeasurer,
+} from './canvasTextMeasurer';
 export type {
   ColorHalftoneDotShape,
   ColorHalftoneMode,
@@ -406,6 +411,7 @@ export type {
 } from './fontDetection';
 export * from './fontDetection';
 export type {
+  DocumentFontFace,
   ExportFontRequest,
   FontEntry,
   FontLoadState,

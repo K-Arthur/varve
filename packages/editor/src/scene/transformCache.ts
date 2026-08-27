@@ -1,7 +1,13 @@
 import type { Document, NodeId } from '@varve/scene';
 import { buildParentIndexMap } from '@varve/scene';
 import type { Affine, Rect } from '@varve/shared';
-import { identity, multiplyAffine, rotateDeg, transformRect } from '@varve/shared';
+import {
+  identity,
+  multiplyAffine,
+  rotateDeg,
+  textMeasureRevision,
+  transformRect,
+} from '@varve/shared';
 import { nodeLocalBounds } from './nodeBounds';
 import type { PagePlacementMap } from './pagePlacement';
 import { buildPagePlacementMap, pagePlacementForNode } from './pagePlacement';
@@ -26,6 +32,17 @@ export interface TransformCache {
    */
   placementMap: PagePlacementMap | null;
   placementPages: unknown;
+  /**
+   * Text-measurement identity the cached bounds were computed under.
+   *
+   * Text bounds depend on which font faces are usable, and font readiness
+   * changes that without touching the document — so nothing in the document
+   * diffing above can notice it. Cached text boxes measured against a fallback
+   * face would otherwise outlive the real face becoming available, leaving
+   * selection, hit testing, and snapping on the old geometry until an
+   * unrelated structural edit happened to wipe the cache.
+   */
+  measureRevision: string;
 }
 
 export function createTransformCache(): TransformCache {
@@ -37,7 +54,19 @@ export function createTransformCache(): TransformCache {
     parentIndex: null,
     placementMap: null,
     placementPages: undefined,
+    measureRevision: textMeasureRevision(),
   };
+}
+
+/**
+ * Drop everything if text measurement has moved on since these bounds were
+ * computed. Cheap enough (one string compare) to run on every lookup.
+ */
+function ensureMeasureRevision(cache: TransformCache): void {
+  const current = textMeasureRevision();
+  if (cache.measureRevision === current) return;
+  cache.measureRevision = current;
+  invalidateAll(cache);
 }
 
 const translate = (x: number, y: number): Affine => [1, 0, 0, 1, x, y];
@@ -95,6 +124,7 @@ function computeWorldTransform(cache: TransformCache, doc: Document, id: NodeId)
 }
 
 export function getWorldTransform(cache: TransformCache, doc: Document, nodeId: NodeId): Affine {
+  ensureMeasureRevision(cache);
   const cached = cache.worldTransform.get(nodeId);
   if (cached !== undefined && !cache.dirty.has(nodeId)) {
     return cached;
@@ -107,6 +137,7 @@ export function getWorldTransform(cache: TransformCache, doc: Document, nodeId: 
 }
 
 export function getWorldBounds(cache: TransformCache, doc: Document, nodeId: NodeId): Rect | null {
+  ensureMeasureRevision(cache);
   const cached = cache.worldBounds.get(nodeId);
   if (cached !== undefined && !cache.dirty.has(nodeId)) {
     return cached;

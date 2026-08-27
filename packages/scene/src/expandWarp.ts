@@ -65,8 +65,10 @@ export function bakeNodeWarp(
     if (!sourceBounds) return { kind: 'unsupported', reason: 'text has no source bounds' };
     const settings = (node as { warpSettings?: import('@varve/engine').WarpSettings }).warpSettings;
     const fontSize = node.fontSize ?? 14;
-    const width = node.w ?? Math.max(node.text.length * fontSize * 0.55, fontSize * 3);
-    const height = node.h ?? fontSize * (node.lineHeight ?? 1.4);
+    // Warp evaluates against the node's real box; a per-character estimate
+    // here disagreed with the bounds the warp cage is drawn from.
+    const width = sourceBounds.w;
+    const height = sourceBounds.h;
     const warped = warpTextToClusterAdjustments(
       {
         text: node.text,

@@ -12,8 +12,8 @@
 
 import { hasLiveWarps } from '@varve/engine';
 import type { Rect } from '@varve/shared';
-import { DEFAULT_ARTWORK_FONT_FAMILY, measureText, measureWrappedText } from '@varve/shared';
 import { deriveGeometryFromPaints, resolveNodePaints } from './paint';
+import { textNodeLocalBounds } from './textBounds';
 import type { Paint, SceneNode } from './types';
 import { nodeWarpedLocalBounds } from './warpBounds';
 import { warpsOnNode } from './warpOps';
@@ -164,31 +164,7 @@ export function nodeLocalBoundsSource(
     };
   }
   if (node.kind === 'text') {
-    const fs = node.fontSize ?? 16;
-    const options = {
-      fontSize: fs,
-      fontFamily: node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
-      fontWeight: node.fontWeight ?? 400,
-      fontStyle: node.fontStyle ?? 'normal',
-      letterSpacing: node.letterSpacing ?? 0,
-      lineHeight: node.lineHeight ?? 1.4,
-      textCase: node.textCase ?? 'none',
-    } as const;
-    const measured =
-      node.textResizing === 'autoHeight' && node.w !== undefined
-        ? measureWrappedText(node.text, Math.max(0, node.w), options)
-        : measureText(node.text, options);
-    const isFixedContainer =
-      node.textResizing === 'fixed' ||
-      (node.textMode === 'area' && node.textResizing !== 'autoHeight' && node.w !== undefined);
-    return {
-      x: 0,
-      y: 0,
-      w: isFixedContainer
-        ? (node.w ?? measured.width)
-        : (node.w ?? Math.max(measured.width, fs * 3)),
-      h: node.textResizing === 'autoHeight' ? measured.height : (node.h ?? measured.height),
-    };
+    return textNodeLocalBounds(node);
   }
   if (node.kind === 'table') {
     return { x: 0, y: 0, w: node.w ?? 480, h: node.h ?? 240 };

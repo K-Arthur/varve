@@ -376,15 +376,50 @@ describe('FontRegistry DOM-dependent', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
-  it('prefetches only requested document families and advances the revision', async () => {
+  it('prefetches only requested document faces and advances the revision', async () => {
     if (!hasDom() || !document.fonts || typeof document.fonts.load !== 'function') return;
     const reg = new FontRegistry([]);
     const load = vi.spyOn(document.fonts, 'load').mockResolvedValue([]);
     const listener = vi.fn();
     reg.subscribe(listener);
-    await reg.ensureDocumentFonts(['Geist Variable', 'Geist Variable', 'IBM Plex Sans Variable']);
+    await reg.ensureDocumentFonts([
+      { family: 'Geist Variable' },
+      { family: 'Geist Variable' },
+      { family: 'IBM Plex Sans Variable' },
+    ]);
     expect(load).toHaveBeenCalledTimes(2);
     expect(listener).toHaveBeenCalled();
+    load.mockRestore();
+  });
+
+  it('requests each weight and style the document uses, not only regular 400', async () => {
+    if (!hasDom() || !document.fonts || typeof document.fonts.load !== 'function') return;
+    const reg = new FontRegistry([]);
+    const load = vi.spyOn(document.fonts, 'load').mockResolvedValue([]);
+    await reg.ensureDocumentFonts([
+      { family: 'Geist Variable', weight: 400, style: 'normal' },
+      { family: 'Geist Variable', weight: 700, style: 'normal' },
+      { family: 'Geist Variable', weight: 400, style: 'italic' },
+    ]);
+    const descriptors = load.mock.calls.map((call) => call[0]);
+    expect(descriptors).toHaveLength(3);
+    expect(descriptors).toContain('normal 700 16px "Geist Variable"');
+    expect(descriptors).toContain('italic 400 16px "Geist Variable"');
+    load.mockRestore();
+  });
+
+  it('one failing face does not abandon the rest of the document', async () => {
+    if (!hasDom() || !document.fonts || typeof document.fonts.load !== 'function') return;
+    const reg = new FontRegistry([]);
+    const load = vi
+      .spyOn(document.fonts, 'load')
+      .mockImplementation(async (descriptor: string) =>
+        descriptor.includes('Broken') ? Promise.reject(new Error('no such face')) : [],
+      );
+    await expect(
+      reg.ensureDocumentFonts([{ family: 'Broken' }, { family: 'Geist Variable' }]),
+    ).resolves.toBeUndefined();
+    expect(load).toHaveBeenCalledTimes(2);
     load.mockRestore();
   });
 

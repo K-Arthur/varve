@@ -500,12 +500,24 @@ export {
   selectionBoxMatrix,
 } from './selectionBox';
 export type {
+  TextGeometry,
+  TextGeometryInput,
+  TextGeometryMode,
+  TextLineBox,
+} from './textGeometry';
+export {
+  EMPTY_TEXT_MIN_WIDTH_EM,
+  resolveTextGeometry,
+  resolveTextGeometryMode,
+} from './textGeometry';
+export type {
   MeasuredLine,
   MeasuredParagraph,
   MeasuredRun,
   MeasureTextFn,
   RichTextMeasureResult,
   RunMeasureOptions,
+  TextAdvanceMeasurer,
   TextMeasureOptions,
   TextMeasureResult,
   TextMetricsResult,
@@ -513,11 +525,14 @@ export type {
 export {
   buildFeatureSettingsCSS,
   buildVariationSettingsCSS,
+  measureAdvanceWidth,
   measureRichText,
   measureRun,
   measureText,
   measureTextWithCanvas,
   measureWrappedText,
+  setTextAdvanceMeasurer,
+  textMeasureRevision,
   textWrap,
 } from './textMeasure';
 export * from './thumbnail/contracts';

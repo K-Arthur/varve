@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makePathNode, makeShapeNode, makeTextNode } from './document';
 import { nodeLocalBounds } from './nodeBounds';
+import { nodeLocalBoundsSource } from './sourceBounds';
 import type { SceneNode } from './types';
 
 describe('nodeLocalBounds', () => {
@@ -67,6 +68,49 @@ describe('nodeLocalBounds', () => {
     const bounds = nodeLocalBounds(text)!;
     expect(bounds.w).toBe(40);
     expect(bounds.h).toBeGreaterThan(12);
+  });
+
+  it('grows point-text height past a stale explicit h', () => {
+    // Imports and older documents leave a one-line `h` on auto-width nodes.
+    // Honouring it as a container pinned multi-line selection to the first
+    // line while the renderer painted all three.
+    const text = makeTextNode('stale', 'One\nTwo\nThree', {
+      h: 22,
+      textResizing: 'autoWidth',
+    });
+    const oneLine = makeTextNode('one', 'One', { textResizing: 'autoWidth' });
+    expect(nodeLocalBounds(text)!.h).toBeCloseTo(nodeLocalBounds(oneLine)!.h * 3);
+  });
+
+  it('keeps a fixed container when its content overflows', () => {
+    const text = makeTextNode('fixed', 'one two three four five six seven', {
+      w: 60,
+      h: 24,
+      textResizing: 'fixed',
+      textMode: 'area',
+    });
+    expect(nodeLocalBounds(text)).toMatchObject({ w: 60, h: 24 });
+  });
+
+  it('measures rich-text paragraphs rather than the flat text mirror', () => {
+    const text = makeTextNode('rich', 'One', {
+      textResizing: 'autoWidth',
+      richText: {
+        paragraphs: [
+          { runs: [{ text: 'One' }] },
+          { runs: [{ text: 'Two' }] },
+          { runs: [{ text: 'Three' }] },
+        ],
+      },
+    });
+    const oneLine = makeTextNode('plain', 'One', { textResizing: 'autoWidth' });
+    expect(nodeLocalBounds(text)!.h).toBeCloseTo(nodeLocalBounds(oneLine)!.h * 3);
+  });
+
+  it('agrees with the unwarped source-bounds implementation', () => {
+    // These two entry points each used to carry their own text branch.
+    const text = makeTextNode('shared', 'One\nTwo', { textResizing: 'autoWidth' });
+    expect(nodeLocalBoundsSource(text)).toEqual(nodeLocalBounds(text));
   });
 
   it('returns null for groups (bounds derive from children)', () => {

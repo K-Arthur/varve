@@ -137,6 +137,7 @@ export * from './tableLayout';
 export * from './tableOps';
 export * from './text/glyphAdjustments';
 export * from './text/grapheme';
+export * from './textBounds';
 export * from './textFlow';
 export * from './textToOutlines';
 export * from './textWarp';
