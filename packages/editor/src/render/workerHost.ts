@@ -615,7 +615,13 @@ export function createRenderWorkerHost(
   }
 
   worker = createWorker();
-  if (!worker) return null;
+  if (!worker) {
+    // No host is returned, so nothing will ever call terminate() to release
+    // this subscription — drop it here rather than leak a listener that holds
+    // the closure alive for the session.
+    unsubscribeFonts();
+    return null;
+  }
 
   const host: RenderWorkerHost = {
     get permanentFailure() {
