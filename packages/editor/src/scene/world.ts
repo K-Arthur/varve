@@ -18,6 +18,7 @@
 
 import type { Document, NodeId } from '@varve/scene';
 import {
+  getParent,
   nodeWorldBounds as sceneNodeWorldBounds,
   nodeWorldTransform as sceneNodeWorldTransform,
 } from '@varve/scene';
@@ -25,6 +26,21 @@ import type { Affine, Point, Rect } from '@varve/shared';
 import { applyAffine, multiplyAffine, tryInvertAffine } from '@varve/shared';
 import type { PagePlacementMap } from './pagePlacement';
 import { buildPagePlacementMap, pagePlacementForNode } from './pagePlacement';
+
+/**
+ * True when a node cannot be edited or restructured — either it is locked
+ * itself, or any ancestor is. Lock inherits down the hierarchy, so a check
+ * that only reads a node's own `locked` flag disagrees with what
+ * `reparentNode` and the mutation pipeline actually enforce.
+ */
+export function isNodeEffectivelyLocked(doc: Document, nodeId: NodeId): boolean {
+  let current: NodeId | null = nodeId;
+  while (current) {
+    if (doc.nodes[current]?.locked === true) return true;
+    current = getParent(doc, current);
+  }
+  return false;
+}
 
 /**
  * Convert a placed-world point into a parent's local space via the full
