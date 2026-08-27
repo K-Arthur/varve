@@ -92,11 +92,16 @@ server (`tests/e2e/canvas/file-import.spec.ts`, snapshots inspected).
 |---|---|---|
 | PNG | Full | Alpha, ICC, EXIF orientation preserved |
 | JPEG | Full | EXIF orientation applied to displayed dimensions |
-| WebP | Full | Extended-format dimension probe fixed 2026-08-27 |
-| GIF | Full | First frame; animation metadata recorded, not played |
+| WebP | Full | Extended-format dimension probe fixed 2026-08-27. Animated WebP retained as animated media |
+| GIF | Full | Animation retained, not flattened to a first frame |
 | BMP | Full | |
 | TIFF | Full | Transcoded to PNG on ingest (`utif` + `upng-js`) because browsers do not decode TIFF in an `<img>` |
 | AVIF | Full | `ispe` box probe now recurses through `iprp`/`ipco` |
+
+Animated GIF and WebP are not flattened on import. `inspectRasterBytes`
+probes the container, persists `AnimatedAssetMetadata` on the asset, and the
+media system resolves frames from the editor's media clock — never browser
+`<img>` autoplay. See `architecture/animated-image-media-system.md`.
 | SVG / SVGZ | Editable vector | See fidelity matrix; `.svgz` is gunzipped by content sniff |
 | PSD / PSB | Partial | Layers import; effects, adjustment layers and smart objects are reported as unsupported |
 | PDF | Partial | Basic paths and text; gradients approximated, fonts substituted |
