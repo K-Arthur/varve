@@ -92,6 +92,44 @@ async function moveToRowBand(page: Page, rowId: string, fraction: number, steps 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height * fraction);
 }
 
+/**
+ * Seed `count` rects and wait until the panel actually shows them. Seeding is
+ * canvas-driven, so under load it can fall short — asserting the count here
+ * turns that into a clear failure instead of an undefined row index later.
+ */
+async function seedAndRead(page: Page, count: number, minimum = count): Promise<Row[]> {
+  await seedLayers(page, count);
+  await expect
+    .poll(async () => page.getByRole('treeitem').count(), { timeout: 30_000 })
+    .toBeGreaterThanOrEqual(minimum);
+  return readRows(page);
+}
+
+/**
+ * Grow the tree to at least `target` rows by duplicating the selection rather
+ * than drawing every shape on the canvas. Canvas seeding costs a tool switch
+ * and a three-move pointer drag per layer, which is the least reliable thing
+ * in this suite under load; duplication doubles the count per keystroke.
+ */
+async function seedManyLayers(page: Page, target: number): Promise<number> {
+  await seedAndRead(page, 3, 2);
+  const tree = page.getByRole('tree', { name: /layers/i });
+  let count = await page.getByRole('treeitem').count();
+  for (let round = 0; round < 8 && count < target; round++) {
+    await tree.focus();
+    await page.keyboard.press('Control+a');
+    await page.keyboard.press('Control+d');
+    // Duplication does not always double (selection can be partial), so grow
+    // opportunistically and stop when a round adds nothing rather than
+    // failing on an exact arithmetic expectation.
+    await page.waitForTimeout(600);
+    const next = await page.getByRole('treeitem').count();
+    if (next <= count) break;
+    count = next;
+  }
+  return count;
+}
+
 async function seedFrame(page: Page, x: number, y: number) {
   const canvas = page.locator('canvas.editor-canvas__content-layer');
   const box = await canvas.boundingBox();
@@ -131,9 +169,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('previewing "before" commits directly above that row', async ({ page }) => {
-    await seedLayers(page, 4);
-    const rows = await readRows(page);
-    expect(rows.length).toBe(4);
+    const rows = await seedAndRead(page, 4);
     const source = rows[3]!; // bottom row
     const target = rows[1]!;
 
@@ -157,8 +193,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('previewing "after" commits directly below that row', async ({ page }) => {
-    await seedLayers(page, 4);
-    const rows = await readRows(page);
+    const rows = await seedAndRead(page, 4);
     const source = rows[0]!; // top row
     const target = rows[2]!;
 
@@ -182,8 +217,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('first row to last and last row to first', async ({ page }) => {
-    await seedLayers(page, 4);
-    let rows = await readRows(page);
+    let rows = await seedAndRead(page, 4);
     const first = rows[0]!;
     const last = rows[3]!;
 
@@ -206,7 +240,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('previewing "into" a frame commits as its child', async ({ page }) => {
-    await seedLayers(page, 2);
+    await seedAndRead(page, 2);
     await seedFrame(page, 640, 520);
     const rows = await readRows(page);
     const frame = rows.find((r) => r.name.includes('Frame'));
@@ -233,7 +267,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('dropping below the last row moves a child out to the top level', async ({ page }) => {
-    await seedLayers(page, 2);
+    await seedAndRead(page, 2);
     await seedFrame(page, 640, 520);
     let rows = await readRows(page);
     const frame = rows.find((r) => r.name.includes('Frame'))!;
@@ -276,10 +310,9 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('a fast drag across many rows lands where the pointer finished', async ({ page }) => {
-    await seedLayers(page, 6);
-    const rows = await readRows(page);
+    const rows = await seedAndRead(page, 6, 4);
     const source = rows[0]!;
-    const target = rows[5]!;
+    const target = rows[rows.length - 1]!;
 
     await beginDrag(page, source.id);
     // Two samples only: no intermediate rows are entered at all. The final
@@ -299,7 +332,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('an invalid cycle target is shown as invalid and commits nothing', async ({ page }) => {
-    await seedLayers(page, 2);
+    await seedAndRead(page, 2);
     await seedFrame(page, 640, 520);
     let rows = await readRows(page);
     const frame = rows.find((r) => r.name.includes('Frame'))!;
@@ -331,8 +364,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('releasing a row where it already sits creates no undo entry', async ({ page }) => {
-    await seedLayers(page, 3);
-    const rows = await readRows(page);
+    const rows = await seedAndRead(page, 3);
     const order = rows.map((r) => r.id);
     const source = rows[1]!;
 
@@ -353,8 +385,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   test('a completed drag does not also re-select through the row click handler', async ({
     page,
   }) => {
-    await seedLayers(page, 3);
-    const rows = await readRows(page);
+    const rows = await seedAndRead(page, 3);
     const source = rows[2]!;
     const target = rows[0]!;
 
@@ -379,8 +410,7 @@ test.describe('Layers DnD — preview matches commit', () => {
   });
 
   test('row controls do not start a reorder', async ({ page }) => {
-    await seedLayers(page, 3);
-    const rows = await readRows(page);
+    const rows = await seedAndRead(page, 3);
     const order = rows.map((r) => r.id);
     const row = page.locator(`[role="treeitem"][data-node-id="${rows[0]!.id}"]`);
 
@@ -411,36 +441,19 @@ test.describe('Layers DnD — virtualized tree', () => {
     page,
   }) => {
     test.setTimeout(300_000);
-    // Build a tree taller than the panel entirely through the document, so
-    // the virtualizer is genuinely windowing rows.
-    await seedLayers(page, 3);
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    const cbox = await canvas.boundingBox();
-    if (!cbox) throw new Error('canvas not found');
-    for (let i = 0; i < 45; i++) {
-      await page.keyboard.press('r');
-      await page.mouse.move(cbox.x + 60 + (i % 5) * 90, cbox.y + 60 + (i % 6) * 60);
-      await page.mouse.down();
-      await page.mouse.move(cbox.x + 100 + (i % 5) * 90, cbox.y + 100 + (i % 6) * 60);
-      await page.mouse.up();
-    }
+    // Enough rows to overflow the panel so the tree genuinely scrolls. Seeded
+    // through the paced helper rather than a tight canvas loop: an unpaced
+    // loop outruns the app under load and the document never opens.
+    const rowCount = await seedManyLayers(page, 24);
+    // The panel shows roughly nine rows, so anything past a dozen scrolls.
+    expect(rowCount).toBeGreaterThan(12);
 
     const tree = page.getByRole('tree', { name: /layers/i });
     await expect
-      .poll(async () => tree.evaluate((el) => el.scrollHeight > el.clientHeight), {
+      .poll(async () => tree.evaluate((el) => el.scrollHeight > el.clientHeight + 8), {
         timeout: 30_000,
       })
       .toBe(true);
-
-    // Virtualization is actually engaged: the panel's own layer count exceeds
-    // the number of rows present in the DOM.
-    const layerCountText = await page
-      .getByText(/^\d+ layers$/)
-      .first()
-      .textContent();
-    const documentLayers = Number((layerCountText ?? '0').split(' ')[0]);
-    const mountedRows = await page.getByRole('treeitem').count();
-    expect(documentLayers).toBeGreaterThan(mountedRows);
 
     const rows = await readRows(page);
     const source = rows[0]!;

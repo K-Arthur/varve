@@ -20,7 +20,11 @@ import type { DragMoveEvent, DragStartEvent } from '@dnd-kit/core';
 import type { Virtualizer } from '@tanstack/react-virtual';
 import type { Document, NodeId } from '@varve/scene';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { isDescendantFast, type ParentIndexCache } from '../../scene/parentIndexCache';
+import {
+  getParentFast,
+  isDescendantFast,
+  type ParentIndexCache,
+} from '../../scene/parentIndexCache';
 import {
   type LayerDropTarget,
   type RowGeometry,
@@ -227,7 +231,21 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     const viewportRect = container.getBoundingClientRect();
     const contentRect = content.getBoundingClientRect();
 
-    const target = resolveLayerDropTarget({
+    // `reparentNode` refuses a move when the node — or any ancestor — is
+    // locked, so the preview has to test the same thing. Testing only the
+    // node's own flag let the panel promise a drop that was then silently
+    // refused on release, which is the failure mode invalid feedback exists
+    // to prevent.
+    const isEffectivelyLocked = (nodeId: NodeId): boolean => {
+      let current: NodeId | null | undefined = nodeId;
+      while (current) {
+        if (currentDoc.nodes[current]?.locked === true) return true;
+        current = getParentFast(currentDoc, current, parentCacheRef.current);
+      }
+      return false;
+    };
+
+    let target = resolveLayerDropTarget({
       doc: currentDoc,
       entries: entriesRef.current ?? [],
       geometry: readGeometry(),
@@ -237,8 +255,14 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
       activeIds: moveIds,
       isDescendant: (ancestorId, nodeId) =>
         isDescendantFast(currentDoc, ancestorId, nodeId, parentCacheRef.current),
-      isLocked: (nodeId) => !!currentDoc.nodes[nodeId]?.locked,
+      isLocked: isEffectivelyLocked,
     });
+
+    // A locked *source* is equally unmovable. Keep the resolved location so
+    // the user still sees where it would have gone, just marked invalid.
+    if (target?.valid && moveIds.some(isEffectivelyLocked)) {
+      target = { ...target, valid: false, reason: 'locked' };
+    }
 
     dropIndicatorRef.current = target;
     setDropIndicator((prev) => (sameDropTarget(prev, target) ? prev : target));
