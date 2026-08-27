@@ -247,6 +247,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/save-destinations.md` | Save destination model |
 | `architecture/new-design-creation.md` | New Design / document creation contract |
 | `architecture/pages-layers-frames-shapes-system.md` | Pages, layers, frames, shapes model |
+| `architecture/layers-drag-drop.md` | Layers panel drag and drop: canonical drop resolver, virtualized hit testing, hierarchy semantics |
 | `architecture/pen-pencil-tools.md` | Pen/pencil tool architecture |
 | `architecture/polygonal-lasso.md` | Polygonal lasso |
 | `architecture/skew-transforms.md` | Skew transform contract |
