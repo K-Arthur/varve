@@ -9,7 +9,7 @@
  */
 import type { PatternFillData } from '@varve/scene';
 import { Icon } from '@varve/ui';
-import { useCallback, useId, useRef } from 'react';
+import { useCallback, useEffect, useId, useRef } from 'react';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 
@@ -24,10 +24,16 @@ export function PatternFillControls({
   const fileRef = useRef<HTMLInputElement>(null);
   const hasSrc = Boolean(pattern.tileSrc);
 
+  // Direct native listener (NOT React's delegated onChange): the file dialog
+  // can overlap an inspector subtree re-key, which detaches the DOM node
+  // while the dialog is open. A native listener on the node itself still
+  // receives the change; React's root-delegated listener loses it and the
+  // user's file choice silently vanishes.
   const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      e.target.value = '';
+    (e: Event) => {
+      const input = e.target as HTMLInputElement;
+      const file = input.files?.[0];
+      input.value = '';
       if (!file) return;
       const reader = new FileReader();
       reader.onload = () => {
@@ -41,6 +47,13 @@ export function PatternFillControls({
     [pattern, onChange],
   );
 
+  useEffect(() => {
+    const input = fileRef.current;
+    if (!input) return;
+    input.addEventListener('change', handleFileChange);
+    return () => input.removeEventListener('change', handleFileChange);
+  }, [handleFileChange]);
+
   const clearTile = useCallback(() => {
     onChange({ ...pattern, tileSrc: '' });
   }, [pattern, onChange]);
@@ -53,6 +66,12 @@ export function PatternFillControls({
         </div>
       )}
 
+      {!hasSrc && (
+        <p className="insp-hint insp-image-fill__empty-hint" role="note">
+          No tile selected — the fill is transparent until you choose one.
+        </p>
+      )}
+
       <div className="insp-image-fill__actions">
         <input
           ref={fileRef}
@@ -60,7 +79,6 @@ export function PatternFillControls({
           type="file"
           accept="image/*"
           className="insp-image-fill__file"
-          onChange={handleFileChange}
           aria-hidden
           tabIndex={-1}
         />

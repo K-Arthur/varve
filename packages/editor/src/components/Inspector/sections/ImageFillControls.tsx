@@ -9,7 +9,7 @@
 import type { DocumentAsset, EmbeddedAssetInput, ImageFillData, ImageFit } from '@varve/scene';
 import { rasterEncodingLabel, rasterProvenanceLabel } from '@varve/shared';
 import { Icon, Select, Tooltip, TooltipProvider } from '@varve/ui';
-import { useCallback, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { FieldRow } from '../controls/FieldRow';
 
 /**
@@ -86,10 +86,18 @@ export function ImageFillControls({
     [image, onChange],
   );
 
+  // File picking must not depend on React's delegated change event: when the
+  // OS file dialog is open, the inspector can re-key this control's subtree
+  // (image-shape discovery, thumbnail refresh), detaching the DOM node while
+  // the dialog is still up. A native change listener bound directly to the
+  // input fires even on a detached node; React's root-delegated listener
+  // silently loses the event. This is the difference between "image chosen"
+  // and "click file, nothing happens".
   const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      e.target.value = '';
+    (e: Event) => {
+      const input = e.target as HTMLInputElement;
+      const file = input.files?.[0];
+      input.value = '';
       if (!file) return;
       const reader = new FileReader();
       reader.onload = () => {
@@ -120,6 +128,13 @@ export function ImageFillControls({
     [image, onChange, registerAsset],
   );
 
+  useEffect(() => {
+    const input = fileRef.current;
+    if (!input) return;
+    input.addEventListener('change', handleFileChange);
+    return () => input.removeEventListener('change', handleFileChange);
+  }, [handleFileChange]);
+
   const clearImage = useCallback(() => {
     onChange({ ...image, src: '', assetId: undefined });
   }, [image, onChange]);
@@ -137,6 +152,12 @@ export function ImageFillControls({
         </button>
       )}
 
+      {!hasSrc && (
+        <p className="insp-hint insp-image-fill__empty-hint" role="note">
+          No image selected — the fill is transparent until you choose one.
+        </p>
+      )}
+
       <div className="insp-image-fill__actions">
         <input
           ref={fileRef}
@@ -144,7 +165,6 @@ export function ImageFillControls({
           type="file"
           accept="image/*"
           className="insp-image-fill__file"
-          onChange={handleFileChange}
           aria-hidden
           tabIndex={-1}
         />

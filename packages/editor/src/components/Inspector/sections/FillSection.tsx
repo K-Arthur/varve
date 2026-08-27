@@ -17,7 +17,9 @@ import type {
   Fill,
   FillType,
   GradientFill,
+  GradientStop,
   ImageFillData,
+  ManagedColor,
   PatternFillData,
   SceneNode,
 } from '@varve/scene';
@@ -47,7 +49,6 @@ import { FieldRow } from '../controls/FieldRow';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
 import type { SegmentedOption } from '../controls/SegmentedControl';
-import { SegmentedControl } from '../controls/SegmentedControl';
 import { VariableModifierPopover } from '../controls/VariableModifierPopover';
 import { commonValue, isMixed } from '../selection/selectionState';
 import { FillContrastIndicator } from './FillContrastIndicator';
@@ -95,6 +96,79 @@ const FILL_TYPE_OPTIONS: SegmentedOption<FillType>[] = [
   { value: 'pattern', label: 'Pattern' },
 ];
 
+type AddFillKind = 'solid' | 'linear' | 'radial' | 'image' | 'pattern';
+
+const ADD_FILL_OPTIONS: { kind: AddFillKind; label: string; icon: string }[] = [
+  { kind: 'solid', label: 'Solid', icon: 'Square' },
+  { kind: 'linear', label: 'Linear gradient', icon: 'ArrowDown' },
+  { kind: 'radial', label: 'Radial gradient', icon: 'Circle' },
+  { kind: 'image', label: 'Image', icon: 'Image' },
+  { kind: 'pattern', label: 'Pattern', icon: 'LayoutGrid' },
+];
+
+/**
+ * Default gradient stops seeded from the source fill's own colour instead of
+ * an arbitrary brand teal/blue: stop 0 keeps the user's current solid and
+ * stop 1 is a deterministic harmony (complementary) derivation of it. The
+ * first frame after Solid → Gradient therefore changes visibly while
+ * preserving the user's chosen hue.
+ */
+function defaultGradientStops(source: Fill | undefined): GradientStop[] {
+  let base: ManagedColor | undefined;
+  if (source?.type === 'solid') base = source.color;
+  else if (source?.type === 'gradient') base = source.gradient?.stops[0]?.color;
+  if (!base) {
+    base = { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 };
+  }
+  const [r, g, b, a] = managedColorToRgba(base);
+  const start: ManagedColor = { space: 'rgb' as const, r, g, b, a };
+  const harmony = complementaryHarmony(start);
+  const rawEnd = harmony.colors.length > 0 ? harmony.colors[0] : undefined;
+  let endColor: ManagedColor;
+  if (rawEnd && 'space' in rawEnd) {
+    const [er, eg, eb, ea] = managedColorToRgba(rawEnd);
+    endColor = { space: 'rgb' as const, r: er, g: eg, b: eb, a: ea };
+    if (er === r && eg === g && eb === b) {
+      // Harmony of an achromatic source returns itself; derive a darkening
+      // stop instead so the gradient is still visibly not flat.
+      endColor = {
+        space: 'rgb' as const,
+        r: Math.round(r * 0.5),
+        g: Math.round(g * 0.5),
+        b: Math.round(b * 0.5),
+        a,
+      };
+    }
+  } else {
+    endColor = {
+      space: 'rgb' as const,
+      r: Math.max(0, r - 80),
+      g: Math.max(0, g - 80),
+      b: Math.max(0, b - 80),
+      a,
+    };
+  }
+  return [
+    { position: 0, color: start },
+    { position: 1, color: endColor },
+  ];
+}
+
+/** Build a new fill for the "+ Add fill" menu. */
+function buildNewFill(kind: AddFillKind, source: Fill | undefined): Fill {
+  switch (kind) {
+    case 'solid':
+      return solidFill({ space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 });
+    case 'linear':
+    case 'radial':
+      return gradientFill(kind === 'linear' ? 'linear' : 'radial', defaultGradientStops(source));
+    case 'image':
+      return imageFill('');
+    case 'pattern':
+      return patternFill('');
+  }
+}
+
 function fillSwatchBg(fill: Fill): string {
   if (fill.type === 'solid' && fill.color) {
     const [r, g, b, a] = managedColorToRgba(fill.color);
@@ -128,10 +202,12 @@ export function FillSection({ nodes }: FillSectionProps) {
     commitTransaction,
     announce,
   } = editor;
-  const [newFillType, setNewFillType] = useState<FillType>('solid');
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [fillModifierState, setFillModifierState] = useState<FillModifierState | null>(null);
   const modifierAnchorRef = useRef<HTMLButtonElement | null>(null);
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+  const addTriggerRef = useRef<HTMLButtonElement>(null);
 
   const fills = useMemo(() => {
     const all = nodes.map((n) => resolveNodeFills(n));
@@ -149,27 +225,14 @@ export function FillSection({ nodes }: FillSectionProps) {
     [updateSelectedFillAt],
   );
 
-  const addFill = useCallback(() => {
-    let fill: Fill;
-    switch (newFillType) {
-      case 'gradient':
-        fill = gradientFill('linear', [
-          { position: 0, color: { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 } },
-          { position: 1, color: { space: 'rgb' as const, r: 37, g: 99, b: 235, a: 255 } },
-        ]);
-        break;
-      case 'image':
-        fill = imageFill('');
-        break;
-      case 'pattern':
-        fill = patternFill('');
-        break;
-      default:
-        fill = solidFill({ space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 });
-    }
-    addSelectedFill(fill);
-    announce('Fill added');
-  }, [newFillType, addSelectedFill, announce]);
+  const addFill = useCallback(
+    (kind: AddFillKind) => {
+      const fill = buildNewFill(kind, fills[0]);
+      addSelectedFill(fill);
+      announce('Fill added');
+    },
+    [fills, addSelectedFill, announce],
+  );
 
   const removeFill = useCallback(
     (index: number) => {
@@ -189,16 +252,28 @@ export function FillSection({ nodes }: FillSectionProps) {
     [beginTransaction, commitTransaction, reorderSelectedFill],
   );
 
-  // Keep the "Add new fill" tab selector aligned with the current fill so the
-  // bottom tabs don't show a conflicting type (e.g. Solid selected while the
-  // actual fill is Image). The user can still change the tab to add a fill of
-  // a different type.
+  // Close the add-fill menu on outside pointerdown or Escape.
   useEffect(() => {
-    const current = fills[0]?.type;
-    if (current && current !== newFillType) {
-      setNewFillType(current);
-    }
-  }, [fills, newFillType]);
+    if (!addMenuOpen) return;
+    const onDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (!addMenuRef.current?.contains(target) && !addTriggerRef.current?.contains(target)) {
+        setAddMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setAddMenuOpen(false);
+        addTriggerRef.current?.focus();
+      }
+    };
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [addMenuOpen]);
 
   return (
     <DisclosureSection title="Fill" sectionId="fills">
@@ -248,19 +323,41 @@ export function FillSection({ nodes }: FillSectionProps) {
         <div className="insp-empty-message">Some selected nodes have additional fills</div>
       )}
       <div className="insp-fill-add">
-        <span className="insp-subsection__label">Add new fill</span>
         <div className="insp-fill-add__controls">
-          <SegmentedControl
-            label="New fill type"
-            value={newFillType}
-            options={FILL_TYPE_OPTIONS}
-            onChange={setNewFillType}
-            className="insp-segmented--distribute"
-          />
-          <button type="button" className="insp-add-btn" onClick={addFill}>
+          <button
+            ref={addTriggerRef}
+            type="button"
+            className="insp-add-btn insp-fill-add__trigger"
+            aria-haspopup="menu"
+            aria-expanded={addMenuOpen}
+            onClick={() => setAddMenuOpen((v) => !v)}
+          >
             <Icon name="Plus" label={undefined} size="0.85em" />
-            <span>Add</span>
+            <span>Add fill</span>
           </button>
+          {addMenuOpen && (
+            <div ref={addMenuRef} role="menu" aria-label="Add fill" className="insp-fill-add__menu">
+              {ADD_FILL_OPTIONS.map((opt) => (
+                <button
+                  key={opt.kind}
+                  type="button"
+                  role="menuitem"
+                  className="insp-fill-add__menu-item"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    addFill(opt.kind);
+                  }}
+                >
+                  <Icon
+                    name={opt.icon as import('@varve/ui').IconName}
+                    label={undefined}
+                    size="0.85em"
+                  />
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       {editor.bindingField === 'fill' && (
@@ -379,22 +476,24 @@ function FillRow({
   const setFillType = useCallback(
     (newType: FillType) => {
       if (newType === 'solid') {
+        const firstStop =
+          fill.type === 'gradient' && fill.gradient?.stops[0]
+            ? fill.gradient.stops[0].color
+            : undefined;
         patch({
           type: 'solid',
-          color: fill.color ?? { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
+          color:
+            fill.color ??
+            (firstStop
+              ? ({ ...firstStop } as ManagedColor)
+              : { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 }),
         });
       } else if (newType === 'gradient') {
         patch({
           type: 'gradient',
           gradient: fill.gradient ?? {
             type: 'linear',
-            stops: [
-              {
-                position: 0,
-                color: { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 },
-              },
-              { position: 1, color: { space: 'rgb' as const, r: 37, g: 99, b: 235, a: 255 } },
-            ],
+            stops: defaultGradientStops(fill),
             interpolationSource: 'document',
           },
         });
