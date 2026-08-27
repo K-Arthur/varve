@@ -97,11 +97,6 @@ server (`tests/e2e/canvas/file-import.spec.ts`, snapshots inspected).
 | BMP | Full | |
 | TIFF | Full | Transcoded to PNG on ingest (`utif` + `upng-js`) because browsers do not decode TIFF in an `<img>` |
 | AVIF | Full | `ispe` box probe now recurses through `iprp`/`ipco` |
-
-Animated GIF and WebP are not flattened on import. `inspectRasterBytes`
-probes the container, persists `AnimatedAssetMetadata` on the asset, and the
-media system resolves frames from the editor's media clock — never browser
-`<img>` autoplay. See `architecture/animated-image-media-system.md`.
 | SVG / SVGZ | Editable vector | See fidelity matrix; `.svgz` is gunzipped by content sniff |
 | PSD / PSB | Partial | Layers import; effects, adjustment layers and smart objects are reported as unsupported |
 | PDF | Partial | Basic paths and text; gradients approximated, fonts substituted |
@@ -109,6 +104,11 @@ media system resolves frames from the editor's media clock — never browser
 | EPS | Partial | Basic paths |
 | Sketch | Partial | Symbols, shared styles and constraints not preserved |
 | Figma | Partial | REST/plugin JSON only. Native `.fig` binary reports unsupported |
+
+Animated GIF and WebP are not flattened on import. `inspectRasterBytes`
+probes the container, persists `AnimatedAssetMetadata` on the asset, and the
+media system resolves frames from the editor's media clock — never browser
+`<img>` autoplay. See `architecture/animated-image-media-system.md`.
 
 **Not verified in this pass:** the Tauri desktop shell (the E2E runs the same
 editor frontend over Vite, not the packaged app), the built `/try` bundle,
