@@ -74,7 +74,32 @@ export type DraftShape =
   | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; label?: string }
   | { kind: 'arrow'; x1: number; y1: number; x2: number; y2: number; label?: string }
   | { kind: 'frame'; x: number; y: number; w: number; h: number; label?: string }
-  | { kind: 'freehand'; points: { x: number; y: number }[]; label?: string };
+  | { kind: 'freehand'; points: { x: number; y: number }[]; label?: string }
+  | PenConstructionDraft;
+
+/** One ephemeral Pen anchor. Coordinates and handle offsets are world-space. */
+export interface PenConstructionPoint {
+  x: number;
+  y: number;
+  handleIn: { x: number; y: number } | null;
+  handleOut: { x: number; y: number } | null;
+}
+
+/**
+ * The complete live Pen construction surface. It is deliberately a draft,
+ * not a SceneNode: moving the pointer must not dirty the document or history.
+ */
+export interface PenConstructionDraft {
+  kind: 'bezier-path';
+  points: readonly PenConstructionPoint[];
+  activePointIndex: number;
+  pointer: { x: number; y: number } | null;
+  /** True while the pointer is within the first-anchor close target. */
+  closedPreview: boolean;
+  /** True while the active anchor's handle gesture is still in progress. */
+  isDragging: boolean;
+  label?: string;
+}
 
 export interface PixelProbe {
   screenX: number;

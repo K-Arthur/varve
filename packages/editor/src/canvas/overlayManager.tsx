@@ -25,9 +25,11 @@ import {
   getWorldTransform as getCachedWorldTransform,
 } from '../scene/transformCache';
 import { nodeLocalBounds } from '../scene/world';
+import type { PenConstructionDraft } from '../tools/types';
 import { applyEditorCameraToCtx } from './cameraState';
 import { resizeCanvasBackingStore } from './canvasSurface';
 import { computeGridLines, renderGridOnCtx, resolveCanvasColor } from './gridRenderer';
+import { drawPenConstructionPreview } from './penConstructionPreview';
 import {
   cancelCanvasFrame,
   createCanvasFrameKey,
@@ -667,6 +669,14 @@ export function useOverlayDraw({
       };
 
       switch (d.kind) {
+        case 'bezier-path':
+          drawPenConstructionPreview(
+            ctx,
+            d as unknown as PenConstructionDraft,
+            s.zoom,
+            accentColor,
+          );
+          break;
         case 'rect':
         case 'frame':
           ctx.strokeRect(d.x, d.y, d.w, d.h);
@@ -769,7 +779,7 @@ export function useOverlayDraw({
           ctx.fillStyle = accentColor;
           ctx.fillText(d.label ?? `${d.pts.length} pts`, sx2 + 4, sy2 + 14);
         }
-      } else {
+      } else if (d.kind !== 'bezier-path') {
         const worldX = d.kind === 'line' || d.kind === 'arrow' ? Math.min(d.x1, d.x2) : d.x;
         const worldY = d.kind === 'line' || d.kind === 'arrow' ? Math.min(d.y1, d.y2) : d.y;
         const sx2 = (worldX - s.pan.x) * s.zoom + cssW / 2;

@@ -360,9 +360,11 @@ export function CanvasOverlays({
     );
     const textScreenX = textCanvasX + canvasLeft;
     const textScreenY = textCanvasY + canvasTop;
-    const textBounds = nodeWorldBounds(doc, textEditTargetId);
-    const textScreenW = (textBounds?.w ?? n.w ?? (n.fontSize ?? 16) * 3) * zoom;
-    const textScreenH = (textBounds?.h ?? n.h ?? (n.fontSize ?? 16) * 1.4) * zoom;
+    const textScreenW =
+      (n.w ??
+        (n.text.length > 0 ? n.text.length * (n.fontSize ?? 16) * 0.6 : (n.fontSize ?? 16) * 3)) *
+      zoom;
+    const textScreenH = (n.h ?? (n.fontSize ?? 16) * 1.4) * zoom;
     const textScreenRect = {
       x: textScreenX,
       y: textScreenY,
