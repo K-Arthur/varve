@@ -1,6 +1,57 @@
 import type { ImportParser } from './types';
 
+/**
+ * Raster formats that are not backed by a dedicated parser but are decoded
+ * through the content-sniffed raster fallback in `ImportService` /
+ * `importImageAsFill`. Kept here as the single source of truth so the file
+ * picker `accept` string and the service's fallback detection cannot drift.
+ */
+export const RASTER_IMPORT_EXTENSIONS = [
+  'png',
+  'jpg',
+  'jpeg',
+  'webp',
+  'gif',
+  'bmp',
+  'tif',
+  'tiff',
+  'avif',
+] as const;
+
+/**
+ * Colour-lookup-table formats. These are not handled by `ImportService`
+ * (which produces scene nodes); in the editor shell they are routed to the
+ * LUT adjustment handler. The picker advertises them so users can select
+ * them, but they are deliberately excluded from `listSupportedExtensions`.
+ */
+export const LUT_IMPORT_EXTENSIONS = ['cube', '3dl', 'clf', 'ctf'] as const;
+
 const parsers = new Map<string, ImportParser>();
+
+/**
+ * Every extension that the import pipeline can turn into scene content:
+ * registered parser extensions plus the content-sniffed raster fallback
+ * extensions. Use this to build picker `accept` strings so the UI never
+ * advertises a format the pipeline cannot actually import.
+ */
+export function listSupportedExtensions(): string[] {
+  const set = new Set<string>(RASTER_IMPORT_EXTENSIONS);
+  for (const [, parser] of parsers) {
+    for (const ext of parser.supportedExtensions()) {
+      set.add(ext.toLowerCase().replace(/^\./, ''));
+    }
+  }
+  return [...set];
+}
+
+/**
+ * The complete `accept` string for the import picker, including LUT formats
+ * that the shell routes to a dedicated handler.
+ */
+export function getImportAcceptString(): string {
+  const exts = [...listSupportedExtensions(), ...LUT_IMPORT_EXTENSIONS];
+  return exts.map((e) => `.${e}`).join(',');
+}
 
 export function registerParser(parser: ImportParser): void {
   parsers.set(parser.format, parser);

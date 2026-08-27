@@ -18,9 +18,11 @@ export {
   MAX_RASTER_PIXELS,
 } from './rasterInspection';
 export {
+  getImportAcceptString,
   getParser,
   getParserForData,
   getParserForExtension,
+  listSupportedExtensions,
   listSupportedFormats,
   registerParser,
   resetRegistry,
