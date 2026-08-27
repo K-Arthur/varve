@@ -47,7 +47,15 @@ export type PerformanceWorkloadId =
   | 'paint-raster-lod'
   | 'motion'
   | 'extreme-zoom'
-  | 'document-switching';
+  | 'document-switching'
+  /**
+   * These fixtures deliberately stay out of the default corpus because they
+   * are intended for the camera-scaling benchmark, not every unit-test run.
+   * They are created explicitly through `PERFORMANCE_STRESS_WORKLOAD_IDS`.
+   */
+  | 'viewport-1k'
+  | 'viewport-10k'
+  | 'viewport-100k';
 
 export interface WorkloadPointerSample {
   x: number;
@@ -68,10 +76,12 @@ export interface PerformanceWorkload {
   document: Document;
   fixtureChecksum: string;
   pointerSamples?: WorkloadPointerSample[];
-  viewports?: WorkloadViewport[];
+  viewports?: readonly WorkloadViewport[];
   documentSequence?: Document[];
   expected: {
     nodeCount: number;
+    /** Number of nodes intentionally placed in the initial origin viewport. */
+    visibleNodeCount?: number;
     decodedImageBytes?: number;
     pointerSampleCount?: number;
     rasterTileCount?: number;
@@ -184,6 +194,55 @@ function vector1k(): PerformanceWorkload {
 
 function vector5k(): PerformanceWorkload {
   return vectorScale('vector-5k', 5_000);
+}
+
+/**
+ * A camera-scaling fixture: exactly 100 nodes begin in the origin viewport;
+ * every remaining node is placed in distant positive and negative clusters.
+ *
+ * It is intentionally flat. That makes any proportional growth in a camera
+ * frame attributable to the render/culling path rather than recursive group
+ * structure, and lets the benchmark compare 1k / 10k / 100k total nodes at
+ * a fixed visible complexity. The stress fixtures are opt-in because building
+ * and checksumming 100k immutable scene nodes is itself substantial work.
+ */
+function viewportComplexity(
+  id: Extract<PerformanceWorkloadId, 'viewport-1k' | 'viewport-10k' | 'viewport-100k'>,
+  count: number,
+): PerformanceWorkload {
+  const visibleCount = 100;
+  const nodes: SceneNode[] = [];
+  for (let index = 0; index < count; index++) {
+    const visible = index < visibleCount;
+    const clusterIndex = index - visibleCount;
+    const clusterSign = clusterIndex % 2 === 0 ? 1 : -1;
+    const x = visible ? (index % 10) * 72 : clusterSign * (2_000_000 + (clusterIndex % 500) * 120);
+    const y = visible
+      ? Math.floor(index / 10) * 72
+      : clusterSign * (1_500_000 + Math.floor(clusterIndex / 500) * 120);
+    nodes.push(
+      makeShapeNode(
+        `${id}-${index}`,
+        { kind: 'rect', x: 0, y: 0, w: 48, h: 48 },
+        { transform: [1, 0, 0, 1, x, y] },
+      ),
+    );
+  }
+  return finish(id, appendNodes(workloadDocument(id), nodes), {
+    expected: { visibleNodeCount: visibleCount },
+  });
+}
+
+function viewport1k(): PerformanceWorkload {
+  return viewportComplexity('viewport-1k', 1_000);
+}
+
+function viewport10k(): PerformanceWorkload {
+  return viewportComplexity('viewport-10k', 10_000);
+}
+
+function viewport100k(): PerformanceWorkload {
+  return viewportComplexity('viewport-100k', 100_000);
 }
 
 function denseOverlap(): PerformanceWorkload {
@@ -792,11 +851,7 @@ function motion(): PerformanceWorkload {
 
 function extremeZoom(): PerformanceWorkload {
   return finish('extreme-zoom', gridShapes('zoom', 1_000), {
-    viewports: [
-      { pan: { x: 0, y: 0 }, zoom: 0.01, rotation: 0 },
-      { pan: { x: -100_000, y: 75_000 }, zoom: 1, rotation: 17 },
-      { pan: { x: 2_000_000, y: -2_000_000 }, zoom: 256, rotation: 359.9 },
-    ],
+    viewports: EXTREME_ZOOM_VIEWPORTS,
   });
 }
 
@@ -841,16 +896,50 @@ const FACTORIES: Record<PerformanceWorkloadId, () => PerformanceWorkload> = {
   motion,
   'extreme-zoom': extremeZoom,
   'document-switching': documentSwitching,
+  'viewport-1k': viewport1k,
+  'viewport-10k': viewport10k,
+  'viewport-100k': viewport100k,
 };
 
+/** Exact product zoom points plus representative far-world/rotation probes. */
+export const EXTREME_ZOOM_LEVELS = Object.freeze([
+  0.01, 0.02, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8, 16, 32, 64,
+] as const);
+
+export const EXTREME_ZOOM_VIEWPORTS: readonly WorkloadViewport[] = Object.freeze(
+  EXTREME_ZOOM_LEVELS.map((zoom, index) => ({
+    pan:
+      index === 0
+        ? { x: 0, y: 0 }
+        : index % 2 === 0
+          ? { x: 2_000_000, y: -2_000_000 }
+          : { x: -100_000, y: 75_000 },
+    zoom,
+    rotation: index === 0 ? 0 : index % 2 === 0 ? 359.9 : 17,
+  })),
+);
+
+export const PERFORMANCE_STRESS_WORKLOAD_IDS = Object.freeze([
+  'viewport-1k',
+  'viewport-10k',
+  'viewport-100k',
+] as const satisfies readonly PerformanceWorkloadId[]);
+
 export const PERFORMANCE_WORKLOAD_IDS = Object.freeze(
-  Object.keys(FACTORIES) as PerformanceWorkloadId[],
+  (Object.keys(FACTORIES) as PerformanceWorkloadId[]).filter(
+    (id) => !PERFORMANCE_STRESS_WORKLOAD_IDS.includes(id as never),
+  ),
 );
 
 export function createPerformanceWorkload(id: PerformanceWorkloadId): PerformanceWorkload {
   return FACTORIES[id]();
 }
 
-export function createPerformanceWorkloadCorpus(): PerformanceWorkload[] {
-  return PERFORMANCE_WORKLOAD_IDS.map(createPerformanceWorkload);
+export function createPerformanceWorkloadCorpus(
+  options: { includeStress?: boolean } = {},
+): PerformanceWorkload[] {
+  const ids = options.includeStress
+    ? [...PERFORMANCE_WORKLOAD_IDS, ...PERFORMANCE_STRESS_WORKLOAD_IDS]
+    : PERFORMANCE_WORKLOAD_IDS;
+  return ids.map(createPerformanceWorkload);
 }

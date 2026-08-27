@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   createPerformanceWorkload,
   createPerformanceWorkloadCorpus,
+  EXTREME_ZOOM_LEVELS,
+  PERFORMANCE_STRESS_WORKLOAD_IDS,
   PERFORMANCE_WORKLOAD_IDS,
   type PerformanceWorkloadId,
 } from './workloadCorpus';
@@ -40,8 +42,34 @@ describe('performance workload corpus', () => {
     expect(
       createPerformanceWorkload('motion').document.timelines?.['timeline-main']?.tracks,
     ).toHaveLength(240);
-    expect(createPerformanceWorkload('extreme-zoom').viewports).toHaveLength(3);
+    expect(
+      createPerformanceWorkload('extreme-zoom').viewports?.map((viewport) => viewport.zoom),
+    ).toEqual(EXTREME_ZOOM_LEVELS);
     expect(createPerformanceWorkload('document-switching').documentSequence).toHaveLength(3);
+  });
+
+  it('provides opt-in viewport-complexity stress fixtures with a fixed visible set', () => {
+    expect(createPerformanceWorkloadCorpus().map((workload) => workload.id)).not.toContain(
+      'viewport-100k',
+    );
+    expect(PERFORMANCE_STRESS_WORKLOAD_IDS).toEqual([
+      'viewport-1k',
+      'viewport-10k',
+      'viewport-100k',
+    ]);
+
+    // Construct the 1k fixture in the regular unit path. The 10k/100k
+    // variants deliberately use the same generator but are built only by the
+    // explicit benchmark: checksumming 100k scene nodes in every unit run
+    // would make the test harness itself the dominant workload.
+    const workload = createPerformanceWorkload('viewport-1k');
+    expect(workload.expected.nodeCount).toBe(1_000);
+    expect(workload.expected.visibleNodeCount).toBe(100);
+    const originNodes = Object.values(workload.document.nodes).filter((node) => {
+      const transform = node.transform ?? [1, 0, 0, 1, 0, 0];
+      return Math.abs(transform[4] ?? 0) < 1_000 && Math.abs(transform[5] ?? 0) < 1_000;
+    });
+    expect(originNodes).toHaveLength(100);
   });
 
   it('provides the required deterministic scale fixtures', () => {
