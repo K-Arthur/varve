@@ -92,12 +92,21 @@ targets, layout-grid data, and the snap session from the canvas tool context.
 It returns its winning guides directly to `SnapGuidesOverlay`, keeping feedback
 and correction sourced from the same result.
 
-Bounding-box resize currently calls `snapSelectionBox` through the transform
-engine's snap policy. That function provides selection-box centre, grid,
-layout-grid, pixel-grid, and size matching, but does not yet return a guide
-result to the overlay and therefore must not grow a second candidate resolver.
-When resize smart-guide feedback is extended, it must return the same winning
-per-axis candidates that produced its corrected box.
+Bounding-box resize calls `snapSelectionBox` through the transform engine's
+snap policy, with the active handle and centre-resize modifier included in the
+request. For an axis-aligned box, the resolver compares the moving handle side
+against object left/centre/right or top/middle/bottom anchors independently per
+axis. It changes the size and centre together so the opposite side remains
+fixed; a corner resize may therefore produce compatible X/Y intersection snaps.
+Centred resize instead keeps the centre fixed and changes both sides equally.
+Rotated-box edge snapping remains intentionally disabled because a world AABB
+is not a valid edge target for an arbitrarily oriented side.
+
+The generic resolver also provides centre, grid, layout-grid, pixel-grid, and
+size matching. Resize smart-guide feedback does not yet return a guide result
+to the overlay and therefore must not grow a second candidate resolver. When
+that feedback is extended, it must return the same winning per-axis candidates
+that produced its corrected box.
 
 ## Alignment and distribution
 
@@ -126,6 +135,11 @@ decimals, but a numeric commit must send the entered value through the canonical
 editor operation. New transform code must reject non-finite or non-invertible
 parent cases through the shared safe affine helpers rather than silently writing
 corrupt geometry.
+
+The linked W/H inspector calculation is subject to the same rule: it uses the
+full division or multiplication result, never a display-oriented decimal
+rounding. For example, changing a 100 by 80 object to 133.3333 wide stores a
+height of 106.66664, not 106.67.
 
 The focused transform tests cover image/frame policies, constraints, exact
 post-commit geometry, and fractional path anchors and handles. In particular,
