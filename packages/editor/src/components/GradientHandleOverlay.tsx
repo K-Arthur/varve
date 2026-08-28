@@ -125,11 +125,15 @@ function HandleCircle({
   point,
   fill,
   active,
+  handleKind,
+  fillIndex,
   onPointerDown,
 }: {
   point: { x: number; y: number };
   fill: string;
   active: boolean;
+  handleKind: GradientHandleKind;
+  fillIndex: number;
   onPointerDown: (event: React.PointerEvent<SVGCircleElement>) => void;
 }) {
   return (
@@ -140,6 +144,8 @@ function HandleCircle({
       fill={fill}
       stroke="#fff"
       strokeWidth={2}
+      data-gradient-handle={handleKind}
+      data-gradient-fill-index={fillIndex}
       style={{ pointerEvents: 'auto', cursor: active ? 'grabbing' : 'grab' }}
       onPointerDown={onPointerDown}
     />
@@ -248,6 +254,8 @@ export function GradientHandleOverlay({
 
   return (
     <svg
+      data-gradient-handle-overlay
+      data-gradient-dragging={dragging ? 'true' : undefined}
       style={{
         position: 'absolute',
         inset: 0,
@@ -323,12 +331,16 @@ export function GradientHandleOverlay({
               point={startCanvas}
               fill="var(--elevation-surface-default, #fff)"
               active={isDragging(startKind)}
+              handleKind={startKind}
+              fillIndex={handle.fillIndex}
               onPointerDown={(event) => handlePointerDown(event, handle, startKind)}
             />
             <HandleCircle
               point={primaryCanvas}
               fill="var(--color-accent-primary, #39d0c6)"
               active={isDragging(primaryKind)}
+              handleKind={primaryKind}
+              fillIndex={handle.fillIndex}
               onPointerDown={(event) => handlePointerDown(event, handle, primaryKind)}
             />
             {secondaryCanvas && (
@@ -336,6 +348,8 @@ export function GradientHandleOverlay({
                 point={secondaryCanvas}
                 fill="var(--color-accent-primary, #39d0c6)"
                 active={isDragging('radial-v-axis')}
+                handleKind="radial-v-axis"
+                fillIndex={handle.fillIndex}
                 onPointerDown={(event) => handlePointerDown(event, handle, 'radial-v-axis')}
               />
             )}
