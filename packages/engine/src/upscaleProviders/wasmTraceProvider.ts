@@ -37,21 +37,39 @@ export const wasmTraceProvider: TraceProvider = {
       throw new Error('WASM trace module missing trace_contours_json');
     }
 
-    const resultJson = mod.trace_contours_json(
-      pixels,
-      imageData.width,
-      imageData.height,
-      threshold,
-      minPixels,
-      foreground === 'light' ? 'light' : 'dark',
-    );
+    const wasmOptions = JSON.stringify({
+      cornerAngle: options.cornerAngle ?? 135,
+      maxError: options.maxError ?? 1,
+      simplifyTolerance: options.simplifyTolerance ?? 0.75,
+    });
+    const resultJson =
+      typeof mod.trace_contours_json_opts === 'function'
+        ? mod.trace_contours_json_opts(
+            pixels,
+            imageData.width,
+            imageData.height,
+            threshold,
+            minPixels,
+            foreground === 'light' ? 'light' : 'dark',
+            wasmOptions,
+          )
+        : mod.trace_contours_json(
+            pixels,
+            imageData.width,
+            imageData.height,
+            threshold,
+            minPixels,
+            foreground === 'light' ? 'light' : 'dark',
+          );
     const result: RasterTraceResult = JSON.parse(resultJson);
     return {
       width: result.width,
       height: result.height,
       paths: result.paths.map((p) => ({
-        points: p.points.map((pt) => ({ x: pt.x, y: pt.y })),
-        closed: true as const,
+        ...p,
+        points: p.points.map((point) => ({ ...point })),
+        ...(p.holes ? { holes: p.holes.map((ring) => ring.map((point) => ({ ...point }))) } : {}),
+        curveFitted: p.curveFitted ?? false,
         area: p.area,
         bounds: p.bounds || { x: 0, y: 0, w: 0, h: 0 },
       })),

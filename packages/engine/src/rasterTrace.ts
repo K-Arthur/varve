@@ -12,6 +12,10 @@ import { linearSrgbToOklab, srgbToLinear } from '@varve/shared';
 export interface RasterTracePoint {
   x: number;
   y: number;
+  /** Cubic handle offset from this anchor in source-pixel coordinates. */
+  handleIn?: [number, number];
+  /** Cubic handle offset from this anchor in source-pixel coordinates. */
+  handleOut?: [number, number];
 }
 
 export interface RasterTraceFill {
@@ -32,6 +36,11 @@ export interface RasterTracePath {
   fill?: RasterTraceFill;
   /** Stroke width in source pixels for centerline mode (open paths). */
   strokeWidth?: number;
+  /**
+   * True when a provider already fitted cubic handles. Insertion must retain
+   * those curves rather than fitting the same contour a second time.
+   */
+  curveFitted?: boolean;
 }
 
 export type RasterTraceMode = 'monochrome' | 'grayscale' | 'color' | 'pixel-art';

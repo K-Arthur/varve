@@ -66,6 +66,7 @@ describe('nativeTraceProvider', () => {
         threshold: 140,
         cornerAngle: 160,
         maxError: 0.5,
+        simplifyTolerance: 1.25,
         maxPaths: 500,
         alphaThreshold: 4,
         compoundHoles: true,
@@ -89,6 +90,7 @@ describe('nativeTraceProvider', () => {
     expect(opts.maxColors).toBe(12);
     expect(opts.cornerAngle).toBe(160);
     expect(opts.maxError).toBe(0.5);
+    expect(opts.simplifyTolerance).toBe(1.25);
     expect(opts.maxPaths).toBe(500);
     expect(opts.alphaThreshold).toBe(4);
     expect(opts.compoundHoles).toBe(true);
@@ -119,7 +121,7 @@ describe('nativeTraceProvider', () => {
               {
                 points: [
                   { x: 0, y: 0 },
-                  { x: 10, y: 0 },
+                  { x: 10, y: 0, handle_in: [-2, 0], handle_out: [2, 0] },
                   { x: 10, y: 10 },
                   { x: 0, y: 10 },
                 ],
@@ -161,6 +163,8 @@ describe('nativeTraceProvider', () => {
     expect(result.paths).toHaveLength(2);
     const ring = result.paths[0];
     expect(ring?.closed).toBe(true);
+    expect(ring?.curveFitted).toBe(true);
+    expect(ring?.points[1]).toEqual({ x: 10, y: 0, handleIn: [-2, 0], handleOut: [2, 0] });
     expect(ring?.holes).toHaveLength(1);
     expect(ring?.holes?.[0]?.[0]).toEqual({ x: 4, y: 4 });
     const open = result.paths[1];

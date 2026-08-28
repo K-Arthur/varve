@@ -93,6 +93,7 @@ export const nativeTraceProvider: TraceProvider = {
         foreground: options.foreground ?? 'dark',
         cornerAngle: options.cornerAngle ?? 135,
         maxError: options.maxError ?? 1.0,
+        simplifyTolerance: options.simplifyTolerance ?? 0.75,
         traceMode: options.traceMode ?? 'silhouette',
         alphaThreshold: options.alphaThreshold ?? 1,
         centerlineWidth: options.centerlineWidth ?? 2,

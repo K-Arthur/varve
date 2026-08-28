@@ -29,9 +29,14 @@ pub fn wasm_engine_version() -> String {
 
 /// JSON-serializable path point for the wasm trace result.
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TracePointJson {
     x: f64,
     y: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    handle_in: Option<(f64, f64)>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    handle_out: Option<(f64, f64)>,
 }
 
 /// JSON-serializable bounding box for the wasm trace result.
@@ -45,12 +50,14 @@ struct TraceBoundsJson {
 
 /// JSON-serializable traced path matching the TS `RasterTracePath` shape.
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TracePathJson {
     points: Vec<TracePointJson>,
     holes: Option<Vec<Vec<TracePointJson>>>,
     closed: bool,
     area: f64,
     bounds: TraceBoundsJson,
+    curve_fitted: bool,
 }
 
 /// JSON-serializable trace result matching the TS `RasterTraceResult` shape.
@@ -105,7 +112,10 @@ fn parse_trace_opts(
                 opts.corner_angle = ca;
             }
             if let Some(me) = json_opts.get("maxError").and_then(|v| v.as_f64()) {
-                opts.max_error = me;
+                opts.max_error = me.clamp(0.1, 10.0);
+            }
+            if let Some(st) = json_opts.get("simplifyTolerance").and_then(|v| v.as_f64()) {
+                opts.simplify_tolerance = st.clamp(0.0, 10.0);
             }
         }
     }
@@ -150,51 +160,46 @@ pub fn trace_contours_json_opts(
         return Err(JsValue::from_str("width and height must be > 0"));
     }
 
-    // Convert RGBA to grayscale using luma formula
-    let num_pixels = (width * height) as usize;
-    let mut gray = Vec::with_capacity(num_pixels);
-    for chunk in pixels.chunks_exact(4) {
-        let r = chunk[0] as f64;
-        let g = chunk[1] as f64;
-        let b = chunk[2] as f64;
-        let luma = (0.2126 * r + 0.7152 * g + 0.0722 * b).round() as u8;
-        gray.push(luma);
-    }
-
     let opts = parse_trace_opts(threshold, min_pixels, foreground, opts_json);
 
-    // Detect hardware concurrency via navigator.hardwareConcurrency,
-    // clamped to [1, 4] chunks. Falls back to 2 in non-browser contexts.
-    let chunk_count = web_sys::window()
-        .map(|w| w.navigator().hardware_concurrency() as usize)
-        .unwrap_or(2)
-        .clamp(1, 4);
-
-    let paths =
-        varve_trace::chunked::trace_contours_chunked(&gray, width, height, &opts, chunk_count);
-
-    // Apply Bezier fitting to each path
+    // Use the same RGBA contour, simplification, hole pairing, and cubic-fit
+    // path as desktop. The web facade remains monochrome-only, but supported
+    // settings must not silently change their semantics by provider.
+    let paths = varve_trace::trace_to_beziers(pixels, width, height, &opts);
     let json_paths: Vec<TracePathJson> = paths
         .into_iter()
         .map(|p| {
-            // Convert to contour for Bezier fitting
-            let contour: Vec<(f64, f64)> = p.points.iter().map(|pt| (pt.x, pt.y)).collect();
-            let bezier_pts = varve_trace::bezier_fit::fit_bezier_to_contour(
-                &contour,
-                p.closed,
-                opts.corner_angle,
-                opts.max_error,
-            );
-            let bezier_points: Vec<TracePointJson> = bezier_pts
+            let points: Vec<TracePointJson> = p
+                .points
                 .iter()
-                .map(|pt| TracePointJson { x: pt.x, y: pt.y })
+                .map(|point| TracePointJson {
+                    x: point.x,
+                    y: point.y,
+                    handle_in: point.handle_in,
+                    handle_out: point.handle_out,
+                })
                 .collect();
-            let area = polygon_area(&p.points);
-            let (min_x, min_y, max_x, max_y) = bounds(&p.points);
+            let holes = (!p.holes.is_empty()).then(|| {
+                p.holes
+                    .iter()
+                    .map(|ring| {
+                        ring.iter()
+                            .map(|point| TracePointJson {
+                                x: point.x,
+                                y: point.y,
+                                handle_in: point.handle_in,
+                                handle_out: point.handle_out,
+                            })
+                            .collect()
+                    })
+                    .collect()
+            });
+            let area = bezier_polygon_area(&p.points);
+            let (min_x, min_y, max_x, max_y) = bezier_bounds(&p.points);
             TracePathJson {
-                points: bezier_points,
-                holes: None,
-                closed: true,
+                points,
+                holes,
+                closed: p.closed,
                 area,
                 bounds: TraceBoundsJson {
                     x: min_x,
@@ -202,6 +207,7 @@ pub fn trace_contours_json_opts(
                     w: (max_x - min_x).max(0.0),
                     h: (max_y - min_y).max(0.0),
                 },
+                curve_fitted: true,
             }
         })
         .collect();
@@ -222,7 +228,7 @@ pub fn wasm_trace_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
-fn polygon_area(points: &[Point]) -> f64 {
+fn bezier_polygon_area(points: &[varve_trace::BezierPoint]) -> f64 {
     if points.len() < 3 {
         return 0.0;
     }
@@ -234,7 +240,7 @@ fn polygon_area(points: &[Point]) -> f64 {
     sum.abs() / 2.0
 }
 
-fn bounds(points: &[Point]) -> (f64, f64, f64, f64) {
+fn bezier_bounds(points: &[varve_trace::BezierPoint]) -> (f64, f64, f64, f64) {
     let mut min_x = f64::MAX;
     let mut min_y = f64::MAX;
     let mut max_x = f64::MIN;

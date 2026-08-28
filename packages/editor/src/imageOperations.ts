@@ -144,7 +144,9 @@ export function insertDerivedImageShape(
 export interface TraceGroupInput {
   width: number;
   height: number;
-  paths: Array<Pick<RasterTracePath, 'closed' | 'points' | 'holes' | 'fill' | 'strokeWidth'>>;
+  paths: Array<
+    Pick<RasterTracePath, 'closed' | 'points' | 'holes' | 'fill' | 'strokeWidth' | 'curveFitted'>
+  >;
   /** Retained for diagnostics; compound holes no longer block insert. */
   omittedHoles?: number;
   /** Bezier corner angle threshold (degrees). Default 135. */
@@ -159,6 +161,23 @@ export interface TraceGroupInput {
   metadata?: TraceMetadata;
 }
 
+function scaleCurveFittedPoints(
+  points: RasterTracePath['points'],
+  scaleX: number,
+  scaleY: number,
+): ReturnType<typeof fitBezierToContour> {
+  return points.map((point) => ({
+    x: point.x * scaleX,
+    y: point.y * scaleY,
+    handleIn: point.handleIn
+      ? ([point.handleIn[0] * scaleX, point.handleIn[1] * scaleY] as [number, number])
+      : null,
+    handleOut: point.handleOut
+      ? ([point.handleOut[0] * scaleX, point.handleOut[1] * scaleY] as [number, number])
+      : null,
+  }));
+}
+
 /** Build one traced path node: filled for closed contours, stroked for
  *  centerline (open) contours. Hole rings only apply to closed fills. */
 function makeTraceChildNode(
@@ -166,12 +185,13 @@ function makeTraceChildNode(
   traced: TraceGroupInput['paths'][number],
   index: number,
   scaleAndFit: (
-    points: Array<{ x: number; y: number }>,
+    points: RasterTracePath['points'],
     closed: boolean,
+    curveFitted: boolean | undefined,
   ) => ReturnType<typeof fitBezierToContour>,
   strokeWeight: number,
 ): ReturnType<typeof makeShapeNode> {
-  const holes = traced.holes?.map((h) => scaleAndFit(h, true));
+  const holes = traced.holes?.map((h) => scaleAndFit(h, true, traced.curveFitted));
   const fillColor = traced.fill ?? { r: 0, g: 0, b: 0, a: 255 };
   if (!traced.closed) {
     // Centerline output: an open stroked path (no fill).
@@ -181,7 +201,7 @@ function makeTraceChildNode(
         kind: 'path',
         closed: false,
         tolerance: 1,
-        points: scaleAndFit(traced.points, false),
+        points: scaleAndFit(traced.points, false, traced.curveFitted),
       },
       {
         name: `Trace ${index + 1}`,
@@ -208,7 +228,7 @@ function makeTraceChildNode(
       kind: 'path',
       closed: true,
       tolerance: 1,
-      points: scaleAndFit(traced.points, true),
+      points: scaleAndFit(traced.points, true, traced.curveFitted),
       ...(holes && holes.length > 0 ? { holes, fillRule: 'evenodd' as const } : {}),
     },
     {
@@ -253,7 +273,12 @@ export function insertTraceGroup(
   const scaleY = sourceHeight / input.height;
   const bezierAngle = input.cornerAngle ?? 135;
   const bezierError = input.maxError ?? 1.0;
-  const scaleAndFit = (points: Array<{ x: number; y: number }>, closed: boolean) => {
+  const scaleAndFit = (
+    points: RasterTracePath['points'],
+    closed: boolean,
+    curveFitted: boolean | undefined,
+  ) => {
+    if (curveFitted) return scaleCurveFittedPoints(points, scaleX, scaleY);
     const scaled = points.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
     return fitBezierToContour(scaled, closed, { maxError: bezierError, cornerAngle: bezierAngle });
   };
@@ -336,7 +361,12 @@ export function insertLiveTraceGroup(
   const scaleY = sourceHeight / input.height;
   const bezierAngle2 = input.cornerAngle ?? 135;
   const bezierError2 = input.maxError ?? 1.0;
-  const scaleAndFit = (points: Array<{ x: number; y: number }>, closed: boolean) => {
+  const scaleAndFit = (
+    points: RasterTracePath['points'],
+    closed: boolean,
+    curveFitted: boolean | undefined,
+  ) => {
+    if (curveFitted) return scaleCurveFittedPoints(points, scaleX, scaleY);
     const scaled = points.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
     return fitBezierToContour(scaled, closed, {
       maxError: bezierError2,

@@ -1477,6 +1477,7 @@ struct TraceImageOptions {
     foreground: Option<String>,
     corner_angle: Option<f64>,
     max_error: Option<f64>,
+    simplify_tolerance: Option<f64>,
     trace_mode: Option<String>,
     alpha_threshold: Option<u8>,
     centerline_width: Option<f64>,
@@ -1526,6 +1527,7 @@ fn sanitize_trace_options(raw: TraceImageOptions) -> varve_trace::TraceOptions {
             .max_error
             .unwrap_or_else(default_max_error)
             .clamp(0.1, 10.0),
+        simplify_tolerance: raw.simplify_tolerance.unwrap_or(0.75).clamp(0.0, 10.0),
         trace_mode,
         alpha_threshold: raw.alpha_threshold.unwrap_or(1).clamp(0, 255),
         centerline_width: raw.centerline_width.unwrap_or(2.0).clamp(0.5, 100.0),
@@ -4086,6 +4088,7 @@ mod tests {
             foreground: None,
             corner_angle: Some(10.0),
             max_error: Some(50.0),
+            simplify_tolerance: Some(50.0),
             trace_mode: Some("pixel-art".into()),
             alpha_threshold: Some(255),
             centerline_width: Some(1000.0),
@@ -4101,6 +4104,10 @@ mod tests {
         assert_eq!(opts.max_colors, 64, "max_colors clamped to 64");
         assert_eq!(opts.corner_angle, 90.0, "corner angle clamped to 90");
         assert_eq!(opts.max_error, 10.0, "max error clamped to 10");
+        assert_eq!(
+            opts.simplify_tolerance, 10.0,
+            "simplify tolerance clamped to 10"
+        );
         assert_eq!(opts.centerline_width, 100.0);
         assert_eq!(opts.centerline_prune, 1000.0);
         assert_eq!(

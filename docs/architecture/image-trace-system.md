@@ -38,6 +38,10 @@ select image → open dialog → preview (bounded) → apply (full resolution)
 
 `traceCapabilityReport(options)` returns `{ available, reason, providerIds }`;
 the dialog uses it to disable centerline (with a reason) on web builds.
+For its supported monochrome mode, the WASM facade passes corner angle,
+maximum fitting error, and source-pixel simplify tolerance to the same Rust
+trace path as desktop; older generated artifacts fall back safely to their
+legacy entry point.
 
 ## Native engine (crates/varve-trace)
 
@@ -53,6 +57,12 @@ the dialog uses it to disable centerline (with a reason) on web builds.
   Oklab) and a median-cut fallback above 256 unique colors.
 - **Holes**: attached to the outer ring as `BezierPath.holes`
   (evenodd at insertion); unpaired holes are counted in `omittedHoles`.
+- **Simplification and fitting**: `simplifyTolerance` is measured in decoded
+  source pixels and is applied before cubic fitting for silhouette and
+  centerline traces. Compound outers and holes are fitted independently;
+  their cubic handle offsets travel through the native response and are scaled
+  into document space without a second fit. Pixel-art deliberately bypasses
+  RDP simplification and curve fitting to preserve the exact pixel grid.
 - **Cancellation**: `TraceCancellation` (Arc<AtomicBool>) polled inside
   assignment/contour/centerline loops; partial results are discarded.
 - **Progress**: stage callbacks (`preprocessing/quantizing/segmenting/
@@ -70,7 +80,8 @@ the dialog uses it to disable centerline (with a reason) on web builds.
 - `trace:progress` events `{ jobId, stage, progress }`.
 - `sanitize_trace_options` clamps all untrusted options. Limits: 128 MB input
   bytes, 64 MPixels decoded, 100 k paths, threshold 1–254, colors 0–64,
-  corner angle 90–180, max error 0.1–10, stroke width 0.5–100.
+  corner angle 90–180, max error 0.1–10, simplify tolerance 0–10 source
+  pixels, stroke width 0.5–100.
 - Decode safety: dimension pre-check via `ImageReader::into_dimensions()`
   before full decode (decompression-bomb guard), u64 pixel math, format
   sniffing (extensions are never trusted).
@@ -81,14 +92,16 @@ the dialog uses it to disable centerline (with a reason) on web builds.
   `x-varve-trace-options` (camelCase, serde `rename_all = "camelCase"` —
   snake_case keys are silently ignored).
 - Response: `{ paths: BezierPath[], omittedHoles }` where
-  `BezierPath = { points, closed, fill?, holes? }`; centerline paths are
-  `closed: false` and carry `strokeWidth` at the RasterTracePath level.
+  `BezierPath = { points, closed, fill?, holes? }`; points may include
+  `handle_in`/`handle_out` cubic offsets. Centerline paths are `closed: false`
+  and carry `strokeWidth` at the RasterTracePath level.
 
 ## Scene integration
 
 - `insertTraceGroup` places a group beside the source (single undo entry),
   mapping source pixels → document space (scale from image shape
-  dimensions), with evenodd compound holes and `ManagedColor` fills.
+  dimensions), retaining native cubic handles, with evenodd compound holes
+  and `ManagedColor` fills.
 - Centerline results become open stroked paths (round caps/joins, per-path
   width, transparent fill).
 - `GroupNode.traceMetadata` (schema 2.16) stores provenance:

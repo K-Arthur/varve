@@ -124,6 +124,11 @@ pub struct TraceOptions {
     /// Maximum Bezier fitting error in pixels (0.1-10).
     #[serde(default = "default_max_error")]
     pub max_error: f64,
+    /// Ramer-Douglas-Peucker tolerance in source pixels, applied before
+    /// fitting silhouette and centerline paths. Pixel-art intentionally
+    /// bypasses this to preserve the exact pixel grid.
+    #[serde(default = "default_simplify_tolerance")]
+    pub simplify_tolerance: f64,
     /// Trace mode: silhouette (filled) or centerline (stroked).
     #[serde(default)]
     pub trace_mode: TraceMode,
@@ -149,6 +154,9 @@ fn default_corner_angle() -> f64 {
 }
 fn default_max_error() -> f64 {
     1.0
+}
+fn default_simplify_tolerance() -> f64 {
+    0.75
 }
 fn default_alpha_threshold() -> u8 {
     1
@@ -183,6 +191,7 @@ impl Default for TraceOptions {
             foreground: Foreground::default(),
             corner_angle: default_corner_angle(),
             max_error: default_max_error(),
+            simplify_tolerance: default_simplify_tolerance(),
             trace_mode: TraceMode::default(),
             alpha_threshold: default_alpha_threshold(),
             centerline_width: default_centerline_width(),
@@ -395,6 +404,47 @@ pub fn simplify_path(path: &[Point], epsilon: f64) -> Vec<Point> {
     result
 }
 
+/// Simplify a closed contour without treating the arbitrary first vertex as a
+/// hard endpoint. The farthest vertex splits the ring into two open spans;
+/// RDP then preserves the seam and returns an unclosed ring suitable for
+/// contour fitting and hole pairing.
+fn simplify_closed_path(path: &[Point], epsilon: f64) -> Vec<Point> {
+    if epsilon <= 0.0 || path.len() <= 3 {
+        return path.to_vec();
+    }
+
+    let anchor = path[0];
+    let (pivot_index, max_distance_sq) = path
+        .iter()
+        .enumerate()
+        .skip(1)
+        .map(|(index, point)| {
+            let dx = point.x - anchor.x;
+            let dy = point.y - anchor.y;
+            (index, dx * dx + dy * dy)
+        })
+        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        .unwrap_or((0, 0.0));
+    if pivot_index == 0 || max_distance_sq == 0.0 {
+        return path.to_vec();
+    }
+
+    let mut first = simplify_path(&path[..=pivot_index], epsilon);
+    let mut second_span = path[pivot_index..].to_vec();
+    second_span.push(anchor);
+    let second = simplify_path(&second_span, epsilon);
+
+    // Join at the pivot, then remove the repeated closing anchor.
+    first.pop();
+    first.extend(second);
+    first.pop();
+    if first.len() >= 3 {
+        first
+    } else {
+        path.to_vec()
+    }
+}
+
 fn rdp(path: &[Point], epsilon: f64, result: &mut Vec<Point>) {
     if path.is_empty() {
         return;
@@ -484,7 +534,12 @@ fn trace_mask_to_beziers(
     fill_color: Option<RgbColor>,
     omitted_holes: &mut usize,
 ) -> Vec<BezierPath> {
-    let polys = contours::component_polylines(mask, width, height, opts.min_pixels.max(1), cancel);
+    let raw_polys =
+        contours::component_polylines(mask, width, height, opts.min_pixels.max(1), cancel);
+    let polys: Vec<Vec<Point>> = raw_polys
+        .iter()
+        .map(|poly| simplify_closed_path(poly, opts.simplify_tolerance))
+        .collect();
     let mut result: Vec<BezierPath> = polys
         .iter()
         .map(|p| {
@@ -512,28 +567,24 @@ fn trace_mask_to_beziers(
         result = compounds
             .into_iter()
             .map(|c| {
-                let points: Vec<BezierPoint> = c
-                    .outer
-                    .iter()
-                    .map(|pt| BezierPoint {
-                        x: pt.x,
-                        y: pt.y,
-                        handle_in: None,
-                        handle_out: None,
-                    })
-                    .collect();
+                let contour: Vec<(f64, f64)> = c.outer.iter().map(|pt| (pt.x, pt.y)).collect();
+                let points = bezier_fit::fit_bezier_to_contour(
+                    &contour,
+                    true,
+                    opts.corner_angle,
+                    opts.max_error,
+                );
                 let holes: Vec<Vec<BezierPoint>> = c
                     .holes
                     .iter()
                     .map(|ring| {
-                        ring.iter()
-                            .map(|pt| BezierPoint {
-                                x: pt.x,
-                                y: pt.y,
-                                handle_in: None,
-                                handle_out: None,
-                            })
-                            .collect()
+                        let contour: Vec<(f64, f64)> = ring.iter().map(|pt| (pt.x, pt.y)).collect();
+                        bezier_fit::fit_bezier_to_contour(
+                            &contour,
+                            true,
+                            opts.corner_angle,
+                            opts.max_error,
+                        )
                     })
                     .collect();
                 BezierPath {
@@ -625,7 +676,14 @@ pub fn trace_to_beziers_cancellable(
             if is_cancelled_flag(cancel) {
                 break;
             }
-            let contour: Vec<(f64, f64)> = branch.iter().map(|p| (p.0, p.1)).collect();
+            let branch_points: Vec<Point> = branch
+                .iter()
+                .map(|point| Point::new(point.0, point.1))
+                .collect();
+            let contour: Vec<(f64, f64)> = simplify_path(&branch_points, opts.simplify_tolerance)
+                .iter()
+                .map(|point| (point.x, point.y))
+                .collect();
             let points = bezier_fit::fit_bezier_to_contour(
                 &contour,
                 false,
@@ -856,6 +914,7 @@ mod tests {
         let opts = TraceOptions::default();
         assert_eq!(opts.threshold, 128);
         assert_eq!(opts.min_pixels, 10);
+        assert_eq!(opts.simplify_tolerance, 0.75);
     }
 
     #[test]
@@ -885,6 +944,24 @@ mod tests {
         ];
         let simplified = simplify_path(&pts, 0.5);
         assert_eq!(simplified.len(), 3); // sharp corner preserved
+    }
+
+    #[test]
+    fn simplify_closed_path_removes_redundant_ring_points_without_opening_the_loop() {
+        let ring = vec![
+            Point::new(0.0, 0.0),
+            Point::new(5.0, 0.0),
+            Point::new(10.0, 0.0),
+            Point::new(10.0, 5.0),
+            Point::new(10.0, 10.0),
+            Point::new(5.0, 10.0),
+            Point::new(0.0, 10.0),
+            Point::new(0.0, 5.0),
+        ];
+        let simplified = simplify_closed_path(&ring, 0.5);
+        assert_eq!(simplified.len(), 4);
+        assert_eq!(simplified[0], Point::new(0.0, 0.0));
+        assert_eq!(simplified, simplify_closed_path(&ring, 0.5));
     }
 
     /// Build an RGBA donut: opaque dark ring with a transparent center hole.

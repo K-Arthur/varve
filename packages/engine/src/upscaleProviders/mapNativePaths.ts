@@ -14,6 +14,15 @@ interface NativeBezierPath {
   holes?: NativeBezierPoint[][];
 }
 
+function mapNativePoint(point: NativeBezierPoint): RasterTracePath['points'][number] {
+  return {
+    x: point.x,
+    y: point.y,
+    ...(point.handle_in ? { handleIn: point.handle_in } : {}),
+    ...(point.handle_out ? { handleOut: point.handle_out } : {}),
+  };
+}
+
 export function mapNativePathsToTraceResult(
   width: number,
   height: number,
@@ -36,12 +45,13 @@ export function mapNativePathsToTraceResult(
       }
       const w = Math.max(1, maxX - minX);
       const h = Math.max(1, maxY - minY);
-      const holes = (path.holes ?? []).map((ring) => ring.map((p) => ({ x: p.x, y: p.y })));
+      const holes = (path.holes ?? []).map((ring) => ring.map(mapNativePoint));
       return {
-        points: path.points.map((p) => ({ x: p.x, y: p.y })),
+        points: path.points.map(mapNativePoint),
         closed: path.closed,
         area: w * h,
         bounds: { x: minX, y: minY, w, h },
+        curveFitted: true,
         ...(holes.length > 0 ? { holes } : {}),
         ...(path.fill
           ? { fill: { r: path.fill.r, g: path.fill.g, b: path.fill.b, a: path.fill.a } }
