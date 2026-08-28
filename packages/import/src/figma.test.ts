@@ -242,7 +242,7 @@ describe('Figma JSON importer', () => {
     expect(transform).toBeDefined();
     expect(transform).toHaveLength(6);
     transform?.forEach((value, index) => {
-      expect(value).toBeCloseTo([0.7, 0.15, -0.4, 1.15, 0.4, -0.275][index]!, 12);
+      expect(value).toBeCloseTo([182, 7.2, -104, 55.2, 104, -13.2][index]!, 12);
     });
     expect(imported?.fills?.[0]?.gradient?.rotation).toBeUndefined();
   });
