@@ -27,8 +27,9 @@ export async function convertToCmykIcc(
   }
 
   // Try WASM path first
+  let wasmProviderLoaded = false;
   try {
-    const { convertSrgbBufferToCmykWasm } = await import('../colourWasm');
+    const { convertSrgbBufferToCmykWasm, isColourWasmAvailable } = await import('../colourWasm');
     const result = await convertSrgbBufferToCmykWasm(
       rgb,
       profile,
@@ -48,8 +49,18 @@ export async function convertToCmykIcc(
       }
       return cmyk;
     }
-  } catch {
-    // Fall through to analytical path
+    wasmProviderLoaded = isColourWasmAvailable();
+    // A loaded WASM module failing a requested profile is a real conversion
+    // error, not permission to reinterpret the output with the approximate
+    // browser formula. Preserve the old analytical fallback only when no
+    // ICC provider could be loaded at all.
+    if (wasmProviderLoaded) {
+      throw new Error(`ICC conversion failed for destination profile ${profile ?? 'Fogra39'}`);
+    }
+  } catch (error) {
+    // Loading failures fall through to the explicitly documented analytical
+    // path. Provider failures after a module was loaded are rethrown below.
+    if (wasmProviderLoaded) throw error;
   }
 
   // Fallback: analytical conversion
