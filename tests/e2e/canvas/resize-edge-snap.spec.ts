@@ -46,6 +46,19 @@ const RESIZE_EDGE_SNAP_DOCUMENT = {
   nextId: 3,
 };
 
+const PIXEL_RESIZE_DOCUMENT = {
+  ...RESIZE_EDGE_SNAP_DOCUMENT,
+  id: 'pixel-resize-document',
+  name: 'Pixel resize',
+  rootChildren: ['source'],
+  nodes: {
+    source: {
+      ...RESIZE_EDGE_SNAP_DOCUMENT.nodes.source,
+      transform: [1, 0, 0, 1, 160.2, 120],
+    },
+  },
+};
+
 async function closeOpenDialogs(page: import('@playwright/test').Page) {
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const openDialogs = page.locator('dialog[open]');
@@ -61,12 +74,15 @@ async function handleCenter(page: import('@playwright/test').Page, name: string)
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
-async function openFixtureAndSelectSource(page: import('@playwright/test').Page) {
+async function openFixtureAndSelectSource(
+  page: import('@playwright/test').Page,
+  fixture: { name: string } = RESIZE_EDGE_SNAP_DOCUMENT,
+) {
   await navigateToEditor(page);
   await page.locator('#file-open-input').setInputFiles({
-    name: 'resize-edge-snap.strata',
+    name: `${fixture.name}.strata`,
     mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify(RESIZE_EDGE_SNAP_DOCUMENT)),
+    buffer: Buffer.from(JSON.stringify(fixture)),
   });
   await closeOpenDialogs(page);
   await page.getByRole('treeitem', { name: /\bSource\b/ }).click();
@@ -112,5 +128,35 @@ test.describe('Selection resize edge snapping', () => {
 
     const height = page.getByRole('spinbutton', { name: 'H (px)', exact: true });
     await expect.poll(async () => Number(await height.inputValue())).toBeCloseTo(106.66664, 6);
+  });
+
+  test('pixel-grid snapping rounds only the moving resize edge', async ({ page }) => {
+    await openFixtureAndSelectSource(page, PIXEL_RESIZE_DOCUMENT);
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.focus();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('heading', { name: 'No selection' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Document Grid' }).click();
+    const pixelSnap = page.getByRole('checkbox', { name: /snap to pixels/i });
+    await pixelSnap.check();
+    await expect(pixelSnap).toBeChecked();
+
+    await page.getByRole('treeitem', { name: /\bSource\b/ }).click();
+    const leftBefore = await handleCenter(page, 'Left resize handle');
+    const rightBefore = await handleCenter(page, 'Right resize handle');
+    const screenScale = (rightBefore.x - leftBefore.x) / 100;
+
+    // Start at world x=260.2 and drag to 307.4. Pixel snap must correct the
+    // moving edge to 307 while retaining the x=160.2 west edge.
+    await page.mouse.move(rightBefore.x, rightBefore.y);
+    await page.mouse.down();
+    await page.mouse.move(rightBefore.x + 47.2 * screenScale, rightBefore.y);
+    await page.mouse.up();
+
+    const leftAfter = await handleCenter(page, 'Left resize handle');
+    const rightAfter = await handleCenter(page, 'Right resize handle');
+    expect(leftAfter.x).toBeCloseTo(leftBefore.x, 0);
+    expect(rightAfter.x - leftAfter.x).toBeCloseTo(146.8 * screenScale, 0);
   });
 });

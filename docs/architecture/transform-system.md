@@ -98,9 +98,11 @@ request. For an axis-aligned box, the resolver compares the moving handle side
 against object left/centre/right or top/middle/bottom anchors independently per
 axis. It changes the size and centre together so the opposite side remains
 fixed; a corner resize may therefore produce compatible X/Y intersection snaps.
-Centred resize instead keeps the centre fixed and changes both sides equally.
-Rotated-box edge snapping remains intentionally disabled because a world AABB
-is not a valid edge target for an arbitrarily oriented side.
+Document-grid, layout-grid, and pixel-grid candidates use that same moving-side
+calculation rather than snapping the box centre. Centred resize instead keeps
+the centre fixed and changes both sides equally. Rotated-box edge snapping
+remains intentionally disabled because a world AABB is not a valid edge target
+for an arbitrarily oriented side.
 
 The generic resolver also provides centre, grid, layout-grid, pixel-grid, and
 size matching. Resize smart-guide feedback does not yet return a guide result
