@@ -27,7 +27,7 @@
  *   emitted and the conversion is skipped.
  */
 
-import { cmykToRgb, labToRgb, lchToRgb, rgbToCmyk } from '@varve/shared';
+import { denormalizeChannel, labToRgb, lchToRgb, normalizeChannel } from '@varve/shared';
 import {
   type BitDepth,
   type BlendEvaluationSpace,
@@ -70,28 +70,111 @@ export interface ColorConversionReport {
   warnings: string[];
 }
 
-function luminance(r: number, g: number, b: number): number {
-  return Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+type NormalizedRgb = { r: number; g: number; b: number; a: number };
+
+function colorBitDepth(color: ManagedColor): BitDepth {
+  return 'bitDepth' in color ? (color.bitDepth ?? 'uint8') : 'uint8';
 }
 
-/** Analytical RGB<->CMYK (0-255 scale) — single source: @varve/shared. */
-function rgbToCmykChannels(
-  r: number,
-  g: number,
-  b: number,
-): { c: number; m: number; y: number; k: number } {
-  const [c, m, y, k] = rgbToCmyk(r, g, b);
-  return { c, m, y, k };
+function rgbToCmykNormalized(rgb: NormalizedRgb): { c: number; m: number; y: number; k: number } {
+  const k = 1 - Math.max(rgb.r, rgb.g, rgb.b);
+  if (k >= 1) return { c: 0, m: 0, y: 0, k: 1 };
+  const denominator = 1 - k;
+  return {
+    c: (1 - rgb.r - k) / denominator,
+    m: (1 - rgb.g - k) / denominator,
+    y: (1 - rgb.b - k) / denominator,
+    k,
+  };
 }
 
-function cmykToRgbChannels(
-  c: number,
-  m: number,
-  y: number,
-  k: number,
-): { r: number; g: number; b: number } {
-  const [r, g, b] = cmykToRgb(c, m, y, k);
-  return { r, g, b };
+function cmykToRgbNormalized(c: number, m: number, y: number, k: number): NormalizedRgb {
+  return { r: (1 - c) * (1 - k), g: (1 - m) * (1 - k), b: (1 - y) * (1 - k), a: 1 };
+}
+
+function luminanceNormalized(rgb: NormalizedRgb): number {
+  return 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
+}
+
+/**
+ * Resolve any analytical process colour into normalized encoded sRGB. This
+ * path is deliberately profile-free and therefore only used for the clearly
+ * labelled analytical fallback; ICC conversions take the provider path.
+ */
+function normalizedRgbFromColor(color: ManagedColor): NormalizedRgb | null {
+  const bitDepth = colorBitDepth(color);
+  switch (color.space) {
+    case 'rgb':
+      return {
+        r: normalizeChannel(color.r, bitDepth),
+        g: normalizeChannel(color.g, bitDepth),
+        b: normalizeChannel(color.b, bitDepth),
+        a: normalizeChannel(color.a, bitDepth),
+      };
+    case 'cmyk': {
+      const rgb = cmykToRgbNormalized(
+        normalizeChannel(color.c, bitDepth),
+        normalizeChannel(color.m, bitDepth),
+        normalizeChannel(color.y, bitDepth),
+        normalizeChannel(color.k, bitDepth),
+      );
+      return { ...rgb, a: normalizeChannel(color.a, bitDepth) };
+    }
+    case 'gray': {
+      const v = normalizeChannel(color.v, bitDepth);
+      return { r: v, g: v, b: v, a: normalizeChannel(color.a, bitDepth) };
+    }
+    case 'lab': {
+      const [r, g, b] = labToRgb(color.l, color.av, color.b);
+      return { r: r / 255, g: g / 255, b: b / 255, a: normalizeChannel(color.a, bitDepth) };
+    }
+    case 'lch': {
+      const [r, g, b] = lchToRgb(color.l, color.c, color.h);
+      return { r: r / 255, g: g / 255, b: b / 255, a: normalizeChannel(color.a, bitDepth) };
+    }
+    case 'spot':
+    case 'registration':
+    case 'unresolved':
+      return null;
+  }
+}
+
+function makeRgbColor(rgb: NormalizedRgb, config: ColorConfig): ManagedColor {
+  const bitDepth = config.bitDepth;
+  return {
+    space: 'rgb',
+    bitDepth,
+    r: denormalizeChannel(rgb.r, bitDepth),
+    g: denormalizeChannel(rgb.g, bitDepth),
+    b: denormalizeChannel(rgb.b, bitDepth),
+    a: denormalizeChannel(rgb.a, bitDepth),
+    profile: config.rgbProfile.id,
+  };
+}
+
+function makeCmykColor(rgb: NormalizedRgb, config: ColorConfig): ManagedColor {
+  const bitDepth = config.bitDepth;
+  const cmyk = rgbToCmykNormalized(rgb);
+  return {
+    space: 'cmyk',
+    bitDepth,
+    c: denormalizeChannel(cmyk.c, bitDepth),
+    m: denormalizeChannel(cmyk.m, bitDepth),
+    y: denormalizeChannel(cmyk.y, bitDepth),
+    k: denormalizeChannel(cmyk.k, bitDepth),
+    a: denormalizeChannel(rgb.a, bitDepth),
+    profile: config.cmykProfile.id,
+  };
+}
+
+function makeGrayColor(rgb: NormalizedRgb, bitDepth: BitDepth): ManagedColor {
+  const v = luminanceNormalized(rgb);
+  return {
+    space: 'gray',
+    bitDepth,
+    v: denormalizeChannel(v, bitDepth),
+    a: denormalizeChannel(rgb.a, bitDepth),
+  };
 }
 
 /**
@@ -101,6 +184,7 @@ function cmykToRgbChannels(
 function convertColorAnalytical(
   color: ManagedColor,
   newMode: ColorMode,
+  destinationConfig: ColorConfig,
   report: ColorConversionReport,
 ): ManagedColor {
   if (color.space === 'spot') {
@@ -112,85 +196,19 @@ function convertColorAnalytical(
     return color;
   }
 
-  // Lab/LCH reduce to sRGB first so every mode conversion has one entry point.
-  if (color.space === 'lab' || color.space === 'lch') {
-    return convertColorAnalytical(rgbFromLabOrLch(color), newMode, report);
-  }
+  if (newMode === 'rgb' && color.space === 'rgb') return color;
+  if (newMode === 'cmyk' && color.space === 'cmyk') return color;
+  if (newMode === 'grayscale' && color.space === 'gray') return color;
 
-  if (newMode === 'rgb') {
-    if (color.space === 'rgb') return color;
-    if (color.space === 'cmyk') {
-      const { r, g, b } = cmykToRgbChannels(color.c, color.m, color.y, color.k);
-      report.converted++;
-      return withProfile({ space: 'rgb', r, g, b, a: color.a }, color);
-    }
-    if (color.space === 'gray') {
-      const v = color.v;
-      report.converted++;
-      return withProfile({ space: 'rgb', r: v, g: v, b: v, a: color.a }, color);
-    }
+  const rgb = normalizedRgbFromColor(color);
+  if (!rgb) {
+    report.unsupported++;
+    return color;
   }
-  if (newMode === 'cmyk') {
-    if (color.space === 'cmyk') return color;
-    if (color.space === 'rgb') {
-      const { c, m, y, k } = rgbToCmykChannels(color.r, color.g, color.b);
-      report.converted++;
-      return withProfile({ space: 'cmyk', c, m, y, k, a: color.a }, color);
-    }
-    if (color.space === 'gray') {
-      const k = Math.round((1 - color.v / 255) * 255);
-      report.converted++;
-      return withProfile({ space: 'cmyk', c: 0, m: 0, y: 0, k, a: color.a }, color);
-    }
-  }
-  if (newMode === 'grayscale') {
-    if (color.space === 'gray') return color;
-    if (color.space === 'rgb') {
-      const v = luminance(color.r, color.g, color.b);
-      report.converted++;
-      return withProfile({ space: 'gray', v, a: color.a }, color);
-    }
-    if (color.space === 'cmyk') {
-      const { c, m, y, k } = color;
-      const r = Math.round(255 * (1 - c / 255) * (1 - k / 255));
-      const g = Math.round(255 * (1 - m / 255) * (1 - k / 255));
-      const b = Math.round(255 * (1 - y / 255) * (1 - k / 255));
-      const v = luminance(r, g, b);
-      report.converted++;
-      return withProfile({ space: 'gray', v, a: color.a }, color);
-    }
-  }
-  return color;
-}
-
-/** Lab/LCH → rgb ManagedColor via the canonical shared conversion. */
-function rgbFromLabOrLch(color: ManagedColor): ManagedColor {
-  let rgb: [number, number, number];
-  if (color.space === 'lab') {
-    rgb = labToRgb(color.l, color.av, color.b);
-  } else if (color.space === 'lch') {
-    rgb = lchToRgb(color.l, color.c, color.h);
-  } else {
-    throw new Error(`expected lab or lch, got ${color.space}`);
-  }
-  const profile = 'profile' in color ? color.profile : undefined;
-  const profileFingerprint = 'profileFingerprint' in color ? color.profileFingerprint : undefined;
-  return {
-    space: 'rgb',
-    r: rgb[0],
-    g: rgb[1],
-    b: rgb[2],
-    a: color.a,
-    profile,
-    profileFingerprint,
-  };
-}
-
-function withProfile<T extends { a: number }>(result: T, source: ManagedColor): T {
-  if ('profile' in source && source.profile) {
-    return { ...result, profile: source.profile } as T;
-  }
-  return result;
+  report.converted++;
+  if (newMode === 'rgb') return makeRgbColor(rgb, destinationConfig);
+  if (newMode === 'cmyk') return makeCmykColor(rgb, destinationConfig);
+  return makeGrayColor(rgb, destinationConfig.bitDepth);
 }
 
 function updateColorConfig(config: ColorConfig | undefined, newMode: ColorMode): ColorConfig {
@@ -295,10 +313,12 @@ export function convertDocumentColors(
     return { doc, report };
   }
 
+  const destinationConfig = updateColorConfig(doc.colorConfig, newMode);
+
   const convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor =
     algorithm === 'icc'
       ? (c, mode) => options.iccConverter!(c, mode) ?? c
-      : (c, mode) => convertColorAnalytical(c, mode, report);
+      : (c, mode) => convertColorAnalytical(c, mode, destinationConfig, report);
 
   const nodes: Record<string, SceneNode> = {};
   for (const [id, node] of Object.entries(doc.nodes)) {
@@ -327,7 +347,7 @@ export function convertDocumentColors(
       nodes,
       swatches,
       canvasBackground,
-      colorConfig: updateColorConfig(doc.colorConfig, newMode),
+      colorConfig: destinationConfig,
     },
     report,
   };

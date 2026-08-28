@@ -128,6 +128,71 @@ describe('convertDocumentColors', () => {
     expect(report.converted).toBe(0);
   });
 
+  it('preserves uint16 precision and assigns the destination CMYK profile', () => {
+    const source: ManagedColor = {
+      space: 'rgb',
+      bitDepth: 'uint16',
+      r: 65535,
+      g: 32768,
+      b: 0,
+      a: 65535,
+      profile: 'display-p3',
+    };
+    const doc = {
+      ...makeDoc(source),
+      colorConfig: {
+        ...defaultColorConfig,
+        bitDepth: 'uint16' as const,
+        cmykProfile: { id: 'fogra51', name: 'Fogra51' },
+      },
+    };
+    const { doc: out } = convertDocumentColors(doc, 'cmyk');
+    const fill = (out.nodes.n1 as { fill: ManagedColor }).fill;
+    expect(fill).toEqual(
+      expect.objectContaining({
+        space: 'cmyk',
+        bitDepth: 'uint16',
+        profile: 'fogra51',
+        a: 65535,
+      }),
+    );
+    if (fill.space !== 'cmyk') return;
+    expect(fill.m).toBeGreaterThan(255);
+    expect(fill.y).toBe(65535);
+  });
+
+  it('uses the destination RGB profile instead of copying the CMYK source profile', () => {
+    const source: ManagedColor = {
+      space: 'cmyk',
+      bitDepth: 'float32',
+      c: 0.1,
+      m: 0.2,
+      y: 0.3,
+      k: 0.4,
+      a: 1,
+      profile: 'fogra39',
+    };
+    const doc = {
+      ...makeDoc(source),
+      colorConfig: {
+        ...defaultColorConfig,
+        mode: 'cmyk' as const,
+        bitDepth: 'float32' as const,
+        rgbProfile: { id: 'display-p3', name: 'Display P3' },
+      },
+    };
+    const { doc: out } = convertDocumentColors(doc, 'rgb');
+    const fill = (out.nodes.n1 as { fill: ManagedColor }).fill;
+    expect(fill).toEqual(
+      expect.objectContaining({
+        space: 'rgb',
+        bitDepth: 'float32',
+        profile: 'display-p3',
+        a: 1,
+      }),
+    );
+  });
+
   it('skips conversion when already in the target mode with a warning', () => {
     const doc = makeDoc(rgb(1, 2, 3));
     const { doc: out, report } = convertDocumentColors(doc, 'rgb');
