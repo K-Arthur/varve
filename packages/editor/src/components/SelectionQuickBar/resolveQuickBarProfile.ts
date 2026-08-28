@@ -5,7 +5,7 @@
  * actions only where near-canvas affordances beat the inspector.
  */
 import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
-import { isImageShape } from '@varve/scene';
+import { isBooleanOperand, isImageShape } from '@varve/scene';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
 
 export type QuickBarKind = 'image' | 'path' | 'text' | 'multi';
@@ -91,10 +91,6 @@ function action(id: QuickBarActionId, label: string): QuickBarAction {
   return { id, label };
 }
 
-function isBooleanableShape(node: SceneNode): node is ShapeNode {
-  return node.kind === 'shape' && !isImageShape(node);
-}
-
 function imageProfile(node: ShapeNode, input: ResolveQuickBarInput): QuickBarProfile {
   // Background removal and Enhance are on-device inference; a deployment that
   // withholds it (the browser demo) must not offer the affordance at all.
@@ -144,7 +140,7 @@ function textProfile(): QuickBarProfile {
 
 function multiProfile(nodes: SceneNode[]): QuickBarProfile {
   const actions: QuickBarAction[] = [action('group', 'Group')];
-  if (nodes.length >= 2 && nodes.every(isBooleanableShape)) {
+  if (nodes.length >= 2 && nodes.every(isBooleanOperand)) {
     actions.push(
       action('booleanUnion', 'Union'),
       action('booleanSubtract', 'Subtract'),

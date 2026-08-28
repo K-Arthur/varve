@@ -133,9 +133,14 @@ creation and expansion in a single history transaction.
 - Self-intersecting input receives simple-crossing resolution before clipping.
   A dedicated fill-rule-aware arrangement implementation remains necessary for
   arbitrary looping Béziers and pathological self-touching imported paths.
-- The scene and renderer can resolve live groups, but user-facing Pathfinder
-  creation, operation switching, expansion controls, Layer affordances, and
-  export adapters must all be wired before the feature is considered complete.
+- Existing Boolean actions now create live groups by default. The contextual
+  menu exposes **Expand Boolean** and all four operation changes; normal Group
+  expansion and child ordering in Layers expose source operands and Subtract's
+  explicit base. Open paths, lines, arrows, image-filled shapes, hidden nodes,
+  and locked nodes are rejected consistently by command and toolbar surfaces.
+- A dedicated Pathfinder inspector, operand-isolation presentation, dedicated
+  export parity fixtures, and a documented SVG/PDF flattening contract remain
+  future work.
 
 ## Validation corpus
 

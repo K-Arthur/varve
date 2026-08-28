@@ -11,8 +11,9 @@ import { nodeWorldTransform } from './coordinateService';
 import type { Document } from './document';
 import { addNode, removeNode, reparentNode } from './document-nodes';
 import { makeGroupNode } from './document-utils';
+import { isImageShape } from './fills';
 import { nextNodeId } from './node-id';
-import type { GroupNode, NodeId, ShapeNode } from './types';
+import type { GroupNode, NodeId, SceneNode, ShapeNode } from './types';
 import { isLiveBooleanNode } from './types';
 
 export type LiveBooleanOperation = 'union' | 'subtract' | 'intersect' | 'exclude';
@@ -29,8 +30,17 @@ function isSupportedOperation(operation: string): operation is LiveBooleanOperat
   );
 }
 
-function isBooleanOperand(node: ShapeNode | GroupNode): boolean {
+/**
+ * True when a scene node supplies a closed, vector-filled region to a Boolean
+ * operation. This is intentionally shared by commands and UI affordances: a
+ * line, arrow, open path, image fill, hidden node, or locked node must never
+ * create a live group whose result silently drops that operand.
+ */
+export function isBooleanOperand(node: SceneNode): node is ShapeNode | GroupNode {
+  if (node.visible === false || node.locked) return false;
   if (isLiveBooleanNode(node)) return true;
+  if (node.kind !== 'shape' || isImageShape(node)) return false;
+  if (node.shape.kind === 'line' || node.shape.kind === 'arrow') return false;
   // An open path has no filled region. Keeping it inside a live Boolean would
   // create a group that can never resolve, so reject it at creation time.
   return node.shape.kind !== 'path' || node.shape.closed !== false;
@@ -98,10 +108,7 @@ export function createLiveBooleanDoc(
   if (
     !uniqueIds.every((id) => {
       const operand = document.nodes[id];
-      return (
-        (operand?.kind === 'shape' && isBooleanOperand(operand)) ||
-        (operand !== undefined && isLiveBooleanNode(operand) && isBooleanOperand(operand))
-      );
+      return operand !== undefined && isBooleanOperand(operand);
     })
   ) {
     return null;

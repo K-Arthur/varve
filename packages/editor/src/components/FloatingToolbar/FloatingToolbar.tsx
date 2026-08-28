@@ -1,4 +1,4 @@
-import type { BooleanOpKind } from '@varve/scene';
+import { type BooleanOpKind, isBooleanOperand } from '@varve/scene';
 import type { IconName, MenuEntry } from '@varve/ui';
 import { ContextMenu, Icon, Toolbar, Tooltip, TooltipProvider } from '@varve/ui';
 import { useMemo, useState } from 'react';
@@ -154,7 +154,9 @@ function ToolbarSlotView({
       slot={slot}
       current={current}
       pressed={!isAction && activeTool === current}
-      disabledReason={isAction && !canBoolean ? 'Select 2+ shapes for boolean' : undefined}
+      disabledReason={
+        isAction && !canBoolean ? 'Select 2+ closed, unlocked vector shapes' : undefined
+      }
       onActivate={(toolId) => onActivate(slot.id, toolId)}
       onToggleMenu={(rect) => onToggleMenu(slot.id, rect)}
     />
@@ -339,7 +341,8 @@ export function FloatingToolbar() {
     openCreateTableFromDataDialog,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<{ id: string; x: number; y: number } | null>(null);
-  const canBoolean = selectedNodes().filter((n) => n.kind === 'shape').length >= 2;
+  const booleanSelection = selectedNodes();
+  const canBoolean = booleanSelection.length >= 2 && booleanSelection.every(isBooleanOperand);
 
   // Resolve through the effective config, not the raw WORKSPACE_CONFIGS map:
   // that map has no entry for an unrecognized mode, so a stale persisted or

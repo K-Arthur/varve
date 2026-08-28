@@ -41,6 +41,17 @@ describe('live Boolean groups', () => {
     expect(createLiveBooleanDoc(doc, ['closed', 'open'], 'union')).toBeNull();
   });
 
+  it('rejects centreline geometry instead of silently excluding it from a filled result', () => {
+    let doc = createDocument();
+    doc = addNode(doc, makeShapeNode('filled', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }));
+    doc = addNode(
+      doc,
+      makeShapeNode('line', { kind: 'line', from: [0, 0], to: [100, 100], tolerance: 3 }),
+    );
+
+    expect(createLiveBooleanDoc(doc, ['filled', 'line'], 'union')).toBeNull();
+  });
+
   it('owns editable operands, preserves their placed-world transforms, and resolves on demand', () => {
     let doc = createDocument();
     doc = addNode(doc, makeFrameNode('left', { transform: [1, 0, 0, 1, 100, 50] }));
