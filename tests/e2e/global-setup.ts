@@ -63,14 +63,24 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
       timeout: 180_000,
     });
     await page.getByRole('button', { name: /^new$/i }).click({ timeout: 30_000 });
-    await page
+    // The primary action is labelled "Create design" in some builds and plain
+    // "Create" in others; match either, exactly as navigateToEditor does.
+    const createInDialog = page
       .locator('dialog[open]')
-      .getByRole('button', { name: /^create design$/i })
-      .waitFor({ timeout: 30_000 });
-    await page
-      .locator('dialog[open]')
-      .getByRole('button', { name: /^create design$/i })
-      .click({ timeout: 30_000 });
+      .getByRole('button', { name: /^create(\s+design)?$/i })
+      .first();
+    if (!(await createInDialog.isVisible({ timeout: 30_000 }).catch(() => false))) {
+      // On a profile with no documents the file browser leads with "Create
+      // your first design" instead of opening the dialog from New. Without
+      // this branch the warm-up throws on any fresh profile and every spec in
+      // the run dies before its own body executes.
+      await page
+        .getByRole('button', { name: /create your first design/i })
+        .first()
+        .click({ timeout: 30_000 });
+      await createInDialog.waitFor({ timeout: 30_000 });
+    }
+    await createInDialog.click({ timeout: 30_000 });
     await page
       .locator('.editor__layers-panel, .layers-panel')
       .first()
