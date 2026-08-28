@@ -172,6 +172,12 @@ so a handle can only change the type size. Area text does have a container, and
 dragging its handle resizes that container and re-wraps; scaling the type
 instead left the box at its old size with the text spilling out of it.
 
+The floating text controls are projected from the node's world bounds through
+the full camera transform, including rotation and floating origin. They must
+not derive screen coordinates by scaling an axis-aligned local width and
+height; that shortcut puts the controls away from the text as soon as the
+canvas rotates.
+
 Creating text follows the same split: a click makes point text, a drag makes an
 area container. A drag along a single axis is still a request for a box and is
 clamped to a usable minimum rather than discarded. A node created by a click
