@@ -88,6 +88,7 @@ function shapeToPrimitive(
             fontStyle?: string;
             w?: number;
             h?: number;
+            textMode?: TextMode;
           })
         : null;
     const fontSize = node.fontSize ?? textShape?.fontSize ?? 14;
