@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { catmullRomPoint, defaultBrushPreset, strokePoint } from '../brush';
 import {
-  catmullRomPoint,
-  defaultBrushPreset,
-  strokePoint,
-} from '../brush';
-import { appendStrokePoints, beginStroke, runWholeStroke } from '../strokeEngine';
+  appendStrokePoints,
+  beginStroke,
+  cloneStrokeEngineState,
+  runWholeStroke,
+} from '../strokeEngine';
 import { reconstructCentripetalSegment } from '../strokeReconstruction';
 
 function point(x: number, y: number, time: number, pressure: number = 0.5) {
@@ -75,5 +76,29 @@ describe('centripetal stroke reconstruction', () => {
       expect(partitioned[index]!.strokeDistance).toBeCloseTo(whole[index]!.strokeDistance, 9);
     }
     expect(partitioned[partitioned.length - 1]!.x).toBeGreaterThan(50);
+  });
+
+  it('keeps authoritative state unchanged while a predicted tail is evaluated', () => {
+    const points = [
+      point(0, 0, 0, 0.1),
+      point(12, 2, 8, 0.3),
+      point(24, 12, 16, 0.6),
+      point(30, 30, 24, 0.9),
+    ];
+    const authoritative = beginStroke('authoritative', 1, preset(), 77);
+    const prefix = appendStrokePoints(authoritative, points.slice(0, 2));
+
+    const prediction = cloneStrokeEngineState(authoritative);
+    appendStrokePoints(prediction, points.slice(2), { final: true });
+
+    const committed = appendStrokePoints(authoritative, points.slice(2), { final: true });
+    const direct = runWholeStroke(preset(), points, 77);
+    const authoritativeDabs = [...prefix.dabs, ...committed.dabs];
+
+    expect(authoritativeDabs).toHaveLength(direct.dabs.length);
+    for (let index = 0; index < direct.dabs.length; index++) {
+      expect(authoritativeDabs[index]!.x).toBeCloseTo(direct.dabs[index]!.x, 9);
+      expect(authoritativeDabs[index]!.y).toBeCloseTo(direct.dabs[index]!.y, 9);
+    }
   });
 });

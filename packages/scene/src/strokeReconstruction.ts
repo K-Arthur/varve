@@ -100,6 +100,20 @@ export class CausalStrokeReconstructor {
     }
     return output;
   }
+
+  /**
+   * Fork this causal stream for replaceable predicted input.
+   *
+   * The pending look-ahead points are part of the stroke's geometry, so a
+   * prediction must copy them rather than reusing the mutable instance that
+   * owns confirmed input.
+   */
+  clone(): CausalStrokeReconstructor {
+    const clone = new CausalStrokeReconstructor({ ...this.options });
+    clone.pending = this.pending.map((point) => ({ ...point }));
+    clone.beforePending = this.beforePending ? { ...this.beforePending } : null;
+    return clone;
+  }
 }
 
 /** Resolution scaled to the base spacing but bounded for tiny and large tips. */

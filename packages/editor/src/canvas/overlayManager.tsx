@@ -34,7 +34,7 @@ import {
   getWorldTransform as getCachedWorldTransform,
 } from '../scene/transformCache';
 import { nodeLocalBounds } from '../scene/world';
-import type { PenConstructionDraft } from '../tools/types';
+import type { PenConstructionDraft, PredictedStrokeDraft } from '../tools/types';
 import { applyEditorCameraToCtx } from './cameraState';
 import { resizeCanvasBackingStore } from './canvasSurface';
 import { computeGridLines, renderGridOnCtx, resolveCanvasColor } from './gridRenderer';
@@ -749,6 +749,23 @@ export function useOverlayDraw({
       };
 
       switch (d.kind) {
+        case 'predicted-stroke': {
+          const prediction = d as unknown as PredictedStrokeDraft;
+          ctx.save();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 0.4;
+          ctx.fillStyle = `rgba(${prediction.color[0]}, ${prediction.color[1]}, ${prediction.color[2]}, ${prediction.color[3] / 255})`;
+          ctx.transform(...prediction.transform);
+          for (const dab of prediction.dabs) {
+            if (dab.opacity <= 0 || dab.radius <= 0) continue;
+            ctx.globalAlpha = Math.min(0.4, Math.max(0, dab.opacity * 0.4));
+            ctx.beginPath();
+            ctx.ellipse(dab.x, dab.y, dab.radius, dab.radius, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+          break;
+        }
         case 'bezier-path':
           drawPenConstructionPreview(
             ctx,
@@ -859,7 +876,7 @@ export function useOverlayDraw({
           ctx.fillStyle = accentColor;
           ctx.fillText(d.label ?? `${d.pts.length} pts`, sx2 + 4, sy2 + 14);
         }
-      } else if (d.kind !== 'bezier-path') {
+      } else if (d.kind !== 'bezier-path' && d.kind !== 'predicted-stroke') {
         const worldX = d.kind === 'line' || d.kind === 'arrow' ? Math.min(d.x1, d.x2) : d.x;
         const worldY = d.kind === 'line' || d.kind === 'arrow' ? Math.min(d.y1, d.y2) : d.y;
         const sx2 = (worldX - s.pan.x) * s.zoom + cssW / 2;

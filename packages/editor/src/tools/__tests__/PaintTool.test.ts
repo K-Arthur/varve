@@ -482,6 +482,44 @@ describe('PaintTool', () => {
     expect(subPixel.tiltAzimuth).toBe(0.8);
   });
 
+  it('renders a replaceable predicted tail without dispatching it to the worker', () => {
+    const worker = {
+      isUsingWorker: true,
+      beginStroke: vi.fn(),
+      appendPoints: vi.fn(),
+      endStroke: vi.fn(),
+      cancelStroke: vi.fn(),
+      destroy: vi.fn(),
+      onBatch: null,
+    } as unknown as BrushWorkerHost;
+    tool.setWorkerHost(worker);
+
+    const down = makePointerEvent(100, 200, { pointerId: 1, timeStamp: performance.now() });
+    tool.onPointerDown(down, ctx);
+
+    const predictedEvent = normalizeInputEvent(
+      makePointerEvent(130, 200, { pointerId: 1, timeStamp: performance.now() + 8 }),
+    );
+    predictedEvent.isPredicted = true;
+    ctx.sourceEvents = [predictedEvent];
+    tool.onPointerMove(makePointerEvent(130, 200, { pointerId: 1 }), ctx);
+
+    expect(ctx.setDraft).toHaveBeenLastCalledWith(
+      expect.objectContaining({ kind: 'predicted-stroke', dabs: expect.any(Array) }),
+    );
+    // Pointer-down is the only confirmed sample: prediction is overlay-only.
+    expect(worker.appendPoints).toHaveBeenCalledTimes(1);
+
+    const confirmedEvent = normalizeInputEvent(
+      makePointerEvent(112, 200, { pointerId: 1, timeStamp: performance.now() + 16 }),
+    );
+    ctx.sourceEvents = [confirmedEvent];
+    tool.onPointerMove(makePointerEvent(112, 200, { pointerId: 1 }), ctx);
+
+    expect(ctx.setDraft).toHaveBeenLastCalledWith(expect.objectContaining({ kind: 'ellipse' }));
+    expect(worker.appendPoints).toHaveBeenCalledTimes(2);
+  });
+
   it('tilt values propagate through pointer events', () => {
     const pointer = makePointerEvent(100, 200, {
       pointerId: 1,

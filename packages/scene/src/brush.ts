@@ -678,6 +678,24 @@ export function createStrokeDabSession(
   };
 }
 
+/**
+ * Copy a live session without advancing its spacing or jitter stream.
+ *
+ * This is used exclusively by transient input prediction: the clone can emit
+ * a speculative tail while the authoritative session remains untouched until
+ * the browser delivers confirmed input.
+ */
+export function cloneStrokeDabSession(session: StrokeDabSession): StrokeDabSession {
+  return {
+    rng: createBrushRng(session.rng.state()),
+    spacingCarry: session.spacingCarry,
+    arcLength: session.arcLength,
+    lastPoint: session.lastPoint ? { ...session.lastPoint } : null,
+    started: session.started,
+    lengthReference: session.lengthReference,
+  };
+}
+
 /** Reference length for a session, falling back to the preset-derived fade. */
 function sessionLengthReference(session: StrokeDabSession, preset: BrushPreset): number {
   if (session.lengthReference > 0) return session.lengthReference;

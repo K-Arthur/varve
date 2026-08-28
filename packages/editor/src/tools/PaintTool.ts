@@ -15,8 +15,17 @@
  * and synchronous paths cannot drift apart in brush semantics.
  */
 import type { AreaSelection } from '@varve/engine';
-import type { BrushDab, BrushPreset, RasterLayerNode, WetPaintManager } from '@varve/scene';
+import type {
+  BrushDab,
+  BrushPreset,
+  RasterLayerNode,
+  StrokeEngineState,
+  WetPaintManager,
+} from '@varve/scene';
 import {
+  appendStrokePoints,
+  beginStroke,
+  cloneStrokeEngineState,
   compositeDabOnNode,
   defaultBrushPreset,
   eraseDabOnNode,
@@ -92,6 +101,11 @@ interface PaintStrokeSession {
   /** Mask coverage the brush paints towards, from the foreground luminance. */
   maskValue: number;
   branches: SymmetryBranch[];
+  /**
+   * Main-thread mirrors of confirmed branch state. They exist solely to fork
+   * a predicted overlay and never composite pixels or touch history.
+   */
+  previewStates: Map<string, StrokeEngineState>;
   /** True when this stroke created its own raster layer. */
   ownsLayer: boolean;
   transactionOpen: boolean;
@@ -312,6 +326,7 @@ export class PaintTool extends BaseTool {
       // conceals. An eraser on a mask reveals, mirroring its meaning on pixels.
       maskValue: this.eraserMode ? 1 : maskValueFromColor(ctx.foregroundColor),
       branches,
+      previewStates: new Map(),
       ownsLayer: this.lastOwnedLayer,
       transactionOpen: true,
       dirty: null,
@@ -324,11 +339,11 @@ export class PaintTool extends BaseTool {
     for (const branch of branches) {
       // Seed from the branch identity, not the clock: every mirrored copy gets
       // its own jitter stream, and replaying a stroke reproduces it exactly.
-      host.beginStroke(
+      const seed = hashSeed(`${branch.strokeId}#${generation}`);
+      host.beginStroke(branch.strokeId, generation, preset, seed);
+      session.previewStates.set(
         branch.strokeId,
-        generation,
-        preset,
-        hashSeed(`${branch.strokeId}#${generation}`),
+        beginStroke(branch.strokeId, generation, preset, seed),
       );
     }
 
@@ -360,7 +375,7 @@ export class PaintTool extends BaseTool {
       if (sp) batch.push(sp);
     }
     if (batch.length > 0) this.dispatch(session, batch);
-    this.updatePreview(ctx);
+    this.updatePreview(ctx, this.predictedDabs(session, events, ctx));
   }
 
   override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
@@ -430,7 +445,45 @@ export class PaintTool extends BaseTool {
     for (const branch of session.branches) {
       const mapped = points.map((p) => transformStrokePoint(p, branch.transform));
       host.appendPoints(branch.strokeId, session.generation, mapped);
+      const previewState = session.previewStates.get(branch.strokeId);
+      if (previewState) appendStrokePoints(previewState, mapped);
     }
+  }
+
+  /**
+   * Generate a replaceable predicted continuation from a clone of confirmed
+   * engine state. Neither the authoritative worker state nor this tool's
+   * confirmed sample cursor is advanced by this method.
+   */
+  private predictedDabs(
+    session: PaintStrokeSession,
+    events: readonly NormalizedInputEvent[],
+    ctx: ToolContext,
+  ): BrushDab[] {
+    const predicted = events.filter((event) => event.isPredicted);
+    if (predicted.length === 0 || this.eraserMode) return [];
+
+    const points: import('@varve/scene').StrokePoint[] = [];
+    let previous = this.lastSamplePoint;
+    for (const input of predicted) {
+      const world = ctx.canvasToWorld(input.clientX, input.clientY);
+      const local = rasterLocalPoint(ctx, session.rasterNodeId, world);
+      const time = previous ? Math.max(previous.time, input.time) : input.time;
+      const point = inputToStrokePoint({ ...input, time }, local, previous ?? undefined);
+      points.push(point);
+      previous = point;
+    }
+    if (points.length === 0) return [];
+
+    const dabs: BrushDab[] = [];
+    for (const branch of session.branches) {
+      const confirmed = session.previewStates.get(branch.strokeId);
+      if (!confirmed) continue;
+      const continuation = cloneStrokeEngineState(confirmed);
+      const mapped = points.map((point) => transformStrokePoint(point, branch.transform));
+      dabs.push(...appendStrokePoints(continuation, mapped, { final: true }).dabs);
+    }
+    return dabs;
   }
 
   private makeSample(
@@ -587,7 +640,17 @@ export class PaintTool extends BaseTool {
     return this.lastStrokeBounds;
   }
 
-  private updatePreview(ctx: ToolContext): void {
+  private updatePreview(ctx: ToolContext, predictedDabs: readonly BrushDab[] = []): void {
+    const session = this.session;
+    if (session && predictedDabs.length > 0) {
+      ctx.setDraft({
+        kind: 'predicted-stroke',
+        dabs: predictedDabs,
+        color: session.color,
+        transform: ctx.getWorldTransform?.(session.rasterNodeId) ?? [1, 0, 0, 1, 0, 0],
+      });
+      return;
+    }
     const radius = this.preset.radius;
     ctx.setDraft({
       kind: 'ellipse',

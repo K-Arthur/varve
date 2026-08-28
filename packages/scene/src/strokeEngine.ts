@@ -17,6 +17,7 @@
 import {
   type BrushDab,
   type BrushPreset,
+  cloneStrokeDabSession,
   createStrokeDabSession,
   generateDabs,
   type StrokeDabSession,
@@ -24,10 +25,7 @@ import {
   smoothStrokePoints,
   strokeBounds,
 } from './brush';
-import {
-  CausalStrokeReconstructor,
-  reconstructionChordLength,
-} from './strokeReconstruction';
+import { CausalStrokeReconstructor, reconstructionChordLength } from './strokeReconstruction';
 
 export interface StrokeEngineState {
   readonly strokeId: string;
@@ -62,6 +60,25 @@ export function beginStroke(
       maxChordLength: reconstructionChordLength(preset.radius, preset.spacing),
     }),
     dabCount: 0,
+  };
+}
+
+/**
+ * Fork a live engine state for a transient continuation.
+ *
+ * Prediction is allowed to consume its clone freely, including the causal
+ * look-ahead and jitter generator. The original state remains the only state
+ * that can create history-visible dabs.
+ */
+export function cloneStrokeEngineState(state: StrokeEngineState): StrokeEngineState {
+  return {
+    strokeId: state.strokeId,
+    generation: state.generation,
+    preset: { ...state.preset, dynamics: [...state.preset.dynamics] },
+    session: cloneStrokeDabSession(state.session),
+    lastSmoothed: state.lastSmoothed ? { ...state.lastSmoothed } : null,
+    reconstructor: state.reconstructor.clone(),
+    dabCount: state.dabCount,
   };
 }
 

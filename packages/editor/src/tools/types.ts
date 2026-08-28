@@ -12,7 +12,7 @@
 
 import type { AreaSelection, AreaSelectionSettings, Engine, PathPoint } from '@varve/engine';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
-import type { Camera } from '@varve/shared';
+import type { Affine, Camera } from '@varve/shared';
 import type { TableEditState } from '../context/tableEditState';
 import type { HitTestPolicyName } from '../hitTest/policyTypes';
 import type { NormalizedInputEvent } from './inputNormalizer';
@@ -76,7 +76,23 @@ export type DraftShape =
   | { kind: 'arrow'; x1: number; y1: number; x2: number; y2: number; label?: string }
   | { kind: 'frame'; x: number; y: number; w: number; h: number; label?: string }
   | { kind: 'freehand'; points: { x: number; y: number }[]; label?: string }
+  | PredictedStrokeDraft
   | PenConstructionDraft;
+
+/**
+ * Replaceable visual continuation for browser-predicted pen input.
+ *
+ * These dabs are deliberately not document data. The next confirmed event
+ * replaces this entire draft, so prediction can hide latency without advancing
+ * history, spacing, wet paint, or any other authoritative stroke state.
+ */
+export interface PredictedStrokeDraft {
+  kind: 'predicted-stroke';
+  dabs: readonly { x: number; y: number; radius: number; opacity: number }[];
+  color: readonly [number, number, number, number];
+  /** Raster-local to world transform, including parent and page placement. */
+  transform: Affine;
+}
 
 /** One ephemeral Pen anchor. Coordinates and handle offsets are world-space. */
 export interface PenConstructionPoint {
