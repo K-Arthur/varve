@@ -154,7 +154,10 @@ function resolveComponent(component: RegionComponent, tolerance: number): Region
     .map((hole) => cleanupPolygon(hole, tolerance))
     .filter((hole) => hole.length >= 3 && !hasSelfIntersections(hole, tolerance));
   return outerParts
-    .map((part) => ({ outer: orient(part, true), holes }))
+    .map((part) => ({
+      outer: orient(part, true),
+      holes: holes.filter((hole) => (hole[0] ? pointInRegion(hole[0], part, 'evenodd') : false)),
+    }))
     .filter((part) => Math.abs(signedArea(part.outer)) > tolerance * tolerance);
 }
 
