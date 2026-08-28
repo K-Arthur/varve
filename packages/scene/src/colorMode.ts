@@ -39,11 +39,14 @@ import {
   type WorkingSpace,
 } from './colorManagement';
 import type { Document } from './document';
+import type { TableModel } from './table';
 import type {
   Effect,
   Fill,
+  GradientFill,
   GradientInterpolationSpace,
   GradientStop,
+  RichText,
   SceneNode,
   Stroke,
 } from './types';
@@ -222,6 +225,116 @@ function updateColorConfig(config: ColorConfig | undefined, newMode: ColorMode):
   return { ...config, mode: newMode };
 }
 
+function convertGradient(
+  gradient: GradientFill,
+  newMode: ColorMode,
+  convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor,
+): GradientFill {
+  return {
+    ...gradient,
+    stops: gradient.stops.map((stop: GradientStop) => ({
+      ...stop,
+      color: convertColor(stop.color, newMode),
+    })),
+  };
+}
+
+function convertFill(
+  fill: Fill,
+  newMode: ColorMode,
+  convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor,
+): Fill {
+  return {
+    ...fill,
+    ...(fill.color ? { color: convertColor(fill.color, newMode) } : {}),
+    ...(fill.gradient ? { gradient: convertGradient(fill.gradient, newMode, convertColor) } : {}),
+  };
+}
+
+function convertEffects(
+  effects: Effect[],
+  newMode: ColorMode,
+  convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor,
+): Effect[] {
+  return effects.map((effect) => {
+    if (effect.type === 'glassMaterial') {
+      return {
+        ...effect,
+        tint: convertColor(effect.tint, newMode),
+        edgeHighlightColor: convertColor(effect.edgeHighlightColor, newMode),
+      };
+    }
+    if ('color' in effect && effect.color) {
+      return { ...effect, color: convertColor(effect.color, newMode) } as Effect;
+    }
+    return effect;
+  });
+}
+
+function convertRichText(
+  richText: RichText,
+  newMode: ColorMode,
+  convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor,
+): RichText {
+  return {
+    ...richText,
+    paragraphs: richText.paragraphs.map((paragraph) => ({
+      ...paragraph,
+      ...(paragraph.format?.columnRuleColor
+        ? {
+            format: {
+              ...paragraph.format,
+              columnRuleColor: convertColor(paragraph.format.columnRuleColor, newMode),
+            },
+          }
+        : {}),
+      runs: paragraph.runs.map((run) =>
+        run.format?.color
+          ? { ...run, format: { ...run.format, color: convertColor(run.format.color, newMode) } }
+          : run,
+      ),
+    })),
+  };
+}
+
+function convertTable(
+  table: TableModel,
+  newMode: ColorMode,
+  convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor,
+): TableModel {
+  const cells = Object.fromEntries(
+    Object.entries(table.cells).map(([id, cell]) => [
+      id,
+      cell.style
+        ? {
+            ...cell,
+            style: {
+              ...cell.style,
+              ...(cell.style.fill ? { fill: convertColor(cell.style.fill, newMode) } : {}),
+              ...(cell.style.borderColor
+                ? { borderColor: convertColor(cell.style.borderColor, newMode) }
+                : {}),
+            },
+          }
+        : cell,
+    ]),
+  );
+  return {
+    ...table,
+    appearance: {
+      ...table.appearance,
+      headerFill: convertColor(table.appearance.headerFill, newMode),
+      bodyFill: convertColor(table.appearance.bodyFill, newMode),
+      alternateFill: convertColor(table.appearance.alternateFill, newMode),
+      borderColor: convertColor(table.appearance.borderColor, newMode),
+      dividerColor: convertColor(table.appearance.dividerColor, newMode),
+      headerText: convertColor(table.appearance.headerText, newMode),
+      bodyText: convertColor(table.appearance.bodyText, newMode),
+    },
+    cells,
+  };
+}
+
 function walkAndConvert(
   node: SceneNode,
   newMode: ColorMode,
@@ -235,6 +348,7 @@ function walkAndConvert(
       strokes: updated.strokes.map((s: Stroke) => ({
         ...s,
         color: convertColor(s.color, newMode),
+        ...(s.gradient ? { gradient: convertGradient(s.gradient, newMode, convertColor) } : {}),
       })),
     } as SceneNode;
   }
@@ -242,32 +356,41 @@ function walkAndConvert(
   if ('effects' in updated && updated.effects) {
     updated = {
       ...updated,
-      effects: updated.effects.map((e: Effect) => {
-        if ('color' in e && e.color) {
-          return { ...e, color: convertColor(e.color as ManagedColor, newMode) } as Effect;
-        }
-        return e;
-      }),
+      effects: convertEffects(updated.effects, newMode, convertColor),
     } as SceneNode;
   }
 
   if ('fills' in updated && updated.fills) {
     updated = {
       ...updated,
-      fills: updated.fills.map((f: Fill) => ({
-        ...f,
-        color: f.color ? convertColor(f.color, newMode) : f.color,
-        gradient: f.gradient
-          ? {
-              ...f.gradient,
-              stops: f.gradient.stops.map((gs: GradientStop) => ({
-                ...gs,
-                color: convertColor(gs.color, newMode),
-              })),
-            }
-          : f.gradient,
-      })),
+      fills: updated.fills.map((f: Fill) => convertFill(f, newMode, convertColor)),
     } as SceneNode;
+  }
+
+  if (updated.kind === 'text' && updated.richText) {
+    updated = { ...updated, richText: convertRichText(updated.richText, newMode, convertColor) };
+  }
+
+  if (updated.kind === 'text' && updated.adaptiveContrast) {
+    updated = {
+      ...updated,
+      adaptiveContrast: {
+        ...updated.adaptiveContrast,
+        ...(updated.adaptiveContrast.lightColor
+          ? { lightColor: convertColor(updated.adaptiveContrast.lightColor, newMode) }
+          : {}),
+        ...(updated.adaptiveContrast.darkColor
+          ? { darkColor: convertColor(updated.adaptiveContrast.darkColor, newMode) }
+          : {}),
+        ...(updated.adaptiveContrast.resolvedColor
+          ? { resolvedColor: convertColor(updated.adaptiveContrast.resolvedColor, newMode) }
+          : {}),
+      },
+    };
+  }
+
+  if (updated.kind === 'table') {
+    updated = { ...updated, table: convertTable(updated.table, newMode, convertColor) };
   }
 
   return updated;
@@ -329,10 +452,75 @@ export function convertDocumentColors(
     nodes[id] = walkAndConvert(node, newMode, convertColor);
   }
 
+  const paints = doc.paints
+    ? Object.fromEntries(
+        Object.entries(doc.paints).map(([id, paint]) => [
+          id,
+          { ...paint, fill: convertFill(paint.fill, newMode, convertColor) },
+        ]),
+      )
+    : doc.paints;
+
+  const styles = doc.styles
+    ? Object.fromEntries(
+        Object.entries(doc.styles).map(([id, style]) => {
+          if (style.type === 'color') {
+            return [id, { ...style, fill: convertFill(style.fill, newMode, convertColor) }];
+          }
+          if (style.type === 'effect') {
+            return [
+              id,
+              { ...style, effects: convertEffects(style.effects, newMode, convertColor) },
+            ];
+          }
+          return [id, style];
+        }),
+      )
+    : doc.styles;
+
+  const stories = doc.stories
+    ? Object.fromEntries(
+        Object.entries(doc.stories).map(([id, story]) => [
+          id,
+          { ...story, content: convertRichText(story.content, newMode, convertColor) },
+        ]),
+      )
+    : doc.stories;
+
   let swatches = doc.swatches;
   if (swatches) {
     swatches = swatches.map((s) => ({ ...s, color: convertColor(s.color, newMode) }));
   }
+
+  const logoProject = doc.logoProject?.palette
+    ? {
+        ...doc.logoProject,
+        palette: {
+          ...doc.logoProject.palette,
+          colors: doc.logoProject.palette.colors.map((entry) => ({
+            ...entry,
+            color: convertColor(entry.color, newMode),
+          })),
+        },
+      }
+    : doc.logoProject;
+
+  const layerStates = doc.layerStates?.map((state) => ({
+    ...state,
+    captured: {
+      ...state.captured,
+      appearance: state.captured.appearance
+        ? Object.fromEntries(
+            Object.entries(state.captured.appearance).map(([id, snapshot]) => [
+              id,
+              snapshot.fill
+                ? { ...snapshot, fill: convertColor(snapshot.fill, newMode) }
+                : snapshot,
+            ]),
+          )
+        : state.captured.appearance,
+    },
+  }));
 
   let canvasBackground = doc.canvasBackground;
   if (canvasBackground && canvasBackground.space !== 'spot') {
@@ -349,6 +537,11 @@ export function convertDocumentColors(
     doc: {
       ...doc,
       nodes,
+      paints,
+      styles,
+      stories,
+      logoProject,
+      layerStates,
       swatches,
       canvasBackground,
       colorConfig: destinationConfig,

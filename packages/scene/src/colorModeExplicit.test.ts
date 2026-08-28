@@ -6,6 +6,7 @@ import {
   convertDocumentColors,
 } from './colorMode';
 import type { Document } from './document';
+import { emptyTableModel } from './table';
 
 function rgb(r: number, g: number, b: number, a = 255): ManagedColor {
   return { space: 'rgb' as const, r, g, b, a };
@@ -236,5 +237,163 @@ describe('convertDocumentColors', () => {
       warnings: expect.any(Array),
     });
     expect(report).toEqual(expected);
+  });
+
+  it('converts nested color-bearing document properties without mutation', () => {
+    const base = makeDoc(rgb(255, 0, 0));
+    const gradient = {
+      type: 'linear' as const,
+      stops: [
+        { position: 0, color: rgb(0, 255, 0) },
+        { position: 1, color: rgb(0, 0, 255) },
+      ],
+    };
+    const table = emptyTableModel();
+    table.appearance = {
+      ...table.appearance,
+      headerFill: rgb(10, 20, 30),
+      bodyText: rgb(40, 50, 60),
+    };
+    const nested = {
+      ...base.nodes.n1,
+      kind: 'text' as const,
+      fills: [
+        {
+          type: 'gradient' as const,
+          gradient,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          visible: true,
+        },
+      ],
+      strokes: [
+        {
+          ...((base.nodes.n1 as { strokes: never[] }).strokes[0] ?? {
+            color: rgb(0, 0, 0),
+            weight: 1,
+            align: 'center',
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'butt',
+            join: 'miter',
+            miterLimit: 4,
+            visible: true,
+          }),
+          color: rgb(1, 2, 3),
+          gradient,
+        },
+      ],
+      effects: [
+        {
+          type: 'glassMaterial' as const,
+          blur: 2,
+          tint: rgb(4, 5, 6),
+          tintOpacity: 1,
+          saturation: 1,
+          brightness: 1,
+          noise: 0,
+          edgeHighlight: true,
+          edgeHighlightWidth: 1,
+          edgeHighlightColor: rgb(7, 8, 9),
+          edgeHighlightOpacity: 1,
+          visible: true,
+        },
+      ],
+      richText: {
+        paragraphs: [
+          {
+            format: { columnRuleColor: rgb(11, 12, 13) },
+            runs: [{ text: 'nested', format: { color: rgb(14, 15, 16) } }],
+          },
+        ],
+      },
+    } as never;
+    const originalNested = structuredClone(nested);
+    const doc: Document = {
+      ...base,
+      nodes: {
+        n1: nested,
+        n2: { ...base.nodes.n1, kind: 'table', table } as never,
+      },
+      paints: {
+        p1: {
+          id: 'p1',
+          name: 'Paint',
+          fill: {
+            type: 'solid',
+            color: rgb(17, 18, 19),
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        },
+      },
+      styles: {
+        s1: {
+          id: 's1',
+          name: 'Color',
+          type: 'color',
+          fill: {
+            type: 'solid',
+            color: rgb(20, 21, 22),
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        },
+        s2: {
+          id: 's2',
+          name: 'Effect',
+          type: 'effect',
+          effects: [
+            {
+              type: 'dropShadow',
+              x: 0,
+              y: 0,
+              blur: 1,
+              spread: 0,
+              color: rgb(23, 24, 25),
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
+          ],
+        },
+      },
+      stories: {
+        story: { id: 'story', name: 'Story', content: nested.richText, thread: ['n1'] },
+      },
+    };
+
+    const { doc: out } = convertDocumentColors(doc, 'cmyk');
+    const outNode = out.nodes.n1 as never as {
+      fills: Array<{ gradient: { stops: Array<{ color: ManagedColor }> } }>;
+      strokes: Array<{ gradient?: { stops: Array<{ color: ManagedColor }> } }>;
+      effects: Array<{ tint?: ManagedColor; edgeHighlightColor?: ManagedColor }>;
+      richText: {
+        paragraphs: Array<{
+          format?: { columnRuleColor?: ManagedColor };
+          runs: Array<{ format?: { color?: ManagedColor } }>;
+        }>;
+      };
+    };
+    expect(outNode.fills[0]?.gradient.stops[0]?.color.space).toBe('cmyk');
+    expect(outNode.strokes[0]?.gradient?.stops[1]?.color.space).toBe('cmyk');
+    expect(outNode.effects[0]?.tint?.space).toBe('cmyk');
+    expect(outNode.effects[0]?.edgeHighlightColor?.space).toBe('cmyk');
+    expect(outNode.richText.paragraphs[0]?.format?.columnRuleColor?.space).toBe('cmyk');
+    expect(outNode.richText.paragraphs[0]?.runs[0]?.format?.color?.space).toBe('cmyk');
+    expect(
+      out.nodes.n2 && 'table' in out.nodes.n2
+        ? out.nodes.n2.table.appearance.headerFill.space
+        : null,
+    ).toBe('cmyk');
+    expect(out.paints?.p1?.fill.color?.space).toBe('cmyk');
+    expect(out.styles?.s1?.type === 'color' ? out.styles.s1.fill.color?.space : null).toBe('cmyk');
+    expect(out.styles?.s2?.type === 'effect' ? out.styles.s2.effects[0]?.color.space : null).toBe(
+      'cmyk',
+    );
+    expect(out.stories?.story?.content.paragraphs[0]?.runs[0]?.format?.color?.space).toBe('cmyk');
+    expect(nested).toEqual(originalNested);
   });
 });
