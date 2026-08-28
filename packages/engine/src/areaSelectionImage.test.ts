@@ -129,6 +129,21 @@ describe('Phase 7.2 — colour range selection', () => {
     expect(areaSelectionCoverageAt(sel, { x: 0, y: 0 })).toBe(0);
   });
 
+  it('does not let hidden RGB bridge a contiguous colour range', () => {
+    const src = rgbaSource(3, 1, [
+      [220, 30, 40, 255],
+      [220, 30, 40, 0],
+      [220, 30, 40, 255],
+    ]);
+    const contiguous = areaSelectionFromColorRange(
+      src,
+      { r: 220, g: 30, b: 40 },
+      { tolerance: 0.05, mode: 'contiguous', seed: { x: 0, y: 0 } },
+    )!;
+    expect(areaSelectionCoverageAt(contiguous, { x: 0, y: 0 })).toBe(1);
+    expect(areaSelectionCoverageAt(contiguous, { x: 2, y: 0 })).toBe(0);
+  });
+
   it('validates options and seed', () => {
     const src = rgbaSource(1, 1, [RED]);
     expect(areaSelectionFromColorRange(src, { r: 0, g: 0, b: 0 }, { tolerance: 0 })).toBeNull();

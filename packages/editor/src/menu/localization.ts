@@ -101,6 +101,8 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.edit.areaSelectionScaleDown': 'Scale Down',
   'menu.edit.areaSelectionRotateCW': 'Rotate Clockwise',
   'menu.edit.areaSelectionRotateCCW': 'Rotate Counter-Clockwise',
+  'menu.edit.transformSelectedPixels': 'Transform Pixels',
+  'menu.edit.transformSelectionBoundary': 'Transform Selection Boundary',
 
   // ── Text ───────────────────────────────────────────────────────────────────
   'menu.text.bold': 'Bold',

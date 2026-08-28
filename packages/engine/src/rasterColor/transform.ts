@@ -19,11 +19,9 @@
  */
 
 import {
-  convertEncodedRgb,
-  isAnalyticRgbWorkingSpace,
+  createAnalyticRgbColorTransform,
   isConvertibleRgbEncoding,
   type RasterColorEncoding,
-  type RgbWorkingSpaceRef,
 } from '@varve/shared';
 import {
   float32ToHalfFloat,
@@ -79,17 +77,19 @@ export function createAnalyticRgbTransform(
   target: RasterColorEncoding,
 ): RasterColorTransform | null {
   if (!isConvertibleRgbEncoding(source) || !isConvertibleRgbEncoding(target)) return null;
-  const sourceSpace: RgbWorkingSpaceRef = {
+  const sourceSpace = {
     primaries: source.primaries,
     transfer: source.transfer,
-  };
-  const targetSpace: RgbWorkingSpaceRef = {
+  } as const;
+  const targetSpace = {
     primaries: target.primaries,
     transfer: target.transfer,
-  };
-  if (!isAnalyticRgbWorkingSpace(sourceSpace) || !isAnalyticRgbWorkingSpace(targetSpace)) {
-    return null;
-  }
+  } as const;
+  const colourTransform = createAnalyticRgbColorTransform({
+    source: sourceSpace,
+    destination: targetSpace,
+  });
+  if (!colourTransform) return null;
   if (source.primaries === target.primaries && source.transfer === target.transfer) {
     return identityTransform(target);
   }
@@ -100,24 +100,11 @@ export function createAnalyticRgbTransform(
     supports: (format: PixelBufferFormat) =>
       format === 'rgba8' || format === 'rgba16' || format === 'rgba16f' || format === 'rgba32f',
     convertImageData: (pixels: ImageData, signal?: AbortSignal) =>
-      convertImageDataInPlace(
-        pixels,
-        (rgb) => convertEncodedRgb(sourceSpace, targetSpace, rgb),
-        signal,
-      ),
+      convertImageDataInPlace(pixels, (rgb) => colourTransform.convertColor(rgb), signal),
     convertFloat32: (pixels: Float32Array, signal?: AbortSignal) =>
-      convertFloat32InPlace(
-        pixels,
-        (rgb) => convertEncodedRgb(sourceSpace, targetSpace, rgb),
-        signal,
-      ),
+      convertFloat32InPlace(pixels, (rgb) => colourTransform.convertColor(rgb), signal),
     convertPixelBuffer: (buffer: PixelBuffer, signal?: AbortSignal) =>
-      convertPixelBufferInPlace(
-        buffer,
-        (rgb) => convertEncodedRgb(sourceSpace, targetSpace, rgb),
-        target,
-        signal,
-      ),
+      convertPixelBufferInPlace(buffer, (rgb) => colourTransform.convertColor(rgb), target, signal),
   };
 }
 

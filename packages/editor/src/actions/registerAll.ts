@@ -465,6 +465,18 @@ export function registerEditorActions(
     'edit',
     handlers.selectFromImageColorRange ?? (() => {}),
   );
+  reg(
+    'transformSelectedPixels',
+    'Transform Selected Pixels',
+    'edit',
+    handlers.transformSelectedPixels ?? (() => {}),
+  );
+  reg(
+    'transformSelectionBoundary',
+    'Transform Selection Boundary',
+    'edit',
+    handlers.transformSelectionBoundary ?? (() => {}),
+  );
   reg('mergeSelected', 'Merge Selected', 'object', handlers.mergeSelected ?? (() => {}));
   // Master page operations
   reg('createMaster', 'Create Master', 'object', handlers.createMaster ?? (() => {}));

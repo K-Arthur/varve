@@ -46,6 +46,10 @@ export interface FloatingRasterSelection {
   sourceHeight: number;
   targetWidth: number;
   targetHeight: number;
+  /** Immutable target ImageData snapshot used by preview and final commit. */
+  targetPixels: Uint8ClampedArray;
+  /** Source pixels visible through the image placement/crop. */
+  visibleSourceRect: PixelRect;
   transform: Affine;
   interpolation: FloatingInterpolation;
   isMove: boolean;
@@ -72,8 +76,12 @@ export interface CommitResult {
 }
 
 const MAX_FLOATING_DIMENSION = MAX_AREA_SELECTION_DIMENSION;
-const MAX_FLOATING_PIXELS = MAX_AREA_SELECTION_PIXELS;
+// Preview keeps target + lifted + output planes alive. Keep the total below
+// the 16.7M-pixel selection safety budget rather than allowing three 64MiB
+// buffers for one interaction.
+const MAX_FLOATING_PIXELS = Math.floor(MAX_AREA_SELECTION_PIXELS / 3);
 const COVERAGE_SAMPLES = 4;
+const IDENTITY_EPSILON = 1e-9;
 
 function clamp(value: number, low: number, high: number): number {
   return Math.min(high, Math.max(low, value));
@@ -85,6 +93,17 @@ function clampByte(value: number): number {
 
 function validRect(rect: PixelRect): boolean {
   return [rect.x, rect.y, rect.w, rect.h].every(Number.isFinite) && rect.w > 0 && rect.h > 0;
+}
+
+function isIdentityTransform(matrix: Affine): boolean {
+  return (
+    Math.abs(matrix[0] - 1) <= IDENTITY_EPSILON &&
+    Math.abs(matrix[1]) <= IDENTITY_EPSILON &&
+    Math.abs(matrix[2]) <= IDENTITY_EPSILON &&
+    Math.abs(matrix[3] - 1) <= IDENTITY_EPSILON &&
+    Math.abs(matrix[4]) <= IDENTITY_EPSILON &&
+    Math.abs(matrix[5]) <= IDENTITY_EPSILON
+  );
 }
 
 function transformedBounds(matrix: Affine, rect: PixelRect): PixelRect {
@@ -311,6 +330,8 @@ export function liftSelectedPixels(
     sourceHeight: sourceRect.h,
     targetWidth,
     targetHeight,
+    targetPixels: new Uint8ClampedArray(targetPixels),
+    visibleSourceRect: visible,
     transform: identity,
     interpolation: options.interpolation ?? 'bilinear',
     isMove: options.isMove ?? true,
@@ -353,7 +374,7 @@ export function floatingTransformedSelection(
  */
 export function commitFloatingSelection(
   floating: FloatingRasterSelection,
-  targetPixels: Uint8ClampedArray | Uint8Array,
+  targetPixels: Uint8ClampedArray | Uint8Array = floating.targetPixels,
   targetWidth = floating.targetWidth,
   targetHeight = floating.targetHeight,
 ): CommitResult | null {
@@ -368,6 +389,20 @@ export function commitFloatingSelection(
   const documentToSource = tryInvertAffine(floating.sourceToDocument);
   if (!transformInverse || !documentToSource) return null;
   const output = new Uint8ClampedArray(targetPixels);
+  // A click/Enter without a gesture is a true no-op. In particular, do not
+  // recompose partially covered, semi-transparent edge pixels: Porter-Duff
+  // splitting cannot reproduce a single source pixel byte-for-byte after a
+  // fractional source-over round trip. Returning the immutable snapshot keeps
+  // the no-op and cancel paths perfectly lossless.
+  if (isIdentityTransform(floating.transform)) {
+    return {
+      compositedPixels: output,
+      width: targetWidth,
+      height: targetHeight,
+      transformedSelection: floatingTransformedSelection(floating),
+      dirtyBounds: { ...floating.sourceRect },
+    };
+  }
   const destinationDocumentBounds = floatingTransformBounds(floating);
   const destinationSourceBounds = transformedBounds(documentToSource, destinationDocumentBounds);
   const destination = clipToTarget(targetWidth, targetHeight, destinationSourceBounds);

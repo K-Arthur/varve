@@ -7,8 +7,17 @@
  * overlay rendering here instead of managing it inline.
  */
 
-import type { AreaSelection, AreaSelectionExpression } from '@varve/engine';
-import { computeImagePlacement } from '@varve/engine';
+import type {
+  AreaSelection,
+  AreaSelectionExpression,
+  FloatingRasterSelection,
+} from '@varve/engine';
+import {
+  commitFloatingSelection,
+  computeImagePlacement,
+  floatingTransformBounds,
+  floatingTransformedSelection,
+} from '@varve/engine';
 import {
   canBeClipMaskSource,
   type Document,
@@ -46,6 +55,7 @@ export interface UseOverlayDrawOptions {
   sunkenColorRef: MutableRefObject<string>;
   draft: unknown | null;
   areaSelection: AreaSelection | null | undefined;
+  floatingRaster: FloatingRasterSelection | null | undefined;
   dropTargetFrameId: NodeId | null;
   maskDropTargetId: NodeId | null;
 }
@@ -137,6 +147,69 @@ function drawAreaSelectionBoundary(
   ctx.beginPath();
   traceAreaSelectionBoundary(ctx, selection.expression);
   ctx.stroke();
+  ctx.restore();
+}
+
+const floatingPreviewCache = new WeakMap<FloatingRasterSelection, HTMLCanvasElement>();
+
+function floatingPreviewCanvas(floating: FloatingRasterSelection): HTMLCanvasElement | null {
+  const cached = floatingPreviewCache.get(floating);
+  if (cached) return cached;
+  if (typeof document === 'undefined') return null;
+  const preview = commitFloatingSelection(floating);
+  if (!preview) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = preview.width;
+  canvas.height = preview.height;
+  const context = canvas.getContext('2d');
+  if (!context) return null;
+  context.putImageData(
+    new ImageData(preview.compositedPixels, preview.width, preview.height),
+    0,
+    0,
+  );
+  floatingPreviewCache.set(floating, canvas);
+  return canvas;
+}
+
+/**
+ * Preview is drawn from the same immutable target snapshot used by commit.
+ * The normal renderer stays untouched during the gesture; this full visible
+ * target replacement avoids a cut-out source plus a progressively resampled
+ * destination frame.
+ */
+function drawFloatingRasterPreview(
+  ctx: CanvasRenderingContext2D,
+  floating: FloatingRasterSelection,
+  zoom: number,
+): void {
+  const canvas = floatingPreviewCanvas(floating);
+  if (!canvas) return;
+  // `commitFloatingSelection` has already applied `floating.transform` while
+  // composing the temporary target image. Draw that image in its normal image
+  // placement; transforming this canvas again would move its entire target
+  // plane twice and disagree with the asset written on commit.
+  const localToDocument = floating.sourceToDocument;
+  ctx.save();
+  ctx.transform(...localToDocument);
+  ctx.beginPath();
+  ctx.rect(
+    floating.visibleSourceRect.x,
+    floating.visibleSourceRect.y,
+    floating.visibleSourceRect.w,
+    floating.visibleSourceRect.h,
+  );
+  ctx.clip();
+  ctx.imageSmoothingEnabled = floating.interpolation !== 'nearest';
+  ctx.drawImage(canvas, 0, 0);
+  ctx.restore();
+
+  const bounds = floatingTransformBounds(floating);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(35, 144, 255, 0.95)';
+  ctx.lineWidth = 1 / zoom;
+  ctx.setLineDash([5 / zoom, 3 / zoom]);
+  ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h);
   ctx.restore();
 }
 
@@ -267,6 +340,7 @@ export function useOverlayDraw({
   accentColorRef,
   draft,
   areaSelection,
+  floatingRaster,
   dropTargetFrameId,
   maskDropTargetId,
 }: UseOverlayDrawOptions): () => void {
@@ -395,8 +469,14 @@ export function useOverlayDraw({
     // ── Pixel-area selection boundary ──────────────────────────────────
     // This is an overlay-only visualization. The analytical expression is
     // never baked into the scene or export output.
-    if (s.areaSelection) {
-      drawAreaSelectionBoundary(ctx, s.areaSelection, s.zoom, areaSelectionPhaseRef.current);
+    if (s.floatingRaster) {
+      drawFloatingRasterPreview(ctx, s.floatingRaster, s.zoom);
+    }
+    const displayedAreaSelection = s.floatingRaster
+      ? floatingTransformedSelection(s.floatingRaster)
+      : s.areaSelection;
+    if (displayedAreaSelection) {
+      drawAreaSelectionBoundary(ctx, displayedAreaSelection, s.zoom, areaSelectionPhaseRef.current);
     }
 
     // ── Subject picker highlight overlay ─────────────────────────────────
@@ -802,6 +882,7 @@ export function useOverlayDraw({
     accentColorRef,
     draft,
     areaSelection,
+    floatingRaster,
     dropTargetFrameId,
     maskDropTargetId,
   ]);

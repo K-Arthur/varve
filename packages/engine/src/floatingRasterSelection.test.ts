@@ -79,6 +79,14 @@ describe('floating raster selection', () => {
     expect(result.compositedPixels[offset + 3]).toBeLessThan(255);
   });
 
+  it('keeps an identity transform byte-exact, including soft translucent edges', () => {
+    const source = image(12, 12);
+    source[(4 * 12 + 4) * 4 + 3] = 91;
+    const floating = liftSelectedPixels(rectangle(3.5, 3.5, 4, 4), source, 12, 12, 0, 0)!;
+    const result = commitFloatingSelection(floating)!;
+    expect(result.compositedPixels).toEqual(source);
+  });
+
   it('keeps the target unchanged for copy semantics outside the destination', () => {
     const source = image(12, 12);
     const before = new Uint8ClampedArray(source);

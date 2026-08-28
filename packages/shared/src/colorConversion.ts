@@ -13,6 +13,39 @@
 import { cssStringToManagedColor } from './cssColorParser';
 import type { RgbPrimariesName, TransferFunctionName } from './rasterColorEncoding';
 
+// ── Profile → RGB working space resolution ──────────────────────────────────
+
+const SRGB_WORKING: RgbWorkingSpaceRef = { primaries: 'srgb', transfer: 'srgb' };
+
+/**
+ * Map a profile id to an analytically-supported RGB encoding. This resolver
+ * deliberately returns `null` for an unknown ICC profile: only an ICC
+ * provider may interpret those channel values. Callers must never use a
+ * missing result as permission to relabel the channels as sRGB.
+ */
+export function resolveProfileToRgbWorkingSpace(
+  profileId: string | undefined,
+): RgbWorkingSpaceRef | null {
+  if (!profileId) return null;
+  switch (profileId) {
+    case 'srgb':
+      return { primaries: 'srgb', transfer: 'srgb' };
+    case 'display-p3':
+      return { primaries: 'display-p3', transfer: 'srgb' };
+    case 'adobe-rgb':
+    case 'adobe-rgb-1998':
+      return { primaries: 'adobe-rgb', transfer: 'gamma22' };
+    case 'pro-photo':
+    case 'prophoto':
+    case 'pro-photo-rgb':
+      return { primaries: 'pro-photo', transfer: 'prophoto' };
+    case 'rec2020':
+      return { primaries: 'rec2020', transfer: 'rec2020' };
+    default:
+      return null;
+  }
+}
+
 // ── Bit depth ────────────────────────────────────────────────────────────────
 
 /**
@@ -716,6 +749,83 @@ export interface RgbWorkingSpaceRef {
   transfer: TransferFunctionName;
 }
 
+/** Explicit operation type; proof is display-only while convert may rewrite data. */
+export type ColorTransformOperation = 'convert' | 'proof';
+
+/** Rendering intent is retained by the shared contract for ICC providers. */
+export type ColorRenderingIntent =
+  | 'perceptual'
+  | 'relative-colorimetric'
+  | 'saturation'
+  | 'absolute-colorimetric';
+
+/**
+ * One color-transform request shape for vector values, raster buffers and
+ * future ICC providers. The analytical provider honours the source and
+ * destination encodings; intent and BPC are carried so a higher-fidelity
+ * provider can use the exact same request without a second API.
+ */
+export interface RgbColorTransformRequest {
+  source: RgbWorkingSpaceRef;
+  destination: RgbWorkingSpaceRef;
+  operation?: ColorTransformOperation;
+  intent?: ColorRenderingIntent;
+  blackPointCompensation?: boolean;
+}
+
+/** Reusable analytical RGB transform. It never clamps colour channels. */
+export interface AnalyticRgbColorTransform {
+  readonly source: RgbWorkingSpaceRef;
+  readonly destination: RgbWorkingSpaceRef;
+  readonly operation: ColorTransformOperation;
+  readonly intent: ColorRenderingIntent;
+  readonly blackPointCompensation: boolean;
+  convertColor(rgb: readonly [number, number, number]): [number, number, number] | null;
+  convertRgba(rgba: NormalizedRgba): NormalizedRgba | null;
+}
+
+/**
+ * Resolve the profile that supplies the meaning for RGB ManagedColor
+ * channels. An explicit per-color profile wins; otherwise the document RGB
+ * profile applies; legacy untagged values are explicitly marked as assumed
+ * sRGB rather than fabricated as embedded/profiled sRGB.
+ */
+export type ManagedRgbProfileResolution =
+  | {
+      kind: 'resolved';
+      profileId: string;
+      encoding: RgbWorkingSpaceRef;
+      provenance: 'explicit' | 'document' | 'legacy-assumed-srgb';
+    }
+  | {
+      kind: 'unresolved';
+      profileId: string;
+      provenance: 'explicit' | 'document' | 'legacy-assumed-srgb';
+      reason: 'unsupported-rgb-profile';
+    };
+
+export interface ResolveManagedRgbProfileOptions {
+  /** RGB working profile from the document color configuration. */
+  documentRgbProfile?: string;
+}
+
+export function resolveManagedRgbProfile(
+  color: Pick<RgbColorShim, 'profile'>,
+  options: ResolveManagedRgbProfileOptions = {},
+): ManagedRgbProfileResolution {
+  const explicitProfile = color.profile?.trim();
+  const documentProfile = options.documentRgbProfile?.trim();
+  const profileId = explicitProfile || documentProfile || 'srgb';
+  const provenance = explicitProfile
+    ? 'explicit'
+    : documentProfile
+      ? 'document'
+      : 'legacy-assumed-srgb';
+  const encoding = resolveProfileToRgbWorkingSpace(profileId);
+  if (encoding) return { kind: 'resolved', profileId, encoding, provenance };
+  return { kind: 'unresolved', profileId, provenance, reason: 'unsupported-rgb-profile' };
+}
+
 /** True when both members are analytically convertible. */
 export function isAnalyticRgbWorkingSpace(space: RgbWorkingSpaceRef): boolean {
   return (
@@ -758,6 +868,41 @@ export function convertEncodedRgb(
   const tb = transferEncode(target.transfer, linear[2]);
   if (tr === null || tg === null || tb === null) return null;
   return [tr, tg, tb];
+}
+
+/**
+ * Compile one analytical RGB transform. This is intentionally the common
+ * primitive for vector and raster callers; it performs decode → XYZ D50 →
+ * encode and preserves out-of-gamut intermediate and result values.
+ */
+export function createAnalyticRgbColorTransform(
+  request: RgbColorTransformRequest,
+): AnalyticRgbColorTransform | null {
+  if (
+    !isAnalyticRgbWorkingSpace(request.source) ||
+    !isAnalyticRgbWorkingSpace(request.destination)
+  ) {
+    return null;
+  }
+  const identity =
+    request.source.primaries === request.destination.primaries &&
+    request.source.transfer === request.destination.transfer;
+  const convertColor = identity
+    ? (rgb: readonly [number, number, number]): [number, number, number] => [rgb[0], rgb[1], rgb[2]]
+    : (rgb: readonly [number, number, number]) =>
+        convertEncodedRgb(request.source, request.destination, rgb);
+  return {
+    source: request.source,
+    destination: request.destination,
+    operation: request.operation ?? 'convert',
+    intent: request.intent ?? 'relative-colorimetric',
+    blackPointCompensation: request.blackPointCompensation ?? false,
+    convertColor,
+    convertRgba: (rgba) => {
+      const converted = convertColor([rgba[0], rgba[1], rgba[2]]);
+      return converted ? [converted[0], converted[1], converted[2], rgba[3]] : null;
+    },
+  };
 }
 
 // ── Oklab (Ottosson 2020) ───────────────────────────────────────────────────
@@ -900,7 +1045,10 @@ export function deltaEOk(
 // ── ManagedColor helpers ────────────────────────────────────────────────────
 
 /**
- * Convert any ManagedColor to an RGBA tuple [r, g, b, a] (0-255).
+ * Legacy display reduction for non-RGB values and unresolved compatibility
+ * paths. New authoritative/working callers must use
+ * `managedColorToWorkingRgba`; this function intentionally has no profile
+ * context and cannot be used to interpret an arbitrary RGB ICC profile.
  *
  * Channels are first normalized to 0.0–1.0 based on the color's bitDepth
  * (or uint8 when absent), then denormalized to 0-255 uint8 output. This
@@ -912,14 +1060,20 @@ export function deltaEOk(
  * - SpotColorRef: uses processFallback if available; applies tint as opacity;
  *   falls back to black if no fallback
  */
-export function managedColorToRgba(color: ManagedColorShim): [number, number, number, number] {
+function managedColorToRgbaLegacy(color: ManagedColorShim): [number, number, number, number] {
   switch (color.space) {
     case 'rgb': {
       const bd = color.bitDepth ?? 'uint8';
+      const encoded: [number, number, number] = [
+        normalizeChannel(color.r, bd),
+        normalizeChannel(color.g, bd),
+        normalizeChannel(color.b, bd),
+      ];
+
       return [
-        denormalizeChannel(normalizeChannel(color.r, bd), 'uint8'),
-        denormalizeChannel(normalizeChannel(color.g, bd), 'uint8'),
-        denormalizeChannel(normalizeChannel(color.b, bd), 'uint8'),
+        denormalizeChannel(encoded[0], 'uint8'),
+        denormalizeChannel(encoded[1], 'uint8'),
+        denormalizeChannel(encoded[2], 'uint8'),
         denormalizeChannel(normalizeChannel(color.a, bd), 'uint8'),
       ];
     }
@@ -990,7 +1144,9 @@ export function managedColorToRgba(color: ManagedColorShim): [number, number, nu
 }
 
 /**
- * Normalize any ManagedColor to a 0.0–1.0 RGBA tuple for blending math.
+ * Convert non-RGB ManagedColor variants to encoded sRGB for a compatibility
+ * display boundary. CMYK uses the clearly-labelled analytical fallback here;
+ * profile-managed CMYK must be resolved by an ICC provider before calling it.
  *
  * All color spaces are reduced to normalized RGBA: CMYK and spot colors
  * go through their process-color equivalent first, gray expands to RGB.
@@ -998,7 +1154,7 @@ export function managedColorToRgba(color: ManagedColorShim): [number, number, nu
  * deliberately independent from `managedColorToRgba`; the latter is an
  * explicit 8-bit display boundary and must not be used as a working buffer.
  */
-export function managedColorToNormalized(color: ManagedColorShim): NormalizedRgba {
+function managedColorToSrgbNormalizedLegacy(color: ManagedColorShim): NormalizedRgba {
   switch (color.space) {
     case 'rgb': {
       const bitDepth = color.bitDepth ?? DEFAULT_BIT_DEPTH;
@@ -1075,6 +1231,112 @@ export function managedColorToNormalized(color: ManagedColorShim): NormalizedRgb
       return [0, 0, 0, alpha];
     }
   }
+}
+
+/** Options for resolving a semantic colour into an explicit RGB working encoding. */
+export interface ManagedColorWorkingColorOptions extends ResolveManagedRgbProfileOptions {
+  destination: RgbWorkingSpaceRef;
+  operation?: ColorTransformOperation;
+  intent?: ColorRenderingIntent;
+  blackPointCompensation?: boolean;
+}
+
+/**
+ * The result is structured so an unknown profile cannot be silently treated
+ * as sRGB by authoritative callers. A display-only compatibility fallback is
+ * intentionally left to the caller that decides it is acceptable.
+ */
+export type ManagedColorWorkingColorResult =
+  | {
+      kind: 'resolved';
+      rgba: NormalizedRgba;
+      source: RgbWorkingSpaceRef;
+      destination: RgbWorkingSpaceRef;
+    }
+  | {
+      kind: 'unresolved';
+      resolution: ManagedRgbProfileResolution & { kind: 'unresolved' };
+    }
+  | {
+      kind: 'unsupported-destination';
+      destination: RgbWorkingSpaceRef;
+    };
+
+/**
+ * Convert a semantic vector colour into a requested RGB working encoding.
+ *
+ * RGB channels are first resolved through their explicit/document profile;
+ * other semantic colours use their existing documented RGB display fallback.
+ * No result is clamped. This is the vector counterpart to the raster
+ * `RasterColorTransform` provider and shares the same analytical transform.
+ */
+export function managedColorToWorkingRgba(
+  color: ManagedColorShim,
+  options: ManagedColorWorkingColorOptions,
+): ManagedColorWorkingColorResult {
+  if (!isAnalyticRgbWorkingSpace(options.destination)) {
+    return { kind: 'unsupported-destination', destination: options.destination };
+  }
+
+  let source = SRGB_WORKING;
+  let rgba: NormalizedRgba;
+  if (color.space === 'rgb') {
+    const resolution = resolveManagedRgbProfile(color, options);
+    if (resolution.kind === 'unresolved') return { kind: 'unresolved', resolution };
+    source = resolution.encoding;
+    const bitDepth = color.bitDepth ?? DEFAULT_BIT_DEPTH;
+    rgba = [
+      normalizeChannel(color.r, bitDepth),
+      normalizeChannel(color.g, bitDepth),
+      normalizeChannel(color.b, bitDepth),
+      normalizeChannel(color.a, bitDepth),
+    ];
+  } else {
+    rgba = managedColorToSrgbNormalizedLegacy(color);
+  }
+
+  const transform = createAnalyticRgbColorTransform({
+    source,
+    destination: options.destination,
+    operation: options.operation,
+    intent: options.intent,
+    blackPointCompensation: options.blackPointCompensation,
+  });
+  if (!transform) return { kind: 'unsupported-destination', destination: options.destination };
+  const converted = transform.convertRgba(rgba);
+  if (!converted) return { kind: 'unsupported-destination', destination: options.destination };
+  return { kind: 'resolved', rgba: converted, source, destination: options.destination };
+}
+
+/**
+ * Compatibility helper for encoded sRGB consumers. It resolves known RGB
+ * profiles before conversion, but cannot communicate an unresolved result;
+ * code that persists, interpolates or otherwise owns colour meaning must use
+ * `managedColorToWorkingRgba` instead.
+ */
+export function managedColorToNormalized(color: ManagedColorShim): NormalizedRgba {
+  const result = managedColorToWorkingRgba(color, { destination: SRGB_WORKING });
+  return result.kind === 'resolved' ? result.rgba : managedColorToSrgbNormalizedLegacy(color);
+}
+
+/**
+ * Reduce a colour to 8-bit sRGB for a CSS/canvas/legacy display boundary.
+ * This is deliberately not a working-storage or export conversion API.
+ */
+export function managedColorToRgba(color: ManagedColorShim): [number, number, number, number] {
+  // Preserve the long-standing integer display reduction for semantic
+  // non-RGB colours. Their profile-aware paths require an ICC provider;
+  // this helper is only the legacy 8-bit display boundary.
+  if (color.space !== 'rgb') return managedColorToRgbaLegacy(color);
+  const result = managedColorToWorkingRgba(color, { destination: SRGB_WORKING });
+  if (result.kind !== 'resolved') return managedColorToRgbaLegacy(color);
+  const [r, g, b, a] = result.rgba;
+  return [
+    denormalizeChannel(Math.max(0, Math.min(1, r)), 'uint8'),
+    denormalizeChannel(Math.max(0, Math.min(1, g)), 'uint8'),
+    denormalizeChannel(Math.max(0, Math.min(1, b)), 'uint8'),
+    denormalizeChannel(Math.max(0, Math.min(1, a)), 'uint8'),
+  ];
 }
 
 /**
