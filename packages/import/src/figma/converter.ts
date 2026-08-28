@@ -127,6 +127,32 @@ function gradientRotation(paint: FigmaPaint): number | undefined {
   return (Math.atan2(second.y - first.y, second.x - first.x) * 180) / Math.PI;
 }
 
+/**
+ * Convert Figma's normalized gradient handles into Varve's canonical affine
+ * field. Figma emits three handles: linear start/end plus the perpendicular
+ * axis point, or radial centre plus the two radius axes. Keeping all three
+ * points avoids reducing authored skew/non-uniform scale to an angle.
+ */
+function gradientTransform(paint: FigmaPaint): Affine | undefined {
+  if (paint.gradientTransform) return [...paint.gradientTransform] as Affine;
+  const [first, second, third] = paint.gradientHandlePositions ?? [];
+  if (!first || !second || !third) return undefined;
+
+  if (paint.type === 'GRADIENT_LINEAR') {
+    const ux = second.x - first.x;
+    const uy = second.y - first.y;
+    const vx = 2 * (third.x - first.x - ux * 0.5);
+    const vy = 2 * (third.y - first.y - uy * 0.5);
+    return [ux, uy, vx, vy, first.x - vx * 0.5, first.y - vy * 0.5];
+  }
+
+  const ux = 2 * (second.x - first.x);
+  const uy = 2 * (second.y - first.y);
+  const vx = 2 * (third.x - first.x);
+  const vy = 2 * (third.y - first.y);
+  return [ux, uy, vx, vy, first.x - (ux + vx) * 0.5, first.y - (uy + vy) * 0.5];
+}
+
 function assetForImage(
   state: ConversionState,
   ref: string,
@@ -159,6 +185,7 @@ function fill(state: ConversionState, paint: FigmaPaint, bounds: FigmaBounds): F
     return { type: 'solid', color: color(paint.color), ...common };
   }
   if (paint.type.startsWith('GRADIENT_') && paint.gradientStops) {
+    const transform = gradientTransform(paint);
     return {
       type: 'gradient',
       gradient: {
@@ -167,7 +194,7 @@ function fill(state: ConversionState, paint: FigmaPaint, bounds: FigmaBounds): F
           position: stop.position,
           color: color(stop.color),
         })),
-        rotation: gradientRotation(paint),
+        ...(transform ? { transform } : { rotation: gradientRotation(paint) }),
       },
       ...common,
     };

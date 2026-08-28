@@ -228,6 +228,25 @@ describe('Figma JSON importer', () => {
     expect(DocumentCodec.normalize(result.document).document.pages).toHaveLength(1);
   });
 
+  it('preserves normalized Figma gradient handles as an affine field', () => {
+    const input = JSON.parse(fixture()) as Record<string, any>;
+    const accent = input.document.children[0].children[0].children[1];
+    accent.fills[0].gradientHandlePositions = [
+      { x: 0.2, y: 0.3 },
+      { x: 0.9, y: 0.45 },
+      { x: 0.35, y: 0.95 },
+    ];
+    const result = createFigmaParser().parse(JSON.stringify(input));
+    const imported = Object.values(result.document.nodes).find((node) => node.name === 'Accent');
+    const transform = imported?.fills?.[0]?.gradient?.transform;
+    expect(transform).toBeDefined();
+    expect(transform).toHaveLength(6);
+    transform?.forEach((value, index) => {
+      expect(value).toBeCloseTo([0.7, 0.15, -0.4, 1.15, 0.4, -0.275][index]!, 12);
+    });
+    expect(imported?.fills?.[0]?.gradient?.rotation).toBeUndefined();
+  });
+
   it('keeps source ids out of the native scene identity domain', () => {
     const result = createFigmaParser().parse(fixture());
     expect(Object.keys(result.document.nodes)).not.toContain('1:1');
