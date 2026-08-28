@@ -111,6 +111,8 @@ export function tryPresentWorkerFrame(args: PresentWorkerFrameArgs): boolean {
     engineNodeHits: 0,
     setupMs: 0,
     preLoopMs: 0,
+    frameWorkClass: budget.workClass,
+    frameWorkBudgetMs: budget.budgetMs,
     totalMs: budget.elapsedMs,
     renderPath: 'worker-cached',
     wasDirty: false,

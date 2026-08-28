@@ -54,6 +54,10 @@ export interface FrameDiagnostics {
    * costs 60ms and we cannot see why" into a locatable cost.
    */
   preLoopMs?: number;
+  /** Work class used for this frame's dynamic display-interval budget. */
+  frameWorkClass?: 'interaction' | 'authoritative' | 'background';
+  /** Budget assigned to `frameWorkClass`, in milliseconds. */
+  frameWorkBudgetMs?: number;
   totalMs: number;
   renderPath: 'structural' | 'worker' | 'worker-cached' | 'compositor';
   wasDirty: boolean;

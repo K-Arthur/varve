@@ -101,6 +101,17 @@ resized safely through `createImageBitmap`; remote sources intentionally retain
 the established full-image loader until a CORS-safe tiled decoder is added. The
 raster-layer pyramid remains the tiled LOD path for raster-layer primitives.
 
+## Implemented frame-work accounting
+
+`frameBudget.ts` now retains a bounded timing window for each declared work
+class rather than treating every frame as a single 100%-interval deadline.
+Its `window.__varvePerf.frameBudget.summary()` report exposes the display
+interval, class budgets, averages, p50/p95/p99, sample counts, and
+class-relative overruns. The main canvas records active camera interactions as
+`interaction`; settled and worker-presented frames are `authoritative`.
+Background callers can report `background` explicitly, and the shared
+latest-wins scheduler continues to defer that lane until interaction settles.
+
 ## Measurement protocol
 
 For each cold and warm corpus run, collect the existing `?perf=1`
