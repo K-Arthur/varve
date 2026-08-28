@@ -61,6 +61,8 @@ export interface FlattenCapability {
   nativeGradientTypes: ReadonlySet<string>;
   /** Whether gradient paint servers may be attached directly to strokes. */
   supportsGradientStrokes: boolean;
+  /** Whether the target preserves more than one visible stroke per shape. */
+  supportsMultipleStrokes: boolean;
   /** Whether the target supports text nodes with font fallback. */
   supportsText: boolean;
   /** Whether the target supports groups/frames with clipping. */
@@ -220,6 +222,7 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
     nativeShapeKinds: SVG_NATIVE_SHAPES,
     nativeGradientTypes: SVG_NATIVE_GRADIENTS,
     supportsGradientStrokes: true,
+    supportsMultipleStrokes: false,
     supportsText: true,
     supportsGroups: true,
     supportsImages: true,
@@ -237,6 +240,7 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
     nativeShapeKinds: PDF_NATIVE_SHAPES,
     nativeGradientTypes: PDF_NATIVE_GRADIENTS,
     supportsGradientStrokes: false,
+    supportsMultipleStrokes: true,
     supportsText: true, // native PDF text via strata-print (WinAnsi + subset + outline fallback)
     supportsGroups: true,
     supportsImages: true,
@@ -254,6 +258,7 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
     nativeShapeKinds: RASTER_NATIVE_SHAPES,
     nativeGradientTypes: RASTER_NATIVE_GRADIENTS,
     supportsGradientStrokes: true,
+    supportsMultipleStrokes: true,
     supportsText: true,
     supportsGroups: true,
     supportsImages: true,
@@ -422,6 +427,10 @@ export function assessNodeCapability(
   if (node.kind === 'shape') {
     const shape = (node as ShapeNode).shape;
     if (!cap.nativeShapeKinds.has(shape.kind)) return false;
+    if (!cap.supportsMultipleStrokes) {
+      const visibleStrokes = node.strokes.filter((stroke) => stroke.visible);
+      if (visibleStrokes.length > 1) return false;
+    }
   }
 
   // Text nodes

@@ -411,6 +411,20 @@ describe('assessNodeCapability', () => {
       expect(assessNodeCapability(node, doc, 'svg')).toBe(true);
     });
 
+    it('SVG rasterizes shapes with multiple visible strokes', () => {
+      const node = makeShapeNode(
+        'multi-stroke',
+        { kind: 'rect' },
+        {
+          strokes: [
+            { color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 }, weight: 2, visible: true },
+            { color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 }, weight: 6, visible: true },
+          ] as any,
+        },
+      );
+      expect(assessNodeCapability(node, makeDoc({ [node.id]: node }), 'svg')).toBe(false);
+    });
+
     it('PDF rasterizes radial gradients while retaining affine linear gradients natively', () => {
       const radial = makeShapeNode('pdf-radial', { kind: 'rect' });
       (radial as unknown as Record<string, unknown>).fills = [
