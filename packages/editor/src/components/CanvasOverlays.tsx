@@ -13,14 +13,14 @@ import type { Adjustment, MeshWarp } from '@varve/engine';
 import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@varve/scene';
 import { activePageNodes, removeNode, resolveAdjustmentScope, walkNodes } from '@varve/scene';
 import type { RulerMode } from '@varve/shared';
-import { computeFloatingOrigin, isWorldRectInViewport, worldToScreen } from '@varve/shared';
+import { isWorldRectInViewport } from '@varve/shared';
 
 import { CanvasNameLabels } from '../canvas/CanvasNameLabels';
 import { useEditor } from '../context';
 import type { GridOverlayMode } from '../context/types';
 import { DebugOverlayHost } from '../debug/DebugOverlayHost';
 import { SelectionOverlay } from '../SelectionOverlay';
-import { nodeWorldBounds } from '../scene/world';
+import { nodeWorldBounds, worldRectToScreenAabb } from '../scene/world';
 import type { PixelProbe } from '../tools';
 import type { CropTool } from '../tools/CropTool';
 import type { PerspectiveTool } from '../tools/PerspectiveTool';
@@ -366,24 +366,15 @@ export function CanvasOverlays({
       width: canvasRect?.width ?? 1920,
       height: canvasRect?.height ?? 1080,
     };
-    const textOrigin = computeFloatingOrigin(textCam, textViewport);
-    const [textCanvasX, textCanvasY] = worldToScreen(
-      textCam,
-      worldX,
-      worldY,
-      textViewport,
-      textOrigin,
-    );
-    const textScreenX = textCanvasX + canvasLeft;
-    const textScreenY = textCanvasY + canvasTop;
     const textBounds = nodeWorldBounds(doc, textEditTargetId);
-    const textScreenW = (textBounds?.w ?? n.w ?? (n.fontSize ?? 16) * 3) * zoom;
-    const textScreenH = (textBounds?.h ?? n.h ?? (n.fontSize ?? 16) * 1.4) * zoom;
+    const projectedBounds = textBounds
+      ? worldRectToScreenAabb(textBounds, textCam, textViewport)
+      : null;
     const textScreenRect = {
-      x: textScreenX,
-      y: textScreenY,
-      w: Math.max(textScreenW, 20),
-      h: Math.max(textScreenH, 20),
+      x: (projectedBounds?.x ?? worldX * zoom + pan.x) + canvasLeft,
+      y: (projectedBounds?.y ?? worldY * zoom + pan.y) + canvasTop,
+      w: Math.max(projectedBounds?.w ?? (n.w ?? (n.fontSize ?? 16) * 3) * zoom, 20),
+      h: Math.max(projectedBounds?.h ?? (n.h ?? (n.fontSize ?? 16) * 1.4) * zoom, 20),
     };
     return (
       <>

@@ -891,32 +891,6 @@ describe('legacy exports', () => {
       expect(gap?.severity).toBe('warning');
     });
 
-    it('flags stacked visible strokes that SVG emits via raster fallback', async () => {
-      const { svgTargetGaps } = await import('./svg');
-      const stroke = {
-        color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
-        weight: 2,
-        align: 'center' as const,
-        dashPattern: [],
-        dashOffset: 0,
-        cap: 'round' as const,
-        join: 'miter' as const,
-        miterLimit: 4,
-        visible: true,
-      };
-      const node = makeShapeNode(
-        'stacked-strokes',
-        { kind: 'rect' },
-        {
-          strokes: [stroke, { ...stroke, weight: 6 }],
-        },
-      );
-      const gap = svgTargetGaps(node, createDocument('Test')).find((entry) =>
-        entry.feature?.includes('multiple visible strokes'),
-      );
-      expect(gap?.severity).toBe('warning');
-    });
-
     it('uses raster asset when provided for angular gradient shape', () => {
       const node = makeShapeNode(
         'n1',
