@@ -82,16 +82,11 @@ pub fn wasm_rgb_to_cmyk_icc(
     rendering_intent: &str,
     black_point_compensation: bool,
 ) -> Result<Vec<u8>, JsValue> {
-    let profile = match profile_name {
-        "Fogra39" => profiles::PrintProfile::Fogra39,
-        "Gracol2006" => profiles::PrintProfile::Gracol2006,
-        "SwopCoated" => profiles::PrintProfile::SwopCoated,
-        other => {
-            return Err(JsValue::from_str(&format!(
-                "Unknown print profile: '{other}'. Expected: Fogra39, Gracol2006, SwopCoated"
-            )));
-        }
-    };
+    let profile = profiles::PrintProfile::parse(profile_name).ok_or_else(|| {
+        JsValue::from_str(&format!(
+            "Unknown print profile: '{profile_name}'. Expected: Fogra39, Gracol2006, SwopCoated"
+        ))
+    })?;
 
     let intent = profiles::RenderingIntent::parse_intent(rendering_intent).ok_or_else(|| {
         JsValue::from_str(&format!(
@@ -204,16 +199,11 @@ pub fn wasm_batch_rgb_to_cmyk_icc(
         )));
     }
 
-    let profile = match profile_name {
-        "Fogra39" => profiles::PrintProfile::Fogra39,
-        "Gracol2006" => profiles::PrintProfile::Gracol2006,
-        "SwopCoated" => profiles::PrintProfile::SwopCoated,
-        other => {
-            return Err(JsValue::from_str(&format!(
-                "Unknown print profile: '{other}'. Expected: Fogra39, Gracol2006, SwopCoated"
-            )));
-        }
-    };
+    let profile = profiles::PrintProfile::parse(profile_name).ok_or_else(|| {
+        JsValue::from_str(&format!(
+            "Unknown print profile: '{profile_name}'. Expected: Fogra39, Gracol2006, SwopCoated"
+        ))
+    })?;
 
     let intent = profiles::RenderingIntent::parse_intent(rendering_intent).ok_or_else(|| {
         JsValue::from_str(&format!("Unknown rendering intent: '{rendering_intent}'"))
