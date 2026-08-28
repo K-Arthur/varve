@@ -70,6 +70,33 @@ function cacheKey(url: string, variant?: ImageCacheColorVariant): string {
   return `${url}\u0000varve-color=${encodeURIComponent(variant.colorKey)}`;
 }
 
+/**
+ * Blob for a source the cache is about to resize.
+ *
+ * `data:` URLs are decoded in memory rather than fetched. `fetch()` on a
+ * data URL is a *connect* operation to the CSP, and a policy that sensibly
+ * allows `img-src data:` will still refuse it — the `/try` demo ships
+ * exactly that combination (`connect-src 'self' blob:`), so every embedded
+ * image large enough to need an at-size representation failed there while
+ * working in dev. Decoding is also strictly cheaper: the bytes are already
+ * in the string.
+ */
+async function blobForResize(url: string): Promise<Blob> {
+  if (!url.startsWith('data:')) return (await fetch(url)).blob();
+  const comma = url.indexOf(',');
+  if (comma < 0) throw new Error('Malformed data URL');
+  const header = url.slice(5, comma);
+  const payload = url.slice(comma + 1);
+  const mime = header.split(';')[0] || 'application/octet-stream';
+  if (!/;base64$|;base64;/.test(header)) {
+    return new Blob([decodeURIComponent(payload)], { type: mime });
+  }
+  const binary = atob(payload);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
 export class ImageCache {
   private cache = new Map<string, ImageCacheEntry>();
   private pending = new Map<string, Promise<CachedImage>>();
@@ -700,14 +727,14 @@ export class ImageCache {
         // lookup path stays uniform.
         return this.load(url, variant);
       }
-      const blob = await (await fetch(url)).blob();
+      const blob = await blobForResize(url);
       return createImageBitmap(blob, {
         resizeWidth: Math.max(1, Math.round(source.width * scale)),
         resizeHeight: Math.max(1, Math.round(source.height * scale)),
         resizeQuality: 'high',
       });
     }
-    const blob = await (await fetch(url)).blob();
+    const blob = await blobForResize(url);
     return createImageBitmap(blob, {
       resizeWidth: maxDim,
       resizeQuality: 'high',

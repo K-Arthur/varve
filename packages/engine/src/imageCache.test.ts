@@ -329,6 +329,10 @@ describe('ImageCache at-size representations', () => {
     expect(cache.isLoaded(closed)).toBe(false);
   });
 
+  // These fixtures are opaque payloads — the assertions below are about
+  // bitmap ownership, not bytes. They must still be *valid* base64, because
+  // the cache decodes data: URLs in memory rather than fetching them (a
+  // fetch of a data: URL is a connect-src operation the demo CSP refuses).
   function mockFetchBlob(): void {
     globalThis.fetch = vi.fn().mockResolvedValue({
       blob: () => Promise.resolve(new Blob(['bytes'], { type: 'image/jpeg' })),
@@ -432,7 +436,7 @@ describe('ImageCache at-size representations', () => {
   });
 
   it('closes at-size bitmaps on eviction and clear (exactly-once ownership)', async () => {
-    const src = 'data:image/jpeg;base64,EVICT';
+    const src = 'data:image/jpeg;base64,EVICTED0';
     const close = vi.fn();
     globalThis.createImageBitmap = vi.fn().mockResolvedValue(mockBitmap(close, 2048, 2048));
     mockFetchBlob();
@@ -446,7 +450,7 @@ describe('ImageCache at-size representations', () => {
   });
 
   it('closes a stale at-size bitmap when cancellation wins the race', async () => {
-    const src = 'data:image/jpeg;base64,CANCELLED';
+    const src = 'data:image/jpeg;base64,CANCELLED0';
     let resolveBitmap: (bitmap: ImageBitmap) => void = () => undefined;
     const close = vi.fn();
     globalThis.createImageBitmap = vi.fn().mockImplementation(
@@ -470,7 +474,7 @@ describe('ImageCache at-size representations', () => {
   });
 
   it('does not close an oversized bitmap returned to the immediate caller', async () => {
-    const src = 'data:image/jpeg;base64,OVERSIZED';
+    const src = 'data:image/jpeg;base64,OVERSIZED0';
     const close = vi.fn();
     const bitmap = mockBitmap(close, 2048, 2048);
     globalThis.createImageBitmap = vi.fn().mockResolvedValue(bitmap);
