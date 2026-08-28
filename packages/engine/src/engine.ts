@@ -105,6 +105,8 @@ function shapeToPrimitive(
       fontStyle: (node.fontStyle as 'normal' | 'italic' | undefined) ?? 'normal',
       letterSpacing: node.letterSpacing,
       lineHeight: node.lineHeight,
+      paragraphSpacing: node.paragraphSpacing,
+      textCase: node.textCase,
       textMode: node.textMode ?? textShape?.textMode,
       textResizing: node.textResizing,
       richText: node.richText as never,

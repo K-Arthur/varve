@@ -399,6 +399,36 @@ describe('createEngine (stub)', () => {
     }
   });
 
+  it('includes paragraph spacing and text case in direct text geometry', async () => {
+    const eng = await createEngine('stub');
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'spaced-text',
+          name: 'Spaced text',
+          kind: 'text',
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          text: 'a\nb',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal',
+          lineHeight: 1.4,
+          paragraphSpacing: 12,
+          textCase: 'uppercase',
+        },
+      ],
+    });
+    const primitive = ir[0]?.primitive;
+    expect(primitive?.kind).toBe('text');
+    if (primitive?.kind === 'text') {
+      expect(primitive.h).toBeCloseTo(16 * 1.4 * 2 + 12);
+      expect(primitive.textCase).toBe('uppercase');
+      expect(primitive.paragraphSpacing).toBe(12);
+    }
+  });
+
   it('propagates letterSpacing and lineHeight to text primitive', async () => {
     const eng = await createEngine();
     const ir = await eng.buildIr({
