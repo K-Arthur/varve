@@ -327,7 +327,7 @@ export class BrushWorkerHost {
       stroke.syncState = state;
       this.stats.syncFallbacks++;
     }
-    const batch = appendStrokePoints(stroke.syncState, points);
+    const batch = appendStrokePoints(stroke.syncState, points, { final });
     this.recordConfirmed(stroke, points);
     this.emit(stroke, batch.dabs, batch.bounds, stroke.nextSeq++, final, 'sync');
   }
