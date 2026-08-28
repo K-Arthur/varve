@@ -648,6 +648,17 @@ function buildMenus(
           action: 'selectionHistoryForward',
           disabled: !hasSelection,
         },
+        { label: '---' },
+        {
+          label: 'Pixel Selection',
+          items: [
+            { label: 'Transform Pixels', action: 'transformSelectedPixels' },
+            {
+              label: 'Transform Selection Boundary',
+              action: 'transformSelectionBoundary',
+            },
+          ],
+        },
       ],
     },
     {

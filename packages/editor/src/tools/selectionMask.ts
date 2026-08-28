@@ -329,6 +329,10 @@ export function decodeRasterMaskDataUrl(dataUrl: string): Promise<DecodedMaskPix
         canvas.height = image.naturalHeight;
         const context = canvas.getContext('2d', { willReadFrequently: true });
         if (!context || canvas.width <= 0 || canvas.height <= 0) return resolve(null);
+        // Canvas starts transparent. Decode the loaded image into it before
+        // reading pixels; without this every image-derived selection sees a
+        // fully transparent plane irrespective of the actual source asset.
+        context.drawImage(image, 0, 0);
         const result = context.getImageData(0, 0, canvas.width, canvas.height);
         resolve({ data: result.data, width: result.width, height: result.height });
       } catch {
