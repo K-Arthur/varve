@@ -42,7 +42,9 @@ async function openPixelSelectionCommand(
   // The in-window menubar opens nested menus on pointer entry (matching its
   // desktop-menu behaviour); clicking an already-hovered item closes it.
   await pixelSelection.hover();
-  await page.getByRole('menuitem', { name: command }).click();
+  const submenu = page.getByRole('menu', { name: 'Pixel Selection' });
+  await expect(submenu).toBeVisible();
+  await submenu.getByRole('menuitem', { name: command }).click();
 }
 
 test.describe('pixel selection transform', () => {
@@ -87,6 +89,9 @@ test.describe('pixel selection transform', () => {
     await openPixelSelectionCommand(page, /^Transform Pixels$/);
     await expect(announcer).toContainText(/Transforming selected pixels/, { timeout: 10000 });
 
+    // Return keyboard ownership to the real canvas. The command menu is
+    // portaled and unmounts after activation.
+    await page.locator('canvas.editor-canvas__content-layer').focus();
     await page.keyboard.press('Escape');
     await expect(announcer).toContainText(/Pixel transform cancelled/, { timeout: 5000 });
     await expect(page.getByRole('treeitem')).toHaveCount(1);

@@ -116,6 +116,7 @@ export class FloatingTransformTool extends BaseTool {
     if (event.key === 'Escape') {
       this.hasGesture = false;
       ctx.cancelFloatingRaster?.();
+      ctx.announce('Pixel transform cancelled');
       ctx.setTool('select');
       return true;
     }

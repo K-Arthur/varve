@@ -2380,6 +2380,7 @@ export function Menubar({
             <FloatingPortal
               anchorRef={openMenuAnchorRef}
               open
+              insideRefs={[submenuRef]}
               onClose={() => {
                 setOpenMenu(null);
                 setOpenSubmenu(null);

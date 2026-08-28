@@ -40,6 +40,8 @@ export interface FloatingPortalProps {
   matchAnchorWidth?: boolean;
   /** Called when user clicks outside the floating layer. */
   onClose?: () => void;
+  /** Additional portaled descendants that count as inside for outside-click handling. */
+  insideRefs?: readonly RefObject<HTMLElement | null>[];
   /** Optional id for aria-controls wiring. */
   id?: string;
 }
@@ -53,6 +55,7 @@ export function FloatingPortal({
   maxHeight,
   matchAnchorWidth = false,
   onClose,
+  insideRefs,
   id,
 }: FloatingPortalProps) {
   const floatingRef = useRef<HTMLDivElement>(null);
@@ -132,6 +135,7 @@ export function FloatingPortal({
       // that may sit between the portal root and the actual content.
       if (floatingRef.current?.contains(target)) return;
       if (anchorRef.current?.contains(target)) return;
+      if (insideRefs?.some((ref) => ref.current?.contains(target))) return;
       onClose();
     };
 
@@ -145,7 +149,7 @@ export function FloatingPortal({
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown, true);
     };
-  }, [open, onClose, anchorRef]);
+  }, [open, onClose, anchorRef, insideRefs]);
 
   if (!open) return null;
 
