@@ -9,14 +9,11 @@ describe('FloatingTransformTool', () => {
     const setTool = vi.fn();
     const tool = new FloatingTransformTool();
 
-    const handled = tool.onKeyDown(
-      new KeyboardEvent('keydown', { key: 'Escape' }),
-      {
-        cancelFloatingRaster,
-        announce,
-        setTool,
-      } as unknown as ToolContext,
-    );
+    const handled = tool.onKeyDown(new KeyboardEvent('keydown', { key: 'Escape' }), {
+      cancelFloatingRaster,
+      announce,
+      setTool,
+    } as unknown as ToolContext);
 
     expect(handled).toBe(true);
     expect(cancelFloatingRaster).toHaveBeenCalledOnce();
