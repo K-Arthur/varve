@@ -35,6 +35,7 @@ describe('live Boolean groups', () => {
           { x: 100, y: 100, handleIn: null, handleOut: null },
         ],
         closed: false,
+        tolerance: 3,
       }),
     );
 
