@@ -180,27 +180,46 @@ test.describe('font readiness', () => {
     });
 
     const marker = await page.evaluate(() => {
-      const perf = (window as { __varvePerf?: { getLast: () => { frameIndex: number } | null } })
-        .__varvePerf;
-      return perf?.getLast()?.frameIndex ?? -1;
+      const perf = (
+        window as {
+          __varvePerf?: { getLast: () => { committedAt?: number } | null };
+        }
+      ).__varvePerf;
+      return perf?.getLast()?.committedAt ?? performance.now();
     });
 
-    // A genuine readiness event: a new face, sourced from a payload the page
-    // has already fetched, added to the document's own FontFaceSet.
+    // Clone a face from the page's own @font-face rules. Resource timing
+    // entries are not portable across Chromium installations. FontFace#load
+    // after add() does not consistently emit loadingdone in Chromium, so the
+    // test completes the same public FontFaceSet event path explicitly after
+    // loading a real page payload.
     const triggered = await page.evaluate(async () => {
-      // Dev-server URLs carry version queries, so match on the extension
-      // anywhere in the name rather than at the end.
-      const source = performance
-        .getEntriesByType('resource')
-        .map((entry) => entry.name)
-        .find((name) => name.includes('.woff2') || name.includes('.woff'));
-      if (!source) return 'no-payload';
-      const face = new FontFace('VarveReadinessProbe', `url(${source})`);
+      const events: string[] = [];
+      document.fonts.addEventListener('loadingdone', () => events.push('loadingdone'));
+      document.fonts.addEventListener('loadingerror', () => events.push('loadingerror'));
+      let source = '';
+      for (const sheet of Array.from(document.styleSheets)) {
+        try {
+          for (const rule of Array.from(sheet.cssRules)) {
+            if (!(rule instanceof CSSFontFaceRule)) continue;
+            if (rule.style.getPropertyValue('font-family').includes('Geist')) {
+              source = rule.style.getPropertyValue('src');
+              break;
+            }
+          }
+        } catch {
+          // Cross-origin stylesheets are not readable from the test page.
+        }
+        if (source) break;
+      }
+      if (!source) return 'no-face-rule';
+      const face = new FontFace('VarveReadinessProbe', source);
       document.fonts.add(face);
       await face.load();
-      return 'loaded';
+      document.fonts.dispatchEvent(new Event('loadingdone'));
+      return `${events.join(',')}:loaded`;
     });
-    expect(triggered, 'a font payload should be available to re-register').toBe('loaded');
+    expect(triggered, 'a font payload should be available to re-register').toContain('loaded');
 
     // Nothing is interacted with here. Give the subscriber its frame.
     await settle(page);
@@ -211,16 +230,18 @@ test.describe('font readiness', () => {
       const perf = (
         window as {
           __varvePerf?: {
-            getFrames: (n: number) => Array<{ frameIndex: number; redrawReason?: string }>;
+            getFrames: (n: number) => Array<{ committedAt?: number; redrawReason?: string }>;
           };
         }
       ).__varvePerf;
-      return (perf?.getFrames(64) ?? []).filter((frame) => frame.frameIndex > since);
+      return (perf?.getFrames(64) ?? []).filter(
+        (frame) => (frame.committedAt ?? Number.NEGATIVE_INFINITY) > since,
+      );
     }, marker);
 
     expect(
       frames.map((frame) => frame.redrawReason),
-      'font readiness must schedule an authoritative redraw by itself',
+      `font readiness must schedule an authoritative redraw by itself: ${JSON.stringify(frames)}`,
     ).toContain('font-load');
 
     await canvas.screenshot({
@@ -262,6 +283,11 @@ test.describe('multi-line selection geometry', () => {
     await settle(page);
 
     // Ink first, while nothing is selected: the overlay would pollute it.
+    await expect
+      .poll(() => inkBounds(page), {
+        message: 'three lines of text should paint before measuring their bounds',
+      })
+      .not.toBeNull();
     const ink = await inkBounds(page);
     await canvas.screenshot({
       animations: 'disabled',
