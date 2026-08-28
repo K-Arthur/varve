@@ -1987,10 +1987,16 @@ function paintTiledGradientFill(
           paintShapeFill(target, item);
           return;
         } catch {
-          // Older CanvasPattern implementations lack setTransform; retain the
-          // safe non-tiled replay rather than displaying stale pixels.
+          // A target may expose setTransform but reject the init object; use
+          // the historical repeat behaviour below rather than throwing.
         }
       }
+      // CanvasPattern.setTransform is absent in older engines. Keep the
+      // historical repeat behaviour there; modern targets take the exact
+      // affine branch above.
+      target.fillStyle = pattern as unknown as CanvasPattern;
+      paintShapeFill(target, item);
+      return;
     }
   }
   target.fillStyle = createGradientStyle(target, fill, item);
