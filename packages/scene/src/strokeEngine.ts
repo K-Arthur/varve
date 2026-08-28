@@ -24,10 +24,6 @@ import {
   smoothStrokePoints,
   strokeBounds,
 } from './brush';
-import {
-  CausalStrokeReconstructor,
-  reconstructionChordLength,
-} from './strokeReconstruction';
 
 export interface StrokeEngineState {
   readonly strokeId: string;
@@ -37,8 +33,6 @@ export interface StrokeEngineState {
   readonly session: StrokeDabSession;
   /** Last smoothed sample, so smoothing continues across batches. */
   lastSmoothed: StrokePoint | null;
-  /** One-look-ahead continuous centreline reconstruction. */
-  readonly reconstructor: CausalStrokeReconstructor;
   /** Count of dabs emitted so far, for diagnostics and profiling. */
   dabCount: number;
 }
@@ -58,9 +52,6 @@ export function beginStroke(
     preset: { ...preset, dynamics: [...preset.dynamics] },
     session: createStrokeDabSession(jitterSeed, options),
     lastSmoothed: null,
-    reconstructor: new CausalStrokeReconstructor({
-      maxChordLength: reconstructionChordLength(preset.radius, preset.spacing),
-    }),
     dabCount: 0,
   };
 }
@@ -70,27 +61,15 @@ export interface StrokeBatch {
   bounds: { x: number; y: number; w: number; h: number };
 }
 
-export interface AppendStrokeOptions {
-  /** Flush the held one-sample tail at pointer-up. */
-  final?: boolean;
-}
-
 /** Feed new input samples into a stroke and get the dabs they produce. */
 export function appendStrokePoints(
   state: StrokeEngineState,
   points: readonly StrokePoint[],
-  options: AppendStrokeOptions = {},
 ): StrokeBatch {
-  const smoothed =
-    points.length > 0
-      ? smoothStrokePoints([...points], state.preset.smoothing, state.lastSmoothed)
-      : [];
+  if (points.length === 0) return { dabs: [], bounds: { x: 0, y: 0, w: 0, h: 0 } };
+  const smoothed = smoothStrokePoints([...points], state.preset.smoothing, state.lastSmoothed);
   state.lastSmoothed = smoothed[smoothed.length - 1] ?? state.lastSmoothed;
-  const reconstructed: StrokePoint[] = [];
-  for (const point of smoothed) reconstructed.push(...state.reconstructor.append(point));
-  if (options.final) reconstructed.push(...state.reconstructor.finish());
-  if (reconstructed.length === 0) return { dabs: [], bounds: { x: 0, y: 0, w: 0, h: 0 } };
-  const dabs = generateDabs(reconstructed, state.preset, { session: state.session });
+  const dabs = generateDabs(smoothed, state.preset, { session: state.session });
   state.dabCount += dabs.length;
   return { dabs, bounds: strokeBounds(dabs) };
 }
@@ -105,5 +84,5 @@ export function runWholeStroke(
   jitterSeed: number,
 ): StrokeBatch {
   const state = beginStroke('whole', 0, preset, jitterSeed);
-  return appendStrokePoints(state, points, { final: true });
+  return appendStrokePoints(state, points);
 }

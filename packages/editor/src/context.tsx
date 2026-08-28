@@ -2351,6 +2351,13 @@ export function EditorProvider({
         feather: 0,
         antialias: true,
       },
+      magicWandSettings: {
+        tolerance: 8,
+        edgeFeather: 0,
+        mode: 'contiguous',
+        operation: 'replace',
+      },
+      floatingRaster: null,
       selectionOrigin: 'api' as const,
       selectionRevision: 0,
       document: doc,
@@ -7120,6 +7127,57 @@ export function EditorProvider({
             },
           };
         });
+      },
+
+      setMagicWandSettings: (patch) => {
+        setState((s) => ({
+          ...s,
+          magicWandSettings: {
+            ...s.magicWandSettings,
+            ...patch,
+            tolerance: Number.isFinite(patch.tolerance)
+              ? Math.max(0, Math.min(100, patch.tolerance!))
+              : s.magicWandSettings.tolerance,
+            edgeFeather: Number.isFinite(patch.edgeFeather)
+              ? Math.max(0, Math.min(100, patch.edgeFeather!))
+              : s.magicWandSettings.edgeFeather,
+          },
+        }));
+      },
+
+      setFloatingRaster: (floating) => {
+        patch({ floatingRaster: floating });
+      },
+      updateFloatingTransform: (matrix) => {
+        const floating = stateRef.current.floatingRaster;
+        if (floating) patch({ floatingRaster: { ...floating, transform: matrix } });
+      },
+      commitFloatingRaster: () => {
+        const snapshot = stateRef.current;
+        const floating = snapshot.floatingRaster;
+        if (!floating) return;
+        void import('./floatingRaster/commitFloatingImage').then(
+          async ({ commitFloatingImage }) => {
+            const result = await commitFloatingImage(snapshot.document, floating);
+            // Do not overwrite a document changed while the PNG encoded.
+            if (
+              !result ||
+              stateRef.current.document !== snapshot.document ||
+              stateRef.current.floatingRaster !== floating
+            ) {
+              if (stateRef.current.floatingRaster === floating) patch({ floatingRaster: null });
+              return;
+            }
+            beginTransaction();
+            updateDoc(() => result.document);
+            patch({ floatingRaster: null, areaSelection: result.transformedSelection });
+            commitTransaction();
+            announcerRef.current?.announce('Pixel transform applied');
+          },
+        );
+      },
+      cancelFloatingRaster: () => {
+        patch({ floatingRaster: null });
       },
 
       setWarpEdit: (target) => {

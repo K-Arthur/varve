@@ -82,7 +82,7 @@ export function handleBrushCommand(
       if (!state) return;
       const started = now();
       try {
-        const batch = appendStrokePoints(state, cmd.points, { final: cmd.final === true });
+        const batch = appendStrokePoints(state, cmd.points);
         post({
           type: 'dabs',
           strokeId: cmd.strokeId,

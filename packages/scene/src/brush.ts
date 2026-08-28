@@ -314,9 +314,7 @@ export function filteredSpeed(prevSpeed: number, rawSpeed: number, dtSec: number
 function catmullRomAlpha(p0: { x: number; y: number }, p1: { x: number; y: number }): number {
   const dx = p1.x - p0.x;
   const dy = p1.y - p0.y;
-  // Centripetal parameterisation: |Δp|^0.5. A tiny floor keeps duplicate
-  // browser samples finite without turning them into a special code path.
-  return Math.max(0.0001, Math.sqrt(Math.hypot(dx, dy)));
+  return Math.sqrt(Math.sqrt(dx * dx + dy * dy));
 }
 
 /**
@@ -334,30 +332,24 @@ export function catmullRomPoint(
   p3: { x: number; y: number },
   t: number,
 ): { x: number; y: number } {
-  const t0 = 0;
-  const t1 = t0 + catmullRomAlpha(p0, p1);
-  const t2 = t1 + catmullRomAlpha(p1, p2);
-  const t3 = t2 + catmullRomAlpha(p2, p3);
-  const parameter = t1 + (t2 - t1) * Math.max(0, Math.min(1, t));
+  const t2 = t * t;
+  const t3 = t2 * t;
 
-  const a1 = interpolateByParameter(p0, p1, t0, t1, parameter);
-  const a2 = interpolateByParameter(p1, p2, t1, t2, parameter);
-  const a3 = interpolateByParameter(p2, p3, t2, t3, parameter);
-  const b1 = interpolateByParameter(a1, a2, t0, t2, parameter);
-  const b2 = interpolateByParameter(a2, a3, t1, t3, parameter);
-  return interpolateByParameter(b1, b2, t1, t2, parameter);
-}
+  const a1x = p1.x + (p2.x - p0.x) / (6 * Math.max(0.001, catmullRomAlpha(p0, p1)));
+  const a1y = p1.y + (p2.y - p0.y) / (6 * Math.max(0.001, catmullRomAlpha(p0, p1)));
+  const a2x = p2.x - (p3.x - p1.x) / (6 * Math.max(0.001, catmullRomAlpha(p1, p2)));
+  const a2y = p2.y - (p3.y - p1.y) / (6 * Math.max(0.001, catmullRomAlpha(p1, p2)));
 
-function interpolateByParameter(
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-  from: number,
-  to: number,
-  parameter: number,
-): { x: number; y: number } {
-  const range = to - from;
-  const t = range > 0 ? (parameter - from) / range : 0;
-  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+  // Cubic Hermite basis
+  const h00 = 2 * t3 - 3 * t2 + 1;
+  const h10 = t3 - 2 * t2 + t;
+  const h01 = -2 * t3 + 3 * t2;
+  const h11 = t3 - t2;
+
+  return {
+    x: h00 * p1.x + h10 * a1x * 6 + h01 * p2.x + h11 * a2x * 6,
+    y: h00 * p1.y + h10 * a1y * 6 + h01 * p2.y + h11 * a2y * 6,
+  };
 }
 
 /**
@@ -376,10 +368,8 @@ export function catmullRomStep(
   stepLength: number,
   maxT: number = 1,
 ): { x: number; y: number; t: number } {
-  // Dense deterministic subdivision is sufficient for this convenience
-  // helper. The live engine uses `strokeReconstruction.ts`, which adapts the
-  // number of chords to brush spacing and retains state across batches.
-  const subdivisions = 64;
+  // Adaptive subdivision to find the next point at `stepLength` along the curve.
+  const subdivisions = 16;
   const dt = (maxT - startT) / subdivisions;
   let prev = catmullRomPoint(p0, p1, p2, p3, startT);
   let traveled = 0;
@@ -388,15 +378,22 @@ export function catmullRomStep(
     const tt = startT + dt * i;
     const pt = catmullRomPoint(p0, p1, p2, p3, Math.min(tt, maxT));
     const segLen = Math.sqrt((pt.x - prev.x) ** 2 + (pt.y - prev.y) ** 2);
-    if (traveled + segLen >= stepLength && segLen > 0) {
-      const ratio = (stepLength - traveled) / segLen;
-      return {
-        x: prev.x + (pt.x - prev.x) * ratio,
-        y: prev.y + (pt.y - prev.y) * ratio,
-        t: startT + dt * (i - 1 + ratio),
-      };
-    }
     traveled += segLen;
+    if (traveled >= stepLength) {
+      // Binary refine to find the exact t where distance == stepLength
+      let lo = startT + dt * (i - 1);
+      let hi = Math.min(tt, maxT);
+      for (let j = 0; j < 4; j++) {
+        const mid = (lo + hi) / 2;
+        const midPt = catmullRomPoint(p0, p1, p2, p3, mid);
+        const d = Math.sqrt((midPt.x - prev.x) ** 2 + (midPt.y - prev.y) ** 2);
+        if (d < stepLength) lo = mid;
+        else hi = mid;
+      }
+      const finalT = (lo + hi) / 2;
+      const finalPt = catmullRomPoint(p0, p1, p2, p3, finalT);
+      return { x: finalPt.x, y: finalPt.y, t: finalT };
+    }
     prev = pt;
   }
   // Reached end of curve segment

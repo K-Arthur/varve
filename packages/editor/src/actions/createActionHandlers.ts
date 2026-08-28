@@ -99,7 +99,10 @@ export function createActionHandlers(
     announceToolChange(tool);
   };
   const isAreaSelectionTool = (tool: ToolId): boolean =>
-    tool === 'marquee' || tool === 'ellipseMarquee' || tool === 'pixelLasso';
+    tool === 'marquee' ||
+    tool === 'ellipseMarquee' ||
+    tool === 'pixelLasso' ||
+    tool === 'magicWand';
   const activePageArea = () => {
     const page = e.state.document.pages?.find(
       (candidate) => candidate.id === e.state.document.activePageId,
@@ -553,6 +556,28 @@ export function createActionHandlers(
       applyAreaTransform(areaSelectionTransformMatrix('rotate', { radians: Math.PI / 12 })),
     areaSelectionRotateCCW: () =>
       applyAreaTransform(areaSelectionTransformMatrix('rotate', { radians: -Math.PI / 12 })),
+    transformSelectedPixels: () => {
+      if (!e.state.areaSelection) {
+        e.announce('Create a pixel selection first, then use Transform Pixels');
+        return;
+      }
+      if (e.state.floatingRaster) {
+        e.announce('A pixel transform is already in progress');
+        return;
+      }
+      e.setTool('floatingTransform');
+      e.announce('Transforming selected pixels');
+    },
+    transformSelectionBoundary: () => {
+      if (!e.state.areaSelection) {
+        e.announce('Create a pixel selection first');
+        return;
+      }
+      e.setTool('selectionBoundary');
+      e.announce(
+        'Transform selection boundary — drag to move, Alt+drag to rotate, Shift+drag to scale',
+      );
+    },
     saveAreaSelection,
     restoreLastSavedAreaSelection,
     deleteLastSavedAreaSelection,
@@ -764,6 +789,7 @@ export function createActionHandlers(
     toolKnife: setTool('knife'),
     toolCloneStamp: setTool('cloneStamp'),
     toolSam2Segment: setTool('sam2Segment'),
+    toolMagicWand: setTool('magicWand'),
     toolPage: setTool('page'),
 
     // ── Object ──
