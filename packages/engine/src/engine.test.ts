@@ -199,6 +199,39 @@ describe('createEngine (stub)', () => {
     }
   });
 
+  it('preserves compound path holes and fill rule in the IR primitive', async () => {
+    const ring = (x: number, y: number, size: number) => [
+      { x, y, handleIn: null, handleOut: null },
+      { x: x + size, y, handleIn: null, handleOut: null },
+      { x: x + size, y: y + size, handleIn: null, handleOut: null },
+      { x, y: y + size, handleIn: null, handleOut: null },
+    ];
+    const ir = await (await createEngine('stub')).buildIr({
+      nodes: [
+        {
+          id: 'donut',
+          name: 'donut',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: {
+            kind: 'path',
+            points: ring(0, 0, 100),
+            holes: [ring(25, 25, 50)],
+            fillRule: 'evenodd',
+            closed: true,
+            tolerance: 1,
+          },
+          fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+        },
+      ],
+    });
+    const primitive = ir[0]?.primitive;
+    expect(primitive?.kind).toBe('path');
+    if (primitive?.kind === 'path') {
+      expect(primitive.holes).toHaveLength(1);
+      expect(primitive.fillRule).toBe('evenodd');
+    }
+  });
+
   it('buildIr maps text node to text primitive', async () => {
     const eng = await createEngine();
     const ir = await eng.buildIr({

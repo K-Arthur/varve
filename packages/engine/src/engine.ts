@@ -209,7 +209,14 @@ function shapeToPrimitive(
         arrowheadSize: s.arrowheadSize,
       };
     case 'path':
-      return { kind: 'path', points: s.points, closed: s.closed, tolerance: s.tolerance };
+      return {
+        kind: 'path',
+        points: s.points,
+        closed: s.closed,
+        tolerance: s.tolerance,
+        ...(s.holes && s.holes.length > 0 ? { holes: s.holes } : {}),
+        ...(s.fillRule ? { fillRule: s.fillRule } : {}),
+      };
   }
 }
 
