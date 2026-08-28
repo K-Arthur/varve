@@ -19,11 +19,13 @@
 import type { Document, NodeId } from '@varve/scene';
 import {
   getParent,
+  isLiveBooleanNode,
   nodeWorldBounds as sceneNodeWorldBounds,
   nodeWorldTransform as sceneNodeWorldTransform,
 } from '@varve/scene';
 import type { Affine, Point, Rect } from '@varve/shared';
 import { applyAffine, multiplyAffine, tryInvertAffine } from '@varve/shared';
+import { placedLiveBooleanBounds, resolvePlacedLiveBoolean } from './liveBooleanGeometry';
 import type { PagePlacementMap } from './pagePlacement';
 import { buildPagePlacementMap, pagePlacementForNode } from './pagePlacement';
 
@@ -175,6 +177,15 @@ export function nodeWorldBounds(
   parentIndex?: Map<NodeId, NodeId>,
 ): Rect | null {
   const node = doc.nodes[id];
+  if (node && isLiveBooleanNode(node)) {
+    const resolved = resolvePlacedLiveBoolean(
+      doc,
+      id,
+      nodeWorldTransform(doc, id, parentIndex),
+      parentIndex,
+    );
+    return resolved ? placedLiveBooleanBounds(resolved) : null;
+  }
   const bounds = sceneNodeWorldBounds(doc, id, parentIndex);
   if (!bounds) return null;
 

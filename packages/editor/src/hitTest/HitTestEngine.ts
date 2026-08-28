@@ -28,6 +28,7 @@ import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
 import {
   buildParentIndexMap,
   deriveGeometryFromPaints,
+  isLiveBooleanNode,
   isWarpedContainer,
   multipageRootNodes,
   nodeLocalBoundsSource,
@@ -40,7 +41,9 @@ import {
   managedColorToRgba,
   pathPointToBezier,
   pointToSegmentDistSq,
+  tryInvertAffine,
 } from '@varve/shared';
+import { resolvePlacedLiveBoolean } from '../scene/liveBooleanGeometry';
 import { getOrCreateSpatialIndex, queryPoint } from '../scene/spatialIndex';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { evaluateWarpedContainerItems } from '../warp/warpContainerRender';
@@ -154,6 +157,7 @@ export class HitTestEngine {
       if (!this.policy.includeLocked && n.locked) continue;
       if (!this.policy.includeHidden && !n.visible) continue;
       if (!candidates.has(entry.nodeId)) continue;
+      if (this.isLiveBooleanOperand(entry.nodeId)) continue;
       if (this.policy.respectClips && !this.isPointVisibleThroughClipMasks(entry.nodeId, world))
         continue;
 
@@ -199,7 +203,9 @@ export class HitTestEngine {
         }
       }
 
-      if (n.kind === 'group') {
+      if (isLiveBooleanNode(n)) {
+        isHit = this.hitTestLiveBoolean(entry.nodeId, world);
+      } else if (n.kind === 'group') {
         // V2.16+: warped containers hit-test against their evaluated items.
         if (isWarpedContainer(n)) {
           const evaluated = evaluateWarpedContainerItems(this.doc, entry.nodeId, {
@@ -238,7 +244,7 @@ export class HitTestEngine {
         }
       }
 
-      if (n.kind === 'group') {
+      if (n.kind === 'group' && !isLiveBooleanNode(n)) {
         if (!this.policy.includeContainers) {
           continue;
         }
@@ -299,6 +305,7 @@ export class HitTestEngine {
       if (!activePolicy.includeLocked && n.locked) continue;
       if (!activePolicy.includeHidden && !n.visible) continue;
       if (!candidates.has(entry.nodeId)) continue;
+      if (this.isLiveBooleanOperand(entry.nodeId)) continue;
       if (activePolicy.respectClips && !this.isPointVisibleThroughClipMasks(entry.nodeId, world))
         continue;
 
@@ -367,6 +374,11 @@ export class HitTestEngine {
             isHit = true;
           }
         }
+      } else if (isLiveBooleanNode(n)) {
+        if (activePolicy.includeContainers && this.hitTestLiveBoolean(entry.nodeId, world)) {
+          results.push({ nodeId: entry.nodeId, node: n });
+        }
+        continue;
       } else if (n.kind === 'group') {
         if (activePolicy.includeContainers) {
           const groupNode = n as import('@varve/scene').GroupNode;
@@ -433,6 +445,33 @@ export class HitTestEngine {
       }
     }
     return false;
+  }
+
+  /** Source operands are structurally present but not independently visible. */
+  private isLiveBooleanOperand(nodeId: NodeId): boolean {
+    const visited = new Set<NodeId>([nodeId]);
+    let parentId = this.parentIndex.get(nodeId);
+    while (parentId && !visited.has(parentId)) {
+      visited.add(parentId);
+      const parent = this.doc.nodes[parentId];
+      if (parent && isLiveBooleanNode(parent)) return true;
+      parentId = this.parentIndex.get(parentId);
+    }
+    return false;
+  }
+
+  private hitTestLiveBoolean(nodeId: NodeId, world: { x: number; y: number }): boolean {
+    const placed = resolvePlacedLiveBoolean(
+      this.doc,
+      nodeId,
+      nodeWorldTransform(this.doc, nodeId, this.parentIndex),
+      this.parentIndex,
+    );
+    if (!placed) return false;
+    const inverse = tryInvertAffine(placed.transform);
+    if (!inverse) return false;
+    const local = applyAffine(inverse, [world.x, world.y]);
+    return shapeContains(placed.shape.shape, local);
   }
 
   private queryWithTolerance(x: number, y: number): Set<NodeId> {

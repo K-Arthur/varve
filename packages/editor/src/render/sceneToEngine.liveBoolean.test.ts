@@ -1,5 +1,7 @@
 import {
+  addChild,
   addNode,
+  addPage,
   createDocument,
   createLiveBooleanDoc,
   makeShapeNode,
@@ -41,5 +43,36 @@ describe('flattenSceneToEngine live Boolean groups', () => {
     expect(updated.nodes[0]?.shape.kind).toBe('path');
     if (updated.nodes[0]?.shape.kind === 'path')
       expect(updated.nodes[0].shape.holes).toBeUndefined();
+  });
+
+  it('retains page placement exactly once for the resolved result', () => {
+    let document = createDocument('page Boolean');
+    document = addPage(document, {});
+    document = {
+      ...document,
+      pages: document.pages!.map((page, index) => ({
+        ...page,
+        placement: { x: index * 500, y: index * 300 },
+      })),
+    };
+    const page = document.pages![1]!;
+    document = addChild(
+      document,
+      page.contentRoot,
+      makeShapeNode('a', { kind: 'rect', x: 10, y: 10, w: 50, h: 50 }),
+    );
+    document = addChild(
+      document,
+      page.contentRoot,
+      makeShapeNode('b', { kind: 'rect', x: 20, y: 20, w: 30, h: 30 }),
+    );
+    const created = createLiveBooleanDoc(document, ['a', 'b'], 'intersect');
+    expect(created).not.toBeNull();
+    if (!created) return;
+
+    const flattened = flattenSceneToEngine(created.doc, created.doc.rootChildren);
+    const index = flattened.ids.indexOf(created.nodeId);
+    expect(index).toBeGreaterThanOrEqual(0);
+    expect(flattened.nodes[index]?.transform).toEqual([1, 0, 0, 1, 500, 300]);
   });
 });
