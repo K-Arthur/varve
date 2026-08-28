@@ -25,10 +25,7 @@ function bounds(node: ShapeNode): { minX: number; minY: number; maxX: number; ma
 describe('live Boolean groups', () => {
   it('rejects open paths instead of creating an unresolved live group', () => {
     let doc = createDocument();
-    doc = addNode(
-      doc,
-      makeShapeNode('closed', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }),
-    );
+    doc = addNode(doc, makeShapeNode('closed', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }));
     doc = addNode(
       doc,
       makeShapeNode('open', {
