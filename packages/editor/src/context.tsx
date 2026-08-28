@@ -406,7 +406,7 @@ import {
   ViewportProvider,
 } from './context/providerComposition';
 import { isReducedMotion } from './context/reducedMotionManager';
-import { resizeSceneNode, shapeForTool } from './context/sceneNodeGeometry';
+import { resizeSceneNode, runKnifeCut, shapeForTool } from './context/sceneNodeGeometry';
 import type {
   EditorContextValue as CanonicalEditorContextValue,
   CanvasMode,
@@ -3814,15 +3814,45 @@ export function EditorProvider({
               columnSizing: { kind: 'fraction', value: 1 },
             });
           } else if (activeTool === 'frame' || activeTool === 'slice') {
+            const exportRegion = activeTool === 'slice';
             node = makeFrameNode(id, {
-              name: 'Node',
+              name: exportRegion ? 'Export Region' : 'Node',
+              frameRole: exportRegion ? 'exportRegion' : 'frame',
               transform,
-              fill: { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
+              // An Export Region paints nothing (sceneToEngine skips its fill
+              // and ExportRegionOverlay draws the dashed boundary), so it
+              // carries a transparent fill rather than the frame grey. The
+              // node data has to be honest too, not just the renderer.
+              fill: exportRegion
+                ? { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 }
+                : { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
               children: [],
               w: size?.w ?? 375,
               h: size?.h ?? 812,
+              clipContent: exportRegion ? false : undefined,
             });
-            isFrame = true;
+            if (exportRegion) {
+              // A region with no export configuration would never reach the
+              // export dialog, which is the whole point of drawing one. Seed
+              // the canonical preset the inspector and batch dialog already
+              // consume, rather than a parallel export model.
+              node = {
+                ...node,
+                presets: [
+                  {
+                    id: `${id}-export-1x`,
+                    format: 'png' as const,
+                    scale: { type: 'factor' as const, value: 1 },
+                    suffix: '',
+                    enabled: true,
+                  },
+                ],
+              };
+            }
+            // Frame capture-on-draw must not run for a region: adopting the
+            // artwork it is drawn over is the frame behaviour it exists to
+            // stop.
+            isFrame = !exportRegion;
           } else if (pathPoints && pathPoints.length > 0) {
             // Path tools pass world-space anchors; store node-local relative to origin.
             const localPoints = pathPoints.map((p) => ({
@@ -4018,6 +4048,19 @@ export function EditorProvider({
             ),
           };
         });
+      },
+
+      sliceWithKnife: (line) => {
+        const outcome = runKnifeCut(line, stateRef.current);
+        if (outcome.document) {
+          // One transaction for the whole cut: the preview never touched the
+          // document, so a single undo restores every source object.
+          beginTransaction();
+          updateDoc(() => outcome.document as Document);
+          commitTransaction();
+          if (outcome.patch) patch(outcome.patch);
+        }
+        announcerRef.current?.announce(outcome.announcement);
       },
 
       createTextNodeAt: (world, size, parentId, text = '') => {

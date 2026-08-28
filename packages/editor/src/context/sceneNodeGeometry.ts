@@ -2,6 +2,17 @@ import type { Shape } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
 import type { ToolId } from './types';
 
+export type { KnifeCutOutcome, KnifeCutState, KnifeSelectionPatch } from './knifeCommand';
+export { runKnifeCut } from './knifeCommand';
+export type { KnifeLine, KnifeSkip, KnifeSkipReason, KnifeSliceResult } from './knifeSlice';
+export {
+  knifeRejectionFor,
+  knifeSkipMessage,
+  sliceDocumentWithKnife,
+  splitPolygonByKnifeLine,
+  splitPolylineByKnifeLine,
+} from './knifeSlice';
+
 // F4: default shape geometry per tool.
 // Research basis: Figma/Illustrator default sizes for shape tools.
 export function shapeForTool(tool: ToolId): Shape {
@@ -39,6 +50,7 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'frame':
     case 'slice':
       return { kind: 'rect', x: 0, y: 0, w: 200, h: 160 };
+    case 'knife':
     case 'select':
     case 'hand':
     case 'zoom':
@@ -78,6 +90,9 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'warp':
     case 'selectionPaint':
     case 'pixelProbe':
+    case 'magicWand':
+    case 'floatingTransform':
+    case 'selectionBoundary':
     case 'page':
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {

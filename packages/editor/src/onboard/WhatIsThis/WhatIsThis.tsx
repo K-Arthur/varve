@@ -25,6 +25,8 @@ const TOOL_HELP_MAP: Record<string, string> = {
   hand: 'tool:hand',
   zoom: 'tool:zoom',
   slice: 'tool:slice',
+  'export region': 'tool:slice',
+  knife: 'tool:knife',
   eyedropper: 'tool:eyedropper',
   scale: 'tool:scale',
   inspect: 'tool:inspect',

@@ -32,9 +32,11 @@ import { ColorBlindnessOverlay, type ColorBlindnessView } from './ColorBlindness
 import { CreateTableFromDataDialog } from './CreateTableFromDataDialog';
 import { CropOverlay } from './CropOverlay';
 import { DocumentGridOverlay } from './DocumentGridOverlay/DocumentGridOverlay';
+import { ExportRegionOverlay } from './ExportRegionOverlay';
 import { FloatingTextBar } from './FloatingTextBar/FloatingTextBar';
 import { GradientHandleOverlay } from './GradientHandleOverlay';
 import { GuideOverlay } from './GuideOverlay/GuideOverlay';
+import { KnifeHoverOverlay } from './KnifeHoverOverlay';
 import { MeshWarpOverlay } from './MeshWarpOverlay';
 import { MotionPathOverlay } from './MotionPathOverlay';
 import { NodeEditOverlay } from './NodeEditOverlay';
@@ -610,6 +612,22 @@ export function CanvasOverlays({
         cameraRotation={cameraRotation}
         selection={[...selection]}
       />
+      <ExportRegionOverlay
+        doc={doc}
+        zoom={zoom}
+        pan={pan}
+        cameraRotation={cameraRotation}
+        selection={selection}
+      />
+      {tool === 'knife' && (
+        <KnifeHoverOverlay
+          doc={doc}
+          hoveredNode={hoveredNode}
+          zoom={zoom}
+          pan={pan}
+          cameraRotation={cameraRotation}
+        />
+      )}
       {renderVariantBox}
       <SelectionQuickBarHost
         textEditTargetId={textEditTargetId}

@@ -16,6 +16,7 @@ import type { Camera } from '@varve/shared';
 import type { TableEditState } from '../context/tableEditState';
 import type { HitTestPolicyName } from '../hitTest/policyTypes';
 import type { NormalizedInputEvent } from './inputNormalizer';
+import type { MagicWandSettings } from './magicWandSettings';
 
 import type { ToolId } from './toolRegistry';
 
@@ -158,6 +159,8 @@ export interface ToolContext {
   commitAreaSelection?: (selection: AreaSelection) => void;
   areaSelectionSettings?: AreaSelectionSettings;
   setAreaSelectionSettings?: (patch: Partial<AreaSelectionSettings>) => void;
+  magicWandSettings?: MagicWandSettings;
+  setMagicWandSettings?: (patch: Partial<MagicWandSettings>) => void;
   setMaskPreviewMode: (mode: MaskPreviewMode) => void;
   /** Foreground color for painting as RGBA [r, g, b, a] in 0-255 range. */
   foregroundColor: [number, number, number, number];
@@ -176,6 +179,11 @@ export interface ToolContext {
     pathPoints?: PathPoint[],
     pathClosed?: boolean,
   ) => void;
+  /** Apply one atomic Knife cut to selected or intersected vector objects. */
+  sliceWithKnife?: (line: {
+    start: readonly [number, number];
+    end: readonly [number, number];
+  }) => void;
   createTextNodeAt: (
     world: { x: number; y: number },
     size?: { w: number; h: number },
@@ -327,7 +335,7 @@ export interface ToolContext {
     dataUrl: string,
     width: number,
     height: number,
-    coordinateSpace?: 'source-image-pixels' | 'container-local-pixels',
+    coordinateSpace?: 'source-image-pixels' | 'container-local-pixels' | 'node-local-pixels',
   ) => void;
   createRasterLayer: (width: number, height: number, parentId?: NodeId | null) => string | null;
 
@@ -342,6 +350,13 @@ export interface ToolContext {
     operation: 'preview' | 'mask' | 'selection' | 'layer';
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation?: () => void;
+
+  /** Floating raster selection for pixel transforms. */
+  getFloatingRaster?: () => import('@varve/engine').FloatingRasterSelection | null;
+  setFloatingRaster?: (floating: import('@varve/engine').FloatingRasterSelection | null) => void;
+  updateFloatingTransform?: (matrix: import('@varve/shared').Affine) => void;
+  commitFloatingRaster?: () => void;
+  cancelFloatingRaster?: () => void;
 }
 
 export interface Tool {

@@ -283,9 +283,15 @@ export const SHORTCUT_DEFS = {
   toolEraser: { binding: { key: 'e' }, label: 'Eraser', category: 'Tools' },
   toolSmudge: { binding: { key: 'u' }, label: 'Smudge tool', category: 'Tools' },
   toolScale: { binding: { key: 's' }, label: 'Scale tool', category: 'Tools' },
-  toolSlice: { binding: { key: 'k' }, label: 'Slice tool', category: 'Tools' },
+  toolSlice: { binding: { key: 'k' }, label: 'Export Region tool', category: 'Tools' },
+  toolKnife: { binding: { key: 'n' }, label: 'Knife tool', category: 'Tools' },
   toolCloneStamp: { binding: { key: 'j' }, label: 'Clone Stamp tool', category: 'Tools' },
   toolSam2Segment: { binding: { key: 'm' }, label: 'Select Subject tool', category: 'Tools' },
+  toolMagicWand: {
+    binding: { key: 'w', shift: true },
+    label: 'Magic Wand tool',
+    category: 'Tools',
+  },
   toolPage: { binding: { key: 'q' }, label: 'Page tool', category: 'Tools' },
   linkTextFrames: {
     binding: { key: 'k', ctrl: true, shift: true },

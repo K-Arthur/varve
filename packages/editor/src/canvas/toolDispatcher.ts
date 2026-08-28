@@ -13,6 +13,7 @@ import { FloatingTransformTool } from '../tools/FloatingTransformTool';
 import { FrameTool } from '../tools/FrameTool';
 import { HandTool } from '../tools/HandTool';
 import { HealingBrushTool } from '../tools/HealingBrushTool';
+import { KnifeTool } from '../tools/KnifeTool';
 import { LassoTool } from '../tools/LassoTool';
 import { LineTool } from '../tools/LineTool';
 import { MagicWandTool } from '../tools/MagicWandTool';
@@ -65,6 +66,7 @@ export function getToolManager(): ToolManager {
     toolManager.register('pencil', () => new PencilTool());
     toolManager.register('text', () => new TextTool());
     toolManager.register('slice', () => new SliceTool());
+    toolManager.register('knife', () => new KnifeTool());
     toolManager.register('eyedropper', () => new EyedropperTool());
     toolManager.register('nodeEdit', () => new NodeEditTool());
     toolManager.register('page', () => new PageTool());

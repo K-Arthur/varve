@@ -71,6 +71,7 @@ const HIDE_TOOLS = new Set([
   'text',
   'image',
   'slice',
+  'knife',
   'hand',
   'zoom',
   'scale',

@@ -761,6 +761,7 @@ export function createActionHandlers(
     toolWarp: setTool('warp'),
     toolScale: setTool('scale'),
     toolSlice: setTool('slice'),
+    toolKnife: setTool('knife'),
     toolCloneStamp: setTool('cloneStamp'),
     toolSam2Segment: setTool('sam2Segment'),
     toolPage: setTool('page'),

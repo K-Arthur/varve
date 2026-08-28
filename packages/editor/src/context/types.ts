@@ -37,6 +37,7 @@ import type { HitTestPolicyName } from '../hitTest/policyTypes';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MediaState } from '../state/media-state';
 import type { MotionState } from '../state/motion-state';
+import type { MagicWandSettings } from '../tools/magicWandSettings';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import type { SelectionMode, SelectionOrigin } from './selectionState';
@@ -306,6 +307,10 @@ export interface EditorState {
   areaSelection?: AreaSelection | null;
   /** Ephemeral controls shared by the rectangular and elliptical marquee tools. */
   areaSelectionSettings: AreaSelectionSettings;
+  /** Ephemeral controls used by the interactive Magic Wand. */
+  magicWandSettings: MagicWandSettings;
+  /** Ephemeral floating raster selection for pixel transforms. Runtime only. */
+  floatingRaster?: import('@varve/engine').FloatingRasterSelection | null;
   document: Document;
   sessions: SessionMeta[];
   activeId: string;
@@ -675,6 +680,11 @@ export interface EditorContextValue {
     pathPoints?: PathPoint[],
     pathClosed?: boolean,
   ) => void;
+  /** Split selected or intersected editable vectors with one atomic Knife cut. */
+  sliceWithKnife?: (line: {
+    start: readonly [number, number];
+    end: readonly [number, number];
+  }) => void;
   createTextNodeAt: (
     world: { x: number; y: number },
     size?: { w: number; h: number },
@@ -1379,6 +1389,13 @@ export interface EditorContextValue {
   commitAreaSelection?: (selection: AreaSelection) => void;
   /** Update ephemeral pixel-marquee controls without dirtying the document. */
   setAreaSelectionSettings: (patch: Partial<AreaSelectionSettings>) => void;
+  /** Update ephemeral Magic Wand controls without dirtying the document. */
+  setMagicWandSettings: (patch: Partial<MagicWandSettings>) => void;
+  /** Floating raster selection for pixel transforms (ephemeral, session-only). */
+  setFloatingRaster?: (floating: import('@varve/engine').FloatingRasterSelection | null) => void;
+  updateFloatingTransform?: (matrix: import('@varve/shared').Affine) => void;
+  commitFloatingRaster?: () => void;
+  cancelFloatingRaster?: () => void;
   paintQuickMask: (x: number, y: number, radius: number, value: number) => void;
   fillQuickMask: (value: number) => void;
   invertQuickMask: () => void;
