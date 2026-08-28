@@ -83,7 +83,10 @@ describe('live Boolean groups', () => {
     const reopened = DocumentCodec.decode(DocumentCodec.encode(doc));
     expect(reopened.ok).toBe(true);
     if (reopened.ok) {
-      expect(reopened.document.nodes[created.nodeId]?.boolean).toEqual({
+      const reopenedNode = reopened.document.nodes[created.nodeId];
+      expect(reopenedNode?.kind).toBe('group');
+      if (reopenedNode?.kind !== 'group') return;
+      expect(reopenedNode.boolean).toEqual({
         schemaVersion: 1,
         operation: 'union',
       });
@@ -95,6 +98,21 @@ describe('live Boolean groups', () => {
     if (!initial) return;
     expect(bounds(initial)).toEqual({ minX: 100, minY: 50, maxX: 200, maxY: 150 });
     expect(resolveLiveBooleanShape(doc, created.nodeId)).toBe(initial);
+
+    const invalidA: ShapeNode = {
+      ...(doc.nodes.a as ShapeNode),
+      shape: {
+        kind: 'path',
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: null },
+          { x: 80, y: 80, handleIn: null, handleOut: null },
+        ],
+        closed: false,
+        tolerance: 3,
+      },
+    };
+    const invalidDocument = { ...doc, nodes: { ...doc.nodes, a: invalidA } };
+    expect(resolveLiveBooleanShape(invalidDocument, created.nodeId)).toBeNull();
 
     // Editing a child changes the result; no copied resolved path is stored on
     // the Boolean group for this update to modify.

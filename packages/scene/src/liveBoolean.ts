@@ -87,8 +87,15 @@ export function resolveLiveBooleanShape(
   const operands: ShapeNode[] = [];
   for (const childId of node.children) {
     const child = document.nodes[childId];
-    if (!child || child.visible === false) continue;
+    if (!child || child.visible === false || child.locked) {
+      cache.set(nodeId, null);
+      return null;
+    }
     if (child.kind === 'shape') {
+      if (!isBooleanOperand(child)) {
+        cache.set(nodeId, null);
+        return null;
+      }
       operands.push({ ...child, transform: nodeWorldTransform(document, childId) });
       continue;
     }
