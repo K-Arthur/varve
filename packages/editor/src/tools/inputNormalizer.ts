@@ -304,6 +304,8 @@ export function inputToStrokePoint(
           ? input.azimuthAngle
           : tiltAzimuth(input.tiltX, input.tiltY)
         : null,
+    twist: input.twist,
+    tangentialPressure: input.tangentialPressure,
   };
 }
 

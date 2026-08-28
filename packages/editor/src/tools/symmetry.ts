@@ -56,6 +56,7 @@ export interface SymmetryPoint {
   y: number;
   direction: number;
   tiltAzimuth?: number | null;
+  twist?: number;
 }
 
 export type SymmetryTransform = (p: SymmetryPoint) => SymmetryPoint;
@@ -122,12 +123,14 @@ export function transformStrokePoint(
     y: point.y,
     direction: point.direction,
     tiltAzimuth: point.tiltAzimuth,
+    twist: point.twist,
   });
   if (
     mapped.x === point.x &&
     mapped.y === point.y &&
     mapped.direction === point.direction &&
-    mapped.tiltAzimuth === point.tiltAzimuth
+    mapped.tiltAzimuth === point.tiltAzimuth &&
+    mapped.twist === point.twist
   ) {
     return point;
   }
@@ -137,6 +140,7 @@ export function transformStrokePoint(
     y: mapped.y,
     direction: mapped.direction,
     tiltAzimuth: mapped.tiltAzimuth,
+    twist: mapped.twist,
   };
 }
 
@@ -156,6 +160,10 @@ function mirrorAbout(ox: number, oy: number, angle: number): SymmetryTransform {
         p.tiltAzimuth === null || p.tiltAzimuth === undefined
           ? p.tiltAzimuth
           : 2 * angle - p.tiltAzimuth,
+      twist:
+        p.twist === undefined || p.twist < 0
+          ? p.twist
+          : wrapDegrees((2 * angle * 180) / Math.PI - p.twist),
     };
   };
 }
@@ -175,10 +183,18 @@ function rotateAbout(ox: number, oy: number, theta: number): SymmetryTransform {
         p.tiltAzimuth === null || p.tiltAzimuth === undefined
           ? p.tiltAzimuth
           : p.tiltAzimuth + theta,
+      twist:
+        p.twist === undefined || p.twist < 0
+          ? p.twist
+          : wrapDegrees(p.twist + (theta * 180) / Math.PI),
     };
   };
 }
 
 function compose(outer: SymmetryTransform, inner: SymmetryTransform): SymmetryTransform {
   return (p) => outer(inner(p));
+}
+
+function wrapDegrees(value: number): number {
+  return ((value % 360) + 360) % 360;
 }
