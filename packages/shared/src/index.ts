@@ -23,6 +23,18 @@ export {
   translate,
   tryInvertAffine,
 } from './affine';
+export {
+  gradientTransformForBounds,
+  linearGradientHandles,
+  materializeLegacyGradientTransform,
+  radialGradientHandles,
+  transformLinkedGradient,
+} from './gradientGeometry';
+export type {
+  GradientGeometrySource,
+  LinearGradientHandles,
+  RadialGradientHandles,
+} from './gradientGeometry';
 export type {
   AlignAxis,
   AlignmentTarget,
