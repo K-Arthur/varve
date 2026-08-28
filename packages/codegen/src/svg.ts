@@ -1636,6 +1636,19 @@ export function svgTargetGaps(
   }
 
   if (node.kind === 'shape') {
+    const visibleStrokes = node.strokes.filter((stroke) => stroke.visible);
+    if (visibleStrokes.length > 1) {
+      const flattened = flattenedNodes?.has(node.id);
+      gaps.push({
+        nodeId: node.id,
+        nodeName: node.name,
+        feature: 'multiple visible strokes',
+        severity: flattened ? 'info' : 'warning',
+        fallback: flattened
+          ? 'Rasterized at export resolution — all stroke layers preserved'
+          : 'Rasterize this shape for exact SVG output; SVG emission keeps one stroke per shape',
+      });
+    }
     const nonLinearGradientStroke = node.strokes.find(
       (stroke) =>
         stroke.visible &&
