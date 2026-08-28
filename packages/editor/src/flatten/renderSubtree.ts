@@ -22,6 +22,7 @@ import {
   nodeWorldTransform,
 } from '@varve/scene';
 import type { Affine } from '@varve/shared';
+import { resolveFlattenRasterDimensions } from './resolution';
 import type { FlattenOptions, FlattenResult, FlattenWarning } from './types';
 
 const MAX_FLATTEN_DIMENSION = 16_384;
@@ -37,7 +38,6 @@ export async function flattenNodes(
 ): Promise<FlattenResult> {
   const warnings: FlattenWarning[] = [];
   const mode = options.mode;
-  const scale = Math.max(0.01, options.scale ?? 1);
 
   if (options.signal?.aborted) {
     throw new Error('Flatten operation was cancelled');
@@ -55,8 +55,9 @@ export async function flattenNodes(
 
   const cssW = sourceBounds.w;
   const cssH = sourceBounds.h;
-  const requestedPixelW = Math.max(1, Math.round(cssW * scale));
-  const requestedPixelH = Math.max(1, Math.round(cssH * scale));
+  const resolved = resolveFlattenRasterDimensions(cssW, cssH, options);
+  const requestedPixelW = resolved.requestedPixelWidth;
+  const requestedPixelH = resolved.requestedPixelHeight;
 
   const fitted = fitRasterDimensions(requestedPixelW, requestedPixelH, {
     maxDimension: MAX_FLATTEN_DIMENSION,

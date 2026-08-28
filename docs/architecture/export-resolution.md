@@ -87,6 +87,14 @@ pixel dimensions plus the limiting guard (`dimension` or `area`). A caller
 must surface that constraint; it must not label the reduced image as if the
 requested PPI were rendered.
 
+Selection/layer flattening uses the same contract. Its `FlattenOptions.dpi`
+field is resolved as `scale = dpi / 96` before allocation; legacy callers may
+continue to pass `scale` when they intentionally want a density-independent
+multiplier. A supplied PPI always wins over `scale`, invalid PPI values are
+rejected, and width/height are rounded independently. This keeps the
+rasterized replacement at the original document-space placement while making
+its effective output density explicit.
+
 ## Inspector image diagnostics
 
 When a single image shape is selected, the Inspector shows an **Image

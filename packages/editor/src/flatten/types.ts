@@ -18,7 +18,9 @@ export type BackgroundPolicy = 'transparent' | 'opaque';
 
 export interface FlattenOptions {
   mode: FlattenMode;
+  /** Legacy density-independent multiplier. Ignored when `dpi` is supplied. */
   scale?: number;
+  /** Explicit raster output density in pixels per inch (96 design units/in). */
   dpi?: number;
   bounds?: BoundsPolicy;
   background?: BackgroundPolicy;
