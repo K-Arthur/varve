@@ -73,6 +73,7 @@ function getGradientHandles(
   if (selectedIds.length !== 1) return [];
 
   const id = selectedIds[0];
+  if (!id) return [];
   const node = doc.nodes[id];
   if (!node) return [];
   const bounds = nodeLocalBounds(node, doc);
@@ -273,10 +274,9 @@ export function GradientHandleOverlay({
           dragging?.nodeId === handle.nodeId &&
           dragging.fillIndex === handle.fillIndex &&
           dragging.kind === kind;
-        const points = handle.radial ?? handle.linear;
-        if (!points) return null;
-        const start = handle.radial ? points.center : points.start;
-        const primary = handle.radial ? points.uAxisEnd : points.end;
+        const start = handle.radial?.center ?? handle.linear?.start;
+        const primary = handle.radial?.uAxisEnd ?? handle.linear?.end;
+        if (!start || !primary) return null;
         const secondary = handle.radial?.vAxisEnd;
         const startCanvas = localToCanvas(start, handle.nodeTransform, zoom, pan);
         const primaryCanvas = localToCanvas(primary, handle.nodeTransform, zoom, pan);

@@ -134,29 +134,30 @@ function gradientRotation(paint: FigmaPaint): number | undefined {
  * points avoids reducing authored skew/non-uniform scale to an angle.
  */
 function gradientTransform(paint: FigmaPaint, bounds: FigmaBounds): Affine | undefined {
-  let normalized: Affine | undefined;
-  if (paint.gradientTransform) {
-    normalized = [...paint.gradientTransform] as Affine;
-  }
-  const [first, second, third] = paint.gradientHandlePositions ?? [];
-  if (!normalized && (!first || !second || !third)) return undefined;
+  const normalizedNative = paint.gradientTransform
+    ? ([...paint.gradientTransform] as Affine)
+    : undefined;
+  const scaleToBounds: Affine = [bounds.w, 0, 0, bounds.h, 0, 0];
+  if (normalizedNative) return multiplyAffine(scaleToBounds, normalizedNative);
 
-  if (!normalized && paint.type === 'GRADIENT_LINEAR') {
+  const [first, second, third] = paint.gradientHandlePositions ?? [];
+  if (!first || !second || !third) return undefined;
+
+  let normalized: Affine;
+  if (paint.type === 'GRADIENT_LINEAR') {
     const ux = second.x - first.x;
     const uy = second.y - first.y;
     const vx = 2 * (third.x - first.x - ux * 0.5);
     const vy = 2 * (third.y - first.y - uy * 0.5);
     normalized = [ux, uy, vx, vy, first.x - vx * 0.5, first.y - vy * 0.5];
-  }
-
-  if (!normalized) {
+  } else {
     const ux = 2 * (second.x - first.x);
     const uy = 2 * (second.y - first.y);
     const vx = 2 * (third.x - first.x);
     const vy = 2 * (third.y - first.y);
     normalized = [ux, uy, vx, vy, first.x - (ux + vx) * 0.5, first.y - (uy + vy) * 0.5];
   }
-  return multiplyAffine([bounds.w, 0, 0, bounds.h, 0, 0], normalized);
+  return multiplyAffine(scaleToBounds, normalized);
 }
 
 function assetForImage(

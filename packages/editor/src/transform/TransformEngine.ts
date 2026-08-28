@@ -548,7 +548,7 @@ export class TransformEngine {
     geometryTransform: Affine,
   ): SceneNode {
     if (!boundsBeforeBake) return node;
-    const nodeAny = node as Record<string, unknown>;
+    const nodeAny = node as unknown as Record<string, unknown>;
     const fills = nodeAny.fills;
     let changed = false;
     const updatedFills = Array.isArray(fills)
