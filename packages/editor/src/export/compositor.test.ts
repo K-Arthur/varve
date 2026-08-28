@@ -411,6 +411,31 @@ describe('assessNodeCapability', () => {
       expect(assessNodeCapability(node, doc, 'svg')).toBe(false);
     });
 
+    it('PDF rasterizes radial gradients while retaining affine linear gradients natively', () => {
+      const radial = makeShapeNode('pdf-radial', { kind: 'rect' });
+      (radial as unknown as Record<string, unknown>).fills = [
+        {
+          type: 'gradient',
+          visible: true,
+          gradient: { type: 'radial', transform: [120, 0, 0, 40, 12, 8], stops: [] },
+          opacity: 1,
+          blendMode: 'normal',
+        },
+      ];
+      const linear = makeShapeNode('pdf-linear', { kind: 'rect' });
+      (linear as unknown as Record<string, unknown>).fills = [
+        {
+          type: 'gradient',
+          visible: true,
+          gradient: { type: 'linear', transform: [120, 20, -10, 60, 12, 8], stops: [] },
+          opacity: 1,
+          blendMode: 'normal',
+        },
+      ];
+      expect(assessNodeCapability(radial, makeDoc({ [radial.id]: radial }), 'pdf')).toBe(false);
+      expect(assessNodeCapability(linear, makeDoc({ [linear.id]: linear }), 'pdf')).toBe(true);
+    });
+
     it('SVG rejects angular gradients', () => {
       const node = makeShapeNode(
         's1',
