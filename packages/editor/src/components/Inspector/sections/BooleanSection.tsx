@@ -1,8 +1,10 @@
 import {
   type GroupNode,
+  isBooleanOperand,
   isLiveBooleanNode,
   type LiveBooleanOperation,
   removeNode,
+  type SceneNode,
 } from '@varve/scene';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -22,6 +24,22 @@ export function BooleanSection({ node }: { node: GroupNode }) {
   const operands = node.children
     .map((id) => editor.state.document.nodes[id])
     .filter((operand): operand is NonNullable<typeof operand> => operand !== undefined);
+  const isInside = (candidate: SceneNode, targetId: string, seen = new Set<string>()): boolean => {
+    if (!('children' in candidate) || seen.has(candidate.id)) return false;
+    seen.add(candidate.id);
+    return candidate.children.some((childId) => {
+      if (childId === targetId) return true;
+      const child = editor.state.document.nodes[childId];
+      return child ? isInside(child, targetId, seen) : false;
+    });
+  };
+  const availableOperands = Object.values(editor.state.document.nodes).filter(
+    (candidate) =>
+      candidate.id !== node.id &&
+      !node.children.includes(candidate.id) &&
+      isBooleanOperand(candidate) &&
+      !isInside(candidate, node.id),
+  );
 
   const setOperation = (operation: LiveBooleanOperation) => {
     editor.beginTransaction();
@@ -41,6 +59,12 @@ export function BooleanSection({ node }: { node: GroupNode }) {
     if (operands.length <= 2) return;
     editor.beginTransaction();
     editor.updateDoc((doc) => removeNode(doc, operandId));
+    editor.commitTransaction();
+  };
+
+  const addOperand = (operandId: string) => {
+    editor.beginTransaction();
+    editor.reparentNode(operandId, node.id, node.children.length);
     editor.commitTransaction();
   };
 
@@ -120,6 +144,24 @@ export function BooleanSection({ node }: { node: GroupNode }) {
           </li>
         ))}
       </ol>
+
+      {availableOperands.length > 0 && (
+        <div style={{ marginTop: 'var(--space-2)' }}>
+          <span className="insp-field__label">Add operand</span>
+          <div style={{ display: 'grid', gap: 'var(--space-1)', marginTop: 'var(--space-1)' }}>
+            {availableOperands.slice(0, 8).map((candidate) => (
+              <button
+                type="button"
+                key={candidate.id}
+                onClick={() => addOperand(candidate.id)}
+                aria-label={`Add operand ${candidate.name}`}
+              >
+                + {candidate.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-2)' }}>
         <button

@@ -143,10 +143,20 @@ describe('PropertiesPanel section gating for a real single selection', () => {
       '@varve/scene'
     );
     let doc = createDocument('pathfinder-test');
-    const first = makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
-    const second = makeShapeNode('b', { kind: 'rect', x: 25, y: 25, w: 50, h: 50 });
+    const first = makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }, { name: 'First' });
+    const second = makeShapeNode(
+      'b',
+      { kind: 'rect', x: 25, y: 25, w: 50, h: 50 },
+      { name: 'Second' },
+    );
+    const third = makeShapeNode(
+      'c',
+      { kind: 'rect', x: 100, y: 0, w: 25, h: 25 },
+      { name: 'Third' },
+    );
     doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, first);
     doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, second);
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, third);
     const live = createLiveBooleanDoc(doc, ['a', 'b'], 'union');
     expect(live).not.toBeNull();
     if (!live) return;
@@ -174,6 +184,16 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     expect(screen.getByRole('button', { name: /Edit operand 2/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Edit Boolean operands' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Expand Boolean' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add operand Third' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add operand Third' }));
+    await waitFor(() =>
+      expect(ctx?.state.document.nodes[live.nodeId]).toMatchObject({ children: ['a', 'b', 'c'] }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Remove operand Third' }));
+    await waitFor(() =>
+      expect(ctx?.state.document.nodes[live.nodeId]).toMatchObject({ children: ['a', 'b'] }),
+    );
 
     fireEvent.change(screen.getByRole('combobox', { name: 'Boolean operation' }), {
       target: { value: 'subtract' },
