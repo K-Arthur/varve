@@ -19,7 +19,16 @@ import {
 } from '@varve/shared';
 import { hitTest } from './geometry';
 import { transformPathShape } from './pathText';
-import type { Backend, Engine, EngineFill, FillIR, RenderItem, Scene, SceneNode } from './types';
+import type {
+  Backend,
+  Engine,
+  EngineFill,
+  FillIR,
+  RenderItem,
+  Scene,
+  SceneNode,
+  TextMode,
+} from './types';
 import type { WasmEngineModule } from './wasmLoader';
 import { loadWasmEngineModule } from './wasmLoader';
 
