@@ -15,6 +15,7 @@ const MIN_CHORD_LENGTH = 0.25;
 const MAX_CHORD_LENGTH = 1;
 const MAX_SUBDIVISIONS = 2048;
 const TANGENT_EPSILON = 1 / 1024;
+const CORNER_COSINE_THRESHOLD = 0.5;
 
 export interface StrokeReconstructionOptions {
   /** Maximum polyline chord used to approximate a curve, in layer pixels. */
@@ -40,14 +41,24 @@ export function reconstructCentripetalSegment(
     Math.max(1, Math.ceil(estimateCurveLength(p0, p1, p2, p3) / maxChordLength)),
   );
   const result: StrokePoint[] = [];
+  // A cubic's tangent can legitimately lean outside a tight turn. That is
+  // desirable for a handwriting-like curve but not for a deliberate corner:
+  // it creates a rounded hook or loop that was never in the source path.
+  // Preserve turns sharper than 60° as a straight, arc-length-resampled
+  // segment; gentler changes keep the centripetal curve.
+  const preserveCorner = hasSharpCorner(p0, p1, p2) || hasSharpCorner(p1, p2, p3);
 
   for (let index = 1; index <= subdivisions; index++) {
     const t = index / subdivisions;
-    const position = catmullRomPoint(p0, p1, p2, p3, t);
+    const position = preserveCorner
+      ? { x: p1.x + (p2.x - p1.x) * t, y: p1.y + (p2.y - p1.y) * t }
+      : catmullRomPoint(p0, p1, p2, p3, t);
     const sample = interpolatePoints(p1, p2, t);
     sample.x = position.x;
     sample.y = position.y;
-    const tangent = curveTangent(p0, p1, p2, p3, t);
+    const tangent = preserveCorner
+      ? { x: p2.x - p1.x, y: p2.y - p1.y }
+      : curveTangent(p0, p1, p2, p3, t);
     if (tangent.x !== 0 || tangent.y !== 0) sample.direction = Math.atan2(tangent.y, tangent.x);
     result.push(sample);
   }
@@ -133,6 +144,19 @@ function extrapolateBefore(start: StrokePoint, end: StrokePoint): StrokePoint {
 
 function extrapolateAfter(start: StrokePoint, end: StrokePoint): StrokePoint {
   return { ...end, x: end.x * 2 - start.x, y: end.y * 2 - start.y };
+}
+
+function hasSharpCorner(before: StrokePoint, corner: StrokePoint, after: StrokePoint): boolean {
+  const incomingX = corner.x - before.x;
+  const incomingY = corner.y - before.y;
+  const outgoingX = after.x - corner.x;
+  const outgoingY = after.y - corner.y;
+  const incomingLength = Math.hypot(incomingX, incomingY);
+  const outgoingLength = Math.hypot(outgoingX, outgoingY);
+  if (incomingLength < TANGENT_EPSILON || outgoingLength < TANGENT_EPSILON) return false;
+  const cosine =
+    (incomingX * outgoingX + incomingY * outgoingY) / (incomingLength * outgoingLength);
+  return cosine < CORNER_COSINE_THRESHOLD;
 }
 
 function estimateCurveLength(

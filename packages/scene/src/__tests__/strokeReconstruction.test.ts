@@ -26,6 +26,26 @@ function preset() {
   };
 }
 
+function parabola(samples: number): ReturnType<typeof point>[] {
+  return Array.from({ length: samples }, (_, index) => {
+    const t = index / Math.max(1, samples - 1);
+    return point(160 * t, 96 * t * t, t * 1_000, 0.1 + 0.8 * t);
+  });
+}
+
+function maxDistanceToPath(
+  source: ReadonlyArray<{ x: number; y: number }>,
+  reference: ReadonlyArray<{ x: number; y: number }>,
+): number {
+  return Math.max(
+    ...source.map((sample) =>
+      Math.min(
+        ...reference.map((candidate) => Math.hypot(sample.x - candidate.x, sample.y - candidate.y)),
+      ),
+    ),
+  );
+}
+
 describe('centripetal stroke reconstruction', () => {
   it('keeps a collinear trajectory exact', () => {
     const p0 = point(-10, 0, 0);
@@ -100,5 +120,29 @@ describe('centripetal stroke reconstruction', () => {
       expect(authoritativeDabs[index]!.x).toBeCloseTo(direct.dabs[index]!.x, 9);
       expect(authoritativeDabs[index]!.y).toBeCloseTo(direct.dabs[index]!.y, 9);
     }
+  });
+
+  it('keeps sparse and dense event-rate traces on the same reconstructed curve', () => {
+    const dense = runWholeStroke(preset(), parabola(241), 18).dabs;
+    const sparse = runWholeStroke(preset(), parabola(31), 18).dabs;
+
+    // The input rate changes the spline's local estimate a little, but it must
+    // never turn a continuous curve into visible, event-sized chords. A 2px
+    // bound is tighter than one normal dab spacing for this 8px-diameter tip.
+    expect(maxDistanceToPath(sparse, dense)).toBeLessThan(2);
+    expect(maxDistanceToPath(dense, sparse)).toBeLessThan(2);
+  });
+
+  it('contains a sharp corner without spline overshoot', () => {
+    const corner = reconstructCentripetalSegment(
+      point(0, 0, 0),
+      point(12, 0, 10),
+      point(12, 12, 20),
+      point(12, 30, 30),
+      { maxChordLength: 0.25 },
+    );
+
+    expect(corner.every((sample) => sample.x >= -0.001 && sample.x <= 12.001)).toBe(true);
+    expect(corner.every((sample) => sample.y >= -0.001 && sample.y <= 12.001)).toBe(true);
   });
 });

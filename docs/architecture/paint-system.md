@@ -129,10 +129,12 @@ depend on raw updates.
 
 Raw hardware positions are observations, not the finished centreline.
 `CausalStrokeReconstructor` retains one point of look-ahead and emits the
-previous segment as a centripetal Catmull–Rom curve. The last held segment is
-flushed with a deterministic forward ghost on pointer-up. Its chord length is
-bounded to 0.25–1 layer pixels, independent from visual dab spacing, so sparse
-curves are smooth without relying on arbitrary extra stamps.
+previous segment as a centripetal Catmull–Rom curve. Turns sharper than 60°
+fall back to a straight resampled segment, preserving intentional corners
+instead of allowing a spline hook. The last held segment is flushed with a
+deterministic forward ghost on pointer-up. Its chord length is bounded to
+0.25–1 layer pixels, independent from visual dab spacing, so sparse curves
+are smooth without relying on arbitrary extra stamps.
 
 The worker and synchronous fallback run this same incremental state machine.
 The prediction mirror is cloned from confirmed `StrokeEngineState`, including
