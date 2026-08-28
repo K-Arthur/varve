@@ -9,6 +9,7 @@
  * 5. Return converted pixels for PDF/print rendering
  */
 
+import type { RasterColorEncoding } from '@varve/shared';
 import { convertToCmykIcc } from './adjustment/colorConversion';
 import { getImageCache } from './imageCache';
 
@@ -40,6 +41,8 @@ export interface ConvertedImage {
   profile: string;
   /** Color space of the output data. */
   colorSpace: 'cmyk' | 'rgb';
+  /** Canonical interpretation of the returned channels. */
+  encoding: RasterColorEncoding;
 }
 
 export interface ExportImageResource {
@@ -51,6 +54,8 @@ export interface ExportImageResource {
   /** RGBA pixel data converted to destination color space. */
   data: Uint8Array;
   colorSpace: 'cmyk' | 'rgb';
+  /** Canonical interpretation retained for print/export consumers. */
+  encoding: RasterColorEncoding;
 }
 
 const conversionCache = new Map<string, ConvertedImage>();
@@ -174,6 +179,23 @@ export async function convertImageForExport(
     channels: 4,
     profile,
     colorSpace: outputSpace,
+    encoding:
+      outputSpace === 'cmyk'
+        ? {
+            model: 'cmyk',
+            bitDepth: 8,
+            alphaMode: 'straight',
+            profileId: profile,
+            provenance: 'user-assigned',
+          }
+        : {
+            model: 'rgb',
+            primaries: 'srgb',
+            transfer: 'srgb',
+            bitDepth: 8,
+            alphaMode: 'straight',
+            provenance: 'format-default',
+          },
   };
 
   if (conversionCache.size >= CACHE_MAX) {
@@ -216,6 +238,7 @@ export async function buildExportImageManifest(
       height: converted.height,
       data: converted.data,
       colorSpace: converted.colorSpace,
+      encoding: converted.encoding,
     });
   }
 

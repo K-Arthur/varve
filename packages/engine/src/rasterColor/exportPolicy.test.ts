@@ -72,7 +72,7 @@ describe('convertExportImageData', () => {
       { primaries: 'display-p3', transfer: 'srgb' },
       { primaries: 'srgb', transfer: 'srgb' },
       [1, 128 / 255, 0],
-    );
+    )!;
     expect(warnings).toEqual([expect.stringContaining('converted composite from display-p3')]);
     expect(Array.from(pixels.data)).toEqual([
       Math.round(Math.max(0, Math.min(1, expected[0])) * 255),
