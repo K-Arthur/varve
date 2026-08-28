@@ -268,6 +268,40 @@ describe('snapSelectionBox', () => {
     expect(result.cy + result.h / 2).toBe(200);
   });
 
+  it('gives document-grid snapping priority without moving the fixed resize edge', () => {
+    const result = snapSelectionBox(
+      { cx: 233.25, cy: 160, w: 146.5, h: 80, rotation: 0 },
+      {
+        otherBounds: [box(305, 600, 100, 100)],
+        grid: 10,
+        resizeHandle: 'e',
+      },
+    );
+
+    expect(result.cx - result.w / 2).toBe(160);
+    expect(result.cx + result.w / 2).toBe(310);
+  });
+
+  it('snaps the moving resize edge to whole pixels without rounding its fixed edge', () => {
+    const result = snapSelectionBox(
+      { cx: 233.3, cy: 160, w: 146.6, h: 80, rotation: 0 },
+      { pixelGridSnap: true, resizeHandle: 'e' },
+    );
+
+    expect(result.cx - result.w / 2).toBeCloseTo(160, 12);
+    expect(result.cx + result.w / 2).toBe(307);
+  });
+
+  it('snaps the moving resize edge to a layout-grid line without moving its opposite edge', () => {
+    const result = snapSelectionBox(
+      { cx: 239, cy: 160, w: 158, h: 80, rotation: 0 },
+      { layoutGridStep: 20, resizeHandle: 'e' },
+    );
+
+    expect(result.cx - result.w / 2).toBe(160);
+    expect(result.cx + result.w / 2).toBe(320);
+  });
+
   it('snaps an axis-aligned bounding-box edge to the matching object edge', () => {
     const result = snapSelectionBox(
       { cx: 53, cy: 250, w: 100, h: 60, rotation: 0 },

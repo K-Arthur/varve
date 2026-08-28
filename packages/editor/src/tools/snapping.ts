@@ -748,6 +748,27 @@ function objectAxisTargets(
   return targets;
 }
 
+function snapResizeAxisToGrid(
+  center: number,
+  size: number,
+  side: ResizeSide,
+  spacing: number,
+  offset: number,
+  centered: boolean,
+  threshold: number,
+  priority: number,
+): ResizeAxisSnap | null {
+  const moving = center + (side === 'end' ? size / 2 : -size / 2);
+  return snapResizeAxis(
+    center,
+    size,
+    side,
+    [{ position: snapCoordToGrid(moving, spacing, offset), priority }],
+    centered,
+    threshold,
+  );
+}
+
 /** Snap a selection box (position and size) to other bounds. */
 export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}): SelectionBox {
   const {
@@ -770,6 +791,10 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
   let bestXPriority = -1;
   let bestYDiff = Infinity;
   let bestYPriority = -1;
+  const isAxisAligned = Math.abs(Math.sin(box.rotation)) < 1e-9;
+  const resizeX = resizeHandle ? resizeSideForHandle(resizeHandle, 'x') : null;
+  const resizeY = resizeHandle ? resizeSideForHandle(resizeHandle, 'y') : null;
+  const canSnapResizeAxes = isAxisAligned && (resizeX !== null || resizeY !== null);
 
   // Use the same-anchor edge/center matching as move snapping. Resize
   // gestures already call this resolver through TransformEngine, so teaching
@@ -778,10 +803,7 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
   // at arbitrary rotation; its centre is still meaningful, but edge matching
   // is intentionally restricted to axis-aligned selections.
   if (otherBounds.length > 0) {
-    const isAxisAligned = Math.abs(Math.sin(box.rotation)) < 1e-9;
-    const resizeX = resizeHandle ? resizeSideForHandle(resizeHandle, 'x') : null;
-    const resizeY = resizeHandle ? resizeSideForHandle(resizeHandle, 'y') : null;
-    if (isAxisAligned && resizeX) {
+    if (canSnapResizeAxes && resizeX) {
       const snap = snapResizeAxis(
         box.cx,
         box.w,
@@ -797,7 +819,7 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
         bestXPriority = snap.priority;
       }
     }
-    if (isAxisAligned && resizeY) {
+    if (canSnapResizeAxes && resizeY) {
       const snap = snapResizeAxis(
         box.cy,
         box.h,
@@ -860,7 +882,47 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
   }
 
   // Snap to grid (higher priority than center)
-  if (grid !== undefined && grid !== null) {
+  if (canSnapResizeAxes && grid !== undefined && grid !== null) {
+    const gridConfig = typeof grid === 'number' ? { spacingX: grid, spacingY: grid } : grid;
+    if (gridConfig.spacingX > 0 && gridConfig.spacingY > 0) {
+      if (resizeX) {
+        const snap = snapResizeAxisToGrid(
+          box.cx,
+          box.w,
+          resizeX,
+          gridConfig.spacingX,
+          gridConfig.offsetX ?? 0,
+          resizeCentered,
+          thresh,
+          SNAP_PRIORITY.grid,
+        );
+        if (snap && compete(snap.priority, snap.diff, bestXPriority, bestXDiff)) {
+          snappedCx = snap.center;
+          snappedW = snap.size;
+          bestXDiff = snap.diff;
+          bestXPriority = snap.priority;
+        }
+      }
+      if (resizeY) {
+        const snap = snapResizeAxisToGrid(
+          box.cy,
+          box.h,
+          resizeY,
+          gridConfig.spacingY,
+          gridConfig.offsetY ?? 0,
+          resizeCentered,
+          thresh,
+          SNAP_PRIORITY.grid,
+        );
+        if (snap && compete(snap.priority, snap.diff, bestYPriority, bestYDiff)) {
+          snappedCy = snap.center;
+          snappedH = snap.size;
+          bestYDiff = snap.diff;
+          bestYPriority = snap.priority;
+        }
+      }
+    }
+  } else if (!resizeHandle && grid !== undefined && grid !== null) {
     const gridConfig = typeof grid === 'number' ? { spacingX: grid, spacingY: grid } : grid;
     if (gridConfig.spacingX > 0 && gridConfig.spacingY > 0) {
       const offsetX = gridConfig.offsetX ?? 0;
@@ -883,7 +945,44 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
   }
 
   // Snap to pixel grid (snaps to integer pixel coordinates)
-  if (pixelGridSnap) {
+  if (canSnapResizeAxes && pixelGridSnap) {
+    if (resizeX) {
+      const snap = snapResizeAxisToGrid(
+        box.cx,
+        box.w,
+        resizeX,
+        1,
+        0,
+        resizeCentered,
+        thresh,
+        SNAP_PRIORITY.grid,
+      );
+      if (snap && compete(snap.priority, snap.diff, bestXPriority, bestXDiff)) {
+        snappedCx = snap.center;
+        snappedW = snap.size;
+        bestXDiff = snap.diff;
+        bestXPriority = snap.priority;
+      }
+    }
+    if (resizeY) {
+      const snap = snapResizeAxisToGrid(
+        box.cy,
+        box.h,
+        resizeY,
+        1,
+        0,
+        resizeCentered,
+        thresh,
+        SNAP_PRIORITY.grid,
+      );
+      if (snap && compete(snap.priority, snap.diff, bestYPriority, bestYDiff)) {
+        snappedCy = snap.center;
+        snappedH = snap.size;
+        bestYDiff = snap.diff;
+        bestYPriority = snap.priority;
+      }
+    }
+  } else if (!resizeHandle && pixelGridSnap) {
     const px = Math.round(box.cx);
     const py = Math.round(box.cy);
     const dx = Math.abs(px - box.cx);
@@ -901,7 +1000,44 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
   }
 
   // Snap to layout grid
-  if (layoutGridStep && layoutGridStep > 0) {
+  if (canSnapResizeAxes && layoutGridStep && layoutGridStep > 0) {
+    if (resizeX) {
+      const snap = snapResizeAxisToGrid(
+        box.cx,
+        box.w,
+        resizeX,
+        layoutGridStep,
+        0,
+        resizeCentered,
+        thresh,
+        SNAP_PRIORITY.layoutGrid,
+      );
+      if (snap && compete(snap.priority, snap.diff, bestXPriority, bestXDiff)) {
+        snappedCx = snap.center;
+        snappedW = snap.size;
+        bestXDiff = snap.diff;
+        bestXPriority = snap.priority;
+      }
+    }
+    if (resizeY) {
+      const snap = snapResizeAxisToGrid(
+        box.cy,
+        box.h,
+        resizeY,
+        layoutGridStep,
+        0,
+        resizeCentered,
+        thresh,
+        SNAP_PRIORITY.layoutGrid,
+      );
+      if (snap && compete(snap.priority, snap.diff, bestYPriority, bestYDiff)) {
+        snappedCy = snap.center;
+        snappedH = snap.size;
+        bestYDiff = snap.diff;
+        bestYPriority = snap.priority;
+      }
+    }
+  } else if (!resizeHandle && layoutGridStep && layoutGridStep > 0) {
     const step = layoutGridStep;
     const lx = Math.round(box.cx / step) * step;
     const ly = Math.round(box.cy / step) * step;
