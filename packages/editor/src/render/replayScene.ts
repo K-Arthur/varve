@@ -40,7 +40,11 @@ import {
   resolveAdjustmentScope,
 } from '@varve/scene';
 import { managedColorToRgba, tryInvertAffine } from '@varve/shared';
-import { applyAdjustmentSpatialMask } from '../canvas/maskReplay';
+import {
+  applyAdjustmentSpatialMask,
+  replayLeafMask,
+  requiresLeafMaskReplay,
+} from '../canvas/maskReplay';
 import { nodeWorldTransform } from '../scene/world';
 import { alphaBounds } from './surfaceBounds';
 
@@ -366,7 +370,6 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
     if (!node || node.visible === false) return;
     const item = itemById.get(nodeId);
 
-    const mask: Mask | null = 'mask' in node && node.mask?.visible ? node.mask : null;
     // `flattenSceneToEngine` resolves live Boolean groups to one render item
     // under the group's id. Structural replay must make the same substitution
     // instead of painting its editable source children individually.
@@ -375,6 +378,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       return;
     }
 
+    const mask: Mask | null = 'mask' in node && node.mask?.visible ? node.mask : null;
     const maskSourceId =
       mask?.sourceNodeId ??
       (mask?.matteSource?.kind === 'scene-node' ? mask.matteSource.nodeId : undefined);
@@ -1070,7 +1074,23 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       return;
     }
 
-    if (item) replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
+    if (item) {
+      // Leaf nodes with masks: render to offscreen, apply mask, composite back.
+      if (mask && requiresLeafMaskReplay(mask)) {
+        replayLeafMask(target as unknown as CanvasRenderingContext2D, {
+          node,
+          mask,
+          irItem: item,
+          doc: input.document,
+          baseTransform: target.getTransform(),
+          paintContent: (ctx) =>
+            replayIr(ctx as unknown as ReplayTarget, [item], undefined, resolveEffectMask),
+          getWorldTransform: (nodeId) => nodeWorldTransform(input.document, nodeId),
+        });
+      } else {
+        replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
+      }
+    }
   };
 
   for (const rootId of input.rootIds) replayNode(rootId, context);

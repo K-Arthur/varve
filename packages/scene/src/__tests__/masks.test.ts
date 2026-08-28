@@ -6,7 +6,13 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
+  makeTextNode,
 } from '../document';
+import {
+  canReceiveLayerMask,
+  canReceiveRasterMask,
+  canSupplyMaskCoverage,
+} from '../maskCapability';
 import {
   addMask,
   canNodeHaveMask,
@@ -22,8 +28,10 @@ import {
   setMaskSourceNode,
   setMaskTransform,
   setMaskType,
+  setMaskVectorPath,
   setMaskVisible,
 } from '../masks';
+import { makeRasterLayerNode } from '../rasterLayer';
 
 describe('resolveMask', () => {
   it('returns null for non-container nodes', () => {
@@ -131,9 +139,9 @@ describe('canNodeHaveMask', () => {
     expect(canNodeHaveMask(makeGroupNode('g1'))).toBe(true);
   });
 
-  it('returns false for shape', () => {
+  it('returns true for shape', () => {
     const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
-    expect(canNodeHaveMask(shape)).toBe(false);
+    expect(canNodeHaveMask(shape)).toBe(true);
   });
 });
 
@@ -533,5 +541,339 @@ describe('setMaskSourceNode', () => {
     doc = setMaskSourceNode(doc, 'f1', 'n2');
     const m = (doc.nodes.f1 as { mask?: { sourceNodeId?: string } }).mask;
     expect(m?.sourceNodeId).toBe('n1');
+  });
+});
+
+// ── Leaf-node mask tests (unified cross-media masking) ──────────────────────
+
+describe('canNodeHaveMask — leaf nodes', () => {
+  it('returns true for raster layer', () => {
+    expect(canNodeHaveMask(makeRasterLayerNode('rl1', { width: 100, h: 100 }))).toBe(true);
+  });
+
+  it('returns true for text node', () => {
+    expect(canNodeHaveMask(makeTextNode('t1', 'Hello'))).toBe(true);
+  });
+
+  it('returns true for vector shape', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    expect(canNodeHaveMask(shape)).toBe(true);
+  });
+});
+
+describe('unified mask capabilities', () => {
+  it('treats vector, text, and raster leaves as equivalent mask targets', () => {
+    const vector = makeShapeNode('vector', { kind: 'ellipse', cx: 30, cy: 20, rx: 30, ry: 20 });
+    const text = makeTextNode('text', 'Mask me');
+    const raster = makeRasterLayerNode('raster', { width: 64, height: 32 });
+
+    for (const node of [vector, text, raster]) {
+      expect(canReceiveLayerMask(node)).toBe(true);
+      expect(canReceiveRasterMask(node)).toBe(true);
+      expect(canSupplyMaskCoverage(node)).toBe(true);
+    }
+  });
+});
+
+describe('addMask — vector mask on leaf nodes', () => {
+  const vectorPath = {
+    points: [
+      { x: 0, y: 0, handleIn: null, handleOut: null },
+      { x: 100, y: 0, handleIn: null, handleOut: null },
+      { x: 50, y: 100, handleIn: null, handleOut: null },
+    ],
+    closed: true,
+    fillRule: 'nonzero' as const,
+  };
+
+  it('adds a vector clip mask to a shape', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    let doc = addNode(createDocument(), shape);
+    doc = addMask(doc, 'n1', undefined, 'clip', { vectorMask: vectorPath });
+    const m = doc.nodes.n1?.mask;
+    expect(m).toBeDefined();
+    expect(m?.type).toBe('clip');
+    expect(m?.vectorMask).toEqual(vectorPath);
+  });
+
+  it('adds a vector alpha mask to a shape', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    let doc = addNode(createDocument(), shape);
+    doc = addMask(doc, 'n1', undefined, 'alpha', { vectorMask: vectorPath });
+    const m = doc.nodes.n1?.mask;
+    expect(m?.type).toBe('alpha');
+    expect(m?.vectorMask).toEqual(vectorPath);
+  });
+
+  it('adds a vector mask to a text node', () => {
+    const text = makeTextNode('t1', 'Hello');
+    let doc = addNode(createDocument(), text);
+    doc = addMask(doc, 't1', undefined, 'alpha', { vectorMask: vectorPath });
+    const m = doc.nodes.t1?.mask;
+    expect(m).toBeDefined();
+    expect(m?.type).toBe('alpha');
+    expect(m?.vectorMask).toEqual(vectorPath);
+  });
+
+  it('adds a vector mask to a raster layer', () => {
+    const rl = makeRasterLayerNode('rl1', { width: 200, height: 200 });
+    let doc = addNode(createDocument(), rl);
+    doc = addMask(doc, 'rl1', undefined, 'alpha', { vectorMask: vectorPath });
+    const m = doc.nodes.rl1?.mask;
+    expect(m).toBeDefined();
+    expect(m?.type).toBe('alpha');
+    expect(m?.vectorMask).toEqual(vectorPath);
+  });
+
+  it('adds a vector luminance mask to a shape', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    let doc = addNode(createDocument(), shape);
+    doc = addMask(doc, 'n1', undefined, 'luminance', { vectorMask: vectorPath });
+    const m = doc.nodes.n1?.mask;
+    expect(m?.type).toBe('luminance');
+  });
+
+  it('rejects clip mask on leaf without vector path', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    let doc = addNode(createDocument(), shape);
+    doc = addMask(doc, 'n1', undefined, 'clip');
+    expect(doc.nodes.n1?.mask).toBeUndefined();
+  });
+
+  it('rejects sourceNodeId on leaf nodes', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    const shape2 = makeShapeNode('n2', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    doc = addNode(doc, shape2);
+    doc = addMask(doc, 'n1', 'n2', 'alpha');
+    expect(doc.nodes.n1?.mask).toBeUndefined();
+  });
+
+  it('rejects matteSource kind scene-node on leaf nodes', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    const shape2 = makeShapeNode('n2', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    doc = addNode(doc, shape2);
+    doc = addMask(doc, 'n1', undefined, 'alpha', {
+      matteSource: { kind: 'scene-node', nodeId: 'n2' },
+    });
+    expect(doc.nodes.n1?.mask).toBeUndefined();
+  });
+});
+
+describe('resolveMask — leaf nodes', () => {
+  it('returns vector mask on shape', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    let doc = addNode(createDocument(), shape);
+    doc = addMask(doc, 'n1', undefined, 'alpha', {
+      vectorMask: {
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: true,
+        fillRule: 'nonzero',
+      },
+    });
+    const mask = resolveMask(doc.nodes.n1!);
+    expect(mask).not.toBeNull();
+    expect(mask?.type).toBe('alpha');
+    expect(mask?.vectorMask).toBeDefined();
+  });
+
+  it('returns null for shape with invisible mask', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    const doc = addNode(createDocument(), shape);
+    doc.nodes.n1!.mask = {
+      type: 'alpha',
+      visible: false,
+      vectorMask: {
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: true,
+        fillRule: 'nonzero',
+      },
+    };
+    expect(resolveMask(doc.nodes.n1!)).toBeNull();
+  });
+
+  it('returns raster mask on raster layer', () => {
+    const rl = makeRasterLayerNode('rl1', { width: 200, height: 200 });
+    let doc = addNode(createDocument(), rl);
+    doc = addNode(doc, makeRasterLayerNode('rl1', { width: 200, height: 200 }));
+    doc.nodes.rl1!.mask = {
+      type: 'alpha',
+      visible: true,
+      rasterMask: {
+        assetId: 'test-asset',
+        coordinateSpace: 'node-local-pixels',
+        sourceIdentity: { kind: 'source-metadata', locator: 'node-local:rl1', revision: 1 },
+      },
+    };
+    const mask = resolveMask(doc.nodes.rl1!);
+    expect(mask).not.toBeNull();
+    expect(mask?.type).toBe('alpha');
+    expect(mask?.rasterMask).toBeDefined();
+  });
+
+  it('returns null for leaf with empty vector mask', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    const doc = addNode(createDocument(), shape);
+    doc.nodes.n1!.mask = {
+      type: 'alpha',
+      visible: true,
+      vectorMask: { points: [], closed: true, fillRule: 'nonzero' },
+    };
+    expect(resolveMask(doc.nodes.n1!)).toBeNull();
+  });
+});
+
+describe('setMaskVectorPath — leaf nodes', () => {
+  it('sets vector path on a shape with existing mask', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    let doc = addNode(createDocument(), shape);
+    doc = addMask(doc, 'n1', undefined, 'alpha', {
+      vectorMask: {
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: true,
+        fillRule: 'nonzero',
+      },
+    });
+    const newPoints = [
+      { x: 10, y: 10, handleIn: null, handleOut: null },
+      { x: 90, y: 10, handleIn: null, handleOut: null },
+      { x: 50, y: 90, handleIn: null, handleOut: null },
+    ];
+    doc = setMaskVectorPath(doc, 'n1', newPoints, true, 'evenodd');
+    const m = doc.nodes.n1?.mask;
+    expect(m?.vectorMask?.points).toHaveLength(3);
+    expect(m?.vectorMask?.fillRule).toBe('evenodd');
+  });
+
+  it('removes mask when vector path is emptied and no other source', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    let doc = addNode(createDocument(), shape);
+    doc = addMask(doc, 'n1', undefined, 'alpha', {
+      vectorMask: {
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: true,
+        fillRule: 'nonzero',
+      },
+    });
+    doc = setMaskVectorPath(doc, 'n1', [], true);
+    expect(doc.nodes.n1?.mask).toBeUndefined();
+  });
+});
+
+describe('removeMask — leaf nodes', () => {
+  it('removes vector mask from shape', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    let doc = addNode(createDocument(), shape);
+    doc = addMask(doc, 'n1', undefined, 'alpha', {
+      vectorMask: {
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: true,
+        fillRule: 'nonzero',
+      },
+    });
+    expect(doc.nodes.n1?.mask).toBeDefined();
+    doc = removeMask(doc, 'n1');
+    expect(doc.nodes.n1?.mask).toBeUndefined();
+  });
+
+  it('removes vector mask from text node', () => {
+    const text = makeTextNode('t1', 'Hello');
+    let doc = addNode(createDocument(), text);
+    doc = addMask(doc, 't1', undefined, 'alpha', {
+      vectorMask: {
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: true,
+        fillRule: 'nonzero',
+      },
+    });
+    doc = removeMask(doc, 't1');
+    expect(doc.nodes.t1?.mask).toBeUndefined();
+  });
+});
+
+describe('setMask properties — leaf nodes', () => {
+  function maskedShape() {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    let doc = addNode(createDocument(), shape);
+    doc = addMask(doc, 'n1', undefined, 'alpha', {
+      vectorMask: {
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: true,
+        fillRule: 'nonzero',
+      },
+    });
+    return doc;
+  }
+
+  it('toggles visibility', () => {
+    let doc = maskedShape();
+    doc = setMaskVisible(doc, 'n1', false);
+    expect(doc.nodes.n1?.mask?.visible).toBe(false);
+    doc = setMaskVisible(doc, 'n1', true);
+    expect(doc.nodes.n1?.mask?.visible).toBe(true);
+  });
+
+  it('toggles inversion', () => {
+    let doc = maskedShape();
+    doc = setMaskInverted(doc, 'n1', true);
+    expect(doc.nodes.n1?.mask?.inverted).toBe(true);
+    doc = setMaskInverted(doc, 'n1', false);
+    expect(doc.nodes.n1?.mask?.inverted).toBeUndefined();
+  });
+
+  it('sets feather', () => {
+    let doc = maskedShape();
+    doc = setMaskFeather(doc, 'n1', 5);
+    expect(doc.nodes.n1?.mask?.feather).toBe(5);
+  });
+
+  it('sets density', () => {
+    let doc = maskedShape();
+    doc = setMaskDensity(doc, 'n1', 0.75);
+    expect(doc.nodes.n1?.mask?.density).toBe(0.75);
+  });
+
+  it('toggles linked', () => {
+    let doc = maskedShape();
+    doc = setMaskLinked(doc, 'n1', false);
+    expect(doc.nodes.n1?.mask?.linked).toBe(false);
+    doc = setMaskLinked(doc, 'n1', true);
+    expect(doc.nodes.n1?.mask?.linked).toBeUndefined();
+  });
+
+  it('sets transform', () => {
+    let doc = maskedShape();
+    doc = setMaskLinked(doc, 'n1', false);
+    const t: [number, number, number, number, number, number] = [2, 0, 0, 2, 50, 50];
+    doc = setMaskTransform(doc, 'n1', t);
+    expect(doc.nodes.n1?.mask?.transform).toEqual(t);
+  });
+
+  it('changes type', () => {
+    let doc = maskedShape();
+    doc = setMaskType(doc, 'n1', 'luminance');
+    expect(doc.nodes.n1?.mask?.type).toBe('luminance');
+  });
+});
+
+describe('isMasked — leaf nodes', () => {
+  it('returns true for masked shape', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    let doc = addNode(createDocument(), shape);
+    doc = addMask(doc, 'n1', undefined, 'alpha', {
+      vectorMask: {
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: true,
+        fillRule: 'nonzero',
+      },
+    });
+    expect(isMasked(doc.nodes.n1!)).toBe(true);
+  });
+
+  it('returns false for unmasked shape', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    const doc = addNode(createDocument(), shape);
+    expect(isMasked(doc.nodes.n1!)).toBe(false);
   });
 });

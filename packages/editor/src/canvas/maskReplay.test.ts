@@ -2,7 +2,7 @@
 
 import type { Mask } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { applyAdjustmentSpatialMask } from './maskReplay';
+import { applyAdjustmentSpatialMask, requiresLeafMaskReplay } from './maskReplay';
 
 function hardClipVectorMask(): Mask {
   return {
@@ -58,5 +58,36 @@ describe('applyAdjustmentSpatialMask', () => {
       [2, 0, 0, 2, 10, 20],
       [1, 0, 0, 1, 3, 5],
     ]);
+  });
+});
+
+describe('requiresLeafMaskReplay', () => {
+  it('keeps the source-image alpha-mask fast path out of structural replay', () => {
+    expect(
+      requiresLeafMaskReplay({
+        type: 'alpha',
+        visible: true,
+        rasterMask: {
+          assetId: 'source-mask',
+          coordinateSpace: 'source-image-pixels',
+          sourceIdentity: { kind: 'source-metadata', locator: 'image', revision: 1 },
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('uses structural replay for vector and node-local pixel coverage', () => {
+    expect(requiresLeafMaskReplay(hardClipVectorMask())).toBe(true);
+    expect(
+      requiresLeafMaskReplay({
+        type: 'alpha',
+        visible: true,
+        rasterMask: {
+          assetId: 'pixel-mask',
+          coordinateSpace: 'node-local-pixels',
+          sourceIdentity: { kind: 'source-metadata', locator: 'node-local:vector', revision: 1 },
+        },
+      }),
+    ).toBe(true);
   });
 });

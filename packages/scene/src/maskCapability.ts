@@ -49,7 +49,51 @@
  * Research basis: PDF 2.0 (ISO 32000-2) soft masks / transparency groups,
  * SVG 1.1 clip-path / mask, PSD layer mask / vector mask specs.
  */
-import type { Mask, MaskType } from './types';
+import type { Mask, MaskType, SceneNode } from './types';
+
+// ── Scene capabilities ────────────────────────────────────────────────────
+
+/**
+ * True for a node whose own rendered output can receive a layer mask.
+ *
+ * This is intentionally about compositing, not source media. A shape, live
+ * text, path, table, and raster layer all have different authoritative data,
+ * but each produces visual coverage that can be masked without conversion.
+ */
+export function isVisualMaskTarget(node: SceneNode): boolean {
+  return (
+    node.kind === 'shape' ||
+    node.kind === 'text' ||
+    node.kind === 'path' ||
+    node.kind === 'table' ||
+    node.kind === 'rasterLayer'
+  );
+}
+
+/** A node may receive a structural container mask or a mask on its own output. */
+export function canReceiveLayerMask(node: SceneNode): boolean {
+  return (
+    isVisualMaskTarget(node) ||
+    node.kind === 'frame' ||
+    node.kind === 'group' ||
+    node.kind === 'adjustment'
+  );
+}
+
+/**
+ * Pixel masks with `node-local-pixels` coordinates are valid on every visual
+ * leaf. Frames retain their distinct `container-local-pixels` representation;
+ * groups deliberately do not expose a painted mask until they have a bounded
+ * local coordinate space.
+ */
+export function canReceiveRasterMask(node: SceneNode): boolean {
+  return isVisualMaskTarget(node) || node.kind === 'frame';
+}
+
+/** A renderable node can supply alpha/luminance coverage for a live matte. */
+export function canSupplyMaskCoverage(node: SceneNode): boolean {
+  return isVisualMaskTarget(node) || node.kind === 'frame' || node.kind === 'group';
+}
 
 // ── Compatibility outcomes ────────────────────────────────────────────────
 

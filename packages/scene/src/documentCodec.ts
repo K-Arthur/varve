@@ -25,6 +25,7 @@ import { type DocumentLike, findParentCycle, validateAndRepairDocument } from '.
 import { normalizeDocumentEffects } from './effects';
 import { isIconAssetReferenced, validateIconAsset } from './iconAsset';
 import { normalizeLogoProject } from './logo/logoProject';
+import { isVisualMaskTarget } from './maskCapability';
 import {
   getOwnRasterMaskAsset,
   validateMaskSource,
@@ -208,11 +209,19 @@ function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]
       nodes[nodeId] = node;
       continue;
     }
-    const error =
-      validateMaskSource(candidate, node.mask!) ??
-      (!hasImageFill(candidate, node) && node.kind !== 'frame'
-        ? 'Raster masks may only attach to image-filled shape nodes or frames'
-        : null);
+    const targetError =
+      rasterMask.coordinateSpace === 'source-image-pixels'
+        ? !hasImageFill(candidate, node)
+          ? 'Source-pixel raster masks require an image-filled shape node'
+          : null
+        : rasterMask.coordinateSpace === 'container-local-pixels'
+          ? node.kind !== 'frame'
+            ? 'Container-local raster masks require a frame node'
+            : null
+          : rasterMask.coordinateSpace === 'node-local-pixels' && !isVisualMaskTarget(node)
+            ? 'Node-local raster masks require a visual leaf node'
+            : null;
+    const error = validateMaskSource(candidate, node.mask!) ?? targetError;
     if (error) {
       warnings.push(
         warning('document.invalid-raster-mask', `${nodeId}: ${error}`, 'error', `${nodeId}.mask`),

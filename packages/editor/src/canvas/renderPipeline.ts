@@ -114,7 +114,12 @@ import {
 import { computeFrameDirtyRegion } from './dirtyRegionMerge';
 import { expandReplayList } from './dirtyReplay';
 import type { EngineNodeMemo } from './engineNodeMemo';
-import { applyAdjustmentSpatialMask, replayMaskedContainer } from './maskReplay';
+import {
+  applyAdjustmentSpatialMask,
+  replayLeafMask,
+  replayMaskedContainer,
+  requiresLeafMaskReplay,
+} from './maskReplay';
 import { openFullRedraw, openMultiRectPartialClip, openUnionPartialClip } from './partialPaint';
 import {
   beginContentFrame,
@@ -1766,7 +1771,25 @@ export function renderContent(deps: RenderContentDeps): void {
         targetCtx.drawImage(backdrop, 0, 0, backdrop.width, backdrop.height, bx, by, bw, bh);
         targetCtx.restore();
       } else {
-        if (item) paintLeafItem(item, targetCtx);
+        if (item) {
+          // Leaf nodes with masks: render the content to an offscreen surface,
+          // apply the mask, and composite back. Vector masks, raster masks, and
+          // live mattes are all supported on leaf nodes (shapes, text, raster
+          // layers). Container masks are handled above via replayMaskedContainer.
+          if (mask && requiresLeafMaskReplay(mask)) {
+            replayLeafMask(targetCtx, {
+              node: n,
+              mask,
+              irItem: item,
+              doc,
+              baseTransform,
+              paintContent: (ctx) => paintLeafItem(item, ctx),
+              getWorldTransform,
+            });
+          } else {
+            paintLeafItem(item, targetCtx);
+          }
+        }
       }
     }
 

@@ -2,13 +2,21 @@
 /**
  * Mask resolution and CRUD operations for the scene graph.
  *
- * A mask is a property on a container (FrameNode, GroupNode, or AdjustmentNode)
- * that designates one of its children as a mask source. The mask type determines
- * how the child is used:
- *   - 'clip': the mask child's outline clips the container's other children
- *   - 'alpha': the mask child's alpha channel modulates the container's other children
- *   - 'luminance': the mask child's luminance (× alpha) modulates the container's
- *     other children per SVG mask spec
+ * A mask is a property on a node that restricts its visible area. Masks apply
+ * to both containers (FrameNode, GroupNode, AdjustmentNode) and visual leaf
+ * nodes (ShapeNode, TextNode, RasterLayerNode, TableNode, PathNode):
+ *
+ *   - Container masks use a child node, vector path, or live matte source to
+ *     mask the composite output of all children.
+ *   - Leaf masks use a vector path, raster PNG asset, or live matte source to
+ *     mask the single node's rendered output. Leaf nodes cannot use a child-node
+ *     source (they have no children).
+ *
+ * The mask type determines compositing behavior:
+ *   - 'clip': geometric path outline clips content (hard edge unless
+ *     feathered/inverted/density-reduced, which use alpha compositing)
+ *   - 'alpha': mask alpha channel controls target opacity
+ *   - 'luminance': mask luminance (× alpha, BT.709) controls target opacity
  *
  * All operations are pure (immutable Document pattern).
  *
@@ -17,7 +25,23 @@
  */
 import type { Affine, PathPoint } from '@varve/engine';
 import type { Document } from './document';
-import { resolveNodePaints } from './paint';
+import {
+  attachRasterMaskAsset,
+  isLeafMaskRequestValid,
+  replaceRasterMaskAsset,
+  setNodeMaskVectorPath,
+} from './leafMaskOps';
+import {
+  canReceiveLayerMask,
+  canReceiveRasterMask,
+  canSupplyMaskCoverage,
+  isVisualMaskTarget,
+} from './maskCapability';
+import {
+  resolvedImageMaskFill,
+  resolveNodeMask,
+  resolveNodeRasterMaskAsset,
+} from './maskResolution';
 import type {
   Mask,
   MaskFillRule,
@@ -420,7 +444,8 @@ export function validateMaskSource(
     if (
       mask.rasterMask.coordinateSpace !== 'source-image-pixels' &&
       mask.rasterMask.coordinateSpace !== 'legacy-preview-pixels' &&
-      mask.rasterMask.coordinateSpace !== 'container-local-pixels'
+      mask.rasterMask.coordinateSpace !== 'container-local-pixels' &&
+      mask.rasterMask.coordinateSpace !== 'node-local-pixels'
     ) {
       return 'A raster mask must use a supported pixel coordinate space';
     }
@@ -489,7 +514,7 @@ function knownOrientedSourceDimensions(
   doc: Document,
   node: SceneNode,
 ): { width: number; height: number } | null {
-  const image = resolvedImageFill(doc, node);
+  const image = resolvedImageMaskFill(doc, node);
   return image &&
     Number.isInteger(image.imageWidth) &&
     Number.isInteger(image.imageHeight) &&
@@ -554,8 +579,8 @@ export function validateRasterMaskDocument(doc: Document): string | null {
     }
     const error = validateMaskSource(doc, node.mask);
     if (error) return `${node.id}: ${error}`;
-    if (node.mask.rasterMask && !isImageShape(doc, node) && node.kind !== 'frame') {
-      return `${node.id}: Raster masks may only attach to image-filled shape nodes or frames`;
+    if (node.mask.rasterMask && !canReceiveRasterMask(node)) {
+      return `${node.id}: Raster masks may only attach to visual leaf nodes or frames`;
     }
     if (node.mask.rasterMask) {
       const asset = getOwnRasterMaskAsset(doc, node.mask.rasterMask.assetId);
@@ -575,36 +600,15 @@ export function validateRasterMaskDocument(doc: Document): string | null {
 
 // ── Resolution ──────────────────────────────────────────────────────────────
 
-/** Return the effective mask for a container or eligible image leaf. */
-export function resolveMask(node: SceneNode, doc?: Pick<Document, 'paints'>): Mask | null {
-  if (!node.mask || node.mask.visible === false) return null;
-  if (node.mask.rasterMask && (isImageShape(doc ?? {}, node) || node.kind === 'frame')) {
-    return validateMaskSource(undefined, node.mask) ? null : node.mask;
-  }
-  if (node.kind !== 'frame' && node.kind !== 'group' && node.kind !== 'adjustment') return null;
-  const container = node as SceneNode & { children?: string[] };
-  if (validateMaskSource(undefined, node.mask)) return null;
-  // Vector masks don't require a sourceNodeId
-  if (node.mask.vectorMask && node.mask.vectorMask.points.length > 0) {
-    return node.mask;
-  }
-  // For frames and groups with sourceNodeId, the mask source must be a child.
-  if (node.mask.sourceNodeId) {
-    if (
-      node.kind !== 'adjustment' &&
-      container.children &&
-      !container.children.includes(node.mask.sourceNodeId)
-    ) {
-      return null;
-    }
-    return node.mask;
-  }
-  if (node.mask.matteSource) return node.mask;
-  // A container-local raster mask (brush-painted layer mask on a frame) has
-  // no child source and no vector geometry — it is a complete mask on its own.
-  if (node.mask.rasterMask) return node.mask;
-  // Mask has neither vectorMask nor sourceNodeId — incomplete
-  return null;
+/**
+ * Return the effective mask for a container or visual leaf node.
+ *
+ * Container masks resolve child-node sources, vector paths, and live mattes.
+ * Leaf masks resolve vector paths and raster assets (leaf nodes have no
+ * children to serve as structural mask sources).
+ */
+export function resolveMask(node: SceneNode, _doc?: Pick<Document, 'paints'>): Mask | null {
+  return resolveNodeMask(node, validateMaskSource);
 }
 
 /** Resolve an active leaf/container raster mask to its document-owned PNG payload. */
@@ -612,19 +616,12 @@ export function resolveRasterMaskAsset(
   doc: Pick<Document, 'paints' | 'rasterMaskAssets'>,
   node: SceneNode,
 ): RasterMaskAsset | null {
-  const mask = node.mask;
-  if (
-    !mask?.rasterMask ||
-    mask.type !== 'alpha' ||
-    mask.visible === false ||
-    'sourceNodeId' in mask ||
-    'vectorMask' in mask ||
-    !ASSET_ID_PATTERN.test(mask.rasterMask.assetId) ||
-    (!isImageShape(doc, node) && node.kind !== 'frame')
-  ) {
-    return null;
-  }
-  return getOwnRasterMaskAsset(doc, mask.rasterMask.assetId) ?? null;
+  return resolveNodeRasterMaskAsset(
+    doc,
+    node,
+    (assetId) => ASSET_ID_PATTERN.test(assetId),
+    getOwnRasterMaskAsset,
+  );
 }
 
 /** True if the container has an active (visible, valid) mask. */
@@ -718,17 +715,10 @@ function isContainerNode(node: SceneNode): node is SceneNode & { mask?: Mask; ch
   return node.kind === 'frame' || node.kind === 'group' || node.kind === 'adjustment';
 }
 
-function resolvedImageFill(doc: Pick<Document, 'paints'>, node: SceneNode) {
-  if (node.kind !== 'shape') return undefined;
-  return resolveNodePaints(node as unknown as Parameters<typeof resolveNodePaints>[0], doc).find(
-    (fill) => fill.type === 'image' && fill.image,
-  )?.image;
-}
-
-function isImageShape(doc: Pick<Document, 'paints'>, node: SceneNode): node is ShapeNode {
-  return node.kind === 'shape' && Boolean(resolvedImageFill(doc, node));
-}
-
+/**
+ * True for any visual node that can own a mask but is not a container.
+ * These nodes receive masks on their own rendered output (not on children).
+ */
 /**
  * Source-metadata identities are bounded, while embedded image data URLs can
  * be several megabytes. Keep a deterministic compact locator in the identity
@@ -753,10 +743,12 @@ function compactSourceLocator(locator: string): string {
 
 /**
  * Returns true if the node can own a mask. Containers own structural masks;
- * image-filled ShapeNodes own source-pixel raster alpha masks.
+ * visual leaf nodes (shapes, text, raster layers, tables, paths) own masks
+ * on their own rendered output. Image-filled shapes additionally support
+ * source-pixel raster alpha masks.
  */
-export function canNodeHaveMask(node: SceneNode, doc?: Pick<Document, 'paints'>): boolean {
-  return isContainerNode(node) || isImageShape(doc ?? {}, node);
+export function canNodeHaveMask(node: SceneNode, _doc?: Pick<Document, 'paints'>): boolean {
+  return canReceiveLayerMask(node);
 }
 
 /**
@@ -777,14 +769,7 @@ export function canBeClipMaskSource(node: SceneNode): boolean {
 
 /** Rendered coverage sources are broader than geometric clip sources. */
 export function canBeMatteSource(node: SceneNode): boolean {
-  return (
-    node.kind === 'shape' ||
-    node.kind === 'path' ||
-    node.kind === 'text' ||
-    node.kind === 'frame' ||
-    node.kind === 'group' ||
-    node.kind === 'rasterLayer'
-  );
+  return canSupplyMaskCoverage(node);
 }
 
 // ── CRUD Operations ─────────────────────────────────────────────────────────
@@ -796,7 +781,7 @@ function imageSourceIdentity(
   node: ShapeNode,
   revision: number,
 ): RasterMaskSourceIdentity {
-  const image = resolvedImageFill(doc, node);
+  const image = resolvedImageMaskFill(doc, node);
   return {
     kind: 'source-metadata',
     locator: compactSourceLocator(image?.src ?? node.id),
@@ -835,7 +820,11 @@ function withoutUnreferencedAsset(doc: Document, assetId: string): Document {
 }
 
 /**
- * Store an immutable PNG asset and attach it as a source-pixel alpha mask.
+ * Store an immutable PNG asset and attach it as a non-destructive alpha mask.
+ *
+ * Source-image masks remain limited to image-filled shapes. Node-local masks
+ * use a leaf's visual bounds and are therefore valid for vector, text, table,
+ * path, and raster-layer targets without converting their source content.
  * Existing asset ids may be reused only when their payload metadata is equal.
  */
 export function addRasterMaskAsset(
@@ -843,97 +832,48 @@ export function addRasterMaskAsset(
   nodeId: NodeId,
   asset: RasterMaskAsset,
   rasterMask?: Partial<Omit<RasterMaskData, 'assetId' | 'coordinateSpace'>>,
-  opts?: { coordinateSpace?: 'source-image-pixels' | 'container-local-pixels' },
+  opts?: {
+    coordinateSpace?: 'source-image-pixels' | 'container-local-pixels' | 'node-local-pixels';
+  },
 ): Document {
-  const node = doc.nodes[nodeId];
-  const isImage = node !== undefined && isImageShape(doc, node);
-  const isFrame = node?.kind === 'frame';
-  const coordinateSpace = opts?.coordinateSpace ?? 'source-image-pixels';
-  if (!node || (!isImage && !isFrame) || validateRasterMaskAsset(asset)) return doc;
-  if (coordinateSpace === 'container-local-pixels' && !isFrame) return doc;
-  if (coordinateSpace === 'source-image-pixels' && !isImage) return doc;
-  const existing = getOwnRasterMaskAsset(doc, asset.id);
-  if (existing && !rasterAssetsEqual(existing, asset)) return doc;
-
-  const revision = rasterMask?.sourceIdentity?.revision ?? 1;
-  const sourceIdentity =
-    coordinateSpace === 'container-local-pixels'
-      ? ({ kind: 'source-metadata', locator: 'container-local', revision } as const)
-      : (rasterMask?.sourceIdentity ?? imageSourceIdentity(doc, node as ShapeNode, revision));
-  const maskData: RasterMaskData = {
-    assetId: asset.id,
+  const coordinateSpace: Exclude<RasterMaskData['coordinateSpace'], 'legacy-preview-pixels'> =
+    opts?.coordinateSpace ?? 'source-image-pixels';
+  return attachRasterMaskAsset(
+    {
+      imageSourceIdentity,
+      validateAsset: validateRasterMaskAsset,
+      getAsset: getOwnRasterMaskAsset,
+      assetsEqual: rasterAssetsEqual,
+      validateSource: validateMaskSource,
+      validateDimensions: validateSourcePixelDimensions,
+      discardUnreferencedAsset: withoutUnreferencedAsset,
+    },
+    doc,
+    nodeId,
+    asset,
+    rasterMask,
     coordinateSpace,
-    sourceIdentity,
-    ...(rasterMask?.editRevision !== undefined ? { editRevision: rasterMask.editRevision } : {}),
-    ...(rasterMask?.staleReason !== undefined ? { staleReason: rasterMask.staleReason } : {}),
-    ...(rasterMask?.provenance !== undefined ? { provenance: rasterMask.provenance } : {}),
-  };
-  const mask: Mask = { type: 'alpha', visible: true, rasterMask: maskData };
-  const candidate = {
-    ...doc,
-    rasterMaskAssets: { ...doc.rasterMaskAssets, [asset.id]: asset },
-  };
-  if (
-    validateMaskSource(candidate, mask) ||
-    validateSourcePixelDimensions(candidate, node, maskData, asset)
-  ) {
-    return doc;
-  }
-
-  const updated: Document = {
-    ...doc,
-    nodes: { ...doc.nodes, [nodeId]: { ...node, mask } },
-    rasterMaskAssets: { ...doc.rasterMaskAssets, [asset.id]: asset },
-  };
-  const priorAssetId = node.mask?.rasterMask?.assetId;
-  return priorAssetId && priorAssetId !== asset.id
-    ? withoutUnreferencedAsset(updated, priorAssetId)
-    : updated;
+  );
 }
 
-/** Replace one image node's raster asset without mutating shared payloads. */
+/** Replace one node's raster asset without mutating shared payloads. */
 export function updateRasterMaskAsset(
   doc: Document,
   nodeId: NodeId,
   asset: RasterMaskAsset,
 ): Document {
-  const node = doc.nodes[nodeId];
-  const currentMask = node?.mask;
-  const current = currentMask?.rasterMask;
-  if (!node || !currentMask || !current || !(isImageShape(doc, node) || node.kind === 'frame')) {
-    return doc;
-  }
-  if (validateRasterMaskAsset(asset)) return doc;
-  const existing = getOwnRasterMaskAsset(doc, asset.id);
-  if (existing && !rasterAssetsEqual(existing, asset)) return doc;
-  if (current.assetId === asset.id && existing && rasterAssetsEqual(existing, asset)) return doc;
-  if (validateSourcePixelDimensions(doc, node, current, asset)) return doc;
-  const currentEditRevision = current.editRevision ?? 0;
-  if (
-    !isSafeNonnegativeInteger(currentEditRevision) ||
-    currentEditRevision === Number.MAX_SAFE_INTEGER
-  ) {
-    return doc;
-  }
-  const updated: Document = {
-    ...doc,
-    nodes: {
-      ...doc.nodes,
-      [nodeId]: {
-        ...node,
-        mask: {
-          ...currentMask,
-          rasterMask: {
-            ...current,
-            assetId: asset.id,
-            editRevision: currentEditRevision + 1,
-          },
-        },
-      },
+  return replaceRasterMaskAsset(
+    {
+      validateAsset: validateRasterMaskAsset,
+      getAsset: getOwnRasterMaskAsset,
+      assetsEqual: rasterAssetsEqual,
+      validateDimensions: validateSourcePixelDimensions,
+      discardUnreferencedAsset: withoutUnreferencedAsset,
     },
-    rasterMaskAssets: { ...doc.rasterMaskAssets, [asset.id]: asset },
-  };
-  return withoutUnreferencedAsset(updated, current.assetId);
+    doc,
+    nodeId,
+    asset,
+  );
 }
 
 /** Remove one node's raster mask and garbage-collect its unshared asset. */
@@ -1048,8 +988,13 @@ export function addMask(
 ): Document {
   const container = doc.nodes[containerId];
   if (!container) return doc;
-  if (!isContainerNode(container)) return doc;
+  if (!isContainerNode(container) && !isVisualMaskTarget(container)) return doc;
   if (!VALID_MASK_TYPES.includes(type)) return doc;
+
+  // Leaf nodes cannot use child-node sources (they have no children).
+  // They support: vector masks (any type), and live matte (alpha/luminance only).
+  if (isVisualMaskTarget(container) && !isLeafMaskRequestValid(sourceNodeId, type, opts))
+    return doc;
 
   // Structural masks need a node source, vector geometry, or both. When both
   // are present, vector geometry is meaningful and the node is visual content.
@@ -1070,7 +1015,7 @@ export function addMask(
 
   // Source must be a child of the container (frames and groups only)
   if (sourceNodeId && container.kind !== 'adjustment') {
-    const children = container.children;
+    const children = (container as SceneNode & { children?: string[] }).children;
     if (children && !children.includes(sourceNodeId)) return doc;
     // Adjustment nodes have no renderable geometry — a frame/group cannot
     // clip or trace to an adjustment as its mask source. Only an
@@ -1124,7 +1069,7 @@ export function addMask(
 }
 
 /**
- * Remove the mask from a container node.
+ * Remove the mask from any node.
  * Does not remove the mask source node itself.
  *
  * @returns A new document with the mask removed, or the same document if no mask existed.
@@ -1135,7 +1080,7 @@ export function removeMask(doc: Document, containerId: NodeId): Document {
   if (!container.mask) return doc;
 
   if (container.mask.rasterMask) return removeRasterMaskAsset(doc, containerId);
-  if (!isContainerNode(container)) return doc;
+  if (!isContainerNode(container) && !isVisualMaskTarget(container)) return doc;
 
   const { mask: _unused, ...rest } = container;
   const nodes = {
@@ -1147,7 +1092,7 @@ export function removeMask(doc: Document, containerId: NodeId): Document {
 }
 
 /**
- * Update a specific property on a container's mask.
+ * Update a specific property on a node's mask.
  * Returns the same document if no mask exists or the value is unchanged.
  */
 function updateMaskProperty<T>(
@@ -1160,11 +1105,7 @@ function updateMaskProperty<T>(
   const container = doc.nodes[containerId];
   if (!container) return doc;
   if (!container.mask) return doc;
-  const isLeafRasterProperty =
-    isImageShape(doc, container) &&
-    Boolean(container.mask.rasterMask) &&
-    (key === 'visible' || key === 'inverted' || key === 'feather' || key === 'density');
-  if (!isContainerNode(container) && !isLeafRasterProperty) return doc;
+  if (!isContainerNode(container) && !isVisualMaskTarget(container)) return doc;
 
   const include = shouldInclude ? shouldInclude(value) : value !== undefined;
   const currentValue = (container.mask as unknown as Record<string, unknown>)[key];
@@ -1265,7 +1206,7 @@ export function setMaskHideSource(
   );
 }
 
-/** Set the vector mask path data for a container's mask. */
+/** Set the vector mask path data for a node's mask. */
 export function setMaskVectorPath(
   doc: Document,
   containerId: NodeId,
@@ -1273,18 +1214,14 @@ export function setMaskVectorPath(
   closed: boolean,
   fillRule?: MaskFillRule,
 ): Document {
-  if (points.length === 0) {
-    const node = doc.nodes[containerId];
-    if (!node || !isContainerNode(node) || !node.mask?.vectorMask) return doc;
-    if (!node.mask.sourceNodeId && !node.mask.matteSource) return removeMask(doc, containerId);
-  }
-  return updateMaskProperty(
+  return setNodeMaskVectorPath(
     doc,
     containerId,
-    'vectorMask',
-    points.length > 0
-      ? ({ points, closed, fillRule: fillRule ?? 'nonzero' } as VectorMaskData)
-      : undefined,
+    points,
+    closed,
+    fillRule,
+    removeMask,
+    (nextDoc, nodeId, key, value) => updateMaskProperty(nextDoc, nodeId, key, value),
   );
 }
 

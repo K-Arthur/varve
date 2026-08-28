@@ -46,6 +46,28 @@ describe('sceneNeedsStructuralCompositing', () => {
     expect(sceneNeedsStructuralCompositing(doc)).toBe(true);
   });
 
+  it('routes a masked visual leaf through structural compositing', () => {
+    let doc = createDocument('leaf mask');
+    doc = addNode(doc, {
+      ...makeShapeNode('leaf', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }),
+      mask: {
+        type: 'alpha',
+        visible: true,
+        vectorMask: {
+          points: [
+            { x: 0, y: 0, handleIn: null, handleOut: null },
+            { x: 100, y: 0, handleIn: null, handleOut: null },
+            { x: 100, y: 80, handleIn: null, handleOut: null },
+          ],
+          closed: true,
+          fillRule: 'nonzero',
+        },
+      },
+    });
+
+    expect(sceneNeedsStructuralCompositing(doc)).toBe(true);
+  });
+
   it('returns true for isolated groups with children', () => {
     let doc = createDocument('test');
     doc = addNode(doc, makeGroupNode('g1', { name: 'Group', children: ['r1'], isolated: true }));

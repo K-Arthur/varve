@@ -208,7 +208,7 @@ describe('RefineMaskTool', () => {
     );
 
     expect(result.consumed).toBe(false);
-    expect(ctx.announce).toHaveBeenCalledWith('Select an image or frame to paint a mask');
+    expect(ctx.announce).toHaveBeenCalledWith('Select a visual layer or frame to paint a mask');
   });
 
   it('Escape exits refine mask mode', () => {

@@ -12,8 +12,14 @@
  *                 Canvas 2D ImageData compositing.
  */
 import { type AreaSelection, areaSelectionCoverageAt, createBrushMask } from '@varve/engine';
-import type { FrameNode, ShapeNode } from '@varve/scene';
-import { getOwnRasterMaskAsset, isImageShape, resolveNodePaints } from '@varve/scene';
+import type { FrameNode } from '@varve/scene';
+import {
+  canReceiveRasterMask,
+  getOwnRasterMaskAsset,
+  isImageShape,
+  nodeLocalBounds,
+  resolveNodePaints,
+} from '@varve/scene';
 import { tryInvertAffine } from '@varve/shared';
 import { nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
@@ -64,7 +70,8 @@ export class RefineMaskTool extends BaseTool {
   private mapper: MapperState | null = null;
   /** Frozen at pointer-down so an external selection change cannot alter a stroke. */
   private strokeAreaSelection: AreaSelection | null = null;
-  private coordinateSpace: 'source-image-pixels' | 'container-local-pixels' = 'source-image-pixels';
+  private coordinateSpace: 'source-image-pixels' | 'container-local-pixels' | 'node-local-pixels' =
+    'source-image-pixels';
 
   override onActivate(ctx: ToolContext): void {
     this.brushMask = createBrushMask(this.options.brushSize, this.options.hardness).mask;
@@ -116,7 +123,7 @@ export class RefineMaskTool extends BaseTool {
       this.loadMask(ctx);
     }
     if (!this.maskData || !this.nodeId) {
-      ctx.announce('Select an image or frame to paint a mask');
+      ctx.announce('Select a visual layer or frame to paint a mask');
       return { consumed: false };
     }
 
@@ -194,21 +201,26 @@ export class RefineMaskTool extends BaseTool {
       return;
     }
 
-    const node = ctx.getNode(selectedId) as ShapeNode | FrameNode | undefined;
-    if (!node || (node.kind !== 'frame' && !isImageShape(node))) {
-      ctx.announce('Select an image or frame to paint a mask');
+    const node = ctx.getNode(selectedId);
+    if (!node || !canReceiveRasterMask(node)) {
+      ctx.announce('Select a visual layer or frame to paint a mask');
       this.resetState();
       return;
     }
 
     const isFrame = node.kind === 'frame';
+    const isImage = isImageShape(node);
     const rasterMask = node.mask?.rasterMask;
     const asset = rasterMask?.assetId
       ? getOwnRasterMaskAsset(ctx.document, rasterMask.assetId)
       : undefined;
     const maskDataUrl = asset?.dataUrl;
     this.nodeId = node.id;
-    this.coordinateSpace = isFrame ? 'container-local-pixels' : 'source-image-pixels';
+    this.coordinateSpace = isFrame
+      ? 'container-local-pixels'
+      : isImage
+        ? 'source-image-pixels'
+        : 'node-local-pixels';
 
     if (isFrame) {
       // Container-local painted mask: mask pixels map 1:1 to the frame's
@@ -219,6 +231,27 @@ export class RefineMaskTool extends BaseTool {
       const maskW = Math.min(MAX_CONTAINER_MASK_DIMENSION, Math.max(1, Math.ceil(fw)));
       const maskH = Math.min(MAX_CONTAINER_MASK_DIMENSION, Math.max(1, Math.ceil(fh)));
       this.mapper = this.makeFrameMapper(ctx, node, maskW, maskH);
+      if (maskDataUrl) {
+        this.loadAssetIntoMask(maskDataUrl);
+      } else {
+        this.maskData = transparentImageData(maskW, maskH);
+      }
+      return;
+    }
+
+    if (!isImage) {
+      // A node-local pixel mask follows the target's local paint bounds. This
+      // covers true raster layers as well as editable vector/text targets;
+      // only the coverage asset is raster, never the source artwork.
+      const bounds = nodeLocalBounds(node, ctx.document);
+      if (!bounds || bounds.w <= 0 || bounds.h <= 0) {
+        ctx.announce('The selected layer has no paint bounds for a mask');
+        this.resetState();
+        return;
+      }
+      const maskW = Math.min(MAX_CONTAINER_MASK_DIMENSION, Math.max(1, Math.ceil(bounds.w)));
+      const maskH = Math.min(MAX_CONTAINER_MASK_DIMENSION, Math.max(1, Math.ceil(bounds.h)));
+      this.mapper = this.makeNodeLocalMapper(ctx, node.id, bounds, maskW, maskH);
       if (maskDataUrl) {
         this.loadAssetIntoMask(maskDataUrl);
       } else {
@@ -285,6 +318,39 @@ export class RefineMaskTool extends BaseTool {
         const x = world[0] * local.x + world[2] * local.y + world[4];
         const y = world[1] * local.x + world[3] * local.y + world[5];
         return { x, y };
+      },
+      sourceWidth: maskWidth,
+      sourceHeight: maskHeight,
+    };
+  }
+
+  /** Map a visual leaf's local paint bounds to an editable mask bitmap. */
+  private makeNodeLocalMapper(
+    ctx: ToolContext,
+    nodeId: string,
+    bounds: { x: number; y: number; w: number; h: number },
+    maskWidth: number,
+    maskHeight: number,
+  ): MapperState | null {
+    const world = nodeWorldTransform(ctx.document, nodeId);
+    const inverse = tryInvertAffine(world);
+    if (!inverse) return null;
+    return {
+      mapWorldPoint: (p) => {
+        const lx = inverse[0] * p.x + inverse[2] * p.y + inverse[4];
+        const ly = inverse[1] * p.x + inverse[3] * p.y + inverse[5];
+        return {
+          x: ((lx - bounds.x) / bounds.w) * maskWidth,
+          y: ((ly - bounds.y) / bounds.h) * maskHeight,
+        };
+      },
+      mapMaskPixelToWorld: (p) => {
+        const localX = bounds.x + (p.x / maskWidth) * bounds.w;
+        const localY = bounds.y + (p.y / maskHeight) * bounds.h;
+        return {
+          x: world[0] * localX + world[2] * localY + world[4],
+          y: world[1] * localX + world[3] * localY + world[5],
+        };
       },
       sourceWidth: maskWidth,
       sourceHeight: maskHeight,
