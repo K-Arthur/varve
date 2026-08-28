@@ -214,7 +214,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       if (locked) {
         const ratio = aspectRatio();
         if (ratio !== null) {
-          editor.setSelectedH(Math.round((w / ratio) * 100) / 100);
+          editor.setSelectedH(w / ratio);
         }
       }
       editor.commitTransaction();
@@ -231,7 +231,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       if (locked) {
         const ratio = aspectRatio();
         if (ratio !== null) {
-          editor.setSelectedW(Math.round(h * ratio * 100) / 100);
+          editor.setSelectedW(h * ratio);
         }
       }
       editor.commitTransaction();
