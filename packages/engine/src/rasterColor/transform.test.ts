@@ -28,6 +28,15 @@ function makeBuffer(
 }
 
 describe('typed raster colour transforms', () => {
+  it('reuses compiled transforms for identical encodings', () => {
+    expect(createAnalyticRgbTransform(sourceEncoding, targetEncoding)).toBe(
+      createAnalyticRgbTransform(sourceEncoding, targetEncoding),
+    );
+    expect(createAnalyticRgbTransform(sourceEncoding, sourceEncoding)).toBe(
+      createAnalyticRgbTransform(sourceEncoding, sourceEncoding),
+    );
+  });
+
   it('advertises and transforms every supported typed format', async () => {
     const transform = createAnalyticRgbTransform(sourceEncoding, targetEncoding);
     expect(transform).not.toBeNull();

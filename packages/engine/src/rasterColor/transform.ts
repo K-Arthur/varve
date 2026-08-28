@@ -53,6 +53,33 @@ export const DEFAULT_TILE_HEIGHT = 256;
 /** Per-tile pixel budget guard for large-raster conversions. */
 export const MAX_CONVERSION_PIXELS_PER_JOB = 100 * 1024 * 1024; // 100 MP
 
+/** Compiled transforms are immutable; keep a small bounded cache for hot
+ * repeated conversions (vector previews, tiled raster effects, and export). */
+const ANALYTIC_TRANSFORM_CACHE_MAX = 64;
+const analyticTransformCache = new Map<string, RasterColorTransform>();
+
+function analyticTransformKey(source: RasterColorEncoding, target: RasterColorEncoding): string {
+  return [
+    source.model,
+    source.primaries,
+    source.transfer,
+    target.model,
+    target.primaries,
+    target.transfer,
+  ].join(':');
+}
+
+function cacheAnalyticTransform(
+  key: string,
+  transform: RasterColorTransform,
+): RasterColorTransform {
+  if (analyticTransformCache.size >= ANALYTIC_TRANSFORM_CACHE_MAX) {
+    analyticTransformCache.delete(analyticTransformCache.keys().next().value as string);
+  }
+  analyticTransformCache.set(key, transform);
+  return transform;
+}
+
 /**
  * Identity transform: same encoding in and out (no pixel work).
  */
@@ -77,6 +104,9 @@ export function createAnalyticRgbTransform(
   target: RasterColorEncoding,
 ): RasterColorTransform | null {
   if (!isConvertibleRgbEncoding(source) || !isConvertibleRgbEncoding(target)) return null;
+  const cacheKey = analyticTransformKey(source, target);
+  const cached = analyticTransformCache.get(cacheKey);
+  if (cached) return cached;
   const sourceSpace = {
     primaries: source.primaries,
     transfer: source.transfer,
@@ -91,10 +121,10 @@ export function createAnalyticRgbTransform(
   });
   if (!colourTransform) return null;
   if (source.primaries === target.primaries && source.transfer === target.transfer) {
-    return identityTransform(target);
+    return cacheAnalyticTransform(cacheKey, identityTransform(target));
   }
 
-  return {
+  const transform: RasterColorTransform = {
     sourceEncoding: source,
     targetEncoding: target,
     supports: (format: PixelBufferFormat) =>
@@ -106,6 +136,7 @@ export function createAnalyticRgbTransform(
     convertPixelBuffer: (buffer: PixelBuffer, signal?: AbortSignal) =>
       convertPixelBufferInPlace(buffer, (rgb) => colourTransform.convertColor(rgb), target, signal),
   };
+  return cacheAnalyticTransform(cacheKey, transform);
 }
 
 /** Build a descriptor for a transform result. */
