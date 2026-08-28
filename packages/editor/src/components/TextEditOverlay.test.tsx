@@ -95,6 +95,13 @@ describe('TextEditOverlay', () => {
     expect(ta.getAttribute('dir')).toBe('auto');
   });
 
+  it('uses the canonical fallback line height when the node omits one', () => {
+    const { lineHeight: _lineHeight, ...withoutLineHeight } = makeNode('First\nSecond');
+    renderOverlay(withoutLineHeight as TextNode);
+    const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
+    expect(ta.style.lineHeight).toBe('1.4');
+  });
+
   it('guards input during IME composition', () => {
     const onUpdateText = vi.fn();
     const node = makeNode('Hello');

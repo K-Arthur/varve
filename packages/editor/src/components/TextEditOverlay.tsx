@@ -265,7 +265,11 @@ export function TextEditOverlay({
         fontSize: node.fontSize ?? 16,
         fontFamily: node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
         fontWeight: node.fontWeight ?? 400,
-        lineHeight: (node.lineHeight ?? 1.2).toString(),
+        // Keep the editing surface on the same fallback as shared text
+        // geometry and the canvas renderer. Imported nodes may omit the
+        // optional line-height field; using 1.2 here made their caret and
+        // wrapped lines drift from the painted text.
+        lineHeight: (node.lineHeight ?? 1.4).toString(),
         letterSpacing: `${node.letterSpacing ?? 0}px`,
         padding: 0,
         margin: 0,
