@@ -836,6 +836,40 @@ describe('legacy exports', () => {
       expect(gradGap!.severity).toBe('warning');
     });
 
+    it('flags unsupported angular gradient strokes via svgTargetGaps', async () => {
+      const { svgTargetGaps } = await import('./svg');
+      const node = makeShapeNode(
+        'stroke-gap',
+        { kind: 'rect' },
+        {
+          strokes: [
+            {
+              color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+              weight: 2,
+              align: 'center',
+              dashPattern: [],
+              dashOffset: 0,
+              cap: 'round',
+              join: 'miter',
+              miterLimit: 4,
+              visible: true,
+              gradient: {
+                type: 'angular',
+                stops: [
+                  { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+                  { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+                ],
+              },
+            },
+          ],
+        },
+      );
+      const gap = svgTargetGaps(node, createDocument('Test')).find((entry) =>
+        entry.feature?.includes('angular gradient stroke'),
+      );
+      expect(gap?.severity).toBe('warning');
+    });
+
     it('uses raster asset when provided for angular gradient shape', () => {
       const node = makeShapeNode(
         'n1',

@@ -1631,6 +1631,29 @@ export function svgTargetGaps(
     });
   }
 
+  if (node.kind === 'shape') {
+    const nonLinearGradientStroke = node.strokes.find(
+      (stroke) =>
+        stroke.visible &&
+        stroke.gradient &&
+        stroke.gradient.type !== 'linear' &&
+        stroke.gradient.type !== 'radial',
+    );
+    if (nonLinearGradientStroke?.gradient) {
+      const gradType = nonLinearGradientStroke.gradient.type;
+      const flattened = flattenedNodes?.has(node.id);
+      gaps.push({
+        nodeId: node.id,
+        nodeName: node.name,
+        feature: `${gradType} gradient stroke`,
+        severity: flattened ? 'info' : 'warning',
+        fallback: flattened
+          ? 'Rasterized at export resolution — gradient stroke preserved as pixel-accurate image'
+          : 'Flatten to a raster bitmap for correct export, or use a linear/radial gradient stroke',
+      });
+    }
+  }
+
   if (fills.some((f) => f.type === 'pattern')) {
     gaps.push({
       nodeId: node.id,
