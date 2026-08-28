@@ -809,6 +809,8 @@ export interface ShapedRun {
   ascent: number;
   /** Maximum descent below baseline. */
   descent: number;
+  /** Preferred line-box height in px for rich-text runs, when specified. */
+  lineHeight?: number;
 }
 
 /**

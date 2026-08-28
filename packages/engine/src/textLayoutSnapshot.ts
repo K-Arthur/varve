@@ -32,6 +32,7 @@ export interface TextLayoutIdentity {
   fontRevision: string;
   maxWidth: number;
   lineHeight: number | null;
+  paragraphSpacing: number;
   direction: 'ltr' | 'rtl';
   language: string;
   featureKey: string;
@@ -125,6 +126,7 @@ export interface BuildTextLayoutSnapshotOptions {
   sourceRevision?: string;
   fontRevision?: string;
   lineHeight?: number;
+  paragraphSpacing?: number;
   language?: string;
   featureKey?: string;
   variationKey?: string;
@@ -144,6 +146,7 @@ export interface LayoutTextInput {
   sourceRevision?: string;
   fontRevision?: string;
   lineHeight?: number;
+  paragraphSpacing?: number;
   language?: string;
   featureKey?: string;
   variationKey?: string;
@@ -187,6 +190,7 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
     fontRevision: input.fontRevision ?? 'unknown',
     maxWidth,
     lineHeight: input.lineHeight ?? null,
+    paragraphSpacing: Math.max(0, input.paragraphSpacing ?? 0),
     direction: baseDirection,
     language: input.language ?? '',
     featureKey: input.featureKey ?? '',
@@ -211,7 +215,11 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
       paragraphMap,
     );
     const paragraphTop =
-      lines.length > 0 ? lines[lines.length - 1]!.top + lines[lines.length - 1]!.height : 0;
+      lines.length > 0
+        ? lines[lines.length - 1]!.top +
+          lines[lines.length - 1]!.height +
+          Math.max(0, input.paragraphSpacing ?? 0)
+        : 0;
     const positionedParagraphLines = paragraphLines.map((line) => shiftLine(line, paragraphTop));
     for (const line of positionedParagraphLines) lines.push(line);
     paragraphInfos.push({
@@ -466,7 +474,10 @@ function layoutParagraphLines(
   const lines: TextLayoutLine[] = [];
   let top = 0;
   for (const raw of rawLines) {
-    lines.push(positionLine(paragraph, raw, top, lineHeightOverride));
+    const runLineHeight = raw.units
+      .flatMap((unit) => unit.records)
+      .reduce((largest, record) => Math.max(largest, record.run.lineHeight ?? 0), 0);
+    lines.push(positionLine(paragraph, raw, top, Math.max(lineHeightOverride ?? 0, runLineHeight)));
     top += lines[lines.length - 1]!.height;
   }
   return lines;
@@ -697,6 +708,7 @@ export function buildTextLayoutSnapshot(
     sourceRevision: options.sourceRevision,
     fontRevision: options.fontRevision,
     lineHeight: options.lineHeight ?? shaping.height,
+    paragraphSpacing: options.paragraphSpacing,
     language: options.language,
     featureKey: options.featureKey,
     variationKey: options.variationKey,

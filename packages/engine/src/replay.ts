@@ -2466,6 +2466,7 @@ function paintRichText(
           fontStyle: p.fontStyle,
           letterSpacing: p.letterSpacing,
           tracking: p.tracking ?? 0,
+          lineHeight: p.lineHeight,
           direction: p.direction,
           language: p.language,
         },
@@ -2473,6 +2474,7 @@ function paintRichText(
         {
           maxWidth: p.textMode === 'area' ? p.w : 0,
           lineHeight: p.fontSize * p.lineHeight,
+          paragraphSpacing: p.paragraphSpacing,
           language: p.language,
         },
       );

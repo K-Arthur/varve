@@ -854,6 +854,89 @@ describe('replayIr', () => {
     expect(new Set(fallbackTextCalls.map((call) => call.split(',').at(-1))).size).toBe(1);
   });
 
+  it('keeps rich paragraph spacing in the painted line positions', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      primitive: {
+        kind: 'text',
+        x: 0,
+        y: 0,
+        w: 200,
+        h: 100,
+        text: 'A\nB',
+        fontSize: 16,
+        fontFamily: 'Inter',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textAlign: 'left',
+        textAlignVertical: 'top',
+        letterSpacing: 0,
+        lineHeight: 1.2,
+        paragraphSpacing: 12,
+        textCase: 'none',
+        textDecoration: 'none',
+        textOverflow: 'visible',
+        listStyle: 'none',
+        textMode: 'area',
+        richText: {
+          paragraphs: [{ runs: [{ text: 'A' }] }, { runs: [{ text: 'B' }] }],
+        },
+      },
+    };
+    const rec = new MeasuredRecorder();
+    replayIr(rec, [item]);
+    const yPositions = rec.calls
+      .filter((call) => call.startsWith('fillText('))
+      .map((call) => Number(call.slice(0, -1).split(',').at(-1)));
+    expect(yPositions).toHaveLength(2);
+    expect(yPositions[1]! - yPositions[0]!).toBeCloseTo(16 * 1.2 + 12);
+  });
+
+  it('uses the tallest rich run line height for the next paragraph', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      primitive: {
+        kind: 'text',
+        x: 0,
+        y: 0,
+        w: 200,
+        h: 100,
+        text: 'A\nB',
+        fontSize: 16,
+        fontFamily: 'Inter',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textAlign: 'left',
+        textAlignVertical: 'top',
+        letterSpacing: 0,
+        lineHeight: 1.2,
+        paragraphSpacing: 0,
+        textCase: 'none',
+        textDecoration: 'none',
+        textOverflow: 'visible',
+        listStyle: 'none',
+        textMode: 'area',
+        richText: {
+          paragraphs: [
+            { runs: [{ text: 'A', format: { fontSize: 24, lineHeight: 2 } }] },
+            { runs: [{ text: 'B' }] },
+          ],
+        },
+      },
+    };
+    const rec = new MeasuredRecorder();
+    replayIr(rec, [item]);
+    const yPositions = rec.calls
+      .filter((call) => call.startsWith('fillText('))
+      .map((call) => Number(call.slice(0, -1).split(',').at(-1)));
+    expect(yPositions).toHaveLength(2);
+    // The second baseline must move past the first line's 48px line box. The
+    // exact baseline delta also includes the two runs' different ascents.
+    expect(yPositions[1]! - yPositions[0]!).toBeGreaterThan(32);
+  });
+
   it('renders polygon via beginPath + polygon path + closePath + fill', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
