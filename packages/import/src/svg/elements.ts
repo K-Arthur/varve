@@ -194,13 +194,32 @@ function convertPath(
 ): { node: SceneNode; warnings: string[] } {
   const d = el.attrs.d ?? '';
   const parsed = parsePathData(d, opts.scale);
+  const contours = parsed.contours.length
+    ? parsed.contours
+    : [{ points: parsed.points, closed: parsed.closed }];
+  const outer = contours[0];
 
-  if (parsed.points.length < 2) {
+  if (!outer || outer.points.length < 2) {
     const node = makeShapeNode('', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Path' });
     return { node, warnings: ['Path too short'] };
   }
 
-  const shape: Shape = { kind: 'path', points: parsed.points, closed: parsed.closed, tolerance: 3 };
+  const style = parseCssStyle(el.attrs.style ?? '');
+  const rawFillRule = el.attrs['fill-rule'] ?? style['fill-rule'];
+  const fillRule =
+    rawFillRule?.toLowerCase() === 'evenodd' || rawFillRule?.toLowerCase() === 'nonzero'
+      ? (rawFillRule.toLowerCase() as 'evenodd' | 'nonzero')
+      : undefined;
+  const shape: Shape = {
+    kind: 'path',
+    points: outer.points,
+    // SVG fills implicitly close every subpath. Preserve an actually open
+    // single contour for stroke-only paths, but compound subpaths are regions.
+    closed: outer.closed || contours.length > 1,
+    tolerance: 3,
+    ...(contours.length > 1 ? { holes: contours.slice(1).map((contour) => contour.points) } : {}),
+    ...(fillRule ? { fillRule } : {}),
+  };
   const transform = composeTransforms(transforms);
 
   const node = makeShapeNode('', shape, {
@@ -331,6 +350,16 @@ function gradientTransformFromSvg(
   const xLength = objectBoundingBox ? 1 : bounds.w;
   const yLength = objectBoundingBox ? 1 : bounds.h;
   const coordinateScale = objectBoundingBox ? 1 : scale;
+  if (!objectBoundingBox) {
+    const percentageAttribute = ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r'].find((name) =>
+      def.attrs[name]?.trim().endsWith('%'),
+    );
+    if (percentageAttribute) {
+      warnings.push(
+        `SVG gradient #${def.attrs.id ?? '(anonymous)'} uses userSpaceOnUse percentages; the imported field is normalized to the target bounds`,
+      );
+    }
+  }
   const x = (name: string, fallback: number) =>
     svgGradientCoordinate(def.attrs[name], fallback, xLength, coordinateScale);
   const y = (name: string, fallback: number) =>
@@ -386,6 +415,13 @@ function gradientTransformFromSvg(
   if (radius <= 0) {
     warnings.push(`SVG gradient #${def.attrs.id ?? '(anonymous)'} has a non-positive radius`);
     return null;
+  }
+  const focalX = x('fx', cx);
+  const focalY = y('fy', cy);
+  if (Math.abs(focalX - cx) > 1e-9 || Math.abs(focalY - cy) > 1e-9) {
+    warnings.push(
+      `SVG gradient #${def.attrs.id ?? '(anonymous)'} has an off-centre focal point; the imported affine radial field uses the centre`,
+    );
   }
   // Canonical radial U/V endpoints are half a matrix column from its centre.
   const unitToGradient: Affine = [2 * radius, 0, 0, 2 * radius, cx - radius, cy - radius];

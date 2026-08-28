@@ -75,6 +75,21 @@ describe('parseSvg', () => {
     }
   });
 
+  it('preserves multiple SVG subpaths and their fill rule as a compound path', () => {
+    const result = parseSvg(
+      '<svg><path fill-rule="evenodd" d="M0 0H100V100H0ZM25 25H75V75H25Z" /></svg>',
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('shape');
+    if (node?.kind === 'shape' && node.shape.kind === 'path') {
+      expect(node.shape.closed).toBe(true);
+      expect(node.shape.points).toHaveLength(4);
+      expect(node.shape.holes).toHaveLength(1);
+      expect(node.shape.holes?.[0]).toHaveLength(4);
+      expect(node.shape.fillRule).toBe('evenodd');
+    }
+  });
+
   it('parses a group (g) element with children', () => {
     const result = parseSvg(
       '<svg><g transform="translate(10,20)"><rect x="0" y="0" width="50" height="30" fill="red" /><circle cx="25" cy="15" r="10" fill="blue" /></g></svg>',
@@ -169,6 +184,24 @@ describe('parseSvg', () => {
     expect(radial.document.nodes[radial.nodeIds[0]!]!.fills![0]!.gradient?.transform).toEqual([
       1, 0.25, -0.4, 0.75, 9, 11,
     ]);
+  });
+
+  it('reports SVG radial focal points that cannot be represented by an affine field', () => {
+    const result = parseSvg(
+      '<svg><defs><radialGradient id="r" cx="50%" cy="50%" fx="25%" fy="40%"><stop offset="0" stop-color="white"/><stop offset="1" stop-color="black"/></radialGradient></defs><rect width="100" height="80" fill="url(#r)"/></svg>',
+    );
+    expect(result.warnings).toContain(
+      'SVG gradient #r has an off-centre focal point; the imported affine radial field uses the centre',
+    );
+  });
+
+  it('reports user-space percentage gradients that need viewport context', () => {
+    const result = parseSvg(
+      '<svg width="200" height="100"><defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="10%" x2="90%"><stop offset="0" stop-color="red"/><stop offset="1" stop-color="blue"/></linearGradient></defs><rect width="100" height="50" fill="url(#g)"/></svg>',
+    );
+    expect(result.warnings).toContain(
+      'SVG gradient #g uses userSpaceOnUse percentages; the imported field is normalized to the target bounds',
+    );
   });
 
   it('imports radial SVG gradients and warns on unsupported paint references', () => {
