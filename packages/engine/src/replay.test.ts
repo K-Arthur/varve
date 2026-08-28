@@ -1775,6 +1775,42 @@ describe('replayIr', () => {
     expect(fillCalls[0]).not.toContain('one two three four');
   });
 
+  it('keeps ellipsis text inside the area frame', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      primitive: {
+        kind: 'text',
+        text: 'one\ntwo\nthree',
+        fontSize: 16,
+        fontFamily: 'Inter',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textAlign: 'left',
+        textAlignVertical: 'top',
+        letterSpacing: 0,
+        lineHeight: 1.4,
+        paragraphSpacing: 0,
+        textCase: 'none',
+        textDecoration: 'none',
+        textOverflow: 'ellipsis',
+        listStyle: 'none',
+        textMode: 'area',
+        x: 0,
+        y: 0,
+        w: 100,
+        h: 30,
+      },
+    };
+    const rec = new Recorder();
+    replayIr(rec, [item]);
+    const fillCalls = rec.calls.filter((call) => call.startsWith('fillText'));
+
+    expect(rec.calls).toContain('clip');
+    expect(fillCalls).toHaveLength(1);
+    expect(fillCalls[0]).toContain('one…');
+  });
+
   it('applies firstLineIndent to the first line only', () => {
     const items: RenderItem[] = [
       {

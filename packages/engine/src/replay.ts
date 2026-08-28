@@ -2955,6 +2955,17 @@ function effectiveWeight(p: { fontWeight: number; variableAxes?: Record<string, 
   return Math.max(1, Math.min(1000, weight));
 }
 
+function ellipsizeText(text: string, maxWidth: number, measure: (value: string) => number): string {
+  const suffix = '…';
+  if (maxWidth <= 0 || measure(suffix) > maxWidth) return '';
+  const clusters = Array.from(text);
+  if (measure(text + suffix) <= maxWidth) return text + suffix;
+  while (clusters.length > 0 && measure(`${clusters.join('')}${suffix}`) > maxWidth) {
+    clusters.pop();
+  }
+  return `${clusters.join('')}${suffix}`;
+}
+
 /** Paint a text primitive via Canvas2D `fillText` with full typography support. */
 function paintText(
   target: ReplayTarget,
@@ -3107,12 +3118,26 @@ function paintText(
   const ls = p.letterSpacing;
   const tr = ((p.tracking ?? 0) * p.fontSize) / 1000;
 
+  const constrainedOverflow =
+    p.textMode === 'area' && (p.textOverflow === 'clip' || p.textOverflow === 'ellipsis');
+  const shouldClipToFrame = constrainedOverflow && p.w > 0 && p.h > 0;
+  if (shouldClipToFrame) {
+    target.save();
+    target.beginPath();
+    target.rect(p.x, p.y, p.w, p.h);
+    target.clip();
+  }
+
   // Compute text overflow: visible text
   const visibleLines: Array<{ text: string; y: number }> = [];
   const currentY = p.y;
+  let hasVerticalOverflow = false;
   for (let i = 0; i < lines.length; i++) {
     const yPos = currentY + i * lh + (i > 0 ? ps : 0);
-    if (p.textOverflow === 'clip' && yPos + lh > p.y + p.h) break;
+    if (constrainedOverflow && yPos + lh > p.y + p.h) {
+      hasVerticalOverflow = true;
+      break;
+    }
     visibleLines.push({ text: lines[i] ?? '', y: yPos });
   }
 
@@ -3132,9 +3157,9 @@ function paintText(
 
     // Handle overflow ellipsis
     let displayLine = text;
-    if (p.textOverflow === 'ellipsis') {
+    if (p.textOverflow === 'ellipsis' && (hasVerticalOverflow || measureLine(text) > p.w)) {
       target.font = `${style}${fw} ${p.fontSize}px "${p.fontFamily}"`;
-      displayLine = text + (text.length > 0 && y + lh > p.y + p.h ? '…' : '');
+      displayLine = ellipsizeText(text, p.w, measureLine);
     }
 
     // Calculate x origin based on text alignment within the box
@@ -3232,6 +3257,8 @@ function paintText(
       target.stroke();
     }
   }
+
+  if (shouldClipToFrame) target.restore();
 }
 
 /** Module-level cached canvas + context for measureText calls (created lazily). */
