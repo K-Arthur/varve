@@ -17,8 +17,15 @@
 
 import type { PathPoint } from '@varve/engine';
 import type { SceneNode, ShapeNode } from '@varve/scene';
+import { nodeLocalBounds } from '@varve/scene';
+import { type Affine, transformLinkedGradient } from '@varve/shared';
 
 export function resizeNodeGeometry(n: SceneNode, w: number, h: number): SceneNode {
+  return preserveGradientGeometry(n, resizeNodeGeometryRaw(n, w, h));
+}
+
+/** Resize primitive geometry without touching appearance fields. */
+function resizeNodeGeometryRaw(n: SceneNode, w: number, h: number): SceneNode {
   if (n.kind === 'frame') return { ...n, w, h };
   if (n.kind === 'text') return { ...n, w, h };
   if (n.kind !== 'shape') return n;
@@ -120,4 +127,69 @@ export function resizeNodeGeometry(n: SceneNode, w: number, h: number): SceneNod
     default:
       return n;
   }
+}
+
+/**
+ * Keep linked gradient fields in lockstep with a bounds-relative geometry
+ * resize (inspector edits and auto-layout reflow). TransformEngine has a
+ * separate bake path, but layout callers also mutate primitive dimensions;
+ * both paths must preserve the same authored fill field.
+ */
+function preserveGradientGeometry(before: SceneNode, resized: SceneNode): SceneNode {
+  const beforeBounds = nodeLocalBounds(before);
+  const afterBounds = nodeLocalBounds(resized);
+  if (
+    !beforeBounds ||
+    !afterBounds ||
+    (beforeBounds.x === afterBounds.x &&
+      beforeBounds.y === afterBounds.y &&
+      beforeBounds.w === afterBounds.w &&
+      beforeBounds.h === afterBounds.h)
+  ) {
+    return resized;
+  }
+  if (beforeBounds.w === 0 || beforeBounds.h === 0) return resized;
+
+  const resizeTransform: Affine = [
+    afterBounds.w / beforeBounds.w,
+    0,
+    0,
+    afterBounds.h / beforeBounds.h,
+    afterBounds.x - (afterBounds.w / beforeBounds.w) * beforeBounds.x,
+    afterBounds.y - (afterBounds.h / beforeBounds.h) * beforeBounds.y,
+  ];
+  const resizedAny = resized as unknown as { fills?: unknown; strokes?: unknown };
+  const fills = Array.isArray(resizedAny.fills)
+    ? resizedAny.fills.map((fill: unknown) => {
+        if (!fill || typeof fill !== 'object') return fill;
+        const candidate = fill as {
+          type?: string;
+          gradient?: Parameters<typeof transformLinkedGradient>[0];
+        };
+        if (candidate.type !== 'gradient' || !candidate.gradient) return fill;
+        return {
+          ...candidate,
+          gradient: transformLinkedGradient(candidate.gradient, beforeBounds, resizeTransform),
+        };
+      })
+    : resizedAny.fills;
+  const strokes = Array.isArray(resizedAny.strokes)
+    ? resizedAny.strokes.map((stroke: unknown) => {
+        if (!stroke || typeof stroke !== 'object') return stroke;
+        const candidate = stroke as {
+          gradient?: Parameters<typeof transformLinkedGradient>[0];
+        };
+        if (!candidate.gradient) return stroke;
+        return {
+          ...candidate,
+          gradient: transformLinkedGradient(candidate.gradient, beforeBounds, resizeTransform),
+        };
+      })
+    : resizedAny.strokes;
+
+  return {
+    ...resized,
+    ...(Array.isArray(fills) ? { fills } : {}),
+    ...(Array.isArray(strokes) ? { strokes } : {}),
+  } as SceneNode;
 }

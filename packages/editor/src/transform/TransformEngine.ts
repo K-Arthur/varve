@@ -482,16 +482,6 @@ export class TransformEngine {
                 Math.abs(result.h - childBounds.h) > 0.001;
               if (dimChanged) {
                 updatedChild = resizeNodeGeometry(child, result.w, result.h);
-                const scaleChildX = childBounds.w === 0 ? 1 : result.w / childBounds.w;
-                const scaleChildY = childBounds.h === 0 ? 1 : result.h / childBounds.h;
-                updatedChild = this.transformGradientPaintsForBake(updatedChild, childBounds, [
-                  scaleChildX,
-                  0,
-                  0,
-                  scaleChildY,
-                  0,
-                  0,
-                ]);
               }
 
               updates[childId] = {
