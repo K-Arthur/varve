@@ -519,6 +519,71 @@ describe('gradient fill rendering', () => {
     globalThis.OffscreenCanvas = OrigOC;
   });
 
+  it('tiled gradients apply the complete affine field to the pattern', () => {
+    const OrigOC = globalThis.OffscreenCanvas;
+    globalThis.OffscreenCanvas = class MockOC {
+      width: number;
+      height: number;
+      constructor(w: number, h: number) {
+        this.width = w;
+        this.height = h;
+      }
+      getContext() {
+        return {
+          createLinearGradient: () => ({ addColorStop: () => {} }),
+          fillStyle: '',
+          fillRect: () => {},
+          drawImage: () => {},
+          save: () => {},
+          restore: () => {},
+          scale: () => {},
+          translate: () => {},
+        } as unknown as OffscreenCanvasRenderingContext2D;
+      }
+    } as unknown as typeof OffscreenCanvas;
+
+    const rec = recorder();
+    let applied: { a: number; b: number; c: number; d: number; e: number; f: number } | undefined;
+    rec.target.createPattern = () =>
+      ({
+        setTransform(transform: typeof applied) {
+          applied = transform;
+        },
+      }) as unknown as CanvasPattern;
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'gradient',
+          gradientType: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+          rotation: 0,
+          transform: [120, 30, -10, 60, 12, 8],
+          tilingMode: 'repeat',
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+    };
+
+    replayIr(rec.target, [item]);
+    expect(applied).toEqual({
+      a: 120 / 256,
+      b: 30 / 256,
+      c: -10 / 256,
+      d: 60 / 256,
+      e: 12,
+      f: 8,
+    });
+    globalThis.OffscreenCanvas = OrigOC;
+  });
+
   it('gradient with tilingMode undefined uses standard gradient (no createPattern)', () => {
     const rec = recorder();
     const item: RenderItem = {

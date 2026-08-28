@@ -17,6 +17,7 @@ import {
   gradientTransformForBounds,
   managedColorToNormalized,
   managedColorToRgba,
+  multiplyAffine,
 } from '@varve/shared';
 import { blendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { deserializeDepthMap, resizeDepthMap } from './depthMap';
@@ -1920,33 +1921,16 @@ function paintTiledGradientFill(
 ): void {
   const bounds = primitiveBounds(item.primitive);
   if (bounds.w <= 0 || bounds.h <= 0) return;
-  // Normalize rotation to [0, 360) so out-of-range values don't escape
-  let rot = ((((fill.rotation % 360) + 360) % 360) * Math.PI) / 180;
-  let cx = (bounds.x + bounds.w) / 2;
-  let cy = (bounds.y + bounds.h) / 2;
-  const halfDiag = Math.sqrt(bounds.w * bounds.w + bounds.h * bounds.h) / 2;
-  if (fill.transform) {
-    const t = fill.transform;
-    const du = t[0] * halfDiag;
-    const dv = t[1] * halfDiag;
-    cx = bounds.x + t[4];
-    cy = bounds.y + t[5];
-    rot = Math.atan2(dv, du);
-  }
-  const dx = Math.cos(rot) * halfDiag;
-  const dy = Math.sin(rot) * halfDiag;
-
-  // Build expanded stops (perceptual interpolation)
+  // Render one canonical unit-space tile, then map its pixels through the
+  // complete fill affine. Reducing this field to centre + angle would discard
+  // radial scale and skew, causing tiled fills to drift from normal replay.
+  const unitSize = 256;
+  const periodUnits = tilingMode === 'reflect' ? 2 : 1;
+  const tileWidth = unitSize * periodUnits;
   const expanded = expandGradientStopsForFill(fill);
 
-  // Determine tile canvas size
-  // For linear: tile is along gradient direction
-  // For radial: tile is a square of 2*halfDiag
-
   const canvas =
-    typeof OffscreenCanvas !== 'undefined'
-      ? new OffscreenCanvas(Math.max(1, Math.ceil(bounds.w)), Math.max(1, Math.ceil(bounds.h)))
-      : null;
+    typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(tileWidth, unitSize) : null;
 
   if (!canvas) {
     // Fallback: render gradient without tiling
@@ -1962,132 +1946,54 @@ function paintTiledGradientFill(
     return;
   }
 
-  if (fill.gradientType === 'radial' || fill.gradientType === 'diamond') {
-    const tileSize = Math.ceil(halfDiag * 2);
-    const tileCanvas =
-      typeof OffscreenCanvas !== 'undefined'
-        ? new OffscreenCanvas(Math.max(1, tileSize), Math.max(1, tileSize))
-        : null;
-    if (!tileCanvas) {
-      target.fillStyle = createGradientStyle(target, fill, item);
-      paintShapeFill(target, item);
-      return;
-    }
-    const tileCtx = tileCanvas.getContext('2d');
-    if (!tileCtx) {
-      target.fillStyle = createGradientStyle(target, fill, item);
-      paintShapeFill(target, item);
-      return;
-    }
-    const grad = tileCtx.createRadialGradient(
-      tileSize / 2,
-      tileSize / 2,
-      0,
-      tileSize / 2,
-      tileSize / 2,
-      tileSize / 2,
-    );
-    for (const s of expanded) {
-      grad.addColorStop(s.position, rgbaWorking(s.color));
-    }
-    tileCtx.fillStyle = grad;
-    tileCtx.fillRect(0, 0, tileSize, tileSize);
-    if (tilingMode === 'reflect') {
-      // Mirror the tile horizontally for reflect
-      const doubleCanvas =
-        typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(tileSize * 2, tileSize) : null;
-      if (doubleCanvas) {
-        const dCtx = doubleCanvas.getContext('2d');
-        if (dCtx) {
-          // Draw forward tile
-          dCtx.drawImage(tileCanvas, 0, 0);
-          // Draw mirrored tile
-          dCtx.save();
-          dCtx.translate(tileSize * 2, 0);
-          dCtx.scale(-1, 1);
-          dCtx.drawImage(tileCanvas, 0, 0);
-          dCtx.restore();
-          if (target.createPattern) {
-            const pattern = target.createPattern(
-              doubleCanvas as unknown as CanvasImageSource,
-              'repeat',
-            );
-            if (pattern) {
-              target.fillStyle = pattern;
-              paintShapeFill(target, item);
-              return;
-            }
-          }
-        }
-      }
-    }
-    if (target.createPattern) {
-      const pattern = target.createPattern(tileCanvas as unknown as CanvasImageSource, 'repeat');
-      if (pattern) {
-        target.fillStyle = pattern;
-        paintShapeFill(target, item);
-        return;
-      }
-    }
-  }
-
-  if (fill.gradientType === 'angular') {
-    target.fillStyle = createGradientStyle(target, fill, item);
-    paintShapeFill(target, item);
-    return;
-  }
-
-  // Paint the gradient across the canvas
-  const grad = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
-  for (const s of expanded) {
-    grad.addColorStop(s.position, rgbaWorking(s.color));
-  }
+  const center = unitSize / 2;
+  const grad =
+    fill.gradientType === 'radial' || fill.gradientType === 'diamond'
+      ? ctx.createRadialGradient(center, center, 0, center, center, center)
+      : fill.gradientType === 'angular' && ctx.createConicGradient
+        ? ctx.createConicGradient(0, center, center)
+        : ctx.createLinearGradient(0, center, unitSize, center);
+  for (const s of expanded) grad.addColorStop(s.position, rgbaWorking(s.color));
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, bounds.w, bounds.h);
+  ctx.fillRect(0, 0, unitSize, unitSize);
 
   if (tilingMode === 'reflect') {
-    // Mirror tiles horizontally
-    const finalCanvas =
-      typeof OffscreenCanvas !== 'undefined'
-        ? new OffscreenCanvas(
-            Math.max(1, Math.ceil(bounds.w * 2)),
-            Math.max(1, Math.ceil(bounds.h)),
-          )
-        : null;
-    if (finalCanvas) {
-      const fCtx = finalCanvas.getContext('2d');
-      if (fCtx) {
-        fCtx.drawImage(canvas, 0, 0);
-        fCtx.save();
-        fCtx.translate(bounds.w * 2, 0);
-        fCtx.scale(-1, 1);
-        fCtx.drawImage(canvas, 0, 0);
-        fCtx.restore();
-        if (target.createPattern) {
-          const pattern = target.createPattern(
-            finalCanvas as unknown as CanvasImageSource,
-            'repeat',
-          );
-          if (pattern) {
-            target.fillStyle = pattern;
-            paintShapeFill(target, item);
-            return;
-          }
-        }
-      }
-    }
+    // The second half of a reflect period is the first tile mirrored across
+    // the canonical +u axis. Keeping it in gradient-local space means the
+    // same authored affine is used for both halves.
+    ctx.save();
+    ctx.translate(tileWidth, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(canvas, 0, 0, unitSize, unitSize, 0, 0, unitSize, unitSize);
+    ctx.restore();
   }
 
   if (target.createPattern) {
     const pattern = target.createPattern(canvas as unknown as CanvasImageSource, 'repeat');
     if (pattern) {
-      target.fillStyle = pattern;
-    } else {
-      target.fillStyle = createGradientStyle(target, fill, item);
+      const transform = gradientTransformForBounds(fill, bounds);
+      const patternTransform = multiplyAffine(transform, [1 / unitSize, 0, 0, 1 / unitSize, 0, 0]);
+      if (typeof (pattern as unknown as ReplayPattern).setTransform === 'function') {
+        try {
+          (pattern as unknown as ReplayPattern).setTransform({
+            a: patternTransform[0],
+            b: patternTransform[1],
+            c: patternTransform[2],
+            d: patternTransform[3],
+            e: patternTransform[4],
+            f: patternTransform[5],
+          });
+          target.fillStyle = pattern as unknown as CanvasPattern;
+          paintShapeFill(target, item);
+          return;
+        } catch {
+          // Older CanvasPattern implementations lack setTransform; retain the
+          // safe non-tiled replay rather than displaying stale pixels.
+        }
+      }
     }
-  } else {
-    target.fillStyle = createGradientStyle(target, fill, item);
   }
+  target.fillStyle = createGradientStyle(target, fill, item);
   paintShapeFill(target, item);
 }
 
