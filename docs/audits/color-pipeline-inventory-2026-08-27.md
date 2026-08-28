@@ -117,8 +117,10 @@ source encoding (RasterColorEncoding)
    - Native CMYK bypasses RGB correctly in print, but other paths don't
 
 8. **No unified ColorManagementProvider** (§51 of spec)
-   - TS analytical, Rust tintbox, and export profile builders are separate
-   - No transform caching (§46 of spec)
+   - TS analytical, Rust tintbox, and export profile builders are still separate;
+     the analytical raster provider now reuses compiled transforms through a bounded cache
+     (`packages/engine/src/rasterColor/transform.ts`), but native/WASM provider selection is
+     not yet unified behind one runtime registry.
 
 9. **Resolved — profile fingerprint persistence** (§47 of spec)
    - Imported ICC payloads have a SHA-256 fingerprint, which is carried into registry entries,

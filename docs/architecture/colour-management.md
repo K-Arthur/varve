@@ -188,6 +188,11 @@ alpha remains untouched. CMYKA buffers are a distinct five-channel representatio
 deliberately rejected by the RGB transform: RGB↔CMYK needs a declared destination ICC
 profile/provider, not a four-channel reinterpretation.
 
+Compiled analytical raster transforms are memoized in a bounded 64-entry cache keyed by
+source/target model, primaries, and transfer function. The cache is safe to share because
+compiled transforms are immutable; profile fingerprints remain metadata on the source and
+target encodings rather than changing the analytical matrix.
+
 The WebGPU solid-vector upload adapter uses the same normalized conversion
 for RGB, CMYK, Gray, Spot, and float colors. This prevents normalized float
 channels from being divided by 255 a second time. The WebGPU canvas target is
