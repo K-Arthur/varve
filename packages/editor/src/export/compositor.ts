@@ -23,6 +23,7 @@ import type { RasterAsset } from '@varve/codegen';
 import {
   adjustmentsToFilters,
   anyRequiresRasterExport,
+  applyRasterizationTransform,
   createEngine,
   createRasterSurface,
   type Engine,
@@ -956,11 +957,23 @@ async function renderBoundaryToSurface(
 
   const ctx = surface.context as CanvasRenderingContext2D;
   ctx.save();
-  ctx.scale(exportScale, exportScale);
-  // The surface is padded by the effect expansion; anchor the content at
-  // the expansion offset so the source bounds land at their true position
-  // inside the padded image.
-  ctx.translate(-bounds.x + (expansion?.left ?? 0), -bounds.y + (expansion?.top ?? 0));
+  // The raster surface is the final crop boundary. Resolve independent X/Y
+  // scales from its rounded backing-store dimensions so effect expansion and
+  // source bounds map to every output edge exactly.
+  const left = expansion?.left ?? 0;
+  const top = expansion?.top ?? 0;
+  const right = expansion?.right ?? 0;
+  const bottom = expansion?.bottom ?? 0;
+  applyRasterizationTransform(
+    ctx,
+    {
+      x: bounds.x - left,
+      y: bounds.y - top,
+      width: bounds.w + left + right,
+      height: bounds.h + top + bottom,
+    },
+    { width: surface.canvas.width, height: surface.canvas.height },
+  );
   replayStructuredScene(ctx, {
     document: doc,
     rootIds: [boundaryNodeId],

@@ -80,6 +80,7 @@ export * from './interaction-types';
 export * from './interactions';
 export * from './layerStates';
 export * from './library';
+export * from './liveBoolean';
 export * from './liveTrace';
 export * from './logo/logoProject';
 export * from './maskCapability';

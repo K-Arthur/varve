@@ -978,6 +978,13 @@ export type {
   RasterTraceResult,
 } from './rasterTrace';
 export { quantizeExactPalette, quantizePalette, traceRasterToPaths } from './rasterTrace';
+export type {
+  RasterizationTransform,
+  RasterSourceBounds,
+  RasterTargetDimensions,
+  RasterTransformContext,
+} from './rasterTransform';
+export { applyRasterizationTransform, sourceBoundsToRasterTransform } from './rasterTransform';
 export type { EffectMaskResolver, ReplayColorOptions, ReplayTarget } from './replay';
 export { primitiveBounds, renderAlphaMask, replayIr, resetGradientCacheForTest } from './replay';
 export type {

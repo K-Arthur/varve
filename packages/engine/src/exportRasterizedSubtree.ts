@@ -19,6 +19,7 @@
 import { totalEffectExpansion } from './adjustmentPipeline';
 import { applyFilterWithCompositing } from './filterCompositor';
 import { createRasterSurface, type RasterSurface } from './rasterSurface';
+import { applyRasterizationTransform } from './rasterTransform';
 import type { FilterIR } from './types';
 
 /**
@@ -117,27 +118,43 @@ export async function exportRasterizedSubtree(
   }
 
   const { context, canvas } = surface;
+  const outputWidth = canvas.width;
+  const outputHeight = canvas.height;
 
   // Paint background if specified
   const bg = opts.backgroundColor;
   if (bg && bg[3]! > 0) {
     context.fillStyle = `rgba(${bg[0]},${bg[1]},${bg[2]},${bg[3]! / 255})`;
-    context.fillRect(0, 0, expPixelW, expPixelH);
+    context.fillRect(0, 0, outputWidth, outputHeight);
   }
 
   // Render base content (shifted by expansion offset)
   context.save();
-  context.translate(expL * scale, expT * scale);
-  context.scale(scale, scale);
+  applyRasterizationTransform(
+    context,
+    {
+      x: -expL,
+      y: -expT,
+      width: expandedCssW,
+      height: expandedCssH,
+    },
+    { width: outputWidth, height: outputHeight },
+  );
   renderTarget(context as CanvasRenderingContext2D);
   context.restore();
 
   // Apply filter stack at full export quality — never interactive preview
   // quality (see docs/architecture/live-effects-system.md).
   if (filters.length > 0) {
-    applyFilterWithCompositing(context as CanvasRenderingContext2D, filters, expPixelW, expPixelH, {
-      quality: 'export',
-    });
+    applyFilterWithCompositing(
+      context as CanvasRenderingContext2D,
+      filters,
+      outputWidth,
+      outputHeight,
+      {
+        quality: 'export',
+      },
+    );
   }
 
   // Encode to PNG data URL
@@ -181,23 +198,39 @@ export function exportRasterizedSubtreeSync(
   }
 
   const { context, canvas } = surface;
+  const outputWidth = canvas.width;
+  const outputHeight = canvas.height;
 
   const bg = opts.backgroundColor;
   if (bg && bg[3]! > 0) {
     context.fillStyle = `rgba(${bg[0]},${bg[1]},${bg[2]},${bg[3]! / 255})`;
-    context.fillRect(0, 0, expPixelW, expPixelH);
+    context.fillRect(0, 0, outputWidth, outputHeight);
   }
 
   context.save();
-  context.translate(expL * scale, expT * scale);
-  context.scale(scale, scale);
+  applyRasterizationTransform(
+    context,
+    {
+      x: -expL,
+      y: -expT,
+      width: expandedCssW,
+      height: expandedCssH,
+    },
+    { width: outputWidth, height: outputHeight },
+  );
   renderTarget(context as CanvasRenderingContext2D);
   context.restore();
 
   if (filters.length > 0) {
-    applyFilterWithCompositing(context as CanvasRenderingContext2D, filters, expPixelW, expPixelH, {
-      quality: 'export',
-    });
+    applyFilterWithCompositing(
+      context as CanvasRenderingContext2D,
+      filters,
+      outputWidth,
+      outputHeight,
+      {
+        quality: 'export',
+      },
+    );
   }
 
   const dataUrl = surfaceToDataUrlSync(canvas);

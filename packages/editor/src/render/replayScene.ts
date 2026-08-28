@@ -33,7 +33,12 @@ import {
 } from '@varve/engine';
 import { isRasterPyramidEnabled, setRasterPyramidEnabled } from '@varve/engine/rasterPyramid';
 import type { Document, Effect, ManagedColor, Mask, NodeId } from '@varve/scene';
-import { activeSmartFilters, nodeEffectPadding, resolveAdjustmentScope } from '@varve/scene';
+import {
+  activeSmartFilters,
+  isLiveBooleanNode,
+  nodeEffectPadding,
+  resolveAdjustmentScope,
+} from '@varve/scene';
 import { managedColorToRgba, tryInvertAffine } from '@varve/shared';
 import { applyAdjustmentSpatialMask } from '../canvas/maskReplay';
 import { nodeWorldTransform } from '../scene/world';
@@ -362,6 +367,14 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
     const item = itemById.get(nodeId);
 
     const mask: Mask | null = 'mask' in node && node.mask?.visible ? node.mask : null;
+    // `flattenSceneToEngine` resolves live Boolean groups to one render item
+    // under the group's id. Structural replay must make the same substitution
+    // instead of painting its editable source children individually.
+    if (isLiveBooleanNode(node)) {
+      if (item) replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
+      return;
+    }
+
     const maskSourceId =
       mask?.sourceNodeId ??
       (mask?.matteSource?.kind === 'scene-node' ? mask.matteSource.nodeId : undefined);

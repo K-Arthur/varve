@@ -36,9 +36,37 @@ preflight uses the lower axis. Rotation and translation do not lower density.
 
 PDF/SVG retain vector content where the format/backend supports it. PPI is
 relevant to their embedded raster assets and raster fallback regions, not to a
-generic page-wide bitmap. The browser canvas encoders currently provide output
-pixel dimensions but do not guarantee embedded PNG/JPEG/WebP density metadata;
-the UI therefore does not claim that metadata was written.
+generic page-wide bitmap. Canvas encoders provide the output pixel dimensions
+but are not relied on for density metadata: the final PNG byte stream receives
+a controlled `pHYs` chunk when the export has an explicit output PPI. JPEG and
+WebP density metadata are not currently authored, so the UI must not claim it
+was embedded for those formats.
+
+## Raster crop transform and pixel convention
+
+Every raster surface is an output-space crop, never an antialiased vector
+rectangle. Given source bounds `{ x, y, width, height }` and an already
+allocated target `{ pixelWidth, pixelHeight }`, rasterization uses one affine
+mapping:
+
+```text
+scaleX = pixelWidth / width
+scaleY = pixelHeight / height
+translateX = -x × scaleX
+translateY = -y × scaleY
+```
+
+This maps the source endpoints exactly to `[0, pixelWidth] × [0,
+pixelHeight]`. Width and height are independently resolved after the canonical
+nearest-pixel rounding policy, so a width-derived scale must never be reused
+for the vertical axis. The backing surface clips output to `[0, pixelWidth) ×
+[0, pixelHeight)`; artwork that reaches that crop boundary has full coverage
+there, while internal diagonal/vector edges keep normal Canvas anti-aliasing.
+
+There is no device-pixel-ratio multiplier in export and no blanket `+0.5`
+translation. DPR belongs to an interactive display backing store, not a
+requested export bitmap; a half-pixel adjustment is only valid for a specific
+primitive/raster API convention and is not part of this general mapping.
 
 ## Batch export
 

@@ -5,6 +5,7 @@
 
 import { exportNodeToSvg } from '@varve/codegen';
 import {
+  applyRasterizationTransform,
   awaitExportsReady,
   collectFontData,
   convertExportImageData,
@@ -214,8 +215,8 @@ export async function exportNodeAsRaster(
   const bbox = exportWorldBounds(node, doc, flattened.ids, ir);
 
   let scale = opts.scale;
-  const requestedW = Math.max(Math.ceil(bbox.w * scale), 1);
-  const requestedH = Math.max(Math.ceil(bbox.h * scale), 1);
+  const requestedW = Math.max(Math.round(bbox.w * scale), 1);
+  const requestedH = Math.max(Math.round(bbox.h * scale), 1);
   const fitted = fitRasterDimensions(requestedW, requestedH);
   const w = fitted.width;
   const h = fitted.height;
@@ -236,8 +237,16 @@ export async function exportNodeAsRaster(
     ctx.fillRect(0, 0, w, h);
   }
 
-  ctx.scale(scale, scale);
-  ctx.translate(-bbox.x, -bbox.y);
+  applyRasterizationTransform(
+    ctx,
+    {
+      x: bbox.x,
+      y: bbox.y,
+      width: bbox.w,
+      height: bbox.h,
+    },
+    { width: w, height: h },
+  );
 
   replayStructuredScene(ctx, {
     document: doc,

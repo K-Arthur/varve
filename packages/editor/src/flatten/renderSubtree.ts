@@ -8,6 +8,7 @@
  */
 
 import {
+  applyRasterizationTransform,
   createRasterSurface,
   encodeRasterSurface,
   fitRasterDimensions,
@@ -64,7 +65,6 @@ export async function flattenNodes(
 
   const pixelW = fitted.width;
   const pixelH = fitted.height;
-  const actualScale = pixelW / cssW;
 
   if (fitted.constrainedBy.length > 0) {
     warnings.push({
@@ -92,8 +92,19 @@ export async function flattenNodes(
   }
 
   surface.context.save();
-  surface.context.scale(actualScale, actualScale);
-  surface.context.translate(-sourceBounds.x, -sourceBounds.y);
+  // The target dimensions are independently rounded. Map the source bounds
+  // onto the allocated raster extent exactly instead of deriving one scale
+  // from width and accidentally leaving a bottom/right seam.
+  applyRasterizationTransform(
+    surface.context,
+    {
+      x: sourceBounds.x,
+      y: sourceBounds.y,
+      width: cssW,
+      height: cssH,
+    },
+    { width: pixelW, height: pixelH },
+  );
 
   for (const nodeId of nodeIds) {
     if (options.signal?.aborted) {

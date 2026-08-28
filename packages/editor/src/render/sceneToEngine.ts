@@ -31,8 +31,10 @@ import {
   createVariableStore,
   getEffectiveNode,
   isExportRegion,
+  isLiveBooleanNode,
   nodeLocalBoundsSource,
   resolveAllStyles,
+  resolveLiveBooleanShape,
   resolveNodePaints,
   resolveRasterMaskAsset,
   nodeWorldTransform as sceneLocalWorldTransform,
@@ -497,6 +499,16 @@ export function flattenSceneToEngine(
       });
       ids.push(id);
       nodes.push(compiled as unknown as EngineNode);
+    } else if (isLiveBooleanNode(effective)) {
+      const resolved = resolveLiveBooleanShape(document, id);
+      if (resolved) {
+        // The derived shape is already expressed in placed-world coordinates.
+        // Keep the live group's id so structural replay can replace its source
+        // children with the same resolved render item.
+        ids.push(id);
+        nodes.push(sceneNodeToEngineNode(resolved, options, document));
+        return;
+      }
     } else if (effective.kind !== 'group') {
       let engineNode = sceneNodeToEngineNode(effective, options, document);
       engineNode = {

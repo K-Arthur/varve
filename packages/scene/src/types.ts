@@ -1397,6 +1397,18 @@ export interface GroupNode extends NodeBase {
    * content hash for staleness checks.
    */
   traceMetadata?: TraceMetadata;
+  /**
+   * Non-destructive Pathfinder state. The group's direct children are the
+   * ordered operands; renderer/export resolvers derive the visible compound
+   * geometry from them and never serialize a copied result as authority.
+   */
+  boolean?: LiveBooleanState;
+}
+
+/** A live Boolean group evaluates its direct children in this operation. */
+export interface LiveBooleanState {
+  schemaVersion: 1;
+  operation: 'union' | 'subtract' | 'intersect' | 'exclude';
 }
 
 /**
@@ -1758,6 +1770,13 @@ export type ContainerNode = GroupNode | FrameNode;
 /** True if the node is a container (has a children array). */
 export function isContainer(node: SceneNode): node is ContainerNode {
   return node.kind === 'frame' || node.kind === 'group';
+}
+
+/** True when a group is a non-destructive Boolean container. */
+export function isLiveBooleanNode(
+  node: SceneNode,
+): node is GroupNode & { boolean: LiveBooleanState } {
+  return node.kind === 'group' && node.boolean !== undefined;
 }
 
 /**

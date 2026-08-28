@@ -51,6 +51,7 @@ export function makeGroupNode(
       | 'order'
       | 'isolated'
       | 'effects'
+      | 'boolean'
     >
   > = {},
 ): GroupNode {
@@ -70,6 +71,7 @@ export function makeGroupNode(
     children: opts.children ?? [],
     isolated: opts.isolated,
     effects: opts.effects ?? [],
+    ...(opts.boolean ? { boolean: opts.boolean } : {}),
   };
 }
 
