@@ -1,5 +1,12 @@
 // @ts-nocheck
 import type { Affine } from '@varve/shared';
+import {
+  applyAffine,
+  gradientTransformForBounds,
+  linearGradientHandles,
+  multiplyAffine,
+  radialGradientHandles,
+} from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { TransformEngine } from '../TransformEngine';
 
@@ -616,5 +623,180 @@ describe('TransformEngine — authoritative vector geometry baking', () => {
     expect(shape.points[1]?.y).toBeCloseTo(-4.375, 12);
     expect(shape.points[1]?.handleIn?.[0]).toBeCloseTo(-4.375, 12);
     expect(shape.points[1]?.handleIn?.[1]).toBeCloseTo(1.75, 12);
+  });
+});
+
+describe('TransformEngine — transform-stable gradient baking', () => {
+  const explicitGradient = {
+    type: 'linear' as const,
+    stops: [
+      { position: 0, color: { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 } },
+      { position: 1, color: { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 } },
+    ],
+    transform: [120, 60, -30, 80, 25, 15] as Affine,
+  };
+
+  function expectPointClose(
+    actual: readonly [number, number],
+    expected: readonly [number, number],
+  ) {
+    expect(actual[0]).toBeCloseTo(expected[0], 10);
+    expect(actual[1]).toBeCloseTo(expected[1], 10);
+  }
+
+  it('keeps explicit fill, hidden fill, and stroke gradient handles fixed across a bake', () => {
+    const node = {
+      ...makeVectorShape('gradient-rect', 200, 100),
+      shape: { kind: 'rect' as const, x: 10, y: 20, w: 200, h: 100 },
+      fills: [
+        {
+          type: 'gradient' as const,
+          gradient: explicitGradient,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+        {
+          type: 'gradient' as const,
+          gradient: { ...explicitGradient, type: 'radial' as const },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: false,
+        },
+      ],
+      strokes: [
+        {
+          color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+          weight: 4,
+          align: 'center' as const,
+          dashPattern: [],
+          dashOffset: 0,
+          cap: 'round' as const,
+          join: 'miter' as const,
+          miterLimit: 4,
+          visible: true,
+          gradient: { ...explicitGradient, type: 'radial' as const },
+        },
+      ],
+    };
+    const doc = makeDoc({ [node.id]: node });
+    const engine = new TransformEngine(doc, [node.id], { bakeOnCommit: true });
+    const preview = engine.resize([360, 70], 'e', { proportional: false, bypassSnap: true }, doc);
+    const committed = engine.commit(preview);
+    const previewNode = preview.nodes[node.id] as typeof node;
+    const committedNode = committed.nodes[node.id] as typeof node;
+
+    const unitHandles: readonly [number, number][] = [
+      [0, 0.5],
+      [1, 0.5],
+      [0.5, 0.5],
+      [0.5, 1],
+    ];
+    const previewGradient = previewNode.fills[0].gradient;
+    const committedGradient = committedNode.fills[0].gradient;
+    expect(committedGradient.transform).toBeDefined();
+    expect(committedNode.fills[1].gradient.transform).toBeDefined();
+    expect(committedNode.strokes[0].gradient.transform).toBeDefined();
+
+    for (const point of unitHandles) {
+      expectPointClose(
+        applyAffine(previewNode.transform, applyAffine(previewGradient.transform!, point)),
+        applyAffine(committedNode.transform, applyAffine(committedGradient.transform!, point)),
+      );
+    }
+
+    const previewRadial = radialGradientHandles(previewNode.fills[1].gradient, {
+      x: 10,
+      y: 20,
+      w: 200,
+      h: 100,
+    });
+    const committedRadial = radialGradientHandles(committedNode.fills[1].gradient, {
+      x: 10,
+      y: 20,
+      w: 350,
+      h: 100,
+    });
+    expectPointClose(
+      applyAffine(previewNode.transform, previewRadial.uAxisEnd),
+      applyAffine(committedNode.transform, committedRadial.uAxisEnd),
+    );
+    expectPointClose(
+      applyAffine(previewNode.transform, previewRadial.vAxisEnd),
+      applyAffine(committedNode.transform, committedRadial.vAxisEnd),
+    );
+  });
+
+  it('materializes legacy rotation from the pre-bake bounds without a pointer-up jump', () => {
+    const legacyGradient = {
+      type: 'linear' as const,
+      stops: explicitGradient.stops,
+      rotation: 37,
+    };
+    const node = {
+      ...makeVectorShape('legacy-gradient', 200, 100),
+      shape: { kind: 'rect' as const, x: 10, y: 20, w: 200, h: 100 },
+      fills: [
+        {
+          type: 'gradient' as const,
+          gradient: legacyGradient,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+    };
+    const doc = makeDoc({ [node.id]: node });
+    const engine = new TransformEngine(doc, [node.id], { bakeOnCommit: true });
+    const preview = engine.resize([360, 70], 'e', { proportional: false, bypassSnap: true }, doc);
+    const committed = engine.commit(preview);
+    const previewNode = preview.nodes[node.id] as typeof node;
+    const committedNode = committed.nodes[node.id] as typeof node;
+    const preBakeBounds = { x: 10, y: 20, w: 200, h: 100 };
+    const previewMatrix = gradientTransformForBounds(previewNode.fills[0].gradient, preBakeBounds);
+    const committedMatrix = committedNode.fills[0].gradient.transform!;
+
+    expect(committedMatrix).toBeDefined();
+    for (const point of [
+      [0, 0.5],
+      [1, 0.5],
+      [0.5, 1],
+    ] as const) {
+      expectPointClose(
+        applyAffine(previewNode.transform, applyAffine(previewMatrix, point)),
+        applyAffine(committedNode.transform, applyAffine(committedMatrix, point)),
+      );
+    }
+  });
+
+  it('leaves linked gradient matrices untouched while scale stays live on the node', () => {
+    const node = {
+      ...makeVectorShape('live-gradient', 200, 100),
+      fills: [
+        {
+          type: 'gradient' as const,
+          gradient: explicitGradient,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+    };
+    const doc = makeDoc({ [node.id]: node });
+    const engine = new TransformEngine(doc, [node.id]);
+    const preview = engine.resize([300, 50], 'e', { proportional: false, bypassSnap: true }, doc);
+    const previewNode = preview.nodes[node.id] as typeof node;
+
+    expect(previewNode.fills[0].gradient.transform).toEqual(explicitGradient.transform);
+    const handles = linearGradientHandles(previewNode.fills[0].gradient, {
+      x: 0,
+      y: 0,
+      w: 200,
+      h: 100,
+    });
+    expectPointClose(
+      applyAffine(previewNode.transform, handles.end),
+      applyAffine(multiplyAffine(previewNode.transform, explicitGradient.transform), [1, 0.5]),
+    );
   });
 });

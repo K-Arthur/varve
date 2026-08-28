@@ -15,7 +15,7 @@
 
 import { type PathPoint, type Shape, transformPathShape } from '@varve/engine';
 import { reflowLayoutChildren, resizeNodeGeometry } from '@varve/layout';
-import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
+import type { Document, Fill, NodeId, SceneNode, ShapeNode, Stroke } from '@varve/scene';
 import { applyConstraints, getParent } from '@varve/scene';
 import type { Affine, Point, Rect } from '@varve/shared';
 import {
@@ -32,6 +32,7 @@ import {
   rotateRad,
   rotateSelectionBox,
   type SelectionBox,
+  transformLinkedGradient,
   translate,
   tryInvertAffine,
 } from '@varve/shared';
@@ -309,6 +310,7 @@ export class TransformEngine {
       const decomposed = this.extractTRS(localTransform);
       if (decomposed) {
         const { translateX, translateY, rotation, scaleX, scaleY, skewX, skewY } = decomposed;
+        const boundsBeforeBake = nodeLocalBounds(node, currentDoc);
         // When skew is present, preserve the full affine transform instead of baking.
         if (Math.abs(skewX) > 1e-9 || Math.abs(skewY) > 1e-9) {
           updates[node.id] = { ...node, transform: localTransform } as SceneNode;
@@ -326,24 +328,32 @@ export class TransformEngine {
         if (mode === 'fixed' || mode === 'autoHeight') {
           const baseWidth = node.w ?? nodeLocalBounds(node, currentDoc)?.w ?? 0;
           const width = Math.max(1, baseWidth * Math.abs(scaleX));
-          updates[node.id] = {
-            ...node,
-            transform: [1, 0, 0, 1, translateX, translateY] as Affine,
-            rotation,
-            w: width,
-            // Auto-height derives its height from the wrap, so a vertical drag
-            // has nothing to write; only a fixed container stores one.
-            ...(mode === 'fixed' ? { h: Math.max(1, (node.h ?? 0) * Math.abs(scaleY)) } : {}),
-          } as SceneNode;
+          updates[node.id] = this.transformGradientPaintsForBake(
+            {
+              ...node,
+              transform: [1, 0, 0, 1, translateX, translateY] as Affine,
+              rotation,
+              w: width,
+              // Auto-height derives its height from the wrap, so a vertical drag
+              // has nothing to write; only a fixed container stores one.
+              ...(mode === 'fixed' ? { h: Math.max(1, (node.h ?? 0) * Math.abs(scaleY)) } : {}),
+            } as SceneNode,
+            boundsBeforeBake,
+            [scaleX, 0, 0, scaleY, 0, 0],
+          );
           return { nodeUpdates: updates };
         }
         const avgScale = Math.max((scaleX + scaleY) / 2, 0.01);
-        updates[node.id] = {
-          ...node,
-          transform: [1, 0, 0, 1, translateX, translateY] as Affine,
-          rotation,
-          fontSize: Math.max((node.fontSize ?? 16) * avgScale, 1),
-        } as SceneNode;
+        updates[node.id] = this.transformGradientPaintsForBake(
+          {
+            ...node,
+            transform: [1, 0, 0, 1, translateX, translateY] as Affine,
+            rotation,
+            fontSize: Math.max((node.fontSize ?? 16) * avgScale, 1),
+          } as SceneNode,
+          boundsBeforeBake,
+          [avgScale, 0, 0, avgScale, 0, 0],
+        );
         return { nodeUpdates: updates };
       }
     }
@@ -353,6 +363,7 @@ export class TransformEngine {
       const decomposed = this.extractTRS(localTransform);
       if (decomposed) {
         const { translateX, translateY, rotation, scaleX, scaleY, skewX, skewY } = decomposed;
+        const boundsBeforeBake = nodeLocalBounds(shapeNode, currentDoc);
         // When skew is present, preserve the full affine transform instead of baking.
         if (Math.abs(skewX) > 1e-9 || Math.abs(skewY) > 1e-9) {
           updates[node.id] = { ...shapeNode, transform: localTransform } as SceneNode;
@@ -360,12 +371,16 @@ export class TransformEngine {
         }
         const baked = this.scaleShape(shapeNode.shape, scaleX, scaleY);
         if (baked) {
-          updates[node.id] = {
-            ...shapeNode,
-            transform: [1, 0, 0, 1, translateX, translateY] as Affine,
-            rotation,
-            shape: baked,
-          } as SceneNode;
+          updates[node.id] = this.transformGradientPaintsForBake(
+            {
+              ...shapeNode,
+              transform: [1, 0, 0, 1, translateX, translateY] as Affine,
+              rotation,
+              shape: baked,
+            } as SceneNode,
+            boundsBeforeBake,
+            [scaleX, 0, 0, scaleY, 0, 0],
+          );
           return { nodeUpdates: updates };
         }
       }
@@ -375,6 +390,7 @@ export class TransformEngine {
       const decomposed = this.extractTRS(localTransform);
       if (decomposed) {
         const { translateX, translateY, scaleX, scaleY, skewX, skewY } = decomposed;
+        const boundsBeforeBake = nodeLocalBounds(node, currentDoc);
         // When skew is present, preserve the full affine transform instead of baking.
         if (Math.abs(skewX) > 1e-9 || Math.abs(skewY) > 1e-9) {
           updates[node.id] = { ...node, transform: localTransform } as SceneNode;
@@ -392,13 +408,17 @@ export class TransformEngine {
         const newW = oldW * scaleX;
         const newH = oldH * scaleY;
 
-        updates[node.id] = {
-          ...node,
-          transform: [1, 0, 0, 1, translateX, translateY] as Affine,
-          rotation: decomposed.rotation,
-          w: newW,
-          h: newH,
-        } as SceneNode;
+        updates[node.id] = this.transformGradientPaintsForBake(
+          {
+            ...node,
+            transform: [1, 0, 0, 1, translateX, translateY] as Affine,
+            rotation: decomposed.rotation,
+            w: newW,
+            h: newH,
+          } as SceneNode,
+          boundsBeforeBake,
+          [scaleX, 0, 0, scaleY, 0, 0],
+        );
 
         // When scaleContents is true, frame children are scaled uniformly
         // (like a group). When false, only children with explicit constraints
@@ -462,6 +482,16 @@ export class TransformEngine {
                 Math.abs(result.h - childBounds.h) > 0.001;
               if (dimChanged) {
                 updatedChild = resizeNodeGeometry(child, result.w, result.h);
+                const scaleChildX = childBounds.w === 0 ? 1 : result.w / childBounds.w;
+                const scaleChildY = childBounds.h === 0 ? 1 : result.h / childBounds.h;
+                updatedChild = this.transformGradientPaintsForBake(updatedChild, childBounds, [
+                  scaleChildX,
+                  0,
+                  0,
+                  scaleChildY,
+                  0,
+                  0,
+                ]);
               }
 
               updates[childId] = {
@@ -483,6 +513,8 @@ export class TransformEngine {
       }
     }
 
+    // No geometry was baked in this fallback. The live node transform already
+    // carries linked gradients, so modifying them here would apply scale twice.
     updates[node.id] = { ...node, transform: localTransform, rotation: 0 } as SceneNode;
     return { nodeUpdates: updates };
   }
@@ -507,6 +539,46 @@ export class TransformEngine {
       skewX: decomposed.skewX,
       skewY: decomposed.skewY,
     };
+  }
+
+  /** Update every linked fill and stroke with the exact local geometry bake. */
+  private transformGradientPaintsForBake(
+    node: SceneNode,
+    boundsBeforeBake: Rect | null,
+    geometryTransform: Affine,
+  ): SceneNode {
+    if (!boundsBeforeBake) return node;
+    const nodeAny = node as Record<string, unknown>;
+    const fills = nodeAny.fills;
+    let changed = false;
+    const updatedFills = Array.isArray(fills)
+      ? fills.map((fill: Fill) => {
+          if (fill.type !== 'gradient' || !fill.gradient) return fill;
+          changed = true;
+          return {
+            ...fill,
+            gradient: transformLinkedGradient(fill.gradient, boundsBeforeBake, geometryTransform),
+          } as Fill;
+        })
+      : fills;
+    const strokes = nodeAny.strokes;
+    const updatedStrokes = Array.isArray(strokes)
+      ? strokes.map((stroke: Stroke) => {
+          if (!stroke.gradient) return stroke;
+          changed = true;
+          return {
+            ...stroke,
+            gradient: transformLinkedGradient(stroke.gradient, boundsBeforeBake, geometryTransform),
+          } as Stroke;
+        })
+      : strokes;
+
+    if (!changed) return node;
+    return {
+      ...node,
+      ...(Array.isArray(updatedFills) ? { fills: updatedFills } : {}),
+      ...(Array.isArray(updatedStrokes) ? { strokes: updatedStrokes } : {}),
+    } as SceneNode;
   }
 
   private scaleShape(shape: Shape, sx: number, sy: number): Shape | null {
