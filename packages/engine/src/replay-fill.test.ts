@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getImageCache, resetImageCache } from './imageCache';
 import type { ReplayGradient, ReplayTarget } from './replay';
-import { replayIr } from './replay';
+import { replayIr, resetGradientCacheForTest } from './replay';
 import type { FillIR, RenderItem } from './types';
 
 interface RecorderProxy {
@@ -781,6 +781,33 @@ describe('gradient caching', () => {
     replayIr(rec.target, [item]);
     const lgCalls = rec.calls.filter((c) => c.startsWith('createLinearGradient('));
     expect(lgCalls.length).toBe(1);
+  });
+
+  it('does not quantize bounds when caching legacy gradient geometry', () => {
+    resetGradientCacheForTest();
+    const rec = recorder();
+    const base: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'gradient',
+          gradientType: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+          rotation: 17,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+    };
+    replayIr(rec.target, [base]);
+    replayIr(rec.target, [{ ...base, primitive: { kind: 'rect', x: 0.004, y: 0, w: 100, h: 50 } }]);
+    expect(rec.calls.filter((call) => call.startsWith('createLinearGradient')).length).toBe(2);
   });
 });
 

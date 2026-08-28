@@ -1743,7 +1743,10 @@ function gradientCacheKey(
   }
   const ctm = target.getTransform?.();
   const ctmKey = ctm ? `${ctm.a},${ctm.b},${ctm.c},${ctm.d},${ctm.e},${ctm.f}` : 'unobservable-ctm';
-  return `${targetId}|${ctmKey}|${itemTransform.join(',')}|${fill.gradientType}|${fill.interpolationSpace ?? ''}|${fill.hueInterpolation ?? ''}|${normalizedRotation}|${fill.tilingMode ?? ''}|${JSON.stringify(fill.transform)}|${JSON.stringify(fill.stops)}|${bounds.x.toFixed(2)}|${bounds.y.toFixed(2)}|${bounds.w.toFixed(2)}|${bounds.h.toFixed(2)}`;
+  // Bounds participate in legacy rotation materialization, so preserve their
+  // full numeric precision. Quantizing here can reuse a stale gradient during
+  // a sub-pixel pointer drag even though the authored field has changed.
+  return `${targetId}|${ctmKey}|${itemTransform.join(',')}|${fill.gradientType}|${fill.interpolationSpace ?? ''}|${fill.hueInterpolation ?? ''}|${normalizedRotation}|${fill.tilingMode ?? ''}|${JSON.stringify(fill.transform)}|${JSON.stringify(fill.stops)}|${bounds.x}|${bounds.y}|${bounds.w}|${bounds.h}`;
 }
 
 /** Create a gradient fillStyle from a FillIR gradient. */
