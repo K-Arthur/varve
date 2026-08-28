@@ -80,6 +80,27 @@ They are used to compare camera work at a fixed visible count without allocating
 large raster pixels. `extreme-zoom` now covers 0.01, 0.02, 0.05, 0.1, 0.25,
 0.5, 1, 2, 4, 8, 16, 32, and 64×, including far-world and rotated views.
 
+## Implemented residency/refinement seam
+
+Image-fill replay now selects a source bucket from the fill's transformed
+device-space long edge (including rotation and skew), not from the whole
+viewport. Interactive frames use a 1.25× margin and an 8K ceiling; settled
+frames use a 1.5× margin and can promote to 16K only when the proportional
+RGBA decode remains inside the active image-cache byte budget. Export and
+print retain their explicit full-source path.
+
+When a sharper bucket is not ready, `ImageCache` retains the closest live
+proxy and starts the requested decode. A latest-wins 180 ms quiet-period timer
+then requests a normal `asset-ready` canvas frame after the interaction closes;
+the existing image-cache subscription requests another frame when that decode
+finishes. The Canvas2D compositor fallback receives the same policy, so flat
+and structural replay paths converge rather than using different quality rules.
+
+The bounded decode path currently applies to inline/blob sources, which can be
+resized safely through `createImageBitmap`; remote sources intentionally retain
+the established full-image loader until a CORS-safe tiled decoder is added. The
+raster-layer pyramid remains the tiled LOD path for raster-layer primitives.
+
 ## Measurement protocol
 
 For each cold and warm corpus run, collect the existing `?perf=1`

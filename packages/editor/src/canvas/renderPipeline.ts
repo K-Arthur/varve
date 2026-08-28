@@ -52,6 +52,7 @@ import {
   worldToScreen,
 } from '@varve/shared';
 import type { EditorContextValue, EditorState } from '../context';
+import { isEditorInteractionActive } from '../performance/editorFrameRuntime';
 import { applyPropertyPath } from '../propertyPath';
 import {
   getAdaptiveResidencyManager,
@@ -67,6 +68,7 @@ import {
   workerBitmapDelta,
 } from '../render/canvasRenderAdapter';
 import { admitWorkerImagePayload, workerSourceCapFor } from '../render/collectImageBitmaps';
+import { scheduleSettledImageRefinement } from '../render/imageRefinement';
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
 import { pathShapeInTextSpace } from '../render/pathTextGeometry';
 import {
@@ -977,16 +979,39 @@ export function renderContent(deps: RenderContentDeps): void {
       buildIrMs = performance.now() - t0c;
     }
     const needsStructural = sceneNeedsStructuralCompositing(doc);
+    const cameraMoving = isEditorInteractionActive();
+    const imageIntent = cameraMoving ? 'interactive' : 'settled-preview';
     const imageRepresentation = selectRasterRepresentation({
       viewportWidth: VP_W,
       viewportHeight: VP_H,
       devicePixelRatio: dpr,
       zoom: s.zoom,
-      intent: 'interactive',
+      cameraMoving,
+      intent: imageIntent,
     });
     const replayImagePolicy = {
-      intent: 'interactive' as const,
-      maxSourceDim: imageRepresentation.maxSourceDim,
+      intent: imageIntent,
+      resolveMaxSourceDim: ({
+        projectedLongEdge,
+        sourceWidth,
+        sourceHeight,
+      }: {
+        projectedLongEdge: number;
+        sourceWidth?: number;
+        sourceHeight?: number;
+      }) =>
+        selectRasterRepresentation({
+          viewportWidth: VP_W,
+          viewportHeight: VP_H,
+          devicePixelRatio: dpr,
+          zoom: s.zoom,
+          projectedLongEdge,
+          sourceWidth,
+          sourceHeight,
+          maxDecodedBytes: budgets.imageCacheBytes,
+          cameraMoving,
+          intent: imageIntent,
+        }).maxSourceDim,
     };
     const replayColorOptions = {
       blendEvaluationSpace: resolveBlendEvaluationSpace(doc.colorConfig ?? {}),
@@ -1032,6 +1057,12 @@ export function renderContent(deps: RenderContentDeps): void {
           reuseProbability: 0.5,
         });
       }
+    }
+
+    if (cameraMoving && observedImageSources.size > 0) {
+      scheduleSettledImageRefinement(canvas, isEditorInteractionActive, () => {
+        requestContentDrawRef.current?.('image-settled-refinement', 'asset-ready');
+      });
     }
 
     if (s.canvasMode === 'outline') {
@@ -1135,10 +1166,11 @@ export function renderContent(deps: RenderContentDeps): void {
     const paintLeafItem = (item: IrItem, targetCtx: CanvasRenderingContext2D): void => {
       // Structural replay has an active Canvas2D save/clip stack. A compositor
       // backend may render a leaf into another surface and blit it back, which
-      // cannot inherit that clip. Direct replay also lets the image policy use
-      // a viewport-sized proxy without changing export/print paths.
+      // cannot inherit that clip. The compositor forwards image policy to its
+      // Canvas2D fallback, keeping proxy selection footprint-aware on both
+      // structural and flat scenes.
       if (targetCtx === ctxNN && compositorRef.current && !needsStructural) {
-        compositorRef.current.drawVectorItems([item], replayColorOptions);
+        compositorRef.current.drawVectorItems([item], replayColorOptions, replayImagePolicy);
       } else {
         replayIr(
           targetCtx as unknown as ReplayTarget,
@@ -1930,15 +1962,15 @@ export function renderContent(deps: RenderContentDeps): void {
             // 9d47771b fixed for the main-thread path, on the worker path.
             surfaceIsAuthoritative = false;
           } else {
-            compositorRef.current?.drawVectorItems(ir);
+            compositorRef.current?.drawVectorItems(ir, replayColorOptions, replayImagePolicy);
           }
         }
         ctxNN.restore();
       } else {
-        compositorRef.current?.drawVectorItems(ir);
+        compositorRef.current?.drawVectorItems(ir, replayColorOptions, replayImagePolicy);
       }
     } else {
-      compositorRef.current?.drawVectorItems(ir);
+      compositorRef.current?.drawVectorItems(ir, replayColorOptions, replayImagePolicy);
     }
 
     // Record replay time: from the first replay call to just before cleanup
