@@ -26,9 +26,12 @@ transaction. That warning is intentionally non-fatal during the remaining
 incremental migration; administrative replacement, viewport, selection, and
 other runtime-only paths remain outside authored history by design.
 
-Known follow-up: tile reachability GC and an external snapshot tile manifest.
-The current snapshot codec preserves raster Maps and typed pixels directly and
-refuses a lossy legacy raster snapshot.
+Raster snapshots now include an external tile manifest and verify every
+referenced content blob on replay. `sweepUnreachableRasterTiles` retains all
+revision and snapshot references, including unbranched divergence, and removes
+only pre-commit orphan blobs while capture is quiesced. The current snapshot
+codec preserves raster Maps and typed pixels directly and refuses a lossy
+legacy raster snapshot.
 
 ## Summary
 

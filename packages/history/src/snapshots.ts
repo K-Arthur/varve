@@ -7,9 +7,18 @@
  * explicit checkpoint, shutdown), never every-transaction.
  */
 
-import type { Document } from '@varve/scene';
+import type { Document, RasterLayerNode } from '@varve/scene';
 import { canonicalHistoryHash, DocumentCodec } from '@varve/scene';
+import { hashTilePixels, type RasterTileEntry, type RasterTileStore } from './rasterTileStore';
 import type { HistoryStore } from './store';
+
+/** Immutable external references for raster bytes represented by a snapshot. */
+export interface SnapshotRasterTile {
+  nodeId: string;
+  tileKey: string;
+  contentHash: string;
+  version: number;
+}
 
 export interface SnapshotRecord {
   /** Content address: the canonical SHA-256 digest. */
@@ -22,6 +31,12 @@ export interface SnapshotRecord {
    * JSON, which cannot faithfully rehydrate a typed-array tile map.
    */
   encoding?: 'document-codec';
+  /**
+   * External, content-addressed integrity manifest for snapshot raster tiles.
+   * The codec bytes remain a portable fallback; replay verifies this manifest
+   * against the tile store before treating the snapshot as authoritative.
+   */
+  rasterTileManifest?: SnapshotRasterTile[];
   /** Revision whose end state this snapshot represents. */
   revisionId: string;
   schemaVersion: number;
@@ -70,7 +85,12 @@ export function shouldSnapshot(stats: SnapshotStats, policy: SnapshotPolicy): bo
 export async function createSnapshot(
   store: HistoryStore,
   document: Document,
-  opts: { documentId: string; revisionId: string; schemaVersion?: number },
+  opts: {
+    documentId: string;
+    revisionId: string;
+    schemaVersion?: number;
+    rasterTileStore?: RasterTileStore;
+  },
 ): Promise<SnapshotRecord> {
   // `canonicalizeDocument` is perfect hash input but converts typed arrays
   // to number arrays. A history snapshot must instead round-trip the live
@@ -79,17 +99,47 @@ export async function createSnapshot(
   const hash = canonicalHistoryHash(document);
   const existing = await store.getSnapshot(opts.documentId, hash);
   if (existing?.encoding === 'document-codec') return existing;
+  const raster = opts.rasterTileStore ? await captureSnapshotRasterTiles(document) : null;
+  // Snapshot visibility never precedes the binary blobs it references.
+  if (raster?.entries.length) await opts.rasterTileStore!.putBatch(raster.entries);
   const snapshot: SnapshotRecord = {
     canonicalHash: hash,
     documentId: opts.documentId,
     canonicalText,
     encoding: 'document-codec',
+    rasterTileManifest: raster?.manifest,
     revisionId: opts.revisionId,
     schemaVersion: opts.schemaVersion ?? 1,
     createdAt: Date.now(),
   };
   await store.putSnapshot(snapshot);
   return snapshot;
+}
+
+function isRasterLayer(node: Document['nodes'][string] | undefined): node is RasterLayerNode {
+  return node?.kind === 'rasterLayer';
+}
+
+/** Derive a stable external manifest and immutable tile copies from a document. */
+export async function captureSnapshotRasterTiles(document: Document): Promise<{
+  manifest: SnapshotRasterTile[];
+  entries: RasterTileEntry[];
+}> {
+  const manifest: SnapshotRasterTile[] = [];
+  const entries: RasterTileEntry[] = [];
+  for (const nodeId of Object.keys(document.nodes).sort()) {
+    const node = document.nodes[nodeId];
+    if (!isRasterLayer(node)) continue;
+    for (const [tileKey, tile] of [...node.tiles.entries()].sort(([a], [b]) =>
+      a.localeCompare(b),
+    )) {
+      const pixels = new Uint8ClampedArray(tile.pixels);
+      const contentHash = await hashTilePixels(pixels);
+      manifest.push({ nodeId, tileKey, contentHash, version: tile.version });
+      entries.push({ tileKey: `${nodeId}:${tileKey}`, contentHash, pixels });
+    }
+  }
+  return { manifest, entries };
 }
 
 /** Parse a snapshot's canonical text back into a live document. */
@@ -116,6 +166,48 @@ export function snapshotToDocument(snapshot: SnapshotRecord): Document {
     );
   }
   return decoded.document;
+}
+
+/**
+ * Decode a snapshot and verify every declared external raster blob. This is
+ * intentionally asynchronous: normal decode remains useful for portable
+ * exports, while replay/recovery must fail closed when a referenced blob is
+ * absent or corrupt.
+ */
+export async function snapshotToDocumentAsync(
+  snapshot: SnapshotRecord,
+  tileStore: RasterTileStore,
+): Promise<Document> {
+  const document = snapshotToDocument(snapshot);
+  if (!snapshot.rasterTileManifest?.length) return document;
+  const captured = await captureSnapshotRasterTiles(document);
+  const expected = new Map(
+    snapshot.rasterTileManifest.map((tile) => [`${tile.nodeId}:${tile.tileKey}`, tile]),
+  );
+  if (expected.size !== captured.manifest.length) {
+    throw new Error('snapshot raster manifest does not match encoded tile count');
+  }
+  for (const tile of captured.manifest) {
+    const declared = expected.get(`${tile.nodeId}:${tile.tileKey}`);
+    if (
+      !declared ||
+      declared.contentHash !== tile.contentHash ||
+      declared.version !== tile.version
+    ) {
+      throw new Error(`snapshot raster manifest does not match ${tile.nodeId}:${tile.tileKey}`);
+    }
+  }
+  const blobs = await tileStore.getBatch(
+    snapshot.rasterTileManifest.map((tile) => tile.contentHash),
+  );
+  for (const tile of snapshot.rasterTileManifest) {
+    const pixels = blobs.get(tile.contentHash);
+    if (!pixels) throw new Error(`snapshot raster tile blob is missing: ${tile.contentHash}`);
+    if ((await hashTilePixels(pixels)) !== tile.contentHash) {
+      throw new Error(`snapshot raster tile blob is corrupt: ${tile.contentHash}`);
+    }
+  }
+  return document;
 }
 
 /**

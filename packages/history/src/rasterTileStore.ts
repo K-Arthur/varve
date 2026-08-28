@@ -46,6 +46,8 @@ export interface RasterTileStore {
   getBatch(hashes: string[]): Promise<Map<string, Uint8ClampedArray>>;
   /** Delete tiles by hash. */
   deleteBatch(hashes: string[]): Promise<void>;
+  /** Enumerate content hashes for reachability-based garbage collection. */
+  listHashes(): Promise<string[]>;
   /** Get storage statistics. */
   stats(): Promise<{ totalTiles: number; totalBytes: number }>;
 }
@@ -132,6 +134,10 @@ export class MemoryRasterTileStore implements RasterTileStore {
       this.store.delete(h);
       this.byteIndex.delete(h);
     }
+  }
+
+  async listHashes(): Promise<string[]> {
+    return [...this.store.keys()].sort();
   }
 
   async stats(): Promise<{ totalTiles: number; totalBytes: number }> {
@@ -230,6 +236,11 @@ export class IndexedDbRasterTileStore implements RasterTileStore {
       tx.objectStore(BLOB_STORE).delete(h);
     }
     await tx.done;
+  }
+
+  async listHashes(): Promise<string[]> {
+    const db = await this.connect;
+    return ((await db.getAllKeys(BLOB_STORE)) as string[]).sort();
   }
 
   async stats(): Promise<{ totalTiles: number; totalBytes: number }> {

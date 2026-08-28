@@ -13,7 +13,7 @@ import { applyOperation, canonicalHistoryHash, hasOperation } from '@varve/scene
 import { verifySegmentChecksum } from './log';
 import { applyRasterDelta, RASTER_DELTA_OPERATION, type RasterDeltaPayload } from './rasterDelta';
 import { createRasterTileStore, type RasterTileStore } from './rasterTileStore';
-import { snapshotToDocument } from './snapshots';
+import { snapshotToDocumentAsync } from './snapshots';
 import type { HistoryStore } from './store';
 import type { LogPosition, RevisionRecord, StoredOperation, VerifyResult } from './types';
 
@@ -156,7 +156,7 @@ export async function replayAndVerify(
       `snapshot for ${baseRevision.revisionId} missing`,
     );
   }
-  const document = snapshotToDocument(snapshot);
+  const document = await snapshotToDocumentAsync(snapshot, tileStore);
 
   const start = positionAfter(baseRevision.operationEnd);
   const end = positionBefore(revision.operationEnd);
@@ -213,7 +213,7 @@ export async function replayToDocument(
     ? await store.getSnapshot(documentId, baseRevision.snapshotId)
     : null;
   if (!snapshot) throw new ReplayError('replay.missing-snapshot', `snapshot missing`);
-  const document = snapshotToDocument(snapshot);
+  const document = await snapshotToDocumentAsync(snapshot, tileStore);
   const ops = await store.readOperations(
     documentId,
     positionAfter(baseRevision.operationEnd),

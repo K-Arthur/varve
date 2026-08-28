@@ -218,6 +218,7 @@ export class EditorHistorySession {
       const { genesis, branch } = await createGenesisRevision(this.store, document, {
         documentId: this.documentId,
         author: { actorId: this.actorId, kind: 'local-user' },
+        rasterTileStore: this.rasterTileStore,
       });
       return this.finishAttach(genesis, branch, false, issues);
     }
@@ -248,6 +249,7 @@ export class EditorHistorySession {
       const { genesis, branch: fresh } = await createGenesisRevision(this.store, document, {
         documentId: this.documentId,
         author: { actorId: this.actorId, kind: 'local-user' },
+        rasterTileStore: this.rasterTileStore,
       });
       return this.finishAttach(genesis, fresh, true, issues);
     }
@@ -478,6 +480,7 @@ export class EditorHistorySession {
       const snapshot = await createSnapshot(this.store, after, {
         documentId: this.documentId,
         revisionId: revision.revisionId,
+        rasterTileStore: this.rasterTileStore,
       });
       snapshotted = { ...revision, snapshotId: snapshot.canonicalHash };
     }

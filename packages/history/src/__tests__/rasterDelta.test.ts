@@ -8,7 +8,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { applyRasterDelta, captureRasterTileDeltas, rasterDeltaHashes } from '../rasterDelta';
 import { MemoryRasterTileStore } from '../rasterTileStore';
-import { createSnapshot, snapshotToDocument } from '../snapshots';
+import { createSnapshot, snapshotToDocument, snapshotToDocumentAsync } from '../snapshots';
 import { createMemoryHistoryStore } from '../store';
 
 function rasterDocument(): Document {
@@ -99,15 +99,26 @@ describe('exact raster tile deltas', () => {
         ),
       },
     };
-    const snapshot = await createSnapshot(createMemoryHistoryStore(), after, {
+    const historyStore = createMemoryHistoryStore();
+    const tileStore = new MemoryRasterTileStore();
+    const snapshot = await createSnapshot(historyStore, after, {
       documentId: after.id,
       revisionId: 'r-raster',
+      rasterTileStore: tileStore,
     });
+    expect(snapshot.rasterTileManifest).toHaveLength(1);
     const restored = snapshotToDocument(snapshot);
     expect(canonicalHistoryHash(restored)).toBe(canonicalHistoryHash(after));
     expect(restored.nodes.raster_1).toMatchObject({ kind: 'rasterLayer' });
     expect(
       (restored.nodes.raster_1 as Extract<typeof layer, { kind: 'rasterLayer' }>).tiles,
     ).toBeInstanceOf(Map);
+    await expect(snapshotToDocumentAsync(snapshot, tileStore)).resolves.toMatchObject({
+      id: after.id,
+    });
+    await tileStore.deleteBatch(snapshot.rasterTileManifest!.map((tile) => tile.contentHash));
+    await expect(snapshotToDocumentAsync(snapshot, tileStore)).rejects.toThrow(
+      'snapshot raster tile blob is missing',
+    );
   });
 });

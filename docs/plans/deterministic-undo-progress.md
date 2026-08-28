@@ -18,7 +18,7 @@
 - [x] 3B: Capture-time dirty-tile detection from exact before/after state
 - [x] 3C: `document.raster-delta` operation payload and replay
 - [x] 3D: Integration with transaction capture
-- [~] 3E: Exact codec snapshot preserves raster Maps; external tile manifest deferred
+- [x] 3E: Exact codec snapshot plus external content-hash tile manifest
 
 ## Phase 4: Transaction Coverage Enforcement
 - [x] 4A: Dev-mode mutation guard
@@ -38,8 +38,8 @@
 - [x] 8B: Audit which operations need grouping
 
 ## Phase 9: Snapshot/Recovery Hardening
-- [~] 9A: Exact codec snapshot preserves raster bytes; external manifest deferred
-- [ ] 9B: GC safety for unreachable tile blobs
+- [x] 9A: Exact codec snapshot preserves raster bytes and verifies its external manifest
+- [x] 9B: Reachability-based GC for pre-commit orphan tile blobs
 - [x] 9C: Tile writes precede revision visibility; recovery receives the tile store
 
 ## Phase 10: Validation and Testing

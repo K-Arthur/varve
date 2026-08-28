@@ -72,6 +72,12 @@ export {
   validateRasterDeltaPayload,
 } from './rasterDelta';
 export {
+  collectReachableRasterTileHashes,
+  type RasterTileGcReport,
+  type RasterTileReachability,
+  sweepUnreachableRasterTiles,
+} from './rasterRetention';
+export {
   createRasterTileStore,
   hashTilePixels,
   IndexedDbRasterTileStore,
@@ -115,14 +121,17 @@ export {
   validateRevisionShape,
 } from './revisions';
 export {
+  captureSnapshotRasterTiles,
   createSnapshot,
   DEFAULT_SNAPSHOT_POLICY,
   type SnapshotPolicy,
+  type SnapshotRasterTile,
   type SnapshotRecord,
   SnapshotScheduler,
   type SnapshotStats,
   shouldSnapshot,
   snapshotToDocument,
+  snapshotToDocumentAsync,
 } from './snapshots';
 export {
   commitRevision,

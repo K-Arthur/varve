@@ -53,8 +53,11 @@ any undo/redo or reload cycle.
   values. This matters when a vector-only edit follows raster paint: replaying
   the vector change must not turn existing pixels into numeric-object data.
 - Snapshots use `DocumentCodec` rather than JSON cloning, so raster tile Maps
-  and typed pixels are rehydrated exactly. Legacy JSON snapshots containing
-  raster tiles fail closed instead of pretending to restore a lossless state.
+  and typed pixels are rehydrated exactly. Each new raster snapshot also
+  records an external content-hash manifest and stores those blobs before the
+  snapshot becomes visible. Replay verifies the external blobs, while the
+  codec remains a portable fallback. Legacy JSON snapshots containing raster
+  tiles fail closed instead of pretending to restore a lossless state.
 
 The redo path is an ordered stack of undone revision ids. Repeated undo then
 redo therefore restores every traversed revision. A new capture, checkout,
@@ -71,14 +74,14 @@ than manually manipulating the in-memory stacks. Text input is a 500 ms typing
 burst (composition is atomic); focused NumberField wheel updates use a 200 ms
 idle window.
 
-### Deliberate follow-up
+### Retention and recovery
 
 The tile store can contain harmless orphan blobs if a process fails after tile
-writes and before `commitRevision`. Writes are safely ordered so no reachable
-revision references a missing tile, and recovery verifies replay with the same
-store. Reachability-based garbage collection and an external snapshot tile
-manifest are still follow-up work; snapshots currently preserve their tile
-bytes directly through `DocumentCodec`.
+writes and before `commitRevision`. `sweepUnreachableRasterTiles` traces every
+immutable revision operation and snapshot manifest, including unbranched
+divergence that can later be materialized, and deletes only blobs with no such
+reference. Sweeping is deliberately serialized with capture: a blob written
+before its revision is committed must not be mistaken for an orphan.
 
 ## `@varve/history` — diff, merge, undo (M7 core, M9 core, M10, M11)
 
