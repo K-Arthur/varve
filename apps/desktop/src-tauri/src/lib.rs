@@ -1526,7 +1526,7 @@ fn sanitize_trace_options(raw: TraceImageOptions) -> varve_trace::TraceOptions {
         max_error: raw
             .max_error
             .unwrap_or_else(default_max_error)
-            .clamp(0.1, 10.0),
+            .clamp(0.01, 10.0),
         simplify_tolerance: raw.simplify_tolerance.unwrap_or(0.75).clamp(0.0, 10.0),
         trace_mode,
         alpha_threshold: raw.alpha_threshold.unwrap_or(1).clamp(0, 255),
@@ -4114,6 +4114,15 @@ mod tests {
             opts.max_paths, MAX_TRACE_PATHS,
             "0 = unlimited → hard ceiling"
         );
+    }
+
+    #[test]
+    fn trace_image_preserves_subpixel_preview_fit_errors() {
+        let opts = sanitize_trace_options(TraceImageOptions {
+            max_error: Some(0.0),
+            ..Default::default()
+        });
+        assert_eq!(opts.max_error, 0.01);
     }
 
     #[test]

@@ -112,7 +112,7 @@ fn parse_trace_opts(
                 opts.corner_angle = ca;
             }
             if let Some(me) = json_opts.get("maxError").and_then(|v| v.as_f64()) {
-                opts.max_error = me.clamp(0.1, 10.0);
+                opts.max_error = me.clamp(0.01, 10.0);
             }
             if let Some(st) = json_opts.get("simplifyTolerance").and_then(|v| v.as_f64()) {
                 opts.simplify_tolerance = st.clamp(0.0, 10.0);

@@ -132,6 +132,38 @@ describe('trace hole handling', () => {
 });
 
 describe('centerline stroke output', () => {
+  it('scales source-pixel stroke width with the inserted trace geometry', () => {
+    let doc = createDocument('Images', true);
+    const image = makeImageShapeNode('img-scale-stroke', {
+      name: 'Scaled sketch',
+      w: 20,
+      h: 20,
+      src: 'data:image/png;base64,AAAA',
+    });
+    doc = { ...doc, nodes: { ...doc.nodes, [image.id]: image }, rootChildren: [image.id] };
+
+    const result = insertTraceGroup(doc, image.id, {
+      width: 10,
+      height: 10,
+      centerlineWidth: 3,
+      paths: [
+        {
+          closed: false,
+          strokeWidth: 3,
+          points: [
+            { x: 1, y: 5 },
+            { x: 9, y: 5 },
+          ],
+        },
+      ],
+    });
+    const group = result.doc.nodes[result.nodeId];
+    const childId = group?.kind === 'group' ? group.children[0] : undefined;
+    const child = childId ? result.doc.nodes[childId] : undefined;
+    if (child?.kind !== 'shape') return;
+    expect(child.strokes[0]?.weight).toBe(6);
+  });
+
   it('inserts open centerline paths as stroked nodes with no fill', () => {
     let doc = createDocument('Images', true);
     const image = makeImageShapeNode('img2', {

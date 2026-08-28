@@ -6,7 +6,7 @@
  * up to MAX_FINAL_DIM for quality. The source asset is never modified.
  */
 
-import { dispatchTrace, type RasterTraceResult } from '@varve/engine';
+import { dispatchTrace, type RasterTraceOptions, type RasterTraceResult } from '@varve/engine';
 import { MAX_PREVIEW_DIM, prepareImageData } from './prepareSource';
 import type { VectorizationSettings } from './settings';
 import { toTraceOptions } from './settings';
@@ -20,6 +20,52 @@ export interface PreviewPayload {
   /** Dimensions of the prepared source used for the trace. */
   width: number;
   height: number;
+}
+
+export interface TraceRasterDimensions {
+  width: number;
+  height: number;
+}
+
+function boundedScale(numerator: number, denominator: number): number {
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) return 1;
+  return Math.max(1 / 16_384, numerator / denominator);
+}
+
+/**
+ * Convert source-pixel settings into the pixel space actually handed to a
+ * provider. Preview and memory-capped final traces operate on a downsampled
+ * raster, but users configure cleanup and fitting in original-source pixels.
+ * Scaling these values at the boundary preserves their meaning without
+ * persisting a viewport or preview-specific setting.
+ */
+export function scaleSourcePixelTraceOptions(
+  options: RasterTraceOptions,
+  source: TraceRasterDimensions,
+  raster: TraceRasterDimensions,
+): RasterTraceOptions {
+  const scaleX = boundedScale(raster.width, source.width);
+  const scaleY = boundedScale(raster.height, source.height);
+  // Use the smaller axis for distance tolerances so independently rounded
+  // dimensions can never permit more source-space deviation than requested.
+  const distanceScale = Math.min(scaleX, scaleY);
+  const areaScale = scaleX * scaleY;
+  return {
+    ...options,
+    ...(options.simplifyTolerance !== undefined
+      ? { simplifyTolerance: options.simplifyTolerance * distanceScale }
+      : {}),
+    ...(options.maxError !== undefined ? { maxError: options.maxError * distanceScale } : {}),
+    ...(options.centerlineWidth !== undefined
+      ? { centerlineWidth: options.centerlineWidth * distanceScale }
+      : {}),
+    ...(options.centerlinePrune !== undefined
+      ? { centerlinePrune: options.centerlinePrune * distanceScale }
+      : {}),
+    ...(options.minArea !== undefined
+      ? { minArea: Math.max(1, Math.round(options.minArea * areaScale)) }
+      : {}),
+  };
 }
 
 /** Load the source image by its stored src (data URL or asset path). */
@@ -69,9 +115,16 @@ export async function runPreviewTrace(
   onProgress?: (stage: string, progress: number) => void,
 ): Promise<PreviewPayload> {
   const image = await loadSourceImage(src, signal);
+  const sourceWidth = Math.max(1, 'naturalWidth' in image ? image.naturalWidth : image.width);
+  const sourceHeight = Math.max(1, 'naturalHeight' in image ? image.naturalHeight : image.height);
   const raw = imageDataFromSource(image, maxDim, signal, settings.mode === 'pixel-art');
   const prepared = prepareImageData(raw, settings.prep);
-  const result = await dispatchTrace(prepared, { ...toTraceOptions(settings), onProgress }, signal);
+  const traceOptions = scaleSourcePixelTraceOptions(
+    toTraceOptions(settings),
+    { width: sourceWidth, height: sourceHeight },
+    { width: prepared.width, height: prepared.height },
+  );
+  const result = await dispatchTrace(prepared, { ...traceOptions, onProgress }, signal);
   if (signal.aborted) throw new Error('cancelled');
   return {
     imageData: prepared,

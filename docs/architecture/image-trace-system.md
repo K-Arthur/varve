@@ -63,6 +63,11 @@ legacy entry point.
   their cubic handle offsets travel through the native response and are scaled
   into document space without a second fit. Pixel-art deliberately bypasses
   RDP simplification and curve fitting to preserve the exact pixel grid.
+- **Preview/final resolution**: preview and memory-capped final rasters scale
+  distance, area, and centerline-width settings into their prepared pixel
+  space before dispatch. Stored settings remain source-pixel values, so a
+  1-pixel error budget means the same source-space deviation at any safe
+  tracing resolution.
 - **Cancellation**: `TraceCancellation` (Arc<AtomicBool>) polled inside
   assignment/contour/centerline loops; partial results are discarded.
 - **Progress**: stage callbacks (`preprocessing/quantizing/segmenting/
@@ -80,7 +85,7 @@ legacy entry point.
 - `trace:progress` events `{ jobId, stage, progress }`.
 - `sanitize_trace_options` clamps all untrusted options. Limits: 128 MB input
   bytes, 64 MPixels decoded, 100 k paths, threshold 1–254, colors 0–64,
-  corner angle 90–180, max error 0.1–10, simplify tolerance 0–10 source
+  corner angle 90–180, max error 0.01–10, simplify tolerance 0–10 source
   pixels, stroke width 0.5–100.
 - Decode safety: dimension pre-check via `ImageReader::into_dimensions()`
   before full decode (decompression-bomb guard), u64 pixel math, format

@@ -178,6 +178,13 @@ function scaleCurveFittedPoints(
   }));
 }
 
+function scaleStrokeWeight(strokeWidth: number, scaleX: number, scaleY: number): number {
+  // A scalar stroke cannot exactly represent a non-uniform image transform.
+  // The geometric mean preserves its painted area; uniform scaling remains
+  // exact and is the normal image-placement case.
+  return strokeWidth * Math.sqrt(Math.abs(scaleX * scaleY));
+}
+
 /** Build one traced path node: filled for closed contours, stroked for
  *  centerline (open) contours. Hole rings only apply to closed fills. */
 function makeTraceChildNode(
@@ -189,7 +196,9 @@ function makeTraceChildNode(
     closed: boolean,
     curveFitted: boolean | undefined,
   ) => ReturnType<typeof fitBezierToContour>,
-  strokeWeight: number,
+  fallbackStrokeWeight: number,
+  strokeScaleX: number,
+  strokeScaleY: number,
 ): ReturnType<typeof makeShapeNode> {
   const holes = traced.holes?.map((h) => scaleAndFit(h, true, traced.curveFitted));
   const fillColor = traced.fill ?? { r: 0, g: 0, b: 0, a: 255 };
@@ -209,7 +218,11 @@ function makeTraceChildNode(
         strokes: [
           {
             color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
-            weight: traced.strokeWidth ?? strokeWeight,
+            weight: scaleStrokeWeight(
+              traced.strokeWidth ?? fallbackStrokeWeight,
+              strokeScaleX,
+              strokeScaleY,
+            ),
             align: 'center',
             dashPattern: [],
             dashOffset: 0,
@@ -293,6 +306,8 @@ export function insertTraceGroup(
       index,
       scaleAndFit,
       input.centerlineWidth ?? 2,
+      scaleX,
+      scaleY,
     );
     result = addChild(result, group.id, child);
   }
@@ -384,6 +399,8 @@ export function insertLiveTraceGroup(
       index,
       scaleAndFit,
       input.centerlineWidth ?? 2,
+      scaleX,
+      scaleY,
     );
     result = addChild(result, group.id, child);
   }

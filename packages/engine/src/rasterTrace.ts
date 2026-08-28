@@ -60,7 +60,7 @@ export interface RasterTraceOptions {
   maxColors?: number;
   /** Interior angle threshold for sharp corners (degrees, 90-180). Default 135. */
   cornerAngle?: number;
-  /** Maximum Bezier fitting error in pixels (0.1-10). Default 1.0. */
+  /** Maximum Bezier fitting error in source pixels (0.01-10). Default 1.0. */
   maxError?: number;
   /** Stage progress (0-1); only providers that can report it call this. */
   onProgress?: (stage: string, progress: number) => void;

@@ -121,7 +121,7 @@ pub struct TraceOptions {
     /// Interior angle threshold for sharp corners (degrees, 90-180).
     #[serde(default = "default_corner_angle")]
     pub corner_angle: f64,
-    /// Maximum Bezier fitting error in pixels (0.1-10).
+    /// Maximum Bezier fitting error in pixels (0.01-10).
     #[serde(default = "default_max_error")]
     pub max_error: f64,
     /// Ramer-Douglas-Peucker tolerance in source pixels, applied before
