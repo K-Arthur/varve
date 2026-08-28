@@ -904,7 +904,9 @@ export interface EditorContextValue {
 
   // Flatten
   flattenSelected: (mode: import('../flatten/types').FlattenMode, scale?: number) => void;
-  rasterizeSelected: (scale?: number) => void;
+  rasterizeSelected: (
+    scaleOrOptions?: number | import('../flatten/rasterizeOptions').RasterizeSelectionOptions,
+  ) => void;
   mergeSelected: () => void;
 
   // Text to outlines

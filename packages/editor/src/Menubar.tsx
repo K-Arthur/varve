@@ -15,6 +15,7 @@ import { getActionRegistry } from './actions/ActionRegistry';
 import { isCapabilityRestricted, isWorkspaceModeAllowed } from './capabilities/restrictions';
 import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/ArchiveDialog';
 import { OfflineBanner } from './components/OfflineBanner';
+import { RasterizeDialog } from './components/Rasterize/RasterizeDialog';
 import { WorkspaceTabs } from './components/WorkspaceTabs';
 import { bumpThemeRevision, useEditor } from './context';
 import { computeCapabilities, useNativeMenu } from './menu';
@@ -1819,6 +1820,7 @@ export function Menubar({
     message: string;
     entryId: string;
   } | null>(null);
+  const [rasterizeDialogOpen, setRasterizeDialogOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const nameButtonRef = useRef<HTMLButtonElement>(null);
   const typeaheadRef = useRef('');
@@ -1915,6 +1917,14 @@ export function Menubar({
     restoreNameFocusRef.current = true;
     setEditingName(false);
   }, []);
+
+  const handleRasterize = useCallback(
+    (options: import('./flatten/rasterizeOptions').RasterizeSelectionOptions) => {
+      setRasterizeDialogOpen(false);
+      rasterizeSelected(options);
+    },
+    [rasterizeSelected],
+  );
 
   const commitName = useCallback(() => {
     restoreNameFocusRef.current = true;
@@ -2145,7 +2155,7 @@ export function Menubar({
           flattenSelected('flatten', 1);
           return;
         case 'rasterizeSelection':
-          rasterizeSelected(1);
+          setRasterizeDialogOpen(true);
           return;
         case 'mergeSelected':
           mergeSelected();
@@ -2255,6 +2265,8 @@ export function Menubar({
       toggleDistractionFreeMode,
       recordAction,
       createAdjustmentLayer,
+      rasterizeSelected,
+      setRasterizeDialogOpen,
       openRecentFile,
       clearRecent,
     ],
@@ -2588,6 +2600,13 @@ export function Menubar({
         confirmLabel="Remove from List"
         cancelLabel="Keep in List"
         variant="danger"
+      />
+
+      <RasterizeDialog
+        open={rasterizeDialogOpen}
+        selectionCount={state.selection.length}
+        onClose={() => setRasterizeDialogOpen(false)}
+        onRasterize={handleRasterize}
       />
 
       <ArchiveDialog

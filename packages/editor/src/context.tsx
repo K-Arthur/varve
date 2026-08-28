@@ -196,6 +196,7 @@ import {
   groupNodes as groupNodesDoc,
   type ImageFillData,
   type InstanceStatus,
+  insertFlattenedCopy,
   installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
   isAdjustmentEligible,
@@ -1343,7 +1344,9 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   closeVectorizeDialog: () => void;
   /** Flatten/rasterize/merge the current selection (unified flatten system). */
   flattenSelected: (mode: import('./flatten/types').FlattenMode, scale?: number) => void;
-  rasterizeSelected: (scale?: number) => void;
+  rasterizeSelected: (
+    scaleOrOptions?: number | import('./flatten/rasterizeOptions').RasterizeSelectionOptions,
+  ) => void;
   mergeSelected: () => void;
   /** Convert the selected text node to vector path outlines. */
   convertTextToOutlines: () => void;
@@ -7275,32 +7278,43 @@ export function EditorProvider({
         updateDoc((doc) => detachInstanceDoc(doc, id));
       },
 
-      flattenSelected: (mode, scale) => {
+      flattenSelected: (mode, scaleOrOptions) => {
         const sel = state.selection;
         if (sel.length === 0) {
           announcerRef.current?.announce('Select layers to flatten');
           return;
         }
+        const rasterizeOptions =
+          mode === 'rasterize' && typeof scaleOrOptions === 'object' ? scaleOrOptions : undefined;
+        const scale = typeof scaleOrOptions === 'number' ? scaleOrOptions : undefined;
         const opts: FlattenOptions = {
           mode,
           scale: scale ?? 1,
-          background: 'transparent',
+          dpi: rasterizeOptions?.dpi,
+          background: rasterizeOptions?.background === 'white' ? 'opaque' : 'transparent',
+          backgroundColor:
+            rasterizeOptions?.background === 'white' ? [255, 255, 255, 255] : undefined,
+          includeEffectOverflow: rasterizeOptions?.includeEffectOverflow ?? true,
           textPolicy: 'rasterize',
         };
         import('./flatten/renderSubtree').then(({ flattenNodes }) => {
           flattenNodes(state.document, sel, opts)
             .then((result) => {
-              const replacementId = `flat-${Date.now()}`;
               updateDoc((doc) => {
-                let d = replaceNodesWithFlattened(doc, sel, {
-                  nodeId: replacementId,
+                const replacement = nextNodeId(doc);
+                const replacementSpec = {
+                  nodeId: replacement.id,
                   bounds: result.sourceBounds,
                   dataUrl: result.dataUrl,
                   assetId: result.assetId,
                   placement: result.placement,
                   cssWidth: result.cssWidth,
                   cssHeight: result.cssHeight,
-                });
+                };
+                let d =
+                  rasterizeOptions?.keepOriginal === true
+                    ? insertFlattenedCopy(replacement.doc, sel, replacementSpec)
+                    : replaceNodesWithFlattened(replacement.doc, sel, replacementSpec);
                 d = findOrCreateEmbeddedAsset(d, {
                   dataUrl: result.dataUrl,
                   mimeType: 'image/png',
@@ -7325,8 +7339,8 @@ export function EditorProvider({
         });
       },
 
-      rasterizeSelected: (scale) => {
-        value.flattenSelected('rasterize', scale);
+      rasterizeSelected: (scaleOrOptions) => {
+        value.flattenSelected('rasterize', scaleOrOptions);
       },
 
       mergeSelected: () => {
