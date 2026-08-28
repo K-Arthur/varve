@@ -25,6 +25,7 @@ export type WarpImageResolver = (src: string) => CanvasImageSource | undefined;
 export interface WarpImageCacheLike {
   get(src: string): { state: string; image: CanvasImageSource | null } | undefined;
   getImageAtSize?(src: string, maxDim: number): CanvasImageSource | null;
+  getClosestImageAtSize?(src: string, maxDim: number): CanvasImageSource | null;
   isRepresentationCapable?(src: string): boolean;
   loadAtSize?(
     src: string,
@@ -40,6 +41,36 @@ export interface ReplayImagePolicy {
   sourceWidth?: number;
   sourceHeight?: number;
   intent?: 'interactive' | 'settled-preview' | 'thumbnail' | 'export' | 'print';
+  /** Resolve an image-specific cap from its on-screen footprint. */
+  resolveMaxSourceDim?: (request: ReplayImageRepresentationRequest) => number;
+}
+
+export interface ReplayImageRepresentationRequest {
+  projectedLongEdge: number;
+  sourceWidth?: number;
+  sourceHeight?: number;
+}
+
+/**
+ * Largest on-screen scale of an affine transform, including skew. This is
+ * the conservative source-resolution requirement for an image fill.
+ */
+export function projectedLongEdgeForTransform(
+  width: number,
+  height: number,
+  transform?: { a: number; b: number; c: number; d: number },
+): number {
+  const longEdge = Math.max(1, Math.abs(width), Math.abs(height));
+  if (!transform) return longEdge;
+  const { a, b, c, d } = transform;
+  if (![a, b, c, d].every(Number.isFinite)) return longEdge;
+  // sqrt(max eigenvalue(AᵀA)) is the greatest affine stretch. It avoids
+  // under-decoding rotated or skewed image fills.
+  const trace = a * a + b * b + c * c + d * d;
+  const determinant = a * d - b * c;
+  const discriminant = Math.max(0, trace * trace - 4 * determinant * determinant);
+  const maxEigenvalue = Math.max(0, (trace + Math.sqrt(discriminant)) / 2);
+  return longEdge * Math.sqrt(maxEigenvalue);
 }
 
 /**
@@ -92,6 +123,8 @@ export function resolveReplayImage(
         height: policy?.sourceHeight ?? maxSourceDim,
       })
       .catch(() => undefined);
+    const residentProxy = cache.getClosestImageAtSize?.(loadableSource, maxSourceDim);
+    if (residentProxy) return residentProxy;
   }
   const imgEntry = cache.get(loadableSource);
   if (imgEntry?.state === 'loaded' && imgEntry.image) {

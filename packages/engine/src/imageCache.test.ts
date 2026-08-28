@@ -510,6 +510,18 @@ describe('ImageCache at-size representations', () => {
     expect(cache.getImageAtSize(src, 2048)).toBeNull();
   });
 
+  it('keeps the closest resident proxy visible while a new bucket is pending', () => {
+    const src = 'data:image/jpeg;base64,PROGRESSIVE';
+    const cache = new ImageCache();
+    const low = mockBitmap(vi.fn(), 512, 256);
+    const high = mockBitmap(vi.fn(), 4096, 2048);
+    cache.setLoaded(cache.atSizeKey(src, 512), low);
+    cache.setLoaded(cache.atSizeKey(src, 4096), high);
+
+    expect(cache.getClosestImageAtSize(src, 2048)).toBe(high);
+    expect(cache.getClosestImageAtSize(src, 8192)).toBe(high);
+  });
+
   it('partitions full-size entries by color variant', () => {
     const src = 'data:image/jpeg;base64,COLOR-VARIANT';
     const srgb = { colorKey: 'srgb-source' };

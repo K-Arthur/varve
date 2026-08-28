@@ -71,6 +71,17 @@ export interface RasterRepresentationRequest {
   viewportHeight: number;
   devicePixelRatio: number;
   zoom: number;
+  /**
+   * Long edge of this particular raster after the current camera/world
+   * transform, in device pixels. When provided, it supersedes the viewport
+   * heuristic: a tiny image must not decode as if it filled the whole canvas.
+   */
+  projectedLongEdge?: number;
+  /** Authoritative source dimensions, used to keep proxy memory bounded. */
+  sourceWidth?: number;
+  sourceHeight?: number;
+  /** Maximum decoded RGBA bytes permitted for this representation. */
+  maxDecodedBytes?: number;
   /** True while a camera gesture is actively producing frames. */
   cameraMoving?: boolean;
   intent?: RenderIntent;
@@ -85,12 +96,45 @@ export interface RasterRepresentationDecision {
 
 const MIN_INTERACTIVE_BUCKET = 512;
 const MAX_INTERACTIVE_BUCKET = 8192;
+const MAX_SETTLED_BUCKET = 16384;
 const INTERACTIVE_MARGIN = 1.25;
 const SETTLED_MARGIN = 1.5;
 
 function nextPowerOfTwo(value: number): number {
   if (value <= 1) return 1;
   return 2 ** Math.ceil(Math.log2(value));
+}
+
+function previousPowerOfTwo(value: number): number {
+  if (value <= 1) return 1;
+  return 2 ** Math.floor(Math.log2(value));
+}
+
+/**
+ * Long-edge limit that keeps a proportional RGBA decode within a byte budget.
+ * A missing/invalid source size deliberately returns infinity: the caller can
+ * still select a useful proxy but cannot make a false memory guarantee.
+ */
+function maxLongEdgeForDecodedBudget(request: RasterRepresentationRequest): number {
+  const width = request.sourceWidth;
+  const height = request.sourceHeight;
+  const byteBudget = request.maxDecodedBytes;
+  if (
+    !width ||
+    !height ||
+    !byteBudget ||
+    width <= 0 ||
+    height <= 0 ||
+    byteBudget <= 0 ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    !Number.isFinite(byteBudget)
+  ) {
+    return Infinity;
+  }
+  const longEdge = Math.max(width, height);
+  const aspect = Math.min(width, height) / longEdge;
+  return Math.max(1, Math.sqrt(byteBudget / Math.max(4 * aspect, Number.EPSILON)));
 }
 
 /**
@@ -116,9 +160,17 @@ export function selectRasterRepresentation(
   const dpr = Math.max(1, Number.isFinite(request.devicePixelRatio) ? request.devicePixelRatio : 1);
   const zoom = Math.max(0.05, Number.isFinite(request.zoom) ? request.zoom : 1);
   const margin = request.cameraMoving ? INTERACTIVE_MARGIN : SETTLED_MARGIN;
-  const requiredSourceDim = viewportMax * dpr * zoom * margin;
+  const projectedLongEdge = request.projectedLongEdge;
+  const displayLongEdge =
+    projectedLongEdge && Number.isFinite(projectedLongEdge) && projectedLongEdge > 0
+      ? projectedLongEdge
+      : viewportMax * dpr * zoom;
+  const requiredSourceDim = displayLongEdge * margin;
+  const maxBucket = request.cameraMoving ? MAX_INTERACTIVE_BUCKET : MAX_SETTLED_BUCKET;
+  const budgetCap = previousPowerOfTwo(maxLongEdgeForDecodedBudget(request));
   const bucket = Math.min(
-    MAX_INTERACTIVE_BUCKET,
+    maxBucket,
+    budgetCap,
     Math.max(MIN_INTERACTIVE_BUCKET, nextPowerOfTwo(requiredSourceDim)),
   );
 

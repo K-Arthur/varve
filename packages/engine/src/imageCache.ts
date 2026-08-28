@@ -528,6 +528,60 @@ export class ImageCache {
   }
 
   /**
+   * Return the best live decoded proxy for a source while a more suitable
+   * bucket is loading. Prefer the smallest representation at or above the
+   * request; otherwise retain the sharpest lower-resolution proxy. This
+   * makes proxy promotion progressive instead of briefly falling back to a
+   * placeholder or an unbounded full decode.
+   */
+  getClosestImageAtSize(
+    url: string,
+    maxDim: number,
+    variant?: ImageCacheColorVariant,
+  ): CachedImage | null {
+    const exact = this.getImageAtSize(url, maxDim, variant);
+    if (exact) return exact;
+
+    const prefix = `${url}@`;
+    const colorSuffix = variant?.colorKey
+      ? `\u0000varve-color=${encodeURIComponent(variant.colorKey)}`
+      : '';
+    let smallestAtOrAbove: { dimension: number; image: CachedImage } | null = null;
+    let largestBelow: { dimension: number; image: CachedImage } | null = null;
+
+    for (const [key, entry] of this.cache) {
+      if (!key.startsWith(prefix)) continue;
+      if (colorSuffix) {
+        if (!key.endsWith(colorSuffix)) continue;
+      } else if (key.includes('\u0000varve-color=')) {
+        continue;
+      }
+      if (entry.state !== 'loaded' || !entry.image) continue;
+      if (this.isBitmap(entry.image) && (entry.image as { closed?: boolean }).closed === true) {
+        continue;
+      }
+
+      const sizeText = colorSuffix
+        ? key.slice(prefix.length, -colorSuffix.length)
+        : key.slice(prefix.length);
+      const dimension = Number(sizeText);
+      if (!Number.isInteger(dimension) || dimension <= 0) continue;
+
+      if (dimension >= maxDim) {
+        if (!smallestAtOrAbove || dimension < smallestAtOrAbove.dimension) {
+          smallestAtOrAbove = { dimension, image: entry.image };
+        }
+      } else if (!largestBelow || dimension > largestBelow.dimension) {
+        largestBelow = { dimension, image: entry.image };
+      }
+    }
+
+    const chosen = smallestAtOrAbove ?? largestBelow;
+    if (chosen) this.touch(this.atSizeKey(url, chosen.dimension, variant));
+    return chosen?.image ?? null;
+  }
+
+  /**
    * Decode (or await the decode of) the at-size representation of an inline
    * source: the encoded bytes are decoded directly to an ImageBitmap capped
    * at `maxDim` px on the long edge, so a multi-hundred-megapixel photo
