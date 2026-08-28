@@ -1057,6 +1057,48 @@ mod tests {
             .find(|p| !p.holes.is_empty())
             .expect("compound path with a hole exists");
         assert_eq!(ring.holes.len(), 1);
+        assert!(
+            ring.points
+                .iter()
+                .chain(ring.holes.iter().flatten())
+                .any(|point| point.handle_in.is_some() || point.handle_out.is_some()),
+            "compound contours must retain the cubic fitting result rather than\
+             reverting to raw pixel-boundary anchors"
+        );
+    }
+
+    #[test]
+    fn higher_simplify_tolerance_never_increases_native_anchor_count() {
+        let pixels = donut_rgba(64, 64, 9, 28, 32, 32);
+        let exact = TraceOptions {
+            compound_holes: true,
+            min_pixels: 4,
+            simplify_tolerance: 0.0,
+            ..Default::default()
+        };
+        let simplified = TraceOptions {
+            simplify_tolerance: 2.0,
+            ..exact.clone()
+        };
+        let count_anchors = |result: &TraceBezierResult| {
+            result
+                .paths
+                .iter()
+                .map(|path| path.points.len() + path.holes.iter().map(Vec::len).sum::<usize>())
+                .sum::<usize>()
+        };
+        let baseline = trace_to_beziers_cancellable(&pixels, 64, 64, &exact, None, None);
+        let reduced = trace_to_beziers_cancellable(&pixels, 64, 64, &simplified, None, None);
+        assert!(!baseline.paths.is_empty());
+        assert!(
+            count_anchors(&reduced) <= count_anchors(&baseline),
+            "higher source-pixel simplification tolerance must not add anchors"
+        );
+        assert_eq!(
+            reduced,
+            trace_to_beziers_cancellable(&pixels, 64, 64, &simplified, None, None),
+            "a fixed source/settings tuple must be deterministic"
+        );
     }
 
     #[test]
