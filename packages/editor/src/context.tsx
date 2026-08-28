@@ -2707,7 +2707,6 @@ export function EditorProvider({
 
   /** F6: transaction state for single-undo scrubbing. */
   const inTransactionRef = useRef(false);
-  /** Flatten nested transactions so only the outermost commit creates a history step. */
   const txDepthRef = useRef(0);
   const txLabelRef = useRef('Edit');
   const txSnapshotRef = useRef<Document | null>(null);
@@ -2903,11 +2902,10 @@ export function EditorProvider({
       areaUndoStackRef.current = [];
       areaRedoStackRef.current = [];
       if (!inTransactionRef.current) {
-        if (process.env.NODE_ENV !== 'production') {
+        if (process.env.NODE_ENV !== 'production')
           console.warn(
             '[history] updateDoc called outside transaction — this mutation bypasses persistent history capture',
           );
-        }
         undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
         undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
         undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
@@ -3083,10 +3081,7 @@ export function EditorProvider({
     }
   }, [patch]);
 
-  /**
-   * Run related mutations as one user-visible history step. Nested calls are
-   * flattened into an existing transaction and never overwrite its label.
-   */
+  /** Run related mutations as one user-visible history step without overwriting an outer label. */
   const groupCompoundOperation = useCallback(
     (label: string, action: () => void) => {
       const ownsTransaction = !inTransactionRef.current;

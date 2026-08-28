@@ -5,6 +5,31 @@ Evidence gathered from `packages/editor`, `packages/scene`, `packages/platform`
 on 2026-08-05. This inventory feeds ADR-0017 (authoritative mutation pipeline)
 and the mutation-coverage work in Milestone 4.
 
+## Deterministic-history follow-up (2026-08-28)
+
+The original inventory is retained below as the baseline. The following paths
+were audited again while hardening deterministic persistent replay:
+
+| Path | Current transaction coverage | Persistent replay status |
+|---|---|---|
+| `createShapeAt` | Opens an owned transaction unless the caller already has one | Exact structural capture |
+| `duplicateSelected` | Opens an owned transaction | Exact structural capture |
+| `groupSelected` / `ungroupSelected` | Opens an owned transaction | Exact structural capture |
+| `paste` | Opens an owned transaction | Exact structural capture |
+| `TextEditOverlay` | 500 ms typing burst; IME commits atomically | One capture per burst |
+| Inspector `NumberField` wheel | 200 ms idle burst when focused | One capture per scroll burst |
+| Nested/compound work | Reference-counted nesting; `groupCompoundOperation(label, fn)` | Outer step only, labelled |
+| Raster paint / erase / smudge | Transaction capture scans changed tiles | `document.raster-delta` replays committed bytes, never a brush algorithm |
+
+`updateDoc` still emits a development warning when it is called outside a
+transaction. That warning is intentionally non-fatal during the remaining
+incremental migration; administrative replacement, viewport, selection, and
+other runtime-only paths remain outside authored history by design.
+
+Known follow-up: tile reachability GC and an external snapshot tile manifest.
+The current snapshot codec preserves raster Maps and typed pixels directly and
+refuses a lossy legacy raster snapshot.
+
 ## Summary
 
 - **~90 % of undoable edits** flow through exactly two choke points in
