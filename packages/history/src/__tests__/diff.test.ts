@@ -67,6 +67,7 @@ describe('diffDocuments', () => {
     (target.nodes.n1_aaaa as { opacity: number }).opacity = 0.9999995;
     const diff = diffDocuments(base, target, { epsilonPolicy: 'exact' });
     expect(diff.changed).toBe(true);
+    expect(diff.changes).toHaveLength(1);
   });
 
   it('detects added and removed nodes', () => {

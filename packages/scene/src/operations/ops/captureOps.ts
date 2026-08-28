@@ -224,13 +224,17 @@ function validateChanges(changes: unknown): string | null {
 // ── Application (replay) ──────────────────────────────────────────────────────
 
 function applyChanges(document: Document, changes: CapturedChange[]): Document {
-  const next = structuredClone(document) as unknown as Record<string, unknown>;
+  // Browser/worker realm boundaries have historically made structuredClone
+  // turn typed raster buffers into plain numeric objects. Capture replay must
+  // retain their binary type even when a transaction only changes a vector
+  // property alongside an existing raster layer.
+  const next = cloneCaptureValue(document) as unknown as Record<string, unknown>;
   for (const change of changes) {
     switch (change.changeType) {
       case 'added': {
         if (!MAP_BACKED.has(change.entityType) || !change.propertyPath) continue;
         const container = resolveRecord(next, change.propertyPath, true);
-        if (container !== undefined) container[change.entityId] = structuredClone(change.after);
+        if (container !== undefined) container[change.entityId] = cloneCaptureValue(change.after);
         continue;
       }
       case 'removed': {
@@ -240,12 +244,12 @@ function applyChanges(document: Document, changes: CapturedChange[]): Document {
         continue;
       }
       case 'reordered': {
-        setAtPath(next, change.propertyPath ?? '', structuredClone(change.after));
+        setAtPath(next, change.propertyPath ?? '', cloneCaptureValue(change.after));
         continue;
       }
       case 'modified':
       case 'renamed': {
-        setAtPath(next, change.propertyPath ?? '', structuredClone(change.after));
+        setAtPath(next, change.propertyPath ?? '', cloneCaptureValue(change.after));
         continue;
       }
       case 'text': {
@@ -267,6 +271,11 @@ function resolveRecord(
   for (const segment of segments) {
     if (current === undefined || current === null) return undefined;
     if (Array.isArray(current)) {
+      const index = arrayIndexForSegment(segment);
+      if (index !== null) {
+        current = current[index];
+        continue;
+      }
       const found = (current as Array<Record<string, unknown>>).find(
         (item) => item?.id === segment,
       );
@@ -293,6 +302,12 @@ function setAtPath(root: Record<string, unknown>, path: string, value: unknown):
   for (let i = 0; i < segments.length - 1; i++) {
     const segment = segments[i]!;
     if (Array.isArray(current)) {
+      const index = arrayIndexForSegment(segment);
+      if (index !== null) {
+        if (index >= current.length) return;
+        current = current[index];
+        continue;
+      }
       const found = (current as Array<Record<string, unknown>>).find(
         (item) => item?.id === segment,
       );
@@ -311,6 +326,12 @@ function setAtPath(root: Record<string, unknown>, path: string, value: unknown):
   const last = segments[segments.length - 1]!;
   if (current === null || typeof current !== 'object') return;
   if (Array.isArray(current)) {
+    const arrayIndex = arrayIndexForSegment(last);
+    if (arrayIndex !== null) {
+      if (arrayIndex >= current.length) return;
+      current[arrayIndex] = value;
+      return;
+    }
     const index = (current as Array<Record<string, unknown>>).findIndex(
       (item) => item?.id === last,
     );
@@ -321,6 +342,41 @@ function setAtPath(root: Record<string, unknown>, path: string, value: unknown):
     if (value === undefined) delete record[last];
     else record[last] = value;
   }
+}
+
+/** A capture path can address either an entity-id array item or a numeric tuple item. */
+function arrayIndexForSegment(segment: string): number | null {
+  if (!/^(0|[1-9]\d*)$/.test(segment)) return null;
+  const index = Number(segment);
+  return Number.isSafeInteger(index) ? index : null;
+}
+
+/** Clone document data while preserving Map and typed-array runtime values exactly. */
+function cloneCaptureValue<T>(value: T, seen = new Map<object, unknown>()): T {
+  if (value === null || typeof value !== 'object') return value;
+  if (value instanceof Uint8ClampedArray) return new Uint8ClampedArray(value) as T;
+  if (value instanceof Uint8Array) return new Uint8Array(value) as T;
+  if (value instanceof ArrayBuffer) return value.slice(0) as T;
+  const existing = seen.get(value);
+  if (existing !== undefined) return existing as T;
+  if (Array.isArray(value)) {
+    const copy: unknown[] = [];
+    seen.set(value, copy);
+    for (const item of value) copy.push(cloneCaptureValue(item, seen));
+    return copy as T;
+  }
+  if (value instanceof Map) {
+    const copy = new Map();
+    seen.set(value, copy);
+    for (const [key, item] of value) {
+      copy.set(cloneCaptureValue(key, seen), cloneCaptureValue(item, seen));
+    }
+    return copy as T;
+  }
+  const copy: Record<string, unknown> = {};
+  seen.set(value, copy);
+  for (const [key, item] of Object.entries(value)) copy[key] = cloneCaptureValue(item, seen);
+  return copy as T;
 }
 
 function applyTextChange(root: Record<string, unknown>, change: CapturedChange): void {
