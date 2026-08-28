@@ -240,6 +240,31 @@ describe('booleanOp — exclude', () => {
 });
 
 describe('booleanOp — bezier paths', () => {
+  it('preserves authored bezier handles for a single-operand no-op', () => {
+    const pts: PathPoint[] = [
+      { x: 0, y: 0, handleIn: null, handleOut: [30, -50] },
+      { x: 100, y: 0, handleIn: [-30, -50], handleOut: null },
+      { x: 100, y: 100, handleIn: null, handleOut: null },
+      { x: 0, y: 100, handleIn: null, handleOut: null },
+    ];
+    const path = makePath('curve', pts, true, [2, 0, 0, 2, 10, 20]);
+    const result = booleanOp('union', [path]);
+
+    expect(result.shape.kind).toBe('path');
+    if (result.shape.kind !== 'path') return;
+    expect(result.transform).toEqual([1, 0, 0, 1, 0, 0]);
+    expect(result.shape.points[0]).toMatchObject({
+      x: 10,
+      y: 20,
+      handleOut: [60, -100],
+    });
+    expect(result.shape.points[1]).toMatchObject({
+      x: 210,
+      y: 20,
+      handleIn: [-60, -100],
+    });
+  });
+
   it('union handles bezier path shapes', () => {
     // A closed path with a bezier curve on top edge
     const pts: PathPoint[] = [

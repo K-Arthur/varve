@@ -322,6 +322,49 @@ function polygonToPathPoints(pts: Point2D[]): PathPoint[] {
   return pts.map((p) => ({ x: p.x, y: p.y, handleIn: null, handleOut: null }));
 }
 
+function transformPathPoint(
+  point: PathPoint,
+  transform: readonly [number, number, number, number, number, number],
+): PathPoint {
+  const [x, y] = applyAffine(transform, [point.x, point.y]);
+  const transformHandle = (handle: [number, number] | null): [number, number] | null =>
+    handle
+      ? [
+          transform[0] * handle[0] + transform[2] * handle[1],
+          transform[1] * handle[0] + transform[3] * handle[1],
+        ]
+      : null;
+  return {
+    ...point,
+    x,
+    y,
+    handleIn: transformHandle(point.handleIn),
+    handleOut: transformHandle(point.handleOut),
+  };
+}
+
+/** Preserve authored curves when a Boolean command has only one valid operand. */
+function preservePathResult(source: ShapeNode, style: ShapeNode, id: string): ShapeNode | null {
+  if (source.shape.kind !== 'path' || !source.shape.closed) return null;
+  const transform = source.transform;
+  const transformRing = (ring: PathPoint[]) =>
+    ring.map((point) => transformPathPoint(point, transform));
+  const shape = source.shape;
+  return {
+    ...style,
+    id,
+    name: 'Boolean Result',
+    rotation: 0,
+    transform: [1, 0, 0, 1, 0, 0],
+    shape: {
+      ...shape,
+      points: transformRing(shape.points),
+      ...(shape.contours ? { contours: shape.contours.map(transformRing) } : {}),
+      ...(shape.holes ? { holes: shape.holes.map(transformRing) } : {}),
+    },
+  };
+}
+
 /**
  * Build a ShapeNode from a boolean result.
  * The result may be a compound path (outer + holes).
@@ -443,6 +486,8 @@ export function booleanOp(kind: BooleanOpType, nodes: ShapeNode[]): ShapeNode {
   const id = freshId();
 
   if (nodes.length === 1) {
+    const preserved = preservePathResult(first, first, id);
+    if (preserved) return preserved;
     // Single node: convert to path
     const poly = shapeToPolygon(first.shape, first.transform);
     if (poly.length < 3) {
@@ -465,9 +510,10 @@ export function booleanOp(kind: BooleanOpType, nodes: ShapeNode[]): ShapeNode {
   }
 
   // Convert all nodes to polygons in world space, filtering degenerate ones
-  const regions = nodes
-    .map((node) => shapeToRegion(node.shape, node.transform))
-    .filter((region): region is Region2D => region !== null);
+  const validOperands = nodes
+    .map((node) => ({ node, region: shapeToRegion(node.shape, node.transform) }))
+    .filter((operand): operand is { node: ShapeNode; region: Region2D } => operand.region !== null);
+  const regions = validOperands.map((operand) => operand.region);
 
   // If no valid polygons remain, return empty
   if (regions.length === 0) {
@@ -478,6 +524,8 @@ export function booleanOp(kind: BooleanOpType, nodes: ShapeNode[]): ShapeNode {
     );
   }
   if (regions.length === 1) {
+    const preserved = preservePathResult(validOperands[0]!.node, first, id);
+    if (preserved) return preserved;
     return makeResultNode(
       {
         components: [{ outer: regions[0]!.contours[0]!, holes: regions[0]!.holes }],
