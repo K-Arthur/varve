@@ -23,6 +23,41 @@ export interface FlattenReplacement {
   cssHeight: number;
 }
 
+function createFlattenedShape(replacement: FlattenReplacement, name: string): ShapeNode {
+  return {
+    id: replacement.nodeId,
+    kind: 'shape',
+    name,
+    layerColor: null,
+    fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+    order: 'a0',
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blendMode: 'normal',
+    rotation: 0,
+    transform: [1, 0, 0, 1, replacement.placement.dx, replacement.placement.dy],
+    fills: [
+      imageFill(replacement.dataUrl, {
+        assetId: replacement.assetId,
+        fit: 'fill',
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      }),
+    ],
+    strokes: [],
+    effects: [],
+    shape: {
+      kind: 'rect',
+      x: 0,
+      y: 0,
+      w: replacement.bounds.w,
+      h: replacement.bounds.h,
+    },
+  };
+}
+
 /**
  * Replace a set of nodes with a single flattened ShapeNode containing
  * an image fill. The original nodes are removed from the document.
@@ -49,36 +84,8 @@ export function replaceNodesWithFlattened(
   const insertOrder = orders.length > 0 ? orders.reduce((min, o) => (o < min ? o : min)) : 'a0';
 
   const shapeNode: ShapeNode = {
-    id: replacement.nodeId,
-    kind: 'shape',
-    name: 'Flattened',
-    layerColor: null,
-    fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+    ...createFlattenedShape(replacement, 'Flattened'),
     order: insertOrder,
-    visible: true,
-    locked: false,
-    opacity: 1,
-    blendMode: 'normal',
-    rotation: 0,
-    transform: [1, 0, 0, 1, replacement.placement.dx, replacement.placement.dy],
-    fills: [
-      imageFill(replacement.dataUrl, {
-        assetId: replacement.assetId,
-        fit: 'fill',
-        opacity: 1,
-        blendMode: 'normal',
-        visible: true,
-      }),
-    ],
-    strokes: [],
-    effects: [],
-    shape: {
-      kind: 'rect',
-      x: 0,
-      y: 0,
-      w: replacement.bounds.w,
-      h: replacement.bounds.h,
-    },
   };
 
   const newNodes: Record<string, SceneNode> = {};
@@ -126,6 +133,52 @@ export function replaceNodesWithFlattened(
 }
 
 /**
+ * Insert a rasterized copy without discarding the editable source subtree.
+ * The source nodes are hidden so transparent edges are not composited twice;
+ * they remain in the document and can be revealed or edited at any time.
+ */
+export function insertFlattenedCopy(
+  doc: Document,
+  nodeIds: readonly NodeId[],
+  replacement: FlattenReplacement,
+): Document {
+  if (nodeIds.length === 0) return doc;
+
+  const parentId = findCommonParent(doc, nodeIds);
+  const nodeSet = new Set(nodeIds);
+  const parentChildren = parentId
+    ? doc.nodes[parentId] && 'children' in doc.nodes[parentId]
+      ? doc.nodes[parentId].children
+      : []
+    : doc.rootChildren;
+  const firstIndex = parentChildren.findIndex((id) => nodeSet.has(id));
+  const insertIndex = firstIndex >= 0 ? firstIndex : parentChildren.length;
+  const nextChildren = [...parentChildren];
+  nextChildren.splice(insertIndex, 0, replacement.nodeId);
+
+  const newNodes: Record<string, SceneNode> = {
+    ...doc.nodes,
+    [replacement.nodeId]: createFlattenedShape(replacement, 'Rasterized Copy'),
+  };
+  for (const nodeId of nodeIds) {
+    const node = doc.nodes[nodeId];
+    if (node) newNodes[nodeId] = { ...node, visible: false };
+  }
+
+  if (parentId) {
+    const parent = doc.nodes[parentId];
+    if (!parent || !('children' in parent)) return doc;
+    newNodes[parentId] = { ...parent, children: nextChildren };
+    return { ...doc, nodes: newNodes as Document['nodes'] };
+  }
+  return {
+    ...doc,
+    nodes: newNodes as Document['nodes'],
+    rootChildren: nextChildren,
+  };
+}
+
+/**
  * Merge a set of nodes into a single new node (for "merge selected" / "merge visible").
  * Similar to replaceNodesWithFlattened but uses a different naming convention
  * and can merge into an existing node rather than creating a new one.
@@ -142,36 +195,8 @@ export function mergeNodes(
   const mergeTargetId = targetNodeId ?? replacement.nodeId;
 
   const shapeNode: ShapeNode = {
+    ...createFlattenedShape(replacement, 'Merged'),
     id: mergeTargetId,
-    kind: 'shape',
-    name: 'Merged',
-    layerColor: null,
-    fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
-    order: 'a0',
-    visible: true,
-    locked: false,
-    opacity: 1,
-    blendMode: 'normal',
-    rotation: 0,
-    transform: [1, 0, 0, 1, replacement.placement.dx, replacement.placement.dy],
-    fills: [
-      imageFill(replacement.dataUrl, {
-        assetId: replacement.assetId,
-        fit: 'fill',
-        opacity: 1,
-        blendMode: 'normal',
-        visible: true,
-      }),
-    ],
-    strokes: [],
-    effects: [],
-    shape: {
-      kind: 'rect',
-      x: 0,
-      y: 0,
-      w: replacement.bounds.w,
-      h: replacement.bounds.h,
-    },
   };
 
   const newNodes: Record<string, SceneNode> = {};
