@@ -14,7 +14,14 @@
 
 import type { BrushDab } from './brush';
 import { type CoverageMask, sampleCoverage } from './paintCoverage';
-import { createBrushDabMask, makeTileKey, TILE_SIZE, tilesForBounds } from './rasterLayer';
+import {
+  createBrushDabMask,
+  makeTileKey,
+  rasterBoundsForDab,
+  sampleBrushMask,
+  TILE_SIZE,
+  tilesForDab,
+} from './rasterLayer';
 import type { RasterLayerNode, RasterTile } from './types';
 
 export type SmudgeMode = 'pure' | 'fingerPaint' | 'loaded';
@@ -93,15 +100,18 @@ function averageUnderDab(
   let wb = 0;
   let wa = 0;
   let weight = 0;
-  const startX = Math.round(dab.x - dab.radius);
-  const startY = Math.round(dab.y - dab.radius);
+  const { minX: startX, minY: startY, maxX: endX, maxY: endY } = rasterBoundsForDab(dab);
 
-  for (let my = 0; my < size; my++) {
-    for (let mx = 0; mx < size; mx++) {
-      const m = mask[my * size + mx]!;
+  for (let py = startY; py < endY; py++) {
+    for (let px = startX; px < endX; px++) {
+      const m = sampleBrushMask(
+        mask,
+        size,
+        px - (dab.x - dab.radius),
+        py - (dab.y - dab.radius),
+        dab,
+      );
       if (m <= 0) continue;
-      const px = startX + mx;
-      const py = startY + my;
       const col = Math.floor(px / TILE_SIZE);
       const row = Math.floor(py / TILE_SIZE);
       const tile = tiles.get(makeTileKey(col, row));
@@ -160,15 +170,9 @@ export function compositeSmudgeDab(
   if (state.load <= 0) return node;
 
   // ── Deposit ─────────────────────────────────────────────────────────────
-  const tileKeys = tilesForBounds(
-    Math.floor(dab.x - dab.radius),
-    Math.floor(dab.y - dab.radius),
-    size,
-    size,
-  );
+  const tileKeys = tilesForDab(dab);
   const newTiles = new Map(node.tiles);
-  const startX = Math.round(dab.x - dab.radius);
-  const startY = Math.round(dab.y - dab.radius);
+  const { minX: startX, minY: startY, maxX: endX, maxY: endY } = rasterBoundsForDab(dab);
 
   for (const { col, row } of tileKeys) {
     const key = makeTileKey(col, row);
@@ -181,14 +185,18 @@ export function compositeSmudgeDab(
     const originY = row * TILE_SIZE;
     let wrote = false;
 
-    for (let my = 0; my < size; my++) {
-      const layerY = startY + my;
+    for (let layerY = startY; layerY < endY; layerY++) {
       const py = layerY - originY;
       if (py < 0 || py >= TILE_SIZE) continue;
-      for (let mx = 0; mx < size; mx++) {
-        const m = mask[my * size + mx]!;
+      for (let layerX = startX; layerX < endX; layerX++) {
+        const m = sampleBrushMask(
+          mask,
+          size,
+          layerX - (dab.x - dab.radius),
+          layerY - (dab.y - dab.radius),
+          dab,
+        );
         if (m <= 0) continue;
-        const layerX = startX + mx;
         const px = layerX - originX;
         if (px < 0 || px >= TILE_SIZE) continue;
 

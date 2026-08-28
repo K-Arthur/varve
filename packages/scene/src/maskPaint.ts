@@ -17,7 +17,7 @@
 
 import type { BrushDab } from './brush';
 import { type CoverageMask, sampleCoverage } from './paintCoverage';
-import { createBrushDabMask } from './rasterLayer';
+import { createBrushDabMask, rasterBoundsForDab, sampleBrushMask } from './rasterLayer';
 
 export interface MaskPlane {
   width: number;
@@ -93,8 +93,7 @@ export function compositeMaskDab(
 ): { x: number; y: number; w: number; h: number } | null {
   const mask = createBrushDabMask(dab);
   const size = Math.ceil(dab.radius * 2);
-  const startX = Math.round(dab.x - dab.radius);
-  const startY = Math.round(dab.y - dab.radius);
+  const { minX: startX, minY: startY, maxX: endX, maxY: endY } = rasterBoundsForDab(dab);
   const target = Math.max(0, Math.min(1, options.value)) * 255;
   const coverage = options.coverage ?? null;
 
@@ -103,13 +102,17 @@ export function compositeMaskDab(
   let maxX = Number.NEGATIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
 
-  for (let my = 0; my < size; my++) {
-    const py = startY + my;
+  for (let py = startY; py < endY; py++) {
     if (py < 0 || py >= plane.height) continue;
-    for (let mx = 0; mx < size; mx++) {
-      const px = startX + mx;
+    for (let px = startX; px < endX; px++) {
       if (px < 0 || px >= plane.width) continue;
-      const maskValue = mask[my * size + mx]!;
+      const maskValue = sampleBrushMask(
+        mask,
+        size,
+        px - (dab.x - dab.radius),
+        py - (dab.y - dab.radius),
+        dab,
+      );
       if (maskValue <= 0) continue;
 
       const selection = coverage ? sampleCoverage(coverage, px, py) : 1;

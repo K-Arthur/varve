@@ -158,6 +158,22 @@ describe('Tile serialization', () => {
 });
 
 describe('Tile compositing', () => {
+  function alphaCentroidX(node: ReturnType<typeof makeRasterLayerNode>): number {
+    let weightedX = 0;
+    let totalAlpha = 0;
+    for (const [key, tile] of node.tiles) {
+      const { col } = parseTileKey(key);
+      for (let py = 0; py < TILE_SIZE; py++) {
+        for (let px = 0; px < TILE_SIZE; px++) {
+          const alpha = tile.pixels[(py * TILE_SIZE + px) * 4 + 3]!;
+          weightedX += (col * TILE_SIZE + px) * alpha;
+          totalAlpha += alpha;
+        }
+      }
+    }
+    return weightedX / totalAlpha;
+  }
+
   it('erases with the brush mask instead of a square region', () => {
     const node = makeRasterLayerNode('erase-mask', { width: 256, height: 256 });
     const tile = createEmptyTile();
@@ -303,6 +319,104 @@ describe('Tile compositing', () => {
     expect(result.tiles.get('1:0')).toBeDefined();
     expect(result.tiles.get('0:1')).toBeDefined();
     expect(result.tiles.get('1:1')).toBeDefined();
+  });
+
+  it('moves raster coverage continuously for fractional dab centres', () => {
+    const integer = compositeDabOnNode(
+      makeRasterLayerNode('integer', { width: 256, height: 128 }),
+      {
+        x: 64,
+        y: 64,
+        radius: 8,
+        opacity: 1,
+        flow: 1,
+        hardness: 0.5,
+        angle: 0,
+        roundness: 1,
+        strokeT: 0,
+        strokeDistance: 0,
+      },
+      [255, 255, 255, 255],
+    );
+    const fractional = compositeDabOnNode(
+      makeRasterLayerNode('fractional', { width: 256, height: 128 }),
+      {
+        x: 64.5,
+        y: 64,
+        radius: 8,
+        opacity: 1,
+        flow: 1,
+        hardness: 0.5,
+        angle: 0,
+        roundness: 1,
+        strokeT: 0,
+        strokeDistance: 0,
+      },
+      [255, 255, 255, 255],
+    );
+
+    expect(alphaCentroidX(fractional) - alphaCentroidX(integer)).toBeGreaterThan(0.3);
+    expect(alphaCentroidX(fractional) - alphaCentroidX(integer)).toBeLessThan(0.7);
+  });
+
+  it('keeps the minimum 0.5 px tip visible between pixel centres', () => {
+    const atCentre = compositeDabOnNode(
+      makeRasterLayerNode('small-centre', { width: 128, height: 128 }),
+      {
+        x: 64,
+        y: 64,
+        radius: 0.5,
+        opacity: 1,
+        flow: 1,
+        hardness: 1,
+        angle: 0,
+        roundness: 1,
+        strokeT: 0,
+        strokeDistance: 0,
+      },
+      [255, 255, 255, 255],
+    );
+    const betweenCentres = compositeDabOnNode(
+      makeRasterLayerNode('small-between', { width: 128, height: 128 }),
+      {
+        x: 64.5,
+        y: 64,
+        radius: 0.5,
+        opacity: 1,
+        flow: 1,
+        hardness: 1,
+        angle: 0,
+        roundness: 1,
+        strokeT: 0,
+        strokeDistance: 0,
+      },
+      [255, 255, 255, 255],
+    );
+
+    expect(atCentre.tiles.get('0:0')!.pixels[(64 * TILE_SIZE + 64) * 4 + 3]).toBeGreaterThan(0);
+    expect(alphaCentroidX(betweenCentres) - alphaCentroidX(atCentre)).toBeCloseTo(0.5, 1);
+  });
+
+  it('retains partial coverage on both sides of a tile boundary', () => {
+    const result = compositeDabOnNode(
+      makeRasterLayerNode('boundary', { width: 256, height: 128 }),
+      {
+        x: 127.5,
+        y: 64,
+        radius: 4,
+        opacity: 1,
+        flow: 1,
+        hardness: 1,
+        angle: 0,
+        roundness: 1,
+        strokeT: 0,
+        strokeDistance: 0,
+      },
+      [255, 255, 255, 255],
+    );
+
+    expect(result.tiles.get('0:0')!.pixels[(64 * TILE_SIZE + 127) * 4 + 3]).toBeGreaterThan(0);
+    expect(result.tiles.get('1:0')!.pixels[(64 * TILE_SIZE + 0) * 4 + 3]).toBeGreaterThan(0);
   });
 
   it('smudges across a tile boundary using an immutable neighborhood', () => {

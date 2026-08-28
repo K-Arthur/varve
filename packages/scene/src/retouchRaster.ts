@@ -14,7 +14,14 @@
 
 import type { BrushDab } from './brush';
 import { type CoverageMask, sampleCoverage } from './paintCoverage';
-import { createBrushDabMask, makeTileKey, TILE_SIZE, tilesForBounds } from './rasterLayer';
+import {
+  createBrushDabMask,
+  makeTileKey,
+  rasterBoundsForDab,
+  sampleBrushMask,
+  TILE_SIZE,
+  tilesForDab,
+} from './rasterLayer';
 import type { RasterLayerNode, RasterTile } from './types';
 
 export interface RetouchOptions {
@@ -92,13 +99,7 @@ function compositeRetouchDab(
 
   const mask = createBrushDabMask(dab);
   const size = Math.ceil(dab.radius * 2);
-  const diameter = size;
-  const tileKeys = tilesForBounds(
-    Math.floor(dab.x - dab.radius),
-    Math.floor(dab.y - dab.radius),
-    diameter,
-    diameter,
-  );
+  const tileKeys = tilesForDab(dab);
   const newTiles = new Map(node.tiles);
 
   for (const { col, row } of tileKeys) {
@@ -112,17 +113,31 @@ function compositeRetouchDab(
 
     const tileOriginX = col * TILE_SIZE;
     const tileOriginY = row * TILE_SIZE;
-    const startX = Math.round(dab.x - tileOriginX - dab.radius);
-    const startY = Math.round(dab.y - tileOriginY - dab.radius);
+    const localDabX = dab.x - tileOriginX;
+    const localDabY = dab.y - tileOriginY;
+    const {
+      minX: startX,
+      minY: startY,
+      maxX: endX,
+      maxY: endY,
+    } = rasterBoundsForDab({
+      x: localDabX,
+      y: localDabY,
+      radius: dab.radius,
+    });
     let wrote = false;
 
-    for (let my = 0; my < size; my++) {
-      const py = startY + my;
+    for (let py = startY; py < endY; py++) {
       if (py < 0 || py >= TILE_SIZE) continue;
-      for (let mx = 0; mx < size; mx++) {
-        const px = startX + mx;
+      for (let px = startX; px < endX; px++) {
         if (px < 0 || px >= TILE_SIZE) continue;
-        const maskValue = mask[my * size + mx]!;
+        const maskValue = sampleBrushMask(
+          mask,
+          size,
+          px - (localDabX - dab.radius),
+          py - (localDabY - dab.radius),
+          dab,
+        );
         if (maskValue <= 0) continue;
 
         const layerX = tileOriginX + px;

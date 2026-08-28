@@ -129,6 +129,37 @@ export function tilesForBounds(x: number, y: number, w: number, h: number): Tile
   return keys;
 }
 
+export function rasterBoundsForDab(dab: Pick<BrushDab, 'x' | 'y' | 'radius'>): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+} {
+  // A sub-pixel tip needs the half-pixel footprint around each destination
+  // sample. Larger tips already have a sampled mask whose support supplies
+  // that transition; applying it only here prevents a 0.5 px brush vanishing
+  // when its centre lands between two pixel centres.
+  const coverageRadius = dab.radius + (dab.radius <= 1 ? 0.5 : 0);
+  return {
+    minX: Math.floor(dab.x - coverageRadius),
+    minY: Math.floor(dab.y - coverageRadius),
+    maxX: Math.ceil(dab.x + coverageRadius),
+    maxY: Math.ceil(dab.y + coverageRadius),
+  };
+}
+
+/**
+ * Return every tile a fractional dab can cover.
+ *
+ * A brush footprint is continuous even though its destination is a pixel
+ * buffer.  Rounding its width loses the final partial pixel at a tile edge,
+ * which is enough to clip a sub-pixel stroke as it crosses a tile boundary.
+ */
+export function tilesForDab(dab: Pick<BrushDab, 'x' | 'y' | 'radius'>): TileKey[] {
+  const { minX, minY, maxX, maxY } = rasterBoundsForDab(dab);
+  return tilesForBounds(minX, minY, Math.max(1, maxX - minX), Math.max(1, maxY - minY));
+}
+
 // ── Tile serialization ─────────────────────────────────────────────────────────
 
 export interface SerializableTileData {
@@ -418,6 +449,7 @@ function compositeBrushDabOnPixels(
   dabOpacity: number,
   dabFlow: number,
   brushMask: Float64Array,
+  maskDab: BrushDab,
   color: readonly [number, number, number, number],
   alphaLock: boolean,
   blendMode: string = 'normal',
@@ -428,17 +460,24 @@ function compositeBrushDabOnPixels(
   wetEdge: { size: number; darken: number } | null = null,
 ): boolean {
   const size = Math.ceil(dabRadius * 2);
-  const offsetX = Math.round(dabX - dabRadius);
-  const offsetY = Math.round(dabY - dabRadius);
+  const coverageRadius = dabRadius + (dabRadius <= 1 ? 0.5 : 0);
+  const minX = Math.floor(dabX - coverageRadius);
+  const minY = Math.floor(dabY - coverageRadius);
+  const maxX = Math.ceil(dabX + coverageRadius);
+  const maxY = Math.ceil(dabY + coverageRadius);
   let wrote = false;
 
-  for (let my = 0; my < size; my++) {
-    const py = offsetY + my;
+  for (let py = minY; py < maxY; py++) {
     if (py < 0 || py >= tileW) continue;
-    for (let mx = 0; mx < size; mx++) {
-      const px = offsetX + mx;
+    for (let px = minX; px < maxX; px++) {
       if (px < 0 || px >= tileW) continue;
-      const maskValue = brushMask[my * size + mx]!;
+      const maskValue = sampleBrushMask(
+        brushMask,
+        size,
+        px - (dabX - dabRadius),
+        py - (dabY - dabRadius),
+        maskDab,
+      );
       if (maskValue <= 0) continue;
 
       const layerX = tileOriginX + px;
@@ -559,6 +598,75 @@ export function createBrushDabMask(dab: BrushDab): Float64Array {
   return createBrushMask(dab.radius, dab.hardness, dab.shape ?? 'circle', dab.angle, dab.roundness);
 }
 
+/**
+ * Bilinearly sample a precomputed brush mask at a fractional location.
+ *
+ * A dab centre is continuous layer-space geometry. Sampling rather than
+ * rounding the mask origin is what lets a 0.25 px movement change coverage
+ * smoothly instead of snapping the whole tip to the next raster pixel.
+ */
+export function sampleBrushMask(
+  mask: Float64Array,
+  size: number,
+  x: number,
+  y: number,
+  dab?: Pick<BrushDab, 'radius' | 'hardness' | 'shape' | 'angle' | 'roundness'>,
+): number {
+  if (dab && dab.radius <= 1) {
+    return subpixelTipCoverage(dab, x - dab.radius, y - dab.radius);
+  }
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const fx = x - x0;
+  const fy = y - y0;
+  const at = (px: number, py: number) =>
+    px < 0 || py < 0 || px >= size || py >= size ? 0 : (mask[py * size + px] ?? 0);
+  const top = at(x0, y0) * (1 - fx) + at(x0 + 1, y0) * fx;
+  const bottom = at(x0, y0 + 1) * (1 - fx) + at(x0 + 1, y0 + 1) * fx;
+  return top * (1 - fy) + bottom * fy;
+}
+
+function subpixelTipCoverage(
+  dab: Pick<BrushDab, 'radius' | 'hardness' | 'shape' | 'angle' | 'roundness'>,
+  pixelX: number,
+  pixelY: number,
+): number {
+  const samples = 4;
+  let coverage = 0;
+  for (let sy = 0; sy < samples; sy++) {
+    for (let sx = 0; sx < samples; sx++) {
+      const x = pixelX + (sx + 0.5) / samples - 0.5;
+      const y = pixelY + (sy + 0.5) / samples - 0.5;
+      coverage += tipOpacityAt(dab, x, y);
+    }
+  }
+  return coverage / (samples * samples);
+}
+
+function tipOpacityAt(
+  dab: Pick<BrushDab, 'radius' | 'hardness' | 'shape' | 'angle' | 'roundness'>,
+  x: number,
+  y: number,
+): number {
+  const radius = dab.radius;
+  const hardness = dab.hardness;
+  let distance: number;
+  if (dab.shape === 'square') {
+    distance = Math.max(Math.abs(x), Math.abs(y));
+  } else {
+    const roundness = Math.max(0.01, dab.roundness ?? 1);
+    const cosA = Math.cos(dab.angle ?? 0);
+    const sinA = Math.sin(dab.angle ?? 0);
+    const tx = x * cosA - y * sinA;
+    const ty = x * sinA + y * cosA;
+    distance = Math.hypot(tx, ty / roundness);
+  }
+  if (distance >= radius) return 0;
+  const innerRadius = radius * hardness;
+  if (distance <= innerRadius || innerRadius === radius) return 1;
+  return Math.max(0, 1 - (distance - innerRadius) / (radius - innerRadius));
+}
+
 export function compositeDabOnNode(
   node: RasterLayerNode,
   dab: BrushDab,
@@ -568,13 +676,7 @@ export function compositeDabOnNode(
   const { alphaLock, coverage, wetEdge } = normalizeCompositeOptions(options);
   const brushShape = dab.shape ?? 'circle';
   const brushMask = createBrushMask(dab.radius, dab.hardness, brushShape, dab.angle, dab.roundness);
-  const dabDiameter = Math.ceil(dab.radius * 2);
-  const tileKeys = tilesForBounds(
-    Math.floor(dab.x - dab.radius),
-    Math.floor(dab.y - dab.radius),
-    dabDiameter,
-    dabDiameter,
-  );
+  const tileKeys = tilesForDab(dab);
 
   const blendMode = dab.blendMode ?? 'normal';
   const newTiles = new Map(node.tiles);
@@ -603,6 +705,7 @@ export function compositeDabOnNode(
       dab.opacity,
       dab.flow,
       brushMask,
+      dab,
       color,
       alphaLock,
       blendMode,
@@ -615,7 +718,7 @@ export function compositeDabOnNode(
 
     // A brand-new tile that received nothing (fully masked out by a selection)
     // must not be added — an empty tile is not the same as no tile.
-    if (!tile && !wrote && coverage) continue;
+    if (!tile && !wrote) continue;
     newTiles.set(key, newTile);
   }
 
@@ -658,12 +761,7 @@ export function eraseDabOnNode(
   const brushShape = dab.shape ?? 'circle';
   const brushMask = createBrushMask(dab.radius, dab.hardness, brushShape, dab.angle, dab.roundness);
   const size = Math.ceil(dab.radius * 2);
-  const tileKeys = tilesForBounds(
-    Math.floor(dab.x - dab.radius),
-    Math.floor(dab.y - dab.radius),
-    size,
-    size,
-  );
+  const tileKeys = tilesForDab(dab);
   const newTiles = new Map(node.tiles);
 
   for (const { col, row } of tileKeys) {
@@ -671,19 +769,32 @@ export function eraseDabOnNode(
     const tile = newTiles.get(key);
     if (!tile) continue;
     const pixels = new Uint8ClampedArray(tile.pixels);
-    const offsetX = Math.round(dab.x - col * TILE_SIZE - dab.radius);
-    const offsetY = Math.round(dab.y - row * TILE_SIZE - dab.radius);
-    for (let my = 0; my < size; my++) {
-      const py = offsetY + my;
+    const localDabX = dab.x - col * TILE_SIZE;
+    const localDabY = dab.y - row * TILE_SIZE;
+    const { minX, minY, maxX, maxY } = rasterBoundsForDab({
+      x: localDabX,
+      y: localDabY,
+      radius: dab.radius,
+    });
+    for (let py = minY; py < maxY; py++) {
       if (py < 0 || py >= TILE_SIZE) continue;
-      for (let mx = 0; mx < size; mx++) {
-        const px = offsetX + mx;
+      for (let px = minX; px < maxX; px++) {
         if (px < 0 || px >= TILE_SIZE) continue;
         const selectionValue = coverage
           ? sampleCoverage(coverage, col * TILE_SIZE + px, row * TILE_SIZE + py)
           : 1;
         if (selectionValue <= 0) continue;
-        const eraseAlpha = brushMask[my * size + mx]! * dab.opacity * dab.flow * selectionValue;
+        const eraseAlpha =
+          sampleBrushMask(
+            brushMask,
+            size,
+            px - (localDabX - dab.radius),
+            py - (localDabY - dab.radius),
+            dab,
+          ) *
+          dab.opacity *
+          dab.flow *
+          selectionValue;
         if (eraseAlpha <= 0) continue;
         const index = (py * TILE_SIZE + px) * 4;
         const remaining = Math.max(0, 1 - eraseAlpha);
@@ -728,13 +839,7 @@ export function compositeSmudgeDabOnNode(
 ): RasterLayerNode {
   const brushShape = dab.shape ?? 'circle';
   const brushMask = createBrushMask(dab.radius, dab.hardness, brushShape, dab.angle, dab.roundness);
-  const dabDiameter = Math.ceil(dab.radius * 2);
-  const tileKeys = tilesForBounds(
-    Math.floor(dab.x - dab.radius),
-    Math.floor(dab.y - dab.radius),
-    dabDiameter,
-    dabDiameter,
-  );
+  const tileKeys = tilesForDab(dab);
 
   const sourceTiles = node.tiles;
   const newTiles = new Map(node.tiles);
@@ -754,17 +859,24 @@ export function compositeSmudgeDabOnNode(
     const tileOriginY = row * TILE_SIZE;
     const localDabX = dab.x - tileOriginX;
     const localDabY = dab.y - tileOriginY;
-    const offsetX = Math.round(localDabX - dab.radius);
-    const offsetY = Math.round(localDabY - dab.radius);
+    const { minX, minY, maxX, maxY } = rasterBoundsForDab({
+      x: localDabX,
+      y: localDabY,
+      radius: dab.radius,
+    });
     let wroteVisible = false;
 
-    for (let my = 0; my < size; my++) {
-      const py = offsetY + my;
+    for (let py = minY; py < maxY; py++) {
       if (py < 0 || py >= TILE_SIZE) continue;
-      for (let mx = 0; mx < size; mx++) {
-        const px = offsetX + mx;
+      for (let px = minX; px < maxX; px++) {
         if (px < 0 || px >= TILE_SIZE) continue;
-        const maskValue = brushMask[my * size + mx]!;
+        const maskValue = sampleBrushMask(
+          brushMask,
+          size,
+          px - (localDabX - dab.radius),
+          py - (localDabY - dab.radius),
+          dab,
+        );
         if (maskValue <= 0) continue;
 
         const globalX = tileOriginX + px;
