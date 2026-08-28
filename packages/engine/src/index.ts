@@ -395,6 +395,20 @@ export {
   isKnownAdjustmentKind,
   makeAdjustment,
 } from './filters';
+export type {
+  CommitResult,
+  FloatingInterpolation,
+  FloatingRasterSelection,
+  LiftPixelsOptions,
+  PixelRect,
+} from './floatingRasterSelection';
+export {
+  commitFloatingSelection,
+  floatingTransformBounds,
+  floatingTransformedSelection,
+  liftSelectedPixels,
+  sampleFloatingAt,
+} from './floatingRasterSelection';
 export * from './font';
 export type {
   ConfidenceCategory,
