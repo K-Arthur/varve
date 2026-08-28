@@ -49,24 +49,46 @@ export function approximateArc(
   return [{ x: ex, y: ey }];
 }
 
-export function parsePathData(d: string, scale: number): { points: PathPoint[]; closed: boolean } {
+export interface ParsedPathData {
+  /** First contour, retained for legacy callers. */
+  points: PathPoint[];
+  /** Whether the first contour was explicitly closed with Z. */
+  closed: boolean;
+  /** Every SVG subpath, in source order. */
+  contours: Array<{ points: PathPoint[]; closed: boolean }>;
+}
+
+export function parsePathData(d: string, scale: number): ParsedPathData {
   const commands = tokenizePath(d);
   const points: PathPoint[] = [];
+  const contours: Array<{ points: PathPoint[]; closed: boolean }> = [];
   let closed = false;
   let cx = 0,
     cy = 0;
   let prevControl: { x: number; y: number } | null = null;
+
+  const finishContour = () => {
+    if (points.length > 0) {
+      contours.push({ points: [...points], closed });
+    }
+  };
 
   for (const cmd of commands) {
     const c = cmd.command;
     const p = cmd.params;
 
     if (c === 'M' && p.length >= 2) {
+      finishContour();
+      points.length = 0;
+      closed = false;
       cx = p[0]! * scale;
       cy = p[1]! * scale;
       points.push({ x: cx, y: cy, handleIn: null, handleOut: null });
       prevControl = null;
     } else if (c === 'm' && p.length >= 2) {
+      finishContour();
+      points.length = 0;
+      closed = false;
       cx += p[0]! * scale;
       cy += p[1]! * scale;
       points.push({ x: cx, y: cy, handleIn: null, handleOut: null });
@@ -206,7 +228,9 @@ export function parsePathData(d: string, scale: number): { points: PathPoint[]; 
     }
   }
 
-  return { points, closed };
+  finishContour();
+  const first = contours[0] ?? { points: [], closed: false };
+  return { points: first.points, closed: first.closed, contours };
 }
 
 export function parseTransform(transformStr: string): Affine {
