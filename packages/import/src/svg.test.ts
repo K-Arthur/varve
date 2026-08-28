@@ -142,6 +142,35 @@ describe('parseSvg', () => {
     expect(gradient?.stops[1]?.color).toMatchObject({ space: 'rgb', a: 128 });
   });
 
+  it('imports full user-space linear gradient geometry without collapsing it to rotation', () => {
+    const result = parseSvg(
+      '<svg><defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1=".5" x2="1" y2=".5" gradientTransform="matrix(1.2 .3 -.4 .8 7 11)"><stop offset="0" stop-color="red"/><stop offset="1" stop-color="blue"/></linearGradient></defs><rect width="100" height="40" fill="url(#g)"/></svg>',
+    );
+    const gradient = result.document.nodes[result.nodeIds[0]!]!.fills![0]!.gradient;
+
+    expect(gradient?.transform).toEqual([1.2, 0.3, -0.4, 0.8, 7, 11]);
+    expect(gradient?.rotation).toBeUndefined();
+  });
+
+  it('converts object-bounding-box endpoints and affine radial axes into fill matrices', () => {
+    const linear = parseSvg(
+      '<svg><defs><linearGradient id="g" x1="20%" y1="25%" x2="80%" y2="75%" gradientTransform="matrix(1 .2 -.1 .8 .1 .15)"><stop offset="0" stop-color="red"/><stop offset="1" stop-color="blue"/></linearGradient></defs><rect width="200" height="100" fill="url(#g)"/></svg>',
+    );
+    const radial = parseSvg(
+      '<svg><defs><radialGradient id="r" gradientUnits="userSpaceOnUse" cx=".5" cy=".5" r=".5" gradientTransform="matrix(1 .25 -.4 .75 9 11)"><stop offset="0" stop-color="white"/><stop offset="1" stop-color="black"/></radialGradient></defs><rect width="100" height="100" fill="url(#r)"/></svg>',
+    );
+
+    const linearTransform =
+      linear.document.nodes[linear.nodeIds[0]!]!.fills![0]!.gradient?.transform;
+    expect(linearTransform).toHaveLength(6);
+    [110, 52, -112, 38, 111, 20].forEach((expected, index) => {
+      expect(linearTransform?.[index]).toBeCloseTo(expected, 10);
+    });
+    expect(radial.document.nodes[radial.nodeIds[0]!]!.fills![0]!.gradient?.transform).toEqual([
+      1, 0.25, -0.4, 0.75, 9, 11,
+    ]);
+  });
+
   it('imports radial SVG gradients and warns on unsupported paint references', () => {
     const radial = parseSvg(
       '<svg><defs><radialGradient id="r"><stop offset="0" stop-color="white"/><stop offset="100%" stop-color="black"/></radialGradient></defs><circle r="20" fill="url(#r)"/><rect width="10" height="10" fill="url(#missing)"/></svg>',

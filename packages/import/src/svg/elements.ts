@@ -11,6 +11,7 @@ import {
   makeShapeNode,
   makeTextNode,
   nextNodeId,
+  nodeLocalBounds,
 } from '@varve/scene';
 import type { ImportOptions } from '../types';
 import { droppedElementFeature, resolveSvgImageHref } from './resourcePolicy';
@@ -21,6 +22,7 @@ import {
   computeGroupBounds,
   fitPolygon,
   maskTypeFromElement,
+  multiplyAffine,
   nodeBounds,
   type ParsedElement,
   parseCssStyle,
@@ -300,7 +302,105 @@ function svgStopColor(stop: ParsedElement): ManagedColor | null {
   return parsed.space === 'rgb' ? { ...parsed, a: Math.round(parsed.a * alpha) } : parsed;
 }
 
-function gradientFillFromSvg(def: ParsedElement, warnings: string[]): Fill | null {
+function svgGradientCoordinate(
+  value: string | undefined,
+  fallback: number,
+  axisLength: number,
+  scale: number,
+): number {
+  if (!value) return fallback;
+  const raw = value.trim();
+  const numeric = Number.parseFloat(raw);
+  if (!Number.isFinite(numeric)) return fallback;
+  return raw.endsWith('%') ? (numeric / 100) * axisLength : numeric * scale;
+}
+
+function gradientTransformFromSvg(
+  def: ParsedElement,
+  node: SceneNode,
+  scale: number,
+  warnings: string[],
+): Affine | null {
+  const bounds = nodeLocalBounds(node);
+  if (!bounds || bounds.w === 0 || bounds.h === 0) {
+    warnings.push(`SVG gradient #${def.attrs.id ?? '(anonymous)'} has no usable target bounds`);
+    return null;
+  }
+
+  const objectBoundingBox = (def.attrs.gradientUnits ?? 'objectBoundingBox') !== 'userSpaceOnUse';
+  const xLength = objectBoundingBox ? 1 : bounds.w;
+  const yLength = objectBoundingBox ? 1 : bounds.h;
+  const coordinateScale = objectBoundingBox ? 1 : scale;
+  const x = (name: string, fallback: number) =>
+    svgGradientCoordinate(def.attrs[name], fallback, xLength, coordinateScale);
+  const y = (name: string, fallback: number) =>
+    svgGradientCoordinate(def.attrs[name], fallback, yLength, coordinateScale);
+  const rawGradientTransform = def.attrs.gradientTransform
+    ? composeTransforms([def.attrs.gradientTransform])
+    : ([1, 0, 0, 1, 0, 0] as Affine);
+  // SVG coordinate values are scaled on import, so its translation terms must
+  // be scaled too. Unit-box gradients are dimensionless and are scaled by the
+  // target bounds below instead.
+  const gradientTransform: Affine = objectBoundingBox
+    ? rawGradientTransform
+    : [
+        rawGradientTransform[0],
+        rawGradientTransform[1],
+        rawGradientTransform[2],
+        rawGradientTransform[3],
+        rawGradientTransform[4] * scale,
+        rawGradientTransform[5] * scale,
+      ];
+
+  if (def.tag === 'linearGradient') {
+    const x1 = x('x1', 0);
+    const y1 = y('y1', 0);
+    const x2 = x('x2', objectBoundingBox ? 1 : 1 * scale);
+    const y2 = y('y2', 0);
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    if (dx === 0 && dy === 0) {
+      warnings.push(
+        `SVG gradient #${def.attrs.id ?? '(anonymous)'} has coincident linear endpoints`,
+      );
+      return null;
+    }
+    // Start and end occupy canonical [0,.5] and [1,.5]. The perpendicular
+    // basis is deliberately retained, rather than collapsing the field to an
+    // angle, so a following SVG gradientTransform can introduce skew/flip.
+    const unitToGradient: Affine = [dx, dy, -dy, dx, x1 + dy * 0.5, y1 - dx * 0.5];
+    const transformed = multiplyAffine(gradientTransform, unitToGradient);
+    return objectBoundingBox
+      ? multiplyAffine([bounds.w, 0, 0, bounds.h, bounds.x, bounds.y], transformed)
+      : transformed;
+  }
+
+  const cx = x('cx', objectBoundingBox ? 0.5 : 0.5 * scale);
+  const cy = y('cy', objectBoundingBox ? 0.5 : 0.5 * scale);
+  const radius = svgGradientCoordinate(
+    def.attrs.r,
+    objectBoundingBox ? 0.5 : 0.5 * scale,
+    Math.min(xLength, yLength),
+    coordinateScale,
+  );
+  if (radius <= 0) {
+    warnings.push(`SVG gradient #${def.attrs.id ?? '(anonymous)'} has a non-positive radius`);
+    return null;
+  }
+  // Canonical radial U/V endpoints are half a matrix column from its centre.
+  const unitToGradient: Affine = [2 * radius, 0, 0, 2 * radius, cx - radius, cy - radius];
+  const transformed = multiplyAffine(gradientTransform, unitToGradient);
+  return objectBoundingBox
+    ? multiplyAffine([bounds.w, 0, 0, bounds.h, bounds.x, bounds.y], transformed)
+    : transformed;
+}
+
+function gradientFillFromSvg(
+  def: ParsedElement,
+  node: SceneNode,
+  scale: number,
+  warnings: string[],
+): Fill | null {
   const stops = def.children
     .filter((child) => child.tag === 'stop')
     .map((stop) => {
@@ -318,26 +418,17 @@ function gradientFillFromSvg(def: ParsedElement, warnings: string[]): Fill | nul
     def.attrs['color-interpolation']?.toLowerCase() === 'linearrgb' ? 'linear-srgb' : 'srgb';
   const spread = def.attrs.spreadMethod;
   const tilingMode = spread === 'repeat' || spread === 'reflect' ? spread : 'none';
-  const gradientTransform = def.attrs.gradientTransform;
-  const rotation =
-    def.tag === 'linearGradient'
-      ? (Math.atan2(
-          Number.parseFloat(def.attrs.y2 ?? '0') - Number.parseFloat(def.attrs.y1 ?? '0'),
-          Number.parseFloat(def.attrs.x2 ?? '1') - Number.parseFloat(def.attrs.x1 ?? '0'),
-        ) *
-          180) /
-        Math.PI
-      : 0;
+  const transform = gradientTransformFromSvg(def, node, scale, warnings);
+  if (!transform) return null;
 
   return {
     type: 'gradient',
     gradient: {
       type: def.tag === 'radialGradient' ? 'radial' : 'linear',
       stops,
-      rotation,
+      transform,
       interpolationSpace,
       tilingMode,
-      ...(gradientTransform ? { transform: composeTransforms([gradientTransform]) } : {}),
     },
     opacity: 1,
     blendMode: 'normal',
@@ -349,6 +440,7 @@ function applyStylesToNode(
   node: SceneNode,
   el: ParsedElement,
   defs: Map<string, ParsedElement>,
+  scale: number,
   warnings: string[],
 ): SceneNode {
   let fill = el.attrs.fill ?? el.attrs.style;
@@ -377,7 +469,7 @@ function applyStylesToNode(
       gradientDef &&
       (gradientDef.tag === 'linearGradient' || gradientDef.tag === 'radialGradient')
     ) {
-      const gradientFill = gradientFillFromSvg(gradientDef, warnings);
+      const gradientFill = gradientFillFromSvg(gradientDef, result, scale, warnings);
       if (gradientFill) result = { ...result, fills: [gradientFill] };
     } else {
       if (gradientId) warnings.push(`SVG fill references unsupported resource: #${gradientId}`);
@@ -793,7 +885,7 @@ export function convertElement(
 
   if (result) {
     const { id, doc: d2 } = nextNodeId(doc);
-    const styled = applyStylesToNode(result.node, el, defs, warnings);
+    const styled = applyStylesToNode(result.node, el, defs, opts.scale, warnings);
     const node = { ...styled, id } as SceneNode;
     doc = addNode(d2, node);
     ids.push(id);
