@@ -8,7 +8,7 @@
  */
 
 import type { Document } from '@varve/scene';
-import { canonicalHistoryHash, canonicalizeDocument } from '@varve/scene';
+import { canonicalHistoryHash, DocumentCodec } from '@varve/scene';
 import type { HistoryStore } from './store';
 
 export interface SnapshotRecord {
@@ -16,6 +16,12 @@ export interface SnapshotRecord {
   canonicalHash: string;
   documentId: string;
   canonicalText: string;
+  /**
+   * `document-codec` preserves live raster Maps as the codec's base64 tile
+   * representation. Legacy snapshots omitted this field and used canonical
+   * JSON, which cannot faithfully rehydrate a typed-array tile map.
+   */
+  encoding?: 'document-codec';
   /** Revision whose end state this snapshot represents. */
   revisionId: string;
   schemaVersion: number;
@@ -66,14 +72,18 @@ export async function createSnapshot(
   document: Document,
   opts: { documentId: string; revisionId: string; schemaVersion?: number },
 ): Promise<SnapshotRecord> {
-  const canonicalText = canonicalizeDocument(document);
+  // `canonicalizeDocument` is perfect hash input but converts typed arrays
+  // to number arrays. A history snapshot must instead round-trip the live
+  // scene representation, including `Map<string, RasterTile>`.
+  const canonicalText = DocumentCodec.encode(document);
   const hash = canonicalHistoryHash(document);
   const existing = await store.getSnapshot(opts.documentId, hash);
-  if (existing) return existing;
+  if (existing?.encoding === 'document-codec') return existing;
   const snapshot: SnapshotRecord = {
     canonicalHash: hash,
     documentId: opts.documentId,
     canonicalText,
+    encoding: 'document-codec',
     revisionId: opts.revisionId,
     schemaVersion: opts.schemaVersion ?? 1,
     createdAt: Date.now(),
@@ -84,7 +94,28 @@ export async function createSnapshot(
 
 /** Parse a snapshot's canonical text back into a live document. */
 export function snapshotToDocument(snapshot: SnapshotRecord): Document {
-  return JSON.parse(snapshot.canonicalText) as Document;
+  if (snapshot.encoding !== 'document-codec') {
+    // Existing non-raster snapshots retain their historical behavior. Do not
+    // pretend a legacy raster snapshot is safe: raw canonical JSON has lost
+    // the typed-array encoding and must not fabricate pixels during replay.
+    const parsed = JSON.parse(snapshot.canonicalText) as Document;
+    const hasLegacyRaster = Object.values(parsed.nodes ?? {}).some(
+      (node) => node?.kind === 'rasterLayer' && !(node.tiles instanceof Map),
+    );
+    if (hasLegacyRaster) {
+      throw new Error('legacy raster snapshot cannot be restored losslessly');
+    }
+    return parsed;
+  }
+  const decoded = DocumentCodec.decode(snapshot.canonicalText);
+  if (!decoded.ok) throw new Error(`snapshot decode failed: ${decoded.error}`);
+  const actual = canonicalHistoryHash(decoded.document);
+  if (actual !== snapshot.canonicalHash) {
+    throw new Error(
+      `snapshot canonical hash mismatch: expected ${snapshot.canonicalHash}, got ${actual}`,
+    );
+  }
+  return decoded.document;
 }
 
 /**

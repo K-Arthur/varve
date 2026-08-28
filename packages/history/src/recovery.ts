@@ -10,6 +10,7 @@
  * 5. report exactly what was preserved and discarded
  */
 import { verifySegmentChecksum } from './log';
+import type { RasterTileStore } from './rasterTileStore';
 import { replayAndVerify } from './replay';
 import type { HistoryStore } from './store';
 import type { IntegrityIssue, LogPosition, TailRecoveryReport } from './types';
@@ -21,7 +22,7 @@ import type { IntegrityIssue, LogPosition, TailRecoveryReport } from './types';
 export async function recoverTail(
   store: HistoryStore,
   documentId: string,
-  opts: { applyTruncation?: boolean } = {},
+  opts: { applyTruncation?: boolean; rasterTileStore?: RasterTileStore } = {},
 ): Promise<TailRecoveryReport> {
   const segments = await store.listSegments(documentId);
   const report: TailRecoveryReport = {
@@ -49,7 +50,10 @@ export async function recoverTail(
     }
   }
   if (firstBad < 0) {
-    return { ...report, lastKnownGoodRevisionId: await lastKnownGood(store, documentId) };
+    return {
+      ...report,
+      lastKnownGoodRevisionId: await lastKnownGood(store, documentId, opts.rasterTileStore),
+    };
   }
 
   const validSegments = segments.slice(0, firstBad);
@@ -71,7 +75,12 @@ export async function recoverTail(
     if (end.segment > lastValidEnd.segment) continue;
     if (end.segment === lastValidEnd.segment && end.offset > lastValidEnd.offset) continue;
     try {
-      const result = await replayAndVerify(store, documentId, revision.revisionId);
+      const result = await replayAndVerify(
+        store,
+        documentId,
+        revision.revisionId,
+        opts.rasterTileStore,
+      );
       if (result.verified) {
         lastGood = { revisionId: revision.revisionId, createdAt: revision.createdAt };
         break;
@@ -128,14 +137,18 @@ async function truncateSegments(
   }
 }
 
-async function lastKnownGood(store: HistoryStore, documentId: string): Promise<string | undefined> {
+async function lastKnownGood(
+  store: HistoryStore,
+  documentId: string,
+  rasterTileStore?: RasterTileStore,
+): Promise<string | undefined> {
   const revisions = (await store.listRevisions(documentId)).sort(
     (a, b) => b.createdAt - a.createdAt,
   );
   for (const revision of revisions) {
     if (revision.operationEnd === undefined) continue;
     try {
-      const result = await replayAndVerify(store, documentId, revision.revisionId);
+      const result = await replayAndVerify(store, documentId, revision.revisionId, rasterTileStore);
       if (result.verified) return revision.revisionId;
     } catch {
       // keep scanning
@@ -152,6 +165,7 @@ async function lastKnownGood(store: HistoryStore, documentId: string): Promise<s
 export async function validateHistory(
   store: HistoryStore,
   documentId: string,
+  opts: { rasterTileStore?: RasterTileStore } = {},
 ): Promise<IntegrityIssue[]> {
   const issues: IntegrityIssue[] = [];
 
@@ -225,7 +239,12 @@ export async function validateHistory(
   for (const revision of revisions) {
     if (!reachable.has(revision.revisionId)) continue;
     try {
-      const result = await replayAndVerify(store, documentId, revision.revisionId);
+      const result = await replayAndVerify(
+        store,
+        documentId,
+        revision.revisionId,
+        opts.rasterTileStore,
+      );
       if (!result.verified) {
         issues.push({
           severity: 'error',

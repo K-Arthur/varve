@@ -49,9 +49,12 @@ import type {
 } from '@varve/history';
 import {
   applyMergeResolutions,
+  applyStoredOperationsAsync,
+  captureRasterTileDeltas,
   commitMergeRevision,
   createCheckpoint,
   createGenesisRevision,
+  createRasterTileStore,
   createSnapshot,
   diffDocuments,
   findBranchMergeBase,
@@ -60,11 +63,12 @@ import {
   mergeDocuments,
   mintHistoryId,
   moveBranchHead,
-  positionAfter,
+  RASTER_DELTA_OPERATION,
+  type RasterDeltaCapture,
+  type RasterTileStore,
   recoverTail,
   redoRevision,
   SnapshotScheduler,
-  undoN,
   undoRevision,
   undoTo,
   validateBranchName,
@@ -140,6 +144,8 @@ export interface EditorHistorySessionOptions {
   documentId: string;
   authorActorId: string;
   scheduler?: SnapshotScheduler;
+  /** Content-addressed exact raster state used by raster-delta operations. */
+  rasterTileStore?: RasterTileStore;
 }
 
 export class EditorHistorySession {
@@ -147,13 +153,15 @@ export class EditorHistorySession {
   readonly documentId: string;
   private readonly actorId: string;
   private readonly scheduler: SnapshotScheduler;
+  private readonly rasterTileStore: RasterTileStore;
 
   private attachedBranch: BranchRef | null = null;
   private lastCapturePromise: Promise<unknown> = Promise.resolve();
   private selectionJournal = new Map<string, NodeId[]>();
   private documentCache = new Map<string, Document>();
   private cacheOrder: string[] = [];
-  private redoTarget: string | null = null;
+  /** Ordered abandoned first-parent chain; index 0 is the next redo. */
+  private redoPath: string[] = [];
   private undoableState = false;
   private lastUndoLabelState = 'Undo';
   private lastRedoLabelState = 'Redo';
@@ -168,6 +176,7 @@ export class EditorHistorySession {
     this.documentId = options.documentId;
     this.actorId = options.authorActorId;
     this.scheduler = options.scheduler ?? new SnapshotScheduler();
+    this.rasterTileStore = options.rasterTileStore ?? createRasterTileStore();
   }
 
   get attached(): boolean {
@@ -183,7 +192,7 @@ export class EditorHistorySession {
   }
 
   get canRedo(): boolean {
-    return this.redoTarget !== null;
+    return this.redoPath.length > 0;
   }
 
   get undoLabel(): string {
@@ -216,7 +225,10 @@ export class EditorHistorySession {
     // Recovery pass: rewind corrupt tails before trusting the head. The
     // truncation is APPLIED so the store never replays garbage; the report
     // records exactly what was discarded.
-    const recovery = await recoverTail(this.store, this.documentId, { applyTruncation: true });
+    const recovery = await recoverTail(this.store, this.documentId, {
+      applyTruncation: true,
+      rasterTileStore: this.rasterTileStore,
+    });
     if (recovery.warnings.length > 0 || recovery.truncatedSegments.length > 0) {
       issues.push({
         severity: 'warning',
@@ -274,7 +286,7 @@ export class EditorHistorySession {
     this.attachedBranch = branch;
     this.headRevisionId = head.revisionId;
     this.undoableState = head.parentRevisionIds.length > 0;
-    this.redoTarget = null;
+    this.redoPath = [];
     this.lastAttach = { headRevision: head, branch, reconciled, issues };
     return this.lastAttach;
   }
@@ -295,13 +307,14 @@ export class EditorHistorySession {
       if (before === after) return null;
       const head = await this.store.getRevision(this.documentId, this.headRevisionId);
       if (!head) return null;
-      const diff = diffDocuments(before, after);
-      if (!diff.changed) return null;
+      const plan = await this.planExactCapture(before, after);
+      if (!plan) return null;
       const revision = await this.commitCapture(
+        before,
         after,
         head,
         this.attachedBranch,
-        diff,
+        plan,
         options,
         'edit',
       );
@@ -324,53 +337,125 @@ export class EditorHistorySession {
     issues: HistoryIssue[],
   ): Promise<RevisionRecord | null> {
     const parentDocument = await this.loadCachedDocument(parent.revisionId, parent);
-    const diff = diffDocuments(parentDocument, after);
+    const plan = await this.planExactCapture(parentDocument, after);
+    if (!plan) return null;
+    return this.commitCapture(parentDocument, after, parent, branch, plan, options, origin, issues);
+  }
+
+  /** Build a replay plan from exact document differences plus raster blobs. */
+  private async planExactCapture(
+    before: Document,
+    after: Document,
+  ): Promise<{
+    transactionId: string;
+    diff: ReturnType<typeof diffDocuments>;
+    changes: ReturnType<typeof diffDocuments>['changes'];
+    raster: RasterDeltaCapture;
+  } | null> {
+    const diff = diffDocuments(before, after, { epsilonPolicy: 'exact' });
     if (!diff.changed) return null;
-    return this.commitCapture(after, parent, branch, diff, options, origin, issues);
+    const transactionId = mintHistoryId('tx');
+    const raster = await captureRasterTileDeltas(before, after, transactionId, {
+      beforeHash: diff.baseHash,
+      afterHash: diff.targetHash,
+    });
+    const changes = sanitizeRasterCaptureChanges(diff.changes);
+    if (changes.length === 0 && !raster.payload) {
+      // A canonical difference with no exact representation is a correctness
+      // failure, not an empty edit. Refuse to move the persistent head rather
+      // than committing a revision which cannot be reconstructed.
+      throw new Error(
+        `exact history capture has no replay representation (${diff.baseHash} → ${diff.targetHash})`,
+      );
+    }
+    return { transactionId, diff, changes, raster };
   }
 
   private async commitCapture(
+    before: Document,
     after: Document,
     parent: RevisionRecord,
     branch: BranchRef,
-    diff: ReturnType<typeof diffDocuments>,
+    plan: {
+      transactionId: string;
+      diff: ReturnType<typeof diffDocuments>;
+      changes: ReturnType<typeof diffDocuments>['changes'];
+      raster: RasterDeltaCapture;
+    },
     options: CaptureOptions,
     origin: RevisionOrigin,
     issues?: HistoryIssue[],
   ): Promise<RevisionRecord | null> {
+    const { diff, changes, raster, transactionId } = plan;
     const summary: SemanticSummary = {
       label: options.label,
       kind: options.kind,
-      affectedEntityIds: [...new Set(diff.changes.map((c) => c.entityId))],
+      affectedEntityIds: [
+        ...new Set([
+          ...changes.map((change) => change.entityId),
+          ...(raster.payload?.nodes.map((node) => node.nodeId) ?? []),
+        ]),
+      ],
     };
-    const payload = {
-      transactionId: mintHistoryId('tx'),
-      changes: diff.changes,
-      summary,
-      beforeHash: diff.baseHash,
-      afterHash: diff.targetHash,
-    };
-    const validated = validatePayload('document.transaction-capture', payload);
-    if (!validated.ok) {
-      const message = `capture validation failed: ${validated.errors.join('; ')}`;
-      issues?.push({ severity: 'error', code: 'history.capture-invalid', message });
-      return null;
+    const stored: StoredOperation[] = [];
+    if (changes.length > 0) {
+      const payload = {
+        transactionId,
+        changes,
+        summary,
+        beforeHash: diff.baseHash,
+        afterHash: diff.targetHash,
+      };
+      const validated = validatePayload('document.transaction-capture', payload);
+      if (!validated.ok) {
+        const message = `capture validation failed: ${validated.errors.join('; ')}`;
+        issues?.push({ severity: 'error', code: 'history.capture-invalid', message });
+        return null;
+      }
+      stored.push({
+        operationId: mintHistoryId('op'),
+        operationType: 'document.transaction-capture',
+        schemaVersion: 1,
+        logicalSequence: 0, // assigned by the store
+        affectedEntityIds: summary.affectedEntityIds,
+        payload,
+      });
     }
-    const stored: StoredOperation = {
-      operationId: mintHistoryId('op'),
-      operationType: 'document.transaction-capture',
-      schemaVersion: 1,
-      logicalSequence: 0, // assigned by the store
-      affectedEntityIds: summary.affectedEntityIds,
-      payload,
-    };
-    const position = await this.store.appendOperations(this.documentId, [stored]);
-    const end = positionAfter(position);
+    if (raster.payload) {
+      stored.push({
+        operationId: mintHistoryId('op'),
+        operationType: RASTER_DELTA_OPERATION,
+        schemaVersion: 1,
+        logicalSequence: 0, // assigned by the store
+        affectedEntityIds: raster.payload.nodes.map((node) => node.nodeId),
+        payload: raster.payload,
+      });
+    }
+
+    // Persist immutable binary values before a log/revision can refer to
+    // them. A later failure may leave GC-eligible orphans, but never a branch
+    // head which points at unavailable pixels.
+    if (raster.entries.length > 0) await this.rasterTileStore.putBatch(raster.entries);
+
+    // Exact-capture invariant: prove the stored operations recreate the
+    // canonical target *before* they are appended or made reachable.
+    const replayed = await applyStoredOperationsAsync(before, stored, this.rasterTileStore);
+    const replayedHash = canonicalHistoryHash(replayed);
+    if (replayedHash !== diff.targetHash) {
+      const message = `capture replay mismatch: expected ${diff.targetHash}, got ${replayedHash}`;
+      issues?.push({ severity: 'error', code: 'history.capture-hash-mismatch', message });
+      throw new Error(message);
+    }
+
+    const position = await this.store.appendOperations(this.documentId, stored);
+    // `appendOperations` puts a transaction's operations in one log segment;
+    // revisions use a half-open range, so the end must cover every operation.
+    const end = { segment: position.segment, offset: position.offset + stored.length };
     const revision: RevisionRecord = {
       revisionId: mintHistoryId('r'),
       documentId: this.documentId,
       parentRevisionIds: [parent.revisionId],
-      transactionId: options.label,
+      transactionId,
       canonicalDocumentHash: diff.targetHash,
       operationStart: position,
       operationEnd: end,
@@ -404,7 +489,7 @@ export class EditorHistorySession {
       },
     });
     this.headRevisionId = snapshotted.revisionId;
-    this.redoTarget = null;
+    this.redoPath = [];
     this.undoableState = true;
     this.lastUndoLabelState = summary.label;
     this.rememberDocument(snapshotted.revisionId, after);
@@ -421,7 +506,7 @@ export class EditorHistorySession {
     const result = await undoRevision(this.store, this.documentId, this.attachedBranch.branchId);
     if (!result) return null;
     this.headRevisionId = result.headRevisionId;
-    this.redoTarget = result.redoTargetRevisionId;
+    this.redoPath.unshift(result.redoTargetRevisionId);
     this.lastUndoLabelState = 'Undo';
     const revision = await this.store.getRevision(this.documentId, result.headRevisionId);
     if (revision) {
@@ -435,8 +520,8 @@ export class EditorHistorySession {
   /** Redo the most recently abandoned child of the current head. */
   async redo(): Promise<{ document: Document; selection: NodeId[] } | null> {
     await this.lastCapturePromise;
-    if (!this.attachedBranch || !this.headRevisionId || !this.redoTarget) return null;
-    const targetId = this.redoTarget;
+    if (!this.attachedBranch || !this.headRevisionId || this.redoPath.length === 0) return null;
+    const targetId = this.redoPath[0]!;
     const result = await redoRevision(
       this.store,
       this.documentId,
@@ -444,7 +529,7 @@ export class EditorHistorySession {
       targetId,
     );
     this.headRevisionId = result.headRevisionId;
-    this.redoTarget = null;
+    this.redoPath.shift();
     this.lastRedoLabelState = 'Redo';
     const revision = await this.store.getRevision(this.documentId, result.headRevisionId);
     if (revision) {
@@ -459,13 +544,19 @@ export class EditorHistorySession {
   async undoCount(count: number): Promise<{ document: Document; selection: NodeId[] } | null> {
     await this.lastCapturePromise;
     if (!this.attachedBranch || !this.headRevisionId) return null;
-    const result = await undoN(this.store, this.documentId, this.attachedBranch.branchId, count);
-    if (result.appliedSteps === 0) return null;
-    this.headRevisionId = result.headRevisionId;
-    this.redoTarget = result.redoTargetRevisionId || null;
-    const revision = await this.store.getRevision(this.documentId, result.headRevisionId);
-    const document = await this.loadCachedDocument(result.headRevisionId, revision);
-    return { document, selection: this.selectionJournal.get(result.headRevisionId) ?? [] };
+    if (!Number.isInteger(count) || count < 0) throw new Error('undo count must be non-negative');
+    let applied = 0;
+    for (let index = 0; index < count; index++) {
+      const result = await undoRevision(this.store, this.documentId, this.attachedBranch.branchId);
+      if (!result) break;
+      this.headRevisionId = result.headRevisionId;
+      this.redoPath.unshift(result.redoTargetRevisionId);
+      applied += 1;
+    }
+    if (applied === 0) return null;
+    const revision = await this.store.getRevision(this.documentId, this.headRevisionId);
+    const document = await this.loadCachedDocument(this.headRevisionId, revision);
+    return { document, selection: this.selectionJournal.get(this.headRevisionId) ?? [] };
   }
 
   /** Undo to a specific ancestor revision. */
@@ -473,7 +564,18 @@ export class EditorHistorySession {
     revisionId: string,
   ): Promise<{ document: Document; selection: NodeId[] } | null> {
     await this.lastCapturePromise;
-    if (!this.attachedBranch) return null;
+    if (!this.attachedBranch || !this.headRevisionId) return null;
+    // Retain the complete abandoned first-parent chain so a subsequent redo
+    // can walk every step, not merely jump back one revision.
+    const abandoned: string[] = [];
+    let cursorId = this.headRevisionId;
+    while (cursorId !== revisionId) {
+      const cursor = await this.store.getRevision(this.documentId, cursorId);
+      const parentId = cursor?.parentRevisionIds[0];
+      if (!parentId) return null;
+      abandoned.push(cursorId);
+      cursorId = parentId;
+    }
     const result = await undoTo(
       this.store,
       this.documentId,
@@ -481,7 +583,7 @@ export class EditorHistorySession {
       revisionId,
     );
     this.headRevisionId = result.headRevisionId;
-    this.redoTarget = result.redoTargetRevisionId || null;
+    this.redoPath.unshift(...abandoned.reverse());
     const revision = await this.store.getRevision(this.documentId, result.headRevisionId);
     const document = await this.loadCachedDocument(result.headRevisionId, revision);
     return { document, selection: this.selectionJournal.get(result.headRevisionId) ?? [] };
@@ -512,7 +614,7 @@ export class EditorHistorySession {
     if (!target) return null;
     await moveBranchHead(this.store, this.documentId, this.attachedBranch.branchId, revisionId);
     this.headRevisionId = revisionId;
-    if (this.redoTarget === revisionId) this.redoTarget = null;
+    this.redoPath = [];
     const document = await this.loadCachedDocument(revisionId, target);
     return { document, selection: this.selectionJournal.get(revisionId) ?? [] };
   }
@@ -601,7 +703,7 @@ export class EditorHistorySession {
     if (!head) return null;
     this.attachedBranch = branch;
     this.headRevisionId = branch.headRevisionId;
-    this.redoTarget = null;
+    this.redoPath = [];
     const document = await this.loadCachedDocument(branch.headRevisionId, head);
     return { document, selection: this.selectionJournal.get(branch.headRevisionId) ?? [] };
   }
@@ -781,7 +883,7 @@ export class EditorHistorySession {
         author: { actorId: this.actorId, kind: 'local-user' },
       });
       this.headRevisionId = revision.revisionId;
-      this.redoTarget = null;
+      this.redoPath = [];
       this.undoableState = true;
       this.lastUndoLabelState = revision.semanticSummary.label;
       this.rememberDocument(revision.revisionId, result.mergedDocument);
@@ -824,7 +926,7 @@ export class EditorHistorySession {
         note: 'Merge conflicts resolved in the Varve conflict resolver',
       });
       this.headRevisionId = revision.revisionId;
-      this.redoTarget = null;
+      this.redoPath = [];
       this.undoableState = true;
       this.lastUndoLabelState = revision.semanticSummary.label;
       this.rememberDocument(revision.revisionId, resolved.document);
@@ -836,7 +938,9 @@ export class EditorHistorySession {
 
   /** Integrity check over the whole persisted history. */
   async integrity(): Promise<HistoryIssue[]> {
-    const issues = await validateHistory(this.store, this.documentId);
+    const issues = await validateHistory(this.store, this.documentId, {
+      rasterTileStore: this.rasterTileStore,
+    });
     const graph = await validateRevisionGraph(this.store, this.documentId);
     return [...issues, ...graph];
   }
@@ -852,7 +956,12 @@ export class EditorHistorySession {
     if (!revision) {
       throw new Error(`revision not found: ${revisionId}`);
     }
-    const document = await loadDocumentAt(this.store, this.documentId, revisionId);
+    const document = await loadDocumentAt(
+      this.store,
+      this.documentId,
+      revisionId,
+      this.rasterTileStore,
+    );
     this.rememberDocument(revisionId, document);
     return document;
   }
@@ -896,4 +1005,27 @@ export class EditorHistorySession {
     }
     return false;
   }
+}
+
+/**
+ * A generic transaction capture may contain a whole raster node when a layer
+ * is created or removed. Keep its structure but replace the tile map with an
+ * empty plain object; the adjacent raster delta restores exact pixels.
+ */
+function sanitizeRasterCaptureChanges<
+  T extends { propertyPath?: string; before?: unknown; after?: unknown },
+>(changes: T[]): T[] {
+  return changes
+    .filter((change) => !/\.tiles(?:\.|$)/.test(change.propertyPath ?? ''))
+    .map((change) => ({
+      ...change,
+      before: stripRasterTiles(change.before),
+      after: stripRasterTiles(change.after),
+    }));
+}
+
+function stripRasterTiles(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  return record.kind === 'rasterLayer' ? { ...record, tiles: {} } : value;
 }

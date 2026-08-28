@@ -11,6 +11,8 @@
 import type { Document } from '@varve/scene';
 import { applyOperation, canonicalHistoryHash, hasOperation } from '@varve/scene';
 import { verifySegmentChecksum } from './log';
+import { applyRasterDelta, RASTER_DELTA_OPERATION, type RasterDeltaPayload } from './rasterDelta';
+import { createRasterTileStore, type RasterTileStore } from './rasterTileStore';
 import { snapshotToDocument } from './snapshots';
 import type { HistoryStore } from './store';
 import type { LogPosition, RevisionRecord, StoredOperation, VerifyResult } from './types';
@@ -27,6 +29,43 @@ export class ReplayError extends Error {
 export function applyStoredOperations(base: Document, operations: StoredOperation[]): Document {
   let doc = base;
   for (const op of operations) {
+    if (op.operationType === RASTER_DELTA_OPERATION) {
+      throw new ReplayError(
+        'replay.raster-tile-store-required',
+        'raster delta replay requires the asynchronous tile-store path',
+      );
+    }
+    if (!hasOperation(op.operationType)) {
+      throw new ReplayError(
+        'replay.unknown-operation',
+        `unknown operation type: ${op.operationType}`,
+      );
+    }
+    doc = applyOperation(doc, op.operationType, op.payload);
+  }
+  return doc;
+}
+
+/**
+ * Apply stored operations with exact raster content resolution. Raster deltas
+ * are deliberately resolved from immutable committed blobs, never by invoking
+ * the current brush, eraser, or filter algorithm.
+ */
+export async function applyStoredOperationsAsync(
+  base: Document,
+  operations: StoredOperation[],
+  tileStore: RasterTileStore = createRasterTileStore(),
+): Promise<Document> {
+  let doc = base;
+  for (const op of operations) {
+    if (op.operationType === RASTER_DELTA_OPERATION) {
+      try {
+        doc = await applyRasterDelta(doc, op.payload as RasterDeltaPayload, tileStore, 'after');
+      } catch (error) {
+        throw new ReplayError('replay.raster-delta-failed', String(error));
+      }
+      continue;
+    }
     if (!hasOperation(op.operationType)) {
       throw new ReplayError(
         'replay.unknown-operation',
@@ -102,6 +141,7 @@ export async function replayAndVerify(
   store: HistoryStore,
   documentId: string,
   revisionId: string,
+  tileStore: RasterTileStore = createRasterTileStore(),
 ): Promise<VerifyResult> {
   const revision = await store.getRevision(documentId, revisionId);
   if (!revision) throw new ReplayError('replay.missing-revision', `revision ${revisionId} missing`);
@@ -121,7 +161,7 @@ export async function replayAndVerify(
   const start = positionAfter(baseRevision.operationEnd);
   const end = positionBefore(revision.operationEnd);
   const ops = await store.readOperations(documentId, start, end);
-  const replayed = applyStoredOperations(document, ops);
+  const replayed = await applyStoredOperationsAsync(document, ops, tileStore);
 
   const actual = hashOf(replayed);
   return {
@@ -150,12 +190,13 @@ export async function loadDocumentAt(
   store: HistoryStore,
   documentId: string,
   revisionId: string,
+  tileStore: RasterTileStore = createRasterTileStore(),
 ): Promise<Document> {
-  const result = await replayAndVerify(store, documentId, revisionId);
+  const result = await replayAndVerify(store, documentId, revisionId, tileStore);
   if (!result.verified) {
     throw new ReplayError('replay.hash-mismatch', `revision ${revisionId} hash mismatch`);
   }
-  return replayToDocument(store, documentId, revisionId);
+  return replayToDocument(store, documentId, revisionId, tileStore);
 }
 
 /** Replay to a document WITHOUT hash verification (fast path). */
@@ -163,6 +204,7 @@ export async function replayToDocument(
   store: HistoryStore,
   documentId: string,
   revisionId: string,
+  tileStore: RasterTileStore = createRasterTileStore(),
 ): Promise<Document> {
   const revision = await store.getRevision(documentId, revisionId);
   if (!revision) throw new ReplayError('replay.missing-revision', `revision ${revisionId} missing`);
@@ -177,5 +219,5 @@ export async function replayToDocument(
     positionAfter(baseRevision.operationEnd),
     positionBefore(revision.operationEnd),
   );
-  return applyStoredOperations(document, ops);
+  return applyStoredOperationsAsync(document, ops, tileStore);
 }

@@ -61,11 +61,31 @@ export {
 } from './merge';
 export { findBranchMergeBase, findMergeBase } from './mergeBase';
 export {
+  applyRasterDelta,
+  captureRasterTileDeltas,
+  RASTER_DELTA_OPERATION,
+  type RasterDeltaCapture,
+  type RasterDeltaPayload,
+  type RasterNodeDelta,
+  type RasterTileDelta,
+  rasterDeltaHashes,
+  validateRasterDeltaPayload,
+} from './rasterDelta';
+export {
+  createRasterTileStore,
+  hashTilePixels,
+  IndexedDbRasterTileStore,
+  MemoryRasterTileStore,
+  type RasterTileEntry,
+  type RasterTileStore,
+} from './rasterTileStore';
+export {
   recoverTail,
   validateHistory,
 } from './recovery';
 export {
   applyStoredOperations,
+  applyStoredOperationsAsync,
   findReplayBase,
   hashOf,
   loadDocumentAt,
