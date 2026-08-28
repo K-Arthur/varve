@@ -61,16 +61,20 @@ async function handleCenter(page: import('@playwright/test').Page, name: string)
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
+async function openFixtureAndSelectSource(page: import('@playwright/test').Page) {
+  await navigateToEditor(page);
+  await page.locator('#file-open-input').setInputFiles({
+    name: 'resize-edge-snap.strata',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(RESIZE_EDGE_SNAP_DOCUMENT)),
+  });
+  await closeOpenDialogs(page);
+  await page.getByRole('treeitem', { name: /\bSource\b/ }).click();
+}
+
 test.describe('Selection resize edge snapping', () => {
   test('snaps the dragged east edge without moving the west edge', async ({ page }) => {
-    await navigateToEditor(page);
-    await page.locator('#file-open-input').setInputFiles({
-      name: 'resize-edge-snap.strata',
-      mimeType: 'application/json',
-      buffer: Buffer.from(JSON.stringify(RESIZE_EDGE_SNAP_DOCUMENT)),
-    });
-    await closeOpenDialogs(page);
-    await page.getByRole('treeitem', { name: /\bSource\b/ }).click();
+    await openFixtureAndSelectSource(page);
 
     const leftBefore = await handleCenter(page, 'Left resize handle');
     const rightBefore = await handleCenter(page, 'Right resize handle');
@@ -93,5 +97,20 @@ test.describe('Selection resize edge snapping', () => {
     const rightAfter = await handleCenter(page, 'Right resize handle');
     expect(leftAfter.x).toBeCloseTo(leftBefore.x, 0);
     expect(rightAfter.x - leftAfter.x).toBeCloseTo(150 * screenScale, 0);
+  });
+
+  test('keeps the full fractional aspect-lock result in the inspector', async ({ page }) => {
+    await openFixtureAndSelectSource(page);
+
+    const lock = page.locator('.insp-proportion-lock');
+    await lock.click();
+    await expect(page.getByRole('checkbox', { name: 'Constrain proportions' })).toBeChecked();
+
+    const width = page.getByRole('spinbutton', { name: 'W (px)', exact: true });
+    await width.fill('133.3333');
+    await width.press('Enter');
+
+    const height = page.getByRole('spinbutton', { name: 'H (px)', exact: true });
+    await expect.poll(async () => Number(await height.inputValue())).toBeCloseTo(106.66664, 6);
   });
 });
