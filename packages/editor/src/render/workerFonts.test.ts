@@ -174,6 +174,39 @@ describe('documentNeedsWorkerFonts', () => {
     ).toBe(true);
   });
 
+  it('uses the default family when a legacy text node omits fontFamily', () => {
+    expect(
+      documentNeedsWorkerFonts(doc({ a: { kind: 'text' } }), new Set(['IBM Plex Sans Variable'])),
+    ).toBe(true);
+  });
+
+  it('checks style and story-inherited rich text families', () => {
+    expect(
+      documentNeedsWorkerFonts(
+        {
+          nodes: {
+            frame: {
+              kind: 'text',
+              styleId: 'body',
+              storyBinding: { storyId: 'story-1' },
+            },
+          },
+          styles: { body: { type: 'text', fontFamily: 'Fraunces Variable' } },
+          stories: {
+            'story-1': {
+              content: {
+                paragraphs: [
+                  { runs: [{ text: 'story', format: { fontFamily: 'Geist Variable' } }] },
+                ],
+              },
+            },
+          },
+        } as Parameters<typeof documentNeedsWorkerFonts>[0],
+        declared,
+      ),
+    ).toBe(true);
+  });
+
   it('ignores non-text nodes', () => {
     expect(
       documentNeedsWorkerFonts(
