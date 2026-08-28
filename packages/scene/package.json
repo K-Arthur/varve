@@ -24,9 +24,10 @@
     "test": "cd ../.. && vitest run packages/scene"
   },
   "dependencies": {
-    "@varve/shared": "workspace:*",
     "@varve/engine": "workspace:*",
-    "@varve/tokens": "workspace:*"
+    "@varve/shared": "workspace:*",
+    "@varve/tokens": "workspace:*",
+    "polygon-clipping": "^0.15.7"
   },
   "license": "FSL-1.1-MIT"
 }

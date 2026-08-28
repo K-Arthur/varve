@@ -1,7 +1,17 @@
 import type { PathPoint } from '@varve/engine';
-import { describe, expect, it } from 'vitest';
-import { booleanOp, cleanPolygon, hasSelfIntersections, resolveSelfIntersections } from './boolean';
+import { beforeAll, describe, expect, it } from 'vitest';
+import {
+  booleanOp,
+  cleanPolygon,
+  hasSelfIntersections,
+  preloadClipper,
+  resolveSelfIntersections,
+} from './boolean';
 import type { ShapeNode } from './types';
+
+beforeAll(async () => {
+  await preloadClipper();
+});
 
 function makeRect(id: string, x: number, y: number, w: number, h: number): ShapeNode {
   return {
@@ -68,10 +78,15 @@ function makePath(
 
 function resultBounds(node: ShapeNode): { x: number; y: number; w: number; h: number } {
   if (node.shape.kind === 'path') {
-    const pts = node.shape.points;
-    if (pts.length === 0) return { x: 0, y: 0, w: 0, h: 0 };
-    const xs = pts.map((p) => p.x);
-    const ys = pts.map((p) => p.y);
+    const allPts: { x: number; y: number }[] = [...node.shape.points];
+    if (node.shape.holes) {
+      for (const hole of node.shape.holes) {
+        allPts.push(...hole);
+      }
+    }
+    if (allPts.length === 0) return { x: 0, y: 0, w: 0, h: 0 };
+    const xs = allPts.map((p) => p.x);
+    const ys = allPts.map((p) => p.y);
     const minX = Math.min(...xs);
     const minY = Math.min(...ys);
     return {
@@ -85,7 +100,15 @@ function resultBounds(node: ShapeNode): { x: number; y: number; w: number; h: nu
 }
 
 function pathVertexCount(node: ShapeNode): number {
-  if (node.shape.kind === 'path') return node.shape.points.length;
+  if (node.shape.kind === 'path') {
+    let count = node.shape.points.length;
+    if (node.shape.holes) {
+      for (const hole of node.shape.holes) {
+        count += hole.length;
+      }
+    }
+    return count;
+  }
   return 0;
 }
 
@@ -363,7 +386,7 @@ describe('Boolean op hardening — hasSelfIntersections', () => {
       { x: 100, y: 100 },
       { x: 0, y: 100 },
     ];
-    expect(hasSelfIntersections(poly)).toBe(false);
+    expect(hasSelfIntersections(poly, 1e-6)).toBe(false);
   });
 
   it('returns true for figure-8 path', () => {
@@ -374,7 +397,7 @@ describe('Boolean op hardening — hasSelfIntersections', () => {
       { x: 100, y: 0 },
       { x: 0, y: 100 },
     ];
-    expect(hasSelfIntersections(poly)).toBe(true);
+    expect(hasSelfIntersections(poly, 1e-6)).toBe(true);
   });
 
   it('returns false for degenerate polygon (< 3 points)', () => {
@@ -382,7 +405,7 @@ describe('Boolean op hardening — hasSelfIntersections', () => {
       { x: 0, y: 0 },
       { x: 100, y: 0 },
     ];
-    expect(hasSelfIntersections(poly)).toBe(false);
+    expect(hasSelfIntersections(poly, 1e-6)).toBe(false);
   });
 
   it('returns true for bow-tie configuration', () => {
@@ -393,7 +416,7 @@ describe('Boolean op hardening — hasSelfIntersections', () => {
       { x: 50, y: 0 },
       { x: 0, y: 100 },
     ];
-    expect(hasSelfIntersections(poly)).toBe(true);
+    expect(hasSelfIntersections(poly, 1e-6)).toBe(true);
   });
 });
 
@@ -406,11 +429,11 @@ describe('Boolean op hardening — resolveSelfIntersections', () => {
       { x: 100, y: 0 },
       { x: 0, y: 100 },
     ];
-    const result = resolveSelfIntersections(poly);
+    const result = resolveSelfIntersections(poly, 1e-6);
     // Should split into 2 non-self-intersecting polygons
     expect(result.length).toBeGreaterThanOrEqual(2);
     for (const sub of result) {
-      expect(hasSelfIntersections(sub)).toBe(false);
+      expect(hasSelfIntersections(sub, 1e-6)).toBe(false);
       expect(sub.length).toBeGreaterThanOrEqual(3);
     }
   });
@@ -422,10 +445,10 @@ describe('Boolean op hardening — resolveSelfIntersections', () => {
       { x: 50, y: 0 },
       { x: 0, y: 100 },
     ];
-    const result = resolveSelfIntersections(poly);
+    const result = resolveSelfIntersections(poly, 1e-6);
     expect(result.length).toBeGreaterThanOrEqual(2);
     for (const sub of result) {
-      expect(hasSelfIntersections(sub)).toBe(false);
+      expect(hasSelfIntersections(sub, 1e-6)).toBe(false);
     }
   });
 
@@ -436,7 +459,7 @@ describe('Boolean op hardening — resolveSelfIntersections', () => {
       { x: 100, y: 100 },
       { x: 0, y: 100 },
     ];
-    const result = resolveSelfIntersections(poly);
+    const result = resolveSelfIntersections(poly, 1e-6);
     expect(result.length).toBe(1);
     expect(result[0]!.length).toBe(poly.length);
   });
