@@ -2558,7 +2558,11 @@ function paintRichText(
           language: p.language,
         },
         target as import('./richTextLayout').RichTextMeasureContext,
-        { maxWidth: p.w, lineHeight: p.fontSize * p.lineHeight, language: p.language },
+        {
+          maxWidth: p.textMode === 'area' ? p.w : 0,
+          lineHeight: p.fontSize * p.lineHeight,
+          language: p.language,
+        },
       );
       paintCanonicalRichText(target, p, richText, snapshot);
       return;
@@ -2577,7 +2581,7 @@ function paintRichText(
   };
   const positioned = layoutRichText(
     p.richText! as import('./textLayout').RichTextInput,
-    p.w,
+    p.textMode === 'area' ? p.w : 0,
     defaultFormat,
   );
 

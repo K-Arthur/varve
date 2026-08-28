@@ -800,6 +800,60 @@ describe('replayIr', () => {
     expect(rec.calls).not.toContain('fillText("AB",0,0)');
   });
 
+  it('does not wrap rich point text at its content width', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      primitive: {
+        kind: 'text',
+        x: 0,
+        y: 0,
+        // Smaller than the source on purpose. Point text must ignore this as
+        // a wrapping constraint; it is a content-grown selection width.
+        w: 10,
+        h: 100,
+        text: 'ABCD',
+        fontSize: 16,
+        fontFamily: 'Inter',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textAlign: 'left',
+        textAlignVertical: 'top',
+        letterSpacing: 0,
+        lineHeight: 1.2,
+        paragraphSpacing: 0,
+        textCase: 'none',
+        textDecoration: 'none',
+        textOverflow: 'visible',
+        listStyle: 'none',
+        textMode: 'point',
+        richText: { paragraphs: [{ runs: [{ text: 'ABCD' }] }] },
+      },
+    };
+
+    const rec = new MeasuredRecorder();
+    replayIr(rec, [item]);
+    const textCalls = rec.calls.filter((call) => call.startsWith('fillText('));
+    expect(textCalls).toHaveLength(4);
+    expect(new Set(textCalls.map((call) => call.split(',').at(-1))).size).toBe(1);
+
+    // The browser-less fallback uses the same no-wrap sentinel. A point
+    // paragraph containing breakable words must stay one line there too.
+    const fallbackItem: RenderItem = {
+      ...item,
+      primitive: {
+        ...item.primitive,
+        text: 'A B C D',
+        richText: { paragraphs: [{ runs: [{ text: 'A B C D' }] }] },
+      },
+    };
+    const fallback = new Recorder();
+    replayIr(fallback, [fallbackItem]);
+    const fallbackTextCalls = fallback.calls.filter((call) => call.startsWith('fillText('));
+    expect(fallbackTextCalls.length).toBeGreaterThan(1);
+    expect(new Set(fallbackTextCalls.map((call) => call.split(',').at(-1))).size).toBe(1);
+  });
+
   it('renders polygon via beginPath + polygon path + closePath + fill', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
