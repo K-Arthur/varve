@@ -143,18 +143,17 @@ let _showOriginalBgNodeId: string | null = null;
 /**
  * Whether the worker can be trusted with this document's text.
  *
- * True when the document has no text in a declared web family, or when the
- * worker has echoed back the face set it was given. A document whose text uses
- * only system families renders identically in either realm and keeps the
- * worker fast path.
+ * The question is per family, not per batch: a document that uses only
+ * families the worker has actually loaded keeps the fast path even while some
+ * other declared family is still arriving or has failed there. Text in a
+ * family the worker cannot draw stays on the main thread.
  */
 function workerHasFontsForDocument(
-  host: { fontsReady: boolean; declaredFontFamilies: ReadonlySet<string> } | null,
+  host: { unavailableFontFamilies: ReadonlySet<string> } | null,
   doc: Document,
 ): boolean {
   if (!host) return false;
-  if (host.fontsReady) return true;
-  return !documentNeedsWorkerFonts(doc, host.declaredFontFamilies);
+  return !documentNeedsWorkerFonts(doc, host.unavailableFontFamilies);
 }
 
 export function toEngineNode(node: SceneNode, doc: Document): EngineNode {

@@ -81,11 +81,17 @@ route and depending only on which path the frame took.
 `render/workerFonts.ts` harvests the declared faces (absolutising sources
 against the stylesheet that declared them, since the worker would otherwise
 resolve them against its own script URL), the host hands them over on start,
-on restart, and on every font-registry change, and the worker echoes back the
-set identity once it has loaded them. Until that echo arrives, a document whose
-text uses a declared family renders on the main thread. That decision is made
-**synchronously**, before the frame picks its branch: an asynchronous refusal
-lands after the frame has already been drawn.
+on restart, and on every font-registry change, and the worker echoes back
+**which families it actually loaded**.
+
+The gate is per family, not per batch. A family is reported adopted only if
+every face declared for it loaded there -- a document setting bold text in a
+family whose bold payload failed must not be cleared for a realm that can only
+synthesise it. Text in any family the worker cannot draw renders on the main
+thread; everything else keeps the fast path, including while other families are
+still arriving. That decision is made **synchronously**, before the frame picks
+its branch: an asynchronous refusal lands after the frame has already been
+drawn.
 
 Documents whose text uses only system families keep the worker fast path
 unconditionally -- they render identically in either realm.
@@ -131,7 +137,27 @@ one, so the stored dimensions always mean what the new mode says they mean.
 Empty paragraphs, trailing breaks, tracking, letter spacing, paragraph spacing,
 text case, and per-run rich-text sizes all reach the box. Rich paragraphs are
 the layout source when present, because the flat `text` mirror can lag behind
-them. A line's height comes from its tallest run.
+them.
+
+### Line breaking
+
+Break opportunities are found across runs, not at run boundaries. Formatting
+changes mid-word constantly -- one bold letter, a coloured syllable -- so a
+token accumulates through as many runs as it spans and closes only on
+whitespace. Breaking where the run changed put the break in the wrong place and
+reported lines far wider than the container.
+
+A token too wide for the line on its own is broken by character. That is the
+only break opportunity CJK offers: Japanese, Chinese and Korean have no
+inter-word spaces, so under a space-only model an entire paragraph was one
+token that never wrapped, and its box came out several times wider than the
+container the renderer was already breaking the text into. The same path
+handles a long unbreakable Latin word.
+
+Each line's height comes from the runs actually on *that* line. A 60px word on
+the first line does not set the leading of a second line containing only 20px
+type. Trailing whitespace advances the caret but paints no ink, so it is
+trimmed from the line's width.
 
 An empty node keeps a minimum clickable width so it can be given a caret. That
 is an editing affordance, derived on demand: it is never serialized, and it is

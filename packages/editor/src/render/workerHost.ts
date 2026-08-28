@@ -100,7 +100,7 @@ export type WorkerResponse =
   | { type: 'error'; message: string; docVersion?: number; renderRevision?: RenderRevision }
   /** Clock-calibration pong; `t1`/`t2` are worker.performance.now(). */
   | { type: 'clockPong'; seq: number; t0: number; t1: number; t2: number }
-  | { type: 'fontsAdopted'; key: string };
+  | { type: 'fontsAdopted'; key: string; families: string[] };
 
 export interface RenderWorkerHost {
   /** Returns false when the host refused the command or postMessage failed. */
@@ -128,14 +128,15 @@ export interface RenderWorkerHost {
   /** Exactly-once frame accounting counters (see `frameLifecycle.ts`). */
   getFrameLedgerState(): FrameLedgerCounters;
   /**
-   * Whether the worker realm holds the same declared font faces the document
-   * does. Synchronous by construction: the pipeline has to decide a frame's
-   * path before it renders, and an async answer arrives too late to stop a
-   * frame that has already been drawn with substituted typography.
+   * Declared families the worker realm cannot draw yet, either because it has
+   * not finished adopting them or because their payload failed there.
+   *
+   * Synchronous by construction: the pipeline has to decide a frame's path
+   * before it renders, and an async answer arrives too late to stop a frame
+   * already drawn with substituted typography. Empty means the worker can be
+   * trusted with any text in the document.
    */
-  readonly fontsReady: boolean;
-  /** Families the document declares via `@font-face`, for the pipeline gate. */
-  readonly declaredFontFamilies: ReadonlySet<string>;
+  readonly unavailableFontFamilies: ReadonlySet<string>;
 }
 
 export interface RenderWorkerHostOptions {
@@ -222,6 +223,7 @@ export function createRenderWorkerHost(
   let declaredFontKey = fontFaceSetKey(declaredFaces);
   let declaredFontFamilies: ReadonlySet<string> = new Set<string>();
   let adoptedFontKey: string | null = null;
+  let adoptedFamilies: ReadonlySet<string> = new Set<string>();
 
   /**
    * Re-read the document's faces and hand any new ones to the worker.
@@ -241,9 +243,11 @@ export function createRenderWorkerHost(
     declaredFontFamilies = new Set(faces.map((face) => face.family));
     if (faces.length === 0) {
       adoptedFontKey = key;
+      adoptedFamilies = new Set<string>();
       return;
     }
     adoptedFontKey = null;
+    adoptedFamilies = new Set<string>();
     try {
       postToWorker({ type: 'fonts', faces, key });
     } catch {
@@ -454,7 +458,10 @@ export function createRenderWorkerHost(
           return;
         }
         if (msg.type === 'fontsAdopted') {
-          if (msg.key === declaredFontKey) adoptedFontKey = msg.key;
+          if (msg.key === declaredFontKey) {
+            adoptedFontKey = msg.key;
+            adoptedFamilies = new Set(msg.families);
+          }
           return;
         }
         if (msg.type === 'clockPong') {
@@ -592,6 +599,7 @@ export function createRenderWorkerHost(
         // previous adoption means nothing. Forget it and hand the faces over
         // again; text frames stay on the main thread until it confirms.
         adoptedFontKey = null;
+        adoptedFamilies = new Set<string>();
         declaredFontKey = '';
         provisionFonts();
         const delay = Math.min(2 ** restartCount, 30) * 1000;
@@ -716,6 +724,7 @@ export function createRenderWorkerHost(
     terminate() {
       permanentFailure = true;
       adoptedFontKey = null;
+      adoptedFamilies = new Set<string>();
       unsubscribeFonts();
       clearRestartTimeout();
       worker?.terminate();
@@ -744,11 +753,13 @@ export function createRenderWorkerHost(
     get bitmapBudget() {
       return bitmapBudget;
     },
-    get fontsReady() {
-      return adoptedFontKey === declaredFontKey;
-    },
-    get declaredFontFamilies() {
-      return declaredFontFamilies;
+    get unavailableFontFamilies() {
+      if (adoptedFontKey !== declaredFontKey) return declaredFontFamilies;
+      const missing = new Set<string>();
+      for (const family of declaredFontFamilies) {
+        if (!adoptedFamilies.has(family)) missing.add(family);
+      }
+      return missing;
     },
   };
   registerWorkerHostForDiagnostics(host);

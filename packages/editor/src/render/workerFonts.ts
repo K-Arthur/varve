@@ -131,12 +131,21 @@ export function fontFaceSetKey(faces: readonly WorkerFontFace[]): string {
  * Used by the worker. A face that fails to load is skipped rather than
  * failing the batch: one unreachable payload must not cost the document every
  * other family.
+ *
+ * Returns the families that are genuinely usable here, so the caller can gate
+ * per family rather than on the batch as a whole. A family is only reported
+ * once every face declared for it loaded — a document setting text in the
+ * bold weight of a family whose bold payload failed would otherwise be
+ * cleared for a realm that can only synthesise it.
  */
-export async function adoptFontFaces(faces: readonly WorkerFontFace[]): Promise<void> {
+export async function adoptFontFaces(faces: readonly WorkerFontFace[]): Promise<string[]> {
   const set = (globalThis as { fonts?: FontFaceSet }).fonts;
-  if (!set || typeof FontFace === 'undefined') return;
+  if (!set || typeof FontFace === 'undefined') return [];
+  const failed = new Set<string>();
+  const seen = new Set<string>();
   await Promise.all(
     faces.map(async (face) => {
+      seen.add(face.family);
       try {
         const descriptors: FontFaceDescriptors = {};
         if (face.weight) descriptors.weight = face.weight;
@@ -146,12 +155,14 @@ export async function adoptFontFaces(faces: readonly WorkerFontFace[]): Promise<
         const loaded = await new FontFace(face.family, face.source, descriptors).load();
         set.add(loaded);
       } catch {
-        // Unreachable or undecodable payload — the family stays on fallback in
-        // this realm, which the readiness key cannot express per-family. The
-        // batch still completes so the rest of the document is correct.
+        // Unreachable or undecodable payload. The family stays on fallback in
+        // this realm, so it is withheld from the adopted set and text using it
+        // keeps rendering on the main thread.
+        failed.add(face.family);
       }
     }),
   );
+  return [...seen].filter((family) => !failed.has(family));
 }
 
 /**

@@ -209,6 +209,128 @@ describe('rich text', () => {
   });
 });
 
+describe('wrapping without spaces or break opportunities', () => {
+  it('breaks CJK by character instead of never wrapping', () => {
+    // Japanese, Chinese and Korean have no inter-word spaces, so a
+    // space-only break model makes the whole paragraph one token: it never
+    // wrapped, and the box came out several times wider than the container
+    // the renderer actually broke the text into.
+    const g = geom({
+      text: '日本語のテキストは空白で区切られないので折り返しが必要です',
+      w: 120,
+      textResizing: 'autoHeight',
+    });
+    expect(g.lines.length).toBeGreaterThan(1);
+    expect(g.layout.w).toBeLessThanOrEqual(120);
+    expect(g.bounds.h).toBeCloseTo(LINE * g.lines.length);
+  });
+
+  it('breaks a word too long for the box rather than overflowing it', () => {
+    const g = geom({
+      text: 'Supercalifragilisticexpialidocious',
+      w: 80,
+      textResizing: 'autoHeight',
+    });
+    expect(g.lines.length).toBeGreaterThan(1);
+    expect(g.layout.w).toBeLessThanOrEqual(80);
+  });
+
+  it('rejoins the broken fragments into the original text', () => {
+    const source = 'Supercalifragilisticexpialidocious';
+    const g = geom({ text: source, w: 80, textResizing: 'autoHeight' });
+    expect(g.lines.map((line) => line.text).join('')).toBe(source);
+  });
+
+  it('does not widen a line by the space it ends on', () => {
+    const g = geom({ text: 'alpha beta gamma delta', w: 130, textResizing: 'autoHeight' });
+    for (const line of g.lines) {
+      expect(line.text).toBe(line.text.trimEnd());
+    }
+    expect(g.layout.w).toBeLessThanOrEqual(130);
+  });
+});
+
+describe('mixed formatting across a wrap', () => {
+  const mixed = (runs: Array<{ text: string; format?: Record<string, unknown> }>, w: number) =>
+    geom({
+      text: '',
+      w,
+      textResizing: 'autoHeight',
+      richText: { paragraphs: [{ runs: runs as never }] },
+    });
+
+  it('wraps at word boundaries, not at run boundaries', () => {
+    // Formatting changes mid-word constantly (one bold letter, a coloured
+    // syllable). Breaking where the run changes put the break in the wrong
+    // place and reported lines far wider than the box.
+    const g = mixed([{ text: 'one two ' }, { text: 'three four five six seven eight' }], 120);
+    expect(g.layout.w).toBeLessThanOrEqual(120);
+    expect(g.lines.length).toBeGreaterThan(2);
+  });
+
+  it('keeps a word whose formatting changes mid-way on one line', () => {
+    const g = mixed([{ text: 'ex' }, { text: 'ample', format: { fontWeight: 700 } }], 400);
+    expect(g.lines).toHaveLength(1);
+    expect(g.lines[0]?.text).toBe('example');
+  });
+
+  it('measures each side of a mid-word format change in its own face', () => {
+    setTextAdvanceMeasurer({
+      measureAdvance: (text, options) => text.length * (options.fontSize ?? 16),
+      revision: () => 'mid-word',
+    });
+    const g = mixed([{ text: 'ab' }, { text: 'cd', format: { fontSize: 40 } }], 1000);
+    expect(g.lines[0]?.width).toBeCloseTo(2 * 20 + 2 * 40);
+  });
+
+  it('gives each line the height of the runs actually on it', () => {
+    // A 60px word on the first line must not set the leading of a second line
+    // that contains only 20px type.
+    const g = mixed(
+      [{ text: 'BIG', format: { fontSize: 60 } }, { text: ' small words follow here' }],
+      150,
+    );
+    expect(g.lines.length).toBeGreaterThan(1);
+    expect(g.lines[0]?.height).toBeCloseTo(60 * 1.4);
+    expect(g.lines[g.lines.length - 1]?.height).toBeCloseTo(LINE);
+  });
+});
+
+describe('spacing across break seams', () => {
+  it('keeps letter spacing at a mid-word format change', () => {
+    setTextAdvanceMeasurer({
+      measureAdvance: (text) => text.length * 10,
+      revision: () => 'seam',
+    });
+    // "ab|cd" split across two runs: four glyphs, three gaps of 4px.
+    const g = geom({
+      text: '',
+      letterSpacing: 4,
+      richText: {
+        paragraphs: [{ runs: [{ text: 'ab' }, { text: 'cd', format: { fontWeight: 700 } }] }],
+      },
+    });
+    expect(g.lines[0]?.width).toBeCloseTo(4 * 10 + 3 * 4);
+  });
+
+  it('keeps letter spacing when a token is broken by character', () => {
+    setTextAdvanceMeasurer({
+      measureAdvance: (text) => text.length * 10,
+      revision: () => 'seam',
+    });
+    // Without a seam allowance every character measures alone and the tracked
+    // box collapses to the untracked one.
+    const tracked = geom({
+      text: '日本語日本語日本語',
+      w: 200,
+      textResizing: 'autoHeight',
+      letterSpacing: 6,
+    });
+    const plain = geom({ text: '日本語日本語日本語', w: 200, textResizing: 'autoHeight' });
+    expect(tracked.layout.w).toBeGreaterThan(plain.layout.w);
+  });
+});
+
 describe('empty text', () => {
   it('keeps a clickable editing affordance without inventing content', () => {
     const g = geom({ text: '' });

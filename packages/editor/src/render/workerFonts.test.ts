@@ -185,28 +185,56 @@ describe('documentNeedsWorkerFonts', () => {
 });
 
 describe('adoptFontFaces', () => {
-  it('adds each face that loads and does not abandon the batch on one failure', async () => {
+  class FakeFontFace {
+    constructor(
+      readonly family: string,
+      readonly source: string,
+    ) {}
+    async load(): Promise<FakeFontFace> {
+      if (this.source.includes('broken')) throw new Error('undecodable');
+      return this;
+    }
+  }
+
+  function stubFontRealm(): unknown[] {
     const added: unknown[] = [];
     vi.stubGlobal('fonts', { add: (face: unknown) => added.push(face) });
-    class FakeFontFace {
-      constructor(
-        readonly family: string,
-        readonly source: string,
-      ) {}
-      async load(): Promise<FakeFontFace> {
-        if (this.family === 'Broken') throw new Error('undecodable');
-        return this;
-      }
-    }
     vi.stubGlobal('FontFace', FakeFontFace);
+    return added;
+  }
 
-    await adoptFontFaces([
+  it('adds each face that loads and does not abandon the batch on one failure', async () => {
+    const added = stubFontRealm();
+
+    const adopted = await adoptFontFaces([
       { family: 'Broken', source: 'url(/broken.woff2)' },
       { family: 'Good', source: 'url(/good.woff2)' },
     ]);
 
     expect(added).toHaveLength(1);
     expect((added[0] as FakeFontFace).family).toBe('Good');
+    expect(adopted).toEqual(['Good']);
+    vi.unstubAllGlobals();
+  });
+
+  it('withholds a family when any one of its faces failed', async () => {
+    // Reporting a family whose bold payload failed would clear the worker to
+    // draw bold text it can only synthesise.
+    stubFontRealm();
+
+    const adopted = await adoptFontFaces([
+      { family: 'Plex', source: 'url(/plex-400.woff2)', weight: '400' },
+      { family: 'Plex', source: 'url(/plex-broken-700.woff2)', weight: '700' },
+      { family: 'Geist', source: 'url(/geist.woff2)' },
+    ]);
+
+    expect(adopted).toEqual(['Geist']);
+    vi.unstubAllGlobals();
+  });
+
+  it('reports nothing when the realm has no FontFaceSet', async () => {
+    vi.stubGlobal('fonts', undefined);
+    await expect(adoptFontFaces([{ family: 'A', source: 'url(/a.woff2)' }])).resolves.toEqual([]);
     vi.unstubAllGlobals();
   });
 });

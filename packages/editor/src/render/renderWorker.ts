@@ -45,8 +45,8 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
     // worker draws in a bundled family is silently substituted, so the host
     // keeps such frames on the main thread until it hears the echo below.
     const key = msg.key;
-    void adoptFontFaces(msg.faces).then(() => {
-      post({ type: 'fontsAdopted', key });
+    void adoptFontFaces(msg.faces).then((families) => {
+      post({ type: 'fontsAdopted', key, families });
     });
     return;
   }

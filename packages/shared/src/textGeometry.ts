@@ -33,12 +33,7 @@
  * only the first line.
  */
 
-import {
-  type MeasuredLine,
-  measureAdvanceWidth,
-  type TextMeasureOptions,
-  textWrap,
-} from './textMeasure';
+import { type MeasuredLine, measureAdvanceWidth, type TextMeasureOptions } from './textMeasure';
 
 const DEFAULT_FONT_SIZE = 16;
 const DEFAULT_LINE_HEIGHT = 1.4;
@@ -168,6 +163,124 @@ function runOptions(base: TextMeasureOptions, run: TextGeometryRichRun): TextMea
   return { ...base, ...run.format, fontSize: run.format.fontSize ?? base.fontSize };
 }
 
+/** One formatted stretch of a paragraph, already text-case transformed. */
+interface RunPiece {
+  text: string;
+  opts: TextMeasureOptions;
+  width: number;
+}
+
+/** A word or a run of whitespace, possibly spanning several runs. */
+interface LineToken {
+  pieces: RunPiece[];
+  width: number;
+  text: string;
+  whitespace: boolean;
+}
+
+function pieceHeight(opts: TextMeasureOptions): number {
+  return (opts.fontSize ?? DEFAULT_FONT_SIZE) * (opts.lineHeight ?? DEFAULT_LINE_HEIGHT);
+}
+
+/**
+ * The gap the renderer leaves after a glyph, from letter spacing and tracking.
+ *
+ * `measureAdvanceWidth` already puts this *between* the characters of the
+ * string it is handed, so it is only needed at a seam: where a word continues
+ * into another run, or where a token is broken into single characters and each
+ * measurement would otherwise carry no spacing at all.
+ */
+function seamSpacing(opts: TextMeasureOptions): number {
+  const fontSize = opts.fontSize ?? DEFAULT_FONT_SIZE;
+  return (opts.letterSpacing ?? 0) + ((opts.tracking ?? 0) * fontSize) / 1000;
+}
+
+function tokenHeight(token: LineToken): number {
+  return token.pieces.reduce((tallest, piece) => Math.max(tallest, pieceHeight(piece.opts)), 0);
+}
+
+/**
+ * Split a paragraph into break opportunities.
+ *
+ * A word is not the same thing as a run. Formatting changes mid-word all the
+ * time (one bold letter, a coloured syllable), so tokens accumulate across run
+ * boundaries and only close on whitespace — wrapping at run boundaries instead
+ * put the break in the wrong place and reported lines far wider than the box.
+ */
+function tokenizeParagraph(
+  paragraph: TextGeometryRichParagraph,
+  base: TextMeasureOptions,
+): LineToken[] {
+  const tokens: LineToken[] = [];
+  let open: LineToken | null = null;
+
+  for (const run of paragraph.runs) {
+    if (run.text.length === 0) continue;
+    const opts = runOptions(base, run);
+    const cased = applyTextCase(run.text, opts.textCase);
+    for (const part of cased.split(/(\s+)/)) {
+      if (part.length === 0) continue;
+      const width = measureAdvanceWidth(part, opts);
+      const piece: RunPiece = { text: part, opts, width };
+      if (/^\s+$/.test(part)) {
+        if (open) {
+          tokens.push(open);
+          open = null;
+        }
+        tokens.push({ pieces: [piece], width, text: part, whitespace: true });
+        continue;
+      }
+      if (open) {
+        open.pieces.push(piece);
+        open.width += width + seamSpacing(opts);
+        open.text += part;
+      } else {
+        open = { pieces: [piece], width, text: part, whitespace: false };
+      }
+    }
+  }
+  if (open) tokens.push(open);
+  return tokens;
+}
+
+/**
+ * Break a token that cannot fit on a line of its own, one character at a time.
+ *
+ * This is the only break opportunity CJK offers — those scripts have no
+ * spaces, so without it a Japanese paragraph is a single token, never wraps,
+ * and reports a box several times wider than the container the renderer
+ * actually breaks it into. It is also what a long unbreakable Latin word needs.
+ */
+function breakToken(token: LineToken, maxWidth: number, startWidth: number): LineToken[] {
+  const parts: LineToken[] = [];
+  let current: LineToken | null = null;
+  let width = startWidth;
+  for (const piece of token.pieces) {
+    for (const char of piece.text) {
+      const charWidth = measureAdvanceWidth(char, piece.opts);
+      const advance = current ? charWidth + seamSpacing(piece.opts) : charWidth;
+      if (current && width + advance > maxWidth) {
+        parts.push(current);
+        current = null;
+        width = 0;
+      }
+      const charPiece: RunPiece = { text: char, opts: piece.opts, width: charWidth };
+      if (current) {
+        const seam = seamSpacing(piece.opts);
+        current.pieces.push(charPiece);
+        current.width += charWidth + seam;
+        current.text += char;
+        width += seam;
+      } else {
+        current = { pieces: [charPiece], width: charWidth, text: char, whitespace: false };
+      }
+      width += charWidth;
+    }
+  }
+  if (current) parts.push(current);
+  return parts;
+}
+
 /**
  * Lay out one paragraph into line boxes.
  *
@@ -175,71 +288,78 @@ function runOptions(base: TextMeasureOptions, run: TextGeometryRichRun): TextMea
  * line in the renderer, the textarea, and the caret model, so dropping it here
  * is what made blank lines vanish from selection height while remaining
  * visible on the canvas.
+ *
+ * Each line's height comes from the runs actually on *that* line, not from the
+ * tallest run anywhere in the paragraph: a wrapped paragraph whose second line
+ * is all 12px type does not inherit the leading of a 60px word on the first.
  */
 function layoutParagraph(
   paragraph: TextGeometryRichParagraph,
   base: TextMeasureOptions,
   maxWidth: number | null,
 ): MeasuredLine[] {
-  const runs = paragraph.runs.filter((run) => run.text.length > 0);
-  const plain = runs.map((run) => run.text).join('');
-
-  // A line's height is set by its tallest run, not by the node's font size —
-  // a 48px word inside a 12px paragraph raises that line.
-  const lineHeight = runs.reduce(
-    (tallest, run) => {
-      const opts = runOptions(base, run);
-      const size = opts.fontSize ?? DEFAULT_FONT_SIZE;
-      return Math.max(tallest, size * (opts.lineHeight ?? DEFAULT_LINE_HEIGHT));
-    },
-    (base.fontSize ?? DEFAULT_FONT_SIZE) * (base.lineHeight ?? DEFAULT_LINE_HEIGHT),
-  );
-
-  if (plain.length === 0) {
-    return [{ text: '', width: 0, height: lineHeight }];
+  const tokens = tokenizeParagraph(paragraph, base);
+  const emptyHeight = pieceHeight(base);
+  if (tokens.length === 0) {
+    return [{ text: '', width: 0, height: emptyHeight }];
   }
 
-  // Uniform formatting is the overwhelmingly common case and wraps exactly.
-  const uniform = runs.length <= 1;
-  if (uniform) {
-    const opts = runs[0] ? runOptions(base, runs[0]) : base;
-    const cased = applyTextCase(plain, opts.textCase);
-    if (maxWidth === null) {
-      return [{ text: cased, width: measureAdvanceWidth(cased, opts), height: lineHeight }];
-    }
-    // `cased` is already transformed; re-applying inside textWrap would be
-    // redundant work on every wrap measurement.
-    const wrapped = textWrap(cased, maxWidth, { ...opts, textCase: 'none' });
-    if (wrapped.length === 0) return [{ text: '', width: 0, height: lineHeight }];
-    return wrapped.map((line) => ({ ...line, height: lineHeight }));
-  }
-
-  // Mixed formatting: measure each run in its own face and wrap on the
-  // accumulated width. Runs are not split mid-word across faces here; that
-  // needs the shaping itemizer, and over-reporting a line is safer for a
-  // selection box than under-reporting it.
-  const widths = runs.map((run) => {
-    const opts = runOptions(base, run);
-    return measureAdvanceWidth(applyTextCase(run.text, opts.textCase), opts);
-  });
-  const total = widths.reduce((sum, w) => sum + w, 0);
-  if (maxWidth === null || total <= maxWidth) {
-    return [{ text: plain, width: total, height: lineHeight }];
-  }
   const lines: MeasuredLine[] = [];
-  let width = 0;
-  let text = '';
-  for (let i = 0; i < runs.length; i++) {
-    const runWidth = widths[i] ?? 0;
-    if (width > 0 && width + runWidth > maxWidth) {
-      lines.push({ text, width, height: lineHeight });
-      width = 0;
-      text = '';
+  let lineTokens: LineToken[] = [];
+  let lineWidth = 0;
+
+  const flush = (): void => {
+    // Trailing whitespace advances the caret but paints no ink, so it must not
+    // widen the box that encloses the line.
+    while (lineTokens.length > 0 && lineTokens[lineTokens.length - 1]?.whitespace) {
+      lineWidth -= lineTokens.pop()?.width ?? 0;
     }
-    width += runWidth;
-    text += runs[i]?.text ?? '';
+    const height = lineTokens.reduce((tallest, token) => Math.max(tallest, tokenHeight(token)), 0);
+    lines.push({
+      text: lineTokens.map((token) => token.text).join(''),
+      width: Math.max(0, lineWidth),
+      height: height || emptyHeight,
+    });
+    lineTokens = [];
+    lineWidth = 0;
+  };
+
+  for (const token of tokens) {
+    if (maxWidth === null) {
+      lineTokens.push(token);
+      lineWidth += token.width;
+      continue;
+    }
+    if (token.whitespace) {
+      // A break already happened here; leading whitespace on the new line is
+      // dropped rather than indenting it.
+      if (lineTokens.length === 0) continue;
+      lineTokens.push(token);
+      lineWidth += token.width;
+      continue;
+    }
+    if (lineWidth + token.width <= maxWidth) {
+      lineTokens.push(token);
+      lineWidth += token.width;
+      continue;
+    }
+    if (token.width <= maxWidth) {
+      flush();
+      lineTokens.push(token);
+      lineWidth = token.width;
+      continue;
+    }
+    // Too wide even alone: break it by character, continuing the current line.
+    const fragments = breakToken(token, maxWidth, lineWidth);
+    for (let i = 0; i < fragments.length; i++) {
+      const fragment = fragments[i];
+      if (!fragment) continue;
+      if (i > 0) flush();
+      lineTokens.push(fragment);
+      lineWidth += fragment.width;
+    }
   }
-  lines.push({ text, width, height: lineHeight });
+  flush();
   return lines;
 }
 
