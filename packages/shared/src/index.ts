@@ -25,9 +25,11 @@ export {
 } from './affine';
 export {
   gradientTransformForBounds,
+  gradientRotationForBounds,
   linearGradientHandles,
   materializeLegacyGradientTransform,
   radialGradientHandles,
+  setGradientRotation,
   transformLinkedGradient,
 } from './gradientGeometry';
 export type {

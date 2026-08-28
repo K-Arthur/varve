@@ -95,6 +95,48 @@ export function radialGradientHandles(
 }
 
 /**
+ * The orientation of the canonical +u fill axis, in normalized degrees.
+ * This is only a UI presentation value; the affine matrix remains the source
+ * of truth for a gradient's complete geometry.
+ */
+export function gradientRotationForBounds(gradient: GradientGeometrySource, bounds: Rect): number {
+  const transform = gradientTransformForBounds(gradient, bounds);
+  return ((Math.atan2(transform[1], transform[0]) * 180) / Math.PI + 360) % 360;
+}
+
+/**
+ * Set the presentation rotation by rotating the full fill field about its
+ * centre. This preserves an authored radial ellipse/skew and materializes a
+ * legacy rotation-only value when the inspector is edited.
+ */
+export function setGradientRotation<T extends GradientGeometrySource>(
+  gradient: T,
+  bounds: Rect,
+  rotation: number,
+): Omit<T, 'rotation'> & { transform: Affine } {
+  const transform = gradientTransformForBounds(gradient, bounds);
+  const currentRadians = Math.atan2(transform[1], transform[0]);
+  const targetRadians = (rotation * Math.PI) / 180;
+  const delta = targetRadians - currentRadians;
+  const cos = Math.cos(delta);
+  const sin = Math.sin(delta);
+  const center = applyAffine(transform, RADIAL_CENTER);
+  const rotateAroundCenter: Affine = [
+    cos,
+    sin,
+    -sin,
+    cos,
+    center[0] - cos * center[0] + sin * center[1],
+    center[1] - sin * center[0] - cos * center[1],
+  ];
+  const { rotation: _legacyRotation, ...withoutLegacyRotation } = gradient;
+  return {
+    ...withoutLegacyRotation,
+    transform: multiplyAffine(rotateAroundCenter, transform),
+  };
+}
+
+/**
  * Apply a baked node-local geometry transform to a linked gradient.
  *
  * The result is `B · G`: points first flow through the gradient's unit-fill

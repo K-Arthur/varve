@@ -19,13 +19,15 @@ import type {
   HueInterpolation,
   ManagedColor,
 } from '@varve/scene';
-import type { InterpolationRgba } from '@varve/shared';
+import type { InterpolationRgba, Rect } from '@varve/shared';
 import {
   denormalizeChannel,
   expandGradientStops,
+  gradientRotationForBounds,
   interpolateNormalizedColor,
   managedColorToRgba,
   normalizeChannel,
+  setGradientRotation,
 } from '@varve/shared';
 import { Icon, Select } from '@varve/ui';
 import { ColorPicker, rgbToHex } from '@varve/ui/components/ColorPicker';
@@ -47,6 +49,8 @@ export interface GradientEditorProps {
   mixedInterpolationSpace?: boolean;
   /** Mirrors {@link mixedInterpolationSpace} for the cylindrical hue control. */
   mixedHue?: boolean;
+  /** Bounds of the single node being edited, for affine geometry controls. */
+  gradientBounds?: Rect;
 }
 
 const INTERPOLATION_SPACES: { value: GradientInterpolationSpace; label: string }[] = [
@@ -133,6 +137,7 @@ export function GradientEditor({
   documentGradientInterpolation = 'oklab',
   mixedInterpolationSpace = false,
   mixedHue = false,
+  gradientBounds,
 }: GradientEditorProps) {
   const [selectedStop, setSelectedStop] = useState(0);
   const effectiveInterpolationSpace: GradientInterpolationSpace =
@@ -268,6 +273,10 @@ export function GradientEditor({
   );
 
   const currentStop = gradient.stops[selectedStop];
+  const linearGradientBounds = gradient.type === 'linear' ? gradientBounds : undefined;
+  const displayRotation = linearGradientBounds
+    ? gradientRotationForBounds(gradient, linearGradientBounds)
+    : (gradient.rotation ?? 0);
 
   const handleBarKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -505,9 +514,16 @@ export function GradientEditor({
               min={0}
               max={360}
               step={1}
-              value={gradient.rotation ?? 0}
+              value={displayRotation}
               aria-label="Gradient rotation"
-              onChange={(e) => onChange({ ...gradient, rotation: Number(e.target.value) })}
+              onChange={(e) => {
+                const rotation = Number(e.target.value);
+                onChange(
+                  linearGradientBounds
+                    ? setGradientRotation(gradient, linearGradientBounds, rotation)
+                    : { ...gradient, rotation },
+                );
+              }}
               className="insp-num__input gradient-editor__position-input"
             />
             <span className="gradient-editor__unit">deg</span>

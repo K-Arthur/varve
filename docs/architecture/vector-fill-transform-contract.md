@@ -76,3 +76,8 @@ the same matrix semantics.
 Pointer editing must follow screen → world → node-local before writing a new
 fill matrix. Handles are screen-sized UI; their stored coordinates remain
 unrounded node-local affine values.
+
+The inspector's linear **Rotation** field is a derived view of `atan2(b, a)`.
+When edited for a single selected node, it rotates the whole affine field about
+its fill centre and writes `transform`; it does not overwrite the legacy
+`rotation` compatibility field or reset the secondary basis.

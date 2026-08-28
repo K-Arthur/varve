@@ -345,3 +345,29 @@ describe('gradient interpolation semantics', () => {
     expect(onChange.mock.calls[0]?.[0]).not.toHaveProperty('interpolationSource');
   });
 });
+
+describe('affine gradient geometry controls', () => {
+  it('materializes and rotates a linear fill matrix instead of overwriting legacy rotation', () => {
+    const onChange = vi.fn();
+    render(
+      <GradientEditor
+        gradient={makeGradient({ transform: [100, 0, 0, 50, 0, 0], rotation: 12 })}
+        gradientBounds={{ x: 0, y: 0, w: 100, h: 50 }}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Gradient rotation' }), {
+      target: { value: '90' },
+    });
+
+    const changed = onChange.mock.calls[0]![0] as GradientFill;
+    expect(changed.rotation).toBeUndefined();
+    expect(changed.transform?.[0]).toBeCloseTo(0, 10);
+    expect(changed.transform?.[1]).toBeCloseTo(100, 10);
+    expect(changed.transform?.[2]).toBeCloseTo(-50, 10);
+    expect(changed.transform?.[3]).toBeCloseTo(0, 10);
+    expect(changed.transform?.[4]).toBeCloseTo(75, 10);
+    expect(changed.transform?.[5]).toBeCloseTo(-25, 10);
+  });
+});

@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { Affine, Point, Rect } from './affine';
 import { applyAffine, multiplyAffine, rotateDeg, scaleXY, translate } from './affine';
 import {
+  gradientRotationForBounds,
   gradientTransformForBounds,
   linearGradientHandles,
   materializeLegacyGradientTransform,
   radialGradientHandles,
+  setGradientRotation,
   transformLinkedGradient,
 } from './gradientGeometry';
 
@@ -57,6 +59,29 @@ describe('gradient geometry contract', () => {
     expectPointClose(handles.center, [110, 105]);
     expectPointClose(handles.uAxisEnd, [190, 145]);
     expectPointClose(handles.vAxisEnd, [100, 120]);
+  });
+
+  it('rotates an explicit gradient about its centre without resetting its affine axes', () => {
+    const gradient = { transform: [160, 80, -20, 30, 40, 50] as Affine, rotation: 12 };
+    const before = radialGradientHandles(gradient, bounds);
+    const rotated = setGradientRotation(gradient, bounds, 135);
+    const after = radialGradientHandles(rotated, bounds);
+
+    expect(rotated.rotation).toBeUndefined();
+    expect(gradientRotationForBounds(rotated, bounds)).toBeCloseTo(135, 10);
+    expectPointClose(after.center, before.center);
+    expect(
+      Math.hypot(after.uAxisEnd[0] - after.center[0], after.uAxisEnd[1] - after.center[1]),
+    ).toBeCloseTo(
+      Math.hypot(before.uAxisEnd[0] - before.center[0], before.uAxisEnd[1] - before.center[1]),
+      10,
+    );
+    expect(
+      Math.hypot(after.vAxisEnd[0] - after.center[0], after.vAxisEnd[1] - after.center[1]),
+    ).toBeCloseTo(
+      Math.hypot(before.vAxisEnd[0] - before.center[0], before.vAxisEnd[1] - before.center[1]),
+      10,
+    );
   });
 
   it('proves baked and unbaked gradient world handles are equivalent', () => {
