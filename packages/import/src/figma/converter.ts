@@ -1,4 +1,4 @@
-import { type Affine, multiplyAffine, type PathPoint, type Shape } from '@varve/engine';
+import { type Affine, multiplyAffine, type Shape } from '@varve/engine';
 import {
   createDocument,
   createEmbeddedAsset,
@@ -313,9 +313,9 @@ function effects(node: FigmaSourceNode, state: ConversionState): Effect[] {
   });
 }
 
-function pathPoints(path: string): { points: PathPoint[]; closed: boolean } | undefined {
+function pathPoints(path: string): ReturnType<typeof parsePathData> | undefined {
   const parsed = parsePathData(path, 1);
-  return parsed.points.length >= 2 ? parsed : undefined;
+  return parsed.contours.some((contour) => contour.points.length >= 2) ? parsed : undefined;
 }
 
 function shapeForNode(node: FigmaSourceNode, state: ConversionState): Shape {
@@ -348,8 +348,11 @@ function shapeForNode(node: FigmaSourceNode, state: ConversionState): Shape {
       return {
         kind: 'path',
         points: parsed.points,
-        closed: parsed.closed,
+        closed: parsed.closed || parsed.contours.length > 1,
         tolerance: 3,
+        ...(parsed.contours.length > 1
+          ? { holes: parsed.contours.slice(1).map((contour) => contour.points) }
+          : {}),
         fillRule: node.fillGeometry[0]!.windingRule === 'EVENODD' ? 'evenodd' : 'nonzero',
       };
   }

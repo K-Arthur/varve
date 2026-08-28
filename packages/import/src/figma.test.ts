@@ -153,6 +153,46 @@ describe('Figma JSON importer', () => {
     expect(isFigmaJsonSource(new Uint8Array([0x46, 0x49, 0x47, 0x00]))).toBe(false);
   });
 
+  it('preserves compound vector subpaths and Figma winding rules', () => {
+    const source = {
+      name: 'Compound vector',
+      document: {
+        id: '0:0',
+        type: 'DOCUMENT',
+        children: [
+          {
+            id: '0:1',
+            type: 'CANVAS',
+            name: 'Page',
+            absoluteBoundingBox: { x: 0, y: 0, width: 200, height: 200 },
+            children: [
+              {
+                id: '1:1',
+                type: 'VECTOR',
+                name: 'Donut',
+                absoluteBoundingBox: { x: 0, y: 0, width: 100, height: 100 },
+                fillGeometry: [
+                  {
+                    path: 'M 0 0 H 100 V 100 H 0 Z M 25 25 H 75 V 75 H 25 Z',
+                    windingRule: 'EVENODD',
+                  },
+                ],
+                fills: [{ type: 'SOLID', color: { r: 1, g: 0, b: 0 }, opacity: 1 }],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const result = createFigmaParser().parse(JSON.stringify(source));
+    const vector = Object.values(result.document.nodes).find((node) => node.name === 'Donut');
+    expect(vector?.kind).toBe('shape');
+    if (vector?.kind === 'shape' && vector.shape.kind === 'path') {
+      expect(vector.shape.holes).toHaveLength(1);
+      expect(vector.shape.fillRule).toBe('evenodd');
+    }
+  });
+
   it('decodes and converts an actual native .fig archive into editable Varve nodes', () => {
     const data = nativeFixture();
     expect(isFigmaNativeSource(data)).toBe(true);
