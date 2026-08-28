@@ -8939,6 +8939,16 @@ export function EditorProvider({
       booleanOp: (op) => {
         const sel = state.selection;
         if (sel.length < 2) return;
+        const validSelection = sel.every((id) => {
+          const node = state.document.nodes[id];
+          return node !== undefined && isBooleanOperand(node);
+        });
+        if (!validSelection) {
+          announcerRef.current?.announce(
+            'Boolean operations need at least two closed, unlocked vector shapes.',
+          );
+          return;
+        }
         setState((s) => {
           const operands = sel
             .map((id) => s.document.nodes[id])
@@ -8962,16 +8972,6 @@ export function EditorProvider({
             redoStackRef.current = [];
             redoSelStackRef.current = [];
           }
-        const validSelection = sel.every((id) => {
-          const node = state.document.nodes[id];
-          return node !== undefined && isBooleanOperand(node);
-        });
-        if (!validSelection) {
-          announcerRef.current?.announce(
-            'Boolean operations need at least two closed, unlocked vector shapes.',
-          );
-          return;
-        }
           return { ...s, document: created.doc, selection: [created.nodeId], dirty: true };
         });
       },
