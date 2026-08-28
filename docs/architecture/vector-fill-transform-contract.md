@@ -81,3 +81,22 @@ The inspector's linear **Rotation** field is a derived view of `atan2(b, a)`.
 When edited for a single selected node, it rotates the whole affine field about
 its fill centre and writes `transform`; it does not overwrite the legacy
 `rotation` compatibility field or reset the secondary basis.
+
+## Import and export boundaries
+
+SVG linear and radial gradients retain the canonical unit endpoints and affine
+matrix through `gradientTransform`. SVG gradient definitions are collected for
+descendants and gradient-bearing strokes as well as fills. SVG's off-centre
+radial focal point has no equivalent in the current affine radial model, so the
+importer keeps the centred field and reports a warning. Likewise,
+`userSpaceOnUse` percentage coordinates are normalized to the target bounds and
+reported; numeric user-space matrices remain exact.
+
+Figma's normalized gradient handles (or native gradient matrix) are scaled into
+node-local dimensions before becoming `GradientFill.transform`. This preserves
+the authored secondary axis instead of reducing the paint to a rotation.
+
+The PDF compositor keeps affine linear gradients native. Gradient strokes and
+radial fields that the native writer cannot reproduce are rasterized at the
+smallest affected boundary; the native writer's radial shading also carries the
+full matrix for PDF consumers that support transformed shading dictionaries.
