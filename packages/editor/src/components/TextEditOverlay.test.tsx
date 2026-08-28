@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { TextNode } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { EditorProvider } from '../context';
+import { type EditorContextValue, EditorCtx, EditorProvider } from '../context';
 import { TextEditOverlay } from './TextEditOverlay';
 
 afterEach(cleanup);
@@ -132,5 +132,62 @@ describe('TextEditOverlay', () => {
     fireEvent.compositionEnd(ta, { data: '世' });
     // After composition end, the committed value is reported.
     expect(onUpdateText).toHaveBeenCalled();
+  });
+
+  it('coalesces a typing burst into one transaction after 500ms idle', () => {
+    vi.useFakeTimers();
+    const beginTransaction = vi.fn();
+    const commitTransaction = vi.fn();
+    const node = makeNode('Hello');
+    const canvas = document.createElement('canvas');
+    canvas.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 800,
+        height: 600,
+        right: 800,
+        bottom: 600,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    document.body.appendChild(canvas);
+    try {
+      render(
+        <EditorCtx.Provider
+          value={
+            {
+              beginTransaction,
+              commitTransaction,
+              setSelectionRange: vi.fn(),
+            } as unknown as EditorContextValue
+          }
+        >
+          <TextEditOverlay
+            node={node}
+            zoom={1}
+            pan={{ x: 0, y: 0 }}
+            canvasElement={canvas}
+            onCommit={() => {}}
+            onUpdateText={() => {}}
+          />
+        </EditorCtx.Provider>,
+      );
+      const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
+
+      fireEvent.input(ta, { target: { value: 'Hello!' } });
+      act(() => vi.advanceTimersByTime(100));
+      fireEvent.input(ta, { target: { value: 'Hello!!' } });
+      act(() => vi.advanceTimersByTime(100));
+
+      expect(beginTransaction).toHaveBeenCalledTimes(1);
+      act(() => vi.advanceTimersByTime(499));
+      expect(commitTransaction).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(1));
+      expect(commitTransaction).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

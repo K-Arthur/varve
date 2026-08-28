@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { type EditorContextValue, EditorCtx } from '../../../context';
 import { NumberField } from './NumberField';
 
 afterEach(cleanup);
@@ -148,5 +149,34 @@ describe('NumberField', () => {
     expect(val).toBe(0);
     fireEvent.keyDown(screen.getByLabelText('X'), { key: 'End' });
     expect(val).toBe(100);
+  });
+
+  it('coalesces focused wheel changes into one transaction after 200ms idle', () => {
+    vi.useFakeTimers();
+    const beginTransaction = vi.fn();
+    const commitTransaction = vi.fn();
+    try {
+      render(
+        <EditorCtx.Provider
+          value={{ beginTransaction, commitTransaction } as unknown as EditorContextValue}
+        >
+          <Holder label="X" initial={10} />
+        </EditorCtx.Provider>,
+      );
+      const input = screen.getByLabelText('X') as HTMLInputElement;
+      input.focus();
+
+      fireEvent.wheel(input, { deltaY: -1 });
+      fireEvent.wheel(input, { deltaY: -1 });
+
+      expect(input.value).toBe('12');
+      expect(beginTransaction).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(199);
+      expect(commitTransaction).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+      expect(commitTransaction).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

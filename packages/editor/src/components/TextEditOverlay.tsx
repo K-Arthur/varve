@@ -63,9 +63,24 @@ export function TextEditOverlay({
   const composingRef = useRef(false);
   const pendingTextRef = useRef<string | null>(null);
   const updateTimerRef = useRef<number | null>(null);
+  const burstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasActiveBurstRef = useRef(false);
   const onUpdateTextRef = useRef(onUpdateText);
   onUpdateTextRef.current = onUpdateText;
   const ctx = useEditor();
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+
+  const commitBurst = useCallback(() => {
+    if (burstTimerRef.current !== null) {
+      clearTimeout(burstTimerRef.current);
+      burstTimerRef.current = null;
+    }
+    if (hasActiveBurstRef.current) {
+      hasActiveBurstRef.current = false;
+      ctxRef.current.commitTransaction();
+    }
+  }, []);
 
   // Compute screen-space position from world-space transform
   // Use pre-composed world coordinates when available (accounts for ancestor transforms).
@@ -100,6 +115,22 @@ export function TextEditOverlay({
   const w = localBounds?.w ?? node.w ?? Math.max((node.fontSize ?? 16) * 3, 20);
   const h = localBounds?.h ?? node.h ?? Math.max((node.fontSize ?? 16) * 1.4, 20);
 
+  const notifyUpdate = useCallback((text: string) => {
+    if (!hasActiveBurstRef.current) {
+      hasActiveBurstRef.current = true;
+      ctxRef.current.beginTransaction();
+    }
+    if (burstTimerRef.current !== null) clearTimeout(burstTimerRef.current);
+    burstTimerRef.current = setTimeout(() => {
+      burstTimerRef.current = null;
+      hasActiveBurstRef.current = false;
+      ctxRef.current.commitTransaction();
+    }, 500);
+    onUpdateTextRef.current(text);
+  }, []);
+  const notifyUpdateRef = useRef(notifyUpdate);
+  notifyUpdateRef.current = notifyUpdate;
+
   const flushPendingText = useCallback(() => {
     const pending = pendingTextRef.current;
     pendingTextRef.current = null;
@@ -107,7 +138,7 @@ export function TextEditOverlay({
       window.clearTimeout(updateTimerRef.current);
       updateTimerRef.current = null;
     }
-    if (pending !== null) onUpdateTextRef.current(pending);
+    if (pending !== null) notifyUpdateRef.current(pending);
   }, []);
 
   const scheduleTextUpdate = useCallback((text: string) => {
@@ -120,7 +151,7 @@ export function TextEditOverlay({
       updateTimerRef.current = null;
       const pending = pendingTextRef.current;
       pendingTextRef.current = null;
-      if (pending !== null) onUpdateTextRef.current(pending);
+      if (pending !== null) notifyUpdateRef.current(pending);
     }, 100);
   }, []);
 
@@ -135,11 +166,12 @@ export function TextEditOverlay({
       if (e.key === 'Escape') {
         e.preventDefault();
         flushPendingText();
+        commitBurst();
         onCommit(textareaRef.current?.value ?? '');
       }
       // Enter inserts newline for multi-line text
     },
-    [flushPendingText, onCommit],
+    [flushPendingText, commitBurst, onCommit],
   );
 
   const handleCompositionStart = useCallback(() => {
@@ -151,7 +183,7 @@ export function TextEditOverlay({
     const ta = textareaRef.current;
     if (ta) {
       flushPendingText();
-      onUpdateTextRef.current(ta.value);
+      notifyUpdateRef.current(ta.value);
     }
   }, [flushPendingText]);
 
@@ -159,9 +191,10 @@ export function TextEditOverlay({
     if (!composingRef.current) {
       const finalText = textareaRef.current?.value ?? '';
       flushPendingText();
+      commitBurst();
       onCommit(finalText);
     }
-  }, [flushPendingText, onCommit]);
+  }, [flushPendingText, commitBurst, onCommit]);
 
   useEffect(() => {
     return () => {
@@ -170,6 +203,14 @@ export function TextEditOverlay({
       }
       updateTimerRef.current = null;
       pendingTextRef.current = null;
+      if (burstTimerRef.current !== null) {
+        clearTimeout(burstTimerRef.current);
+        burstTimerRef.current = null;
+      }
+      if (hasActiveBurstRef.current) {
+        hasActiveBurstRef.current = false;
+        ctxRef.current.commitTransaction();
+      }
     };
   }, []);
 
