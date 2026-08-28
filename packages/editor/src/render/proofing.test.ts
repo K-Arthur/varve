@@ -29,7 +29,18 @@ beforeEach(clearProofConverters);
 
 describe('applyProofToItem', () => {
   it('returns the item unchanged when proofing is unavailable', () => {
-    const item = rgbItem();
+    const item = rgbItem({
+      fills: [
+        {
+          type: 'solid',
+          color: { space: 'rgb', r: 10, g: 20, b: 30, a: 255 },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      strokes: [{ color: { space: 'rgb', r: 1, g: 2, b: 3, a: 255 } } as never],
+    });
     expect(applyProofToItem(item, config)).toBe(item);
   });
 
@@ -170,6 +181,29 @@ describe('applyProofToItem', () => {
       a: 1,
     });
     clearProofConverters();
+  });
+
+  it('does not retain a source P3 profile on display-sRGB proof output', () => {
+    registerProfileProofConverterNormalized('fogra39', (rgba) => rgba);
+    const item = rgbItem({
+      fill: {
+        space: 'rgb',
+        bitDepth: 'float32',
+        profile: 'display-p3',
+        profileFingerprint: 'a'.repeat(64),
+        r: 0.2,
+        g: 0.7,
+        b: 0.1,
+        a: 1,
+      },
+    });
+
+    const out = applyProofToItem(item, config);
+
+    expect(out.fill).toMatchObject({ space: 'rgb', bitDepth: 'float32' });
+    expect('profile' in out.fill ? out.fill.profile : undefined).toBeUndefined();
+    expect('profileFingerprint' in out.fill ? out.fill.profileFingerprint : undefined).toBeUndefined();
+    expect(item.fill).toMatchObject({ profile: 'display-p3', profileFingerprint: 'a'.repeat(64) });
   });
 });
 
