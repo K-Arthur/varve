@@ -113,6 +113,7 @@ describe('symmetry transforms', () => {
       pressure: 0.3,
       tilt: 42,
       tiltAzimuth: Math.PI / 3,
+      twist: 30,
       speed: 99,
       time: 7,
     });
@@ -123,6 +124,7 @@ describe('symmetry transforms', () => {
     expect(out.time).toBe(7);
     expect(out.x).toBeCloseTo(-10, 9);
     expect(out.tiltAzimuth).toBeCloseTo((2 * Math.PI) / 3, 9);
+    expect(out.twist).toBe(150);
   });
 
   it('returns the same object when a transform is a no-op', () => {

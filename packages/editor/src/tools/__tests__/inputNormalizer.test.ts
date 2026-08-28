@@ -240,6 +240,8 @@ describe('inputToStrokePoint', () => {
     expect(sp.pressure).toBe(0.75);
     expect(sp.tilt).toBeCloseTo(32.477, 3);
     expect(sp.tiltAzimuth).toBe(0.5);
+    expect(sp.twist).toBe(45);
+    expect(sp.tangentialPressure).toBe(0);
     expect(sp.time).toBe(1000);
   });
 
