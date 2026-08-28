@@ -39,6 +39,8 @@ async function openPixelSelectionCommand(
   await page.getByRole('menuitem', { name: 'Edit' }).click();
   const pixelSelection = page.getByRole('menuitem', { name: 'Pixel Selection' });
   await expect(pixelSelection).toBeVisible();
+  // The in-window menubar opens nested menus on pointer entry (matching its
+  // desktop-menu behaviour); clicking an already-hovered item closes it.
   await pixelSelection.hover();
   await page.getByRole('menuitem', { name: command }).click();
 }
