@@ -15,6 +15,21 @@ interface CanvasContextMenuOptions {
   closeMenu: () => void;
 }
 
+type LiveBooleanOperation = 'union' | 'subtract' | 'intersect' | 'exclude';
+
+const LIVE_BOOLEAN_OPERATIONS: readonly LiveBooleanOperation[] = [
+  'union',
+  'subtract',
+  'intersect',
+  'exclude',
+];
+
+function liveBooleanOperationLabel(operation: LiveBooleanOperation): string {
+  return operation === 'exclude'
+    ? 'Exclude Overlap'
+    : `${operation[0]!.toUpperCase()}${operation.slice(1)}`;
+}
+
 export function buildCanvasContextMenuItems({
   editor,
   closeMenu,
@@ -50,6 +65,19 @@ export function buildCanvasContextMenuItems({
       ? [
           {
             id: 'ctx-cut',
+  const setLiveBooleanOperation = (operation: LiveBooleanOperation) => {
+    if (!selectedId) return;
+    editor.updateNode(selectedId, (node) => {
+      if (!isLiveBooleanNode(node)) return node;
+      return {
+        ...node,
+        name: `Boolean ${liveBooleanOperationLabel(operation)}`,
+        boolean: { ...node.boolean, operation },
+      };
+    });
+    record(`boolean-${operation}`);
+    closeMenu();
+  };
             label: 'Cut',
             onAction: () => {
               record('cut');
@@ -153,6 +181,19 @@ export function buildCanvasContextMenuItems({
     ...(hasSelection
       ? (() => {
           // Clipping/masking entries — computed locally to avoid
+          ...(isSingleLiveBoolean
+            ? [
+                { id: 'ctx-live-boolean-sep', separator: true as const } satisfies MenuEntry,
+                ...LIVE_BOOLEAN_OPERATIONS.map(
+                  (operation) =>
+                    ({
+                      id: `ctx-live-boolean-${operation}`,
+                      label: `Change Boolean to ${liveBooleanOperationLabel(operation)}`,
+                      onAction: () => setLiveBooleanOperation(operation),
+                    }) satisfies MenuEntry,
+                ),
+              ]
+            : []),
           // adding imports to this hub file. Mirrors the scene
           // predicates (canBeClipMaskSource, isClippingMaskGroup).
           const selNodes = editor.state.selection
