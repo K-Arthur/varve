@@ -445,6 +445,7 @@ function collectGradientDefs(
     if (fill.type !== 'gradient' || !fill.gradient) return;
     const gradId = `grad-${nodeId}-${i}`;
     const rot = (fill.gradient.rotation ?? 0) * (Math.PI / 180);
+    const explicitTransform = fill.gradient.transform;
     const cx = 50;
     const cy = 50;
     const gradType = fill.gradient.type;
@@ -502,17 +503,31 @@ function collectGradientDefs(
     }
 
     if (gradType === 'linear') {
-      const x1 = cx - Math.cos(rot) * cx;
-      const y1 = cy - Math.sin(rot) * cy;
-      const x2 = cx + Math.cos(rot) * cx;
-      const y2 = cy + Math.sin(rot) * cy;
+      // Explicit Varve transforms map the unit fill square to node-local
+      // space. SVG can preserve that field exactly by retaining its unit-space
+      // endpoints and applying the complete affine as gradientTransform.
+      // Rotation-only gradients intentionally keep their legacy percentage
+      // representation until they are materialized by a direct fill edit or a
+      // geometry bake.
+      const linearAttrs = explicitTransform
+        ? ` gradientUnits="userSpaceOnUse" x1="0" y1="0.5" x2="1" y2="0.5" gradientTransform="${affineToSvg(explicitTransform)}"`
+        : (() => {
+            const x1 = cx - Math.cos(rot) * cx;
+            const y1 = cy - Math.sin(rot) * cy;
+            const x2 = cx + Math.cos(rot) * cx;
+            const y2 = cy + Math.sin(rot) * cy;
+            return ` x1="${x1.toFixed(1)}%" y1="${y1.toFixed(1)}%" x2="${x2.toFixed(1)}%" y2="${y2.toFixed(1)}%"`;
+          })();
       defs.push(
-        `    <linearGradient id="${gradId}" x1="${x1.toFixed(1)}%" y1="${y1.toFixed(1)}%" x2="${x2.toFixed(1)}%" y2="${y2.toFixed(1)}%"${colorInterpAttr}>\n${stopElements}\n    </linearGradient>`,
+        `    <linearGradient id="${gradId}"${linearAttrs}${colorInterpAttr}>\n${stopElements}\n    </linearGradient>`,
       );
     } else if (gradType === 'radial') {
       const halfDiag = Math.sqrt(cx * cx + cy * cy);
+      const radialAttrs = explicitTransform
+        ? ` gradientUnits="userSpaceOnUse" cx="0.5" cy="0.5" r="0.5" gradientTransform="${affineToSvg(explicitTransform)}"`
+        : ` cx="${cx}%" cy="${cy}%" r="${halfDiag}%"${rot !== 0 ? ` gradientTransform="rotate(${((fill.gradient.rotation ?? 0) * -1).toFixed(1)})"` : ''}`;
       defs.push(
-        `    <radialGradient id="${gradId}" cx="${cx}%" cy="${cy}%" r="${halfDiag}%"${rot !== 0 ? ` gradientTransform="rotate(${((fill.gradient.rotation ?? 0) * -1).toFixed(1)})"` : ''}${colorInterpAttr}>\n${stopElements}\n    </radialGradient>`,
+        `    <radialGradient id="${gradId}"${radialAttrs}${colorInterpAttr}>\n${stopElements}\n    </radialGradient>`,
       );
     }
     if (fidelityComment) defs.push(fidelityComment);

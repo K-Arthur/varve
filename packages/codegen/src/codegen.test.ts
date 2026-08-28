@@ -580,6 +580,51 @@ describe('legacy exports', () => {
       expect(svg).toContain('cy="50%"');
     });
 
+    it('preserves complete explicit affine geometry in linear and radial SVG gradients', () => {
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+        { name: 'Affine gradients' },
+      );
+      (node as unknown as Record<string, unknown>).fills = [
+        {
+          type: 'gradient',
+          gradient: {
+            type: 'linear',
+            stops: [
+              { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+              { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+            ],
+            transform: [160, 80, -30, 45, 25, 15],
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+        {
+          type: 'gradient',
+          gradient: {
+            type: 'radial',
+            stops: [
+              { position: 0, color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+              { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
+            ],
+            transform: [160, 80, -30, 45, 25, 15],
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ];
+
+      const svg = exportNodeToSvg(node, createDocument('Test'));
+
+      expect(svg).toContain('gradientUnits="userSpaceOnUse"');
+      expect(svg).toContain('x1="0" y1="0.5" x2="1" y2="0.5"');
+      expect(svg).toContain('cx="0.5" cy="0.5" r="0.5"');
+      expect(svg).toContain('gradientTransform="matrix(160,80,-30,45,25,15)"');
+    });
+
     it('emits color-interpolation="linearRGB" for linear-srgb gradients', () => {
       const node = makeShapeNode(
         'n1',
