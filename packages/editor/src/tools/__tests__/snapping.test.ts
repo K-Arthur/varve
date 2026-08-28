@@ -238,6 +238,36 @@ describe('snapSelectionBox', () => {
     expect(result.w).toBe(150);
   });
 
+  it('keeps the centre fixed when a centred resize snaps the moving east edge', () => {
+    const result = snapSelectionBox(
+      { cx: 233.5, cy: 160, w: 147, h: 80, rotation: 0 },
+      {
+        otherBounds: [box(310, 120, 100, 80)],
+        resizeHandle: 'e',
+        resizeCentered: true,
+      },
+    );
+
+    expect(result.cx).toBe(233.5);
+    expect(result.cx + result.w / 2).toBe(310);
+    expect(result.w).toBe(153);
+  });
+
+  it('combines independent X and Y edge snaps for a corner resize', () => {
+    const result = snapSelectionBox(
+      { cx: 233.5, cy: 158.5, w: 147, h: 77, rotation: 0 },
+      {
+        otherBounds: [box(310, 600, 100, 100), box(600, 200, 100, 100)],
+        resizeHandle: 'se',
+      },
+    );
+
+    expect(result.cx - result.w / 2).toBe(160);
+    expect(result.cy - result.h / 2).toBe(120);
+    expect(result.cx + result.w / 2).toBe(310);
+    expect(result.cy + result.h / 2).toBe(200);
+  });
+
   it('snaps an axis-aligned bounding-box edge to the matching object edge', () => {
     const result = snapSelectionBox(
       { cx: 53, cy: 250, w: 100, h: 60, rotation: 0 },
