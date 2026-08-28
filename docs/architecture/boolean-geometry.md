@@ -64,12 +64,12 @@ type RegionComponent = {
 ```
 
 The public compatibility result also exposes flat `outerContours` and `holes`.
-When serializing to Varve's existing path shape, the first outer ring occupies
-`points`; the other rings occupy the already-supported `holes` field with
-`fillRule: 'evenodd'`. Despite the historical field name, these are additional
-subpaths, not necessarily holes: even-odd filling correctly represents
-disconnected islands, holes, and nested island/hole parity without joining
-rings with false segments.
+When serializing to Varve's path shape, `contours` is the canonical authored
+ring list (outer first). `points` and `holes` remain populated as a compatibility
+projection for older readers. Despite the historical `holes` field name, these
+are additional subpaths, not necessarily holes: even-odd filling correctly
+represents disconnected islands, holes, and nested island/hole parity without
+joining rings with false segments.
 
 Canvas replay and engine hit testing already append all path subpaths and apply
 the explicit fill rule. Therefore a donut's centre is not a fill hit, and a
@@ -129,9 +129,10 @@ creation and expansion in a single history transaction.
   expanded output contains corner nodes; it does not reconstruct cubic curves.
   A curve-aware WASM kernel or a validated fitting stage is required before
   claiming curve-preserving Boolean output.
-- The existing path storage calls every additional ring `holes`. Even-odd
-  rendering preserves Boolean appearance, but full per-component ownership is
-  currently internal rather than a separately serialized `CompoundPath` type.
+- Compound paths now serialize their authored rings in the additive `contours`
+  field. The legacy `points`/`holes` projection remains for compatibility, and
+  component ownership is still represented by the resolved Boolean cache rather
+  than a separately serialized component graph.
 - Self-intersecting input receives simple-crossing resolution before clipping.
   A dedicated fill-rule-aware arrangement implementation remains necessary for
   arbitrary looping Béziers and pathological self-touching imported paths.
