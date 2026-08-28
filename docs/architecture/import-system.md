@@ -110,16 +110,28 @@ probes the container, persists `AnimatedAssetMetadata` on the asset, and the
 media system resolves frames from the editor's media clock — never browser
 `<img>` autoplay. See `architecture/animated-image-media-system.md`.
 
-**Not verified in this pass:** the Tauri desktop shell (the E2E runs the same
-editor frontend over Vite, not the packaged app), the built `/try` bundle,
-Firefox, and WebKit. The pipeline is platform-independent TypeScript with no
-native calls, so it is expected to hold, but that is an inference and not a
-measurement.
+Verified in Chromium (six specs, snapshots inspected) and in Firefox (same
+six, functional assertions plus a rendered screenshot inspected separately —
+the pixel baselines are Chromium-specific and are not duplicated per browser).
 
-`/try` **is** verified: `tests/e2e/browser/try-demo.spec.ts` imports a PNG and
-an SVG into the demo. Import is deliberately not among the demo's withheld
-capabilities — it is entirely client-side, and the demo should prove Varve can
-take real artwork.
+`/try` is verified twice over: `tests/e2e/browser/try-demo.spec.ts` imports a
+PNG and an SVG into the dev-mode demo, and the **built** `dist-try` bundle was
+served and driven directly. Import is deliberately not among the demo's
+withheld capabilities — it is entirely client-side, and the demo should prove
+Varve can take real artwork.
+
+Testing the built bundle is not optional ceremony. It is the only place the
+demo's injected CSP applies, and it is where `ImageCache.loadAtSize` was found
+calling `fetch()` on a `data:` URL — a *connect* operation that
+`connect-src 'self' blob:` refuses even though `img-src` allows `data:`. Every
+imported image on `/try` came back with a blank thumbnail and two console
+errors, and none of it reproduces on the dev server. See
+`architecture/browser-demo.md` for how to build and serve it.
+
+**Not verified:** the Tauri desktop shell (the E2E runs the same editor
+frontend over Vite, not the packaged app) and WebKit. The pipeline is
+platform-independent TypeScript with no native calls, so it is expected to
+hold, but that is an inference and not a measurement.
 
 ## SVG fidelity
 
