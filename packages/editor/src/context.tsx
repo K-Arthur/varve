@@ -145,6 +145,7 @@ import {
   createComponent,
   createDefaultIsometricGrid,
   createDocument,
+  createLiveBooleanDoc,
   createEmptySelectionSetsData,
   createGuideId,
   createMaster as createMasterDoc,
@@ -173,6 +174,7 @@ import {
   duplicateSelectionSet as duplicateSelectionSetDoc,
   duplicateSMState,
   type ExportPreset,
+  expandLiveBooleanDoc,
   type FacingPagesConfig,
   type Fill,
   fillSlot as fillSlotDoc,
@@ -200,6 +202,7 @@ import {
   isClippingMaskGroup,
   isContainer,
   isImageShape,
+  isLiveBooleanNode,
   isPageOnLeftSide as isPageOnLeftSideDoc,
   type LiveTraceParams,
   linkFrame as linkFrameDoc,
@@ -6823,6 +6826,12 @@ export function EditorProvider({
         setState((s) => {
           const node = s.document.nodes[id];
           if (node?.kind !== 'group') return s;
+          if (isLiveBooleanNode(node)) {
+            const expanded = expandLiveBooleanDoc(s.document, id);
+            return expanded
+              ? { ...s, document: expanded.doc, selection: [expanded.nodeId], dirty: true }
+              : s;
+          }
           const childIds = [...node.children];
           if (!inTransactionRef.current) {
             undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
@@ -8846,28 +8855,29 @@ export function EditorProvider({
         const sel = state.selection;
         if (sel.length < 2) return;
         setState((s) => {
-          const shapeNodes = sel
+          const operands = sel
             .map((id) => s.document.nodes[id])
-            .filter((n): n is import('@varve/scene').ShapeNode => n?.kind === 'shape');
-          if (shapeNodes.length < 2) return s;
+            .filter(
+              (n): n is import('@varve/scene').ShapeNode | import('@varve/scene').GroupNode =>
+                n?.kind === 'shape' || (n !== undefined && isLiveBooleanNode(n)),
+            );
+          if (operands.length < 2) return s;
+          // Pathfinder commands create a live group. The original shapes stay
+          // editable in Layers; Ungroup explicitly expands the current
+          // derived Boolean into one destructive compound path.
+          const created = createLiveBooleanDoc(
+            s.document,
+            operands.map((operand) => operand.id),
+            op,
+          );
+          if (!created) return s;
           if (!inTransactionRef.current) {
             undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
             undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
             redoStackRef.current = [];
             redoSelStackRef.current = [];
           }
-          // Boolean operands are clipped in WORLD space so selections
-          // spanning artboards/groups/pasteboard clip correctly; the result
-          // is then re-anchored at the first operand's home (parent + z) in
-          // that parent's local coordinates.
-          const anchorNode = shapeNodes[0]!;
-          const anchor = booleanAnchorForNode(s.document, anchorNode.id);
-          const worldNodes = shapeNodesInWorldSpace(s.document, shapeNodes);
-          const result = doBooleanOp(op, worldNodes);
-          let d = s.document;
-          for (const id of sel) d = removeNode(d, id);
-          const placed = placeBooleanResult(d, result, anchor);
-          return { ...s, document: placed.doc, selection: [placed.nodeId], dirty: true };
+          return { ...s, document: created.doc, selection: [created.nodeId], dirty: true };
         });
       },
 

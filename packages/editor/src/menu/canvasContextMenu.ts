@@ -5,7 +5,7 @@
  * pure function of the editor context + close callback. Selection facts are
  * computed locally so hub files do not import extra scene predicates.
  */
-import { isImageShape } from '@varve/scene';
+import { isImageShape, isLiveBooleanNode } from '@varve/scene';
 import type { MenuEntry } from '@varve/ui';
 import { getActionRegistry } from '../actions/ActionRegistry';
 import type { EditorContextValue } from '../context';
@@ -28,6 +28,7 @@ export function buildCanvasContextMenuItems({
     selectedId !== undefined &&
     editor.state.document.nodes[selectedId]?.kind === 'group';
   const selectedNode = selectedId ? editor.state.document.nodes[selectedId] : undefined;
+  const isSingleLiveBoolean = selectedNode !== undefined && isLiveBooleanNode(selectedNode);
   const isSingleImage =
     hasSelection &&
     editor.state.selection.length === 1 &&
@@ -140,7 +141,7 @@ export function buildCanvasContextMenuItems({
           { id: 'ctx-sep3', separator: true as const } satisfies MenuEntry,
           {
             id: 'ctx-ungroup',
-            label: 'Ungroup',
+            label: isSingleLiveBoolean ? 'Expand Boolean' : 'Ungroup',
             onAction: () => {
               record('ungroup');
               editor.ungroupSelected();
