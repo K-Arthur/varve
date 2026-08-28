@@ -11,7 +11,7 @@ import {
   combineAreaSelections,
   computeImagePlacement,
   createAreaSelection,
-  sourcePixelToLocal,
+  localToSourcePixel,
   transformAreaSelection,
 } from '@varve/engine';
 import { buildParentIndexMap, getImageFill, isImageShape } from '@varve/scene';
@@ -103,7 +103,11 @@ export class MagicWandTool extends BaseTool {
       return;
     }
     const [localX, localY] = applyAffine(inverseWorld, [click.x, click.y]);
-    const sourcePoint = sourcePixelToLocal(placement, { x: localX, y: localY });
+    // The pointer is in node-local coordinates after inverting the node
+    // transform, so use the placement's local → source direction. Reversing
+    // this (source → local) samples the wrong texel whenever placement has
+    // offsets, crop, scale, rotation, or flips.
+    const sourcePoint = localToSourcePixel(placement, { x: localX, y: localY });
     if (!sourcePoint) {
       ctx.announce('The click is outside visible image pixels');
       return;
