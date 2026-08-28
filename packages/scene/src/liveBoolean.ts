@@ -21,6 +21,22 @@ export type LiveBooleanOperation = 'union' | 'subtract' | 'intersect' | 'exclude
 /** Live Booleans can nest, but their graph remains a strict child tree. */
 const MAX_LIVE_BOOLEAN_DEPTH = 32;
 
+/**
+ * Derived geometry is expensive but is never document state. Documents are
+ * immutable, so their identity is a complete invalidation key: any operand
+ * edit, transform, reorder, or operation change produces a new Document and
+ * therefore a fresh cache entry.
+ */
+const resolvedGeometryCache = new WeakMap<Document, Map<NodeId, ShapeNode | null>>();
+
+function resolvedGeometryFor(document: Document): Map<NodeId, ShapeNode | null> {
+  const existing = resolvedGeometryCache.get(document);
+  if (existing) return existing;
+  const cache = new Map<NodeId, ShapeNode | null>();
+  resolvedGeometryCache.set(document, cache);
+  return cache;
+}
+
 function isSupportedOperation(operation: string): operation is LiveBooleanOperation {
   return (
     operation === 'union' ||
@@ -65,6 +81,9 @@ export function resolveLiveBooleanShape(
     return null;
   if (ancestors.includes(nodeId) || ancestors.length >= MAX_LIVE_BOOLEAN_DEPTH) return null;
 
+  const cache = resolvedGeometryFor(document);
+  if (cache.has(nodeId)) return cache.get(nodeId) ?? null;
+
   const operands: ShapeNode[] = [];
   for (const childId of node.children) {
     const child = document.nodes[childId];
@@ -80,18 +99,24 @@ export function resolveLiveBooleanShape(
     }
     // Filled Boolean geometry is defined for closed filled shapes. Unsupported
     // children remain editable in Layers but make the live result unavailable.
+    cache.set(nodeId, null);
     return null;
   }
-  if (operands.length < 2) return null;
+  if (operands.length < 2) {
+    cache.set(nodeId, null);
+    return null;
+  }
 
   const resolved = booleanOp(node.boolean.operation, operands);
-  return {
+  const shape = {
     ...resolved,
     id: node.id,
     name: node.name,
     visible: node.visible,
     locked: node.locked,
   };
+  cache.set(nodeId, shape);
+  return shape;
 }
 
 /**

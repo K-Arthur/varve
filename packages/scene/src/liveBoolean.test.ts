@@ -83,6 +83,7 @@ describe('live Boolean groups', () => {
     expect(initial).not.toBeNull();
     if (!initial) return;
     expect(bounds(initial)).toEqual({ minX: 100, minY: 50, maxX: 200, maxY: 150 });
+    expect(resolveLiveBooleanShape(doc, created.nodeId)).toBe(initial);
 
     // Editing a child changes the result; no copied resolved path is stored on
     // the Boolean group for this update to modify.
@@ -96,6 +97,7 @@ describe('live Boolean groups', () => {
     const edited = resolveLiveBooleanShape(doc, created.nodeId);
     expect(edited).not.toBeNull();
     if (!edited) return;
+    expect(edited).not.toBe(initial);
     expect(nodeWorldTransform(doc, 'a')).toEqual([1, 0, 0, 1, 100, 50]);
     expect(nodeWorldTransform(doc, 'b')).toEqual([1, 0, 0, 1, 480, 120]);
     expect(bounds(edited)).toEqual({ minX: 100, minY: 50, maxX: 280, maxY: 170 });

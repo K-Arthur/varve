@@ -107,9 +107,11 @@ redundant output vertices, and returns all components produced by the kernel.
 
 A live Boolean is a normal `GroupNode` with versioned `boolean` state. Its
 direct `children` are its ordered operands. There is deliberately no persisted
-resolved path cache; `resolveLiveBooleanShape()` derives a world-space result
-when the renderer needs it. A child edit, transform, operation change, or
-operand reorder therefore changes the next render without flattening sources.
+resolved path cache. `resolveLiveBooleanShape()` has an ephemeral `WeakMap`
+cache keyed by immutable document identity, so repeated rendering of an
+unchanged document reuses derived geometry while every child edit, transform,
+operation change, or operand reorder automatically resolves afresh without
+flattening sources.
 
 Live groups can nest. Resolution has cycle and depth guards, so malformed
 documents cannot recurse indefinitely. Creating one moves selected operands
