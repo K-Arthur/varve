@@ -493,7 +493,12 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       const engine = new TransformEngine(state.document, state.selection, {
         bakeOnCommit: true,
-        snapBox: (b) => snapSelectionBox(b, buildSnapOptions()),
+        snapBox: (b, context) =>
+          snapSelectionBox(b, {
+            ...buildSnapOptions(),
+            resizeHandle: context?.operation === 'resize' ? context.handle : undefined,
+            resizeCentered: context?.centered,
+          }),
       });
       beginTransaction();
 

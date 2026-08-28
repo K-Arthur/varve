@@ -216,6 +216,28 @@ describe('snapSize', () => {
 });
 
 describe('snapSelectionBox', () => {
+  it('keeps the opposite edge fixed when an east resize snaps to an object edge', () => {
+    const result = snapSelectionBox(
+      { cx: 233.5, cy: 160, w: 147, h: 80, rotation: 0 },
+      { otherBounds: [box(310, 120, 100, 80)], resizeHandle: 'e' },
+    );
+
+    expect(result.cx - result.w / 2).toBe(160);
+    expect(result.cx + result.w / 2).toBe(310);
+    expect(result.w).toBe(150);
+  });
+
+  it('keeps the opposite edge fixed when a west resize snaps to an object edge', () => {
+    const result = snapSelectionBox(
+      { cx: 236.5, cy: 160, w: 147, h: 80, rotation: 0 },
+      { otherBounds: [box(160, 120, 100, 80)], resizeHandle: 'w' },
+    );
+
+    expect(result.cx - result.w / 2).toBe(160);
+    expect(result.cx + result.w / 2).toBe(310);
+    expect(result.w).toBe(150);
+  });
+
   it('snaps an axis-aligned bounding-box edge to the matching object edge', () => {
     const result = snapSelectionBox(
       { cx: 53, cy: 250, w: 100, h: 60, rotation: 0 },

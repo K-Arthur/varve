@@ -49,9 +49,17 @@ export interface TransformNodeState {
   isRaster: boolean;
 }
 
+export interface TransformSnapContext {
+  operation: 'resize' | 'rotate';
+  /** Present for a handle-driven resize, so snap policy can preserve its fixed edge. */
+  handle?: ResizeHandle;
+  /** Whether the resize is symmetric around the selection centre. */
+  centered?: boolean;
+}
+
 export interface TransformOptions {
   /** Optional snap function applied to the new selection box before delta. */
-  snapBox?: (box: SelectionBox) => SelectionBox;
+  snapBox?: (box: SelectionBox, context?: TransformSnapContext) => SelectionBox;
   /** When true, commit() bakes vector geometry into shape/frame properties. */
   bakeOnCommit?: boolean;
   /** When true, frame children are scaled uniformly with the frame (like a group).
@@ -148,7 +156,13 @@ export class TransformEngine {
     const pointerDelta = this.pointerDeltaToBoxLocal(pointerWorld, box, handle);
     const policy = this.getResizePolicy(opts);
     const resizedBox = resizeSelectionBox(box, handle, pointerDelta, { ...opts, ...policy });
-    const newBox = opts.bypassSnap ? resizedBox : this.snapBox(resizedBox);
+    const newBox = opts.bypassSnap
+      ? resizedBox
+      : this.snapBox(resizedBox, {
+          operation: 'resize',
+          handle,
+          centered: policy.centered,
+        });
     const delta = boxDeltaMatrix(box, newBox);
     this.lastDelta = delta;
     // Propagate scaleContents from transient resize opts to the stored options
@@ -161,7 +175,9 @@ export class TransformEngine {
 
   /** Rotate the selection box around its center (or a custom pivot). */
   rotate(angleDelta: number, pivot?: Point, doc: Document = this.doc): Document {
-    const newBox = this.snapBox(rotateSelectionBox(this.initialBox, angleDelta, pivot));
+    const newBox = this.snapBox(rotateSelectionBox(this.initialBox, angleDelta, pivot), {
+      operation: 'rotate',
+    });
     const delta = boxDeltaMatrix(this.initialBox, newBox);
     this.lastDelta = delta;
     return this.applyDelta(doc, delta);
@@ -267,8 +283,8 @@ export class TransformEngine {
     return [localWorld[0] - handleLocal[0], localWorld[1] - handleLocal[1]];
   }
 
-  private snapBox(box: SelectionBox): SelectionBox {
-    return this.options.snapBox ? this.options.snapBox(box) : box;
+  private snapBox(box: SelectionBox, context?: TransformSnapContext): SelectionBox {
+    return this.options.snapBox ? this.options.snapBox(box, context) : box;
   }
 
   private applyDelta(doc: Document, delta: Affine, bake: boolean = false): Document {
