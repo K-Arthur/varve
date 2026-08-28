@@ -28,4 +28,14 @@ describe('OutputResolutionPanel', () => {
     });
     expect(onChange).toHaveBeenLastCalledWith(600);
   });
+
+  it('offers common PPI values without changing the saved preset', () => {
+    const onChange = vi.fn();
+    render(<OutputResolutionPanel value={300} onChange={onChange} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '600 PPI' }));
+
+    expect(onChange).toHaveBeenLastCalledWith(600);
+    expect(screen.getByRole('button', { name: '300 PPI' })).toHaveAttribute('aria-pressed', 'true');
+  });
 });
