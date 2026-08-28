@@ -23,8 +23,14 @@ import {
   nodeWorldBounds as sceneNodeWorldBounds,
   nodeWorldTransform as sceneNodeWorldTransform,
 } from '@varve/scene';
-import type { Affine, Point, Rect } from '@varve/shared';
-import { applyAffine, multiplyAffine, tryInvertAffine } from '@varve/shared';
+import type { Affine, Camera, Point, Rect, Viewport } from '@varve/shared';
+import {
+  applyAffine,
+  computeFloatingOrigin,
+  multiplyAffine,
+  tryInvertAffine,
+  worldToScreen,
+} from '@varve/shared';
 import { placedLiveBooleanBounds, resolvePlacedLiveBoolean } from './liveBooleanGeometry';
 import type { PagePlacementMap } from './pagePlacement';
 import { buildPagePlacementMap, pagePlacementForNode } from './pagePlacement';
@@ -136,6 +142,35 @@ export function nodeWorldTransform(
   const world = sceneNodeWorldTransform(doc, id, parentIndex);
   const placement = pagePlacementForNode(placementMapFor(doc), id);
   return placement ? multiplyAffine(translate(placement.x, placement.y), world) : world;
+}
+
+/**
+ * Project a world-space AABB into a conservative screen-space AABB.
+ *
+ * World bounds already include node and ancestor transforms, but they do not
+ * include the camera. Projecting all four corners is required for rotated
+ * views; scaling `w`/`h` and projecting only the origin silently places text
+ * editing controls away from the rendered frame.
+ */
+export function worldRectToScreenAabb(worldRect: Rect, camera: Camera, viewport: Viewport): Rect {
+  const origin = computeFloatingOrigin(camera, viewport);
+  const corners: Point[] = [
+    [worldRect.x, worldRect.y],
+    [worldRect.x + worldRect.w, worldRect.y],
+    [worldRect.x, worldRect.y + worldRect.h],
+    [worldRect.x + worldRect.w, worldRect.y + worldRect.h],
+  ];
+  const projected = corners.map(([x, y]) => worldToScreen(camera, x, y, viewport, origin));
+  const xs = projected.map(([x]) => x);
+  const ys = projected.map(([, y]) => y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return {
+    x,
+    y,
+    w: Math.max(...xs) - x,
+    h: Math.max(...ys) - y,
+  };
 }
 
 /**

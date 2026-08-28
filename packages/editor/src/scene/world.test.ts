@@ -8,7 +8,7 @@ import {
   makeImageShapeNode,
   makeShapeNode,
 } from '@varve/scene';
-import { multiplyAffine, rotateDeg } from '@varve/shared';
+import { computeFloatingOrigin, multiplyAffine, rotateDeg, worldToScreen } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import {
   createTransformCache,
@@ -18,7 +18,12 @@ import {
   invalidateNodes,
   invalidateSubtree,
 } from './transformCache';
-import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './world';
+import {
+  nodeLocalBounds,
+  nodeWorldBounds,
+  nodeWorldTransform,
+  worldRectToScreenAabb,
+} from './world';
 
 function buildDoc() {
   let doc = createDocument();
@@ -57,6 +62,29 @@ function buildDoc() {
 }
 
 const EPS = 1e-9;
+
+describe('worldRectToScreenAabb', () => {
+  it('projects every corner through the rotated camera', () => {
+    const camera = { zoom: 1.5, pan: { x: 12, y: -8 }, rotation: Math.PI / 4 };
+    const viewport = { width: 800, height: 600 };
+    const rect = { x: 100, y: 40, w: 120, h: 60 };
+    const origin = computeFloatingOrigin(camera, viewport);
+    const points = [
+      [rect.x, rect.y],
+      [rect.x + rect.w, rect.y],
+      [rect.x, rect.y + rect.h],
+      [rect.x + rect.w, rect.y + rect.h],
+    ].map(([x, y]) => worldToScreen(camera, x, y, viewport, origin));
+    const expected = {
+      x: Math.min(...points.map(([x]) => x)),
+      y: Math.min(...points.map(([, y]) => y)),
+      w: Math.max(...points.map(([x]) => x)) - Math.min(...points.map(([x]) => x)),
+      h: Math.max(...points.map(([, y]) => y)) - Math.min(...points.map(([, y]) => y)),
+    };
+
+    expect(worldRectToScreenAabb(rect, camera, viewport)).toEqual(expected);
+  });
+});
 
 describe('nodeWorldTransform', () => {
   it('returns identity for a non-existent node', () => {
