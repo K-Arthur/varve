@@ -3903,7 +3903,8 @@ export function primitiveBounds(p: RenderItem['primitive']): {
         maxY = Math.max(maxY, y);
       };
 
-      for (const ring of [p.points, ...(p.holes ?? [])]) {
+      const rings = p.contours?.length ? p.contours : [p.points, ...(p.holes ?? [])];
+      for (const ring of rings) {
         for (const point of ring) {
           include(point.x, point.y);
           if (point.handleIn) {
