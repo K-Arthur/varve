@@ -118,22 +118,6 @@ describe('smoothStrokePoints', () => {
     expect(over[1]!.x).toBe(pts[0]!.x); // clamped to 1
     expect(under[1]!.x).toBe(pts[1]!.x); // clamped to 0
   });
-
-  it('preserves directional stylus channels through smoothing', () => {
-    const points = [
-      strokePoint(0, 0, { tiltAzimuth: (179 * Math.PI) / 180, twist: 350, tangentialPressure: -1 }),
-      strokePoint(10, 0, {
-        tiltAzimuth: (-179 * Math.PI) / 180,
-        twist: 10,
-        tangentialPressure: 1,
-      }),
-    ];
-    const result = smoothStrokePoints(points, 0.5);
-
-    expect(Math.abs(result[1]!.tiltAzimuth ?? 0)).toBeCloseTo(Math.PI, 2);
-    expect(result[1]!.twist).toBeCloseTo(0, 6);
-    expect(result[1]!.tangentialPressure).toBeCloseTo(0, 6);
-  });
 });
 
 describe('interpolatePoints', () => {
@@ -261,38 +245,6 @@ describe('generateDabs', () => {
     });
     const dab = generateDabs(points, preset)[0]!;
     expect(dab.radius).toBeGreaterThan(5);
-  });
-
-  it('maps directional tilt and barrel inputs deterministically', () => {
-    const preset = makePreset({
-      angle: 0,
-      dynamics: [
-        { input: 'tiltDirection', target: 'rotation', curve: [0, 0, 1, 1], min: 0, max: 1 },
-        { input: 'twist', target: 'rotation', curve: [0, 0, 1, 1], min: 0, max: 1 },
-        {
-          input: 'tangentialPressure',
-          target: 'opacity',
-          curve: [0, 0, 1, 1],
-          min: 0.5,
-          max: 1,
-        },
-      ],
-    });
-    const dab = generateDabs(
-      [
-        strokePoint(0, 0, {
-          tiltAzimuth: Math.PI / 2,
-          twist: 180,
-          tangentialPressure: 1,
-        }),
-      ],
-      preset,
-    )[0]!;
-
-    // Multiple mappings use the existing explicit multiplicative semantics:
-    // directional tilt 0.25 × twist 0.5 = 0.125 rotation turns.
-    expect(dab.angle).toBeCloseTo(Math.PI * 0.125, 3);
-    expect(dab.opacity).toBeCloseTo(1, 6);
   });
 
   it('carries grain settings into textured dabs', () => {

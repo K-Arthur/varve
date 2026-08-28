@@ -2707,6 +2707,9 @@ export function EditorProvider({
 
   /** F6: transaction state for single-undo scrubbing. */
   const inTransactionRef = useRef(false);
+  /** Flatten nested transactions so only the outermost commit creates a history step. */
+  const txDepthRef = useRef(0);
+  const txLabelRef = useRef('Edit');
   const txSnapshotRef = useRef<Document | null>(null);
   const txSelRef = useRef<NodeId[] | null>(null);
   const interactionState = useInteractionState();
@@ -2900,6 +2903,11 @@ export function EditorProvider({
       areaUndoStackRef.current = [];
       areaRedoStackRef.current = [];
       if (!inTransactionRef.current) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            '[history] updateDoc called outside transaction — this mutation bypasses persistent history capture',
+          );
+        }
         undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
         undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
         undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
@@ -2993,7 +3001,12 @@ export function EditorProvider({
   // F6: transaction API — begin/commit/abort for single-undo scrubbing
   // P5: Wired to @varve/collab transaction hooks for Yjs integration
   const beginTransaction = useCallback(() => {
+    if (inTransactionRef.current) {
+      txDepthRef.current += 1;
+      return;
+    }
     inTransactionRef.current = true;
+    txDepthRef.current = 1;
     // Gesture callbacks can be retained by portaled controls across a
     // document render. Read the synchronous ref so a transaction always
     // snapshots the document the user is actually seeing, not the closure's
@@ -3004,6 +3017,12 @@ export function EditorProvider({
   }, []);
 
   const commitTransaction = useCallback(() => {
+    if (!inTransactionRef.current) return;
+    if (txDepthRef.current > 1) {
+      txDepthRef.current -= 1;
+      return;
+    }
+    txDepthRef.current = 0;
     // Queue finalization behind any document updater scheduled by the same
     // pointer event. Ending the transaction synchronously lets that updater
     // observe `inTransaction=false` and push the already-transformed document
@@ -3011,6 +3030,7 @@ export function EditorProvider({
     setState((current) => {
       if (inTransactionRef.current) {
         inTransactionRef.current = false;
+        const transactionLabel = txLabelRef.current;
         // Only record an undo entry if the transaction actually changed the
         // document. The document is updated immutably (structural sharing), so
         // a transaction that mutated nothing leaves the reference identical to
@@ -3026,7 +3046,7 @@ export function EditorProvider({
         if (changed) {
           undoStackRef.current = [...undoStackRef.current.slice(-49), txSnapshotRef.current!];
           undoSelStackRef.current = [...undoSelStackRef.current.slice(-49), txSelRef.current ?? []];
-          undoLabelsRef.current = [...undoLabelsRef.current.slice(-49), 'Edit'];
+          undoLabelsRef.current = [...undoLabelsRef.current.slice(-49), transactionLabel];
           redoStackRef.current = [];
           redoSelStackRef.current = [];
           redoLabelsRef.current = [];
@@ -3037,11 +3057,12 @@ export function EditorProvider({
           const persistentNow = persistentHistoryRef.current;
           if (before && persistentNow?.attached) {
             historySkipRef.current = true;
-            persistentNow.capture(before, current.document, 'Edit', 'modify');
+            persistentNow.capture(before, current.document, transactionLabel, 'modify');
           }
         }
         txSnapshotRef.current = null;
         txSelRef.current = null;
+        txLabelRef.current = 'Edit';
         getTransactionHooks().onCommitTransaction();
       }
       return current;
@@ -3051,14 +3072,37 @@ export function EditorProvider({
   const abortTransaction = useCallback(() => {
     if (inTransactionRef.current) {
       inTransactionRef.current = false;
+      txDepthRef.current = 0;
       if (txSnapshotRef.current !== null) {
         patch({ document: txSnapshotRef.current, selection: txSelRef.current ?? [] });
       }
       txSnapshotRef.current = null;
       txSelRef.current = null;
+      txLabelRef.current = 'Edit';
       getTransactionHooks().onAbortTransaction();
     }
   }, [patch]);
+
+  /**
+   * Run related mutations as one user-visible history step. Nested calls are
+   * flattened into an existing transaction and never overwrite its label.
+   */
+  const groupCompoundOperation = useCallback(
+    (label: string, action: () => void) => {
+      const ownsTransaction = !inTransactionRef.current;
+      beginTransaction();
+      if (ownsTransaction) txLabelRef.current = label;
+      try {
+        action();
+        commitTransaction();
+      } catch (error) {
+        if (ownsTransaction) abortTransaction();
+        else commitTransaction();
+        throw error;
+      }
+    },
+    [abortTransaction, beginTransaction, commitTransaction],
+  );
 
   // Typography: Text chain operations
   const createTextChain = useCallback(
@@ -3766,6 +3810,10 @@ export function EditorProvider({
 
       // F4 + frame tool fix: create typed nodes with auto-names, select atomically
       createShapeAt: (world, size, parentId, pathPoints, pathClosed) => {
+        // Wrap in a transaction so persistent history captures the edit.
+        // Guard against nested calls (e.g. PenTool already begins a transaction).
+        const ownTransaction = !inTransactionRef.current;
+        if (ownTransaction) beginTransaction();
         setState((s) => {
           // Read the tool from the ref (synchronously current) instead of the
           // state closure, which may be stale due to React 18 automatic batching.
@@ -3798,11 +3846,6 @@ export function EditorProvider({
           if (nonDrawingTools.includes(activeTool)) {
             throw new Error(`createShapeAt called for non-drawing tool: ${activeTool}`);
           }
-
-          undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-          undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
-          redoStackRef.current = [];
-          redoLabelsRef.current = [];
 
           const { id, doc: d2 } = nextNodeId(s.document);
           const transform: Affine = [1, 0, 0, 1, world.x, world.y];
@@ -4050,15 +4093,12 @@ export function EditorProvider({
             selection: [id],
             tool: keepDrawTool ? activeTool : ('select' as ToolId),
             dirty: true,
-            canUndo: true,
-            canRedo: false,
-            undoLabel: 'Edit',
-            redoLabel: 'Redo',
             sessions: s.sessions.map((sess) =>
               sess.id === s.activeId ? { ...sess, dirty: true } : sess,
             ),
           };
         });
+        if (ownTransaction) commitTransaction();
       },
 
       sliceWithKnife: (line) => {
@@ -4490,18 +4530,9 @@ export function EditorProvider({
           return [newId, d, idMap];
         }
 
+        const ownTransaction = !inTransactionRef.current;
+        if (ownTransaction) beginTransaction();
         setState((s) => {
-          // Push undo snapshot only when not inside a transaction.
-          // When inside a transaction (e.g. alt-drag), the transaction handles
-          // undo on commitTransaction. Pushing here would inject a spurious
-          // undo entry mid-transaction (Fix C1).
-          if (!inTransactionRef.current) {
-            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
-            redoStackRef.current = [];
-            redoSelStackRef.current = [];
-          }
-
           let d = s.document;
           const newIds: string[] = [];
           for (const id of sel) {
@@ -4552,6 +4583,7 @@ export function EditorProvider({
             ),
           };
         });
+        if (ownTransaction) commitTransaction();
       },
 
       repeatDuplicate: () => {
@@ -5988,6 +6020,7 @@ export function EditorProvider({
       beginTransaction,
       commitTransaction,
       abortTransaction,
+      groupCompoundOperation,
 
       // Text chain operations
       createTextChain,
@@ -6813,24 +6846,23 @@ export function EditorProvider({
       groupSelected: () => {
         const sel = state.selection;
         if (sel.length < 2) return;
+        const ownTransaction = !inTransactionRef.current;
+        if (ownTransaction) beginTransaction();
         setState((s) => {
-          if (!inTransactionRef.current) {
-            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
-            redoStackRef.current = [];
-            redoSelStackRef.current = [];
-          }
           const { id: gId, doc: d2 } = nextNodeId(s.document);
           const group = makeGroupNode(gId, { name: 'Group' });
           const newDoc = groupNodesDoc(d2, sel, group);
           return { ...s, document: newDoc, selection: [gId], dirty: true };
         });
+        if (ownTransaction) commitTransaction();
       },
 
       ungroupSelected: () => {
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
+        const ownTransaction = !inTransactionRef.current;
+        if (ownTransaction) beginTransaction();
         setState((s) => {
           const node = s.document.nodes[id];
           if (node?.kind !== 'group') return s;
@@ -6841,15 +6873,10 @@ export function EditorProvider({
               : s;
           }
           const childIds = [...node.children];
-          if (!inTransactionRef.current) {
-            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
-            redoStackRef.current = [];
-            redoSelStackRef.current = [];
-          }
           const newDoc = ungroupNodeDoc(s.document, id);
           return { ...s, document: newDoc, selection: childIds, dirty: true };
         });
+        if (ownTransaction) commitTransaction();
       },
 
       addMaskToSelected: (type: MaskType = 'alpha', sourceNodeId?: NodeId) => {
@@ -7888,11 +7915,9 @@ export function EditorProvider({
 
         if (!varveData && importResults.length === 0) return;
 
+        const ownTransaction = !inTransactionRef.current;
+        if (ownTransaction) beginTransaction();
         setState((s) => {
-          undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-          undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
-          redoStackRef.current = [];
-          redoLabelsRef.current = [];
           let doc = s.document;
           const newIds: NodeId[] = [];
           const resourceImports: ImportedResourceSet[] = [];
@@ -8045,6 +8070,7 @@ export function EditorProvider({
             selection: newIds,
           };
         });
+        if (ownTransaction) commitTransaction();
 
         const totalCount = (varveData?.nodes.length ?? 0) + importResults.length;
         if (totalCount > 0) {
@@ -10113,6 +10139,7 @@ export function EditorProvider({
       beginTransaction,
       commitTransaction,
       abortTransaction,
+      groupCompoundOperation,
       createTextChain,
       deleteTextChain,
       appendFrameToChain,
@@ -10189,6 +10216,7 @@ export function EditorProvider({
       beginTransaction: value.beginTransaction,
       commitTransaction: value.commitTransaction,
       abortTransaction: value.abortTransaction,
+      groupCompoundOperation: value.groupCompoundOperation,
       createTextChain: value.createTextChain,
       linkSelectedTextFrames: value.linkSelectedTextFrames,
       unlinkSelectedTextFrames: value.unlinkSelectedTextFrames,

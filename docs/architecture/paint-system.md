@@ -1,7 +1,7 @@
 # Paint System
 
 **Status:** Implemented; see Limitations for what is not
-**Updated:** 2026-08-28
+**Updated:** 2026-08-20
 
 ## Scope
 
@@ -57,11 +57,8 @@ buffers must be exactly `128 * 128 * 4` bytes.
 ## Pipeline
 
 ```
-Pointer hardware
-        │ PointerEvent / coalesced packet / optional predicted packet
-        ▼
-inputPipeline → collectSourceEvents → canonicalizeInputEvents
-        │ normalized position, pressure, tilt magnitude + azimuth, timestamp
+Pointer / stylus input
+        │  normalizePressure / normalizeTilt   (tools/pointerDynamics.ts)
         ▼
 PaintStrokeSession                             (tools/PaintTool.ts)
   identity, frozen preset, colour, alpha lock,
@@ -79,8 +76,6 @@ BrushWorkerHost                                (render/brushWorkerHost.ts)
         └── main thread ───────────────┤ both run
                                        ▼
                         scene/strokeEngine.ts   (the only dab algorithm)
-                          smooth → causal centripetal reconstruction
-                          → arc-length spacing → dynamics → deterministic jitter
                                        │
                                        ▼
                         Paint target resolver   (tools/paintTarget.ts)
@@ -95,50 +90,6 @@ BrushWorkerHost                                (render/brushWorkerHost.ts)
                                        ▼
                         Raster tiles → history → dirty rect → render
 ```
-
-Confirmed samples are the only input to the authoritative branch. Predicted
-samples fork a cloned engine state and paint a transient overlay; they never
-advance spacing carry, arc length, jitter, wetness, smudge pickup, raster
-tiles, or history. The next confirmed packet replaces the overlay and
-pointer-up/cancel removes it.
-
-### Input canonicalization
-
-`collectSourceEvents()` collects a coalesced packet and appends the primary
-event only when it is not its duplicate. When requested, predicted events are
-kept as a separate tail. `canonicalizeInputEvents()` orders confirmed samples
-by timestamp then arrival order, deduplicates them, and only then appends the
-predicted tail. A confirmed sample always wins over an identical prediction.
-
-`normalizeInputEvent()` makes malformed browser fields safe before they reach
-tools. It preserves low pen pressure—including zero during hover/up—and uses a
-mouse/touch fallback only for pointer types without a pressure sensor. It
-retains tilt X/Y, magnitude, azimuth, altitude, twist, tangential pressure and
-contact geometry. `inputToStrokePoint()` forwards tilt magnitude and azimuth,
-uses a monotonic timestamp, and receives a short-window filtered velocity from
-`pointerDynamics.ts` rather than exposing raw `distance / dt` spikes to brush
-dynamics.
-
-`pointerrawupdate` is intentionally not an input source yet. It overlaps with
-`pointermove` on Chromium and needs an explicit de-duplication/capture policy
-before it can lower latency safely. Coalesced `pointermove` remains the
-portable path for Tauri/WebKitGTK and browser builds; correctness must not
-depend on raw updates.
-
-### Reconstruction and preview
-
-Raw hardware positions are observations, not the finished centreline.
-`CausalStrokeReconstructor` retains one point of look-ahead and emits the
-previous segment as a centripetal Catmull–Rom curve. The last held segment is
-flushed with a deterministic forward ghost on pointer-up. Its chord length is
-bounded to 0.25–1 layer pixels, independent from visual dab spacing, so sparse
-curves are smooth without relying on arbitrary extra stamps.
-
-The worker and synchronous fallback run this same incremental state machine.
-The prediction mirror is cloned from confirmed `StrokeEngineState`, including
-the reconstructor, spacing carry, arc length and `BrushRng` state. Therefore a
-wrong prediction is disposable and the committed result remains invariant to
-whether predictions were supported.
 
 Wet media and the retouch tools attach to the same compositor rather than
 running beside it:
@@ -189,19 +140,6 @@ repeated failures or a hard error.
 Dab jitter comes from a `BrushRng` owned by the stroke, not a process-global
 PRNG. Two overlapping strokes, or a worker job and its synchronous fallback,
 cannot perturb each other's jitter.
-
-### Fractional coverage survives to pixels
-
-Stroke points and dabs retain floating-point layer coordinates. The compositor
-does not round a dab's mask origin: it samples the precomputed mask bilinearly
-at each destination pixel and expands tile bounds through the final partial
-pixel. Paint, erase, legacy smudge, pigment smudge, clone/heal and mask paint
-share this rule.
-
-At the supported 0.5–1px tip range, a bounded 4 by 4 coverage sample replaces
-the coarse mask lookup. This keeps a tiny circle visible when its centre lies
-between pixel centres and splits its coverage continuously instead of making it
-blink or jump one pixel at a time.
 
 ### Presets are snapshotted per stroke
 
@@ -390,8 +328,8 @@ draining so fast the trail died before it left the shape it started in.
 
 - Wet mixing is evaluated once per dab at its centre rather than per pixel.
 - Grain sampling is nearest-neighbour; there is no bilinear filtering.
-- Tilt magnitude and azimuth are retained through `StrokePoint`; no built-in
-  preset currently maps azimuth, twist or tangential pressure to a target.
+- Tilt is normalized to a single magnitude; `tiltAzimuth` exists but no brush
+  parameter consumes it yet.
 - Brush thumbnails do not render grain.
 - Mask painting supports the container-local form (`FrameNode`); masks in
   `source-image-pixels` space still go through `RefineMaskTool`.
@@ -403,7 +341,5 @@ draining so fast the trail died before it left the shape it started in.
 - The Brush Browser and Brush Editor are covered by component tests in jsdom;
   they have not been inspected in the running desktop app. The paint *engine*
   has been visually inspected through the fixtures above.
-- No production stylus calibration UI exists. The default linear pressure path
-  is deterministic; device/user response curves, activation thresholds and
-  saturation should be introduced as a persisted profile layer rather than
-  baked into document history.
+- No performance benchmarks have been run, so `shouldUseWorker`'s threshold is
+  reasoned from cost structure rather than measured.

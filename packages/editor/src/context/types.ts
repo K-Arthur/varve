@@ -835,6 +835,8 @@ export interface EditorContextValue {
   beginTransaction: () => void;
   commitTransaction: () => void;
   abortTransaction: () => void;
+  /** Run a named collection of mutations as one undoable history step. */
+  groupCompoundOperation: (label: string, action: () => void) => void;
   undo: () => void;
   redo: () => void;
   newDocument: () => void;

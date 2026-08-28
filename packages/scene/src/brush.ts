@@ -12,11 +12,8 @@ export type BrushShape = 'circle' | 'square' | 'texture' | 'custom';
 export type BrushDynamicsInput =
   | 'pressure'
   | 'tilt'
-  | 'tiltDirection'
   | 'speed'
   | 'direction'
-  | 'twist'
-  | 'tangentialPressure'
   | 'random'
   | 'stroke'
   | 'custom';
@@ -168,10 +165,6 @@ export interface StrokePoint {
    * Needed by directional brush tips (pencil, chisel, nib).
    */
   tiltAzimuth?: number | null;
-  /** Barrel rotation in degrees [0, 360); -1 when the device does not expose it. */
-  twist?: number;
-  /** Barrel tangential pressure, normalized to [-1, 1]. */
-  tangentialPressure?: number;
 }
 
 export interface BrushDab {
@@ -256,8 +249,6 @@ export function strokePoint(x: number, y: number, options: Partial<StrokePoint> 
     speed: options.speed ?? 0,
     time: options.time ?? 0,
     tiltAzimuth: options.tiltAzimuth ?? null,
-    twist: options.twist ?? -1,
-    tangentialPressure: options.tangentialPressure ?? 0,
   };
 }
 
@@ -439,11 +430,6 @@ export function smoothStrokePoints(
       direction: first.direction,
       speed: first.speed,
       time: first.time,
-      tiltAzimuth: interpolateOptionalAngle(previous.tiltAzimuth, first.tiltAzimuth, 1 - f0),
-      twist: interpolateTwist(previous.twist, first.twist, 1 - f0),
-      tangentialPressure:
-        (previous.tangentialPressure ?? 0) +
-        ((first.tangentialPressure ?? 0) - (previous.tangentialPressure ?? 0)) * (1 - f0),
     });
   } else {
     smoothed.push(points[0]!);
@@ -460,11 +446,6 @@ export function smoothStrokePoints(
       direction: current.direction,
       speed: current.speed,
       time: current.time,
-      tiltAzimuth: interpolateOptionalAngle(prev.tiltAzimuth, current.tiltAzimuth, 1 - f),
-      twist: interpolateTwist(prev.twist, current.twist, 1 - f),
-      tangentialPressure:
-        (prev.tangentialPressure ?? 0) +
-        ((current.tangentialPressure ?? 0) - (prev.tangentialPressure ?? 0)) * (1 - f),
     });
   }
   return smoothed;
@@ -479,28 +460,13 @@ export function interpolatePoints(a: StrokePoint, b: StrokePoint, t: number): St
     direction: lerpAngle(a.direction, b.direction, t),
     speed: a.speed + (b.speed - a.speed) * t,
     time: a.time + (b.time - a.time) * t,
-    tiltAzimuth: interpolateOptionalAngle(a.tiltAzimuth, b.tiltAzimuth, t),
-    twist: interpolateTwist(a.twist, b.twist, t),
-    tangentialPressure:
-      (a.tangentialPressure ?? 0) + ((b.tangentialPressure ?? 0) - (a.tangentialPressure ?? 0)) * t,
+    tiltAzimuth:
+      a.tiltAzimuth === null || a.tiltAzimuth === undefined
+        ? (b.tiltAzimuth ?? null)
+        : b.tiltAzimuth === null || b.tiltAzimuth === undefined
+          ? a.tiltAzimuth
+          : lerpAngle(a.tiltAzimuth, b.tiltAzimuth, t),
   };
-}
-
-function interpolateOptionalAngle(
-  a: number | null | undefined,
-  b: number | null | undefined,
-  t: number,
-): number | null {
-  if (a === null || a === undefined) return b ?? null;
-  if (b === null || b === undefined) return a;
-  return lerpAngle(a, b, t);
-}
-
-function interpolateTwist(a: number | undefined, b: number | undefined, t: number): number {
-  if (a === undefined || a < 0) return b ?? -1;
-  if (b === undefined || b < 0) return a;
-  const radians = lerpAngle((a * Math.PI) / 180, (b * Math.PI) / 180, t);
-  return ((radians * 180) / Math.PI + 360) % 360;
 }
 
 export interface GenerateDabsOptions {
@@ -830,9 +796,6 @@ function getInputValue(
       return point.pressure;
     case 'tilt':
       return point.tilt / 90;
-    case 'tiltDirection':
-      if (point.tiltAzimuth === null || point.tiltAzimuth === undefined) return 0.5;
-      return (((point.tiltAzimuth % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI);
     case 'speed':
       if (preset.maxSpeed <= preset.minSpeed) return 0;
       return Math.max(
@@ -841,10 +804,6 @@ function getInputValue(
       );
     case 'direction':
       return (point.direction + Math.PI) / (2 * Math.PI);
-    case 'twist':
-      return point.twist === undefined || point.twist < 0 ? 0.5 : point.twist / 360;
-    case 'tangentialPressure':
-      return Math.max(0, Math.min(1, ((point.tangentialPressure ?? 0) + 1) / 2));
     case 'random':
       return rng.next();
     case 'stroke':
