@@ -1,9 +1,21 @@
+/** Canvas controls for direct manipulation of a gradient's affine fill field. */
+
 import type { Document, Fill, GradientFill, NodeId } from '@varve/scene';
-import type { Affine } from '@varve/shared';
-import { computeFloatingOrigin, screenToWorld, worldToScreen } from '@varve/shared';
-import { useCallback, useRef, useState } from 'react';
+import { nodeLocalBounds } from '@varve/scene';
+import type { Affine, Point, Rect } from '@varve/shared';
+import {
+  applyAffine,
+  computeFloatingOrigin,
+  linearGradientHandles,
+  radialGradientHandles,
+  screenToWorld,
+  tryInvertAffine,
+  worldToScreen,
+} from '@varve/shared';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getEditorViewport } from '../canvas/cameraState';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../canvas/overlayZIndex';
+import { type GradientHandleKind, moveGradientHandle } from './gradientHandleGeometry';
 
 interface GradientHandleOverlayProps {
   zoom: number;
@@ -12,35 +24,42 @@ interface GradientHandleOverlayProps {
   doc: Document;
   getWorldTransform: (id: NodeId) => Affine | null;
   onUpdateGradient: (nodeId: NodeId, fillIndex: number, gradient: GradientFill) => void;
+  /** Kept separate so the caller can make the full drag a single undo entry. */
+  onEditStart?: () => void;
+  onEditEnd?: () => void;
+  onEditCancel?: () => void;
 }
 
-// Must match the transform the canvas actually paints with
-// (applyEditorCameraToCtx: floating origin) — naive world*zoom+pan drifts
-// from the real paint position once panned away from world (0,0), putting
-// these handles somewhere other than the gradient they're meant to control.
+interface GradientHandle {
+  nodeId: NodeId;
+  fillIndex: number;
+  gradient: GradientFill;
+  bounds: Rect;
+  nodeTransform: Affine;
+  linear?: { start: Point; end: Point };
+  radial?: { center: Point; uAxisEnd: Point; vAxisEnd: Point };
+}
+
+interface DragSession {
+  pointerId: number;
+  handle: GradientHandle;
+  kind: GradientHandleKind;
+  svg: SVGSVGElement;
+}
+
+// Must match the floating-origin camera transform used by CanvasArea. The SVG
+// sits in canvas CSS pixels, while fill handles begin as document world points.
 function worldToCanvas(
   wx: number,
   wy: number,
   zoom: number,
   pan: { x: number; y: number },
 ): { x: number; y: number } {
-  const cam = { zoom, pan };
+  const camera = { zoom, pan };
   const viewport = getEditorViewport();
-  const origin = computeFloatingOrigin(cam, viewport);
-  const [x, y] = worldToScreen(cam, wx, wy, viewport, origin);
+  const origin = computeFloatingOrigin(camera, viewport);
+  const [x, y] = worldToScreen(camera, wx, wy, viewport, origin);
   return { x, y };
-}
-
-interface GradientHandle {
-  nodeId: NodeId;
-  fillIndex: number;
-  cx: number;
-  cy: number;
-  dx: number;
-  dy: number;
-  halfDiag: number;
-  gradient: GradientFill;
-  nodeTransform: Affine;
 }
 
 function getGradientHandles(
@@ -48,75 +67,39 @@ function getGradientHandles(
   doc: Document,
   getWorldTransform: (id: NodeId) => Affine | null,
 ): GradientHandle[] {
-  const handles: GradientHandle[] = [];
-  for (const id of selectedIds) {
-    const node = doc.nodes[id];
-    if (!node) continue;
-    const nodeAny = node as unknown as Record<string, unknown>;
-    const fills: Fill[] =
-      'fills' in nodeAny && Array.isArray(nodeAny.fills) ? (nodeAny.fills as Fill[]) : [];
-    const nodeTransform: Affine =
-      getWorldTransform(id) ??
-      ('transform' in nodeAny ? (nodeAny.transform as Affine) : [1, 0, 0, 1, 0, 0]);
-    let bounds = { x: 0, y: 0, w: 100, h: 100 };
-    if (typeof nodeAny.w === 'number' && typeof nodeAny.h === 'number') {
-      bounds = {
-        x: (nodeAny.x as number) ?? 0,
-        y: (nodeAny.y as number) ?? 0,
-        w: nodeAny.w as number,
-        h: nodeAny.h as number,
-      };
-    }
-    for (let fi = 0; fi < fills.length; fi++) {
-      const fill = fills[fi];
-      if (!fill?.visible) continue;
-      if (fill.type !== 'gradient' || !fill.gradient) continue;
-      const g = fill.gradient;
-      const cx = bounds.x + bounds.w / 2;
-      const cy = bounds.y + bounds.h / 2;
-      const halfDiag = Math.sqrt(bounds.w * bounds.w + bounds.h * bounds.h) / 2;
-      let rot = ((g.rotation ?? 0) * Math.PI) / 180;
-      let useCx = cx;
-      let useCy = cy;
-      let useHalf = halfDiag;
-      if (g.transform) {
-        const t = g.transform;
-        const du = t[0] * halfDiag;
-        const dv = t[1] * halfDiag;
-        useCx = bounds.x + t[4];
-        useCy = bounds.y + t[5];
-        rot = Math.atan2(dv, du);
-        useHalf = Math.sqrt(du * du + dv * dv);
-      }
-      const dx = Math.cos(rot) * useHalf;
-      const dy = Math.sin(rot) * useHalf;
-      handles.push({
+  // A shared fill-index callback cannot safely edit a mixed multi-selection.
+  // Keep direct manipulation precise until multi-node gradient editing has a
+  // deliberate linked/unlinked contract.
+  if (selectedIds.length !== 1) return [];
+
+  const id = selectedIds[0];
+  const node = doc.nodes[id];
+  if (!node) return [];
+  const bounds = nodeLocalBounds(node, doc);
+  if (!bounds || bounds.w === 0 || bounds.h === 0) return [];
+  const nodeAny = node as unknown as { fills?: Fill[]; transform?: Affine };
+  const fills = nodeAny.fills ?? [];
+  const nodeTransform = getWorldTransform(id) ?? nodeAny.transform ?? [1, 0, 0, 1, 0, 0];
+
+  return fills.flatMap((fill, fillIndex) => {
+    if (!fill.visible || fill.type !== 'gradient' || !fill.gradient) return [];
+    const gradient = fill.gradient;
+    return [
+      {
         nodeId: id,
-        fillIndex: fi,
-        cx: useCx,
-        cy: useCy,
-        dx,
-        dy,
-        halfDiag: useHalf,
-        gradient: g,
+        fillIndex,
+        gradient,
+        bounds,
         nodeTransform,
-      });
-    }
-  }
-  return handles;
+        ...(gradient.type === 'radial'
+          ? { radial: radialGradientHandles(gradient, bounds) }
+          : { linear: linearGradientHandles(gradient, bounds) }),
+      },
+    ];
+  });
 }
 
-function stopColorHex(color: {
-  space: string;
-  r?: number;
-  g?: number;
-  b?: number;
-  a?: number;
-  c?: number;
-  m?: number;
-  y?: number;
-  k?: number;
-}): string {
+function stopColorHex(color: { space: string; r?: number; g?: number; b?: number }): string {
   if (
     color.space === 'rgb' &&
     color.r !== undefined &&
@@ -128,6 +111,41 @@ function stopColorHex(color: {
   return '#888';
 }
 
+function localToCanvas(
+  point: Point,
+  nodeTransform: Affine,
+  zoom: number,
+  pan: { x: number; y: number },
+): { x: number; y: number } {
+  const [worldX, worldY] = applyAffine(nodeTransform, point);
+  return worldToCanvas(worldX, worldY, zoom, pan);
+}
+
+function HandleCircle({
+  point,
+  fill,
+  active,
+  onPointerDown,
+}: {
+  point: { x: number; y: number };
+  fill: string;
+  active: boolean;
+  onPointerDown: (event: React.PointerEvent<SVGCircleElement>) => void;
+}) {
+  return (
+    <circle
+      cx={point.x}
+      cy={point.y}
+      r={active ? 8 : 6}
+      fill={fill}
+      stroke="#fff"
+      strokeWidth={2}
+      style={{ pointerEvents: 'auto', cursor: active ? 'grabbing' : 'grab' }}
+      onPointerDown={onPointerDown}
+    />
+  );
+}
+
 export function GradientHandleOverlay({
   zoom,
   pan,
@@ -135,48 +153,95 @@ export function GradientHandleOverlay({
   doc,
   getWorldTransform,
   onUpdateGradient,
+  onEditStart,
+  onEditEnd,
+  onEditCancel,
 }: GradientHandleOverlayProps) {
   const handles = getGradientHandles(selectedIds, doc, getWorldTransform);
-  const [dragging, setDragging] = useState<{ nodeId: NodeId; fillIndex: number } | null>(null);
-  const dragRef = useRef<{ startAngle: number; nodeId: NodeId; fillIndex: number } | null>(null);
+  const [dragging, setDragging] = useState<{
+    nodeId: NodeId;
+    fillIndex: number;
+    kind: GradientHandleKind;
+  } | null>(null);
+  const dragRef = useRef<DragSession | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
+
+  const finishDrag = useCallback(
+    (outcome: 'commit' | 'cancel') => {
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+      dragRef.current = null;
+      setDragging(null);
+      if (outcome === 'commit') onEditEnd?.();
+      else onEditCancel?.();
+    },
+    [onEditCancel, onEditEnd],
+  );
+
+  useEffect(
+    () => () => {
+      if (dragRef.current) finishDrag('cancel');
+    },
+    [finishDrag],
+  );
 
   const handlePointerDown = useCallback(
-    (e: React.PointerEvent, h: GradientHandle) => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const startAngle = Math.atan2(h.dy, h.dx);
-      dragRef.current = { startAngle, nodeId: h.nodeId, fillIndex: h.fillIndex };
-      setDragging({ nodeId: h.nodeId, fillIndex: h.fillIndex });
-      const onMove = (me: PointerEvent) => {
-        if (!dragRef.current) return;
-        const rect = (e.currentTarget as HTMLElement).closest('section')?.getBoundingClientRect();
-        if (!rect) return;
-        const cam = { zoom, pan };
+    (
+      event: React.PointerEvent<SVGCircleElement>,
+      handle: GradientHandle,
+      kind: GradientHandleKind,
+    ) => {
+      if (event.button !== 0 || dragRef.current) return;
+      const svg = event.currentTarget.ownerSVGElement;
+      if (!svg) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.setPointerCapture(event.pointerId);
+
+      const session: DragSession = { pointerId: event.pointerId, handle, kind, svg };
+      dragRef.current = session;
+      setDragging({ nodeId: handle.nodeId, fillIndex: handle.fillIndex, kind });
+      onEditStart?.();
+
+      const onMove = (moveEvent: PointerEvent) => {
+        const active = dragRef.current;
+        if (!active || moveEvent.pointerId !== active.pointerId) return;
+        const rect = active.svg.getBoundingClientRect();
+        const camera = { zoom, pan };
         const viewport = getEditorViewport();
-        const origin = computeFloatingOrigin(cam, viewport);
-        const [mx, my] = screenToWorld(
-          cam,
-          me.clientX - rect.left,
-          me.clientY - rect.top,
+        const origin = computeFloatingOrigin(camera, viewport);
+        const [worldX, worldY] = screenToWorld(
+          camera,
+          moveEvent.clientX - rect.left,
+          moveEvent.clientY - rect.top,
           viewport,
           origin,
         );
-        const newAngle = Math.atan2(my - h.cy, mx - h.cx);
-        const newDeg = ((newAngle * 180) / Math.PI + 360) % 360;
-        const updatedGrad = { ...h.gradient, rotation: Math.round(newDeg) };
-        onUpdateGradient(h.nodeId, h.fillIndex, updatedGrad);
+        const inverse = tryInvertAffine(active.handle.nodeTransform);
+        if (!inverse) return;
+        const localPoint = applyAffine(inverse, [worldX, worldY]);
+        onUpdateGradient(
+          active.handle.nodeId,
+          active.handle.fillIndex,
+          moveGradientHandle(active.handle.gradient, active.handle.bounds, active.kind, localPoint),
+        );
       };
-      const onUp = () => {
-        dragRef.current = null;
-        setDragging(null);
+      const onUp = (upEvent: PointerEvent) => {
+        if (upEvent.pointerId === session.pointerId) finishDrag('commit');
+      };
+      const onCancel = (cancelEvent: PointerEvent) => {
+        if (cancelEvent.pointerId === session.pointerId) finishDrag('cancel');
+      };
+      cleanupRef.current = () => {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onCancel);
       };
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onCancel);
     },
-    [zoom, pan, onUpdateGradient],
+    [finishDrag, onEditStart, onUpdateGradient, pan, zoom],
   );
 
   if (handles.length === 0) return null;
@@ -195,91 +260,83 @@ export function GradientHandleOverlay({
       aria-hidden
     >
       <title>Gradient handles</title>
-      {handles.map((h) => {
-        const startW = worldToCanvas(h.cx - h.dx, h.cy - h.dy, zoom, pan);
-        const endW = worldToCanvas(h.cx + h.dx, h.cy + h.dy, zoom, pan);
-        const isDragging = dragging?.nodeId === h.nodeId && dragging?.fillIndex === h.fillIndex;
+      {handles.map((handle) => {
+        const isDragging = (kind: GradientHandleKind) =>
+          dragging?.nodeId === handle.nodeId &&
+          dragging.fillIndex === handle.fillIndex &&
+          dragging.kind === kind;
+        const points = handle.radial ?? handle.linear;
+        if (!points) return null;
+        const start = handle.radial ? points.center : points.start;
+        const primary = handle.radial ? points.uAxisEnd : points.end;
+        const secondary = handle.radial?.vAxisEnd;
+        const startCanvas = localToCanvas(start, handle.nodeTransform, zoom, pan);
+        const primaryCanvas = localToCanvas(primary, handle.nodeTransform, zoom, pan);
+        const secondaryCanvas =
+          secondary && localToCanvas(secondary, handle.nodeTransform, zoom, pan);
+        const startKind: GradientHandleKind = handle.radial ? 'radial-center' : 'linear-start';
+        const primaryKind: GradientHandleKind = handle.radial ? 'radial-u-axis' : 'linear-end';
 
         return (
-          <g key={`gradient-${h.nodeId}-${h.fillIndex}`}>
-            {/* Gradient direction line */}
+          <g key={`gradient-${handle.nodeId}-${handle.fillIndex}`}>
             <line
-              x1={startW.x}
-              y1={startW.y}
-              x2={endW.x}
-              y2={endW.y}
+              x1={startCanvas.x}
+              y1={startCanvas.y}
+              x2={primaryCanvas.x}
+              y2={primaryCanvas.y}
               stroke="var(--color-accent-primary, #39d0c6)"
-              strokeWidth={2 / Math.max(1, zoom * 0.5)}
-              strokeDasharray={`${4 / zoom}, ${4 / zoom}`}
+              strokeWidth={2}
+              strokeDasharray="4 4"
               opacity={0.7}
             />
-
-            {/* Stop markers along gradient line */}
-            {h.gradient.stops.map((stop, si) => {
-              const t = stop.position;
-              const sx = h.cx - h.dx + 2 * t * h.dx;
-              const sy = h.cy - h.dy + 2 * t * h.dy;
-              const sw = worldToCanvas(sx, sy, zoom, pan);
+            {secondaryCanvas && (
+              <line
+                x1={startCanvas.x}
+                y1={startCanvas.y}
+                x2={secondaryCanvas.x}
+                y2={secondaryCanvas.y}
+                stroke="var(--color-accent-primary, #39d0c6)"
+                strokeWidth={2}
+                strokeDasharray="4 4"
+                opacity={0.45}
+              />
+            )}
+            {handle.gradient.stops.map((stop) => {
+              const localStop: Point = [
+                start[0] + (primary[0] - start[0]) * stop.position,
+                start[1] + (primary[1] - start[1]) * stop.position,
+              ];
+              const canvasStop = localToCanvas(localStop, handle.nodeTransform, zoom, pan);
               return (
-                // biome-ignore lint/suspicious/noArrayIndexKey: gradient stops have no stable id; position/color change while editing (content keys would remount mid-drag)
-                <g key={`stop-${si}`}>
-                  <circle
-                    cx={sw.x}
-                    cy={sw.y}
-                    r={5 / Math.max(1, zoom * 0.5)}
-                    fill={stopColorHex(stop.color)}
-                    stroke="#fff"
-                    strokeWidth={1.5 / Math.max(1, zoom * 0.5)}
-                  />
-                  {stop.midpoint !== undefined && stop.midpoint !== 0.5 && (
-                    <circle
-                      cx={sw.x}
-                      cy={sw.y + 10 / Math.max(1, zoom * 0.5)}
-                      r={3 / Math.max(1, zoom * 0.5)}
-                      fill="var(--color-text-muted)"
-                      opacity={0.6}
-                    />
-                  )}
-                </g>
+                <circle
+                  key={`stop-${stop.position}-${stopColorHex(stop.color)}`}
+                  cx={canvasStop.x}
+                  cy={canvasStop.y}
+                  r={5}
+                  fill={stopColorHex(stop.color)}
+                  stroke="#fff"
+                  strokeWidth={1.5}
+                />
               );
             })}
-
-            {/* Start handle */}
-            <circle
-              cx={startW.x}
-              cy={startW.y}
-              r={6 / Math.max(1, zoom * 0.5)}
+            <HandleCircle
+              point={startCanvas}
               fill="var(--elevation-surface-default, #fff)"
-              stroke="var(--color-accent-primary, #39d0c6)"
-              strokeWidth={2 / Math.max(1, zoom * 0.5)}
-              style={{ pointerEvents: 'auto', cursor: 'grab' }}
-              onPointerDown={(e) => handlePointerDown(e, h)}
+              active={isDragging(startKind)}
+              onPointerDown={(event) => handlePointerDown(event, handle, startKind)}
             />
-
-            {/* End handle (draggable) */}
-            <circle
-              cx={endW.x}
-              cy={endW.y}
-              r={isDragging ? 8 / Math.max(1, zoom * 0.5) : 6 / Math.max(1, zoom * 0.5)}
+            <HandleCircle
+              point={primaryCanvas}
               fill="var(--color-accent-primary, #39d0c6)"
-              stroke="#fff"
-              strokeWidth={2 / Math.max(1, zoom * 0.5)}
-              style={{ pointerEvents: 'auto', cursor: isDragging ? 'grabbing' : 'grab' }}
-              onPointerDown={(e) => handlePointerDown(e, h)}
+              active={isDragging(primaryKind)}
+              onPointerDown={(event) => handlePointerDown(event, handle, primaryKind)}
             />
-
-            {/* Radial gradient: show radial indicator */}
-            {h.gradient.type === 'radial' && (
-              <circle
-                cx={endW.x}
-                cy={endW.y}
-                r={h.halfDiag * zoom}
-                fill="none"
-                stroke="var(--color-accent-primary, #39d0c6)"
-                strokeWidth={1 / Math.max(1, zoom * 0.5)}
-                strokeDasharray={`${2 / zoom}, ${4 / zoom}`}
-                opacity={0.4}
-                style={{ pointerEvents: 'none' }}
+            {secondaryCanvas && (
+              <HandleCircle
+                point={secondaryCanvas}
+                fill="var(--color-accent-primary, #39d0c6)"
+                active={isDragging('radial-v-axis')}
+                onPointerDown={(event) => handlePointerDown(event, handle, 'radial-v-axis')}
               />
             )}
           </g>
