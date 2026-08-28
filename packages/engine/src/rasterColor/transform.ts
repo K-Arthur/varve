@@ -184,6 +184,9 @@ async function convertPixelBufferInPlace(
 ): Promise<void> {
   const { descriptor, data } = buffer;
   const { width, height, format, alphaMode } = descriptor;
+  if (format.startsWith('cmyka')) {
+    throw new TypeError('RGB transform cannot process CMYKA pixels; use a CMYK ICC transform');
+  }
   const expectedChannels = width * height * 4;
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
     throw new RangeError('pixel buffer dimensions must be positive safe integers');

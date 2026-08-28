@@ -35,6 +35,7 @@ describe('typed raster colour transforms', () => {
     expect(transform!.supports('rgba16')).toBe(true);
     expect(transform!.supports('rgba16f')).toBe(true);
     expect(transform!.supports('rgba32f')).toBe(true);
+    expect(transform!.supports('cmyka8')).toBe(false);
 
     const cases = [
       { format: 'rgba8' as const, values: [32, 64, 128, 255] },

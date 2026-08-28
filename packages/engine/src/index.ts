@@ -916,6 +916,7 @@ export { GRADIENT_MAP_PRESETS, TRITONE_PRESETS } from './presets';
 export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
 export type {
+  CmykaPixelBufferFormat,
   ExportColorSpaceChoice,
   PixelBuffer,
   PixelBufferData,
@@ -924,6 +925,7 @@ export type {
   RasterColorTransform,
   RasterExportColorPolicy,
   RasterIccHeaderInfo,
+  RgbaPixelBufferFormat,
 } from './rasterColor';
 export {
   BYTES_PER_PIXEL,
@@ -940,10 +942,13 @@ export {
   halfFloatToFloat32,
   identityTransform,
   insertJpegIccProfile,
+  isCmykaPixelBufferFormat,
+  isRgbaPixelBufferFormat,
   isWebp,
   isWithinPixelBudget,
   parseIccHeader,
   pixelBufferBytes,
+  pixelBufferChannelCount,
   pixelFormatLabel,
   premultiplyRgba32f,
   profileDescriptionFor,
