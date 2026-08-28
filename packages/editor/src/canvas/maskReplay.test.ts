@@ -11,9 +11,9 @@ function hardClipVectorMask(): Mask {
     transform: [1, 0, 0, 1, 3, 5],
     vectorMask: {
       points: [
-        { x: 0, y: 0 },
-        { x: 20, y: 0 },
-        { x: 20, y: 20 },
+        { x: 0, y: 0, handleIn: null, handleOut: null },
+        { x: 20, y: 0, handleIn: null, handleOut: null },
+        { x: 20, y: 20, handleIn: null, handleOut: null },
       ],
       closed: true,
       fillRule: 'nonzero',

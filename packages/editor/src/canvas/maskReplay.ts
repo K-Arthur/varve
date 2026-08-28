@@ -26,7 +26,7 @@ type RasterContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2
  * into the given context as a single path.
  */
 export function traceVectorMaskPoints(
-  ctx: CanvasRenderingContext2D,
+  ctx: RasterContext,
   points: import('@varve/engine').PathPoint[],
   closed: boolean,
 ): void {

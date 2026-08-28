@@ -575,6 +575,66 @@ test.describe('webgpu fallback', () => {
 });
 
 test.describe('brush masks', () => {
+  test('paint a pixel mask on an editable vector layer without rasterizing it', async ({
+    page,
+  }) => {
+    mkdirSync(REVIEW_DIR, { recursive: true });
+    await navigateToCleanEditor(page);
+
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 140, 140, 380, 300);
+    await page.waitForTimeout(300);
+    await page.locator('.layers-panel [role="treeitem"]').first().click();
+    await page.getByRole('tab', { name: 'Appearance' }).click();
+    await page.getByRole('button', { name: 'Mask', exact: true }).click();
+
+    // The same Inspector entry used for image/raster layers is available for
+    // a vector target. Clicking it drives the real brush path below.
+    const paintMask = page.getByRole('button', { name: /paint mask with the brush tool/i });
+    await expect(paintMask).toBeVisible();
+    const plain = await settledHash(page);
+    await paintMask.click();
+
+    const box = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
+    if (!box) throw new Error('content canvas not found');
+    await page.mouse.move(box.x + 210, box.y + 210);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 290, box.y + 230, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    const masked = await settledHash(page);
+    expect(masked).not.toBe(plain);
+    await page.screenshot({ path: SHOT.canvas('14-vector-pixel-mask') });
+
+    // The document stores a finite coverage asset in target-local pixels;
+    // the selected layer remains a shape with editable vector authority.
+    const documentJson = (await callEditor(page, 'serializeDocument')) as string | null;
+    expect(documentJson).toBeTruthy();
+    const serialized = JSON.parse(documentJson!) as {
+      nodes: Record<
+        string,
+        {
+          kind?: string;
+          shape?: { kind?: string };
+          mask?: { rasterMask?: { coordinateSpace?: string } };
+        }
+      >;
+    };
+    const vector = Object.values(serialized.nodes).find(
+      (node) =>
+        node.kind === 'shape' && node.mask?.rasterMask?.coordinateSpace === 'node-local-pixels',
+    );
+    expect(vector?.shape?.kind).toBe('rect');
+
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(500);
+    expect(await settledHash(page)).toBe(plain);
+    await page.keyboard.press('Control+Shift+z');
+    await page.waitForTimeout(500);
+    expect(await settledHash(page)).toBe(masked);
+  });
+
   test('paint a brush mask on a frame: create, undo, redo, persist', async ({ page }) => {
     mkdirSync(REVIEW_DIR, { recursive: true });
     await navigateToCleanEditor(page);

@@ -162,6 +162,7 @@ import {
   deepCloneSubtree,
   defaultConstraints,
   defaultProofConfig,
+  defaultVectorMaskForNode,
   deleteMaster as deleteMasterDoc,
   deleteSelectionSet as deleteSelectionSetDoc,
   deleteSpotLibrary as deleteSpotLibraryDoc,
@@ -6883,7 +6884,14 @@ export function EditorProvider({
         if (!id) return;
         updateDoc((doc) => {
           const container = doc.nodes[id];
-          if (!container || (container.kind !== 'adjustment' && !('children' in container))) {
+          if (!container) return doc;
+
+          const leafVectorMask = defaultVectorMaskForNode(container, doc);
+          if (leafVectorMask) {
+            return addMaskDoc(doc, id, undefined, type, { vectorMask: leafVectorMask });
+          }
+
+          if (container.kind !== 'adjustment' && !('children' in container)) {
             return doc;
           }
           const children = 'children' in container ? container.children : [];

@@ -5,7 +5,7 @@
  * pure function of the editor context + close callback. Selection facts are
  * computed locally so hub files do not import extra scene predicates.
  */
-import { isImageShape, isLiveBooleanNode } from '@varve/scene';
+import { isImageShape, isLiveBooleanNode, isVisualMaskTarget } from '@varve/scene';
 import type { MenuEntry } from '@varve/ui';
 import { getActionRegistry } from '../actions/ActionRegistry';
 import type { EditorContextValue } from '../context';
@@ -56,6 +56,11 @@ export function buildCanvasContextMenuItems({
     selectedNode.traceMetadata !== undefined;
   const isSingleFrame =
     hasSelection && editor.state.selection.length === 1 && selectedNode?.kind === 'frame';
+  const isSingleVisualMaskTarget =
+    hasSelection &&
+    editor.state.selection.length === 1 &&
+    selectedNode !== undefined &&
+    isVisualMaskTarget(selectedNode);
   const nodeCount = Object.keys(editor.state.document.nodes).length;
   const hasNodes = nodeCount >= 1;
   const hasMultipleNodes = nodeCount >= 2;
@@ -214,9 +219,13 @@ export function buildCanvasContextMenuItems({
             single.mask?.type === 'clip' &&
             single.mask.sourceNodeId !== undefined &&
             single.children?.includes(single.mask.sourceNodeId) === true;
+          const isVisualLeaf = single !== undefined && isVisualMaskTarget(single);
           const isMaskContainer =
             single !== undefined &&
-            (single.kind === 'group' || single.kind === 'frame' || single.kind === 'adjustment');
+            (single.kind === 'group' ||
+              single.kind === 'frame' ||
+              single.kind === 'adjustment' ||
+              isVisualLeaf);
           const hasMask = isMaskContainer && single.mask != null;
           const entries: MenuEntry[] = [];
           if (hasMultiple && canClipSource) {
@@ -351,7 +360,7 @@ export function buildCanvasContextMenuItems({
                 } satisfies MenuEntry,
               ]
             : []),
-          ...(isSingleImage || isSingleFrame
+          ...(isSingleImage || isSingleFrame || isSingleVisualMaskTarget
             ? [
                 {
                   id: 'ctx-paint-mask',

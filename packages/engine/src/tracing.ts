@@ -6,7 +6,9 @@
  */
 import type { PathPoint, SceneNode } from './types';
 
-function tracePathRing(ctx: CanvasRenderingContext2D, points: PathPoint[]): void {
+type PathContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+
+function tracePathRing(ctx: PathContext, points: PathPoint[]): void {
   const first = points[0];
   if (!first) return;
   ctx.moveTo(first.x, first.y);
@@ -32,7 +34,7 @@ function tracePathRing(ctx: CanvasRenderingContext2D, points: PathPoint[]): void
  * Traces in the node's local space. The caller is responsible for applying
  * the node's world transform before calling.
  */
-export function traceSceneNodeOutline(ctx: CanvasRenderingContext2D, n: SceneNode): void {
+export function traceSceneNodeOutline(ctx: PathContext, n: SceneNode): void {
   if (n.kind === 'shape' && n.shape) {
     const s = n.shape;
     switch (s.kind) {

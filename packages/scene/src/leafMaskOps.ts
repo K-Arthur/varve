@@ -9,6 +9,7 @@
 import type { Document } from './document';
 import { canReceiveLayerMask, canReceiveRasterMask, isVisualMaskTarget } from './maskCapability';
 import { isImageMaskTarget } from './maskResolution';
+import { nodeLocalBounds } from './nodeBounds';
 import type {
   LiveMatteSource,
   Mask,
@@ -132,6 +133,25 @@ export function isLeafMaskRequestValid(
     Boolean(opts?.vectorMask || opts?.matteSource) &&
     !(opts?.matteSource && (type === 'clip' || opts.matteSource.kind === 'scene-node'))
   );
+}
+
+/** Build the default editable vector coverage path for a visual leaf. */
+export function defaultVectorMaskForNode(
+  node: SceneNode,
+  doc: Pick<Document, 'paints'>,
+): VectorMaskData | null {
+  if (!isVisualMaskTarget(node)) return null;
+  const bounds = nodeLocalBounds(node, doc) ?? { x: 0, y: 0, w: 100, h: 100 };
+  return {
+    points: [
+      { x: bounds.x, y: bounds.y, handleIn: null, handleOut: null },
+      { x: bounds.x + bounds.w, y: bounds.y, handleIn: null, handleOut: null },
+      { x: bounds.x + bounds.w, y: bounds.y + bounds.h, handleIn: null, handleOut: null },
+      { x: bounds.x, y: bounds.y + bounds.h, handleIn: null, handleOut: null },
+    ],
+    closed: true,
+    fillRule: 'nonzero',
+  };
 }
 
 export function replaceRasterMaskAsset(

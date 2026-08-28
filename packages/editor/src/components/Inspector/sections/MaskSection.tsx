@@ -1,5 +1,11 @@
 import type { MaskType, SceneNode } from '@varve/scene';
-import { canBeClipMaskSource, walkNodes } from '@varve/scene';
+import {
+  canBeClipMaskSource,
+  canReceiveLayerMask,
+  canReceiveRasterMask,
+  isVisualMaskTarget,
+  walkNodes,
+} from '@varve/scene';
 import { Select, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -48,11 +54,17 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
       closed: boolean;
       fillRule: 'nonzero' | 'evenodd';
     };
+    rasterMask?: unknown;
   } | null;
 
-  const canHaveMask = node.kind === 'frame' || node.kind === 'group' || node.kind === 'adjustment';
+  const isVisualLeaf = isVisualMaskTarget(node);
+  const canHaveMask = canReceiveLayerMask(node);
   const hasChildren = 'children' in container && (container.children?.length ?? 0) > 0;
-  const canAddMask = canHaveMask && !mask && (hasChildren || node.kind === 'adjustment');
+  // Leaf nodes can add vector masks (no child source needed); containers need
+  // children or adjustment kind for structural mask sources.
+  const canAddMask =
+    canHaveMask && !mask && (hasChildren || node.kind === 'adjustment' || isVisualLeaf);
+  const canPaintRasterMask = canReceiveRasterMask(node) && (!mask || Boolean(mask.rasterMask));
 
   const nodeMap = useMemo(() => {
     if (!document || !mask?.sourceNodeId) return null;
@@ -187,45 +199,60 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
               onChange={setPendingSourceId}
             />
           )}
-          <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-            <Tooltip label="Clip mask: uses the first child's outline to clip other children">
-              <button
-                type="button"
-                className="insp-btn-sm"
-                onClick={() => addMaskToSelected('clip', pendingSourceId || undefined)}
-                aria-label="Add clip mask"
-                disabled={node.kind === 'adjustment' && !pendingSourceId}
-              >
-                Clip
-              </button>
-            </Tooltip>
-            <Tooltip label="Alpha mask: uses the first child's alpha channel to modulate visibility">
-              <button
-                type="button"
-                className="insp-btn-sm"
-                onClick={() => addMaskToSelected('alpha', pendingSourceId || undefined)}
-                aria-label="Add alpha mask"
-                disabled={node.kind === 'adjustment' && !pendingSourceId}
-              >
-                Alpha
-              </button>
-            </Tooltip>
-            <Tooltip label="Luminance mask: uses the first child's luminance to modulate visibility">
-              <button
-                type="button"
-                className="insp-btn-sm"
-                onClick={() => addMaskToSelected('luminance', pendingSourceId || undefined)}
-                aria-label="Add luminance mask"
-                disabled={node.kind === 'adjustment' && !pendingSourceId}
-              >
-                Luminance
-              </button>
-            </Tooltip>
-          </div>
+          {isVisualLeaf ? (
+            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+              <Tooltip label="Vector mask: adds an editable vector path that clips or masks this layer">
+                <button
+                  type="button"
+                  className="insp-btn-sm"
+                  onClick={() => addMaskToSelected('alpha')}
+                  aria-label="Add vector mask"
+                >
+                  Vector Mask
+                </button>
+              </Tooltip>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+              <Tooltip label="Clip mask: uses the first child's outline to clip other children">
+                <button
+                  type="button"
+                  className="insp-btn-sm"
+                  onClick={() => addMaskToSelected('clip', pendingSourceId || undefined)}
+                  aria-label="Add clip mask"
+                  disabled={node.kind === 'adjustment' && !pendingSourceId}
+                >
+                  Clip
+                </button>
+              </Tooltip>
+              <Tooltip label="Alpha mask: uses the first child's alpha channel to modulate visibility">
+                <button
+                  type="button"
+                  className="insp-btn-sm"
+                  onClick={() => addMaskToSelected('alpha', pendingSourceId || undefined)}
+                  aria-label="Add alpha mask"
+                  disabled={node.kind === 'adjustment' && !pendingSourceId}
+                >
+                  Alpha
+                </button>
+              </Tooltip>
+              <Tooltip label="Luminance mask: uses the first child's luminance to modulate visibility">
+                <button
+                  type="button"
+                  className="insp-btn-sm"
+                  onClick={() => addMaskToSelected('luminance', pendingSourceId || undefined)}
+                  aria-label="Add luminance mask"
+                  disabled={node.kind === 'adjustment' && !pendingSourceId}
+                >
+                  Luminance
+                </button>
+              </Tooltip>
+            </div>
+          )}
         </div>
       )}
 
-      {node.kind === 'frame' && (
+      {canPaintRasterMask && (
         <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
           <span className="insp-field__label">Brush mask</span>
           <button
@@ -236,10 +263,10 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
             }}
             aria-label="Paint mask with the brush tool"
           >
-            {mask ? 'Paint mask…' : 'Create brush mask…'}
+            {mask?.rasterMask ? 'Paint mask…' : 'Create brush mask…'}
           </button>
           <p className="insp-field__hint">
-            Paints a pixel alpha mask over the frame. Paint reveals, Alt+paint hides.
+            Paints a pixel alpha mask over this layer. Paint reveals, Alt+paint hides.
           </p>
         </div>
       )}

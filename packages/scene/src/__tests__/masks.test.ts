@@ -16,6 +16,7 @@ import {
 import {
   addMask,
   canNodeHaveMask,
+  defaultVectorMaskForNode,
   isMasked,
   removeMask,
   resolveMask,
@@ -548,7 +549,7 @@ describe('setMaskSourceNode', () => {
 
 describe('canNodeHaveMask — leaf nodes', () => {
   it('returns true for raster layer', () => {
-    expect(canNodeHaveMask(makeRasterLayerNode('rl1', { width: 100, h: 100 }))).toBe(true);
+    expect(canNodeHaveMask(makeRasterLayerNode('rl1', { width: 100, height: 100 }))).toBe(true);
   });
 
   it('returns true for text node', () => {
@@ -572,6 +573,19 @@ describe('unified mask capabilities', () => {
       expect(canReceiveRasterMask(node)).toBe(true);
       expect(canSupplyMaskCoverage(node)).toBe(true);
     }
+  });
+
+  it('creates a local vector path covering a visual leaf', () => {
+    const ellipse = makeShapeNode('ellipse', { kind: 'ellipse', cx: 40, cy: 30, rx: 40, ry: 30 });
+    const mask = defaultVectorMaskForNode(ellipse, createDocument());
+
+    expect(mask).toMatchObject({ closed: true, fillRule: 'nonzero' });
+    expect(mask?.points.map(({ x, y }) => [x, y])).toEqual([
+      [0, 0],
+      [80, 0],
+      [80, 60],
+      [0, 60],
+    ]);
   });
 });
 

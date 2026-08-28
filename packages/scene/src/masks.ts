@@ -31,6 +31,9 @@ import {
   replaceRasterMaskAsset,
   setNodeMaskVectorPath,
 } from './leafMaskOps';
+
+export { defaultVectorMaskForNode } from './leafMaskOps';
+
 import {
   canReceiveLayerMask,
   canReceiveRasterMask,

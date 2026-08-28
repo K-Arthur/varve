@@ -264,9 +264,11 @@ export class RefineMaskTool extends BaseTool {
       { paintRefs: node.paintRefs, fills: node.fills, fill: { ...node.fill } },
       ctx.document,
     ).find((fill) => fill.type === 'image')?.image;
-    const sourceWidth = imageFill?.imageWidth ?? (node.shape?.kind === 'rect' ? node.shape.w : 256);
+    const sourceShape = node.kind === 'shape' ? node.shape : undefined;
+    const sourceWidth =
+      imageFill?.imageWidth ?? (sourceShape?.kind === 'rect' ? sourceShape.w : 256);
     const sourceHeight =
-      imageFill?.imageHeight ?? (node.shape?.kind === 'rect' ? node.shape.h : 256);
+      imageFill?.imageHeight ?? (sourceShape?.kind === 'rect' ? sourceShape.h : 256);
 
     const prepared = prepareImageMaskMapper({
       document: ctx.document,

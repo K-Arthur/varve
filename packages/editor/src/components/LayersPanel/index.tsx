@@ -6,7 +6,12 @@
  */
 
 import type { ContainerNode, LayerColor, NodeId, SceneNode } from '@varve/scene';
-import { documentHasSolo, isContainer } from '@varve/scene';
+import {
+  canReceiveLayerMask,
+  documentHasSolo,
+  isContainer,
+  isVisualMaskTarget,
+} from '@varve/scene';
 import {
   ContextMenu,
   type MenuEntry,
@@ -374,9 +379,11 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
 
   const contextMenuIsContainer =
     contextMenu != null && contextMenuNode != null && isContainer(contextMenuNode);
+  const contextMenuIsVisualLeaf = contextMenuNode != null && isVisualMaskTarget(contextMenuNode);
 
   const contextMenuHasMask =
-    contextMenuIsContainer && (contextMenuNode as { mask?: unknown }).mask != null;
+    (contextMenuIsContainer || contextMenuIsVisualLeaf) &&
+    (contextMenuNode as { mask?: unknown }).mask != null;
   // Gated on the right-clicked node, not state.selection — a right-click on
   // a node that's already part of an existing multi-selection doesn't change
   // the selection, so gating this on selection.length === 1 would wrongly
@@ -841,36 +848,50 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
   }
 
   // Masking submenu
-  const hasMaskOps = contextMenuIsContainer || contextMenuHasMask;
+  const contextMenuIsVisualLeaf = contextMenuNode != null && isVisualMaskTarget(contextMenuNode);
+  const hasMaskOps =
+    (contextMenuNode != null && canReceiveLayerMask(contextMenuNode)) || contextMenuHasMask;
   if (hasMaskOps) {
     const maskEntries: MenuEntry[] = [];
-    if (contextMenuIsContainer && !contextMenuHasMask) {
-      maskEntries.push(
-        {
-          id: 'mask-alpha',
-          label: 'Add Alpha Mask',
+    if ((contextMenuIsContainer || contextMenuIsVisualLeaf) && !contextMenuHasMask) {
+      if (contextMenuIsVisualLeaf) {
+        // Leaf nodes get a vector mask (no child-node sources)
+        maskEntries.push({
+          id: 'mask-vector',
+          label: 'Add Vector Mask',
           onAction: () => {
             addMaskToSelected('alpha');
             closeMenu();
           },
-        },
-        {
-          id: 'mask-clip',
-          label: 'Add Clip Mask',
-          onAction: () => {
-            addMaskToSelected('clip');
-            closeMenu();
+        });
+      } else {
+        maskEntries.push(
+          {
+            id: 'mask-alpha',
+            label: 'Add Alpha Mask',
+            onAction: () => {
+              addMaskToSelected('alpha');
+              closeMenu();
+            },
           },
-        },
-        {
-          id: 'mask-luminance',
-          label: 'Add Luminance Mask',
-          onAction: () => {
-            addMaskToSelected('luminance');
-            closeMenu();
+          {
+            id: 'mask-clip',
+            label: 'Add Clip Mask',
+            onAction: () => {
+              addMaskToSelected('clip');
+              closeMenu();
+            },
           },
-        },
-      );
+          {
+            id: 'mask-luminance',
+            label: 'Add Luminance Mask',
+            onAction: () => {
+              addMaskToSelected('luminance');
+              closeMenu();
+            },
+          },
+        );
+      }
     }
     if (contextMenuHasMask) {
       if (maskEntries.length > 0) maskEntries.push({ id: 'mask-sep', separator: true });
