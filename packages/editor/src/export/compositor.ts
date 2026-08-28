@@ -169,8 +169,8 @@ const PDF_NATIVE_SHAPES = new Set([
   'path',
 ]);
 
-/** SVG natively supports only linear gradients. */
-const SVG_NATIVE_GRADIENTS = new Set(['linear']);
+/** SVG natively supports affine linear and radial paint servers. */
+const SVG_NATIVE_GRADIENTS = new Set(['linear', 'radial']);
 
 /** PDF natively supports linear gradients (Shading Type 2). */
 const PDF_NATIVE_GRADIENTS = new Set(['linear']);

@@ -45,6 +45,17 @@ describe('gradientFill', () => {
     expect(fill.gradient?.type).toBe('linear');
     expect(fill.gradient?.stops).toHaveLength(2);
   });
+
+  it('accepts an explicit affine fill transform', () => {
+    const transform = [120, 30, -10, 60, 12, 8] as const;
+    const fill = gradientFill(
+      'radial',
+      [{ position: 0, color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 } }],
+      { transform },
+    );
+    expect(fill.gradient?.transform).toEqual(transform);
+    expect(fill.gradient?.rotation).toBeUndefined();
+  });
 });
 
 describe('imageFill', () => {

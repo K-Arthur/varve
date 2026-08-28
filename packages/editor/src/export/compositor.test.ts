@@ -391,7 +391,7 @@ describe('assessNodeCapability', () => {
       expect(assessNodeCapability(node, doc, 'svg')).toBe(true);
     });
 
-    it('SVG rejects radial gradients', () => {
+    it('SVG supports affine radial gradients', () => {
       const node = makeShapeNode(
         's1',
         { kind: 'rect' },
@@ -408,7 +408,7 @@ describe('assessNodeCapability', () => {
         },
       );
       const doc = makeDoc({ s1: node });
-      expect(assessNodeCapability(node, doc, 'svg')).toBe(false);
+      expect(assessNodeCapability(node, doc, 'svg')).toBe(true);
     });
 
     it('PDF rasterizes radial gradients while retaining affine linear gradients natively', () => {
@@ -1042,9 +1042,9 @@ describe('capability table completeness', () => {
     }
   });
 
-  it('SVG only supports linear gradients', () => {
+  it('SVG supports affine linear and radial gradients', () => {
     expect(CAPABILITY.svg.nativeGradientTypes.has('linear')).toBe(true);
-    expect(CAPABILITY.svg.nativeGradientTypes.has('radial')).toBe(false);
+    expect(CAPABILITY.svg.nativeGradientTypes.has('radial')).toBe(true);
     expect(CAPABILITY.svg.nativeGradientTypes.has('angular')).toBe(false);
     expect(CAPABILITY.svg.nativeGradientTypes.has('diamond')).toBe(false);
   });
