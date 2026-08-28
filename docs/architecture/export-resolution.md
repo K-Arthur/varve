@@ -95,6 +95,14 @@ rejected, and width/height are rounded independently. This keeps the
 rasterized replacement at the original document-space placement while making
 its effective output density explicit.
 
+The Object → Rasterize dialog exposes common 72/96/150/300/600 PPI choices
+and a bounded custom value, plus explicit effect-overflow and transparent vs
+white-background choices. It defaults to **Keep original editable layers**:
+the raster copy is inserted at the source paint position and the source
+subtree is hidden rather than composited twice. Clearing that option uses the
+replace path. Both paths allocate a collision-free document ID and are applied
+by one document update, so undo restores the exact pre-rasterization scene.
+
 ## Inspector image diagnostics
 
 When a single image shape is selected, the Inspector shows an **Image
