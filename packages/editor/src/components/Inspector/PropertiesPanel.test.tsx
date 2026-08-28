@@ -138,6 +138,53 @@ describe('PropertiesPanel canvas settings', () => {
 });
 
 describe('PropertiesPanel section gating for a real single selection', () => {
+  it('exposes live Boolean Pathfinder operation, operand isolation, and expansion controls', async () => {
+    const { addChild, createDocument, createLiveBooleanDoc, makeShapeNode } = await import(
+      '@varve/scene'
+    );
+    let doc = createDocument('pathfinder-test');
+    const first = makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    const second = makeShapeNode('b', { kind: 'rect', x: 25, y: 25, w: 50, h: 50 });
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, first);
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, second);
+    const live = createLiveBooleanDoc(doc, ['a', 'b'], 'union');
+    expect(live).not.toBeNull();
+    if (!live) return;
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Selector() {
+      ctx = useEditor();
+      React.useEffect(() => {
+        ctx?.setSelection(live.nodeId);
+      }, []);
+      return null;
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(live.doc)}>
+        <Selector />
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.state.selection).toEqual([live.nodeId]));
+    expect(screen.getByRole('button', { name: 'Pathfinder' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Boolean operation' })).toHaveValue('union');
+    expect(screen.getByRole('button', { name: /Edit operand 1/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Edit operand 2/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Edit Boolean operands' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Expand Boolean' })).toBeTruthy();
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Boolean operation' }), {
+      target: { value: 'subtract' },
+    });
+    await waitFor(() =>
+      expect(ctx?.state.document.nodes[live.nodeId]).toMatchObject({
+        boolean: { operation: 'subtract' },
+      }),
+    );
+  });
+
   it('makes selection workflows read-only when any selected node is locked', async () => {
     await renderPanelWithSelectedRect(true);
 
