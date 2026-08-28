@@ -16,7 +16,7 @@
 
 import type { RasterColorEncoding } from '@varve/shared';
 import {
-  isAnalyticRgbWorkingSpace,
+  isConvertibleRgbEncoding,
   type RgbPrimariesName,
   type TransferFunctionName,
 } from '@varve/shared';
@@ -38,6 +38,21 @@ export interface RasterExportColorPolicy {
   /** Embed a matrix/TRC ICC profile in the output (PNG/JPEG). */
   embedProfile?: boolean;
 }
+
+/**
+ * Encoding of the legacy Canvas2D ImageData export surface. Callers with an
+ * explicitly colour-managed source must pass that source encoding to
+ * `convertExportImageData` instead of relabelling its channel values as this
+ * default.
+ */
+export const DEFAULT_RASTER_EXPORT_SOURCE_ENCODING: RasterColorEncoding = {
+  model: 'rgb',
+  primaries: 'srgb',
+  transfer: DEFAULT_PIPELINE_WORKING_SPACE === 'linear-srgb' ? 'linear' : 'srgb',
+  bitDepth: 8,
+  alphaMode: 'straight',
+  provenance: 'format-default',
+};
 
 /** Resolve the destination encoding for a policy (defaults sRGB). */
 export function resolveExportEncoding(policy?: RasterExportColorPolicy): RasterColorEncoding {
@@ -71,52 +86,51 @@ export function exportColorPolicyLabel(policy: RasterExportColorPolicy | undefin
 }
 
 /**
- * Build the transform that converts the rendered sRGB composite into the
- * policy destination. Null when the destination is not analytically
- * convertible.
+ * Build the transform between the actual ImageData source encoding and the
+ * policy destination. Null when either side is not analytically convertible.
  */
 export function createExportTransform(
   policy: RasterExportColorPolicy,
+  sourceEncoding: RasterColorEncoding = DEFAULT_RASTER_EXPORT_SOURCE_ENCODING,
 ): RasterColorTransform | null {
   const target = resolveExportEncoding(policy);
-  const source: RasterColorEncoding = {
-    model: 'rgb',
-    primaries: 'srgb',
-    transfer: DEFAULT_PIPELINE_WORKING_SPACE === 'linear-srgb' ? 'linear' : 'srgb',
-    bitDepth: 8,
-    alphaMode: 'straight',
-    provenance: 'format-default',
-  };
-  if (
-    !isAnalyticRgbWorkingSpace({
-      primaries: target.primaries ?? 'srgb',
-      transfer: target.transfer ?? 'srgb',
-    })
-  ) {
+  if (!isConvertibleRgbEncoding(sourceEncoding) || !isConvertibleRgbEncoding(target)) {
     return null;
   }
-  return createAnalyticRgbTransform(source, target);
+  return createAnalyticRgbTransform(sourceEncoding, target);
 }
 
 /**
- * Convert export ImageData (rendered sRGB composite) to the policy
- * destination in place. Returns the warnings to surface (e.g. unsupported
- * destination → no conversion applied).
+ * Convert export ImageData from its declared source encoding to the policy
+ * destination in place. The default source is the legacy Canvas2D sRGB
+ * surface; P3 or other managed callers must provide their real source
+ * encoding. Returns warnings to surface (e.g. unsupported conversion → no
+ * conversion applied).
  */
 export async function convertExportImageData(
   pixels: ImageData,
   policy: RasterExportColorPolicy | undefined,
   signal?: AbortSignal,
+  sourceEncoding: RasterColorEncoding = DEFAULT_RASTER_EXPORT_SOURCE_ENCODING,
 ): Promise<string[]> {
-  if (!policy?.destination || policy.destination === 'srgb') return [];
-  const transform = createExportTransform(policy);
+  const resolvedPolicy = policy ?? {};
+  const target = resolveExportEncoding(resolvedPolicy);
+  const sourceAndTargetMatch =
+    sourceEncoding.model === target.model &&
+    sourceEncoding.primaries === target.primaries &&
+    sourceEncoding.transfer === target.transfer;
+  if (sourceAndTargetMatch) return [];
+
+  const transform = createExportTransform(resolvedPolicy, sourceEncoding);
   if (!transform) {
     return [
-      `colour: destination ${policy.destination} is not analytically convertible; output stays sRGB`,
+      `colour: cannot analytically convert ${sourceEncoding.primaries ?? sourceEncoding.model} to ${target.primaries ?? target.model}; output bytes are unchanged`,
     ];
   }
   await transform.convertImageData(pixels, signal);
-  return [`colour: converted composite to ${exportColorPolicyLabel(policy)} (analytic matrix)`];
+  return [
+    `colour: converted composite from ${sourceEncoding.primaries} to ${exportColorPolicyLabel(resolvedPolicy)} (analytic matrix)`,
+  ];
 }
 
 /** ICC profile bytes to embed for a policy (undefined when not embeddable). */

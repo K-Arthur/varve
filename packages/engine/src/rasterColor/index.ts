@@ -14,6 +14,7 @@ export {
 } from './embed';
 export {
   convertExportImageData,
+  DEFAULT_RASTER_EXPORT_SOURCE_ENCODING,
   EXPORT_COLOR_POLICIES,
   type ExportColorSpaceChoice,
   exportColorPolicyLabel,

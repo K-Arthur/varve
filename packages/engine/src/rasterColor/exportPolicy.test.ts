@@ -2,10 +2,13 @@
  * Export colour policy: real conversion of the rendered composite (never a
  * relabel), out-of-gamut preservation, and profile embedding gating.
  */
+
+import { convertEncodedRgb } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import {
   convertExportImageData,
   createExportTransform,
+  DEFAULT_RASTER_EXPORT_SOURCE_ENCODING,
   exportProfileBytes,
   resolveExportEncoding,
 } from './exportPolicy';
@@ -55,6 +58,30 @@ describe('convertExportImageData', () => {
     expect(b).toBeLessThan(40);
   });
 
+  it('converts a declared Display P3 source to the default sRGB destination', async () => {
+    const pixels = imageData1x1(255, 128, 0);
+    const displayP3Source = {
+      ...DEFAULT_RASTER_EXPORT_SOURCE_ENCODING,
+      primaries: 'display-p3' as const,
+      provenance: 'embedded-icc' as const,
+    };
+
+    const warnings = await convertExportImageData(pixels, undefined, undefined, displayP3Source);
+
+    const expected = convertEncodedRgb(
+      { primaries: 'display-p3', transfer: 'srgb' },
+      { primaries: 'srgb', transfer: 'srgb' },
+      [1, 128 / 255, 0],
+    );
+    expect(warnings).toEqual([expect.stringContaining('converted composite from display-p3')]);
+    expect(Array.from(pixels.data)).toEqual([
+      Math.round(Math.max(0, Math.min(1, expected[0])) * 255),
+      Math.round(Math.max(0, Math.min(1, expected[1])) * 255),
+      Math.round(Math.max(0, Math.min(1, expected[2])) * 255),
+      255,
+    ]);
+  });
+
   it('is cancellable mid-conversion', async () => {
     const pixels = imageData1x1(0, 255, 0);
     const controller = new AbortController();
@@ -70,7 +97,7 @@ describe('convertExportImageData', () => {
       destination: 'display-p3',
       transfer: 'pq',
     });
-    expect(warnings.some((w) => w.includes('not analytically convertible'))).toBe(true);
+    expect(warnings.some((w) => w.includes('cannot analytically convert'))).toBe(true);
     expect(Array.from(pixels.data)).toEqual([0, 255, 0, 255]);
   });
 });
@@ -80,6 +107,12 @@ describe('createExportTransform', () => {
     expect(createExportTransform({ destination: 'display-p3' })).not.toBeNull();
     expect(createExportTransform({})).not.toBeNull(); // identity srgb
     expect(createExportTransform({ destination: 'display-p3', transfer: 'hlg' })).toBeNull();
+    expect(
+      createExportTransform(
+        { destination: 'srgb' },
+        { model: 'rgb', primaries: 'unknown', provenance: 'embedded-icc' },
+      ),
+    ).toBeNull();
   });
 });
 
