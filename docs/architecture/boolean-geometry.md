@@ -140,9 +140,10 @@ creation and expansion in a single history transaction.
   expansion and child ordering in Layers expose source operands and Subtract's
   explicit base. Open paths, lines, arrows, image-filled shapes, hidden nodes,
   and locked nodes are rejected consistently by command and toolbar surfaces.
-- A dedicated Pathfinder inspector, operand-isolation presentation, dedicated
-  export parity fixtures, and a documented SVG/PDF flattening contract remain
-  future work.
+- A dedicated Pathfinder inspector, operand-isolation presentation, and a
+  documented SVG/PDF flattening contract remain future work. SVG export now
+  has live-Boolean resolution fixtures, and native PDF emits compound rings
+  with the authored fill rule.
 
 ## Validation corpus
 
@@ -150,5 +151,5 @@ The focused suite covers base-minus-union semantics, true N-ary XOR parity,
 contained holes, hit topology, compound input, identical paths, shared edges,
 translation and scale stability, cross-parent live operand preservation,
 operation change/reorder, expansion, and renderer substitution. The next
-expansion of this corpus should add SVG/PDF export checks, pointer-driven UI
-coverage, fuzzing, and curve-error measurements.
+expansion of this corpus should add pointer-driven UI coverage, fuzzing, and
+curve-error measurements.
