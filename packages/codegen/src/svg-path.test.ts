@@ -1,10 +1,46 @@
 import type { Document } from '@varve/scene';
-import { addChild, createDocument, makeGroupNode, makeShapeNode } from '@varve/scene';
+import {
+  addChild,
+  addNode,
+  createDocument,
+  createLiveBooleanDoc,
+  makeGroupNode,
+  makeShapeNode,
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { computeDocumentBounds, exportDocumentToSvg } from './index';
 import { exportNodeToSvg } from './svg';
 
 describe('SVG path export', () => {
+  it('exports a live Boolean as its resolved compound path', () => {
+    let doc = createDocument('Live Boolean export', true);
+    doc = addNode(doc, makeShapeNode('base', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }));
+    doc = addNode(doc, makeShapeNode('cut', { kind: 'rect', x: 25, y: 25, w: 50, h: 50 }));
+    const created = createLiveBooleanDoc(doc, ['base', 'cut'], 'subtract');
+    expect(created).not.toBeNull();
+    if (!created) return;
+    doc = created.doc;
+
+    const live = {
+      ...doc.nodes[created.nodeId]!,
+      transform: [1, 0, 0, 1, 40, 30] as const,
+    };
+    doc = { ...doc, nodes: { ...doc.nodes, [created.nodeId]: live } };
+    const selectedSvg = exportNodeToSvg(live, doc, { background: 'transparent' });
+    expect(selectedSvg).toContain('viewBox="40 30 100 100"');
+    expect(selectedSvg).toContain('<path');
+    expect(selectedSvg).toContain('fill-rule="evenodd"');
+    expect(selectedSvg).toContain('M 75 25 L 75 75 L 25 75 L 25 25 Z');
+    expect(selectedSvg).not.toContain('<rect x="0" y="0" width="100" height="100"');
+
+    const documentSvg = exportDocumentToSvg(doc);
+    // Only the document backdrop remains a rect; the live group's source
+    // operands must not leak into a document export.
+    expect(documentSvg.match(/<rect /g)?.length).toBe(1);
+    expect(documentSvg).toContain('fill-rule="evenodd"');
+    expect(documentSvg).toContain('transform="matrix(1,0,0,1,40,30)"');
+  });
+
   it('exports shape path nodes as SVG path data', () => {
     const node = makeShapeNode(
       'p1',

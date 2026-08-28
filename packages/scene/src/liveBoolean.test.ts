@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { signedArea } from './boolean/region';
 import { nodeWorldTransform } from './coordinateService';
 import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from './document';
+import { DocumentCodec } from './documentCodec';
 import {
   createLiveBooleanDoc,
   expandLiveBooleanDoc,
@@ -78,6 +79,16 @@ describe('live Boolean groups', () => {
     expect((doc.nodes.right as GroupNode).children).not.toContain('b');
     expect(nodeWorldTransform(doc, 'a')).toEqual(beforeA);
     expect(nodeWorldTransform(doc, 'b')).toEqual(beforeB);
+
+    const reopened = DocumentCodec.decode(DocumentCodec.encode(doc));
+    expect(reopened.ok).toBe(true);
+    if (reopened.ok) {
+      expect(reopened.document.nodes[created.nodeId]?.boolean).toEqual({
+        schemaVersion: 1,
+        operation: 'union',
+      });
+      expect(resolveLiveBooleanShape(reopened.document, created.nodeId)).not.toBeNull();
+    }
 
     const initial = resolveLiveBooleanShape(doc, created.nodeId);
     expect(initial).not.toBeNull();

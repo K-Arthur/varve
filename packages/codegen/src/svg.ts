@@ -32,6 +32,7 @@ import {
   textWrap,
   tryInvertAffine,
 } from '@varve/shared';
+import { resolveLiveBooleanForExport } from './liveBooleanExport';
 import {
   adjustmentStackTargetGaps,
   affineToSvg,
@@ -376,6 +377,10 @@ function nodeSvgBounds(
   parentTransform: Affine = [1, 0, 0, 1, 0, 0],
 ): SvgBounds | null {
   const worldTransform = multiplyAffine(parentTransform, nodeEffectiveTransform(node));
+  if (node.kind === 'group' && node.boolean) {
+    const resolved = resolveLiveBooleanForExport(node, doc);
+    return resolved ? nodeSvgBounds(resolved, doc, parentTransform) : null;
+  }
   if (node.kind === 'group' || node.kind === 'frame') {
     return mergeBounds(
       getChildren(doc, node)
@@ -1081,6 +1086,19 @@ function nodeToSvgTag(
   rasterAssets?: Record<string, import('./types').RasterAsset>,
 ): string {
   const indent = '  '.repeat(depth);
+  if (node.kind === 'group' && node.boolean) {
+    const resolved = resolveLiveBooleanForExport(node, doc);
+    if (resolved) {
+      return nodeToSvgTag(
+        resolved,
+        doc,
+        depth,
+        resolved.transform,
+        preserveColorSpace,
+        rasterAssets,
+      );
+    }
+  }
   // Fold the node's separate `rotation` field (transform · rotate) so the
   // emitted transform matches the canvas renderer. Callers pass the node's
   // local transform; the rotation field lives on the node itself.
@@ -1437,23 +1455,29 @@ export function exportNodeToSvg(
   opts?: SvgExportOptions,
 ): string {
   const rasterAssets = opts?.rasterAssets;
-  const bounds = nodeSvgBounds(node, doc);
+  const exportRoot = resolveLiveBooleanForExport(node, doc) ?? node;
+  const bounds = nodeSvgBounds(exportRoot, doc);
   const pos = {
-    x: bounds?.minX ?? node.transform[4] ?? 0,
-    y: bounds?.minY ?? node.transform[5] ?? 0,
+    x: bounds?.minX ?? exportRoot.transform[4] ?? 0,
+    y: bounds?.minY ?? exportRoot.transform[5] ?? 0,
     w: opts?.viewBoxWidth ?? Math.max(1, (bounds?.maxX ?? 200) - (bounds?.minX ?? 0)),
     h: opts?.viewBoxHeight ?? Math.max(1, (bounds?.maxY ?? 160) - (bounds?.minY ?? 0)),
   };
-  const maskDefs = collectSubtreeMaskDefs(doc, node);
-  const pathTextDefs = collectSubtreePathTextDefs(doc, node);
-  const gradDefs = collectGradientDefs(node, node.id, doc, opts?.preserveColorSpace ?? false);
+  const maskDefs = collectSubtreeMaskDefs(doc, exportRoot);
+  const pathTextDefs = collectSubtreePathTextDefs(doc, exportRoot);
+  const gradDefs = collectGradientDefs(
+    exportRoot,
+    exportRoot.id,
+    doc,
+    opts?.preserveColorSpace ?? false,
+  );
   const allDefs = [...maskDefs, ...pathTextDefs, ...gradDefs];
   const defsSection = allDefs.length > 0 ? `  <defs>\n${allDefs.join('\n')}\n  </defs>\n` : '';
   const inner = nodeToSvgTag(
-    node,
+    exportRoot,
     doc,
     2,
-    node.transform,
+    exportRoot.transform,
     opts?.preserveColorSpace ?? false,
     rasterAssets,
   );

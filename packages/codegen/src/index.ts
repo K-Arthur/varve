@@ -10,6 +10,7 @@ import type { Affine } from '@varve/engine';
 import type { Document, ManagedColor, Mask, NodeId, SceneNode, VectorMaskData } from '@varve/scene';
 import { activePageNodes, isImageShape, resolveMask } from '@varve/scene';
 import { applyAffine, managedColorToRgba, multiplyAffine } from '@varve/shared';
+import { resolveLiveBooleanForExport } from './liveBooleanExport';
 import { buildPerspectiveImageSvg } from './perspectiveSvg';
 import { nodeEffectiveTransform, svgCompositing } from './shared';
 import {
@@ -229,6 +230,10 @@ function documentNodeBounds(
   parentTransform: Affine = [1, 0, 0, 1, 0, 0],
 ): { minX: number; minY: number; maxX: number; maxY: number } | null {
   const transform = multiplyAffine(parentTransform, nodeEffectiveTransform(node));
+  if (node.kind === 'group' && node.boolean) {
+    const resolved = resolveLiveBooleanForExport(node, doc);
+    return resolved ? documentNodeBounds(resolved, doc, parentTransform) : null;
+  }
   if (node.kind === 'group' || node.kind === 'frame') {
     const mask = resolveMask(node, doc);
     const children = node.children
@@ -651,6 +656,10 @@ function nodeToSvg(
   depth: number,
   options: SvgExportOptions,
 ): string {
+  if (node.kind === 'group' && node.boolean) {
+    const resolved = resolveLiveBooleanForExport(node, doc);
+    if (resolved) return nodeToSvg(resolved, doc, depth, options);
+  }
   if (!options.includeHidden && !node.visible) return '';
   const precision = options.precision ?? 3;
   const indent = options.minify ? '' : '  '.repeat(depth);
