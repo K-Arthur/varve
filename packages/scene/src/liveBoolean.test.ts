@@ -23,6 +23,27 @@ function bounds(node: ShapeNode): { minX: number; minY: number; maxX: number; ma
 }
 
 describe('live Boolean groups', () => {
+  it('rejects open paths instead of creating an unresolved live group', () => {
+    let doc = createDocument();
+    doc = addNode(
+      doc,
+      makeShapeNode('closed', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }),
+    );
+    doc = addNode(
+      doc,
+      makeShapeNode('open', {
+        kind: 'path',
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: null },
+          { x: 100, y: 100, handleIn: null, handleOut: null },
+        ],
+        closed: false,
+      }),
+    );
+
+    expect(createLiveBooleanDoc(doc, ['closed', 'open'], 'union')).toBeNull();
+  });
+
   it('owns editable operands, preserves their placed-world transforms, and resolves on demand', () => {
     let doc = createDocument();
     doc = addNode(doc, makeFrameNode('left', { transform: [1, 0, 0, 1, 100, 50] }));

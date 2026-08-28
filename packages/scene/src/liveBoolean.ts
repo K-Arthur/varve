@@ -29,6 +29,13 @@ function isSupportedOperation(operation: string): operation is LiveBooleanOperat
   );
 }
 
+function isBooleanOperand(node: ShapeNode | GroupNode): boolean {
+  if (isLiveBooleanNode(node)) return true;
+  // An open path has no filled region. Keeping it inside a live Boolean would
+  // create a group that can never resolve, so reject it at creation time.
+  return node.shape.kind !== 'path' || node.shape.closed !== false;
+}
+
 function makeLiveBooleanNode(id: NodeId, operation: LiveBooleanOperation): GroupNode {
   return makeGroupNode(id, {
     name: `Boolean ${operation[0]!.toUpperCase()}${operation.slice(1)}`,
@@ -91,7 +98,10 @@ export function createLiveBooleanDoc(
   if (
     !uniqueIds.every((id) => {
       const operand = document.nodes[id];
-      return operand?.kind === 'shape' || (operand !== undefined && isLiveBooleanNode(operand));
+      return (
+        (operand?.kind === 'shape' && isBooleanOperand(operand)) ||
+        (operand !== undefined && isLiveBooleanNode(operand) && isBooleanOperand(operand))
+      );
     })
   ) {
     return null;

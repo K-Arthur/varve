@@ -72,6 +72,53 @@ describe('EditorContext', () => {
     await waitFor(() => expect(ctx?.state.tool).toBe('rect'));
   });
 
+  it('creates a live Boolean and expands it only through the explicit group action', async () => {
+    const { addNode, createDocument, makeShapeNode } = await import('@varve/scene');
+    let document = createDocument('live Boolean', true);
+    document = addNode(
+      document,
+      makeShapeNode('base', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }),
+    );
+    document = addNode(
+      document,
+      makeShapeNode('cutter', { kind: 'rect', x: 25, y: 25, w: 50, h: 50 }),
+    );
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return null;
+    }
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(document)}>
+        <Test />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx).toBeDefined());
+    ctx?.setSelection('base');
+    ctx?.toggleSelection('cutter', true);
+    await waitFor(() => expect(ctx?.state.selection).toEqual(['base', 'cutter']));
+
+    ctx?.booleanOp('subtract');
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const liveId = ctx?.state.selection[0];
+    const live = liveId ? ctx?.state.document.nodes[liveId] : undefined;
+    expect(live?.kind).toBe('group');
+    expect(live?.kind === 'group' ? live.boolean?.operation : undefined).toBe('subtract');
+    expect(ctx?.state.document.nodes.base).toBeDefined();
+    expect(ctx?.state.document.nodes.cutter).toBeDefined();
+
+    ctx?.ungroupSelected();
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const expandedId = ctx?.state.selection[0];
+    expect(expandedId).not.toBe(liveId);
+    expect(liveId ? ctx?.state.document.nodes[liveId] : undefined).toBeUndefined();
+    expect(ctx?.state.document.nodes.base).toBeUndefined();
+    expect(ctx?.state.document.nodes.cutter).toBeUndefined();
+    expect(expandedId ? ctx?.state.document.nodes[expandedId]?.kind : undefined).toBe('shape');
+  });
+
   it('creates a named line shape from a dragged line tool gesture', async () => {
     let ctx: ReturnType<typeof useEditor> | undefined;
     function Test() {
