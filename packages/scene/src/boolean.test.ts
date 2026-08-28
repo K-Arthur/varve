@@ -452,6 +452,24 @@ describe('Boolean op hardening — resolveSelfIntersections', () => {
     }
   });
 
+  it('retains every bounded face for a path with multiple crossings', () => {
+    const poly = [
+      { x: 0, y: 0 },
+      { x: 100, y: 220 },
+      { x: 200, y: 0 },
+      { x: 0, y: 150 },
+      { x: 200, y: 150 },
+    ];
+    const result = resolveSelfIntersections(poly, 1e-6);
+    expect(result.length).toBeGreaterThanOrEqual(3);
+    expect(result.every((sub) => !hasSelfIntersections(sub, 1e-6))).toBe(true);
+    expect(
+      result.every((sub) =>
+        sub.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y)),
+      ),
+    ).toBe(true);
+  });
+
   it('returns original polygon when no self-intersections', () => {
     const poly = [
       { x: 0, y: 0 },
