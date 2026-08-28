@@ -625,6 +625,46 @@ describe('legacy exports', () => {
       expect(svg).toContain('gradientTransform="matrix(160,80,-30,45,25,15)"');
     });
 
+    it('exports affine gradient strokes and descendant gradient definitions', () => {
+      const child = makeShapeNode(
+        'child',
+        { kind: 'rect', x: 0, y: 0, w: 120, h: 60 },
+        { name: 'Gradient child' },
+      );
+      (child as unknown as Record<string, unknown>).fills = [];
+      (child as unknown as Record<string, unknown>).strokes = [
+        {
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          weight: 4,
+          align: 'center',
+          dashPattern: [],
+          dashOffset: 0,
+          cap: 'round',
+          join: 'miter',
+          miterLimit: 4,
+          visible: true,
+          gradient: {
+            type: 'linear',
+            stops: [
+              { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+              { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+            ],
+            transform: [120, 20, -10, 60, 5, 8],
+          },
+        },
+      ];
+      const group = makeGroupNode('group', { name: 'Group', children: ['child'] });
+      const doc = {
+        ...createDocument('Stroke gradient'),
+        rootChildren: ['group'],
+        nodes: { group, child },
+      };
+      const svg = exportNodeToSvg(group, doc);
+      expect(svg).toContain('id="grad-child-stroke-0"');
+      expect(svg).toContain('stroke="url(#grad-child-stroke-0)"');
+      expect(svg).toContain('gradientTransform="matrix(120,20,-10,60,5,8)"');
+    });
+
     it('emits color-interpolation="linearRGB" for linear-srgb gradients', () => {
       const node = makeShapeNode(
         'n1',
