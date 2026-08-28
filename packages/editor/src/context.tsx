@@ -199,6 +199,7 @@ import {
   installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
   isAdjustmentEligible,
+  isBooleanOperand,
   isClippingMaskGroup,
   isContainer,
   isImageShape,
@@ -8917,9 +8918,9 @@ export function EditorProvider({
             .map((id) => s.document.nodes[id])
             .filter(
               (n): n is import('@varve/scene').ShapeNode | import('@varve/scene').GroupNode =>
-                n?.kind === 'shape' || (n !== undefined && isLiveBooleanNode(n)),
+                n !== undefined && isBooleanOperand(n),
             );
-          if (operands.length < 2) return s;
+          if (operands.length < 2 || operands.length !== sel.length) return s;
           // Pathfinder commands create a live group. The original shapes stay
           // editable in Layers; Ungroup explicitly expands the current
           // derived Boolean into one destructive compound path.
@@ -8931,6 +8932,16 @@ export function EditorProvider({
           if (!created) return s;
           if (!inTransactionRef.current) {
             undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+        const validSelection = sel.every((id) => {
+          const node = state.document.nodes[id];
+          return node !== undefined && isBooleanOperand(node);
+        });
+        if (!validSelection) {
+          announcerRef.current?.announce(
+            'Boolean operations need at least two closed, unlocked vector shapes.',
+          );
+          return;
+        }
             undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
             redoStackRef.current = [];
             redoSelStackRef.current = [];
