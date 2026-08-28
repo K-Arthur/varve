@@ -80,6 +80,13 @@ runtime's axis or pixel budget, the plan records the requested and safe output
 dimensions and preflight surfaces an explicit acknowledgement finding instead
 of silently presenting the reduced dimensions as requested.
 
+The reusable subtree fallback follows the same rule. It fits the
+effect-expanded raster surface through the shared allocation policy before
+rendering, preserves its aspect ratio, and returns both requested and encoded
+pixel dimensions plus the limiting guard (`dimension` or `area`). A caller
+must surface that constraint; it must not label the reduced image as if the
+requested PPI were rendered.
+
 ## Inspector image diagnostics
 
 When a single image shape is selected, the Inspector shows an **Image

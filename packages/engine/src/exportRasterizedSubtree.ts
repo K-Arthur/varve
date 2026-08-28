@@ -18,7 +18,7 @@
 
 import { totalEffectExpansion } from './adjustmentPipeline';
 import { applyFilterWithCompositing } from './filterCompositor';
-import { createRasterSurface, type RasterSurface } from './rasterSurface';
+import { createRasterSurface, fitRasterDimensions, type RasterSurface } from './rasterSurface';
 import { applyRasterizationTransform } from './rasterTransform';
 import type { FilterIR } from './types';
 
@@ -64,13 +64,66 @@ export interface ExportRasterOptions {
 export interface SubtreeRasterization {
   /** Base64-encoded PNG data URL (for SVG embedding). */
   dataUrl: string;
-  /** Width in pixels at export resolution. */
+  /** Width of the encoded raster surface in pixels. */
   pixelWidth: number;
-  /** Height in pixels at export resolution. */
+  /** Height of the encoded raster surface in pixels. */
   pixelHeight: number;
+  /** Requested encoded-surface width before the shared memory guard. */
+  requestedPixelWidth: number;
+  /** Requested encoded-surface height before the shared memory guard. */
+  requestedPixelHeight: number;
+  /**
+   * Non-empty only when the export was reduced by the raster surface safety
+   * policy. Callers must surface this instead of labelling the asset with the
+   * originally requested density.
+   */
+  constrainedBy: Array<'dimension' | 'area'>;
   /** CSS dimensions of the rasterized region. */
   cssWidth: number;
   cssHeight: number;
+}
+
+interface ResolvedSubtreeRasterDimensions {
+  expandedCssWidth: number;
+  expandedCssHeight: number;
+  expandedLeft: number;
+  expandedTop: number;
+  requestedPixelWidth: number;
+  requestedPixelHeight: number;
+  pixelWidth: number;
+  pixelHeight: number;
+  constrainedBy: Array<'dimension' | 'area'>;
+}
+
+/**
+ * Resolve the filter-expanded source bounds and output surface together.
+ * Allocation always uses the shared policy, preserving aspect ratio under a
+ * guard instead of retrying at unrelated fixed dimensions.
+ */
+function resolveSubtreeRasterDimensions(
+  cssWidth: number,
+  cssHeight: number,
+  filters: FilterIR[],
+  scale: number,
+): ResolvedSubtreeRasterDimensions {
+  const [expandedLeft, expandedTop, expandedRight, expandedBottom] = totalEffectExpansion(filters);
+  const expandedCssWidth = cssWidth + expandedLeft + expandedRight;
+  const expandedCssHeight = cssHeight + expandedTop + expandedBottom;
+  const requestedPixelWidth = Math.max(1, Math.round(expandedCssWidth * scale));
+  const requestedPixelHeight = Math.max(1, Math.round(expandedCssHeight * scale));
+  const fitted = fitRasterDimensions(requestedPixelWidth, requestedPixelHeight);
+
+  return {
+    expandedCssWidth,
+    expandedCssHeight,
+    expandedLeft,
+    expandedTop,
+    requestedPixelWidth,
+    requestedPixelHeight,
+    pixelWidth: fitted.width,
+    pixelHeight: fitted.height,
+    constrainedBy: fitted.constrainedBy,
+  };
 }
 
 /**
@@ -96,26 +149,8 @@ export async function exportRasterizedSubtree(
   opts: ExportRasterOptions,
 ): Promise<SubtreeRasterization> {
   const scale = Math.max(0.01, opts.scale);
-  const pixelWidth = Math.max(1, Math.round(cssWidth * scale));
-  const pixelHeight = Math.max(1, Math.round(cssHeight * scale));
-
-  // Expand bounds for filter neighbourhood sampling
-  const [expL, expT, expR, expB] = totalEffectExpansion(filters);
-  const expandedCssW = cssWidth + expL + expR;
-  const expandedCssH = cssHeight + expT + expB;
-  const expPixelW = Math.max(1, Math.round(expandedCssW * scale));
-  const expPixelH = Math.max(1, Math.round(expandedCssH * scale));
-
-  // Create offscreen surface with expanded bounds
-  let surface: RasterSurface;
-  try {
-    surface = createRasterSurface(expPixelW, expPixelH);
-  } catch {
-    // Fallback: createRasterSurface may throw for very large exports
-    const fallbackW = Math.min(expPixelW, 4096);
-    const fallbackH = Math.min(expPixelH, 4096);
-    surface = createRasterSurface(fallbackW, fallbackH);
-  }
+  const dimensions = resolveSubtreeRasterDimensions(cssWidth, cssHeight, filters, scale);
+  const surface = createRasterSurface(dimensions.pixelWidth, dimensions.pixelHeight);
 
   const { context, canvas } = surface;
   const outputWidth = canvas.width;
@@ -133,10 +168,10 @@ export async function exportRasterizedSubtree(
   applyRasterizationTransform(
     context,
     {
-      x: -expL,
-      y: -expT,
-      width: expandedCssW,
-      height: expandedCssH,
+      x: -dimensions.expandedLeft,
+      y: -dimensions.expandedTop,
+      width: dimensions.expandedCssWidth,
+      height: dimensions.expandedCssHeight,
     },
     { width: outputWidth, height: outputHeight },
   );
@@ -162,8 +197,11 @@ export async function exportRasterizedSubtree(
 
   return {
     dataUrl,
-    pixelWidth,
-    pixelHeight,
+    pixelWidth: outputWidth,
+    pixelHeight: outputHeight,
+    requestedPixelWidth: dimensions.requestedPixelWidth,
+    requestedPixelHeight: dimensions.requestedPixelHeight,
+    constrainedBy: dimensions.constrainedBy,
     cssWidth,
     cssHeight,
   };
@@ -181,21 +219,8 @@ export function exportRasterizedSubtreeSync(
   opts: ExportRasterOptions,
 ): SubtreeRasterization {
   const scale = Math.max(0.01, opts.scale);
-  const pixelWidth = Math.max(1, Math.round(cssWidth * scale));
-  const pixelHeight = Math.max(1, Math.round(cssHeight * scale));
-
-  const [expL, expT, expR, expB] = totalEffectExpansion(filters);
-  const expandedCssW = cssWidth + expL + expR;
-  const expandedCssH = cssHeight + expT + expB;
-  const expPixelW = Math.max(1, Math.round(expandedCssW * scale));
-  const expPixelH = Math.max(1, Math.round(expandedCssH * scale));
-
-  let surface: RasterSurface;
-  try {
-    surface = createRasterSurface(expPixelW, expPixelH);
-  } catch {
-    surface = createRasterSurface(Math.min(expPixelW, 4096), Math.min(expPixelH, 4096));
-  }
+  const dimensions = resolveSubtreeRasterDimensions(cssWidth, cssHeight, filters, scale);
+  const surface = createRasterSurface(dimensions.pixelWidth, dimensions.pixelHeight);
 
   const { context, canvas } = surface;
   const outputWidth = canvas.width;
@@ -211,10 +236,10 @@ export function exportRasterizedSubtreeSync(
   applyRasterizationTransform(
     context,
     {
-      x: -expL,
-      y: -expT,
-      width: expandedCssW,
-      height: expandedCssH,
+      x: -dimensions.expandedLeft,
+      y: -dimensions.expandedTop,
+      width: dimensions.expandedCssWidth,
+      height: dimensions.expandedCssHeight,
     },
     { width: outputWidth, height: outputHeight },
   );
@@ -237,8 +262,11 @@ export function exportRasterizedSubtreeSync(
 
   return {
     dataUrl,
-    pixelWidth,
-    pixelHeight,
+    pixelWidth: outputWidth,
+    pixelHeight: outputHeight,
+    requestedPixelWidth: dimensions.requestedPixelWidth,
+    requestedPixelHeight: dimensions.requestedPixelHeight,
+    constrainedBy: dimensions.constrainedBy,
     cssWidth,
     cssHeight,
   };
