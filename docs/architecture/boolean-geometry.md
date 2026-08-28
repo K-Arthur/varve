@@ -126,31 +126,40 @@ creation and expansion in a single history transaction.
 ## Explicit current limitations
 
 - The selected kernel is polygonal. Bézier inputs are flattened adaptively and
-  expanded output contains corner nodes; it does not reconstruct cubic curves.
-  A curve-aware WASM kernel or a validated fitting stage is required before
-  claiming curve-preserving Boolean output.
+  intersection output contains corner nodes; it does not reconstruct cubic
+  curves. No-op/single-valid-operand conversions preserve authored Bézier
+  handles (including affine placement), but a curve-aware WASM kernel or a
+  validated fitting stage is still required for curve-preserving intersections.
 - Compound paths now serialize their authored rings in the additive `contours`
   field. The legacy `points`/`holes` projection remains for compatibility, and
   component ownership is still represented by the resolved Boolean cache rather
   than a separately serialized component graph.
-- Self-intersecting input receives simple-crossing resolution before clipping.
-  A dedicated fill-rule-aware arrangement implementation remains necessary for
-  arbitrary looping Béziers and pathological self-touching imported paths.
+- Self-intersecting polygon input is split through a deterministic planar
+  half-edge arrangement, retaining every bounded face and assigning holes to
+  the face that contains them. Arbitrary looping Béziers are still subject to
+  adaptive flattening, and pathological self-touching/overlapping paths may
+  require a dedicated fill-rule-aware arrangement implementation.
 - Existing Boolean actions now create live groups by default. The contextual
   menu exposes **Expand Boolean** and all four operation changes; normal Group
   expansion and child ordering in Layers expose source operands and Subtract's
   explicit base. Open paths, lines, arrows, image-filled shapes, hidden nodes,
   and locked nodes are rejected consistently by command and toolbar surfaces.
-- A dedicated Pathfinder inspector, operand-isolation presentation, and a
-  documented SVG/PDF flattening contract remain future work. SVG export now
-  has live-Boolean resolution fixtures, and native PDF emits compound rings
-  with the authored fill rule.
+- The Properties inspector now exposes a Pathfinder section for live groups:
+  operation changes, ordered operand selection/isolation, safe removal while
+  retaining the two-operand minimum, and destructive expansion. Adding an
+  operand from an arbitrary external selection is still future work; use
+  Layers/reparenting to add a source today. SVG export has live-Boolean
+  resolution fixtures, and native PDF emits compound rings with the authored
+  fill rule.
 
 ## Validation corpus
 
 The focused suite covers base-minus-union semantics, true N-ary XOR parity,
 contained holes, hit topology, compound input, identical paths, shared edges,
 translation and scale stability, cross-parent live operand preservation,
-operation change/reorder, expansion, and renderer substitution. The next
-expansion of this corpus should add pointer-driven UI coverage, fuzzing, and
-curve-error measurements.
+operation change/reorder, expansion, renderer substitution, deterministic
+multi-crossing face recovery, and Pathfinder inspector controls. Deterministic
+polygon complexity fixtures live in
+`packages/scene/src/__benchmarks__/booleanGeometry.bench.ts`; future work can
+add broader fuzzing, curve-error measurements, and pointer-driven inspector
+coverage.
