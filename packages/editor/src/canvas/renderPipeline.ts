@@ -1980,7 +1980,11 @@ export function renderContent(deps: RenderContentDeps): void {
       ctx.restore();
       dirtyClipOpen = false;
     }
-    const budget = endFrameTiming(frameStart);
+    const budget = endFrameTiming(
+      frameStart,
+      undefined,
+      cameraMoving ? 'interaction' : 'authoritative',
+    );
     frameBackend?.endFrame();
     compositorFrameOpen = false;
     // Recompute both limits on every tier so recovery restores the user's
@@ -2058,6 +2062,8 @@ export function renderContent(deps: RenderContentDeps): void {
       engineNodeHits: engineMemo.hits - engineMemoHitsAtStart,
       setupMs,
       preLoopMs,
+      frameWorkClass: budget.workClass,
+      frameWorkBudgetMs: budget.budgetMs,
       totalMs: budget.elapsedMs,
       renderPath: needsStructural
         ? 'structural'
