@@ -40,7 +40,7 @@ import {
   textNodeLocalBounds,
   warpsOnNode,
 } from '@varve/scene';
-import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
+import { DEFAULT_ARTWORK_FONT_FAMILY, resolveTextGeometryMode } from '@varve/shared';
 import { maskRenderUrl } from '../backgroundRemoval/maskRenderCache';
 import { resolvePlacedLiveBoolean } from '../scene/liveBooleanGeometry';
 import { nodeWorldTransform } from '../scene/world';
@@ -288,7 +288,9 @@ export function sceneNodeToEngineNode(
     const geometry = textNodeLocalBounds(node);
     const width = geometry.w;
     const height = geometry.h;
-    const textMode = node.textMode ?? (node.w === undefined ? 'point' : 'area');
+    const geometryMode = resolveTextGeometryMode(node);
+    const textMode =
+      geometryMode === 'path' ? 'path' : geometryMode === 'autoWidth' ? 'point' : 'area';
     const textShape = {
       kind: 'text' as const,
       text,

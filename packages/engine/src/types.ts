@@ -386,6 +386,8 @@ export interface SceneNode {
   openTypeFeatures?: OpenTypeFeatureMap;
   /** Text mode. */
   textMode?: TextMode;
+  /** Resizing contract used to resolve the render mode when the node is built directly. */
+  textResizing?: 'autoWidth' | 'autoHeight' | 'fixed';
   /** Path text settings. */
   pathTextSettings?: PathTextSettings;
   /** Text direction: 'ltr', 'rtl', or 'auto' (auto-detect). */

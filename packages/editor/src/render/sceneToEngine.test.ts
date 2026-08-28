@@ -13,6 +13,7 @@ import {
   makeFrameNode,
   makeShapeNode,
   makeSmartFilter,
+  makeTextNode,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { flattenSceneToEngine, sceneNodeToEngineNode } from './sceneToEngine';
@@ -123,6 +124,27 @@ describe('scene raster masks', () => {
       sceneNodeToEngineNode(doc.nodes.frame!, { showOriginalBackgroundNodeId: 'frame' }, doc)
         .alphaMask,
     ).toBeUndefined();
+  });
+});
+
+describe('scene text render geometry', () => {
+  it.each([
+    ['autoWidth', 'point'],
+    ['autoHeight', 'area'],
+    ['fixed', 'area'],
+  ] as const)('maps %s resizing to the matching render mode', (textResizing, expectedMode) => {
+    const node = makeTextNode('text', 'A long text frame', {
+      // Deliberately keep the legacy textMode contradictory. The explicit
+      // resizing contract is authoritative for both bounds and painting.
+      textMode: 'point',
+      textResizing,
+      w: 80,
+      h: 24,
+    });
+
+    const converted = sceneNodeToEngineNode(node);
+    expect(converted.textMode).toBe(expectedMode);
+    expect((converted.shape as { textMode?: string }).textMode).toBe(expectedMode);
   });
 });
 

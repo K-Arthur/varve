@@ -368,6 +368,37 @@ describe('createEngine (stub)', () => {
     }
   });
 
+  it('uses text resizing to keep direct engine text geometry and painting aligned', async () => {
+    const eng = await createEngine('stub');
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'auto-height-text',
+          name: 'Auto height text',
+          kind: 'text',
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          text: 'A sentence that must wrap inside the text frame.',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal',
+          textMode: 'point',
+          textResizing: 'autoHeight',
+          w: 80,
+          h: 24,
+        },
+      ],
+    });
+    const primitive = ir[0]?.primitive;
+    expect(primitive?.kind).toBe('text');
+    if (primitive?.kind === 'text') {
+      expect(primitive.textMode).toBe('area');
+      expect(primitive.w).toBe(80);
+      expect(primitive.h).toBeGreaterThan(24);
+    }
+  });
+
   it('propagates letterSpacing and lineHeight to text primitive', async () => {
     const eng = await createEngine();
     const ir = await eng.buildIr({
