@@ -10,9 +10,17 @@ let nextKey = 1;
 let removeVisibilityListener: (() => void) | null = null;
 
 function createRuntimeScheduler(): FrameScheduler {
+  const refreshRate =
+    typeof screen !== 'undefined'
+      ? (screen as typeof screen & { refreshRate?: number }).refreshRate
+      : undefined;
   const runtime = createFrameScheduler({
     requestFrame: (callback) => window.requestAnimationFrame(callback),
     cancelFrame: (id) => window.cancelAnimationFrame(id),
+    frameIntervalMs:
+      typeof refreshRate === 'number' && Number.isFinite(refreshRate) && refreshRate > 0
+        ? 1000 / refreshRate
+        : undefined,
   });
   if (typeof document !== 'undefined') {
     const updateVisibility = () => runtime.setVisible(document.visibilityState !== 'hidden');

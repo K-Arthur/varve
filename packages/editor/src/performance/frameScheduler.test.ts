@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createFrameScheduler } from './frameScheduler';
+import { createFrameScheduler, resolveFrameSchedulerWorkBudgets } from './frameScheduler';
 
 function makeHarness() {
   let callback: FrameRequestCallback | null = null;
@@ -23,10 +23,22 @@ function makeHarness() {
       callback = null;
       if (next) next(now);
     },
+    spend(ms: number) {
+      now += ms;
+    },
   };
 }
 
 describe('frame scheduler', () => {
+  it('derives the three work windows from the display interval', () => {
+    expect(resolveFrameSchedulerWorkBudgets(20)).toEqual({
+      interactionMs: 10,
+      authoritativeMs: 18,
+      backgroundMs: 5,
+    });
+    expect(resolveFrameSchedulerWorkBudgets(20, 7).interactionMs).toBe(7);
+  });
+
   it('runs lanes in interaction, canvas, UI, background order', () => {
     const harness = makeHarness();
     const order: string[] = [];
@@ -58,6 +70,20 @@ describe('frame scheduler', () => {
     harness.advance();
     expect(background).not.toHaveBeenCalled();
     harness.scheduler.endInteraction();
+    harness.advance(150);
+    expect(background).toHaveBeenCalledOnce();
+  });
+
+  it('reserves authoritative headroom before beginning background work', () => {
+    const harness = makeHarness();
+    const background = vi.fn();
+    harness.scheduler.request('canvas', 'canvas', () => harness.spend(12));
+    harness.scheduler.request('prefetch', 'background', background);
+
+    harness.advance();
+    expect(background).not.toHaveBeenCalled();
+    expect(harness.scheduler.getDiagnostics().deferredBackgroundFrames).toBe(1);
+
     harness.advance(150);
     expect(background).toHaveBeenCalledOnce();
   });

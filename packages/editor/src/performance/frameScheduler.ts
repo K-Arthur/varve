@@ -35,6 +35,9 @@ export interface FrameSchedulerOptions {
   requestFrame?: (callback: FrameRequestCallback) => number;
   cancelFrame?: (id: number) => void;
   now?: () => number;
+  /** Display interval used to derive work-class budgets; defaults to 60 Hz. */
+  frameIntervalMs?: number;
+  /** Legacy explicit interaction budget override, in milliseconds. */
   frameWorkBudgetMs?: number;
   interactionSettleMs?: number;
   onError?: (error: unknown, key: string) => void;
@@ -46,13 +49,42 @@ interface QueuedJob {
 }
 
 const LANE_ORDER: readonly FrameLane[] = ['input', 'canvas', 'ui', 'background'];
+const DEFAULT_FRAME_INTERVAL_MS = 1000 / 60;
+
+export interface FrameSchedulerWorkBudgets {
+  interactionMs: number;
+  authoritativeMs: number;
+  backgroundMs: number;
+}
+
+/** Derive scheduler work windows from the current display interval. */
+export function resolveFrameSchedulerWorkBudgets(
+  frameIntervalMs = DEFAULT_FRAME_INTERVAL_MS,
+  interactionBudgetOverride?: number,
+): FrameSchedulerWorkBudgets {
+  const interval =
+    Number.isFinite(frameIntervalMs) && frameIntervalMs > 0
+      ? frameIntervalMs
+      : DEFAULT_FRAME_INTERVAL_MS;
+  return {
+    interactionMs:
+      interactionBudgetOverride && interactionBudgetOverride > 0
+        ? interactionBudgetOverride
+        : interval * 0.5,
+    authoritativeMs: interval * 0.9,
+    backgroundMs: interval * 0.25,
+  };
+}
 
 export function createFrameScheduler(options: FrameSchedulerOptions = {}): FrameScheduler {
   const requestFrame =
     options.requestFrame ?? ((callback: FrameRequestCallback) => requestAnimationFrame(callback));
   const cancelFrame = options.cancelFrame ?? ((id: number) => cancelAnimationFrame(id));
   const now = options.now ?? (() => performance.now());
-  const frameWorkBudgetMs = options.frameWorkBudgetMs ?? 8;
+  const workBudgets = resolveFrameSchedulerWorkBudgets(
+    options.frameIntervalMs,
+    options.frameWorkBudgetMs,
+  );
   const interactionSettleMs = options.interactionSettleMs ?? 120;
   const queues = new Map<FrameLane, Map<string, QueuedJob>>(
     LANE_ORDER.map((lane) => [lane, new Map<string, QueuedJob>()]),
@@ -81,10 +113,15 @@ export function createFrameScheduler(options: FrameSchedulerOptions = {}): Frame
     scheduledFrame = requestFrame(flush);
   };
 
-  const runLane = (lane: FrameLane, frameTimeMs: number, startedAt: number) => {
+  const runLane = (
+    lane: FrameLane,
+    frameTimeMs: number,
+    startedAt: number,
+    budgetMs = Number.POSITIVE_INFINITY,
+  ) => {
     const queue = queues.get(lane)!;
     for (const job of [...queue.values()]) {
-      if (lane !== 'input' && now() - startedAt >= frameWorkBudgetMs) break;
+      if (lane !== 'input' && now() - startedAt >= budgetMs) break;
       if (queue.get(job.key) !== job) continue;
       queue.delete(job.key);
       try {
@@ -102,12 +139,19 @@ export function createFrameScheduler(options: FrameSchedulerOptions = {}): Frame
     const startedAt = now();
     runLane('input', frameTimeMs, startedAt);
     if (visible) {
-      runLane('canvas', frameTimeMs, startedAt);
-      runLane('ui', frameTimeMs, startedAt);
+      // Input has already consumed the latest sample. Canvas and UI work only
+      // begin while the interaction window remains, keeping a rapid gesture
+      // responsive even when lower-priority queues are populated.
+      runLane('canvas', frameTimeMs, startedAt, workBudgets.interactionMs);
+      runLane('ui', frameTimeMs, startedAt, workBudgets.interactionMs);
       const interactionSettled =
         interactionDepth === 0 && now() - interactionEndedAt >= interactionSettleMs;
-      if (interactionSettled && now() - startedAt < frameWorkBudgetMs) {
-        runLane('background', frameTimeMs, startedAt);
+      const hasBackgroundHeadroom =
+        now() - startedAt < workBudgets.authoritativeMs - workBudgets.backgroundMs;
+      if (interactionSettled && hasBackgroundHeadroom) {
+        // Background receives its own bounded slice after current-frame work;
+        // it cannot consume the interaction or authoritative viewport window.
+        runLane('background', frameTimeMs, now(), workBudgets.backgroundMs);
       } else if ((queues.get('background')?.size ?? 0) > 0) {
         diagnostics.deferredBackgroundFrames++;
       }

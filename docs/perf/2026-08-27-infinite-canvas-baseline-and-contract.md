@@ -111,6 +111,10 @@ class-relative overruns. The main canvas records active camera interactions as
 `interaction`; settled and worker-presented frames are `authoritative`.
 Background callers can report `background` explicitly, and the shared
 latest-wins scheduler continues to defer that lane until interaction settles.
+At runtime, the scheduler derives the same windows from the reported display
+refresh interval: canvas/UI admission is limited to the interaction window,
+and background work begins only when a separate background slice remains
+inside the authoritative window.
 
 ## Measurement protocol
 
