@@ -101,7 +101,11 @@ export function resolveLiveBooleanShape(
     }
     if (isLiveBooleanNode(child)) {
       const resolvedChild = resolveLiveBooleanShape(document, childId, [...ancestors, nodeId]);
-      if (resolvedChild) operands.push(resolvedChild);
+      if (!resolvedChild) {
+        cache.set(nodeId, null);
+        return null;
+      }
+      operands.push(resolvedChild);
       continue;
     }
     // Filled Boolean geometry is defined for closed filled shapes. Unsupported

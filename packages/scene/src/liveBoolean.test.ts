@@ -54,6 +54,35 @@ describe('live Boolean groups', () => {
     expect(createLiveBooleanDoc(doc, ['filled', 'line'], 'union')).toBeNull();
   });
 
+  it('fails closed when a nested live operand cannot resolve', () => {
+    let doc = createDocument();
+    doc = addNode(doc, makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }));
+    doc = addNode(doc, makeShapeNode('b', { kind: 'rect', x: 20, y: 20, w: 30, h: 30 }));
+    doc = addNode(doc, makeShapeNode('c', { kind: 'rect', x: 150, y: 0, w: 50, h: 50 }));
+    const inner = createLiveBooleanDoc(doc, ['a', 'b'], 'union');
+    expect(inner).not.toBeNull();
+    if (!inner) return;
+    const outer = createLiveBooleanDoc(inner.doc, [inner.nodeId, 'c'], 'union');
+    expect(outer).not.toBeNull();
+    if (!outer) return;
+    expect(resolveLiveBooleanShape(outer.doc, outer.nodeId)).not.toBeNull();
+
+    const invalidChild = {
+      ...(outer.doc.nodes.a as ShapeNode),
+      shape: {
+        kind: 'path' as const,
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: null },
+          { x: 10, y: 10, handleIn: null, handleOut: null },
+        ],
+        closed: false,
+        tolerance: 3,
+      },
+    };
+    const invalid = { ...outer.doc, nodes: { ...outer.doc.nodes, a: invalidChild } };
+    expect(resolveLiveBooleanShape(invalid, outer.nodeId)).toBeNull();
+  });
+
   it('owns editable operands, preserves their placed-world transforms, and resolves on demand', () => {
     let doc = createDocument();
     doc = addNode(doc, makeFrameNode('left', { transform: [1, 0, 0, 1, 100, 50] }));
