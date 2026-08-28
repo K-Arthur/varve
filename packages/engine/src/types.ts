@@ -152,6 +152,8 @@ export interface Stroke {
   join: StrokeJoin;
   miterLimit: number;
   visible: boolean;
+  /** Optional spatial gradient; takes precedence over `color` when present. */
+  gradient?: EngineGradientFill;
   /** Arrowhead at the start of a line/arrow/path. */
   arrowStart?: ArrowheadStyle;
   /** Arrowhead at the end of a line/arrow/path. */

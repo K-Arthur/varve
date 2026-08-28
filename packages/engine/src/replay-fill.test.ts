@@ -59,7 +59,9 @@ function recorder(): RecorderProxy {
   const target: Record<string, unknown> = {
     save: mk('save'),
     restore: mk('restore'),
-    transform: mk('transform'),
+    transform(a: number, b: number, c: number, d: number, e: number, f: number) {
+      calls.push(`transform(${[a, b, c, d, e, f].join(',')})`);
+    },
     translate: mk('translate'),
     rotate: mk('rotate'),
     scale: mk('scale'),
@@ -346,7 +348,10 @@ describe('gradient fill rendering', () => {
     replayIr(clampedCtx.target, [clampedItem]);
     const call450 = clampedCtx.calls.find((c) => c.startsWith('createLinearGradient('));
 
-    expect(call450).toBeUndefined();
+    // Gradients are target/CTM-specific Canvas objects, so a separate replay
+    // target must recreate the same visual geometry instead of reusing a
+    // gradient captured in another canvas's coordinate system.
+    expect(call450).toBeTruthy();
   });
 
   it('clamps rotation -90 to same as rotation 270', () => {
@@ -381,7 +386,7 @@ describe('gradient fill rendering', () => {
     replayIr(clampedCtx.target, [clampedItem]);
     const callNeg90 = clampedCtx.calls.find((c) => c.startsWith('createLinearGradient('));
 
-    expect(callNeg90).toBeUndefined();
+    expect(callNeg90).toBeTruthy();
   });
 
   it('invisible gradient fill is skipped', () => {
@@ -538,6 +543,64 @@ describe('gradient fill rendering', () => {
     replayIr(rec.target, [item]);
     expect(rec.calls.some((c) => c.startsWith('createPattern'))).toBe(false);
     expect(rec.calls.some((c) => c.startsWith('createLinearGradient('))).toBe(true);
+  });
+
+  it('creates an explicit linear gradient in canonical unit space under all six affine coefficients', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'gradient',
+          gradientType: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+          rotation: 0,
+          transform: [160, 80, -30, 45, 25, 15],
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+    };
+
+    replayIr(rec.target, [item]);
+
+    expect(rec.calls).toContain('transform(160,80,-30,45,25,15)');
+    expect(rec.calls).toContain('createLinearGradient(0,0.5,1,0.5)');
+  });
+
+  it('creates an affine radial field instead of reducing it to a circular average radius', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'gradient',
+          gradientType: 'radial',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
+          ],
+          rotation: 0,
+          transform: [173.2, 100, -12.5, 21.65, 40, 30],
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+    };
+
+    replayIr(rec.target, [item]);
+
+    expect(rec.calls).toContain('transform(173.2,100,-12.5,21.65,40,30)');
+    expect(rec.calls).toContain('createRadialGradient(0.5,0.5,0,0.5,0.5,0.5)');
   });
 });
 
@@ -768,6 +831,42 @@ describe('blend mode mapping', () => {
 });
 
 describe('stroke rendering', () => {
+  it('renders a gradient stroke through the same affine evaluator as fills', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+      strokes: [
+        {
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          weight: 3,
+          cap: 'round',
+          join: 'round',
+          dashPattern: [],
+          dashOffset: 0,
+          miterLimit: 4,
+          align: 'center',
+          visible: true,
+          gradient: {
+            type: 'linear',
+            stops: [
+              { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+              { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+            ],
+            transform: [100, 25, 20, 40, 5, 10],
+          },
+        },
+      ],
+      primitive: { kind: 'line', from: [0, 0], to: [100, 50], tolerance: 1 },
+    };
+
+    replayIr(rec.target, [item]);
+
+    expect(rec.calls).toContain('transform(100,25,20,40,5,10)');
+    expect(rec.calls).toContain('createLinearGradient(0,0.5,1,0.5)');
+    expect(rec.calls.some((call) => call.startsWith('stroke('))).toBe(true);
+  });
+
   it('renders rect stroke via strokeRect', () => {
     const rec = recorder();
     const item: RenderItem = {

@@ -14,6 +14,7 @@
 import {
   type BlendEvaluationSpace,
   expandGradientStops,
+  gradientTransformForBounds,
   managedColorToNormalized,
   managedColorToRgba,
 } from '@varve/shared';
@@ -1714,8 +1715,10 @@ export function __getBackdropCacheSize(): number {
   return backdropCache.size;
 }
 
-/** Module-level gradient cache: maps a hash of {fill, bounds} → CanvasGradient | string. */
+/** Module-level gradient cache: maps target/CTM/fill geometry → CanvasGradient | string. */
 const gradientCache = new FrameCache<string, CanvasGradient | string>();
+const gradientTargetIds = new WeakMap<object, number>();
+let nextGradientTargetId = 1;
 
 /**
  * Test hook: drop all cached gradient objects. Deterministic tests that
@@ -1727,11 +1730,20 @@ export function resetGradientCacheForTest(): void {
 }
 
 function gradientCacheKey(
+  target: ReplayTarget,
   fill: Extract<FillIR, { type: 'gradient' }>,
   bounds: { x: number; y: number; w: number; h: number },
+  itemTransform: RenderItem['transform'],
 ): string {
   const normalizedRotation = ((fill.rotation % 360) + 360) % 360;
-  return `${fill.gradientType}|${fill.interpolationSpace ?? ''}|${fill.hueInterpolation ?? ''}|${normalizedRotation}|${fill.tilingMode ?? ''}|${JSON.stringify(fill.transform)}|${JSON.stringify(fill.stops)}|${bounds.x.toFixed(2)}|${bounds.y.toFixed(2)}|${bounds.w.toFixed(2)}|${bounds.h.toFixed(2)}`;
+  let targetId = gradientTargetIds.get(target as object);
+  if (targetId === undefined) {
+    targetId = nextGradientTargetId++;
+    gradientTargetIds.set(target as object, targetId);
+  }
+  const ctm = target.getTransform?.();
+  const ctmKey = ctm ? `${ctm.a},${ctm.b},${ctm.c},${ctm.d},${ctm.e},${ctm.f}` : 'unobservable-ctm';
+  return `${targetId}|${ctmKey}|${itemTransform.join(',')}|${fill.gradientType}|${fill.interpolationSpace ?? ''}|${fill.hueInterpolation ?? ''}|${normalizedRotation}|${fill.tilingMode ?? ''}|${JSON.stringify(fill.transform)}|${JSON.stringify(fill.stops)}|${bounds.x.toFixed(2)}|${bounds.y.toFixed(2)}|${bounds.w.toFixed(2)}|${bounds.h.toFixed(2)}`;
 }
 
 /** Create a gradient fillStyle from a FillIR gradient. */
@@ -1744,75 +1756,64 @@ function createGradientStyle(
   if (stops.length === 0) return 'rgba(0,0,0,0)';
 
   const bounds = primitiveBounds(item.primitive);
-  // Normalize rotation to [0, 360) so out-of-range values don't escape
-  let rot = ((((fill.rotation % 360) + 360) % 360) * Math.PI) / 180;
-  let cx = (bounds.x + bounds.w) / 2;
-  let cy = (bounds.y + bounds.h) / 2;
-  let halfDiag = Math.sqrt(bounds.w * bounds.w + bounds.h * bounds.h) / 2;
-
-  // Degenerate shape with zero area — render as solid fill of last stop
-  if (halfDiag <= 0) {
+  if (bounds.w === 0 && bounds.h === 0) {
     const last = stops[stops.length - 1];
     return last ? rgba(last.color) : 'rgba(0,0,0,0)';
   }
 
-  // When a fill transform matrix is provided, derive gradient parameters from it
-  if (fill.transform) {
-    const t = fill.transform;
-    const du = t[0] * halfDiag; // unit u-axis x
-    const dv = t[1] * halfDiag; // unit u-axis y
-    cx = bounds.x + t[4]; // translate x
-    cy = bounds.y + t[5]; // translate y
-    rot = Math.atan2(dv, du); // rotation from u-axis
-    halfDiag = Math.sqrt(du * du + dv * dv); // scale magnitude
-
-    // Degenerate after transform — render as solid fill of last stop
-    if (halfDiag <= 0) {
-      const last = stops[stops.length - 1];
-      return last ? rgba(last.color) : 'rgba(0,0,0,0)';
-    }
-  }
-
   // Gradient caching: check cache before computing
-  const key = gradientCacheKey(fill, bounds);
+  const key = gradientCacheKey(target, fill, bounds, item.transform);
   const cached = gradientCache.get(key);
   if (cached !== undefined) return cached;
 
-  const dx = Math.cos(rot) * halfDiag;
-  const dy = Math.sin(rot) * halfDiag;
-
   let result: CanvasGradient | string | undefined;
 
-  if (fill.gradientType === 'radial' && target.createRadialGradient) {
-    const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
-    const expanded = expandGradientStopsForFill(fill);
-    for (const s of expanded) {
-      grad.addColorStop(s.position, rgbaWorking(s.color));
-    }
-    result = grad;
-  } else if (fill.gradientType === 'angular' && target.createConicGradient) {
-    const grad = target.createConicGradient(rot, cx, cy);
-    const expanded = expandGradientStopsForFill(fill);
-    for (const s of expanded) {
-      grad.addColorStop(s.position, rgbaWorking(s.color));
-    }
-    result = grad;
-  } else if (fill.gradientType === 'diamond' && target.createRadialGradient) {
-    const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
-    const expanded = expandGradientStopsForFill(fill);
-    for (const s of expanded) {
-      grad.addColorStop(s.position, rgbaWorking(s.color));
-    }
-    result = grad;
-  } else if (target.createLinearGradient) {
-    const grad = target.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
-    const expanded = expandGradientStopsForFill(fill);
-    for (const s of expanded) {
-      grad.addColorStop(s.position, rgbaWorking(s.color));
-    }
-    result = grad;
+  // CanvasGradient captures the current transform at creation.  Creating its
+  // canonical unit-space field while G is active therefore preserves all six
+  // coefficients for linear, radial, and conic gradients.  In particular,
+  // the radial unit circle becomes the correct ellipse/skewed affine field.
+  const transform = gradientTransformForBounds(fill, bounds);
+  const [a, b, c, d, e, f] = transform;
+  const linearLength = Math.hypot(a, b);
+  const radialU = Math.hypot(a, b);
+  const radialV = Math.hypot(c, d);
+  const radialArea = Math.abs(a * d - b * c);
+  const canPaint =
+    fill.gradientType === 'linear'
+      ? linearLength > 0
+      : fill.gradientType === 'radial' || fill.gradientType === 'diamond'
+        ? radialU > 0 && radialV > 0 && radialArea > 0
+        : radialArea > 0;
+  if (!canPaint) {
+    const last = stops[stops.length - 1];
+    result = last ? rgba(last.color) : 'rgba(0,0,0,0)';
   } else {
-    result = rgba(stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 });
+    target.save();
+    try {
+      target.transform(a, b, c, d, e, f);
+      const expanded = expandGradientStopsForFill(fill);
+      if (fill.gradientType === 'radial' && target.createRadialGradient) {
+        const grad = target.createRadialGradient(0.5, 0.5, 0, 0.5, 0.5, 0.5);
+        for (const s of expanded) grad.addColorStop(s.position, rgbaWorking(s.color));
+        result = grad;
+      } else if (fill.gradientType === 'angular' && target.createConicGradient) {
+        const grad = target.createConicGradient(0, 0.5, 0.5);
+        for (const s of expanded) grad.addColorStop(s.position, rgbaWorking(s.color));
+        result = grad;
+      } else if (fill.gradientType === 'diamond' && target.createRadialGradient) {
+        const grad = target.createRadialGradient(0.5, 0.5, 0, 0.5, 0.5, 0.5);
+        for (const s of expanded) grad.addColorStop(s.position, rgbaWorking(s.color));
+        result = grad;
+      } else if (target.createLinearGradient) {
+        const grad = target.createLinearGradient(0, 0.5, 1, 0.5);
+        for (const s of expanded) grad.addColorStop(s.position, rgbaWorking(s.color));
+        result = grad;
+      } else {
+        result = rgba(stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 });
+      }
+    } finally {
+      target.restore();
+    }
   }
 
   gradientCache.set(key, result);
@@ -3412,7 +3413,9 @@ function paintStroke(
   item: RenderItem,
 ): void {
   target.save();
-  target.strokeStyle = rgba(stroke.color);
+  target.strokeStyle = stroke.gradient
+    ? createGradientStyle(target, gradientStrokeToFill(stroke.gradient), item)
+    : rgba(stroke.color);
   target.lineWidth = stroke.weight;
   target.lineCap = stroke.cap as CanvasLineCap;
   target.lineJoin = stroke.join as CanvasLineJoin;
@@ -3506,7 +3509,7 @@ function paintStroke(
       target.stroke();
       if (hasArrowheads) {
         const headSize = arrowheadSize(undefined, stroke.weight);
-        target.fillStyle = rgba(stroke.color);
+        target.fillStyle = target.strokeStyle;
         if (arrowStart !== 'none') {
           drawArrowhead(target, p.from, p.to, headSize, arrowStart, true);
         }
@@ -3532,7 +3535,7 @@ function paintStroke(
       // Draw arrowheads using stroke color, respecting per-stroke arrowStart/arrowEnd.
       // Default: arrow tool produces an end arrowhead.
       const headSize = arrowheadSize(p.arrowheadSize, stroke.weight);
-      target.fillStyle = rgba(stroke.color);
+      target.fillStyle = target.strokeStyle;
       if (arrowStart !== 'none') {
         drawArrowhead(target, p.from, p.to, headSize, arrowStart, true);
       }
@@ -3579,6 +3582,25 @@ function paintStroke(
   }
 
   target.restore();
+}
+
+/** Convert a stroke's spatial gradient to the one canonical replay fill form. */
+function gradientStrokeToFill(
+  gradient: NonNullable<Stroke['gradient']>,
+): Extract<FillIR, { type: 'gradient' }> {
+  return {
+    type: 'gradient',
+    gradientType: gradient.type,
+    stops: gradient.stops,
+    rotation: gradient.rotation ?? 0,
+    interpolationSpace: gradient.interpolationSpace,
+    hueInterpolation: gradient.hueInterpolation,
+    transform: gradient.transform,
+    tilingMode: gradient.tilingMode,
+    opacity: 1,
+    blendMode: 'normal',
+    visible: true,
+  };
 }
 
 /**
