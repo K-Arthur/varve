@@ -212,8 +212,13 @@ The `varve-print` crate provides full ICC-aware CMYK conversion:
 `convertDocumentColors()` in `packages/scene/src/colorMode.ts` converts all document
 process colours between RGB/CMYK/Grayscale using the destination document bit depth and
 destination profile reference. It preserves alpha at that precision, carries the destination
-profile fingerprint, and also converts `canvasBackground`. Its analytical CMYK path remains
-explicitly approximate; it is not an ICC substitute.
+profile fingerprint, and walks nested color-bearing state immutably: node fills and stroke
+gradients, effects (including glass-material tint/highlight), rich-text runs and column rules,
+adaptive-contrast colors, table appearance/cell styles, shared paints/styles, text stories,
+logo palettes, swatches, layer-state appearance snapshots, and `canvasBackground`. Its
+analytical CMYK path remains explicitly approximate; it is not an ICC substitute. Raster
+asset bytes and their source encodings are intentionally not rewritten by this vector/document
+operation; raster conversion is a separate atomic workflow.
 
 Wired into the editor context at `context.tsx` with undo/redo support.
 
@@ -320,8 +325,10 @@ delegates to the conversion operation; new callers use the explicit pair:
   read boundaries (render/export). Non-destructive to values; may change
   appearance. The DocumentPanel mode buttons use this and explain it.
 - **`convertDocumentColors(doc, mode, opts)`** — rewrites stored process
-  colors (fills, strokes, effects, gradient stops, swatches, canvas
-  background) into the target mode and returns a structured report
+  colors across node and document-level color-bearing properties (including
+  rich text, tables, shared paints/styles, stories, logo palettes, layer
+  snapshots, gradients, effects, swatches, and canvas background) into the
+  target mode and returns a structured report
   (converted / spotsPreserved / unsupported / warnings). Spot, registration,
   and unresolved colors are never rewritten. The `analytical` algorithm is
   reported as approximate; `icc` requires a runtime converter and is refused

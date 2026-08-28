@@ -49,7 +49,7 @@ Document-level: mode, bitDepth, workingSpace ('srgb'|'linear'), rgbProfile, cmyk
 | Operation | Current Status | Key File |
 |---|---|---|
 | **Assign Profile** | Partial — `assignDocumentColorMode` exists; no per-color assign | `packages/scene/src/colorMode.ts` |
-| **Convert Profile** | Partial — `convertDocumentColors` walks scene; analytical only | `packages/scene/src/colorMode.ts` |
+| **Convert Profile** | Partial — `convertDocumentColors` rewrites supported process colors; analytical only without a supplied ICC converter | `packages/scene/src/colorMode.ts` |
 | **Convert Color Model** | Implemented — `convertDocumentColors` with analytical + ICC paths | `packages/scene/src/colorMode.ts` |
 | **Display Transform** | Not implemented — no profile-aware display conversion | `packages/engine/src/replay.ts` |
 | **Soft Proof** | Partial — proof config exists; picker shows proof; no display transform | Picker + proofConfig |
@@ -131,7 +131,10 @@ source encoding (RasterColorEncoding)
 
 11. **No soft-proof display transform** (§88 of spec)
 12. **No assign-profile dialog for individual colors** (§62 of spec)
-13. **Convert document colors doesn't walk all color-bearing properties** (§66 — needs audit of rich text spans, tables, etc.)
+13. **Resolved — document conversion walks nested color-bearing properties** (§66)
+   - Node fills/stroke gradients/effects, rich-text runs and column rules, adaptive-contrast colors,
+     table appearance/cell styles, shared paints/styles, text stories, logo palettes, swatches,
+     canvas background, and layer-state appearance snapshots are converted immutably.
 14. **Raster assets during document conversion — no explicit policy** (§67 of spec)
 15. **Resolved — explicit CMYKA raster representation** (§20 of spec)
    - CMYKA uses five interleaved channels and cannot be passed to an RGB transform. ICC
