@@ -168,8 +168,14 @@ export interface RasterMaskData {
    * - `container-local-pixels`: mask pixels map 1:1 to the frame's local
    *   units (0..w, 0..h), stretched with the container transform — the
    *   brush-painted layer-mask form for FrameNodes.
+   * - `node-local-pixels`: mask pixels map 1:1 to a visual leaf node's local
+   *   paint bounds (brush-painted layer masks).
    */
-  coordinateSpace: 'source-image-pixels' | 'legacy-preview-pixels' | 'container-local-pixels';
+  coordinateSpace:
+    | 'source-image-pixels'
+    | 'legacy-preview-pixels'
+    | 'container-local-pixels'
+    | 'node-local-pixels';
   sourceIdentity: RasterMaskSourceIdentity;
   editRevision?: number;
   staleReason?: 'source-replaced' | 'source-changed' | 'legacy-preview-resolution';
@@ -608,8 +614,10 @@ export interface IccProfileEntry {
   /** Base64-encoded profile bytes (the canonical payload). */
   profileBase64: string;
   byteLength: number;
-  /** Content hash of `profileBase64` (sync, non-cryptographic). */
+  /** Legacy sync content hash of `profileBase64`, retained for old document ids. */
   hash: string;
+  /** SHA-256 fingerprint of the canonical profile payload. */
+  fingerprint?: string;
   /** ASCII `desc` tag, when present and printable. */
   description?: string;
   /** ICC profile class signature (e.g. 'mntr' display class). */
@@ -1435,6 +1443,8 @@ export interface TraceMetadata {
   maxColors: number;
   compoundHoles: boolean;
   cornerAngle: number;
+  /** Maximum Bezier fitting error in pixels (0.1–10). Default 1.0. */
+  maxError?: number;
   centerlineWidth: number;
   centerlinePrune: number;
   /** Which engine produced the result (native Rust / TS worker / WASM). */

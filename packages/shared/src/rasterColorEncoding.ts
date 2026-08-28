@@ -143,6 +143,12 @@ export interface RasterColorEncoding {
    * the authoritative interpretation (provenance 'embedded-icc').
    */
   profileId?: string;
+  /**
+   * SHA-256 fingerprint of the exact profile payload referenced by
+   * `profileId`. It lets a document detect profile-id reuse or replacement
+   * instead of silently reinterpreting existing raster channel values.
+   */
+  profileFingerprint?: string;
   /** Provenance of this interpretation. Required. */
   provenance: RasterEncodingProvenance;
   /** Human-readable diagnostics, e.g. conflicting metadata outcomes. */
@@ -263,6 +269,7 @@ export function rasterEncodingKey(encoding: RasterColorEncoding): string {
     bitDepth: encoding.bitDepth ?? null,
     alphaMode: encoding.alphaMode ?? null,
     profileId: encoding.profileId ?? null,
+    profileFingerprint: encoding.profileFingerprint ?? null,
     provenance: encoding.provenance,
   });
 }

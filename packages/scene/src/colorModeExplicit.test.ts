@@ -143,7 +143,7 @@ describe('convertDocumentColors', () => {
       colorConfig: {
         ...defaultColorConfig,
         bitDepth: 'uint16' as const,
-        cmykProfile: { id: 'fogra51', name: 'Fogra51' },
+        cmykProfile: { id: 'fogra51', name: 'Fogra51', fingerprint: 'a'.repeat(64) },
       },
     };
     const { doc: out } = convertDocumentColors(doc, 'cmyk');
@@ -153,6 +153,7 @@ describe('convertDocumentColors', () => {
         space: 'cmyk',
         bitDepth: 'uint16',
         profile: 'fogra51',
+        profileFingerprint: 'a'.repeat(64),
         a: 65535,
       }),
     );

@@ -84,6 +84,8 @@ export interface ColorProfileRef {
   embedded?: boolean;
   /** Raw ICC profile bytes (when embedded). */
   data?: Uint8Array;
+  /** SHA-256 fingerprint of `data` (or the registered payload) when known. */
+  fingerprint?: string;
 }
 
 // ── Output Intent ───────────────────────────────────────────────────────────

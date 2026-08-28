@@ -87,12 +87,14 @@ function importImageAsFile(
       };
     }
     let profileId: string | undefined;
+    let profileFingerprint: string | undefined;
     if (inspected.iccProfileBase64) {
       const profile =
         inspected.metadata.icc.kind === 'valid' ? inspected.metadata.icc.profile : undefined;
       const registered = upsertIccProfile(doc, inspected.iccProfileBase64, profile?.description);
       doc = registered.document;
       profileId = registered.profileId;
+      profileFingerprint = doc.iccProfiles?.[profileId]?.fingerprint;
       if (profile && doc.iccProfiles?.[profileId]) {
         // Enrich the registry entry with parsed header info (class, colour
         // space, version, intent) so preflight/UI can label it without
@@ -149,6 +151,7 @@ function importImageAsFile(
             ? { diagnostics: encoding.diagnostics }
             : {}),
           ...(profileId ? { profileId } : {}),
+          ...(profileFingerprint ? { profileFingerprint } : {}),
         },
       };
     }

@@ -22,5 +22,8 @@ describe('rasterEncodingKey', () => {
     );
     expect(rasterEncodingKey(base)).not.toBe(rasterEncodingKey({ ...base, bitDepth: 'float32' }));
     expect(rasterEncodingKey(base)).not.toBe(rasterEncodingKey({ ...base, profileId: 'icc-p3' }));
+    expect(rasterEncodingKey(base)).not.toBe(
+      rasterEncodingKey({ ...base, profileFingerprint: 'a'.repeat(64) }),
+    );
   });
 });

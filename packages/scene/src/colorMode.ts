@@ -149,6 +149,7 @@ function makeRgbColor(rgb: NormalizedRgb, config: ColorConfig): ManagedColor {
     b: denormalizeChannel(rgb.b, bitDepth),
     a: denormalizeChannel(rgb.a, bitDepth),
     profile: config.rgbProfile.id,
+    ...(config.rgbProfile.fingerprint ? { profileFingerprint: config.rgbProfile.fingerprint } : {}),
   };
 }
 
@@ -164,6 +165,9 @@ function makeCmykColor(rgb: NormalizedRgb, config: ColorConfig): ManagedColor {
     k: denormalizeChannel(cmyk.k, bitDepth),
     a: denormalizeChannel(rgb.a, bitDepth),
     profile: config.cmykProfile.id,
+    ...(config.cmykProfile.fingerprint
+      ? { profileFingerprint: config.cmykProfile.fingerprint }
+      : {}),
   };
 }
 
