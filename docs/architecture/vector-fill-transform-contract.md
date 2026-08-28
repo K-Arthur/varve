@@ -90,7 +90,9 @@ descendants and gradient-bearing strokes as well as fills. SVG's off-centre
 radial focal point has no equivalent in the current affine radial model, so the
 importer keeps the centred field and reports a warning. Likewise,
 `userSpaceOnUse` percentage coordinates are normalized to the target bounds and
-reported; numeric user-space matrices remain exact.
+reported; numeric user-space matrices remain exact. SVG emits one visible
+stroke per shape; shapes with stacked visible strokes are rasterized by the
+export compositor instead of silently dropping the additional strokes.
 
 Figma's normalized gradient handles (or native gradient matrix) are scaled into
 node-local dimensions before becoming `GradientFill.transform`. This preserves
