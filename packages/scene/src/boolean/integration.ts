@@ -200,8 +200,10 @@ export function shapeHolesToPolygons(
   shape: ShapeNode['shape'],
   transform: readonly [number, number, number, number, number, number],
 ): Point2D[][] {
-  if (shape.kind !== 'path' || !shape.holes || shape.holes.length === 0) return [];
-  return shape.holes.map((hole) =>
+  if (shape.kind !== 'path') return [];
+  const rings = shape.contours?.length ? shape.contours.slice(1) : (shape.holes ?? []);
+  if (rings.length === 0) return [];
+  return rings.map((hole) =>
     pathPointsToPolygon(hole, true).map((p) => applyAffineToPt(p, transform)),
   );
 }
@@ -286,12 +288,19 @@ export function placeBooleanResult(
         return { ...p, x, y };
       }),
     );
+    const contours = newNode.shape.contours?.map((ring) =>
+      ring.map((p) => {
+        const [x, y] = applyAffine(pInv, [p.x, p.y]);
+        return { ...p, x, y };
+      }),
+    );
 
     newNode = {
       ...newNode,
       shape: {
         ...newNode.shape,
         points,
+        ...(contours && contours.length > 0 ? { contours } : {}),
         ...(holes && holes.length > 0 ? { holes } : {}),
       },
     };
@@ -339,6 +348,7 @@ function makeResultNode(result: BooleanResult, first: ShapeNode, id: string): Sh
         points: [],
         closed: true,
         tolerance: 3,
+        contours: [],
       },
       fill: first.fill,
       fills: (first.fills?.length
@@ -389,6 +399,7 @@ function makeResultNode(result: BooleanResult, first: ShapeNode, id: string): Sh
       points: polygonToPathPoints(primaryOuter),
       closed: true,
       tolerance: 3,
+      contours: [primaryOuter, ...allRings].map((ring) => polygonToPathPoints(ring)),
       ...(allRings.length > 0
         ? {
             holes: allRings.map((r) => polygonToPathPoints(r)),

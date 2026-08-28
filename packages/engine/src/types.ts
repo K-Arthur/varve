@@ -327,7 +327,9 @@ export type Shape =
       points: PathPoint[];
       closed: boolean;
       tolerance: number;
-      /** Additional closed hole rings (evenodd fill). Optional for back-compat. */
+      /** Canonical compound-path rings in authored order (outer first). */
+      contours?: PathPoint[][];
+      /** Additional closed rings (legacy alias for contours[1..]). */
       holes?: PathPoint[][];
       fillRule?: 'nonzero' | 'evenodd';
     }
@@ -574,6 +576,9 @@ export type Primitive =
       points: PathPoint[];
       closed: boolean;
       tolerance: number;
+      /** Canonical compound-path rings in authored order (outer first). */
+      contours?: PathPoint[][];
+      /** Additional closed rings (legacy alias for contours[1..]). */
       holes?: PathPoint[][];
       fillRule?: 'nonzero' | 'evenodd';
     }

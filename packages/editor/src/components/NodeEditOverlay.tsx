@@ -40,7 +40,9 @@ export function NodeEditOverlay({
   worldTransform,
 }: NodeEditOverlayProps) {
   if (node.shape.kind !== 'path') return null;
-  const rings = [node.shape.points, ...(node.shape.holes ?? [])];
+  const rings = node.shape.contours?.length
+    ? node.shape.contours
+    : [node.shape.points, ...(node.shape.holes ?? [])];
 
   // Use the provided world transform, or fall back to the node's own transform
   // (which is just the translation for identity-rotated nodes).

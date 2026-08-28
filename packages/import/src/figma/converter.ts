@@ -351,6 +351,7 @@ function shapeForNode(node: FigmaSourceNode, state: ConversionState): Shape {
         points: parsed.points,
         closed: parsed.closed || parsed.contours.length > 1,
         tolerance: 3,
+        contours: parsed.contours.map((contour) => contour.points),
         ...(parsed.contours.length > 1
           ? { holes: parsed.contours.slice(1).map((contour) => contour.points) }
           : {}),

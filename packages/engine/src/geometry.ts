@@ -433,8 +433,14 @@ export function shapeContains(shape: Shape, p: Point): boolean {
     case 'path':
       if (shape.closed) {
         const fillRule =
-          shape.fillRule ?? (shape.holes && shape.holes.length > 0 ? 'evenodd' : 'nonzero');
-        return pointInBezierPath(shape.points, p, fillRule, shape.holes);
+          shape.fillRule ??
+          (shape.contours && shape.contours.length > 1
+            ? 'evenodd'
+            : shape.holes && shape.holes.length > 0
+              ? 'evenodd'
+              : 'nonzero');
+        const holes = shape.contours?.length ? shape.contours.slice(1) : shape.holes;
+        return pointInBezierPath(shape.points, p, fillRule, holes);
       }
       return pathSegmentDistSq(shape.points, p) <= shape.tolerance * shape.tolerance;
   }

@@ -279,7 +279,7 @@ export class NodeEditTool extends BaseTool {
         .map((ring, i) => ring.filter((_, pointIndex) => !removals.get(i + 1)?.has(pointIndex)));
       return {
         ...n,
-        shape: { ...n.shape, points, ...(n.shape.holes ? { holes } : {}) },
+        shape: withPathRings(n.shape, [points, ...holes]),
       } as ShapeNode;
     });
     ctx.commitTransaction();
@@ -323,8 +323,7 @@ export class NodeEditTool extends BaseTool {
         ...n,
         shape: {
           ...s,
-          points: updatedRings[0]!,
-          ...(s.holes ? { holes: updatedRings.slice(1) } : {}),
+          ...withPathRings(s, updatedRings),
         },
       } as ShapeNode;
     });
@@ -338,7 +337,21 @@ export class NodeEditTool extends BaseTool {
 }
 
 function pathRings(shape: Extract<ShapeNode['shape'], { kind: 'path' }>): PathPoint[][] {
-  return [shape.points, ...(shape.holes ?? [])];
+  return shape.contours?.length
+    ? shape.contours.map((ring) => [...ring])
+    : [shape.points, ...(shape.holes ?? [])];
+}
+
+function withPathRings(
+  shape: Extract<ShapeNode['shape'], { kind: 'path' }>,
+  rings: PathPoint[][],
+): Extract<ShapeNode['shape'], { kind: 'path' }> {
+  return {
+    ...shape,
+    points: rings[0] ?? [],
+    ...(shape.contours?.length ? { contours: rings } : {}),
+    ...(shape.holes ? { holes: rings.slice(1) } : {}),
+  };
 }
 
 function locateGlobalIndex(
@@ -377,9 +390,7 @@ function updatePathPoint(
     ),
   );
   return {
-    ...shape,
-    points: updatedRings[0]!,
-    ...(shape.holes ? { holes: updatedRings.slice(1) } : {}),
+    ...withPathRings(shape, updatedRings),
   };
 }
 

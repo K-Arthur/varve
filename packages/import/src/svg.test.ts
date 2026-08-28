@@ -86,6 +86,7 @@ describe('parseSvg', () => {
       expect(node.shape.points).toHaveLength(4);
       expect(node.shape.holes).toHaveLength(1);
       expect(node.shape.holes?.[0]).toHaveLength(4);
+      expect(node.shape.contours).toHaveLength(2);
       expect(node.shape.fillRule).toBe('evenodd');
     }
   });

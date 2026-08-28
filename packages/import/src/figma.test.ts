@@ -189,6 +189,7 @@ describe('Figma JSON importer', () => {
     expect(vector?.kind).toBe('shape');
     if (vector?.kind === 'shape' && vector.shape.kind === 'path') {
       expect(vector.shape.holes).toHaveLength(1);
+      expect(vector.shape.contours).toHaveLength(2);
       expect(vector.shape.fillRule).toBe('evenodd');
     }
   });

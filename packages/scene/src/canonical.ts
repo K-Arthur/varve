@@ -270,6 +270,7 @@ const SHAPE_PATH_KEY_ORDER: readonly string[] = [
   'points',
   'closed',
   'tolerance',
+  'contours',
   'holes',
   'fillRule',
 ];

@@ -54,7 +54,10 @@ export function resolvePlacedLiveBoolean(
 /** Bounds of a resolved Boolean's compound path in editor placed-world space. */
 export function placedLiveBooleanBounds(resolved: ResolvedPlacedLiveBoolean): Rect | null {
   if (resolved.shape.shape.kind !== 'path') return null;
-  const points = [...resolved.shape.shape.points, ...(resolved.shape.shape.holes ?? []).flat()];
+  const rings = resolved.shape.shape.contours?.length
+    ? resolved.shape.shape.contours
+    : [resolved.shape.shape.points, ...(resolved.shape.shape.holes ?? [])];
+  const points = rings.flat();
   if (points.length === 0) return null;
 
   const transformed = points.map((point) => applyAffine(resolved.transform, [point.x, point.y]));

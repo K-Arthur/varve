@@ -217,6 +217,7 @@ function convertPath(
     // single contour for stroke-only paths, but compound subpaths are regions.
     closed: outer.closed || contours.length > 1,
     tolerance: 3,
+    contours: contours.map((contour) => contour.points),
     ...(contours.length > 1 ? { holes: contours.slice(1).map((contour) => contour.points) } : {}),
     ...(fillRule ? { fillRule } : {}),
   };

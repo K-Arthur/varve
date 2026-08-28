@@ -229,6 +229,7 @@ function shapeToPrimitive(
         points: s.points,
         closed: s.closed,
         tolerance: s.tolerance,
+        ...(s.contours && s.contours.length > 0 ? { contours: s.contours } : {}),
         ...(s.holes && s.holes.length > 0 ? { holes: s.holes } : {}),
         ...(s.fillRule ? { fillRule: s.fillRule } : {}),
       };

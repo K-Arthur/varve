@@ -520,6 +520,7 @@ const KAPPA = 0.5522847498307936;
 export interface PathConversion {
   points: PathPoint[];
   closed: boolean;
+  contours?: PathPoint[][];
   holes?: PathPoint[][];
   fillRule?: 'nonzero' | 'evenodd';
 }
@@ -595,6 +596,7 @@ export function shapeToPathPoints(shape: Shape): PathConversion {
       return {
         points: shape.points,
         closed: shape.closed,
+        contours: shape.contours,
         holes: shape.holes,
         fillRule: shape.fillRule,
       };

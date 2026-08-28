@@ -138,6 +138,9 @@ export function transformPathShape(shape: Shape, transform: Affine): Shape {
     points: converted.points.map(transformPoint),
     closed: converted.closed,
     tolerance: 0,
+    ...(converted.contours
+      ? { contours: converted.contours.map((ring) => ring.map(transformPoint)) }
+      : {}),
     ...(converted.holes ? { holes: converted.holes.map((ring) => ring.map(transformPoint)) } : {}),
     ...(converted.fillRule ? { fillRule: converted.fillRule } : {}),
   };
