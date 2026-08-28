@@ -14,7 +14,7 @@ import {
   localToSourcePixel,
   transformAreaSelection,
 } from '@varve/engine';
-import { buildParentIndexMap, getImageFill, isImageShape } from '@varve/scene';
+import { buildParentIndexMap, getImageFill, type ImageFillData, isImageShape } from '@varve/scene';
 import { applyAffine, tryInvertAffine } from '@varve/shared';
 import { visibleImageSourceMapping } from '../floatingRaster/imagePlacement';
 import { nodeLocalBounds, nodeWorldTransform } from '../scene/world';
@@ -65,7 +65,7 @@ export class MagicWandTool extends BaseTool {
     ctx: ToolContext,
     nodeId: string,
     node: import('@varve/scene').SceneNode,
-    image: NonNullable<ReturnType<typeof getImageFill>>['image'],
+    image: ImageFillData,
     source: string,
     click: { x: number; y: number },
     operation: AreaSelectionOperation,

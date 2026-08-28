@@ -164,7 +164,7 @@ function floatingPreviewCanvas(floating: FloatingRasterSelection): HTMLCanvasEle
   const context = canvas.getContext('2d');
   if (!context) return null;
   context.putImageData(
-    new ImageData(preview.compositedPixels, preview.width, preview.height),
+    new ImageData(new Uint8ClampedArray(preview.compositedPixels), preview.width, preview.height),
     0,
     0,
   );

@@ -14,7 +14,7 @@ function encodePng(data: Uint8ClampedArray, width: number, height: number): stri
     canvas.height = height;
     const context = canvas.getContext('2d');
     if (!context) return null;
-    context.putImageData(new ImageData(data, width, height), 0, 0);
+    context.putImageData(new ImageData(new Uint8ClampedArray(data), width, height), 0, 0);
     return canvas.toDataURL('image/png');
   } catch {
     return null;
@@ -29,7 +29,8 @@ export async function commitFloatingImage(
   const node = document.nodes[floating.targetNodeId];
   if (node?.kind !== 'shape' || !isImageShape(node)) return null;
   const image = getImageFill(node)?.image;
-  if (!image) return null;
+  const fills = node.fills;
+  if (!image || !fills) return null;
   const result = commitFloatingSelection(floating);
   if (!result) return null;
   const dataUrl = encodePng(result.compositedPixels, result.width, result.height);
@@ -49,7 +50,7 @@ export async function commitFloatingImage(
         ...document.nodes,
         [node.id]: {
           ...node,
-          fills: node.fills.map((fill) =>
+          fills: fills.map((fill) =>
             fill.type === 'image' && fill.image
               ? { ...fill, image: { ...fill.image, assetId: asset.id, src: dataUrl } }
               : fill,
