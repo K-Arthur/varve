@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { booleanNormalized, booleanNormalizedRegions } from './engine';
 import type { Point2D, Region2D } from './region';
 import { pointInCompoundPath, regionArea } from './region';
+import { hasSelfIntersections, resolveSelfIntersections } from './self-intersection';
 
 const square = (x: number, y: number, size: number): Point2D[] => [
   { x, y },
@@ -34,6 +35,50 @@ function scale(points: Point2D[], factor: number): Point2D[] {
 }
 
 describe('deterministic compound Boolean kernel', () => {
+  it('resolves multi-crossing inputs into finite simple faces deterministically', () => {
+    const multiCrossing: Point2D[] = [
+      { x: 0, y: 0 },
+      { x: 100, y: 220 },
+      { x: 200, y: 0 },
+      { x: 0, y: 150 },
+      { x: 200, y: 150 },
+    ];
+
+    const faces = resolveSelfIntersections(multiCrossing, 1e-6);
+    expect(faces.length).toBeGreaterThanOrEqual(3);
+    expect(faces.every((face) => !hasSelfIntersections(face, 1e-6))).toBe(true);
+
+    const first = booleanNormalized([multiCrossing], 'union');
+    const second = booleanNormalized([multiCrossing], 'union');
+    expect(first.components).toEqual(second.components);
+    for (const component of first.components) {
+      expect(hasSelfIntersections(component.outer, 1e-6)).toBe(false);
+      expect(
+        component.outer.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y)),
+      ).toBe(true);
+      expect(component.holes.every((hole) => !hasSelfIntersections(hole, 1e-6))).toBe(true);
+    }
+  });
+
+  it('keeps multi-crossing topology stable under translation', () => {
+    const multiCrossing: Point2D[] = [
+      { x: 0, y: 0 },
+      { x: 100, y: 220 },
+      { x: 200, y: 0 },
+      { x: 0, y: 150 },
+      { x: 200, y: 150 },
+    ];
+    const base = booleanNormalized([multiCrossing], 'union');
+    const moved = booleanNormalized([translate(multiCrossing, 1_000_000, -1_000_000)], 'union');
+    expect(moved.components.length).toBe(base.components.length);
+    expect(
+      regionArea({ contours: moved.outerContours, holes: moved.holes, fillRule: moved.fillRule }),
+    ).toBeCloseTo(
+      regionArea({ contours: base.outerContours, holes: base.holes, fillRule: base.fillRule }),
+      3,
+    );
+  });
+
   it('implements base minus union(cutters), preserves all disconnected islands, and creates no sliver vertices', () => {
     const result = booleanNormalized(
       [rect(0, 0, 100, 20), rect(20, -10, 10, 40), rect(60, -10, 10, 40)],
