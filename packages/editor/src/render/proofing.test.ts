@@ -202,7 +202,9 @@ describe('applyProofToItem', () => {
 
     expect(out.fill).toMatchObject({ space: 'rgb', bitDepth: 'float32' });
     expect('profile' in out.fill ? out.fill.profile : undefined).toBeUndefined();
-    expect('profileFingerprint' in out.fill ? out.fill.profileFingerprint : undefined).toBeUndefined();
+    expect(
+      'profileFingerprint' in out.fill ? out.fill.profileFingerprint : undefined,
+    ).toBeUndefined();
     expect(item.fill).toMatchObject({ profile: 'display-p3', profileFingerprint: 'a'.repeat(64) });
   });
 });
