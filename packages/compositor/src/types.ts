@@ -43,6 +43,23 @@ export interface CompositorColorOptions {
   blendEvaluationSpace?: BlendEvaluationSpace;
 }
 
+/**
+ * Image representation inputs passed through to the Canvas2D replay path.
+ * Kept structural so compositor callers do not need to depend on the engine's
+ * internal image-cache policy module.
+ */
+export interface CompositorImagePolicy {
+  maxSourceDim?: number;
+  sourceWidth?: number;
+  sourceHeight?: number;
+  intent?: 'interactive' | 'settled-preview' | 'thumbnail' | 'export' | 'print';
+  resolveMaxSourceDim?: (request: {
+    projectedLongEdge: number;
+    sourceWidth?: number;
+    sourceHeight?: number;
+  }) => number;
+}
+
 /** Runtime diagnostics exposed to the editor status bar (non-blocking reads). */
 export interface CompositorDiagnostics {
   backendId: CompositorBackendId;
@@ -72,7 +89,11 @@ export interface CompositorBackend {
   readonly id: CompositorBackendId;
   init(canvas: HTMLCanvasElement): Promise<void>;
   beginFrame(frame: CompositorFrame, opts?: CompositorBeginFrameOptions): void;
-  drawVectorItems(items: RenderItem[], colorOptions?: CompositorColorOptions): void;
+  drawVectorItems(
+    items: RenderItem[],
+    colorOptions?: CompositorColorOptions,
+    imagePolicy?: CompositorImagePolicy,
+  ): void;
   compositeRasterLayer(id: string, bitmap: ImageBitmap, transform: Affine, blendMode: string): void;
   endFrame(): void;
   destroy(): void;

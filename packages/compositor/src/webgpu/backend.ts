@@ -20,7 +20,7 @@ import { selectWebGpuAdapter } from '@varve/engine';
 import { computeFloatingOrigin, managedColorToNormalized } from '@varve/shared';
 import { Canvas2DBackend } from '../canvas2d/backend';
 import { buildStructuralRenderPlan } from '../structuralRenderPlan';
-import type { CompositorDiagnostics, CompositorFrame } from '../types';
+import type { CompositorDiagnostics, CompositorFrame, CompositorImagePolicy } from '../types';
 import {
   CIRCLE_FRAGMENT_WGSL,
   CIRCLE_VERTEX_WGSL,
@@ -406,6 +406,7 @@ export class WebGPUBackend {
   drawVectorItems(
     items: RenderItem[],
     colorOptions?: import('../types').CompositorColorOptions,
+    imagePolicy?: CompositorImagePolicy,
   ): void {
     if (!items.length) return;
     if (
@@ -436,13 +437,13 @@ export class WebGPUBackend {
           } else {
             // Keep the complete semantic island on Canvas2D. No backend
             // partition is allowed to reorder the compositor's paint order.
-            this.present?.drawVectorItems([...segment.items], colorOptions);
+            this.present?.drawVectorItems([...segment.items], colorOptions, imagePolicy);
           }
         }
       }
       return;
     }
-    this.present?.drawVectorItems(items, colorOptions);
+    this.present?.drawVectorItems(items, colorOptions, imagePolicy);
   }
 
   compositeRasterLayer(
