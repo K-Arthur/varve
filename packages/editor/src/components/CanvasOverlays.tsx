@@ -505,16 +505,19 @@ export function CanvasOverlays({
           doc={doc}
           getWorldTransform={editor.getWorldTransform}
           onUpdateGradient={(nodeId, fillIndex, gradient) => {
-            const node = doc.nodes[nodeId];
-            if (!node) return;
-            const nodeAny = node as unknown as Record<string, unknown>;
-            const current: Fill[] = Array.isArray(nodeAny.fills) ? (nodeAny.fills as Fill[]) : [];
-            const next = [...current];
-            if (fillIndex >= 0 && fillIndex < next.length) {
-              next[fillIndex] = { ...next[fillIndex], gradient } as Fill;
-              editor.updateSelectedFillAt(fillIndex, next[fillIndex] as Fill);
-            }
+            editor.updateNode(nodeId, (node) => {
+              const nodeAny = node as unknown as { fills?: Fill[] };
+              const current = nodeAny.fills ?? [];
+              const fill = current[fillIndex];
+              if (fill?.type !== 'gradient') return node;
+              const fills = [...current];
+              fills[fillIndex] = { ...fill, gradient };
+              return { ...node, fills } as SceneNode;
+            });
           }}
+          onEditStart={editor.beginTransaction}
+          onEditEnd={editor.commitTransaction}
+          onEditCancel={editor.abortTransaction}
         />
       )}
       {editor.state.warpEdit && (
