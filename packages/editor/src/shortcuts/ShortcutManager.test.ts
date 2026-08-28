@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   bindingMatchesEvent,
+  detectCollisions,
   formatShortcut,
   isMac,
   SHORTCUT_DEFS,
@@ -188,5 +189,27 @@ describe('SHORTCUT_DEFS', () => {
       expect(typeof def.label).toBe('string');
       expect(typeof def.category).toBe('string');
     }
+  });
+});
+
+describe('Knife and Export Region shortcuts', () => {
+  it('gives the Knife N and leaves Export Region on K', () => {
+    // K stayed with the export region because documents and workspace
+    // toolbars already reference that binding; the new tool took a free key.
+    expect(SHORTCUT_DEFS.toolSlice.binding).toEqual({ key: 'k' });
+    expect(SHORTCUT_DEFS.toolKnife.binding).toEqual({ key: 'n' });
+  });
+
+  it('labels them so neither reads as the other', () => {
+    expect(SHORTCUT_DEFS.toolSlice.label).toBe('Export Region tool');
+    expect(SHORTCUT_DEFS.toolKnife.label).toBe('Knife tool');
+  });
+
+  it('introduces no collision', () => {
+    const collisions = detectCollisions();
+    const involved = collisions.filter((c) =>
+      ['toolKnife', 'toolSlice'].some((id) => c.id1 === id || c.id2 === id),
+    );
+    expect(involved).toEqual([]);
   });
 });
