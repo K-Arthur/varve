@@ -59,6 +59,8 @@ export interface FlattenCapability {
   nativeShapeKinds: ReadonlySet<string>;
   /** Gradient types the target supports (e.g. 'linear'). */
   nativeGradientTypes: ReadonlySet<string>;
+  /** Whether gradient paint servers may be attached directly to strokes. */
+  supportsGradientStrokes: boolean;
   /** Whether the target supports text nodes with font fallback. */
   supportsText: boolean;
   /** Whether the target supports groups/frames with clipping. */
@@ -217,6 +219,7 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
   svg: {
     nativeShapeKinds: SVG_NATIVE_SHAPES,
     nativeGradientTypes: SVG_NATIVE_GRADIENTS,
+    supportsGradientStrokes: true,
     supportsText: true,
     supportsGroups: true,
     supportsImages: true,
@@ -233,6 +236,7 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
   pdf: {
     nativeShapeKinds: PDF_NATIVE_SHAPES,
     nativeGradientTypes: PDF_NATIVE_GRADIENTS,
+    supportsGradientStrokes: false,
     supportsText: true, // native PDF text via strata-print (WinAnsi + subset + outline fallback)
     supportsGroups: true,
     supportsImages: true,
@@ -249,6 +253,7 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
   raster: {
     nativeShapeKinds: RASTER_NATIVE_SHAPES,
     nativeGradientTypes: RASTER_NATIVE_GRADIENTS,
+    supportsGradientStrokes: true,
     supportsText: true,
     supportsGroups: true,
     supportsImages: true,
@@ -305,11 +310,19 @@ function collectNodeFills(node: SceneNode): Fill[] {
  * Check whether a node's non-linear gradient fills need flattening for SVG.
  */
 function hasNonLinearGradients(node: SceneNode, cap: FlattenCapability): boolean {
-  if (cap.nativeGradientTypes.size >= 4) return false; // supports all
   const fills = collectNodeFills(node);
   for (const fill of fills) {
     if (fill.type === 'gradient' && fill.gradient) {
       if (!cap.nativeGradientTypes.has(fill.gradient.type)) return true;
+    }
+  }
+  if (node.kind === 'shape') {
+    for (const stroke of node.strokes) {
+      if (stroke.visible && stroke.gradient) {
+        if (!cap.supportsGradientStrokes || !cap.nativeGradientTypes.has(stroke.gradient.type)) {
+          return true;
+        }
+      }
     }
   }
   return false;

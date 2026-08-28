@@ -450,6 +450,47 @@ describe('assessNodeCapability', () => {
       const doc = makeDoc({ s1: node });
       expect(assessNodeCapability(node, doc, 'svg')).toBe(false);
     });
+
+    it('keeps linear gradient strokes native in SVG and rasterizes them for PDF', () => {
+      const strokeGradient = {
+        type: 'gradient' as const,
+        gradient: {
+          type: 'linear' as const,
+          stops: [
+            { position: 0, color: { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 } },
+          ],
+          transform: [120, 30, -20, 60, 4, 8] as const,
+        },
+        opacity: 1,
+        blendMode: 'normal' as const,
+        visible: true,
+      };
+      const node = makeShapeNode(
+        'stroke-gradient',
+        { kind: 'rect' },
+        {
+          strokes: [
+            {
+              color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+              weight: 4,
+              align: 'center',
+              dashPattern: [],
+              dashOffset: 0,
+              cap: 'round',
+              join: 'miter',
+              miterLimit: 4,
+              visible: true,
+              gradient: strokeGradient.gradient,
+            },
+          ],
+        },
+      );
+      const doc = makeDoc({ [node.id]: node });
+      expect(assessNodeCapability(node, doc, 'svg')).toBe(true);
+      expect(assessNodeCapability(node, doc, 'raster')).toBe(true);
+      expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
+    });
   });
 
   describe('stacked fills', () => {
