@@ -85,8 +85,9 @@ export class NodeEditTool extends BaseTool {
     // Check handle hit first (handles have smaller radius 6px vs anchor 8px,
     // but we check handles first so they take priority when the user clicks
     // near a handle control point even if it's also within anchor radius).
-    const handleHit = findNearestHandle(node.shape.points, local, handleRadiusLocal);
-    const anchorHit = findNearestAnchorLocal(node.shape.points, local, anchorRadiusLocal);
+    const rings = pathRings(node.shape);
+    const handleHit = findNearestHandle(rings, local, handleRadiusLocal);
+    const anchorHit = findNearestAnchorLocal(rings, local, anchorRadiusLocal);
 
     if (handleHit !== null && anchorHit !== null && anchorHit === handleHit.anchorIdx) {
       // Both within radius of the same anchor — anchor hit takes priority.
@@ -96,7 +97,8 @@ export class NodeEditTool extends BaseTool {
       this.beginEditTransaction(ctx);
       if (!e.shiftKey) this.selectedAnchors.clear();
       ctx.setNodeEditSelectedAnchors(new Set(this.selectedAnchors));
-      const pt = node.shape.points[handleHit.anchorIdx]!;
+      const pt = pointAtGlobalIndex(rings, handleHit.anchorIdx);
+      if (!pt) return { consumed: true, captured: true };
       const wasAlt = e.altKey;
       this.draggingHandle = handleHit;
       this.dragStartHandleValue = [
@@ -122,7 +124,8 @@ export class NodeEditTool extends BaseTool {
       this.selectedAnchors.add(anchorHit);
       ctx.setNodeEditSelectedAnchors(new Set(this.selectedAnchors));
       this.draggingAnchorIdx = anchorHit;
-      const pt = node.shape.points[anchorHit]!;
+      const pt = pointAtGlobalIndex(rings, anchorHit);
+      if (!pt) return { consumed: true, captured: true };
       this.dragStartAnchorPos = { x: pt.x, y: pt.y };
       this.dragStartWorld = world;
       this.drag = {
@@ -174,26 +177,24 @@ export class NodeEditTool extends BaseTool {
       const newHandle1 = this.dragStartHandleValue[1] + dy;
       ctx.updateNode(targetId, (n) => {
         if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
-        const points: PathPoint[] = n.shape.points.map((p, i) => {
-          if (i !== anchorIdx) return p;
-          if (which === 'in') {
-            const updated = { ...p, handleIn: [newHandle0, newHandle1] as [number, number] };
-            // Alt-drag: don't mirror to handleOut (break symmetry)
-            if (!this.altDragStarted) {
-              updated.handleOut = [-newHandle0, -newHandle1] as [number, number];
+        // Update the selected anchor in whichever contour it belongs to.
+        return {
+          ...n,
+          shape: updatePathPoint(n.shape, anchorIdx, (p) => {
+            if (which === 'in') {
+              const updated = { ...p, handleIn: [newHandle0, newHandle1] as [number, number] };
+              if (!this.altDragStarted) {
+                updated.handleOut = [-newHandle0, -newHandle1] as [number, number];
+              }
+              return updated;
             }
-            return updated;
-          }
-          const updated = { ...p, handleOut: [newHandle0, newHandle1] as [number, number] };
-          // Alt-drag: don't mirror to handleIn (break symmetry)
-          if (!this.altDragStarted) {
-            if (p.handleIn) {
+            const updated = { ...p, handleOut: [newHandle0, newHandle1] as [number, number] };
+            if (!this.altDragStarted && p.handleIn) {
               updated.handleIn = [-newHandle0, -newHandle1] as [number, number];
             }
-          }
-          return updated;
-        });
-        return { ...n, shape: { ...n.shape, points } } as ShapeNode;
+            return updated;
+          }),
+        } as ShapeNode;
       });
       return;
     }
@@ -206,10 +207,8 @@ export class NodeEditTool extends BaseTool {
 
     ctx.updateNode(targetId, (n) => {
       if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
-      const points = n.shape.points.map((p, i) =>
-        i === anchorIdx ? { ...p, x: newX, y: newY } : p,
-      );
-      return { ...n, shape: { ...n.shape, points } } as ShapeNode;
+      const shape = updatePathPoint(n.shape, anchorIdx, (p) => ({ ...p, x: newX, y: newY }));
+      return { ...n, shape } as ShapeNode;
     });
   }
 
@@ -255,14 +254,33 @@ export class NodeEditTool extends BaseTool {
     if (!targetId) return false;
     const node = ctx.getNode(targetId);
     if (node?.kind !== 'shape' || node.shape.kind !== 'path') return false;
-    if (node.shape.points.length - this.selectedAnchors.size < 2) return false;
+    const rings = pathRings(node.shape);
+    const removals = new Map<number, Set<number>>();
+    for (const globalIndex of this.selectedAnchors) {
+      const location = locateGlobalIndex(rings, globalIndex);
+      if (!location) continue;
+      const indices = removals.get(location.ringIndex) ?? new Set<number>();
+      indices.add(location.pointIndex);
+      removals.set(location.ringIndex, indices);
+    }
+    for (const [ringIndex, indices] of removals) {
+      const ring = rings[ringIndex]!;
+      const minimum = ringIndex === 0 ? 2 : 3;
+      if (ring.length - indices.size < minimum) return false;
+    }
 
-    const toRemove = new Set(this.selectedAnchors);
     ctx.beginTransaction();
     ctx.updateNode(targetId, (n) => {
       if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
-      const points = n.shape.points.filter((_, i) => !toRemove.has(i));
-      return { ...n, shape: { ...n.shape, points } } as ShapeNode;
+      const currentRings = pathRings(n.shape);
+      const points = currentRings[0]!.filter((_, i) => !removals.get(0)?.has(i));
+      const holes = currentRings
+        .slice(1)
+        .map((ring, i) => ring.filter((_, pointIndex) => !removals.get(i + 1)?.has(pointIndex)));
+      return {
+        ...n,
+        shape: { ...n.shape, points, ...(n.shape.holes ? { holes } : {}) },
+      } as ShapeNode;
     });
     ctx.commitTransaction();
     this.selectedAnchors.clear();
@@ -281,23 +299,34 @@ export class NodeEditTool extends BaseTool {
     ctx.updateNode(targetId, (n) => {
       if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
       const s = n.shape;
-      const points: PathPoint[] = s.points.map((p, i) => {
-        if (!toToggle.has(i)) return p;
-        if (p.handleIn === null && p.handleOut === null) {
-          const len = computeDefaultHandleLength(s.points, i);
-          // handleIn points toward the previous point (negative of forward direction),
-          // handleOut points toward the next point.
-          const prevDir = computeHandleDirection(s.points, i, 'prev');
-          const nextDir = computeHandleDirection(s.points, i, 'next');
-          return {
-            ...p,
-            handleIn: [prevDir[0] * len, prevDir[1] * len] as [number, number],
-            handleOut: [nextDir[0] * len, nextDir[1] * len] as [number, number],
-          };
-        }
-        return { ...p, handleIn: null, handleOut: null };
+      const rings = pathRings(s);
+      let offset = 0;
+      const updatedRings = rings.map((ring) => {
+        const ringOffset = offset;
+        offset += ring.length;
+        return ring.map((p, i) => {
+          if (!toToggle.has(ringOffset + i)) return p;
+          if (p.handleIn === null && p.handleOut === null) {
+            const len = computeDefaultHandleLength(ring, i);
+            const prevDir = computeHandleDirection(ring, i, 'prev');
+            const nextDir = computeHandleDirection(ring, i, 'next');
+            return {
+              ...p,
+              handleIn: [prevDir[0] * len, prevDir[1] * len] as [number, number],
+              handleOut: [nextDir[0] * len, nextDir[1] * len] as [number, number],
+            };
+          }
+          return { ...p, handleIn: null, handleOut: null };
+        });
       });
-      return { ...n, shape: { ...n.shape, points } } as ShapeNode;
+      return {
+        ...n,
+        shape: {
+          ...s,
+          points: updatedRings[0]!,
+          ...(s.holes ? { holes: updatedRings.slice(1) } : {}),
+        },
+      } as ShapeNode;
     });
     return true;
   }
@@ -308,58 +337,112 @@ export class NodeEditTool extends BaseTool {
   }
 }
 
+function pathRings(shape: Extract<ShapeNode['shape'], { kind: 'path' }>): PathPoint[][] {
+  return [shape.points, ...(shape.holes ?? [])];
+}
+
+function locateGlobalIndex(
+  rings: PathPoint[][],
+  globalIndex: number,
+): { ringIndex: number; pointIndex: number } | null {
+  let offset = 0;
+  for (let ringIndex = 0; ringIndex < rings.length; ringIndex++) {
+    const ring = rings[ringIndex]!;
+    if (globalIndex >= offset && globalIndex < offset + ring.length) {
+      return { ringIndex, pointIndex: globalIndex - offset };
+    }
+    offset += ring.length;
+  }
+  return null;
+}
+
+function pointAtGlobalIndex(rings: PathPoint[][], globalIndex: number): PathPoint | null {
+  const location = locateGlobalIndex(rings, globalIndex);
+  return location ? (rings[location.ringIndex]![location.pointIndex] ?? null) : null;
+}
+
+function updatePathPoint(
+  shape: Extract<ShapeNode['shape'], { kind: 'path' }>,
+  globalIndex: number,
+  update: (point: PathPoint) => PathPoint,
+): Extract<ShapeNode['shape'], { kind: 'path' }> {
+  const rings = pathRings(shape);
+  const location = locateGlobalIndex(rings, globalIndex);
+  if (!location) return shape;
+  const updatedRings = rings.map((ring, ringIndex) =>
+    ring.map((point, pointIndex) =>
+      ringIndex === location.ringIndex && pointIndex === location.pointIndex
+        ? update(point)
+        : point,
+    ),
+  );
+  return {
+    ...shape,
+    points: updatedRings[0]!,
+    ...(shape.holes ? { holes: updatedRings.slice(1) } : {}),
+  };
+}
+
 function findNearestAnchorLocal(
-  points: PathPoint[],
+  rings: PathPoint[][],
   local: readonly [number, number],
   radius: number,
 ): number | null {
   let best: number | null = null;
   let bestDist = radius * radius;
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i]!;
-    const dx = local[0] - p.x;
-    const dy = local[1] - p.y;
-    const dist2 = dx * dx + dy * dy;
-    if (dist2 < bestDist) {
-      bestDist = dist2;
-      best = i;
+  let offset = 0;
+  for (const ring of rings) {
+    for (let i = 0; i < ring.length; i++) {
+      const p = ring[i]!;
+      const dx = local[0] - p.x;
+      const dy = local[1] - p.y;
+      const dist2 = dx * dx + dy * dy;
+      if (dist2 < bestDist) {
+        bestDist = dist2;
+        best = offset + i;
+      }
     }
+    offset += ring.length;
   }
   return best;
 }
 
 function findNearestHandle(
-  points: PathPoint[],
+  rings: PathPoint[][],
   local: readonly [number, number],
   radius: number,
 ): { anchorIdx: number; which: 'in' | 'out' } | null {
   const r2 = radius * radius;
   let best: { anchorIdx: number; which: 'in' | 'out' } | null = null;
   let bestDist = r2;
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i]!;
-    if (p.handleIn) {
-      const hx = p.x + p.handleIn[0];
-      const hy = p.y + p.handleIn[1];
-      const dx = local[0] - hx;
-      const dy = local[1] - hy;
-      const d2 = dx * dx + dy * dy;
-      if (d2 < bestDist) {
-        bestDist = d2;
-        best = { anchorIdx: i, which: 'in' };
+  let offset = 0;
+  for (const ring of rings) {
+    for (let i = 0; i < ring.length; i++) {
+      const p = ring[i]!;
+      if (p.handleIn) {
+        const hx = p.x + p.handleIn[0];
+        const hy = p.y + p.handleIn[1];
+        const dx = local[0] - hx;
+        const dy = local[1] - hy;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestDist) {
+          bestDist = d2;
+          best = { anchorIdx: offset + i, which: 'in' };
+        }
+      }
+      if (p.handleOut) {
+        const hx = p.x + p.handleOut[0];
+        const hy = p.y + p.handleOut[1];
+        const dx = local[0] - hx;
+        const dy = local[1] - hy;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestDist) {
+          bestDist = d2;
+          best = { anchorIdx: offset + i, which: 'out' };
+        }
       }
     }
-    if (p.handleOut) {
-      const hx = p.x + p.handleOut[0];
-      const hy = p.y + p.handleOut[1];
-      const dx = local[0] - hx;
-      const dy = local[1] - hy;
-      const d2 = dx * dx + dy * dy;
-      if (d2 < bestDist) {
-        bestDist = d2;
-        best = { anchorIdx: i, which: 'out' };
-      }
-    }
+    offset += ring.length;
   }
   return best;
 }

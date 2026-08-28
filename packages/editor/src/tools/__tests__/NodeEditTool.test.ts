@@ -17,7 +17,13 @@ function makePathNode(points: PathPoint[]) {
     rotation: 0,
     fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
     transform: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
-    shape: { kind: 'path' as const, points, closed: false, tolerance: 3 },
+    shape: {
+      kind: 'path' as const,
+      points,
+      closed: false,
+      tolerance: 3,
+      holes: [] as PathPoint[][],
+    },
     fills: [] as [],
     strokes: [] as [],
     effects: [] as [],
@@ -251,6 +257,42 @@ describe('NodeEditTool — anchor move', () => {
     // Anchor 0 should have moved from (10,10) to (30,20)
     expect(updated.shape.points[0]!.x).toBeCloseTo(30);
     expect(updated.shape.points[0]!.y).toBeCloseTo(20);
+  });
+
+  it('moves an anchor in a compound-path hole', () => {
+    const node = makePathNode([
+      { x: 0, y: 0, handleIn: null, handleOut: null },
+      { x: 100, y: 0, handleIn: null, handleOut: null },
+      { x: 100, y: 100, handleIn: null, handleOut: null },
+      { x: 0, y: 100, handleIn: null, handleOut: null },
+    ]);
+    node.shape.closed = true;
+    node.shape.holes = [
+      [
+        { x: 25, y: 25, handleIn: null, handleOut: null },
+        { x: 75, y: 25, handleIn: null, handleOut: null },
+        { x: 75, y: 75, handleIn: null, handleOut: null },
+        { x: 25, y: 75, handleIn: null, handleOut: null },
+      ],
+    ];
+    const ctx = makeCtx({
+      document: {
+        nodes: { n1: node },
+        rootChildren: ['n1'],
+        name: 'Test',
+      } as unknown as ToolContext['document'],
+      getNode: vi.fn((id) => (id === 'n1' ? node : undefined)),
+      rootNodes: vi.fn(() => [node]),
+    });
+    const tool = new NodeEditTool();
+    tool.onPointerDown?.(makePointerEvent(25, 25), ctx);
+    tool.onPointerMove?.(makePointerEvent(35, 30), ctx);
+
+    const updater = vi.mocked(ctx.updateNode).mock.calls[0]![1] as unknown as (
+      n: ReturnType<typeof makePathNode>,
+    ) => ReturnType<typeof makePathNode>;
+    const updated = updater(node);
+    expect(updated.shape.holes?.[0]?.[0]).toMatchObject({ x: 35, y: 30 });
   });
 });
 
