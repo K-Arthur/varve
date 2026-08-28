@@ -21,12 +21,16 @@ import {
   defaultBrushPreset,
   eraseDabOnNode,
   maskValueFromColor,
-  strokePoint,
 } from '@varve/scene';
 import { BrushWorkerHost, type StrokeBatchEvent } from '../render/brushWorkerHost';
 import { getPaintProfiler } from '../render/paintProfiler';
 import { BaseTool } from './BaseTool';
-import { collectSourceEvents } from './inputNormalizer';
+import {
+  collectSourceEvents,
+  inputToStrokePoint,
+  type NormalizedInputEvent,
+  normalizeInputEvent,
+} from './inputNormalizer';
 import {
   beginMaskPaintSession,
   commitMaskPaintSession,
@@ -35,7 +39,6 @@ import {
   paintMaskDab,
 } from './maskPaintSession';
 import { resolvePaintTarget } from './paintTarget';
-import { normalizePressure, normalizeTilt } from './pointerDynamics';
 import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
 import { selectionCoverageForDab } from './selectionCoverage';
 import { resolveSymmetryTransforms, type SymmetrySettings, transformStrokePoint } from './symmetry';
@@ -331,11 +334,7 @@ export class PaintTool extends BaseTool {
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     const local = rasterLocalPoint(ctx, rasterNodeId, world);
-    const sp = strokePoint(local.x, local.y, {
-      pressure: normalizePressure(e.pressure, ctx.pointerType),
-      tilt: normalizeTilt(e.tiltX, e.tiltY),
-      time: e.timeStamp,
-    });
+    const sp = inputToStrokePoint(normalizeInputEvent(e), local);
     this.lastSamplePoint = sp;
     this.dispatch(session, [sp]);
 
@@ -357,12 +356,7 @@ export class PaintTool extends BaseTool {
       if (ev.isPredicted) continue;
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
       const local = rasterLocalPoint(ctx, session.rasterNodeId, world);
-      const sp = this.makeSample(
-        local,
-        normalizePressure(ev.pressure, ctx.pointerType),
-        ev.time,
-        normalizeTilt(ev.tiltX, ev.tiltY),
-      );
+      const sp = this.makeSample(local, ev);
       if (sp) batch.push(sp);
     }
     if (batch.length > 0) this.dispatch(session, batch);
@@ -380,12 +374,7 @@ export class PaintTool extends BaseTool {
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     const local = rasterLocalPoint(ctx, session.rasterNodeId, world);
-    const sp = this.makeSample(
-      local,
-      normalizePressure(e.pressure, ctx.pointerType),
-      e.timeStamp,
-      normalizeTilt(e.tiltX, e.tiltY),
-    );
+    const sp = this.makeSample(local, normalizeInputEvent(e));
     if (sp) this.dispatch(session, [sp]);
 
     super.onPointerUp(e, ctx);
@@ -446,31 +435,30 @@ export class PaintTool extends BaseTool {
 
   private makeSample(
     local: { x: number; y: number },
-    pressure: number,
-    time: number | undefined,
-    tilt: number,
+    input: NormalizedInputEvent,
   ): import('@varve/scene').StrokePoint | null {
     const last = this.lastSamplePoint;
-    const t = time ?? nowMs();
     if (!last) {
-      const sp = strokePoint(local.x, local.y, { pressure, tilt, time: t });
+      const sp = inputToStrokePoint(input, local);
       this.lastSamplePoint = sp;
       return sp;
     }
-    const dx = local.x - last.x;
-    const dy = local.y - last.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    // Sub-0.25px moves carry no geometric information but do flood the queue.
-    if (dist < 0.25) return null;
-    const dt = t - last.time;
-    const speed = dt > 0 ? (dist / dt) * 1000 : 0;
-    const sp = strokePoint(local.x, local.y, {
-      pressure,
-      tilt,
-      direction: Math.atan2(dy, dx),
-      speed,
-      time: t,
-    });
+    // Reordered packets and an auto-pan continuation can carry an earlier
+    // timestamp. Keep the stream monotonic without inventing a speed spike.
+    const time = Math.max(last.time, input.time);
+    if (
+      time === last.time &&
+      local.x === last.x &&
+      local.y === last.y &&
+      input.pressure === last.pressure
+    ) {
+      return null;
+    }
+    // Retain even zero-distance samples: their pressure, tilt and timestamp
+    // form the correct endpoint for dynamics interpolation on the next
+    // non-zero segment. Discarding sub-pixel samples was the first avoidable
+    // loss of continuous stylus state in the authoritative path.
+    const sp = inputToStrokePoint({ ...input, time }, local, last);
     this.lastSamplePoint = sp;
     return sp;
   }

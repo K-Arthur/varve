@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  canonicalizeInputEvents,
   collectSourceEvents,
   detectPlatformCapabilities,
   hasGenuineStylusData,
@@ -42,6 +43,11 @@ describe('normalizeInputEvent', () => {
     const n = normalizeInputEvent(ev);
     expect(n.pressure).toBe(0.75);
     expect(n.pointerType).toBe('pen');
+  });
+
+  it('preserves a zero-pressure pen sample instead of substituting mouse pressure', () => {
+    const n = normalizeInputEvent(makePointerEvent({ pointerType: 'pen', pressure: 0 }));
+    expect(n.pressure).toBe(0);
   });
 
   it('clamps pressure to [0, 1]', () => {
@@ -119,6 +125,27 @@ describe('normalizeInputEvent', () => {
     const n = normalizeInputEvent(makePointerEvent({ timeStamp: Date.now() }));
     expect(Math.abs(n.time - performance.now())).toBeLessThan(20);
   });
+
+  it('uses safe defaults for malformed optional stylus values', () => {
+    const n = normalizeInputEvent(
+      makePointerEvent({
+        tiltX: Number.NaN,
+        tiltY: Number.NaN,
+        altitudeAngle: Number.NaN,
+        azimuthAngle: Number.NaN,
+        tangentialPressure: Number.NaN,
+        width: Number.NaN,
+        height: Number.NaN,
+      } as Partial<PointerEvent>),
+    );
+    expect(n.tiltX).toBe(0);
+    expect(n.tiltY).toBe(0);
+    expect(n.altitudeAngle).toBe(Math.PI / 2);
+    expect(n.azimuthAngle).toBe(0);
+    expect(n.tangentialPressure).toBe(0);
+    expect(n.width).toBe(1);
+    expect(n.height).toBe(1);
+  });
 });
 
 describe('collectSourceEvents', () => {
@@ -168,6 +195,22 @@ describe('collectSourceEvents', () => {
     const events = collectSourceEvents(ev, false);
     expect(events.length).toBe(2);
   });
+
+  it('orders samples, removes duplicates, and gives confirmed input priority', () => {
+    const now = performance.now();
+    const early = normalizeInputEvent(makePointerEvent({ clientX: 10, timeStamp: now - 8 }));
+    const late = normalizeInputEvent(makePointerEvent({ clientX: 30, timeStamp: now - 2 }));
+    const duplicate = { ...late };
+    const predictedDuplicate = { ...late, isPredicted: true };
+    const predicted = {
+      ...normalizeInputEvent(makePointerEvent({ clientX: 40, timeStamp: now + 2 })),
+      isPredicted: true,
+    };
+
+    expect(
+      canonicalizeInputEvents([late, predicted, duplicate, early, predictedDuplicate]),
+    ).toEqual([early, late, predicted]);
+  });
 });
 
 describe('inputToStrokePoint', () => {
@@ -195,7 +238,8 @@ describe('inputToStrokePoint', () => {
     expect(sp.x).toBe(50);
     expect(sp.y).toBe(60);
     expect(sp.pressure).toBe(0.75);
-    expect(sp.tilt).toBe(22.5);
+    expect(sp.tilt).toBeCloseTo(32.477, 3);
+    expect(sp.tiltAzimuth).toBe(0.5);
     expect(sp.time).toBe(1000);
   });
 
@@ -220,7 +264,7 @@ describe('inputToStrokePoint', () => {
       pointerId: 1,
     };
     const sp = inputToStrokePoint(input, { x: 110, y: 200 }, { x: 100, y: 200, time: 1000 });
-    expect(sp.speed).toBe(10);
+    expect(sp.speed).toBeCloseTo(10, 5);
     expect(sp.direction).toBeCloseTo(0, 3);
   });
 

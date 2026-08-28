@@ -16,24 +16,30 @@ export type PointerKind = 'mouse' | 'pen' | 'touch' | string;
 /**
  * Normalize `PointerEvent.pressure` to a usable brush pressure.
  *
- * Pens keep whatever they report, including very low values — clamping those up
- * would erase the light end of a stylus's dynamic range. Mice and pressureless
- * devices get a fixed mid value so an ordinary mouse user never paints an
- * invisible stroke.
+ * Pens and touch contacts keep whatever they report, including zero. A zero
+ * can be a real hover/up transition and cannot be distinguished reliably from
+ * a pressureless device from one sample alone. Mice and unknown pointer kinds
+ * get a fixed mid value so an ordinary mouse user never paints an invisible
+ * stroke.
  */
 export function normalizePressure(pressure: number, pointerType: PointerKind): number {
   if (!Number.isFinite(pressure)) return DEFAULT_MOUSE_PRESSURE;
-  if (pointerType === 'pen') {
-    // A pen in contact always reports > 0; a reported 0 means "no sensor".
-    if (pressure <= 0) return DEFAULT_MOUSE_PRESSURE;
-    return Math.min(1, pressure);
-  }
-  if (pointerType === 'touch') {
-    // Many touchscreens report the 0.5 placeholder or nothing at all.
-    return pressure > 0 ? Math.min(1, pressure) : DEFAULT_MOUSE_PRESSURE;
-  }
+  if (pointerType === 'pen' || pointerType === 'touch') return Math.max(0, Math.min(1, pressure));
   // Mouse: the spec says 0.5 while a button is held, but browsers disagree.
   return pressure > 0 ? Math.min(1, pressure) : DEFAULT_MOUSE_PRESSURE;
+}
+
+/**
+ * Filter a document-space velocity without coupling input normalisation to the
+ * brush renderer. The time constants are deliberately short: this removes
+ * timestamp jitter while still tracking an expressive acceleration quickly.
+ */
+export function filterVelocity(prevSpeed: number, rawSpeed: number, dtSec: number): number {
+  if (dtSec <= 0 || !Number.isFinite(rawSpeed)) return prevSpeed;
+  const tau = 0.05;
+  const alpha =
+    rawSpeed > prevSpeed ? 1 - Math.exp(-dtSec / (tau * 0.5)) : 1 - Math.exp(-dtSec / (tau * 2));
+  return prevSpeed + (rawSpeed - prevSpeed) * alpha;
 }
 
 /**

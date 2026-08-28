@@ -109,13 +109,20 @@ describe('symmetry transforms', () => {
   it('preserves pressure and tilt through a transform', () => {
     const s = { ...defaultSymmetrySettings(), mode: 'mirrorY' as const, originX: 0, originY: 0 };
     const [, mirror] = resolveSymmetryTransforms(s);
-    const src = strokePoint(10, 20, { pressure: 0.3, tilt: 42, speed: 99, time: 7 });
+    const src = strokePoint(10, 20, {
+      pressure: 0.3,
+      tilt: 42,
+      tiltAzimuth: Math.PI / 3,
+      speed: 99,
+      time: 7,
+    });
     const out = transformStrokePoint(src, mirror!);
     expect(out.pressure).toBe(0.3);
     expect(out.tilt).toBe(42);
     expect(out.speed).toBe(99);
     expect(out.time).toBe(7);
     expect(out.x).toBeCloseTo(-10, 9);
+    expect(out.tiltAzimuth).toBeCloseTo((2 * Math.PI) / 3, 9);
   });
 
   it('returns the same object when a transform is a no-op', () => {

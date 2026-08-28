@@ -151,14 +151,20 @@ export interface StrokePoint {
   y: number;
   /** Pressure 0-1. */
   pressure: number;
-  /** Tilt in degrees from vertical. */
+  /** Tilt magnitude in degrees from vertical (0-90). */
   tilt: number;
   /** Direction of movement in radians. */
   direction: number;
-  /** Speed in pixels per second. */
+  /** Speed in pixels per second (filtered/low-passed). */
   speed: number;
   /** Timestamp in milliseconds. */
   time: number;
+  /**
+   * Tilt azimuth — the direction the pen leans toward, in radians.
+   * null when the pen is upright (tilt ≈ 0).
+   * Needed by directional brush tips (pencil, chisel, nib).
+   */
+  tiltAzimuth?: number | null;
 }
 
 export interface BrushDab {
@@ -242,6 +248,7 @@ export function strokePoint(x: number, y: number, options: Partial<StrokePoint> 
     direction: options.direction ?? 0,
     speed: options.speed ?? 0,
     time: options.time ?? 0,
+    tiltAzimuth: options.tiltAzimuth ?? null,
   };
 }
 
@@ -253,6 +260,145 @@ export function pointDistance(a: StrokePoint, b: StrokePoint): number {
 
 export function strokeDirection(a: StrokePoint, b: StrokePoint): number {
   return Math.atan2(b.y - a.y, b.x - a.x);
+}
+
+// ── Angle-safe utilities ──────────────────────────────────────────────────────
+
+/**
+ * Shortest-arc interpolation for angles. Interpolates through the ±π
+ * boundary so 179° → -179° travels ~2°, not 358°.
+ */
+export function lerpAngle(a: number, b: number, t: number): number {
+  let diff = b - a;
+  // Wrap to [-π, π]
+  diff = ((diff + Math.PI) % (2 * Math.PI)) - Math.PI;
+  if (diff < -Math.PI) diff += 2 * Math.PI;
+  return a + diff * t;
+}
+
+/**
+ * Shortest-arc difference between two angles, in [-π, π].
+ */
+export function angleDiff(a: number, b: number): number {
+  let diff = b - a;
+  diff = ((diff + Math.PI) % (2 * Math.PI)) - Math.PI;
+  if (diff < -Math.PI) diff += 2 * Math.PI;
+  return diff;
+}
+
+/**
+ * Low-pass filtered velocity estimate.
+ *
+ * Raw `dist / dt` is extremely noisy at high sample rates — a 1 ms timestamp
+ * fluctuation can produce huge speed spikes.  This uses exponential smoothing
+ * of the velocity magnitude, with a faster adaptation constant during
+ * acceleration (catching up to the hand) and a slower one during deceleration
+ * (avoiding jitter at rest).
+ */
+export function filteredSpeed(prevSpeed: number, rawSpeed: number, dtSec: number): number {
+  if (dtSec <= 0) return prevSpeed;
+  // Time constant ~50 ms at 60 Hz; adapts to frame rate
+  const tau = 0.05;
+  // Faster adaptation on accel, slower on decel
+  const alpha =
+    rawSpeed > prevSpeed ? 1 - Math.exp(-dtSec / (tau * 0.5)) : 1 - Math.exp(-dtSec / (tau * 2));
+  return prevSpeed + (rawSpeed - prevSpeed) * alpha;
+}
+
+// ── Centripetal Catmull-Rom interpolation ─────────────────────────────────────
+
+/**
+ * Compute the centripetal parameter value for a Catmull-Rom segment.
+ * Uses |Δp|^0.5 which prevents cusps and self-intersection for nearby points.
+ */
+function catmullRomAlpha(p0: { x: number; y: number }, p1: { x: number; y: number }): number {
+  const dx = p1.x - p0.x;
+  const dy = p1.y - p0.y;
+  return Math.sqrt(Math.sqrt(dx * dx + dy * dy));
+}
+
+/**
+ * Evaluate a centripetal Catmull-Rom spline at parameter t ∈ [0,1]
+ * between control points P1 and P2, given ghost points P0 and P3.
+ *
+ * This is the lowest-latency causal reconstruction that produces smooth
+ * curves without overshoot.  The centripetal parameterization guarantees
+ * the curve does not self-intersect.
+ */
+export function catmullRomPoint(
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  p3: { x: number; y: number },
+  t: number,
+): { x: number; y: number } {
+  const t2 = t * t;
+  const t3 = t2 * t;
+
+  const a1x = p1.x + (p2.x - p0.x) / (6 * Math.max(0.001, catmullRomAlpha(p0, p1)));
+  const a1y = p1.y + (p2.y - p0.y) / (6 * Math.max(0.001, catmullRomAlpha(p0, p1)));
+  const a2x = p2.x - (p3.x - p1.x) / (6 * Math.max(0.001, catmullRomAlpha(p1, p2)));
+  const a2y = p2.y - (p3.y - p1.y) / (6 * Math.max(0.001, catmullRomAlpha(p1, p2)));
+
+  // Cubic Hermite basis
+  const h00 = 2 * t3 - 3 * t2 + 1;
+  const h10 = t3 - 2 * t2 + t;
+  const h01 = -2 * t3 + 3 * t2;
+  const h11 = t3 - t2;
+
+  return {
+    x: h00 * p1.x + h10 * a1x * 6 + h01 * p2.x + h11 * a2x * 6,
+    y: h00 * p1.y + h10 * a1y * 6 + h01 * p2.y + h11 * a2y * 6,
+  };
+}
+
+/**
+ * Walk a centripetal Catmull-Rom curve between p1→p2 given ghost points
+ * p0, p3 and return a fixed-arc-length step of `stepLength` px.
+ *
+ * If the curve is shorter than stepLength, returns just p2.
+ * This is what replaces naive linear interpolation for sparse input.
+ */
+export function catmullRomStep(
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  p3: { x: number; y: number },
+  startT: number,
+  stepLength: number,
+  maxT: number = 1,
+): { x: number; y: number; t: number } {
+  // Adaptive subdivision to find the next point at `stepLength` along the curve.
+  const subdivisions = 16;
+  const dt = (maxT - startT) / subdivisions;
+  let prev = catmullRomPoint(p0, p1, p2, p3, startT);
+  let traveled = 0;
+
+  for (let i = 1; i <= subdivisions; i++) {
+    const tt = startT + dt * i;
+    const pt = catmullRomPoint(p0, p1, p2, p3, Math.min(tt, maxT));
+    const segLen = Math.sqrt((pt.x - prev.x) ** 2 + (pt.y - prev.y) ** 2);
+    traveled += segLen;
+    if (traveled >= stepLength) {
+      // Binary refine to find the exact t where distance == stepLength
+      let lo = startT + dt * (i - 1);
+      let hi = Math.min(tt, maxT);
+      for (let j = 0; j < 4; j++) {
+        const mid = (lo + hi) / 2;
+        const midPt = catmullRomPoint(p0, p1, p2, p3, mid);
+        const d = Math.sqrt((midPt.x - prev.x) ** 2 + (midPt.y - prev.y) ** 2);
+        if (d < stepLength) lo = mid;
+        else hi = mid;
+      }
+      const finalT = (lo + hi) / 2;
+      const finalPt = catmullRomPoint(p0, p1, p2, p3, finalT);
+      return { x: finalPt.x, y: finalPt.y, t: finalT };
+    }
+    prev = pt;
+  }
+  // Reached end of curve segment
+  const end = catmullRomPoint(p0, p1, p2, p3, maxT);
+  return { x: end.x, y: end.y, t: maxT };
 }
 
 /**
@@ -308,9 +454,15 @@ export function interpolatePoints(a: StrokePoint, b: StrokePoint, t: number): St
     y: a.y + (b.y - a.y) * t,
     pressure: a.pressure + (b.pressure - a.pressure) * t,
     tilt: a.tilt + (b.tilt - a.tilt) * t,
-    direction: a.direction + (b.direction - a.direction) * t,
+    direction: lerpAngle(a.direction, b.direction, t),
     speed: a.speed + (b.speed - a.speed) * t,
     time: a.time + (b.time - a.time) * t,
+    tiltAzimuth:
+      a.tiltAzimuth === null || a.tiltAzimuth === undefined
+        ? (b.tiltAzimuth ?? null)
+        : b.tiltAzimuth === null || b.tiltAzimuth === undefined
+          ? a.tiltAzimuth
+          : lerpAngle(a.tiltAzimuth, b.tiltAzimuth, t),
   };
 }
 

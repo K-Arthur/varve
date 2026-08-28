@@ -17,6 +17,7 @@
 
 import { isWebKitGTK } from '@varve/platform';
 import type { StrokePoint } from '@varve/scene';
+import { filterVelocity, normalizePressure, normalizeTilt, tiltAzimuth } from './pointerDynamics';
 
 /**
  * Canonical normalized input event from a single pointer sample.
@@ -116,19 +117,19 @@ export function hasGenuineStylusData(ev: PointerEvent): boolean {
  * All properties are safely defaulted.
  */
 export function normalizeInputEvent(ev: PointerEvent): NormalizedInputEvent {
-  const isPen = ev.pointerType === 'pen';
-  const pressure = isPen
-    ? Math.max(0, Math.min(1, ev.pressure))
-    : ev.pointerType === 'touch'
-      ? Math.max(0, Math.min(1, ev.pressure))
-      : 0.5;
+  const pointerType = normalizePointerType(ev.pointerType);
+  const pressure = normalizePressure(ev.pressure, pointerType);
 
-  const tiltX = ev.tiltX ?? 0;
-  const tiltY = ev.tiltY ?? 0;
+  const tiltX = clampFinite(ev.tiltX, -90, 90, 0);
+  const tiltY = clampFinite(ev.tiltY, -90, 90, 0);
   const twist = ev.twist ?? -1;
 
-  const altitude = ev.altitudeAngle ?? (Math.PI / 2) * (1 - tiltY / 90);
-  const azimuth = ev.azimuthAngle ?? Math.atan2(tiltX, tiltY);
+  const altitude = Number.isFinite(ev.altitudeAngle)
+    ? clampFinite(ev.altitudeAngle, 0, Math.PI / 2, Math.PI / 2)
+    : (Math.PI / 2) * (1 - tiltY / 90);
+  const azimuth = Number.isFinite(ev.azimuthAngle)
+    ? ev.azimuthAngle
+    : (tiltAzimuth(tiltX, tiltY) ?? 0);
   const now = performance.now();
   const eventTime = ev.timeStamp;
   // Modern PointerEvent timestamps share performance.timeOrigin. Reject
@@ -142,16 +143,18 @@ export function normalizeInputEvent(ev: PointerEvent): NormalizedInputEvent {
     clientX: ev.clientX,
     clientY: ev.clientY,
     pressure,
-    tiltX: Math.max(-90, Math.min(90, tiltX)),
-    tiltY: Math.max(-90, Math.min(90, tiltY)),
+    tiltX,
+    tiltY,
     twist: twist >= 0 ? twist % 360 : -1,
-    tangentialPressure: Math.max(
+    tangentialPressure: clampFinite(
+      (ev as PointerEvent & { tangentialPressure?: number }).tangentialPressure,
       -1,
-      Math.min(1, (ev as PointerEvent & { tangentialPressure?: number }).tangentialPressure ?? 0),
+      1,
+      0,
     ),
-    width: Math.max(0, (ev as PointerEvent & { width?: number }).width ?? 1),
-    height: Math.max(0, (ev as PointerEvent & { height?: number }).height ?? 1),
-    pointerType: (ev.pointerType as 'mouse' | 'pen' | 'touch') || 'mouse',
+    width: clampFinite((ev as PointerEvent & { width?: number }).width, 0, Number.MAX_VALUE, 1),
+    height: clampFinite((ev as PointerEvent & { height?: number }).height, 0, Number.MAX_VALUE, 1),
+    pointerType,
     altitudeAngle: Math.max(0, Math.min(Math.PI / 2, altitude)),
     azimuthAngle: azimuth,
     isPredicted: false,
@@ -161,6 +164,22 @@ export function normalizeInputEvent(ev: PointerEvent): NormalizedInputEvent {
     isPrimary: ev.isPrimary,
     pointerId: ev.pointerId,
   };
+}
+
+function clampFinite(
+  value: number | undefined,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
+}
+
+function normalizePointerType(pointerType: string): NormalizedInputEvent['pointerType'] {
+  return pointerType === 'pen' || pointerType === 'touch' || pointerType === 'mouse'
+    ? pointerType
+    : 'mouse';
 }
 
 /**
@@ -205,7 +224,47 @@ export function collectSourceEvents(
     }
   }
 
-  return events;
+  return canonicalizeInputEvents(events);
+}
+
+/**
+ * Put browser samples into the one order the stroke engine accepts.
+ *
+ * Browsers normally return a time-ordered coalesced packet, but WebViews and
+ * synthetic test input have both produced out-of-order samples. Canonicalising
+ * here also prevents the coalesced endpoint and parent pointermove from
+ * becoming two paint samples. Confirmed input always wins over an identical
+ * prediction; predictions remain a distinct, replaceable tail.
+ */
+export function canonicalizeInputEvents(
+  events: readonly NormalizedInputEvent[],
+): NormalizedInputEvent[] {
+  const confirmed: Array<{ event: NormalizedInputEvent; index: number }> = [];
+  const predicted: Array<{ event: NormalizedInputEvent; index: number }> = [];
+
+  for (let index = 0; index < events.length; index++) {
+    const event = events[index]!;
+    if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) continue;
+    const target = event.isPredicted ? predicted : confirmed;
+    target.push({ event, index });
+  }
+
+  const byTimeThenArrival = (
+    a: { event: NormalizedInputEvent; index: number },
+    b: { event: NormalizedInputEvent; index: number },
+  ) => (a.event.time === b.event.time ? a.index - b.index : a.event.time - b.event.time);
+  confirmed.sort(byTimeThenArrival);
+  predicted.sort(byTimeThenArrival);
+
+  const result: NormalizedInputEvent[] = [];
+  const seen = new Set<string>();
+  for (const { event } of [...confirmed, ...predicted]) {
+    const key = `${event.pointerId}:${event.time}:${event.clientX}:${event.clientY}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(event);
+  }
+  return result;
 }
 
 /**
@@ -215,32 +274,36 @@ export function collectSourceEvents(
 export function inputToStrokePoint(
   input: NormalizedInputEvent,
   world: { x: number; y: number },
-  prevPoint?: { x: number; y: number; time: number },
+  prevPoint?: { x: number; y: number; time: number; speed?: number; direction?: number },
 ): StrokePoint {
-  let speed = 0;
-  let direction = 0;
+  let speed = prevPoint?.speed ?? 0;
+  let direction = prevPoint?.direction ?? 0;
 
   if (prevPoint && input.time > prevPoint.time) {
     const dx = world.x - prevPoint.x;
     const dy = world.y - prevPoint.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const dt = (input.time - prevPoint.time) / 1000;
-    if (dt > 0) {
-      speed = dist / dt;
-    }
-    direction = Math.atan2(dy, dx);
+    if (dt > 0) speed = filterVelocity(prevPoint.speed ?? 0, dist / dt, dt);
+    direction = dist > 0 ? Math.atan2(dy, dx) : (prevPoint.direction ?? 0);
   }
 
-  const avgTiltDeg = (input.tiltX + input.tiltY) / 2;
+  const tilt = normalizeTilt(input.tiltX, input.tiltY);
 
   return {
     x: world.x,
     y: world.y,
     pressure: input.pressure,
-    tilt: avgTiltDeg,
+    tilt,
     direction,
     speed,
     time: input.time,
+    tiltAzimuth:
+      tilt > 0
+        ? Number.isFinite(input.azimuthAngle)
+          ? input.azimuthAngle
+          : tiltAzimuth(input.tiltX, input.tiltY)
+        : null,
   };
 }
 

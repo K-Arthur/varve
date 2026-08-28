@@ -431,6 +431,57 @@ describe('PaintTool', () => {
     expect(getCoalescedEvents).not.toHaveBeenCalled();
   });
 
+  it('retains sub-pixel motion and directional stylus state in the authoritative stream', () => {
+    const batches: import('@varve/scene').StrokePoint[][] = [];
+    const worker = {
+      isUsingWorker: true,
+      beginStroke: vi.fn(),
+      appendPoints: vi.fn(
+        (_id: string, _generation: number, points: import('@varve/scene').StrokePoint[]) => {
+          batches.push(points);
+        },
+      ),
+      endStroke: vi.fn(),
+      cancelStroke: vi.fn(),
+      destroy: vi.fn(),
+      onBatch: null,
+    } as unknown as BrushWorkerHost;
+    tool.setWorkerHost(worker);
+
+    const now = performance.now();
+    const down = makePointerEvent(100, 200, {
+      pointerId: 1,
+      pointerType: 'pen',
+      pressure: 0.02,
+      tiltX: 20,
+      tiltY: 10,
+      azimuthAngle: 0.7,
+      timeStamp: now,
+    });
+    tool.onPointerDown(down, ctx);
+    const move = makePointerEvent(100.1, 200.1, {
+      pointerId: 1,
+      pointerType: 'pen',
+      pressure: 0.03,
+      tiltX: 25,
+      tiltY: 10,
+      azimuthAngle: 0.8,
+      timeStamp: now + 8,
+    });
+    ctx.sourceEvents = [normalizeInputEvent(move)];
+    tool.onPointerMove(move, ctx);
+
+    expect(batches).toHaveLength(2);
+    const initial = batches[0]![0]!;
+    const subPixel = batches[1]![0]!;
+    expect(initial.pressure).toBe(0.02);
+    expect(initial.tiltAzimuth).toBe(0.7);
+    expect(subPixel.x).toBeCloseTo(100.1, 9);
+    expect(subPixel.y).toBeCloseTo(200.1, 9);
+    expect(subPixel.pressure).toBe(0.03);
+    expect(subPixel.tiltAzimuth).toBe(0.8);
+  });
+
   it('tilt values propagate through pointer events', () => {
     const pointer = makePointerEvent(100, 200, {
       pointerId: 1,
