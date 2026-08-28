@@ -65,9 +65,12 @@ export async function convertToCmykIcc(
     const m = (1 - g / 255 - k) / (1 - k || 1);
     const y = (1 - b / 255 - k) / (1 - k || 1);
     const cmykOffset = i * 4;
-    cmyk[cmykOffset] = Math.round((1 - c) * 255);
-    cmyk[cmykOffset + 1] = Math.round((1 - m) * 255);
-    cmyk[cmykOffset + 2] = Math.round((1 - y) * 255);
+    // `c`, `m`, and `y` are already the normalized subtractive channels.
+    // Writing their complements silently swapped every primary (red became
+    // cyan) whenever the ICC/WASM provider was unavailable.
+    cmyk[cmykOffset] = Math.round(c * 255);
+    cmyk[cmykOffset + 1] = Math.round(m * 255);
+    cmyk[cmykOffset + 2] = Math.round(y * 255);
     cmyk[cmykOffset + 3] = a;
   }
   return cmyk;
@@ -89,12 +92,7 @@ export function analyticalRgbToCmyk(
   const c = (1 - rr - k) / (1 - k);
   const m = (1 - gg - k) / (1 - k);
   const y = (1 - bb - k) / (1 - k);
-  return [
-    Math.round((1 - c) * 255),
-    Math.round((1 - m) * 255),
-    Math.round((1 - y) * 255),
-    Math.round(k * 255),
-  ];
+  return [Math.round(c * 255), Math.round(m * 255), Math.round(y * 255), Math.round(k * 255)];
 }
 
 /**
