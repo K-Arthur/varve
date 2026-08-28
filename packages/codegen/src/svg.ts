@@ -446,6 +446,10 @@ function gradientDefElements(gradient: GradientFill, gradId: string, doc: SceneD
   const cx = 50;
   const cy = 50;
   const gradType = gradient.type;
+  const spreadAttr =
+    gradient.tilingMode === 'repeat' || gradient.tilingMode === 'reflect'
+      ? ` spreadMethod="${gradient.tilingMode}"`
+      : '';
   const space =
     gradient.interpolationSource === 'document'
       ? (doc.colorConfig?.defaultGradientInterpolation ?? 'oklab')
@@ -516,7 +520,7 @@ function gradientDefElements(gradient: GradientFill, gradId: string, doc: SceneD
           return ` x1="${x1.toFixed(1)}%" y1="${y1.toFixed(1)}%" x2="${x2.toFixed(1)}%" y2="${y2.toFixed(1)}%"`;
         })();
     defs.push(
-      `    <linearGradient id="${gradId}"${linearAttrs}${colorInterpAttr}>\n${stopElements}\n    </linearGradient>`,
+      `    <linearGradient id="${gradId}"${linearAttrs}${spreadAttr}${colorInterpAttr}>\n${stopElements}\n    </linearGradient>`,
     );
   } else if (gradType === 'radial') {
     const halfDiag = Math.sqrt(cx * cx + cy * cy);
@@ -524,7 +528,7 @@ function gradientDefElements(gradient: GradientFill, gradId: string, doc: SceneD
       ? ` gradientUnits="userSpaceOnUse" cx="0.5" cy="0.5" r="0.5" gradientTransform="${affineToSvg(explicitTransform)}"`
       : ` cx="${cx}%" cy="${cy}%" r="${halfDiag}%"${rot !== 0 ? ` gradientTransform="rotate(${((gradient.rotation ?? 0) * -1).toFixed(1)})"` : ''}`;
     defs.push(
-      `    <radialGradient id="${gradId}"${radialAttrs}${colorInterpAttr}>\n${stopElements}\n    </radialGradient>`,
+      `    <radialGradient id="${gradId}"${radialAttrs}${spreadAttr}${colorInterpAttr}>\n${stopElements}\n    </radialGradient>`,
     );
   }
   if (fidelityComment) defs.push(fidelityComment);

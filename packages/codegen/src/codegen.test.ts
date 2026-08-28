@@ -580,6 +580,27 @@ describe('legacy exports', () => {
       expect(svg).toContain('cy="50%"');
     });
 
+    it('preserves gradient spread mode in SVG', () => {
+      const node = makeShapeNode('spread', { kind: 'rect', x: 0, y: 0, w: 80, h: 40 });
+      (node as unknown as Record<string, unknown>).fills = [
+        {
+          type: 'gradient',
+          gradient: {
+            type: 'linear',
+            tilingMode: 'reflect',
+            stops: [
+              { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+              { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+            ],
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ];
+      expect(exportNodeToSvg(node, createDocument('Spread'))).toContain('spreadMethod="reflect"');
+    });
+
     it('preserves complete explicit affine geometry in linear and radial SVG gradients', () => {
       const node = makeShapeNode(
         'n1',
