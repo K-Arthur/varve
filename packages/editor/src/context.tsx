@@ -8958,6 +8958,10 @@ export function EditorProvider({
           if (!created) return s;
           if (!inTransactionRef.current) {
             undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+            redoStackRef.current = [];
+            redoSelStackRef.current = [];
+          }
         const validSelection = sel.every((id) => {
           const node = state.document.nodes[id];
           return node !== undefined && isBooleanOperand(node);
@@ -8968,10 +8972,6 @@ export function EditorProvider({
           );
           return;
         }
-            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
-            redoStackRef.current = [];
-            redoSelStackRef.current = [];
-          }
           return { ...s, document: created.doc, selection: [created.nodeId], dirty: true };
         });
       },
