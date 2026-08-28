@@ -36,6 +36,27 @@ Built-in profile registries are defined in `colorManagement.ts` (RGB: sRGB, Disp
 Adobe RGB, ProPhoto; CMYK: Fogra39, Fogra51, GRACoL 2006, SWOP Coated/Uncoated,
 Japan Color 2011).
 
+## Operation Boundaries
+
+The following operations have different contracts and must not be conflated:
+
+- **Assign profile / mode** changes metadata only; channel values do not change.
+- **Convert profile / model** produces new authoritative channel values for a declared
+  destination. Browser analytical CMYK conversion is explicitly an approximation;
+  profile-specific CMYK requires an ICC provider.
+- **Working transform** resolves a `ManagedColor` into an explicit RGB working encoding
+  without reducing it to RGBA8. Unknown RGB profiles return an unresolved result rather
+  than being relabelled as sRGB.
+- **Display transform** is a lossy boundary. `managedColorToRgba()` is the legacy
+  sRGB/RGBA8 adapter and must not be used for authoritative edits or conversion.
+- **Soft proof** is a display-only transform (`document → proof → display`). Its output
+  is untagged display-sRGB values and is never written into the document or export pipeline.
+
+`managedColorToWorkingRgba()` and `createAnalyticRgbColorTransform()` in `@varve/shared`
+are the common vector/raster analytical contract. They carry operation, intent, and
+black-point-compensation requests even where the browser implementation cannot yet honor
+ICC-only CMYK options.
+
 ## Print geometry and bleed
 
 Print geometry is page-scoped. `Page.bleed` is an optional override of the
@@ -102,11 +123,13 @@ format that does not support page-bleed export.
 
 ### Working precision and display precision
 
-`managedColorToNormalized()` is the working-space adapter. It reads the
-tagged channels directly, including uint16 and float channels, and produces a
-normalized floating-point encoded-sRGB value without passing through RGBA8.
-`managedColorToRgba()` remains available for explicit display/legacy API
-boundaries only.
+`managedColorToWorkingRgba()` is the working-space adapter. It resolves known RGB profile
+ids (sRGB, Display P3, Adobe RGB, ProPhoto, and Rec. 2020), reads uint16 and float
+channels at their native scale, and produces normalized floating-point destination values
+without passing through RGBA8. An unknown RGB profile is reported as unresolved; it is
+never silently treated as sRGB. `managedColorToNormalized()` is the compatibility
+sRGB-working wrapper, while `managedColorToRgba()` remains an explicit RGBA8
+display/legacy adapter.
 
 Gradient interpolation has the same split: the working path retains
 fractional channels through stop normalization and interpolation, then the
@@ -122,7 +145,9 @@ as a preview boundary rather than claimed as a high-precision effect surface.
 Soft proofing accepts both the legacy RGBA8 provider and an optional normalized
 provider. The editor prefers the normalized provider when the runtime offers
 one, and falls back to the legacy provider only as an explicit preview
-degradation. Neither path writes proofed values back to the document.
+degradation. Proof output intentionally removes the authored RGB profile tag: it is now
+display-sRGB, so keeping a source P3 tag would make replay convert it twice. Neither path
+writes proofed values back to the document.
 
 ### Typed raster working buffers
 
@@ -135,6 +160,10 @@ engine allocator now provides the following explicit mappings:
 | `rgba16` | `Uint16Array` | 0–65535 integer |
 | `rgba16f` | packed IEEE-754 half floats in `Uint16Array` | normalized working values |
 | `rgba32f` | `Float32Array` | normalized working values |
+| `cmyka8` | `Uint8Array` | C, M, Y, K, alpha; 0–255 integer |
+| `cmyka16` | `Uint16Array` | C, M, Y, K, alpha; 0–65535 integer |
+| `cmyka16f` | packed IEEE-754 half floats in `Uint16Array` | C, M, Y, K, alpha working values |
+| `cmyka32f` | `Float32Array` | C, M, Y, K, alpha working values |
 
 `allocatePixelBuffer()` rejects invalid dimensions and enforces a default
 512 MiB byte budget. Format, color encoding, and alpha mode remain metadata;
@@ -151,13 +180,13 @@ target format requires it. A display or export caller must choose this
 operation deliberately rather than allowing an intermediate `ImageData`
 allocation to overwrite the working buffer.
 
-`createAnalyticRgbTransform()` now exposes `convertPixelBuffer()`, which
-converts `rgba8`, `rgba16`, `rgba16f`, and `rgba32f` buffers tile-wise. Integer
-formats quantize only when writing their explicitly selected storage format;
-float formats retain fractional working values. Premultiplied buffers are
-un-premultiplied for the color math and re-premultiplied afterward, while
-alpha remains untouched by the profile transform. The descriptor is switched
-to the target encoding only after a successful conversion.
+`createAnalyticRgbTransform()` exposes `convertPixelBuffer()`, which converts the four
+RGBA formats tile-wise. Integer formats quantize only when writing their explicitly
+selected storage format; float formats retain fractional working values. Premultiplied
+buffers are un-premultiplied for RGB color math and re-premultiplied afterward, while
+alpha remains untouched. CMYKA buffers are a distinct five-channel representation and are
+deliberately rejected by the RGB transform: RGB↔CMYK needs a declared destination ICC
+profile/provider, not a four-channel reinterpretation.
 
 The WebGPU solid-vector upload adapter uses the same normalized conversion
 for RGB, CMYK, Gray, Spot, and float colors. This prevents normalized float
@@ -180,9 +209,11 @@ The `varve-print` crate provides full ICC-aware CMYK conversion:
 - Profile-specific TAC (Fogra39=300%, Gracol=320%, SWOP=300%)
 
 ### Colour Mode Switching
-`switchColorMode()` in `packages/scene/src/colorMode.ts` converts all document colours
-between RGB/CMYK/Grayscale. Uses 0-255 scale consistently. Preserves alpha and
-profile fields. Also converts `canvasBackground`.
+`convertDocumentColors()` in `packages/scene/src/colorMode.ts` converts all document
+process colours between RGB/CMYK/Grayscale using the destination document bit depth and
+destination profile reference. It preserves alpha at that precision, carries the destination
+profile fingerprint, and also converts `canvasBackground`. Its analytical CMYK path remains
+explicitly approximate; it is not an ICC substitute.
 
 Wired into the editor context at `context.tsx` with undo/redo support.
 
@@ -194,7 +225,7 @@ Wired into the editor context at `context.tsx` with undo/redo support.
 | PDF/X-1a, PDF/X-4 export | Full (Rust varve-print) | Not available — stub only |
 | Font outlining | Full (ab_glyph) | Not available |
 | Native print pipeline | Yes (CUPS/system print) | No (window.print() only) |
-| Soft proofing | Analytical preview | Analytical preview |
+| Soft proofing | Profile provider when registered; display-only | Source remains unchanged unless a profile provider is registered |
 | UI disclosure | N/A | PDF export shows "Requires desktop app" |
 
 ## Picker Workflow (2026-08-02 decisions)

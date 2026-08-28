@@ -11,7 +11,7 @@ Each variant (except Registration/Unresolved) carries:
 - `profileFingerprint?: string` (ICC bytes hash for drift detection)
 
 ### `RasterColorEncoding` (packages/shared/src/rasterColorEncoding.ts)
-Encodes pixel-buffer interpretation: model (rgb/gray/cmyk/unknown), primaries, transfer, matrixCoefficients, videoRange, bitDepth, alphaMode, profileId, provenance.
+Encodes pixel-buffer interpretation: model (rgb/gray/cmyk/unknown), primaries, transfer, matrixCoefficients, videoRange, bitDepth, alphaMode, profileId, profileFingerprint, provenance.
 
 ### `ColorConfig` (packages/scene/src/colorManagement.ts)
 Document-level: mode, bitDepth, workingSpace ('srgb'|'linear'), rgbProfile, cmykProfile, displayProfile, outputIntent, blackGeneration, blendEvaluationSpace, defaultGradientInterpolation.
@@ -30,7 +30,7 @@ Document-level: mode, bitDepth, workingSpace ('srgb'|'linear'), rgbProfile, cmyk
 | Raster asset | `RasterColorEncoding` on `DocumentAsset.metadata` | Primaries + transfer + precision + provenance | `profileId` → Document.iccProfiles | 8/10/12/16/float16/float32 | Authoritative |
 | Raster layer | Same as raster asset | Same | Same | Same | Authoritative |
 | Brush tile | Raster asset (via brush system) | Same | Same | Same | Authoritative |
-| Working pixel buffer | `PixelBuffer` with `PixelBufferDescriptor` (format + encoding) | Typed array (rgba8/16/16f/32f) | `RasterColorEncoding` | Typed format | Working |
+| Working pixel buffer | `PixelBuffer` with `PixelBufferDescriptor` (format + encoding) | Typed array (rgba8/16/16f/32f or cmyka8/16/16f/32f) | `RasterColorEncoding` | Typed format | Working |
 | Canvas preview | Canvas2D ImageData (always 8-bit RGBA) | sRGB display | None | 8-bit | Display-only |
 | WebGPU surface | `rgba8unorm` textures | sRGB display | None | 8-bit | Display-only |
 | Canvas2D CSS colors | `rgba()` strings | sRGB | None | 8-bit | Display-only |
@@ -58,15 +58,18 @@ Document-level: mode, bitDepth, workingSpace ('srgb'|'linear'), rgbProfile, cmyk
 
 ```
 ManagedColor (any space)
-  → managedColorToNormalized()   [bit-depth aware, profile-UNAWARE]
-    → NormalizedRgba [0-1 float]   (always treats RGB as sRGB)
+  → managedColorToWorkingRgba()   [bit-depth and known-RGB-profile aware]
+    → normalized destination RGB or explicit unresolved result
   → managedColorToRgba()         [always produces uint8 0-255]
     → [R,G,B,A] uint8
   → managedColorToCss()          [CSS rgba() string]
     → "rgba(R,G,B,A/255)"
 ```
 
-**Critical gap**: Neither `managedColorToNormalized` nor `managedColorToRgba` resolves the actual RGB profile (P3, Adobe RGB, etc.). All RGB channels are treated as sRGB regardless of the `profile` field.
+**Status after the 2026-08-28 remediation:** the shared working resolver maps known RGB
+profiles before generating normalized working values. The RGBA8 adapter remains a deliberate
+sRGB display boundary; unknown RGB profiles return an explicit unresolved result to the
+working API.
 
 ### Raster Conversion Architecture
 
@@ -85,14 +88,10 @@ source encoding (RasterColorEncoding)
 
 ### CRITICAL — Color Meaning Loss
 
-1. **`managedColorToNormalized` ignores RGB profile** (§10 of spec)
-   - P3-tagged `RgbColor` → normalized values treated as sRGB
-   - Affects: fills, strokes, text, gradient stops, all vector rendering
-   - `packages/shared/src/colorConversion.ts:~line 890`
-
-2. **`managedColorToRgba` ignores RGB profile** (§11 of spec)
-   - Always produces sRGB uint8 from tagged P3 values
-   - `packages/shared/src/colorConversion.ts:~line 850`
+1. **Resolved — working RGB profiles** (§10–11 of spec)
+   - P3-tagged `RgbColor` is transformed by the shared working resolver.
+   - `managedColorToRgba` still converts to sRGB8 at the Canvas2D/display boundary; that
+     boundary cannot preserve P3 gamut.
 
 3. **`engine_color_rgba` in Rust always produces u8** (§49 of spec)
    - Truncates f64 channels to u8, uses naive CMYK→RGB
@@ -110,9 +109,9 @@ source encoding (RasterColorEncoding)
 
 ### HIGH — Precision & Profile Issues
 
-6. **Analytical CMYK conversion hardcoded to uint8** (§16-17 of spec)
-   - `rgbToCmyk` / `cmykToRgb` operate on 0-255 values only
-   - `colorMode.ts` analytical path doesn't honor bitDepth
+6. **Resolved — document analytical precision** (§16-17 of spec)
+   - `colorMode.ts` normalizes input channels and emits destination channels at the destination
+     bit depth/profile. It remains an explicitly non-ICC CMYK fallback.
 
 7. **`cmyk_normalized` in print path is correct but `engine_color_rgba` is not**
    - Native CMYK bypasses RGB correctly in print, but other paths don't
@@ -121,8 +120,9 @@ source encoding (RasterColorEncoding)
    - TS analytical, Rust tintbox, and export profile builders are separate
    - No transform caching (§46 of spec)
 
-9. **Profile fingerprint not computed/stored** (§47 of spec)
-   - `profileFingerprint` field exists but is never populated
+9. **Resolved — profile fingerprint persistence** (§47 of spec)
+   - Imported ICC payloads have a SHA-256 fingerprint, which is carried into registry entries,
+     asset metadata, and profile references.
 
 10. **No Display P3 canvas surface** (§39 of spec)
     - Canvas2D always in sRGB, no `colorSpace: 'display-p3'` capability check
@@ -133,7 +133,9 @@ source encoding (RasterColorEncoding)
 12. **No assign-profile dialog for individual colors** (§62 of spec)
 13. **Convert document colors doesn't walk all color-bearing properties** (§66 — needs audit of rich text spans, tables, etc.)
 14. **Raster assets during document conversion — no explicit policy** (§67 of spec)
-15. **No CMYK raster pixel representation** (§20 of spec)
+15. **Resolved — explicit CMYKA raster representation** (§20 of spec)
+   - CMYKA uses five interleaved channels and cannot be passed to an RGB transform. ICC
+     RGB↔CMYK conversion remains pending.
 16. **Picker gamut warning uses HSV heuristic, not profile-based** (§90 of spec)
 
 ### LOW — Deferred / Documentation
