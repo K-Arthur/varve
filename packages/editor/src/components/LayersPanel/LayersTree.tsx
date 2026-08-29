@@ -758,18 +758,6 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
       const focusedNode = entries[focusIdx]?.node;
 
-      // Arrow navigation
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        doKeyboardMove(1);
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        doKeyboardMove(-1);
-        return;
-      }
-
       // Shift+Arrow: extend selection
       if (e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
         e.preventDefault();
@@ -780,6 +768,18 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
         if (!nextEntry) throw new Error('next entry not found');
         toggleSelection(nextEntry.node.id, true, 'layers');
         virtualizer.scrollToIndex(next, { align: 'auto' });
+        return;
+      }
+
+      // Arrow navigation
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        doKeyboardMove(1);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        doKeyboardMove(-1);
         return;
       }
 

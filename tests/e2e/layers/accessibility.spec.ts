@@ -107,6 +107,28 @@ test.describe('Layers Panel - Accessibility', () => {
     await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true');
   });
 
+  test('shift+arrow extends the selection range', async ({ page }) => {
+    const items = page.getByRole('treeitem');
+    const count = await items.count();
+    test.skip(count < 3, 'Need at least 3 layers for range selection');
+
+    const tree = page.getByRole('tree', { name: /layers/i });
+    await tree.focus();
+
+    // The seeded front-most layer is the initial selection and range anchor.
+    await page.keyboard.press('Shift+ArrowDown');
+    await page.waitForTimeout(50);
+    await expect(items.nth(0)).toHaveAttribute('aria-selected', 'true');
+    await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(items.nth(2)).toHaveAttribute('aria-selected', 'false');
+
+    await page.keyboard.press('Shift+ArrowDown');
+    await page.waitForTimeout(50);
+    for (let index = 0; index < 3; index += 1) {
+      await expect(items.nth(index)).toHaveAttribute('aria-selected', 'true');
+    }
+  });
+
   test('f2 starts rename', async ({ page }) => {
     const items = page.getByRole('treeitem');
     const count = await items.count();
