@@ -254,6 +254,8 @@ describe('convertDocumentColors', () => {
       headerFill: rgb(10, 20, 30),
       bodyText: rgb(40, 50, 60),
     };
+    const baseNode = base.nodes.n1;
+    const baseStroke = baseNode && 'strokes' in baseNode ? baseNode.strokes[0] : undefined;
     const nested = {
       ...base.nodes.n1,
       kind: 'text' as const,
@@ -268,7 +270,7 @@ describe('convertDocumentColors', () => {
       ],
       strokes: [
         {
-          ...((base.nodes.n1 as { strokes: never[] }).strokes[0] ?? {
+          ...(baseStroke ?? {
             color: rgb(0, 0, 0),
             weight: 1,
             align: 'center',
@@ -307,12 +309,12 @@ describe('convertDocumentColors', () => {
           },
         ],
       },
-    } as never;
+    };
     const originalNested = structuredClone(nested);
     const doc: Document = {
       ...base,
       nodes: {
-        n1: nested,
+        n1: nested as never,
         n2: { ...base.nodes.n1, kind: 'table', table } as never,
       },
       paints: {
@@ -390,9 +392,8 @@ describe('convertDocumentColors', () => {
     ).toBe('cmyk');
     expect(out.paints?.p1?.fill.color?.space).toBe('cmyk');
     expect(out.styles?.s1?.type === 'color' ? out.styles.s1.fill.color?.space : null).toBe('cmyk');
-    expect(out.styles?.s2?.type === 'effect' ? out.styles.s2.effects[0]?.color.space : null).toBe(
-      'cmyk',
-    );
+    const effect = out.styles?.s2?.type === 'effect' ? out.styles.s2.effects[0] : undefined;
+    expect(effect && 'color' in effect ? effect.color.space : null).toBe('cmyk');
     expect(out.stories?.story?.content.paragraphs[0]?.runs[0]?.format?.color?.space).toBe('cmyk');
     expect(nested).toEqual(originalNested);
   });
