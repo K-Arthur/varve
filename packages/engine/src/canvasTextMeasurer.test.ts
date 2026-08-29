@@ -37,8 +37,10 @@ function installFakeCanvas(options: { shaping: boolean; onMeasure?: () => void }
       return { width: [...text].reduce((sum, ch) => sum + glyphWidth(ch) * scale, 0) };
     },
   };
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
-    ctx as unknown as CanvasRenderingContext2D,
+  // `getContext` is overloaded for 2D, WebGL, and WebGPU; Vitest's inferred
+  // overload can select the latter even though this fake only serves 2D.
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
+    () => ctx as unknown as never,
   );
   // Keep the document path in play; OffscreenCanvas would be preferred.
   vi.stubGlobal('OffscreenCanvas', undefined);

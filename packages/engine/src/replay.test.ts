@@ -842,7 +842,7 @@ describe('replayIr', () => {
     const fallbackItem: RenderItem = {
       ...item,
       primitive: {
-        ...item.primitive,
+        ...(item.primitive as Extract<RenderItem['primitive'], { kind: 'text' }>),
         text: 'A B C D',
         richText: { paragraphs: [{ runs: [{ text: 'A B C D' }] }] },
       },

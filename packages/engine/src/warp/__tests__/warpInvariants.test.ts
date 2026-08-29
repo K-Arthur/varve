@@ -161,7 +161,7 @@ describe('foldover analysis', () => {
 });
 
 describe('envelope corner editing domain', () => {
-  const CORNERS = makeWarpPreset('four-edge');
+  const CORNERS = makeWarpPreset('four-edge') as Extract<WarpModifier, { kind: 'envelope' }>;
 
   it('accepts a corner dragged outward past the unit square', () => {
     const moved = {
