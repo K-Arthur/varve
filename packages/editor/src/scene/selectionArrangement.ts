@@ -55,11 +55,14 @@ export interface DistributeSelectionOptions {
   gap?: number;
 }
 
-interface SelectionItem {
+interface ManualPositionItem {
   id: NodeId;
   node: SceneNode;
-  bounds: BBox;
   parentId: NodeId | null;
+}
+
+interface SelectionItem extends ManualPositionItem {
+  bounds: BBox;
 }
 
 interface CollectedSelection {
@@ -68,6 +71,29 @@ interface CollectedSelection {
   rootCount: number;
   hasLockedOrHiddenSelection: boolean;
   hasLayoutManagedSelection: boolean;
+}
+
+interface CollectedManualPositionRoots {
+  items: ManualPositionItem[];
+  parentIndex: Map<NodeId, NodeId>;
+  rootCount: number;
+  lockedCount: number;
+  skippedCount: number;
+  hasLockedOrHiddenSelection: boolean;
+  hasLayoutManagedSelection: boolean;
+}
+
+/**
+ * A hierarchy-safe, world-space translation ready for one batched document
+ * mutation. `positions` intentionally contains only transform roots: when a
+ * selected ancestor already carries a descendant, translating both would
+ * move the descendant twice.
+ */
+export interface ManualWorldTranslationPlan {
+  positions: ReadonlyArray<{ id: NodeId; x: number; y: number }>;
+  rootCount: number;
+  locked: number;
+  skipped: number;
 }
 
 /**
@@ -91,6 +117,57 @@ export function getAlignmentCapabilities(
     canTidy: collected.items.length >= 2,
     hasLockedOrHiddenSelection: collected.hasLockedOrHiddenSelection,
     hasLayoutManagedSelection: collected.hasLayoutManagedSelection,
+  };
+}
+
+/**
+ * Resolve a document/world-space translation for independently movable
+ * selection roots. It shares the same hierarchy/eligibility and
+ * world-to-parent conversion policy as alignment and distribution, while
+ * applying the same placed-world delta to every eligible root.
+ *
+ * Bounds are deliberately not consulted here. Empty groups and other
+ * geometry-free transform containers are still valid translation roots.
+ */
+export function planManualWorldTranslation(
+  doc: Document,
+  selection: readonly NodeId[],
+  delta: { x: number; y: number },
+): ManualWorldTranslationPlan {
+  const collected = collectManualPositionRoots(doc, selection);
+  let skipped = collected.skippedCount;
+  const positions: Array<{ id: NodeId; x: number; y: number }> = [];
+
+  if (!Number.isFinite(delta.x) || !Number.isFinite(delta.y)) {
+    return {
+      positions,
+      rootCount: collected.rootCount,
+      locked: collected.lockedCount,
+      skipped: skipped + collected.items.length,
+    };
+  }
+
+  for (const item of collected.items) {
+    const transform = translatedLocalTransform(doc, item, collected.parentIndex, delta.x, delta.y);
+    if (!transform) {
+      skipped++;
+      continue;
+    }
+    if (
+      Math.abs(transform[4] - item.node.transform[4]) <= POSITION_EPSILON &&
+      Math.abs(transform[5] - item.node.transform[5]) <= POSITION_EPSILON
+    ) {
+      skipped++;
+      continue;
+    }
+    positions.push({ id: item.id, x: transform[4], y: transform[5] });
+  }
+
+  return {
+    positions,
+    rootCount: collected.rootCount,
+    locked: collected.lockedCount,
+    skipped,
   };
 }
 
@@ -184,37 +261,82 @@ export function alignSelectionWithObbInDocument(
 }
 
 function collectSelection(doc: Document, selection: readonly NodeId[]): CollectedSelection {
-  const parentIndex = buildParentIndexMap(doc);
-  const requested = new Set(selection.filter((id) => doc.nodes[id] !== undefined));
-  const roots = [...requested].filter((id) => !hasSelectedAncestor(id, requested, parentIndex));
+  const collected = collectManualPositionRoots(doc, selection);
   const items: SelectionItem[] = [];
+
+  for (const item of collected.items) {
+    const bounds = nodeWorldBounds(doc, item.id, collected.parentIndex);
+    if (!isFiniteBounds(bounds)) continue;
+    items.push({ ...item, bounds });
+  }
+
+  return {
+    items,
+    parentIndex: collected.parentIndex,
+    rootCount: collected.rootCount,
+    hasLockedOrHiddenSelection: collected.hasLockedOrHiddenSelection,
+    hasLayoutManagedSelection: collected.hasLayoutManagedSelection,
+  };
+}
+
+function collectManualPositionRoots(
+  doc: Document,
+  selection: readonly NodeId[],
+): CollectedManualPositionRoots {
+  const parentIndex = buildParentIndexMap(doc);
+  const requested = new Set<NodeId>();
+  let skippedCount = 0;
+
+  for (const id of selection) {
+    if (requested.has(id)) {
+      skippedCount++;
+      continue;
+    }
+    if (!doc.nodes[id]) {
+      skippedCount++;
+      continue;
+    }
+    requested.add(id);
+  }
+
+  const roots = [...requested].filter((id) => !hasSelectedAncestor(id, requested, parentIndex));
+  skippedCount += requested.size - roots.length;
+  const items: ManualPositionItem[] = [];
+  let lockedCount = 0;
   let hasLockedOrHiddenSelection = false;
   let hasLayoutManagedSelection = false;
 
   for (const id of roots) {
     const node = doc.nodes[id];
-    if (!node) continue;
+    if (!node) {
+      skippedCount++;
+      continue;
+    }
     const parentId = parentIndex.get(id) ?? null;
     const eligibility = manualPositionEligibility(doc, id, parentId, parentIndex);
     if (eligibility === 'locked-or-hidden') {
+      lockedCount++;
       hasLockedOrHiddenSelection = true;
       continue;
     }
     if (eligibility === 'layout-managed') {
+      skippedCount++;
       hasLayoutManagedSelection = true;
       continue;
     }
-    if (eligibility !== 'eligible') continue;
-
-    const bounds = nodeWorldBounds(doc, id, parentIndex);
-    if (!isFiniteBounds(bounds)) continue;
-    items.push({ id, node, bounds, parentId });
+    if (eligibility !== 'eligible') {
+      skippedCount++;
+      continue;
+    }
+    items.push({ id, node, parentId });
   }
 
   return {
     items,
     parentIndex,
     rootCount: roots.length,
+    lockedCount,
+    skippedCount,
     hasLockedOrHiddenSelection,
     hasLayoutManagedSelection,
   };
@@ -237,12 +359,16 @@ function manualPositionEligibility(
 
   const node = doc.nodes[id];
   const parent = parentId ? doc.nodes[parentId] : undefined;
+  if (node?.kind === 'adjustment') return 'invalid-transform';
   if (parent?.kind === 'frame' && parent.layoutStyle && node?.layoutPosition !== 'absolute') {
     return 'layout-managed';
   }
   if (!node || !isFiniteAffine(node.transform)) return 'invalid-transform';
-  if (parentId && !tryInvertAffine(nodeWorldTransform(doc, parentId, parentIndex))) {
-    return 'invalid-transform';
+  const world = nodeWorldTransform(doc, id, parentIndex);
+  if (!isFiniteAffine(world)) return 'invalid-transform';
+  if (parentId) {
+    const parentWorld = nodeWorldTransform(doc, parentId, parentIndex);
+    if (!isFiniteAffine(parentWorld) || !tryInvertAffine(parentWorld)) return 'invalid-transform';
   }
   return 'eligible';
 }
@@ -305,7 +431,7 @@ function applyWorldTranslations(
 
 function translatedLocalTransform(
   doc: Document,
-  item: SelectionItem,
+  item: ManualPositionItem,
   parentIndex: Map<NodeId, NodeId>,
   deltaX: number,
   deltaY: number,

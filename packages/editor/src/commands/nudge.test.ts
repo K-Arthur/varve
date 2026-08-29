@@ -4,6 +4,7 @@ import {
   createDocument,
   type Document,
   makeFrameNode,
+  makeGroupNode,
   makeShapeNode,
   type NodeId,
 } from '@varve/scene';
@@ -102,6 +103,20 @@ describe('executeNudge', () => {
     expectClose(after.y - before.y, 0);
     expect(positionsFrom(ctx)).toEqual([{ id: node.id, x: 101.25, y: -3.75 }]);
     expect(result).toEqual({ moved: 1, locked: 0, skipped: 0, total: 1 });
+  });
+
+  it('moves an empty transform container without requiring drawable bounds', () => {
+    let document = createDocument('empty group nudge');
+    const group = makeGroupNode('empty-group', { transform: [1, 0, 0, 1, 12, -4] });
+    document = addNode(document, group);
+    const ctx = makeCtx(document, [group.id]);
+    const before = worldOrigin(document, group.id);
+
+    executeNudge('down', 10, ctx);
+    const after = worldOrigin(withPositions(document, positionsFrom(ctx)), group.id);
+
+    expectClose(after.x - before.x, 0);
+    expectClose(after.y - before.y, 10);
   });
 
   it('moves a rotated selected object along document axes without changing its rotation', () => {
@@ -233,6 +248,23 @@ describe('executeNudge', () => {
     expect(result).toEqual({ moved: 0, locked: 1, skipped: 0, total: 1 });
   });
 
+  it('does not bypass an ancestor visibility lockout', () => {
+    let document = createDocument('ancestor hidden');
+    const parent = {
+      ...makeFrameNode('parent', { w: 200, h: 100, transform: [1, 0, 0, 1, 40, 50] }),
+      visible: false,
+    };
+    const child = rect('child', 10, 20);
+    document = addNode(document, parent);
+    document = addChild(document, parent.id, child);
+    const ctx = makeCtx(document, [child.id]);
+
+    const result = executeNudge('right', 1, ctx);
+
+    expect(ctx.setNodePositions).not.toHaveBeenCalled();
+    expect(result).toEqual({ moved: 0, locked: 1, skipped: 0, total: 1 });
+  });
+
   it('leaves flow-managed auto-layout children untouched but moves absolute children', () => {
     let document = createDocument('layout eligibility');
     const parent = makeFrameNode('parent', {
@@ -268,6 +300,32 @@ describe('executeNudge', () => {
     const result = executeNudge('right', 1, ctx);
 
     expect(positionsFrom(ctx)).toEqual([]);
+    expect(result).toEqual({ moved: 0, locked: 0, skipped: 1, total: 1 });
+  });
+
+  it('rejects a child of a non-invertible parent without producing invalid positions', () => {
+    let document = createDocument('singular parent');
+    const parent = makeFrameNode('parent', { w: 200, h: 100, transform: [0, 0, 0, 1, 40, 50] });
+    const child = rect('child', 10, 20);
+    document = addNode(document, parent);
+    document = addChild(document, parent.id, child);
+    const ctx = makeCtx(document, [child.id]);
+
+    const result = executeNudge('right', 1, ctx);
+
+    expect(ctx.setNodePositions).not.toHaveBeenCalled();
+    expect(result).toEqual({ moved: 0, locked: 0, skipped: 1, total: 1 });
+  });
+
+  it('rejects malformed world transforms without producing invalid positions', () => {
+    let document = createDocument('malformed rotation');
+    const node = { ...rect('node', 10, 20), rotation: Number.NaN };
+    document = addNode(document, node);
+    const ctx = makeCtx(document, [node.id]);
+
+    const result = executeNudge('right', 1, ctx);
+
+    expect(ctx.setNodePositions).not.toHaveBeenCalled();
     expect(result).toEqual({ moved: 0, locked: 0, skipped: 1, total: 1 });
   });
 });
