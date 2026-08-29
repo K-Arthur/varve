@@ -9,6 +9,8 @@ import {
   classifyJobFailure,
   classifyRunFailures,
   extractFailures,
+  formatReport,
+  hasFailedStep,
   hasFailureSourceForJob,
   isFailureLine,
   isStuckQueued,
@@ -149,6 +151,26 @@ assert.strictEqual(
   'never-started',
   'zero-step failed job without annotation is never-started',
 );
+assertTrue(
+  hasFailedStep({
+    conclusion: null,
+    status: 'in_progress',
+    steps: [{ name: 'JS tests', conclusion: 'failure' }],
+  }),
+  'failed step is visible before GitHub finalizes the job conclusion',
+);
+assert.strictEqual(
+  classifyJobFailure(
+    {
+      conclusion: null,
+      status: 'in_progress',
+      steps: [{ name: 'JS tests', conclusion: 'failure' }],
+    },
+    [],
+  ),
+  'real-failure',
+  'inline diagnostics classify a failed step in an in-progress job',
+);
 assert.strictEqual(
   classifyJobFailure(
     { conclusion: 'failure', steps: [{ name: 'cargo clippy', conclusion: 'failure' }] },
@@ -166,6 +188,29 @@ assert.strictEqual(
   classifyJobFailure({ conclusion: 'skipped', steps: [] }, []),
   null,
   'skipped jobs are not classified',
+);
+
+const inlineReport = formatReport(
+  'K-Arthur/varve',
+  { id: 123, name: 'CI', conclusion: null },
+  [
+    {
+      id: 99,
+      name: 'JS (pnpm)',
+      status: 'in_progress',
+      conclusion: null,
+      steps: [{ number: 4, name: 'test', conclusion: 'failure' }],
+    },
+  ],
+  {},
+);
+assertTrue(
+  inlineReport.includes('**JS (pnpm)** (in_progress)'),
+  'inline report includes the current job using its status when conclusion is pending',
+);
+assertTrue(
+  !inlineReport.includes('No failed jobs detected in run metadata'),
+  'inline report must not claim there are no failed jobs when a step already failed',
 );
 
 // Runner-unavailable: GitHub never assigned a hosted runner.

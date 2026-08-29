@@ -112,7 +112,18 @@ function isStuckQueued(job, nowMs = Date.now()) {
 
 // A failed job with zero recorded steps never started. There is nothing in the
 // logs to analyze — the failure is infra-level (billing block, runner outage).
+function hasFailedStep(job) {
+  return (job?.steps || []).some(
+    (step) => step?.conclusion === 'failure' || step?.conclusion === 'timed_out',
+  );
+}
+
 function classifyJobFailure(job, annotations, nowMs = Date.now()) {
+  // Inline diagnostics run before GitHub finalizes the current job. In that
+  // window the job conclusion is still null/in_progress, but the failed step
+  // is already present in the jobs API. The step is the authoritative signal.
+  if (hasFailedStep(job)) return 'real-failure';
+
   if (job.conclusion !== 'failure' && job.conclusion !== 'timed_out') {
     if (isStuckQueued(job, nowMs)) return 'stuck-queued';
     // GitHub records never-started jobs as `cancelled` with zero steps — the
@@ -606,7 +617,9 @@ function formatReport(repo, run, jobs, failuresBySource, infraBlocks = [], { max
 
   lines.push('## Failed jobs', '');
 
-  const failedJobs = jobs.filter((j) => j.conclusion === 'failure' || j.conclusion === 'timed_out');
+  const failedJobs = jobs.filter(
+    (j) => j.conclusion === 'failure' || j.conclusion === 'timed_out' || hasFailedStep(j),
+  );
   if (failedJobs.length === 0) {
     lines.push('- No failed jobs detected in run metadata.');
   } else {
@@ -615,7 +628,8 @@ function formatReport(repo, run, jobs, failuresBySource, infraBlocks = [], { max
         (s) => s.conclusion === 'failure' || s.conclusion === 'timed_out',
       );
       const neverStarted = (job.steps || []).length === 0 ? ' (never started)' : '';
-      lines.push(`- **${job.name}** (${job.conclusion}${neverStarted})`);
+      const conclusion = job.conclusion || job.status || 'in progress';
+      lines.push(`- **${job.name}** (${conclusion}${neverStarted})`);
       for (const step of failedSteps) {
         lines.push(`  - ${step.number}. ${step.name}: ${step.conclusion}`);
       }
@@ -760,7 +774,7 @@ async function main() {
   // per-job endpoint still works. Prefer that endpoint before reporting a
   // missing log, so a transient archive problem never hides the root cause.
   for (const job of jobs) {
-    if (job.conclusion === 'failure' || job.conclusion === 'timed_out') {
+    if (job.conclusion === 'failure' || job.conclusion === 'timed_out' || hasFailedStep(job)) {
       if (hasFailureSourceForJob(failuresBySource, job.name)) continue;
 
       if ((job.steps || []).length > 0) {
@@ -827,6 +841,8 @@ export {
   classifyJobFailure,
   classifyRunFailures,
   extractFailures,
+  formatReport,
+  hasFailedStep,
   hasFailureSourceForJob,
   isFailureLine,
   isStuckQueued,
