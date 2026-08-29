@@ -545,7 +545,14 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
       - name: Visual regression (canvas replay)
-        run: pnpm exec playwright test --project=chromium-visual-1x --project=chromium-visual-2x
+        env:
+          VARVE_VISUAL_HARNESS_ONLY: '1'
+        run: pnpm exec playwright test --project=chromium-visual-1x --project=chromium-visual-2x --project=chromium-visual-3x
+      - name: Visual regression (GPU-backed Chromium)
+        env:
+          VARVE_VISUAL_HARNESS_ONLY: '1'
+          VARVE_VISUAL_GPU: '1'
+        run: pnpm exec playwright test --project=chromium-visual-gpu
       - name: Build visual diff report
         if: failure()
         run: node scripts/build-visual-diff-manifest.mjs

@@ -40,6 +40,13 @@ async function waitForServer(timeoutMs: number): Promise<void> {
 }
 
 export default async function globalSetup(_config: FullConfig): Promise<void> {
+  // The replay visual projects load visual-harness.html, which intentionally
+  // bypasses the editor application. Warming the full editor graph for those
+  // projects adds no coverage and can turn an unrelated editor-only module
+  // problem into a false visual-harness failure. The visual scripts opt into
+  // this narrow path explicitly; full-editor projects retain the warm-up.
+  if (process.env.VARVE_VISUAL_HARNESS_ONLY === '1') return;
+
   await waitForServer(60_000);
 
   let browser: Browser | null = null;

@@ -76,9 +76,9 @@ export default defineConfig({
       testMatch: /guides-visual\.spec\.ts/,
     },
     // Visual regression harness (tests/e2e/visual/replay.spec.ts): one
-    // project per DPR. 1x/2x always run; 3x is behind an env var since a
-    // third full baseline set roughly triples this suite's snapshot count
-    // and CI time for a tier DPR bugs are least likely to hide in.
+    // project per DPR. Every supported high-DPI tier is part of the default
+    // gate so backing-store and fractional-coordinate regressions cannot hide
+    // behind a 1x-only baseline.
     {
       name: 'chromium-visual-1x',
       use: { ...devices['Desktop Chrome'], deviceScaleFactor: 1 },
@@ -89,15 +89,11 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], deviceScaleFactor: 2 },
       testMatch: /visual\/replay\.spec\.ts/,
     },
-    ...(process.env.VARVE_VISUAL_3X
-      ? [
-          {
-            name: 'chromium-visual-3x',
-            use: { ...devices['Desktop Chrome'], deviceScaleFactor: 3 },
-            testMatch: /visual\/replay\.spec\.ts/,
-          },
-        ]
-      : []),
+    {
+      name: 'chromium-visual-3x',
+      use: { ...devices['Desktop Chrome'], deviceScaleFactor: 3 },
+      testMatch: /visual\/replay\.spec\.ts/,
+    },
     {
       name: 'tauri',
       use: { ...devices['Desktop Chrome'] },
@@ -128,6 +124,44 @@ export default defineConfig({
       },
       testMatch: /effects\/gpu-agreement\.spec\.ts/,
     },
+    ...(process.env.VARVE_VISUAL_GPU
+      ? [
+          {
+            name: 'chromium-visual-gpu',
+            use: {
+              ...devices['Desktop Chrome'],
+              deviceScaleFactor: 1,
+              channel: 'chromium' as const,
+              launchOptions: {
+                pipe: false,
+                ignoreDefaultArgs: ['--no-startup-window'],
+                args: [
+                  '--enable-unsafe-webgpu',
+                  '--enable-features=Vulkan',
+                  '--use-angle=vulkan',
+                  '--enable-unsafe-swiftshader',
+                  '--remote-debugging-port=0',
+                ],
+              },
+            },
+            testMatch: /visual\/replay\.spec\.ts/,
+          },
+        ]
+      : []),
+    ...(process.env.VARVE_VISUAL_CROSS_RUNTIME
+      ? [
+          {
+            name: 'firefox-visual',
+            use: { ...devices['Desktop Firefox'] },
+            testMatch: /visual\/replay\.spec\.ts/,
+          },
+          {
+            name: 'webkit-visual',
+            use: { ...devices['Desktop Safari'] },
+            testMatch: /visual\/replay\.spec\.ts/,
+          },
+        ]
+      : []),
     {
       name: 'firefox',
       use: {
