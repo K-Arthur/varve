@@ -260,6 +260,51 @@ describe('selectionArrangement', () => {
     expect(next.nodes[image.id]?.fills[0]?.type).toBe('image');
   });
 
+  it('aligns nested image and sibling roots to their common transformed frame', () => {
+    let doc = createDocument('common transformed frame target');
+    const outer = makeFrameNode('outer', {
+      w: 600,
+      h: 400,
+      transform: [1.0625184089, 0.2847009496, -0.2847009496, 1.0625184089, 180, 110],
+    });
+    const inner = makeFrameNode('inner', {
+      w: 260,
+      h: 200,
+      transform: [0.9659258263, -0.2588190451, 0.2588190451, 0.9659258263, 90, 70],
+    });
+    const image = makeImageShapeNode('image', {
+      name: 'Nested photo',
+      src: 'photo.png',
+      w: 80,
+      h: 60,
+      transform: [1, 0, 0, 1, 95, 40],
+    });
+    const sibling = rect('sibling', 350, 170, 70, 50);
+    doc = addNode(doc, outer);
+    doc = addChild(doc, outer.id, inner);
+    doc = addChild(doc, inner.id, image);
+    doc = addChild(doc, outer.id, sibling);
+
+    const containerBounds = commonAlignmentContainerBounds(doc, [image.id, sibling.id]);
+    expect(containerBounds).toEqual(bounds(doc, outer.id));
+    const next = alignSelectionInDocument(doc, [image.id, sibling.id], 'right', {
+      reference: 'container',
+      containerBounds,
+    });
+
+    expectClose(
+      bounds(next, image.id).x + bounds(next, image.id).w,
+      containerBounds!.x + containerBounds!.w,
+    );
+    expectClose(
+      bounds(next, sibling.id).x + bounds(next, sibling.id).w,
+      containerBounds!.x + containerBounds!.w,
+    );
+    expect(getParent(next, image.id)).toBe(inner.id);
+    expect(getParent(next, sibling.id)).toBe(outer.id);
+    expect(next.nodes[image.id]?.fills[0]?.type).toBe('image');
+  });
+
   it('allows absolute auto-layout children but excludes flow children and hidden ancestors', () => {
     let doc = createDocument('layout eligibility');
     const layout = makeFrameNode('layout', {
