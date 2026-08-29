@@ -1,7 +1,46 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { ConfirmDialog, confirmDialog } from './PromptDialog';
+import { ConfirmDialog, confirmDialog, PromptDialog, promptDialog } from './PromptDialog';
+
+describe('PromptDialog', () => {
+  it('has an accessible name on the text input', async () => {
+    render(<PromptDialog />);
+    promptDialog('Rename page', 'Page 1');
+
+    const input = await screen.findByRole('textbox', { name: 'Rename page' });
+    expect(input).toHaveValue('Page 1');
+  });
+
+  it('confirms with the typed value on Enter', async () => {
+    render(<PromptDialog />);
+    const promise = promptDialog('Rename page', 'Page 1');
+
+    const input = await screen.findByRole('textbox', { name: 'Rename page' });
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Cover{Enter}');
+
+    expect(await promise).toBe('Cover');
+  });
+
+  it('renders Cancel before Confirm, matching ConfirmDialog', async () => {
+    render(<PromptDialog />);
+    promptDialog('Rename page', 'Page 1');
+
+    const buttons = await screen.findAllByRole('button');
+    expect(buttons.map((b) => b.textContent)).toEqual(['Cancel', 'Confirm']);
+  });
+
+  it('cancel button resolves to null', async () => {
+    render(<PromptDialog />);
+    const promise = promptDialog('Rename page', 'Page 1');
+
+    await screen.findByRole('textbox', { name: 'Rename page' });
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(await promise).toBeNull();
+  });
+});
 
 describe('ConfirmDialog', () => {
   it('renders with role="alertdialog" when triggered', async () => {
