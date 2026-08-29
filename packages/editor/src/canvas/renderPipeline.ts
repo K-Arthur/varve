@@ -1782,9 +1782,9 @@ export function renderContent(deps: RenderContentDeps): void {
               mask,
               irItem: item,
               doc,
-              baseTransform,
+              baseTransform: targetCtx.getTransform(),
               paintContent: (ctx) => paintLeafItem(item, ctx),
-              getWorldTransform,
+              getWorldTransform: (nodeId) => getCachedWorldTransform(cache, doc, nodeId),
             });
           } else {
             paintLeafItem(item, targetCtx);
