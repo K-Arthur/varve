@@ -469,24 +469,47 @@ test.describe('Layers DnD — virtualized tree', () => {
       .toBeGreaterThan(50);
 
     // The indicator must track the rows sliding beneath the still cursor.
-    const indicator = await readIndicator(page);
-    expect(indicator).not.toBeNull();
+    expect(await readIndicator(page)).not.toBeNull();
     await page
       .getByTestId('layers-panel')
       .screenshot({ path: 'test-results/layers-invariant-autoscroll.png' });
 
-    // Whatever it is pointing at now is what must receive the layer.
-    const finalPreview = await readIndicator(page);
-    await page.mouse.up();
-    await page.waitForTimeout(300);
+    // Leave the edge band so scrolling stops, and wait for it to settle. The
+    // target is re-resolved every frame while auto-scroll runs — by design,
+    // since the rows move under a stationary cursor — so reading a preview
+    // mid-scroll and releasing a moment later compares two different frames.
+    await page.mouse.move(treeBox.x + treeBox.width / 2, treeBox.y + treeBox.height / 2);
+    await expect
+      .poll(
+        async () => {
+          const a = await tree.evaluate((el) => el.scrollTop);
+          await page.waitForTimeout(120);
+          const b = await tree.evaluate((el) => el.scrollTop);
+          return a === b;
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true);
 
-    if (finalPreview?.nodeId) {
-      const after = await readRows(page);
-      const si = after.findIndex((r) => r.id === source.id);
-      const ti = after.findIndex((r) => r.id === finalPreview.nodeId);
-      expect(si).toBeGreaterThanOrEqual(0);
-      expect(ti).toBeGreaterThanOrEqual(0);
-      expect(Math.abs(si - ti)).toBe(1);
-    }
+    // Aim at a row that only exists because auto-scroll brought it into view,
+    // then assert the usual invariant against it.
+    const exposed = await readRows(page);
+    const target = exposed.find((r) => r.id !== source.id);
+    if (!target) throw new Error('no target row after auto-scroll');
+    await moveToRowBand(page, target.id, 0.85);
+
+    const finalPreview = await readIndicator(page);
+    expect(finalPreview?.nodeId).toBe(target.id);
+    expect(finalPreview?.zone).toBe('after');
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const after = await readRows(page);
+        const si = after.findIndex((r) => r.id === source.id);
+        const ti = after.findIndex((r) => r.id === target.id);
+        return si >= 0 && ti >= 0 ? si - ti : null;
+      })
+      .toBe(1);
   });
 });

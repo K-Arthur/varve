@@ -46,10 +46,17 @@ test.describe('Layers Panel - Drag & Drop', () => {
   test('file import input exists', async ({ page }) => {
     const importInput = page.locator('#file-import-input');
     await expect(importInput).toBeVisible({ visible: false });
-    await expect(importInput).toHaveAttribute(
-      'accept',
-      '.svg,.png,.jpg,.jpeg,.webp,.avif,.gif,.bmp,.pdf,.ai,.eps,.psd,.psb,.sketch,.fig,.fig.json,.cube,.3dl,.clf,.ctf',
-    );
+
+    // The accept list is derived from the parser registry, so pinning the
+    // exact string here couples a Layers spec to every import change and
+    // fails on registry edits that are entirely intentional (it last broke on
+    // 27846ef3, "stop advertising formats the pipeline cannot ingest").
+    // Assert the formats this panel's drag-to-canvas story actually depends
+    // on; the registry's own tests own the full list.
+    const accept = (await importInput.getAttribute('accept')) ?? '';
+    for (const ext of ['.png', '.jpg', '.svg', '.pdf', '.psd']) {
+      expect(accept.split(','), `import picker should accept ${ext}`).toContain(ext);
+    }
   });
 
   test('reorders a virtualized row to the pointer target', async ({ page }) => {
