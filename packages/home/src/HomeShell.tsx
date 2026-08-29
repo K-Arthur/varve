@@ -387,6 +387,24 @@ export function HomeShell({
     [view.files],
   );
 
+  // Shared by drag-end and the "Move earlier/later in order" menu commands
+  // (WCAG 2.2 SC 2.5.7 Dragging Movements): give activeId the ordering key
+  // immediately before overId's current position.
+  const reorderFileNextTo = useCallback(
+    (activeId: string, overId: string) => {
+      const remaining = filesByOrdering.filter((f) => f.id !== activeId);
+      const overIdx = remaining.findIndex((f) => f.id === overId);
+      if (overIdx === -1) return;
+
+      const prevKey = overIdx > 0 ? (remaining[overIdx - 1]?.ordering ?? null) : null;
+      const nextKey = remaining[overIdx]?.ordering ?? null;
+      const newKey = generateKeyBetween(prevKey, nextKey);
+
+      platform.reorderFile(activeId, newKey).then(() => view.refresh());
+    },
+    [filesByOrdering, platform, view],
+  );
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
@@ -399,18 +417,9 @@ export function HomeShell({
         return;
       }
 
-      const sorted = filesByOrdering;
-      const remaining = sorted.filter((f) => f.id !== activeId);
-      const overIdx = remaining.findIndex((f) => f.id === overId);
-      if (overIdx === -1) return;
-
-      const prevKey = overIdx > 0 ? (remaining[overIdx - 1]?.ordering ?? null) : null;
-      const nextKey = remaining[overIdx]?.ordering ?? null;
-      const newKey = generateKeyBetween(prevKey, nextKey);
-
-      platform.reorderFile(activeId, newKey).then(() => view.refresh());
+      reorderFileNextTo(activeId, overId);
     },
-    [filesByOrdering, platform, actions, view],
+    [reorderFileNextTo, actions],
   );
 
   const handleFileDragStart = useCallback((e: React.DragEvent, entry: FileEntry) => {
@@ -520,6 +529,18 @@ export function HomeShell({
             void platform.revealInFileManager(contextFile.filePath);
           }
           break;
+        case 'move-earlier': {
+          const idx = filesByOrdering.findIndex((f) => f.id === contextFile.id);
+          const target = idx > 0 ? filesByOrdering[idx - 1] : undefined;
+          if (target) reorderFileNextTo(contextFile.id, target.id);
+          break;
+        }
+        case 'move-later': {
+          const idx = filesByOrdering.findIndex((f) => f.id === contextFile.id);
+          const target = idx !== -1 ? filesByOrdering[idx + 1] : undefined;
+          if (target) reorderFileNextTo(contextFile.id, target.id);
+          break;
+        }
       }
       setContextPos(null);
       setContextFile(null);
@@ -534,6 +555,8 @@ export function HomeShell({
       platform,
       handleStartRename,
       view.refresh,
+      filesByOrdering,
+      reorderFileNextTo,
     ],
   );
 
@@ -1120,6 +1143,11 @@ export function HomeShell({
             isTrash={view.state.section === 'trash'}
             isMissing={missingFiles.has(contextFile.id)}
             isHidden={view.recentRecords.some((r) => r.id === contextFile.id && r.hidden)}
+            canMoveEarlier={filesByOrdering.findIndex((f) => f.id === contextFile.id) > 0}
+            canMoveLater={(() => {
+              const idx = filesByOrdering.findIndex((f) => f.id === contextFile.id);
+              return idx !== -1 && idx < filesByOrdering.length - 1;
+            })()}
           />
         )}
         <HomeSearchPalette

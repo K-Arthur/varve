@@ -16,7 +16,9 @@ export type FileMenuAction =
   | 'remove'
   | 'versions'
   | 'hide'
-  | 'unhide';
+  | 'unhide'
+  | 'move-earlier'
+  | 'move-later';
 
 export interface FileContextMenuProps {
   file: FileEntry;
@@ -29,6 +31,14 @@ export interface FileContextMenuProps {
   isMissing?: boolean;
   /** True when the file is hidden from the Recent view. */
   isHidden?: boolean;
+  /**
+   * Non-drag alternative for manual ("ordering") sort (WCAG 2.2 SC 2.5.7
+   * Dragging Movements): whether this file has a neighbor in that direction
+   * to swap with. Both default true so callers that don't track adjacency
+   * (e.g. trash/missing views, where these items aren't offered) are unaffected.
+   */
+  canMoveEarlier?: boolean;
+  canMoveLater?: boolean;
 }
 
 export function FileContextMenu({
@@ -41,6 +51,8 @@ export function FileContextMenu({
   isTrash = false,
   isMissing = false,
   isHidden = false,
+  canMoveEarlier = true,
+  canMoveLater = true,
 }: FileContextMenuProps) {
   const items: MenuEntry[] = [];
 
@@ -81,6 +93,19 @@ export function FileContextMenu({
         onAction: () => onMoveToProject(null),
       });
     }
+    items.push({ id: 'sep2b', separator: true });
+    items.push({
+      id: 'move-earlier',
+      label: 'Move earlier in order',
+      onAction: () => onAction('move-earlier'),
+      disabled: !canMoveEarlier,
+    });
+    items.push({
+      id: 'move-later',
+      label: 'Move later in order',
+      onAction: () => onAction('move-later'),
+      disabled: !canMoveLater,
+    });
     items.push({ id: 'sep3', separator: true });
     items.push({
       id: 'favorite',
