@@ -65,11 +65,6 @@ export function buildCanvasContextMenuItems({
   const hasNodes = nodeCount >= 1;
   const hasMultipleNodes = nodeCount >= 2;
   const record = (actionId: string) => editor.recordAction(`menu:${actionId}`);
-  const items: MenuEntry[] = [
-    ...(hasSelection
-      ? [
-          {
-            id: 'ctx-cut',
   const setLiveBooleanOperation = (operation: LiveBooleanOperation) => {
     if (!selectedId) return;
     editor.updateNode(selectedId, (node) => {
@@ -83,6 +78,11 @@ export function buildCanvasContextMenuItems({
     record(`boolean-${operation}`);
     closeMenu();
   };
+  const items: MenuEntry[] = [
+    ...(hasSelection
+      ? [
+          {
+            id: 'ctx-cut',
             label: 'Cut',
             onAction: () => {
               record('cut');
@@ -181,11 +181,6 @@ export function buildCanvasContextMenuItems({
               closeMenu();
             },
           } satisfies MenuEntry,
-        ]
-      : []),
-    ...(hasSelection
-      ? (() => {
-          // Clipping/masking entries — computed locally to avoid
           ...(isSingleLiveBoolean
             ? [
                 { id: 'ctx-live-boolean-sep', separator: true as const } satisfies MenuEntry,
@@ -199,6 +194,11 @@ export function buildCanvasContextMenuItems({
                 ),
               ]
             : []),
+        ]
+      : []),
+    ...(hasSelection
+      ? (() => {
+          // Clipping/masking entries — computed locally to avoid
           // adding imports to this hub file. Mirrors the scene
           // predicates (canBeClipMaskSource, isClippingMaskGroup).
           const selNodes = editor.state.selection
