@@ -861,7 +861,7 @@ describe('legacy exports', () => {
       const { svgTargetGaps } = await import('./svg');
       const node = makeShapeNode(
         'stroke-gap',
-        { kind: 'rect' },
+        { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
         {
           strokes: [
             {
@@ -906,7 +906,7 @@ describe('legacy exports', () => {
       };
       const node = makeShapeNode(
         'stacked-strokes',
-        { kind: 'rect' },
+        { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
         {
           strokes: [stroke, { ...stroke, weight: 6 }],
         },
