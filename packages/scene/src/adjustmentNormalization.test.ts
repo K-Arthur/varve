@@ -114,6 +114,13 @@ describe('adjustment normalization', () => {
           centerX: 2,
           centerY: Number.NaN,
         },
+        {
+          id: 'dehaze-1',
+          kind: 'dehaze',
+          amount: -5,
+          radius: 1000,
+          protectHighlights: Number.POSITIVE_INFINITY,
+        },
       ],
       'image-node',
     );
@@ -130,6 +137,12 @@ describe('adjustment normalization', () => {
       strength: -100,
       centerX: 1,
       centerY: 0.5,
+    });
+    expect(result.adjustments[2]).toMatchObject({
+      kind: 'dehaze',
+      amount: 0,
+      radius: 256,
+      protectHighlights: 0.45,
     });
   });
 

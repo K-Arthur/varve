@@ -995,6 +995,14 @@ export type FilterIR =
       blendMode: string;
     }
   | {
+      kind: 'dehaze';
+      amount: number;
+      radius: number;
+      protectHighlights: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
       kind: 'edgeFalloff';
       strength: number;
       midpoint: number;

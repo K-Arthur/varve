@@ -2,6 +2,7 @@ export type { ImageTreatmentRenderOptions, ImageTreatmentSpace } from './kernels
 export {
   applyAtmosphere,
   applyDefinition,
+  applyDehaze,
   applyEdgeFalloff,
   applyGrain,
   applyMicroDetail,
@@ -10,6 +11,7 @@ export {
 export type {
   AtmosphereParams,
   DefinitionParams,
+  DehazeParams,
   EdgeFalloffParams,
   GrainParams,
   ImageTreatmentGroup,

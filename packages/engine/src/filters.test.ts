@@ -2,6 +2,8 @@
  * Tests for filter IR conversion and Canvas2D CSS fallback.
  */
 import { describe, expect, it } from 'vitest';
+import { effectPixelExpansion, getFilterProperties } from './adjustmentPipeline';
+import { getEffectContract } from './effectContract';
 import type { Adjustment, HalftoneAdjustment } from './filters';
 import {
   adjustmentDefaults,
@@ -94,6 +96,7 @@ describe('new adjustment kinds', () => {
       ['microDetail', { amount: 32, threshold: 0.2 }],
       ['definition', { amount: 32, radius: 18, protectHighlights: 0.4 }],
       ['atmosphere', { amount: -25, radius: 40, protectHighlights: 0.7 }],
+      ['dehaze', { amount: 45, radius: 64, protectHighlights: 0.5 }],
       [
         'edgeFalloff',
         {
@@ -117,6 +120,37 @@ describe('new adjustment kinds', () => {
       expect(filterToCss(filter)).toBeNull();
       expect(filterKindDisplayName(kind)).not.toBe(kind);
     }
+  });
+
+  it('keeps Dehaze parameters intact from serialized adjustment to FilterIR', () => {
+    const adjustment = makeAdjustment('dehaze-1', 'dehaze', {
+      amount: 45,
+      radius: 64,
+      protectHighlights: 0.5,
+    });
+    const filter = narrow(adjustmentToFilter(adjustment), 'dehaze');
+
+    expect(filter).toMatchObject({
+      kind: 'dehaze',
+      amount: 45,
+      radius: 64,
+      protectHighlights: 0.5,
+      opacity: 1,
+      blendMode: 'normal',
+    });
+    expect(effectPixelExpansion(filter)).toEqual([64, 64, 64, 64]);
+    expect(getFilterProperties('dehaze')).toMatchObject({
+      hasCssPath: false,
+      hasGpuPath: false,
+      requiresRasterExport: true,
+    });
+    expect(getEffectContract('dehaze')).toMatchObject({
+      name: 'Dehaze',
+      alphaConvention: 'straight',
+      cssFilterEquivalent: null,
+      nativeStatus: 'not-implemented',
+      gpuStatus: 'not-implemented',
+    });
   });
 
   it('makeAdjustment for duotone produces fully-populated DuotoneAdjustment', () => {

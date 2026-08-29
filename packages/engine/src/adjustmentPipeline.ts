@@ -272,6 +272,13 @@ const FILTER_PROPERTIES: Record<string, FilterProperties> = {
     hasCssPath: false,
     requiresRasterExport: true,
   },
+  dehaze: {
+    name: 'Dehaze',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
   edgeFalloff: {
     name: 'Edge Falloff',
     capabilities: ['software-cpu', 'raster-export'],
@@ -557,6 +564,10 @@ export function effectPixelExpansion(filter: FilterIR): [number, number, number,
       return [r, r, r, r];
     }
     case 'atmosphere': {
+      const r = Math.ceil(filter.radius);
+      return [r, r, r, r];
+    }
+    case 'dehaze': {
       const r = Math.ceil(filter.radius);
       return [r, r, r, r];
     }

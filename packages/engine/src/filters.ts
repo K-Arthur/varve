@@ -11,6 +11,7 @@
 import {
   type AtmosphereParams,
   type DefinitionParams,
+  type DehazeParams,
   type EdgeFalloffParams,
   type GrainParams,
   IMAGE_TREATMENT_KINDS,
@@ -690,6 +691,11 @@ export interface AtmosphereAdjustment extends AdjustmentBase, AtmosphereParams {
   kind: 'atmosphere';
 }
 
+/** Local atmospheric-veil recovery, distinct from broad local contrast. */
+export interface DehazeAdjustment extends AdjustmentBase, DehazeParams {
+  kind: 'dehaze';
+}
+
 /** Object-coordinate edge-lighting treatment. */
 export interface EdgeFalloffAdjustment extends AdjustmentBase, EdgeFalloffParams {
   kind: 'edgeFalloff';
@@ -750,6 +756,7 @@ export type Adjustment =
   | MicroDetailAdjustment
   | DefinitionAdjustment
   | AtmosphereAdjustment
+  | DehazeAdjustment
   | EdgeFalloffAdjustment
   | GrainAdjustment
   | SoftBloomAdjustment;
@@ -1206,6 +1213,14 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         protectHighlights: adjustment.protectHighlights,
         ...base,
       };
+    case 'dehaze':
+      return {
+        kind: 'dehaze',
+        amount: adjustment.amount,
+        radius: adjustment.radius,
+        protectHighlights: adjustment.protectHighlights,
+        ...base,
+      };
     case 'edgeFalloff':
       return {
         kind: 'edgeFalloff',
@@ -1312,6 +1327,7 @@ export function filterToCss(filter: FilterIR): string | null {
     case 'microDetail':
     case 'definition':
     case 'atmosphere':
+    case 'dehaze':
     case 'edgeFalloff':
     case 'grain':
     case 'softBloom':
@@ -1400,6 +1416,8 @@ export function filterKindDisplayName(kind: AdjustmentKind): string {
       return 'Definition';
     case 'atmosphere':
       return 'Atmosphere';
+    case 'dehaze':
+      return 'Dehaze';
     case 'edgeFalloff':
       return 'Edge Falloff';
     case 'grain':
@@ -1778,6 +1796,7 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
     case 'microDetail':
     case 'definition':
     case 'atmosphere':
+    case 'dehaze':
     case 'edgeFalloff':
     case 'grain':
     case 'softBloom':

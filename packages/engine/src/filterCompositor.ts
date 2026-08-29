@@ -40,6 +40,7 @@ import type { ImageTreatmentSpace } from './imageTreatments';
 import {
   applyAtmosphere,
   applyDefinition,
+  applyDehaze,
   applyEdgeFalloff,
   applyGrain,
   applyMicroDetail,
@@ -341,6 +342,11 @@ export function applySoftwareFilter(
     }
     case 'atmosphere': {
       applyAtmosphere(imageData, filter, options);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'dehaze': {
+      applyDehaze(imageData, filter, options);
       ctx.putImageData(imageData, 0, 0);
       break;
     }

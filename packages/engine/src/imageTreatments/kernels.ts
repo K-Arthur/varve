@@ -8,6 +8,8 @@
  * - Micro Detail uses a small-scale luminance residual with a noise floor.
  * - Definition isolates a middle-frequency band between two local averages.
  * - Atmosphere adjusts a broader local residual without changing global tone.
+ * - Dehaze estimates local atmospheric veil from an alpha-aware dark channel
+ *   and reconstructs a bounded transmission; it is not an Atmosphere alias.
  * - Edge Falloff is evaluated in the captured object/scope image coordinates.
  * - Grain is seeded and document-coordinate anchored when coordinate data is
  *   available, so it cannot crawl while the canvas is panned or zoomed.
@@ -22,6 +24,7 @@ import type { EffectQuality } from '../liveEffects/quality';
 import type {
   AtmosphereParams,
   DefinitionParams,
+  DehazeParams,
   EdgeFalloffParams,
   GrainParams,
   MicroDetailParams,
@@ -64,6 +67,21 @@ function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
+/**
+ * Serialized data is normalized at the scene boundary, but kernels are public
+ * engine APIs too. Keep direct callers with malformed values from introducing
+ * NaN pixels or an unbounded blur allocation.
+ */
+function finiteClamp(
+  value: number | undefined,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
+}
+
 function clampByte(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));
 }
@@ -88,6 +106,26 @@ function makeLuminanceField(imageData: ImageData): LuminanceField {
     alpha[pixel] = a;
     if (a === 0) continue;
     values[pixel] = luminance(data[offset]!, data[offset + 1]!, data[offset + 2]!) / 255;
+  }
+  return { values, alpha };
+}
+
+/**
+ * Dark-channel field used only by Dehaze. The minimum straight-RGB channel is
+ * a conservative local proxy for veiling light: a hazy region loses truly
+ * dark samples, whereas a local-contrast adjustment works from luminance
+ * residuals alone.
+ */
+function makeDarkChannelField(imageData: ImageData): LuminanceField {
+  const { data } = imageData;
+  const values = new Float32Array(imageData.width * imageData.height);
+  const alpha = new Float32Array(values.length);
+  for (let pixel = 0; pixel < values.length; pixel += 1) {
+    const offset = pixel * 4;
+    const a = data[offset + 3]! / 255;
+    alpha[pixel] = a;
+    if (a === 0) continue;
+    values[pixel] = Math.min(data[offset]!, data[offset + 1]!, data[offset + 2]!) / 255;
   }
   return { values, alpha };
 }
@@ -314,6 +352,52 @@ export function applyAtmosphere(
     const highlightMask = 1 - protectHighlights * smoothstep(0.68, 1, source);
     const target = source + localDepth * gain * structure * highlightMask;
     setLuminancePreservingChroma(data, index * 4, source, target);
+  }
+  return imageData;
+}
+
+/**
+ * Local atmospheric-haze recovery using a dark-channel veil estimate.
+ *
+ * This is intentionally distinct from Atmosphere: it estimates the amount of
+ * neutral veiling light in each broad neighbourhood, then applies a bounded
+ * inverse atmospheric-light transform (`J = (I - h) / (1 - h)`) to luminance.
+ * The dark-channel confidence and a transmission floor make the inverse safe
+ * for low-detail or malformed direct API inputs. It preserves chroma rather
+ * than inventing saturation, alpha exactly, and hidden RGB of transparent
+ * pixels exactly.
+ */
+export function applyDehaze(
+  imageData: ImageData,
+  params: DehazeParams,
+  options: ImageTreatmentRenderOptions = {},
+): ImageData {
+  const amount = finiteClamp(params.amount, 0, 100, 0) / 100;
+  if (amount === 0 || imageData.width === 0 || imageData.height === 0) return imageData;
+
+  const radius = finiteClamp(params.radius, 4, 256, 48) * pixelsPerTreatmentUnit(options);
+  const protectHighlights = finiteClamp(params.protectHighlights, 0, 1, 0.45);
+  const darkChannel = makeDarkChannelField(imageData);
+  const localVeil = blurLuminance(darkChannel, imageData.width, imageData.height, radius);
+  const luminanceField = makeLuminanceField(imageData);
+  const { data } = imageData;
+
+  for (let index = 0; index < luminanceField.values.length; index += 1) {
+    if (luminanceField.alpha[index] === 0) continue;
+    const source = luminanceField.values[index]!;
+    const darkVeil = clamp01(localVeil[index]!);
+    // A bright, locally dark-channel-free pixel is not evidence of haze. This
+    // confidence curve also prevents an otherwise flat middle-grey patch from
+    // being treated as fully veiled at high Amount.
+    const veilConfidence = smoothstep(0.04, 0.82, darkVeil);
+    const estimatedVeil = Math.min(0.58, darkVeil * veilConfidence * 0.9);
+    const highlightMask = 1 - protectHighlights * smoothstep(0.64, 1, source);
+    const haze = estimatedVeil * amount * highlightMask;
+    // Never divide by a near-zero estimated transmission. The cap above and
+    // this explicit floor are both deliberate numerical safety boundaries.
+    const transmission = Math.max(0.22, 1 - haze);
+    const restored = clamp01((source - haze) / transmission);
+    setLuminancePreservingChroma(data, index * 4, source, restored);
   }
   return imageData;
 }

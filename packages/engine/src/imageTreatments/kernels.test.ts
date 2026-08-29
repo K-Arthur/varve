@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyAtmosphere,
   applyDefinition,
+  applyDehaze,
   applyEdgeFalloff,
   applyGrain,
   applyMicroDetail,
@@ -51,6 +52,7 @@ describe('Image Treatment kernels', () => {
     applyMicroDetail(source, imageTreatmentDefaults('microDetail'));
     applyDefinition(source, imageTreatmentDefaults('definition'));
     applyAtmosphere(source, imageTreatmentDefaults('atmosphere'));
+    applyDehaze(source, imageTreatmentDefaults('dehaze'));
     applyEdgeFalloff(source, imageTreatmentDefaults('edgeFalloff'));
     applyGrain(source, imageTreatmentDefaults('grain'));
     applySoftBloom(source, imageTreatmentDefaults('softBloom'));
@@ -69,6 +71,7 @@ describe('Image Treatment kernels', () => {
     applyMicroDetail(source, { amount: 80, threshold: 0 });
     applyDefinition(source, { amount: 80, radius: 6, protectHighlights: 0 });
     applyAtmosphere(source, { amount: 80, radius: 8, protectHighlights: 0 });
+    applyDehaze(source, { amount: 80, radius: 8, protectHighlights: 0 });
     applyEdgeFalloff(source, {
       strength: -80,
       midpoint: 40,
@@ -85,6 +88,46 @@ describe('Image Treatment kernels', () => {
       expectedAlpha,
     );
     expect(Array.from(source.data.slice(0, 3))).toEqual(hiddenRgb);
+  });
+
+  it('recovers local contrast through a dark-channel haze estimate', () => {
+    const source = image(25, 9, (x, y) => {
+      // A muted foreground patch inside an evenly veiled field. Radius keeps
+      // its veil estimate shared with its immediate surroundings, so a local
+      // atmospheric-light inverse should expand the tonal separation.
+      const foreground = x >= 8 && x <= 16 && y >= 2 && y <= 6;
+      return foreground ? [112, 119, 126, 255] : [158, 165, 172, 255];
+    });
+    const sample = (x: number, y: number) => source.data[(y * source.width + x) * 4]!;
+    const beforeGap = sample(4, 4) - sample(12, 4);
+
+    applyDehaze(source, { amount: 100, radius: 12, protectHighlights: 0 });
+
+    const afterGap = sample(4, 4) - sample(12, 4);
+    expect(afterGap).toBeGreaterThan(beforeGap);
+  });
+
+  it('uses a different operator from Atmosphere rather than aliasing local contrast', () => {
+    const dehazed = textured();
+    const atmosphere = copy(dehazed);
+
+    applyDehaze(dehazed, { amount: 65, radius: 32, protectHighlights: 0.3 });
+    applyAtmosphere(atmosphere, { amount: 65, radius: 32, protectHighlights: 0.3 });
+
+    expect(bytes(dehazed)).not.toEqual(bytes(atmosphere));
+  });
+
+  it('treats malformed direct API parameters as a safe neutral Dehaze', () => {
+    const source = textured();
+    const expected = bytes(source);
+
+    applyDehaze(source, {
+      amount: Number.NaN,
+      radius: Number.POSITIVE_INFINITY,
+      protectHighlights: Number.NaN,
+    });
+
+    expect(bytes(source)).toEqual(expected);
   });
 
   it('keeps deterministic grain fixed when a capture region moves with the camera', () => {

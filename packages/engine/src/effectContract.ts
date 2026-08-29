@@ -215,6 +215,17 @@ const EFFECT_CONTRACTS: Record<string, EffectContractEntry> = {
     gpuStatus: 'not-implemented',
     nativeStatus: 'not-implemented',
   },
+  dehaze: {
+    name: 'Dehaze',
+    workingSpace: 'srgb-gamma',
+    alphaConvention: 'straight',
+    hasApproximatePreview: false,
+    previewTolerance: 0,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'not-implemented',
+    nativeStatus: 'not-implemented',
+  },
   edgeFalloff: {
     name: 'Edge Falloff',
     workingSpace: 'srgb-gamma',

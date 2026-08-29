@@ -13,6 +13,7 @@ export const IMAGE_TREATMENT_KINDS = [
   'microDetail',
   'definition',
   'atmosphere',
+  'dehaze',
   'edgeFalloff',
   'grain',
   'softBloom',
@@ -60,6 +61,17 @@ export interface AtmosphereParams {
   protectHighlights: number;
 }
 
+/**
+ * Local atmospheric-veil recovery. Unlike Atmosphere's broad local-contrast
+ * control, Dehaze estimates a local dark-channel veil and reconstructs a
+ * bounded transmission through it.
+ */
+export interface DehazeParams {
+  amount: number;
+  radius: number;
+  protectHighlights: number;
+}
+
 export interface EdgeFalloffParams {
   strength: number;
   midpoint: number;
@@ -88,6 +100,7 @@ export interface ImageTreatmentParamsByKind {
   microDetail: MicroDetailParams;
   definition: DefinitionParams;
   atmosphere: AtmosphereParams;
+  dehaze: DehazeParams;
   edgeFalloff: EdgeFalloffParams;
   grain: GrainParams;
   softBloom: SoftBloomParams;
@@ -204,6 +217,48 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
         min: 0,
         max: 1,
         defaultValue: 0.6,
+        step: 0.01,
+        fineStep: 0.005,
+        advanced: true,
+      },
+    ],
+  },
+  dehaze: {
+    id: 'dehaze',
+    label: 'Dehaze',
+    group: 'presence',
+    description: 'Recover contrast through a locally estimated atmospheric veil.',
+    parameters: [
+      {
+        key: 'amount',
+        label: 'Dehaze',
+        description: 'Strength of local atmospheric-haze removal.',
+        min: 0,
+        max: 100,
+        defaultValue: 0,
+        step: 1,
+        fineStep: 0.1,
+        unit: '%',
+      },
+      {
+        key: 'radius',
+        label: 'Haze Scale',
+        description: 'The local area used to estimate atmospheric haze.',
+        min: 4,
+        max: 256,
+        defaultValue: 48,
+        step: 1,
+        fineStep: 0.5,
+        unit: 'px',
+        advanced: true,
+      },
+      {
+        key: 'protectHighlights',
+        label: 'Highlight Protection',
+        description: 'Limit haze recovery in bright skies, clouds, and lights.',
+        min: 0,
+        max: 1,
+        defaultValue: 0.45,
         step: 0.01,
         fineStep: 0.005,
         advanced: true,

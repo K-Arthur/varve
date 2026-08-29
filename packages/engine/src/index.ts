@@ -350,6 +350,7 @@ export type {
   CurvesAdjustment,
   CurvesPoint,
   DefinitionAdjustment,
+  DehazeAdjustment,
   DitherAdjustment,
   DuotoneAdjustment,
   EdgeFalloffAdjustment,

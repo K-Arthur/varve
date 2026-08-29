@@ -162,6 +162,45 @@ describe('filter compositing', () => {
     }
   });
 
+  it('dispatches Dehaze through the software compositor and preserves transparent pixels', () => {
+    const input = makeTestImageData(
+      [
+        [17, 33, 49, 0],
+        [100, 108, 115, 255],
+        [118, 126, 133, 255],
+        [151, 159, 166, 255],
+        [163, 171, 178, 255],
+      ],
+      5,
+      1,
+    );
+    let output: ImageData | undefined;
+    const context = {
+      getImageData: () =>
+        new ImageData(new Uint8ClampedArray(input.data), input.width, input.height),
+      putImageData: (data: ImageData) => {
+        output = data;
+      },
+    };
+
+    applySoftwareFilter(
+      context as unknown as OffscreenCanvasRenderingContext2D,
+      {
+        kind: 'dehaze',
+        amount: 70,
+        radius: 8,
+        protectHighlights: 0.2,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      5,
+      1,
+    );
+
+    expect(Array.from(output!.data.slice(0, 4))).toEqual([17, 33, 49, 0]);
+    expect(Array.from(output!.data.slice(4))).not.toEqual(Array.from(input.data.slice(4)));
+  });
+
   it('provides a software brightness fallback when ctx.filter is unavailable', () => {
     const input = makeTestImageData([[100, 50, 25, 255]], 1, 1);
     let output: ImageData | undefined;
