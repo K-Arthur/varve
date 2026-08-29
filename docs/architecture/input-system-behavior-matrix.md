@@ -72,6 +72,8 @@ zoom, and the input diagnostics surface.
 | `1`–`6` (no modifiers) | Zoom presets 50/75/100/150/200/400%. |
 | `Shift+1` / `Shift+2` / `Shift+3` / `Shift+4` | Fit all / fit selection / fit active page / fit active frame. |
 | Numpad digits (NumLock off) | Navigation keys (arrows/End/Insert), NOT zoom presets. |
+| Arrow | Move each eligible selected transform root by 1 document unit in the requested world direction. |
+| `Shift+Arrow` | Move each eligible selected transform root by 10 document units in the requested world direction. |
 | `Space` | Spring-loaded Hand tool. |
 | `Escape` | Cancel active drag, then clear selection / exit isolation. |
 | `Tab` | Cycle selection. |
@@ -90,6 +92,13 @@ zoom, and the input diagnostics surface.
 All keyboard zoom entry points resolve through the physical key
 (`KeyboardEvent.code`), so `Shift+1` matches on layouts where it prints `!`,
 and numpad works under any NumLock state (see `input/physicalKey.ts`).
+
+Arrow movement belongs only to the active canvas object-editing context. It
+does not claim a key from an input, `contenteditable`, modal/dialog, or active
+IME composition; specialized tools (for example direct-node and crop editing)
+receive the event before generic object movement. A movable selection prevents
+browser page scrolling. A selected locked/hidden or flow-layout-managed root
+does not move; in a mixed selection, eligible roots still move.
 
 ## 3. Zoom model
 
@@ -165,4 +174,7 @@ Before shipping an input milestone, verify on each available device:
 - [ ] Numpad with NumLock on: +/-/0/digits zoom; with NumLock off: navigation, no zoom.
 - [ ] International layout: `+` requires Shift; `=` zoom-in; Shift+1 fit-all resolves physically.
 - [ ] Text fields/dialogs: typing never triggers canvas zoom; Escape closes dialogs first.
+- [ ] Selected-object arrows: bare Arrow moves 1 document unit, Shift+Arrow moves 10, independently of zoom and without browser page scrolling.
+- [ ] Multi-selection arrows: every eligible root moves by the same world delta; spacing and hierarchy remain unchanged.
+- [ ] Held Arrow: repeat movement is responsive, creates one undo interaction, and blur/visibility loss cannot leave it open.
 - [ ] Window blur mid-drag: no stuck state; pointer cancel received.

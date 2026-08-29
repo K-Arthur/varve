@@ -102,6 +102,34 @@ never applied a second time.
   frame's local space (`newLocal = targetWorld⁻¹ · anchor`). Legacy
   clipboard payloads without an anchor keep source-local semantics.
 
+## Keyboard movement
+
+Object nudging is a document-space translation, not a viewport operation.
+Bare Arrow moves a selected object by one document unit and Shift+Arrow moves
+it by ten. Camera pan, zoom, rotation, device-pixel ratio, and the selected
+object's own rotation never change that requested world-space delta.
+
+`planManualWorldTranslation` resolves the selected nodes into independent
+transform roots before mutation. A selected descendant of another selected
+node remains selected, but it is not translated a second time. Each root
+converts the same world delta through its direct parent's inverse world
+transform, then changes only the translation entries (`e`/`f`) of its local
+transform. This preserves geometry, rotation, scale, flips, crop data,
+children's local coordinates, and the existing parent relationship. A
+keyboard nudge never uses drag-and-drop reparenting, even when a moved object
+ends inside a frame.
+
+The planner safely skips a root whose inherited state is locked or hidden,
+whose parent layout owns its position, or whose parent transform cannot be
+inverted. Absolute-positioned layout children and empty groups remain
+movable. Mixed selections move every eligible independent root; an entirely
+ineligible selection produces no mutation or history entry.
+
+A held Arrow key is one interaction transaction: repeat events reuse the
+validated parent-space conversion and commit on keyup, blur, visibility loss,
+or tool deactivation. Separate key taps remain separate undo units. Direct
+node/crop/editor tools receive keyboard input before generic object nudging.
+
 ## Migration
 
 - Legacy documents (v1.0+) already stored parent-local transforms — the
