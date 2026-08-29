@@ -10,7 +10,6 @@
 
 import {
   type Document,
-  getParent,
   isContainer,
   isExportRegion,
   type NodeId,
@@ -21,6 +20,7 @@ import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../context';
 import { useViewport } from '../../context/ViewportContext';
 import { nodeWorldBounds } from '../../scene/world';
+import { buildSelectionContext, buildSelectionHierarchy } from '../../selection/selectionContext';
 import './SelectionInfoBar.css';
 
 function getNodeTypeIcon(node: SceneNode): IconName {
@@ -86,19 +86,7 @@ function getNodeTypeLabel(node: SceneNode): string {
 }
 
 export function getDisplayAncestorChain(doc: Document, nodeId: NodeId): SceneNode[] {
-  const structuralRootIds = new Set([
-    ...(doc.pages?.map((page) => page.contentRoot) ?? []),
-    ...Object.values(doc.masters ?? {}).map((master) => master.contentRoot),
-  ]);
-  const chain: SceneNode[] = [];
-  let currentId: NodeId | null = nodeId;
-  while (currentId) {
-    const node = doc.nodes[currentId];
-    if (!node) break;
-    if (!structuralRootIds.has(currentId)) chain.unshift(node);
-    currentId = getParent(doc, currentId);
-  }
-  return chain;
+  return buildSelectionHierarchy(doc, nodeId).map((entry) => entry.node);
 }
 
 export function countActivePageLayers(doc: Document): number {
@@ -133,9 +121,19 @@ function countByType(nodes: SceneNode[]): Record<string, number> {
 }
 
 export function SelectionInfoBar() {
-  const { state, selectedNodes, setSelection } = useEditor();
+  const { state, setSelection } = useEditor();
   const { revealSelection } = useViewport();
-  const sel = selectedNodes();
+  const selectionContext = useMemo(
+    () =>
+      buildSelectionContext(
+        state.document,
+        state.selection,
+        state.primaryId,
+        state.activeContainerId,
+      ),
+    [state.document, state.selection, state.primaryId, state.activeContainerId],
+  );
+  const sel = selectionContext.nodes;
 
   const handleBreadcrumbClick = useCallback(
     (nodeId: NodeId) => {
@@ -164,7 +162,7 @@ export function SelectionInfoBar() {
 
       const bounds = nodeWorldBounds(state.document, node.id);
       const rotation = node.rotation ?? 0;
-      const ancestors = getDisplayAncestorChain(state.document, node.id);
+      const ancestors = selectionContext.hierarchy.map((entry) => entry.node);
 
       return (
         <div className="selection-info-bar__single">
@@ -253,7 +251,7 @@ export function SelectionInfoBar() {
         )}
       </div>
     );
-  }, [sel, state.document, handleBreadcrumbClick, revealSelection]);
+  }, [sel, state.document, selectionContext.hierarchy, handleBreadcrumbClick, revealSelection]);
 
   return <div className="selection-info-bar">{content}</div>;
 }

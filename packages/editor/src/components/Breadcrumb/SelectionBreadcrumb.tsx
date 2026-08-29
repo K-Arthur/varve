@@ -1,17 +1,14 @@
 import type { Document, NodeId } from '@varve/scene';
-import { isContainer, isExportRegion } from '@varve/scene';
 import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
-import { getOrCreateParentCache, getParentFast } from '../../scene/parentIndexCache';
+import {
+  buildSelectionContext,
+  type SelectionHierarchyEntry,
+} from '../../selection/selectionContext';
 import './selectionBreadcrumb.css';
 
-interface BreadcrumbSegment {
-  id: NodeId;
-  name: string;
-  kind: string;
-  isContainer: boolean;
-}
+type BreadcrumbSegment = Omit<SelectionHierarchyEntry, 'node'>;
 
 export function SelectionBreadcrumb() {
   const { state } = useEditor();
@@ -32,42 +29,19 @@ function buildBreadcrumbPath(
   primaryId: NodeId | null,
   activeContainerId: NodeId | null,
 ): BreadcrumbSegment[] {
-  const nodes = doc.nodes;
-  const path: BreadcrumbSegment[] = [];
-
-  const targetId = primaryId ?? (selection.length > 0 ? selection[0] : activeContainerId);
-  if (!targetId) return path;
-
-  const targetNode = nodes[targetId];
-  if (!targetNode) return path;
-
-  // Walk from root to the target building the ancestor chain
-  const parentCache = getOrCreateParentCache(doc, null);
-  const chain: NodeId[] = [];
-  let current: NodeId | undefined = targetId;
-  while (current) {
-    chain.unshift(current);
-    current = getParentFast(doc, current, parentCache) ?? undefined;
-  }
-
-  for (const id of chain) {
-    const node = nodes[id];
-    if (!node) continue;
-    path.push({
-      id,
-      name: node.name || node.kind,
-      // Export Regions are frames structurally but never containers: they
-      // hold no content, so entering one has nothing to isolate.
-      kind: isExportRegion(node) ? 'exportRegion' : node.kind,
-      isContainer: isContainer(node) && !isExportRegion(node),
-    });
-  }
+  const model = buildSelectionContext(doc, selection, primaryId, activeContainerId);
+  const path = model.hierarchy.map((entry) => ({
+    id: entry.id,
+    name: entry.name,
+    kind: entry.kind,
+    isContainer: entry.isContainer,
+  }));
 
   // For multi-selection where the primary is set, add a count indicator
-  if (selection.length > 1 && primaryId) {
+  if (model.count > 1 && model.primaryId) {
     path.push({
       id: '',
-      name: `+${selection.length - 1}`,
+      name: `+${model.count - 1}`,
       kind: 'multi',
       isContainer: false,
     });
