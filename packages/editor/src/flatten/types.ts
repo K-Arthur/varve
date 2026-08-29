@@ -5,6 +5,7 @@
  */
 
 import type { BoundsRect } from '@varve/scene';
+import type { RasterizeSelectionOptions } from './rasterizeOptions';
 
 export type { BoundsRect };
 
@@ -29,6 +30,25 @@ export interface FlattenOptions {
   includeEffectOverflow?: boolean;
   signal?: AbortSignal;
   onProgress?: (phase: string, progress: number) => void;
+}
+
+/** Build the normalized options used by the provider's flatten operation. */
+export function createFlattenOptions(
+  mode: FlattenMode,
+  scaleOrOptions?: number | RasterizeSelectionOptions,
+): FlattenOptions {
+  const rasterizeOptions =
+    mode === 'rasterize' && typeof scaleOrOptions === 'object' ? scaleOrOptions : undefined;
+  const scale = typeof scaleOrOptions === 'number' ? scaleOrOptions : undefined;
+  return {
+    mode,
+    scale: scale ?? 1,
+    dpi: rasterizeOptions?.dpi,
+    background: rasterizeOptions?.background === 'white' ? 'opaque' : 'transparent',
+    backgroundColor: rasterizeOptions?.background === 'white' ? [255, 255, 255, 255] : undefined,
+    includeEffectOverflow: rasterizeOptions?.includeEffectOverflow ?? true,
+    textPolicy: 'rasterize',
+  };
 }
 
 export interface FlattenWarning {

@@ -903,7 +903,10 @@ export interface EditorContextValue {
   syncAllInstances: () => import('@varve/scene').SyncResult;
 
   // Flatten
-  flattenSelected: (mode: import('../flatten/types').FlattenMode, scale?: number) => void;
+  flattenSelected: (
+    mode: import('../flatten/types').FlattenMode,
+    scaleOrOptions?: number | import('../flatten/rasterizeOptions').RasterizeSelectionOptions,
+  ) => void;
   rasterizeSelected: (
     scaleOrOptions?: number | import('../flatten/rasterizeOptions').RasterizeSelectionOptions,
   ) => void;

@@ -145,9 +145,9 @@ import {
   createComponent,
   createDefaultIsometricGrid,
   createDocument,
-  createLiveBooleanDoc,
   createEmptySelectionSetsData,
   createGuideId,
+  createLiveBooleanDoc,
   createMaster as createMasterDoc,
   createNewDocument,
   createSelectionSet as createSelectionSetDoc,
@@ -459,7 +459,7 @@ import {
   getCanvasViewport,
 } from './context/viewportOps';
 import { applyDropPosition } from './dropUtils';
-import type { FlattenOptions } from './flatten/types';
+import { createFlattenOptions } from './flatten/types';
 import { readGuidesFromClipboard, writeGuidesToClipboard } from './guideClipboard';
 import { HitTestEngine } from './hitTest';
 import { useSelectionHistory } from './hooks/useSelectionHistory';
@@ -1343,8 +1343,6 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   openVectorizeDialog: (prefill?: { replaceGroupId: string } | null) => void;
   /** Close the Image Trace dialog. */
   closeVectorizeDialog: () => void;
-  /** Flatten/rasterize/merge the current selection (unified flatten system). */
-  flattenSelected: (mode: import('./flatten/types').FlattenMode, scale?: number) => void;
   rasterizeSelected: (
     scaleOrOptions?: number | import('./flatten/rasterizeOptions').RasterizeSelectionOptions,
   ) => void;
@@ -7285,7 +7283,6 @@ export function EditorProvider({
         if (!id) return;
         updateDoc((doc) => detachInstanceDoc(doc, id));
       },
-
       flattenSelected: (mode, scaleOrOptions) => {
         const sel = state.selection;
         if (sel.length === 0) {
@@ -7294,17 +7291,7 @@ export function EditorProvider({
         }
         const rasterizeOptions =
           mode === 'rasterize' && typeof scaleOrOptions === 'object' ? scaleOrOptions : undefined;
-        const scale = typeof scaleOrOptions === 'number' ? scaleOrOptions : undefined;
-        const opts: FlattenOptions = {
-          mode,
-          scale: scale ?? 1,
-          dpi: rasterizeOptions?.dpi,
-          background: rasterizeOptions?.background === 'white' ? 'opaque' : 'transparent',
-          backgroundColor:
-            rasterizeOptions?.background === 'white' ? [255, 255, 255, 255] : undefined,
-          includeEffectOverflow: rasterizeOptions?.includeEffectOverflow ?? true,
-          textPolicy: 'rasterize',
-        };
+        const opts = createFlattenOptions(mode, scaleOrOptions);
         import('./flatten/renderSubtree').then(({ flattenNodes }) => {
           flattenNodes(state.document, sel, opts)
             .then((result) => {

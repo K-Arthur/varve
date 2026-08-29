@@ -7,7 +7,7 @@
  */
 
 const SETTLED_IMAGE_REFINEMENT_DELAY_MS = 180;
-const pendingRefinements = new WeakMap<HTMLCanvasElement, ReturnType<typeof setTimeout>>();
+const pendingRefinements = new WeakMap<HTMLCanvasElement, number>();
 
 export function scheduleSettledImageRefinement(
   canvas: HTMLCanvasElement,

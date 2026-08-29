@@ -984,7 +984,9 @@ export function renderContent(deps: RenderContentDeps): void {
     }
     const needsStructural = sceneNeedsStructuralCompositing(doc);
     const cameraMoving = isEditorInteractionActive();
-    const imageIntent = cameraMoving ? 'interactive' : 'settled-preview';
+    const imageIntent: 'interactive' | 'settled-preview' = cameraMoving
+      ? 'interactive'
+      : 'settled-preview';
     const imageRepresentation = selectRasterRepresentation({
       viewportWidth: VP_W,
       viewportHeight: VP_H,
@@ -1756,7 +1758,8 @@ export function renderContent(deps: RenderContentDeps): void {
             camera: cam,
             regionX: bx,
             regionY: by,
-            replayNode: (nodeId, ctx) => replaySubtreeToCtx(nodeId, ctx),
+            replayNode: (nodeId, ctx) =>
+              replaySubtreeToCtx(nodeId, ctx as unknown as CanvasRenderingContext2D),
             getWorldTransform: (nodeId) => getCachedWorldTransform(cache, doc, nodeId),
           });
         }

@@ -172,7 +172,7 @@ function clampFinite(
   max: number,
   fallback: number,
 ): number {
-  if (!Number.isFinite(value)) return fallback;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
   return Math.max(min, Math.min(max, value));
 }
 
