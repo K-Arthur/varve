@@ -171,6 +171,10 @@ mod tests {
 
         // A non-document path never reaches the queue.
         assert!(!queue_path(&state, "/tmp/whatever.varve"));
-        assert_eq!(drain_pending(&state).len(), 1, "only the document was queued");
+        assert_eq!(
+            drain_pending(&state).len(),
+            1,
+            "only the document was queued"
+        );
     }
 }

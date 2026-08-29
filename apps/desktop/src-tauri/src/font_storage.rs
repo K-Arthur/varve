@@ -161,8 +161,8 @@ pub fn store_font_on_filesystem(
         sha256,
     };
 
-    let meta_json = serde_json::to_string(&meta)
-        .map_err(|e| format!("Cannot serialize metadata: {e}"))?;
+    let meta_json =
+        serde_json::to_string(&meta).map_err(|e| format!("Cannot serialize metadata: {e}"))?;
     // Atomic metadata write: a crash mid-write must not leave a truncated
     // meta.json that would hide the font or break its load.
     let meta_tmp = dir.join(format!(
@@ -197,8 +197,7 @@ pub fn load_font_from_filesystem(
     let meta: FontStorageMeta = {
         let meta_content = std::fs::read_to_string(meta_path(&dir))
             .map_err(|e| format!("Cannot read metadata: {e}"))?;
-        serde_json::from_str(&meta_content)
-            .map_err(|e| format!("Cannot parse metadata: {e}"))?
+        serde_json::from_str(&meta_content).map_err(|e| format!("Cannot parse metadata: {e}"))?
     };
 
     let font_path = font_file_path(&dir);
@@ -206,16 +205,13 @@ pub fn load_font_from_filesystem(
         return Ok(None);
     }
 
-    let data = std::fs::read(&font_path)
-        .map_err(|e| format!("Cannot read font file: {e}"))?;
+    let data = std::fs::read(&font_path).map_err(|e| format!("Cannot read font file: {e}"))?;
 
     Ok(Some((data, meta)))
 }
 
 #[tauri::command]
-pub fn list_filesystem_fonts(
-    app: tauri::AppHandle,
-) -> Result<Vec<FontStorageMeta>, String> {
+pub fn list_filesystem_fonts(app: tauri::AppHandle) -> Result<Vec<FontStorageMeta>, String> {
     let dir = font_dir(&app)?;
     let mut results = Vec::new();
 
@@ -242,23 +238,17 @@ pub fn list_filesystem_fonts(
 }
 
 #[tauri::command]
-pub fn remove_font_from_filesystem(
-    app: tauri::AppHandle,
-    family: String,
-) -> Result<bool, String> {
+pub fn remove_font_from_filesystem(app: tauri::AppHandle, family: String) -> Result<bool, String> {
     let dir = font_storage_path(&app, &family)?;
     if !dir.exists() {
         return Ok(false);
     }
-    std::fs::remove_dir_all(&dir)
-        .map_err(|e| format!("Cannot remove font directory: {e}"))?;
+    std::fs::remove_dir_all(&dir).map_err(|e| format!("Cannot remove font directory: {e}"))?;
     Ok(true)
 }
 
 #[tauri::command]
-pub fn get_filesystem_font_storage_usage(
-    app: tauri::AppHandle,
-) -> Result<(u64, u64), String> {
+pub fn get_filesystem_font_storage_usage(app: tauri::AppHandle) -> Result<(u64, u64), String> {
     let dir = font_dir(&app)?;
     let mut total_bytes = 0u64;
     let mut font_count = 0u64;

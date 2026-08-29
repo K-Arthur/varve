@@ -29,10 +29,7 @@ pub fn enumerate_system_fonts(
         .map_err(|e| format!("failed to open system font collection: {e}"))?;
 
     let fonts = collection.all();
-    let filter = request
-        .family
-        .as_ref()
-        .map(|f| f.to_lowercase());
+    let filter = request.family.as_ref().map(|f| f.to_lowercase());
 
     // Deduplicate by (family, name) so the same physical file isn't returned
     // multiple times if the OS lists it under several aliases.
@@ -118,7 +115,10 @@ mod tests {
         );
 
         let sorted = fonts.is_sorted_by(|a, b| (&a.family, &a.name) <= (&b.family, &b.name));
-        assert!(sorted, "results must come back in stable (family, name) order");
+        assert!(
+            sorted,
+            "results must come back in stable (family, name) order"
+        );
     }
 
     #[test]

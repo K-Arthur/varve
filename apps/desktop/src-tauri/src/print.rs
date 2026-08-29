@@ -49,9 +49,7 @@ pub fn list_printers() -> Vec<Printer> {
     let mut printers = Vec::new();
 
     // Try `lpstat -p` for CUPS printer list
-    let output = std::process::Command::new("lpstat")
-        .args(["-p"])
-        .output();
+    let output = std::process::Command::new("lpstat").args(["-p"]).output();
 
     let output = match output {
         Ok(o) if o.status.success() => o,
@@ -100,7 +98,8 @@ fn get_printer_details(name: &str) -> (String, bool, Vec<String>, bool) {
         for line in stdout.lines() {
             if line.starts_with("ColorModel") || line.starts_with("ColorModel/") {
                 // Contains Gray/Grayscale vs RGB/CMYK → color capable if RGB/CMYK present
-                let has_color = line.contains("RGB") || line.contains("CMYK") || line.contains("CMY");
+                let has_color =
+                    line.contains("RGB") || line.contains("CMYK") || line.contains("CMY");
                 let has_gray = line.contains("Gray") || line.contains("Grayscale");
                 let _ = (has_color, has_gray);
             }
@@ -247,13 +246,17 @@ fn sweep_stale_print_files(dir: &Path) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
-    let cutoff = std::time::SystemTime::now()
-        .checked_sub(std::time::Duration::from_secs(24 * 60 * 60));
+    let cutoff =
+        std::time::SystemTime::now().checked_sub(std::time::Duration::from_secs(24 * 60 * 60));
     let Some(cutoff) = cutoff else {
         return;
     };
     for entry in entries.flatten() {
-        if !entry.file_name().to_string_lossy().starts_with("varve_print_") {
+        if !entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with("varve_print_")
+        {
             continue;
         }
         let Ok(meta) = entry.metadata() else {
