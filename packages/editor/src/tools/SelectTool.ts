@@ -29,7 +29,15 @@ import {
   pathPointToBezier,
   pointToSegmentDistSq,
 } from '@varve/shared';
-import { applyNudgePlan, getNudgeStep, type NudgeDirection, planNudge } from '../commands/nudge';
+import {
+  applyNudgePlan,
+  createNudgeGestureSession,
+  getNudgeStep,
+  type NudgeDirection,
+  type NudgeGestureSession,
+  planNudge,
+  planNudgeRepeat,
+} from '../commands/nudge';
 import { nodeWorldBounds, nodeWorldTransform, worldToParent } from '../scene/world';
 import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
@@ -107,6 +115,7 @@ export class SelectTool extends BaseTool {
   private initialPositions = new Map<string, { x: number; y: number }>();
   private hasDuplicated = false;
   private heldNudgeKeys = new Set<NudgeDirection>();
+  private nudgeSession: NudgeGestureSession | null = null;
   /** Nodes that were selected when an Alt-duplicate fired, in selection order. */
   private duplicateSourceIds: string[] = [];
   /** True between firing an Alt-duplicate and the clones becoming the selection. */
@@ -154,6 +163,7 @@ export class SelectTool extends BaseTool {
   }
 
   private finishNudgeGesture(ctx: ToolContext): void {
+    this.nudgeSession = null;
     if (this.heldNudgeKeys.size === 0) return;
     this.heldNudgeKeys.clear();
     ctx.commitTransaction();
@@ -651,8 +661,17 @@ export class SelectTool extends BaseTool {
       }
 
       const step = getNudgeStep(e.shiftKey ? 'large' : 'standard');
-      const plan = planNudge(direction, step, ctx.document, ctx.selection);
+      let plan = this.nudgeSession
+        ? planNudgeRepeat(this.nudgeSession, direction, step, ctx.document, ctx.selection)
+        : null;
+      if (!plan) {
+        this.nudgeSession = null;
+        plan = planNudge(direction, step, ctx.document, ctx.selection);
+      }
       if (plan.moved === 0) return false;
+
+      const nextSession =
+        this.nudgeSession ?? createNudgeGestureSession(ctx.document, ctx.selection, plan);
 
       const startsGesture = this.heldNudgeKeys.size === 0;
       this.heldNudgeKeys.add(direction);
@@ -665,6 +684,7 @@ export class SelectTool extends BaseTool {
         setNodePosition: (id, x, y) => ctx.setNodePosition(id, x, y),
         setNodePositions: (positions) => ctx.setNodePositions(positions),
       });
+      this.nudgeSession = nextSession;
       return true;
     }
     if (e.key === 'Enter' && !e.repeat) {
@@ -721,6 +741,7 @@ export class SelectTool extends BaseTool {
   override onKeyUp(e: KeyboardEvent, ctx: ToolContext): void {
     const direction = nudgeDirectionForKey(e.key);
     if (direction && this.heldNudgeKeys.delete(direction) && this.heldNudgeKeys.size === 0) {
+      this.nudgeSession = null;
       ctx.commitTransaction();
     }
   }

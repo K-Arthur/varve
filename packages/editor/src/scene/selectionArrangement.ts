@@ -356,6 +356,7 @@ function manualPositionEligibility(
     if (!node || node.locked || node.visible === false) return 'locked-or-hidden';
     current = parentIndex.get(current);
   }
+  if (current) return 'invalid-transform';
 
   const node = doc.nodes[id];
   const parent = parentId ? doc.nodes[parentId] : undefined;
