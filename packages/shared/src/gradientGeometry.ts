@@ -113,7 +113,7 @@ export function setGradientRotation<T extends GradientGeometrySource>(
   gradient: T,
   bounds: Rect,
   rotation: number,
-): Omit<T, 'rotation'> & { transform: Affine } {
+): Omit<T, 'rotation'> & { transform: Affine; rotation?: never } {
   const transform = gradientTransformForBounds(gradient, bounds);
   const currentRadians = Math.atan2(transform[1], transform[0]);
   const targetRadians = (rotation * Math.PI) / 180;
