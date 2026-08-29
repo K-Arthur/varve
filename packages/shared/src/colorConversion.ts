@@ -130,6 +130,7 @@ interface RgbColorShim {
   b: number;
   a: number;
   profile?: string;
+  profileFingerprint?: string;
 }
 
 /** CMYK color value (channel range depends on bitDepth). */
@@ -142,6 +143,7 @@ interface CmykColorShim {
   k: number;
   a: number;
   profile?: string;
+  profileFingerprint?: string;
 }
 
 /** Grayscale color value (channel range depends on bitDepth). */
@@ -151,6 +153,7 @@ interface GrayColorShim {
   v: number;
   a: number;
   profile?: string;
+  profileFingerprint?: string;
 }
 
 /** Spot color reference. */

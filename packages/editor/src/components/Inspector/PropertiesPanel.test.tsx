@@ -160,24 +160,25 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     const live = createLiveBooleanDoc(doc, ['a', 'b'], 'union');
     expect(live).not.toBeNull();
     if (!live) return;
+    const liveDoc = live;
 
     let ctx: ReturnType<typeof useEditor> | undefined;
     function Selector() {
       ctx = useEditor();
       React.useEffect(() => {
-        ctx?.setSelection(live.nodeId);
+        ctx?.setSelection(liveDoc.nodeId);
       }, []);
       return null;
     }
 
     render(
-      <EditorProvider initialDocumentJson={JSON.stringify(live.doc)}>
+      <EditorProvider initialDocumentJson={JSON.stringify(liveDoc.doc)}>
         <Selector />
         <PropertiesPanel />
       </EditorProvider>,
     );
 
-    await waitFor(() => expect(ctx?.state.selection).toEqual([live.nodeId]));
+    await waitFor(() => expect(ctx?.state.selection).toEqual([liveDoc.nodeId]));
     expect(screen.getByRole('button', { name: 'Pathfinder' })).toBeTruthy();
     expect(screen.getByRole('combobox', { name: 'Boolean operation' })).toHaveValue('union');
     expect(screen.getByRole('button', { name: /Edit operand 1/ })).toBeTruthy();
@@ -188,18 +189,20 @@ describe('PropertiesPanel section gating for a real single selection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Add operand Third' }));
     await waitFor(() =>
-      expect(ctx?.state.document.nodes[live.nodeId]).toMatchObject({ children: ['a', 'b', 'c'] }),
+      expect(ctx?.state.document.nodes[liveDoc.nodeId]).toMatchObject({
+        children: ['a', 'b', 'c'],
+      }),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Remove operand Third' }));
     await waitFor(() =>
-      expect(ctx?.state.document.nodes[live.nodeId]).toMatchObject({ children: ['a', 'b'] }),
+      expect(ctx?.state.document.nodes[liveDoc.nodeId]).toMatchObject({ children: ['a', 'b'] }),
     );
 
     fireEvent.change(screen.getByRole('combobox', { name: 'Boolean operation' }), {
       target: { value: 'subtract' },
     });
     await waitFor(() =>
-      expect(ctx?.state.document.nodes[live.nodeId]).toMatchObject({
+      expect(ctx?.state.document.nodes[liveDoc.nodeId]).toMatchObject({
         boolean: { operation: 'subtract' },
       }),
     );

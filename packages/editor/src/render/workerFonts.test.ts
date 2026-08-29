@@ -131,7 +131,7 @@ describe('documentNeedsWorkerFonts', () => {
   const declared = new Set(['Geist Variable', 'Fraunces Variable']);
 
   const doc = (nodes: Record<string, Record<string, unknown>>) =>
-    ({ nodes }) as Parameters<typeof documentNeedsWorkerFonts>[0];
+    ({ nodes }) as unknown as Parameters<typeof documentNeedsWorkerFonts>[0];
 
   it('is false when nothing is declared', () => {
     expect(

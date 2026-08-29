@@ -79,7 +79,7 @@ describe('export regions paint nothing', () => {
     const region = exportRegion('region', 10, 20, 120, 90);
     doc = addNode(doc, region);
 
-    const engineNode = sceneNodeToEngineNode(doc.nodes.region!, doc);
+    const engineNode = sceneNodeToEngineNode(doc.nodes.region!, {}, doc);
 
     expect(engineNode.shape).toEqual({ kind: 'rect', x: 0, y: 0, w: 120, h: 90 });
     expect(engineNode.fill).toEqual({ space: 'rgb', r: 0, g: 0, b: 0, a: 0 });
@@ -99,7 +99,7 @@ describe('export regions paint nothing', () => {
     });
     doc = addNode(doc, frame);
 
-    const engineNode = sceneNodeToEngineNode(doc.nodes.frame!, doc);
+    const engineNode = sceneNodeToEngineNode(doc.nodes.frame!, {}, doc);
 
     expect(engineNode.fill).toEqual({ space: 'rgb', r: 200, g: 200, b: 200, a: 255 });
   });
@@ -118,7 +118,7 @@ describe('export regions paint nothing', () => {
     });
     doc = addNode(doc, legacy);
 
-    expect(sceneNodeToEngineNode(doc.nodes.legacy!, doc).fill).toEqual({
+    expect(sceneNodeToEngineNode(doc.nodes.legacy!, {}, doc).fill).toEqual({
       space: 'rgb',
       r: 0,
       g: 0,

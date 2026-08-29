@@ -179,6 +179,7 @@ interface WorkerTextFormat {
 }
 
 interface WorkerTextRun {
+  text?: string;
   format?: WorkerTextFormat;
 }
 

@@ -40,9 +40,14 @@ describe('flattenSceneToEngine live Boolean groups', () => {
     };
     const updated = flattenSceneToEngine(document, document.rootChildren);
     expect(updated.ids).toEqual([created.nodeId]);
-    expect(updated.nodes[0]?.shape.kind).toBe('path');
-    if (updated.nodes[0]?.shape.kind === 'path')
-      expect(updated.nodes[0].shape.holes).toBeUndefined();
+    const updatedNode = updated.nodes[0];
+    expect(updatedNode).toBeDefined();
+    if (!updatedNode) return;
+    const updatedShape = updatedNode.shape;
+    expect(updatedShape).toBeDefined();
+    if (!updatedShape) return;
+    expect(updatedShape.kind).toBe('path');
+    if (updatedShape.kind === 'path') expect(updatedShape.holes).toBeUndefined();
   });
 
   it('retains page placement exactly once for the resolved result', () => {

@@ -136,7 +136,9 @@ describe('EditorHistorySession', () => {
     const movedPath = {
       ...path,
       points: path.points.map((point, index) =>
-        index === 1 ? { ...point, x: 121.0000004, handleOut: [24.000001, -11.28441] } : point,
+        index === 1
+          ? { ...point, x: 121.0000004, handleOut: [24.000001, -11.28441] as [number, number] }
+          : point,
       ),
     };
     const vectorAfter: Document = {

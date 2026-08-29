@@ -69,12 +69,13 @@ describe('worldRectToScreenAabb', () => {
     const viewport = { width: 800, height: 600 };
     const rect = { x: 100, y: 40, w: 120, h: 60 };
     const origin = computeFloatingOrigin(camera, viewport);
-    const points = [
+    const corners: Array<readonly [number, number]> = [
       [rect.x, rect.y],
       [rect.x + rect.w, rect.y],
       [rect.x, rect.y + rect.h],
       [rect.x + rect.w, rect.y + rect.h],
-    ].map(([x, y]) => worldToScreen(camera, x, y, viewport, origin));
+    ];
+    const points = corners.map(([x, y]) => worldToScreen(camera, x, y, viewport, origin));
     const expected = {
       x: Math.min(...points.map(([x]) => x)),
       y: Math.min(...points.map(([, y]) => y)),

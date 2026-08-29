@@ -1,4 +1,5 @@
 import { addNode, createDocument, makeGroupNode, type SceneNode } from '@varve/scene';
+import type { MenuEntry } from '@varve/ui';
 import { describe, expect, it, vi } from 'vitest';
 import type { EditorContextValue } from '../context';
 import { buildCanvasContextMenuItems } from './canvasContextMenu';
@@ -24,8 +25,11 @@ describe('canvas live Boolean menu', () => {
     } as unknown as EditorContextValue;
 
     const items = buildCanvasContextMenuItems({ editor, closeMenu: vi.fn() });
-    expect(items.map((item) => item.label)).toContain('Expand Boolean');
-    expect(items.map((item) => item.label)).toEqual(
+    const labeledItems = items.filter(
+      (item): item is Exclude<MenuEntry, { separator: true }> => 'label' in item,
+    );
+    expect(labeledItems.map((item) => item.label)).toContain('Expand Boolean');
+    expect(labeledItems.map((item) => item.label)).toEqual(
       expect.arrayContaining([
         'Change Boolean to Union',
         'Change Boolean to Subtract',
@@ -34,7 +38,11 @@ describe('canvas live Boolean menu', () => {
       ]),
     );
 
-    items.find((item) => item.label === 'Change Boolean to Subtract')?.onAction?.();
+    const subtractItem = items.find(
+      (item): item is Extract<MenuEntry, { onAction: () => void }> =>
+        'label' in item && 'onAction' in item && item.label === 'Change Boolean to Subtract',
+    );
+    subtractItem?.onAction();
     expect(updated?.kind === 'group' ? updated.boolean?.operation : undefined).toBe('subtract');
     expect(updated?.name).toBe('Boolean Subtract');
     expect(recordAction).toHaveBeenCalledWith('menu:boolean-subtract');
