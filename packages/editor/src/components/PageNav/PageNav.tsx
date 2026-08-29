@@ -284,9 +284,39 @@ export function PageNav() {
     updateDoc((doc) => renamePage(doc, ctxPageId, nextName));
   }, [ctxPageId, pages, updateDoc, closeContextMenu]);
 
+  // Non-drag equivalent for reordering (WCAG 2.5.7 Dragging Movements):
+  // dragging a page tab is the only other way to reorder pages, so every
+  // reachable position needs a click/keyboard path too.
+  const handleMovePage = useCallback(
+    (direction: 'left' | 'right') => {
+      if (!ctxPageId) return;
+      const idx = pages.findIndex((p) => p.id === ctxPageId);
+      const target = pages[direction === 'left' ? idx - 1 : idx + 1];
+      if (idx === -1 || !target) return;
+      const reordered = computeReorderedPageIds(pages, ctxPageId as NodeId, target.id);
+      if (reordered) updateDoc((doc) => reorderPages(doc, reordered));
+      closeContextMenu();
+    },
+    [ctxPageId, pages, updateDoc, closeContextMenu],
+  );
+
+  const ctxPageIdx = pages.findIndex((p) => p.id === ctxPageId);
+
   const ctxItems: MenuEntry[] = [
     { id: 'rename', label: 'Rename page', onAction: handleRenamePage },
     { id: 'duplicate', label: 'Duplicate page', onAction: handleDuplicatePage },
+    {
+      id: 'move-left',
+      label: 'Move page left',
+      onAction: () => handleMovePage('left'),
+      disabled: ctxPageIdx <= 0,
+    },
+    {
+      id: 'move-right',
+      label: 'Move page right',
+      onAction: () => handleMovePage('right'),
+      disabled: ctxPageIdx === -1 || ctxPageIdx >= pages.length - 1,
+    },
     {
       id: 'use-as-file-thumbnail',
       label: 'Use Page as File Thumbnail',
