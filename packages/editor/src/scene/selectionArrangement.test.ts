@@ -196,6 +196,44 @@ describe('selectionArrangement', () => {
     expect(next.nodes[image.id]?.fills[0]?.type).toBe('image');
   });
 
+  it('aligns an image in a nested transformed frame with a container sibling without flattening either hierarchy', () => {
+    let doc = createDocument('nested frame image alignment');
+    const outer = makeFrameNode('outer', {
+      w: 600,
+      h: 400,
+      transform: [1.0625184089, 0.2847009496, -0.2847009496, 1.0625184089, 180, 110],
+    });
+    const inner = makeFrameNode('inner', {
+      w: 260,
+      h: 200,
+      transform: [0.9659258263, -0.2588190451, 0.2588190451, 0.9659258263, 90, 70],
+    });
+    const image = makeImageShapeNode('image', {
+      name: 'Nested photo',
+      src: 'photo.png',
+      w: 80,
+      h: 60,
+      transform: [1, 0, 0, 1, 95, 40],
+    });
+    const sibling = rect('sibling', 350, 170, 70, 50);
+    doc = addNode(doc, outer);
+    doc = addChild(doc, outer.id, inner);
+    doc = addChild(doc, inner.id, image);
+    doc = addChild(doc, outer.id, sibling);
+
+    const imageLinear = image.transform.slice(0, 4);
+    const siblingLinear = sibling.transform.slice(0, 4);
+    const next = alignSelectionInDocument(doc, [image.id, sibling.id], 'left');
+
+    expectClose(bounds(next, image.id).x, bounds(next, sibling.id).x);
+    expect(getParent(next, inner.id)).toBe(outer.id);
+    expect(getParent(next, image.id)).toBe(inner.id);
+    expect(getParent(next, sibling.id)).toBe(outer.id);
+    expect(next.nodes[image.id]?.transform.slice(0, 4)).toEqual(imageLinear);
+    expect(next.nodes[sibling.id]?.transform.slice(0, 4)).toEqual(siblingLinear);
+    expect(next.nodes[image.id]?.fills[0]?.type).toBe('image');
+  });
+
   it('allows absolute auto-layout children but excludes flow children and hidden ancestors', () => {
     let doc = createDocument('layout eligibility');
     const layout = makeFrameNode('layout', {
