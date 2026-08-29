@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { Document, ManagedColor, SceneNode } from '@varve/scene';
 import { createDocument, gradientFill, imageFill, makeShapeNode, solidFill } from '@varve/scene';
 import { afterEach, describe, expect, it } from 'vitest';
-import { EditorProvider } from '../../../context';
+import { EditorProvider, useEditor } from '../../../context';
 import { SelectionColorsSection } from './SelectionColorsSection';
 
 afterEach(cleanup);
@@ -31,7 +31,22 @@ function renderEditableSection(document: Document, selectionIds: string[]) {
   return render(
     <EditorProvider initialDocumentJson={JSON.stringify(document)} disablePersistentHistory>
       <SelectionColorsSection selectionIds={selectionIds} />
+      <HistoryControls />
     </EditorProvider>,
+  );
+}
+
+function HistoryControls() {
+  const { redo, undo } = useEditor();
+  return (
+    <>
+      <button type="button" onClick={undo}>
+        Undo selection color
+      </button>
+      <button type="button" onClick={redo}>
+        Redo selection color
+      </button>
+    </>
   );
 }
 
@@ -91,6 +106,10 @@ describe('SelectionColorsSection', () => {
     fireEvent.pointerDown(teal);
     fireEvent.pointerUp(teal);
     fireEvent.click(teal);
+    expect(screen.getByRole('button', { name: 'RGB #14B8A6, Fill, 1 paint use' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo selection color' }));
+    expect(screen.getByRole('button', { name: 'RGB #FF0000, Fill, 1 paint use' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Redo selection color' }));
     expect(screen.getByRole('button', { name: 'RGB #14B8A6, Fill, 1 paint use' })).toBeTruthy();
   });
 

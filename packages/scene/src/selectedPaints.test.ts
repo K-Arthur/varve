@@ -4,6 +4,7 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
+  makeTableNode,
   makeTextNode,
 } from './document';
 import { gradientFill, imageFill, solidFill } from './fills';
@@ -267,6 +268,61 @@ describe('collectSelectedPaints', () => {
     ]);
     expect(summary.hasRasterContent).toBe(true);
   });
+
+  it('collects only active table appearance paints and skips hidden cells', () => {
+    const base = makeTableNode('table', { rows: 1, columns: 2 });
+    const [firstCell, hiddenCell] = Object.values(base.table.cells);
+    if (!firstCell || !hiddenCell) throw new Error('table fixture requires two cells');
+    const hiddenColumn = base.table.columns[hiddenCell.columnId];
+    if (!hiddenColumn) throw new Error('table fixture requires the hidden cell column');
+    const table = {
+      ...base,
+      table: {
+        ...base.table,
+        appearance: {
+          ...base.table.appearance,
+          headerFill: red,
+          bodyFill: blue,
+          alternateFill: green,
+          zebra: false,
+        },
+        cells: {
+          ...base.table.cells,
+          [firstCell.id]: { ...firstCell, style: { fill: green } },
+          [hiddenCell.id]: { ...hiddenCell, style: { fill: black } },
+        },
+        columns: {
+          ...base.table.columns,
+          [hiddenCell.columnId]: { ...hiddenColumn, hidden: true },
+        },
+      },
+    };
+    const summary = collectSelectedPaints(withNodes([table]), ['table']);
+
+    expect(summary.references.map((reference) => reference.color)).toEqual(
+      expect.arrayContaining([red, blue, green]),
+    );
+    expect(summary.references.some((reference) => reference.color === black)).toBe(false);
+    expect(summary.references.some((reference) => reference.color === green)).toBe(true);
+  });
+
+  it('keeps a large direct selection complete and deterministically ordered', () => {
+    const colors = [red, green, blue];
+    const nodes = Array.from({ length: 1000 }, (_, index) =>
+      makeShapeNode(
+        `shape-${index}`,
+        { kind: 'rect', x: index, y: 0, w: 1, h: 1 },
+        { fill: colors[index % colors.length]! },
+      ),
+    );
+    const ids = nodes.map((node) => node.id);
+    const summary = collectSelectedPaints(withNodes(nodes), ids);
+
+    expect(summary.references).toHaveLength(1000);
+    expect(summary.groups).toHaveLength(3);
+    expect(summary.groups.map((group) => group.color)).toEqual([red, green, blue]);
+    expect(summary.groups.map((group) => group.references.length)).toEqual([334, 333, 333]);
+  });
 });
 
 describe('replaceSelectedPaintReferences', () => {
@@ -336,6 +392,32 @@ describe('replaceSelectedPaintReferences', () => {
     expect(result.nodes.selected?.paintRefs).toBeUndefined();
     expect((result.nodes.selected! as ShapeNode).fills?.[0]?.color).toEqual(green);
     expect(result.nodes.untouched?.paintRefs).toEqual(['p']);
+  });
+
+  it('creates a selected-node override instead of mutating a shared color style', () => {
+    const styled = {
+      ...makeShapeNode('styled', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+      styleId: 'brand-red',
+    };
+    const document = {
+      ...withNodes([styled]),
+      styles: {
+        'brand-red': {
+          id: 'brand-red',
+          type: 'color' as const,
+          name: 'Brand red',
+          fill: solidFill(red),
+        },
+      },
+    };
+    const refs = collectSelectedPaints(document, ['styled']).groups[0]!.references;
+    const result = replaceSelectedPaintReferences(document, refs, green);
+
+    expect(result.styles?.['brand-red']).toMatchObject({ type: 'color', fill: { color: red } });
+    const overrides = (result.nodes.styled as ShapeNode).styleOverrides as
+      | { fills?: Fill[] }
+      | undefined;
+    expect(overrides?.fills?.[0]?.color).toEqual(green);
   });
 
   it('does not mutate locked or linked-story references', () => {
