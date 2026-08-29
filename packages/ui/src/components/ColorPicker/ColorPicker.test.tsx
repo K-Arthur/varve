@@ -56,7 +56,7 @@ describe('ColorPicker', () => {
       if (btn) btn.click();
     });
     // Spot browser should appear
-    expect(screen.getByRole('textbox', { name: /search/i })).toBeTruthy();
+    expect(screen.getByRole('searchbox', { name: /search spot colors/i })).toBeTruthy();
   });
 
   it('uses initial space from CMYK value', () => {
@@ -431,7 +431,7 @@ describe('ColorPicker — CMYK profile context', () => {
 describe('SpotColorBrowser', () => {
   it('renders search and options', () => {
     render(<SpotColorBrowser onSelect={() => {}} />);
-    expect(screen.getByRole('textbox', { name: /search/i })).toBeTruthy();
+    expect(screen.getByRole('searchbox', { name: /search spot colors/i })).toBeTruthy();
     expect(screen.getAllByRole('option').length).toBeGreaterThan(0);
   });
 });

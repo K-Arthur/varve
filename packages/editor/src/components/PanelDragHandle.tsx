@@ -481,7 +481,7 @@ export function PanelDragHandle({
           <button
             type="button"
             ref={detachBtnRef}
-            className="panel-detach-btn"
+            className={`panel-detach-btn${error ? ' panel-detach-btn--error' : ''}`}
             onClick={handleDetachClick}
             onPointerDown={(e) => e.stopPropagation()}
             disabled={transferring}
@@ -495,6 +495,11 @@ export function PanelDragHandle({
           </button>
         </Tooltip>
       </TooltipProvider>
+      {error && (
+        <div role="alert" className="varve-visually-hidden">
+          {error}
+        </div>
+      )}
       {menuOpen && (
         <div
           ref={menuRef}

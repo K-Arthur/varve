@@ -7,7 +7,7 @@
  */
 
 import type { BranchRef, CheckpointRef, MergeConflict } from '@varve/history';
-import { EmptyState, Select } from '@varve/ui';
+import { EmptyState, SearchField, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../context';
 import type { HistoryStepView } from '../history/editorHistorySession';
@@ -327,16 +327,13 @@ export function HistoryPanel() {
           id="history-panel-steps"
           aria-labelledby="history-tab-steps"
         >
-          <div className="history-panel__search">
-            <input
-              type="search"
-              placeholder="Search history..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="history-panel__search-input"
-              aria-label="Search history"
-            />
-          </div>
+          <SearchField
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search history..."
+            aria-label="Search history"
+            resultCount={filteredSteps.length}
+          />
 
           <div className="history-panel__actions">
             <button

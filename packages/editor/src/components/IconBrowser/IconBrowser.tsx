@@ -21,7 +21,7 @@ import {
   generateAttributionReportMarkdown,
   generateAttributionReportText,
 } from '@varve/scene';
-import { Button, Icon, Select } from '@varve/ui';
+import { Button, Icon, SearchField, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { IconDetailsPanel } from './IconDetailsPanel';
@@ -657,29 +657,15 @@ export function IconBrowser({
   return (
     <div className="icon-browser" style={maxHeight ? { maxHeight } : undefined}>
       <div className="icon-browser__header">
-        <div className="icon-browser__search">
-          <Icon name="Search" className="icon-browser__search-icon" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder={
-              browsingPack ? `Search icons…` : 'Search icons (e.g. "arrow left", "settings")…'
-            }
-            className="icon-browser__search-input"
-            aria-label="Search icons"
-          />
-          {query && (
-            <button
-              type="button"
-              className="icon-browser__clear-btn"
-              onClick={() => handleSearchChange('')}
-              aria-label="Clear search"
-            >
-              <Icon name="X" />
-            </button>
-          )}
-        </div>
+        <SearchField
+          value={query}
+          onChange={handleSearchChange}
+          placeholder={
+            browsingPack ? 'Search icons...' : 'Search icons (e.g. "arrow left", "settings")...'
+          }
+          aria-label="Search icons"
+          resultCount={filteredItems.length}
+        />
         <div className="icon-browser__header-actions">
           <span
             className={`icon-browser__conn ${search.isOnline ? 'icon-browser__conn--online' : 'icon-browser__conn--offline'}`}

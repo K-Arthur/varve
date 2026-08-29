@@ -1,4 +1,4 @@
-import { type InputHTMLAttributes, useCallback, useId, useRef } from 'react';
+import { forwardRef, type InputHTMLAttributes, useCallback, useId, useRef } from 'react';
 import { Icon } from '../icons/Icon';
 
 export interface SearchFieldProps
@@ -10,17 +10,14 @@ export interface SearchFieldProps
   placeholder?: string;
 }
 
-export function SearchField({
-  value,
-  onChange,
-  resultCount,
-  placeholder = 'Search files...',
-  className = '',
-  ...rest
-}: SearchFieldProps) {
+export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(function SearchField(
+  { value, onChange, resultCount, placeholder = 'Search files...', className = '', ...rest },
+  ref,
+) {
   const id = useId();
   const statusId = useId();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const internalRef = useRef<HTMLInputElement>(null);
+  const inputRef = (ref ?? internalRef) as React.RefObject<HTMLInputElement>;
 
   // A placeholder is not an accessible name: it is not consistently exposed
   // as one and it disappears once the user types. Fall back to the
@@ -31,7 +28,7 @@ export function SearchField({
   const clear = useCallback(() => {
     onChange('');
     inputRef.current?.focus();
-  }, [onChange]);
+  }, [onChange, inputRef]);
 
   return (
     <div className={`varve-search ${className}`.trim()}>
@@ -70,7 +67,7 @@ export function SearchField({
       </div>
     </div>
   );
-}
+});
 
 /**
  * Render text with search matches highlighted using `<mark>`.

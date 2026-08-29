@@ -63,11 +63,9 @@ export function PromptDialogProvider() {
     <dialog
       ref={dialogRef}
       className="varve-dialog"
+      role="dialog"
       aria-labelledby="home-prompt-title"
       onClose={handleCancel}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') handleConfirm();
-      }}
     >
       <div className="varve-dialog__content">
         <h3 id="home-prompt-title" className="varve-dialog__title">
@@ -77,8 +75,15 @@ export function PromptDialogProvider() {
           ref={inputRef}
           type="text"
           className="varve-dialog__input"
+          aria-label={state.title}
           defaultValue={state.defaultValue}
-          onKeyDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            // Stop propagation so global shortcuts don't fire while typing,
+            // but still act on Enter ourselves first — this dialog has no
+            // <form> to submit, so nothing else will.
+            e.stopPropagation();
+            if (e.key === 'Enter') handleConfirm();
+          }}
         />
         <div className="varve-dialog__actions">
           <Button variant="ghost" onClick={handleCancel}>

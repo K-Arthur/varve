@@ -59,15 +59,7 @@ export function PromptDialog() {
   if (!state) return null;
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="varve-dialog"
-      aria-labelledby="prompt-title"
-      onClose={handleCancel}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') handleConfirm();
-      }}
-    >
+    <dialog ref={dialogRef} className="varve-dialog" role="dialog" aria-labelledby="prompt-title" onClose={handleCancel}>
       <div className="varve-dialog__content">
         <h3 id="prompt-title" className="varve-dialog__title">
           {state.title}
@@ -76,15 +68,22 @@ export function PromptDialog() {
           ref={inputRef}
           type="text"
           className="varve-dialog__input"
+          aria-label={state.title}
           defaultValue={state.defaultValue}
-          onKeyDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            // Stop propagation so global canvas/editor shortcuts don't fire
+            // while typing, but still act on Enter ourselves first — this
+            // dialog has no <form> to submit, so nothing else will.
+            e.stopPropagation();
+            if (e.key === 'Enter') handleConfirm();
+          }}
         />
         <div className="varve-dialog__actions">
-          <Button variant="primary" onClick={handleConfirm}>
-            Confirm
-          </Button>
           <Button variant="ghost" onClick={handleCancel}>
             Cancel
+          </Button>
+          <Button variant="primary" onClick={handleConfirm}>
+            Confirm
           </Button>
         </div>
       </div>

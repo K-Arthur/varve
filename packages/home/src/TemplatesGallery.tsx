@@ -1,5 +1,5 @@
 import type { TemplateLibrary, TemplateSource } from '@varve/platform';
-import { Icon, type IconName, Tooltip } from '@varve/ui';
+import { Icon, type IconName, SearchField, Tooltip } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { EmptyStates } from './EmptyStates';
 
@@ -149,26 +149,11 @@ export function TemplatesGallery({
 
 function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div className="templates-gallery__search">
-      <Icon name="Search" label={undefined} size="1rem" />
-      <input
-        type="text"
-        className="templates-gallery__search-input"
-        placeholder="Search templates..."
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label="Search templates"
-      />
-      {value && (
-        <button
-          type="button"
-          className="templates-gallery__search-clear"
-          onClick={() => onChange('')}
-          aria-label="Clear search"
-        >
-          <Icon name="X" label={undefined} size="0.875rem" />
-        </button>
-      )}
-    </div>
+    <SearchField
+      value={value}
+      onChange={onChange}
+      placeholder="Search templates..."
+      aria-label="Search templates"
+    />
   );
 }

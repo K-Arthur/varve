@@ -1,3 +1,4 @@
+import { SearchField } from '@varve/ui';
 import { useEffect, useRef } from 'react';
 import type { HelpArticle } from './helpContent';
 import { HELP_CONTENT } from './helpContent';
@@ -79,29 +80,13 @@ export function ContextualHelpPanel({
         </button>
       </div>
 
-      <div className="contextual-help-panel__search">
-        <svg
-          className="contextual-help-panel__search-icon"
-          aria-hidden
-          role="presentation"
-          width="14"
-          height="14"
-          viewBox="0 0 14 14"
-          fill="none"
-        >
-          <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.3" />
-          <path d="M9.5 9.5l3 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-        </svg>
-        <input
-          ref={searchRef}
-          type="text"
-          className="contextual-help-panel__search-input"
-          placeholder="Search help..."
-          value={state.searchQuery}
-          onChange={(e) => onSetSearchQuery(e.target.value)}
-          aria-label="Search help articles"
-        />
-      </div>
+      <SearchField
+        ref={searchRef}
+        value={state.searchQuery}
+        onChange={onSetSearchQuery}
+        placeholder="Search help..."
+        aria-label="Search help articles"
+      />
 
       <div className="contextual-help-panel__content">
         {state.searchQuery ? (

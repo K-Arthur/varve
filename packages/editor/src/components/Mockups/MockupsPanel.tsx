@@ -13,7 +13,7 @@
 
 import type { MockupCategory, MockupTemplateAsset, NodeId } from '@varve/scene';
 import { getBuiltinMockupTemplates } from '@varve/scene';
-import { Button, Icon } from '@varve/ui';
+import { Button, SearchField } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { applyMockupToSources, templatesForDocument } from '../../mockup/mockupActions';
@@ -162,17 +162,12 @@ export function MockupsPanel(): React.ReactElement {
         </p>
       )}
 
-      <label className="mockups-panel__search">
-        <span className="visually-hidden">Search mockup templates</span>
-        <Icon name="Search" size={14} />
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search mockups…"
-          aria-label="Search mockup templates"
-        />
-      </label>
+      <SearchField
+        value={query}
+        onChange={setQuery}
+        placeholder="Search mockups..."
+        aria-label="Search mockup templates"
+      />
 
       <div className="mockups-panel__filters">
         <fieldset className="mockups-panel__chips">

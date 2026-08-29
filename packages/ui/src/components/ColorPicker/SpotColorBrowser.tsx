@@ -1,5 +1,6 @@
 import type { ManagedColor } from '@varve/scene';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { SearchField } from '../SearchField';
 import { Tooltip } from '../Tooltip';
 
 const SPOT_COLORS: { name: string; c: number; m: number; y: number; k: number; family: string }[] =
@@ -85,19 +86,13 @@ export function SpotColorBrowser({ onSelect }: SpotColorBrowserProps) {
 
   return (
     <div className="spot-color-browser">
-      <div className="insp-field">
-        <span className="insp-field__label">Search</span>
-        <div className="insp-field__control">
-          <input
-            type="text"
-            className="insp-num__input color-fields__input-full"
-            value={query}
-            aria-label="Search spot colors"
-            placeholder="Search..."
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-      </div>
+      <SearchField
+        value={query}
+        onChange={setQuery}
+        placeholder="Search..."
+        aria-label="Search spot colors"
+        resultCount={filtered.length}
+      />
       <div
         ref={listRef}
         className="spot-color-browser__list"

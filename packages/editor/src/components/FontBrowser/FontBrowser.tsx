@@ -9,7 +9,7 @@
  */
 
 import { type FontMetadata, getFontRegistry } from '@varve/engine';
-import { Icon, Tooltip } from '@varve/ui';
+import { Icon, SearchField, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { FontLicenseDetails } from './FontLicenseDetails';
 import './FontBrowser.css';
@@ -169,16 +169,13 @@ export function FontBrowser({
 
   return (
     <div className="font-browser" style={{ maxHeight }}>
-      <div className="font-browser__search">
-        <input
-          type="text"
-          className="font-browser__search-input"
-          placeholder="Search fonts..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          aria-label="Search fonts"
-        />
-      </div>
+      <SearchField
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search fonts..."
+        aria-label="Search fonts"
+        resultCount={filteredEntries.length}
+      />
 
       <div className="font-browser__filters" role="tablist" aria-label="Font source filter">
         {SOURCE_FILTERS.map((f) => (

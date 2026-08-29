@@ -8,7 +8,7 @@ afterEach(cleanup);
 describe('SpotColorBrowser', () => {
   it('renders search input', () => {
     render(<SpotColorBrowser onSelect={() => {}} />);
-    expect(screen.getByRole('textbox', { name: /search/i })).toBeTruthy();
+    expect(screen.getByRole('searchbox', { name: /search spot colors/i })).toBeTruthy();
   });
 
   it('renders spot color options', () => {
@@ -20,7 +20,7 @@ describe('SpotColorBrowser', () => {
 
   it('filters results on search', () => {
     render(<SpotColorBrowser onSelect={() => {}} />);
-    const searchInput = screen.getByRole('textbox', { name: /search/i });
+    const searchInput = screen.getByRole('searchbox', { name: /search spot colors/i });
     act(() => {
       (searchInput as HTMLInputElement).value = 'PANTONE 185';
       searchInput.dispatchEvent(new Event('input', { bubbles: true }));

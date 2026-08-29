@@ -12,7 +12,7 @@
 import type { Fill, Paint, SceneNode } from '@varve/scene';
 import { addPaintToDocument, removePaintFromDocument } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
-import { Icon, Tooltip, TooltipProvider } from '@varve/ui';
+import { Icon, SearchField, Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -214,16 +214,12 @@ export function PaintLibrarySection() {
   return (
     <DisclosureSection title="Paint Library">
       <div className="insp-paint-library">
-        <div className="insp-paint-library__search">
-          <input
-            type="text"
-            className="insp-paint-library__search-input"
-            placeholder="Filter paints..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Filter paint library"
-          />
-        </div>
+        <SearchField
+          value={search}
+          onChange={setSearch}
+          placeholder="Filter paints..."
+          aria-label="Filter paint library"
+        />
 
         {hasSelection && (
           <button

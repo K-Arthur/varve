@@ -1,5 +1,5 @@
 import type { BlendMode } from '@varve/scene';
-import { SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
+import { SearchField, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
@@ -99,28 +99,14 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
   return (
     <search className="layers-filter-bar" aria-label="Filter layers">
       <div className="layers-filter-bar__search-row">
-        <SolidIcon name={SOLID_CHROME_ICONS.search} size="0.85em" aria-hidden />
-        <input
+        <SearchField
           ref={filterRef}
-          id="layers-filter-search"
-          name="layers-filter-search"
-          className="layers-filter-bar__input"
-          type="search"
+          value={filter.search}
+          onChange={(v) => onChange({ ...filter, search: v })}
           placeholder="Filter by name..."
           aria-label="Filter layers by name"
-          value={filter.search}
-          onChange={(e) => onChange({ ...filter, search: e.target.value })}
+          resultCount={matchCount}
         />
-        {filter.search && (
-          <button
-            type="button"
-            className="layers-filter-bar__clear-search"
-            onClick={() => onChange({ ...filter, search: '' })}
-            aria-label="Clear search"
-          >
-            <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.75em" />
-          </button>
-        )}
         <button
           type="button"
           className="layers-filter-bar__toggle-advanced"

@@ -355,7 +355,7 @@ function LinterTab() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 4, marginBottom: 'var(--space-2)' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 'var(--space-2)' }}>
         <button type="button" className="intelligence-action-btn" onClick={runScan}>
           <Icon name="RotateCcw" label={undefined} size="0.85em" /> Re-scan
         </button>
@@ -415,7 +415,7 @@ function LinterTab() {
                   {issue.detail && (
                     <p
                       className="intelligence-issue__detail"
-                      style={{ fontSize: '0.85em', opacity: 0.8 }}
+                      style={{ fontSize: 'var(--font-size-xs)', opacity: 0.8 }}
                     >
                       {issue.detail}
                     </p>
@@ -423,7 +423,7 @@ function LinterTab() {
 
                   <div
                     className="intelligence-issue__actions"
-                    style={{ display: 'flex', gap: 4, marginTop: 4 }}
+                    style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-1)' }}
                   >
                     {issue.fixes.map((fix) => (
                       <button
@@ -579,9 +579,23 @@ function LinterConfigEditor() {
             (config.origin as Record<string, string> | undefined)?.[field.key] ?? 'default';
           return (
             <div key={field.key} style={{ marginBottom: 'var(--space-2)' }}>
-              <label style={{ fontSize: '0.85em', display: 'block', marginBottom: 2 }}>
+              <label
+                style={{
+                  fontSize: 'var(--font-size-xs)',
+                  display: 'block',
+                  marginBottom: 'var(--space-1)',
+                }}
+              >
                 {field.label}
-                <span style={{ fontSize: '0.8em', opacity: 0.6, marginLeft: 4 }}>({origin})</span>
+                <span
+                  style={{
+                    fontSize: 'var(--font-size-2xs)',
+                    opacity: 0.6,
+                    marginLeft: 'var(--space-1)',
+                  }}
+                >
+                  ({origin})
+                </span>
                 <input
                   type="number"
                   min={field.min}
@@ -591,11 +605,19 @@ function LinterConfigEditor() {
                   onChange={(e) =>
                     updateField(field.key, parseFloat(e.target.value) || field.defaultVal)
                   }
-                  style={{ width: '100%', padding: '2px 4px' }}
+                  style={{ width: '100%', padding: 'var(--space-1) var(--space-1)' }}
                   aria-label={field.label}
                 />
               </label>
-              <p style={{ fontSize: '0.75em', opacity: 0.6, margin: '2px 0 0' }}>{field.hint}</p>
+              <p
+                style={{
+                  fontSize: 'var(--font-size-2xs)',
+                  opacity: 0.6,
+                  margin: 'var(--space-1) 0 0',
+                }}
+              >
+                {field.hint}
+              </p>
             </div>
           );
         })}
@@ -758,7 +780,7 @@ function ReviewTab() {
       <div className="intelligence-empty">
         <p>Running audit...</p>
         {progress && (
-          <p style={{ fontSize: '0.85em', opacity: 0.7 }}>
+          <p style={{ fontSize: 'var(--font-size-xs)', opacity: 0.7 }}>
             {progress.currentRule
               ? `${progress.completed}/${progress.total} — ${progress.currentRule}`
               : 'Initializing...'}
@@ -858,7 +880,12 @@ function ReviewTab() {
 
       {/* Action bar */}
       <div
-        style={{ display: 'flex', gap: 4, marginBottom: 'var(--space-2)', alignItems: 'center' }}
+        style={{
+          display: 'flex',
+          gap: 'var(--space-1)',
+          marginBottom: 'var(--space-2)',
+          alignItems: 'center',
+        }}
       >
         <button
           type="button"
@@ -870,14 +897,21 @@ function ReviewTab() {
           {isScanning ? 'Scanning...' : 'Re-scan'}
         </button>
         {isScanning && progress && (
-          <span style={{ fontSize: '0.8em', opacity: 0.6 }}>
+          <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.6 }}>
             {progress.completed}/{progress.total}
           </span>
         )}
       </div>
 
       {/* Filter chips */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 'var(--space-2)' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 'var(--space-1)',
+          marginBottom: 'var(--space-2)',
+        }}
+      >
         {applicableCategories
           .filter((cat) => byCategory[cat] && byCategory[cat]!.length > 0)
           .map((cat) => (
@@ -940,7 +974,7 @@ function ReviewTab() {
                       {finding.confidence < 1 && (
                         <span
                           className="intelligence-badge intelligence-badge--medium"
-                          style={{ marginLeft: 4 }}
+                          style={{ marginLeft: 'var(--space-1)' }}
                         >
                           {Math.round(finding.confidence * 100)}%
                         </span>
@@ -951,14 +985,14 @@ function ReviewTab() {
                   {finding.recommendation && (
                     <p
                       className="intelligence-issue__detail"
-                      style={{ fontSize: '0.85em', opacity: 0.8 }}
+                      style={{ fontSize: 'var(--font-size-xs)', opacity: 0.8 }}
                     >
                       {finding.recommendation}
                     </p>
                   )}
                   <div
                     className="intelligence-issue__actions"
-                    style={{ display: 'flex', gap: 4, marginTop: 4 }}
+                    style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-1)' }}
                   >
                     {finding.autoFixAvailable && (
                       <button
@@ -970,7 +1004,13 @@ function ReviewTab() {
                       </button>
                     )}
                     {finding.evidence && Object.keys(finding.evidence).length > 0 && (
-                      <span style={{ fontSize: '0.75em', opacity: 0.6, alignSelf: 'center' }}>
+                      <span
+                        style={{
+                          fontSize: 'var(--font-size-2xs)',
+                          opacity: 0.6,
+                          alignSelf: 'center',
+                        }}
+                      >
                         {Object.entries(finding.evidence)
                           .slice(0, 3)
                           .map(([k, v]) => `${k}: ${String(v)}`)
@@ -991,7 +1031,13 @@ function ReviewTab() {
                 </div>
               ))}
               {findings.length > profile.maxFindings && (
-                <p style={{ fontSize: '0.85em', opacity: 0.6, padding: 'var(--space-1)' }}>
+                <p
+                  style={{
+                    fontSize: 'var(--font-size-xs)',
+                    opacity: 0.6,
+                    padding: 'var(--space-1)',
+                  }}
+                >
                   + {findings.length - profile.maxFindings} more (max display: {profile.maxFindings}
                   )
                 </p>
@@ -1799,7 +1845,13 @@ function VariantDiffTable({ candidate }: { candidate: VariantCandidate }) {
       >
         <thead>
           <tr>
-            <th style={{ textAlign: 'left', padding: '2px 4px', color: 'var(--color-text-muted)' }}>
+            <th
+              style={{
+                textAlign: 'left',
+                padding: 'var(--space-1) var(--space-1)',
+                color: 'var(--color-text-muted)',
+              }}
+            >
               Property
             </th>
             {displayNodes.map((nid) => (
@@ -1807,7 +1859,7 @@ function VariantDiffTable({ candidate }: { candidate: VariantCandidate }) {
                 <th
                   style={{
                     textAlign: 'left',
-                    padding: '2px 4px',
+                    padding: 'var(--space-1) var(--space-1)',
                     color: 'var(--color-text-muted)',
                     maxWidth: 80,
                     overflow: 'hidden',
@@ -1825,7 +1877,7 @@ function VariantDiffTable({ candidate }: { candidate: VariantCandidate }) {
             <tr key={dp.property}>
               <td
                 style={{
-                  padding: '2px 4px',
+                  padding: 'var(--space-1) var(--space-1)',
                   fontWeight: 'var(--font-weight-semibold)',
                   whiteSpace: 'nowrap',
                 }}
@@ -1841,7 +1893,7 @@ function VariantDiffTable({ candidate }: { candidate: VariantCandidate }) {
                 <td
                   key={nid}
                   style={{
-                    padding: '2px 4px',
+                    padding: 'var(--space-1) var(--space-1)',
                     maxWidth: 80,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',

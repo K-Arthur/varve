@@ -11,7 +11,7 @@
 import type { BrushPreset } from '@varve/scene';
 import { BUILT_IN_BRUSH_PRESETS } from '@varve/scene';
 import { type BrushCategory, searchBrushes } from '@varve/shared';
-import { EmptyState, IconButton, Input } from '@varve/ui';
+import { EmptyState, IconButton, SearchField } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BrushPreviewCache, brushPreviewDataUrl } from '../../brush/brushPreview';
 import './BrushBrowser.css';
@@ -105,12 +105,11 @@ export function BrushBrowser({
   return (
     <div className="brush-browser">
       <div className="brush-browser__search">
-        <Input
-          type="search"
+        <SearchField
           value={query}
+          onChange={setQuery}
           placeholder="Search brushes"
           aria-label="Search brushes"
-          onChange={(e) => setQuery(e.currentTarget.value)}
         />
         {onImport ? <IconButton icon="Upload" label="Import brushes" onClick={onImport} /> : null}
       </div>

@@ -2745,6 +2745,12 @@ input[type="number"] {
   cursor: wait;
   opacity: 0.5;
 }
+.panel-detach-btn--error {
+  color: var(--color-feedback-danger);
+  opacity: 1;
+  outline: 2px solid var(--color-feedback-danger);
+  outline-offset: -1px;
+}
 
 /* Desktop panel collapse (Ctrl+B / Ctrl+Shift+B): the shell zeroes the grid
  * column; hide the panel so its content doesn't paint into the seam. */

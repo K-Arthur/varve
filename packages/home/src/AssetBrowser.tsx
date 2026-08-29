@@ -1,6 +1,6 @@
 import type { Asset, AssetFolder, Platform } from '@varve/platform';
 import { searchAssets } from '@varve/platform';
-import { ContentSkeleton, Icon, type IconName, Tooltip } from '@varve/ui';
+import { ContentSkeleton, Icon, type IconName, SearchField, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSemanticAssetSearch } from './search/useSemanticAssetSearch';
 
@@ -82,10 +82,6 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
     [platform, workspaceId, loadData],
   );
 
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  }, []);
-
   const rootFolders = useMemo(() => folders.filter((f) => f.parentId === null), [folders]);
 
   const currentFolder = useMemo(
@@ -127,27 +123,12 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
       />
 
       <div className="asset-browser__header">
-        <div className="asset-browser__search">
-          <Icon name="Search" label={undefined} size="1rem" />
-          <input
-            type="text"
-            className="asset-browser__search-input"
-            placeholder="Describe an image or search by filename…"
-            value={searchQuery}
-            onChange={handleSearchChange}
-            aria-label="Search assets"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              className="asset-browser__search-clear"
-              onClick={() => setSearchQuery('')}
-              aria-label="Clear search"
-            >
-              <Icon name="X" label={undefined} size="0.875rem" />
-            </button>
-          )}
-        </div>
+        <SearchField
+          value={searchQuery}
+          onChange={(v) => setSearchQuery(v)}
+          placeholder="Describe an image or search by filename..."
+          aria-label="Search assets"
+        />
         <span className="asset-browser__search-hint" aria-hidden="true">
           Local: filename · OCR · tags · visual
         </span>

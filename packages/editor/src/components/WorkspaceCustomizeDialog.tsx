@@ -6,7 +6,7 @@
  * applied immediately and persisted per-workspace. A "Reset" button
  * reverts to built-in defaults.
  */
-import { Dialog } from '@varve/ui';
+import { Dialog, SearchField } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../context';
 import type { ToolId } from '../tools/toolRegistry';
@@ -158,12 +158,10 @@ export function WorkspaceCustomizeDialog({
             Choose what appears in this workspace. Hidden tools remain available from commands,
             menus, or shortcuts. Select, Hand, and Zoom stay available for recovery.
           </p>
-          <input
-            className="workspace-customize__search"
-            type="search"
+          <SearchField
             value={toolSearch}
-            onChange={(event) => setToolSearch(event.target.value)}
-            placeholder="Search tools…"
+            onChange={setToolSearch}
+            placeholder="Search tools..."
             aria-label="Search toolbar tools"
           />
           {toolbarToolGroups.length === 0 && (
