@@ -108,6 +108,7 @@ export {
   PERFORMANCE_WORKLOAD_IDS,
   PERFORMANCE_WORKLOAD_VERSION,
 } from './performance/workloadCorpus';
+export { applyPropertyPath, parsePropertyPath } from './propertyPath';
 export { SelectionOverlay } from './SelectionOverlay';
 export type { OpenFileRequest, ShellProps } from './Shell';
 export { Shell } from './Shell';
@@ -127,6 +128,12 @@ export { useStartup } from './startup/useStartup';
 export type { VisibleSurfaceOptions } from './startup/visibleSurface';
 export { afterFirstVisiblePaint } from './startup/visibleSurface';
 export { TabStrip } from './TabStrip';
+export {
+  findKeyframeSegmentIndex,
+  invalidateSamplerCache,
+  sampleTimeline,
+  sampleTimelineAt,
+} from './timeline/TimelineSampler';
 export type {
   DownloadedUpdate,
   DownloadProgress,
