@@ -509,6 +509,7 @@ import {
   type TransformCache,
 } from './scene/transformCache';
 import {
+  isNodeEffectivelyLocked,
   nodeLocalBounds,
   nodeWorldBounds,
   nodeWorldTransform,
@@ -6790,7 +6791,11 @@ export function EditorProvider({
       reparentNode: (id, newParentId, toIndex) => {
         updateDoc((doc) => {
           const node = doc.nodes[id];
-          if (!node) return doc;
+          // Lock inherits down the hierarchy, so a locked ancestor makes this
+          // node unmovable too. The Layers panel refuses such a drag before
+          // release, but this is the authoritative guard — every other caller
+          // (keyboard reorder, arrange commands, drag-to-canvas) relies on it.
+          if (!node || isNodeEffectivelyLocked(doc, id)) return doc;
           const oldParentId = getParentFast(doc, id, parentCacheRef.current);
           // A null newParentId means "move to the active page's top level."
           // doc.rootChildren holds each page's contentRoot group id, not page
