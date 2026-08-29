@@ -107,13 +107,20 @@ then converts every resulting bound origin back into its node's parent-local
 space. This permits selected siblings, nodes in different frames, and nodes
 under transformed parents to align without reparenting them.
 
-The selection target is the collective bounds unless an active key object or
-page target supplies it. A valid key object remains stationary because every
-other member aligns to its world bounds. Equal-gap distribution sorts by actual
+The Inspector exposes three explicit alignment references: **Selection** uses
+the collective bounds (or an active key object), **Frame** uses the nearest
+common frame ancestor, and **Page** uses the active page's placed world bounds.
+The page reference is not a hard-coded origin: it follows the page's position,
+rotation, and scale in the document. A frame reference works for one child,
+sibling roots, and nested selections; if the selected roots do not share a
+frame, that reference is unavailable. A valid key object remains stationary
+only for the Selection reference. Equal-gap distribution sorts by actual
 geometric position, retains the first and last objects, and divides available
 space after accounting for every intervening object's width or height. Equal
 centre distribution is a separate command because it intentionally has a
-different result for unequal object sizes.
+different result for unequal object sizes. The Inspector also offers an
+explicit fixed gap, including negative values for intentional overlap, so
+“distribute” does not hide the spacing policy.
 
 Key-object and alignment-reference state is editor session state, not document
 content; it is intentionally excluded from export and serialization.
@@ -134,14 +141,15 @@ than pretending every selection supports every command:
 
 | Selection after eligibility filtering | Available manual operation |
 | --- | --- |
-| One item | Page-relative alignment after choosing **Align to page** |
-| Two or more items | Selection-relative alignment and key-object alignment |
+| One item | Page-relative alignment, or nearest-frame alignment when a container exists |
+| Two or more items | Selection-relative alignment, nearest-frame alignment when shared, and key-object alignment |
 | Three or more items | Horizontal and vertical distribution |
 | Two or more items | Tidy-up grid |
 
-The page target wins over a key object; a key object wins over collective
-selection bounds. This makes the active reference unambiguous and means a
-single selected image or frame can align to the page without making relative
+The active reference is shown as a segmented control, with unavailable Frame
+and Page choices disabled rather than silently falling back to Selection. This
+makes the target visible before a command runs and means a single selected
+image or frame can align to its frame or page without making relative
 distribution appear to work. When every selected item is ineligible, the
 toolbar is absent and the Properties panel reports the governing state (for
 example, a lock or layout control) instead of showing a disabled row of
