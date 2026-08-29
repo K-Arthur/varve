@@ -128,4 +128,17 @@ describe('SelectionQuickBar', () => {
     expect(bar.style.top).toBe('328px'); // 100 + 220 + 8
     expect(bar.style.left).toBe('290px'); // 200 + 180/2
   });
+
+  it('keeps the bar inside the canvas safe area when it must flip above', () => {
+    const { container } = render(
+      <SelectionQuickBar
+        profile={imageProfile}
+        screenBounds={{ x: 200, y: 10, w: 180, h: 680 }}
+        containerHeight={700}
+        onAction={vi.fn()}
+      />,
+    );
+    const bar = container.querySelector('.selection-quick-bar') as HTMLElement;
+    expect(bar.style.top).toBe('8px');
+  });
 });

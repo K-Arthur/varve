@@ -144,7 +144,7 @@ export function SelectionQuickBar({
     // overlapping that chrome instead of being clipped by it. Flip above the
     // selection when there isn't room below.
     const fitsBelow = belowTop + barHeight <= containerHeight;
-    const top = fitsBelow ? belowTop : Math.max(0, screenBounds.y - PADDING - barHeight);
+    const top = fitsBelow ? belowTop : Math.max(PADDING, screenBounds.y - PADDING - barHeight);
     return { left: centeredLeft, top };
   }, [screenBounds, containerHeight, barHeight]);
 
