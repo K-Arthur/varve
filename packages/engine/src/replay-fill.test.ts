@@ -610,7 +610,7 @@ describe('gradient fill rendering', () => {
     expect(rec.calls.some((c) => c.startsWith('createLinearGradient('))).toBe(true);
   });
 
-  it('creates an explicit linear gradient in canonical unit space under all six affine coefficients', () => {
+  it('materializes an explicit linear gradient in local coordinates', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
@@ -635,11 +635,11 @@ describe('gradient fill rendering', () => {
 
     replayIr(rec.target, [item]);
 
-    expect(rec.calls).toContain('transform(160,80,-30,45,25,15)');
-    expect(rec.calls).toContain('createLinearGradient(0,0.5,1,0.5)');
+    expect(rec.calls).not.toContain('transform(160,80,-30,45,25,15)');
+    expect(rec.calls).toContain('createLinearGradient(10,37.5,170,117.5)');
   });
 
-  it('creates an affine radial field instead of reducing it to a circular average radius', () => {
+  it('materializes radial geometry in local coordinates', () => {
     const rec = recorder();
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
@@ -664,8 +664,12 @@ describe('gradient fill rendering', () => {
 
     replayIr(rec.target, [item]);
 
-    expect(rec.calls).toContain('transform(173.2,100,-12.5,21.65,40,30)');
-    expect(rec.calls).toContain('createRadialGradient(0.5,0.5,0,0.5,0.5,0.5)');
+    expect(rec.calls).not.toContain('transform(173.2,100,-12.5,21.65,40,30)');
+    expect(
+      rec.calls.some((call) =>
+        call.startsWith('createRadialGradient(120.35,90.825,0,120.35,90.825,'),
+      ),
+    ).toBe(true);
   });
 });
 
@@ -954,8 +958,8 @@ describe('stroke rendering', () => {
 
     replayIr(rec.target, [item]);
 
-    expect(rec.calls).toContain('transform(100,25,20,40,5,10)');
-    expect(rec.calls).toContain('createLinearGradient(0,0.5,1,0.5)');
+    expect(rec.calls).not.toContain('transform(100,25,20,40,5,10)');
+    expect(rec.calls).toContain('createLinearGradient(15,30,115,55)');
     expect(rec.calls.some((call) => call.startsWith('stroke('))).toBe(true);
   });
 

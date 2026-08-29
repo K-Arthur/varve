@@ -17,13 +17,16 @@ harness uses a real browser (Playwright, already a dependency in this repo) inst
 
 1. `apps/desktop/visual-harness.html` + `apps/desktop/src/visual-harness-main.ts` — a minimal
    page (not the full app) that imports `replayIr` directly and exposes
-   `window.__renderFixture(items, width, height)`.
+   `window.__renderFixture(items, width, height)` and the fixed-time motion
+   variant. Image sources are decoded through the real `ImageCache` before the
+   frame is painted, so an image fixture cannot accidentally snapshot a loading
+   placeholder.
 2. `tests/e2e/visual/fixtures.ts` — the fixture corpus (`RenderItem[]` scenes).
 3. `tests/e2e/visual/replay.spec.ts` — for each fixture, navigates to the harness page, calls
    `__renderFixture`, and asserts `toHaveScreenshot()` against a stored baseline with a
-   per-fixture `maxDiffPixels` tolerance (see `playwright.config.ts`'s `chromium-visual-1x`/`-2x`/`-3x`
-   projects for DPR variants — 3x is opt-in via `VARVE_VISUAL_3X=1`, since it roughly triples
-   this suite's snapshot count and CI time for the DPR tier bugs are least likely to hide in).
+   per-fixture `maxDiffPixels` tolerance. Chromium 1x, 2x, and 3x projects are
+   all part of the default visual gate; the DPR label is derived from the
+   project name so each tier has its own reviewed baseline.
 4. On failure, `scripts/build-visual-diff-manifest.mjs` collects baseline/current/diff PNGs into
    `visual-diff-report/` + a `manifest.json`. CI uploads this directory as an artifact.
 5. `tests/e2e/visual/review.html` — static page, no server, no build step. Point it at a
@@ -32,53 +35,57 @@ harness uses a real browser (Playwright, already a dependency in this repo) inst
    per pane, and an "Accept" button that reveals the exact `--update-snapshots` command to run
    locally (a static page can't write files for you — this is the honest version of "accept").
 
-## Scope: what's covered, what's deferred
+## Scope: coverage boundaries
 
-This harness tests `replayIr` (the primitive-painting layer), **not** the full
-`CanvasArea.tsx`/`replaySubtreeToCtx` orchestration layer above it (mask compositing, group
-isolation surfaces, nested clip paths, container-surface flattening) — those decide what gets
-flattened into the `RenderItem[]` this harness feeds `replayIr`, and covering them needs a
-heavier harness that mounts real `CanvasArea` against a real `Document`, which is a materially
-larger undertaking than this pass.
+This harness tests `replayIr` (the primitive-painting layer). The companion
+`tests/e2e/canvas/visual-compositing.spec.ts` mounts the actual editor and
+covers the `CanvasArea.tsx`/`replaySubtreeToCtx` orchestration layer: nested
+group isolation, container compositing, and clip-mask output. Keeping those
+two layers separate makes a failing image identify the renderer or the scene
+orchestration that changed.
 
-**Shipped fixtures**: multiple node types (rect/circle/ellipse/text), multilingual text covering
-RTL, script fallback, combining marks, ligatures, and ZWJ emoji, opacity, 4 blend modes
-(multiply/screen/difference plus normal), one linear gradient with rotation, one stroke variant
-(center-aligned solid), and a 1,500-item pathological scene.
+**Shipped replay fixtures**: multiple node types (rect/circle/ellipse/text),
+multilingual text covering RTL, script fallback, combining marks, ligatures,
+and ZWJ emoji, opacity, four blend modes, translated/rotated linear and radial
+gradients, angular/conic and diamond gradients, image fill fill/fit/crop/tile
+and transform variants, CSS and software adjustment filters including a LUT,
+all line caps, joined/dashed strokes, a fixed-time motion/bound-property
+sample, and a 1,500-item pathological scene.
 
-**Explicitly deferred** (not attempted — listed so a future pass knows exactly what's missing,
-not left to rediscover it):
-- Nested groups, masks/clipping, image fills (`paintImageFill`'s fill-rect math) — all live in
-  `replaySubtreeToCtx`, out of this harness's current scope per above.
-- Filters/LUTs, motion/bound-property-at-fixed-time fixtures.
-- Conic and radial gradient variants, dashed/joined/capped stroke variants beyond the one
-  shipped.
-- 3rd DPR tier as a default (opt-in only, see above).
-- GPU-vs-software and per-platform separate baselines — this harness currently has one Linux
-  Chromium baseline set per fixture/DPR; font rendering and anti-aliasing differ across
-  platforms, so a baseline generated on Linux CI will not match macOS/Windows local runs. If this
-  harness is run cross-platform, per-platform baseline directories are needed (Playwright's
-  snapshot naming already includes the platform, e.g. `-linux.png` — this repo's baselines will
-  need `-darwin.png`/`-win32.png` siblings generated on those platforms before this is safe to
-  gate CI on for non-Linux runners).
+**Shipped editor-compositing coverage**: nested groups with group opacity and
+isolation, real clip-mask raster output, and a canvas/layers snapshot of the
+resulting user-visible state. Existing interaction specs continue to cover
+mask editing, feather/density/invert, persistence, and adjustment targeting.
+
+**Runtime coverage**: Chromium 1x/2x/3x is the default gate. A GPU-backed
+Chromium visual project has a separate snapshot namespace and is available via
+`pnpm e2e:visual:gpu`; Firefox and WebKit replay projects have separate
+snapshot namespaces via `pnpm e2e:visual:cross-runtime`. Playwright snapshot
+names include the runtime and host platform, so Linux, macOS, and Windows
+baselines cannot overwrite one another. New platform baselines must be
+generated and reviewed on that platform before enabling that platform as a
+required gate.
 
 ## Font pinning
 
 The fixture corpus uses `sans-serif` for text, including the multilingual fixture. This resolves
 to the runner's default sans font and script fallback fonts, so font availability differs between
-CI and dev machines and can produce false diffs. **Not yet fixed**: embedding a specific test font
-(e.g. via `@font-face` in `visual-harness.html`) and forcing text fixtures to use only that font
-is the correct follow-up; the visual signal is still useful on the pinned Linux CI runner.
+CI and dev machines. The Linux CI image is the canonical text-rendering environment; cross-platform
+projects intentionally keep platform-specific baselines rather than hiding font changes behind a
+large pixel tolerance. A future font-bundle change should update the multilingual fixture and its
+platform baselines as one reviewed change.
 
 ## Running locally
 
 ```bash
-npx playwright test tests/e2e/visual/replay.spec.ts --project=chromium-visual-1x --project=chromium-visual-2x
+pnpm e2e:visual
+pnpm e2e:visual:gpu                 # separate GPU/driver snapshot namespace
+pnpm e2e:visual:cross-runtime        # Firefox + WebKit replay projects
 node scripts/build-visual-diff-manifest.mjs   # only needed after a failure, to build the review report
 # then open tests/e2e/visual/review.html directly in a browser and point it at visual-diff-report/manifest.json
 ```
 
 To accept new baselines after an intentional rendering change:
 ```bash
-npx playwright test tests/e2e/visual/replay.spec.ts --update-snapshots
+pnpm exec playwright test tests/e2e/visual/replay.spec.ts --project=chromium-visual-1x --project=chromium-visual-2x --project=chromium-visual-3x --update-snapshots
 ```

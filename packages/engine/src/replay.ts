@@ -12,9 +12,11 @@
  */
 
 import {
+  applyAffine,
   type BlendEvaluationSpace,
   expandGradientStops,
   gradientTransformForBounds,
+  linearGradientHandles,
   managedColorToNormalized,
   managedColorToRgba,
   multiplyAffine,
@@ -1750,6 +1752,15 @@ function gradientCacheKey(
   return `${targetId}|${ctmKey}|${itemTransform.join(',')}|${fill.gradientType}|${fill.interpolationSpace ?? ''}|${fill.hueInterpolation ?? ''}|${normalizedRotation}|${fill.tilingMode ?? ''}|${JSON.stringify(fill.transform)}|${JSON.stringify(fill.stops)}|${bounds.x}|${bounds.y}|${bounds.w}|${bounds.h}`;
 }
 
+/** CanvasGradient coordinates are in canvas space, while fill geometry is local. */
+function gradientPointInTargetSpace(
+  target: ReplayTarget,
+  point: readonly [number, number],
+): readonly [number, number] {
+  const ctm = target.getTransform?.();
+  return ctm ? applyAffine([ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f], point) : point;
+}
+
 /** Create a gradient fillStyle from a FillIR gradient. */
 function createGradientStyle(
   target: ReplayTarget,
@@ -1772,12 +1783,12 @@ function createGradientStyle(
 
   let result: CanvasGradient | string | undefined;
 
-  // CanvasGradient captures the current transform at creation.  Creating its
-  // canonical unit-space field while G is active therefore preserves all six
-  // coefficients for linear, radial, and conic gradients.  In particular,
-  // the radial unit circle becomes the correct ellipse/skewed affine field.
+  // Canvas2D gradient coordinates are expressed in the current user space;
+  // changing the CTM while creating a gradient does not preserve that matrix
+  // in the CanvasGradient object. Materialize the canonical field into local
+  // coordinates before calling the Canvas2D factory instead.
   const transform = gradientTransformForBounds(fill, bounds);
-  const [a, b, c, d, e, f] = transform;
+  const [a, b, c, d] = transform;
   const linearLength = Math.hypot(a, b);
   const radialU = Math.hypot(a, b);
   const radialV = Math.hypot(c, d);
@@ -1792,31 +1803,49 @@ function createGradientStyle(
     const last = stops[stops.length - 1];
     result = last ? rgba(last.color) : 'rgba(0,0,0,0)';
   } else {
-    target.save();
-    try {
-      target.transform(a, b, c, d, e, f);
-      const expanded = expandGradientStopsForFill(fill);
-      if (fill.gradientType === 'radial' && target.createRadialGradient) {
-        const grad = target.createRadialGradient(0.5, 0.5, 0, 0.5, 0.5, 0.5);
-        for (const s of expanded) grad.addColorStop(s.position, rgbaWorking(s.color));
-        result = grad;
-      } else if (fill.gradientType === 'angular' && target.createConicGradient) {
-        const grad = target.createConicGradient(0, 0.5, 0.5);
-        for (const s of expanded) grad.addColorStop(s.position, rgbaWorking(s.color));
-        result = grad;
-      } else if (fill.gradientType === 'diamond' && target.createRadialGradient) {
-        const grad = target.createRadialGradient(0.5, 0.5, 0, 0.5, 0.5, 0.5);
-        for (const s of expanded) grad.addColorStop(s.position, rgbaWorking(s.color));
-        result = grad;
-      } else if (target.createLinearGradient) {
-        const grad = target.createLinearGradient(0, 0.5, 1, 0.5);
-        for (const s of expanded) grad.addColorStop(s.position, rgbaWorking(s.color));
-        result = grad;
-      } else {
-        result = rgba(stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 });
-      }
-    } finally {
-      target.restore();
+    const expanded = expandGradientStopsForFill(fill);
+    if (fill.gradientType === 'linear' && target.createLinearGradient) {
+      const handles = linearGradientHandles(fill, bounds);
+      const start = gradientPointInTargetSpace(target, handles.start);
+      const end = gradientPointInTargetSpace(target, handles.end);
+      const grad = target.createLinearGradient(start[0], start[1], end[0], end[1]);
+      for (const s of expanded) grad.addColorStop(s.position, rgbaWorking(s.color));
+      result = grad;
+    } else if (fill.gradientType === 'radial' && target.createRadialGradient) {
+      const center = gradientPointInTargetSpace(target, applyAffine(transform, [0.5, 0.5]));
+      const radiusPoint = gradientPointInTargetSpace(target, applyAffine(transform, [1, 0.5]));
+      const radius = Math.hypot(radiusPoint[0] - center[0], radiusPoint[1] - center[1]);
+      const grad = target.createRadialGradient(
+        center[0],
+        center[1],
+        0,
+        center[0],
+        center[1],
+        radius,
+      );
+      for (const s of expanded) grad.addColorStop(s.position, rgbaWorking(s.color));
+      result = grad;
+    } else if (fill.gradientType === 'angular' && target.createConicGradient) {
+      const center = gradientPointInTargetSpace(target, applyAffine(transform, [0.5, 0.5]));
+      const grad = target.createConicGradient(Math.atan2(b, a), center[0], center[1]);
+      for (const s of expanded) grad.addColorStop(s.position, rgbaWorking(s.color));
+      result = grad;
+    } else if (fill.gradientType === 'diamond' && target.createRadialGradient) {
+      const center = gradientPointInTargetSpace(target, applyAffine(transform, [0.5, 0.5]));
+      const radiusPoint = gradientPointInTargetSpace(target, applyAffine(transform, [1, 0.5]));
+      const radius = Math.hypot(radiusPoint[0] - center[0], radiusPoint[1] - center[1]);
+      const grad = target.createRadialGradient(
+        center[0],
+        center[1],
+        0,
+        center[0],
+        center[1],
+        radius,
+      );
+      for (const s of expanded) grad.addColorStop(s.position, rgbaWorking(s.color));
+      result = grad;
+    } else {
+      result = rgba(stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 });
     }
   }
 

@@ -13,14 +13,30 @@
  * isolation surfaces, nested clips). See tests/e2e/visual/README.md for why.
  */
 
-import { computeDocumentDirtyRegion, worldRectsToScreen } from '@varve/editor';
+import {
+  applyPropertyPath,
+  computeDocumentDirtyRegion,
+  sampleTimelineAt,
+  worldRectsToScreen,
+} from '@varve/editor';
 import type { RenderItem } from '@varve/engine';
-import { type ReplayTarget, replayIr } from '@varve/engine';
-import { addNode, createDocument, makeShapeNode } from '@varve/scene';
+import { getImageCache, type ReplayTarget, replayIr } from '@varve/engine';
+import { addNode, createDocument, makeShapeNode, type Timeline } from '@varve/scene';
+
+interface MotionFixturePayload {
+  items: { nodeId: string; item: RenderItem }[];
+  timeline: Timeline;
+  time: number;
+}
 
 declare global {
   interface Window {
-    __renderFixture: (items: RenderItem[], width: number, height: number) => void;
+    __renderFixture: (items: RenderItem[], width: number, height: number) => Promise<void>;
+    __renderMotionFixture: (
+      fixture: MotionFixturePayload,
+      width: number,
+      height: number,
+    ) => Promise<void>;
     __renderBoardFixture: (items: RenderItem[], width: number, height: number) => void;
     __renderPartialFrame: (
       items: RenderItem[],
@@ -75,7 +91,22 @@ declare global {
   }
 }
 
-window.__renderFixture = (items: RenderItem[], width: number, height: number) => {
+async function preloadFixtureImages(items: readonly RenderItem[]): Promise<void> {
+  const sources = new Set<string>();
+  for (const item of items) {
+    for (const fill of item.fills ?? []) {
+      if (fill.type === 'image') {
+        if (fill.src) sources.add(fill.src);
+        if (fill.alphaMask) sources.add(fill.alphaMask);
+      } else if (fill.type === 'pattern' && fill.tileSrc) {
+        sources.add(fill.tileSrc);
+      }
+    }
+  }
+  await Promise.all([...sources].map((src) => getImageCache().load(src)));
+}
+
+async function renderItems(items: RenderItem[], width: number, height: number): Promise<void> {
   const canvas = document.getElementById('harness-canvas') as HTMLCanvasElement;
   canvas.width = width;
   canvas.height = height;
@@ -84,7 +115,35 @@ window.__renderFixture = (items: RenderItem[], width: number, height: number) =>
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('2D context unavailable');
   ctx.clearRect(0, 0, width, height);
+  await preloadFixtureImages(items);
   replayIr(ctx as unknown as ReplayTarget, items);
+}
+
+window.__renderFixture = async (items: RenderItem[], width: number, height: number) => {
+  await renderItems(items, width, height);
+};
+
+window.__renderMotionFixture = async (
+  fixture: MotionFixturePayload,
+  width: number,
+  height: number,
+) => {
+  const doc = {
+    ...createDocument('Motion visual fixture', true),
+    timelines: { [fixture.timeline.id]: fixture.timeline },
+  };
+  const sample = sampleTimelineAt(doc, fixture.timeline.id, fixture.time);
+  const items = fixture.items.map(({ nodeId, item }) => {
+    const copy = structuredClone(item);
+    const overrides = sample.overrides.get(nodeId);
+    if (overrides) {
+      for (const [property, value] of overrides) {
+        applyPropertyPath(copy as unknown as Record<string, unknown>, property, value);
+      }
+    }
+    return copy;
+  });
+  await renderItems(items, width, height);
 };
 
 /**
