@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { expect, type Locator, type Page, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { dragOnCanvas, navigateToEditor } from '../shared';
 
 const PHOTO_FIXTURE = path.resolve('tests/e2e/fixtures/photo-fixture.jpg');
 const REVIEW_DIR = path.resolve('reports/ui-review/image-tuning');
@@ -76,7 +76,7 @@ async function expectCanvasToMatch(page: Page, expected: string): Promise<void> 
 }
 
 test.describe('Image Tuning', () => {
-  test('applies Edge Falloff to an imported image and bypasses it without removing the value', async ({
+  test('applies Vignette to an imported image and bypasses it without removing the value', async ({
     page,
   }, testInfo) => {
     test.setTimeout(120000);
@@ -85,10 +85,10 @@ test.describe('Image Tuning', () => {
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     await expect(canvas).toBeVisible();
 
-    const edgeFalloff = section.locator('[data-image-treatment="edgeFalloff-strength"]');
-    const slider = edgeFalloff.getByRole('slider', { name: 'Edge Falloff' });
+    const vignette = section.getByRole('group', { name: 'Vignette', exact: true });
+    const slider = vignette.getByRole('slider', { name: 'Vignette Amount', exact: true });
     await expect(slider).toHaveValue('0');
-    await expect(edgeFalloff.getByRole('button', { name: 'Disable Edge Falloff' })).toHaveAttribute(
+    await expect(vignette.getByRole('button', { name: 'Disable Vignette Amount' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -96,16 +96,16 @@ test.describe('Image Tuning', () => {
     await forceFullRedraw(page);
     const before = await canvas.screenshot();
     const beforePixels = await canvasPixelFingerprint(page);
-    await testInfo.attach('edge-falloff-before', { body: before, contentType: 'image/png' });
+    await testInfo.attach('vignette-before', { body: before, contentType: 'image/png' });
     await canvas.screenshot({
-      path: path.join(REVIEW_DIR, `edge-falloff-before-${testInfo.project.name}.png`),
+      path: path.join(REVIEW_DIR, `vignette-before-${testInfo.project.name}.png`),
     });
 
     // This changes the actual range control, rather than patching document
     // state, so it crosses the inspector -> smart-filter -> canvas path.
     await slider.fill('-80');
     await expect(slider).toHaveValue('-80');
-    await expect(edgeFalloff.getByRole('button', { name: 'Disable Edge Falloff' })).toHaveAttribute(
+    await expect(vignette.getByRole('button', { name: 'Disable Vignette Amount' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -113,9 +113,9 @@ test.describe('Image Tuning', () => {
     await forceFullRedraw(page);
     await expectCanvasToDifferFrom(page, beforePixels);
     const applied = await canvas.screenshot();
-    await testInfo.attach('edge-falloff-applied', { body: applied, contentType: 'image/png' });
+    await testInfo.attach('vignette-applied', { body: applied, contentType: 'image/png' });
     await canvas.screenshot({
-      path: path.join(REVIEW_DIR, `edge-falloff-applied-${testInfo.project.name}.png`),
+      path: path.join(REVIEW_DIR, `vignette-applied-${testInfo.project.name}.png`),
     });
     await page.screenshot({
       path: path.join(REVIEW_DIR, `image-tuning-panel-${testInfo.project.name}.png`),
@@ -124,9 +124,9 @@ test.describe('Image Tuning', () => {
 
     // Bypass must preserve the entry and its parameter rather than reset or
     // destructively bake it into the imported bitmap.
-    const disable = edgeFalloff.getByRole('button', { name: 'Disable Edge Falloff' });
+    const disable = vignette.getByRole('button', { name: 'Disable Vignette Amount' });
     await disable.click();
-    await expect(edgeFalloff.getByRole('button', { name: 'Enable Edge Falloff' })).toHaveAttribute(
+    await expect(vignette.getByRole('button', { name: 'Enable Vignette Amount' })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
@@ -135,9 +135,9 @@ test.describe('Image Tuning', () => {
     await forceFullRedraw(page);
     await expectCanvasToMatch(page, beforePixels);
     const bypassed = await canvas.screenshot();
-    await testInfo.attach('edge-falloff-bypassed', { body: bypassed, contentType: 'image/png' });
+    await testInfo.attach('vignette-bypassed', { body: bypassed, contentType: 'image/png' });
     await canvas.screenshot({
-      path: path.join(REVIEW_DIR, `edge-falloff-bypassed-${testInfo.project.name}.png`),
+      path: path.join(REVIEW_DIR, `vignette-bypassed-${testInfo.project.name}.png`),
     });
   });
 
@@ -145,13 +145,13 @@ test.describe('Image Tuning', () => {
     test.setTimeout(120000);
     await navigateToEditor(page);
     const section = await openImageTuning(page);
-    const microDetail = section.locator('[data-image-treatment="microDetail-amount"]');
-    const slider = microDetail.getByRole('slider', { name: 'Micro Detail' });
+    const fineTexture = section.getByRole('group', { name: 'Fine Texture', exact: true });
+    const slider = fineTexture.getByRole('slider', { name: 'Fine Texture', exact: true });
 
     await expect(slider).toHaveValue('0');
     await slider.fill('40');
     await expect(slider).toHaveValue('40');
-    await expect(microDetail.getByRole('button', { name: 'Disable Micro Detail' })).toHaveAttribute(
+    await expect(fineTexture.getByRole('button', { name: 'Disable Fine Texture' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -163,13 +163,13 @@ test.describe('Image Tuning', () => {
 
     await page.keyboard.press('Control+z');
     await expect(slider).toHaveValue('0');
-    await expect(microDetail.getByRole('button', { name: 'Disable Micro Detail' })).toHaveAttribute(
+    await expect(fineTexture.getByRole('button', { name: 'Disable Fine Texture' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
   });
 
-  test('renders Definition, Atmosphere, Grain, and Soft Bloom non-destructively', async ({
+  test('uses descriptive treatment cards and renders Local Contrast, Atmospheric Depth, Dehaze, Grain, and Highlight Glow non-destructively', async ({
     page,
   }, testInfo) => {
     test.setTimeout(120000);
@@ -183,14 +183,71 @@ test.describe('Image Tuning', () => {
     const untreatedPixels = await canvasPixelFingerprint(page);
     await testInfo.attach('image-tuning-untreated', { body: untreated, contentType: 'image/png' });
 
+    await expect(
+      section.getByRole('region', { name: 'Local Contrast & Depth', exact: true }),
+    ).toBeVisible();
+
+    const semanticCards = [
+      ['Fine Texture', 'Fine Texture'],
+      ['Local Contrast', 'Local Contrast'],
+      ['Atmospheric Depth', 'Atmospheric Depth'],
+      ['Dehaze', 'Dehaze'],
+      ['Vignette', 'Vignette Amount'],
+      ['Grain', 'Grain Amount'],
+      ['Highlight Glow', 'Glow Amount'],
+    ] as const;
+    for (const [treatmentName, controlName] of semanticCards) {
+      const card = section.getByRole('group', { name: treatmentName, exact: true });
+      await expect(card).toBeVisible();
+      await expect(card.getByRole('slider', { name: controlName, exact: true })).toBeVisible();
+      await expect(
+        card.getByText(`Advanced ${treatmentName} settings`, { exact: true }),
+      ).toBeVisible();
+    }
+
+    const grainCard = section.getByRole('group', { name: 'Grain', exact: true });
+    await grainCard.getByText('Advanced Grain settings', { exact: true }).click();
+    for (const name of ['Grain Amount', 'Grain Size', 'Grain Roughness', 'Pattern Variation']) {
+      await expect(grainCard.getByRole('slider', { name, exact: true })).toBeVisible();
+    }
+    for (const ambiguousName of ['Strength', 'Scale', 'Character', 'Seed']) {
+      await expect(grainCard.getByRole('slider', { name: ambiguousName, exact: true })).toHaveCount(
+        0,
+      );
+    }
+    const grainTerminology = await grainCard.screenshot();
+    await testInfo.attach('grain-descriptive-controls', {
+      body: grainTerminology,
+      contentType: 'image/png',
+    });
+    await grainCard.screenshot({
+      path: path.join(REVIEW_DIR, `grain-descriptive-controls-${testInfo.project.name}.png`),
+    });
+
     // Each slider is driven through the inspector rather than by patching
     // document state. The canvas capture is intentionally re-taken after a
     // full redraw, which covers the async render path used by the editor.
     const treatments = [
-      { id: 'definition-amount', label: 'Definition', sliderLabel: 'Definition', value: '80' },
-      { id: 'atmosphere-amount', label: 'Atmosphere', sliderLabel: 'Atmosphere', value: '80' },
-      { id: 'grain-strength', label: 'Grain', sliderLabel: 'Strength', value: '80' },
-      { id: 'softBloom-strength', label: 'Soft Bloom', sliderLabel: 'Soft Bloom', value: '90' },
+      {
+        id: 'definition-amount',
+        label: 'Local Contrast',
+        sliderLabel: 'Local Contrast',
+        value: '80',
+      },
+      {
+        id: 'atmosphere-amount',
+        label: 'Atmospheric Depth',
+        sliderLabel: 'Atmospheric Depth',
+        value: '80',
+      },
+      { id: 'dehaze-amount', label: 'Dehaze', sliderLabel: 'Dehaze', value: '80' },
+      { id: 'grain-strength', label: 'Grain', sliderLabel: 'Grain Amount', value: '80' },
+      {
+        id: 'softBloom-strength',
+        label: 'Highlight Glow',
+        sliderLabel: 'Glow Amount',
+        value: '90',
+      },
     ] as const;
 
     for (const treatment of treatments) {
@@ -224,5 +281,66 @@ test.describe('Image Tuning', () => {
       await forceFullRedraw(page);
       await expectCanvasToMatch(page, untreatedPixels);
     }
+  });
+
+  test('keeps Object Finishing discoverable on a 50% vector rectangle without changing its source opacity', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(120000);
+    await navigateToEditor(page);
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await expect(canvas).toBeVisible();
+
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 160, 140, 500, 360);
+    const rectangle = page.getByRole('treeitem').first();
+    await expect(rectangle).toBeVisible();
+    await rectangle.click();
+
+    const inspector = page.locator('.editor__inspector-panel');
+    await inspector.getByRole('tab', { name: 'Properties', exact: true }).click();
+    const appearance = inspector.getByRole('button', { name: 'Appearance', exact: true });
+    await expect(appearance).toBeVisible();
+    if ((await appearance.getAttribute('aria-expanded')) !== 'true') await appearance.click();
+
+    const opacity = inspector.getByRole('spinbutton', { name: 'Opacity', exact: true });
+    await expect(opacity).toBeVisible();
+    await opacity.fill('0.5');
+    await opacity.press('Enter');
+    await expect(opacity).toHaveValue('0.5');
+
+    const objectFilters = inspector.getByRole('button', { name: 'Object Filters', exact: true });
+    await expect(objectFilters).toBeVisible();
+    if ((await objectFilters.getAttribute('aria-expanded')) !== 'true') await objectFilters.click();
+
+    const finishing = inspector.locator('.object-finishing');
+    await expect(finishing).toBeVisible();
+    await expect(
+      finishing.getByRole('heading', { name: 'Object Finishing', exact: true }),
+    ).toBeVisible();
+    const actions = finishing.getByRole('group', { name: 'Add object finishing', exact: true });
+    await expect(actions).toBeVisible();
+    for (const label of ['Grain', 'Vignette', 'Highlight Glow']) {
+      await expect(
+        actions.getByRole('button', { name: `Add ${label} object filter`, exact: true }),
+      ).toBeVisible();
+    }
+
+    await forceFullRedraw(page);
+    const beforePixels = await canvasPixelFingerprint(page);
+    await actions.getByRole('button', { name: 'Add Grain object filter', exact: true }).click();
+    await expect(inspector.locator('.smart-filters__row')).toContainText('Grain');
+    await expect(opacity).toHaveValue('0.5');
+
+    await forceFullRedraw(page);
+    await expectCanvasToDifferFrom(page, beforePixels);
+    const finishingReview = await inspector.screenshot();
+    await testInfo.attach('object-finishing-grain-at-50-percent-opacity', {
+      body: finishingReview,
+      contentType: 'image/png',
+    });
+    await inspector.screenshot({
+      path: path.join(REVIEW_DIR, `object-finishing-grain-${testInfo.project.name}.png`),
+    });
   });
 });
