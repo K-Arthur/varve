@@ -42,6 +42,15 @@ describe('shouldIgnoreShortcutTarget', () => {
     expect(shouldIgnoreShortcutTarget(document.getElementById('inner'))).toBe(true);
   });
 
+  it('ignores controls inside an open modal dialog', () => {
+    document.body.innerHTML = `
+      <dialog open><button id="native-dialog-button">Confirm</button></dialog>
+      <div role="dialog" aria-modal="true"><button id="aria-dialog-button">Confirm</button></div>
+    `;
+    expect(shouldIgnoreShortcutTarget(document.getElementById('native-dialog-button'))).toBe(true);
+    expect(shouldIgnoreShortcutTarget(document.getElementById('aria-dialog-button'))).toBe(true);
+  });
+
   it('does not ignore plain canvas/body targets', () => {
     document.body.innerHTML = `<canvas id="c"></canvas>`;
     expect(shouldIgnoreShortcutTarget(document.getElementById('c'))).toBe(false);

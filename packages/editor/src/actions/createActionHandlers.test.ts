@@ -1,4 +1,5 @@
 import { areaSelectionCoverageAt, createAreaSelection } from '@varve/engine';
+import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import type { EditorContextValue } from '../context';
 import { setStartTextEditingHandler } from '../context';
@@ -14,6 +15,14 @@ function makeEditorMock(overrides: Partial<EditorContextValue> = {}): EditorCont
   } as unknown as EditorContextValue;
 }
 
+function nudgeRect(id: string, x: number, y: number) {
+  return makeShapeNode(
+    id,
+    { kind: 'rect', x: 0, y: 0, w: 20, h: 20 },
+    { name: id, transform: [1, 0, 0, 1, x, y] },
+  );
+}
+
 describe('createActionHandlers — tool actions', () => {
   it.each([
     ['toolScale', 'scale'],
@@ -23,6 +32,68 @@ describe('createActionHandlers — tool actions', () => {
     const editor = makeEditorMock();
     createActionHandlers(editor)[action]?.();
     expect(editor.setTool).toHaveBeenCalledWith(tool);
+  });
+});
+
+describe('createActionHandlers — object nudge actions', () => {
+  it('batches a world-space nudge into one undo transaction', () => {
+    let document = createDocument('menu nudge');
+    const first = nudgeRect('first', 10, 20);
+    const second = nudgeRect('second', 80, -5);
+    document = addNode(document, first);
+    document = addNode(document, second);
+    const beginTransaction = vi.fn();
+    const commitTransaction = vi.fn();
+    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
+    const editor = makeEditorMock({
+      state: { selection: [first.id, second.id], document } as EditorContextValue['state'],
+      beginTransaction,
+      commitTransaction,
+      setNodePosition,
+      setNodePositions,
+    });
+
+    createActionHandlers(editor).nudgeRight?.();
+
+    expect(beginTransaction).toHaveBeenCalledTimes(1);
+    expect(setNodePositions).toHaveBeenCalledWith([
+      { id: first.id, x: 11, y: 20 },
+      { id: second.id, x: 81, y: -5 },
+    ]);
+    expect(setNodePosition).not.toHaveBeenCalled();
+    expect(commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not write an empty undo entry when every selected root is ineligible', () => {
+    let document = createDocument('locked menu nudge');
+    const parent = makeFrameNode('parent', {
+      w: 200,
+      h: 100,
+      locked: true,
+      transform: [1, 0, 0, 1, 10, 10],
+    });
+    const child = nudgeRect('child', 20, 20);
+    document = addNode(document, parent);
+    document = addChild(document, parent.id, child);
+    const beginTransaction = vi.fn();
+    const commitTransaction = vi.fn();
+    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
+    const editor = makeEditorMock({
+      state: { selection: [child.id], document } as EditorContextValue['state'],
+      beginTransaction,
+      commitTransaction,
+      setNodePosition,
+      setNodePositions,
+    });
+
+    createActionHandlers(editor).nudgeRight?.();
+
+    expect(beginTransaction).not.toHaveBeenCalled();
+    expect(commitTransaction).not.toHaveBeenCalled();
+    expect(setNodePosition).not.toHaveBeenCalled();
+    expect(setNodePositions).not.toHaveBeenCalled();
   });
 });
 

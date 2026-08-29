@@ -349,6 +349,8 @@ export interface Tool {
   cursor(state: ToolCursorState): CursorSpec;
   onActivate?(ctx: ToolContext): void;
   onDeactivate?(ctx: ToolContext): void;
+  /** The canvas/window lost keyboard focus before an owning keyup arrived. */
+  onFocusLoss?(ctx: ToolContext): void;
   onPointerDown?(e: PointerEvent, ctx: ToolContext): GestureResult;
   onPointerMove?(e: PointerEvent, ctx: ToolContext): void;
   onPointerUp?(e: PointerEvent, ctx: ToolContext): void;

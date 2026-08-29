@@ -1,5 +1,6 @@
 import {
   addChild,
+  addNode,
   addPage,
   createClippingMask,
   createDocument,
@@ -7,6 +8,7 @@ import {
   makeShapeNode,
   type Page,
 } from '@varve/scene';
+import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { SelectTool } from '../SelectTool';
 
@@ -92,6 +94,44 @@ function makeCtx(overrides?: Record<string, unknown>) {
   return ctx;
 }
 
+function makeNudgeCtx(
+  transform: Affine = [1, 0, 0, 1, 100, 100],
+  nodePatch: { locked?: boolean; visible?: boolean } = {},
+) {
+  let document = createDocument('nudge test');
+  const node = {
+    ...makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 20, h: 20 },
+      { name: 'Nudge target', transform },
+    ),
+    ...nodePatch,
+  };
+  document = addNode(document, node);
+  const ctx = makeCtx({ document, selection: [node.id] });
+  ctx.getNode = vi.fn((id: string) => ctx.document.nodes[id]);
+  ctx.setNodePositions = vi.fn((positions: ReadonlyArray<{ id: string; x: number; y: number }>) => {
+    const nodes = { ...ctx.document.nodes };
+    for (const position of positions) {
+      const current = nodes[position.id];
+      if (!current) continue;
+      nodes[position.id] = {
+        ...current,
+        transform: [
+          current.transform[0],
+          current.transform[1],
+          current.transform[2],
+          current.transform[3],
+          position.x,
+          position.y,
+        ] as Affine,
+      };
+    }
+    ctx.document = { ...ctx.document, nodes };
+  });
+  return ctx;
+}
+
 // A hand-picked contentRoot id, distinct from the `n0`/`n1`/`n2` test-shape
 // ids below — `createDocument()`'s own auto-generated contentRoot id would
 // otherwise collide with `n1` (both come from the same `n${count}` scheme),
@@ -173,10 +213,7 @@ describe('SelectTool', () => {
 
   it('arrow key nudges selected nodes', () => {
     const tool = new SelectTool();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-    });
+    const ctx = makeNudgeCtx();
     tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
     expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
     expect(ctx.announceOperation).toHaveBeenCalledWith('Nudge', '1px');
@@ -184,45 +221,27 @@ describe('SelectTool', () => {
 
   it('shift+arrow nudges by 10px', () => {
     const tool = new SelectTool();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-    });
+    const ctx = makeNudgeCtx();
     tool.onKeyDown({ key: 'ArrowLeft', shiftKey: true } as any, ctx);
     expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 90, y: 100 }]);
   });
 
-  it('arrow key nudges rotated node along local axes', () => {
+  it('arrow key nudges a rotated node along document axes', () => {
     const tool = new SelectTool();
-    // Rotated 45deg: [cos45, sin45, -sin45, cos45, 100, 100]
     const c = Math.cos(Math.PI / 4);
     const s = Math.sin(Math.PI / 4);
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({
-        id: 'n1',
-        transform: [c, s, -s, c, 100, 100],
-      }),
-    });
-    // Right arrow: move along local X axis (c, s)
+    const ctx = makeNudgeCtx([c, s, -s, c, 100, 100]);
     tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
-    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100 + c, y: 100 + s }]);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
   });
 
-  it('arrow key nudges rotated node backward along local Y on arrow up', () => {
+  it('arrow key nudges a rotated node upward in document space', () => {
     const tool = new SelectTool();
     const c = Math.cos(Math.PI / 4);
     const s = Math.sin(Math.PI / 4);
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({
-        id: 'n1',
-        transform: [c, s, -s, c, 100, 100],
-      }),
-    });
-    // Up arrow: move backward along local Y axis (-c, -d) = (s, -c)
+    const ctx = makeNudgeCtx([c, s, -s, c, 100, 100]);
     tool.onKeyDown({ key: 'ArrowUp' } as any, ctx);
-    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100 - -s, y: 100 - c }]);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100, y: 99 }]);
   });
 
   it('marquee with ctrl key toggles containment mode, selects only nodes fully contained', () => {
@@ -528,10 +547,7 @@ describe('SelectTool — keyboard selection cycle (Tab)', () => {
 describe('SelectTool — keyboard nudge undo transaction', () => {
   it('begins transaction on keydown, commits on keyup for coalesced undo', () => {
     const tool = new SelectTool();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-    });
+    const ctx = makeNudgeCtx();
     tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
@@ -542,20 +558,7 @@ describe('SelectTool — keyboard nudge undo transaction', () => {
 
   it('coalesces repeat keydowns into the same transaction', () => {
     const tool = new SelectTool();
-    // Track position across calls so repeat gets the updated position
-    let posX = 100;
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-      setNodePositions: vi.fn((positions: Array<{ id: string; x: number }>) => {
-        posX = positions[0]?.x ?? posX;
-      }),
-    });
-    // Override getNode to return current position
-    vi.mocked(ctx.getNode).mockImplementation(() => ({
-      id: 'n1',
-      transform: [1, 0, 0, 1, posX, 100],
-    }));
+    const ctx = makeNudgeCtx();
 
     // First press begins transaction, moves to 101
     tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
@@ -576,10 +579,7 @@ describe('SelectTool — keyboard nudge undo transaction', () => {
 
   it('wraps shift+arrow nudge in beginTransaction/commitTransaction', () => {
     const tool = new SelectTool();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-    });
+    const ctx = makeNudgeCtx();
     tool.onKeyDown({ key: 'ArrowLeft', shiftKey: true } as any, ctx);
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
     expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 90, y: 100 }]);
@@ -590,172 +590,150 @@ describe('SelectTool — keyboard nudge undo transaction', () => {
   it('does not call beginTransaction when no selection', () => {
     const tool = new SelectTool();
     const ctx = makeCtx({ selection: [] });
-    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    expect(tool.onKeyDown({ key: 'ArrowRight' } as any, ctx)).toBe(false);
     expect(ctx.beginTransaction).not.toHaveBeenCalled();
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
   });
+
+  it('never reparents an object that enters a frame through arrow nudging', () => {
+    const tool = new SelectTool();
+    const ctx = makeNudgeCtx();
+    ctx.findContainingFrame.mockReturnValue('frame1');
+    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
+    expect(ctx.reparentNode).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { name: 'Alt', altKey: true },
+    { name: 'Ctrl', ctrlKey: true },
+    { name: 'Command', metaKey: true },
+  ])('leaves $name+Arrow for a dedicated shortcut', ({ altKey, ctrlKey, metaKey }) => {
+    const tool = new SelectTool();
+    const ctx = makeNudgeCtx();
+
+    expect(tool.onKeyDown({ key: 'ArrowRight', altKey, ctrlKey, metaKey } as any, ctx)).toBe(false);
+    expect(ctx.setNodePositions).not.toHaveBeenCalled();
+    expect(ctx.beginTransaction).not.toHaveBeenCalled();
+  });
+
+  it('does not create history for a wholly locked selection', () => {
+    const tool = new SelectTool();
+    const ctx = makeNudgeCtx([1, 0, 0, 1, 100, 100], { locked: true });
+
+    expect(tool.onKeyDown({ key: 'ArrowRight' } as any, ctx)).toBe(false);
+    expect(ctx.setNodePositions).not.toHaveBeenCalled();
+    expect(ctx.beginTransaction).not.toHaveBeenCalled();
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('commits only after every held nudge direction is released', () => {
+    const tool = new SelectTool();
+    const ctx = makeNudgeCtx();
+
+    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    tool.onKeyDown({ key: 'ArrowDown' } as any, ctx);
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+    tool.onKeyUp({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
+    tool.onKeyUp({ key: 'ArrowDown' } as any, ctx);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('commits a held nudge when keyboard focus is lost', () => {
+    const tool = new SelectTool();
+    const ctx = makeNudgeCtx();
+
+    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    tool.onFocusLoss(ctx);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+    tool.onKeyUp({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+  });
 });
 
-describe('SelectTool — keyboard nudge auto-reparent', () => {
-  it('nudge into frame triggers reparentNode with frame as new parent', () => {
+describe('SelectTool — isolation mode', () => {
+  it('filters hit-test results to isolated subtree', () => {
     const tool = new SelectTool();
     const ctx = makeCtx({
-      selection: ['n1'],
+      isolatedNodeId: 'frame1',
+      hitTest: vi.fn().mockReturnValue({
+        nodeId: 'outside-node',
+        node: { id: 'outside-node', kind: 'shape' as const },
+      }),
       getNode: vi.fn().mockReturnValue({
-        id: 'n1',
-        transform: [1, 0, 0, 1, 100, 100],
+        id: 'outside-node',
+        kind: 'shape' as const,
+        fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+      }),
+    });
+
+    // Simulate a pointer down event
+    const ev = new PointerEvent('pointerdown', {
+      clientX: 100,
+      clientY: 100,
+      pointerId: 1,
+    });
+
+    const result = tool.onPointerDown(ev, ctx);
+    // Should deselect (setSelection(null)) since hit was filtered out
+    expect(ctx.setSelection).toHaveBeenCalledWith(null);
+    expect(result).toEqual({ consumed: true, captured: true });
+  });
+
+  it('allows selection within isolated subtree', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      isolatedNodeId: 'frame1',
+      hitTest: vi.fn().mockReturnValue({
+        nodeId: 'frame1', // The isolated root itself
+        node: { id: 'frame1', kind: 'frame' as const, children: [] },
+      }),
+      getNode: vi.fn().mockReturnValue({
+        id: 'frame1',
+        kind: 'frame' as const,
+        children: [],
+        fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+      }),
+    });
+
+    const ev = new PointerEvent('pointerdown', {
+      clientX: 100,
+      clientY: 100,
+      pointerId: 1,
+    });
+
+    tool.onPointerDown(ev, ctx);
+    expect(ctx.setSelection).toHaveBeenCalledWith('frame1');
+  });
+
+  it('filters marquee selection to isolated subtree', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({
+      isolatedNodeId: 'frame1',
+      selection: [],
+      getNode: vi.fn().mockReturnValue({
+        id: 'test-node',
+        kind: 'shape' as const,
         visible: true,
         locked: false,
       }),
-      findContainingFrame: vi.fn().mockReturnValue('frame1'),
-    });
-    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
-    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
-    expect(ctx.reparentNode).toHaveBeenCalledWith('n1', 'frame1', 0);
-    expect(ctx.announceOperation).toHaveBeenCalledWith('Nudge', '1px');
-  });
-
-  it('nudge outside frame does not reparent', () => {
-    const tool = new SelectTool();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({
-        id: 'n1',
-        transform: [1, 0, 0, 1, 100, 100],
-        visible: true,
-        locked: false,
-      }),
-      findContainingFrame: vi.fn().mockReturnValue(null),
-    });
-    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
-    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
-    expect(ctx.reparentNode).not.toHaveBeenCalled();
-    expect(ctx.announceOperation).toHaveBeenCalledWith('Nudge', '1px');
-  });
-
-  it('nudge triggers beginTransaction twice and commitTransaction twice (move + reparent + keyup)', () => {
-    const tool = new SelectTool();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({
-        id: 'n1',
-        transform: [1, 0, 0, 1, 100, 100],
-        visible: true,
-        locked: false,
-      }),
-      findContainingFrame: vi.fn().mockReturnValue('frame1'),
-    });
-    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
-    expect(ctx.beginTransaction).toHaveBeenCalledTimes(2);
-    // First commit is for the auto-reparent transaction (inside onKeyDown)
-    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
-    // Keyup commits the nudge transaction
-    tool.onKeyUp({ key: 'ArrowRight' } as any, ctx);
-    expect(ctx.commitTransaction).toHaveBeenCalledTimes(2);
-  });
-
-  it('nudge with Ctrl held bypasses auto-reparent', () => {
-    const tool = new SelectTool();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({
-        id: 'n1',
-        transform: [1, 0, 0, 1, 100, 100],
-        visible: true,
-        locked: false,
-      }),
-      findContainingFrame: vi.fn().mockReturnValue('frame1'),
-      ctrlKey: true,
-    });
-    tool.onKeyDown({ key: 'ArrowRight', ctrlKey: true } as any, ctx);
-    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
-    expect(ctx.reparentNode).not.toHaveBeenCalled();
-    expect(ctx.announceOperation).toHaveBeenCalledWith('Nudge', '1px');
-  });
-
-  describe('isolation mode', () => {
-    it('filters hit-test results to isolated subtree', () => {
-      const tool = new SelectTool();
-      const ctx = makeCtx({
-        isolatedNodeId: 'frame1',
-        hitTest: vi.fn().mockReturnValue({
-          nodeId: 'outside-node',
-          node: { id: 'outside-node', kind: 'shape' as const },
-        }),
-        getNode: vi.fn().mockReturnValue({
-          id: 'outside-node',
-          kind: 'shape' as const,
-          fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
-        }),
-      });
-
-      // Simulate a pointer down event
-      const ev = new PointerEvent('pointerdown', {
-        clientX: 100,
-        clientY: 100,
-        pointerId: 1,
-      });
-
-      const result = tool.onPointerDown(ev, ctx);
-      // Should deselect (setSelection(null)) since hit was filtered out
-      expect(ctx.setSelection).toHaveBeenCalledWith(null);
-      expect(result).toEqual({ consumed: true, captured: true });
     });
 
-    it('allows selection within isolated subtree', () => {
-      const tool = new SelectTool();
-      const ctx = makeCtx({
-        isolatedNodeId: 'frame1',
-        hitTest: vi.fn().mockReturnValue({
-          nodeId: 'frame1', // The isolated root itself
-          node: { id: 'frame1', kind: 'frame' as const, children: [] },
-        }),
-        getNode: vi.fn().mockReturnValue({
-          id: 'frame1',
-          kind: 'frame' as const,
-          children: [],
-          fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
-        }),
-      });
-
-      const ev = new PointerEvent('pointerdown', {
-        clientX: 100,
-        clientY: 100,
-        pointerId: 1,
-      });
-
-      tool.onPointerDown(ev, ctx);
-      expect(ctx.setSelection).toHaveBeenCalledWith('frame1');
+    // Start marquee drag
+    const ev = new PointerEvent('pointerdown', {
+      clientX: 0,
+      clientY: 0,
+      pointerId: 1,
     });
+    tool.onPointerDown(ev, ctx);
 
-    it('filters marquee selection to isolated subtree', () => {
-      const tool = new SelectTool();
-      const ctx = makeCtx({
-        isolatedNodeId: 'frame1',
-        selection: [],
-        getNode: vi.fn().mockReturnValue({
-          id: 'test-node',
-          kind: 'shape' as const,
-          visible: true,
-          locked: false,
-        }),
-      });
+    // End drag (marquee selection)
+    tool.onDragEnd(ctx);
 
-      // Start marquee drag
-      const ev = new PointerEvent('pointerdown', {
-        clientX: 0,
-        clientY: 0,
-        pointerId: 1,
-      });
-      tool.onPointerDown(ev, ctx);
-
-      // End drag (marquee selection)
-      tool.onDragEnd(ctx);
-
-      // The marquee should filter nodes by isolation
-      // This is tested implicitly by the implementation
-      expect(ctx.setDraft).toHaveBeenCalledWith(null);
-    });
+    // The marquee should filter nodes by isolation
+    // This is tested implicitly by the implementation
+    expect(ctx.setDraft).toHaveBeenCalledWith(null);
   });
 });
 

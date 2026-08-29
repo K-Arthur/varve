@@ -921,6 +921,18 @@ export function useCanvasInputs({
       }
 
       if (tmInst) {
+        if (
+          shouldDeferArrowToSelectedGuide({
+            key: e.key,
+            selectedGuideId: stateRef.current.selectedGuideId,
+            activeToolId: tmInst.activeToolId,
+            altKey: e.altKey,
+            ctrlKey: e.ctrlKey,
+            metaKey: e.metaKey,
+          })
+        ) {
+          return;
+        }
         const ctx = buildToolCtx({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
         if (tmInst.handleKeyDown(ne, ctx)) {
           e.preventDefault();
@@ -1183,13 +1195,13 @@ export function useCanvasInputs({
     }
     endInteraction();
     endEditorInteraction();
+    const cancelEvent = new PointerEvent('pointercancel');
+    const ctx = buildToolCtx(cancelEvent);
+    tmRef.current?.handleFocusLoss(ctx);
     editor.commitTransaction();
-    tmRef.current?.activeTool.onPointerCancel?.(
-      new PointerEvent('pointercancel'),
-      buildToolCtx(new PointerEvent('pointercancel')),
-    );
+    tmRef.current?.activeTool.onPointerCancel?.(cancelEvent, ctx);
     if (tmRef.current?.springActive) {
-      tmRef.current.releaseSpring(buildToolCtx(new PointerEvent('pointercancel')));
+      tmRef.current.releaseSpring(ctx);
     }
   }, [tmRef, stopAutoPan, editor, buildToolCtx]);
 
@@ -1210,17 +1222,20 @@ export function useCanvasInputs({
     }
     function onWindowBlur() {
       resetInputState();
-      tmRef.current?.activeTool.onPointerCancel?.(
-        new PointerEvent('pointercancel'),
-        buildToolCtx(new PointerEvent('pointercancel')),
-      );
+      const cancelEvent = new PointerEvent('pointercancel');
+      const ctx = buildToolCtx(cancelEvent);
+      tmRef.current?.handleFocusLoss(ctx);
+      editor.commitTransaction();
+      tmRef.current?.activeTool.onPointerCancel?.(cancelEvent, ctx);
       if (tmRef.current?.springActive) {
-        tmRef.current.releaseSpring(buildToolCtx(new PointerEvent('pointercancel')));
+        tmRef.current.releaseSpring(ctx);
       }
     }
     function onVisibilityChange() {
       if (document.visibilityState === 'hidden') {
         resetInputState();
+        const cancelEvent = new PointerEvent('pointercancel');
+        tmRef.current?.handleFocusLoss(buildToolCtx(cancelEvent));
         editor.commitTransaction();
       }
     }
@@ -1259,4 +1274,34 @@ export function useCanvasInputs({
  */
 export function shouldSkipCanvasKeydown(e: { isComposing?: boolean; keyCode?: number }): boolean {
   return e.isComposing === true || e.keyCode === 229;
+}
+
+/**
+ * A selected guide is its own keyboard target. Defer unmodified/Shift arrows
+ * only from the generic Select tool so the window-level guide controller gets
+ * the event; modal tools such as Crop and Node Edit retain first priority.
+ */
+export function shouldDeferArrowToSelectedGuide(input: {
+  key: string;
+  selectedGuideId: string | null;
+  activeToolId: string;
+  altKey?: boolean;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+}): boolean {
+  if (
+    !input.selectedGuideId ||
+    input.activeToolId !== 'select' ||
+    input.altKey ||
+    input.ctrlKey ||
+    input.metaKey
+  ) {
+    return false;
+  }
+  return (
+    input.key === 'ArrowUp' ||
+    input.key === 'ArrowDown' ||
+    input.key === 'ArrowLeft' ||
+    input.key === 'ArrowRight'
+  );
 }

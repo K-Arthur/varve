@@ -11,7 +11,6 @@ import {
 import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { nodeWorldTransform } from '../scene/world';
-import type { NudgeContext } from './nudge';
 import { canNudge, executeNudge, getNudgeDisabledReason, getNudgeStep } from './nudge';
 
 const EPSILON = 1e-8;
@@ -24,19 +23,15 @@ function rect(id: string, x: number, y: number) {
   );
 }
 
-function makeCtx(
-  document: Document,
-  selection: NodeId[],
-): NudgeContext & {
-  setNodePositions: ReturnType<typeof vi.fn>;
-  setNodePosition: ReturnType<typeof vi.fn>;
-} {
+function makeCtx(document: Document, selection: NodeId[]) {
+  const setNodePosition = vi.fn<(id: NodeId, x: number, y: number) => void>();
+  const setNodePositions =
+    vi.fn<(positions: ReadonlyArray<{ id: NodeId; x: number; y: number }>) => void>();
   return {
     document,
     selection,
-    getNode: (id) => document.nodes[id],
-    setNodePosition: vi.fn(),
-    setNodePositions: vi.fn(),
+    setNodePosition,
+    setNodePositions,
   };
 }
 

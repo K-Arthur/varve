@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RefineMaskTool } from '../RefineMaskTool';
 import { SelectTool } from '../SelectTool';
 import { ToolManager } from '../ToolManager';
+import type { ToolContext } from '../types';
 
 describe('ToolManager.getTool', () => {
   it('returns undefined for a never-activated tool id', () => {
@@ -20,5 +21,20 @@ describe('ToolManager.getTool', () => {
     const second = tm.getTool<RefineMaskTool>('refineMask');
     expect(first).toBeDefined();
     expect(first).toBe(second);
+  });
+
+  it('forwards focus loss to the active tool', () => {
+    const onFocusLoss = vi.fn();
+    const tm = new ToolManager('select');
+    tm.register('select', () => ({
+      id: 'select',
+      cursor: () => ({ css: 'default' }),
+      onFocusLoss,
+    }));
+    const ctx = {} as ToolContext;
+
+    tm.handleFocusLoss(ctx);
+
+    expect(onFocusLoss).toHaveBeenCalledWith(ctx);
   });
 });

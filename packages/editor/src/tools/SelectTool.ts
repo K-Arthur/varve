@@ -6,7 +6,7 @@
  * Depth cycling: clicking an already-selected single node cycles to the next
  *   overlapping node below (B1). Transparent/stroke-only shapes pass through
  *   to the next filled node below (B2).
- * Arrow keys nudge along local affine axes for rotated nodes (A2).
+ * Arrow keys nudge along document/world axes for every selected transform root.
  * Tab cycles selection through visible unlocked nodes (B4).
  * Alt+marquee selects only fully contained nodes (A3).
  *
@@ -29,7 +29,7 @@ import {
   pathPointToBezier,
   pointToSegmentDistSq,
 } from '@varve/shared';
-import { executeNudge, type NudgeDirection } from '../commands/nudge';
+import { applyNudgePlan, getNudgeStep, type NudgeDirection, planNudge } from '../commands/nudge';
 import { nodeWorldBounds, nodeWorldTransform, worldToParent } from '../scene/world';
 import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
@@ -53,8 +53,23 @@ const LONG_PRESS_MS = 500;
 /** Movement tolerance (px) for long-press to not be cancelled as a drag. */
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 
+function nudgeDirectionForKey(key: string): NudgeDirection | null {
+  switch (key) {
+    case 'ArrowUp':
+      return 'up';
+    case 'ArrowDown':
+      return 'down';
+    case 'ArrowLeft':
+      return 'left';
+    case 'ArrowRight':
+      return 'right';
+    default:
+      return null;
+  }
+}
+
 /**
- * World-space centre of a node for reparent decisions (drag-drop and nudge).
+ * World-space centre of a node for drag-drop reparent decisions.
  *
  * Bounds are the preferred source; when they are unavailable (empty groups
  * have no own geometry) the node's world-origin translation is used — never
@@ -91,7 +106,7 @@ export class SelectTool extends BaseTool {
   private isMoveGesture = false;
   private initialPositions = new Map<string, { x: number; y: number }>();
   private hasDuplicated = false;
-  private nudgeGestureActive = false;
+  private heldNudgeKeys = new Set<NudgeDirection>();
   /** Nodes that were selected when an Alt-duplicate fired, in selection order. */
   private duplicateSourceIds: string[] = [];
   /** True between firing an Alt-duplicate and the clones becoming the selection. */
@@ -103,32 +118,16 @@ export class SelectTool extends BaseTool {
   /** Whether this pointer down already fired a long-press action. */
   private longPressFired = false;
 
-  private visibilityHandler: (() => void) | null = null;
-
   override onActivate(ctx: ToolContext): void {
     // Returning to the object-selection domain removes any raster boundary so
     // node handles and pixel ants cannot be mistaken for one selection. Apply
     // from Selection Paint is the exception: the user has explicitly finished
     // editing and expects the analytical selection to remain available.
     if (ctx.previousToolId !== 'selectionPaint') ctx.setAreaSelection?.(null);
-    this.visibilityHandler = () => {
-      if (document.hidden && this.nudgeGestureActive) {
-        this.nudgeGestureActive = false;
-      }
-    };
-    document.addEventListener('visibilitychange', this.visibilityHandler);
   }
 
   override onDeactivate(ctx: ToolContext): void {
-    if (this.visibilityHandler) {
-      document.removeEventListener('visibilitychange', this.visibilityHandler);
-      this.visibilityHandler = null;
-    }
-    // Commit any active nudge transaction when switching tools
-    if (this.nudgeGestureActive) {
-      ctx.commitTransaction();
-      this.nudgeGestureActive = false;
-    }
+    this.finishNudgeGesture(ctx);
     // Cancel any active drag when switching tools
     if (this.drag.kind === 'dragging') {
       interactionSession.reset();
@@ -148,6 +147,16 @@ export class SelectTool extends BaseTool {
       this.initialPositions.clear();
       this.hasDuplicated = false;
     }
+  }
+
+  override onFocusLoss(ctx: ToolContext): void {
+    this.finishNudgeGesture(ctx);
+  }
+
+  private finishNudgeGesture(ctx: ToolContext): void {
+    if (this.heldNudgeKeys.size === 0) return;
+    this.heldNudgeKeys.clear();
+    ctx.commitTransaction();
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
@@ -631,124 +640,31 @@ export class SelectTool extends BaseTool {
       return false;
     }
 
-    if (e.key.startsWith('Arrow')) {
-      const sel = ctx.selection;
-      if (sel.length === 0) return false;
-      const step = e.shiftKey ? 10 : e.altKey ? 0.5 : 1;
-      const direction = e.key.slice('Arrow'.length).toLowerCase() as NudgeDirection;
-      if (!['up', 'down', 'left', 'right'].includes(direction)) return false;
-
-      // Key-repeat coalescing: only begin a transaction on the first press.
-      // Subsequent repeats share the same transaction; keyup commits it.
-      if (!e.repeat) {
-        if (this.nudgeGestureActive) {
-          ctx.commitTransaction();
-          this.nudgeGestureActive = false;
-        }
-        ctx.beginTransaction();
-        this.nudgeGestureActive = true;
-        // Announce once per gesture, not once per OS key-repeat (~30 Hz).
-        ctx.announceOperation('Nudge', `${step}px`);
+    const direction = nudgeDirectionForKey(e.key);
+    if (direction) {
+      // Alt, Ctrl, and Command arrows belong to dedicated selection/history/
+      // alignment commands. Bare and Shift arrows are the object-nudge
+      // contract while the canvas has focus.
+      if (e.altKey || e.ctrlKey || e.metaKey) {
+        this.finishNudgeGesture(ctx);
+        return false;
       }
 
-      executeNudge(direction, step, {
-        document: ctx.document,
-        selection: sel,
-        getNode: (id) => ctx.getNode(id),
+      const step = getNudgeStep(e.shiftKey ? 'large' : 'standard');
+      const plan = planNudge(direction, step, ctx.document, ctx.selection);
+      if (plan.moved === 0) return false;
+
+      const startsGesture = this.heldNudgeKeys.size === 0;
+      this.heldNudgeKeys.add(direction);
+      if (startsGesture) {
+        ctx.beginTransaction();
+        // Announce once per held-key gesture, not once per OS repeat.
+        ctx.announceOperation('Nudge', `${step}px`);
+      }
+      applyNudgePlan(plan, {
         setNodePosition: (id, x, y) => ctx.setNodePosition(id, x, y),
         setNodePositions: (positions) => ctx.setNodePositions(positions),
       });
-
-      // Auto-reparent after nudge (matching drag-end behavior).
-      // Hold Ctrl to bypass (Space is used for Hand tool spring).
-      if (!e.repeat && !ctx.ctrlKey) {
-        // Collect all pending reparent ops first so we only start a
-        // transaction when actual work is needed.
-        const reparentOps: Array<{
-          id: string;
-          parentId: string | null;
-          index: number;
-        }> = [];
-        const insertIndexByParent = new Map<string | null, number>();
-        for (const selId of sel) {
-          if (!selId) continue;
-          const node = ctx.getNode(selId);
-          if (!node || node.locked || !node.visible) continue;
-          const worldBounds = nodeWorldBounds(ctx.document, selId);
-          const center = worldCenterOf(ctx.document, selId, worldBounds);
-          const frameId = ctx.findContainingFrame(center);
-          const currentParent = getParent(ctx.document, selId);
-          if (frameId && currentParent !== frameId) {
-            // Size heuristic: only reparent if node is not larger than target frame
-            const frameNode = ctx.getNode(frameId);
-            if (frameNode && frameNode.kind === 'frame') {
-              const fb = nodeWorldBounds(ctx.document, frameId);
-              if (fb && worldBounds) {
-                const nodeArea = worldBounds.w * worldBounds.h;
-                const frameArea = fb.w * fb.h;
-                if (nodeArea > frameArea * 1.1) continue;
-              }
-            }
-            const baseIndex = childrenCount(ctx.document, frameId);
-            const localIndex = insertIndexByParent.get(frameId) ?? 0;
-            reparentOps.push({
-              id: selId,
-              parentId: frameId,
-              index: baseIndex + localIndex,
-            });
-            insertIndexByParent.set(frameId, localIndex + 1);
-          } else {
-            // Same top-level equivalence as onDragEnd, destination-aware:
-            // a nudge that stays on the node's own page top level is a
-            // no-op; a nudge onto another page's trim moves the node to
-            // THAT page's contentRoot (world position preserved, M6); a
-            // nudge onto the pasteboard pops to the active page's top
-            // level (null).
-            const currentParent = getParent(ctx.document, selId);
-            let destParent: NodeId | null = null;
-            let alreadyHome = false;
-            const destPage = worldToPageAtPoint(ctx.document, {
-              x: center.x,
-              y: center.y,
-            });
-            if (destPage) {
-              const dest = ctx.document.pages?.find((p) => p.id === destPage.pageId);
-              if (dest) {
-                if (dest.contentRoot === currentParent) {
-                  alreadyHome = true;
-                } else if (destPage.pageId === ctx.document.activePageId) {
-                  destParent = null;
-                } else {
-                  destParent = dest.contentRoot;
-                }
-              }
-            } else {
-              const activePage = ctx.document.pages?.find(
-                (p) => p.id === ctx.document.activePageId,
-              );
-              if (activePage && currentParent === activePage.contentRoot) alreadyHome = true;
-            }
-            if (!alreadyHome && destParent !== currentParent) {
-              const parentKey = destParent ?? null;
-              const baseIndex = ctx.rootNodes().length;
-              const localIndex = insertIndexByParent.get(parentKey) ?? 0;
-              reparentOps.push({
-                id: selId,
-                parentId: destParent,
-                index: baseIndex + localIndex,
-              });
-              insertIndexByParent.set(parentKey, localIndex + 1);
-            }
-          }
-        }
-        if (reparentOps.length > 0) {
-          ctx.beginTransaction();
-          for (const op of reparentOps) {
-            ctx.reparentNode(op.id, op.parentId, op.index);
-          }
-          ctx.commitTransaction();
-        }
-      } // !ctx.ctrlKey
       return true;
     }
     if (e.key === 'Enter' && !e.repeat) {
@@ -766,10 +682,9 @@ export class SelectTool extends BaseTool {
     }
 
     if (e.key === 'Escape') {
-      // If mid-nudge, commit the transaction (do not discard user intent)
-      if (this.nudgeGestureActive) {
-        ctx.commitTransaction();
-        this.nudgeGestureActive = false;
+      // If mid-nudge, commit the transaction (do not discard user intent).
+      if (this.heldNudgeKeys.size > 0) {
+        this.finishNudgeGesture(ctx);
         return true;
       }
       // If mid-drag, abort transaction to revert
@@ -804,9 +719,9 @@ export class SelectTool extends BaseTool {
   }
 
   override onKeyUp(e: KeyboardEvent, ctx: ToolContext): void {
-    if (this.nudgeGestureActive && e.key.startsWith('Arrow')) {
+    const direction = nudgeDirectionForKey(e.key);
+    if (direction && this.heldNudgeKeys.delete(direction) && this.heldNudgeKeys.size === 0) {
       ctx.commitTransaction();
-      this.nudgeGestureActive = false;
     }
   }
 

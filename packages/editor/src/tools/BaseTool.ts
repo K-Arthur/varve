@@ -63,6 +63,8 @@ export abstract class BaseTool implements Tool {
   onActivate?(ctx: ToolContext): void;
   /** Override to clean up when tool is deactivated. */
   onDeactivate?(ctx: ToolContext): void;
+  /** Override to finish keyboard-owned gestures when focus leaves the canvas. */
+  onFocusLoss?(_ctx: ToolContext): void;
 
   /** Called on first pointermove past the drag threshold. */
   /* eslint-disable @typescript-eslint/no-unused-vars */

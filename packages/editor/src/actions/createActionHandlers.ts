@@ -16,7 +16,7 @@ import { toDelimitedText } from '@varve/import';
 import { getImageFill, getOwnRasterMaskAsset, isImageShape, type TextNode } from '@varve/scene';
 import { type Affine, multiplyAffine, rotateRad, scaleXY, translate } from '@varve/shared';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
-import { executeNudge, getNudgeStep } from '../commands/nudge';
+import { applyNudgePlan, getNudgeStep, type NudgeDirection, planNudge } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
 import { startTextEditing } from '../context';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
@@ -93,6 +93,19 @@ export function createActionHandlers(
 ): Record<string, () => void> {
   const e = editor;
   const cb = callbacks ?? {};
+
+  const runNudge = (direction: NudgeDirection) => {
+    const selection = e.state.selection;
+    if (selection.length === 0) return;
+    const plan = planNudge(direction, getNudgeStep('standard'), e.state.document, selection);
+    if (plan.moved === 0) return;
+    e.beginTransaction();
+    applyNudgePlan(plan, {
+      setNodePosition: (id, x, y) => e.setNodePosition(id, x, y),
+      setNodePositions: (positions) => e.setNodePositions(positions),
+    });
+    e.commitTransaction();
+  };
 
   const setTool = (tool: ToolId) => () => {
     e.setTool(tool);
@@ -1017,54 +1030,10 @@ export function createActionHandlers(
       }
     },
     toggleFacingPages: () => e.toggleFacingPages?.(),
-    nudgeUp: () => {
-      const sel = e.state.selection;
-      if (sel.length === 0) return;
-      e.beginTransaction();
-      executeNudge('up', getNudgeStep('standard'), {
-        document: e.state.document,
-        selection: sel,
-        getNode: (id) => e.getNode(id),
-        setNodePosition: (id, x, y) => e.setNodePosition(id, x, y),
-      });
-      e.commitTransaction();
-    },
-    nudgeDown: () => {
-      const sel = e.state.selection;
-      if (sel.length === 0) return;
-      e.beginTransaction();
-      executeNudge('down', getNudgeStep('standard'), {
-        document: e.state.document,
-        selection: sel,
-        getNode: (id) => e.getNode(id),
-        setNodePosition: (id, x, y) => e.setNodePosition(id, x, y),
-      });
-      e.commitTransaction();
-    },
-    nudgeLeft: () => {
-      const sel = e.state.selection;
-      if (sel.length === 0) return;
-      e.beginTransaction();
-      executeNudge('left', getNudgeStep('standard'), {
-        document: e.state.document,
-        selection: sel,
-        getNode: (id) => e.getNode(id),
-        setNodePosition: (id, x, y) => e.setNodePosition(id, x, y),
-      });
-      e.commitTransaction();
-    },
-    nudgeRight: () => {
-      const sel = e.state.selection;
-      if (sel.length === 0) return;
-      e.beginTransaction();
-      executeNudge('right', getNudgeStep('standard'), {
-        document: e.state.document,
-        selection: sel,
-        getNode: (id) => e.getNode(id),
-        setNodePosition: (id, x, y) => e.setNodePosition(id, x, y),
-      });
-      e.commitTransaction();
-    },
+    nudgeUp: () => runNudge('up'),
+    nudgeDown: () => runNudge('down'),
+    nudgeLeft: () => runNudge('left'),
+    nudgeRight: () => runNudge('right'),
     bindField: () => {
       if (e.focusedField) e.setBindingField(e.focusedField);
       // With no focused field, bind the selected node's fill — the primary

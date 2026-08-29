@@ -222,6 +222,12 @@ export class ToolManager {
     this.activeTool.onKeyUp?.(e, ctx);
   }
 
+  /** Let the active tool finish keyboard-owned gestures after focus loss. */
+  handleFocusLoss(base: ToolContext): void {
+    this.cursorState = 'idle';
+    this.activeTool.onFocusLoss?.(base);
+  }
+
   handleDoubleClick(e: PointerEvent, base: ToolContext): void {
     const ctx = this.buildContext(e, base);
     this.activeTool.onDoubleClick?.(e, ctx);
