@@ -23,8 +23,8 @@
  *   8. pages: write only on the website-deploy deploy job.
  *   9. contents: write only on the release draft/publish jobs and the
  *      manual-dispatch visual-baselines workflow.
- *   10. issues/pull-requests write only on the ci.yml jobs that post debug
- *       comments.
+ *   10. issues/pull-requests write only on the trusted ci-debug.yml job that
+ *       posts debug comments after a workflow_run completes.
  *   11. Signing credentials are never persisted through $GITHUB_ENV.
  *   12. release.yml publish requires the release-publish environment and the
  *       publish=yes dispatch input; website deploy requires github-pages.
@@ -370,12 +370,7 @@ export function auditWorkflow(doc, filename) {
     'release.yml:publish',
     'visual-baselines.yml:__workflow__',
   ]);
-  const allowedIssuesWrite = new Set([
-    'ci.yml:rust',
-    'ci.yml:js',
-    'ci.yml:e2e',
-    'ci.yml:desktop-e2e',
-  ]);
+  const allowedIssuesWrite = new Set(['ci-debug.yml:post-pr-comment']);
   const allowedPagesWrite = new Set(['website-deploy.yml:deploy']);
 
   const collectPerms = (job, name) => {
@@ -416,7 +411,7 @@ export function auditWorkflow(doc, filename) {
       }
       if ((scope === 'issues' || scope === 'pull-requests') && !allowedIssuesWrite.has(where)) {
         errors.push(
-          `${base}: ${name} grants ${scope}: write — allowed only on ci.yml debug-comment jobs`,
+          `${base}: ${name} grants ${scope}: write — allowed only on the trusted ci-debug.yml PR-comment job`,
         );
       }
     }

@@ -351,13 +351,13 @@ credentials, DNS credentials, or backend secrets — a future edit that tries
 
 | Workflow | Triggers | Trust level | Permissions | Environment | Secrets | Output / capability |
 |---|---|---|---|---|---|---|
-| `ci.yml` | push, PR, schedule, dispatch | D — ordinary CI | `contents: read`; `issues: write` on 4 debug-comment jobs | — | `GITHUB_TOKEN` only | Test/lint/typecheck/E2E results, artifacts, PR comments. No publish |
+| `ci.yml` | push, PR, schedule, dispatch | D — ordinary CI | `contents: read`; no write scopes on PR jobs | — | `GITHUB_TOKEN` only | Test/lint/typecheck/E2E results and artifacts. No publish |
 | `build.yml` | push, PR (paths), dispatch | D | `contents: read` | — | none | WASM + dev bundles |
 | `ci-smoke.yml` | dispatch only | D | `contents: read` | — | none | Pipeline health smoke |
 | `e2e-keyboard-nav.yml` | push, PR (paths) | D | `contents: read` | — | none | Keyboard-nav E2E |
 | `model-validation.yml`, `quantize.yml` | push, PR (paths), schedule, dispatch | D | `contents: read` | — | none | Model supply-chain validation |
 | `visual-baselines.yml` | dispatch only | D+ | `contents: write` | — | none | Commits refreshed PNG baselines to master |
-| `ci-debug.yml` | `workflow_run` (8 upstreams), completed | D | `contents: read`, `actions: read` | — | none | Failure reports (redacted) |
+| `ci-debug.yml` | `workflow_run` (8 upstreams), completed | D+ trusted default branch | `contents: read`, `actions: read`; `issues: write` only on `post-pr-comment` | — | `GITHUB_TOKEN` only | Failure reports (redacted) and deduplicated PR comments |
 | `website-deploy.yml` | push (website paths), `workflow_run` (Release success), dispatch | E — website deploy | `contents: read`; deploy job: `pages: write`, `id-token: write` | `github-pages` (deploy job) | `GITHUB_TOKEN` only | Publishes the static site to GitHub Pages. **Cannot sign, cannot publish releases** |
 | `release.yml` | tags `v*`, dispatch (tag + publish input) | F — release/signing | `contents: read` base; `verify`: `id-token`, `attestations`; `draft`/`publish`: `contents: write` | `release-publish` (publish job, required reviewers) | signing secrets on the signing steps only | Draft release + assets; publication only via human-approved dispatch. **Never triggered by website code paths** |
 
@@ -378,8 +378,13 @@ credentials, DNS credentials, or backend secrets — a future edit that tries
   `conclusion == 'success'`, and the job checks out `ref: master` — the
   protected default branch — never the tag or the triggering run's workspace.
   The site is built from master; release data comes from the GitHub API.
-- `ci-debug.yml`'s `workflow_run`: reads metadata only, never checkout
-  content. Both are covered by the policy test pass.
+- `ci-debug.yml`'s `workflow_run`: checks out only the trusted default branch,
+  reads the completed run metadata, and posts comments from the separate
+  `post-pr-comment` job. Ordinary PR jobs never receive `issues: write`.
+  GitHub's security guidance warns that `workflow_run` is privileged and must
+  not execute the untrusted pull-request checkout; the workflow-run checkout
+  therefore pins `ref` to the repository default branch and disables
+  credential persistence. Both paths are covered by the policy test pass.
 
 ### Caches and reusable workflows (§31–32)
 

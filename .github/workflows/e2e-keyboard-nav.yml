@@ -131,11 +131,6 @@ jobs:
           name: menu-e2e-debug-${{ matrix.os }}-${{ matrix.browser }}
           path: ci-debug-report.md
           if-no-files-found: ignore
-      - name: Post debug report to PR
-        if: failure() && github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true
 
   canvas-keyboard-nav:
     name: Canvas KB nav (${{ matrix.os }} / ${{ matrix.browser }})
@@ -196,8 +191,3 @@ jobs:
           name: canvas-e2e-debug-${{ matrix.os }}
           path: ci-debug-report.md
           if-no-files-found: ignore
-      - name: Post debug report to PR
-        if: failure() && github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true

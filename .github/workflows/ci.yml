@@ -14,9 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 # Explicit least privilege: the repo default is read-only, and this block
-# makes that durable against future settings changes. The four jobs that post
-# PR debug comments (rust/js/e2e/desktop-e2e) escalate `issues: write` — the
-# narrow scope needed to create a comment — nothing more.
+# makes that durable against future settings changes. PR jobs never receive a
+# write-capable token; the trusted workflow_run debug job owns PR comments.
 permissions:
   contents: read
   actions: read
@@ -126,7 +125,6 @@ jobs:
       contents: read
       actions: read
       checks: read
-      issues: write
     name: Rust (${{ matrix.os }})
     timeout-minutes: 60
     needs: changes
@@ -229,12 +227,6 @@ jobs:
           name: varve-debug-rust-${{ matrix.os }}-${{ github.run_id }}
           path: ci-debug-report.md
           if-no-files-found: ignore
-      - name: Post debug report to PR
-        if: failure() && github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true
-
   pipeline-validate:
     name: Pipeline validation (workflow + SHA pins)
     runs-on: ubuntu-latest
@@ -335,7 +327,6 @@ jobs:
       contents: read
       actions: read
       checks: read
-      issues: write
     name: JS (pnpm)
     timeout-minutes: 30
     needs: changes
@@ -378,12 +369,6 @@ jobs:
           name: varve-debug-js-${{ github.run_id }}
           path: ci-debug-report.md
           if-no-files-found: ignore
-      - name: Post debug report to PR
-        if: failure() && github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true
-
   website-e2e:
     name: Website E2E (dual deployment modes)
     timeout-minutes: 30
@@ -430,7 +415,6 @@ jobs:
       contents: read
       actions: read
       checks: read
-      issues: write
     # The chromium project is ~1030 tests and playwright.config.ts pins
     # workers to 1 on purpose (software-rendered canvas + on-device inference
     # contend badly when run in parallel). Shard across jobs instead of
@@ -507,12 +491,6 @@ jobs:
           name: varve-debug-e2e-${{ github.run_id }}-shard${{ matrix.shard }}
           path: ci-debug-report.md
           if-no-files-found: ignore
-      - name: Post debug report to PR
-        if: failure() && github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true
-
   # Split out of `e2e` so the snapshot projects run once rather than once per
   # shard, which would have made four jobs race over the same baselines.
   e2e-visual:
@@ -585,7 +563,6 @@ jobs:
       contents: read
       actions: read
       checks: read
-      issues: write
     name: Native desktop E2E (${{ matrix.name }})
     timeout-minutes: 45
     runs-on: ${{ matrix.os }}
@@ -653,11 +630,6 @@ jobs:
           name: varve-debug-desktop-e2e-${{ github.run_id }}
           path: ci-debug-report.md
           if-no-files-found: ignore
-      - name: Post debug report to PR
-        if: failure() && github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true
       - name: Upload native GUI artifacts
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

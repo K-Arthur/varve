@@ -168,7 +168,7 @@ secrets) lives in [trust-boundaries.md](trust-boundaries.md).
 
 | Workflow | Privileged surfaces | Why |
 |---|---|---|
-| `ci.yml` | `issues: write` on the four debug-comment jobs | Posting PR debug comments; nothing else |
+| `ci-debug.yml` | `issues: write` only on `post-pr-comment` | Posting one deduplicated PR debug comment after the failed run completes, from trusted default-branch code |
 | `build.yml`, `e2e-keyboard-nav.yml`, `model-validation.yml`, `quantize.yml`, `ci-smoke.yml` | none (`contents: read`) | Test/build only |
 | `ci-debug.yml` | `actions: read` | Reading run/job metadata for the failure report |
 | `website-deploy.yml` | `pages: write` + `id-token: write` **only on the deploy job** | Pages deployment; the test/build jobs stay read-only |

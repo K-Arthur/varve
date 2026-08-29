@@ -29,8 +29,8 @@ All workflows live in `.github/workflows/` and share the following hardening rul
 - **Set `timeout-minutes`** on every job so a hung runner is killed instead of burning minutes.
 - **Install `just` via `taiki-e/install-action`** (`tool: just@1.54.0`) before any `just` recipe runs — GitHub-hosted runners do not ship `just`.
 - **Add `rustup target add`** steps for macOS and Windows so `tauri build` can compile on the default `macos-latest` (Apple Silicon) and `windows-latest` runners.
-- **Declare explicit least-privilege `permissions:` blocks** (top-level and per job). Workflows that run the API-backed failure extractor grant only `actions: read` in addition to `contents: read`; `website-deploy.yml` uses `pages: write` + `id-token: write` for GitHub Pages; `release.yml` scopes `contents: write` to the draft/publish jobs only. v4 `upload-artifact`/`download-artifact` need no `actions:` scope.
-- **Add `if: failure()` debug steps** to long-running workflows (`build.yml`, `ci-smoke.yml`, `e2e-keyboard-nav.yml` run `scripts/ci-debug.mjs` and upload a `ci-debug-report.md` artifact). The separate `ci-debug.yml` workflow covers the remaining pipelines via `workflow_run` (see the table below). The smoke workflow also runs the simulated extractor scenario, so report generation is tested before it is needed.
+- **Declare explicit least-privilege `permissions:` blocks** (top-level and per job). Workflows that run the API-backed failure extractor grant only `actions: read` in addition to `contents: read`; `website-deploy.yml` uses `pages: write` + `id-token: write` for GitHub Pages; `release.yml` scopes `contents: write` to the draft/publish jobs only. v4 `upload-artifact`/`download-artifact` need no `actions:` scope. Ordinary PR jobs do not receive write permissions; the trusted `ci-debug.yml` workflow-run job is the sole PR-comment writer.
+- **Add `if: failure()` debug steps** to long-running workflows (`build.yml`, `ci-smoke.yml`, `e2e-keyboard-nav.yml` run `scripts/ci-debug.mjs` and upload a `ci-debug-report.md` artifact). The separate `ci-debug.yml` workflow covers the remaining pipelines via `workflow_run` (see the table below), checks out only the trusted default branch, and posts PR comments from that trusted checkout. The smoke workflow also runs the simulated extractor scenario, so report generation is tested before it is needed.
 
 | Workflow | Trigger | Notes |
 |---|---|---|
@@ -38,7 +38,7 @@ All workflows live in `.github/workflows/` and share the following hardening rul
 | `ci.yml` | push, PR, manual, weekly (Mon 02:00) | Rust, JS, website E2E, Playwright E2E matrix, desktop-e2e, plus `pipeline-validate` guard job. |
 | `release.yml` | tag, manual | Draft-then-approve release pipeline (replaced `publish.yml`); checksums, SBOM, artifact verification. |
 | `website-deploy.yml` | push touching `apps/website/**`, `scripts/release/**`, `package.json`, `pnpm-lock.yaml`, or the workflow file; `workflow_run` on Release `completed`; manual | Astro build to GitHub Pages at `https://varve.studio`. |
-| `ci-debug.yml` | `workflow_run` after a tracked workflow fails or times out, including Visual Baselines | Generates a consolidated debug report. |
+| `ci-debug.yml` | `workflow_run` after a tracked workflow fails or times out, including Visual Baselines | Generates a consolidated debug report; its trusted `post-pr-comment` job updates one PR comment when the failed run came from a PR. |
 | `model-validation.yml` | push/PR on model paths, weekly (Mon 08:00), manual | Manifest v3 + contract verification, ONNX graph inspection. |
 | `quantize.yml` | push/PR on model paths, weekly (Mon 06:00), manual | Manifest v3 verification, quality validation, full quantization. |
 | `e2e-keyboard-nav.yml` | push/PR on menu/shortcut paths, weekly, manual | Menu + canvas keyboard-nav E2E; the full 3-OS x 3-browser matrix runs on schedule/dispatch only, collapsed to 2 jobs on push/PR. |
@@ -96,7 +96,10 @@ tree cannot prevent the debug report from being produced.
 
 Inline debug steps receive the workflow's `${{ github.token }}` explicitly and
 the workflow grants `actions: read`; this avoids a misleading empty report when
-the runner has no `gh` login configured. The `--context N` and `--max-hits N`
+the runner has no `gh` login configured. They do not post PR comments because
+the current PR checkout is untrusted. The completed-run workflow checks out
+the default branch before running the commenter, and grants `issues: write`
+only to that job. The `--context N` and `--max-hits N`
 options reduce output for large logs, for example:
 
 ```bash

@@ -451,6 +451,29 @@ function testRealWorkflowsPass() {
   );
 }
 
+function testPrCommentWriteScope() {
+  const safe = `name: CI Debug Report
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  post-pr-comment:
+    permissions:
+      contents: read
+      issues: write
+    runs-on: ubuntu-latest
+    steps:
+      - run: node scripts/pr-debug-comment.mjs
+`;
+  expectCleanAudit(auditWorkflowYaml(safe, 'ci-debug.yml'));
+
+  const ordinaryCi = safe.replace('post-pr-comment', 'js');
+  expectViolation(ordinaryCi, 'allowed only on the trusted ci-debug.yml PR-comment job');
+}
+
 testPullRequestTargetRejected();
 testSecretsInheritRejected();
 testSigningSecretOutsideReleaseRejected();
@@ -477,5 +500,6 @@ testSigningStepFlagOutsideReleaseRejected();
 testMisIndentedTopLevelKeyRejected();
 testCompliantReleaseFixtureClean();
 testRealWorkflowsPass();
+testPrCommentWriteScope();
 
-console.log('workflow-policy tests passed (26 scenarios).');
+console.log('workflow-policy tests passed (27 scenarios).');
