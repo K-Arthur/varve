@@ -59,6 +59,7 @@ async function hideEditorChromeForCanvasCapture(
       .editor-canvas__overlay-layer,
       .editor-canvas__color-blindness,
       .editor-canvas__zoom-indicator,
+      .editor-canvas svg[role="presentation"],
       .micro-hint,
       .floating-toolbar,
       .selection-breadcrumb { visibility: hidden !important; }
