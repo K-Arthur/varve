@@ -161,7 +161,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             onChange={(v) => setUnitType(v as typeof state.unitType)}
           />
         )}
-        <Tooltip label="Toggle pixel grid">
+        <Tooltip label="Toggle pixel grid" shortcut={sc('togglePixelGrid')}>
           <button
             type="button"
             aria-pressed={state.pixelGridEnabled}

@@ -187,6 +187,7 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
               >
                 {sess.dirty && <span className="editor-tabs__dirty-dot" aria-hidden="true" />}
                 <span className="editor-tabs__name">{sess.name}</span>
+                {sess.dirty && <span className="sr-only">, unsaved</span>}
                 <button
                   type="button"
                   className="editor-tabs__close"

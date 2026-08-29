@@ -85,7 +85,7 @@ export function MockupTemplatePreview({
             <polygon
               points={surface.quad.map((p) => `${p.x},${p.y}`).join(' ')}
               fill="none"
-              stroke="#2b9bd6"
+              stroke="var(--color-accent-primary, #2b9bd6)"
               strokeWidth={Math.max(2, template.outputWidth / 300)}
               strokeDasharray={`${Math.max(4, template.outputWidth / 150)} ${Math.max(3, template.outputWidth / 200)}`}
             />
@@ -96,7 +96,7 @@ export function MockupTemplatePreview({
               width={surface.width}
               height={surface.height}
               fill="none"
-              stroke="#2b9bd6"
+              stroke="var(--color-accent-primary, #2b9bd6)"
               strokeWidth={Math.max(2, template.outputWidth / 300)}
               strokeDasharray={`${Math.max(4, template.outputWidth / 150)} ${Math.max(3, template.outputWidth / 200)}`}
             />

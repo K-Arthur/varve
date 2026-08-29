@@ -206,7 +206,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
       )}
 
       <div className="asset-browser__body">
-        <aside className="asset-browser__sidebar">
+        <aside className="asset-browser__sidebar" aria-label="Folders">
           <button
             type="button"
             className={`asset-browser__folder${selectedFolderId === null ? ' asset-browser__folder--active' : ''}`}

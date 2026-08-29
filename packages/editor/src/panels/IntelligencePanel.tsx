@@ -1914,6 +1914,7 @@ function PromoteDialog({
     <div
       role="dialog"
       aria-modal="true"
+      aria-label="Promote to component set"
       style={{
         position: 'fixed',
         inset: 0,
@@ -1921,7 +1922,7 @@ function PromoteDialog({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0,0,0,0.4)',
+        background: 'var(--elevation-scrim, rgba(0,0,0,0.4))',
       }}
       onClick={onClose}
       onKeyDown={(e) => {

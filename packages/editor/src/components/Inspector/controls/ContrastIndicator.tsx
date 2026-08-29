@@ -1,4 +1,11 @@
-import { contrastRatio, relativeLuminance, WCAG_AA_LARGE, WCAG_AA_NORMAL } from '@varve/shared';
+import {
+  contrastRatio,
+  relativeLuminance,
+  WCAG_AA_LARGE,
+  WCAG_AA_NORMAL,
+  WCAG_AAA_LARGE,
+  WCAG_AAA_NORMAL,
+} from '@varve/shared';
 import { Icon, Tooltip } from '@varve/ui';
 
 export interface ContrastIndicatorProps {
@@ -39,7 +46,7 @@ export function ContrastIndicator({
 
   const computeLabel = (ratio: number): { color: string; label: string } => {
     const passAA = ratio >= minRatio;
-    const passAAA = ratio >= (large ? WCAG_AA_LARGE * 1.4 : WCAG_AA_NORMAL * 1.5);
+    const passAAA = ratio >= (large ? WCAG_AAA_LARGE : WCAG_AAA_NORMAL);
     if (passAAA) return { color: 'var(--color-feedback-success)', label: 'AAA' };
     if (passAA) return { color: 'var(--color-feedback-success)', label: 'AA' };
     return { color: 'var(--color-feedback-danger)', label: 'Fail' };

@@ -68,8 +68,8 @@ export function FindReplaceOverlay({
           y={r.screenRect.y}
           width={r.screenRect.w}
           height={r.screenRect.h}
-          fill={r.isActive ? 'rgba(8, 145, 178, 0.35)' : 'rgba(251, 191, 36, 0.2)'}
-          stroke={r.isActive ? 'rgba(8, 145, 178, 0.8)' : 'rgba(251, 191, 36, 0.5)'}
+          fill={r.isActive ? 'rgba(57, 208, 198, 0.35)' : 'rgba(251, 191, 36, 0.2)'}
+          stroke={r.isActive ? 'rgba(57, 208, 198, 0.8)' : 'rgba(251, 191, 36, 0.5)'}
           strokeWidth={r.isActive ? 2 : 1}
           rx={2}
         />

@@ -782,7 +782,7 @@ function IsometricGridSection() {
                           ),
                         })
                       }
-                      swatchStyle={{ background: axis.color ?? 'rgb(128,128,128)' }}
+                      swatchStyle={{ background: axis.color ?? 'var(--color-text-muted)' }}
                       documentColorMode={documentColorMode}
                     />
                     <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>

@@ -84,7 +84,7 @@ export function ShareDialog({ fileId, fileName, platform, open, onClose }: Share
 
   return (
     <Dialog open={open} onClose={onClose} title="Share" dismissible>
-      <div className="share-dialog" role="dialog" aria-label="Share file">
+      <div className="share-dialog">
         <p className="share-dialog__file-name">{fileName}</p>
 
         <div aria-live="polite" aria-atomic="true" id={statusId} className="share-dialog__status">
@@ -132,6 +132,7 @@ export function ShareDialog({ fileId, fileName, platform, open, onClose }: Share
               type="email"
               className="share-dialog__email-input"
               placeholder="name@example.com"
+              autoComplete="email"
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
               onKeyDown={handleKeyDown}

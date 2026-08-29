@@ -891,6 +891,7 @@ export function HomeShell({
         <aside
           ref={sidebarRef}
           className={`varve-home__sidebar ${sidebarOpen ? 'varve-home__sidebar--open' : ''}`}
+          aria-label="Navigation"
         >
           {onResumeEditing && (
             <Tooltip label="Return to your open tabs">

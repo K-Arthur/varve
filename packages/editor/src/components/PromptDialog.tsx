@@ -129,6 +129,7 @@ export function confirmDialog(
 export function ConfirmDialog() {
   const [state, setState] = useState<ConfirmDialogState | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const closingRef = useRef(false);
 
   useEffect(() => {
     setConfirmState = setState;
@@ -146,12 +147,14 @@ export function ConfirmDialog() {
   const handleConfirm = useCallback(() => {
     state?.resolve(true);
     setState(null);
+    closingRef.current = true;
     dialogRef.current?.close();
   }, [state]);
 
   const handleCancel = useCallback(() => {
     state?.resolve(false);
     setState(null);
+    closingRef.current = true;
     dialogRef.current?.close();
   }, [state]);
 
@@ -161,12 +164,20 @@ export function ConfirmDialog() {
     <dialog
       ref={dialogRef}
       className="varve-dialog"
+      role="alertdialog"
       aria-labelledby="confirm-title"
       aria-describedby="confirm-desc"
-      onClose={handleCancel}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') handleCancel();
+      onCancel={(e) => {
+        e.preventDefault();
+        handleCancel();
       }}
+      onClose={() => {
+        if (!closingRef.current) {
+          handleCancel();
+        }
+        closingRef.current = false;
+      }}
+      onKeyDown={() => {}}
     >
       <div className="varve-dialog__content">
         <h3 id="confirm-title" className="varve-dialog__title">

@@ -2193,7 +2193,7 @@ input[type="number"] {
   font-size: var(--font-size-xs);
 }
 .history-panel__step-kind {
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   font-size: 10px;
 }
 
@@ -2223,13 +2223,13 @@ input[type="number"] {
 }
 .history-panel__marker--pinned {
   background: var(--elevation-surface-sunken);
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
 }
 
 .history-panel__step-meta {
   display: flex;
   gap: var(--space-2);
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   font-size: 10px;
 }
 
@@ -2259,7 +2259,7 @@ input[type="number"] {
   color: var(--color-text-primary);
 }
 .history-panel__branch-status {
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   font-size: 10px;
 }
 .history-panel__branch-switch {
@@ -2386,7 +2386,7 @@ input[type="number"] {
 }
 .history-panel__entity-type {
   font-size: 10px;
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
 }
 .history-panel__entity-count {
   font-size: 10px;
@@ -2454,7 +2454,7 @@ input[type="number"] {
 }
 .history-panel__change-path {
   font-size: 9px;
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2542,10 +2542,10 @@ input[type="number"] {
 }
 .conflict-resolver__value-label {
   font-size: 10px;
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
 }
 .conflict-resolver__value--base .conflict-resolver__value-label {
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
 }
 .conflict-resolver__value--ours .conflict-resolver__value-label {
   color: var(--color-interactive-default);
