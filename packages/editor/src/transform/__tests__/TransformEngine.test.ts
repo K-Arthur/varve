@@ -492,6 +492,41 @@ describe('TransformEngine.bakeNode — frame child constraints', () => {
   });
 });
 
+describe('TransformEngine.bakeNode — manual resize of a hug-sized layout frame', () => {
+  function makeHugFrame(id: string, w: number, h: number) {
+    return {
+      ...makeFrame(id, w, h),
+      layoutStyle: {
+        mode: 'flex' as const,
+        direction: 'row' as const,
+        gap: 0,
+        wrap: false,
+        padding: [0, 0, 0, 0] as [number, number, number, number],
+        grow: 0,
+        shrink: 1,
+      },
+      layoutSizingWidth: 'hug' as const,
+      layoutSizingHeight: 'hug' as const,
+    };
+  }
+
+  it('commits a manually resized hug axis as fixed before reflow', () => {
+    const child = makeVectorShape('child1', 50, 20);
+    const frame = makeHugFrame('frame1', 50, 20);
+    frame.children = ['child1'];
+    const doc = makeDoc({ frame1: frame, child1: child });
+    const engine = new TransformEngine(doc, ['frame1'], { bakeOnCommit: true });
+
+    const committed = engine.commit(engine.resize([200, 10], 'e', { proportional: false }, doc));
+    const resized = committed.nodes.frame1 as typeof frame;
+
+    expect(resized.w).toBeCloseTo(200);
+    expect(resized.layoutSizingWidth).toBe('fixed');
+    // The untouched axis remains content-derived.
+    expect(resized.layoutSizingHeight).toBe('hug');
+  });
+});
+
 describe('TransformEngine — authoritative vector geometry baking', () => {
   it('converts a non-uniformly resized circle to an exact editable cubic path', () => {
     const circle = {

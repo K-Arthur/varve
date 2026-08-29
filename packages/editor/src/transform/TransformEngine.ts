@@ -392,12 +392,26 @@ export class TransformEngine {
         const newW = oldW * scaleX;
         const newH = oldH * scaleY;
 
+        // A handle drag is an explicit size edit. Convert a changed hug axis
+        // to fixed before layout's next intrinsic pass, otherwise a later
+        // child edit would recompute the frame back to its content size.
+        const widthResized = Math.abs(scaleX - 1) > 1e-6;
+        const heightResized = Math.abs(scaleY - 1) > 1e-6;
+        const effectiveWidthSizing = node.layoutSizingWidth ?? node.layoutSizing;
+        const effectiveHeightSizing = node.layoutSizingHeight ?? node.layoutSizing;
+        const layoutSizingWidth =
+          widthResized && effectiveWidthSizing === 'hug' ? 'fixed' : node.layoutSizingWidth;
+        const layoutSizingHeight =
+          heightResized && effectiveHeightSizing === 'hug' ? 'fixed' : node.layoutSizingHeight;
+
         updates[node.id] = {
           ...node,
           transform: [1, 0, 0, 1, translateX, translateY] as Affine,
           rotation: decomposed.rotation,
           w: newW,
           h: newH,
+          layoutSizingWidth,
+          layoutSizingHeight,
         } as SceneNode;
 
         // When scaleContents is true, frame children are scaled uniformly
