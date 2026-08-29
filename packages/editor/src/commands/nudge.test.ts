@@ -11,7 +11,15 @@ import {
 import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { nodeWorldTransform } from '../scene/world';
-import { canNudge, executeNudge, getNudgeDisabledReason, getNudgeStep } from './nudge';
+import {
+  canNudge,
+  createNudgeGestureSession,
+  executeNudge,
+  getNudgeDisabledReason,
+  getNudgeStep,
+  planNudge,
+  planNudgeRepeat,
+} from './nudge';
 
 const EPSILON = 1e-8;
 
@@ -169,6 +177,53 @@ describe('executeNudge', () => {
     expectClose(after.y - before.y, 0);
   });
 
+  it('reuses a held-key session without changing transformed-parent nudge geometry', () => {
+    let document = createDocument('nudge repeat session');
+    const theta = Math.PI / 6;
+    const parent = makeFrameNode('parent', {
+      w: 300,
+      h: 200,
+      transform: [
+        Math.cos(theta) * 2,
+        Math.sin(theta) * 2,
+        -Math.sin(theta) * 3,
+        Math.cos(theta) * 3,
+        400,
+        -20,
+      ],
+    });
+    const child = rect('child', 25, 30);
+    document = addNode(document, parent);
+    document = addChild(document, parent.id, child);
+    const selection = [child.id];
+    const first = planNudge('right', 1, document, selection);
+    const session = createNudgeGestureSession(document, selection, first);
+    expect(session).not.toBeNull();
+
+    document = withPositions(document, first.positions);
+    const repeated = planNudgeRepeat(session!, 'down', 10, document, selection);
+
+    expect(repeated).toEqual(planNudge('down', 10, document, selection));
+  });
+
+  it('falls back from a held-key session when an ancestor changes', () => {
+    let document = createDocument('nudge repeat invalidation');
+    const parent = makeFrameNode('parent', { w: 200, h: 100 });
+    const child = rect('child', 10, 20);
+    document = addNode(document, parent);
+    document = addChild(document, parent.id, child);
+    const selection = [child.id];
+    const first = planNudge('right', 1, document, selection);
+    const session = createNudgeGestureSession(document, selection, first);
+    document = withPositions(document, first.positions);
+    document = {
+      ...document,
+      nodes: { ...document.nodes, [parent.id]: { ...parent, locked: true } },
+    };
+
+    expect(planNudgeRepeat(session!, 'right', 1, document, selection)).toBeNull();
+  });
+
   it('preserves a cross-container multi-selection’s world-space spacing', () => {
     let document = createDocument('cross-container nudge');
     const frameA = makeFrameNode('frame-a', {
@@ -317,6 +372,23 @@ describe('executeNudge', () => {
     const node = { ...rect('node', 10, 20), rotation: Number.NaN };
     document = addNode(document, node);
     const ctx = makeCtx(document, [node.id]);
+
+    const result = executeNudge('right', 1, ctx);
+
+    expect(ctx.setNodePositions).not.toHaveBeenCalled();
+    expect(result).toEqual({ moved: 0, locked: 0, skipped: 1, total: 1 });
+  });
+
+  it('rejects malformed cyclic ancestry without producing invalid positions', () => {
+    const base = createDocument('cyclic ancestry');
+    const parent = makeGroupNode('parent', { children: ['child'] });
+    const child = makeGroupNode('child', { children: ['parent'] });
+    const document = {
+      ...base,
+      nodes: { ...base.nodes, [parent.id]: parent, [child.id]: child },
+      rootChildren: [parent.id],
+    };
+    const ctx = makeCtx(document, [parent.id]);
 
     const result = executeNudge('right', 1, ctx);
 
