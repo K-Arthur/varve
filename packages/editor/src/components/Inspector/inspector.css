@@ -1202,10 +1202,8 @@
   position: relative;
 }
 .insp-align-popover {
-  position: absolute;
+  position: fixed;
   z-index: var(--z-dropdown);
-  top: calc(100% + var(--space-1));
-  right: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1217,6 +1215,34 @@
   box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
+}
+.insp-align-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+.insp-align-popover__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.insp-align-popover__close:hover,
+.insp-align-popover__close:focus-visible {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
 }
 .insp-align-popover fieldset {
   display: flex;

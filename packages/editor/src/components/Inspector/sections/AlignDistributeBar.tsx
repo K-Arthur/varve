@@ -259,7 +259,12 @@ export function AlignDistributeBar() {
     'equalGap',
   );
   const [distributionGap, setDistributionGap] = useState(0);
+  const [distributionMenuPosition, setDistributionMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const tidyBtnRef = useRef<HTMLButtonElement>(null);
+  const distributionBtnRef = useRef<HTMLButtonElement>(null);
   const capabilities = getAlignmentCapabilities(state.document, state.selection);
   const canAlign =
     alignmentReference === 'page'
@@ -272,6 +277,26 @@ export function AlignDistributeBar() {
     if (alignToPage) setAlignmentReference('page');
     else setAlignmentReference((current) => (current === 'page' ? 'selection' : current));
   }, [alignToPage]);
+
+  useEffect(() => {
+    if (!showDistributionMenu || !distributionBtnRef.current) return;
+    const updatePosition = () => {
+      const rect = distributionBtnRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = 220;
+      setDistributionMenuPosition({
+        top: Math.min(window.innerHeight - 12, rect.bottom + 6),
+        left: Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width)),
+      });
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [showDistributionMenu]);
 
   const chooseAlignmentReference = useCallback(
     (reference: AlignmentReference) => {
@@ -439,6 +464,7 @@ export function AlignDistributeBar() {
             <Tooltip label="Distribution options">
               <button
                 type="button"
+                ref={distributionBtnRef}
                 className={`pill-group__btn ${showDistributionMenu ? 'pill-group__btn--active' : ''}`}
                 aria-label="Distribution options"
                 aria-expanded={showDistributionMenu}
@@ -448,51 +474,78 @@ export function AlignDistributeBar() {
                 Gap
               </button>
             </Tooltip>
-            {showDistributionMenu && (
-              <div className="insp-align-popover" role="dialog" aria-label="Distribution options">
-                <fieldset>
-                  <legend>Spacing mode</legend>
-                  <label>
-                    <input
-                      type="radio"
-                      name="distribution-mode"
-                      checked={distributionMode === 'equalGap'}
-                      onChange={() => setDistributionMode('equalGap')}
-                    />
-                    Equal gaps
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="distribution-mode"
-                      checked={distributionMode === 'equalCenter'}
-                      onChange={() => setDistributionMode('equalCenter')}
-                    />
-                    Equal centers
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="distribution-mode"
-                      checked={distributionMode === 'fixedGap'}
-                      onChange={() => setDistributionMode('fixedGap')}
-                    />
-                    Fixed gap
-                  </label>
-                </fieldset>
-                {distributionMode === 'fixedGap' && (
-                  <NumberInput
-                    label="Gap (px)"
-                    value={distributionGap}
-                    min={-99999}
-                    max={99999}
-                    step={1}
-                    onChange={setDistributionGap}
+            {showDistributionMenu &&
+              distributionMenuPosition &&
+              createPortal(
+                <>
+                  <button
+                    className="insp-dropdown-backdrop"
+                    onClick={() => setShowDistributionMenu(false)}
+                    aria-label="Close distribution options"
+                    type="button"
                   />
-                )}
-                <p>Negative gaps intentionally overlap items.</p>
-              </div>
-            )}
+                  <div
+                    className="insp-align-popover"
+                    role="dialog"
+                    aria-label="Distribution options"
+                    style={distributionMenuPosition}
+                  >
+                    <div className="insp-align-popover__header">
+                      <span>Distribution options</span>
+                      <button
+                        type="button"
+                        className="insp-align-popover__close"
+                        aria-label="Close distribution options"
+                        onClick={() => setShowDistributionMenu(false)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <fieldset>
+                      <legend>Spacing mode</legend>
+                      <label>
+                        <input
+                          type="radio"
+                          name="distribution-mode"
+                          checked={distributionMode === 'equalGap'}
+                          onChange={() => setDistributionMode('equalGap')}
+                        />
+                        Equal gaps
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name="distribution-mode"
+                          checked={distributionMode === 'equalCenter'}
+                          onChange={() => setDistributionMode('equalCenter')}
+                        />
+                        Equal centers
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name="distribution-mode"
+                          checked={distributionMode === 'fixedGap'}
+                          onChange={() => setDistributionMode('fixedGap')}
+                        />
+                        Fixed gap
+                      </label>
+                    </fieldset>
+                    {distributionMode === 'fixedGap' && (
+                      <NumberInput
+                        label="Gap (px)"
+                        value={distributionGap}
+                        min={-99999}
+                        max={99999}
+                        step={1}
+                        onChange={setDistributionGap}
+                      />
+                    )}
+                    <p>Negative gaps intentionally overlap items.</p>
+                  </div>
+                </>,
+                document.body,
+              )}
           </div>
         </div>
         <div className="insp-align-bar" role="toolbar" aria-label="Advanced alignment options">

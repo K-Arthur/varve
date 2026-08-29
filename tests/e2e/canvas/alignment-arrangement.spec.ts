@@ -85,7 +85,7 @@ test.describe('Alignment and arrangement workflow', () => {
     await expect(page.getByRole('dialog', { name: 'Distribution options' })).toBeVisible();
     await page.getByLabel('Fixed gap').check();
     await page.getByLabel('Gap (px)').fill('-12');
-    await distributionOptions.click();
+    await page.getByRole('button', { name: 'Close distribution options' }).last().click();
 
     const canvas = page.getByTestId('editor-canvas');
     await canvas.screenshot({ path: 'test-results/alignment-arrangement-before.png' });
