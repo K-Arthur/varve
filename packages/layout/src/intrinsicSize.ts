@@ -15,6 +15,7 @@
  * rather than detected and rejected.
  */
 import type { Document, FrameNode, NodeId, SceneNode } from '@varve/scene';
+import { computeGridLayout } from './computeGridLayout';
 import { axisSizing, clampAxis, isFlowParticipant, measureNodeSize, type Size } from './measure';
 
 function axisContribution(child: SceneNode, axis: 'width' | 'height', natural: number): number {
@@ -50,10 +51,46 @@ function computeFrameContentSize(nodes: Record<NodeId, SceneNode>, frame: FrameN
 }
 
 /**
+ * A hug grid frame's content size, derived from the grid engine's placement
+ * output instead of repeating its track-resolution algorithm here. Fractional
+ * tracks resolve against no free space, so they contribute nothing to a hug
+ * dimension — matching the flex policy where a fill child contributes only
+ * its minimum size until its parent has a resolved box.
+ */
+function computeGridContentSize(nodes: Record<NodeId, SceneNode>, frame: FrameNode): Size {
+  const style = frame.layoutStyle!;
+  const [pt, pr, pb, pl] = style.padding;
+  const flowChildIds = frame.children.filter((id) => {
+    const child = nodes[id];
+    return child !== undefined && isFlowParticipant(child);
+  });
+
+  if (flowChildIds.length === 0) return { w: pl + pr, h: pt + pb };
+
+  const items = computeGridLayout(
+    { nodes } as unknown as Document,
+    frame.id,
+    0,
+    0,
+    style,
+    flowChildIds,
+  );
+  let maxRight = 0;
+  let maxBottom = 0;
+  for (const item of items) {
+    maxRight = Math.max(maxRight, item.x + item.w);
+    maxBottom = Math.max(maxBottom, item.y + item.h);
+  }
+
+  // Grid positions already include the leading padding; add only the trailing
+  // sides to arrive at the frame's outer layout dimensions.
+  return { w: maxRight + pr, h: maxBottom + pb };
+}
+
+/**
  * Resolve hug-sized frame boxes across `rootId`'s subtree (bottom-up), for
  * every axis whose sizing mode is 'hug'. Non-hug axes and non-frame nodes
- * are left untouched. Grid-mode frames are skipped — grid intrinsic sizing
- * is not yet implemented; they keep their authored box.
+ * are left untouched.
  */
 export function resolveIntrinsicSizes(doc: Document, rootId: NodeId): Document {
   const root = doc.nodes[rootId];
@@ -75,12 +112,14 @@ export function resolveIntrinsicSizes(doc: Document, rootId: NodeId): Document {
   for (const id of order) {
     const frame = nodes[id];
     if (frame?.kind !== 'frame' || !frame.layoutStyle) continue;
-    if (frame.layoutStyle.mode === 'grid') continue;
     const hugW = axisSizing(frame, 'width') === 'hug';
     const hugH = axisSizing(frame, 'height') === 'hug';
     if (!hugW && !hugH) continue;
 
-    const content = computeFrameContentSize(nodes, frame);
+    const content =
+      frame.layoutStyle.mode === 'grid'
+        ? computeGridContentSize(nodes, frame)
+        : computeFrameContentSize(nodes, frame);
     const nextW = hugW ? clampAxis(content.w, frame, 'width') : frame.w;
     const nextH = hugH ? clampAxis(content.h, frame, 'height') : frame.h;
     if (nextW !== frame.w || nextH !== frame.h) {
