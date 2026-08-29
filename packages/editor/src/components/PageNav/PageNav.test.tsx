@@ -190,6 +190,36 @@ describe('PageNav', () => {
     expect(updateDoc).toHaveBeenCalledTimes(1);
   });
 
+  it('offers a non-drag way to reorder pages (WCAG 2.5.7)', () => {
+    const updateDoc = vi.fn();
+    const pages = [makePage('p1', 'A'), makePage('p2', 'B'), makePage('p3', 'C')];
+    mockEditor({ pages, currentPageId: 'p2', updateDoc });
+
+    render(<PageNav />);
+    // Middle page: both directions available.
+    fireEvent.contextMenu(screen.getAllByRole('tab')[1]!);
+    expect(screen.getByText('Move page left').closest('button')).not.toBeDisabled();
+    expect(screen.getByText('Move page right').closest('button')).not.toBeDisabled();
+
+    fireEvent.click(screen.getByText('Move page right'));
+    expect(updateDoc).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables Move page left/right at the ends of the list', () => {
+    const pages = [makePage('p1', 'A'), makePage('p2', 'B'), makePage('p3', 'C')];
+    mockEditor({ pages, currentPageId: 'p1' });
+
+    render(<PageNav />);
+    fireEvent.contextMenu(screen.getAllByRole('tab')[0]!);
+    expect(screen.getByText('Move page left').closest('button')).toBeDisabled();
+    expect(screen.getByText('Move page right').closest('button')).not.toBeDisabled();
+
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    fireEvent.contextMenu(screen.getAllByRole('tab')[2]!);
+    expect(screen.getByText('Move page left').closest('button')).not.toBeDisabled();
+    expect(screen.getByText('Move page right').closest('button')).toBeDisabled();
+  });
+
   it('closes context menu on Escape', () => {
     const pages = [makePage('p1', 'Page 1')];
     mockEditor({ pages, currentPageId: 'p1' });
