@@ -37,6 +37,7 @@ export type SectionId =
   | 'image-placement'
   | 'image-perspective'
   | 'image-resolution'
+  | 'image-tuning'
   | 'image-enhancement'
   | 'background-removal'
   | 'stroke'
@@ -146,6 +147,11 @@ export interface SectionDefinition {
  */
 function isImageNode(nodes: SceneNode[]): boolean {
   return nodes.length === 1 && !!nodes[0] && isImageShape(nodes[0]);
+}
+
+/** Image Tuning is deliberately the one image inspector section with batch support. */
+function isImageSelection(nodes: SceneNode[]): boolean {
+  return nodes.length > 0 && nodes.every(isImageShape);
 }
 
 /**
@@ -573,6 +579,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     // previously captured states to apply. The section component renders
     // nothing when both are empty.
     isAvailable: (ctx) => hasNodes(ctx) || (ctx.document?.layerStates?.length ?? 0) > 0,
+  },
+  {
+    id: 'image-tuning',
+    title: 'Image Tuning',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 570,
+    category: 'content',
+    isAvailable: (ctx) => isImageSelection(ctx.selectedNodes),
   },
   {
     id: 'image-enhancement',

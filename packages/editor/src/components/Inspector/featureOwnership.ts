@@ -288,6 +288,17 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Animated-media playback controls: play, scrub, loop, trim, speed, poster.',
   },
+  'image-tuning': {
+    surface: 'adjustments',
+    scope: 'mixed-selection',
+    frequency: 'frequent',
+    complexity: 'moderate',
+    status: 'functional',
+    rationale:
+      'Compact nondestructive light, colour, detail, presence, and finishing controls for one or more image selections.',
+    duplicates:
+      'Object Filters exposes the ordered advanced stack, masks, blend modes, and repeated entries.',
+  },
   'image-enhancement': {
     surface: 'adjustments',
     scope: 'selection',

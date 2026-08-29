@@ -99,7 +99,7 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
   microDetail: {
     id: 'microDetail',
     label: 'Micro Detail',
-    group: 'presence',
+    group: 'detail',
     description: 'Accentuate or soften fine texture without changing global tone.',
     parameters: [
       {

@@ -78,6 +78,32 @@ async function renderPanelWithSelectedFrame() {
   return utils;
 }
 
+/** Renders a real inspector selection with multiple nodes. This deliberately
+ * drives the public selection API so contextual tab eligibility is tested at
+ * the same boundary used by pointer multi-select in the editor. */
+async function renderPanelWithSelectedNodes(docJson: string, ids: string[]) {
+  let ctx: ReturnType<typeof useEditor> | undefined;
+  function Selector() {
+    ctx = useEditor();
+    React.useEffect(() => {
+      const [first, ...rest] = ids;
+      if (!first) return;
+      ctx?.setSelection(first);
+      for (const id of rest) ctx?.toggleSelection(id, true);
+    }, []);
+    return null;
+  }
+
+  const utils = render(
+    <EditorProvider initialDocumentJson={docJson}>
+      <Selector />
+      <PropertiesPanel />
+    </EditorProvider>,
+  );
+  await waitFor(() => expect(ctx?.state.selection).toEqual(ids));
+  return utils;
+}
+
 describe('PropertiesPanel canvas settings', () => {
   it('uses the grouped workspace tabs and omits legacy document and spec tabs', () => {
     renderPanel();
@@ -193,6 +219,36 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     // lives in its own dialog, opened via toggleStateMachinePanel.
     await renderPanelWithSelectedRect();
     expect(screen.queryByRole('button', { name: 'State Machine' })).toBeNull();
+  });
+});
+
+describe('PropertiesPanel image-treatment tab gating', () => {
+  it('shows Adjustments for a batch selection of image shapes', async () => {
+    const { addChild, createDocument, makeImageShapeNode } = await import('@varve/scene');
+    let doc = createDocument('image-batch-selection-test');
+    const first = makeImageShapeNode('image-1', { src: 'data:image/png;base64,AA==' });
+    const second = makeImageShapeNode('image-2', { src: 'data:image/png;base64,AA==' });
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, first);
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, second);
+
+    await renderPanelWithSelectedNodes(JSON.stringify(doc), ['image-1', 'image-2']);
+
+    expect(screen.getByRole('tab', { name: 'Adjustments' })).toBeInTheDocument();
+  });
+
+  it('does not show Adjustments for a mixed image and non-image selection', async () => {
+    const { addChild, createDocument, makeImageShapeNode, makeShapeNode } = await import(
+      '@varve/scene'
+    );
+    let doc = createDocument('mixed-image-selection-test');
+    const image = makeImageShapeNode('image-1', { src: 'data:image/png;base64,AA==' });
+    const rect = makeShapeNode('rect-1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, image);
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, rect);
+
+    await renderPanelWithSelectedNodes(JSON.stringify(doc), ['image-1', 'rect-1']);
+
+    expect(screen.queryByRole('tab', { name: 'Adjustments' })).toBeNull();
   });
 });
 

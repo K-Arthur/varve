@@ -4,6 +4,7 @@ import {
   type Color,
   type CurvePoint,
   HALFTONE_PRESETS,
+  isImageTreatmentKind,
   LUT_INPUT_SPACE_LABELS,
   parseLutFile,
   serializeLutForDocument,
@@ -18,6 +19,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { CurveEditor } from '../Inspector/controls/CurveEditor';
 import { GradientMapAdjustmentSection } from '../Inspector/controls/GradientMapAdjustmentSection';
 import { HistogramWidget } from '../Inspector/controls/HistogramWidget';
+import { ImageTreatmentEditor } from './ImageTreatmentEditor';
 import {
   BloomEditor,
   CausticsEditor,
@@ -47,7 +49,14 @@ export interface AdjustmentEditorProps {
   sourceHistogram?: import('@varve/engine').Histogram | null;
 }
 
-export function AdjustmentEditor({
+export function AdjustmentEditor(props: AdjustmentEditorProps) {
+  if (isImageTreatmentKind(props.adjustment.kind)) {
+    return <ImageTreatmentEditor adjustment={props.adjustment} onChange={props.onChange} />;
+  }
+  return <LegacyAdjustmentEditor {...props} />;
+}
+
+function LegacyAdjustmentEditor({
   adjustment,
   onChange,
   onEditStart,

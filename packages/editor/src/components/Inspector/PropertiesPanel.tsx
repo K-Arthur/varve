@@ -120,13 +120,12 @@ export function PropertiesPanel() {
   const [requestedTab, setRequestedTab] = useState<InspectorTab | null>(null);
   const visibleTabs = useMemo(() => {
     const tabs = [...configuredTabs];
-    const isImageSelected =
-      selNodes.length === 1 && (selNodes[0] ? isImageShape(selNodes[0]) : false);
+    const isImageSelected = selNodes.length > 0 && selNodes.every(isImageShape);
     const isAdjustmentSelected = selNodes.length === 1 && selNodes[0]?.kind === 'adjustment';
     const isSingleNodeSelected = selNodes.length === 1;
     const isTextSelected = selNodes.length === 1 && selNodes[0]?.kind === 'text';
 
-    // Show Adjustments tab for any single image selection: the image-editing
+    // Show Adjustments tab for any image-only selection: the image-editing
     // actions the selection quick bar offers in every workspace (Remove
     // background, Upscale, Vectorize) complete inside this tab, so hiding it
     // outside the Photo workspace made those actions unreachable — the review

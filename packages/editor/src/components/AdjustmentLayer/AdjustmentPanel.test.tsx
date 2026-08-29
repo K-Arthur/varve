@@ -74,6 +74,21 @@ describe('AdjustmentPanel', () => {
     expect(screen.getByRole('menuitem', { name: 'Halftone' })).toBeInTheDocument();
   });
 
+  it('renders the schema-backed Micro Detail control after adding that treatment', async () => {
+    const user = userEvent.setup();
+    renderHarness();
+    await user.click(screen.getByText('Create adjustment layer'));
+    await waitFor(() => screen.getByText('Adjustment Layer'));
+
+    await user.click(screen.getByRole('button', { name: /add adjustment/i }));
+    await user.click(screen.getByRole('menuitem', { name: 'Micro Detail' }));
+
+    expect(screen.getByRole('slider', { name: 'Micro Detail' })).toBeInTheDocument();
+    expect(
+      screen.getByText('Accentuate or soften fine texture without changing global tone.'),
+    ).toBeInTheDocument();
+  });
+
   it('adds the non-first adjustment selected with a real pointer interaction', async () => {
     const user = userEvent.setup();
     renderHarness();
@@ -98,7 +113,10 @@ describe('AdjustmentPanel', () => {
 
     await user.click(screen.getByRole('button', { name: /add adjustment/i }));
     expect(screen.getByRole('menuitem', { name: 'Brightness' })).toHaveFocus();
-    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+    const menuItems = screen.getAllByRole('menuitem');
+    const levelsIndex = menuItems.findIndex((item) => item.textContent === 'Levels');
+    expect(levelsIndex).toBeGreaterThan(0);
+    await user.keyboard(`${'{ArrowDown}'.repeat(levelsIndex)}{Enter}`);
 
     expect(screen.getByLabelText(/histogram with level sliders/i)).toBeInTheDocument();
     expect(screen.queryByRole('slider', { name: 'Brightness' })).toBeNull();

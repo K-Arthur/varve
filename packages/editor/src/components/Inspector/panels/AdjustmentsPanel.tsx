@@ -10,6 +10,7 @@ import { ContentAwareFillSection } from '../sections/ContentAwareFillSection';
 import { DetectTextSection } from '../sections/DetectTextSection';
 import { FontDetectSection } from '../sections/FontDetectSection';
 import { ImageEnhancementSection } from '../sections/ImageEnhancementSection';
+import { ImageTuningSection } from '../sections/ImageTuningSection';
 import { LensBlurSection } from '../sections/LensBlurSection';
 import { LineArtSection } from '../sections/LineArtSection';
 import { OcrSection } from '../sections/OcrSection';
@@ -27,7 +28,8 @@ export function AdjustmentsPanel() {
     return <AdjustmentPanel />;
   }
 
-  if (nodes.length !== 1 || !node || !isImageShape(node)) {
+  const allImages = nodes.length > 0 && nodes.every(isImageShape);
+  if (!allImages) {
     return (
       <EmptyState
         illustration={<span aria-hidden />}
@@ -39,17 +41,22 @@ export function AdjustmentsPanel() {
 
   return (
     <>
-      <ImageEnhancementSection nodes={nodes} />
-      <BackgroundRemovalSection nodes={nodes} />
-      <ColorizeSection nodes={nodes} />
-      <AIDenoiseSection nodes={nodes} />
-      <LensBlurSection nodes={nodes} />
-      <LineArtSection nodes={nodes} />
-      <ContentAwareFillSection nodes={nodes} onOpenDialog={openCafDialog} />
-      <DetectTextSection nodes={nodes} />
-      <OcrSection nodes={nodes} />
-      <FontDetectSection nodes={nodes} />
-      <BlendImagesSection nodes={nodes} />
+      <ImageTuningSection nodes={nodes} />
+      {nodes.length === 1 && (
+        <>
+          <ImageEnhancementSection nodes={nodes} />
+          <BackgroundRemovalSection nodes={nodes} />
+          <ColorizeSection nodes={nodes} />
+          <AIDenoiseSection nodes={nodes} />
+          <LensBlurSection nodes={nodes} />
+          <LineArtSection nodes={nodes} />
+          <ContentAwareFillSection nodes={nodes} onOpenDialog={openCafDialog} />
+          <DetectTextSection nodes={nodes} />
+          <OcrSection nodes={nodes} />
+          <FontDetectSection nodes={nodes} />
+          <BlendImagesSection nodes={nodes} />
+        </>
+      )}
     </>
   );
 }
