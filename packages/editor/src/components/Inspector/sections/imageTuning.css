@@ -95,7 +95,7 @@
   align-items: center;
   display: grid;
   gap: var(--space-2, 8px);
-  grid-template-columns: minmax(0, 1fr) minmax(96px, 0.4fr);
+  grid-template-columns: minmax(0, 1fr) minmax(76px, 0.3fr);
 }
 
 .image-tuning__slider {
@@ -105,17 +105,16 @@
 }
 
 .image-tuning__input-row .insp-field {
-  align-items: center;
-  display: grid;
-  gap: var(--space-1, 4px);
-  grid-template-columns: minmax(0, 1fr) minmax(42px, 0.65fr);
+  display: block;
 }
 
 .image-tuning__input-row .insp-field__label {
-  font-size: var(--font-size-2xs, 0.6875rem);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: none;
+}
+
+.image-tuning__input-row .insp-num__input {
+  box-sizing: border-box;
+  inline-size: 100%;
 }
 
 .image-tuning__advanced {
