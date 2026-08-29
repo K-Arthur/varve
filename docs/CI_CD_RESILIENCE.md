@@ -150,10 +150,10 @@ https://github.com/settings/billing) — instead of the misleading
 
 ```bash
 just ci-health              # classify failures across the last 10 runs
-just ci-health --runs 25
-just ci-health --workflow CI
-just ci-health --strict     # exit 1 when any infra block is found
-just ci-health --json       # machine-readable
+just ci-health ARGS="--runs 25"
+just ci-health ARGS="--workflow CI"
+just ci-health ARGS="--strict"     # exit 1 when any infra block is found
+just ci-health ARGS="--json"       # machine-readable
 just ci-status              # GitHub Actions incident status (githubstatus.com)
 just ci-rerun-stuck         # rerun runs stuck in queue > 30 min (asks for confirmation)
 ```
@@ -183,7 +183,7 @@ critical). Symptoms in this repo:
 
 ```bash
 just ci-status                 # Actions: major_outage — stop, do not re-run
-just ci-health --runs 20       # runs show STUCK / INFRA (runner-unavailable)
+just ci-health ARGS="--runs 20"       # runs show STUCK / INFRA (runner-unavailable)
 ```
 
 **Response**:
