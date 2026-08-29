@@ -239,19 +239,26 @@ function isNormalizedPointPair(
 // edges bulge outside the cage). Bounded to keep corrupt data from exploding.
 const ENVELOPE_CONTROL_LO = -2;
 const ENVELOPE_CONTROL_HI = 3;
+// Envelope corners share the same bounded editing domain as the edge
+// controls: the Coons patch is defined for corners anywhere in the extended
+// plane, and the Warp tool's primary gesture is dragging a corner OUTWARD
+// past the source box. Pinning corners to [0,1] silently discarded every
+// such drag (validateWarpModifier → null → updateWarp no-op).
+const ENVELOPE_CORNER_LO = ENVELOPE_CONTROL_LO;
+const ENVELOPE_CORNER_HI = ENVELOPE_CONTROL_HI;
 // A mesh must be able to extend past its source box (for perspective and
 // outward bulges). Keep the same bounded editing domain as envelope handles.
 const MESH_CONTROL_LO = -2;
 const MESH_CONTROL_HI = 3;
 
-function isCorners(v: unknown, absolute: boolean): v is PerspectiveCorners {
+function isCorners(v: unknown, absolute: boolean, lo = 0, hi = 1.0001): v is PerspectiveCorners {
   if (typeof v !== 'object' || v === null) return false;
   const c = v as Record<string, unknown>;
   return (
-    isNormalizedPoint(c.tl, absolute) &&
-    isNormalizedPoint(c.tr, absolute) &&
-    isNormalizedPoint(c.br, absolute) &&
-    isNormalizedPoint(c.bl, absolute)
+    isNormalizedPoint(c.tl, absolute, lo, hi) &&
+    isNormalizedPoint(c.tr, absolute, lo, hi) &&
+    isNormalizedPoint(c.br, absolute, lo, hi) &&
+    isNormalizedPoint(c.bl, absolute, lo, hi)
   );
 }
 
@@ -326,7 +333,7 @@ export function validateWarpModifier(raw: unknown): WarpModifier | null {
       return { ...base, kind: 'perspective', corners: m.corners as PerspectiveCorners };
     }
     case 'envelope': {
-      if (!isCorners(m.corners, absolute)) return null;
+      if (!isCorners(m.corners, absolute, ENVELOPE_CORNER_LO, ENVELOPE_CORNER_HI)) return null;
       const edges = m.edges as Record<string, unknown> | undefined;
       if (
         !edges ||
