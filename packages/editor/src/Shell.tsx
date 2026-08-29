@@ -518,6 +518,7 @@ function ShellInner({
             className="editor__layers-panel editor__panel--glass"
             data-panel="layers"
             data-testid="layers-panel"
+            id="editor-layers-panel"
             data-visible={layersVisible || undefined}
             data-collapsed={!leftPanelVisible || undefined}
             {...(!leftPanelVisible ? { inert: true } : {})}
@@ -541,6 +542,7 @@ function ShellInner({
           <aside
             className="editor__inspector-panel editor__panel--glass"
             data-panel="inspector"
+            id="editor-inspector-panel"
             data-visible={inspectorVisible || undefined}
             data-collapsed={!rightPanelVisible || undefined}
             {...(!rightPanelVisible ? { inert: true } : {})}

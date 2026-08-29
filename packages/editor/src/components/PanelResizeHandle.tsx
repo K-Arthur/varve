@@ -118,6 +118,8 @@ export function PanelResizeHandle({
   // Panel edge the handle sits on: layers panel resizes from its right edge,
   // inspector from its left. Drag direction maps accordingly.
   const isLayers = side === 'layers';
+  const viewport = typeof window !== 'undefined' ? window.innerWidth : 1440;
+  const currentWidth = width ?? defaultPanelWidth(side, viewport);
 
   const measurePanel = useCallback((): number => {
     const el = document.querySelector<HTMLElement>(
@@ -181,9 +183,11 @@ export function PanelResizeHandle({
       <hr
         aria-orientation="vertical"
         aria-label={isLayers ? 'Resize layers panel' : 'Resize inspector panel'}
-        aria-valuenow={width ?? undefined}
+        aria-controls={isLayers ? 'editor-layers-panel' : 'editor-inspector-panel'}
+        aria-valuenow={currentWidth}
         aria-valuemin={PANEL_LIMITS[side].min}
         aria-valuemax={PANEL_LIMITS[side].max}
+        aria-valuetext={`${currentWidth} pixels`}
         tabIndex={0}
         className={`panel-resize panel-resize--${isLayers ? 'right' : 'left'}${
           dragging ? ' panel-resize--active' : ''
