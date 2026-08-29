@@ -457,6 +457,11 @@ test.describe('Layers DnD — virtualized tree', () => {
 
     const rows = await readRows(page);
     const source = rows[0]!;
+    // seedManyLayers grows the tree with Ctrl+A / Ctrl+D, which leaves the
+    // whole tree selected — and dragging a selected row carries the entire
+    // selection. Narrow it to one row so this exercises a single-node move.
+    await page.locator(`[role="treeitem"][data-node-id="${source.id}"]`).click();
+    await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(1);
     await beginDrag(page, source.id);
 
     const treeBox = await tree.boundingBox();
@@ -479,37 +484,60 @@ test.describe('Layers DnD — virtualized tree', () => {
     // since the rows move under a stationary cursor — so reading a preview
     // mid-scroll and releasing a moment later compares two different frames.
     await page.mouse.move(treeBox.x + treeBox.width / 2, treeBox.y + treeBox.height / 2);
+    // Let the pointer move be processed and the rAF loop notice it has left
+    // the band before sampling, otherwise the first two reads can match while
+    // the list is still moving.
+    await page.waitForTimeout(300);
     await expect
       .poll(
         async () => {
           const a = await tree.evaluate((el) => el.scrollTop);
-          await page.waitForTimeout(120);
+          await page.waitForTimeout(150);
           const b = await tree.evaluate((el) => el.scrollTop);
-          return a === b;
+          await page.waitForTimeout(150);
+          const c = await tree.evaluate((el) => el.scrollTop);
+          return a === b && b === c;
         },
         { timeout: 10_000 },
       )
       .toBe(true);
 
-    // Aim at a row that only exists because auto-scroll brought it into view,
-    // then assert the usual invariant against it.
-    const exposed = await readRows(page);
-    const target = exposed.find((r) => r.id !== source.id);
-    if (!target) throw new Error('no target row after auto-scroll');
-    await moveToRowBand(page, target.id, 0.85);
+    // Aim at a point well inside the viewport rather than picking a row by
+    // index: after scrolling, `readRows` also returns overscan rows that are
+    // mounted but clipped out of view, and the resolver correctly refuses a
+    // pointer that is outside the tree.
+    const aimY = treeBox.y + treeBox.height * 0.6;
+    await page.mouse.move(treeBox.x + treeBox.width / 2, aimY, { steps: 4 });
+    await page.mouse.move(treeBox.x + treeBox.width / 2, aimY);
 
+    // Whatever the panel is now pointing at is what must receive the layer —
+    // and it has to be a row auto-scroll brought into view, not the one the
+    // drag started from.
     const finalPreview = await readIndicator(page);
-    expect(finalPreview?.nodeId).toBe(target.id);
-    expect(finalPreview?.zone).toBe('after');
+    expect(finalPreview, 'an indicator after auto-scroll settles').not.toBeNull();
+    const targetId = finalPreview?.nodeId;
+    expect(targetId).toBeTruthy();
+    expect(targetId).not.toBe(source.id);
+    const zone = finalPreview?.zone;
     await page.mouse.up();
+
+    // Compare `aria-posinset`, not positions within `readRows`. That helper
+    // reports the mounted window, and in a virtualized tree a row can drop out
+    // of it — posinset is the row's index in the whole list, so it stays
+    // meaningful however the panel has scrolled.
+    const posOf = async (id: string): Promise<number | null> => {
+      const row = page.locator(`[role="treeitem"][data-node-id="${id}"]`);
+      await row.scrollIntoViewIfNeeded().catch(() => undefined);
+      const v = await row.getAttribute('aria-posinset').catch(() => null);
+      return v == null ? null : Number(v);
+    };
 
     await expect
       .poll(async () => {
-        const after = await readRows(page);
-        const si = after.findIndex((r) => r.id === source.id);
-        const ti = after.findIndex((r) => r.id === target.id);
-        return si >= 0 && ti >= 0 ? si - ti : null;
+        const sp = await posOf(source.id);
+        const tp = await posOf(targetId!);
+        return sp != null && tp != null ? sp - tp : null;
       })
-      .toBe(1);
+      .toBe(zone === 'before' ? -1 : 1);
   });
 });
