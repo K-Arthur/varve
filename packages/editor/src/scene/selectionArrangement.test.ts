@@ -157,13 +157,13 @@ describe('selectionArrangement', () => {
 
     const capabilities = getAlignmentCapabilities(doc, [a.id]);
     const next = alignSelectionInDocument(doc, [a.id], 'right', {
-      pageBounds: { x: 0, y: 0, w: 200, h: 100 },
+      pageBounds: { x: 120, y: 40, w: 200, h: 100 },
       keyObjectId: a.id,
     });
 
     expect(capabilities.canAlign).toBe(false);
     expect(capabilities.canAlignToPage).toBe(true);
-    expect(bounds(next, a.id)).toMatchObject({ x: 160, y: 20, w: 40, h: 30 });
+    expect(bounds(next, a.id)).toMatchObject({ x: 280, y: 20, w: 40, h: 30 });
   });
 
   it('aligns a single child to its nearest common frame bounds', () => {
