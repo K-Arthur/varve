@@ -1233,6 +1233,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                 }}
                 onFocus={handleRowFocus}
                 idx={virtualItem.index}
+                siblingIndex={entry.siblingIndex}
+                siblingCount={entry.siblingCount}
                 rowRefs={rowRefs}
                 selectedIds={selectedIdSet}
               />
@@ -1287,6 +1289,8 @@ interface SortableVirtualRowProps {
   onToggleSelectionCheckbox?: (id: NodeId) => void;
   onFocus: (idx: number) => void;
   idx: number;
+  siblingIndex?: number;
+  siblingCount?: number;
   /** Shared map of currently-mounted row elements, keyed by node id — used by
    * the parent's DnD handlers to resolve a row's rect for drop-zone math. */
   rowRefs: React.MutableRefObject<Map<NodeId, HTMLDivElement>>;
@@ -1323,6 +1327,8 @@ function SortableVirtualRow({
   onToggleSelectionCheckbox,
   onFocus,
   idx,
+  siblingIndex,
+  siblingCount,
   rowRefs,
   selectedIds,
 }: SortableVirtualRowProps) {
@@ -1426,6 +1432,8 @@ function SortableVirtualRow({
         onFocus={onFocus}
         idx={idx}
         totalRows={totalRows}
+        siblingIndex={siblingIndex}
+        siblingCount={siblingCount}
         dragListeners={isDragging ? undefined : listeners}
         dragAttributes={isDragging ? undefined : attributes}
         variantName={variantName}

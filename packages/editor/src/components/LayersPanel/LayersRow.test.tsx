@@ -87,6 +87,18 @@ describe('LayersRow roving tabindex', () => {
     const row = container.querySelector('[role="treeitem"]');
     expect(row?.getAttribute('tabindex')).toBe('-1');
   });
+
+  it('reports logical sibling position for virtualized nested rows', () => {
+    const { container } = renderRow({
+      idx: 7,
+      totalRows: 20,
+      siblingIndex: 2,
+      siblingCount: 3,
+    });
+    const row = container.querySelector('[role="treeitem"]');
+    expect(row).toHaveAttribute('aria-posinset', '2');
+    expect(row).toHaveAttribute('aria-setsize', '3');
+  });
 });
 
 describe('LayersRow effective lock state', () => {

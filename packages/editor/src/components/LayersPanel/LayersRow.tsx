@@ -63,6 +63,10 @@ export interface LayersRowProps {
   idx: number;
   /** Total visible rows (for aria-setsize on virtualized trees). */
   totalRows: number;
+  /** 1-based position among the row's logical siblings. */
+  siblingIndex?: number;
+  /** Number of logical siblings represented by the current filter/tree view. */
+  siblingCount?: number;
   style?: React.CSSProperties;
   dragListeners?: DraggableSyntheticListeners;
   dragAttributes?: DraggableAttributes;
@@ -152,6 +156,8 @@ export const LayersRow = memo(function LayersRow({
   onFocus,
   idx,
   totalRows,
+  siblingIndex,
+  siblingCount,
   style,
   dragListeners,
   dragAttributes,
@@ -326,8 +332,8 @@ export const LayersRow = memo(function LayersRow({
         aria-selected={selected}
         aria-expanded={container ? expanded : undefined}
         aria-level={depth + 1}
-        aria-setsize={totalRows}
-        aria-posinset={idx + 1}
+        aria-setsize={siblingCount ?? totalRows}
+        aria-posinset={siblingIndex ?? idx + 1}
         className={rowClass}
         tabIndex={focused ? 0 : -1}
         onClick={handleClick}

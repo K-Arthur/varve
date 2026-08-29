@@ -28,6 +28,36 @@ export interface FlatEntry {
   node: SceneNode;
   depth: number;
   parentId: NodeId | null;
+  /** 1-based position among the rendered logical siblings. */
+  siblingIndex?: number;
+  /** Number of rendered logical siblings for this row. */
+  siblingCount?: number;
+}
+
+/**
+ * Add the hierarchy metadata required by an explicitly virtualized ARIA tree.
+ *
+ * The flattened array is only a render order; its index is not a tree
+ * position. Grouping by parent after filtering means a screen reader gets the
+ * same sibling set the user can actually navigate, while the virtualizer can
+ * continue to mount only the visible window.
+ */
+function annotateSiblingMetadata(entries: FlatEntry[]): FlatEntry[] {
+  const siblingCounts = new Map<NodeId | null, number>();
+  for (const entry of entries) {
+    siblingCounts.set(entry.parentId, (siblingCounts.get(entry.parentId) ?? 0) + 1);
+  }
+
+  const siblingIndexes = new Map<NodeId | null, number>();
+  return entries.map((entry) => {
+    const nextIndex = (siblingIndexes.get(entry.parentId) ?? 0) + 1;
+    siblingIndexes.set(entry.parentId, nextIndex);
+    return {
+      ...entry,
+      siblingIndex: nextIndex,
+      siblingCount: siblingCounts.get(entry.parentId) ?? 1,
+    };
+  });
 }
 
 function isComponentFrame(node: SceneNode): node is FrameNode {
@@ -300,7 +330,7 @@ export function flattenTree(
   // only the isolated node and its subtree, as a single top-level entry so
   // it stays visible (and collapsible) at the top of the tree.
   if (isolatedNodeId && doc.nodes[isolatedNodeId]) {
-    return walk(null, [isolatedNodeId], 0, isolatedNodeId);
+    return annotateSiblingMetadata(walk(null, [isolatedNodeId], 0, isolatedNodeId));
   }
 
   // When a page content root is active, show that page's direct children as
@@ -323,10 +353,10 @@ export function flattenTree(
       return n && n.kind !== 'group';
     });
 
-    return walk(null, [...pageChildren, ...orphans], 0);
+    return annotateSiblingMetadata(walk(null, [...pageChildren, ...orphans], 0));
   }
 
-  return walk(null, doc.rootChildren, 0);
+  return annotateSiblingMetadata(walk(null, doc.rootChildren, 0));
 }
 
 // ── Hook ────────────────────────────────────────────────────────────────────

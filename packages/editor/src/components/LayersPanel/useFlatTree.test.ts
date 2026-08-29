@@ -184,6 +184,61 @@ describe('computeDocumentDiff', () => {
 });
 
 describe('flattenTree (incremental update)', () => {
+  it('reports sibling metadata instead of flattened indexes', () => {
+    let doc = createDocument('tree-semantics', true);
+    const { id: frameId, doc: withFrameId } = nextNodeId(doc);
+    doc = addNode(
+      withFrameId,
+      makeFrameNode(frameId, { name: 'Frame', w: 100, h: 100, children: [] }),
+    );
+    const { id: childA, doc: withChildA } = nextNodeId(doc);
+    doc = addChild(
+      withChildA,
+      frameId,
+      makeShapeNode(childA, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Child A' }),
+    );
+    const { id: childB, doc: withChildB } = nextNodeId(doc);
+    doc = addChild(
+      withChildB,
+      frameId,
+      makeShapeNode(childB, { kind: 'rect', x: 10, y: 0, w: 10, h: 10 }, { name: 'Child B' }),
+    );
+
+    const entries = flattenTree(doc, new Set([frameId]));
+    const frame = entries.find((entry) => entry.node.id === frameId);
+    const childEntries = entries.filter((entry) => entry.parentId === frameId);
+
+    expect(frame).toMatchObject({ siblingIndex: 1, siblingCount: 1 });
+    expect(childEntries).toHaveLength(2);
+    expect(childEntries.map((entry) => entry.siblingIndex)).toEqual([1, 2]);
+    expect(childEntries.every((entry) => entry.siblingCount === 2)).toBe(true);
+  });
+
+  it('recomputes sibling metadata after filtering', () => {
+    let doc = createDocument('filtered-tree-semantics', true);
+    const ids: string[] = [];
+    for (const name of ['Keep A', 'Drop', 'Keep B']) {
+      const next = nextNodeId(doc);
+      doc = next.doc;
+      ids.push(next.id);
+      doc = addNode(
+        doc,
+        makeShapeNode(next.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name }),
+      );
+    }
+
+    const entries = flattenTree(
+      doc,
+      new Set(),
+      { ...DEFAULT_FILTER, search: 'Keep' },
+      new Set([ids[0]!, ids[2]!]),
+    );
+
+    expect(entries).toHaveLength(2);
+    expect(entries.map((entry) => entry.siblingIndex)).toEqual([1, 2]);
+    expect(entries.every((entry) => entry.siblingCount === 2)).toBe(true);
+  });
+
   it('preserves order and depth for property-only changes', () => {
     let doc = createDocument('test', true);
     // Create a frame with nested children
