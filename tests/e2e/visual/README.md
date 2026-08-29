@@ -47,7 +47,7 @@ orchestration that changed.
 **Shipped replay fixtures**: multiple node types (rect/circle/ellipse/text),
 multilingual text covering RTL, script fallback, combining marks, ligatures,
 and ZWJ emoji, opacity, four blend modes, translated/rotated linear and radial
-gradients, angular/conic and diamond gradients, image fill fill/fit/crop/tile
+gradients, angular/conic and diamond gradients, image fills (fill/fit/crop/tile)
 and transform variants, CSS and software adjustment filters including a LUT,
 all line caps, joined/dashed strokes, a fixed-time motion/bound-property
 sample, and a 1,500-item pathological scene.
@@ -66,14 +66,15 @@ baselines cannot overwrite one another. New platform baselines must be
 generated and reviewed on that platform before enabling that platform as a
 required gate.
 
-## Font pinning
+## Font determinism
 
-The fixture corpus uses `sans-serif` for text, including the multilingual fixture. This resolves
-to the runner's default sans font and script fallback fonts, so font availability differs between
-CI and dev machines. The Linux CI image is the canonical text-rendering environment; cross-platform
-projects intentionally keep platform-specific baselines rather than hiding font changes behind a
-large pixel tolerance. A future font-bundle change should update the multilingual fixture and its
-platform baselines as one reviewed change.
+The visual harness imports and awaits the bundled IBM Plex Sans Variable face before it paints, and
+the deterministic text fixtures name that face explicitly. If the face cannot be loaded, the
+harness fails instead of silently accepting a fallback. The multilingual fixture also exercises
+script fallback (Arabic, Hebrew, Devanagari, Japanese, and emoji); those glyphs intentionally retain
+runtime-specific baselines because the repository does not bundle every fallback script face. The
+Linux CI image is the canonical text-rendering environment, while Firefox/WebKit and other
+platform projects keep separate baselines rather than hiding font changes behind a large tolerance.
 
 ## Running locally
 

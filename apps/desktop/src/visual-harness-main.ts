@@ -13,6 +13,8 @@
  * isolation surfaces, nested clips). See tests/e2e/visual/README.md for why.
  */
 
+import '@fontsource-variable/ibm-plex-sans/index.css';
+
 import {
   applyPropertyPath,
   computeDocumentDirtyRegion,
@@ -28,6 +30,9 @@ interface MotionFixturePayload {
   timeline: Timeline;
   time: number;
 }
+
+const VISUAL_FONT_FAMILY = 'IBM Plex Sans Variable';
+const VISUAL_FONT_SAMPLE = 'Ag office 123';
 
 declare global {
   interface Window {
@@ -106,6 +111,14 @@ async function preloadFixtureImages(items: readonly RenderItem[]): Promise<void>
   await Promise.all([...sources].map((src) => getImageCache().load(src)));
 }
 
+async function ensureVisualFont(): Promise<void> {
+  await document.fonts.ready;
+  const loaded = await document.fonts.load(`400 32px "${VISUAL_FONT_FAMILY}"`, VISUAL_FONT_SAMPLE);
+  if (loaded.length === 0 || !document.fonts.check(`400 32px "${VISUAL_FONT_FAMILY}"`)) {
+    throw new Error(`Visual regression font unavailable: ${VISUAL_FONT_FAMILY}`);
+  }
+}
+
 async function renderItems(items: RenderItem[], width: number, height: number): Promise<void> {
   const canvas = document.getElementById('harness-canvas') as HTMLCanvasElement;
   canvas.width = width;
@@ -115,6 +128,7 @@ async function renderItems(items: RenderItem[], width: number, height: number): 
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('2D context unavailable');
   ctx.clearRect(0, 0, width, height);
+  await ensureVisualFont();
   await preloadFixtureImages(items);
   replayIr(ctx as unknown as ReplayTarget, items);
 }

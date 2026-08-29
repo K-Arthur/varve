@@ -33,6 +33,7 @@ const RED = { space: 'rgb' as const, r: 220, g: 40, b: 40, a: 255 };
 const BLUE = { space: 'rgb' as const, r: 40, g: 60, b: 220, a: 255 };
 const BLACK = { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 };
 const WHITE = { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 };
+const VISUAL_FONT_FAMILY = 'IBM Plex Sans Variable';
 
 // Inline SVG keeps the image-fill fixture self-contained while still
 // exercising the production ImageCache → HTMLImageElement → drawImage path.
@@ -97,7 +98,7 @@ export const FIXTURES: VisualFixture[] = [
           kind: 'text',
           text: 'Ag',
           fontSize: 32,
-          fontFamily: 'sans-serif',
+          fontFamily: VISUAL_FONT_FAMILY,
           fontWeight: 700,
           fontStyle: 'normal',
           textAlign: 'left',
@@ -283,7 +284,7 @@ export const FIXTURES: VisualFixture[] = [
           kind: 'text',
           text: 'Latin office — ﬁ ﬂ · Arabic: العربية بالعربية',
           fontSize: 28,
-          fontFamily: 'sans-serif',
+          fontFamily: VISUAL_FONT_FAMILY,
           fontWeight: 400,
           fontStyle: 'normal',
           textAlign: 'left',
@@ -310,7 +311,7 @@ export const FIXTURES: VisualFixture[] = [
           kind: 'text',
           text: 'עברית RTL — English 123 · हिन्दी नमस्ते',
           fontSize: 28,
-          fontFamily: 'sans-serif',
+          fontFamily: VISUAL_FONT_FAMILY,
           fontWeight: 400,
           fontStyle: 'normal',
           textAlign: 'left',
@@ -337,7 +338,7 @@ export const FIXTURES: VisualFixture[] = [
           kind: 'text',
           text: '日本語の文章 · \u{1F469}\u{1F3FD}\u200D\u{1F4BB} · family: \u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}',
           fontSize: 28,
-          fontFamily: 'sans-serif',
+          fontFamily: VISUAL_FONT_FAMILY,
           fontWeight: 400,
           fontStyle: 'normal',
           textAlign: 'left',
@@ -364,7 +365,7 @@ export const FIXTURES: VisualFixture[] = [
           kind: 'text',
           text: 'Combining: e\u0301 · ZWJ: \u{1F9D1}\u{1F3FE}\u200D\u{1F680} · punctuation: (אבג)',
           fontSize: 28,
-          fontFamily: 'sans-serif',
+          fontFamily: VISUAL_FONT_FAMILY,
           fontWeight: 400,
           fontStyle: 'normal',
           textAlign: 'left',
