@@ -135,6 +135,9 @@ Pipeline invariants (enforced by `scripts/validate-workflows.mjs` +
   pre-signing intermediates.
 - Signing secrets are passed to the exact build step that needs them — never
   persisted through `$GITHUB_ENV`.
+- Every `workflow_run` checkout pins the trusted default branch and sets
+  `persist-credentials: false`; the workflow policy rejects PR-head refs and
+  implicit event refs.
 
 ---
 

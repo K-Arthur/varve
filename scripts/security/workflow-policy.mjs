@@ -37,6 +37,8 @@
  *       backend-deploy workflow must extend the explicit allowlist, never
  *       the deny rule).
  *   17. `permissions: write-all` is never acceptable.
+ *   18. Every `workflow_run` checkout pins the trusted default branch and
+ *       disables credential persistence.
  */
 
 import { load } from 'js-yaml';
@@ -217,6 +219,7 @@ export function auditWorkflow(doc, filename) {
   }
 
   const prCapable = triggersOn('pull_request', doc.on) || triggersOn('pull_request_target', doc.on);
+  const workflowRunCapable = triggersOn('workflow_run', doc.on);
 
   // 2. secrets: inherit is a blanket secret grant.
   const walkObjects = (value, fn) => {
@@ -290,6 +293,33 @@ export function auditWorkflow(doc, filename) {
           `${base}: ${name} job references non-default secrets (${foreign.join(', ')}) ` +
             'from a pull_request-capable workflow — forked code must never see repo secrets',
         );
+      }
+    }
+  }
+
+  // 18. workflow_run is privileged and must never execute the triggering
+  // workflow's PR head. A checkout without an explicit trusted ref defaults
+  // to the event's ref, and persisted credentials would leave a token in the
+  // workspace for later steps. Keep the allowlist intentionally narrow: the
+  // repository's default branch is `master`, while the expression keeps this
+  // safe if the branch is renamed in repository settings.
+  if (workflowRunCapable) {
+    const trustedDefaultRef = '$' + '{{ github.event.repository.default_branch }}';
+    const trustedRefs = new Set(['master', 'refs/heads/master', trustedDefaultRef]);
+    for (const [name, job] of jobEntries(doc)) {
+      if (typeof job !== 'object' || job === null) continue;
+      for (const step of walkSteps(job)) {
+        if (!String(step.uses ?? '').startsWith('actions/checkout')) continue;
+        const ref = String(step.with?.ref ?? '').trim();
+        if (!trustedRefs.has(ref)) {
+          errors.push(
+            `${base}: ${name} workflow_run checkout must pin ref to the trusted default branch`,
+          );
+        }
+        const persist = step.with?.['persist-credentials'] ?? step.with?.persistCredentials;
+        if (persist !== false) {
+          errors.push(`${base}: ${name} workflow_run checkout must set persist-credentials: false`);
+        }
       }
     }
   }

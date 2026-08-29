@@ -474,6 +474,41 @@ jobs:
   expectViolation(ordinaryCi, 'allowed only on the trusted ci-debug.yml PR-comment job');
 }
 
+function testWorkflowRunCheckoutTrustBoundary() {
+  const safe = `name: Workflow Run Consumer
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: \${{ github.event.repository.default_branch }}
+          persist-credentials: false
+`;
+  expectCleanAudit(auditWorkflowYaml(safe, 'fixture.yml'));
+
+  const noRef = safe.replace(
+    '          ref: ' + '$' + '{{ github.event.repository.default_branch }}\n',
+    '',
+  );
+  expectViolation(noRef, 'workflow_run checkout must pin ref to the trusted default branch');
+
+  const prHead = safe.replace(
+    'github.event.repository.default_branch',
+    'github.event.workflow_run.head_sha',
+  );
+  expectViolation(prHead, 'workflow_run checkout must pin ref to the trusted default branch');
+
+  const persisted = safe.replace('persist-credentials: false', 'persist-credentials: true');
+  expectViolation(persisted, 'workflow_run checkout must set persist-credentials: false');
+}
+
 testPullRequestTargetRejected();
 testSecretsInheritRejected();
 testSigningSecretOutsideReleaseRejected();
@@ -501,5 +536,6 @@ testMisIndentedTopLevelKeyRejected();
 testCompliantReleaseFixtureClean();
 testRealWorkflowsPass();
 testPrCommentWriteScope();
+testWorkflowRunCheckoutTrustBoundary();
 
-console.log('workflow-policy tests passed (27 scenarios).');
+console.log('workflow-policy tests passed (30 scenarios).');

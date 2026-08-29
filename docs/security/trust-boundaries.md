@@ -375,16 +375,19 @@ credentials, DNS credentials, or backend secrets — a future edit that tries
 ### `workflow_run` audit (§29–30)
 
 - `website-deploy.yml`'s `workflow_run` on **Release**: gated on
-  `conclusion == 'success'`, and the job checks out `ref: master` — the
-  protected default branch — never the tag or the triggering run's workspace.
-  The site is built from master; release data comes from the GitHub API.
+  `conclusion == 'success'`, and every checkout pins the repository default
+  branch — the protected default branch — never the tag or the triggering
+  run's workspace. The site is built from the default branch; release data
+  comes from the GitHub API.
 - `ci-debug.yml`'s `workflow_run`: checks out only the trusted default branch,
   reads the completed run metadata, and posts comments from the separate
   `post-pr-comment` job. Ordinary PR jobs never receive `issues: write`.
   GitHub's security guidance warns that `workflow_run` is privileged and must
   not execute the untrusted pull-request checkout; the workflow-run checkout
   therefore pins `ref` to the repository default branch and disables
-  credential persistence. Both paths are covered by the policy test pass.
+  credential persistence. The workflow policy rejects any future
+  `workflow_run` checkout that omits those protections. Both paths are covered
+  by the policy test pass.
 
 ### Caches and reusable workflows (§31–32)
 
@@ -505,9 +508,10 @@ in git. They are part of the model:
   2026-08-08 in ci-secrets.md §7): a `production-signing` environment with
   required reviewers is the planned upgrade once a second maintainer exists.
 - **`ci-debug.yml` runs on workflow completion of Release**: it reads
-  metadata only and redacts, but it is a `workflow_run` consumer — its
-  behavior is pinned by the exact workflow-name list, which must stay in sync
-  if workflows are renamed.
+  metadata, redacts, and checks out the trusted default branch for report and
+  comment code. It is a `workflow_run` consumer — its behavior is pinned by
+  the exact workflow-name list, which must stay in sync if workflows are
+  renamed.
 - **GitHub environment branch/tag policies** are owner-configurable; nothing
   in git can force them to exist.
 - **The canary and artifact scans cover text artifacts**; binary-string
