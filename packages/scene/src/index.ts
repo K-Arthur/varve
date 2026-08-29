@@ -118,6 +118,7 @@ export * from './retouchRaster';
 export * from './richTextIndex';
 export * from './richTextOps';
 export * from './savedAreaSelection';
+export * from './selectedPaints';
 export * from './selectionSet';
 export * from './sha256';
 export * from './smartFilters';
