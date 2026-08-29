@@ -96,6 +96,43 @@ describe('adjustment normalization', () => {
     });
   });
 
+  it('uses the shared Image Treatment schema for defaults and safe numeric ranges', () => {
+    const result = normalizeAdjustmentStack(
+      [
+        {
+          id: 'grain-1',
+          kind: 'grain',
+          strength: -5,
+          scale: 100,
+          character: Number.POSITIVE_INFINITY,
+          seed: 99999999999,
+        },
+        {
+          id: 'edge-1',
+          kind: 'edgeFalloff',
+          strength: -999,
+          centerX: 2,
+          centerY: Number.NaN,
+        },
+      ],
+      'image-node',
+    );
+
+    expect(result.adjustments[0]).toMatchObject({
+      kind: 'grain',
+      strength: 0,
+      scale: 4,
+      character: 50,
+      seed: 4294967295,
+    });
+    expect(result.adjustments[1]).toMatchObject({
+      kind: 'edgeFalloff',
+      strength: -100,
+      centerX: 1,
+      centerY: 0.5,
+    });
+  });
+
   it('drops unknown entries and repairs adjustment stacks at the codec boundary', () => {
     const doc = createDocument('Malformed adjustments', true);
     const adjustmentNode = makeAdjustmentNode('layer-1', 'levels', {

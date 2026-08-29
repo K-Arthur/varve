@@ -710,6 +710,60 @@ let imageLookupForCurrentReplay: ((src: string) => CanvasImageSource | undefined
 let effectMaskResolverForCurrentReplay: EffectMaskResolver | null = null;
 let imagePolicyForCurrentReplay: ReplayImagePolicy | undefined;
 
+type ReplayAffine = readonly [number, number, number, number, number, number];
+
+function multiplyReplayAffine(left: ReplayAffine, right: ReplayAffine): ReplayAffine {
+  return [
+    left[0] * right[0] + left[2] * right[1],
+    left[1] * right[0] + left[3] * right[1],
+    left[0] * right[2] + left[2] * right[3],
+    left[1] * right[2] + left[3] * right[3],
+    left[0] * right[4] + left[2] * right[5] + left[4],
+    left[1] * right[4] + left[3] * right[5] + left[5],
+  ];
+}
+
+function invertReplayAffine(matrix: ReplayAffine): ReplayAffine | undefined {
+  const determinant = matrix[0] * matrix[3] - matrix[1] * matrix[2];
+  if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-10) return undefined;
+  const inverse = 1 / determinant;
+  return [
+    matrix[3] * inverse,
+    -matrix[1] * inverse,
+    -matrix[2] * inverse,
+    matrix[0] * inverse,
+    (matrix[2] * matrix[5] - matrix[3] * matrix[4]) * inverse,
+    (matrix[1] * matrix[4] - matrix[0] * matrix[5]) * inverse,
+  ];
+}
+
+/**
+ * Build object-local treatment coordinates for an isolated filter surface.
+ * The surface itself is viewport-sized, but the treatments must evaluate in
+ * the item's local space so grain, edge falloff, and spatial radii do not
+ * change when the camera or object rotation changes.
+ */
+function treatmentSpaceForReplayItem(
+  camera: { a: number; b: number; c: number; d: number; e: number; f: number },
+  item: RenderItem,
+) {
+  const cameraAffine: ReplayAffine = [camera.a, camera.b, camera.c, camera.d, camera.e, camera.f];
+  const inverseCamera = invertReplayAffine(cameraAffine);
+  const inverseItem = invertReplayAffine(item.transform);
+  const bounds = primitiveBounds(item.primitive);
+  if (!inverseCamera || !inverseItem || bounds.w <= 0 || bounds.h <= 0) return undefined;
+
+  const localToDevice = multiplyReplayAffine(cameraAffine, item.transform);
+  const scaleX = Math.hypot(localToDevice[0], localToDevice[1]);
+  const scaleY = Math.hypot(localToDevice[2], localToDevice[3]);
+  const pixelsPerUnit = Math.max(0.01, Math.sqrt(scaleX * scaleY));
+  return {
+    pixelToTreatment: multiplyReplayAffine(inverseItem, inverseCamera),
+    bounds: { x: bounds.x, y: bounds.y, width: bounds.w, height: bounds.h },
+    pixelsPerUnit,
+  };
+}
+
 function replayItemOnIsolatedSurface(
   target: ReplayTarget,
   item: RenderItem,
@@ -770,6 +824,7 @@ function replayItemOnIsolatedSurface(
     item.filters ?? [],
     canvas.width,
     canvas.height,
+    { treatmentSpace: treatmentSpaceForReplayItem(matrix, item) },
   );
 
   if (needsLinearBlend && target.getImageData && target.putImageData) {
@@ -1081,12 +1136,15 @@ export function replayIr(
             } catch {
               coordSpace = undefined;
             }
+            const treatmentSpace = targetCanvas.getTransform
+              ? treatmentSpaceForReplayItem(targetCanvas.getTransform(), item)
+              : undefined;
             applyFilterWithCompositing(
               targetCanvas,
               complexFilters,
               targetCanvas.canvas?.width ?? 100,
               targetCanvas.canvas?.height ?? 100,
-              { coordSpace },
+              { coordSpace, treatmentSpace },
             );
           }
         }

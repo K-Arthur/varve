@@ -244,6 +244,7 @@ export async function exportNodeAsRaster(
     rootIds: [node.id],
     flattenedIds: flattened.ids,
     items: ir,
+    quality: 'export',
   });
 
   // Canonical post-render processing (resize → sharpen → colour → dither).

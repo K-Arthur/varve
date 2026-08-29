@@ -137,6 +137,12 @@ export async function exportRasterizedSubtree(
   if (filters.length > 0) {
     applyFilterWithCompositing(context as CanvasRenderingContext2D, filters, expPixelW, expPixelH, {
       quality: 'export',
+      coordSpace: { scale, originX: 0, originY: 0, regionX: 0, regionY: 0 },
+      treatmentSpace: {
+        pixelToTreatment: [1 / scale, 0, 0, 1 / scale, -expL, -expT],
+        bounds: { x: 0, y: 0, width: cssWidth, height: cssHeight },
+        pixelsPerUnit: scale,
+      },
     });
   }
 
@@ -197,6 +203,12 @@ export function exportRasterizedSubtreeSync(
   if (filters.length > 0) {
     applyFilterWithCompositing(context as CanvasRenderingContext2D, filters, expPixelW, expPixelH, {
       quality: 'export',
+      coordSpace: { scale, originX: 0, originY: 0, regionX: 0, regionY: 0 },
+      treatmentSpace: {
+        pixelToTreatment: [1 / scale, 0, 0, 1 / scale, -expL, -expT],
+        bounds: { x: 0, y: 0, width: cssWidth, height: cssHeight },
+        pixelsPerUnit: scale,
+      },
     });
   }
 

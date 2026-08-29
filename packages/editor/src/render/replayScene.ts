@@ -20,6 +20,7 @@ import {
   CompositeCanvas,
   createRasterSurface,
   type EffectMaskResolver,
+  type EffectQuality,
   gaussianBlurSeparable,
   getImageCache,
   mapBlendMode,
@@ -38,6 +39,11 @@ import { managedColorToRgba, tryInvertAffine } from '@varve/shared';
 import { applyAdjustmentSpatialMask } from '../canvas/maskReplay';
 import { nodeWorldTransform } from '../scene/world';
 import { alphaBounds } from './surfaceBounds';
+import {
+  documentTreatmentSpaceForCapture,
+  objectTreatmentSpaceForCapture,
+  pixelToDocumentFromCapture,
+} from './treatmentSpace';
 
 type SceneContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -48,6 +54,8 @@ export interface StructuredReplayInput {
   items: readonly RenderItem[];
   /** Extra items painted right after a frame's own item (mockup surfaces). */
   extrasByNodeId?: ReadonlyMap<NodeId, readonly RenderItem[]>;
+  /** Export forces full-quality live-treatment kernels. */
+  quality?: EffectQuality;
 }
 
 function setMatrix(context: SceneContext, matrix: DOMMatrix): void {
@@ -655,11 +663,28 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
         }
         replayChildren(nodeId, surfaceContext as unknown as SceneContext);
         surfaceContext.restore();
+        const framePixelToDocument = [
+          1 / renderScale,
+          0,
+          0,
+          1 / renderScale,
+          minX - expL,
+          minY - expT,
+        ] as const;
         applyFilterWithCompositing(
           surfaceContext as unknown as CanvasRenderingContext2D,
           smartFilters,
-          surface.width,
-          surface.height,
+          surface.canvas.width,
+          surface.canvas.height,
+          {
+            quality: input.quality,
+            treatmentSpace: objectTreatmentSpaceForCapture(framePixelToDocument, frameTransform, {
+              x: sourceBounds.x,
+              y: sourceBounds.y,
+              width: sourceBounds.w,
+              height: sourceBounds.h,
+            }),
+          },
         );
 
         target.save();
@@ -776,11 +801,28 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
           // before the node's outer effects and parent opacity/blend. This is
           // intentionally separate from adjustment-layer backdrop capture.
           if (smartFilters.length > 0) {
+            const groupPixelToDocument = [
+              1 / renderScale,
+              0,
+              0,
+              1 / renderScale,
+              minX - padding,
+              minY - padding,
+            ] as const;
             applyFilterWithCompositing(
               gCtx as unknown as CanvasRenderingContext2D,
               smartFilters,
-              gCanvas.width,
-              gCanvas.height,
+              gCanvas.canvas.width,
+              gCanvas.canvas.height,
+              {
+                quality: input.quality,
+                treatmentSpace: documentTreatmentSpaceForCapture(groupPixelToDocument, {
+                  x: minX,
+                  y: minY,
+                  width: maxX - minX,
+                  height: maxY - minY,
+                }),
+              },
             );
           }
 
@@ -1006,12 +1048,24 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       }
 
       const bCtx = backdrop.context;
+      const pixelToDocument = pixelToDocumentFromCapture(cam, bx, by);
       applyFilterWithCompositing(
         bCtx as CanvasRenderingContext2D,
         adjFilters,
         backdrop.canvas.width,
         backdrop.canvas.height,
-        { coordSpace },
+        {
+          quality: input.quality,
+          coordSpace,
+          treatmentSpace: pixelToDocument
+            ? documentTreatmentSpaceForCapture(pixelToDocument, {
+                x: minX,
+                y: minY,
+                width: maxX - minX,
+                height: maxY - minY,
+              })
+            : undefined,
+        },
       );
 
       // Spatial mask: limits WHERE the adjustment result is visible (scope

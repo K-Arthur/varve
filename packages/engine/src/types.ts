@@ -971,6 +971,59 @@ export type FilterIR =
       opacity: number;
       blendMode: string;
     }
+  | {
+      kind: 'microDetail';
+      amount: number;
+      threshold: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'definition';
+      amount: number;
+      radius: number;
+      protectHighlights: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'atmosphere';
+      amount: number;
+      radius: number;
+      protectHighlights: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'edgeFalloff';
+      strength: number;
+      midpoint: number;
+      feather: number;
+      roundness: number;
+      centerX: number;
+      centerY: number;
+      highlightProtection: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'grain';
+      strength: number;
+      scale: number;
+      character: number;
+      seed: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'softBloom';
+      strength: number;
+      radius: number;
+      threshold: number;
+      softness: number;
+      opacity: number;
+      blendMode: string;
+    }
   | { kind: 'temperature'; value: number; opacity: number; blendMode: string }
   | { kind: 'tint'; value: number; opacity: number; blendMode: string }
   | { kind: 'vibrance'; value: number; opacity: number; blendMode: string }

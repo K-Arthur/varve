@@ -328,12 +328,14 @@ export {
 export type { SharpenImageOptions, SharpenResult } from './exportPipeline/sharpen';
 export { sharpenImageData } from './exportPipeline/sharpen';
 export { exportRasterizedSubtree, exportRasterizedSubtreeSync } from './exportRasterizedSubtree';
+export type { FilterRenderOptions } from './filterCompositor';
 export { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
 export type {
   Adjustment,
   AdjustmentBase,
   AdjustmentBlendMode,
   AdjustmentKind,
+  AtmosphereAdjustment,
   BlackAndWhiteAdjustment,
   BloomAdjustment,
   BlurAdjustment,
@@ -347,8 +349,10 @@ export type {
   CrtAdjustment,
   CurvesAdjustment,
   CurvesPoint,
+  DefinitionAdjustment,
   DitherAdjustment,
   DuotoneAdjustment,
+  EdgeFalloffAdjustment,
   EmbeddedGradientColorStop,
   EmbeddedGradientOpacityStop,
   EmbeddedGradientPreset,
@@ -356,6 +360,7 @@ export type {
   GradientMapAdjustment,
   GradientMapOpacityStop,
   GradientMapStop,
+  GrainAdjustment,
   GrayscaleAdjustment,
   HalftoneAdjustment,
   HueRotateAdjustment,
@@ -366,6 +371,7 @@ export type {
   LightLeakAdjustment,
   LightShaftsAdjustment,
   LutAdjustment,
+  MicroDetailAdjustment,
   OpacityAdjustment,
   PaletteSnapAdjustment,
   PhotoFilterAdjustment,
@@ -376,6 +382,7 @@ export type {
   SepiaAdjustment,
   ShadowHighlightAdjustment,
   SharpenAdjustment,
+  SoftBloomAdjustment,
   TemperatureAdjustment,
   ThresholdAdjustment,
   TintAdjustment,
@@ -577,6 +584,7 @@ export {
   unregisterImageResourceHandle,
   walkTableCellContents,
 } from './imageResourceRegistry';
+export * from './imageTreatments';
 export type {
   DownloadProgress,
   EmbeddingCacheOptions,
@@ -725,6 +733,7 @@ export {
   depthToHeatmapImageData,
 } from './lensBlur';
 export * from './liveEffects';
+export type { EffectQuality, EffectQualityParam } from './liveEffects/quality';
 export type {
   Lut1D,
   Lut3D,

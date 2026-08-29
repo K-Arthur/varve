@@ -251,6 +251,48 @@ const FILTER_PROPERTIES: Record<string, FilterProperties> = {
     hasCssPath: false,
     requiresRasterExport: true,
   },
+  microDetail: {
+    name: 'Micro Detail',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  definition: {
+    name: 'Definition',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  atmosphere: {
+    name: 'Atmosphere',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  edgeFalloff: {
+    name: 'Edge Falloff',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  grain: {
+    name: 'Grain',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  softBloom: {
+    name: 'Soft Bloom',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
   temperature: {
     name: 'Temperature',
     capabilities: ['software-cpu'],
@@ -505,6 +547,20 @@ export function effectPixelExpansion(filter: FilterIR): [number, number, number,
         Math.ceil(filter.radius),
       ];
     case 'sharpen': {
+      const r = Math.ceil(filter.radius);
+      return [r, r, r, r];
+    }
+    case 'microDetail':
+      return [1, 1, 1, 1];
+    case 'definition': {
+      const r = Math.ceil(filter.radius);
+      return [r, r, r, r];
+    }
+    case 'atmosphere': {
+      const r = Math.ceil(filter.radius);
+      return [r, r, r, r];
+    }
+    case 'softBloom': {
       const r = Math.ceil(filter.radius);
       return [r, r, r, r];
     }

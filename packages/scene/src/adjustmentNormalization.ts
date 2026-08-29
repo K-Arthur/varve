@@ -13,6 +13,8 @@ import {
   type AdjustmentBlendMode,
   type AdjustmentKind,
   adjustmentDefaults,
+  imageTreatmentParameter,
+  isImageTreatmentKind,
   isKnownAdjustmentKind,
 } from '@varve/engine';
 
@@ -125,6 +127,10 @@ function finiteNumber(value: unknown, fallback: number, min = -4096, max = 4096)
 function numberRange(kind: AdjustmentKind, key: string): [number, number] {
   if (key === 'opacity') return [0, 1];
   if (key === 'id') return [0, 0];
+  if (isImageTreatmentKind(kind)) {
+    const parameter = imageTreatmentParameter(kind, key);
+    if (parameter) return [parameter.min, parameter.max];
+  }
   return KIND_NUMERIC_RANGES[kind]?.[key] ?? [-4096, 4096];
 }
 

@@ -8,6 +8,16 @@
  * Research basis: CSS filter functions, SVG filters, Photoshop adjustment layers.
  */
 
+import {
+  type AtmosphereParams,
+  type DefinitionParams,
+  type EdgeFalloffParams,
+  type GrainParams,
+  IMAGE_TREATMENT_KINDS,
+  imageTreatmentDefaults,
+  type MicroDetailParams,
+  type SoftBloomParams,
+} from './imageTreatments';
 import type { BloomComposite } from './liveEffects/bloom';
 import type { CausticsOutput } from './liveEffects/caustics';
 import type { PhosphorMask } from './liveEffects/crt';
@@ -69,6 +79,7 @@ export const ADJUSTMENT_KINDS = [
   'lensFlare',
   'lightLeak',
   'caustics',
+  ...IMAGE_TREATMENT_KINDS,
 ] as const;
 
 export type AdjustmentKind = (typeof ADJUSTMENT_KINDS)[number];
@@ -664,6 +675,36 @@ export interface ShadowHighlightAdjustment extends AdjustmentBase {
   midpoint: number;
 }
 
+/** Fine-scale, edge-aware luminance texture treatment. */
+export interface MicroDetailAdjustment extends AdjustmentBase, MicroDetailParams {
+  kind: 'microDetail';
+}
+
+/** Medium-scale local contrast treatment. */
+export interface DefinitionAdjustment extends AdjustmentBase, DefinitionParams {
+  kind: 'definition';
+}
+
+/** Broad local-depth / haze-style treatment. */
+export interface AtmosphereAdjustment extends AdjustmentBase, AtmosphereParams {
+  kind: 'atmosphere';
+}
+
+/** Object-coordinate edge-lighting treatment. */
+export interface EdgeFalloffAdjustment extends AdjustmentBase, EdgeFalloffParams {
+  kind: 'edgeFalloff';
+}
+
+/** Deterministic photographic grain treatment. */
+export interface GrainAdjustment extends AdjustmentBase, GrainParams {
+  kind: 'grain';
+}
+
+/** Compact highlight-diffusion treatment backed by the shared bloom kernel. */
+export interface SoftBloomAdjustment extends AdjustmentBase, SoftBloomParams {
+  kind: 'softBloom';
+}
+
 export type Adjustment =
   | BrightnessAdjustment
   | ContrastAdjustment
@@ -705,7 +746,13 @@ export type Adjustment =
   | LensFlareAdjustment
   | LightLeakAdjustment
   | CausticsAdjustment
-  | ShadowHighlightAdjustment;
+  | ShadowHighlightAdjustment
+  | MicroDetailAdjustment
+  | DefinitionAdjustment
+  | AtmosphereAdjustment
+  | EdgeFalloffAdjustment
+  | GrainAdjustment
+  | SoftBloomAdjustment;
 
 export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
   const base = { opacity: adjustment.opacity, blendMode: adjustment.blendMode };
@@ -1136,6 +1183,59 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         midpoint: adjustment.midpoint,
         ...base,
       };
+    case 'microDetail':
+      return {
+        kind: 'microDetail',
+        amount: adjustment.amount,
+        threshold: adjustment.threshold,
+        ...base,
+      };
+    case 'definition':
+      return {
+        kind: 'definition',
+        amount: adjustment.amount,
+        radius: adjustment.radius,
+        protectHighlights: adjustment.protectHighlights,
+        ...base,
+      };
+    case 'atmosphere':
+      return {
+        kind: 'atmosphere',
+        amount: adjustment.amount,
+        radius: adjustment.radius,
+        protectHighlights: adjustment.protectHighlights,
+        ...base,
+      };
+    case 'edgeFalloff':
+      return {
+        kind: 'edgeFalloff',
+        strength: adjustment.strength,
+        midpoint: adjustment.midpoint,
+        feather: adjustment.feather,
+        roundness: adjustment.roundness,
+        centerX: adjustment.centerX,
+        centerY: adjustment.centerY,
+        highlightProtection: adjustment.highlightProtection,
+        ...base,
+      };
+    case 'grain':
+      return {
+        kind: 'grain',
+        strength: adjustment.strength,
+        scale: adjustment.scale,
+        character: adjustment.character,
+        seed: adjustment.seed,
+        ...base,
+      };
+    case 'softBloom':
+      return {
+        kind: 'softBloom',
+        strength: adjustment.strength,
+        radius: adjustment.radius,
+        threshold: adjustment.threshold,
+        softness: adjustment.softness,
+        ...base,
+      };
     default:
       return { kind: 'opacity', value: 100, opacity: 1, blendMode: 'normal' };
   }
@@ -1209,6 +1309,12 @@ export function filterToCss(filter: FilterIR): string | null {
     case 'lensFlare':
     case 'lightLeak':
     case 'caustics':
+    case 'microDetail':
+    case 'definition':
+    case 'atmosphere':
+    case 'edgeFalloff':
+    case 'grain':
+    case 'softBloom':
       return null; // Live effects are software kernels only; no CSS equivalent
     case 'chain':
       return filterChainToCss(filter.filters);
@@ -1288,6 +1394,18 @@ export function filterKindDisplayName(kind: AdjustmentKind): string {
       return 'Light Leak';
     case 'caustics':
       return 'Caustics';
+    case 'microDetail':
+      return 'Micro Detail';
+    case 'definition':
+      return 'Definition';
+    case 'atmosphere':
+      return 'Atmosphere';
+    case 'edgeFalloff':
+      return 'Edge Falloff';
+    case 'grain':
+      return 'Grain';
+    case 'softBloom':
+      return 'Soft Bloom';
     default:
       return kind.charAt(0).toUpperCase() + kind.slice(1);
   }
@@ -1657,6 +1775,13 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         tileable: false,
         quality: 'auto',
       } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'microDetail':
+    case 'definition':
+    case 'atmosphere':
+    case 'edgeFalloff':
+    case 'grain':
+    case 'softBloom':
+      return { ...base, ...imageTreatmentDefaults(kind) } as Omit<Adjustment, 'id' | 'kind'>;
     default:
       return { ...base } as Omit<Adjustment, 'id' | 'kind'>;
   }

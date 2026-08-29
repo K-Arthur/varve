@@ -76,6 +76,10 @@ import {
 } from '../render/perspectiveImage';
 import { alphaBounds } from '../render/surfaceBounds';
 import {
+  documentTreatmentSpaceForCapture,
+  pixelToDocumentFromCapture,
+} from '../render/treatmentSpace';
+import {
   collectMasterOffsets,
   offsetWorldBounds,
   offsetWorldTransform,
@@ -1678,8 +1682,18 @@ export function renderContent(deps: RenderContentDeps): void {
 
         const bCtx = backdrop.getContext('2d');
         if (!bCtx) return;
+        const treatmentCamera = targetCtx.getTransform();
+        const pixelToDocument = pixelToDocumentFromCapture(treatmentCamera, bx, by);
         applyFilterWithCompositing(bCtx, adjFilters, backdrop.width, backdrop.height, {
           coordSpace,
+          treatmentSpace: pixelToDocument
+            ? documentTreatmentSpaceForCapture(pixelToDocument, {
+                x: minX,
+                y: minY,
+                width: maxX - minX,
+                height: maxY - minY,
+              })
+            : undefined,
         });
 
         // Spatial mask: the adjustment's own mask limits WHERE the filtered

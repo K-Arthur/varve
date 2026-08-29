@@ -89,6 +89,36 @@ describe('adjustmentToFilter', () => {
 });
 
 describe('new adjustment kinds', () => {
+  it('creates and maps the curated Image Treatment kinds through the shared adjustment model', () => {
+    const cases = [
+      ['microDetail', { amount: 32, threshold: 0.2 }],
+      ['definition', { amount: 32, radius: 18, protectHighlights: 0.4 }],
+      ['atmosphere', { amount: -25, radius: 40, protectHighlights: 0.7 }],
+      [
+        'edgeFalloff',
+        {
+          strength: -35,
+          midpoint: 42,
+          feather: 66,
+          roundness: 10,
+          centerX: 0.45,
+          centerY: 0.55,
+          highlightProtection: 30,
+        },
+      ],
+      ['grain', { strength: 28, scale: 1.2, character: 64, seed: 12 }],
+      ['softBloom', { strength: 40, radius: 28, threshold: 0.7, softness: 0.3 }],
+    ] as const;
+
+    for (const [kind, values] of cases) {
+      const adjustment = makeAdjustment(`treatment-${kind}`, kind, values);
+      const filter = adjustmentToFilter(adjustment);
+      expect(filter.kind).toBe(kind);
+      expect(filterToCss(filter)).toBeNull();
+      expect(filterKindDisplayName(kind)).not.toBe(kind);
+    }
+  });
+
   it('makeAdjustment for duotone produces fully-populated DuotoneAdjustment', () => {
     const adj = makeAdjustment('d1', 'duotone') as import('./filters').DuotoneAdjustment;
     expect(adj.kind).toBe('duotone');

@@ -36,6 +36,15 @@ import {
   type HalftoneMethod,
   type HalftonePattern,
 } from './halftone';
+import type { ImageTreatmentSpace } from './imageTreatments';
+import {
+  applyAtmosphere,
+  applyDefinition,
+  applyEdgeFalloff,
+  applyGrain,
+  applyMicroDetail,
+  applySoftBloom,
+} from './imageTreatments';
 import { applyBloom } from './liveEffects/bloom';
 import { applyCaustics } from './liveEffects/caustics';
 import { applyCrt } from './liveEffects/crt';
@@ -64,6 +73,8 @@ import type { FilterIR } from './types';
 export interface FilterRenderOptions {
   quality?: EffectQuality;
   coordSpace?: CoordSpace;
+  /** Stable object/source or document-space metadata for Image Treatments. */
+  treatmentSpace?: ImageTreatmentSpace;
 }
 
 /**
@@ -318,6 +329,36 @@ export function applySoftwareFilter(
       ctx.putImageData(imageData, 0, 0);
       break;
     }
+    case 'microDetail': {
+      applyMicroDetail(imageData, filter, options);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'definition': {
+      applyDefinition(imageData, filter, options);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'atmosphere': {
+      applyAtmosphere(imageData, filter, options);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'edgeFalloff': {
+      applyEdgeFalloff(imageData, filter, options);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'grain': {
+      applyGrain(imageData, filter, options);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'softBloom': {
+      applySoftBloom(imageData, filter, options);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
     case 'temperature': {
       const tf = filter as { value: number };
       applyTemperature(imageData, tf.value ?? 0);
@@ -500,7 +541,7 @@ export function applySoftwareFilter(
       break;
     }
     case 'chain': {
-      for (const child of filter.filters) applySoftwareFilter(ctx, child, width, height);
+      for (const child of filter.filters) applySoftwareFilter(ctx, child, width, height, options);
       break;
     }
     case 'gradientMap': {

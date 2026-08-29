@@ -935,6 +935,7 @@ async function renderBoundaryToSurface(
         rootIds: [nodeId],
         flattenedIds: flattened.ids,
         items: ir,
+        quality: 'export',
       });
     },
     qualityScale: exportScale,
@@ -967,6 +968,7 @@ async function renderBoundaryToSurface(
     flattenedIds: flattened.ids,
     items: ir,
     extrasByNodeId: decorated.extrasByNodeId,
+    quality: 'export',
   });
   ctx.restore();
 }
