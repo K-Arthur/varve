@@ -306,52 +306,203 @@ export function moveNode(doc: Document, id: NodeId, toIndex: number): Document {
  * No-op when the node is already at the boundary or not found.
  */
 export function arrangeNode(doc: Document, id: NodeId, op: ArrangeOp): Document {
-  const parentId = getParent(doc, id);
-  if (parentId) {
-    const parent = doc.nodes[parentId];
-    if (!parent || !isContainer(parent)) return doc;
-    const siblings = parent.children;
-    const from = siblings.indexOf(id);
-    if (from < 0) return doc;
-    let to = 0;
-    switch (op) {
-      case 'front':
-        to = siblings.length - 1;
-        break;
-      case 'back':
-        to = 0;
-        break;
-      case 'forward':
-        to = from + 1;
-        break;
-      case 'backward':
-        to = from - 1;
-        break;
-    }
-    if (to === from || to < 0 || to >= siblings.length) return doc;
-    return moveChild(doc, parentId, id, to);
-  } else {
-    const siblings = doc.rootChildren;
-    const from = siblings.indexOf(id);
-    if (from < 0) return doc;
-    let to = 0;
-    switch (op) {
-      case 'front':
-        to = siblings.length - 1;
-        break;
-      case 'back':
-        to = 0;
-        break;
-      case 'forward':
-        to = from + 1;
-        break;
-      case 'backward':
-        to = from - 1;
-        break;
-    }
-    if (to === from || to < 0 || to >= siblings.length) return doc;
-    return moveNode(doc, id, to);
+  return arrangeNodes(doc, [id], op);
+}
+
+/**
+ * Arrange a selection within each node's current sibling list.
+ *
+ * A selection is treated as a stable block: adjacent selections cross one
+ * unselected sibling together for forward/backward operations, and selected
+ * relative order is retained for front/back. Nodes in separate containers are
+ * arranged independently, so this operation never reparents content.
+ *
+ * Locked nodes (including nodes locked by an ancestor), mask-source nodes,
+ * missing nodes, and descendants of another selected node are excluded. The
+ * latter prevents a selected container and its selected child from receiving
+ * independent structural mutations in a single command.
+ */
+export function arrangeNodes(doc: Document, ids: readonly NodeId[], op: ArrangeOp): Document {
+  if (ids.length === 0) return doc;
+
+  const parentIndex = buildArrangeParentIndex(doc);
+  const requested = new Set(ids.filter((id) => doc.nodes[id] !== undefined));
+  const selected = new Set<NodeId>();
+  for (const id of requested) {
+    if (hasSelectedAncestor(id, requested, parentIndex)) continue;
+    if (isEffectivelyLocked(doc, id, parentIndex)) continue;
+    if (isMaskSource(doc, id, parentIndex)) continue;
+    selected.add(id);
   }
+  if (selected.size === 0) return doc;
+
+  const selectionByParent = new Map<NodeId | null, Set<NodeId>>();
+  for (const id of selected) {
+    const parentId = parentIndex.get(id) ?? null;
+    const siblings = parentId
+      ? doc.nodes[parentId] && isContainer(doc.nodes[parentId])
+        ? doc.nodes[parentId].children
+        : null
+      : doc.rootChildren;
+    if (!siblings?.includes(id)) continue;
+    const siblingsSelection = selectionByParent.get(parentId) ?? new Set<NodeId>();
+    siblingsSelection.add(id);
+    selectionByParent.set(parentId, siblingsSelection);
+  }
+
+  let rootChildren = doc.rootChildren;
+  let nodes = doc.nodes;
+  let changed = false;
+
+  for (const [parentId, siblingSelection] of selectionByParent) {
+    const parent = parentId ? nodes[parentId] : null;
+    const siblings = parentId
+      ? parent && isContainer(parent)
+        ? parent.children
+        : null
+      : rootChildren;
+    if (!siblings) continue;
+
+    const next = arrangeSiblingIds(siblings, siblingSelection, op);
+    if (sameOrder(siblings, next)) continue;
+
+    const movedIds = new Set(
+      next.filter((id, index) => siblingSelection.has(id) && siblings[index] !== id),
+    );
+    if (movedIds.size === 0) continue;
+
+    changed = true;
+    if (parentId) {
+      nodes = { ...nodes, [parentId]: { ...parent!, children: next } as SceneNode };
+    } else {
+      rootChildren = next;
+    }
+    nodes = updateMovedOrderKeys(nodes, next, movedIds);
+  }
+
+  return changed ? { ...doc, rootChildren, nodes } : doc;
+}
+
+function arrangeSiblingIds(
+  siblings: readonly NodeId[],
+  selected: ReadonlySet<NodeId>,
+  op: ArrangeOp,
+): NodeId[] {
+  switch (op) {
+    case 'front':
+      return [
+        ...siblings.filter((id) => !selected.has(id)),
+        ...siblings.filter((id) => selected.has(id)),
+      ];
+    case 'back':
+      return [
+        ...siblings.filter((id) => selected.has(id)),
+        ...siblings.filter((id) => !selected.has(id)),
+      ];
+    case 'forward': {
+      const next = [...siblings];
+      for (let index = next.length - 2; index >= 0; index--) {
+        const current = next[index];
+        const following = next[index + 1];
+        if (current && following && selected.has(current) && !selected.has(following)) {
+          next[index] = following;
+          next[index + 1] = current;
+        }
+      }
+      return next;
+    }
+    case 'backward': {
+      const next = [...siblings];
+      for (let index = 1; index < next.length; index++) {
+        const previous = next[index - 1];
+        const current = next[index];
+        if (previous && current && !selected.has(previous) && selected.has(current)) {
+          next[index - 1] = current;
+          next[index] = previous;
+        }
+      }
+      return next;
+    }
+  }
+}
+
+function updateMovedOrderKeys(
+  nodes: Document['nodes'],
+  siblings: readonly NodeId[],
+  movedIds: ReadonlySet<NodeId>,
+): Document['nodes'] {
+  let nextNodes = nodes;
+  for (let index = 0; index < siblings.length; index++) {
+    const id = siblings[index];
+    if (!id || !movedIds.has(id)) continue;
+    const node = nextNodes[id];
+    if (!node) continue;
+    const previousId = siblings[index - 1];
+    const followingId = siblings[index + 1];
+    const previous = previousId ? nextNodes[previousId] : undefined;
+    const following = followingId ? nextNodes[followingId] : undefined;
+    nextNodes = {
+      ...nextNodes,
+      [id]: {
+        ...node,
+        order: generateKeyBetween(previous?.order ?? null, following?.order ?? null),
+      } as SceneNode,
+    };
+  }
+  return nextNodes;
+}
+
+function sameOrder(a: readonly NodeId[], b: readonly NodeId[]): boolean {
+  return a.length === b.length && a.every((id, index) => id === b[index]);
+}
+
+function hasSelectedAncestor(
+  id: NodeId,
+  selected: ReadonlySet<NodeId>,
+  parentIndex: ReadonlyMap<NodeId, NodeId>,
+): boolean {
+  const visited = new Set<NodeId>([id]);
+  let parentId = parentIndex.get(id);
+  while (parentId && !visited.has(parentId)) {
+    if (selected.has(parentId)) return true;
+    visited.add(parentId);
+    parentId = parentIndex.get(parentId);
+  }
+  return false;
+}
+
+function isEffectivelyLocked(
+  doc: Document,
+  id: NodeId,
+  parentIndex: ReadonlyMap<NodeId, NodeId>,
+): boolean {
+  const visited = new Set<NodeId>();
+  let current: NodeId | undefined = id;
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    if (doc.nodes[current]?.locked) return true;
+    current = parentIndex.get(current);
+  }
+  return false;
+}
+
+function isMaskSource(
+  doc: Document,
+  id: NodeId,
+  parentIndex: ReadonlyMap<NodeId, NodeId>,
+): boolean {
+  const parentId = parentIndex.get(id);
+  return Boolean(parentId && doc.nodes[parentId]?.mask?.sourceNodeId === id);
+}
+
+/** Build one parent map for a batched arrangement command. */
+function buildArrangeParentIndex(doc: Document): Map<NodeId, NodeId> {
+  const parentIndex = new Map<NodeId, NodeId>();
+  for (const node of Object.values(doc.nodes)) {
+    if (!isContainer(node)) continue;
+    for (const childId of node.children) parentIndex.set(childId, node.id);
+  }
+  return parentIndex;
 }
 
 /** Move a nested child within its parent's children array. Also updates `order` field. */

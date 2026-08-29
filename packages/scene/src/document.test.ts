@@ -734,10 +734,12 @@ describe('arrangeNodes', () => {
     const { id: frameId, doc: frameDoc } = nextNodeId(doc);
     doc = addNode(frameDoc, makeFrameNode(frameId, { name: 'Frame' }));
 
-    const children = ['a', 'b', 'c', 'd', 'e'].map((name) => shape(doc, name));
-    for (const child of children) {
+    const children = [];
+    for (const name of ['a', 'b', 'c', 'd', 'e']) {
+      const child = shape(doc, name);
       doc = child.doc;
       doc = addChild(doc, frameId, child.node);
+      children.push(child);
     }
 
     const [a, b, c, d, e] = children.map((child) => child.id);
@@ -751,10 +753,12 @@ describe('arrangeNodes', () => {
     const { id: frameId, doc: frameDoc } = nextNodeId(doc);
     doc = addNode(frameDoc, makeFrameNode(frameId, { name: 'Frame' }));
 
-    const children = ['a', 'b', 'c', 'd', 'e'].map((name) => shape(doc, name));
-    for (const child of children) {
+    const children = [];
+    for (const name of ['a', 'b', 'c', 'd', 'e']) {
+      const child = shape(doc, name);
       doc = child.doc;
       doc = addChild(doc, frameId, child.node);
+      children.push(child);
     }
 
     const [a, b, c, d, e] = children.map((child) => child.id);
