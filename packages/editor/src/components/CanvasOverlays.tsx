@@ -11,7 +11,7 @@
 import type { CollabUser } from '@varve/collab';
 import type { Adjustment, MeshWarp } from '@varve/engine';
 import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@varve/scene';
-import { activePageNodes, removeNode, resolveAdjustmentScope, walkNodes } from '@varve/scene';
+import { activePageNodes, resolveAdjustmentScope, walkNodes } from '@varve/scene';
 import type { RulerMode } from '@varve/shared';
 import { isWorldRectInViewport } from '@varve/shared';
 
@@ -96,20 +96,6 @@ export interface CanvasOverlaysProps {
   renameInputRef: React.RefObject<HTMLInputElement | null>;
   artboardRect: { x: number; y: number; w: number; h: number } | null;
   pixelProbe: PixelProbe | null;
-}
-
-/**
- * Whether a text node holds nothing worth keeping once editing ends.
- *
- * Rich content is checked separately from the plain mirror: a node can carry
- * formatted runs while `text` is momentarily behind, and discarding that would
- * destroy real content.
- */
-function isDiscardableEmptyText(node: SceneNode, finalText: string): boolean {
-  if (node.kind !== 'text') return false;
-  if (finalText.trim().length > 0) return false;
-  const richRuns = node.richText?.paragraphs.flatMap((p) => p.runs) ?? [];
-  return richRuns.every((run) => run.text.trim().length === 0);
 }
 
 export function CanvasOverlays({
@@ -387,16 +373,7 @@ export function CanvasOverlays({
           worldX={worldX}
           worldY={worldY}
           worldTransform={textWorldMat}
-          onCommit={(finalText) => {
-            // Clicking with the Text tool creates the node before there is
-            // anything to put in it. Leaving on Escape used to keep that empty
-            // node: invisible on canvas, but a permanent row in the layers
-            // panel, a marquee/hit target, and an exported element.
-            if (isDiscardableEmptyText(n, finalText)) {
-              editor.updateDoc((d) => removeNode(d, textEditTargetId));
-            }
-            setTextEditTargetId(null);
-          }}
+          onCommit={() => setTextEditTargetId(null)}
           onUpdateText={(text) =>
             editor.updateNode(textEditTargetId, (node) =>
               node.kind === 'text' ? { ...node, text } : node,
@@ -511,7 +488,7 @@ export function CanvasOverlays({
           onEditCancel={editor.abortTransaction}
         />
       )}
-      {editor.state.warpEdit && (
+      {tool === 'warp' && editor.state.warpEdit && (
         <WarpOverlay zoom={zoom} pan={pan} cameraRotation={cameraRotation} />
       )}
       {tool === 'perspective' && perspectiveTool && (

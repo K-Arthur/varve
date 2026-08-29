@@ -175,6 +175,14 @@ describe('WarpTool', () => {
     expect(ctx.setTool).toHaveBeenCalledWith('select');
   });
 
+  it('clears the edit surface and aborts an active transaction on deactivate', () => {
+    const tool = new WarpTool();
+    tool.onDeactivate?.(ctx);
+
+    expect(ctx.abortTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.setWarpEdit).toHaveBeenCalledWith(null);
+  });
+
   it('does nothing without a selection', () => {
     const tool = new WarpTool();
     tool.onActivate(ctx);
