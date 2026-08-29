@@ -48,6 +48,14 @@ child does not affect siblings. `smartFiltersEnabled` bypasses the whole local
 stack without deleting it; individual entries retain their enabled state,
 opacity, and blend mode.
 
+The Appearance inspector keeps the full Object Filter catalogue available for
+every compatible rendered object. On non-image objects it also offers an
+**Object Finishing** quick-add route for Grain, Vignette, and Highlight Glow.
+Those are ordinary Object Filters with useful starting values, not a parallel
+effects system: a gray vector rectangle at 50% opacity stays an editable,
+50%-opacity rectangle while its finishing filter is enabled, tuned, bypassed,
+or removed.
+
 An Adjustment Layer resolves one of four serialised scopes:
 
 | Scope | Resolved input |

@@ -36,6 +36,23 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
       </section>
 
       <section class="feature-section">
+        <h2>Image Treatments</h2>
+        <p>
+          Image Treatments bring a smaller, purpose-named set of non-destructive
+          controls to photographs and rendered objects: Fine Texture, Local Contrast,
+          Atmospheric Depth, Dehaze, Vignette, Grain, and Highlight Glow. Image Tuning
+          keeps common image controls together; Object Filters keep advanced ordering,
+          effect opacity, blending, and vector-object use explicit.
+        </p>
+        <p>
+          A gray vector rectangle at 50% opacity can receive Grain, Vignette, or
+          Highlight Glow through Object Finishing without losing its editable fill or
+          opacity. Atmospheric Depth is a broad local-depth operator, while Dehaze is a
+          distinct atmospheric-veil recovery treatment. <a href={sitePath('/docs/tools/image-treatments')}>Read the practical guide</a>.
+        </p>
+      </section>
+
+      <section class="feature-section">
         <h2>From Image to Working Palette</h2>
         <p>
           In Appearance → Palette, a bounded preview is analysed locally in perceptual Oklab. Large image files are not uploaded or scanned at full resolution by the editor path, and transparent pixels are handled explicitly.
@@ -76,6 +93,7 @@ const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes[
           <li><strong>ICC profiles:</strong> Bundled RGB and CMYK profiles (sRGB, Fogra39, GRACoL, SWOP) with rendering intents</li>
           <li><strong>Blend modes:</strong> 18 CSS blend modes plus 4 non-separable modes (hue, saturation, color, luminosity)</li>
           <li><strong>Effects:</strong> Drop shadow, inner shadow, layer blur (GPU-accelerated up to 32px, software beyond), background blur, outer and inner glow, glass material, chromatic aberration, and glitch</li>
+          <li><strong>Image Treatments:</strong> Fine Texture, Local Contrast, Atmospheric Depth, Dehaze, Vignette, Grain, and Highlight Glow with source-preserving Object Filters and Adjustment Layers</li>
           <li><strong>Adjustment layers:</strong> Curves (Catmull-Rom spline), levels, selective color (9 targets), HSL, exposure — with per-target scoping</li>
           <li><strong>Halftone screening:</strong> AM (clustered-dot, 5 dot shapes) and FM (Floyd-Steinberg + Bayer) with standard CMYK angles</li>
           <li><strong>Soft proofing:</strong> CMYK simulation overlay for previewing print output on screen</li>

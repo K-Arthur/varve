@@ -1,0 +1,163 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout
+  title="Image Treatments — Varve Docs"
+  description="Use Varve's non-destructive image treatments for texture, local contrast, dehaze, vignette, grain, and highlight glow."
+>
+  <div class="container-custom">
+    <article class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Image Treatments
+      </nav>
+
+      <h1>Image Treatments</h1>
+      <p class="docs-intro">
+        Shape an image or rendered object without baking new pixels into the document.
+        Treatments remain editable, can be bypassed for comparison, and use the same
+        result in the canvas and export.
+      </p>
+
+      <section class="docs-section">
+        <h2>Choose the right surface</h2>
+        <dl class="surface-list">
+          <div>
+            <dt>Image Tuning</dt>
+            <dd>
+              Select one or more images, then use the Image Tuning Inspector section for
+              the common photo controls. Mixed image and vector selections do not apply an
+              adjustment to only some selected objects.
+            </dd>
+          </div>
+          <div>
+            <dt>Object Filters</dt>
+            <dd>
+              Use Appearance → Object Filters when an effect belongs to one object, you
+              need stack order, per-effect opacity or blend mode, or you are treating a
+              vector, text, frame, or group.
+            </dd>
+          </div>
+          <div>
+            <dt>Adjustment Layers</dt>
+            <dd>
+              Use an Adjustment Layer when one treatment needs to affect several objects,
+              a scoped backdrop, or an adjustment mask.
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="docs-section">
+        <h2>Start with the result you want</h2>
+        <div class="treatment-table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Treatment</th><th scope="col">Use it for</th><th scope="col">First control</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Fine Texture</td><td>Accentuating or softening the smallest visible detail</td><td>Fine Texture</td></tr>
+              <tr><td>Local Contrast</td><td>Separating medium-sized forms without changing global contrast</td><td>Local Contrast</td></tr>
+              <tr><td>Atmospheric Depth</td><td>Shaping broad local depth</td><td>Atmospheric Depth</td></tr>
+              <tr><td>Dehaze</td><td>Recovering contrast through real atmospheric veil or washed-out distance</td><td>Dehaze</td></tr>
+              <tr><td>Vignette</td><td>Darkening or brightening the edges of an object</td><td>Vignette Amount</td></tr>
+              <tr><td>Grain</td><td>Giving a photo or graphic a material, less sterile finish</td><td>Grain Amount</td></tr>
+              <tr><td>Highlight Glow</td><td>Spreading bright areas into a soft luminous halo</td><td>Glow Amount</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Atmospheric Depth and Dehaze are intentionally different. Atmospheric Depth is a
+          broad local-contrast control; Dehaze estimates a local atmospheric veil and
+          recovers bounded transmission through it. Do not use one as a renamed substitute
+          for the other.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Use grain deliberately</h2>
+        <p>
+          Set <strong>Grain Amount</strong> first. Then use <strong>Grain Size</strong> to
+          control the size of each grain feature and <strong>Grain Roughness</strong> to move
+          between fine, even noise and more clustered texture. <strong>Pattern Variation</strong>
+          changes the deterministic pattern without making the finish random from frame to
+          frame. It is useful when two nearby objects should not share the same grain pattern.
+        </p>
+        <p>
+          Grain is non-destructive and monochrome. Lower the amount before increasing
+          roughness; a large, rough pattern at a high amount can overwhelm type and small UI
+          details.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Finish a vector object</h2>
+        <p>
+          A vector object does not need to be rasterized first. For example, to give a gray
+          rectangle at 50% opacity a grain finish, select the rectangle and open
+          <strong>Appearance → Object Filters → Object Finishing → Grain</strong>. The source
+          fill, opacity, path, and transform remain editable; the added Object Filter changes
+          only the rendered result.
+        </p>
+        <ol>
+          <li>Use the Object Finishing Grain shortcut to add a restrained starting treatment.</li>
+          <li>Open the selected Grain entry and adjust Grain Amount, Grain Size, and Grain Roughness.</li>
+          <li>Use Pattern Variation when two objects should not share a visible pattern.</li>
+          <li>Use the entry visibility control to compare the treated result with the source.</li>
+        </ol>
+        <p>
+          The same Object Finishing row provides Vignette and Highlight Glow. The full
+          Add Object Filter menu remains available when you deliberately want Fine Texture,
+          Local Contrast, Atmospheric Depth, Dehaze, or another treatment on a vector object.
+          Photo-local operators may simply have little visible effect on a uniform flat fill.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Refine without losing the source</h2>
+        <p>
+          Every treatment keeps an On/Off bypass and parameter-local reset. Advanced controls
+          are grouped with their treatment, rather than collected in a generic advanced list:
+          Vignette exposes placement and feathering with Vignette, and Grain exposes size,
+          roughness, and pattern variation with Grain. Use Object Filters for repeated effects
+          or ordering; use an Adjustment Layer when the treatment must cross object boundaries.
+        </p>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related guides</h2>
+        <p>
+          Read about <a href={sitePath('/docs/tools/color')}>color and effects</a>, or explore
+          <a href={sitePath('/features/color-effects')}>Varve's color and effects feature set</a>.
+        </p>
+      </div>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  h1 { color: var(--text-primary); font: 700 clamp(2rem, 5vw, 2.8rem)/1.1 var(--font-editorial); margin-bottom: 1rem; }
+  .docs-intro { color: var(--text-secondary); font-size: 1.15rem; line-height: 1.7; margin-bottom: 3rem; }
+  .docs-section { margin-bottom: 2.75rem; }
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); color: var(--text-primary); font-size: 1.45rem; margin-bottom: 1rem; padding-bottom: .5rem; }
+  .docs-section p, .docs-section li, .surface-list dd { color: var(--text-secondary); line-height: 1.8; }
+  .docs-section li { margin-bottom: .5rem; }
+  .docs-section strong, .surface-list dt { color: var(--text-primary); }
+  .surface-list { display: grid; gap: .85rem; margin: 0; }
+  .surface-list div { border-left: 2px solid var(--border-accent); padding-left: 1rem; }
+  .surface-list dt { font-weight: 700; }
+  .surface-list dd { margin: .25rem 0 0; }
+  .treatment-table-wrap { margin: 1.25rem 0; overflow-x: auto; }
+  table { border-collapse: collapse; color: var(--text-secondary); min-width: 620px; text-align: left; width: 100%; }
+  th, td { border-bottom: 1px solid var(--border-default); padding: .7rem .75rem; vertical-align: top; }
+  th { color: var(--text-primary); font-size: .8rem; }
+  td:first-child { color: var(--text-primary); font-weight: 600; }
+  .docs-cta { border-top: 1px solid var(--border-default); padding-top: 2.5rem; text-align: center; }
+  .docs-cta h2 { color: var(--text-primary); font-size: 1.25rem; }
+  .docs-cta p { color: var(--text-secondary); }
+  .docs-cta a { color: var(--text-link); }
+</style>
