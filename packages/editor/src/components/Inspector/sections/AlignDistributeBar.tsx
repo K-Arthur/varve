@@ -7,11 +7,14 @@
  * Research basis: Figma/Sketch align toolbar; APG Toolbar pattern; pill-chip pattern.
  */
 
-import { Tooltip, TooltipProvider } from '@varve/ui';
-import { useCallback, useRef, useState } from 'react';
+import { NumberInput, Tooltip, TooltipProvider } from '@varve/ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor } from '../../../context';
-import { getAlignmentCapabilities } from '../../../scene/selectionArrangement';
+import {
+  type AlignmentReference,
+  getAlignmentCapabilities,
+} from '../../../scene/selectionArrangement';
 import { showAlignmentGuidesFromSelection } from '../../AlignmentOverlay/AlignmentGuideOverlay';
 
 interface AlignIconProps {
@@ -236,6 +239,8 @@ export function AlignDistributeBar() {
     alignSelected,
     obbAlignSelected,
     distributeSelected,
+    distributeWithGap,
+    distributeWithMode,
     tidySelected,
     setKeyObject,
     keyObjectId,
@@ -245,10 +250,36 @@ export function AlignDistributeBar() {
   } = useEditor();
 
   const [showTidyMenu, setShowTidyMenu] = useState(false);
+  const [showDistributionMenu, setShowDistributionMenu] = useState(false);
   const [obbEnabled, setObbEnabled] = useState(false);
+  const [alignmentReference, setAlignmentReference] = useState<AlignmentReference>(() =>
+    alignToPage ? 'page' : 'selection',
+  );
+  const [distributionMode, setDistributionMode] = useState<'equalGap' | 'equalCenter' | 'fixedGap'>(
+    'equalGap',
+  );
+  const [distributionGap, setDistributionGap] = useState(0);
   const tidyBtnRef = useRef<HTMLButtonElement>(null);
   const capabilities = getAlignmentCapabilities(state.document, state.selection);
-  const canAlign = alignToPage ? capabilities.canAlignToPage : capabilities.canAlign;
+  const canAlign =
+    alignmentReference === 'page'
+      ? capabilities.canAlignToPage
+      : alignmentReference === 'container'
+        ? capabilities.canAlignToContainer
+        : capabilities.canAlign;
+
+  useEffect(() => {
+    if (alignToPage) setAlignmentReference('page');
+    else setAlignmentReference((current) => (current === 'page' ? 'selection' : current));
+  }, [alignToPage]);
+
+  const chooseAlignmentReference = useCallback(
+    (reference: AlignmentReference) => {
+      setAlignmentReference(reference);
+      setAlignToPage(reference === 'page');
+    },
+    [setAlignToPage],
+  );
 
   const doAlign = useCallback(
     (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => {
@@ -256,29 +287,43 @@ export function AlignDistributeBar() {
       const doc = state.document;
       showAlignmentGuidesFromSelection(doc, sel);
       if (obbEnabled) {
-        obbAlignSelected(axis);
+        obbAlignSelected(axis, alignmentReference);
       } else {
-        alignSelected(axis);
+        alignSelected(axis, alignmentReference);
       }
     },
-    [alignSelected, obbAlignSelected, obbEnabled, state.selection, state.document],
+    [
+      alignSelected,
+      alignmentReference,
+      obbAlignSelected,
+      obbEnabled,
+      state.selection,
+      state.document,
+    ],
   );
 
   const handleDistribute = useCallback(
     (axis: 'horizontal' | 'vertical') => {
-      distributeSelected(axis);
+      if (distributionMode === 'fixedGap') {
+        if (distributeWithGap) distributeWithGap(axis, distributionGap);
+        else distributeSelected(axis);
+      } else if (distributeWithMode) {
+        distributeWithMode(axis, distributionMode);
+      } else {
+        distributeSelected(axis);
+      }
     },
-    [distributeSelected],
+    [distributionGap, distributionMode, distributeSelected, distributeWithGap, distributeWithMode],
   );
 
   const handleToggleKeyObject = useCallback(() => {
     const sel = state.selection;
     if (keyObjectId) {
       setKeyObject(null);
-    } else if (sel.length >= 2 && sel[0]) {
-      setKeyObject(sel[0]);
+    } else if (sel.length >= 2 && state.primaryId) {
+      setKeyObject(state.primaryId);
     }
-  }, [keyObjectId, setKeyObject, state.selection]);
+  }, [keyObjectId, setKeyObject, state.primaryId, state.selection]);
 
   const handleTidyUp = useCallback(
     (maxCols: number) => {
@@ -390,6 +435,65 @@ export function AlignDistributeBar() {
               <DistributeIcon type="vertical" />
             </button>
           </Tooltip>
+          <div className="insp-align-options">
+            <Tooltip label="Distribution options">
+              <button
+                type="button"
+                className={`pill-group__btn ${showDistributionMenu ? 'pill-group__btn--active' : ''}`}
+                aria-label="Distribution options"
+                aria-expanded={showDistributionMenu}
+                onClick={() => setShowDistributionMenu((open) => !open)}
+                disabled={!capabilities.canDistribute}
+              >
+                Gap
+              </button>
+            </Tooltip>
+            {showDistributionMenu && (
+              <div className="insp-align-popover" role="dialog" aria-label="Distribution options">
+                <fieldset>
+                  <legend>Spacing mode</legend>
+                  <label>
+                    <input
+                      type="radio"
+                      name="distribution-mode"
+                      checked={distributionMode === 'equalGap'}
+                      onChange={() => setDistributionMode('equalGap')}
+                    />
+                    Equal gaps
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="distribution-mode"
+                      checked={distributionMode === 'equalCenter'}
+                      onChange={() => setDistributionMode('equalCenter')}
+                    />
+                    Equal centers
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="distribution-mode"
+                      checked={distributionMode === 'fixedGap'}
+                      onChange={() => setDistributionMode('fixedGap')}
+                    />
+                    Fixed gap
+                  </label>
+                </fieldset>
+                {distributionMode === 'fixedGap' && (
+                  <NumberInput
+                    label="Gap (px)"
+                    value={distributionGap}
+                    min={-99999}
+                    max={99999}
+                    step={1}
+                    onChange={setDistributionGap}
+                  />
+                )}
+                <p>Negative gaps intentionally overlap items.</p>
+              </div>
+            )}
+          </div>
         </div>
         <div className="insp-align-bar" role="toolbar" aria-label="Advanced alignment options">
           <Tooltip
@@ -406,17 +510,56 @@ export function AlignDistributeBar() {
               {keyObjectId && <span className="insp-badge" />}
             </button>
           </Tooltip>
-          <Tooltip label="Align to page bounds">
-            <button
-              type="button"
-              className={`pill-group__btn ${alignToPage ? 'pill-group__btn--active' : ''}`}
-              aria-label={alignToPage ? 'Align to page (active)' : 'Align to page'}
-              onClick={() => setAlignToPage(!alignToPage)}
-              disabled={!capabilities.canAlignToPage}
-            >
-              <PageIcon />
-            </button>
-          </Tooltip>
+          <div className="insp-align-targets" role="radiogroup" aria-label="Alignment reference">
+            <Tooltip label="Align to selection bounds">
+              <button
+                type="button"
+                className={`pill-group__btn ${alignmentReference === 'selection' ? 'pill-group__btn--active' : ''}`}
+                aria-label={
+                  alignmentReference === 'selection'
+                    ? 'Align to selection bounds (active)'
+                    : 'Align to selection bounds'
+                }
+                aria-pressed={alignmentReference === 'selection'}
+                onClick={() => chooseAlignmentReference('selection')}
+                disabled={!capabilities.canAlign}
+              >
+                Selection
+              </button>
+            </Tooltip>
+            <Tooltip label="Align to parent frame bounds">
+              <button
+                type="button"
+                className={`pill-group__btn ${alignmentReference === 'container' ? 'pill-group__btn--active' : ''}`}
+                aria-label={
+                  alignmentReference === 'container'
+                    ? 'Align to parent frame (active)'
+                    : 'Align to parent frame'
+                }
+                aria-pressed={alignmentReference === 'container'}
+                onClick={() => chooseAlignmentReference('container')}
+                disabled={!capabilities.canAlignToContainer}
+              >
+                Frame
+              </button>
+            </Tooltip>
+            <Tooltip label="Align to page bounds">
+              <button
+                type="button"
+                className={`pill-group__btn ${alignmentReference === 'page' ? 'pill-group__btn--active' : ''}`}
+                aria-label={
+                  alignmentReference === 'page' ? 'Align to page (active)' : 'Align to page'
+                }
+                aria-pressed={alignmentReference === 'page'}
+                onClick={() =>
+                  chooseAlignmentReference(alignmentReference === 'page' ? 'selection' : 'page')
+                }
+                disabled={!capabilities.canAlignToPage}
+              >
+                <PageIcon />
+              </button>
+            </Tooltip>
+          </div>
           <div className="insp-separator" />
           <div style={{ position: 'relative' }}>
             <Tooltip label="Tidy up — arrange in grid">
@@ -477,7 +620,7 @@ export function AlignDistributeBar() {
               className={`pill-group__btn ${obbEnabled ? 'pill-group__btn--active' : ''}`}
               aria-label={obbEnabled ? 'OBB alignment on' : 'OBB alignment off'}
               onClick={() => setObbEnabled(!obbEnabled)}
-              disabled={!capabilities.canAlignToPage}
+              disabled={!canAlign}
             >
               <OBBIcon />
             </button>
