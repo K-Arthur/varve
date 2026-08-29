@@ -4,12 +4,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import { getAllMenuDefs, getCanvasContextMenuDefs } from './defs';
 import { assertNoDuplicateAccelerators, lintSubmenuDepth } from './devGuard';
-import {
-  buildIntelFacts,
-  computeDocumentFacts,
-  computeSelectionFacts,
-  detectPlatformFacts,
-} from './facts';
+import { buildIntelFacts, buildMenuContext, detectPlatformFacts } from './facts';
 import { formatLabel } from './localization';
 import { menuPerfMark, timeMenuOperation } from './perfFlags';
 import { renderMenubarItems, renderMenuItems } from './renderer';
@@ -63,20 +58,9 @@ export function useMenu(opts: UseMenuOptions): UseMenuReturn {
   optsRef.current = opts;
 
   const ctx = useMemo(() => {
-    const sf = computeSelectionFacts(opts.selection, opts.document.nodes);
-    const df = computeDocumentFacts(opts.document, opts.selection[0] ?? null);
-    df.hasSelection = sf.count > 0;
-    df.hasMultipleSelection = sf.count >= 2;
     const pf = detectPlatformFacts(opts.platformKind);
     const intel = buildIntelFacts(undefined, opts.lastScanAt ?? null, opts.scanInProgress ?? false);
-
-    return {
-      selection: sf,
-      document: df,
-      workspace: opts.workspaceMode,
-      platform: pf,
-      intelligence: intel,
-    } satisfies MenuContext;
+    return buildMenuContext(opts.selection, opts.document, opts.workspaceMode, pf, intel);
   }, [
     opts.selection,
     opts.document,

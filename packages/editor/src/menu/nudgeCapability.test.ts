@@ -1,5 +1,7 @@
 import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
+import { getArrangeMenu } from './defs';
+import { buildIntelFacts, buildMenuContext, detectPlatformFacts } from './facts';
 import { getNudgeCapability } from './nudgeCapability';
 
 function rect(id: string, x = 0, y = 0) {
@@ -60,11 +62,45 @@ describe('getNudgeCapability', () => {
 
     expect(getNudgeCapability(document, [flow.id])).toEqual({
       canNudge: false,
-      reason: 'Selected layers are layout-managed',
+      reason: 'Selected layers are not manually positionable',
     });
     expect(getNudgeCapability(document, [absolute.id])).toEqual({
       canNudge: true,
       reason: null,
     });
+  });
+
+  it('feeds that same capability into every Arrange-menu nudge command', () => {
+    let document = createDocument('menu nudge capability');
+    const parent = makeFrameNode('parent', {
+      w: 300,
+      h: 100,
+      layoutStyle: {
+        mode: 'flex',
+        direction: 'row',
+        gap: 8,
+        wrap: false,
+        padding: [0, 0, 0, 0],
+        grow: 0,
+        shrink: 0,
+      },
+    });
+    const flow = rect('flow');
+    document = addNode(document, parent);
+    document = addChild(document, parent.id, flow);
+    const ctx = buildMenuContext(
+      [flow.id],
+      document,
+      'design',
+      detectPlatformFacts('web'),
+      buildIntelFacts([], null, false),
+    );
+
+    for (const id of ['nudgeLeft', 'nudgeRight', 'nudgeUp', 'nudgeDown']) {
+      const item = getArrangeMenu(() => {}).find((candidate) => candidate.id === id);
+      expect(item?.enabled?.(ctx)).toEqual({
+        reason: 'Selected layers are not manually positionable',
+      });
+    }
   });
 });

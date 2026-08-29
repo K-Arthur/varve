@@ -2,6 +2,7 @@ import { createDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   buildIntelFacts,
+  buildMenuContext,
   computeDocumentFacts,
   computeSelectionFacts,
   createTimingGuard,
@@ -19,12 +20,8 @@ function buildCtx(
   workspace: 'design' | 'print' | 'drawing' | 'image' | 'motion' | 'codegen' = 'design',
 ): MenuContext {
   const pf = detectPlatformFacts('web');
-  const sf = computeSelectionFacts(selection, doc.nodes);
-  const df = computeDocumentFacts(doc, selection[0] ?? null);
-  df.hasSelection = sf.count > 0;
-  df.hasMultipleSelection = sf.count >= 2;
   const intel = buildIntelFacts([], null, false);
-  return { selection: sf, document: df, workspace, platform: pf, intelligence: intel };
+  return buildMenuContext(selection, doc, workspace, pf, intel);
 }
 
 function warmUp(fn: () => void, iterations = 3): void {

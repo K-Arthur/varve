@@ -14,6 +14,8 @@ export {
   detectPlatformFacts,
 } from './facts';
 export { formatLabel, formatLabelWithValues, reportMissingKey } from './localization';
+export type { NudgeCapability } from './nudgeCapability';
+export { getNudgeCapability } from './nudgeCapability';
 export {
   clearMenuPerfMeasurements,
   getMenuPerfMeasurements,

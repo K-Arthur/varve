@@ -2,6 +2,7 @@
 
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { addNode, createDocument, makeShapeNode } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setCapabilityRestrictions } from './capabilities/restrictions';
 import { Menubar } from './components/Menubar';
@@ -9,6 +10,7 @@ import { Menubar } from './components/Menubar';
 let mockWorkspaceMode = 'design';
 let mockLogoPanelVisible = false;
 let mockSelection: string[] = [];
+let mockDocument = createDocument('Test Doc');
 
 vi.mock('./context', () => ({
   useEditor: () => ({
@@ -17,7 +19,7 @@ vi.mock('./context', () => ({
       canRedo: false,
       undoLabel: 'Undo',
       redoLabel: 'Redo',
-      document: { name: 'Test Doc', activePageId: null, nodes: {}, rootChildren: [] },
+      document: mockDocument,
       zoom: 1,
       canvasMode: 'full',
       snapEnabled: true,
@@ -305,6 +307,7 @@ vi.mock('@varve/codegen', () => ({
 afterEach(() => {
   cleanup();
   mockSelection = [];
+  mockDocument = createDocument('Test Doc');
   setCapabilityRestrictions(null);
 });
 
@@ -505,6 +508,23 @@ describe('Menubar disabled states', () => {
     const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
     const bringFront = within(menu).getByRole('menuitem', { name: /Bring to Front/ });
     expect(bringFront).toBeDisabled();
+  });
+
+  it('disables nudge commands for a selected locked layer', async () => {
+    const locked = makeShapeNode(
+      'locked',
+      { kind: 'rect', x: 0, y: 0, w: 20, h: 20 },
+      { locked: true },
+    );
+    mockDocument = addNode(mockDocument, locked);
+    mockSelection = [locked.id];
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(
+      within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Arrange' }),
+    );
+    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    expect(within(menu).getByRole('menuitem', { name: /Nudge Right/ })).toBeDisabled();
   });
 
   it('disables withheld demo workspaces and background removal', async () => {

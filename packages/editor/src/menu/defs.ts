@@ -30,6 +30,11 @@ function enabledWithSelection(ctx: MenuContext): true | { reason: string } {
   return { reason: 'Select a layer first' };
 }
 
+function enabledWithNudge(ctx: MenuContext): true | { reason: string } {
+  if (ctx.nudge.canNudge) return true;
+  return { reason: ctx.nudge.reason ?? 'Selected layers cannot be moved' };
+}
+
 function enabledWithMultiSelection(ctx: MenuContext): true | { reason: string } {
   if (ctx.selection.count >= 2) return true;
   return { reason: 'Select 2 or more layers' };
@@ -1852,7 +1857,7 @@ export function getArrangeMenu(runAction: (id: string) => void): MenuItemDef[] {
       accelerator: a('ArrowLeft'),
       kind: 'command',
       group: 'nudge',
-      enabled: enabledWithSelection,
+      enabled: enabledWithNudge,
       run: () => runAction('nudgeLeft'),
     },
     {
@@ -1861,7 +1866,7 @@ export function getArrangeMenu(runAction: (id: string) => void): MenuItemDef[] {
       accelerator: a('ArrowRight'),
       kind: 'command',
       group: 'nudge',
-      enabled: enabledWithSelection,
+      enabled: enabledWithNudge,
       run: () => runAction('nudgeRight'),
     },
     {
@@ -1870,7 +1875,7 @@ export function getArrangeMenu(runAction: (id: string) => void): MenuItemDef[] {
       accelerator: a('ArrowUp'),
       kind: 'command',
       group: 'nudge',
-      enabled: enabledWithSelection,
+      enabled: enabledWithNudge,
       run: () => runAction('nudgeUp'),
     },
     {
@@ -1879,7 +1884,7 @@ export function getArrangeMenu(runAction: (id: string) => void): MenuItemDef[] {
       accelerator: a('ArrowDown'),
       kind: 'command',
       group: 'nudge',
-      enabled: enabledWithSelection,
+      enabled: enabledWithNudge,
       run: () => runAction('nudgeDown'),
     },
   ];

@@ -1,3 +1,5 @@
+import type { NudgeCapability } from './nudgeCapability';
+
 export type Accelerator = {
   key: string;
   ctrl?: boolean;
@@ -73,6 +75,7 @@ export interface IntelFacts {
 
 export interface MenuContext {
   selection: SelectionFacts;
+  nudge: NudgeCapability;
   document: DocumentFacts;
   workspace: import('../workspace/workspaceTypes').WorkspaceMode;
   platform: PlatformFacts;

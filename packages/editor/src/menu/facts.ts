@@ -2,6 +2,7 @@ import type { Document, SceneNode } from '@varve/scene';
 import { isContainer } from '@varve/scene';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import { computeCapabilities } from './capabilities';
+import { getNudgeCapability } from './nudgeCapability';
 import type { DocumentFacts, IntelFacts, PlatformFacts, SelectionFacts } from './types';
 
 let _lastSelectionKey = '';
@@ -123,6 +124,7 @@ export function buildMenuContext(
 
   return {
     selection: selectionFacts,
+    nudge: getNudgeCapability(doc, selection),
     document: documentFacts,
     workspace,
     platform,

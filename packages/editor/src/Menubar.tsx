@@ -17,7 +17,7 @@ import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/Arc
 import { OfflineBanner } from './components/OfflineBanner';
 import { WorkspaceTabs } from './components/WorkspaceTabs';
 import { bumpThemeRevision, useEditor } from './context';
-import { computeCapabilities, useNativeMenu } from './menu';
+import { computeCapabilities, getNudgeCapability, useNativeMenu } from './menu';
 import { useMenubarFocusEffects } from './menu/menubarFocus';
 import { handleMenubarKey } from './menu/menubarKeynav';
 import { MenubarSubmenu } from './menu/menubarSubmenu';
@@ -150,6 +150,7 @@ function buildMenus(
   isMac: boolean,
   activeFilePath: string | undefined,
   revealLabel: string,
+  nudgeEnabled: boolean,
 ): { id: MenuId; items: MenuItem[] }[] {
   const doc = state.document;
   const activePageId = doc?.activePageId ?? null;
@@ -255,12 +256,13 @@ function buildMenus(
       case 'bringForward':
       case 'sendBackward':
       case 'sendBack':
+      case 'harmonizeSpacing':
+        return !hasSelection;
       case 'nudgeUp':
       case 'nudgeDown':
       case 'nudgeLeft':
       case 'nudgeRight':
-      case 'harmonizeSpacing':
-        return !hasSelection;
+        return !nudgeEnabled;
       case 'alignLeft':
       case 'alignCenterH':
       case 'alignRight':
@@ -1746,8 +1748,21 @@ export function Menubar({
   }, []);
 
   const caps = useMemo(() => computeCapabilities(), []);
+  const nudgeCapability = useMemo(
+    () => getNudgeCapability(state.document, state.selection),
+    [state.document, state.selection],
+  );
   const rawMenus = useMemo(
-    () => buildMenus(state, recentEntries, caps, isMac, activeFilePath, revealLabel),
+    () =>
+      buildMenus(
+        state,
+        recentEntries,
+        caps,
+        isMac,
+        activeFilePath,
+        revealLabel,
+        nudgeCapability.canNudge,
+      ),
     [
       state.selection,
       state.document.activePageId,
@@ -1765,6 +1780,7 @@ export function Menubar({
       state.snapEnabled,
       recentEntries,
       caps,
+      nudgeCapability.canNudge,
     ],
   );
 
