@@ -25,7 +25,7 @@ async function waitForImages(page: import('@playwright/test').Page) {
       }),
     );
     await new Promise<void>((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
     );
   });
 }
