@@ -7,10 +7,14 @@
  *
  * Usage: node scripts/build-visual-diff-manifest.mjs [outputDir]
  */
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('..', import.meta.url).pathname;
+// URL.pathname is POSIX-shaped even when Node is running on Windows (for
+// example, `/D:/a/varve`). Convert the file URL through Node's platform-aware
+// helper so the manifest builder can inspect the checkout on every runner.
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const TEST_RESULTS = path.join(ROOT, 'test-results');
 const SNAPSHOTS_DIR = path.join(ROOT, 'tests/e2e/visual/replay.spec.ts-snapshots');
 const OUT_DIR = process.argv[2]
