@@ -3,12 +3,12 @@
  *
  * Covers: single-arrow nudge, Shift-modified large nudge, key-repeat
  * behavior, modifier changes mid-gesture, window blur handling, undo
- * coalescing of multi-nudge gestures, and auto-reparent when nudging
- * into a frame.
+ * coalescing of multi-nudge gestures, multi-selection movement, and
+ * hierarchy stability when nudging into a frame.
  */
 import { expect, test } from '@playwright/test';
 import { mod } from '../helpers/menu-helpers';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { dragOnCanvas, navigateToEditor, seedLayers } from '../shared';
 
 const VIEWPORT = { width: 1280, height: 800 };
 
@@ -39,6 +39,26 @@ async function getSelectedPosition(
   return { x: await getSelectedX(page), y: await getSelectedY(page) };
 }
 
+/** FNV-1a over every fourth pixel of the authoritative content canvas. */
+async function surfaceHash(page: import('@playwright/test').Page): Promise<number> {
+  return page.locator('canvas.editor-canvas__content-layer').evaluate((element) => {
+    const surface = element as HTMLCanvasElement;
+    const context = surface.getContext('2d');
+    if (!context) throw new Error('canvas 2d context unavailable');
+    const data = context.getImageData(0, 0, surface.width, surface.height).data;
+    let hash = 2166136261;
+    for (let index = 0; index < data.length; index += 16) {
+      const r = data[index] ?? 0;
+      const g = data[index + 1] ?? 0;
+      const b = data[index + 2] ?? 0;
+      hash = Math.imul(hash ^ r, 16777619);
+      hash = Math.imul(hash ^ g, 16777619);
+      hash = Math.imul(hash ^ b, 16777619);
+    }
+    return hash;
+  });
+}
+
 /**
  * Create a single rect at a fixed position and select it.
  */
@@ -59,7 +79,9 @@ test.describe('Nudge transaction resilience', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(VIEWPORT);
-    await navigateToEditor(page);
+    // The perf query exposes forceFullRedraw so a nudge can be checked
+    // against an authoritative renderer replay in the multi-selection test.
+    await navigateToEditor(page, '/?perf=1');
   });
 
   test('arrow key nudges a selected node', async ({ page }) => {
@@ -70,7 +92,7 @@ test.describe('Nudge transaction resilience', () => {
     await page.waitForTimeout(100);
 
     const after = await getSelectedPosition(page);
-    expect(after.x).toBeGreaterThan(before.x);
+    expect(after.x - before.x).toBe(1);
     expect(after.y).toBe(before.y);
   });
 
@@ -96,8 +118,8 @@ test.describe('Nudge transaction resilience', () => {
     const afterShift = await getSelectedPosition(page);
     const shiftDelta = afterShift.x - before.x;
 
-    // Shift nudge should be larger than single nudge
-    expect(shiftDelta).toBeGreaterThan(singleDelta);
+    expect(singleDelta).toBe(1);
+    expect(shiftDelta).toBe(10);
   });
 
   test('rapid repeated arrow keys each move the node', async ({ page }) => {
@@ -204,39 +226,107 @@ test.describe('Nudge transaction resilience', () => {
     expect(afterUndo.x).toBe(before.x);
   });
 
-  test('nudging a node into a frame auto-reparents it', async ({ page }) => {
+  test('nudges every selected root equally without changing their hierarchy', async ({
+    page,
+  }, testInfo) => {
+    await seedLayers(page, 2);
+    await page.keyboard.press('v');
+
+    const shapes = page.locator('[role="treeitem"][data-layer-type="shape"]');
+    await expect(shapes).toHaveCount(2);
+    const first = shapes.nth(0);
+    const second = shapes.nth(1);
+
+    await first.click();
+    const firstBefore = await getSelectedPosition(page);
+    await second.click();
+    const secondBefore = await getSelectedPosition(page);
+
+    // Select through the real Layers UI, then return keyboard ownership to
+    // the canvas. The rows verify both independent roots are selected.
+    await first.click();
+    await second.click({ modifiers: ['Control'] });
+    await expect(first).toHaveAttribute('aria-selected', 'true');
+    await expect(second).toHaveAttribute('aria-selected', 'true');
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.focus();
+    const pageScrollBefore = await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }));
+    const beforeHash = await surfaceHash(page);
+
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(200);
+    const liveHash = await surfaceHash(page);
+    expect(liveHash, 'the rendered selected objects must move').not.toBe(beforeHash);
+    const screenshot = await canvas.screenshot();
+    await testInfo.attach('multi-selection-nudge', { body: screenshot, contentType: 'image/png' });
+
+    // The same camera must produce the same pixels after an authoritative
+    // full redraw; this catches stale surface reuse after a batched movement.
+    await page.evaluate(() => {
+      (
+        window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
+      ).__varvePerf?.forceFullRedraw?.();
+    });
+    await page.waitForTimeout(700);
+    expect(await surfaceHash(page), 'batched nudge surface must equal a full redraw').toBe(
+      liveHash,
+    );
+    expect(await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }))).toEqual(
+      pageScrollBefore,
+    );
+
+    // Inspect each object separately. Every selected root must receive the
+    // same document-space delta, retaining their relative world spacing.
+    await first.click();
+    const firstAfter = await getSelectedPosition(page);
+    await second.click();
+    const secondAfter = await getSelectedPosition(page);
+    expect(firstAfter.x - firstBefore.x).toBe(1);
+    expect(firstAfter.y).toBe(firstBefore.y);
+    expect(secondAfter.x - secondBefore.x).toBe(1);
+    expect(secondAfter.y).toBe(secondBefore.y);
+    expect(secondAfter.x - firstAfter.x).toBe(secondBefore.x - firstBefore.x);
+    expect(secondAfter.y - firstAfter.y).toBe(secondBefore.y - firstBefore.y);
+  });
+
+  test('nudging into a frame never auto-reparents the selected node', async ({ page }) => {
     // Create a frame
     await page.keyboard.press('f');
     await dragOnCanvas(page, 100, 100, 500, 450);
     await page.waitForTimeout(100);
 
-    // Create a rect outside the frame
+    // Create a shape outside the frame
     await page.keyboard.press('r');
-    await dragOnCanvas(page, 600, 200, 700, 300);
+    await dragOnCanvas(page, 520, 200, 540, 220);
     await page.waitForTimeout(100);
 
-    // Select the rect
+    // Select the shape
     await page.keyboard.press('v');
-    const rectItem = page.getByRole('treeitem').filter({ hasText: /rect/i }).last();
+    const rectItem = page.locator('[role="treeitem"][data-layer-type="shape"]').last();
     await rectItem.click();
+    const beforePosition = await getSelectedPosition(page);
     await page.waitForTimeout(100);
     const beforeLevel = await rectItem.getAttribute('aria-level');
+    expect(beforeLevel, 'the shape starts at the document root').not.toBeNull();
 
-    // Nudge the rect left into the frame bounds
-    for (let i = 0; i < 20; i++) {
-      await page.keyboard.press('ArrowLeft');
+    // Move the full shape inside the frame. Keyboard nudging translates
+    // its existing transform; it must not reuse drag-drop auto-reparenting.
+    await page.locator('canvas.editor-canvas__content-layer').focus();
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press('Shift+ArrowLeft');
       await page.waitForTimeout(20);
     }
     await page.waitForTimeout(200);
+    const afterPosition = await getSelectedPosition(page);
+    expect(afterPosition.x - beforePosition.x).toBe(-50);
+    expect(afterPosition.y).toBe(beforePosition.y);
 
-    // If the frame auto-captures overlapping children on commit,
-    // the aria-level of the rect may increase.
+    // `aria-level` reflects the hierarchy relationship in the Layers tree.
+    // It must remain a sibling even when the rendered shape now overlaps
+    // the frame's interior.
     const afterLevel = await rectItem.getAttribute('aria-level');
-    if (afterLevel !== null && beforeLevel !== null) {
-      expect(typeof afterLevel).toBe('string');
-    }
-
-    // Editor is still stable
+    expect(afterLevel).toBe(beforeLevel);
     await expect(page.locator('.layers-panel')).toBeVisible();
   });
 });
