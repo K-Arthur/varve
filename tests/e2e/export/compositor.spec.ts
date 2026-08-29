@@ -1,10 +1,9 @@
 import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
-const requireFromEngine = createRequire(
-  new URL('../../../packages/engine/package.json', import.meta.url),
-);
+const requireFromEngine = createRequire(join(process.cwd(), 'packages', 'engine', 'package.json'));
 const { PNG } = requireFromEngine('pngjs') as {
   PNG: { sync: { read(input: Buffer): { width: number; height: number; data: Buffer } } };
 };
