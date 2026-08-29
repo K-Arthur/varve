@@ -1,5 +1,7 @@
-import type { PathPoint } from '@varve/engine';
+import { applyAffine, type PathPoint } from '@varve/engine';
+import { makeFrameNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
+import { nodeWorldTransform } from '../../scene/world';
 import { NodeEditTool } from '../NodeEditTool';
 import type { ToolContext } from '../types';
 
@@ -113,8 +115,8 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
   };
 }
 
-function makeKeyEvent(key: string): KeyboardEvent {
-  return new KeyboardEvent('keydown', { key, bubbles: true });
+function makeKeyEvent(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
+  return new KeyboardEvent('keydown', { key, bubbles: true, ...init });
 }
 
 function makePointerEvent(
@@ -135,6 +137,18 @@ function makePointerEvent(
     pointerType: 'mouse',
     ...overrides,
   } as unknown as PointerEvent;
+}
+
+function selectAnchors(tool: NodeEditTool, ...indices: number[]) {
+  (tool as unknown as { selectedAnchors: Set<number> }).selectedAnchors = new Set(indices);
+}
+
+function applyLatestNodeUpdate(ctx: ToolContext, node: ReturnType<typeof makePathNode>) {
+  const updater = vi.mocked(ctx.updateNode).mock.calls.at(-1)?.[1] as unknown as (
+    node: ReturnType<typeof makePathNode>,
+  ) => ReturnType<typeof makePathNode>;
+  if (!updater) throw new Error('Expected an updateNode call');
+  return updater(node);
 }
 
 describe('NodeEditTool — exit', () => {
@@ -251,6 +265,116 @@ describe('NodeEditTool — anchor move', () => {
     // Anchor 0 should have moved from (10,10) to (30,20)
     expect(updated.shape.points[0]!.x).toBeCloseTo(30);
     expect(updated.shape.points[0]!.y).toBeCloseTo(20);
+  });
+});
+
+describe('NodeEditTool — keyboard anchor nudge', () => {
+  it('moves one selected anchor by one document unit without moving the path object', () => {
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+    const original = vi.mocked(ctx.getNode)('n1')! as ReturnType<typeof makePathNode>;
+    selectAnchors(tool, 0);
+
+    expect(tool.onKeyDown(makeKeyEvent('ArrowRight'), ctx)).toBe(true);
+    const updated = applyLatestNodeUpdate(ctx, original);
+
+    expect(updated.shape.points[0]).toMatchObject({ x: 11, y: 10 });
+    expect(updated.transform).toEqual(original.transform);
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+    tool.onKeyUp(makeKeyEvent('ArrowRight'), ctx);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('moves every selected anchor by the same document-space delta and preserves handles', () => {
+    const points: PathPoint[] = [
+      { x: 10, y: 10, handleIn: [-4, 0], handleOut: [4, 0] },
+      { x: 50, y: 20, handleIn: null, handleOut: null },
+      { x: 100, y: 100, handleIn: [0, -8], handleOut: [0, 8] },
+    ];
+    const original = makePathNode(points);
+    const ctx = makeCtx({
+      document: {
+        nodes: { n1: original },
+        rootChildren: ['n1'],
+        name: 'Multi-anchor nudge',
+      } as ToolContext['document'],
+      getNode: vi.fn((id) => (id === 'n1' ? original : undefined)),
+    });
+    const tool = new NodeEditTool();
+    selectAnchors(tool, 0, 2);
+
+    tool.onKeyDown(makeKeyEvent('ArrowDown', { shiftKey: true }), ctx);
+    const updated = applyLatestNodeUpdate(ctx, original);
+
+    expect(updated.shape.points[0]).toMatchObject({ x: 10, y: 20, handleIn: [-4, 0] });
+    expect(updated.shape.points[2]).toMatchObject({ x: 100, y: 110, handleOut: [0, 8] });
+    expect(updated.shape.points[1]).toEqual(original.shape.points[1]);
+  });
+
+  it('converts the document delta through a transformed parent before moving an anchor', () => {
+    const child = makePathNode([
+      { x: 10, y: 10, handleIn: null, handleOut: null },
+      { x: 80, y: 10, handleIn: null, handleOut: null },
+    ]);
+    const parent = makeFrameNode('parent', {
+      w: 200,
+      h: 100,
+      children: [child.id],
+      transform: [0, 2, -3, 0, 400, -20],
+    });
+    const document = {
+      nodes: { [parent.id]: parent, [child.id]: child },
+      rootChildren: [parent.id],
+      name: 'Transformed node edit',
+    } as ToolContext['document'];
+    const ctx = makeCtx({
+      document,
+      getNode: vi.fn((id) => document.nodes[id]),
+    });
+    const tool = new NodeEditTool();
+    selectAnchors(tool, 0);
+    const before = applyAffine(nodeWorldTransform(document, child.id), [10, 10]);
+
+    tool.onKeyDown(makeKeyEvent('ArrowRight'), ctx);
+    const updated = applyLatestNodeUpdate(ctx, child);
+    const afterDocument = {
+      ...document,
+      nodes: { ...document.nodes, [child.id]: updated },
+    };
+    const after = applyAffine(nodeWorldTransform(afterDocument, child.id), [
+      updated.shape.points[0]!.x,
+      updated.shape.points[0]!.y,
+    ]);
+
+    expect(after[0] - before[0]).toBeCloseTo(1);
+    expect(after[1] - before[1]).toBeCloseTo(0);
+  });
+
+  it('coalesces mixed held arrow directions and finalizes on focus loss', () => {
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+    selectAnchors(tool, 0);
+
+    tool.onKeyDown(makeKeyEvent('ArrowRight'), ctx);
+    tool.onKeyDown(makeKeyEvent('ArrowDown'), ctx);
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+    tool.onKeyUp(makeKeyEvent('ArrowRight'), ctx);
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
+    tool.onFocusLoss(ctx);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+    tool.onKeyUp(makeKeyEvent('ArrowDown'), ctx);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves modifier arrows and empty anchor selections to their owning shortcut context', () => {
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+
+    expect(tool.onKeyDown(makeKeyEvent('ArrowRight'), ctx)).toBe(false);
+    selectAnchors(tool, 0);
+    expect(tool.onKeyDown(makeKeyEvent('ArrowRight', { altKey: true }), ctx)).toBe(false);
+    expect(ctx.updateNode).not.toHaveBeenCalled();
+    expect(ctx.beginTransaction).not.toHaveBeenCalled();
   });
 });
 

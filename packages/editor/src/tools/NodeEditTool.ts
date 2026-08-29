@@ -8,12 +8,42 @@
 import type { PathPoint } from '@varve/engine';
 import { applyAffine, invertAffine } from '@varve/engine';
 import type { ShapeNode } from '@varve/scene';
+import { tryInvertAffine } from '@varve/shared';
+import { getNudgeStep, type NudgeDirection } from '../commands/nudge';
 import { nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 const ANCHOR_HIT_RADIUS = 8;
 const HANDLE_HIT_RADIUS = 6;
+
+function nudgeDirectionForKey(key: string): NudgeDirection | null {
+  switch (key) {
+    case 'ArrowUp':
+      return 'up';
+    case 'ArrowDown':
+      return 'down';
+    case 'ArrowLeft':
+      return 'left';
+    case 'ArrowRight':
+      return 'right';
+    default:
+      return null;
+  }
+}
+
+function nudgeDelta(direction: NudgeDirection, step: number): { x: number; y: number } {
+  switch (direction) {
+    case 'left':
+      return { x: -step, y: 0 };
+    case 'right':
+      return { x: step, y: 0 };
+    case 'up':
+      return { x: 0, y: -step };
+    case 'down':
+      return { x: 0, y: step };
+  }
+}
 
 export class NodeEditTool extends BaseTool {
   id = 'nodeEdit' as const;
@@ -25,6 +55,7 @@ export class NodeEditTool extends BaseTool {
   private draggingHandle: { anchorIdx: number; which: 'in' | 'out' } | null = null;
   private dragStartHandleValue: [number, number] | null = null;
   private inTransaction = false;
+  private heldNudgeKeys = new Set<NudgeDirection>();
   private altDragStarted = false;
 
   override cursor(state: ToolCursorState): CursorSpec {
@@ -33,13 +64,22 @@ export class NodeEditTool extends BaseTool {
   }
 
   override onDeactivate(ctx: ToolContext): void {
-    this.endEditTransaction(ctx);
+    this.finishNudgeGesture(ctx);
     ctx.setNodeEditTargetId(null);
     this.selectedAnchors.clear();
     this.draggingAnchorIdx = null;
     this.draggingHandle = null;
     this.dragStartHandleValue = null;
     this.altDragStarted = false;
+  }
+
+  override onFocusLoss(ctx: ToolContext): void {
+    this.finishNudgeGesture(ctx);
+  }
+
+  private finishNudgeGesture(ctx: ToolContext): void {
+    this.heldNudgeKeys.clear();
+    this.endEditTransaction(ctx);
   }
 
   private beginEditTransaction(ctx: ToolContext): void {
@@ -234,6 +274,7 @@ export class NodeEditTool extends BaseTool {
 
   override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
     if (e.key === 'Escape' || e.key === 'v') {
+      this.finishNudgeGesture(ctx);
       ctx.setTool('select');
       return true;
     }
@@ -246,7 +287,62 @@ export class NodeEditTool extends BaseTool {
       return this.toggleCornerSmooth(ctx);
     }
 
+    const direction = nudgeDirectionForKey(e.key);
+    if (direction) {
+      if (e.altKey || e.ctrlKey || e.metaKey) {
+        this.finishNudgeGesture(ctx);
+        return false;
+      }
+      return this.nudgeSelectedAnchors(direction, e.shiftKey ? 'large' : 'standard', ctx);
+    }
+
     return false;
+  }
+
+  override onKeyUp(e: KeyboardEvent, ctx: ToolContext): void {
+    const direction = nudgeDirectionForKey(e.key);
+    if (direction && this.heldNudgeKeys.delete(direction) && this.heldNudgeKeys.size === 0) {
+      this.endEditTransaction(ctx);
+    }
+  }
+
+  private nudgeSelectedAnchors(
+    direction: NudgeDirection,
+    mode: 'standard' | 'large',
+    ctx: ToolContext,
+  ): boolean {
+    if (this.selectedAnchors.size === 0) return false;
+    const targetId = ctx.nodeEditTargetId;
+    if (!targetId) return false;
+    const node = ctx.getNode(targetId);
+    if (node?.kind !== 'shape' || node.shape.kind !== 'path') return false;
+
+    const step = getNudgeStep(mode);
+    const worldDelta = nudgeDelta(direction, step);
+    const inverseWorld = tryInvertAffine(nodeWorldTransform(ctx.document, targetId));
+    if (!inverseWorld?.every(Number.isFinite)) return false;
+
+    // Affine translations do not apply to vectors: use only the inverse
+    // linear matrix so one Arrow always means the same document-space delta,
+    // even for a rotated/scaled/flipped path or parent container.
+    const localDeltaX = inverseWorld[0] * worldDelta.x + inverseWorld[2] * worldDelta.y;
+    const localDeltaY = inverseWorld[1] * worldDelta.x + inverseWorld[3] * worldDelta.y;
+    if (!Number.isFinite(localDeltaX) || !Number.isFinite(localDeltaY)) return false;
+
+    const startsGesture = this.heldNudgeKeys.size === 0;
+    this.heldNudgeKeys.add(direction);
+    if (startsGesture) this.beginEditTransaction(ctx);
+    const anchors = new Set(this.selectedAnchors);
+    ctx.updateNode(targetId, (current) => {
+      if (current.kind !== 'shape' || current.shape.kind !== 'path') return current;
+      const points = current.shape.points.map((point, index) =>
+        anchors.has(index)
+          ? { ...point, x: point.x + localDeltaX, y: point.y + localDeltaY }
+          : point,
+      );
+      return { ...current, shape: { ...current.shape, points } } as ShapeNode;
+    });
+    return true;
   }
 
   private deleteSelectedAnchors(ctx: ToolContext): boolean {
