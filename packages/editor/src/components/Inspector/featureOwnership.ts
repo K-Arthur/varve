@@ -137,6 +137,14 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Mask creation and refinement form a persistent appearance workflow.',
   },
+  'selection-colors': {
+    surface: 'properties',
+    scope: 'mixed-selection',
+    frequency: 'frequent',
+    complexity: 'compact',
+    status: 'functional',
+    rationale: 'A deduplicated selection summary makes coordinated vector paint edits immediate.',
+  },
   fills: {
     surface: 'properties',
     scope: 'mixed-selection',

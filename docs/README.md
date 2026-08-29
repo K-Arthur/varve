@@ -257,6 +257,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/focus-navigation.md` | Focus and keyboard navigation contract |
 | `architecture/input-system-behavior-matrix.md` | Input behavior matrix |
 | `architecture/inspector-feature-ownership.md` | Inspector feature ownership |
+| `architecture/selection-colors.md` | Selection-scoped vector paint collection, safe replacement, and inspector behavior |
 | `architecture/icon-library.md` | User-facing icon library: search, acquisition, cache, licensing (distinct from internal UI icons — see `design/icon-system.md` and `adr/0006-icon-system-architecture.md`) |
 | `architecture/icon-system-naming.md` | Internal UI icon naming rules and visual standards (current-state contract in `design/icon-system.md`) |
 | `architecture/onnx-inference-architecture.md` | ONNX inference architecture |

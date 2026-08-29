@@ -532,6 +532,98 @@
   color: var(--color-text-secondary);
 }
 
+/* ---------- Selection Colors ---------- */
+.selection-colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.selection-colors__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr));
+  gap: var(--space-2);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.selection-colors__item {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.selection-colors__swatch-wrap {
+  display: inline-flex;
+}
+
+.selection-colors__swatch {
+  width: var(--space-7);
+  height: var(--space-7);
+  min-width: var(--space-7);
+  min-height: var(--space-7);
+  border-color: var(--color-border-strong);
+  background-position: center;
+}
+
+.selection-colors__meta {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.1;
+}
+
+.selection-colors__count {
+  font-variant-numeric: tabular-nums;
+}
+
+.selection-colors__role {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selection-colors__more {
+  min-height: 1.75rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-xs);
+}
+
+.selection-colors__more:hover {
+  background: var(--color-surface-hover);
+}
+
+.selection-colors__more:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.selection-colors__non-color {
+  width: 100%;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+
 /* Compact Select inside dense inspector rows (defaults are 44px for forms). */
 .insp-panel .varve-select__trigger,
 .insp-disclosure .varve-select__trigger,

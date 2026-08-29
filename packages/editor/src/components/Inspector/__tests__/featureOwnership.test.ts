@@ -14,7 +14,7 @@ describe('Inspector feature ownership', () => {
     expect(ownedIds).toEqual(sectionIds);
   });
 
-  it('keeps the contextual Properties surface intentionally concise, now including document settings', () => {
+  it('keeps the contextual Properties surface intentionally concise, including selection colors and document settings', () => {
     expect(getFeaturesForSurface('properties')).toEqual([
       'align-distribute',
       'position-size',
@@ -27,6 +27,7 @@ describe('Inspector feature ownership', () => {
       'layout',
       'layout-child',
       'appearance',
+      'selection-colors',
       'fills',
       'stroke',
       'adjustment-layer-access',

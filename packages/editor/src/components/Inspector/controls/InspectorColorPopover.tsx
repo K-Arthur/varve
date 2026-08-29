@@ -8,7 +8,7 @@
  */
 import type { ColorMode, Document, ManagedColor } from '@varve/scene';
 import { managedColorKey, managedColorToRgba } from '@varve/shared';
-import { FloatingPortal, FocusTrap, Icon } from '@varve/ui';
+import { FloatingPortal, FocusTrap, Icon, Tooltip } from '@varve/ui';
 import type { Color } from '@varve/ui/components/ColorPicker';
 import { ColorPicker } from '@varve/ui/components/ColorPicker';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -61,6 +61,10 @@ export interface InspectorColorPopoverProps {
   swatchStyle?: React.CSSProperties;
   /** Optional class on the trigger button. */
   className?: string;
+  /** Optional accessible hover/focus tooltip for the actual swatch trigger. */
+  tooltipLabel?: string;
+  /** Explanation when the swatch cannot be edited. */
+  tooltipDisabledReason?: string;
   disabled?: boolean;
   /** Document colour mode — ColorPicker defaults initial space to match. */
   documentColorMode?: ColorMode;
@@ -80,6 +84,8 @@ export function InspectorColorPopover({
   onChange,
   swatchStyle,
   className = 'insp-swatch',
+  tooltipLabel,
+  tooltipDisabledReason,
   disabled = false,
   documentColorMode,
   onEditStart,
@@ -194,18 +200,35 @@ export function InspectorColorPopover({
 
   return (
     <>
-      <button
-        ref={triggerRef}
-        type="button"
-        className={className}
-        aria-label={label}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={open ? dialogId : undefined}
-        disabled={disabled}
-        onClick={toggle}
-        style={swatchStyle}
-      />
+      {tooltipLabel ? (
+        <Tooltip label={tooltipLabel} disabledReason={tooltipDisabledReason} maxWidth={280}>
+          <button
+            ref={triggerRef}
+            type="button"
+            className={className}
+            aria-label={label}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-controls={open ? dialogId : undefined}
+            disabled={disabled}
+            onClick={toggle}
+            style={swatchStyle}
+          />
+        </Tooltip>
+      ) : (
+        <button
+          ref={triggerRef}
+          type="button"
+          className={className}
+          aria-label={label}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={open ? dialogId : undefined}
+          disabled={disabled}
+          onClick={toggle}
+          style={swatchStyle}
+        />
+      )}
       <FloatingPortal
         anchorRef={triggerRef}
         open={open}

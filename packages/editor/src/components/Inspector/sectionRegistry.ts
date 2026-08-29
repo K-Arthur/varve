@@ -31,6 +31,7 @@ export type SectionId =
   | 'constraints'
   | 'appearance'
   | 'mask'
+  | 'selection-colors'
   | 'fills'
   | 'paint-library'
   | 'image-placement'
@@ -317,6 +318,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     order: 210,
     category: 'appearance',
     isAvailable: (ctx) => isSingleSelection(ctx),
+  },
+  {
+    id: 'selection-colors',
+    title: 'Selection Colors',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 215,
+    category: 'appearance',
+    isAvailable: (ctx) => hasNodes(ctx),
   },
   {
     id: 'fills',
