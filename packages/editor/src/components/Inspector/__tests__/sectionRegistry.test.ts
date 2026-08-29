@@ -391,13 +391,13 @@ describe('Section availability predicates', () => {
     );
   });
 
-  it('align-distribute only available for multi selection', () => {
+  it('align-distribute is available for any geometry selection', () => {
     const def = getSectionDefinition('align-distribute')!;
     expect(
       def.isAvailable(baseCtx({ selectionKind: 'multi', selectedNodes: [makeNode(), makeNode()] })),
     ).toBe(true);
     expect(def.isAvailable(baseCtx({ selectionKind: 'single', selectedNodes: [makeNode()] }))).toBe(
-      false,
+      true,
     );
   });
 
@@ -454,7 +454,7 @@ describe('Section availability predicates', () => {
     expect(ids).not.toContain('component');
     expect(ids).not.toContain('adjustment');
     expect(ids).not.toContain('image-placement');
-    expect(ids).not.toContain('align-distribute');
+    expect(ids).toContain('align-distribute');
     expect(ids).not.toContain('brush-settings');
   });
 

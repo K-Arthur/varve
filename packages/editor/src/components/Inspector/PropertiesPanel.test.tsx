@@ -166,6 +166,17 @@ describe('PropertiesPanel section gating for a real single selection', () => {
   it('shows Prototype for a selected frame screen', async () => {
     await renderPanelWithSelectedFrame();
     expect(screen.getByRole('tab', { name: 'Prototype' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Align & distribute' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Align to page' })).toBeEnabled();
+  });
+
+  it('exposes page alignment for a selected object and enables it when requested', async () => {
+    await renderPanelWithSelectedRect();
+    const alignLeft = screen.getByRole('button', { name: 'Align left edges' });
+    expect(alignLeft).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Align to page' }));
+    await waitFor(() => expect(alignLeft).toBeEnabled());
   });
 
   it('does not mount image-only AI sections for a non-image rect selection', async () => {

@@ -5,6 +5,7 @@ import {
   type Document,
   getParent,
   makeFrameNode,
+  makeImageShapeNode,
   makeShapeNode,
   type SceneNode,
 } from '@varve/scene';
@@ -132,6 +133,7 @@ describe('selectionArrangement', () => {
     const next = alignSelectionInDocument(doc, [flow.id, locked.id], 'left');
 
     expect(capabilities.canAlign).toBe(false);
+    expect(capabilities.canAlignToPage).toBe(false);
     expect(capabilities.hasLayoutManagedSelection).toBe(true);
     expect(capabilities.hasLockedOrHiddenSelection).toBe(true);
     expect(next).toBe(doc);
@@ -145,5 +147,99 @@ describe('selectionArrangement', () => {
     doc = addNode(doc, b);
 
     expect(alignSelectionInDocument(doc, [a.id, b.id], 'left')).toBe(doc);
+  });
+
+  it('aligns one eligible object to explicit page bounds while page takes precedence over a key object', () => {
+    let doc = createDocument('single page alignment');
+    const a = rect('a', 35, 20, 40, 30);
+    doc = addNode(doc, a);
+
+    const capabilities = getAlignmentCapabilities(doc, [a.id]);
+    const next = alignSelectionInDocument(doc, [a.id], 'right', {
+      pageBounds: { x: 0, y: 0, w: 200, h: 100 },
+      keyObjectId: a.id,
+    });
+
+    expect(capabilities.canAlign).toBe(false);
+    expect(capabilities.canAlignToPage).toBe(true);
+    expect(bounds(next, a.id)).toMatchObject({ x: 160, y: 20, w: 40, h: 30 });
+  });
+
+  it('aligns an image and a line inside a transformed frame without changing their local parentage', () => {
+    let doc = createDocument('nested image and line alignment');
+    const frame = makeFrameNode('frame', {
+      w: 500,
+      h: 300,
+      transform: [0.8660254038, 0.5, -0.5, 0.8660254038, 240, 180],
+    });
+    const image = makeImageShapeNode('image', {
+      name: 'Photo',
+      src: 'photo.png',
+      w: 90,
+      h: 60,
+      transform: [1, 0, 0, 1, 120, 40],
+    });
+    const line = makeShapeNode(
+      'line',
+      { kind: 'line', from: [0, 0], to: [100, 20], tolerance: 3 },
+      { name: 'Line', transform: [1, 0, 0, 1, 30, 180] },
+    );
+    doc = addNode(doc, frame);
+    doc = addChild(doc, frame.id, image);
+    doc = addChild(doc, frame.id, line);
+
+    const next = alignSelectionInDocument(doc, [image.id, line.id], 'left');
+
+    expectClose(bounds(next, image.id).x, bounds(next, line.id).x);
+    expect(getParent(next, image.id)).toBe(frame.id);
+    expect(getParent(next, line.id)).toBe(frame.id);
+    expect(next.nodes[image.id]?.fills[0]?.type).toBe('image');
+  });
+
+  it('allows absolute auto-layout children but excludes flow children and hidden ancestors', () => {
+    let doc = createDocument('layout eligibility');
+    const layout = makeFrameNode('layout', {
+      w: 300,
+      h: 120,
+      layoutStyle: {
+        mode: 'flex',
+        direction: 'row',
+        gap: 10,
+        wrap: false,
+        padding: [0, 0, 0, 0],
+        grow: 0,
+        shrink: 0,
+      },
+    });
+    const flow = rect('flow', 20, 0, 30, 30);
+    const absolute = { ...rect('absolute', 110, 0, 30, 30), layoutPosition: 'absolute' };
+    const peer = rect('peer', 320, 20, 30, 30);
+    const hiddenFrame = { ...makeFrameNode('hidden-frame', { w: 100, h: 100 }), visible: false };
+    const hiddenChild = rect('hidden-child', 10, 10, 20, 20);
+    doc = addNode(doc, layout);
+    doc = addChild(doc, layout.id, flow);
+    doc = addChild(doc, layout.id, absolute);
+    doc = addNode(doc, peer);
+    doc = addNode(doc, hiddenFrame);
+    doc = addChild(doc, hiddenFrame.id, hiddenChild);
+
+    const capabilities = getAlignmentCapabilities(doc, [
+      flow.id,
+      absolute.id,
+      peer.id,
+      hiddenChild.id,
+    ]);
+    const next = alignSelectionInDocument(
+      doc,
+      [flow.id, absolute.id, peer.id, hiddenChild.id],
+      'left',
+    );
+
+    expect(capabilities.canAlign).toBe(true);
+    expect(capabilities.hasLayoutManagedSelection).toBe(true);
+    expect(capabilities.hasLockedOrHiddenSelection).toBe(true);
+    expect(next.nodes[flow.id]?.transform).toEqual(flow.transform);
+    expect(next.nodes[hiddenChild.id]?.transform).toEqual(hiddenChild.transform);
+    expectClose(bounds(next, absolute.id).x, bounds(next, peer.id).x);
   });
 });

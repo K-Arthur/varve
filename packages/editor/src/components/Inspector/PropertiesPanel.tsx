@@ -593,6 +593,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
           </span>
         </p>
       </header>
+      <AlignDistributeBar />
       {sectionEntries.map((entry) => (
         <div key={entry.id}>{entry.el}</div>
       ))}

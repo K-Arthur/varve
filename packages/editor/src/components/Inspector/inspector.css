@@ -1092,6 +1092,18 @@
   justify-content: flex-start;
   flex-wrap: wrap;
 }
+.insp-align-section {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.insp-align-section__title {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
 [data-theme="high-contrast"] .insp-align-bar {
   outline: 1px solid var(--color-border-subtle);
   outline-offset: 2px;

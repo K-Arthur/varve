@@ -32,8 +32,12 @@ const POSITION_EPSILON = 1e-9;
 export interface AlignmentCapabilities {
   rootCount: number;
   movableRootCount: number;
+  /** Alignment against the collective selection or a key object. */
   canAlign: boolean;
+  /** Alignment against explicit page/canvas bounds. */
+  canAlignToPage: boolean;
   canDistribute: boolean;
+  canTidy: boolean;
   hasLockedOrHiddenSelection: boolean;
   hasLayoutManagedSelection: boolean;
 }
@@ -82,7 +86,9 @@ export function getAlignmentCapabilities(
     rootCount: collected.rootCount,
     movableRootCount: collected.items.length,
     canAlign: collected.items.length >= 2,
+    canAlignToPage: collected.items.length >= 1,
     canDistribute: collected.items.length >= 3,
+    canTidy: collected.items.length >= 2,
     hasLockedOrHiddenSelection: collected.hasLockedOrHiddenSelection,
     hasLayoutManagedSelection: collected.hasLayoutManagedSelection,
   };
@@ -97,7 +103,7 @@ export function alignSelectionInDocument(
 ): Document {
   const collected = collectSelection(doc, selection);
   const { items } = collected;
-  if (items.length < 2) return doc;
+  if (items.length < (isFiniteBounds(options.pageBounds) ? 1 : 2)) return doc;
 
   const target = resolveAlignmentTarget(items, axis, options);
   if (!target) return doc;
@@ -162,7 +168,7 @@ export function alignSelectionWithObbInDocument(
     if (!isFiniteAffine(transform)) return [];
     return [{ ...item, obb: transformedRectCorners(transform, local) }];
   });
-  if (items.length < 2) return doc;
+  if (items.length < (isFiniteBounds(options.pageBounds) ? 1 : 2)) return doc;
 
   const target = resolveObbTarget(items, axis, options);
   if (target === null) return doc;
@@ -246,11 +252,11 @@ function resolveAlignmentTarget(
   axis: AlignAxis,
   options: AlignSelectionOptions,
 ): AlignmentTarget | null {
+  if (isFiniteBounds(options.pageBounds)) return targetForBounds(options.pageBounds);
   const keyItem = options.keyObjectId
     ? items.find((item) => item.id === options.keyObjectId)
     : null;
   if (keyItem) return targetForBounds(keyItem.bounds);
-  if (isFiniteBounds(options.pageBounds)) return targetForBounds(options.pageBounds);
   return computeAlignmentTarget(
     axis,
     items.map((item) => item.bounds),
@@ -262,12 +268,12 @@ function resolveObbTarget(
   axis: AlignAxis,
   options: AlignSelectionOptions,
 ): number | null {
+  if (isFiniteBounds(options.pageBounds))
+    return alignmentTargetCoordinate(axis, options.pageBounds);
   const keyItem = options.keyObjectId
     ? items.find((item) => item.id === options.keyObjectId)
     : null;
   if (keyItem) return obbAlignmentTarget(axis, [keyItem.obb]);
-  if (isFiniteBounds(options.pageBounds))
-    return alignmentTargetCoordinate(axis, options.pageBounds);
   return obbAlignmentTarget(
     axis,
     items.map((item) => item.obb),

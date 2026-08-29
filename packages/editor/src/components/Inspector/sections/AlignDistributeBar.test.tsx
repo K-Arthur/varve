@@ -15,7 +15,7 @@ import { AlignDistributeBar } from './AlignDistributeBar';
 
 afterEach(() => vi.clearAllMocks());
 
-function editorForSelection(selection: string[]) {
+function editorForSelection(selection: string[], alignToPage = false) {
   let document = createDocument('align controls');
   for (const id of ['a', 'b', 'c']) {
     document = addNode(
@@ -31,7 +31,7 @@ function editorForSelection(selection: string[]) {
     tidySelected: vi.fn(),
     setKeyObject: vi.fn(),
     keyObjectId: null,
-    alignToPage: false,
+    alignToPage,
     setAlignToPage: vi.fn(),
   };
 }
@@ -46,13 +46,24 @@ describe('AlignDistributeBar', () => {
     expect(screen.getByRole('button', { name: 'Set key object from selection' })).toBeEnabled();
   });
 
-  it('disables all alignment operations for a single selection and renders one horizontal icon', () => {
+  it('shows page alignment for a single selection while keeping relative commands disabled', () => {
     mocks.useEditor.mockReturnValue(editorForSelection(['a']));
     render(<AlignDistributeBar />);
 
+    expect(screen.getByRole('heading', { name: 'Align & distribute' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Align left edges' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Align to page' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Set key object from selection' })).toBeDisabled();
     const distribute = screen.getByRole('button', { name: 'Distribute horizontal spacing' });
     expect(distribute).toBeDisabled();
     expect(distribute.querySelectorAll('svg')).toHaveLength(1);
+  });
+
+  it('enables an eligible single selection after the page target is chosen', () => {
+    mocks.useEditor.mockReturnValue(editorForSelection(['a'], true));
+    render(<AlignDistributeBar />);
+
+    expect(screen.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Distribute horizontal spacing' })).toBeDisabled();
   });
 });

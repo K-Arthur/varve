@@ -233,10 +233,6 @@ function isSingleSelection(ctx: SectionAvailabilityContext): boolean {
   return ctx.selectionKind === 'single';
 }
 
-function isMultiSelection(ctx: SectionAvailabilityContext): boolean {
-  return ctx.selectionKind === 'multi';
-}
-
 // ---------------------------------------------------------------------------
 // Section registry — the canonical list
 // ---------------------------------------------------------------------------
@@ -753,7 +749,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     isAvailable: (ctx) => isAllTextNodes(ctx.selectedNodes),
   },
 
-  // -- Multi-select --
+  // -- Selection geometry --
   {
     id: 'align-distribute',
     title: 'Align & Distribute',
@@ -762,7 +758,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: true,
     order: 90,
     category: 'geometry',
-    isAvailable: (ctx) => isMultiSelection(ctx),
+    isAvailable: (ctx) => hasNodes(ctx),
   },
 
   // -- Analysis --

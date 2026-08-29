@@ -5413,7 +5413,7 @@ export function EditorProvider({
       // Manual alignment is delegated to the shared scene-aware command.
       alignSelected: (axis) => {
         const sel = state.selection;
-        if (sel.length < 2) return;
+        if (sel.length < (state.alignToPage ? 1 : 2)) return;
         const pageBounds = state.alignToPage
           ? (() => {
               const typedDoc = state.document as Document & {
@@ -5466,7 +5466,7 @@ export function EditorProvider({
 
       obbAlignSelected: (axis) => {
         const sel = state.selection;
-        if (sel.length < 2) return;
+        if (sel.length < (state.alignToPage ? 1 : 2)) return;
         const typedDoc = state.document as Document & {
           canvasWidth?: number;
           canvasHeight?: number;
