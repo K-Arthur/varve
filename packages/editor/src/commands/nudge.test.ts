@@ -5,7 +5,9 @@ import {
   type Document,
   makeFrameNode,
   makeGroupNode,
+  makeImageNode,
   makeShapeNode,
+  makeTextNode,
   type NodeId,
 } from '@varve/scene';
 import type { Affine } from '@varve/shared';
@@ -257,6 +259,37 @@ describe('executeNudge', () => {
     expectClose(afterB.y - beforeB.y, 10);
     expectClose(afterB.x - afterA.x, beforeB.x - beforeA.x);
     expectClose(afterB.y - afterA.y, beforeB.y - beforeA.y);
+  });
+
+  it('moves selected text and image objects without rewriting their content', () => {
+    let document = createDocument('text and image nudge');
+    const text = makeTextNode('text', 'Move me', {
+      w: 120,
+      h: 32,
+      transform: [0, 1, -1, 0, 42, 55],
+    });
+    const image = makeImageNode('image', {
+      src: 'asset://photo',
+      imageFit: 'cover',
+      w: 80,
+      h: 60,
+      transform: [1, 0, 0, 1, -12, 6],
+    });
+    document = addNode(document, text);
+    document = addNode(document, image);
+    const originalText = document.nodes[text.id]!;
+    const originalImage = document.nodes[image.id]!;
+    const ctx = makeCtx(document, [text.id, image.id]);
+
+    executeNudge('up', 1, ctx);
+    const afterDoc = withPositions(document, positionsFrom(ctx));
+    const afterText = afterDoc.nodes[text.id]!;
+    const afterImage = afterDoc.nodes[image.id]!;
+
+    expect({ ...afterText, transform: originalText.transform }).toEqual(originalText);
+    expect(afterText.transform).toEqual([0, 1, -1, 0, 42, 54]);
+    expect({ ...afterImage, transform: originalImage.transform }).toEqual(originalImage);
+    expect(afterImage.transform).toEqual([1, 0, 0, 1, -12, 5]);
   });
 
   it('moves only independent transform roots when a parent and child are selected', () => {
