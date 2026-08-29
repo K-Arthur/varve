@@ -205,6 +205,15 @@ function PageIcon() {
   );
 }
 
+function CloseIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" role="presentation">
+      <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" strokeWidth="1.4" />
+      <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
 function GridIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -498,7 +507,7 @@ export function AlignDistributeBar() {
                         aria-label="Close distribution options"
                         onClick={() => setShowDistributionMenu(false)}
                       >
-                        ×
+                        <CloseIcon />
                       </button>
                     </div>
                     <fieldset>
