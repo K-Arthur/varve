@@ -80,6 +80,13 @@ test.describe('Alignment and arrangement workflow', () => {
     await layers.nth(3).click({ modifiers: ['Control'] });
     await expect(page.locator('.insp-panel__multi-count')).toContainText('4');
 
+    const distributionOptions = page.getByRole('button', { name: 'Distribution options' });
+    await distributionOptions.click();
+    await expect(page.getByRole('dialog', { name: 'Distribution options' })).toBeVisible();
+    await page.getByLabel('Fixed gap').check();
+    await page.getByLabel('Gap (px)').fill('-12');
+    await distributionOptions.click();
+
     const canvas = page.getByTestId('editor-canvas');
     await canvas.screenshot({ path: 'test-results/alignment-arrangement-before.png' });
     await testInfo.attach('alignment-before', {
@@ -156,6 +163,13 @@ test.describe('Alignment and arrangement workflow', () => {
     await image.click();
     await expect(page.getByRole('heading', { name: 'Align & distribute' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Align left edges' })).toBeDisabled();
+    const alignToFrame = page.getByRole('button', { name: 'Align to parent frame' });
+    await expect(alignToFrame).toBeEnabled();
+    await alignToFrame.click();
+    await expect(page.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Align left edges' }).click();
+    // Selecting Page and toggling it off returns to the collective-selection
+    // reference before adding the sibling to this single-item selection.
     const alignToPage = page.getByRole('button', { name: 'Align to page' });
     await alignToPage.click();
     await expect(page.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
