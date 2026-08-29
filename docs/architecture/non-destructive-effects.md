@@ -1,6 +1,6 @@
 # Non-Destructive Effects Architecture
 
-**Status:** current · **Decision:** [ADR-0224](../adr/0224-non-destructive-effect-attachments.md) · **Related:** [Live Effects](live-effects-system.md), [Masking](masking-system.md), [Effect Rendering](effect-rendering.md)
+**Status:** current · **Decision:** [ADR-0224](../adr/0224-non-destructive-effect-attachments.md) · **Related:** [Image Treatments](image-treatments.md), [Live Effects](live-effects-system.md), [Masking](masking-system.md), [Effect Rendering](effect-rendering.md)
 
 Varve has two deliberately different non-destructive effect attachments. They
 share filter parameters and rendering machinery, but not ownership or scope:
