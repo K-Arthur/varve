@@ -1,4 +1,4 @@
-import { Button } from '@varve/ui';
+import { AlertDialog, Button, Dialog } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /* ---------------------------------------------------------------------------
@@ -23,9 +23,11 @@ export function promptDialog(title: string, defaultValue = ''): Promise<string |
   });
 }
 
+// Built on @varve/ui's Dialog rather than a hand-rolled <dialog> — Dialog
+// already gets focus containment, Escape, and backdrop dismissal right, so
+// this only needs to own the prompt's own input/actions.
 export function PromptDialog() {
   const [state, setState] = useState<PromptDialogState | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -37,7 +39,6 @@ export function PromptDialog() {
 
   useEffect(() => {
     if (state) {
-      dialogRef.current?.showModal();
       inputRef.current?.focus();
       inputRef.current?.select();
     }
@@ -47,37 +48,19 @@ export function PromptDialog() {
     const val = inputRef.current?.value ?? '';
     state?.resolve(val);
     setState(null);
-    dialogRef.current?.close();
   }, [state]);
 
   const handleCancel = useCallback(() => {
     state?.resolve(null);
     setState(null);
-    dialogRef.current?.close();
   }, [state]);
 
-  if (!state) return null;
-
   return (
-    <dialog ref={dialogRef} className="varve-dialog" role="dialog" aria-labelledby="prompt-title" onClose={handleCancel}>
-      <div className="varve-dialog__content">
-        <h3 id="prompt-title" className="varve-dialog__title">
-          {state.title}
-        </h3>
-        <input
-          ref={inputRef}
-          type="text"
-          className="varve-dialog__input"
-          aria-label={state.title}
-          defaultValue={state.defaultValue}
-          onKeyDown={(e) => {
-            // Stop propagation so global canvas/editor shortcuts don't fire
-            // while typing, but still act on Enter ourselves first — this
-            // dialog has no <form> to submit, so nothing else will.
-            e.stopPropagation();
-            if (e.key === 'Enter') handleConfirm();
-          }}
-        />
+    <Dialog
+      open={!!state}
+      onClose={handleCancel}
+      title={state?.title ?? ''}
+      footer={
         <div className="varve-dialog__actions">
           <Button variant="ghost" onClick={handleCancel}>
             Cancel
@@ -86,8 +69,23 @@ export function PromptDialog() {
             Confirm
           </Button>
         </div>
-      </div>
-    </dialog>
+      }
+    >
+      <input
+        ref={inputRef}
+        type="text"
+        className="varve-dialog__input"
+        aria-label={state?.title ?? ''}
+        defaultValue={state?.defaultValue ?? ''}
+        onKeyDown={(e) => {
+          // Stop propagation so global canvas/editor shortcuts don't fire
+          // while typing, but still act on Enter ourselves first — this
+          // dialog has no <form> to submit, so nothing else will.
+          e.stopPropagation();
+          if (e.key === 'Enter') handleConfirm();
+        }}
+      />
+    </Dialog>
   );
 }
 
@@ -125,10 +123,12 @@ export function confirmDialog(
   });
 }
 
+// Mirrors packages/home/src/confirmDialog.tsx's ConfirmDialogProvider — same
+// shared AlertDialog, same provider shape. AlertDialog already sets
+// dismissible={false} internally, so destructive confirmations can't be
+// backdrop-clicked away.
 export function ConfirmDialog() {
   const [state, setState] = useState<ConfirmDialogState | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const closingRef = useRef(false);
 
   useEffect(() => {
     setConfirmState = setState;
@@ -137,63 +137,25 @@ export function ConfirmDialog() {
     };
   }, []);
 
-  useEffect(() => {
-    if (state) {
-      dialogRef.current?.showModal();
-    }
+  const handleClose = useCallback(() => {
+    state?.resolve(false);
+    setState(null);
   }, [state]);
 
   const handleConfirm = useCallback(() => {
     state?.resolve(true);
     setState(null);
-    closingRef.current = true;
-    dialogRef.current?.close();
   }, [state]);
-
-  const handleCancel = useCallback(() => {
-    state?.resolve(false);
-    setState(null);
-    closingRef.current = true;
-    dialogRef.current?.close();
-  }, [state]);
-
-  if (!state) return null;
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="varve-dialog"
-      role="alertdialog"
-      aria-labelledby="confirm-title"
-      aria-describedby="confirm-desc"
-      onCancel={(e) => {
-        e.preventDefault();
-        handleCancel();
-      }}
-      onClose={() => {
-        if (!closingRef.current) {
-          handleCancel();
-        }
-        closingRef.current = false;
-      }}
-      onKeyDown={() => {}}
-    >
-      <div className="varve-dialog__content">
-        <h3 id="confirm-title" className="varve-dialog__title">
-          {state.title}
-        </h3>
-        <p id="confirm-desc" className="varve-dialog__desc">
-          {state.description}
-        </p>
-        <div className="varve-dialog__actions">
-          <Button variant="ghost" onClick={handleCancel}>
-            Cancel
-          </Button>
-          <Button variant={state.variant ?? 'primary'} onClick={handleConfirm}>
-            {state.confirmLabel ?? 'Confirm'}
-          </Button>
-        </div>
-      </div>
-    </dialog>
+    <AlertDialog
+      open={!!state}
+      onClose={handleClose}
+      onConfirm={handleConfirm}
+      title={state?.title ?? ''}
+      description={state?.description ?? ''}
+      confirmLabel={state?.confirmLabel}
+      variant={state?.variant}
+    />
   );
 }

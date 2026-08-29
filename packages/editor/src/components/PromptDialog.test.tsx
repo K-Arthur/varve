@@ -27,8 +27,12 @@ describe('PromptDialog', () => {
     render(<PromptDialog />);
     promptDialog('Rename page', 'Page 1');
 
-    const buttons = await screen.findAllByRole('button');
-    expect(buttons.map((b) => b.textContent)).toEqual(['Cancel', 'Confirm']);
+    await screen.findByRole('textbox', { name: 'Rename page' });
+    // Scoped to the actions row: Dialog's header also renders its own
+    // "Close dialog" button, which isn't part of this ordering convention.
+    const actions = document.querySelector('.varve-dialog__actions');
+    const buttons = actions?.querySelectorAll('button') ?? [];
+    expect(Array.from(buttons).map((b) => b.textContent)).toEqual(['Cancel', 'Confirm']);
   });
 
   it('cancel button resolves to null', async () => {
