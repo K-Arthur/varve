@@ -2,6 +2,12 @@ import type { Shape } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
 import type { ToolId } from './types';
 
+export {
+  alignSelectionInDocument,
+  alignSelectionWithObbInDocument,
+  distributeSelectionInDocument,
+} from '../scene/selectionArrangement';
+
 // F4: default shape geometry per tool.
 // Research basis: Figma/Illustrator default sizes for shape tools.
 export function shapeForTool(tool: ToolId): Shape {

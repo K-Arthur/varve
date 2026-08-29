@@ -330,7 +330,7 @@ describe('computeDistributionCenters', () => {
 // ─── computeDistribution with negative gaps ──────────────────────────────
 
 describe('computeDistribution — negative gap handling', () => {
-  it('overlapping items with no fixed gap — gap clamps to 0', () => {
+  it('overlapping items preserve the outer span with an equal negative gap', () => {
     // Items that already overlap
     const boxes: BBox[] = [
       { x: 0, y: 0, w: 20, h: 10 },
@@ -340,14 +340,14 @@ describe('computeDistribution — negative gap handling', () => {
     const result = computeDistribution('horizontal', boxes);
     expect(result).not.toBeNull();
     if (!result) return;
-    // start=0, end=30, totalSize=60, gap=0 (clamped)
-    // positions: 0, 20, 40
+    // start=0, end=30, totalSize=60, gap=-15
+    // positions: 0, 5, 10 (the first and last outer edges stay fixed)
     expect(result[0]).toBe(0);
-    expect(result[1]).toBe(20);
-    expect(result[2]).toBe(40);
+    expect(result[1]).toBe(5);
+    expect(result[2]).toBe(10);
   });
 
-  it('fixed negative gap — clamped to 0', () => {
+  it('keeps an explicit negative gap exactly', () => {
     const boxes: BBox[] = [
       { x: 0, y: 0, w: 10, h: 10 },
       { x: 30, y: 0, w: 10, h: 10 },
@@ -356,10 +356,10 @@ describe('computeDistribution — negative gap handling', () => {
     const result = computeDistribution('horizontal', boxes, -10);
     expect(result).not.toBeNull();
     if (!result) return;
-    // With gap=0: positions: 0, 10, 20
+    // With gap=-10: positions: 0, 0, 0
     expect(result[0]).toBe(0);
-    expect(result[1]).toBe(10);
-    expect(result[2]).toBe(20);
+    expect(result[1]).toBe(0);
+    expect(result[2]).toBe(0);
   });
 
   it('zero-width items with fixed gap', () => {

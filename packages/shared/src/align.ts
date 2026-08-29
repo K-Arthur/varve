@@ -122,11 +122,13 @@ export function alignBBox(
  * Compute evenly-spaced distribution positions for ≥3 bounding boxes.
  *
  * If `fixedGap` is provided, items are placed with that exact gap between adjacent edges.
- * `fixedGap` is clamped to 0 for negative values (overlapping items produce zero-gap,
- * not a visually broken negative gap or NaN).
+ * A negative `fixedGap` deliberately overlaps adjacent items. This makes the
+ * spacing operation exact for every finite requested gap.
  *
- * Otherwise, gaps are computed to fill the span evenly. When the span is smaller than
- * the total content size (overlapping items), gap is 0 and the span is preserved.
+ * Otherwise, gaps are computed to fill the span evenly. When the selected
+ * content is wider/taller than its outer span, the resulting negative gap
+ * preserves the first and last bounds instead of unexpectedly expanding the
+ * selection.
  *
  * Returns array of positions (X for horizontal, Y for vertical) in sorted order,
  * or `null` if <3 items.
@@ -150,7 +152,7 @@ export function computeDistribution(
   const positions: number[] = [];
 
   if (fixedGap !== undefined) {
-    const safeGap = Math.max(0, fixedGap);
+    const safeGap = Number.isFinite(fixedGap) ? fixedGap : 0;
     let cursor = getPos(sorted[0]!);
     for (let i = 0; i < sorted.length; i++) {
       positions.push(cursor);
@@ -166,7 +168,7 @@ export function computeDistribution(
   const start = getPos(first);
   const end = getPos(last) + getSize(last);
   const totalSize = sorted.reduce((s, b) => s + getSize(b), 0);
-  const gap = Math.max(0, (end - start - totalSize) / (sorted.length - 1));
+  const gap = (end - start - totalSize) / (sorted.length - 1);
 
   let cursor = start;
   for (let i = 0; i < sorted.length; i++) {

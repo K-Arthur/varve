@@ -11,6 +11,7 @@ import { Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor } from '../../../context';
+import { getAlignmentCapabilities } from '../../../scene/selectionArrangement';
 import { showAlignmentGuidesFromSelection } from '../../AlignmentOverlay/AlignmentGuideOverlay';
 
 interface AlignIconProps {
@@ -246,6 +247,7 @@ export function AlignDistributeBar() {
   const [showTidyMenu, setShowTidyMenu] = useState(false);
   const [obbEnabled, setObbEnabled] = useState(false);
   const tidyBtnRef = useRef<HTMLButtonElement>(null);
+  const capabilities = getAlignmentCapabilities(state.document, state.selection);
 
   const doAlign = useCallback(
     (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => {
@@ -294,6 +296,7 @@ export function AlignDistributeBar() {
             className="pill-group__btn"
             aria-label="Align left edges"
             onClick={() => doAlign('left')}
+            disabled={!capabilities.canAlign}
           >
             <AlignIcon type="alignLeft" />
           </button>
@@ -304,6 +307,7 @@ export function AlignDistributeBar() {
             className="pill-group__btn"
             aria-label="Align horizontal centers"
             onClick={() => doAlign('centerH')}
+            disabled={!capabilities.canAlign}
           >
             <AlignIcon type="alignCenterH" />
           </button>
@@ -314,6 +318,7 @@ export function AlignDistributeBar() {
             className="pill-group__btn"
             aria-label="Align right edges"
             onClick={() => doAlign('right')}
+            disabled={!capabilities.canAlign}
           >
             <AlignIcon type="alignRight" />
           </button>
@@ -325,6 +330,7 @@ export function AlignDistributeBar() {
             className="pill-group__btn"
             aria-label="Align top edges"
             onClick={() => doAlign('top')}
+            disabled={!capabilities.canAlign}
           >
             <AlignIcon type="alignTop" />
           </button>
@@ -335,6 +341,7 @@ export function AlignDistributeBar() {
             className="pill-group__btn"
             aria-label="Align vertical centers"
             onClick={() => doAlign('centerV')}
+            disabled={!capabilities.canAlign}
           >
             <AlignIcon type="alignCenterV" />
           </button>
@@ -345,6 +352,7 @@ export function AlignDistributeBar() {
             className="pill-group__btn"
             aria-label="Align bottom edges"
             onClick={() => doAlign('bottom')}
+            disabled={!capabilities.canAlign}
           >
             <AlignIcon type="alignBottom" />
           </button>
@@ -356,6 +364,7 @@ export function AlignDistributeBar() {
             className="pill-group__btn"
             aria-label="Distribute horizontal spacing"
             onClick={() => handleDistribute('horizontal')}
+            disabled={!capabilities.canDistribute}
           >
             <DistributeIcon type="horizontal" />
           </button>
@@ -366,6 +375,7 @@ export function AlignDistributeBar() {
             className="pill-group__btn"
             aria-label="Distribute vertical spacing"
             onClick={() => handleDistribute('vertical')}
+            disabled={!capabilities.canDistribute}
           >
             <DistributeIcon type="vertical" />
           </button>
@@ -380,6 +390,7 @@ export function AlignDistributeBar() {
             className={`pill-group__btn ${keyObjectId ? 'pill-group__btn--active' : ''}`}
             aria-label={keyObjectId ? 'Clear key object' : 'Set key object from selection'}
             onClick={handleToggleKeyObject}
+            disabled={!capabilities.canAlign}
           >
             <KeyObjectIcon />
             {keyObjectId && <span className="insp-badge" />}
@@ -391,6 +402,7 @@ export function AlignDistributeBar() {
             className={`pill-group__btn ${alignToPage ? 'pill-group__btn--active' : ''}`}
             aria-label={alignToPage ? 'Align to page (active)' : 'Align to page'}
             onClick={() => setAlignToPage(!alignToPage)}
+            disabled={!capabilities.canAlign}
           >
             <PageIcon />
           </button>
@@ -454,6 +466,7 @@ export function AlignDistributeBar() {
             className={`pill-group__btn ${obbEnabled ? 'pill-group__btn--active' : ''}`}
             aria-label={obbEnabled ? 'OBB alignment on' : 'OBB alignment off'}
             onClick={() => setObbEnabled(!obbEnabled)}
+            disabled={!capabilities.canAlign}
           >
             <OBBIcon />
           </button>

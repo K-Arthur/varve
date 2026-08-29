@@ -125,7 +125,7 @@ import {
   applyConstraints,
   applyFormatToSelection as applyFormatToSelectionOp,
   applyLayerState as applyLayerStateDoc,
-  arrangeNode as arrangeNodeDoc,
+  arrangeNodes as arrangeNodesDoc,
   assignDocumentColorMode as assignDocumentColorModeDoc,
   assignMasterToPage as assignMasterToPageDoc,
   type BitDepth,
@@ -325,21 +325,13 @@ import {
   worldToPage,
 } from '@varve/scene';
 import {
-  alignBBox,
   animateCamera,
   type Camera,
   clampCamera,
   clampZoom,
-  computeAlignmentTarget,
-  computeDistribution,
-  computeDistributionCenters,
   computeTidyLayout,
   type DistributeMode,
-  distributeToPosition,
   fitBoundsCamera,
-  type OBB,
-  obbAlignmentTarget,
-  orientedBBox,
   revealBoundsCamera,
   screenDeltaToWorld,
   transformRect,
@@ -406,7 +398,13 @@ import {
   ViewportProvider,
 } from './context/providerComposition';
 import { isReducedMotion } from './context/reducedMotionManager';
-import { resizeSceneNode, shapeForTool } from './context/sceneNodeGeometry';
+import {
+  alignSelectionInDocument,
+  alignSelectionWithObbInDocument,
+  distributeSelectionInDocument,
+  resizeSceneNode,
+  shapeForTool,
+} from './context/sceneNodeGeometry';
 import type {
   EditorContextValue as CanonicalEditorContextValue,
   CanvasMode,
@@ -5412,305 +5410,48 @@ export function EditorProvider({
         setState((s) => ({ ...s, pendingFormat: format }));
       },
 
-      // F6: align selected nodes — uses shared align module for pure bbox math
+      // Manual alignment is delegated to the shared scene-aware command.
       alignSelected: (axis) => {
         const sel = state.selection;
         if (sel.length < 2) return;
-        const doc = state.document;
-        const items = getValidItemsWithBounds(sel, doc);
-        if (items.length < 2) return;
-
-        // Determine target: key object → align-to-page → collective bounds
-        let target = computeKeyObjectTarget(doc, state.keyObjectId, sel);
-        if (!target && state.alignToPage) {
-          const typedDoc = doc as Document & { canvasWidth?: number; canvasHeight?: number };
-          const pw = typedDoc.canvasWidth ?? 1920;
-          const ph = typedDoc.canvasHeight ?? 1080;
-          target = { left: 0, right: pw, top: 0, bottom: ph, centerX: pw / 2, centerY: ph / 2 };
-        }
-        if (!target) {
-          const u = computeAlignmentTarget(
-            axis,
-            items.map((i) => i.bounds),
-          );
-          if (!u) return;
-          target = u;
-        }
-
-        updateDoc((newDoc) => {
-          const nodes = { ...newDoc.nodes };
-          for (const { id, node, bounds: b } of items) {
-            if (!nodes[id]) continue;
-            const { x: targetWorldX, y: targetWorldY } = alignBBox(b, axis, target!);
-            const newLocal = worldToLocalOrigin(
-              doc,
-              id,
-              targetWorldX,
-              targetWorldY,
-              b,
-              parentCacheRef.current,
-            );
-            nodes[id] = {
-              ...node,
-              transform: [
-                node.transform[0],
-                node.transform[1],
-                node.transform[2],
-                node.transform[3],
-                newLocal[0],
-                newLocal[1],
-              ] as Affine,
-            } as SceneNode;
-          }
-          return { ...newDoc, nodes };
-        });
+        const pageBounds = state.alignToPage
+          ? (() => {
+              const typedDoc = state.document as Document & {
+                canvasWidth?: number;
+                canvasHeight?: number;
+              };
+              return {
+                x: 0,
+                y: 0,
+                w: typedDoc.canvasWidth ?? 1920,
+                h: typedDoc.canvasHeight ?? 1080,
+              };
+            })()
+          : null;
+        updateDoc((doc) =>
+          alignSelectionInDocument(doc, sel, axis, {
+            keyObjectId: state.keyObjectId,
+            pageBounds,
+          }),
+        );
       },
 
-      // F6: distribute selected nodes — uses shared computeDistribution for pure math
       distributeSelected: (axis) => {
         const sel = state.selection;
         if (sel.length < 3) return;
-        const doc = state.document;
-        const items = getValidItemsWithBounds(sel, doc);
-        if (items.length < 3) return;
-
-        const sorted = [...items].sort((a, b) => {
-          return (
-            (axis === 'horizontal' ? a.bounds.x : a.bounds.y) -
-            (axis === 'horizontal' ? b.bounds.x : b.bounds.y)
-          );
-        });
-
-        const positions = computeDistribution(
-          axis,
-          sorted.map((i) => i.bounds),
-        );
-        if (!positions) return;
-
-        updateDoc((newDoc) => {
-          const nodes = { ...newDoc.nodes };
-          for (let i = 0; i < sorted.length; i++) {
-            const { id, node, bounds: b } = sorted[i]!;
-            if (!nodes[id]) continue;
-            const pos = distributeToPosition(
-              positions[i]!,
-              i,
-              b,
-              axis,
-              sorted.map((s) => s.bounds),
-            );
-            const targetWorldX = pos.x;
-            const targetWorldY = pos.y;
-            const wm = nodeWorldTransform(doc, id);
-            const bOffX = b.x - wm[4];
-            const bOffY = b.y - wm[5];
-            const nodeOriginWorldX = targetWorldX - bOffX;
-            const nodeOriginWorldY = targetWorldY - bOffY;
-            const parentId = getParentFast(doc, id, parentCacheRef.current);
-            let newLocalX = nodeOriginWorldX;
-            let newLocalY = nodeOriginWorldY;
-            if (parentId) {
-              const pInv = invertAffine(nodeWorldTransform(doc, parentId));
-              const local = applyAffine(pInv, [nodeOriginWorldX, nodeOriginWorldY]);
-              newLocalX = local[0];
-              newLocalY = local[1];
-            }
-            nodes[id] = {
-              ...node,
-              transform: [
-                node.transform[0],
-                node.transform[1],
-                node.transform[2],
-                node.transform[3],
-                newLocalX,
-                newLocalY,
-              ] as Affine,
-            } as SceneNode;
-          }
-          return { ...newDoc, nodes };
-        });
+        updateDoc((doc) => distributeSelectionInDocument(doc, sel, axis));
       },
 
-      // P0*: distribute with a fixed gap between adjacent edges
       distributeWithGap: (axis, gap) => {
         const sel = state.selection;
         if (sel.length < 3) return;
-        const doc = state.document;
-        const items = getValidItemsWithBounds(sel, doc);
-        if (items.length < 3) return;
-
-        const sorted = [...items].sort((a, b) => {
-          return (
-            (axis === 'horizontal' ? a.bounds.x : a.bounds.y) -
-            (axis === 'horizontal' ? b.bounds.x : b.bounds.y)
-          );
-        });
-
-        const positions = computeDistribution(
-          axis,
-          sorted.map((i) => i.bounds),
-          gap,
-        );
-        if (!positions) return;
-
-        updateDoc((newDoc) => {
-          const nodes = { ...newDoc.nodes };
-          for (let i = 0; i < sorted.length; i++) {
-            const { id, node, bounds: b } = sorted[i]!;
-            if (!nodes[id]) continue;
-            const pos = distributeToPosition(
-              positions[i]!,
-              i,
-              b,
-              axis,
-              sorted.map((s) => s.bounds),
-            );
-            const targetWorldX = pos.x;
-            const targetWorldY = pos.y;
-            const wm = nodeWorldTransform(doc, id);
-            const bOffX = b.x - wm[4];
-            const bOffY = b.y - wm[5];
-            const nodeOriginWorldX = targetWorldX - bOffX;
-            const nodeOriginWorldY = targetWorldY - bOffY;
-            const parentId = getParentFast(doc, id, parentCacheRef.current);
-            let newLocalX = nodeOriginWorldX;
-            let newLocalY = nodeOriginWorldY;
-            if (parentId) {
-              const pInv = invertAffine(nodeWorldTransform(doc, parentId));
-              const local = applyAffine(pInv, [nodeOriginWorldX, nodeOriginWorldY]);
-              newLocalX = local[0];
-              newLocalY = local[1];
-            }
-            nodes[id] = {
-              ...node,
-              transform: [
-                node.transform[0],
-                node.transform[1],
-                node.transform[2],
-                node.transform[3],
-                newLocalX,
-                newLocalY,
-              ] as Affine,
-            } as SceneNode;
-          }
-          return { ...newDoc, nodes };
-        });
+        updateDoc((doc) => distributeSelectionInDocument(doc, sel, axis, { gap }));
       },
 
-      // P0*: distribute with configurable mode (equalGap or equalCenter)
       distributeWithMode: (axis, mode) => {
         const sel = state.selection;
         if (sel.length < 3) return;
-        const doc = state.document;
-        const items = getValidItemsWithBounds(sel, doc);
-        if (items.length < 3) return;
-
-        let positions: number[] | null;
-        if (mode === 'equalCenter') {
-          positions = computeDistributionCenters(
-            axis,
-            items.map((i) => i.bounds),
-          );
-          if (!positions) return;
-          // Centers mode: positions are center coordinates. Convert to origin positions.
-          const sortedByCenter = [...items].sort((a, b) => {
-            const ca =
-              axis === 'horizontal' ? a.bounds.x + a.bounds.w / 2 : a.bounds.y + a.bounds.h / 2;
-            const cb =
-              axis === 'horizontal' ? b.bounds.x + b.bounds.w / 2 : b.bounds.y + b.bounds.h / 2;
-            return ca - cb;
-          });
-          updateDoc((newDoc) => {
-            const nodes = { ...newDoc.nodes };
-            for (let i = 0; i < sortedByCenter.length; i++) {
-              const { id, node, bounds: b } = sortedByCenter[i]!;
-              if (!nodes[id]) continue;
-              const centerPos = positions![i]!;
-              const targetWorldX = axis === 'horizontal' ? centerPos - b.w / 2 : b.x;
-              const targetWorldY = axis === 'vertical' ? centerPos - b.h / 2 : b.y;
-              const wm = nodeWorldTransform(doc, id);
-              const bOffX = b.x - wm[4];
-              const bOffY = b.y - wm[5];
-              const nodeOriginWorldX = targetWorldX - bOffX;
-              const nodeOriginWorldY = targetWorldY - bOffY;
-              const parentId = getParentFast(doc, id, parentCacheRef.current);
-              let newLocalX = nodeOriginWorldX;
-              let newLocalY = nodeOriginWorldY;
-              if (parentId) {
-                const pInv = invertAffine(nodeWorldTransform(doc, parentId));
-                const local = applyAffine(pInv, [nodeOriginWorldX, nodeOriginWorldY]);
-                newLocalX = local[0];
-                newLocalY = local[1];
-              }
-              nodes[id] = {
-                ...node,
-                transform: [
-                  node.transform[0],
-                  node.transform[1],
-                  node.transform[2],
-                  node.transform[3],
-                  newLocalX,
-                  newLocalY,
-                ] as Affine,
-              } as SceneNode;
-            }
-            return { ...newDoc, nodes };
-          });
-          return;
-        }
-
-        // equalGap mode — reuse distributeSelected logic
-        const sorted = [...items].sort((a, b) => {
-          return (
-            (axis === 'horizontal' ? a.bounds.x : a.bounds.y) -
-            (axis === 'horizontal' ? b.bounds.x : b.bounds.y)
-          );
-        });
-        positions = computeDistribution(
-          axis,
-          sorted.map((i) => i.bounds),
-        );
-        if (!positions) return;
-        updateDoc((newDoc) => {
-          const nodes = { ...newDoc.nodes };
-          for (let i = 0; i < sorted.length; i++) {
-            const { id, node, bounds: b } = sorted[i]!;
-            if (!nodes[id]) continue;
-            const pos = distributeToPosition(
-              positions![i]!,
-              i,
-              b,
-              axis,
-              sorted.map((s) => s.bounds),
-            );
-            const wm = nodeWorldTransform(doc, id);
-            const bOffX = b.x - wm[4];
-            const bOffY = b.y - wm[5];
-            const nodeOriginWorldX = pos.x - bOffX;
-            const nodeOriginWorldY = pos.y - bOffY;
-            const parentId = getParentFast(doc, id, parentCacheRef.current);
-            let newLocalX = nodeOriginWorldX;
-            let newLocalY = nodeOriginWorldY;
-            if (parentId) {
-              const pInv = invertAffine(nodeWorldTransform(doc, parentId));
-              const local = applyAffine(pInv, [nodeOriginWorldX, nodeOriginWorldY]);
-              newLocalX = local[0];
-              newLocalY = local[1];
-            }
-            nodes[id] = {
-              ...node,
-              transform: [
-                node.transform[0],
-                node.transform[1],
-                node.transform[2],
-                node.transform[3],
-                newLocalX,
-                newLocalY,
-              ] as Affine,
-            } as SceneNode;
-          }
-          return { ...newDoc, nodes };
-        });
+        updateDoc((doc) => distributeSelectionInDocument(doc, sel, axis, { mode }));
       },
 
       // P0*: set the key object ID (null = use collective bounds)
@@ -5723,95 +5464,21 @@ export function EditorProvider({
         setState((s) => ({ ...s, alignToPage: value }));
       },
 
-      // P0*: OBB-aware alignment for rotated nodes
       obbAlignSelected: (axis) => {
         const sel = state.selection;
         if (sel.length < 2) return;
-        const doc = state.document;
-
-        const items: Array<{ id: NodeId; node: SceneNode; obb: OBB }> = [];
-        for (const id of sel) {
-          const node = doc.nodes[id];
-          if (!node) continue;
-          const lb = nodeLocalBounds(node, doc);
-          if (!lb) continue;
-          const wm = nodeWorldTransform(doc, id);
-          const obb = orientedBBox(wm, lb.w, lb.h);
-          items.push({ id, node, obb });
-        }
-        if (items.length < 2) return;
-
-        const targetPos = obbAlignmentTarget(
-          axis,
-          items.map((i) => i.obb),
+        const typedDoc = state.document as Document & {
+          canvasWidth?: number;
+          canvasHeight?: number;
+        };
+        updateDoc((doc) =>
+          alignSelectionWithObbInDocument(doc, sel, axis, {
+            keyObjectId: state.keyObjectId,
+            pageBounds: state.alignToPage
+              ? { x: 0, y: 0, w: typedDoc.canvasWidth ?? 1920, h: typedDoc.canvasHeight ?? 1080 }
+              : null,
+          }),
         );
-        if (targetPos === null) return;
-
-        updateDoc((newDoc) => {
-          const nodes = { ...newDoc.nodes };
-          for (const { id, node, obb } of items) {
-            if (!nodes[id]) continue;
-            const corners = [obb[0], obb[1], obb[2], obb[3]];
-            let deltaX = 0;
-            let deltaY = 0;
-            switch (axis) {
-              case 'left': {
-                const leftX = Math.min(...corners.map((c) => c[0]));
-                deltaX = targetPos - leftX;
-                break;
-              }
-              case 'centerH': {
-                const cx = corners.reduce((s, c) => s + c[0], 0) / 4;
-                deltaX = targetPos - cx;
-                break;
-              }
-              case 'right': {
-                const rightX = Math.max(...corners.map((c) => c[0]));
-                deltaX = targetPos - rightX;
-                break;
-              }
-              case 'top': {
-                const topY = Math.min(...corners.map((c) => c[1]));
-                deltaY = targetPos - topY;
-                break;
-              }
-              case 'centerV': {
-                const cy = corners.reduce((s, c) => s + c[1], 0) / 4;
-                deltaY = targetPos - cy;
-                break;
-              }
-              case 'bottom': {
-                const bottomY = Math.max(...corners.map((c) => c[1]));
-                deltaY = targetPos - bottomY;
-                break;
-              }
-            }
-            const wm = nodeWorldTransform(doc, id);
-            const nodeOriginWorldX = wm[4] + deltaX;
-            const nodeOriginWorldY = wm[5] + deltaY;
-            const parentId = getParentFast(doc, id, parentCacheRef.current);
-            let newLocalX = nodeOriginWorldX;
-            let newLocalY = nodeOriginWorldY;
-            if (parentId) {
-              const pInv = invertAffine(nodeWorldTransform(doc, parentId));
-              const local = applyAffine(pInv, [nodeOriginWorldX, nodeOriginWorldY]);
-              newLocalX = local[0];
-              newLocalY = local[1];
-            }
-            nodes[id] = {
-              ...node,
-              transform: [
-                node.transform[0],
-                node.transform[1],
-                node.transform[2],
-                node.transform[3],
-                newLocalX,
-                newLocalY,
-              ] as Affine,
-            } as SceneNode;
-          }
-          return { ...newDoc, nodes };
-        });
       },
 
       // P0*: auto-arrange selected nodes into a tidy grid layout
@@ -6740,10 +6407,11 @@ export function EditorProvider({
       arrangeSelected: (op) => {
         const sel = state.selection;
         if (sel.length === 0) return;
+        const currentDoc = stateRef.current.document;
+        const arranged = arrangeNodesDoc(currentDoc, sel, op);
+        if (arranged === currentDoc) return;
         updateDoc((doc) => {
-          let d = doc;
-          for (const id of sel) d = arrangeNodeDoc(d, id, op);
-          return d;
+          return doc === currentDoc ? arranged : arrangeNodesDoc(doc, sel, op);
         });
         announcerRef.current?.announce(
           op === 'front'
@@ -10345,55 +10013,4 @@ function getValidItemsWithBounds(sel: NodeId[], doc: Document): ValidItem[] {
       return { id, node, bounds };
     })
     .filter((x): x is ValidItem => x !== null);
-}
-
-/** Convert target world position for a node's bounds to the node's local transform origin. */
-function worldToLocalOrigin(
-  doc: Document,
-  id: NodeId,
-  targetWorldX: number,
-  targetWorldY: number,
-  bounds: { x: number; y: number; w: number; h: number },
-  parentCache: import('./scene/parentIndexCache').ParentIndexCache | null,
-): [number, number] {
-  const wm = nodeWorldTransform(doc, id);
-  const bOffX = bounds.x - wm[4];
-  const bOffY = bounds.y - wm[5];
-  const nodeOriginWorldX = targetWorldX - bOffX;
-  const nodeOriginWorldY = targetWorldY - bOffY;
-  const parentId = getParentFast(doc, id, parentCache);
-  if (parentId) {
-    const pInv = invertAffine(nodeWorldTransform(doc, parentId));
-    const local = applyAffine(pInv, [nodeOriginWorldX, nodeOriginWorldY]);
-    return [local[0], local[1]];
-  }
-  return [nodeOriginWorldX, nodeOriginWorldY];
-}
-
-/** Compute alignment target from key object if valid, null otherwise. */
-function computeKeyObjectTarget(
-  doc: Document,
-  keyObjectId: string | null,
-  sel: NodeId[],
-): {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-  centerX: number;
-  centerY: number;
-} | null {
-  if (!keyObjectId || !sel.includes(keyObjectId)) return null;
-  const keyNode = doc.nodes[keyObjectId];
-  if (!keyNode) return null;
-  const keyBounds = nodeWorldBounds(doc, keyObjectId);
-  if (!keyBounds) return null;
-  return {
-    left: keyBounds.x,
-    right: keyBounds.x + keyBounds.w,
-    top: keyBounds.y,
-    bottom: keyBounds.y + keyBounds.h,
-    centerX: keyBounds.x + keyBounds.w / 2,
-    centerY: keyBounds.y + keyBounds.h / 2,
-  };
 }
