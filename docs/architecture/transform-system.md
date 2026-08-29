@@ -118,6 +118,90 @@ different result for unequal object sizes.
 Key-object and alignment-reference state is editor session state, not document
 content; it is intentionally excluded from export and serialization.
 
+### Availability and target rules
+
+`selectionArrangement.ts` is the one editor-side authority for manual
+alignment, distribution, oriented-bounds alignment, and their capability
+checks. The Inspector, menu/command paths, and the browser and desktop shells
+all call it through `EditorContext`; a surface must not implement a second
+coordinate conversion.
+
+The Inspector exposes **Align & distribute** only when at least one selected
+root has finite, independently movable geometry. This includes frames, groups,
+text, ordinary shapes, image-filled shapes, and line/path-like shapes whenever
+they have valid bounds. The controls deliberately change availability rather
+than pretending every selection supports every command:
+
+| Selection after eligibility filtering | Available manual operation |
+| --- | --- |
+| One item | Page-relative alignment after choosing **Align to page** |
+| Two or more items | Selection-relative alignment and key-object alignment |
+| Three or more items | Horizontal and vertical distribution |
+| Two or more items | Tidy-up grid |
+
+The page target wins over a key object; a key object wins over collective
+selection bounds. This makes the active reference unambiguous and means a
+single selected image or frame can align to the page without making relative
+distribution appear to work. When every selected item is ineligible, the
+toolbar is absent and the Properties panel reports the governing state (for
+example, a lock or layout control) instead of showing a disabled row of
+unusable buttons.
+
+### Containers, nested frames, and transforms
+
+The implementation first drops selected descendants when their selected
+ancestor is already a root, so a parent and its child cannot be moved twice.
+Each eligible root follows this coordinate path:
+
+```text
+local geometry -> node-local transform/rotation -> ancestor transforms
+  -> placed world bounds -> alignment delta -> direct-parent inverse
+  -> updated local transform
+```
+
+The last step is essential: aligning a rectangle and an image inside a rotated
+or scaled frame changes their own local transforms, not their geometry,
+parentage, image fill/crop, or the frame's size. The same rule makes selection
+across different containers deterministic without flattening or reparenting
+the scene.
+
+Manual positioning is intentionally unavailable for a locked or hidden node
+(including a locked/hidden ancestor), a non-invertible transform chain, and a
+normal flow child of an auto-layout frame. Auto-layout owns the latter's
+position and would immediately undo a manual alignment. An `absolute`
+auto-layout child remains eligible. Default alignment uses transformed axis-
+aligned geometric bounds; the explicit OBB control is the only path that uses
+oriented bounds. Strokes, effects, and clip pixels are not silently substituted
+for this geometric contract.
+
+### Stacking arrangement
+
+Stacking is a separate scene operation, `arrangeNodes` in `@varve/scene`.
+It processes each sibling parent independently, preserves the relative order
+of a selected block, never reparents nodes, and treats no-op requests as the
+same document reference. Locked nodes, mask sources, and descendants of
+selected roots are excluded. `bring forward`, `send backward`, `bring to
+front`, and `send to back` therefore remain stable for mixed container
+selections without changing the alignment coordinate model.
+
+### Platform parity and regression coverage
+
+The supported desktop editor and `/try/` browser demo share this TypeScript
+scene/editor implementation; neither path has a desktop-only alignment branch.
+`apps/web/` remains a scaffold, so it is not a separate supported editor target.
+Coverage is layered as follows:
+
+| Layer | Contract covered |
+| --- | --- |
+| Shared and editor unit tests | Target precedence, transformed/nested parents, image and line geometry, negative equal gaps, auto-layout/lock/hidden eligibility, and stable arrangement |
+| Inspector tests | Single frame/image visibility, page activation, command thresholds, and wholly ineligible selection hiding |
+| Chromium E2E | Inspector alignment, stable multi-selection arrangement, real Layers-panel reparenting of an imported image into a frame, retained child hierarchy, and a canvas pixel baseline |
+
+The browser test uses actual pointer input for drawing and layer drop, rather
+than directly changing document state. It is the visual compatibility gate for
+the shared desktop/browser frontend; native packaging does not replace the
+editor command or rendering implementation.
+
 ## Precision, safety, and tests
 
 Stored transforms and geometry are JavaScript numbers; no transform path rounds
