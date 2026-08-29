@@ -46,6 +46,7 @@ import {
   isDescendantFast,
   type ParentIndexCache,
 } from '../../scene/parentIndexCache';
+import { resolvePrimarySelectionId } from '../../selection/selectionContext';
 import { loadSettings } from '../../settings';
 import { LayersRow } from './LayersRow';
 import { type LayerDropTarget, resolveRootLevelSiblings } from './layerDropResolver';
@@ -417,6 +418,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   // Convert selection array to a Set for O(1) lookup in row toggle handlers
   const selectedIdSet = useMemo(() => new Set(state.selection), [state.selection]);
+  const primarySelectionId = useMemo(
+    () => resolvePrimarySelectionId(state.document, state.selection, state.primaryId),
+    [state.document, state.selection, state.primaryId],
+  );
 
   const entries = useFlatTree(
     state.document,
@@ -530,9 +535,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   useEffect(() => {
     if (!loadSettings().layers.autoReveal) return;
     if (state.selectionOrigin === 'layers' || state.selectionOrigin === 'navigation') return;
-    if (state.selection.length > 0) {
-      const firstSel = state.selection[0];
-      if (!firstSel) return;
+    if (primarySelectionId) {
+      const firstSel = primarySelectionId;
       // Expand ancestors so the selected node is visible in the tree
       setExpanded((prev) => {
         const next = new Set(prev);
@@ -553,7 +557,14 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
         virtualizer.scrollToIndex(idx, { align: 'auto' });
       }
     }
-  }, [state.selection, state.selectionOrigin, entries, setFocusIdx, virtualizer, state.document]);
+  }, [
+    primarySelectionId,
+    state.selectionOrigin,
+    entries,
+    setFocusIdx,
+    virtualizer,
+    state.document,
+  ]);
 
   // Keep containers auto-expanded when new nodes are added (e.g. after import or paste).
   useEffect(() => {
@@ -605,9 +616,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   const handleCollapseAll = useCallback(() => {
     setExpanded((prev) =>
-      collapseAll(state.document, state.selection[0], prev, parentCacheRef.current),
+      collapseAll(state.document, primarySelectionId ?? undefined, prev, parentCacheRef.current),
     );
-  }, [state.document, state.selection]);
+  }, [state.document, primarySelectionId]);
 
   const handleCollapseOthers = useCallback(
     (containerId: NodeId) => {

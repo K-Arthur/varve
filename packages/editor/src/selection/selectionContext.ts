@@ -35,6 +35,22 @@ export interface SelectionContextModel {
 }
 
 /**
+ * Resolve the node that represents a selection in navigation-oriented UI.
+ * Primary selection wins when it is still selected and present in the
+ * document; otherwise the first live selected node is a safe fallback.
+ */
+export function resolvePrimarySelectionId(
+  doc: Document,
+  selection: readonly NodeId[],
+  primaryId: NodeId | null,
+): NodeId | null {
+  if (primaryId && selection.includes(primaryId) && doc.nodes[primaryId]) {
+    return primaryId;
+  }
+  return selection.find((id) => Boolean(doc.nodes[id])) ?? null;
+}
+
+/**
  * Build the canonical selection projection consumed by selection UI.
  *
  * The editor intentionally keeps selection IDs lightweight and ephemeral, so
@@ -60,7 +76,7 @@ export function buildSelectionContext(
     nodes.push(node);
   }
 
-  const resolvedPrimaryId = (primaryId && seen.has(primaryId) ? primaryId : ids[0]) ?? null;
+  const resolvedPrimaryId = resolvePrimarySelectionId(doc, ids, primaryId);
   const primaryNode = resolvedPrimaryId ? (doc.nodes[resolvedPrimaryId] ?? null) : null;
   const hierarchyTargetId = resolvedPrimaryId ?? resolveActiveContainerId(doc, activeContainerId);
 

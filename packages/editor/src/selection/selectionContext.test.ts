@@ -1,6 +1,10 @@
 import { addChild, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { buildSelectionContext, buildSelectionHierarchy } from './selectionContext';
+import {
+  buildSelectionContext,
+  buildSelectionHierarchy,
+  resolvePrimarySelectionId,
+} from './selectionContext';
 
 describe('buildSelectionContext', () => {
   it('filters stale and duplicate IDs and repairs a stale primary', () => {
@@ -15,6 +19,17 @@ describe('buildSelectionContext', () => {
     expect(model.kind).toBe('single');
     expect(model.primaryId).toBe(shape.id);
     expect(model.primaryNode).toBe(next.nodes[shape.id]);
+  });
+
+  it('keeps the explicit primary ahead of selection array order', () => {
+    let doc = createDocument('selection');
+    const first = makeShapeNode('first', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    const second = makeShapeNode('second', { kind: 'rect', x: 20, y: 0, w: 10, h: 10 });
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot ?? '', first);
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot ?? '', second);
+
+    expect(resolvePrimarySelectionId(doc, [first.id, second.id], second.id)).toBe(second.id);
+    expect(buildSelectionContext(doc, [first.id, second.id], second.id).primaryId).toBe(second.id);
   });
 
   it('uses the active container as hierarchy context with no selection', () => {
