@@ -605,7 +605,7 @@ export function AlignDistributeBar() {
                 Frame
               </button>
             </Tooltip>
-            <Tooltip label="Align to page bounds">
+            <Tooltip label="Align to active page / canvas bounds">
               <button
                 type="button"
                 className={`pill-group__btn ${alignmentReference === 'page' ? 'pill-group__btn--active' : ''}`}
@@ -619,6 +619,7 @@ export function AlignDistributeBar() {
                 disabled={!capabilities.canAlignToPage}
               >
                 <PageIcon />
+                <span className="insp-align-target-label">Page</span>
               </button>
             </Tooltip>
           </div>

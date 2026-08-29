@@ -1198,6 +1198,9 @@
   padding-inline: var(--space-2);
   font-size: var(--font-size-2xs);
 }
+.insp-align-target-label {
+  margin-inline-start: var(--space-1);
+}
 .insp-align-options {
   position: relative;
 }
