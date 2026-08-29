@@ -1,233 +1,273 @@
-import type { SceneNode } from '@varve/scene';
+import {
+  addChild,
+  addNode,
+  createDocument,
+  type Document,
+  makeFrameNode,
+  makeShapeNode,
+  type NodeId,
+} from '@varve/scene';
+import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
+import { nodeWorldTransform } from '../scene/world';
 import type { NudgeContext } from './nudge';
 import { canNudge, executeNudge, getNudgeDisabledReason, getNudgeStep } from './nudge';
 
-function makeCtx(overrides?: Partial<NudgeContext>): NudgeContext {
+const EPSILON = 1e-8;
+
+function rect(id: string, x: number, y: number) {
+  return makeShapeNode(
+    id,
+    { kind: 'rect', x: 0, y: 0, w: 20, h: 20 },
+    { name: id, transform: [1, 0, 0, 1, x, y] },
+  );
+}
+
+function makeCtx(
+  document: Document,
+  selection: NodeId[],
+): NudgeContext & {
+  setNodePositions: ReturnType<typeof vi.fn>;
+  setNodePosition: ReturnType<typeof vi.fn>;
+} {
   return {
-    document: { nodes: {} },
-    selection: [],
-    getNode: vi.fn(),
+    document,
+    selection,
+    getNode: (id) => document.nodes[id],
     setNodePosition: vi.fn(),
     setNodePositions: vi.fn(),
-    ...overrides,
   };
 }
 
+function positionsFrom(ctx: ReturnType<typeof makeCtx>) {
+  const positions = ctx.setNodePositions.mock.calls[0]?.[0];
+  return positions ?? [];
+}
+
+function withPositions(
+  document: Document,
+  positions: ReadonlyArray<{ id: NodeId; x: number; y: number }>,
+): Document {
+  const nodes = { ...document.nodes };
+  for (const { id, x, y } of positions) {
+    const node = nodes[id];
+    if (!node) continue;
+    const transform = node.transform ?? ([1, 0, 0, 1, 0, 0] as Affine);
+    nodes[id] = {
+      ...node,
+      transform: [transform[0], transform[1], transform[2], transform[3], x, y] as Affine,
+    };
+  }
+  return { ...document, nodes };
+}
+
+function worldOrigin(document: Document, id: NodeId) {
+  const transform = nodeWorldTransform(document, id);
+  return { x: transform[4], y: transform[5] };
+}
+
+function expectClose(actual: number, expected: number) {
+  expect(Math.abs(actual - expected)).toBeLessThanOrEqual(EPSILON);
+}
+
 describe('getNudgeStep', () => {
-  it('returns 1 for standard', () => {
+  it('returns the canonical document-space increments', () => {
     expect(getNudgeStep('standard')).toBe(1);
-  });
-
-  it('returns 10 for large', () => {
     expect(getNudgeStep('large')).toBe(10);
-  });
-
-  it('returns 0.5 for fine', () => {
     expect(getNudgeStep('fine')).toBe(0.5);
   });
 });
 
 describe('canNudge / getNudgeDisabledReason', () => {
-  it('canNudge returns true when selection is non-empty', () => {
+  it('requires a selection', () => {
     expect(canNudge(['a'])).toBe(true);
-  });
-
-  it('canNudge returns false when selection is empty', () => {
     expect(canNudge([])).toBe(false);
-  });
-
-  it('getNudgeDisabledReason returns "No selection" when empty', () => {
     expect(getNudgeDisabledReason([])).toBe('No selection');
-  });
-
-  it('getNudgeDisabledReason returns null when selection exists', () => {
     expect(getNudgeDisabledReason(['a'])).toBeNull();
   });
 });
 
 describe('executeNudge', () => {
-  it('moves a single node right by step', () => {
-    const setNodePositions = vi.fn();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-      setNodePositions,
-    });
-    const result = executeNudge('right', 1, ctx);
-    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
+  it('moves an untransformed root exactly one document unit', () => {
+    let document = createDocument('root nudge');
+    const node = rect('node', 100.25, -3.75);
+    document = addNode(document, node);
+    const ctx = makeCtx(document, [node.id]);
+    const before = worldOrigin(document, node.id);
+
+    const result = executeNudge('right', getNudgeStep('standard'), ctx);
+    const after = worldOrigin(withPositions(document, positionsFrom(ctx)), node.id);
+
+    expectClose(after.x - before.x, 1);
+    expectClose(after.y - before.y, 0);
+    expect(positionsFrom(ctx)).toEqual([{ id: node.id, x: 101.25, y: -3.75 }]);
     expect(result).toEqual({ moved: 1, locked: 0, skipped: 0, total: 1 });
   });
 
-  it('moves a single node left by step', () => {
-    const setNodePositions = vi.fn();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-      setNodePositions,
-    });
-    executeNudge('left', 10, ctx);
-    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 90, y: 100 }]);
-  });
+  it('moves a rotated selected object along document axes without changing its rotation', () => {
+    let document = createDocument('rotated selected node');
+    const theta = Math.PI / 4;
+    const node = {
+      ...rect('node', 100, 100),
+      transform: [
+        Math.cos(theta),
+        Math.sin(theta),
+        -Math.sin(theta),
+        Math.cos(theta),
+        100,
+        100,
+      ] as Affine,
+    };
+    document = addNode(document, node);
+    const ctx = makeCtx(document, [node.id]);
+    const before = worldOrigin(document, node.id);
 
-  it('moves a single node up by step', () => {
-    const setNodePositions = vi.fn();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-      setNodePositions,
-    });
-    executeNudge('up', 1, ctx);
-    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100, y: 99 }]);
-  });
-
-  it('moves a single node down by step', () => {
-    const setNodePositions = vi.fn();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-      setNodePositions,
-    });
-    executeNudge('down', 1, ctx);
-    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100, y: 101 }]);
-  });
-
-  it('moves multiple selected nodes', () => {
-    const setNodePositions = vi.fn();
-    const getNode = vi.fn((id: string) => {
-      if (id === 'n1')
-        return { id: 'n1', transform: [1, 0, 0, 1, 100, 100] } as unknown as SceneNode;
-      if (id === 'n2')
-        return { id: 'n2', transform: [1, 0, 0, 1, 200, 200] } as unknown as SceneNode;
-      return undefined;
-    });
-    const ctx = makeCtx({
-      selection: ['n1', 'n2'],
-      getNode,
-      setNodePositions,
-    });
     executeNudge('right', 1, ctx);
-    expect(setNodePositions).toHaveBeenCalledWith([
-      { id: 'n1', x: 101, y: 100 },
-      { id: 'n2', x: 201, y: 200 },
-    ]);
+    const afterDoc = withPositions(document, positionsFrom(ctx));
+    const after = worldOrigin(afterDoc, node.id);
+
+    expectClose(after.x - before.x, 1);
+    expectClose(after.y - before.y, 0);
+    expect(afterDoc.nodes[node.id]?.transform.slice(0, 4)).toEqual(node.transform.slice(0, 4));
   });
 
-  it('nudges rotated node along local axes', () => {
-    const setNodePositions = vi.fn();
-    const c = Math.cos(Math.PI / 4);
-    const s = Math.sin(Math.PI / 4);
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({
-        id: 'n1',
-        transform: [c, s, -s, c, 100, 100],
-      }),
-      setNodePositions,
+  it('converts a world delta through a rotated, non-uniformly scaled parent', () => {
+    let document = createDocument('transformed parent');
+    const theta = Math.PI / 6;
+    const parent = makeFrameNode('parent', {
+      w: 300,
+      h: 200,
+      transform: [
+        Math.cos(theta) * 2,
+        Math.sin(theta) * 2,
+        -Math.sin(theta) * 3,
+        Math.cos(theta) * 3,
+        400,
+        -20,
+      ],
     });
+    const child = rect('child', 25, 30);
+    document = addNode(document, parent);
+    document = addChild(document, parent.id, child);
+    const ctx = makeCtx(document, [child.id]);
+    const before = worldOrigin(document, child.id);
+
     executeNudge('right', 1, ctx);
-    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100 + c, y: 100 + s }]);
+    const after = worldOrigin(withPositions(document, positionsFrom(ctx)), child.id);
+
+    expectClose(after.x - before.x, 1);
+    expectClose(after.y - before.y, 0);
   });
 
-  it('nudges rotated node up along local axes', () => {
-    const setNodePositions = vi.fn();
-    const c = Math.cos(Math.PI / 4);
-    const s = Math.sin(Math.PI / 4);
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({
-        id: 'n1',
-        transform: [c, s, -s, c, 100, 100],
-      }),
-      setNodePositions,
+  it('preserves a cross-container multi-selection’s world-space spacing', () => {
+    let document = createDocument('cross-container nudge');
+    const frameA = makeFrameNode('frame-a', {
+      w: 300,
+      h: 200,
+      transform: [0.8660254, 0.5, -0.5, 0.8660254, 100, 80],
     });
-    executeNudge('up', 1, ctx);
-    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100 + s, y: 100 - c }]);
+    const frameB = makeFrameNode('frame-b', {
+      w: 300,
+      h: 200,
+      transform: [-1.5, 0, 0, 0.75, 500, 240],
+    });
+    const a = rect('a', 20, 40);
+    const b = rect('b', 50, 60);
+    document = addNode(document, frameA);
+    document = addNode(document, frameB);
+    document = addChild(document, frameA.id, a);
+    document = addChild(document, frameB.id, b);
+    const ctx = makeCtx(document, [a.id, b.id]);
+    const beforeA = worldOrigin(document, a.id);
+    const beforeB = worldOrigin(document, b.id);
+
+    executeNudge('down', 10, ctx);
+    const afterDoc = withPositions(document, positionsFrom(ctx));
+    const afterA = worldOrigin(afterDoc, a.id);
+    const afterB = worldOrigin(afterDoc, b.id);
+
+    expectClose(afterA.x - beforeA.x, 0);
+    expectClose(afterA.y - beforeA.y, 10);
+    expectClose(afterB.x - beforeB.x, 0);
+    expectClose(afterB.y - beforeB.y, 10);
+    expectClose(afterB.x - afterA.x, beforeB.x - beforeA.x);
+    expectClose(afterB.y - afterA.y, beforeB.y - beforeA.y);
   });
 
-  it('skips locked nodes', () => {
-    const setNodePositions = vi.fn();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({
-        id: 'n1',
-        locked: true,
-        visible: true,
-        transform: [1, 0, 0, 1, 100, 100],
-      }),
-      setNodePositions,
-    });
+  it('moves only independent transform roots when a parent and child are selected', () => {
+    let document = createDocument('parent child selection');
+    const parent = makeFrameNode('parent', { w: 200, h: 100, transform: [1, 0, 0, 1, 40, 50] });
+    const child = rect('child', 10, 20);
+    document = addNode(document, parent);
+    document = addChild(document, parent.id, child);
+    const ctx = makeCtx(document, [parent.id, child.id]);
+    const before = worldOrigin(document, child.id);
+
     const result = executeNudge('right', 1, ctx);
-    expect(setNodePositions).not.toHaveBeenCalled();
+    const afterDoc = withPositions(document, positionsFrom(ctx));
+    const after = worldOrigin(afterDoc, child.id);
+
+    expect(positionsFrom(ctx)).toEqual([{ id: parent.id, x: 41, y: 50 }]);
+    expect(afterDoc.nodes[child.id]?.transform).toEqual(child.transform);
+    expectClose(after.x - before.x, 1);
+    expectClose(after.y - before.y, 0);
+    expect(result).toEqual({ moved: 1, locked: 0, skipped: 1, total: 2 });
+  });
+
+  it('does not bypass an ancestor lock', () => {
+    let document = createDocument('ancestor lock');
+    const parent = makeFrameNode('parent', {
+      w: 200,
+      h: 100,
+      locked: true,
+      transform: [1, 0, 0, 1, 40, 50],
+    });
+    const child = rect('child', 10, 20);
+    document = addNode(document, parent);
+    document = addChild(document, parent.id, child);
+    const ctx = makeCtx(document, [child.id]);
+
+    const result = executeNudge('right', 1, ctx);
+
+    expect(positionsFrom(ctx)).toEqual([]);
     expect(result).toEqual({ moved: 0, locked: 1, skipped: 0, total: 1 });
   });
 
-  it('skips hidden nodes', () => {
-    const setNodePositions = vi.fn();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({
-        id: 'n1',
-        locked: false,
-        visible: false,
-        transform: [1, 0, 0, 1, 100, 100],
-      }),
-      setNodePositions,
+  it('leaves flow-managed auto-layout children untouched but moves absolute children', () => {
+    let document = createDocument('layout eligibility');
+    const parent = makeFrameNode('parent', {
+      w: 300,
+      h: 100,
+      layoutStyle: {
+        mode: 'flex',
+        direction: 'row',
+        gap: 8,
+        wrap: false,
+        padding: [0, 0, 0, 0],
+        grow: 0,
+        shrink: 0,
+      },
     });
+    const flow = rect('flow', 0, 0);
+    const absolute = { ...rect('absolute', 80, 0), layoutPosition: 'absolute' as const };
+    document = addNode(document, parent);
+    document = addChild(document, parent.id, flow);
+    document = addChild(document, parent.id, absolute);
+    const ctx = makeCtx(document, [flow.id, absolute.id]);
+
     const result = executeNudge('right', 1, ctx);
-    expect(setNodePositions).not.toHaveBeenCalled();
-    expect(result).toEqual({ moved: 0, locked: 1, skipped: 0, total: 1 });
+
+    expect(positionsFrom(ctx)).toEqual([{ id: absolute.id, x: 81, y: 0 }]);
+    expect(result).toEqual({ moved: 1, locked: 0, skipped: 1, total: 2 });
   });
 
-  it('skips adjustment nodes', () => {
-    const setNodePositions = vi.fn();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({
-        id: 'n1',
-        kind: 'adjustment',
-        locked: false,
-        visible: true,
-      }),
-      setNodePositions,
-    });
+  it('skips missing nodes without mutating', () => {
+    const document = createDocument('missing node');
+    const ctx = makeCtx(document, ['missing']);
+
     const result = executeNudge('right', 1, ctx);
-    expect(setNodePositions).not.toHaveBeenCalled();
+
+    expect(positionsFrom(ctx)).toEqual([]);
     expect(result).toEqual({ moved: 0, locked: 0, skipped: 1, total: 1 });
-  });
-
-  it('handles missing nodes gracefully', () => {
-    const setNodePositions = vi.fn();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue(undefined),
-      setNodePositions,
-    });
-    const result = executeNudge('right', 1, ctx);
-    expect(setNodePositions).not.toHaveBeenCalled();
-    expect(result).toEqual({ moved: 0, locked: 0, skipped: 1, total: 1 });
-  });
-
-  it('handles missing transform (undefined) gracefully', () => {
-    const setNodePositions = vi.fn();
-    const ctx = makeCtx({
-      selection: ['n1'],
-      getNode: vi.fn().mockReturnValue({
-        id: 'n1',
-        locked: false,
-        visible: true,
-        transform: undefined,
-      }),
-      setNodePositions,
-    });
-    const result = executeNudge('right', 1, ctx);
-    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 1, y: 0 }]);
-    expect(result).toEqual({ moved: 1, locked: 0, skipped: 0, total: 1 });
-  });
-
-  it('empty selection returns moved 0', () => {
-    const ctx = makeCtx({ selection: [] });
-    const result = executeNudge('right', 1, ctx);
-    expect(result).toEqual({ moved: 0, locked: 0, skipped: 0, total: 0 });
   });
 });
