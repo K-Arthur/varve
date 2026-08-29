@@ -18,36 +18,40 @@ const {
   mockVerifyBundled: vi.fn().mockResolvedValue('verified'),
 }));
 
-vi.mock('@varve/engine', () => ({
-  deriveAcquisition: (entry: {
-    id?: string;
-    bundled: boolean;
-    remoteUrl: string;
-    checksum: string;
-  }) => {
-    if (entry.bundled)
+vi.mock('@varve/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/engine')>();
+  return {
+    ...actual,
+    deriveAcquisition: (entry: {
+      id?: string;
+      bundled: boolean;
+      remoteUrl: string;
+      checksum: string;
+    }) => {
+      if (entry.bundled)
+        return {
+          kind: 'bundled',
+          assetPath: `/models/${(entry as { id: string }).id}.onnx`,
+          sha256: entry.checksum || '',
+        };
+      if (entry.remoteUrl && entry.checksum)
+        return {
+          kind: 'remote',
+          sources: [{ url: entry.remoteUrl, sha256: entry.checksum }],
+          sha256: entry.checksum,
+        };
       return {
-        kind: 'bundled',
-        assetPath: `/models/${(entry as { id: string }).id}.onnx`,
-        sha256: entry.checksum || '',
+        kind: 'unavailable',
+        reasonCode: 'source-unavailable',
+        detail: 'No download source available',
       };
-    if (entry.remoteUrl && entry.checksum)
-      return {
-        kind: 'remote',
-        sources: [{ url: entry.remoteUrl, sha256: entry.checksum }],
-        sha256: entry.checksum,
-      };
-    return {
-      kind: 'unavailable',
-      reasonCode: 'source-unavailable',
-      detail: 'No download source available',
-    };
-  },
-  getModelLoaderReady: mockGetModelLoaderReady,
-  listAllModels: mockListAllModels,
-  workerModelIdForMethod: (m: string) =>
-    m === 'ai-balanced' ? 'u2netp' : m === 'ai-quality' ? 'birefnet-general-lite' : null,
-}));
+    },
+    getModelLoaderReady: mockGetModelLoaderReady,
+    listAllModels: mockListAllModels,
+    workerModelIdForMethod: (m: string) =>
+      m === 'ai-balanced' ? 'u2netp' : m === 'ai-quality' ? 'birefnet-general-lite' : null,
+  };
+});
 
 vi.mock('../BackgroundRemoval/ModelDownloadDialog', () => ({
   ModelDownloadDialog: ({ modelId, onComplete }: { modelId: string; onComplete: () => void }) => (

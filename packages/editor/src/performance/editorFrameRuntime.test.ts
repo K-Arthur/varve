@@ -45,4 +45,13 @@ describe('editor frame runtime', () => {
     callbacks.get(1)?.(16);
     expect(order).toEqual(['retained']);
   });
+
+  it('ignores late requests after the Window has been torn down', () => {
+    const callback = vi.fn();
+    vi.stubGlobal('window', undefined);
+
+    requestEditorFrame('late-render', 'canvas', callback);
+
+    expect(callback).not.toHaveBeenCalled();
+  });
 });

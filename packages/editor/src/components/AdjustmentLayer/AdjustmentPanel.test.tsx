@@ -98,7 +98,10 @@ describe('AdjustmentPanel', () => {
 
     await user.click(screen.getByRole('button', { name: /add adjustment/i }));
     expect(screen.getByRole('menuitem', { name: 'Brightness' })).toHaveFocus();
-    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+    const adjustmentItems = screen.getAllByRole('menuitem');
+    const levelsIndex = adjustmentItems.findIndex((item) => item.textContent === 'Levels');
+    expect(levelsIndex).toBeGreaterThan(0);
+    await user.keyboard(`${'{ArrowDown}'.repeat(levelsIndex)}{Enter}`);
 
     expect(screen.getByLabelText(/histogram with level sliders/i)).toBeInTheDocument();
     expect(screen.queryByRole('slider', { name: 'Brightness' })).toBeNull();

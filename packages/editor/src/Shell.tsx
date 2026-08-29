@@ -163,6 +163,15 @@ function ShellInner({
     setCanvasContextMenu(pos);
   }, []);
 
+  // Preload the polygon-clipping library for boolean operations
+  useEffect(() => {
+    import('@varve/scene').then((scene) => {
+      if ('preloadClipper' in scene) {
+        (scene as { preloadClipper: () => Promise<void> }).preloadClipper();
+      }
+    });
+  }, []);
+
   // Record tool selections for intelligence features (adaptive UI, onboarding, etc.)
   useEffect(() => {
     editor.recordAction(`tool:${editor.state.tool}`);

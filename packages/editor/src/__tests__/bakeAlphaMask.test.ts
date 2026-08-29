@@ -9,10 +9,14 @@ import { describe, expect, it, vi } from 'vitest';
 const maskPixels = { value: new Uint8ClampedArray() };
 const maskSize = { w: 2, h: 2 };
 
-vi.mock('@varve/engine', () => ({
-  getImageCache: () => ({ load: async () => ({ width: maskSize.w, height: maskSize.h }) }),
-  fitBezierToContour: vi.fn(),
-}));
+vi.mock('@varve/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/engine')>();
+  return {
+    ...actual,
+    getImageCache: () => ({ load: async () => ({ width: maskSize.w, height: maskSize.h }) }),
+    fitBezierToContour: vi.fn(),
+  };
+});
 
 beforeEachSetup();
 function beforeEachSetup() {

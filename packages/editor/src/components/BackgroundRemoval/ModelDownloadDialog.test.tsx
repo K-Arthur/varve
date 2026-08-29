@@ -7,21 +7,25 @@ const { mockDownloadModel, mockGetModelLoader } = vi.hoisted(() => ({
   mockGetModelLoader: vi.fn(),
 }));
 
-vi.mock('@varve/engine', () => ({
-  AVAILABLE_MODELS: [
-    {
-      id: 'birefnet-general-lite',
-      name: 'BiRefNet Lite',
-      description: '120 MB — high quality, handles complex edges',
-      size: 120_000_000,
-      quality: 4.5,
-      remoteUrl:
-        'https://github.com/ZhengPeng7/BiRefNet/releases/download/v1.0/birefnet-general-lite.onnx',
-      checksum: '',
-    },
-  ],
-  getModelLoader: mockGetModelLoader,
-}));
+vi.mock('@varve/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/engine')>();
+  return {
+    ...actual,
+    AVAILABLE_MODELS: [
+      {
+        id: 'birefnet-general-lite',
+        name: 'BiRefNet Lite',
+        description: '120 MB — high quality, handles complex edges',
+        size: 120_000_000,
+        quality: 4.5,
+        remoteUrl:
+          'https://github.com/ZhengPeng7/BiRefNet/releases/download/v1.0/birefnet-general-lite.onnx',
+        checksum: '',
+      },
+    ],
+    getModelLoader: mockGetModelLoader,
+  };
+});
 
 import { ModelDownloadDialog } from './ModelDownloadDialog';
 

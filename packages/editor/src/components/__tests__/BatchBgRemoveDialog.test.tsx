@@ -14,31 +14,39 @@ const { mockRemoveBackground, mockImageCache, mockIsModelAvailable } = vi.hoiste
   mockIsModelAvailable: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock('@varve/engine', () => ({
-  getImageCache: () => mockImageCache,
-  removeBackground: mockRemoveBackground,
-  DEFAULT_PREVIEW_MAX_DIMENSION: 2048,
-  getEnvironmentCapabilities: vi.fn().mockResolvedValue({
-    webgpu: false,
-    wasm: true,
-    wasmSimd: true,
-    onnxBackend: 'wasm',
-    executionProviders: [{ name: 'wasm' }],
-    maxMemoryMB: 512,
-  }),
-  isWasmModelSafe: vi.fn().mockResolvedValue(true),
-  finalizeMaskResult: vi.fn(async (result: { maskDataUrl: string }) => ({
-    ...result,
-    needsSubjectPicker: false,
-  })),
-  getModelLoaderReady: vi.fn().mockResolvedValue({
-    isModelAvailable: mockIsModelAvailable,
-    getState: () => 'ready',
-    subscribe: () => () => {},
-  }),
-  workerModelIdForMethod: (method: string) =>
-    method === 'ai-balanced' ? 'u2netp' : method === 'ai-quality' ? 'birefnet-general-lite' : null,
-}));
+vi.mock('@varve/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/engine')>();
+  return {
+    ...actual,
+    getImageCache: () => mockImageCache,
+    removeBackground: mockRemoveBackground,
+    DEFAULT_PREVIEW_MAX_DIMENSION: 2048,
+    getEnvironmentCapabilities: vi.fn().mockResolvedValue({
+      webgpu: false,
+      wasm: true,
+      wasmSimd: true,
+      onnxBackend: 'wasm',
+      executionProviders: [{ name: 'wasm' }],
+      maxMemoryMB: 512,
+    }),
+    isWasmModelSafe: vi.fn().mockResolvedValue(true),
+    finalizeMaskResult: vi.fn(async (result: { maskDataUrl: string }) => ({
+      ...result,
+      needsSubjectPicker: false,
+    })),
+    getModelLoaderReady: vi.fn().mockResolvedValue({
+      isModelAvailable: mockIsModelAvailable,
+      getState: () => 'ready',
+      subscribe: () => () => {},
+    }),
+    workerModelIdForMethod: (method: string) =>
+      method === 'ai-balanced'
+        ? 'u2netp'
+        : method === 'ai-quality'
+          ? 'birefnet-general-lite'
+          : null,
+  };
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

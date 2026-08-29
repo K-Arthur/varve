@@ -215,6 +215,7 @@ describe('createEngine (stub)', () => {
           shape: {
             kind: 'path',
             points: ring(0, 0, 100),
+            contours: [ring(0, 0, 100), ring(25, 25, 50)],
             holes: [ring(25, 25, 50)],
             fillRule: 'evenodd',
             closed: true,
@@ -228,6 +229,7 @@ describe('createEngine (stub)', () => {
     expect(primitive?.kind).toBe('path');
     if (primitive?.kind === 'path') {
       expect(primitive.holes).toHaveLength(1);
+      expect(primitive.contours).toHaveLength(2);
       expect(primitive.fillRule).toBe('evenodd');
     }
   });

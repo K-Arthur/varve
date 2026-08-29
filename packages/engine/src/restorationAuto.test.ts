@@ -162,8 +162,9 @@ describe('analyzeImageForRestoration', () => {
   });
 
   it('runs quickly on a large image (bounded sampling)', () => {
+    const image = makeImage(4096, 3072, () => 128);
     const start = performance.now();
-    analyzeImageForRestoration(makeImage(4096, 3072, () => 128));
+    analyzeImageForRestoration(image);
     const elapsed = performance.now() - start;
     expect(elapsed).toBeLessThan(2000);
   });

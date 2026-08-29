@@ -22,88 +22,96 @@ const { mockExportRemoveBg, mockExportImageCache, mockExportIsModelAvailable } =
   mockExportIsModelAvailable: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock('@varve/engine', () => ({
-  DEFAULT_PREVIEW_MAX_DIMENSION: 2048,
-  checkGifExportSupport: () => ({ supported: false, reason: 'test' }),
-  checkVideoExportSupport: () => ({ supported: false, reason: 'test' }),
-  isWasmModelSafe: vi.fn().mockResolvedValue(true),
-  getModelLoaderReady: vi.fn().mockResolvedValue({
-    getState: () => 'unavailable',
-    isModelAvailable: mockExportIsModelAvailable,
-    subscribe: () => () => {},
-  }),
-  workerModelIdForMethod: (method: string) =>
-    method === 'ai-quality' ? 'birefnet-general-lite' : method === 'ai-balanced' ? 'u2netp' : null,
-  removeBackground: mockExportRemoveBg,
-  getImageCache: () => mockExportImageCache,
-  getModelInfo: (method: string) => {
-    const info: Record<
-      string,
-      {
-        label: string;
-        description: string;
-        diskSizeBytes: number;
-        estimatedPeakRamBytes: number;
-        peakRamDisplay: string;
-        diskSizeDisplay: string;
-        quality: string;
-        requiresDownload: boolean;
-        gpuRecommended: boolean;
-        wasmSafe: boolean;
-      }
-    > = {
-      quick: {
-        label: 'Quick',
-        description: 'Fast CPU heuristic',
-        diskSizeBytes: 0,
-        estimatedPeakRamBytes: 16_000_000,
-        peakRamDisplay: '~16 MB',
-        diskSizeDisplay: '0 B',
-        quality: 'Basic',
-        requiresDownload: false,
-        gpuRecommended: false,
-        wasmSafe: true,
-      },
-      'ai-balanced': {
-        label: 'AI Balanced',
-        description: 'Bundled u2netp',
-        diskSizeBytes: 4_700_000,
-        estimatedPeakRamBytes: 50_000_000,
-        peakRamDisplay: '~50 MB',
-        diskSizeDisplay: '4.7 MB',
-        quality: 'Good',
-        requiresDownload: false,
-        gpuRecommended: false,
-        wasmSafe: true,
-      },
-      'ai-quality': {
-        label: 'AI High Quality',
-        description: 'BiRefNet Lite',
-        diskSizeBytes: 224_000_000,
-        estimatedPeakRamBytes: 900_000_000,
-        peakRamDisplay: '~900 MB',
-        diskSizeDisplay: '224 MB',
-        quality: 'Best',
-        requiresDownload: true,
-        gpuRecommended: true,
-        wasmSafe: false,
-      },
-    };
-    return info[method] ?? null;
-  },
-  getEnvironmentCapabilities: vi.fn().mockResolvedValue({
-    crossOriginIsolated: false,
-    isWebKitGTK: false,
-    isTauri: false,
-    hasWorker: true,
-    hasWebGL: true,
-    hasWebGPU: false,
-    sharedMemoryAvailable: false,
-    wasmSafeModelBytes: 400_000_000,
-    preferredOnnxProviders: ['webgl', 'wasm'],
-    label: 'Test',
-  }),
-}));
+vi.mock('@varve/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/engine')>();
+  return {
+    ...actual,
+    DEFAULT_PREVIEW_MAX_DIMENSION: 2048,
+    checkGifExportSupport: () => ({ supported: false, reason: 'test' }),
+    checkVideoExportSupport: () => ({ supported: false, reason: 'test' }),
+    isWasmModelSafe: vi.fn().mockResolvedValue(true),
+    getModelLoaderReady: vi.fn().mockResolvedValue({
+      getState: () => 'unavailable',
+      isModelAvailable: mockExportIsModelAvailable,
+      subscribe: () => () => {},
+    }),
+    workerModelIdForMethod: (method: string) =>
+      method === 'ai-quality'
+        ? 'birefnet-general-lite'
+        : method === 'ai-balanced'
+          ? 'u2netp'
+          : null,
+    removeBackground: mockExportRemoveBg,
+    getImageCache: () => mockExportImageCache,
+    getModelInfo: (method: string) => {
+      const info: Record<
+        string,
+        {
+          label: string;
+          description: string;
+          diskSizeBytes: number;
+          estimatedPeakRamBytes: number;
+          peakRamDisplay: string;
+          diskSizeDisplay: string;
+          quality: string;
+          requiresDownload: boolean;
+          gpuRecommended: boolean;
+          wasmSafe: boolean;
+        }
+      > = {
+        quick: {
+          label: 'Quick',
+          description: 'Fast CPU heuristic',
+          diskSizeBytes: 0,
+          estimatedPeakRamBytes: 16_000_000,
+          peakRamDisplay: '~16 MB',
+          diskSizeDisplay: '0 B',
+          quality: 'Basic',
+          requiresDownload: false,
+          gpuRecommended: false,
+          wasmSafe: true,
+        },
+        'ai-balanced': {
+          label: 'AI Balanced',
+          description: 'Bundled u2netp',
+          diskSizeBytes: 4_700_000,
+          estimatedPeakRamBytes: 50_000_000,
+          peakRamDisplay: '~50 MB',
+          diskSizeDisplay: '4.7 MB',
+          quality: 'Good',
+          requiresDownload: false,
+          gpuRecommended: false,
+          wasmSafe: true,
+        },
+        'ai-quality': {
+          label: 'AI High Quality',
+          description: 'BiRefNet Lite',
+          diskSizeBytes: 224_000_000,
+          estimatedPeakRamBytes: 900_000_000,
+          peakRamDisplay: '~900 MB',
+          diskSizeDisplay: '224 MB',
+          quality: 'Best',
+          requiresDownload: true,
+          gpuRecommended: true,
+          wasmSafe: false,
+        },
+      };
+      return info[method] ?? null;
+    },
+    getEnvironmentCapabilities: vi.fn().mockResolvedValue({
+      crossOriginIsolated: false,
+      isWebKitGTK: false,
+      isTauri: false,
+      hasWorker: true,
+      hasWebGL: true,
+      hasWebGPU: false,
+      sharedMemoryAvailable: false,
+      wasmSafeModelBytes: 400_000_000,
+      preferredOnnxProviders: ['webgl', 'wasm'],
+      label: 'Test',
+    }),
+  };
+});
 
 vi.mock('@floating-ui/dom', () => ({
   computePosition: vi.fn(() => Promise.resolve({ x: 0, y: 0 })),

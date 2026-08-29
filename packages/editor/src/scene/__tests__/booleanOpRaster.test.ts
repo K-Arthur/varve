@@ -11,8 +11,12 @@ import {
   extractAlphaContours,
 } from '@varve/engine';
 import type { BlendMode, Effect, Fill, ManagedColor, ShapeNode, Stroke } from '@varve/scene';
-import { booleanOp } from '@varve/scene';
-import { describe, expect, it } from 'vitest';
+import { booleanOp, preloadClipper } from '@varve/scene';
+import { beforeAll, describe, expect, it } from 'vitest';
+
+beforeAll(async () => {
+  await preloadClipper();
+});
 
 /** Convert the loosely-typed contour output into a real, typed ShapeNode.
  *  ContourShapeNodeData types fill/fills/strokes/effects as Record<string,
@@ -254,10 +258,10 @@ describe('booleanOp with raster-derived contours', () => {
     const unionResult = booleanOp('union', [...rasterNodes, farRect]);
     expect(unionResult.shape.kind).toBe('path');
 
-    // Intersect of non-overlapping shapes — boolean engine produces degenerate single-point result
+    // Intersect of non-overlapping shapes is an empty path result.
     const intersectResult = booleanOp('intersect', [...rasterNodes, farRect]);
     expect(intersectResult.shape.kind).toBe('path');
-    expect(pathPointCount(intersectResult)).toBeGreaterThanOrEqual(1);
+    expect(pathPointCount(intersectResult)).toBe(0);
   });
 });
 

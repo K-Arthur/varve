@@ -117,7 +117,10 @@ export interface UseCanvasInputsResult {
 
 /** Hover hit testing is informational and must never tax an active drag. */
 export function shouldResolveHover(tool: string, buttons: number): boolean {
-  return buttons === 0 && (tool === 'select' || tool === 'inspect');
+  // Knife joins select/inspect: it is the one drawing tool whose outcome
+  // depends on which object is under the pointer, so it needs the hover hit to
+  // show what it is about to cut and whether that object can be cut at all.
+  return buttons === 0 && (tool === 'select' || tool === 'inspect' || tool === 'knife');
 }
 
 /**

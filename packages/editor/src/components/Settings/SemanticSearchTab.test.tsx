@@ -27,6 +27,7 @@ const {
 }));
 
 vi.mock('@varve/engine', () => ({
+  ADJUSTMENT_KINDS: ['brightness'],
   // A class (not an arrow) so `new DownloadManager()` works — biome would
   // rewrite a `function` expression mock into a non-constructible arrow.
   DownloadManager: vi.fn().mockImplementation(

@@ -121,7 +121,11 @@ export function createActionHandlers(
   const selectedRasterMaskTarget = () => {
     for (const id of e.state.selection) {
       const node = e.state.document.nodes[id];
-      if (node?.kind === 'frame' || (node?.kind === 'shape' && isImageShape(node))) {
+      if (
+        node?.kind === 'frame' ||
+        node?.kind === 'rasterLayer' ||
+        (node?.kind === 'shape' && isImageShape(node))
+      ) {
         return node;
       }
     }
