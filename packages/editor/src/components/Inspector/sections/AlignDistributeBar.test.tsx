@@ -15,12 +15,16 @@ import { AlignDistributeBar } from './AlignDistributeBar';
 
 afterEach(() => vi.clearAllMocks());
 
-function editorForSelection(selection: string[], alignToPage = false) {
+function editorForSelection(selection: string[], alignToPage = false, lockedA = false) {
   let document = createDocument('align controls');
   for (const id of ['a', 'b', 'c']) {
     document = addNode(
       document,
-      makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }, { name: id }),
+      makeShapeNode(
+        id,
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 20 },
+        { name: id, locked: lockedA && id === 'a' },
+      ),
     );
   }
   return {
@@ -65,5 +69,12 @@ describe('AlignDistributeBar', () => {
 
     expect(screen.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Distribute horizontal spacing' })).toBeDisabled();
+  });
+
+  it('does not show manual alignment for a wholly ineligible selection', () => {
+    mocks.useEditor.mockReturnValue(editorForSelection(['a'], false, true));
+    render(<AlignDistributeBar />);
+
+    expect(screen.queryByRole('heading', { name: 'Align & distribute' })).toBeNull();
   });
 });

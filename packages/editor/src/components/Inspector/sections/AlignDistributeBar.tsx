@@ -288,6 +288,11 @@ export function AlignDistributeBar() {
     [tidySelected],
   );
 
+  // A locked/hidden node or a flow-managed auto-layout child has no manual
+  // position to change. Its Properties controls explain the governing state;
+  // an all-disabled alignment toolbar would imply a command is merely blocked.
+  if (!capabilities.canAlignToPage) return null;
+
   return (
     <section className="insp-align-section" aria-labelledby="align-distribute-heading">
       <h2 id="align-distribute-heading" className="insp-align-section__title">
