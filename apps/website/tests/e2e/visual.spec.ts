@@ -12,6 +12,22 @@ async function waitForImages(page: import('@playwright/test').Page) {
     const imgs = [...document.querySelectorAll('img')];
     return imgs.every((img) => img.complete && img.naturalWidth > 0);
   });
+  await page.evaluate(async () => {
+    const imgs = [...document.querySelectorAll('img')];
+    await Promise.all(
+      imgs.map(async (img) => {
+        try {
+          await img.decode();
+        } catch {
+          // The complete/naturalWidth guard above is the portable fallback for
+          // browsers that do not expose a successful decode promise.
+        }
+      }),
+    );
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+  });
 }
 
 /**
@@ -86,7 +102,7 @@ const THEMES = [
 test('homepage light', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await seedTheme(page, 'light');
-  await page.goto('/');
+  await page.goto('/?test-motion=static');
   await waitForImages(page);
   await expect(page.locator('.hero-title')).toBeVisible();
   await warmFullPage(page);
@@ -99,7 +115,7 @@ test('homepage light', async ({ page }) => {
 test('homepage dark', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await seedTheme(page, 'dark');
-  await page.goto('/');
+  await page.goto('/?test-motion=static');
   await waitForImages(page);
   await expect(page.locator('.hero-title')).toBeVisible();
   await warmFullPage(page);
@@ -110,7 +126,7 @@ test('homepage mobile light', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await seedTheme(page, 'light');
-  await page.goto('/');
+  await page.goto('/?test-motion=static');
   await waitForImages(page);
   await expect(page.locator('.hero-title')).toBeVisible();
   await warmFullPage(page);
@@ -124,7 +140,7 @@ test('homepage mobile dark', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await seedTheme(page, 'dark');
-  await page.goto('/');
+  await page.goto('/?test-motion=static');
   await waitForImages(page);
   await expect(page.locator('.hero-title')).toBeVisible();
   await warmFullPage(page);
@@ -137,7 +153,7 @@ test('homepage mobile dark', async ({ page }) => {
 test('hero light', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await seedTheme(page, 'light');
-  await page.goto('/');
+  await page.goto('/?test-motion=static');
   await expect(page.locator('.hero')).toBeVisible();
   await expect(page.locator('.hero')).toHaveScreenshot('hero-light.png', {
     maxDiffPixelRatio: 0.02,
@@ -147,7 +163,7 @@ test('hero light', async ({ page }) => {
 test('footer dark', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await seedTheme(page, 'dark');
-  await page.goto('/');
+  await page.goto('/?test-motion=static');
   await waitForImages(page);
   const footer = page.locator('.site-footer');
   await expect(footer).toBeVisible();
@@ -160,7 +176,7 @@ test('footer dark', async ({ page }) => {
 test('product showcase light', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await seedTheme(page, 'light');
-  await page.goto('/');
+  await page.goto('/?test-motion=static');
   await waitForImages(page);
   const showcase = page.locator('.showcase');
   await expect(showcase).toBeVisible();
@@ -173,7 +189,7 @@ test('product showcase light', async ({ page }) => {
 test('download page dark', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await seedTheme(page, 'dark');
-  await page.goto('/download');
+  await page.goto('/download?test-motion=static');
   await waitForImages(page);
   await expect(page.getByRole('heading', { name: /download varve/i })).toBeVisible();
   await warmFullPage(page);
@@ -186,7 +202,7 @@ test('download page dark', async ({ page }) => {
 test('docs page light', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await seedTheme(page, 'light');
-  await page.goto('/docs');
+  await page.goto('/docs?test-motion=static');
   await waitForImages(page);
   await warmFullPage(page);
   await expect(page).toHaveScreenshot('docs-light.png', {
@@ -198,7 +214,7 @@ test('docs page light', async ({ page }) => {
 test('workspaces docs page light', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await seedTheme(page, 'light');
-  await page.goto('/docs/workspaces');
+  await page.goto('/docs/workspaces?test-motion=static');
   await expect(page.getByRole('heading', { name: 'Workspaces', exact: true })).toBeVisible();
   await warmFullPage(page);
   await expect(page).toHaveScreenshot('workspaces-docs-light.png', {
@@ -210,7 +226,7 @@ test('workspaces docs page light', async ({ page }) => {
 test('features page dark', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await seedTheme(page, 'dark');
-  await page.goto('/features');
+  await page.goto('/features?test-motion=static');
   await waitForImages(page);
   await warmFullPage(page);
   await expect(page).toHaveScreenshot('features-dark.png', {
@@ -222,7 +238,7 @@ test('features page dark', async ({ page }) => {
 test('404 page light', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await seedTheme(page, 'light');
-  await page.goto('/definitely-missing');
+  await page.goto('/definitely-missing?test-motion=static');
   await waitForImages(page);
   await warmFullPage(page);
   await expect(page).toHaveScreenshot('404-light.png', { fullPage: true, maxDiffPixelRatio: 0.02 });
@@ -231,7 +247,7 @@ test('404 page light', async ({ page }) => {
 test('legal page (license) light', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await seedTheme(page, 'light');
-  await page.goto('/about/license');
+  await page.goto('/about/license?test-motion=static');
   await waitForImages(page);
   await warmFullPage(page);
   await expect(page).toHaveScreenshot('license-light.png', {
@@ -246,7 +262,7 @@ test.describe('theme matrix screenshots', () => {
     test(`product ${t.name}`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: t.colorScheme, reducedMotion: 'reduce' });
       await seedTheme(page, t.colorScheme);
-      await page.goto('/product');
+      await page.goto('/product?test-motion=static');
       await waitForImages(page);
       await expect(page.getByRole('heading', { name: 'What is Varve?' })).toBeVisible();
       await warmFullPage(page);
