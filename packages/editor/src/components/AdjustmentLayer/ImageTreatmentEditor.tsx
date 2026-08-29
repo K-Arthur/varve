@@ -61,15 +61,22 @@ export function ImageTreatmentEditor({ adjustment, onChange }: ImageTreatmentEdi
   };
 
   return (
-    <div className="adj-editor__group" data-image-treatment-editor={adjustment.kind}>
-      <p className="adj-editor__hint">{schema.description}</p>
+    <fieldset
+      aria-describedby={`image-treatment-editor-${adjustment.kind}-description`}
+      className="adj-editor__group adj-editor__treatment-group"
+      data-image-treatment-editor={adjustment.kind}
+    >
+      <legend className="sr-only">{schema.label} controls</legend>
+      <p className="adj-editor__hint" id={`image-treatment-editor-${adjustment.kind}-description`}>
+        {schema.description}
+      </p>
       {primary.map(control)}
       {advanced.length > 0 && (
         <details className="adj-editor__advanced">
-          <summary>Advanced</summary>
+          <summary>Advanced {schema.label} settings</summary>
           {advanced.map(control)}
         </details>
       )}
-    </div>
+    </fieldset>
   );
 }

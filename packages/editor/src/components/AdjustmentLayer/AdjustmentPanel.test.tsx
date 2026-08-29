@@ -74,16 +74,16 @@ describe('AdjustmentPanel', () => {
     expect(screen.getByRole('menuitem', { name: 'Halftone' })).toBeInTheDocument();
   });
 
-  it('renders the schema-backed Micro Detail control after adding that treatment', async () => {
+  it('renders the schema-backed Fine Texture control after adding that treatment', async () => {
     const user = userEvent.setup();
     renderHarness();
     await user.click(screen.getByText('Create adjustment layer'));
     await waitFor(() => screen.getByText('Adjustment Layer'));
 
     await user.click(screen.getByRole('button', { name: /add adjustment/i }));
-    await user.click(screen.getByRole('menuitem', { name: 'Micro Detail' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Fine Texture' }));
 
-    expect(screen.getByRole('slider', { name: 'Micro Detail' })).toBeInTheDocument();
+    expect(screen.getByRole('slider', { name: 'Fine Texture' })).toBeInTheDocument();
     expect(
       screen.getByText('Accentuate or soften fine texture without changing global tone.'),
     ).toBeInTheDocument();

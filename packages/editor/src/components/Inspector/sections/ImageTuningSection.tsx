@@ -3,6 +3,7 @@ import {
   type AdjustmentKind,
   IMAGE_TREATMENT_SCHEMAS,
   type ImageTreatmentGroup,
+  type ImageTreatmentSchema,
 } from '@varve/engine';
 import { cryptoId, isImageShape, makeSmartFilter, type SceneNode } from '@varve/scene';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -162,13 +163,15 @@ const IMAGE_TREATMENT_CONTROLS: readonly TuningControl[] = IMAGE_TREATMENT_SCHEM
     })),
 );
 
-const CONTROLS: readonly TuningControl[] = [...STANDARD_CONTROLS, ...IMAGE_TREATMENT_CONTROLS];
-
 const GROUPS: ReadonlyArray<{ id: TuningGroup; title: string; description: string }> = [
   { id: 'light', title: 'Light', description: 'Global tone recovery and tonal balance.' },
   { id: 'color', title: 'Color', description: 'White balance and colour intensity.' },
   { id: 'detail', title: 'Detail', description: 'Fine texture without destructive sharpening.' },
-  { id: 'presence', title: 'Presence', description: 'Medium and broad local contrast.' },
+  {
+    id: 'presence',
+    title: 'Local Contrast & Depth',
+    description: 'Medium contrast, broad depth, and atmospheric haze recovery.',
+  },
   { id: 'finish', title: 'Finish', description: 'Edge shaping, grain, and highlight diffusion.' },
 ];
 
@@ -296,10 +299,13 @@ export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
 
   useEffect(() => cancelGesture, [cancelGesture]);
 
-  const controlsByGroup = useMemo(
+  const standardControlsByGroup = useMemo(
     () =>
       new Map(
-        GROUPS.map((group) => [group.id, CONTROLS.filter((control) => control.group === group.id)]),
+        GROUPS.map((group) => [
+          group.id,
+          STANDARD_CONTROLS.filter((control) => control.group === group.id),
+        ]),
       ),
     [],
   );
@@ -371,10 +377,13 @@ export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
         {nodes.length > 1 && <p className="image-tuning__batch">Editing {nodes.length} images</p>}
 
         {GROUPS.map((group) => {
-          const controls = controlsByGroup.get(group.id) ?? [];
+          const controls = standardControlsByGroup.get(group.id) ?? [];
           const primary = controls.filter((control) => !control.advanced);
           const advanced = controls.filter((control) => control.advanced);
-          if (controls.length === 0) return null;
+          const treatmentSchemas = IMAGE_TREATMENT_SCHEMAS.filter(
+            (schema) => schema.group === group.id,
+          );
+          if (controls.length === 0 && treatmentSchemas.length === 0) return null;
           return (
             <section className="image-tuning__group" key={group.id} aria-label={group.title}>
               <div className="image-tuning__group-heading">
@@ -398,7 +407,7 @@ export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
               ))}
               {advanced.length > 0 && (
                 <details className="image-tuning__advanced">
-                  <summary>Advanced</summary>
+                  <summary>Advanced {group.title} settings</summary>
                   {advanced.map((control) => (
                     <TuningControlRow
                       control={control}
@@ -414,11 +423,97 @@ export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
                   ))}
                 </details>
               )}
+              {treatmentSchemas.map((schema) => (
+                <ImageTreatmentControlGroup
+                  controls={IMAGE_TREATMENT_CONTROLS.filter(
+                    (control) => control.kind === schema.id,
+                  )}
+                  key={schema.id}
+                  nodes={nodes}
+                  onChange={setParameter}
+                  onGestureCancel={cancelGesture}
+                  onGestureEnd={finishGesture}
+                  onGestureStart={startGesture}
+                  onReset={resetParameter}
+                  onToggle={toggleKind}
+                  schema={schema}
+                />
+              ))}
             </section>
           );
         })}
       </div>
     </DisclosureSection>
+  );
+}
+
+function ImageTreatmentControlGroup({
+  schema,
+  controls,
+  nodes,
+  onChange,
+  onReset,
+  onToggle,
+  onGestureStart,
+  onGestureEnd,
+  onGestureCancel,
+}: {
+  schema: ImageTreatmentSchema;
+  controls: readonly TuningControl[];
+  nodes: readonly SceneNode[];
+  onChange: (control: TuningControl, value: number) => void;
+  onReset: (control: TuningControl) => void;
+  onToggle: (kind: AdjustmentKind, visible: boolean) => void;
+  onGestureStart: () => void;
+  onGestureEnd: () => void;
+  onGestureCancel: () => void;
+}) {
+  const primary = controls.filter((control) => !control.advanced);
+  const advanced = controls.filter((control) => control.advanced);
+  const descriptionId = `image-treatment-${schema.id}-description`;
+
+  return (
+    <fieldset
+      className="image-tuning__treatment"
+      data-image-treatment-group={schema.id}
+      aria-describedby={descriptionId}
+    >
+      <legend className="image-tuning__treatment-legend">{schema.label}</legend>
+      <p className="image-tuning__treatment-description" id={descriptionId}>
+        {schema.description}
+      </p>
+      {primary.map((control) => (
+        <TuningControlRow
+          control={control}
+          key={control.id}
+          nodes={nodes}
+          onChange={onChange}
+          onGestureCancel={onGestureCancel}
+          onGestureEnd={onGestureEnd}
+          onGestureStart={onGestureStart}
+          onReset={onReset}
+          onToggle={onToggle}
+        />
+      ))}
+      {advanced.length > 0 && (
+        <details className="image-tuning__advanced">
+          <summary>Advanced {schema.label} settings</summary>
+          {advanced.map((control) => (
+            <TuningControlRow
+              control={control}
+              key={control.id}
+              nodes={nodes}
+              onChange={onChange}
+              onGestureCancel={onGestureCancel}
+              onGestureEnd={onGestureEnd}
+              onGestureStart={onGestureStart}
+              onReset={onReset}
+              onToggle={onToggle}
+            />
+          ))}
+        </details>
+      )}
+    </fieldset>
   );
 }
 

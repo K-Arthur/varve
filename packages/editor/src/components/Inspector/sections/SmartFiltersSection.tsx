@@ -12,6 +12,7 @@ import {
   canHaveSmartFilters,
   cloneSmartFilters,
   cryptoId,
+  isImageShape,
   makeSmartFilter,
   SMART_FILTER_KINDS,
 } from '@varve/scene';
@@ -20,6 +21,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { AdjustmentEditor } from '../../AdjustmentLayer/AdjustmentEditor';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import {
+  type VectorFinishingKind,
+  VectorFinishingQuickActions,
+} from './VectorFinishingQuickActions';
 import './smartFilters.css';
 
 export interface SmartFiltersSectionProps {
@@ -52,6 +57,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
   const compatible = node ? canHaveSmartFilters(node) : false;
   const filters = compatible && node ? (node.smartFilters ?? []) : [];
   const stackEnabled = node?.smartFiltersEnabled !== false;
+  const hasVectorFinishing = !!node && !isImageShape(node);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const draggedFilterIdRef = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -99,9 +105,9 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
   );
 
   const addFilter = useCallback(
-    (kind: AdjustmentKind) => {
+    (kind: AdjustmentKind, overrides: Partial<Adjustment> = {}) => {
       if (!nodeId) return;
-      const filter = makeSmartFilter(cryptoId(), kind);
+      const filter = makeSmartFilter(cryptoId(), kind, overrides);
       updateNode(nodeId, (current) => ({
         ...current,
         smartFilters: [...(current.smartFilters ?? []), filter],
@@ -203,6 +209,11 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
 
   return (
     <DisclosureSection title="Object Filters" sectionId="smart-filters">
+      {hasVectorFinishing && (
+        <VectorFinishingQuickActions
+          onAdd={(kind: VectorFinishingKind, preset) => addFilter(kind, preset)}
+        />
+      )}
       <div className="smart-filters__intro-row">
         <div className="smart-filters__intro">
           Filters are attached to this object and keep the original content editable.

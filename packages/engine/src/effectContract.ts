@@ -183,7 +183,7 @@ const EFFECT_CONTRACTS: Record<string, EffectContractEntry> = {
     gpuStatus: 'not-implemented',
   },
   microDetail: {
-    name: 'Micro Detail',
+    name: 'Fine Texture',
     workingSpace: 'srgb-gamma',
     alphaConvention: 'straight',
     hasApproximatePreview: false,
@@ -194,7 +194,7 @@ const EFFECT_CONTRACTS: Record<string, EffectContractEntry> = {
     nativeStatus: 'not-implemented',
   },
   definition: {
-    name: 'Definition',
+    name: 'Local Contrast',
     workingSpace: 'srgb-gamma',
     alphaConvention: 'straight',
     hasApproximatePreview: false,
@@ -205,7 +205,7 @@ const EFFECT_CONTRACTS: Record<string, EffectContractEntry> = {
     nativeStatus: 'not-implemented',
   },
   atmosphere: {
-    name: 'Atmosphere',
+    name: 'Atmospheric Depth',
     workingSpace: 'srgb-gamma',
     alphaConvention: 'straight',
     hasApproximatePreview: false,
@@ -227,7 +227,7 @@ const EFFECT_CONTRACTS: Record<string, EffectContractEntry> = {
     nativeStatus: 'not-implemented',
   },
   edgeFalloff: {
-    name: 'Edge Falloff',
+    name: 'Vignette',
     workingSpace: 'srgb-gamma',
     alphaConvention: 'straight',
     hasApproximatePreview: false,
@@ -249,7 +249,7 @@ const EFFECT_CONTRACTS: Record<string, EffectContractEntry> = {
     nativeStatus: 'not-implemented',
   },
   softBloom: {
-    name: 'Soft Bloom',
+    name: 'Highlight Glow',
     workingSpace: 'linear-light',
     alphaConvention: 'straight',
     hasApproximatePreview: true,

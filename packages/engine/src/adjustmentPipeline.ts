@@ -252,21 +252,21 @@ const FILTER_PROPERTIES: Record<string, FilterProperties> = {
     requiresRasterExport: true,
   },
   microDetail: {
-    name: 'Micro Detail',
+    name: 'Fine Texture',
     capabilities: ['software-cpu', 'raster-export'],
     hasGpuPath: false,
     hasCssPath: false,
     requiresRasterExport: true,
   },
   definition: {
-    name: 'Definition',
+    name: 'Local Contrast',
     capabilities: ['software-cpu', 'raster-export'],
     hasGpuPath: false,
     hasCssPath: false,
     requiresRasterExport: true,
   },
   atmosphere: {
-    name: 'Atmosphere',
+    name: 'Atmospheric Depth',
     capabilities: ['software-cpu', 'raster-export'],
     hasGpuPath: false,
     hasCssPath: false,
@@ -280,7 +280,7 @@ const FILTER_PROPERTIES: Record<string, FilterProperties> = {
     requiresRasterExport: true,
   },
   edgeFalloff: {
-    name: 'Edge Falloff',
+    name: 'Vignette',
     capabilities: ['software-cpu', 'raster-export'],
     hasGpuPath: false,
     hasCssPath: false,
@@ -294,7 +294,7 @@ const FILTER_PROPERTIES: Record<string, FilterProperties> = {
     requiresRasterExport: true,
   },
   softBloom: {
-    name: 'Soft Bloom',
+    name: 'Highlight Glow',
     capabilities: ['software-cpu', 'raster-export'],
     hasGpuPath: false,
     hasCssPath: false,

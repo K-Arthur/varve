@@ -5,16 +5,22 @@
  * RGB of fully transparent pixels. They are intentionally built from local
  * luminance structure rather than aliases for global contrast or blur:
  *
- * - Micro Detail uses a small-scale luminance residual with a noise floor.
- * - Definition isolates a middle-frequency band between two local averages.
- * - Atmosphere adjusts a broader local residual without changing global tone.
+ * - Fine Texture (`microDetail`) uses a small-scale luminance residual with a
+ *   noise floor.
+ * - Local Contrast (`definition`) isolates a middle-frequency band between two
+ *   local averages.
+ * - Atmospheric Depth (`atmosphere`) adjusts a broader local residual without
+ *   changing global tone.
  * - Dehaze estimates local atmospheric veil from an alpha-aware dark channel
- *   and reconstructs a bounded transmission; it is not an Atmosphere alias.
- * - Edge Falloff is evaluated in the captured object/scope image coordinates.
+ *   and reconstructs a bounded transmission; it is not an Atmospheric Depth
+ *   alias.
+ * - Vignette (`edgeFalloff`) is evaluated in the captured object/scope image
+ *   coordinates.
  * - Grain is seeded and document-coordinate anchored when coordinate data is
  *   available, so it cannot crawl while the canvas is panned or zoomed.
- * - Soft Bloom adapts the established linear-light Bloom kernel with a small,
- *   photographic parameter set; it is not a second bloom implementation.
+ * - Highlight Glow (`softBloom`) adapts the established linear-light Bloom
+ *   kernel with a small, photographic parameter set; it is not a second bloom
+ *   implementation.
  */
 
 import { applyBloom } from '../liveEffects/bloom';
@@ -288,7 +294,7 @@ export function applyMicroDetail(
   return imageData;
 }
 
-/** Middle-frequency local contrast, deliberately distinct from Micro Detail. */
+/** Middle-frequency local contrast, deliberately distinct from Fine Texture. */
 export function applyDefinition(
   imageData: ImageData,
   params: DefinitionParams,
@@ -359,7 +365,7 @@ export function applyAtmosphere(
 /**
  * Local atmospheric-haze recovery using a dark-channel veil estimate.
  *
- * This is intentionally distinct from Atmosphere: it estimates the amount of
+ * This is intentionally distinct from Atmospheric Depth: it estimates the amount of
  * neutral veiling light in each broad neighbourhood, then applies a bounded
  * inverse atmospheric-light transform (`J = (I - h) / (1 - h)`) to luminance.
  * The dark-channel confidence and a transmission floor make the inverse safe

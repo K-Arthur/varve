@@ -478,6 +478,18 @@
   border-top: none;
 }
 
+.adj-editor__treatment-group {
+  border: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.adj-editor__treatment-group:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
 .adj-editor__color-row {
   display: flex;
   align-items: center;

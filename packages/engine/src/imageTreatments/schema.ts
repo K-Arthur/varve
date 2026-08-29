@@ -62,9 +62,9 @@ export interface AtmosphereParams {
 }
 
 /**
- * Local atmospheric-veil recovery. Unlike Atmosphere's broad local-contrast
- * control, Dehaze estimates a local dark-channel veil and reconstructs a
- * bounded transmission through it.
+ * Local atmospheric-veil recovery. Unlike Atmospheric Depth's (`atmosphere`)
+ * broad local-contrast control, Dehaze estimates a local dark-channel veil and
+ * reconstructs a bounded transmission through it.
  */
 export interface DehazeParams {
   amount: number;
@@ -111,13 +111,13 @@ export type ImageTreatmentParams = ImageTreatmentParamsByKind[ImageTreatmentKind
 const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
   microDetail: {
     id: 'microDetail',
-    label: 'Micro Detail',
+    label: 'Fine Texture',
     group: 'detail',
     description: 'Accentuate or soften fine texture without changing global tone.',
     parameters: [
       {
         key: 'amount',
-        label: 'Micro Detail',
+        label: 'Fine Texture',
         description: 'Fine texture enhancement. Negative values soften fine detail.',
         min: -100,
         max: 100,
@@ -128,8 +128,8 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
       },
       {
         key: 'threshold',
-        label: 'Noise Protection',
-        description: 'Protect nearly-flat areas from fine-detail enhancement.',
+        label: 'Smooth-Area Protection',
+        description: 'Protect nearly flat areas from fine-texture enhancement.',
         min: 0,
         max: 1,
         defaultValue: 0.12,
@@ -141,13 +141,13 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
   },
   definition: {
     id: 'definition',
-    label: 'Definition',
+    label: 'Local Contrast',
     group: 'presence',
     description: 'Shape medium-scale structure with local contrast.',
     parameters: [
       {
         key: 'amount',
-        label: 'Definition',
+        label: 'Local Contrast',
         description: 'Medium-scale local contrast. Negative values create a softer appearance.',
         min: -100,
         max: 100,
@@ -158,8 +158,8 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
       },
       {
         key: 'radius',
-        label: 'Structure Scale',
-        description: 'The size of structures affected by Definition.',
+        label: 'Detail Size',
+        description: 'The size of structures affected by Local Contrast.',
         min: 2,
         max: 64,
         defaultValue: 12,
@@ -183,13 +183,13 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
   },
   atmosphere: {
     id: 'atmosphere',
-    label: 'Atmosphere',
+    label: 'Atmospheric Depth',
     group: 'presence',
     description: 'Recover or add broad atmospheric depth without global contrast.',
     parameters: [
       {
         key: 'amount',
-        label: 'Atmosphere',
+        label: 'Atmospheric Depth',
         description: 'Positive values recover atmospheric depth; negative values add softness.',
         min: -100,
         max: 100,
@@ -200,7 +200,7 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
       },
       {
         key: 'radius',
-        label: 'Depth Scale',
+        label: 'Depth Area',
         description: 'The broad tonal scale used to shape atmospheric depth.',
         min: 4,
         max: 128,
@@ -242,7 +242,7 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
       },
       {
         key: 'radius',
-        label: 'Haze Scale',
+        label: 'Haze Area',
         description: 'The local area used to estimate atmospheric haze.',
         min: 4,
         max: 256,
@@ -267,13 +267,13 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
   },
   edgeFalloff: {
     id: 'edgeFalloff',
-    label: 'Edge Falloff',
+    label: 'Vignette',
     group: 'finish',
     description: 'Lighten or darken image edges in object coordinates.',
     parameters: [
       {
         key: 'strength',
-        label: 'Edge Falloff',
+        label: 'Vignette Amount',
         description: 'Negative values darken edges; positive values lighten them.',
         min: -100,
         max: 100,
@@ -308,7 +308,7 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
       },
       {
         key: 'roundness',
-        label: 'Roundness',
+        label: 'Vignette Shape',
         description: 'Adjust the falloff shape from oval to circular.',
         min: -100,
         max: 100,
@@ -320,7 +320,7 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
       },
       {
         key: 'centerX',
-        label: 'Center X',
+        label: 'Horizontal Center',
         description: 'Horizontal position of the falloff center.',
         min: 0,
         max: 1,
@@ -331,7 +331,7 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
       },
       {
         key: 'centerY',
-        label: 'Center Y',
+        label: 'Vertical Center',
         description: 'Vertical position of the falloff center.',
         min: 0,
         max: 1,
@@ -362,7 +362,7 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
     parameters: [
       {
         key: 'strength',
-        label: 'Strength',
+        label: 'Grain Amount',
         description: 'Amount of deterministic photographic grain.',
         min: 0,
         max: 100,
@@ -373,7 +373,7 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
       },
       {
         key: 'scale',
-        label: 'Scale',
+        label: 'Grain Size',
         description: 'Size of grain features in image pixels.',
         min: 0.25,
         max: 4,
@@ -384,7 +384,7 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
       },
       {
         key: 'character',
-        label: 'Character',
+        label: 'Grain Roughness',
         description: 'Regularity and clustering of the grain pattern.',
         min: 0,
         max: 100,
@@ -396,8 +396,8 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
       },
       {
         key: 'seed',
-        label: 'Seed',
-        description: 'Deterministic pattern identity. Intended for advanced use.',
+        label: 'Pattern Variation',
+        description: 'Choose a repeatable grain pattern without changing its amount.',
         min: 0,
         max: 4294967295,
         defaultValue: 0,
@@ -409,13 +409,13 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
   },
   softBloom: {
     id: 'softBloom',
-    label: 'Soft Bloom',
+    label: 'Highlight Glow',
     group: 'finish',
     description: 'Highlight-biased diffusion for a soft luminous finish.',
     parameters: [
       {
         key: 'strength',
-        label: 'Soft Bloom',
+        label: 'Glow Amount',
         description: 'Strength of highlight-biased diffusion.',
         min: 0,
         max: 100,
@@ -426,7 +426,7 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
       },
       {
         key: 'radius',
-        label: 'Radius',
+        label: 'Glow Size',
         description: 'How far highlight diffusion spreads.',
         min: 0,
         max: 128,
@@ -438,8 +438,8 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
       },
       {
         key: 'threshold',
-        label: 'Highlight Bias',
-        description: 'Brightness level where Soft Bloom begins.',
+        label: 'Highlight Threshold',
+        description: 'Brightness level where Highlight Glow begins.',
         min: 0,
         max: 1,
         defaultValue: 0.65,
@@ -449,7 +449,7 @@ const SCHEMAS: Record<ImageTreatmentKind, ImageTreatmentSchema> = {
       },
       {
         key: 'softness',
-        label: 'Softness',
+        label: 'Glow Softness',
         description: 'How gently the highlight selection transitions into bloom.',
         min: 0,
         max: 1,

@@ -26,13 +26,38 @@
 
 .image-tuning__group-heading h3 {
   margin: 0;
-  color: var(--color-text, #e8edf1);
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm, 0.8125rem);
   font-weight: 600;
 }
 
 .image-tuning__group-heading p {
   margin-top: 2px;
+}
+
+.image-tuning__treatment {
+  background: var(--color-surface-raised, rgba(255, 255, 255, 0.025));
+  border: 1px solid var(--color-border-subtle, #2d3339);
+  border-radius: var(--radius-sm, 3px);
+  display: grid;
+  gap: var(--space-2, 8px);
+  margin: 0;
+  min-inline-size: 0;
+  padding: var(--space-2, 8px);
+}
+
+.image-tuning__treatment-legend {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: 600;
+  padding: 0 var(--space-1, 4px);
+}
+
+.image-tuning__treatment-description {
+  color: var(--color-text-muted, #77808a);
+  font-size: var(--font-size-2xs, 0.6875rem);
+  line-height: 1.4;
+  margin: -2px 0 0;
 }
 
 .image-tuning__control {
@@ -48,7 +73,7 @@
 }
 
 .image-tuning__control-label {
-  color: var(--color-text, #e8edf1);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs, 0.75rem);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -81,7 +106,7 @@
 .image-tuning__toggle:hover:not(:disabled),
 .image-tuning__reset:hover:not(:disabled) {
   background: var(--color-surface-hover, rgba(255, 255, 255, 0.08));
-  color: var(--color-text, #e8edf1);
+  color: var(--color-text-primary);
 }
 
 .image-tuning__toggle:focus-visible,

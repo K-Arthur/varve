@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { makeSmartFilter, type SceneNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -90,7 +90,7 @@ describe('ImageTuningSection', () => {
     const second = imageNode('image-2');
 
     render(<ImageTuningSection nodes={[first, second]} />);
-    fireEvent.change(screen.getByRole('slider', { name: 'Micro Detail' }), {
+    fireEvent.change(screen.getByRole('slider', { name: 'Fine Texture' }), {
       target: { value: '34' },
     });
 
@@ -117,11 +117,11 @@ describe('ImageTuningSection', () => {
 
     render(<ImageTuningSection nodes={[first, second]} />);
 
-    expect(screen.getByRole('slider', { name: 'Micro Detail' })).toHaveAttribute(
+    expect(screen.getByRole('slider', { name: 'Fine Texture' })).toHaveAttribute(
       'aria-valuetext',
       'Mixed values',
     );
-    expect(screen.getByRole('spinbutton', { name: /micro detail/i })).toHaveValue('—');
+    expect(screen.getByRole('spinbutton', { name: /fine texture/i })).toHaveValue('—');
     expect(screen.getAllByText('Mixed').length).toBeGreaterThan(0);
   });
 
@@ -132,7 +132,7 @@ describe('ImageTuningSection', () => {
     });
 
     render(<ImageTuningSection nodes={[node]} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Disable Micro Detail' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Disable Fine Texture' }));
 
     const [next] = updatedNodes([node]);
     expect(next?.smartFilters).toEqual([
@@ -158,7 +158,7 @@ describe('ImageTuningSection', () => {
   it('coalesces slider changes into one gesture transaction and aborts it on Escape', () => {
     const node = imageNode('image-1');
     render(<ImageTuningSection nodes={[node]} />);
-    const slider = screen.getByRole('slider', { name: 'Micro Detail' });
+    const slider = screen.getByRole('slider', { name: 'Fine Texture' });
 
     fireEvent.pointerDown(slider);
     fireEvent.change(slider, { target: { value: '20' } });
@@ -174,5 +174,43 @@ describe('ImageTuningSection', () => {
 
     expect(beginTransaction).toHaveBeenCalledTimes(2);
     expect(abortTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses treatment-scoped semantic groups and avoids bare Finish control names', () => {
+    render(<ImageTuningSection nodes={[imageNode('image-1')]} />);
+
+    expect(screen.getByRole('region', { name: 'Local Contrast & Depth' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Presence' })).not.toBeInTheDocument();
+
+    const treatmentControls = [
+      ['Fine Texture', 'Fine Texture'],
+      ['Local Contrast', 'Local Contrast'],
+      ['Atmospheric Depth', 'Atmospheric Depth'],
+      ['Dehaze', 'Dehaze'],
+      ['Vignette', 'Vignette Amount'],
+      ['Grain', 'Grain Amount'],
+      ['Highlight Glow', 'Glow Amount'],
+    ] as const;
+
+    for (const [treatmentName, controlName] of treatmentControls) {
+      const treatment = screen.getByRole('group', { name: treatmentName });
+      expect(within(treatment).getByRole('slider', { name: controlName })).toBeInTheDocument();
+      expect(
+        within(treatment).getByText(`Advanced ${treatmentName} settings`, { exact: true }),
+      ).toBeInTheDocument();
+    }
+
+    const grain = screen.getByRole('group', { name: 'Grain' });
+    expect(grain).toHaveAccessibleDescription(
+      'Deterministic photographic grain anchored to the image.',
+    );
+    fireEvent.click(within(grain).getByText('Advanced Grain settings', { exact: true }));
+
+    for (const label of ['Grain Amount', 'Grain Size', 'Grain Roughness', 'Pattern Variation']) {
+      expect(within(grain).getByRole('slider', { name: label })).toBeInTheDocument();
+    }
+    for (const ambiguousLabel of ['Strength', 'Scale', 'Character', 'Seed']) {
+      expect(within(grain).queryByRole('slider', { name: ambiguousLabel })).not.toBeInTheDocument();
+    }
   });
 });

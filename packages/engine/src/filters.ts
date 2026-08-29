@@ -16,6 +16,8 @@ import {
   type GrainParams,
   IMAGE_TREATMENT_KINDS,
   imageTreatmentDefaults,
+  imageTreatmentSchema,
+  isImageTreatmentKind,
   type MicroDetailParams,
   type SoftBloomParams,
 } from './imageTreatments';
@@ -1359,6 +1361,8 @@ export function applyFilterChain(target: { filter: string }, filters: FilterIR[]
 }
 
 export function filterKindDisplayName(kind: AdjustmentKind): string {
+  if (isImageTreatmentKind(kind)) return imageTreatmentSchema(kind).label;
+
   switch (kind) {
     case 'hueRotate':
       return 'Hue Rotate';
@@ -1410,20 +1414,6 @@ export function filterKindDisplayName(kind: AdjustmentKind): string {
       return 'Light Leak';
     case 'caustics':
       return 'Caustics';
-    case 'microDetail':
-      return 'Micro Detail';
-    case 'definition':
-      return 'Definition';
-    case 'atmosphere':
-      return 'Atmosphere';
-    case 'dehaze':
-      return 'Dehaze';
-    case 'edgeFalloff':
-      return 'Edge Falloff';
-    case 'grain':
-      return 'Grain';
-    case 'softBloom':
-      return 'Soft Bloom';
     default:
       return kind.charAt(0).toUpperCase() + kind.slice(1);
   }

@@ -153,6 +153,23 @@ describe('new adjustment kinds', () => {
     });
   });
 
+  it('uses the same clear treatment names in menus and effect contracts', () => {
+    const names = {
+      microDetail: 'Fine Texture',
+      definition: 'Local Contrast',
+      atmosphere: 'Atmospheric Depth',
+      dehaze: 'Dehaze',
+      edgeFalloff: 'Vignette',
+      grain: 'Grain',
+      softBloom: 'Highlight Glow',
+    } as const;
+
+    for (const [kind, name] of Object.entries(names)) {
+      expect(filterKindDisplayName(kind as keyof typeof names)).toBe(name);
+      expect(getEffectContract(kind)?.name).toBe(name);
+    }
+  });
+
   it('makeAdjustment for duotone produces fully-populated DuotoneAdjustment', () => {
     const adj = makeAdjustment('d1', 'duotone') as import('./filters').DuotoneAdjustment;
     expect(adj.kind).toBe('duotone');
