@@ -27,7 +27,12 @@ import {
 import { Fragment, useCallback, useMemo, useRef } from 'react';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from './canvas/overlayZIndex';
 import { useEditor } from './context';
-import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import {
+  isNodeEffectivelyLocked,
+  nodeLocalBounds,
+  nodeWorldBounds,
+  nodeWorldTransform,
+} from './scene/world';
 import { type SnapBoxOptions, snapSelectionBox } from './tools/snapping';
 import { storeRepeatTransform } from './transform/repeatTransform';
 import { type SkewAxis, TransformEngine } from './transform/TransformEngine';
@@ -407,11 +412,15 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const isShape = node?.kind === 'shape';
   const isFrame = node?.kind === 'frame';
   const isText = node?.kind === 'text';
-  const hasInteractiveHandles = isSingle && (isShape || isFrame || isText);
+  const isLockedSelection =
+    isSingle && node !== undefined && isNodeEffectivelyLocked(state.document, node.id);
+  const hasInteractiveHandles =
+    isSingle && (isShape || isFrame || isText) && node !== undefined && !isLockedSelection;
 
   const isLineOrArrow =
     isSingle &&
     isShape &&
+    !isLockedSelection &&
     node?.kind === 'shape' &&
     (node.shape?.kind === 'line' || node.shape?.kind === 'arrow');
 
@@ -810,6 +819,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const rotationDeg = (box.rotation * 180) / Math.PI;
 
   const resizeHandleTargets = (() => {
+    if (isLockedSelection) return null;
     const { indices } = visibleHandles(box.w, box.h, state.zoom, isSingle);
     return HANDLE_KEYS.slice(0, 8).map((key, i) => {
       if (!indices.has(i)) return null;
@@ -1037,7 +1047,8 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
           remains discoverable by its own accessible label. */}
       {resizeHandleTargets}
 
-      {cornerHandlePos &&
+      {hasInteractiveHandles &&
+        cornerHandlePos &&
         (() => {
           const [sx, sy] = overlayWorldToScreen(cornerHandlePos[0], cornerHandlePos[1]);
           return (

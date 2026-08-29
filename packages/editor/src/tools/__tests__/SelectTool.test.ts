@@ -1231,6 +1231,55 @@ describe('SelectTool deep selection (Ctrl+click)', () => {
     expect(ctx.setSelection).toHaveBeenCalledWith('c1');
     expect(ctx.setSelection).not.toHaveBeenCalledWith('f1');
   });
+
+  it('keeps a selected child as the drag target when its frame is the normal hit', () => {
+    const tool = new SelectTool();
+    const frameNode = {
+      id: 'f1',
+      kind: 'frame' as const,
+      name: 'Frame',
+      children: ['c1'],
+      transform: [1, 0, 0, 1, 0, 0],
+    };
+    const childNode = {
+      id: 'c1',
+      kind: 'shape' as const,
+      name: 'Child',
+      transform: [1, 0, 0, 1, 10, 10],
+    };
+    const ctx = makeCtx({
+      selection: ['c1'],
+      hitTest: vi.fn().mockReturnValue({ nodeId: 'f1', node: frameNode }),
+      isSelected: vi.fn((id: string) => id === 'c1'),
+      getNode: vi.fn((id: string) => (id === 'f1' ? frameNode : childNode)),
+      document: {
+        nodes: { f1: frameNode, c1: childNode },
+        pages: [],
+        rootChildren: ['f1'],
+      } as any,
+    });
+    (tool as any).findNodesAtPoint = vi.fn().mockReturnValue([
+      { nodeId: 'f1', node: frameNode },
+      { nodeId: 'c1', node: childNode },
+    ]);
+
+    tool.onPointerDown(
+      {
+        clientX: 50,
+        clientY: 50,
+        pointerId: 1,
+        button: 0,
+        shiftKey: false,
+        ctrlKey: false,
+        metaKey: false,
+      } as any,
+      ctx,
+    );
+
+    expect(ctx.hitTest).toHaveBeenCalledOnce();
+    expect(ctx.setSelection).not.toHaveBeenCalledWith('f1');
+    expect(ctx.beginTransaction).toHaveBeenCalledOnce();
+  });
 });
 
 describe('SelectTool Enter key navigates into containers', () => {

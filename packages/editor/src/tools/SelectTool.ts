@@ -192,7 +192,20 @@ export class SelectTool extends BaseTool {
       }, LONG_PRESS_MS);
     }
 
-    const hit = this.resolveHit(world, ctx);
+    // Once a leaf has been selected through a container, a normal drag that
+    // starts on that leaf must continue to address the leaf. The generic hit
+    // tester intentionally returns the topmost container for ordinary clicks,
+    // which otherwise turns a selected-child drag into a frame drag. Keep
+    // modifier-based selection semantics unchanged: Ctrl/Cmd is still the
+    // explicit deep-selection gesture and Shift still toggles selection.
+    const normalHit = this.resolveHit(world, ctx);
+    const selectedLeafHit =
+      !e.shiftKey && !e.ctrlKey && !e.metaKey ? this.findSelectedLeafAtPoint(world, ctx) : null;
+    const selectedLeafOverridesHit =
+      selectedLeafHit !== null &&
+      (normalHit?.nodeId !== selectedLeafHit.nodeId ||
+        this.isNestedInEditableContainer(selectedLeafHit.nodeId, ctx));
+    const hit = selectedLeafOverridesHit ? selectedLeafHit : normalHit;
 
     if (hit) {
       const docNode = ctx.document.nodes[hit.nodeId];
@@ -211,6 +224,7 @@ export class SelectTool extends BaseTool {
         !e.shiftKey &&
         !e.ctrlKey &&
         !e.metaKey &&
+        !selectedLeafOverridesHit &&
         ctx.isSelected(hit.nodeId) &&
         ctx.selection.length === 1
       ) {
@@ -320,6 +334,39 @@ export class SelectTool extends BaseTool {
       this.longPressTimer = null;
     }
     this.longPressStart = null;
+  }
+
+  private findSelectedLeafAtPoint(
+    world: { x: number; y: number },
+    ctx: ToolContext,
+  ): { nodeId: string; node: import('@varve/scene').SceneNode } | null {
+    if (ctx.selection.length === 0) return null;
+    const selectedIds = new Set(ctx.selection);
+    return (
+      this.findNodesAtPoint(world, ctx).find(
+        (candidate) =>
+          selectedIds.has(candidate.nodeId) &&
+          candidate.node.kind !== 'frame' &&
+          candidate.node.kind !== 'group',
+      ) ?? null
+    );
+  }
+
+  private isNestedInEditableContainer(nodeId: NodeId, ctx: ToolContext): boolean {
+    const pageContentRoots = new Set((ctx.document.pages ?? []).map((page) => page.contentRoot));
+    let parentId = getParent(ctx.document, nodeId);
+    while (parentId) {
+      const parent = ctx.document.nodes[parentId];
+      if (
+        parent &&
+        (parent.kind === 'frame' || parent.kind === 'group') &&
+        !pageContentRoots.has(parentId)
+      ) {
+        return true;
+      }
+      parentId = getParent(ctx.document, parentId);
+    }
+    return false;
   }
 
   override onDragMove(ctx: ToolContext): void {
