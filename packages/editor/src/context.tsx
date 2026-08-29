@@ -401,6 +401,7 @@ import { isReducedMotion } from './context/reducedMotionManager';
 import {
   alignSelectionInDocument,
   alignSelectionWithObbInDocument,
+  commonAlignmentContainerBounds,
   distributeSelectionInDocument,
   resizeSceneNode,
   shapeForTool,
@@ -579,6 +580,19 @@ function pageContentPoint(
 } {
   const local = worldToPage(doc, pageId, [point.x, point.y]);
   return local ? { x: local[0], y: local[1] } : point;
+}
+
+/** Resolve the active canvas/page trim in placed world space for alignment. */
+function alignmentPageBounds(doc: Document): { x: number; y: number; w: number; h: number } {
+  const placed = doc.activePageId ? pageBoundsInWorld(doc, doc.activePageId) : null;
+  if (placed) return placed;
+  const legacy = doc as Document & { canvasWidth?: number; canvasHeight?: number };
+  return {
+    x: 0,
+    y: 0,
+    w: legacy.canvasWidth ?? 1920,
+    h: legacy.canvasHeight ?? 1080,
+  };
 }
 
 function gatherSubtreeNodes(doc: Document, ids: NodeId[]): SceneNode[] {
@@ -969,7 +983,10 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   /** F6: remove the current selection from a selection set. */
   removeFromSelectionSet: (setId: string) => void;
   /** F6: align selected nodes by the given axis. */
-  alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
+  alignSelected: (
+    axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom',
+    reference?: 'selection' | 'container' | 'page',
+  ) => void;
   /** F6: distribute selected nodes equally along the given axis. */
   distributeSelected: (axis: 'horizontal' | 'vertical') => void;
   /** P0*: distribute with a fixed gap in world units. */
@@ -987,7 +1004,10 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   /** P0*: auto-arrange selected nodes into a tidy grid layout. */
   tidySelected: (maxCols?: number) => void;
   /** P0*: OBB-aware alignment for rotated nodes (preserves visual orientation). */
-  obbAlignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
+  obbAlignSelected: (
+    axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom',
+    reference?: 'selection' | 'container' | 'page',
+  ) => void;
   /** P3: batch-set min width on all selected nodes. */
   setSelectedMinWidth: (value: number) => void;
   /** P3: batch-set max width on all selected nodes. */
@@ -5411,27 +5431,17 @@ export function EditorProvider({
       },
 
       // Manual alignment is delegated to the shared scene-aware command.
-      alignSelected: (axis) => {
+      alignSelected: (axis, requestedReference) => {
         const sel = state.selection;
-        if (sel.length < (state.alignToPage ? 1 : 2)) return;
-        const pageBounds = state.alignToPage
-          ? (() => {
-              const typedDoc = state.document as Document & {
-                canvasWidth?: number;
-                canvasHeight?: number;
-              };
-              return {
-                x: 0,
-                y: 0,
-                w: typedDoc.canvasWidth ?? 1920,
-                h: typedDoc.canvasHeight ?? 1080,
-              };
-            })()
-          : null;
+        const reference = requestedReference ?? (state.alignToPage ? 'page' : 'selection');
+        if (sel.length < (reference === 'selection' ? 2 : 1)) return;
         updateDoc((doc) =>
           alignSelectionInDocument(doc, sel, axis, {
+            reference,
             keyObjectId: state.keyObjectId,
-            pageBounds,
+            pageBounds: reference === 'page' ? alignmentPageBounds(doc) : null,
+            containerBounds:
+              reference === 'container' ? commonAlignmentContainerBounds(doc, sel) : null,
           }),
         );
       },
@@ -5464,19 +5474,17 @@ export function EditorProvider({
         setState((s) => ({ ...s, alignToPage: value }));
       },
 
-      obbAlignSelected: (axis) => {
+      obbAlignSelected: (axis, requestedReference) => {
         const sel = state.selection;
-        if (sel.length < (state.alignToPage ? 1 : 2)) return;
-        const typedDoc = state.document as Document & {
-          canvasWidth?: number;
-          canvasHeight?: number;
-        };
+        const reference = requestedReference ?? (state.alignToPage ? 'page' : 'selection');
+        if (sel.length < (reference === 'selection' ? 2 : 1)) return;
         updateDoc((doc) =>
           alignSelectionWithObbInDocument(doc, sel, axis, {
+            reference,
             keyObjectId: state.keyObjectId,
-            pageBounds: state.alignToPage
-              ? { x: 0, y: 0, w: typedDoc.canvasWidth ?? 1920, h: typedDoc.canvasHeight ?? 1080 }
-              : null,
+            pageBounds: reference === 'page' ? alignmentPageBounds(doc) : null,
+            containerBounds:
+              reference === 'container' ? commonAlignmentContainerBounds(doc, sel) : null,
           }),
         );
       },

@@ -72,7 +72,10 @@ export interface DocumentContextValue {
   selectSelectionSet: (setId: string) => void;
   addToSelectionSet: (setId: string) => void;
   removeFromSelectionSet: (setId: string) => void;
-  alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
+  alignSelected: (
+    axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom',
+    reference?: 'selection' | 'container' | 'page',
+  ) => void;
   distributeSelected: (axis: 'horizontal' | 'vertical') => void;
   distributeWithGap: (axis: 'horizontal' | 'vertical', gap: number) => void;
   distributeWithMode: (axis: 'horizontal' | 'vertical', mode: DistributeMode) => void;
@@ -81,7 +84,10 @@ export interface DocumentContextValue {
   alignToPage: boolean;
   setAlignToPage: (value: boolean) => void;
   tidySelected: (maxCols?: number) => void;
-  obbAlignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
+  obbAlignSelected: (
+    axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom',
+    reference?: 'selection' | 'container' | 'page',
+  ) => void;
   beginTransaction: () => void;
   commitTransaction: () => void;
   abortTransaction: () => void;

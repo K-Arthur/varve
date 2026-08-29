@@ -12,6 +12,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
   alignSelectionInDocument,
+  commonAlignmentContainerBounds,
   distributeSelectionInDocument,
   getAlignmentCapabilities,
 } from './selectionArrangement';
@@ -163,6 +164,31 @@ describe('selectionArrangement', () => {
     expect(capabilities.canAlign).toBe(false);
     expect(capabilities.canAlignToPage).toBe(true);
     expect(bounds(next, a.id)).toMatchObject({ x: 160, y: 20, w: 40, h: 30 });
+  });
+
+  it('aligns a single child to its nearest common frame bounds', () => {
+    let doc = createDocument('container target alignment');
+    const frame = makeFrameNode('frame', {
+      w: 240,
+      h: 160,
+      transform: [1, 0, 0, 1, 300, 120],
+    });
+    const child = rect('child', 35, 20, 40, 30);
+    doc = addNode(doc, frame);
+    doc = addChild(doc, frame.id, child);
+
+    const containerBounds = commonAlignmentContainerBounds(doc, [child.id]);
+    expect(containerBounds).toEqual({ x: 300, y: 120, w: 240, h: 160 });
+    const capabilities = getAlignmentCapabilities(doc, [child.id]);
+    expect(capabilities.canAlign).toBe(false);
+    expect(capabilities.canAlignToContainer).toBe(true);
+
+    const next = alignSelectionInDocument(doc, [child.id], 'right', {
+      reference: 'container',
+      containerBounds,
+    });
+    expect(bounds(next, child.id).x + bounds(next, child.id).w).toBe(540);
+    expect(getParent(next, child.id)).toBe(frame.id);
   });
 
   it('aligns an image and a line inside a transformed frame without changing their local parentage', () => {

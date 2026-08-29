@@ -36,6 +36,8 @@ export interface AlignmentCapabilities {
   canAlign: boolean;
   /** Alignment against explicit page/canvas bounds. */
   canAlignToPage: boolean;
+  /** Alignment against the nearest common frame ancestor. */
+  canAlignToContainer: boolean;
   canDistribute: boolean;
   canTidy: boolean;
   hasLockedOrHiddenSelection: boolean;
@@ -43,11 +45,17 @@ export interface AlignmentCapabilities {
 }
 
 export interface AlignSelectionOptions {
+  /** The explicit reference for this operation. Defaults to selection bounds. */
+  reference?: AlignmentReference;
   /** A selected, independently movable key object remains stationary. */
   keyObjectId?: NodeId | null;
   /** Explicit page/canvas bounds take precedence over collective selection bounds. */
   pageBounds?: BBox | null;
+  /** Bounds of the nearest common frame/container, when one exists. */
+  containerBounds?: BBox | null;
 }
+
+export type AlignmentReference = 'selection' | 'container' | 'page';
 
 export interface DistributeSelectionOptions {
   mode?: DistributeMode;
@@ -108,16 +116,49 @@ export function getAlignmentCapabilities(
   selection: readonly NodeId[],
 ): AlignmentCapabilities {
   const collected = collectSelection(doc, selection);
+  const containerBounds = commonAlignmentContainerBounds(doc, selection);
   return {
     rootCount: collected.rootCount,
     movableRootCount: collected.items.length,
     canAlign: collected.items.length >= 2,
     canAlignToPage: collected.items.length >= 1,
+    canAlignToContainer: collected.items.length >= 1 && containerBounds !== null,
     canDistribute: collected.items.length >= 3,
     canTidy: collected.items.length >= 2,
     hasLockedOrHiddenSelection: collected.hasLockedOrHiddenSelection,
     hasLayoutManagedSelection: collected.hasLayoutManagedSelection,
   };
+}
+
+/**
+ * Return the nearest common frame ancestor for the independently selected
+ * roots. A selected frame itself is never its own target; the search starts
+ * at its parent. This supports one child, siblings, and mixed-depth nested
+ * selections while keeping the target in the same placed world space.
+ */
+export function commonAlignmentContainerBounds(
+  doc: Document,
+  selection: readonly NodeId[],
+): BBox | null {
+  const parentIndex = buildParentIndexMap(doc);
+  const requested = new Set(selection.filter((id) => doc.nodes[id] !== undefined));
+  const roots = [...requested].filter((id) => !hasSelectedAncestor(id, requested, parentIndex));
+  const first = roots[0];
+  if (!first) return null;
+
+  let candidate = parentIndex.get(first) ?? null;
+  while (candidate) {
+    const node = doc.nodes[candidate];
+    if (
+      node?.kind === 'frame' &&
+      roots.every((id) => isDescendantOf(id, candidate!, parentIndex))
+    ) {
+      const bounds = nodeWorldBounds(doc, candidate, parentIndex);
+      if (isFiniteBounds(bounds)) return bounds;
+    }
+    candidate = parentIndex.get(candidate) ?? null;
+  }
+  return null;
 }
 
 /**
@@ -180,7 +221,9 @@ export function alignSelectionInDocument(
 ): Document {
   const collected = collectSelection(doc, selection);
   const { items } = collected;
-  if (items.length < (isFiniteBounds(options.pageBounds) ? 1 : 2)) return doc;
+  const explicitBounds = explicitAlignmentBounds(options);
+  if (options.reference && options.reference !== 'selection' && !explicitBounds) return doc;
+  if (items.length < (explicitBounds ? 1 : 2)) return doc;
 
   const target = resolveAlignmentTarget(items, axis, options);
   if (!target) return doc;
@@ -245,7 +288,9 @@ export function alignSelectionWithObbInDocument(
     if (!isFiniteAffine(transform)) return [];
     return [{ ...item, obb: transformedRectCorners(transform, local) }];
   });
-  if (items.length < (isFiniteBounds(options.pageBounds) ? 1 : 2)) return doc;
+  const explicitBounds = explicitAlignmentBounds(options);
+  if (options.reference && options.reference !== 'selection' && !explicitBounds) return doc;
+  if (items.length < (explicitBounds ? 1 : 2)) return doc;
 
   const target = resolveObbTarget(items, axis, options);
   if (target === null) return doc;
@@ -379,7 +424,8 @@ function resolveAlignmentTarget(
   axis: AlignAxis,
   options: AlignSelectionOptions,
 ): AlignmentTarget | null {
-  if (isFiniteBounds(options.pageBounds)) return targetForBounds(options.pageBounds);
+  const explicitBounds = explicitAlignmentBounds(options);
+  if (explicitBounds) return targetForBounds(explicitBounds);
   const keyItem = options.keyObjectId
     ? items.find((item) => item.id === options.keyObjectId)
     : null;
@@ -395,8 +441,8 @@ function resolveObbTarget(
   axis: AlignAxis,
   options: AlignSelectionOptions,
 ): number | null {
-  if (isFiniteBounds(options.pageBounds))
-    return alignmentTargetCoordinate(axis, options.pageBounds);
+  const explicitBounds = explicitAlignmentBounds(options);
+  if (explicitBounds) return alignmentTargetCoordinate(axis, explicitBounds);
   const keyItem = options.keyObjectId
     ? items.find((item) => item.id === options.keyObjectId)
     : null;
@@ -405,6 +451,16 @@ function resolveObbTarget(
     axis,
     items.map((item) => item.obb),
   );
+}
+
+function explicitAlignmentBounds(options: AlignSelectionOptions): BBox | null {
+  const reference =
+    options.reference ?? (isFiniteBounds(options.pageBounds) ? 'page' : 'selection');
+  if (reference === 'page') return isFiniteBounds(options.pageBounds) ? options.pageBounds! : null;
+  if (reference === 'container') {
+    return isFiniteBounds(options.containerBounds) ? options.containerBounds! : null;
+  }
+  return null;
 }
 
 function applyWorldTranslations(
@@ -534,6 +590,17 @@ function hasSelectedAncestor(
     if (selected.has(parentId)) return true;
     visited.add(parentId);
     parentId = parentIndex.get(parentId);
+  }
+  return false;
+}
+
+function isDescendantOf(id: NodeId, ancestorId: NodeId, parentIndex: Map<NodeId, NodeId>): boolean {
+  let current = parentIndex.get(id) ?? null;
+  const visited = new Set<NodeId>();
+  while (current && !visited.has(current)) {
+    if (current === ancestorId) return true;
+    visited.add(current);
+    current = parentIndex.get(current) ?? null;
   }
   return false;
 }

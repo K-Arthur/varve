@@ -780,7 +780,10 @@ export interface EditorContextValue {
   repeatLastTransform: () => void;
   setSelectedCornerRadius: (value: number | [number, number, number, number]) => void;
   setSelectedConstraint: (constraint: import('@varve/scene').Constraints) => void;
-  alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
+  alignSelected: (
+    axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom',
+    reference?: 'selection' | 'container' | 'page',
+  ) => void;
   distributeSelected: (axis: 'horizontal' | 'vertical') => void;
   distributeWithGap: (axis: 'horizontal' | 'vertical', gap: number) => void;
   distributeWithMode: (axis: 'horizontal' | 'vertical', mode: DistributeMode) => void;
@@ -789,7 +792,10 @@ export interface EditorContextValue {
   alignToPage: boolean;
   setAlignToPage: (value: boolean) => void;
   tidySelected: (maxCols?: number) => void;
-  obbAlignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
+  obbAlignSelected: (
+    axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom',
+    reference?: 'selection' | 'container' | 'page',
+  ) => void;
   setSelectedMinWidth: (value: number) => void;
   setSelectedMaxWidth: (value: number) => void;
   setSelectedMinHeight: (value: number) => void;

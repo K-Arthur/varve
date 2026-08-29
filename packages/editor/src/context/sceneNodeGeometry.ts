@@ -2,9 +2,11 @@ import type { Shape } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
 import type { ToolId } from './types';
 
+export type { AlignmentReference } from '../scene/selectionArrangement';
 export {
   alignSelectionInDocument,
   alignSelectionWithObbInDocument,
+  commonAlignmentContainerBounds,
   distributeSelectionInDocument,
 } from '../scene/selectionArrangement';
 
