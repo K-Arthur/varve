@@ -4,6 +4,7 @@ import {
   addGuide,
   addNode,
   arrangeNode,
+  arrangeNodes,
   clearGuides,
   createDocument,
   detachInstance,
@@ -724,6 +725,42 @@ describe('arrangeNode', () => {
     const { doc } = threeRoots();
     const d2 = arrangeNode(doc, 'nonexistent', 'front');
     expect(d2).toBe(doc);
+  });
+});
+
+describe('arrangeNodes', () => {
+  it('brings an adjacent sibling selection forward as one stable block', () => {
+    let doc = createDocument();
+    const { id: frameId, doc: frameDoc } = nextNodeId(doc);
+    doc = addNode(frameDoc, makeFrameNode(frameId, { name: 'Frame' }));
+
+    const children = ['a', 'b', 'c', 'd', 'e'].map((name) => shape(doc, name));
+    for (const child of children) {
+      doc = child.doc;
+      doc = addChild(doc, frameId, child.node);
+    }
+
+    const [a, b, c, d, e] = children.map((child) => child.id);
+    const next = arrangeNodes(doc, [b!, c!], 'forward');
+
+    expect((next.nodes[frameId] as FrameNode).children).toEqual([a, d, b, c, e]);
+  });
+
+  it('preserves the selected order when moving several siblings to the front', () => {
+    let doc = createDocument();
+    const { id: frameId, doc: frameDoc } = nextNodeId(doc);
+    doc = addNode(frameDoc, makeFrameNode(frameId, { name: 'Frame' }));
+
+    const children = ['a', 'b', 'c', 'd', 'e'].map((name) => shape(doc, name));
+    for (const child of children) {
+      doc = child.doc;
+      doc = addChild(doc, frameId, child.node);
+    }
+
+    const [a, b, c, d, e] = children.map((child) => child.id);
+    const next = arrangeNodes(doc, [b!, d!], 'front');
+
+    expect((next.nodes[frameId] as FrameNode).children).toEqual([a, c, e, b, d]);
   });
 });
 
