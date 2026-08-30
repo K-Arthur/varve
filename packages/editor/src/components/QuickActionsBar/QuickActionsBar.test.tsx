@@ -41,6 +41,22 @@ describe('QuickActionsBar', () => {
     expect(screen.getByText('Toggle Snap')).toBeInTheDocument();
   });
 
+  it('does not present shortcut placeholders as executable actions', () => {
+    getActionRegistry().register(
+      { id: 'futureAction', label: 'Future Action', category: 'tools', placeholder: true },
+      () => {},
+    );
+
+    render(<QuickActionsBar open={true} onClose={vi.fn()} />);
+
+    expect(screen.queryByText('Future Action')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Search actions'), {
+      target: { value: 'future' },
+    });
+    expect(screen.queryByText('Future Action')).not.toBeInTheDocument();
+  });
+
   it('filters actions by search query', () => {
     render(<QuickActionsBar open={true} onClose={vi.fn()} />);
     const input = screen.getByLabelText('Search actions');

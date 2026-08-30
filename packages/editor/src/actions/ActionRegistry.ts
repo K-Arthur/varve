@@ -90,6 +90,8 @@ export interface ActionDef {
   keywords?: string[];
   context?: 'always' | 'selection' | 'textEdit' | 'multiSelect' | 'canvas';
   shortcut?: { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean };
+  /** True for shortcut-only entries that are not executable until wired. */
+  placeholder?: boolean;
 }
 
 export type ActionHandler = (ctx: unknown) => void;
@@ -119,10 +121,15 @@ export class ActionRegistry {
    * context, so the shell refreshes them as state changes while keeping one
    * canonical action definition for every access surface.
    */
-  updateHandler(id: string, handler: ActionHandler): boolean {
+  updateHandler(
+    id: string,
+    handler: ActionHandler,
+    patch?: Pick<ActionDef, 'placeholder'>,
+  ): boolean {
     const action = this.actions.get(id);
     if (!action) return false;
     action.handler = handler;
+    if (patch) Object.assign(action, patch);
     return true;
   }
 

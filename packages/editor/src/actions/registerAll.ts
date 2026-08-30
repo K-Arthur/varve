@@ -87,6 +87,7 @@ export function registerAllShortcuts(exec: (id: string) => (() => void) | null):
           label: def.label,
           category: categoryFromShortcut(def.category),
           shortcut: def.binding,
+          placeholder: true,
         },
         () => exec(id)?.(),
       );
@@ -109,7 +110,9 @@ export function registerEditorActions(
   registerColorConversionActions();
 
   const reg = (id: string, label: string, category: ActionCategory, handler: () => void) => {
-    if (!r.updateHandler(id, handler)) r.register({ id, label, category }, handler);
+    if (!r.updateHandler(id, handler, { placeholder: false })) {
+      r.register({ id, label, category, placeholder: false }, handler);
+    }
   };
 
   for (const [id, handler] of Object.entries(handlers)) {
@@ -121,7 +124,7 @@ export function registerEditorActions(
         category: categoryFromShortcut(def.category),
         shortcut: def.binding,
       } as const;
-      if (!r.updateHandler(id, handler)) {
+      if (!r.updateHandler(id, handler, { placeholder: false })) {
         r.register(actionDef, handler);
       }
     }

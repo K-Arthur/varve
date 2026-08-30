@@ -77,10 +77,15 @@ export function QuickActionsBar({
     );
   }, [effectiveConfig]);
 
-  const allActions = useMemo(() => registry.getAll(), [registry]);
+  const allActions = useMemo(
+    () => registry.getAll().filter((action) => !action.placeholder),
+    [registry],
+  );
 
   const filtered = useMemo(() => {
-    let actions = query ? registry.search(query) : allActions;
+    let actions = query
+      ? registry.search(query).filter((action) => !action.placeholder)
+      : allActions;
 
     if (!query) {
       const recentSet = new Set(recent);
