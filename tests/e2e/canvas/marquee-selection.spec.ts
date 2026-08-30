@@ -109,6 +109,7 @@ test.describe('pixel marquee selection', () => {
     await page.mouse.move(box.x + 520, box.y + 420, { steps: 6 });
     await page.mouse.up();
 
+    await page.getByRole('button', { name: 'Selection Sources' }).click();
     const sources = page.getByTestId('selection-sources-panel');
     await expect(sources).toBeVisible();
     await expect(sources.getByRole('button', { name: 'Magic wand' })).toBeVisible();
