@@ -235,6 +235,9 @@ export interface Document {
    * portable even when a global preset is renamed or deleted. */
   gradientPresets?: import('./gradientPresets').GradientPreset[];
 
+  /** Document-local reusable Effect Studio recipes (v2.22+). */
+  effectLooks?: import('./effectLooks').EffectLook[];
+
   // ── Motion / Animation properties (v1.2+) ─────────────────────────────────
 
   /** Named timelines for per-node property animation. */

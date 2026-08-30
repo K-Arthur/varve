@@ -256,6 +256,8 @@ export interface NormalizedAdjustmentStack {
   adjustments: Adjustment[];
   changed: boolean;
   dropped: number;
+  /** Unknown effect kinds preserved for forward-compatible pass-through. */
+  unknown: number;
 }
 
 /** Normalize an adjustment or smart-filter stack without mutating its input. */
@@ -263,15 +265,39 @@ export function normalizeAdjustmentStack(
   value: unknown,
   ownerId: string,
 ): NormalizedAdjustmentStack {
-  if (!Array.isArray(value)) return { adjustments: [], changed: value !== undefined, dropped: 0 };
+  if (!Array.isArray(value)) {
+    return { adjustments: [], changed: value !== undefined, dropped: 0, unknown: 0 };
+  }
 
   let changed = false;
   let dropped = 0;
+  let unknown = 0;
   const adjustments: Adjustment[] = [];
   value.forEach((raw, index) => {
-    if (!isRecord(raw) || !isKnownAdjustmentKind(raw.kind)) {
+    if (!isRecord(raw)) {
       dropped++;
       changed = true;
+      return;
+    }
+
+    // Keep object-shaped future effects in their original stack position.
+    // adjustmentToFilter() and the renderers ignore unknown kinds, so this is
+    // a safe pass-through placeholder rather than an executable payload. It
+    // lets a newer document make a round trip through an older Varve build
+    // without silently deleting an effect the older build cannot understand.
+    if (!isKnownAdjustmentKind(raw.kind)) {
+      unknown++;
+      const preserved: Record<string, unknown> = { ...raw };
+      preserved.id =
+        typeof raw.id === 'string' && raw.id.length > 0 ? raw.id : `effect-${ownerId}-${index + 1}`;
+      preserved.kind = typeof raw.kind === 'string' && raw.kind.length > 0 ? raw.kind : 'unknown';
+      preserved.visible = typeof raw.visible === 'boolean' ? raw.visible : false;
+      preserved.opacity = finiteNumber(raw.opacity, 1, 0, 1);
+      preserved.blendMode = BLEND_MODES.includes(raw.blendMode as AdjustmentBlendMode)
+        ? raw.blendMode
+        : 'normal';
+      if (JSON.stringify(preserved) !== JSON.stringify(raw)) changed = true;
+      adjustments.push(preserved as unknown as Adjustment);
       return;
     }
 
@@ -334,5 +360,5 @@ export function normalizeAdjustmentStack(
     adjustments.push(normalized as unknown as Adjustment);
   });
 
-  return { adjustments, changed, dropped };
+  return { adjustments, changed, dropped, unknown };
 }

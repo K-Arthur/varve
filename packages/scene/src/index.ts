@@ -57,7 +57,9 @@ export {
   toggleFacingPages,
 } from './document';
 export * from './documentCodec';
+export * from './effectLooks';
 export * from './effectMasks';
+export * from './effectStack';
 export * from './effects';
 export * from './emailTypes';
 export * from './expandWarp';

@@ -22,6 +22,7 @@ import {
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
 import { type DocumentLike, findParentCycle, validateAndRepairDocument } from './document-utils';
+import { normalizeEffectLooks } from './effectLooks';
 import { normalizeDocumentEffects } from './effects';
 import { isIconAssetReferenced, validateIconAsset } from './iconAsset';
 import { normalizeLogoProject } from './logo/logoProject';
@@ -797,8 +798,18 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
         warnings.push(
           warning(
             'document.invalid-adjustment',
-            `Adjustment layer ${nodeId} dropped ${result.dropped} unknown or malformed filter entr${result.dropped === 1 ? 'y' : 'ies'}`,
+            `Adjustment layer ${nodeId} dropped ${result.dropped} malformed filter entr${result.dropped === 1 ? 'y' : 'ies'}`,
             'warning',
+            `${nodeId}.adjustments`,
+          ),
+        );
+      }
+      if (result.unknown > 0) {
+        warnings.push(
+          warning(
+            'document.unknown-adjustment',
+            `Adjustment layer ${nodeId} preserved ${result.unknown} unsupported filter entr${result.unknown === 1 ? 'y' : 'ies'} as pass-through content`,
+            'info',
             `${nodeId}.adjustments`,
           ),
         );
@@ -813,8 +824,18 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
         warnings.push(
           warning(
             'document.invalid-smart-filter',
-            `Object filter stack on ${nodeId} dropped ${result.dropped} unknown or malformed filter entr${result.dropped === 1 ? 'y' : 'ies'}`,
+            `Object filter stack on ${nodeId} dropped ${result.dropped} malformed filter entr${result.dropped === 1 ? 'y' : 'ies'}`,
             'warning',
+            `${nodeId}.smartFilters`,
+          ),
+        );
+      }
+      if (result.unknown > 0) {
+        warnings.push(
+          warning(
+            'document.unknown-smart-filter',
+            `Object Filter stack on ${nodeId} preserved ${result.unknown} unsupported filter entr${result.unknown === 1 ? 'y' : 'ies'} as pass-through content`,
+            'info',
             `${nodeId}.smartFilters`,
           ),
         );
@@ -823,6 +844,8 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
     normalizedNodes[nodeId] = nextNode;
   }
   document = { ...document, nodes: normalizedNodes };
+  const effectLooks = normalizeEffectLooks(document.effectLooks);
+  if (effectLooks !== undefined) document = { ...document, effectLooks };
   if (!document.selectionSets) {
     document = { ...document, selectionSets: createEmptySelectionSetsData() };
   }

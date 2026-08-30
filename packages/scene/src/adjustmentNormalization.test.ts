@@ -146,7 +146,7 @@ describe('adjustment normalization', () => {
     });
   });
 
-  it('drops unknown entries and repairs adjustment stacks at the codec boundary', () => {
+  it('preserves unknown entries as safe pass-through placeholders', () => {
     const doc = createDocument('Malformed adjustments', true);
     const adjustmentNode = makeAdjustmentNode('layer-1', 'levels', {
       channel: 'rgb',
@@ -167,7 +167,13 @@ describe('adjustment normalization', () => {
     }).document;
 
     const stack = (normalized.nodes['layer-1'] as typeof adjustmentNode).adjustments ?? [];
-    expect(stack).toHaveLength(1);
-    expect(stack[0]).toMatchObject({ kind: 'brightness', value: 100, opacity: 0.5 });
+    expect(stack).toHaveLength(2);
+    expect(stack[0]).toMatchObject({
+      kind: 'unknown-filter',
+      visible: false,
+      opacity: 1,
+      blendMode: 'normal',
+    });
+    expect(stack[1]).toMatchObject({ kind: 'brightness', value: 100, opacity: 0.5 });
   });
 });
