@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { uniformBleed } from '../colorManagement';
-import { createDocument, makeShapeNode } from '../document';
-import { createExportConfiguration, type ExportBatchRequest } from './model';
+import { addPage, createDocument, makeShapeNode, rebuildSpreads } from '../document';
+import {
+  createExportConfiguration,
+  createPrintExportSettings,
+  type ExportBatchRequest,
+} from './model';
 import {
   buildExportPlan,
   computeScaleFactor,
   type PlanContext,
   resolveBoundsRect,
   resolveDimensions,
+  resolveExportPageSelection,
   resolveTarget,
 } from './plan';
 
@@ -75,6 +80,89 @@ describe('resolveTarget', () => {
     );
     expect(target.kind).toBe('page');
     expect(target.nodeIds).toContain(page?.contentRoot);
+  });
+});
+
+describe('resolveExportPageSelection', () => {
+  it('keeps page order and reports document-level export exclusions', () => {
+    let doc = createDocument('Book');
+    doc = addPage(doc, { name: 'Page 2' });
+    doc = addPage(doc, { name: 'Page 3' });
+    const pages = doc.pages ?? [];
+    doc = {
+      ...doc,
+      pages: pages.map((page, index) =>
+        index === 1 ? { ...page, printSettings: { excludeFromExport: true } } : page,
+      ),
+    };
+
+    const selection = resolveExportPageSelection(doc, { type: 'document' }, { document: doc });
+    expect(selection?.pageIds).toEqual([pages[0]?.id, pages[2]?.id]);
+    expect(selection?.excludedPageIds).toEqual([pages[1]?.id]);
+    expect(selection?.issues).toEqual([
+      expect.objectContaining({ code: 'page-excluded', pageIds: [pages[1]?.id] }),
+    ]);
+  });
+
+  it('allows an explicit target to include an excluded page', () => {
+    let doc = createDocument('Book');
+    const page = doc.pages?.[0];
+    if (!page) throw new Error('expected page');
+    doc = {
+      ...doc,
+      pages: [{ ...page, printSettings: { excludeFromExport: true } }],
+    };
+    const selection = resolveExportPageSelection(
+      doc,
+      { type: 'page', pageId: page.id, includeExcludedPages: true },
+      { document: doc },
+    );
+    expect(selection?.pageIds).toEqual([page.id]);
+    expect(selection?.issues).toEqual([]);
+  });
+
+  it('resolves display-label ranges and applies them before exclusions', () => {
+    let doc = createDocument('Book');
+    doc = addPage(doc, { name: 'Page 2' });
+    doc = addPage(doc, { name: 'Page 3' });
+    const pages = doc.pages ?? [];
+    doc = {
+      ...doc,
+      pages: pages.map((page, index) =>
+        index === 1 ? { ...page, printSettings: { excludeFromExport: true } } : page,
+      ),
+    };
+    const selection = resolveExportPageSelection(
+      doc,
+      { type: 'document' },
+      { document: doc },
+      createPrintExportSettings({ pageRangeExpression: '2-3' }),
+    );
+    expect(selection?.pageIds).toEqual([pages[2]?.id]);
+    expect(selection?.excludedPageIds).toEqual([pages[1]?.id]);
+  });
+
+  it('does not emit a partial reader spread when one member is excluded', () => {
+    let doc = createDocument('Book');
+    doc = addPage(doc, { name: 'Page 2' });
+    doc = rebuildSpreads(doc, { enabled: true, startOnRight: false });
+    const pages = doc.pages ?? [];
+    doc = {
+      ...doc,
+      pages: pages.map((page, index) =>
+        index === 1 ? { ...page, printSettings: { excludeFromExport: true } } : page,
+      ),
+    };
+    const selection = resolveExportPageSelection(
+      doc,
+      { type: 'page', pageId: pages[0]?.id ?? '' },
+      { document: doc },
+      createPrintExportSettings({ spreads: true }),
+    );
+    expect(selection?.pageIds).toEqual([]);
+    expect(selection?.issues).toEqual([
+      expect.objectContaining({ code: 'spread-page-excluded', pageIds: [pages[1]?.id] }),
+    ]);
   });
 });
 
@@ -348,6 +436,31 @@ describe('buildExportPlan', () => {
     const plan = buildExportPlan(doc, batchRequest([config]), { document: doc });
     expect(plan.items).toHaveLength(0);
     expect(plan.errors[0]).toMatchObject({ code: 'target-empty' });
+  });
+
+  it('carries resolved page units for a multi-page target and surfaces exclusions', () => {
+    let doc = createDocument('Book');
+    doc = addPage(doc, { name: 'Page 2' });
+    const pages = doc.pages ?? [];
+    doc = {
+      ...doc,
+      pages: pages.map((page, index) =>
+        index === 1 ? { ...page, printSettings: { excludeFromExport: true } } : page,
+      ),
+    };
+    const config = createExportConfiguration({
+      id: 'book-pages',
+      target: { type: 'document' },
+      format: 'pdf',
+      bounds: 'page',
+      print: createPrintExportSettings(),
+    });
+    const plan = buildExportPlan(doc, batchRequest([config]), { document: doc });
+    expect(plan.items[0]?.pageIds).toEqual([pages[0]?.id]);
+    expect(plan.items[0]?.pageUnits).toEqual([{ kind: 'page', pageIds: [pages[0]?.id] }]);
+    expect(plan.errors).toEqual([
+      expect.objectContaining({ code: 'page-excluded', configurationId: 'book-pages' }),
+    ]);
   });
 
   it('supports multiple configurations for one target', () => {

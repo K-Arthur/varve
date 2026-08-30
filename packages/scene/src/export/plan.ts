@@ -26,8 +26,10 @@
  * Unresolvable targets produce {@link ExportPlanError}s, never silent drops.
  */
 
-import type { Document } from '../document';
+import { activePageNodesWithMaster, type Document } from '../document';
+import { spreadsFromProjection } from '../document-pages';
 import { computeFlattenBounds } from '../flatten/bounds';
+import { PageRangeError, parsePageRange, resolvePageRange } from '../pageRange';
 import { pageBleedInsetsPx } from '../printGeometry';
 import type { NodeId } from '../types';
 import { capabilitiesForFormat, type PlatformKind, RASTER_MAX_PIXELS } from './capabilities';
@@ -39,9 +41,11 @@ import {
   type ExportConfiguration,
   type ExportFormat,
   type ExportJobSpec,
+  type ExportPageUnit,
   type ExportScale,
   type ExportTarget,
   exportTargetKind,
+  type PrintExportSettings,
 } from './model';
 import { extensionForFormat, type FileNameContext, formatFileName } from './naming';
 import {
@@ -70,7 +74,36 @@ export interface ResolvedTarget {
   kind: 'node' | 'page' | 'document';
   nodeIds: NodeId[];
   pageId?: string;
+  pageIds?: NodeId[];
+  pageUnits?: ExportPageUnit[];
   name: string;
+}
+
+export interface ExportPageSelectionIssue {
+  code:
+    | 'page-missing'
+    | 'page-excluded'
+    | 'page-range-invalid'
+    | 'page-range-empty'
+    | 'spread-page-missing'
+    | 'spread-page-excluded';
+  pageIds?: NodeId[];
+  message: string;
+}
+
+/**
+ * The page-aware part of an export target. This is intentionally independent
+ * of a renderer: one selected page may become one PDF page, while a reader
+ * spread may become one output unit later without changing selection rules.
+ */
+export interface ExportPageSelection {
+  source: 'page' | 'pages' | 'document';
+  pageIds: NodeId[];
+  units: ExportPageUnit[];
+  requestedPageIds: NodeId[];
+  excludedPageIds: NodeId[];
+  missingPageIds: NodeId[];
+  issues: ExportPageSelectionIssue[];
 }
 
 // ── Context ─────────────────────────────────────────────────────────────────
@@ -81,11 +114,231 @@ export interface PlanContext {
   selectionIds?: NodeId[];
   /** Nodes included for `document` targets (default: all root children). */
   documentNodeIds?: NodeId[];
+  /** Active page used by the `current` page-range expression. */
+  activePageId?: NodeId;
+  /** Page ids selected in the Pages panel, used by `selected`. */
+  selectedPageIds?: NodeId[];
   platform?: PlatformKind;
   /** Custom bounds used when the configuration's policy is `custom`. */
   customBounds?: { x: number; y: number; width: number; height: number };
   /** Index for {index} token (1-based). */
   startIndex?: number;
+}
+
+/**
+ * Resolve the page portion of an export intent in document order.
+ *
+ * Page exclusion is a document-level authoring choice. It is respected by
+ * default; a target must explicitly opt into `includeExcludedPages`. Range
+ * expressions use the canonical display-number resolver, while the older
+ * numeric `{ from, to }` form remains an ordinal document-order range.
+ */
+export function resolveExportPageSelection(
+  doc: Document,
+  target: ExportTarget,
+  ctx: PlanContext,
+  print?: PrintExportSettings,
+): ExportPageSelection | null {
+  const pages = doc.pages ?? [];
+  // A flat document's `document` target still means its root scene. There is
+  // no page scope to resolve, so leave it to the existing node-target path.
+  if (target.type === 'document' && pages.length === 0) return null;
+  let requestedPageIds: NodeId[];
+  let source: ExportPageSelection['source'];
+
+  switch (target.type) {
+    case 'page':
+      source = 'page';
+      requestedPageIds = [target.pageId];
+      break;
+    case 'pages':
+      source = 'pages';
+      requestedPageIds = target.pageIds;
+      break;
+    case 'document':
+      source = 'document';
+      requestedPageIds = pages.map((page) => page.id);
+      break;
+    default:
+      return null;
+  }
+
+  const pageById = new Map(pages.map((page) => [page.id, page]));
+  const missingPageIds = uniqueIds(requestedPageIds.filter((id) => !pageById.has(id)));
+  const requestedSet = new Set(requestedPageIds);
+  const scopedPages = pages.filter((page) => requestedSet.has(page.id));
+  const issues: ExportPageSelectionIssue[] = [];
+
+  if (missingPageIds.length > 0) {
+    issues.push({
+      code: 'page-missing',
+      pageIds: missingPageIds,
+      message: `The export target references missing page${missingPageIds.length === 1 ? '' : 's'}: ${missingPageIds.join(', ')}.`,
+    });
+  }
+
+  let rangePageIds = scopedPages.map((page) => page.id);
+  const rangeExpression = print?.pageRangeExpression?.trim();
+  if (rangeExpression) {
+    try {
+      const spec = parsePageRange(rangeExpression);
+      const resolved =
+        spec.kind === 'selected' && ctx.selectedPageIds
+          ? pages.filter((page) => ctx.selectedPageIds?.includes(page.id)).map((page) => page.id)
+          : resolvePageRange(doc, spec, {
+              activePageId: ctx.activePageId ?? doc.activePageId,
+              selectedNodeIds: ctx.selectionIds,
+            });
+      rangePageIds = scopedPages
+        .filter((page) => new Set(resolved).has(page.id))
+        .map((page) => page.id);
+      if (rangePageIds.length === 0) {
+        issues.push({
+          code: 'page-range-empty',
+          message: `Page range "${rangeExpression}" does not select any page in this target.`,
+        });
+      }
+    } catch (error) {
+      const message = error instanceof PageRangeError ? error.message : String(error);
+      issues.push({
+        code: 'page-range-invalid',
+        message: `Invalid page range "${rangeExpression}": ${message}`,
+      });
+      rangePageIds = [];
+    }
+  } else if (print?.pageRange) {
+    const { from, to } = print.pageRange;
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < from) {
+      issues.push({
+        code: 'page-range-invalid',
+        message: 'Page range must use positive integer bounds with from less than or equal to to.',
+      });
+      rangePageIds = [];
+    } else {
+      rangePageIds = scopedPages
+        .filter((page) => {
+          const ordinal = pages.findIndex((candidate) => candidate.id === page.id) + 1;
+          return ordinal >= from && ordinal <= to;
+        })
+        .map((page) => page.id);
+      if (rangePageIds.length === 0) {
+        issues.push({
+          code: 'page-range-empty',
+          message: `Page range ${from}-${to} does not select any page in this target.`,
+        });
+      }
+    }
+  }
+
+  const includeExcludedPages =
+    (target.type === 'page' || target.type === 'pages' || target.type === 'document') &&
+    target.includeExcludedPages === true;
+  const rangeSet = new Set(rangePageIds);
+  const selectedPages = scopedPages.filter((page) => rangeSet.has(page.id));
+  const excludedPageIds = selectedPages
+    .filter((page) => page.printSettings?.excludeFromExport)
+    .map((page) => page.id);
+  if (excludedPageIds.length > 0 && !includeExcludedPages) {
+    issues.push({
+      code: 'page-excluded',
+      pageIds: excludedPageIds,
+      message: `Excluded page${excludedPageIds.length === 1 ? '' : 's'} were omitted from export: ${excludedPageIds.join(', ')}.`,
+    });
+  }
+
+  const eligiblePages = selectedPages.filter(
+    (page) => includeExcludedPages || !page.printSettings?.excludeFromExport,
+  );
+  const units = print?.spreads
+    ? resolveSpreadUnits(doc, eligiblePages, includeExcludedPages, issues)
+    : eligiblePages.map((page) => ({ kind: 'page' as const, pageIds: [page.id] }));
+  const pageIds = units.flatMap((unit) => unit.pageIds);
+
+  return {
+    source,
+    pageIds,
+    units,
+    requestedPageIds,
+    excludedPageIds: uniqueIds([
+      ...excludedPageIds,
+      ...issues
+        .filter((issue) => issue.code === 'spread-page-excluded')
+        .flatMap((issue) => issue.pageIds ?? []),
+    ]),
+    missingPageIds,
+    issues: dedupeSelectionIssues(issues),
+  };
+}
+
+function resolveSpreadUnits(
+  doc: Document,
+  eligiblePages: Document['pages'],
+  includeExcludedPages: boolean,
+  issues: ExportPageSelectionIssue[],
+): ExportPageUnit[] {
+  const pages = doc.pages ?? [];
+  const pageById = new Map(pages.map((page) => [page.id, page]));
+  const eligibleIds = new Set(eligiblePages?.map((page) => page.id) ?? []);
+  const spreads = doc.spreadModel === 'custom' ? (doc.spreads ?? []) : spreadsFromProjection(doc);
+  const units: Array<{ unit: ExportPageUnit; firstIndex: number }> = [];
+  const visited = new Set<NodeId>();
+
+  for (const page of eligiblePages ?? []) {
+    if (visited.has(page.id)) continue;
+    const spread = spreads.find((candidate) => candidate.pageIds.includes(page.id));
+    const memberIds = spread?.pageIds ? [...spread.pageIds] : [page.id];
+    const missingIds = memberIds.filter((id) => !pageById.has(id));
+    if (missingIds.length > 0) {
+      issues.push({
+        code: 'spread-page-missing',
+        pageIds: missingIds,
+        message: `Spread ${spread?.id ?? page.id} references missing page${missingIds.length === 1 ? '' : 's'}: ${missingIds.join(', ')}.`,
+      });
+      continue;
+    }
+    const excludedIds = memberIds.filter(
+      (id) => !includeExcludedPages && pageById.get(id)?.printSettings?.excludeFromExport,
+    );
+    if (excludedIds.length > 0) {
+      issues.push({
+        code: 'spread-page-excluded',
+        pageIds: excludedIds,
+        message: `Spread ${spread?.id ?? page.id} was omitted because page${excludedIds.length === 1 ? '' : 's'} ${excludedIds.join(', ')} are excluded from export.`,
+      });
+      visited.add(page.id);
+      continue;
+    }
+    const firstIndex = Math.min(
+      ...memberIds.map((id) => pages.findIndex((candidate) => candidate.id === id)),
+    );
+    units.push({
+      unit: {
+        kind: memberIds.length > 1 ? 'spread' : 'page',
+        pageIds: memberIds,
+        ...(memberIds.length > 1 && spread ? { spreadId: spread.id } : {}),
+      },
+      firstIndex,
+    });
+    for (const id of memberIds) {
+      if (eligibleIds.has(id)) visited.add(id);
+    }
+  }
+
+  return units.sort((a, b) => a.firstIndex - b.firstIndex).map(({ unit }) => unit);
+}
+
+function uniqueIds(ids: NodeId[]): NodeId[] {
+  return [...new Set(ids)];
+}
+
+function dedupeSelectionIssues(issues: ExportPageSelectionIssue[]): ExportPageSelectionIssue[] {
+  const seen = new Set<string>();
+  return issues.filter((issue) => {
+    const key = `${issue.code}:${(issue.pageIds ?? []).join(',')}:${issue.message}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // ── Target resolution ───────────────────────────────────────────────────────
@@ -151,11 +404,14 @@ export function resolveTarget(
 function collectPageNodeIds(doc: Document, pageId: string): NodeId[] {
   const page = doc.pages?.find((p) => p.id === pageId);
   if (!page) return [];
-  const ids: NodeId[] = [...page.backgrounds];
-  if (page.contentRoot && doc.nodes[page.contentRoot]) {
-    ids.push(page.contentRoot);
-  }
-  return ids;
+  // Use the same page projection as the canvas so page exports include global
+  // content, inherited master content, and page-local content. The projected
+  // list is still node ids; placement and page boxes remain export policy.
+  const contentRoot = doc.nodes[page.contentRoot];
+  const localChildren =
+    contentRoot && 'children' in contentRoot ? new Set(contentRoot.children) : new Set<NodeId>();
+  const projected = activePageNodesWithMaster(doc, pageId).filter((id) => !localChildren.has(id));
+  return [...new Set([...page.backgrounds, ...projected, page.contentRoot])];
 }
 
 function nameForNode(doc: Document, id: NodeId | undefined): string | undefined {
@@ -337,7 +593,39 @@ export function buildJobSpec(
     return { spec: null, errors };
   }
 
-  const target = resolveTarget(ctx.document, configuration.target, ctx);
+  let target = resolveTarget(ctx.document, configuration.target, ctx);
+  const pageSelection = resolveExportPageSelection(
+    ctx.document,
+    configuration.target,
+    ctx,
+    configuration.print,
+  );
+  if (pageSelection) {
+    for (const issue of pageSelection.issues) {
+      reportError(issue.code, issue.message);
+    }
+    if (pageSelection.pageIds.length === 0) {
+      if (pageSelection.issues.length === 0) {
+        reportError(
+          'target-empty',
+          `Target resolved to no pages for configuration ${configuration.id}`,
+        );
+      }
+      return { spec: null, errors };
+    }
+    const pageNames = pageSelection.pageIds
+      .map((pageId) => ctx.document.pages?.find((page) => page.id === pageId)?.name)
+      .filter((name): name is string => Boolean(name));
+    target = {
+      ...target,
+      kind: target.kind === 'document' ? 'document' : 'page',
+      nodeIds: pageSelection.pageIds.flatMap((pageId) => collectPageNodeIds(ctx.document, pageId)),
+      pageId: pageSelection.pageIds[0],
+      pageIds: pageSelection.pageIds,
+      pageUnits: pageSelection.units,
+      name: pageNames.join('+') || target.name,
+    };
+  }
   if (target.nodeIds.length === 0) {
     reportError(
       'target-empty',
@@ -392,6 +680,8 @@ export function buildJobSpec(
       name: target.name,
       nodeId: target.nodeIds[0],
       pageId: target.pageId,
+      pageIds: target.pageIds,
+      pageUnits: target.pageUnits,
       format,
       fileName: relativePath.split('/').pop() ?? relativePath,
       relativePath,

@@ -62,6 +62,9 @@ export interface ExportPreflightOptions {
   availableFonts?: Set<string>;
   selectionIds?: NodeId[];
   documentNodeIds?: NodeId[];
+  /** Page context used by `current`/`selected` page-range expressions. */
+  activePageId?: NodeId;
+  selectedPageIds?: NodeId[];
   /** Memory guard: warn when a single output exceeds this many pixels. */
   maxPixels?: number;
 }
@@ -79,6 +82,8 @@ export function runExportPreflight(
     document,
     selectionIds: options.selectionIds,
     documentNodeIds: options.documentNodeIds,
+    activePageId: options.activePageId,
+    selectedPageIds: options.selectedPageIds,
     platform: options.platform,
   });
 

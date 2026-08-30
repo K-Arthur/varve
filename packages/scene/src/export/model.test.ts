@@ -70,6 +70,13 @@ describe('createExportConfiguration', () => {
       expect(isValidExportTarget(config.target)).toBe(true);
     }
   });
+
+  it('validates explicit inclusion of excluded pages as target intent', () => {
+    expect(isValidExportTarget({ type: 'document', includeExcludedPages: true })).toBe(true);
+    expect(isValidExportTarget({ type: 'page', pageId: 'p1', includeExcludedPages: 'yes' })).toBe(
+      false,
+    );
+  });
 });
 
 describe('isValidExportScale', () => {
@@ -152,6 +159,16 @@ describe('validateExportConfiguration', () => {
       typeof validateExportConfiguration
     >[0];
     expect(() => validateExportConfiguration(mutated)).toThrow(ExportConfigurationError);
+  });
+
+  it('rejects malformed print page ranges', () => {
+    const config = createExportConfiguration({
+      id: 'c1',
+      target: { type: 'document' },
+      format: 'pdf',
+      print: { pageRange: { from: 0, to: 2 } },
+    });
+    expect(() => validateExportConfiguration(config)).toThrow(/page range/i);
   });
 
   it('rejects future model versions with a precise message', () => {

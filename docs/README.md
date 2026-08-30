@@ -197,6 +197,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |
 | `adr/0226-surface-read-model.md` | Additive page and frame surface read model |
 | `adr/0227-page-layout-guides.md` | Publishing page margins and columns as derived geometry |
+| `adr/0228-page-export-selection.md` | Explicit page/range/spread export selection |
 ## Architecture Docs (current state)
 
 | Doc | Purpose |
@@ -242,6 +243,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/blend-spaces.md` | Blend-space model from the 2026-08-17 blend-space landing |
 | `architecture/surface-model.md` | Page-layout surfaces, design frames, artboards, export markers, and workspace disclosure |
 | `architecture/page-layout-guides.md` | Publishing page margins, columns, inheritance, and view-only guides |
+| `architecture/page-export-selection.md` | Ordered page export selection, exclusions, ranges, and spread units |
 | `architecture/paint-system.md` | Paint subsystem: stroke-to-pixels pipeline, brush library, invariants |
 | `architecture/animated-image-media-system.md` | GIF/APNG/WebP media pipeline |
 | `architecture/effect-rendering.md` | Effect pass structure in `replay.ts` and render-parity contract |

@@ -127,11 +127,19 @@ export function resolvePageRange(
     }
     case 'section': {
       const sections = [...(doc.sections ?? [])].sort((a, b) =>
-        a.startPageOrder < b.startPageOrder ? -1 : 1,
+        a.startPageOrder < b.startPageOrder ? -1 : a.startPageOrder > b.startPageOrder ? 1 : 0,
       );
-      const section = sections.find((s) => s.name === spec.name);
+      const sectionIndex = sections.findIndex((s) => s.name === spec.name);
+      const section = sectionIndex >= 0 ? sections[sectionIndex] : undefined;
       if (!section) return [];
-      return pages.filter((p) => p.order >= section.startPageOrder).map((p) => p.id);
+      const nextSection = sections[sectionIndex + 1];
+      return pages
+        .filter(
+          (p) =>
+            p.order >= section.startPageOrder &&
+            (nextSection === undefined || p.order < nextSection.startPageOrder),
+        )
+        .map((p) => p.id);
     }
     case 'explicit':
       return spec.pageIds;

@@ -89,14 +89,30 @@ export type ExportTargetKind =
   | 'pages'
   | 'document';
 
+/**
+ * A logical output unit for page-aware exporters. A unit is either one page
+ * or a reader spread; it is deliberately separate from scene node ids so a
+ * native encoder can preserve mixed page sizes and page boxes later.
+ */
+export interface ExportPageUnit {
+  kind: 'page' | 'spread';
+  pageIds: NodeId[];
+  spreadId?: NodeId;
+}
+
+export interface ExportPageTargetOptions {
+  /** Opt in to exporting pages marked `excludeFromExport`. */
+  includeExcludedPages?: boolean;
+}
+
 export type ExportTarget =
   | { type: 'selection'; nodeIds?: NodeId[] }
   | { type: 'node'; nodeId: NodeId }
   | { type: 'frame'; nodeId: NodeId }
   | { type: 'slice'; sliceId: string }
-  | { type: 'page'; pageId: string }
-  | { type: 'pages'; pageIds: string[] }
-  | { type: 'document' };
+  | ({ type: 'page'; pageId: string } & ExportPageTargetOptions)
+  | ({ type: 'pages'; pageIds: string[] } & ExportPageTargetOptions)
+  | ({ type: 'document' } & ExportPageTargetOptions);
 
 export function exportTargetKind(target: ExportTarget): ExportTargetKind {
   return target.type;
@@ -225,6 +241,8 @@ export interface PrintExportSettings {
   convertToDestination: boolean;
   overprint: boolean;
   pageRange?: { from: number; to: number };
+  /** Display-label expression, e.g. `"iii-12"`, `"section:Appendix"`, or `"odd"`. */
+  pageRangeExpression?: string;
   /** Export facing-page spreads rather than single pages. */
   spreads: boolean;
 }
@@ -320,6 +338,10 @@ export interface ExportJobSpec {
   name: string;
   nodeId?: NodeId;
   pageId?: string;
+  /** Pages selected by the page-aware target resolver, in output order. */
+  pageIds?: NodeId[];
+  /** Logical page/spread units for a multi-page-capable encoder. */
+  pageUnits?: ExportPageUnit[];
   format: ExportFormat;
   fileName: string;
   relativePath: string;
@@ -641,7 +663,14 @@ export function isValidExportFormat(format: unknown): format is ExportFormat {
 
 export function isValidExportTarget(target: unknown): target is ExportTarget {
   if (typeof target !== 'object' || target === null) return false;
-  const t = target as { type?: unknown; nodeId?: unknown; nodeIds?: unknown };
+  const t = target as {
+    type?: unknown;
+    nodeId?: unknown;
+    nodeIds?: unknown;
+    includeExcludedPages?: unknown;
+  };
+  const hasValidPageOptions =
+    t.includeExcludedPages === undefined || typeof t.includeExcludedPages === 'boolean';
   switch (t.type) {
     case 'selection':
       return (
@@ -654,16 +683,17 @@ export function isValidExportTarget(target: unknown): target is ExportTarget {
     case 'slice':
       return typeof (target as { sliceId?: unknown }).sliceId === 'string';
     case 'page':
-      return typeof (target as { pageId?: unknown }).pageId === 'string';
+      return hasValidPageOptions && typeof (target as { pageId?: unknown }).pageId === 'string';
     case 'pages':
       return (
+        hasValidPageOptions &&
         Array.isArray((target as { pageIds?: unknown }).pageIds) &&
         ((target as { pageIds: unknown[] }).pageIds as unknown[]).every(
           (p) => typeof p === 'string',
         )
       );
     case 'document':
-      return true;
+      return hasValidPageOptions;
     default:
       return false;
   }
@@ -712,7 +742,27 @@ export function validateExportConfiguration(config: ExportConfiguration): void {
       `Export configuration version ${config.version} is newer than this app supports (${EXPORT_MODEL_VERSION})`,
     );
   }
+  validatePrintPageSelection(config.print);
   validateConfigProcessingStages(config);
+}
+
+function validatePrintPageSelection(print: PrintExportSettings | undefined): void {
+  if (!print) return;
+  const range = print.pageRange;
+  if (
+    range &&
+    (!Number.isInteger(range.from) ||
+      !Number.isInteger(range.to) ||
+      range.from < 1 ||
+      range.to < range.from)
+  ) {
+    throw new ExportConfigurationError(
+      'Print page range must use positive integer bounds with from less than or equal to to',
+    );
+  }
+  if (print.pageRangeExpression !== undefined && typeof print.pageRangeExpression !== 'string') {
+    throw new ExportConfigurationError('Print page range expression must be a string');
+  }
 }
 
 /**

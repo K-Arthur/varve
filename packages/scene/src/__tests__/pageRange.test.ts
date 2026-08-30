@@ -88,4 +88,34 @@ describe('resolvePageRangeExpression (M13)', () => {
     const doc = fivePageDoc();
     expect(resolvePageRangeExpression(doc, '*')).toHaveLength(5);
   });
+
+  it('stops a section at the next section boundary', () => {
+    const doc = fivePageDoc();
+    const pages = doc.pages ?? [];
+    const withSections = {
+      ...doc,
+      sections: [
+        {
+          id: 'front',
+          name: 'Front Matter',
+          startPageOrder: pages[0]!.order,
+          numberStyle: 'lowerRoman' as const,
+          startNumber: 1,
+          showPageNumber: true,
+        },
+        {
+          id: 'body',
+          name: 'Body',
+          startPageOrder: pages[2]!.order,
+          numberStyle: 'decimal' as const,
+          startNumber: 1,
+          showPageNumber: true,
+        },
+      ],
+    };
+    expect(resolvePageRangeExpression(withSections, 'section:Front Matter')).toEqual([
+      pages[0]!.id,
+      pages[1]!.id,
+    ]);
+  });
 });
