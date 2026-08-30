@@ -16,6 +16,28 @@
 .varve-home--collapsed {
   grid-template-columns: 0 1fr;
 }
+
+/* ── Skip link (WCAG 2.4.1 Bypass Blocks) ─────────────── */
+.varve-home__skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  border: 2px solid var(--color-interactive-focus-ring);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.varve-home__skip-link:focus {
+  top: var(--space-2);
+}
+
 /* WCAG 1.4.10 Reflow fix (2026-08-10): the drawer rules previously lived in
  * `@container (max-width: 48rem)`. A @container query matches against the
  * nearest container *ancestor* of the styled element, and .varve-home is the
@@ -803,8 +825,8 @@
   padding: var(--space-1) var(--space-2);
   outline: none;
 }
-.file-card__rename-input:focus,
-.file-row__rename-input:focus {
+.file-card__rename-input:focus-visible,
+.file-row__rename-input:focus-visible {
   border-color: var(--color-interactive-focus-ring);
   box-shadow: 0 0 0 2px var(--color-interactive-focus-ring);
 }
@@ -1956,6 +1978,8 @@
 }
 .templates-gallery__search:focus-within {
   border-color: var(--color-interactive-default);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 .templates-gallery__search-input {
   flex: 1;
@@ -2081,6 +2105,8 @@
 }
 .asset-browser__search:focus-within {
   border-color: var(--color-interactive-default);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 .asset-browser__search-input {
   flex: 1;
@@ -2737,7 +2763,7 @@
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
 
-.version-history__naming-input:focus {
+.version-history__naming-input:focus-visible {
   border-color: var(--color-interactive-default);
 }
 
@@ -3105,7 +3131,7 @@
   outline: none;
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
-.share-dialog__email-input:focus {
+.share-dialog__email-input:focus-visible {
   border-color: var(--color-interactive-default);
 }
 .share-dialog__email-input::placeholder {
@@ -3123,7 +3149,7 @@
   cursor: pointer;
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
-.share-dialog__role-select:focus {
+.share-dialog__role-select:focus-visible {
   border-color: var(--color-interactive-default);
 }
 .share-dialog__footer {

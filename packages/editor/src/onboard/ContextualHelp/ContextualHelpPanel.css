@@ -12,9 +12,11 @@
   box-shadow: var(--elevation-shadow-overlay);
   transform: translateX(100%);
   transition: transform var(--duration-fast) var(--ease-default);
+  visibility: hidden;
 }
 .contextual-help-panel--open {
   transform: translateX(0);
+  visibility: visible;
 }
 @media (prefers-reduced-motion: reduce) {
   .contextual-help-panel {

@@ -109,6 +109,10 @@
   outline: none;
   cursor: pointer;
 }
+.colorize-section__slider-row input[type="range"]:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
 
 .colorize-section__slider-row input[type="range"]::-webkit-slider-thumb {
   appearance: none;

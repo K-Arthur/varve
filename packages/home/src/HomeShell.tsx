@@ -914,6 +914,9 @@ export function HomeShell({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
+        <a href="#home-main" className="varve-home__skip-link">
+          Skip to content
+        </a>
         <h1 className="sr-only">{currentSectionLabel}</h1>
         {storageError && (
           <div className="varve-home__storage-error" role="alert">

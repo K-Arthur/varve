@@ -53,6 +53,7 @@ export function ContextualHelpPanel({
     <aside
       className={`contextual-help-panel${state.open ? ' contextual-help-panel--open' : ''}`}
       aria-label="Help"
+      inert={state.open ? undefined : true}
     >
       <div className="contextual-help-panel__header">
         <h2 className="contextual-help-panel__title">Help</h2>

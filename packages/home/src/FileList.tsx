@@ -326,7 +326,6 @@ export function FileList({
                         fontSize: 'var(--font-size-sm)',
                         fontWeight: 'var(--font-weight-medium)',
                         color: 'var(--color-text-primary)',
-                        outline: 'none',
                         width: '100%',
                       }}
                     />

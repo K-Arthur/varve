@@ -122,6 +122,11 @@
   outline: none;
 }
 
+.quick-actions-bar__item:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
 .quick-actions-bar__item--active {
   background: var(--color-interactive-hover);
   box-shadow: inset 2px 0 0 var(--color-interactive-default);
