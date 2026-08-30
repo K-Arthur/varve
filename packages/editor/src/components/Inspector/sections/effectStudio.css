@@ -1,0 +1,373 @@
+.effect-studio {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.effect-studio__intro,
+.effect-studio__looks-header {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.effect-studio__intro h3,
+.effect-studio__looks h3 {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.effect-studio__intro p,
+.effect-studio__looks p,
+.effect-studio__stack-note {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  margin: var(--space-1) 0 0;
+}
+
+.effect-studio__compare,
+.effect-studio__looks-header button,
+.effect-studio__preview-status button,
+.effect-studio__card-actions button,
+.effect-studio__looks li button {
+  align-items: center;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  gap: var(--space-1);
+  justify-content: center;
+  min-height: 2rem;
+  padding: var(--space-1) var(--space-2);
+  white-space: nowrap;
+}
+
+.effect-studio__compare:hover:not(:disabled),
+.effect-studio__compare:focus-visible,
+.effect-studio__looks-header button:hover:not(:disabled),
+.effect-studio__looks-header button:focus-visible,
+.effect-studio__preview-status button:hover,
+.effect-studio__preview-status button:focus-visible,
+.effect-studio__card-actions button:hover,
+.effect-studio__card-actions button:focus-visible,
+.effect-studio__looks li button:hover,
+.effect-studio__looks li button:focus-visible {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.effect-studio__compare:focus-visible,
+.effect-studio__looks-header button:focus-visible,
+.effect-studio__preview-status button:focus-visible,
+.effect-studio__card-actions button:focus-visible,
+.effect-studio__looks li button:focus-visible,
+.effect-studio__filters button:focus-visible,
+.effect-studio__recent button:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.effect-studio__compare:disabled,
+.effect-studio__looks-header button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.effect-studio__search-label input,
+.effect-studio__looks > label input {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  color: var(--color-text-primary);
+  font: inherit;
+  min-height: 2.25rem;
+  padding: var(--space-1) var(--space-2);
+  width: 100%;
+}
+
+.effect-studio__search-label input:focus-visible,
+.effect-studio__looks > label input:focus-visible {
+  border-color: var(--color-accent);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.effect-studio__filters,
+.effect-studio__recent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.effect-studio__recent {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.effect-studio__filters {
+  max-height: 5.5rem;
+  overflow: auto;
+}
+
+.effect-studio__filters button,
+.effect-studio__recent button {
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  min-height: 1.75rem;
+  padding: 0 var(--space-2);
+}
+
+.effect-studio__filters button.is-selected,
+.effect-studio__filters button:hover,
+.effect-studio__recent button:hover {
+  background: var(--color-surface-selected);
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.effect-studio__recent {
+  align-items: center;
+}
+
+.effect-studio__recent > legend {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  margin-right: var(--space-1);
+  text-transform: uppercase;
+}
+
+.effect-studio__library,
+.effect-studio__looks ul {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.effect-studio__library > li {
+  align-items: center;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+  min-width: 0;
+  padding: var(--space-2);
+}
+
+.effect-studio__library > li.is-previewing {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.effect-studio__card-art {
+  align-items: center;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  display: flex;
+  height: 2.75rem;
+  justify-content: center;
+  overflow: hidden;
+  width: 2.75rem;
+}
+
+.effect-studio__card-art span {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-surface-selected));
+  border-radius: 50%;
+  display: block;
+  height: 1.6rem;
+  opacity: 0.85;
+  width: 1.6rem;
+}
+
+.effect-studio__card-art span[data-effect-category="colour"] {
+  background: conic-gradient(
+    var(--color-accent),
+    var(--color-warning, var(--color-accent)),
+    var(--color-danger, var(--color-accent)),
+    var(--color-accent)
+  );
+}
+
+.effect-studio__card-art span[data-effect-category="surface-grain"],
+.effect-studio__card-art span[data-effect-category="print-pattern"] {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-accent),
+    var(--color-accent) 2px,
+    var(--color-text-muted) 2px,
+    var(--color-text-muted) 4px
+  );
+  border-radius: 0;
+}
+
+.effect-studio__card-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.effect-studio__card-copy strong,
+.effect-studio__card-copy span,
+.effect-studio__card-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.effect-studio__card-copy strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.effect-studio__card-copy span,
+.effect-studio__card-copy small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.effect-studio__card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  justify-content: flex-end;
+}
+
+.effect-studio__card-actions button {
+  min-height: 1.75rem;
+  padding: 0 var(--space-2);
+}
+
+.effect-studio__card-actions .effect-studio__favorite {
+  border: 0;
+  background: transparent;
+  font-size: var(--font-size-md);
+  min-width: 1.75rem;
+  padding: 0;
+}
+
+.effect-studio__card-actions .effect-studio__add {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+
+.effect-studio__empty {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  margin: 0;
+  padding: var(--space-2) 0;
+}
+
+.effect-studio__preview-status {
+  align-items: center;
+  background: var(--color-surface-selected);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+  padding: var(--space-2);
+}
+
+.effect-studio__preview-status span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  min-width: 0;
+}
+
+.effect-studio__looks {
+  border-top: 1px solid var(--color-border-subtle);
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+}
+
+.effect-studio__looks > label {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.effect-studio__looks > label span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.effect-studio__looks li {
+  align-items: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: flex;
+  gap: var(--space-1);
+  justify-content: flex-end;
+  padding: var(--space-1) var(--space-2);
+}
+
+.effect-studio__looks li > span {
+  display: grid;
+  gap: 2px;
+  margin-right: auto;
+  min-width: 0;
+}
+
+.effect-studio__looks li strong,
+.effect-studio__looks li small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.effect-studio__looks li strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.effect-studio__looks li small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.effect-studio__stack-note {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-2);
+}
+
+@media (max-width: 24rem) {
+  .effect-studio__intro,
+  .effect-studio__looks-header,
+  .effect-studio__preview-status {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .effect-studio__library > li {
+    align-items: start;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+  }
+
+  .effect-studio__card-art {
+    height: 2.25rem;
+    width: 2.25rem;
+  }
+
+  .effect-studio__card-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
