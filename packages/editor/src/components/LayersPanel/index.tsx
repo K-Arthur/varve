@@ -5,8 +5,19 @@
  * Research basis: W3C APG Tree View, Menu pattern (for context menu).
  */
 
-import type { ContainerNode, LayerColor, NodeId, SceneNode } from '@varve/scene';
-import { documentHasSolo, isContainer } from '@varve/scene';
+import {
+  applyEffectStackPayload,
+  type ContainerNode,
+  canReceiveEffectStack,
+  createEffectStackPayload,
+  documentHasSolo,
+  type EffectStackKind,
+  type EffectStackPayload,
+  isContainer,
+  type LayerColor,
+  type NodeId,
+  type SceneNode,
+} from '@varve/scene';
 import {
   ContextMenu,
   type MenuEntry,
@@ -23,6 +34,7 @@ import {
   getParentFast,
   type ParentIndexCache,
 } from '../../scene/parentIndexCache';
+import { isNodeEffectivelyLocked } from '../../scene/world';
 import { type LayersSettingsStore, loadSettings, updateSettings } from '../../settings';
 import { applyThumbnailPreference } from '../../thumbnail/thumbnailCommands';
 import { openThumbnailPicker } from '../../thumbnail/thumbnailPickerBridge';
@@ -30,6 +42,9 @@ import { usePanelLocalState } from '../../workspace/panelLocalState';
 import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { LayerBulkBar } from './LayerBulkBar';
 import { LayerFilterBar } from './LayerFilterBar';
+
+export type { LayersDnDHandle } from './LayersTree';
+
 import type { LayersDnDHandle } from './LayersTree';
 import { LayersTree, resolveRootLevelSiblings } from './LayersTree';
 import { computeActiveSurfaceLayerCount, countActiveSurfaceNodesMatching } from './layerCounts';
@@ -41,6 +56,24 @@ import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
 import { TokenSyncPanel } from '../TokenSync/TokenSyncPanel';
 import { LayerStatesSection } from './LayerStatesSection';
 import { SelectionSetsSection } from './SelectionSetsSection';
+
+interface EffectStackClipboard {
+  sourceId: NodeId;
+  sourceName: string;
+  kind: EffectStackKind;
+  payload: EffectStackPayload;
+  entryCount: number;
+}
+
+function effectStackLabel(kind: EffectStackKind): string {
+  return kind === 'layer-effects' ? 'Layer Effects' : 'Object Filters';
+}
+
+function effectStackEntryCount(node: SceneNode, kind: EffectStackKind): number {
+  return kind === 'layer-effects' && 'effects' in node
+    ? node.effects.length
+    : (node.smartFilters?.length ?? 0);
+}
 
 export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHandle | null> }) {
   const {
@@ -65,6 +98,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     selectAllWithSameType,
     selectAllWithSameLayerColor,
     selectAllOfType,
+    updateDoc,
     updateNode,
     syncInstance,
     revealSelection,
@@ -91,6 +125,9 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     y: number;
     id: NodeId;
   } | null>(null);
+  const [effectStackClipboard, setEffectStackClipboard] = useState<EffectStackClipboard | null>(
+    null,
+  );
   // Viewport-edge clamping handled by shared ContextMenu component.
 
   // Parent index cache for O(1) lookups
@@ -267,6 +304,126 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     closeMenu();
   }, [paste, closeMenu]);
 
+  const handleCopyEffectStackFromMenu = useCallback(
+    (kind: EffectStackKind) => {
+      const sourceId = contextMenu?.id;
+      const source = sourceId ? state.document.nodes[sourceId] : undefined;
+      const payload = source ? createEffectStackPayload(source, kind) : null;
+      const stackName = effectStackLabel(kind);
+      if (!sourceId || !source || !payload) {
+        const message = `${source?.name ?? 'This layer'} has no ${stackName} to copy`;
+        announce(message);
+        showToast({ message, type: 'info' });
+        closeMenu();
+        return;
+      }
+
+      const entryCount = effectStackEntryCount(source, kind);
+      setEffectStackClipboard({
+        sourceId,
+        sourceName: source.name,
+        kind,
+        payload,
+        entryCount,
+      });
+      const message = `Copied ${entryCount} ${stackName} from ${source.name}. Right-click a destination layer to paste.`;
+      announce(message);
+      showToast({ message, type: 'success' });
+      closeMenu();
+    },
+    [announce, closeMenu, contextMenu?.id, showToast, state.document.nodes],
+  );
+
+  const handlePasteEffectStackFromMenu = useCallback(
+    (mode: 'replace' | 'append') => {
+      const clipboard = effectStackClipboard;
+      const targetId = contextMenu?.id;
+      if (!clipboard || !targetId) {
+        closeMenu();
+        return;
+      }
+
+      const target = state.document.nodes[targetId];
+      const stackName = effectStackLabel(clipboard.kind);
+      const fail = (message: string) => {
+        announce(message);
+        showToast({ message, type: 'warning' });
+        closeMenu();
+      };
+      if (!target) {
+        fail('The destination layer is no longer available');
+        return;
+      }
+      if (targetId === clipboard.sourceId) {
+        fail('Choose a different destination layer for the copied appearance stack');
+        return;
+      }
+      if (isNodeEffectivelyLocked(state.document, targetId)) {
+        fail(`${target.name} is locked, so its ${stackName} cannot be changed`);
+        return;
+      }
+      if (!canReceiveEffectStack(target, clipboard.kind)) {
+        fail(`${target.name} does not support ${stackName}`);
+        return;
+      }
+
+      const feedback: {
+        applied: boolean;
+        omittedMaskCount: number;
+        convertedBypassedObjectFilterCount: number;
+      } = {
+        applied: false,
+        omittedMaskCount: 0,
+        convertedBypassedObjectFilterCount: 0,
+      };
+      updateDoc((doc) => {
+        const result = applyEffectStackPayload(doc, targetId, clipboard.payload, mode);
+        if (!result) return doc;
+        feedback.applied = true;
+        feedback.omittedMaskCount = result.omittedMaskCount;
+        feedback.convertedBypassedObjectFilterCount = result.convertedBypassedObjectFilterCount;
+        return {
+          ...doc,
+          nodes: { ...doc.nodes, [targetId]: result.node },
+        };
+      });
+
+      if (!feedback.applied) {
+        fail(`Could not paste ${stackName}; the destination changed while the menu was open`);
+        return;
+      }
+
+      const message = `${mode === 'append' ? 'Appended' : 'Pasted'} ${clipboard.entryCount} ${stackName} on ${target.name}`;
+      announce(message);
+      showToast({ message, type: 'success' });
+      if (feedback.omittedMaskCount > 0) {
+        showToast({
+          message: `${feedback.omittedMaskCount} invalid or cyclic effect mask${
+            feedback.omittedMaskCount === 1 ? ' was' : 's were'
+          } omitted`,
+          type: 'warning',
+        });
+      }
+      if (feedback.convertedBypassedObjectFilterCount > 0) {
+        showToast({
+          message:
+            'Bypassed Object Filters were pasted as disabled entries to preserve appearance.',
+          type: 'warning',
+        });
+      }
+      closeMenu();
+    },
+    [
+      announce,
+      closeMenu,
+      contextMenu?.id,
+      effectStackClipboard,
+      showToast,
+      state.document,
+      updateDoc,
+    ],
+  );
+
   const handleSetLayerColor = useCallback(
     (color: LayerColor) => {
       bulkSetLayerColor(state.selection, color);
@@ -389,6 +546,13 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
 
   const contextMenuHasMask =
     contextMenuIsContainer && (contextMenuNode as { mask?: unknown }).mask != null;
+  const canPasteEffectStack =
+    contextMenu != null &&
+    contextMenuNode != null &&
+    effectStackClipboard != null &&
+    contextMenu.id !== effectStackClipboard.sourceId &&
+    !isNodeEffectivelyLocked(state.document, contextMenu.id) &&
+    canReceiveEffectStack(contextMenuNode, effectStackClipboard.kind);
   // Gated on the right-clicked node, not state.selection — a right-click on
   // a node that's already part of an existing multi-selection doesn't change
   // the selection, so gating this on selection.length === 1 would wrongly
@@ -558,6 +722,10 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             handleCopy,
             handleCut,
             handlePaste,
+            effectStackClipboard,
+            canPasteEffectStack,
+            handleCopyEffectStackFromMenu,
+            handlePasteEffectStackFromMenu,
             handleGroup,
             handleUngroup,
             handleDetach,
@@ -640,6 +808,10 @@ interface BuildLayerMenuItemsArgs {
   handleCopy: () => void;
   handleCut: () => void;
   handlePaste: () => void;
+  effectStackClipboard: EffectStackClipboard | null;
+  canPasteEffectStack: boolean;
+  handleCopyEffectStackFromMenu: (kind: EffectStackKind) => void;
+  handlePasteEffectStackFromMenu: (mode: 'replace' | 'append') => void;
   handleGroup: () => void;
   handleUngroup: () => void;
   handleDetach: () => void;
@@ -693,6 +865,10 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     handleCopy,
     handleCut,
     handlePaste,
+    effectStackClipboard,
+    canPasteEffectStack,
+    handleCopyEffectStackFromMenu,
+    handlePasteEffectStackFromMenu,
     handleGroup,
     handleUngroup,
     handleDetach,
@@ -731,10 +907,51 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     { id: 'copy', label: 'Copy', badge: 'Ctrl+C', onAction: handleCopy },
     { id: 'cut', label: 'Cut', badge: 'Ctrl+X', onAction: handleCut },
     { id: 'paste', label: 'Paste', badge: 'Ctrl+V', onAction: handlePaste },
+  ];
+
+  const layerEffectCount =
+    contextMenuNode && 'effects' in contextMenuNode ? contextMenuNode.effects.length : 0;
+  const objectFilterCount = contextMenuNode?.smartFilters?.length ?? 0;
+  if (layerEffectCount > 0 || objectFilterCount > 0 || effectStackClipboard) {
+    items.push({ id: 'sep-appearance-stack', separator: true });
+    if (layerEffectCount > 0) {
+      items.push({
+        id: 'copy-layer-effects',
+        label: 'Copy Layer Effects',
+        onAction: () => handleCopyEffectStackFromMenu('layer-effects'),
+      });
+    }
+    if (objectFilterCount > 0) {
+      items.push({
+        id: 'copy-object-filters',
+        label: 'Copy Object Filters',
+        onAction: () => handleCopyEffectStackFromMenu('object-filters'),
+      });
+    }
+    if (effectStackClipboard) {
+      const stackName = effectStackLabel(effectStackClipboard.kind);
+      items.push(
+        {
+          id: `paste-${effectStackClipboard.kind}`,
+          label: `Paste ${stackName}`,
+          disabled: !canPasteEffectStack,
+          onAction: () => handlePasteEffectStackFromMenu('replace'),
+        },
+        {
+          id: `append-${effectStackClipboard.kind}`,
+          label: `Append ${stackName}`,
+          disabled: !canPasteEffectStack,
+          onAction: () => handlePasteEffectStackFromMenu('append'),
+        },
+      );
+    }
+  }
+
+  items.push(
     { id: 'sep-order', separator: true },
     { id: 'front', label: 'Bring to Front', badge: 'Ctrl+Shift+]', onAction: handleMoveToFront },
     { id: 'back', label: 'Send to Back', badge: 'Ctrl+Shift+[', onAction: handleMoveToBack },
-  ];
+  );
 
   if (contextMenuNode?.kind === 'group' && contextMenuNode.traceMetadata !== undefined) {
     items.push(

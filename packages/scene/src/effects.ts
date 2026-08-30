@@ -321,3 +321,24 @@ export function normalizeDocumentEffects(doc: Document): Document {
   if (!changed) return doc;
   return { ...doc, nodes };
 }
+
+/**
+ * Clone a layer-effect stack without sharing nested parameter objects or
+ * effect identity. A copied stack must be independently reorderable and
+ * editable on its destination node, so each entry receives a fresh id.
+ *
+ * Effects use a JSON-compatible document wire contract. The shallow fallback
+ * preserves a best-effort copy for a future effect whose parameters are not
+ * yet understood by this version of the editor.
+ */
+export function cloneEffects(effects: readonly Effect[]): Effect[] {
+  return effects.map((effect) => {
+    let copy: Effect;
+    try {
+      copy = JSON.parse(JSON.stringify(effect)) as Effect;
+    } catch {
+      copy = { ...effect } as Effect;
+    }
+    return { ...copy, id: effectId() };
+  });
+}

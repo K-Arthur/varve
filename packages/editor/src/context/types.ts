@@ -43,6 +43,7 @@ import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import type { SelectionMode, SelectionOrigin } from './selectionState';
 import type { TableEditState } from './tableEditState';
 
+export { createCopyEffectStackToNodes } from './effectStackTransfer';
 export * from './selectionState';
 export type { TableEditState } from './tableEditState';
 export type { MaskPreviewMode, ToolId };
@@ -979,6 +980,16 @@ export interface EditorContextValue {
   addSmartFilterToSelected: (
     kind: import('@varve/engine').AdjustmentKind,
     overrides?: Partial<import('@varve/engine').Adjustment>,
+  ) => void;
+  /**
+   * Copy a Layer Effects or Object Filters stack to the supplied destination
+   * layers. The source remains unchanged; `append` preserves the target stack.
+   */
+  copyEffectStackToNodes: (
+    sourceNodeId: NodeId,
+    targetNodeIds: NodeId[],
+    kind: import('@varve/scene').EffectStackKind,
+    mode?: import('@varve/scene').EffectStackTransferMode,
   ) => void;
   addAdjustmentToLayer: (nodeId: NodeId, adjustment: Adjustment) => void;
   addLutAdjustment: (lutAdjustment: Adjustment) => void;

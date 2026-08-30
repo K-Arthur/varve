@@ -429,11 +429,12 @@ import type {
   ToolId,
 } from './context/types';
 import {
+  createCopyEffectStackToNodes,
   createDefaultDocumentGridSettings,
   DEFAULT_SELECTION_ORIGIN,
-  EditorCtx as StableEditorCtx,
   newSessionId,
   nextSelectionPrimary,
+  EditorCtx as StableEditorCtx,
 } from './context/types';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { useDialogState } from './context/useDialogState';
@@ -7321,6 +7322,13 @@ export function EditorProvider({
           });
         }
       },
+
+      copyEffectStackToNodes: createCopyEffectStackToNodes({
+        updateDoc,
+        invalidateThumbnail: invalidateNodeThumbnail,
+        announce: (message) => announcerRef.current?.announce(message),
+        showToast: (message, type) => toastHandler?.({ message, type }),
+      }),
 
       addAdjustmentToLayer: (nodeId, adjustment) => {
         updateNodeProp(nodeId, (n) => {

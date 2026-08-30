@@ -61,6 +61,7 @@ export * from './documentCodec';
 export * from './effectLooks';
 export * from './effectMasks';
 export * from './effectStack';
+export * from './effectStackTransfer';
 export * from './effects';
 export * from './emailTypes';
 export * from './expandWarp';

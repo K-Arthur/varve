@@ -672,6 +672,38 @@
 }
 
 /* ─── Node-local Object Filter badge ──────────────────────── */
+.layers-row__effect-stack-badge {
+  align-items: center;
+  appearance: none;
+  border: 0;
+  cursor: grab;
+  display: inline-flex;
+  font: inherit;
+  line-height: 1.35;
+  min-height: 1.25rem;
+  touch-action: none;
+}
+
+.layers-row__effect-stack-badge:active,
+.layers-row__effect-stack-badge--dragging {
+  cursor: grabbing;
+}
+
+.layers-row__effect-stack-badge--dragging {
+  opacity: 0.55;
+}
+
+.layers-row__effect-stack-badge:hover {
+  filter: brightness(1.12);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.layers-row__effect-stack-badge:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
 .layers-row__object-filter-badge {
   background: color-mix(in oklab, var(--color-accent) 14%, transparent);
   border-radius: var(--radius-sm);
@@ -1077,6 +1109,43 @@
 .layers-row--drop-invalid::before {
   background: var(--color-feedback-error);
   border-color: var(--color-feedback-error);
+}
+
+/* Appearance-stack drops use the row itself as a target but never change its
+   measured height, so virtualized hit testing stays stable while hovering. */
+.layers-row--effect-stack-drop {
+  background: color-mix(in srgb, var(--color-interactive-default) 18%, var(--color-tree-row));
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: -2px;
+}
+
+.layers-row--effect-stack-drop-invalid {
+  background: color-mix(in srgb, var(--color-feedback-error) 14%, var(--color-tree-row));
+  outline: 2px solid var(--color-feedback-error);
+  outline-offset: -2px;
+}
+
+.layers-row__effect-stack-drop-hint {
+  background: var(--color-interactive-default);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary-on-default, var(--color-text-primary));
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  max-width: 60%;
+  overflow: hidden;
+  padding: 2px var(--space-1);
+  pointer-events: none;
+  position: absolute;
+  right: var(--space-1);
+  text-overflow: ellipsis;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  z-index: 5;
+}
+
+.layers-row--effect-stack-drop-invalid .layers-row__effect-stack-drop-hint {
+  background: var(--color-feedback-error);
 }
 
 /* Clip-into drop preview: the target row is a clipping mask source, so the

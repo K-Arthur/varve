@@ -4,4 +4,4 @@
  * This file exists for backward compatibility. All new development lives in
  * packages/editor/src/components/LayersPanel/.
  */
-export { LayersPanel } from './components/LayersPanel';
+export { type LayersDnDHandle, LayersPanel } from './components/LayersPanel';

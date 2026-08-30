@@ -48,6 +48,7 @@ import {
 } from '../../scene/parentIndexCache';
 import { resolvePrimarySelectionId } from '../../selection/selectionContext';
 import { loadSettings } from '../../settings';
+import { useEffectStackDrag } from '../Shell/effectStackDragContext';
 import { LayersRow } from './LayersRow';
 import { type LayerDropTarget, resolveRootLevelSiblings } from './layerDropResolver';
 import type { LayerFilterSpec } from './layerFilterTypes';
@@ -329,6 +330,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     setNodeVisible,
     setNodeLocked,
     reparentNode,
+    copyEffectStackToNodes,
     announce,
     revealSelection,
     beginTransaction,
@@ -418,6 +420,21 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   // Convert selection array to a Set for O(1) lookup in row toggle handlers
   const selectedIdSet = useMemo(() => new Set(state.selection), [state.selection]);
+  const handleCopyEffectStack = useCallback(
+    (
+      sourceId: NodeId,
+      kind: import('@varve/scene').EffectStackKind,
+      mode: import('@varve/scene').EffectStackTransferMode = 'replace',
+    ) => {
+      copyEffectStackToNodes(
+        sourceId,
+        state.selection.filter((id) => id !== sourceId),
+        kind,
+        mode,
+      );
+    },
+    [copyEffectStackToNodes, state.selection],
+  );
   const primarySelectionId = useMemo(
     () => resolvePrimarySelectionId(state.document, state.selection, state.primaryId),
     [state.document, state.selection, state.primaryId],
@@ -1243,6 +1260,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                 siblingCount={entry.siblingCount}
                 rowRefs={rowRefs}
                 selectedIds={selectedIdSet}
+                onCopyEffectStack={handleCopyEffectStack}
               />
             );
           })}
@@ -1301,6 +1319,11 @@ interface SortableVirtualRowProps {
    * the parent's DnD handlers to resolve a row's rect for drop-zone math. */
   rowRefs: React.MutableRefObject<Map<NodeId, HTMLDivElement>>;
   selectedIds?: Set<NodeId>;
+  onCopyEffectStack: (
+    sourceId: NodeId,
+    kind: import('@varve/scene').EffectStackKind,
+    mode?: import('@varve/scene').EffectStackTransferMode,
+  ) => void;
 }
 
 function SortableVirtualRow({
@@ -1337,9 +1360,11 @@ function SortableVirtualRow({
   siblingCount,
   rowRefs,
   selectedIds,
+  onCopyEffectStack,
 }: SortableVirtualRowProps) {
   const totalRows = virtualizer.options.count;
   const { state: editorState, revealSelection } = useEditor();
+  const effectStackDrag = useEffectStackDrag();
   const presences = usePresence(node.id);
   const {
     attributes,
@@ -1354,6 +1379,14 @@ function SortableVirtualRow({
       parentId: null, // resolved at drop time
     } satisfies DragNodeData,
   });
+  const effectStackDrop =
+    effectStackDrag?.targetId === node.id
+      ? {
+          sourceId: effectStackDrag.sourceId,
+          kind: effectStackDrag.stackKind,
+          mode: effectStackDrag.transferMode,
+        }
+      : undefined;
 
   // Resolve variant name for component instances
   const variantName =
@@ -1451,6 +1484,8 @@ function SortableVirtualRow({
         docId={editorState.document.id}
         onDoubleClickIcon={(id) => revealSelection({ nodeId: id, fit: true })}
         selectedIds={selectedIds}
+        onCopyEffectStack={onCopyEffectStack}
+        effectStackDrop={effectStackDrop}
       />
     </div>
   );

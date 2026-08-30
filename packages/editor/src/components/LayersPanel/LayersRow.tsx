@@ -11,6 +11,8 @@ import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/
 import type {
   AdjustmentNode,
   Document,
+  EffectStackKind,
+  EffectStackTransferMode,
   InstanceStatus,
   NodeId,
   SceneNode,
@@ -18,6 +20,7 @@ import type {
 } from '@varve/scene';
 import {
   activeSmartFilters,
+  canReceiveEffectStack,
   documentHasSolo,
   isAnimatedMediaNode,
   isContainer,
@@ -30,6 +33,7 @@ import { SOLID_CHROME_ICONS, SOLID_TOOL_ICONS, SolidIcon, Tooltip } from '@varve
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { autoName } from '../../intelligence/autoNamer';
 import { isNodeEffectivelyLocked } from '../../scene/world';
+import { EffectStackTransferBadge } from './EffectStackTransferBadge';
 import type { PresenceData } from './PresenceIndicator';
 import { PresenceIndicator } from './PresenceIndicator';
 import { useThumbnail } from './useThumbnail';
@@ -90,6 +94,18 @@ export interface LayersRowProps {
   maskRole?: 'source' | 'content';
   /** Full selection set — used to compute mixed visibility/lock state for toggles. */
   selectedIds?: Set<NodeId>;
+  /** Copy a source stack to the layer-tree's currently selected destinations. */
+  onCopyEffectStack?: (
+    sourceId: NodeId,
+    kind: EffectStackKind,
+    mode?: EffectStackTransferMode,
+  ) => void;
+  /** Stack drag currently hovering this row, if any. */
+  effectStackDrop?: {
+    sourceId: NodeId;
+    kind: EffectStackKind;
+    mode: EffectStackTransferMode;
+  };
 }
 
 const NODE_ICONS: Record<string, SolidIconName> = {
@@ -170,6 +186,8 @@ export const LayersRow = memo(function LayersRow({
   doc,
   maskRole,
   selectedIds,
+  onCopyEffectStack,
+  effectStackDrop,
 }: LayersRowProps) {
   const [editValue, setEditValue] = useState(node.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -185,6 +203,11 @@ export const LayersRow = memo(function LayersRow({
   const isInstance =
     isFrame && 'componentId' in node && (node as { componentId?: string }).componentId != null;
   const isEffectivelyLocked = doc ? isNodeEffectivelyLocked(doc, node.id) : node.locked;
+  const canReceiveDroppedStack =
+    effectStackDrop != null &&
+    effectStackDrop.sourceId !== node.id &&
+    !isEffectivelyLocked &&
+    canReceiveEffectStack(node, effectStackDrop.kind);
 
   // Compute mixed visibility/lock state for multi-selection toggles.
   // When multiple nodes are selected, the toggle icon reflects whether ALL
@@ -318,6 +341,11 @@ export const LayersRow = memo(function LayersRow({
     isEffectivelyLocked ? 'layers-row--locked' : '',
     isSoloed ? 'layers-row--soloed' : '',
     soloDimmed ? 'layers-row--solo-dimmed' : '',
+    effectStackDrop
+      ? canReceiveDroppedStack
+        ? 'layers-row--effect-stack-drop'
+        : 'layers-row--effect-stack-drop-invalid'
+      : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -610,34 +638,43 @@ export const LayersRow = memo(function LayersRow({
 
         {/* Effects badge — drop shadow, blur, glow, etc. */}
         {'effects' in node && node.effects && node.effects.length > 0 && !editing && (
-          <Tooltip label={`${node.effects.length} effect${node.effects.length === 1 ? '' : 's'}`}>
-            <span
-              className="layers-row__effects-badge"
-              role="status"
-              aria-label={`${node.effects.length} effect${node.effects.length === 1 ? '' : 's'}`}
-            >
-              {node.effects.length}fx
-            </span>
-          </Tooltip>
+          <EffectStackTransferBadge
+            sourceId={node.id}
+            sourceName={node.name}
+            kind="layer-effects"
+            count={node.effects.length}
+            onCopyToSelected={() => onCopyEffectStack?.(node.id, 'layer-effects')}
+          >
+            {node.effects.length}fx
+          </EffectStackTransferBadge>
         )}
 
         {/* Object Filter indicator — filters are node-local, so keep their
             presence discoverable in the layer tree without pretending they
             are separate scene nodes. */}
         {objectFilterCount > 0 && !editing && (
-          <Tooltip
-            label={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled`}
+          <EffectStackTransferBadge
+            sourceId={node.id}
+            sourceName={node.name}
+            kind="object-filters"
+            count={objectFilterCount}
+            statusLabel={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled`}
+            onCopyToSelected={() => onCopyEffectStack?.(node.id, 'object-filters')}
           >
-            <span
-              className="layers-row__object-filter-badge"
-              role="status"
-              aria-label={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled`}
-            >
-              {enabledObjectFilterCount === objectFilterCount
-                ? `${objectFilterCount} filter${objectFilterCount === 1 ? '' : 's'}`
-                : `${enabledObjectFilterCount}/${objectFilterCount} filters`}
-            </span>
-          </Tooltip>
+            {enabledObjectFilterCount === objectFilterCount
+              ? `${objectFilterCount} filter${objectFilterCount === 1 ? '' : 's'}`
+              : `${enabledObjectFilterCount}/${objectFilterCount} filters`}
+          </EffectStackTransferBadge>
+        )}
+
+        {effectStackDrop && !editing && (
+          <span className="layers-row__effect-stack-drop-hint" role="status">
+            {canReceiveDroppedStack
+              ? `${effectStackDrop.mode === 'append' ? 'Append' : 'Replace'} ${
+                  effectStackDrop.kind === 'layer-effects' ? 'Layer Effects' : 'Object Filters'
+                }`
+              : 'Cannot copy stack here'}
+          </span>
         )}
 
         {/* Collaborator presence */}

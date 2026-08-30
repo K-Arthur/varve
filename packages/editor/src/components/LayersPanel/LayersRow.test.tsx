@@ -204,8 +204,24 @@ describe('LayersRow Object Filter badge', () => {
     const badge = container.querySelector('.layers-row__object-filter-badge');
     expect(badge).not.toBeNull();
     expect(badge).toHaveTextContent('1/2 filters');
-    expect(badge).toHaveAttribute('aria-label', '1 of 2 Object Filters enabled');
+    expect(badge).toHaveAttribute('aria-label', expect.stringContaining('2 Object Filters'));
+    expect(badge?.tagName).toBe('BUTTON');
     expect(container.querySelectorAll('[role="treeitem"]')).toHaveLength(1);
+  });
+
+  it('offers a keyboard-accessible copy alternative to dragging a filter stack', () => {
+    const onCopyEffectStack = vi.fn();
+    const { getByRole } = renderRow({
+      node: makeNode('n1', 'Layer 1', 'shape', {
+        smartFilters: [
+          { id: 'f1', kind: 'invert', visible: true, opacity: 1, blendMode: 'normal', value: 100 },
+        ],
+      }),
+      onCopyEffectStack,
+    });
+
+    fireEvent.click(getByRole('button', { name: /1 of 1 Object Filters enabled on Layer 1/i }));
+    expect(onCopyEffectStack).toHaveBeenCalledWith('n1', 'object-filters');
   });
 
   it('agrees with the renderer when the whole filter stack is bypassed', () => {
@@ -224,7 +240,7 @@ describe('LayersRow Object Filter badge', () => {
     const badge = container.querySelector('.layers-row__object-filter-badge');
     expect(badge).not.toBeNull();
     expect(badge).toHaveTextContent('0/2 filters');
-    expect(badge).toHaveAttribute('aria-label', '0 of 2 Object Filters enabled');
+    expect(badge).toHaveAttribute('aria-label', expect.stringContaining('2 Object Filters'));
   });
 
   it('keeps the stack discoverable but honest when only some entries are disabled', () => {

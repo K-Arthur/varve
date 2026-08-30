@@ -15,4 +15,13 @@ export interface DragFileData {
   name: string;
 }
 
-export type DragData = DragNodeData | DragFileData;
+/** A layer-row appearance badge being copied to another layer. */
+export interface DragEffectStackData {
+  type: 'effect-stack';
+  sourceId: string;
+  stackKind: import('@varve/scene').EffectStackKind;
+  /** Alt/Option preserves the target stack and adds after it. */
+  transferMode: import('@varve/scene').EffectStackTransferMode;
+}
+
+export type DragData = DragNodeData | DragFileData | DragEffectStackData;
