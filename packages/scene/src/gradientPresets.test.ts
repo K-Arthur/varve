@@ -4,6 +4,8 @@ import {
   applySegmentMidpoint,
   gradientPresetContentHash,
   gradientPresetIdFromHash,
+  gradientPresetToEmbeddedGradient,
+  gradientPresetToGradientMapStops,
   makeGradientPreset,
   mergeGradientPresets,
   normalizeColorStops,
@@ -149,6 +151,32 @@ describe('makeGradientPreset', () => {
   it('keeps a provided id', () => {
     const p = makeGradientPreset({ id: 'custom-id', name: 'X', colorStops: [] });
     expect(p.id).toBe('custom-id');
+  });
+
+  it('carries stable stop identities into engine and embedded representations', () => {
+    const p = makeGradientPreset({
+      id: 'gradient-1',
+      name: 'Identity test',
+      colorStops: [
+        { id: 'shadow', position: 0, color: rgb(0) },
+        { id: 'highlight', position: 1, color: rgb(255) },
+      ],
+      opacityStops: [
+        { id: 'opacity-shadow', position: 0, opacity: 1 },
+        { id: 'opacity-highlight', position: 1, opacity: 0 },
+      ],
+    });
+
+    expect(gradientPresetToGradientMapStops(p).map((stop) => stop.id)).toEqual([
+      'shadow',
+      'highlight',
+    ]);
+    const embedded = gradientPresetToEmbeddedGradient(p);
+    expect(embedded.colorStops.map((stop) => stop.id)).toEqual(['shadow', 'highlight']);
+    expect(embedded.opacityStops.map((stop) => stop.id)).toEqual([
+      'opacity-shadow',
+      'opacity-highlight',
+    ]);
   });
 
   it('is deterministic for identical input', () => {

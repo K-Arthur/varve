@@ -191,10 +191,21 @@ function normalizeColor(value: unknown, fallback: unknown): unknown {
   );
 }
 
-function normalizeStops(value: unknown, fallback: unknown): unknown[] {
+function normalizedStopId(value: unknown, fallback: string, used: Set<string>): string {
+  const base =
+    typeof value === 'string' && value.length > 0 && value.length <= 160 ? value : fallback;
+  let id = base;
+  let suffix = 2;
+  while (used.has(id)) id = `${base}-${suffix++}`;
+  used.add(id);
+  return id;
+}
+
+function normalizeStops(value: unknown, fallback: unknown, idPrefix = 'gradient-stop'): unknown[] {
   const source = Array.isArray(value) ? value : [];
   const defaultStops = Array.isArray(fallback) ? fallback : [];
   const stops = source.length > 0 ? source : defaultStops;
+  const usedIds = new Set<string>();
   return stops.filter(isRecord).map((stop, index) => {
     const defaultStop = isRecord(defaultStops[index]) ? defaultStops[index] : {};
     const position = finiteNumber(
@@ -204,7 +215,12 @@ function normalizeStops(value: unknown, fallback: unknown): unknown[] {
       1,
     );
     const color = normalizeColor(stop.color, defaultStop.color ?? [0, 0, 0, 255]);
-    const result: Record<string, unknown> = { ...stop, position, color };
+    const result: Record<string, unknown> = {
+      ...stop,
+      id: normalizedStopId(stop.id, `${idPrefix}-${index + 1}`, usedIds),
+      position,
+      color,
+    };
     if ('opacity' in stop || 'opacity' in defaultStop) {
       result.opacity = finiteNumber(stop.opacity, finiteNumber(defaultStop.opacity, 1, 0, 1), 0, 1);
     }
@@ -224,10 +240,12 @@ function normalizeOpacityStops(value: unknown, fallback: unknown): unknown[] {
   const source = Array.isArray(value) ? value : [];
   const defaultStops = Array.isArray(fallback) ? fallback : [];
   const stops = source.length > 0 ? source : defaultStops;
+  const usedIds = new Set<string>();
   return stops.filter(isRecord).map((stop, index) => {
     const defaultStop = isRecord(defaultStops[index]) ? defaultStops[index] : {};
     return {
       ...stop,
+      id: normalizedStopId(stop.id, `opacity-stop-${index + 1}`, usedIds),
       position: finiteNumber(
         stop.position,
         finiteNumber(defaultStop.position, index / Math.max(1, stops.length - 1), 0, 1),
@@ -265,14 +283,14 @@ function normalizeValue(
 ): unknown {
   if (value === undefined && fallback === undefined) return undefined;
   if (key === 'points') return normalizeCurvePoints(value);
-  if (key === 'stops') return normalizeStops(value, fallback);
+  if (key === 'stops') return normalizeStops(value, fallback, 'gradient-stop');
   if (key === 'opacityStops') return normalizeOpacityStops(value, fallback);
   if (key === 'channelStops' && isRecord(value)) {
     const fallbackRecord = isRecord(fallback) ? fallback : {};
     return Object.fromEntries(
       ['r', 'g', 'b'].map((channel) => [
         channel,
-        normalizeStops(value[channel], fallbackRecord[channel]),
+        normalizeStops(value[channel], fallbackRecord[channel], `${channel}-stop`),
       ]),
     );
   }

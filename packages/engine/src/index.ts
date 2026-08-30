@@ -363,7 +363,7 @@ export {
 export type { SharpenImageOptions, SharpenResult } from './exportPipeline/sharpen';
 export { sharpenImageData } from './exportPipeline/sharpen';
 export { exportRasterizedSubtree, exportRasterizedSubtreeSync } from './exportRasterizedSubtree';
-export type { FilterRenderOptions } from './filterCompositor';
+export type { FilterDiagnostic, FilterRenderOptions } from './filterCompositor';
 export { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
 export type {
   Adjustment,

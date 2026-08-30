@@ -1135,6 +1135,7 @@ export type FilterIR =
   | {
       kind: 'gradientMap';
       stops: {
+        id?: string;
         position: number;
         color: readonly [number, number, number, number];
         opacity?: number;
@@ -1146,18 +1147,21 @@ export type FilterIR =
       mode?: 'luminance' | 'channel';
       channelStops?: {
         r?: {
+          id?: string;
           position: number;
           color: readonly [number, number, number, number];
           opacity?: number;
           midpoint?: number;
         }[];
         g?: {
+          id?: string;
           position: number;
           color: readonly [number, number, number, number];
           opacity?: number;
           midpoint?: number;
         }[];
         b?: {
+          id?: string;
           position: number;
           color: readonly [number, number, number, number];
           opacity?: number;
@@ -1165,6 +1169,7 @@ export type FilterIR =
         }[];
       };
       opacityStops?: {
+        id?: string;
         position: number;
         midpoint?: number;
         opacity: number;

@@ -5,7 +5,7 @@ import type {
   GradientMapStop,
 } from '@varve/engine';
 import type { GradientInterpolationSpace, ManagedColor } from '@varve/scene';
-import { rgbFromTuple } from '@varve/scene';
+import { cryptoId, rgbFromTuple } from '@varve/scene';
 import { denormalizeChannel, managedColorToRgba, normalizeChannel } from '@varve/shared';
 import { Select } from '@varve/ui';
 import { ColorPicker } from '@varve/ui/components/ColorPicker';
@@ -218,7 +218,7 @@ function ChannelBar({
         return;
       }
       const color = interpolatedColorAt(sorted, pos);
-      onChange([...sorted, { position: pos, color }]);
+      onChange([...sorted, { id: cryptoId(), position: pos, color }]);
       setSelected(sorted.length);
     },
     [sorted, onChange],
@@ -249,8 +249,9 @@ function ChannelBar({
       >
         {sorted.map((stop, i) => (
           <button
-            // biome-ignore lint/suspicious/noArrayIndexKey: gradient stops have no stable id; position/color change while editing (content keys would remount mid-drag)
-            key={`ch-${label}-${i}`}
+            // Legacy callers may omit ids; the index fallback remains stable for
+            // the lifetime of that unnormalized input while editing.
+            key={stop.id ?? `ch-${label}-${i}`}
             type="button"
             aria-label={`${label} stop ${i + 1} at ${Math.round(stop.position * 100)}%`}
             className={`gm-editor__stop${selected === i ? ' gm-editor__stop--selected' : ' gm-editor__stop--idle'}`}
@@ -324,7 +325,7 @@ function OpacityStopBar({
   const addStop = useCallback(
     (position: number) => {
       const opacity = interpolatedOpacityAt(sorted, position);
-      const next = [...sorted, { position, opacity }];
+      const next = [...sorted, { id: cryptoId(), position, opacity }];
       onChange(next);
       setSelected(next.length - 1);
     },
@@ -409,8 +410,9 @@ function OpacityStopBar({
       >
         {sorted.map((stop, i) => (
           <button
-            // biome-ignore lint/suspicious/noArrayIndexKey: gradient stops have no stable id; position/color change while editing (content keys would remount mid-drag)
-            key={`os-stop-${i}-${autoId}`}
+            // Legacy callers may omit ids; the index fallback remains stable for
+            // the lifetime of that unnormalized input while editing.
+            key={stop.id ?? `os-stop-${i}-${autoId}`}
             type="button"
             aria-label={`Opacity stop ${i + 1} at ${Math.round(stop.position * 100)}%, opacity ${Math.round(stop.opacity * 100)}%`}
             aria-pressed={selected === i}
@@ -504,7 +506,7 @@ export function GradientMapEditor({
   const addStop = useCallback(
     (position: number) => {
       const color = interpolatedColorAt(stops, position);
-      const newStops = [...stops, { position, color }];
+      const newStops = [...stops, { id: cryptoId(), position, color }];
       onChange({ stops: newStops });
       setSelectedStop(newStops.length - 1);
     },
@@ -640,8 +642,9 @@ export function GradientMapEditor({
       >
         {stops.map((stop, i) => (
           <button
-            // biome-ignore lint/suspicious/noArrayIndexKey: gradient stops have no stable id; position/color change while editing (content keys would remount mid-drag)
-            key={`gm-stop-${i}-${autoId}`}
+            // Legacy callers may omit ids; the index fallback remains stable for
+            // the lifetime of that unnormalized input while editing.
+            key={stop.id ?? `gm-stop-${i}-${autoId}`}
             type="button"
             aria-label={`Stop ${i + 1} at ${Math.round(stop.position * 100)}%`}
             aria-pressed={selectedStop === i}

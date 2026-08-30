@@ -77,6 +77,14 @@ export interface FilterRenderOptions {
   coordSpace?: CoordSpace;
   /** Stable object/source or document-space metadata for Image Treatments. */
   treatmentSpace?: ImageTreatmentSpace;
+  /** Receives non-fatal diagnostics when a runtime filter has no implementation. */
+  onDiagnostic?: (diagnostic: FilterDiagnostic) => void;
+}
+
+export interface FilterDiagnostic {
+  code: 'unsupported-filter';
+  filterKind: string;
+  message: string;
 }
 
 /**
@@ -806,7 +814,17 @@ export function applySoftwareFilter(
       break;
     }
     default:
-      // Unknown filter kind — leave unchanged
+      // FilterIR is also a persisted/runtime boundary. A newer producer can
+      // send a kind this build does not know; preserve pixels, but make the
+      // approximation observable to the caller instead of silently failing.
+      options.onDiagnostic?.({
+        code: 'unsupported-filter',
+        filterKind:
+          typeof (filter as { kind?: unknown }).kind === 'string'
+            ? (filter as { kind: string }).kind
+            : 'unknown',
+        message: 'Filter kind is not implemented by the software renderer; pixels were preserved.',
+      });
       break;
   }
 }

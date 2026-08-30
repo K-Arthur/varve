@@ -302,6 +302,8 @@ export interface HalftoneAdjustment extends AdjustmentBase {
 }
 
 export interface GradientMapStop {
+  /** Stable identity for editor/persistence operations. */
+  id?: string;
   position: number;
   color: Color;
   /** Per-stop opacity (0-1, default 1). */
@@ -312,6 +314,8 @@ export interface GradientMapStop {
 
 /** Opacity ramp stop (independent of color stops). */
 export interface GradientMapOpacityStop {
+  /** Stable identity for editor/persistence operations. */
+  id?: string;
   position: number;
   /** Midpoint position (0-1, default 0.5). */
   midpoint?: number;
@@ -337,12 +341,16 @@ export type GradientMapLuminanceMode =
  * Uses `Color` tuples (engine-side mirror of the scene `GradientPreset`).
  */
 export interface EmbeddedGradientColorStop {
+  /** Stable identity retained when an adjustment embeds a preset. */
+  id?: string;
   position: number;
   midpoint?: number;
   color: Color;
 }
 
 export interface EmbeddedGradientOpacityStop {
+  /** Stable identity retained when an adjustment embeds a preset. */
+  id?: string;
   position: number;
   midpoint?: number;
   opacity: number;
@@ -915,6 +923,7 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
       return {
         kind: 'gradientMap',
         stops: adjustment.stops.map((s) => ({
+          id: s.id,
           position: s.position,
           color: s.color as readonly [number, number, number, number],
           opacity: s.opacity,
@@ -927,18 +936,21 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         channelStops: adjustment.channelStops
           ? {
               r: adjustment.channelStops.r?.map((s) => ({
+                id: s.id,
                 position: s.position,
                 color: s.color as readonly [number, number, number, number],
                 opacity: s.opacity,
                 midpoint: s.midpoint,
               })),
               g: adjustment.channelStops.g?.map((s) => ({
+                id: s.id,
                 position: s.position,
                 color: s.color as readonly [number, number, number, number],
                 opacity: s.opacity,
                 midpoint: s.midpoint,
               })),
               b: adjustment.channelStops.b?.map((s) => ({
+                id: s.id,
                 position: s.position,
                 color: s.color as readonly [number, number, number, number],
                 opacity: s.opacity,
@@ -946,7 +958,16 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
               })),
             }
           : undefined,
-        ...(adjustment.opacityStops !== undefined ? { opacityStops: adjustment.opacityStops } : {}),
+        ...(adjustment.opacityStops !== undefined
+          ? {
+              opacityStops: adjustment.opacityStops.map((s) => ({
+                id: s.id,
+                position: s.position,
+                midpoint: s.midpoint,
+                opacity: s.opacity,
+              })),
+            }
+          : {}),
         ...(adjustment.reverse !== undefined ? { reverse: adjustment.reverse } : {}),
         ...(adjustment.intensity !== undefined ? { intensity: adjustment.intensity } : {}),
         ...(adjustment.luminanceMode !== undefined
@@ -1569,8 +1590,8 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
       return {
         ...base,
         stops: [
-          { position: 0, color: [0, 0, 0, 255] as Color },
-          { position: 1, color: [255, 255, 255, 255] as Color },
+          { id: 'gradient-stop-shadow', position: 0, color: [0, 0, 0, 255] as Color },
+          { id: 'gradient-stop-highlight', position: 1, color: [255, 255, 255, 255] as Color },
         ],
         dither: true,
         preserveLuminosity: false,

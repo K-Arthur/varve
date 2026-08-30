@@ -221,6 +221,32 @@ describe('filter compositing', () => {
     expect(Array.from(output?.data ?? [])).toEqual([150, 75, 38, 255]);
   });
 
+  it('reports an unknown runtime filter while preserving its pixels', () => {
+    const input = makeTestImageData([[24, 48, 72, 255]], 1, 1);
+    const diagnostics: unknown[] = [];
+    const context = {
+      getImageData: () => input,
+      putImageData: () => {},
+    };
+
+    applySoftwareFilter(
+      context as unknown as OffscreenCanvasRenderingContext2D,
+      { kind: 'futureAdjustment', opacity: 1, blendMode: 'normal' } as unknown as FilterIR,
+      1,
+      1,
+      { onDiagnostic: (diagnostic) => diagnostics.push(diagnostic) },
+    );
+
+    expect(Array.from(input.data)).toEqual([24, 48, 72, 255]);
+    expect(diagnostics).toEqual([
+      {
+        code: 'unsupported-filter',
+        filterKind: 'futureAdjustment',
+        message: 'Filter kind is not implemented by the software renderer; pixels were preserved.',
+      },
+    ]);
+  });
+
   it('maps the serialized Levels fields into the levels kernel', () => {
     const input = makeTestImageData([[64, 128, 255, 255]], 1, 1);
     let output: ImageData | undefined;

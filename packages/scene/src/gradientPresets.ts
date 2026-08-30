@@ -207,7 +207,7 @@ export function normalizeOpacityStops(
     const existing = seen.get(position);
     if (existing) continue;
     seen.set(position, {
-      id: stableId('os-', raw.id ?? `${position}`),
+      id: raw.id ?? stableId('os-', `${position}`),
       position,
       ...(raw.midpoint !== undefined ? { midpoint: clamp01(raw.midpoint) } : {}),
       opacity: clamp01(raw.opacity ?? 1),
@@ -378,6 +378,7 @@ function colorToTuple(c: ManagedColor): [number, number, number, number] {
 /** Compile a preset to engine gradient-map stops (Color tuples + per-stop opacity). */
 export function gradientPresetToGradientMapStops(preset: GradientPreset): GradientMapStop[] {
   return preset.colorStops.map((s) => ({
+    id: s.id,
     position: s.position,
     color: colorToTuple(s.color),
     midpoint: s.midpoint,
@@ -391,11 +392,13 @@ export function gradientPresetToEmbeddedGradient(preset: GradientPreset): Embedd
     name: preset.name,
     kind: preset.kind,
     colorStops: preset.colorStops.map((s) => ({
+      id: s.id,
       position: s.position,
       midpoint: s.midpoint,
       color: colorToTuple(s.color),
     })),
     opacityStops: preset.opacityStops.map((s) => ({
+      id: s.id,
       position: s.position,
       midpoint: s.midpoint,
       opacity: s.opacity,
@@ -434,11 +437,13 @@ export function embeddedGradientToGradientPreset(eg: EmbeddedGradientPreset): Gr
     name: eg.name,
     kind: eg.kind,
     colorStops: eg.colorStops.map((s) => ({
+      id: s.id,
       position: s.position,
       midpoint: s.midpoint,
       color: embeddedStopToColor(s),
     })),
     opacityStops: (eg.opacityStops as EmbeddedGradientOpacityStop[] | undefined)?.map((s) => ({
+      id: s.id,
       position: s.position,
       midpoint: s.midpoint,
       opacity: s.opacity,

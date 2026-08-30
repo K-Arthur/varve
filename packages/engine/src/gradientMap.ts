@@ -29,6 +29,8 @@ import { applyMidpointBias, interpolateManagedColor } from '@varve/shared';
 import type { Color } from './types';
 
 export interface GradientMapStop {
+  /** Stable identity for editor/persistence operations. */
+  id?: string;
   position: number;
   color: Color;
   /** Per-stop opacity (0-1, default 1). Folded into the alpha LUT when no
@@ -39,6 +41,8 @@ export interface GradientMapStop {
 }
 
 export interface GradientMapOpacityStop {
+  /** Stable identity for editor/persistence operations. */
+  id?: string;
   position: number;
   /** Midpoint position (0-1, default 0.5). */
   midpoint?: number;

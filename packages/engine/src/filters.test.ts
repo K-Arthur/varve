@@ -210,6 +210,25 @@ describe('new adjustment kinds', () => {
     expect(filter.level).toBe(adj.level);
   });
 
+  it('preserves Gradient Map stop identities in the filter IR', () => {
+    const adjustment = makeAdjustment('gm-1', 'gradientMap', {
+      stops: [
+        { id: 'shadow', position: 0, color: [0, 0, 0, 255] },
+        { id: 'highlight', position: 1, color: [255, 255, 255, 255] },
+      ],
+      opacityStops: [
+        { id: 'opacity-shadow', position: 0, opacity: 1 },
+        { id: 'opacity-highlight', position: 1, opacity: 0.5 },
+      ],
+    });
+    const filter = narrow(adjustmentToFilter(adjustment), 'gradientMap');
+    expect(filter.stops.map((stop) => stop.id)).toEqual(['shadow', 'highlight']);
+    expect(filter.opacityStops?.map((stop) => stop.id)).toEqual([
+      'opacity-shadow',
+      'opacity-highlight',
+    ]);
+  });
+
   it('filterKindDisplayName shows correct names for new kinds', () => {
     expect(filterKindDisplayName('duotone')).toBe('Duotone');
     expect(filterKindDisplayName('blackAndWhite')).toBe('Black & White');

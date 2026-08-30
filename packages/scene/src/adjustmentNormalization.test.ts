@@ -66,12 +66,41 @@ describe('adjustment normalization', () => {
       ],
     });
     const gradient = result.adjustments[1] as unknown as {
-      stops: Array<{ color: number[] }>;
-      opacityStops: Array<{ opacity: number }>;
+      stops: Array<{ id: string; color: number[] }>;
+      opacityStops: Array<{ id: string; opacity: number }>;
     };
     expect(gradient.stops[0]?.color).toEqual([255, 0, 20, 255]);
+    expect(gradient.stops[0]?.id).toBe('gradient-stop-1');
     expect(gradient.opacityStops[0]).toMatchObject({ position: 0, opacity: 1 });
+    expect(gradient.opacityStops[0]?.id).toBe('opacity-stop-1');
     expect(gradient.opacityStops[0]).not.toHaveProperty('color');
+  });
+
+  it('keeps stop identities unique when legacy payloads repeat an id', () => {
+    const result = normalizeAdjustmentStack(
+      [
+        {
+          id: 'map-ids',
+          kind: 'gradientMap',
+          stops: [
+            { id: 'same', position: 0, color: [0, 0, 0, 255] },
+            { id: 'same', position: 1, color: [255, 255, 255, 255] },
+          ],
+          opacityStops: [
+            { id: 'same', position: 0, opacity: 1 },
+            { id: 'same', position: 1, opacity: 0 },
+          ],
+        },
+      ],
+      'node-ids',
+    );
+
+    const gradient = result.adjustments[0] as unknown as {
+      stops: Array<{ id: string }>;
+      opacityStops: Array<{ id: string }>;
+    };
+    expect(gradient.stops.map((stop) => stop.id)).toEqual(['same', 'same-2']);
+    expect(gradient.opacityStops.map((stop) => stop.id)).toEqual(['same', 'same-2']);
   });
 
   it('clamps Shadow / Highlight controls before they reach the renderer', () => {
