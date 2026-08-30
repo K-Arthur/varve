@@ -1,8 +1,9 @@
 # Effects surfaces audit
 
 **Date:** 2026-08-29
-**Status:** implementation follow-through recorded in `e13d39248` and the
-follow-up preview transaction change
+**Status:** implementation follow-through recorded in `e13d39248`, the
+follow-up preview transaction change, and the curated Studio catalog in
+`cdcff9556` / `be5257604`
 
 ## Scope
 
@@ -61,7 +62,9 @@ is different from duplicating every creative effect in every menu.
 frontend cannot accidentally make three independent preset catalogs. The
 families are:
 
-- five creative Studio recipes, each combining at least two effects;
+- 34 creative Studio treatments, each combining at least two effects and
+  grouped as Illustrative, Mark Making, Optics & Shift, Drawing & Graphic,
+  Light & Signal, or Print & Material;
 - four photographic Image Tuning recipes; and
 - four backdrop correction recipes.
 
@@ -73,10 +76,14 @@ Filters, where order and identity are visible.
 
 ## Frontend behavior
 
-Effect Studio provides searchable creative cards, category filters, Favorites,
-Recent effects, Studio presets, transient preview, Compare View, and document
-Looks. Object Filters remains the source of truth for stack order, masks,
-per-entry settings, and undo history.
+Effect Studio provides a visual treatment gallery, searchable creative cards,
+outcome-oriented category filters, saved and recent treatments, transient
+preview, Compare View, and document Looks. Its expanded Drawing & Graphic and
+Light & Signal families each contain at least eight distinct recipes. A
+collapsed Individual creative effects section keeps the raw creative primitives
+available without presenting them as a duplicate general-purpose filter menu.
+Object Filters remains the source of truth for stack order, masks, per-entry
+settings, and undo history.
 
 Image Tuning provides image-only groups, photo presets, batch updates, mixed
 value handling, per-parameter reset, and bypass. It is intentionally not

@@ -13,7 +13,7 @@ Varve has four related surfaces with different jobs:
 
 | Surface | Scope | Catalog | Raster behavior | Vector behavior |
 | --- | --- | --- | --- | --- |
-| Effect Studio | Object-local creative treatment | Artistic Media, Print Strokes, Distort, Sketch & Poster, Stylize, Texture & Tape | Processes the rendered image object while preserving source fill, placement, and crop | Uses a temporary effect surface; geometry, fill, and text remain editable |
+| Effect Studio | Object-local creative treatment | Illustrative, Mark Making, Optics & Shift, Drawing & Graphic, Light & Signal, Print & Material | Processes the rendered image object while preserving source fill, placement, and crop | Uses a temporary effect surface; geometry, fill, and text remain editable |
 | Image Tuning | Image-local photographic correction | Light, Color, Detail, Local Contrast & Depth, Finish | Tunes image pixels with source and placement preserved | Not offered; use Object Filters or Effect Studio |
 | Adjustment Filters | Backdrop-scoped tonal and colour correction | Correction operators and print-safe tonal tools | Applies to rendered content below the adjustment layer and its scope/mask | Applies after vector content is rendered into the backdrop; geometry remains editable |
 | Object Filters | Advanced ordered object-local stack | Full `ADJUSTMENT_KINDS` escape hatch | Filters the selected rendered result with order, opacity, blend, and mask controls | Filters the rendered vector result while source geometry remains editable |
@@ -22,8 +22,11 @@ The same operator can intentionally appear in more than one surface when its
 scope changes. For example, Contrast belongs in Image Tuning for image-local
 photo work and in Adjustment Filters for a shared backdrop correction. It does
 not make the surfaces equivalent. Effect Studio excludes photographic
-corrections and the Image Tuning-only treatment family from its discovery
-catalog.
+correction controls and the Image Tuning workflow from its primary discovery
+catalog. A Studio recipe can still compose a shared primitive such as Grain or
+Highlight Glow when that primitive is needed to create a material result on a
+rendered raster or vector object; the recipe does not expose that primitive as
+an image-development control.
 
 ## Architecture
 
@@ -49,19 +52,31 @@ renderer owns execution. No UI surface creates a parallel effect list.
 
 ## Effect Studio catalog
 
-Effect Studio currently exposes these creative kinds:
+Effect Studio exposes 34 named treatment recipes across six outcome-oriented
+families. The labels intentionally describe the result rather than reproduce a
+generic filter-menu taxonomy:
 
-- Artistic Media: Duotone, Tritone, Palette Snap
-- Print Strokes: Color Halftone
-- Distort: RGB Split, Caustics
-- Sketch & Poster: Dither
-- Stylize: Bloom, Light Shafts, Lens Flare, Light Leak, CRT
-- Texture & Tape: VHS
+| Family | Treatments | What it helps a designer do |
+| --- | --- | --- |
+| Illustrative | Palette Cut, Pigment Wash, Inked Paper, Screen Print | Turn an object into a limited-palette illustration, wash, or print response. |
+| Mark Making | Dry Ink, Crosshatch, Ink Wash, Sprayed Stroke | Build drawn marks, hatching, ink, and loose sprayed media. |
+| Optics & Shift | Glass Shift, Ocean Ripple, Refracted Light, Prism Flare | Refract, split, ripple, or optically scatter the rendered result. |
+| Drawing & Graphic | Relief Study, Chalk Field, Pencil Poster, Stamp Cut, Graphic Pen, Dot Study, Paper Copy, Contour Dither | Produce graphic drawing studies without pretending the source has become destructive pixels. |
+| Light & Signal | Chromatic Bloom, Cinema Shafts, Neon Phosphor, Light Leak, Aperture Star, Laser Streak, Solar Shift, Terminal Glow | Add luminous, cinematic, electronic, or surreal light behaviour. |
+| Print & Material | Analog Signal, Newsprint, Riso Ink, Water Paper, Worn Tape, Reticulation | Give an object a printed, fibrous, weathered, taped, or irregular surface language. |
 
-The library supplies searchable cards, category filters, Favorites, Recent
-effects, and five multi-effect Studio presets. Presets append to the selected
-Object Filter stack in one batch update. They do not flatten artwork or alter
-the source geometry.
+Each card represents an ordered recipe of two or more editable effects. The
+card art is a category cue rather than a pre-rendered promise: the canvas
+Preview command is the authoritative visual result for the selected object.
+Apply appends the full recipe in one batch update; it does not flatten artwork
+or alter source geometry.
+
+The gallery has search, category filters, saved treatments, recent treatments,
+preview/keep/cancel, and Compare View. A collapsed **Individual creative
+effects** section retains the thirteen raw Studio primitives for users who
+already know the operator they want. It explicitly directs parameter editing,
+order, masks, and blending to Object Filters instead of creating a second
+stack editor.
 
 ## Shared rendering contract
 
@@ -115,7 +130,8 @@ Verified in the repository:
 
 - surface catalogs and category IDs are engine-owned and tested;
 - each surface has explicit raster/vector guidance;
-- presets are non-empty, surface-specific, and include multi-effect recipes;
+- Studio treatments are non-empty, surface-specific, categorized, and include
+  multi-effect recipes;
 - Effect Studio, Image Tuning, Adjustment Filters, and Object Filters have
   focused frontend coverage for discovery, application, bypass, and unknown
   future entries; and

@@ -44,7 +44,10 @@ presets. Object Filters remain the complete object-local escape hatch for
 images, vectors, text, frames, and groups. Adjustment Filters expose a smaller
 backdrop-scoped correction catalog plus correction presets. Effect Studio owns
 creative object-local discovery and does not expose the Image Tuning-only
-treatment family.
+treatment workflow. A named Effect Studio material recipe may compose a shared
+primitive such as Grain or Highlight Glow on a rendered object, but that does
+not make the photographic Image Tuning controls available for vector or mixed
+selections.
 
 ## 2. One model, four product surfaces
 

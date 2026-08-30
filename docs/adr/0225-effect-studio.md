@@ -14,9 +14,9 @@ duplicate document state and make preview, export, and undo diverge.
 
 1. Effect Studio is a discovery/editor surface over the existing `Adjustment`
    and `FilterIR` contracts.
-2. `effectRegistry.ts` is the canonical catalog for Effect Studio metadata. It
-   derives definitions from the existing stable adjustment kinds, defaults,
-   effect contracts, and capability properties.
+2. `effectRegistry.ts` is the canonical catalog for raw Effect Studio primitive
+   metadata. It derives definitions from the existing stable adjustment kinds,
+   defaults, effect contracts, and capability properties.
 3. Object Filters remain node-local; Adjustment Layers remain scoped scene
    nodes; appearance effects remain a separate appearance-stage model.
 4. The persisted stack is the execution order. Reordering is a document
@@ -25,10 +25,14 @@ duplicate document state and make preview, export, and undo diverge.
    accelerators only and cannot change serialized semantics.
 6. Looks are ordered, validated recipes, not raster snapshots or executable
    imports.
+7. `surfacePresets.ts` owns named, outcome-oriented Studio treatment recipes.
+   Those recipes may compose shared primitives without promoting photographic
+   correction controls into the Studio's primary discovery vocabulary.
 
 ## Consequences
 
-- The expanded UI can share the existing Inspector editors and history.
+- The expanded UI can present a curated treatment gallery while sharing the
+  existing Inspector editors and history.
 - Adding an effect requires catalog metadata plus the existing engine/render
   wiring; it does not require another menu list or renderer.
 - Preview and export can be tested against the same semantic render graph.
