@@ -212,8 +212,10 @@ export function App() {
       await upsertPreservingMeta(platform, entry.id, name, picked.documentJson, {
         filePath: picked.filePath,
       });
-      void platform.touchFile(entry.id).catch(() => undefined);
-      void platform.touchRecentFile(entry.id, name).catch(() => undefined);
+      await Promise.all([
+        platform.touchFile(entry.id).catch(() => undefined),
+        platform.touchRecentFile(entry.id, name).catch(() => undefined),
+      ]);
       return true;
     },
     [platform],
@@ -251,10 +253,12 @@ export function App() {
           }
           // We have cached content but the file is missing on disk.
           // Still allow opening so the user can Save As.
-          void platform.readFile(entry.id).then((json) => {
+          void platform.readFile(entry.id).then(async (json) => {
             if (!json) return;
-            void platform.touchFile(entry.id).catch(() => undefined);
-            void platform.touchRecentFile(entry.id, entry.name).catch(() => undefined);
+            await Promise.all([
+              platform.touchFile(entry.id).catch(() => undefined),
+              platform.touchRecentFile(entry.id, entry.name).catch(() => undefined),
+            ]);
             setOpenRequest((prev) => ({
               id: entry.id,
               name: entry.name,
@@ -286,8 +290,10 @@ export function App() {
       }
 
       // Update timestamps only after successful read.
-      void platform.touchFile(entry.id).catch(() => undefined);
-      void platform.touchRecentFile(entry.id, entry.name).catch(() => undefined);
+      await Promise.all([
+        platform.touchFile(entry.id).catch(() => undefined),
+        platform.touchRecentFile(entry.id, entry.name).catch(() => undefined),
+      ]);
 
       setOpenRequest((prev) => ({
         id: entry.id,

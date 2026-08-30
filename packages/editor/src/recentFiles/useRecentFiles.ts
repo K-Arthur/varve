@@ -40,9 +40,20 @@ export function useRecentFiles(platform: Platform | undefined): RecentFilesActio
     }
     void platform
       .listRecentFiles()
-      .then((records) => {
+      .then(async (records) => {
+        // Recent history is durable metadata, while the file index is the
+        // source of truth for whether a library target still exists. Keep
+        // orphaned rows out of Open Recent even if Home has not run its
+        // reconciliation pass yet. If the index read fails, retain the
+        // history-based behavior so a transient storage failure does not
+        // destroy the menu contents.
+        const files = await platform.listFiles().catch(() => null);
+        const fileIds = files ? new Set(files.map((file) => file.id)) : null;
         const visible = records
-          .filter((record) => !record.hidden && !record.missing)
+          .filter(
+            (record) =>
+              !record.hidden && !record.missing && (fileIds === null || fileIds.has(record.id)),
+          )
           .slice(0, MAX_ENTRIES);
         setEntries(visible.map(recordToEntry));
       })
@@ -56,16 +67,20 @@ export function useRecentFiles(platform: Platform | undefined): RecentFilesActio
   const remove = useCallback(
     (id: string) => {
       if (!platform) return;
-      void platform.removeRecentFile(id).catch(() => undefined);
-      refresh();
+      void platform
+        .removeRecentFile(id)
+        .then(refresh)
+        .catch(() => undefined);
     },
     [platform, refresh],
   );
 
   const clear = useCallback(() => {
     if (!platform) return;
-    void platform.clearRecentHistory().catch(() => undefined);
-    setEntries([]);
+    void platform
+      .clearRecentHistory()
+      .then(() => setEntries([]))
+      .catch(() => undefined);
   }, [platform]);
 
   const togglePin = useCallback(
@@ -73,8 +88,10 @@ export function useRecentFiles(platform: Platform | undefined): RecentFilesActio
       if (!platform) return;
       const entry = entries.find((candidate) => candidate.id === id);
       if (!entry) return;
-      void platform.patchRecentFile(id, { pinned: !entry.pinned }).catch(() => undefined);
-      refresh();
+      void platform
+        .patchRecentFile(id, { pinned: !entry.pinned })
+        .then(refresh)
+        .catch(() => undefined);
     },
     [entries, platform, refresh],
   );
