@@ -14,6 +14,7 @@
 
 import type { Rect } from '@varve/shared';
 import { groupWorldBounds } from './coordinateService';
+import { designCanvasChildren, getActiveDesignCanvas, getDesignCanvas } from './designCanvas';
 import type { Document, NodeEntry } from './document';
 import { computePageNumbering } from './pageNumbering';
 import { autoPageLayout } from './pasteboardLayout';
@@ -190,6 +191,12 @@ export interface MultipageSceneOptions {
   viewportWorldRect?: { x: number; y: number; w: number; h: number } | null;
   /** Render one master source in editing context instead of the page scene. */
   masterEditId?: NodeId | null;
+  /**
+   * Isolate one Design Canvas. Omit this to use the active Design Canvas when
+   * a document has one; pass null to deliberately render the publishing/page
+   * scene instead (used by Print workspace and export).
+   */
+  designCanvasId?: NodeId | null;
 }
 
 /**
@@ -218,6 +225,21 @@ export interface MultipageNodeInstance extends NodeEntry {
  */
 function masterContentRootIds(doc: Document): Set<NodeId> {
   return new Set(Object.values(doc.masters ?? {}).map((master) => master.contentRoot));
+}
+
+/** Design Canvas roots are metadata-owned, never pasteboard artwork. */
+function designCanvasContentRootIds(doc: Document): Set<NodeId> {
+  return new Set((doc.designCanvases ?? []).map((canvas) => canvas.contentRoot));
+}
+
+function canvasForScene(
+  doc: Document,
+  requestedCanvasId: NodeId | null | undefined,
+): import('./types').DesignCanvas | null {
+  if (requestedCanvasId === null) return null;
+  return requestedCanvasId === undefined
+    ? getActiveDesignCanvas(doc)
+    : getDesignCanvas(doc, requestedCanvasId);
 }
 
 /** Direct source children for a master-editing canvas or layer tree. */
@@ -303,23 +325,27 @@ function pageIntersectsViewport(
 }
 
 export function multipageRootNodes(doc: Document, options: MultipageSceneOptions = {}): NodeId[] {
-  const ids: NodeId[] = [];
-  for (const gid of doc.globalChildren ?? []) ids.push(gid);
-
   // A master source is edited as its own logical surface. Keep document-wide
   // globals visible, but do not mix page content into the source-edit view.
   // The editor renderer applies the active page placement separately so the
   // source remains visible in the same pasteboard coordinate system.
   if (options.masterEditId) {
-    return [...ids, ...masterSourceNodes(doc, options.masterEditId)];
+    return [...(doc.globalChildren ?? []), ...masterSourceNodes(doc, options.masterEditId)];
   }
 
+  const canvas = canvasForScene(doc, options.designCanvasId);
+  if (canvas) return designCanvasChildren(doc, canvas.id);
+
+  const ids: NodeId[] = [];
+  for (const gid of doc.globalChildren ?? []) ids.push(gid);
+
   const masterRoots = masterContentRootIds(doc);
+  const canvasRoots = designCanvasContentRootIds(doc);
 
   const pages = doc.pages ?? [];
   if (pages.length === 0) {
     for (const rid of doc.rootChildren) {
-      if (!masterRoots.has(rid)) ids.push(rid);
+      if (!masterRoots.has(rid) && !canvasRoots.has(rid)) ids.push(rid);
     }
     return ids;
   }
@@ -338,7 +364,7 @@ export function multipageRootNodes(doc: Document, options: MultipageSceneOptions
 
   const viewport = options.viewportWorldRect ?? null;
   for (const rid of doc.rootChildren) {
-    if (masterRoots.has(rid)) continue;
+    if (masterRoots.has(rid) || canvasRoots.has(rid)) continue;
     const placed = placedByContentRoot.get(rid);
     if (!placed) {
       // A pasteboard item: an ordinary world-space root node.
@@ -417,9 +443,8 @@ export function multipageNodeInstances(
   const appendOrdinary = (ids: NodeId[]) =>
     appendNodeInstances(doc, ids, result, { visited: ordinaryVisited });
 
-  appendOrdinary(doc.globalChildren ?? []);
-
   if (options.masterEditId) {
+    appendOrdinary(doc.globalChildren ?? []);
     const placement = buildPlacedScene(doc).placements.get(doc.activePageId ?? '');
     const master = doc.masters?.[options.masterEditId];
     if (master) {
@@ -434,10 +459,19 @@ export function multipageNodeInstances(
     return result;
   }
 
+  const canvas = canvasForScene(doc, options.designCanvasId);
+  if (canvas) {
+    appendOrdinary(designCanvasChildren(doc, canvas.id));
+    return result;
+  }
+
+  appendOrdinary(doc.globalChildren ?? []);
+
   const masterRoots = masterContentRootIds(doc);
+  const canvasRoots = designCanvasContentRootIds(doc);
   const pages = doc.pages ?? [];
   if (pages.length === 0) {
-    appendOrdinary(doc.rootChildren.filter((id) => !masterRoots.has(id)));
+    appendOrdinary(doc.rootChildren.filter((id) => !masterRoots.has(id) && !canvasRoots.has(id)));
     return result;
   }
 
@@ -460,7 +494,7 @@ export function multipageNodeInstances(
   };
 
   for (const rootId of doc.rootChildren) {
-    if (masterRoots.has(rootId)) continue;
+    if (masterRoots.has(rootId) || canvasRoots.has(rootId)) continue;
     const placed = placedByContentRoot.get(rootId);
     if (placed) appendPlacedPage(placed);
     else appendOrdinary([rootId]);

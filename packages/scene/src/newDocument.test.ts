@@ -13,15 +13,17 @@ const A4 = findBuiltinPreset('a4')!;
 const BUSINESS_CARD = findBuiltinPreset('business-card-us')!;
 
 describe('createNewDocument — empty mode', () => {
-  it('creates an untitled infinite-canvas document with no frame', () => {
+  it('creates an untitled Design Canvas document with no frame', () => {
     const res = createNewDocument({});
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     const { document } = res.result;
     expect(document.name).toBe('Untitled');
-    // Flat, page-less document: no default page geometry.
+    // Design Canvas document: no publishing-page geometry.
     expect(document.pages).toBeUndefined();
-    expect(document.rootChildren).toHaveLength(0);
+    expect(document.designCanvases).toHaveLength(1);
+    expect(document.activeDesignCanvasId).toBe(document.designCanvases?.[0]?.id);
+    expect(document.rootChildren).toEqual([document.designCanvases?.[0]?.contentRoot]);
     expect(document.formatVersion).toBeDefined();
   });
 
@@ -71,11 +73,12 @@ describe('createNewDocument — framePreset mode', () => {
     expect(res.result.document.physicalWidth).toBeUndefined();
   });
 
-  it('keeps the blank preset a plain empty document', () => {
+  it('keeps the blank preset an empty Design Canvas document', () => {
     const res = createNewDocument({ startMode: 'framePreset', preset: BLANK_DOCUMENT_PRESET });
     if (!res.ok) throw new Error(res.error);
     expect(res.result.initialFrameId).toBeUndefined();
-    expect(res.result.document.rootChildren).toHaveLength(0);
+    expect(res.result.document.designCanvases).toHaveLength(1);
+    expect(res.result.document.rootChildren).toHaveLength(1);
   });
 });
 

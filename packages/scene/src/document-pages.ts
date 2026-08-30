@@ -563,7 +563,18 @@ export function activePageNodes(doc: Document): NodeId[] {
   const globals = doc.globalChildren ?? [];
   const masterRoots = new Set(Object.values(doc.masters ?? {}).map((master) => master.contentRoot));
   if (!doc.activePageId || !doc.pages || doc.pages.length === 0) {
-    return [...globals, ...doc.rootChildren.filter((id) => !masterRoots.has(id))];
+    const canvas =
+      doc.designCanvases?.find((candidate) => candidate.id === doc.activeDesignCanvasId) ??
+      doc.designCanvases?.[0];
+    if (canvas) {
+      const root = doc.nodes[canvas.contentRoot] as GroupNode | undefined;
+      return root?.children ?? [];
+    }
+    const canvasRoots = new Set((doc.designCanvases ?? []).map((canvas) => canvas.contentRoot));
+    return [
+      ...globals,
+      ...doc.rootChildren.filter((id) => !masterRoots.has(id) && !canvasRoots.has(id)),
+    ];
   }
   const page = doc.pages?.find((p) => p.id === doc.activePageId);
   if (!page) return [...globals, ...doc.rootChildren.filter((id) => !masterRoots.has(id))];

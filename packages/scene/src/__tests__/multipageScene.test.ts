@@ -4,7 +4,16 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Document } from '../document';
-import { addChild, addNode, addPage, createDocument, makeShapeNode, nextNodeId } from '../document';
+import {
+  addChild,
+  addNode,
+  addPage,
+  createDesignCanvas,
+  createDocument,
+  designCanvasContentRoot,
+  makeShapeNode,
+  nextNodeId,
+} from '../document';
 import { addMasterOverride, assignMasterToPage, createMaster } from '../document-components';
 import { deletePageWithPolicy } from '../document-pages';
 import {
@@ -246,6 +255,35 @@ describe('multipageRootNodes (ADR-0144 paint order)', () => {
       expect(scene.placements.get(placed.page.id)).toEqual(placed.placement);
     }
     expect(scene.placements.size).toBe(4);
+  });
+});
+
+describe('Design Canvas scene isolation', () => {
+  it('renders only the active Design Canvas and keeps publishing pages explicit', () => {
+    let doc = createDocument('combined', false);
+    const page = doc.pages![0]!;
+    const { id: pageNodeId, doc: withPageId } = nextNodeId(doc);
+    doc = addChild(
+      withPageId,
+      page.contentRoot,
+      makeShapeNode(pageNodeId, { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }),
+    );
+    doc = createDesignCanvas(doc, { name: 'Explorations' });
+    const canvasId = doc.activeDesignCanvasId!;
+    const canvasRoot = designCanvasContentRoot(doc, canvasId)!;
+    const { id: canvasNodeId, doc: withCanvasId } = nextNodeId(doc);
+    doc = addChild(
+      withCanvasId,
+      canvasRoot,
+      makeShapeNode(canvasNodeId, { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }),
+    );
+
+    expect(multipageRootNodes(doc)).toEqual([canvasNodeId]);
+    expect(multipageNodeInstances(doc).map((entry) => entry.nodeId)).toEqual([canvasNodeId]);
+
+    const publishingRoots = multipageRootNodes(doc, { designCanvasId: null });
+    expect(publishingRoots).toContain(pageNodeId);
+    expect(publishingRoots).not.toContain(canvasNodeId);
   });
 });
 

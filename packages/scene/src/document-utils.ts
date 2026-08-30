@@ -19,6 +19,8 @@ export interface DocumentLike {
   nodes: Record<NodeId, SceneNode>;
   pages?: Array<{ id: NodeId; name: string; contentRoot: NodeId; backgrounds: NodeId[] }>;
   activePageId?: NodeId;
+  designCanvases?: Array<{ id: NodeId; name: string; contentRoot: NodeId }>;
+  activeDesignCanvasId?: NodeId;
   masters?: Record<NodeId, { contentRoot: NodeId }>;
   /** Component master definitions, keyed by component id. */
   components?: Record<NodeId, { masterRootId: NodeId }>;
@@ -187,6 +189,24 @@ export function validateDocument(doc: DocumentLike): DocValidationResult {
         if (!reachable.has(bgId)) {
           errors.push(`Page "${page.name}" background ${bgId} is not reachable`);
         }
+      }
+    }
+  }
+
+  if (doc.designCanvases) {
+    if (
+      doc.activeDesignCanvasId &&
+      !doc.designCanvases.some((canvas) => canvas.id === doc.activeDesignCanvasId)
+    ) {
+      errors.push(
+        `activeDesignCanvasId ${doc.activeDesignCanvasId} does not reference an existing canvas`,
+      );
+    }
+    for (const canvas of doc.designCanvases) {
+      if (!reachable.has(canvas.contentRoot)) {
+        errors.push(
+          `Design Canvas "${canvas.name}" contentRoot ${canvas.contentRoot} is not reachable`,
+        );
       }
     }
   }

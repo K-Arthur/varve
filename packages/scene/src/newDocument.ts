@@ -7,10 +7,10 @@
  * request produces a fully initialized document atomically, with one
  * behavior:
  *
- *   - A new Varve document is an untitled infinite-canvas document.
- *   - Width/height belong to frames (or pages/print layouts), never to the
- *     root document — so the base document is flat (page-less) unless a
- *     template brings its own pages.
+ *   - A new Design document begins with one untitled, unbounded Design Canvas.
+ *   - Width/height belong to frames (or publishing pages/print layouts), never
+ *     to the root document — Design Canvas content stays unbounded unless a
+ *     template brings its own publishing pages.
  *   - "Start with a frame" inserts exactly one frame node with the preset's
  *     (or custom) dimensions; the document itself stays unbounded.
  *   - Print/advanced settings (color mode, bit depth, bleed, dpi, profile)
@@ -30,8 +30,15 @@ import {
   physicalToPx,
 } from '@varve/shared';
 import { defaultColorConfig, uniformBleed } from './colorManagement';
-import { createDocument, type Document, makeFrameNode, nextNodeId } from './document';
-import { addNode } from './document-nodes';
+import {
+  createDesignCanvas,
+  createDocument,
+  type Document,
+  designCanvasContentRoot,
+  makeFrameNode,
+  nextNodeId,
+} from './document';
+import { addChild, addNode } from './document-nodes';
 import { DocumentCodec } from './documentCodec';
 import { resolveColorProfileRef } from './presetToDocument';
 import type { NodeId } from './types';
@@ -124,7 +131,8 @@ export function makeInitialFrame(
     children: [],
     fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
   });
-  return { doc: addNode(d, frame), id };
+  const canvasRoot = designCanvasContentRoot(d);
+  return { doc: canvasRoot ? addChild(d, canvasRoot, frame) : addNode(d, frame), id };
 }
 
 /** Create a fully initialized new document from a typed request. */
@@ -157,14 +165,17 @@ export function createNewDocument(request: NewDocumentRequest): NewDocumentReque
     if (error) return { ok: false, error };
   }
 
-  // Base: an infinite-canvas, page-less document. Never carries a default
-  // page size — dimensions arrive only via an initial frame or template.
+  // Base: a Design Canvas document. It never carries a default page size —
+  // dimensions arrive only via an initial frame or template.
   // 'pages' start mode (M14): a paged document with one default page — the
   // entry point for print/publication documents.
   let doc =
     startMode === 'pages'
       ? createDocument(request.documentName?.trim() || 'Untitled', false)
       : createDocument(request.documentName?.trim() || 'Untitled', { flat: true });
+  if (startMode !== 'pages') {
+    doc = createDesignCanvas(doc, { name: 'Canvas 1' });
+  }
 
   let initialFrameId: NodeId | undefined;
   if (

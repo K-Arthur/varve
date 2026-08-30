@@ -50,6 +50,7 @@ import { createEmptySelectionSetsData } from './selectionSet';
 import { createTableModel, type TableColumnDefinition, type TableModel } from './table';
 import type {
   ContainerNode,
+  DesignCanvas,
   DocumentGrid,
   DocumentGridSettings,
   FrameNode,
@@ -71,6 +72,18 @@ import type { Variable } from './variables';
 import { createVariableStore, deleteVariable } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';
 
+export {
+  createDesignCanvas,
+  deleteDesignCanvas,
+  designCanvasChildren,
+  designCanvasContentRoot,
+  duplicateDesignCanvas,
+  getActiveDesignCanvas,
+  getDesignCanvas,
+  renameDesignCanvas,
+  reorderDesignCanvases,
+  setActiveDesignCanvas,
+} from './designCanvas';
 export type { CreateMasterOptions } from './document-components';
 export {
   activePageNodesWithMaster,
@@ -191,6 +204,12 @@ export interface Document {
   gridSettings?: import('./types').DocumentGridSettings;
   /** Pages (v1.2+). When unset, the document is in flat (pre-page) mode. */
   pages?: Page[];
+  /**
+   * Unbounded organizational design canvases (v2.22+). These are intentionally
+   * distinct from publishing pages: they scope exploratory Design-workspace
+   * content and carry no physical layout or export semantics.
+   */
+  designCanvases?: DesignCanvas[];
   /** Default publishing-page margins and columns; page/master values override it. */
   pageLayout?: import('./types').PageLayoutSettings;
   /** State machines for prototype interactions (v1.3). */
@@ -198,6 +217,9 @@ export interface Document {
 
   /** ID of the currently active page. Undefined for single-page documents. */
   activePageId?: NodeId;
+
+  /** Active Design Canvas. Undefined when the document has no canvas collection. */
+  activeDesignCanvasId?: NodeId;
 
   /** Node IDs of layers shared across all pages (visible on every page). */
   globalChildren?: NodeId[];

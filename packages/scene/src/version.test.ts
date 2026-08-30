@@ -14,7 +14,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.21');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.22');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
   it('migrates email metadata without changing ordinary documents', () => {
@@ -27,9 +27,68 @@ describe('Document Versioning', () => {
       components: {},
       nextId: 1,
     });
-    expect(migrated?.formatVersion).toBe('2.21');
+    expect(migrated?.formatVersion).toBe('2.22');
     expect(migrated?.emailProfile).toBeUndefined();
     expect(migrated?.emailSemantics).toBeUndefined();
+  });
+  it('wraps legacy flat design content in one persisted Design Canvas', () => {
+    const migrated = migrateDocument({
+      id: 'flat-v221',
+      name: 'Flat document',
+      formatVersion: '2.21',
+      rootChildren: ['art'],
+      nodes: {
+        art: {
+          id: 'art',
+          kind: 'shape',
+          name: 'Artwork',
+          children: [],
+        },
+      },
+      components: {},
+      nextId: 1,
+    })!;
+    const canvases = migrated.designCanvases as Array<{
+      id: string;
+      name: string;
+      contentRoot: string;
+    }>;
+    const root = (migrated.nodes as Record<string, { children?: string[] }>)[
+      canvases[0]!.contentRoot
+    ];
+
+    expect(migrated.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
+    expect(canvases).toMatchObject([{ name: 'Canvas 1' }]);
+    expect(migrated.activeDesignCanvasId).toBe(canvases[0]!.id);
+    expect(root?.children).toEqual(['art']);
+  });
+  it('does not recategorize publishing page content as a Design Canvas', () => {
+    const migrated = migrateDocument({
+      id: 'print-v221',
+      name: 'Print document',
+      formatVersion: '2.21',
+      rootChildren: ['page-root'],
+      nodes: {
+        'page-root': { id: 'page-root', kind: 'group', children: [] },
+      },
+      pages: [
+        {
+          id: 'page-1',
+          name: 'Page 1',
+          contentRoot: 'page-root',
+          backgrounds: [],
+          width: 100,
+          height: 100,
+          order: 'a0',
+        },
+      ],
+      components: {},
+      nextId: 1,
+    })!;
+
+    expect(migrated.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
+    expect(migrated.designCanvases).toBeUndefined();
+    expect(migrated.rootChildren).toEqual(['page-root']);
   });
   it('stamps current version on new documents', () => {
     const doc = stampVersion({

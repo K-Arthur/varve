@@ -13,6 +13,7 @@ import { getParent } from './document';
 import type { NodeId } from './types';
 
 export type SceneOwnership =
+  | { kind: 'designCanvas'; designCanvasId: NodeId }
   | { kind: 'page'; pageId: NodeId }
   | { kind: 'master'; masterId: NodeId }
   | { kind: 'pasteboard' }
@@ -34,6 +35,10 @@ export function resolveOwnership(doc: Document, nodeId: NodeId): SceneOwnership 
     if (doc.globalChildren?.includes(current)) {
       return { kind: 'global' };
     }
+    if (doc.designCanvases) {
+      const canvas = doc.designCanvases.find((candidate) => candidate.contentRoot === current);
+      if (canvas) return { kind: 'designCanvas', designCanvasId: canvas.id };
+    }
     if (doc.pages) {
       const page = doc.pages.find((p) => p.contentRoot === current);
       if (page) return { kind: 'page', pageId: page.id };
@@ -46,6 +51,12 @@ export function resolveOwnership(doc: Document, nodeId: NodeId): SceneOwnership 
     current = getParent(doc, current);
   }
   return { kind: 'pasteboard' };
+}
+
+/** The Design Canvas owning a node, when the node is canvas-scoped. */
+export function owningDesignCanvas(doc: Document, nodeId: NodeId): NodeId | null {
+  const ownership = resolveOwnership(doc, nodeId);
+  return ownership.kind === 'designCanvas' ? ownership.designCanvasId : null;
 }
 
 /** The page owning a node, when the node is page-owned (ADR-0126). */
@@ -79,9 +90,9 @@ export function nodeDescendsFrom(doc: Document, nodeId: NodeId, ancestorId: Node
  * human-readable violations; an empty list means the document is sound.
  *
  * Checks (ADR-0126 D2):
- * - No two pages share one content root.
- * - No page/master content root is nested inside another content root.
- * - Page content roots exist, are groups, and are rootChildren entries.
+ * - No two publishing pages or Design Canvases share one content root.
+ * - No page/canvas/master content root is nested inside another content root.
+ * - Page/canvas content roots exist, are groups, and are rootChildren entries.
  * - Master content roots exist and are groups.
  * - Page background nodes exist and are page-owned (descend from the page).
  * - The active page exists.
@@ -91,6 +102,7 @@ export function validatePageOwnership(doc: Document): string[] {
   const errors: string[] = [];
 
   const pages = doc.pages ?? [];
+  const designCanvases = doc.designCanvases ?? [];
   const masters = doc.masters ?? {};
 
   // Shared roots.
@@ -103,6 +115,16 @@ export function validatePageOwnership(doc: Document): string[] {
       );
     } else {
       rootToPage.set(page.contentRoot, page.id);
+    }
+  }
+  for (const canvas of designCanvases) {
+    const existing = rootToPage.get(canvas.contentRoot);
+    if (existing) {
+      errors.push(
+        `page ${existing} and design canvas ${canvas.id} share contentRoot ${canvas.contentRoot} (ADR-0126)`,
+      );
+    } else {
+      rootToPage.set(canvas.contentRoot, canvas.id);
     }
   }
 
@@ -119,6 +141,21 @@ export function validatePageOwnership(doc: Document): string[] {
     }
     if (!rootChildren.has(page.contentRoot)) {
       errors.push(`page ${page.id} contentRoot ${page.contentRoot} is not a root child`);
+    }
+  }
+  for (const canvas of designCanvases) {
+    const node = doc.nodes[canvas.contentRoot];
+    if (!node) {
+      errors.push(`design canvas ${canvas.id} contentRoot ${canvas.contentRoot} missing`);
+      continue;
+    }
+    if (node.kind !== 'group') {
+      errors.push(`design canvas ${canvas.id} contentRoot ${canvas.contentRoot} is not a group`);
+    }
+    if (!rootChildren.has(canvas.contentRoot)) {
+      errors.push(
+        `design canvas ${canvas.id} contentRoot ${canvas.contentRoot} is not a root child`,
+      );
     }
   }
   for (const [masterId, master] of Object.entries(masters)) {
@@ -151,6 +188,12 @@ export function validatePageOwnership(doc: Document): string[] {
   // Active page exists.
   if (doc.activePageId !== undefined && !pages.some((p) => p.id === doc.activePageId)) {
     errors.push(`activePageId ${doc.activePageId} does not name a page`);
+  }
+  if (
+    doc.activeDesignCanvasId !== undefined &&
+    !designCanvases.some((canvas) => canvas.id === doc.activeDesignCanvasId)
+  ) {
+    errors.push(`activeDesignCanvasId ${doc.activeDesignCanvasId} does not name a Design Canvas`);
   }
 
   return errors;

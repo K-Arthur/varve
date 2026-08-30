@@ -1899,7 +1899,26 @@ export interface DocumentBase {
   }>;
 }
 
-// ── Page type ────────────────────────────────────────────────────────────────
+// ── Surface types ────────────────────────────────────────────────────────────
+
+/**
+ * An unbounded organizational surface for exploratory/UI design work.
+ *
+ * A Design Canvas is Varve's distinct equivalent of Figma's organizational
+ * pages. It owns an ordinary group subtree but deliberately has no trim,
+ * bleed, spread, master, or print-export semantics. Publishing `Page`s below
+ * remain output surfaces for Print workspace documents.
+ */
+export interface DesignCanvas {
+  id: NodeId;
+  name: string;
+  /** Stable fractional-indexing key for the canvas navigator. */
+  order: string;
+  /** Transparent group that owns all content scoped to this canvas. */
+  contentRoot: NodeId;
+}
+
+// ── Publishing page type ────────────────────────────────────────────────────
 
 export interface Page {
   id: NodeId;
