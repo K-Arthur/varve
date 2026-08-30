@@ -37,6 +37,26 @@ function setup() {
 }
 
 describe('LayoutSection per-node Width/Height sizing controls', () => {
+  it('exposes and persists space-evenly distribution', async () => {
+    const getCtx = setup();
+    getCtx().applyFramePreset({ name: 'Test Frame', w: 400, h: 300 });
+    await waitFor(() => expect(getCtx().state.selection).toHaveLength(1));
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Layout mode' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Flex' }));
+    await waitFor(() => {
+      const id = getCtx().state.selection[0] as string;
+      expect(getCtx().state.document.nodes[id]?.kind).toBe('frame');
+    });
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Evn' }));
+    await waitFor(() => {
+      const id = getCtx().state.selection[0] as string;
+      const node = getCtx().state.document.nodes[id];
+      expect(node?.kind === 'frame' && node.layoutStyle?.justifyContent).toBe('spaceEvenly');
+    });
+  });
+
   it('changing Width sizing sets layoutSizingWidth without touching layoutSizingHeight', async () => {
     const getCtx = setup();
     getCtx().applyFramePreset({ name: 'Test Frame', w: 400, h: 300 });

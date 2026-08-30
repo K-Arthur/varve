@@ -40,13 +40,14 @@ const ALIGN_ITEMS_OPTIONS: readonly SegmentedOption<'start' | 'center' | 'end' |
 ] as const;
 
 const JUSTIFY_OPTIONS: readonly SegmentedOption<
-  'start' | 'center' | 'end' | 'spaceBetween' | 'spaceAround'
+  'start' | 'center' | 'end' | 'spaceBetween' | 'spaceAround' | 'spaceEvenly'
 >[] = [
   { value: 'start', label: 'Start' },
   { value: 'center', label: 'Ctr' },
   { value: 'end', label: 'End' },
   { value: 'spaceBetween', label: 'Spc' },
   { value: 'spaceAround', label: 'Ard' },
+  { value: 'spaceEvenly', label: 'Evn' },
 ] as const;
 
 const SIZING_OPTIONS: { value: LayoutSizing; label: string }[] = [

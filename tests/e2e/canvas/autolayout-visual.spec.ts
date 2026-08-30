@@ -21,6 +21,31 @@ async function selectFromCombobox(page: Page, label: string, optionLabel: string
   await page.waitForTimeout(200);
 }
 
+/** Reset crash-recovery state on Varve's origin before an isolated workflow. */
+async function resetRecoveryState(page: Page) {
+  await page.evaluate(async () => {
+    for (const key of Object.keys(localStorage)) {
+      if (/safe|crash|recovery|error|consecutive/i.test(key)) localStorage.removeItem(key);
+    }
+    sessionStorage.clear();
+    if (!indexedDB.databases) return;
+    const databases = await indexedDB.databases();
+    await Promise.all(
+      databases.flatMap((database) => {
+        if (!database.name) return [];
+        return [
+          new Promise<void>((resolve) => {
+            const request = indexedDB.deleteDatabase(database.name!);
+            request.addEventListener('success', () => resolve());
+            request.addEventListener('error', () => resolve());
+            request.addEventListener('blocked', () => resolve());
+          }),
+        ];
+      }),
+    );
+  });
+}
+
 /** Click a SegmentedControl radio button (radiogroup → radio). */
 async function clickSegment(page: Page, groupLabel: string, optionLabel: string) {
   const group = page.getByRole('radiogroup', { name: groupLabel });
@@ -108,26 +133,12 @@ test.describe('Auto Layout comprehensive verification', () => {
   test.describe.configure({ mode: 'serial' });
 
   test.beforeEach(async ({ page }) => {
-    // Aggressively clear ALL safe-mode / crash-counter state before navigating.
-    await page.goto('about:blank');
-    await page.evaluate(async () => {
-      try {
-        // Clear localStorage safe-mode flag and any crash-related keys.
-        for (const k of Object.keys(localStorage)) {
-          if (/safe|crash|recovery|error|consecutive/i.test(k)) localStorage.removeItem(k);
-        }
-        // Nuke all IndexedDB databases (crash counters live here).
-        if (indexedDB.databases) {
-          for (const db of await indexedDB.databases()) {
-            if (db.name) indexedDB.deleteDatabase(db.name);
-          }
-        }
-        // Clear sessionStorage too.
-        sessionStorage.clear();
-      } catch {}
-    });
-    // Now navigate to the app fresh.
+    // Recovery state is origin-scoped. Clearing it on about:blank does not
+    // affect Varve, which allowed a stale Safe Mode overlay to block canvas
+    // workflows halfway through a visual test.
     await page.goto('/', { timeout: 300000, waitUntil: 'domcontentloaded' });
+    await resetRecoveryState(page);
+    await page.reload({ timeout: 300000, waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2000);
     // Dismiss safe-mode dialog if it still appears (crash counter may persist
     // in server-side state). Force-close via DOM manipulation as last resort.
@@ -329,6 +340,19 @@ test.describe('Auto Layout comprehensive verification', () => {
     await clickSegment(page, 'Justify content', 'Ctr');
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'test-results/autolayout-06b-justify-center.png' });
+  });
+
+  test('6c - justify space-evenly exposes equal outer and inner gaps', async ({ page }) => {
+    test.setTimeout(300000);
+    const box = await drawFrame(page, 80, 80, 480, 380);
+    await drawRect(page, 150, 150, 250, 200);
+    await drawRect(page, 280, 150, 380, 200);
+    await selectFrame(page, box);
+    await selectFromCombobox(page, 'Layout mode', 'Flex');
+    await page.waitForTimeout(300);
+    await clickSegment(page, 'Justify content', 'Evn');
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: 'test-results/autolayout-06c-justify-space-evenly.png' });
   });
 
   // ── 7. Column direction ────────────────────────────────────────
