@@ -263,6 +263,32 @@ export function registerEditorActions(
   reg('toggleTimelinePanel', 'Toggle Timeline Panel', 'panel', () => ctx.toggleTimelinePanel());
   reg('toggleHistoryPanel', 'Toggle History Panel', 'panel', () => ctx.toggleHistoryPanel());
   reg('restoreAllPanels', 'Show All Panels', 'panel', () => ctx.restoreAllPanels());
+  // These handlers are supplied by the primary-window session hook rather
+  // than the editor context. Re-register them on every call so a remounted
+  // shell never leaves the command palette holding a stale recovery closure.
+  for (const action of [
+    {
+      id: 'bringAllPanelsToCurrentDisplay',
+      label: 'Bring All Panels to This Display',
+      keywords: ['monitor', 'display', 'recover', 'offscreen', 'window'],
+    },
+    {
+      id: 'resetPanelWindowLayout',
+      label: 'Reset Window Layout',
+      keywords: ['reset', 'recover', 'panel', 'window', 'layout'],
+    },
+  ] as const) {
+    r.remove(action.id);
+    r.register(
+      {
+        id: action.id,
+        label: action.label,
+        category: 'panel',
+        keywords: [...action.keywords],
+      },
+      handlers[action.id] ?? (() => {}),
+    );
+  }
   reg('applyMockup', 'Apply Mockup…', 'object', () => {
     openMockupsWithSelection(ctx);
   });

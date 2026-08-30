@@ -481,7 +481,6 @@ import {
   hasPaintProperties,
   setPropertyClipboard,
 } from './propertyClipboard';
-import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import { findContainingFrameInDoc } from './scene/findContainingFrame';
 import {
   getOrCreateParentCache,
@@ -2282,6 +2281,7 @@ export function EditorProvider({
   onBackToHome,
   initialDocumentJson,
   initialDocumentName,
+  initialDocumentRevision = 0,
   initialFileId,
   initialFilePath,
   initialLibraryStorage,
@@ -2290,11 +2290,14 @@ export function EditorProvider({
   onMutation,
   onSelectionChange,
   disablePersistentHistory,
+  projectionMode = false,
 }: {
   children: ReactNode;
   onBackToHome?: () => void;
   initialDocumentJson?: string;
   initialDocumentName?: string;
+  /** Primary document revision that seeded an auxiliary projection. */
+  initialDocumentRevision?: number;
   /**
    * Identity of the file `initialDocumentJson` was read from.
    *
@@ -2316,7 +2319,14 @@ export function EditorProvider({
    * the undo authority). `revision` is used to skip stale/duplicate
    * applications. Null = no external state pending.
    */
-  externalState?: { documentJson: string; selection: string[]; revision: number } | null;
+  externalState?: {
+    documentJson: string;
+    selection: string[];
+    /** Delivery ordering token, distinct from the document mutation base. */
+    revision: number;
+    /** Primary-authoritative revision represented by `documentJson`. */
+    documentRevision: number;
+  } | null;
   /**
    * Remote-session mutation callback (auxiliary windows).
    *
@@ -2325,11 +2335,16 @@ export function EditorProvider({
    * broker, which applies it as the authoritative edit. No-op in the
    * primary window (callback not provided there).
    */
-  onMutation?: (documentJson: string) => void;
+  onMutation?: (mutation: { documentJson: string; baseDocumentRevision: number }) => void;
   /** Remote-session selection callback (auxiliary windows). */
   onSelectionChange?: (selection: string[]) => void;
   /** Disable persistent history (auxiliary projections, ADR-0204). */
   disablePersistentHistory?: boolean;
+  /**
+   * A panel-only projection receives broker state but never owns autosave,
+   * backup, recovery, raster residency, or model workers.
+   */
+  projectionMode?: boolean;
 }) {
   const [state, setState] = useState<EditorState>(() => {
     let doc = createDocument(initialDocumentName ?? 'Untitled');
@@ -2493,7 +2508,7 @@ export function EditorProvider({
         height: 0,
       },
       themeRevision: 0,
-      revision: 0,
+      revision: initialDocumentRevision,
       warpEdit: null,
       upscaleDialogOpen: false,
       imageResizeDialogOpen: false,
@@ -2717,13 +2732,12 @@ export function EditorProvider({
   const txSnapshotRef = useRef<Document | null>(null);
   const txSelRef = useRef<NodeId[] | null>(null);
   const interactionState = useInteractionState();
-  /** Auto-save + versioned-backup services (own their lifecycle). */
-  const recoveryRef = useRef<RecoveryManager | null>(null);
-  /** Initialize recovery once. */
-  if (!recoveryRef.current) {
-    recoveryRef.current = getSharedRecoveryManager();
-  }
-  const { autoSaveRef, backupRef } = useAutoBackupServices(platform, stateRef, recoveryRef);
+  /** Auto-save + versioned-backup services (absent in an auxiliary projection). */
+  const { autoSaveRef, backupRef, recoveryRef } = useAutoBackupServices(
+    platform,
+    stateRef,
+    !projectionMode,
+  );
   /** Ref mirror of the active tool, updated synchronously in setTool so that
    *  createShapeAt sees the latest tool even when React 18 automatic batching
    *  queues a setTool + createShapeAt together. Without this, createShapeAt
@@ -2764,7 +2778,7 @@ export function EditorProvider({
 
   /** Notify auto-save + backup on every document mutation. */
   useEffect(() => {
-    if (state.dirty) {
+    if (state.dirty && backupRef.current) {
       autoSaveRef.current?.notifyEdit();
       const meta = state.sessions.find((sess) => sess.id === state.activeId);
       const pid = meta?.fileId ?? state.activeId;
@@ -2787,6 +2801,7 @@ export function EditorProvider({
 
   /** Cleanup background-removal worker state and worker pool on unmount. */
   useEffect(() => {
+    if (projectionMode) return;
     return () => {
       bgRemovalAbortRef.current?.abort();
       bgRemovalAbortRef.current = null;
@@ -2796,7 +2811,7 @@ export function EditorProvider({
       processingImageNodeRef.current = null;
       void import('@varve/engine').then(({ terminateWorkerPool }) => terminateWorkerPool());
     };
-  }, []);
+  }, [projectionMode]);
 
   const patch = useCallback((partial: Partial<EditorState>) => {
     // Update stateRef synchronously so async callbacks (menu actions,
@@ -2846,8 +2861,15 @@ export function EditorProvider({
   onMutationRef.current = onMutation;
   const onSelectionChangeRef = useRef(onSelectionChange);
   onSelectionChangeRef.current = onSelectionChange;
-  const lastMutatedDocRef = useRef<string | null>(null);
+  const lastMutatedDocRef = useRef<{
+    documentJson: string;
+    baseDocumentRevision: number;
+  } | null>(null);
   const lastExternalRevisionRef = useRef(-1);
+  // This is deliberately not advanced for a local auxiliary edit. The next
+  // full-document mutation must name the primary snapshot it was based on;
+  // the broker either accepts that base or sends a fresh authoritative state.
+  const documentRevisionRef = useRef(initialDocumentRevision);
 
   // Forward local mutations to the auxiliary bridge (post-commit drain).
   useEffect(() => {
@@ -2865,6 +2887,7 @@ export function EditorProvider({
     lastExternalRevisionRef.current = externalState.revision;
     const decoded = DocumentCodec.decode(externalState.documentJson);
     if (!decoded.ok) return;
+    documentRevisionRef.current = externalState.documentRevision;
     const synced = editorGridFromDoc(decoded.document);
     setState((s) => ({
       ...s,
@@ -2876,6 +2899,7 @@ export function EditorProvider({
       primaryId: externalState.selection[0] ?? null,
       focusedNodeId: externalState.selection[0] ?? null,
       selectionRevision: s.selectionRevision + 1,
+      revision: externalState.documentRevision,
     }));
   }, [externalState]);
 
@@ -2897,6 +2921,7 @@ export function EditorProvider({
   });
 
   const updateDoc = useCallback((fn: (doc: Document) => Document) => {
+    const mutationBaseDocumentRevision = documentRevisionRef.current;
     setState((s) => {
       const newDoc = fn(s.document);
       // Document mutations conventionally return the existing reference for a
@@ -2915,7 +2940,10 @@ export function EditorProvider({
         redoLabelsRef.current = [];
       }
       if (onMutationRef.current) {
-        lastMutatedDocRef.current = JSON.stringify(newDoc);
+        lastMutatedDocRef.current = {
+          documentJson: JSON.stringify(newDoc),
+          baseDocumentRevision: mutationBaseDocumentRevision,
+        };
       }
       const synced = editorGridFromDoc(newDoc);
       return {
@@ -2929,6 +2957,7 @@ export function EditorProvider({
         canRedo: false,
         undoLabel: 'Edit',
         redoLabel: 'Redo',
+        revision: s.revision + 1,
         sessions: s.sessions.map((sess) =>
           sess.id === s.activeId ? { ...sess, dirty: true } : sess,
         ),
@@ -3184,7 +3213,7 @@ export function EditorProvider({
   const [proofEnabledState, setProofEnabledState] = useState(false);
   /** Raster LOD pyramid: viewport + budget wiring for the engine seam (ADR-0214). */
   const rasterLodSettings = loadSettings();
-  useRasterLod(rasterLodSettings.render.memoryBudget);
+  useRasterLod(rasterLodSettings.render.memoryBudget, undefined, !projectionMode);
   const bgRemoval = useBackgroundRemoval(
     state,
     patch,
@@ -3195,9 +3224,17 @@ export function EditorProvider({
     bgRemovalAbortRef,
     processingBgNodeRef,
     trimapStoreRef,
+    !projectionMode,
   );
 
-  const sam2Seg = useSam2Segmentation(state, stateRef, setState, updateDoc, announcerRef);
+  const sam2Seg = useSam2Segmentation(
+    state,
+    stateRef,
+    setState,
+    updateDoc,
+    announcerRef,
+    !projectionMode,
+  );
 
   const logoGeometry = useLogoGeometry(
     setState,
@@ -3219,6 +3256,7 @@ export function EditorProvider({
     announcerRef,
     workspaceSwitchInProgressRef,
     platform,
+    !projectionMode,
   );
 
   const persistentHistory = usePersistentHistory({
@@ -3227,7 +3265,7 @@ export function EditorProvider({
     patch,
     inTransactionRef,
     historySkipRef,
-    disabled: disablePersistentHistory,
+    disabled: disablePersistentHistory || projectionMode,
   });
   /** Ref to the persistent-history API for use inside stable callbacks. */
   persistentHistoryRef.current = persistentHistory;
@@ -9892,6 +9930,7 @@ export function EditorProvider({
                   state={state}
                   setState={setState}
                   stateRef={stateRef}
+                  enabled={!projectionMode}
                   onReady={setMediaValue}
                 >
                   <PrototypeProvider

@@ -13,6 +13,7 @@
  * functions, credentials, or document content.
  */
 
+import { capturePanelLocalState, restorePanelLocalState } from './panelLocalState';
 import {
   DEFAULT_PANEL_LOCAL_STATE_BYTES,
   type DetachablePanelLifecycle,
@@ -42,7 +43,8 @@ export interface CapturedPanelDomState {
 
 export function capturePanelDomState(panelTypeId: string): CapturedPanelDomState {
   const root = document.querySelector(`[data-panel-root="${panelTypeId}"]`);
-  if (!root) return {};
+  const liveState = capturePanelLocalState(panelTypeId);
+  if (!root) return liveState ? { extra: liveState } : {};
 
   const state: CapturedPanelDomState = {};
 
@@ -76,16 +78,19 @@ export function capturePanelDomState(panelTypeId: string): CapturedPanelDomState
   if (extraEl instanceof HTMLElement && extraEl.dataset.panelState) {
     try {
       const parsed = JSON.parse(extraEl.dataset.panelState) as Record<string, unknown>;
-      state.extra = parsed;
+      state.extra = { ...parsed, ...liveState };
     } catch {
-      // Ignore malformed panel state
+      state.extra = liveState;
     }
+  } else if (liveState) {
+    state.extra = liveState;
   }
 
   return state;
 }
 
 export function restorePanelDomState(panelTypeId: string, state: CapturedPanelDomState): void {
+  if (state.extra) restorePanelLocalState(panelTypeId, state.extra);
   const root = document.querySelector(`[data-panel-root="${panelTypeId}"]`);
   if (!root) return;
 

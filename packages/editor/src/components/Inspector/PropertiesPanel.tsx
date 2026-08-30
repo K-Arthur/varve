@@ -17,10 +17,11 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { setInspectorTabHandler, useEditor } from '../../context';
 import type { InspectorTab, IntelligenceTab } from '../../context/types';
 import { docVariableStore } from '../../docVariableStore';
+import { usePanelLocalState } from '../../workspace/panelLocalState';
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import { getDefaultInspectorTab, getVisibleInspectorTabs } from '../../workspace/workspaceTypes';
 import { LayerStatesSection } from '../LayersPanel/LayerStatesSection';
-import { PanelDragHandle } from '../PanelDragHandle';
+import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
@@ -154,7 +155,9 @@ export function PropertiesPanel() {
     return tabs.sort((a, b) => TAB_ORDER.indexOf(a) - TAB_ORDER.indexOf(b));
   }, [configuredTabs, requestedTab, selNodes, state.workspaceMode, state.prototypeMode]);
 
-  const [tab, setTab] = useState<InspectorTab>(
+  const [tab, setTab] = usePanelLocalState<InspectorTab>(
+    'inspector',
+    'activeTab',
     () => getDefaultInspectorTab(state.workspaceMode, effectiveConfig) as InspectorTab,
   );
   const tabRefs = useRef(new Map<InspectorTab, HTMLButtonElement>());
@@ -163,7 +166,11 @@ export function PropertiesPanel() {
     seq: 0,
   });
 
-  const [exportSubTab, setExportSubTab] = useState<ExportSubTab>('format');
+  const [exportSubTab, setExportSubTab] = usePanelLocalState<ExportSubTab>(
+    'inspector',
+    'exportSubTab',
+    'format',
+  );
   const exportSubTabListRef = useRef<HTMLDivElement>(null);
 
   // APG Tabs for the Export sub-tabs: roving tabindex, arrow keys with wrap,
@@ -246,34 +253,37 @@ export function PropertiesPanel() {
   };
 
   return (
-    <section className="editor-inspector" aria-label="Inspector">
+    <section className="editor-inspector" data-panel-root="inspector" aria-label="Inspector">
       <PanelDragHandle
         panelTypeId="inspector"
         panelInstanceId="inspector-primary"
         currentWindowId="main"
         title="Inspector"
       >
-        <div className="insp-panel__tabs" role="tablist" aria-label="Inspector tabs">
-          {visibleTabs.map((t) => (
-            <button
-              type="button"
-              key={t}
-              ref={(element) => {
-                if (element) tabRefs.current.set(t, element);
-                else tabRefs.current.delete(t);
-              }}
-              id={`insp-tab-${t}`}
-              role="tab"
-              className="insp-panel__tab"
-              aria-selected={tab === t}
-              aria-controls={`insp-tabpanel-${t}`}
-              tabIndex={tab === t ? 0 : -1}
-              onClick={() => activateTab(t)}
-              onKeyDown={(e) => handleTabKeyDown(e, visibleTabs.indexOf(t))}
-            >
-              {FALLBACK_TAB_LABELS[t]}
-            </button>
-          ))}
+        <div className="insp-panel__tabs-row">
+          <div className="insp-panel__tabs" role="tablist" aria-label="Inspector tabs">
+            {visibleTabs.map((t) => (
+              <button
+                type="button"
+                key={t}
+                ref={(element) => {
+                  if (element) tabRefs.current.set(t, element);
+                  else tabRefs.current.delete(t);
+                }}
+                id={`insp-tab-${t}`}
+                role="tab"
+                className="insp-panel__tab"
+                aria-selected={tab === t}
+                aria-controls={`insp-tabpanel-${t}`}
+                tabIndex={tab === t ? 0 : -1}
+                onClick={() => activateTab(t)}
+                onKeyDown={(e) => handleTabKeyDown(e, visibleTabs.indexOf(t))}
+              >
+                {FALLBACK_TAB_LABELS[t]}
+              </button>
+            ))}
+          </div>
+          <PanelDetachButton />
         </div>
       </PanelDragHandle>
 

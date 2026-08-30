@@ -1026,6 +1026,20 @@ export function getViewMenu(
       run: () => runAction('toggleLogoPanel'),
     },
     {
+      id: 'bringAllPanelsToCurrentDisplay',
+      labelKey: 'menu.view.bringAllPanelsToCurrentDisplay',
+      kind: 'command',
+      group: 'panel-recovery',
+      run: () => runAction('bringAllPanelsToCurrentDisplay'),
+    },
+    {
+      id: 'resetPanelWindowLayout',
+      labelKey: 'menu.view.resetPanelWindowLayout',
+      kind: 'command',
+      group: 'panel-recovery',
+      run: () => runAction('resetPanelWindowLayout'),
+    },
+    {
       id: 'workspaceDesign',
       labelKey: 'menu.view.workspaceDesign',
       accelerator: acceleratorFor('workspaceDesign'),

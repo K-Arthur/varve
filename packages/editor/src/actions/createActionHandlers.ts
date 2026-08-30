@@ -85,6 +85,10 @@ export interface ActionHandlerCallbacks {
   onFindReplace?: () => void;
   onResizeImage?: () => void;
   onCustomizeWorkspace?: () => void;
+  /** Recover every live detached panel window onto the primary display. */
+  onBringAllPanelsToCurrentDisplay?: () => void;
+  /** Reattach detached panels and clear only their window-placement state. */
+  onResetPanelWindowLayout?: () => void;
 }
 
 export function createActionHandlers(
@@ -1103,6 +1107,8 @@ export function createActionHandlers(
     // ── UI ──
     shortcutPalette: () => cb.onOpenPalette?.(),
     quickActions: () => {},
+    bringAllPanelsToCurrentDisplay: () => cb.onBringAllPanelsToCurrentDisplay?.(),
+    resetPanelWindowLayout: () => cb.onResetPanelWindowLayout?.(),
     present: () => {
       if (e.state.prototypeMode) {
         e.stopPresentation();

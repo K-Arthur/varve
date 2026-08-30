@@ -139,7 +139,8 @@ function ShellInner({
   const editor = useEditor();
   useFitOnFirstDocument(editor, fitOnOpen && active);
   const editorHelp = useEditorHelp(editor.state.tool);
-  const { isDetached } = useDetachedPanels(editor);
+  const { isDetached, bringAllPanelsToCurrentDisplay, resetPanelWindowLayout } =
+    useDetachedPanels(editor);
   const { paletteOpen, closePalette, openPalette, quickActionsOpen, setQuickActionsOpen } =
     useShortcuts(editor, onBackToHome, active, {
       onOpenContextualHelp: editorHelp.openContextualHelp,
@@ -305,6 +306,8 @@ function ShellInner({
       onImportFile: fileImport.openPicker,
       onCustomizeWorkspace: () => setWorkspaceCustomizeOpen(true),
       onResizeImage: editor.openImageResizeDialog,
+      onBringAllPanelsToCurrentDisplay: bringAllPanelsToCurrentDisplay,
+      onResetPanelWindowLayout: resetPanelWindowLayout,
     });
     if (staticActionsRegistered.current) return;
     staticActionsRegistered.current = true;
@@ -329,7 +332,7 @@ function ShellInner({
         );
       }
     }
-  }, [editor, editorHelp, onBackToHome]);
+  }, [bringAllPanelsToCurrentDisplay, editor, editorHelp, onBackToHome, resetPanelWindowLayout]);
 
   const handlePaletteSelect = useCallback((id: string) => {
     const input = fileRef.current;

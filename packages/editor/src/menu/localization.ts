@@ -158,6 +158,8 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.themeDark': 'Dark',
   'menu.view.themeHighContrast': 'High Contrast',
   'menu.view.resetWorkspace': 'Reset Workspace',
+  'menu.view.bringAllPanelsToCurrentDisplay': 'Bring All Panels to This Display',
+  'menu.view.resetPanelWindowLayout': 'Reset Window Layout',
   'menu.view.home': 'Home',
   'menu.view.shortcutPalette': 'Command Palette',
   'menu.view.workspaceDesign': 'Workspace: Design',

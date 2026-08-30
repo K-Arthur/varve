@@ -41,14 +41,26 @@
 }
 
 /* Visually-hidden utility lives in components.css; import that instead. */
+.insp-panel__tabs-row {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
 .insp-panel__tabs {
   display: flex;
   align-items: stretch;
+  flex: 1;
+  min-width: 0;
   flex-shrink: 0;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scrollbar-width: none;
-  border-bottom: 1px solid var(--color-border-subtle);
+}
+.insp-panel__tabs-row > .panel-detach-btn,
+.insp-panel__tabs-row > .varve-tooltip-trigger {
+  align-self: center;
+  margin-inline: var(--space-1) var(--space-2);
 }
 .insp-panel__tabs::-webkit-scrollbar {
   display: none;

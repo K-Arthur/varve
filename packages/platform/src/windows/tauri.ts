@@ -14,6 +14,7 @@ import {
   logicalWorkAreaForDisplay,
   matchDisplayFingerprint,
 } from './geometry';
+import { defaultPanelWindowRoute, parsePanelWindowRoute } from './panelRoute';
 import type {
   CreateWorkspaceWindowOptions,
   DisplayInfo,
@@ -65,7 +66,11 @@ interface TauriWindowLike {
   isFullscreen(): Promise<boolean>;
   outerPosition(): Promise<TauriPhysicalPoint>;
   outerSize(): Promise<TauriPhysicalSize>;
-  currentMonitor(): Promise<TauriMonitor | null>;
+  /**
+   * Present on some compatibility shims, but not on Tauri 2 WebviewWindow.
+   * Tauri 2 exposes `currentMonitor()` as a module-level window API instead.
+   */
+  currentMonitor?: () => Promise<TauriMonitor | null>;
   onMoved(handler: (event: { payload: TauriPhysicalPoint }) => void): Promise<() => void>;
   onResized(handler: (event: { payload: TauriPhysicalSize }) => void): Promise<() => void>;
   onFocusChanged(handler: (event: { payload: boolean }) => void): Promise<() => void>;
@@ -93,6 +98,8 @@ interface TauriWindowApi {
   getAllWindows?: () => Promise<TauriWindowLike[]> | TauriWindowLike[];
   availableMonitors(): Promise<TauriMonitor[]>;
   primaryMonitor(): Promise<TauriMonitor | null>;
+  currentMonitor?: () => Promise<TauriMonitor | null>;
+  monitorFromPoint?: (x: number, y: number) => Promise<TauriMonitor | null>;
 }
 
 interface TauriDpiApi {
@@ -179,8 +186,7 @@ function toDisplayInfo(monitor: TauriMonitor, isPrimary: boolean): DisplayInfo {
 
 function currentRouteWindowId(): WorkspaceWindowId | undefined {
   if (typeof window === 'undefined') return undefined;
-  const id = new URLSearchParams(window.location.search).get('windowId');
-  return isWorkspaceWindowId(id) ? id : undefined;
+  return parsePanelWindowRoute(window.location.search)?.windowId;
 }
 
 /** Native creation is asynchronous even though `new WebviewWindow()` returns a handle. */
@@ -260,18 +266,22 @@ export class TauriWindowService implements NativeWindowService {
 
   async createWindow(options: CreateWorkspaceWindowOptions): Promise<WorkspaceWindowInfo> {
     const api = getTauriApi();
-    if (options.route && !isApplicationRoute(options.route)) {
-      throw new Error(`refusing non-application route '${options.route}' (ADR-0040)`);
+    if (options.route && !parsePanelWindowRoute(options.route)) {
+      throw new Error('refusing invalid auxiliary application route (ADR-0040)');
     }
 
     const id = options.id ?? createWorkspaceWindowId();
     if (!isWorkspaceWindowId(id)) {
       throw new Error(`invalid workspace window id '${String(id)}'`);
     }
-    const routedId = options.route ? routeWindowId(options.route) : undefined;
-    if (routedId && routedId !== id) {
+    const route = options.route ?? defaultPanelWindowRoute(id);
+    const parsedRoute = parsePanelWindowRoute(route);
+    if (!parsedRoute) {
+      throw new Error('refusing invalid auxiliary application route (ADR-0040)');
+    }
+    if (parsedRoute.windowId !== id) {
       throw new Error(
-        `window route identity '${routedId}' does not match requested window identity '${id}'`,
+        `window route identity '${parsedRoute.windowId}' does not match requested window identity '${id}'`,
       );
     }
     const label = options.label ? deriveWindowLabel(options.label) : deriveWindowLabel(id);
@@ -284,7 +294,7 @@ export class TauriWindowService implements NativeWindowService {
     this.closedLabels.delete(label);
 
     const nativeWindow = new api.webviewWindow.WebviewWindow(label, {
-      url: options.route ? routeUrl(options.route) : routeUrl('?surface=panel-window'),
+      url: routeUrl(route),
       title: options.title,
       width: options.size.width,
       height: options.size.height,
@@ -414,6 +424,67 @@ export class TauriWindowService implements NativeWindowService {
     );
   }
 
+  /**
+   * Tauri 2's `currentMonitor()` is a module-level command for the *current*
+   * window, not a WebviewWindow instance method. Prefer an instance method
+   * only for compatibility shims, use the module command when it describes
+   * this window, and otherwise resolve an auxiliary host from its physical
+   * bounds. Never assume an optional API exists at runtime.
+   */
+  private async monitorForWindow(
+    nativeWindow: TauriWindowLike,
+    hint?: { position: TauriPhysicalPoint; size: TauriPhysicalSize },
+  ): Promise<TauriMonitor | null> {
+    if (typeof nativeWindow.currentMonitor === 'function') {
+      try {
+        return await nativeWindow.currentMonitor();
+      } catch {
+        // Continue to the Tauri 2/global and geometry fallbacks.
+      }
+    }
+
+    const api = getTauriApi();
+    const current =
+      api.webviewWindow.getCurrentWebviewWindow?.() ??
+      api.webviewWindow.getCurrent?.() ??
+      api.window.getCurrentWindow?.();
+    if (current?.label === nativeWindow.label && typeof api.window.currentMonitor === 'function') {
+      try {
+        return await api.window.currentMonitor();
+      } catch {
+        // A denied monitor command must not abort a panel transfer.
+      }
+    }
+
+    const position = hint?.position ?? (await nativeWindow.outerPosition().catch(() => null));
+    const size = hint?.size ?? (await nativeWindow.outerSize().catch(() => null));
+    if (!position) return null;
+
+    const point = {
+      x: position.x + Math.max(0, Math.floor((size?.width ?? 0) / 2)),
+      y: position.y + Math.max(0, Math.floor((size?.height ?? 0) / 2)),
+    };
+    if (typeof api.window.monitorFromPoint === 'function') {
+      try {
+        const monitor = await api.window.monitorFromPoint(point.x, point.y);
+        if (monitor) return monitor;
+      } catch {
+        // Older Tauri globals do not always expose this command.
+      }
+    }
+
+    const monitors = await api.window.availableMonitors().catch(() => []);
+    return (
+      monitors.find(
+        (monitor) =>
+          point.x >= monitor.position.x &&
+          point.x < monitor.position.x + monitor.size.width &&
+          point.y >= monitor.position.y &&
+          point.y < monitor.position.y + monitor.size.height,
+      ) ?? null
+    );
+  }
+
   private async wrapWindow(
     nativeWindow: TauriWindowLike,
     id: WorkspaceWindowId,
@@ -426,10 +497,9 @@ export class TauriWindowService implements NativeWindowService {
         nativeWindow.isMaximized().catch(() => false),
         nativeWindow.isFullscreen().catch(() => false),
         this.readPlacement(nativeWindow).catch(() => null),
-        nativeWindow
-          .currentMonitor()
-          .catch(() => null)
-          .then((monitor) => this.displayForNativeMonitor(monitor)),
+        this.monitorForWindow(nativeWindow).then((monitor) =>
+          this.displayForNativeMonitor(monitor),
+        ),
       ]);
     return {
       id,
@@ -446,14 +516,14 @@ export class TauriWindowService implements NativeWindowService {
   }
 
   private async readPlacement(nativeWindow: TauriWindowLike): Promise<WindowPlacement | null> {
-    const [nativeMonitor, position, size, minimized, maximized, fullscreen] = await Promise.all([
-      nativeWindow.currentMonitor().catch(() => null),
+    const [position, size, minimized, maximized, fullscreen] = await Promise.all([
       nativeWindow.outerPosition().catch(() => ({ x: 0, y: 0 })),
       nativeWindow.outerSize().catch(() => ({ width: 800, height: 600 })),
       nativeWindow.isMinimized().catch(() => false),
       nativeWindow.isMaximized().catch(() => false),
       nativeWindow.isFullscreen().catch(() => false),
     ]);
+    const nativeMonitor = await this.monitorForWindow(nativeWindow, { position, size });
     const display = await this.displayForNativeMonitor(nativeMonitor);
     const scale =
       nativeMonitor?.scaleFactor && Number.isFinite(nativeMonitor.scaleFactor)
@@ -655,25 +725,10 @@ export class TauriWindowService implements NativeWindowService {
   }
 }
 
-/** Only query-style application routes are accepted by dynamic webviews. */
-function isApplicationRoute(route: string): boolean {
-  return (
-    route.startsWith('?') &&
-    !route.includes('//') &&
-    !route.includes('http:') &&
-    !route.includes('https:')
-  );
-}
-
 function routeUrl(route: string): string {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
   return `${origin}${pathname}${route}`;
-}
-
-function routeWindowId(route: string): WorkspaceWindowId | undefined {
-  const id = new URLSearchParams(route.slice(1)).get('windowId');
-  return isWorkspaceWindowId(id) ? id : undefined;
 }
 
 function createWorkspaceWindowId(): WorkspaceWindowId {

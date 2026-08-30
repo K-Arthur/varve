@@ -244,6 +244,27 @@ describe('browser window service: honest popup capability (ADR-0034)', () => {
     open.mockRestore();
   });
 
+  it('rejects browser popup routes with foreign or unbounded query data', async () => {
+    const service = createBrowserWindowService();
+    await expect(
+      service.createWindow({
+        id: 'panel_layers_123',
+        title: 'Layers — Varve',
+        size: { width: 320, height: 480 },
+        route:
+          '?surface=panel-window&windowId=panel_layers_123&redirect=https%3A%2F%2Fevil.example',
+      }),
+    ).rejects.toThrow(/refusing .*application route/);
+    await expect(
+      service.createWindow({
+        id: 'panel_layers_123',
+        title: 'Layers — Varve',
+        size: { width: 320, height: 480 },
+        route: '?surface=panel-window&windowId=panel_layers_123#https://evil.example',
+      }),
+    ).rejects.toThrow(/refusing .*application route/);
+  });
+
   it('reports the single current window', async () => {
     const service = createBrowserWindowService(false);
     const windows = await service.listWindows();
@@ -264,6 +285,7 @@ describe('tauri window service: native behaviors', () => {
   let creationOptions: Array<{ label: string; options: Record<string, unknown> }>;
   let positions: Map<string, unknown>;
   let sizes: Map<string, unknown>;
+  let omitInstanceCurrentMonitor: boolean;
   let nativeWindows: Map<
     string,
     {
@@ -282,6 +304,7 @@ describe('tauri window service: native behaviors', () => {
     creationOptions = [];
     positions = new Map();
     sizes = new Map();
+    omitInstanceCurrentMonitor = false;
     nativeWindows = new Map();
 
     const primaryMonitor = {
@@ -370,7 +393,7 @@ describe('tauri window service: native behaviors', () => {
         isFullscreen: vi.fn(async () => state.fullscreen),
         outerPosition: vi.fn(async () => state.position),
         outerSize: vi.fn(async () => state.size),
-        currentMonitor: vi.fn(async () => primaryMonitor),
+        currentMonitor: omitInstanceCurrentMonitor ? undefined : vi.fn(async () => primaryMonitor),
         onMoved: vi.fn(async () => {
           const unlisten = () => {};
           listeners.push(unlisten);
@@ -476,6 +499,27 @@ describe('tauri window service: native behaviors', () => {
     expect(creationOptions[0]?.options.decorations).toBe(true);
   });
 
+  it('does not require currentMonitor on a Tauri 2 WebviewWindow instance', async () => {
+    // Tauri 2 exports currentMonitor from the window module; WebviewWindow
+    // instances in the live desktop runtime do not expose that method.
+    omitInstanceCurrentMonitor = true;
+    const { TauriWindowService } = await import('../tauri');
+    service = new TauriWindowService();
+
+    const created = await service.createWindow({
+      id: 'panel_layers_no_instance_monitor',
+      title: 'Layers',
+      size: { width: 400, height: 600 },
+      route: '?surface=panel-window&windowId=panel_layers_no_instance_monitor',
+    });
+
+    expect(created.placement?.logicalSize).toEqual({ width: 400, height: 300 });
+    expect(created.monitor?.name).toBe('Secondary');
+    await expect(service.getWindowPlacement(created.id)).resolves.toMatchObject({
+      logicalSize: { width: 400, height: 300 },
+    });
+  });
+
   it('refuses non-application routes', async () => {
     const { TauriWindowService } = await import('../tauri');
     service = new TauriWindowService();
@@ -485,14 +529,43 @@ describe('tauri window service: native behaviors', () => {
         size: { width: 300, height: 200 },
         route: 'https://evil.example/x',
       }),
-    ).rejects.toThrow(/refusing non-application route/);
+    ).rejects.toThrow(/refusing .*application route/);
     await expect(
       service.createWindow({
         title: 'Bad2',
         size: { width: 300, height: 200 },
         route: 'javascript://alert(1)',
       }),
-    ).rejects.toThrow(/refusing non-application route/);
+    ).rejects.toThrow(/refusing .*application route/);
+  });
+
+  it('requires a bounded canonical panel route for native auxiliary webviews', async () => {
+    const { TauriWindowService } = await import('../tauri');
+    service = new TauriWindowService();
+    await expect(
+      service.createWindow({
+        id: 'panel_layers_123',
+        title: 'Bad query',
+        size: { width: 300, height: 200 },
+        route: '?surface=panel-window&windowId=panel_layers_123&windowId=other',
+      }),
+    ).rejects.toThrow(/refusing .*application route/);
+    await expect(
+      service.createWindow({
+        id: 'panel_layers_123',
+        title: 'Hash route',
+        size: { width: 300, height: 200 },
+        route: '?surface=panel-window&windowId=panel_layers_123#https://evil.example',
+      }),
+    ).rejects.toThrow(/refusing .*application route/);
+    await expect(
+      service.createWindow({
+        id: 'panel_layers_123',
+        title: 'Unsafe metadata',
+        size: { width: 300, height: 200 },
+        route: '?surface=panel-window&windowId=panel_layers_123&session=%3Cscript%3E',
+      }),
+    ).rejects.toThrow(/refusing .*application route/);
   });
 
   it('refuses a route whose panel identity disagrees with the requested identity', async () => {

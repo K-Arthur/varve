@@ -36,11 +36,25 @@ export function useSam2Segmentation(
   setState: React.Dispatch<React.SetStateAction<EditorState>>,
   updateDoc: (fn: (doc: Document) => Document) => void,
   announcerRef: React.MutableRefObject<CanvasAnnouncer | null>,
+  enabled = true,
 ): Sam2SegmentationAPI {
   const abortRef = useRef<AbortController | null>(null);
   const generationRef = useRef(0);
-  const embeddingCacheRef = useRef(
-    new EmbeddingCache<{
+  const embeddingCacheRef = useRef<EmbeddingCache<{
+    nodeId: NodeId;
+    src: string;
+    embeddings: Record<string, WorkerTensor>;
+    // The letterbox transform the encoder's *own* preprocessing applied to
+    // this image (scale-to-fit + center + pad for non-square images).
+    // Prompt encoding must reuse this exact transform — see sam2.ts — so
+    // it's cached alongside the embeddings it was computed from, not
+    // recomputed from the image dimensions independently.
+    letterbox: { offsetX: number; offsetY: number };
+    naturalW: number;
+    naturalH: number;
+  }> | null>(null);
+  if (enabled && !embeddingCacheRef.current) {
+    embeddingCacheRef.current = new EmbeddingCache<{
       nodeId: NodeId;
       src: string;
       embeddings: Record<string, WorkerTensor>;
@@ -60,8 +74,8 @@ export function useSam2Segmentation(
           (total, tensor) => total + tensor.data.byteLength,
           0,
         ),
-    }),
-  );
+    });
+  }
 
   const cancelSam2Segmentation = useCallback(() => {
     abortRef.current?.abort();
@@ -106,6 +120,10 @@ export function useSam2Segmentation(
       operation: 'preview' | 'mask' | 'selection' | 'layer';
       candidateIndex?: number;
     }): Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null> => {
+      if (!enabled) {
+        announcerRef.current?.announce('Subject selection is available in the main editor window.');
+        return null;
+      }
       const generation = ++generationRef.current;
       const currentDoc = stateRef.current.document;
       const node = currentDoc.nodes[nodeId] as import('@varve/scene').ShapeNode | undefined;
@@ -225,7 +243,9 @@ export function useSam2Segmentation(
         ]
           .map((part) => encodeURIComponent(String(part)))
           .join('|');
-        let cached = embeddingCacheRef.current.get(cacheKey);
+        const embeddingCache = embeddingCacheRef.current;
+        if (!embeddingCache) return null;
+        let cached = embeddingCache.get(cacheKey);
         if (!cached) {
           if (combinedSignal.aborted) return null;
 
@@ -262,7 +282,7 @@ export function useSam2Segmentation(
             naturalW,
             naturalH,
           };
-          embeddingCacheRef.current.set(cacheKey, cached);
+          embeddingCache.set(cacheKey, cached);
         }
 
         if (generation !== generationRef.current || combinedSignal.aborted) return null;
@@ -433,7 +453,7 @@ export function useSam2Segmentation(
 
       return null;
     },
-    [stateRef, setState, updateDoc, announcerRef],
+    [enabled, stateRef, setState, updateDoc, announcerRef],
   );
 
   return { applySam2Segmentation, cancelSam2Segmentation, selectSam2Candidate };

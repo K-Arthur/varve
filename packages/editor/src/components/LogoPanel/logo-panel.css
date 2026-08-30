@@ -35,6 +35,13 @@
   color: var(--color-text-secondary);
 }
 
+.logo-panel__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 .logo-panel__empty {
   padding: var(--space-4);
   overflow-y: auto;

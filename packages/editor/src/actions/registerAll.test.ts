@@ -108,6 +108,37 @@ describe('registerEditorActions — intelligence commands', () => {
     registry.get('findReplace')?.handler(undefined);
     expect(onFindReplace).toHaveBeenCalledOnce();
   });
+
+  it('keeps panel-window recovery commands searchable and refreshes their callbacks', () => {
+    const firstBring = vi.fn();
+    const firstReset = vi.fn();
+    const editor = makeEditorMock();
+    registerEditorActions(editor, {
+      onBringAllPanelsToCurrentDisplay: firstBring,
+      onResetPanelWindowLayout: firstReset,
+    });
+
+    const registry = getActionRegistry();
+    registry.get('bringAllPanelsToCurrentDisplay')?.handler(undefined);
+    registry.get('resetPanelWindowLayout')?.handler(undefined);
+    expect(firstBring).toHaveBeenCalledOnce();
+    expect(firstReset).toHaveBeenCalledOnce();
+    expect(registry.search('offscreen')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'bringAllPanelsToCurrentDisplay' })]),
+    );
+
+    const latestBring = vi.fn();
+    const latestReset = vi.fn();
+    registerEditorActions(editor, {
+      onBringAllPanelsToCurrentDisplay: latestBring,
+      onResetPanelWindowLayout: latestReset,
+    });
+    registry.get('bringAllPanelsToCurrentDisplay')?.handler(undefined);
+    registry.get('resetPanelWindowLayout')?.handler(undefined);
+
+    expect(latestBring).toHaveBeenCalledOnce();
+    expect(latestReset).toHaveBeenCalledOnce();
+  });
 });
 
 /**

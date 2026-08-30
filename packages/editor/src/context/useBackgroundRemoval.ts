@@ -109,10 +109,11 @@ export function useBackgroundRemoval(
   trimapStoreRef: React.MutableRefObject<
     Map<string, { data: Uint8Array; width: number; height: number }>
   >,
+  enabled = true,
 ): BackgroundRemovalAPI {
   const serviceRef = useRef<SubjectIsolationService | null>(null);
 
-  if (!serviceRef.current) {
+  if (enabled && !serviceRef.current) {
     serviceRef.current = new SubjectIsolationService();
   }
 
@@ -124,6 +125,12 @@ export function useBackgroundRemoval(
 
   const removeBackground = useCallback(
     async (method: BackgroundRemovalMethod) => {
+      if (!enabled) {
+        announcerRef.current?.announce(
+          'Background removal is available in the main editor window.',
+        );
+        return;
+      }
       const { getImageFill, isImageShape, imageShapeSrc } = await import('@varve/scene');
       const imageNode = state.selection
         .map((id) => state.document.nodes[id] as ShapeNode | undefined)
@@ -139,7 +146,8 @@ export function useBackgroundRemoval(
       const decoded = await decodeSource(src, announcerRef);
       if (!decoded) return;
 
-      const service = serviceRef.current!;
+      const service = serviceRef.current;
+      if (!service) return;
       bgRemovalAbortRef.current?.abort();
       bgRemovalAbortRef.current = new AbortController();
       processingBgNodeRef.current = processingNodeId;
@@ -210,7 +218,7 @@ export function useBackgroundRemoval(
         }
       }
     },
-    [state, announcerRef, bgRemovalAbortRef, processingBgNodeRef, stateRef, patch],
+    [enabled, state, announcerRef, bgRemovalAbortRef, processingBgNodeRef, stateRef, patch],
   );
 
   const cancelBackgroundRemoval = useCallback(() => {
@@ -222,6 +230,12 @@ export function useBackgroundRemoval(
 
   const removeBackgroundWithOptions = useCallback(
     async (method: BackgroundRemovalMethod, feather: number, decontaminate: boolean) => {
+      if (!enabled) {
+        announcerRef.current?.announce(
+          'Background removal is available in the main editor window.',
+        );
+        return;
+      }
       const { getImageFill, isImageShape, imageShapeSrc } = await import('@varve/scene');
       const imageNode = state.selection
         .map((id) => state.document.nodes[id] as ShapeNode | undefined)
@@ -237,7 +251,8 @@ export function useBackgroundRemoval(
       const decoded = await decodeSource(src, announcerRef);
       if (!decoded) return;
 
-      const service = serviceRef.current!;
+      const service = serviceRef.current;
+      if (!service) return;
       bgRemovalAbortRef.current?.abort();
       bgRemovalAbortRef.current = new AbortController();
       processingBgNodeRef.current = processingNodeId;
@@ -362,7 +377,16 @@ export function useBackgroundRemoval(
         }
       }
     },
-    [state, announcerRef, bgRemovalAbortRef, processingBgNodeRef, patch, stateRef, updateDoc],
+    [
+      enabled,
+      state,
+      announcerRef,
+      bgRemovalAbortRef,
+      processingBgNodeRef,
+      patch,
+      stateRef,
+      updateDoc,
+    ],
   );
 
   const setShowOriginalBg = useCallback(
@@ -373,6 +397,10 @@ export function useBackgroundRemoval(
   );
 
   const applyBackgroundRemovalPreview = useCallback(() => {
+    if (!enabled) {
+      announcerRef.current?.announce('Background removal is available in the main editor window.');
+      return;
+    }
     const preview = stateRef.current.backgroundRemovalPreviewSession;
     if (!preview) return;
     const currentState = stateRef.current;
@@ -425,7 +453,7 @@ export function useBackgroundRemoval(
           : `Background removal applied using ${preview.actualMethod} fallback`,
       );
     });
-  }, [stateRef, patch, announcerRef, updateDoc]);
+  }, [enabled, stateRef, patch, announcerRef, updateDoc]);
 
   const cancelBackgroundRemovalPreview = useCallback(() => {
     patch({ backgroundRemovalPreviewSession: null });
@@ -480,6 +508,12 @@ export function useBackgroundRemoval(
 
   const confirmSubjectPicker = useCallback(
     (keepIds: number[]) => {
+      if (!enabled) {
+        announcerRef.current?.announce(
+          'Background removal is available in the main editor window.',
+        );
+        return;
+      }
       const session = stateRef.current.subjectPickerSession;
       if (!session) return;
       void (async () => {
@@ -513,7 +547,7 @@ export function useBackgroundRemoval(
         );
       })();
     },
-    [stateRef, patch, announcerRef],
+    [enabled, stateRef, patch, announcerRef],
   );
 
   const cancelSubjectPicker = useCallback(() => {
@@ -522,6 +556,10 @@ export function useBackgroundRemoval(
   }, [patch, announcerRef]);
 
   const refineHairEdges = useCallback(async () => {
+    if (!enabled) {
+      announcerRef.current?.announce('Background removal is available in the main editor window.');
+      return;
+    }
     const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import('@varve/scene');
     const doc = state.document;
     const imageNode = state.selection
@@ -569,9 +607,13 @@ export function useBackgroundRemoval(
     } catch (e) {
       announcerRef.current?.announce(`Edge refinement failed: ${(e as Error).message}`);
     }
-  }, [state, announcerRef, updateDoc]);
+  }, [enabled, state, announcerRef, updateDoc]);
 
   const startTrimapEdit = useCallback(() => {
+    if (!enabled) {
+      announcerRef.current?.announce('Background removal is available in the main editor window.');
+      return;
+    }
     const nodeId = state.selection[0];
     if (!nodeId) {
       announcerRef.current?.announce('Select an image first');
@@ -581,9 +623,13 @@ export function useBackgroundRemoval(
     announcerRef.current?.announce(
       'Trimap edit: 1=foreground, 2=unknown, 3=background. Escape to finish.',
     );
-  }, [state, announcerRef, patch]);
+  }, [enabled, state, announcerRef, patch]);
 
   const applyTrimapMatting = useCallback(async () => {
+    if (!enabled) {
+      announcerRef.current?.announce('Background removal is available in the main editor window.');
+      return;
+    }
     const nodeId = state.selection[0];
     if (!nodeId) return;
     const trimapEntry = trimapStoreRef.current.get(nodeId);
@@ -630,7 +676,7 @@ export function useBackgroundRemoval(
     } catch (e) {
       announcerRef.current?.announce(`Trimap matting failed: ${(e as Error).message}`);
     }
-  }, [state, trimapStoreRef, announcerRef, updateDoc, patch]);
+  }, [enabled, state, trimapStoreRef, announcerRef, updateDoc, patch]);
 
   const getTrimapData = useCallback(
     (nodeId: NodeId) => trimapStoreRef.current.get(nodeId) ?? null,

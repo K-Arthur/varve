@@ -69,6 +69,64 @@ describe('EditorProvider characterization — auto-save/backup freshness', () =>
   });
 });
 
+describe('EditorProvider projection mode', () => {
+  it('does not create an autosave or backup owner for an auxiliary panel projection', async () => {
+    let context: ReturnType<typeof useEditor> | undefined;
+    const onMutation = vi.fn();
+    function Probe() {
+      context = useEditor();
+      return null;
+    }
+
+    render(
+      <EditorProvider projectionMode onMutation={onMutation} disablePersistentHistory>
+        <Probe />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(context).toBeDefined());
+    expect(getBackupService()).toBeNull();
+    context?.updateDoc((document) => ({ ...document, nextId: document.nextId + 1 }));
+    await waitFor(() => expect(onMutation).toHaveBeenCalledTimes(1));
+    expect(onMutation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseDocumentRevision: 0,
+        documentJson: expect.stringContaining('"nextId"'),
+      }),
+    );
+    expect(getBackupService()).toBeNull();
+  });
+
+  it('forwards the primary snapshot revision as an optimistic mutation base', async () => {
+    let context: ReturnType<typeof useEditor> | undefined;
+    const onMutation = vi.fn();
+    function Probe() {
+      context = useEditor();
+      return null;
+    }
+
+    render(
+      <EditorProvider
+        projectionMode
+        initialDocumentRevision={12}
+        onMutation={onMutation}
+        disablePersistentHistory
+      >
+        <Probe />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(context).toBeDefined());
+    context?.updateDoc((document) => ({ ...document, nextId: document.nextId + 1 }));
+
+    await waitFor(() => {
+      expect(onMutation).toHaveBeenCalledWith(
+        expect.objectContaining({ baseDocumentRevision: 12 }),
+      );
+    });
+  });
+});
+
 describe('EditorProvider characterization — context value identity', () => {
   it('useSelection() returns a new reference when selection changes', async () => {
     let selectionCtx: ReturnType<typeof useSelection> | undefined;

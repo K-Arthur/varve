@@ -5,11 +5,11 @@
  * registry and the shell can never drift (assertPanelInvariants enforces
  * the identity of the two sets).
  *
- * Every panel is detachable: the generic lifecycle + bounded local-state
- * codec (panelLifecycle.ts) satisfies the registry's detach contract, and
- * the transfer state machine guards the transaction. Panels opt out by
- * setting `detachable: false` when they need canvas/renderer access or
- * custom lifecycle behavior.
+ * A panel is detachable only when both sides of the transfer exist today:
+ * a primary-window detach control and an auxiliary renderer. The generic
+ * lifecycle + bounded local-state codec (panelLifecycle.ts) is attached only
+ * to that supported subset; registering a panel as detachable is not a
+ * promise for future work.
  *
  * Metadata mirrors the 2026-08-05 audit:
  * - layers/inspector stay mounted when hidden (inactivePolicy
@@ -99,8 +99,11 @@ const definitions: PanelDefinition[] = [
     instancePolicy: 'singleton',
     documentRequirement: 'active-document',
     selectionScope: 'shared',
-    allowedHosts: ['primary-sidebar', 'auxiliary-window'],
-    detachable: true,
+    // Timeline has a primary drag handle, but no auxiliary renderer yet.
+    // Keeping it primary-only removes a control that would create an empty
+    // destination window.
+    allowedHosts: ['primary-sidebar'],
+    detachable: false,
     dockable: true,
     minimumSize: { width: 320, height: 120 },
     preferredSize: { width: 720, height: 240 },
@@ -127,7 +130,9 @@ const definitions: PanelDefinition[] = [
     documentRequirement: 'active-document',
     selectionScope: 'none',
     allowedHosts: ['primary-sidebar', 'auxiliary-window'],
-    detachable: true,
+    // PageNav has an auxiliary renderer, but no primary detach affordance
+    // yet. Do not advertise a transfer command until the control exists.
+    detachable: false,
     dockable: true,
     minimumSize: { width: 160, height: 100 },
     preferredSize: { width: 220, height: 140 },
@@ -236,8 +241,8 @@ const definitions: PanelDefinition[] = [
     instancePolicy: 'singleton',
     documentRequirement: 'active-document',
     selectionScope: 'none',
-    allowedHosts: ['primary-sidebar', 'auxiliary-window'],
-    detachable: true,
+    allowedHosts: ['primary-sidebar'],
+    detachable: false,
     dockable: true,
     minimumSize: { width: 200, height: 120 },
     preferredSize: { width: 280, height: 320 },
@@ -263,11 +268,15 @@ const definitions: PanelDefinition[] = [
 export function registerBuiltinPanels(): void {
   const wiring = getBuiltinDetachableWiring();
   for (const def of definitions) {
-    registerPanel({
-      ...def,
-      lifecycle: wiring.lifecycle,
-      localStateCodec: wiring.localStateCodec,
-    });
+    registerPanel(
+      def.detachable
+        ? {
+            ...def,
+            lifecycle: wiring.lifecycle,
+            localStateCodec: wiring.localStateCodec,
+          }
+        : def,
+    );
   }
 }
 

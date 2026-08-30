@@ -31,6 +31,8 @@ import {
 } from '../panelRegistry';
 import type { PanelId } from '../workspaceTypes';
 
+const DETACHABLE_BUILTIN_PANEL_TYPES = ['layers', 'inspector', 'library', 'codegen', 'logo'];
+
 function detachableDefinition(overrides: Partial<PanelDefinition> = {}): PanelDefinition {
   const lifecycle: DetachablePanelLifecycle = {
     prepareForTransfer: async () => ({
@@ -109,17 +111,28 @@ describe('panel registry: built-in registration', () => {
     expect([...union].sort()).toEqual(registered);
   });
 
-  it('M7+ contract: every built-in panel is detachable with lifecycle + codec', () => {
+  it('only advertises panels with both a detach control and auxiliary renderer as detachable', () => {
     registerBuiltinPanels();
     const detachable = listDetachablePanels();
-    expect(detachable).toHaveLength(ALL_PANEL_TYPES.length);
+    expect(detachable.map((def) => def.id)).toEqual(DETACHABLE_BUILTIN_PANEL_TYPES);
     for (const id of ALL_PANEL_TYPES) {
       const def = getPanelDefinition(id);
-      expect(isPanelDetachable(id)).toBe(true);
-      expect(def.lifecycle?.prepareForTransfer).toBeDefined();
-      expect(def.lifecycle?.restoreFromTransfer).toBeDefined();
-      expect(def.localStateCodec).toBeDefined();
+      const isDetachable = DETACHABLE_BUILTIN_PANEL_TYPES.includes(id);
+      expect(isPanelDetachable(id)).toBe(isDetachable);
+      if (isDetachable) {
+        expect(def.lifecycle?.prepareForTransfer).toBeDefined();
+        expect(def.lifecycle?.restoreFromTransfer).toBeDefined();
+        expect(def.localStateCodec).toBeDefined();
+      } else {
+        expect(def.lifecycle).toBeUndefined();
+        expect(def.localStateCodec).toBeUndefined();
+      }
     }
+
+    expect(getPanelDefinition('timeline').allowedHosts).toEqual(['primary-sidebar']);
+    expect(getPanelDefinition('history').allowedHosts).toEqual(['primary-sidebar']);
+    // PageNav has a renderer, but no primary detach affordance yet.
+    expect(getPanelDefinition('pagenav').allowedHosts).toContain('auxiliary-window');
   });
 
   it('throws on duplicate registration', () => {
@@ -279,11 +292,16 @@ describe('panel registry: queries and derived commands', () => {
     }
   });
 
-  it('every built-in panel exposes detach/move commands (M7+)', () => {
+  it('derives detach/move commands only for the supported detachable subset', () => {
     for (const id of ALL_PANEL_TYPES) {
       const commands = getPanelCommandIds(id);
-      expect(commands.detach).toBe(`panel.${id}.detach`);
-      expect(commands.moveTo).toBe(`panel.${id}.moveTo`);
+      if (DETACHABLE_BUILTIN_PANEL_TYPES.includes(id)) {
+        expect(commands.detach).toBe(`panel.${id}.detach`);
+        expect(commands.moveTo).toBe(`panel.${id}.moveTo`);
+      } else {
+        expect(commands.detach).toBeUndefined();
+        expect(commands.moveTo).toBeUndefined();
+      }
       expect(commands.reattach).toBe(`panel.${id}.reattach`);
     }
   });

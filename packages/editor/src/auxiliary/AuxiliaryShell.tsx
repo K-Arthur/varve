@@ -15,8 +15,11 @@
  */
 
 import type { CSSProperties } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorProvider } from '../context';
+import { PanelHostProvider } from '../workspace/PanelHostContext';
+import '../workspace/bootstrap';
+import { type PanelTypeId, tryGetPanelDefinition } from '../workspace/panelRegistry';
 import { AuxiliarySessionProvider, useAuxiliarySession } from './AuxiliaryProvider';
 import { renderAuxiliaryPanel } from './panelContentRegistry';
 
@@ -28,6 +31,26 @@ export interface AuxiliaryWindowInfo {
   windowId: string;
   sessionId: string;
   panelTypeIds: string[];
+  /** Present only while a primary-originated detach is hydrating. */
+  transactionId?: string;
+  /** Canonical source-panel identity paired with `transactionId`. */
+  panelInstanceId?: string;
+  /** Reserved for a future reload/recovery coordinator. */
+  generation?: number;
+}
+
+const AUXILIARY_ROUTE_ID = /^[A-Za-z0-9_-]{1,128}$/;
+// Must stay congruent with @varve/platform's WorkspaceWindowId contract.
+// This parser is deliberately a narrow route boundary and does not import a
+// platform adapter just to validate untrusted URL text.
+const WORKSPACE_WINDOW_ROUTE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+function isAuxiliaryRouteId(value: string | null): value is string {
+  return value !== null && AUXILIARY_ROUTE_ID.test(value);
+}
+
+function isWorkspaceWindowRouteId(value: string | null): value is string {
+  return value !== null && WORKSPACE_WINDOW_ROUTE_ID.test(value);
 }
 
 export function parseAuxiliaryWindowParams(url?: string): AuxiliaryWindowInfo | null {
@@ -37,11 +60,38 @@ export function parseAuxiliaryWindowParams(url?: string): AuxiliaryWindowInfo | 
 
   const windowId = params.get('windowId');
   const sessionId = params.get('session');
-  if (!windowId || !sessionId) return null;
+  const transactionId = params.get('transaction');
+  const panelInstanceId = params.get('panelInstanceId');
+  if (
+    !isWorkspaceWindowRouteId(windowId) ||
+    !isAuxiliaryRouteId(sessionId) ||
+    !isAuxiliaryRouteId(transactionId) ||
+    !isAuxiliaryRouteId(panelInstanceId)
+  ) {
+    return null;
+  }
 
   const panelTypes = (params.get('panels') ?? '').split(',').filter(Boolean);
+  // Model A admits one registered detachable panel per auxiliary window.
+  // Reject a forged, grouped, or unsupported route before it even creates a
+  // session transport; broker admission remains the second trust boundary.
+  if (panelTypes.length !== 1 || !tryGetPanelDefinition(panelTypes[0] as PanelTypeId)?.detachable) {
+    return null;
+  }
+  const rawGeneration = params.get('generation');
+  if (rawGeneration !== null && !/^\d+$/.test(rawGeneration)) return null;
+  const generation = rawGeneration === null ? undefined : Number(rawGeneration);
+  if (generation !== undefined && (!Number.isSafeInteger(generation) || generation < 1))
+    return null;
 
-  return { windowId, sessionId, panelTypeIds: panelTypes };
+  return {
+    windowId,
+    sessionId,
+    panelTypeIds: panelTypes,
+    transactionId,
+    panelInstanceId,
+    ...(generation === undefined ? {} : { generation }),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -50,16 +100,70 @@ export function parseAuxiliaryWindowParams(url?: string): AuxiliaryWindowInfo | 
 
 function PanelHost({ panelTypeId }: { panelTypeId: string }) {
   const content = useMemo(() => renderAuxiliaryPanel(panelTypeId), [panelTypeId]);
+  const { state, acknowledgeHydration, reportHydrationFailure } = useAuxiliarySession();
+  const rootRef = useRef<HTMLElement>(null);
+  const restoredTransactionRef = useRef<string | null>(null);
+
+  // The destination must have both a committed React subtree and its bounded
+  // presentation state before it tells the primary that the source may hide.
+  // This is intentionally a host effect, rather than a provider effect: the
+  // lifecycle restores DOM-local panel state and therefore needs this root.
+  useEffect(() => {
+    const transfer = state.transfer;
+    if (!transfer || transfer.panelTypeId !== panelTypeId) return;
+    if (restoredTransactionRef.current === transfer.transactionId) return;
+
+    const definition = tryGetPanelDefinition(panelTypeId as PanelTypeId);
+    if (!content || !definition?.lifecycle?.restoreFromTransfer || !transfer.transferSnapshot) {
+      reportHydrationFailure('The requested panel host cannot restore this transfer.');
+      return;
+    }
+
+    let cancelled = false;
+    void definition.lifecycle
+      .restoreFromTransfer(transfer.transferSnapshot)
+      .then(() => {
+        if (cancelled) return;
+        restoredTransactionRef.current = transfer.transactionId;
+        acknowledgeHydration();
+        // The new native window is focused by the coordinator after this
+        // acknowledgement. Keep a meaningful local focus target ready.
+        requestAnimationFrame(() => rootRef.current?.focus());
+      })
+      .catch(() => {
+        if (!cancelled) {
+          reportHydrationFailure('The panel state could not be restored safely.');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [acknowledgeHydration, content, panelTypeId, reportHydrationFailure, state.transfer]);
 
   if (content === null) {
     return (
-      <div style={styles.unsupported}>
+      <div role="alert" style={styles.unsupported}>
         <strong>{panelTypeId}</strong> is not supported in a panel window yet.
       </div>
     );
   }
 
-  return <div style={styles.panelHost}>{content}</div>;
+  return (
+    <section
+      ref={rootRef}
+      data-panel-root={panelTypeId}
+      data-panel-type-id={panelTypeId}
+      aria-labelledby={`auxiliary-panel-heading-${panelTypeId}`}
+      tabIndex={-1}
+      style={styles.panelHost}
+    >
+      <h1 id={`auxiliary-panel-heading-${panelTypeId}`} style={styles.visuallyHidden}>
+        {panelTypeId} panel
+      </h1>
+      {content}
+    </section>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -150,6 +254,18 @@ function EmptyState({ onReattach }: { onReattach: () => void }) {
   );
 }
 
+function InvalidRouteState() {
+  return (
+    <main aria-label="Panel window unavailable" style={styles.state}>
+      <h1 style={styles.stateTitle}>Panel window unavailable</h1>
+      <p style={styles.stateBody}>
+        This panel window does not have a valid editor-session route. Return to the main window and
+        detach the panel again.
+      </p>
+    </main>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main shell
 // ---------------------------------------------------------------------------
@@ -160,10 +276,16 @@ function AuxiliaryShellInner({ info }: { info: AuxiliaryWindowInfo }) {
 
   // Forward local mutations + selection upstream to the primary.
   const handleMutation = useCallback(
-    (documentJson: string) => {
-      send('aux-doc-changed', { windowId: info.windowId, documentJson });
+    ({
+      documentJson,
+      baseDocumentRevision,
+    }: {
+      documentJson: string;
+      baseDocumentRevision: number;
+    }) => {
+      send('aux-doc-changed', { documentJson, baseDocumentRevision });
     },
-    [send, info.windowId],
+    [send],
   );
 
   const handleSelectionChange = useCallback(
@@ -216,6 +338,10 @@ function AuxiliaryShellInner({ info }: { info: AuxiliaryWindowInfo }) {
       ? panelTypeIds.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' + ')
       : 'Panel Window';
 
+  useEffect(() => {
+    document.title = `${title} — Varve`;
+  }, [title]);
+
   return (
     <div style={styles.shell}>
       <AuxiliaryTitleBar
@@ -228,28 +354,32 @@ function AuxiliaryShellInner({ info }: { info: AuxiliaryWindowInfo }) {
         onReattach={reattach}
       />
 
-      {!connected || !snapshot ? (
-        <ConnectingState />
-      ) : panelTypeIds.length === 0 ? (
-        <EmptyState onReattach={reattach} />
-      ) : (
-        <div style={styles.content}>
-          {editorMounted && (
-            <EditorProvider
-              initialDocumentJson={snapshot.documentJson}
-              initialDocumentName={snapshot.activeDocumentName || undefined}
-              externalState={state.externalState}
-              onMutation={handleMutation}
-              onSelectionChange={handleSelectionChange}
-              disablePersistentHistory
-            >
-              {panelTypeIds.map((panelTypeId) => (
-                <PanelHost key={panelTypeId} panelTypeId={panelTypeId} />
-              ))}
-            </EditorProvider>
-          )}
-        </div>
-      )}
+      <main aria-label={`${title} panel window`} style={styles.main}>
+        {!connected || !snapshot ? (
+          <ConnectingState />
+        ) : panelTypeIds.length === 0 ? (
+          <EmptyState onReattach={reattach} />
+        ) : (
+          <div style={styles.content}>
+            {editorMounted && (
+              <EditorProvider
+                initialDocumentJson={snapshot.documentJson}
+                initialDocumentName={snapshot.activeDocumentName || undefined}
+                initialDocumentRevision={snapshot.documentRevision}
+                externalState={state.externalState}
+                onMutation={handleMutation}
+                onSelectionChange={handleSelectionChange}
+                disablePersistentHistory
+                projectionMode
+              >
+                {panelTypeIds.map((panelTypeId) => (
+                  <PanelHost key={panelTypeId} panelTypeId={panelTypeId} />
+                ))}
+              </EditorProvider>
+            )}
+          </div>
+        )}
+      </main>
     </div>
   );
 }
@@ -264,24 +394,25 @@ export interface AuxiliaryRootProps {
 }
 
 export function AuxiliaryRoot({ windowInfo: overrideInfo }: AuxiliaryRootProps = {}) {
-  const info = useMemo(
-    () =>
-      overrideInfo ??
-      parseAuxiliaryWindowParams() ?? {
-        windowId: 'unknown',
-        sessionId: 'unknown',
-        panelTypeIds: [],
-      },
-    [overrideInfo],
-  );
+  const info = useMemo(() => overrideInfo ?? parseAuxiliaryWindowParams(), [overrideInfo]);
+
+  // Do not create a transport for a forged or incomplete route. The broker
+  // independently validates every accepted host, but no untrusted page
+  // should get as far as broadcasting a readiness message.
+  if (!info) return <InvalidRouteState />;
 
   return (
     <AuxiliarySessionProvider
       windowId={info.windowId}
       sessionId={info.sessionId}
       panelTypeIds={info.panelTypeIds}
+      transactionId={info.transactionId}
+      panelInstanceId={info.panelInstanceId}
+      generation={info.generation}
     >
-      <AuxiliaryShellInner info={info} />
+      <PanelHostProvider windowId={info.windowId} isAuxiliary>
+        <AuxiliaryShellInner info={info} />
+      </PanelHostProvider>
     </AuxiliarySessionProvider>
   );
 }
@@ -352,6 +483,13 @@ const styles: Record<string, CSSProperties> = {
     overflow: 'hidden',
     minHeight: 0,
   },
+  main: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    minHeight: 0,
+  },
   state: {
     flex: 1,
     display: 'flex',
@@ -368,5 +506,16 @@ const styles: Record<string, CSSProperties> = {
     padding: 24,
     textAlign: 'center',
     opacity: 0.6,
+  },
+  visuallyHidden: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: -1,
+    overflow: 'hidden',
+    clip: 'rect(0, 0, 0, 0)',
+    whiteSpace: 'nowrap',
+    border: 0,
   },
 };

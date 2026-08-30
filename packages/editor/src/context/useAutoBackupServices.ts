@@ -4,12 +4,13 @@ import { useEffect, useRef } from 'react';
 import { AutoSaveService } from '../autoSaveService';
 import { BackupService } from '../backupService';
 import { loadSettings as loadUiSettings } from '../components/Settings/settings';
-import type { RecoveryManager } from '../recovery';
+import { getSharedRecoveryManager, type RecoveryManager } from '../recovery';
 import type { EditorState } from './types';
 
 export interface AutoBackupServices {
   autoSaveRef: React.MutableRefObject<AutoSaveService | null>;
   backupRef: React.MutableRefObject<BackupService | null>;
+  recoveryRef: React.MutableRefObject<RecoveryManager | null>;
 }
 
 /**
@@ -23,11 +24,15 @@ export interface AutoBackupServices {
 export function useAutoBackupServices(
   platform: Platform | undefined,
   stateRef: React.MutableRefObject<EditorState>,
-  recoveryRef: React.MutableRefObject<RecoveryManager | null>,
+  enabled = true,
 ): AutoBackupServices {
+  const recoveryRef = useRef<RecoveryManager | null>(null);
+  if (enabled && !recoveryRef.current) {
+    recoveryRef.current = getSharedRecoveryManager();
+  }
   /** Auto-save service ref for lifecycle-triggered saves. */
   const autoSaveRef = useRef<AutoSaveService | null>(null);
-  if (!autoSaveRef.current && platform) {
+  if (enabled && !autoSaveRef.current && platform) {
     const uiSettings = loadUiSettings();
     autoSaveRef.current = new AutoSaveService(
       () => {
@@ -64,7 +69,7 @@ export function useAutoBackupServices(
   }
   /** Automatic versioned-backup service (distinct from crash-recovery auto-save). */
   const backupRef = useRef<BackupService | null>(null);
-  if (!backupRef.current) {
+  if (enabled && !backupRef.current) {
     backupRef.current = new BackupService();
     void backupRef.current.initialize();
   }
@@ -75,5 +80,5 @@ export function useAutoBackupServices(
       void backupRef.current?.shutdown();
     };
   }, []);
-  return { autoSaveRef, backupRef };
+  return { autoSaveRef, backupRef, recoveryRef };
 }

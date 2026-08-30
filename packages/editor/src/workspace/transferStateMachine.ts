@@ -129,7 +129,15 @@ export class TransferStateMachine {
       state: nextState,
       updatedAt: Date.now(),
     };
-    this.transactions.set(transactionId, updated);
+    // Terminal transactions have no further owner. Retaining every completed
+    // detach/dock in this process-wide coordinator turns ordinary panel use
+    // into a slow leak, so expose the final idle snapshot to the caller but
+    // immediately release the map entry.
+    if (nextState === 'idle') {
+      this.transactions.delete(transactionId);
+    } else {
+      this.transactions.set(transactionId, updated);
+    }
     return updated;
   }
 

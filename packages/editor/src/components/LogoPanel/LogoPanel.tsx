@@ -15,9 +15,10 @@
 
 import type { LogoConceptStatus, LogoVariantKind } from '@varve/scene';
 import { Button, EmptyState, Icon, Select, Tooltip } from '@varve/ui';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useEditor } from '../../context';
-import { PanelDragHandle } from '../PanelDragHandle';
+import { usePanelLocalState } from '../../workspace/panelLocalState';
+import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { VectorizeWorkflow } from '../Vectorize/VectorizeWorkflow';
 import { ExportPackageSection } from './ExportPackageSection';
 import { LogoTypographySection } from './LogoTypographySection';
@@ -78,7 +79,11 @@ export function LogoPanel() {
   const editor = useEditor();
   const { document: doc, selection } = editor.state;
   const project = doc.logoProject;
-  const [variantKind, setVariantKind] = useState<LogoVariantKind>('monochrome');
+  const [variantKind, setVariantKind] = usePanelLocalState<LogoVariantKind>(
+    'logo',
+    'variantKind',
+    'monochrome',
+  );
 
   const activeConcept = useMemo(
     () => project?.concepts.find((c) => c.id === activeConceptId(editor)) ?? null,
@@ -96,7 +101,7 @@ export function LogoPanel() {
   const previewDisabledReason = selection.length > 0 ? undefined : 'Select a layer first';
 
   return (
-    <section className="logo-panel" aria-label="Logo panel">
+    <section className="logo-panel" data-panel-root="logo" aria-label="Logo panel">
       <PanelDragHandle
         panelTypeId="logo"
         panelInstanceId="logo-primary"
@@ -108,12 +113,15 @@ export function LogoPanel() {
             <Icon name="Stamp" size={16} />
             <h2 className="logo-panel__title">Logo</h2>
           </div>
-          {project && (
-            <span className="logo-panel__status" role="status">
-              {project.concepts.length} concept{project.concepts.length === 1 ? '' : 's'} ·{' '}
-              {project.variants.length} variant{project.variants.length === 1 ? '' : 's'}
-            </span>
-          )}
+          <div className="logo-panel__header-actions">
+            {project && (
+              <span className="logo-panel__status" role="status">
+                {project.concepts.length} concept{project.concepts.length === 1 ? '' : 's'} ·{' '}
+                {project.variants.length} variant{project.variants.length === 1 ? '' : 's'}
+              </span>
+            )}
+            <PanelDetachButton />
+          </div>
         </header>
       </PanelDragHandle>
 

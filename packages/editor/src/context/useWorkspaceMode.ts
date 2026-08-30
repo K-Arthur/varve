@@ -108,6 +108,7 @@ export function useWorkspaceMode(
   announcerRef: MutableRefObject<{ announce: (message: string) => void } | null>,
   workspaceSwitchInProgressRef: MutableRefObject<boolean>,
   platform?: Platform,
+  enabled = true,
 ) {
   // Read by the async hydration below, which must not act on a mode the user
   // has since switched away from.
@@ -118,15 +119,16 @@ export function useWorkspaceMode(
   // mount, never during initial-state construction: the store notifies its
   // subscribers on write, and doing that mid-render produces extra renders.
   useEffect(() => {
+    if (!enabled) return;
     migrateLegacyPanelSettings(BOOT_WORKSPACE_MODE);
-  }, []);
+  }, [enabled]);
 
   // Fold durable preferences (SQLite on desktop, IndexedDB on web) into the
   // session snapshot once. localStorage alone is not enough: on WebKitGTK it
   // has been observed not surviving between launches, which would silently
   // discard every per-workspace customization on the primary Linux target.
   useEffect(() => {
-    if (!platform) return;
+    if (!enabled || !platform) return;
     let cancelled = false;
     void hydrateWorkspacePreferencesFromPlatform(platform).then((changed) => {
       if (cancelled || !changed) return;
@@ -140,10 +142,11 @@ export function useWorkspaceMode(
     return () => {
       cancelled = true;
     };
-  }, [platform, patch]);
+  }, [enabled, platform, patch]);
 
   const __setWorkspaceModeUnsafe = useCallback(
     (mode: WorkspaceMode) => {
+      if (!enabled) return;
       applyWorkspaceConfig(
         getEffectiveWorkspaceConfig(mode),
         toolRef.current,
@@ -155,11 +158,12 @@ export function useWorkspaceMode(
       );
       announcerRef.current?.announce(`Switched to ${WORKSPACE_LABELS[mode]} workspace`);
     },
-    [state.tool, patch, announcerRef],
+    [enabled, state.tool, patch, announcerRef],
   );
 
   const requestWorkspaceSwitch = useCallback(
     (mode: WorkspaceMode, options?: { force?: boolean }): Promise<boolean> => {
+      if (!enabled) return Promise.resolve(false);
       if (workspaceSwitchInProgressRef.current) return Promise.resolve(false);
       if (mode === state.workspaceMode) return Promise.resolve(false);
       // A deployment may expose only some workspaces. This is the one place
@@ -193,10 +197,11 @@ export function useWorkspaceMode(
         workspaceSwitchInProgressRef.current = false;
       }
     },
-    [state, patch, toolRef, announcerRef, workspaceSwitchInProgressRef],
+    [enabled, state, patch, toolRef, announcerRef, workspaceSwitchInProgressRef],
   );
 
   const resetWorkspaceToDefault = useCallback(() => {
+    if (!enabled) return;
     const mode = state.workspaceMode;
     // Clear this mode's saved customizations FIRST. Resolving the effective
     // config before the reset would merge in the very overrides being
@@ -209,15 +214,16 @@ export function useWorkspaceMode(
     applyWorkspaceConfig(getWorkspaceConfig(mode), toolRef.current, patch, undefined, toolRef);
     emitWorkspaceReset({ kind: 'mode', mode });
     announcerRef.current?.announce(`Reset ${WORKSPACE_LABELS[mode]} workspace to defaults`);
-  }, [state.workspaceMode, state.tool, patch, announcerRef]);
+  }, [enabled, state.workspaceMode, state.tool, patch, announcerRef]);
 
   const resetAllWorkspacesToDefaults = useCallback(() => {
+    if (!enabled) return;
     const mode = state.workspaceMode;
     updateWorkspacePreferences(() => resetAllPreferences());
     applyWorkspaceConfig(getWorkspaceConfig(mode), toolRef.current, patch, undefined, toolRef);
     emitWorkspaceReset({ kind: 'all' });
     announcerRef.current?.announce('Reset all workspaces to defaults');
-  }, [state.workspaceMode, state.tool, patch, announcerRef]);
+  }, [enabled, state.workspaceMode, state.tool, patch, announcerRef]);
 
   return {
     __setWorkspaceModeUnsafe,

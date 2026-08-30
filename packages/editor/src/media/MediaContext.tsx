@@ -42,11 +42,26 @@ export interface MediaContextValue {
   mediaTime: () => number;
 }
 
+const MediaCtx = createContext<MediaContextValue | null>(null);
+
+/** No-op fallback before MediaProvider mounts (mirrors motion NOOP). */
+const MEDIA_NOOP: MediaContextValue = {
+  playMedia: () => {},
+  pauseMedia: () => {},
+  toggleMedia: () => {},
+  seekMedia: () => {},
+  stepMediaFrame: () => {},
+  isMediaPlaying: () => false,
+  mediaTime: () => 0,
+};
+
 interface MediaProviderProps {
   children: ReactNode;
   state: EditorState;
   setState: React.Dispatch<React.SetStateAction<EditorState>>;
   stateRef: React.MutableRefObject<EditorState>;
+  /** Auxiliary projections must not own media sessions, cache subscriptions, or clocks. */
+  enabled?: boolean;
   onReady?: (value: MediaContextValue) => void;
 }
 
@@ -55,6 +70,7 @@ export function MediaProvider({
   state,
   setState,
   stateRef,
+  enabled = true,
   onReady,
 }: MediaProviderProps) {
   const frameKeyRef = useRef<string | null>(null);
@@ -78,12 +94,14 @@ export function MediaProvider({
 
   // Register sessions for animated assets whenever the document changes.
   useEffect(() => {
+    if (!enabled) return;
     installMediaFrameResolver();
     syncMediaSessions(state.document);
-  }, [state.document]);
+  }, [enabled, state.document]);
 
   // Motion sync: while the motion timeline plays, media follows motion time.
   useEffect(() => {
+    if (!enabled) return;
     const motion = stateRef.current.motion;
     if (motion.isPlaying && stateRef.current.media.source !== 'motion') {
       patchMedia({ source: 'motion', isPlaying: true, currentTime: motion.currentTime });
@@ -91,11 +109,12 @@ export function MediaProvider({
     if (!motion.isPlaying && stateRef.current.media.source === 'motion') {
       patchMedia({ source: 'media', isPlaying: playingRef.current });
     }
-  }, [state.document, stateRef, patchMedia, state.motion.isPlaying]);
+  }, [enabled, state.document, stateRef, patchMedia, state.motion.isPlaying]);
 
   // Follow motion time while slaved (also primes frames + advances the
   // presented stamp — one authoritative clock, no second clock).
   useEffect(() => {
+    if (!enabled) return;
     if (state.media.source === 'motion' && state.media.isPlaying) {
       const time = stateRef.current.motion.currentTime;
       const stamp = tickMediaPresentation(stateRef.current.document, time);
@@ -103,10 +122,18 @@ export function MediaProvider({
         patchMedia({ currentTime: time, presentedStamp: stamp });
       }
     }
-  }, [state.motion.currentTime, state.media.source, state.media.isPlaying, patchMedia, stateRef]);
+  }, [
+    enabled,
+    state.motion.currentTime,
+    state.media.source,
+    state.media.isPlaying,
+    patchMedia,
+    stateRef,
+  ]);
 
   // Media-driven clock: one RAF job via the coordinated scheduler.
   useEffect(() => {
+    if (!enabled) return;
     if (state.media.source !== 'media' || !state.media.isPlaying) return;
     playingRef.current = true;
     const key = createEditorFrameKey('media');
@@ -131,9 +158,10 @@ export function MediaProvider({
       playingRef.current = false;
       frameKeyRef.current = null;
     };
-  }, [state.media.source, state.media.isPlaying, patchMedia, patch, stateRef]);
+  }, [enabled, state.media.source, state.media.isPlaying, patchMedia, patch, stateRef]);
 
   const playMedia = useCallback(() => {
+    if (!enabled) return;
     commandVersionRef.current += 1;
     playingRef.current = true;
     const stamp = tickMediaPresentation(
@@ -152,21 +180,24 @@ export function MediaProvider({
         presentedStamp: stamp,
       },
     });
-  }, [patch, stateRef]);
+  }, [enabled, patch, stateRef]);
 
   const pauseMedia = useCallback(() => {
+    if (!enabled) return;
     commandVersionRef.current += 1;
     playingRef.current = false;
     patchMedia({ isPlaying: false });
-  }, [patchMedia]);
+  }, [enabled, patchMedia]);
 
   const toggleMedia = useCallback(() => {
+    if (!enabled) return;
     if (stateRef.current.media.isPlaying) pauseMedia();
     else playMedia();
-  }, [pauseMedia, playMedia, stateRef]);
+  }, [enabled, pauseMedia, playMedia, stateRef]);
 
   const seekMedia = useCallback(
     (timeMs: number) => {
+      if (!enabled) return;
       commandVersionRef.current += 1;
       const clamped = Math.max(0, timeMs);
       const stamp = tickMediaPresentation(stateRef.current.document, clamped);
@@ -179,11 +210,12 @@ export function MediaProvider({
         },
       });
     },
-    [patch, stateRef],
+    [enabled, patch, stateRef],
   );
 
   const stepMediaFrame = useCallback(
     (direction: 1 | -1) => {
+      if (!enabled) return;
       const media = stateRef.current.media;
       const commandVersion = ++commandVersionRef.current;
       void import('@varve/engine').then(({ frameIndexForTime, timeForFrame, buildFrameTiming }) => {
@@ -214,20 +246,23 @@ export function MediaProvider({
         }
       });
     },
-    [seekMedia, stateRef],
+    [enabled, seekMedia, stateRef],
   );
 
   const value = useMemo<MediaContextValue>(
-    () => ({
-      playMedia,
-      pauseMedia,
-      toggleMedia,
-      seekMedia,
-      stepMediaFrame,
-      isMediaPlaying: () => stateRef.current.media.isPlaying,
-      mediaTime: () => stateRef.current.media.currentTime,
-    }),
-    [playMedia, pauseMedia, toggleMedia, seekMedia, stepMediaFrame, stateRef],
+    () =>
+      enabled
+        ? {
+            playMedia,
+            pauseMedia,
+            toggleMedia,
+            seekMedia,
+            stepMediaFrame,
+            isMediaPlaying: () => stateRef.current.media.isPlaying,
+            mediaTime: () => stateRef.current.media.currentTime,
+          }
+        : MEDIA_NOOP,
+    [enabled, playMedia, pauseMedia, toggleMedia, seekMedia, stepMediaFrame, stateRef],
   );
 
   useEffect(() => {
@@ -236,6 +271,7 @@ export function MediaProvider({
 
   // Bridge media frame-cache arrivals (async decode completion) to a redraw.
   useEffect(() => {
+    if (!enabled) return;
     const unsubscribe = bridgeMediaCacheToRedraw(() => {
       const stamp = tickMediaPresentation(
         stateRef.current.document,
@@ -246,7 +282,7 @@ export function MediaProvider({
       }
     });
     return unsubscribe;
-  }, [patch, stateRef]);
+  }, [enabled, patch, stateRef]);
 
   return <MediaCtx.Provider value={value}>{children}</MediaCtx.Provider>;
 }
@@ -260,19 +296,6 @@ function isAnimatedUsage(node: import('@varve/scene').SceneNode, doc: Document):
       doc.assets?.[fill.image.assetId]?.animated !== undefined,
   );
 }
-
-const MediaCtx = createContext<MediaContextValue | null>(null);
-
-/** No-op fallback before MediaProvider mounts (mirrors motion NOOP). */
-const MEDIA_NOOP: MediaContextValue = {
-  playMedia: () => {},
-  pauseMedia: () => {},
-  toggleMedia: () => {},
-  seekMedia: () => {},
-  stepMediaFrame: () => {},
-  isMediaPlaying: () => false,
-  mediaTime: () => 0,
-};
 
 export function useMedia(): MediaContextValue {
   return useContext(MediaCtx) ?? MEDIA_NOOP;

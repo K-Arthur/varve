@@ -8,15 +8,16 @@
 
 import type { Document, Library } from '@varve/scene';
 import { Icon } from '@varve/ui';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef } from 'react';
 import { useEditor } from '../../context';
 import { getMockupsTabRequest, subscribeMockupsTab } from '../../mockup/mockupTabStore';
+import { usePanelLocalState } from '../../workspace/panelLocalState';
 import { AIPanel } from '../AIPanel';
 import { IconBrowser } from '../IconBrowser/IconBrowser';
 import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
 import { LibraryPanel } from '../LibraryPanel/LibraryPanel';
 import { MockupsPanel } from '../Mockups/MockupsPanel';
-import { PanelDragHandle } from '../PanelDragHandle';
+import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { PanelWidthDragEdge } from './PanelWidthDragEdge';
 import './ResourcesPanel.css';
 
@@ -35,7 +36,11 @@ type ResourcesTab = 'libraries' | 'icons' | 'mockups' | 'assistant';
 const TAB_ORDER: readonly ResourcesTab[] = ['icons', 'libraries', 'mockups', 'assistant'];
 
 export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: ResourcesPanelProps) {
-  const [activeTab, setActiveTab] = useState<ResourcesTab>('icons');
+  const [activeTab, setActiveTab] = usePanelLocalState<ResourcesTab>(
+    'library',
+    'activeTab',
+    'icons',
+  );
   const editor = useEditor();
   const baseId = useId();
   const tablistRef = useRef<HTMLDivElement>(null);
@@ -86,7 +91,7 @@ export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: Re
   }, []);
 
   return (
-    <section className="resources-panel" aria-label="Resources">
+    <section className="resources-panel" data-panel-root="library" aria-label="Resources">
       <PanelWidthDragEdge />
       <PanelDragHandle
         panelTypeId="library"
@@ -94,65 +99,68 @@ export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: Re
         currentWindowId="main"
         title="Assets"
       >
-        <div
-          className="resources-panel__tabs"
-          role="tablist"
-          aria-label="Resources"
-          ref={tablistRef}
-          onKeyDown={handleTabKeyDown}
-        >
-          <button
-            type="button"
-            role="tab"
-            id={tabId('icons')}
-            aria-selected={activeTab === 'icons'}
-            aria-controls={panelId('icons')}
-            tabIndex={activeTab === 'icons' ? 0 : -1}
-            className={`resources-panel__tab ${activeTab === 'icons' ? 'resources-panel__tab--active' : ''}`}
-            onClick={() => setActiveTab('icons')}
+        <div className="resources-panel__tabs-row">
+          <div
+            className="resources-panel__tabs"
+            role="tablist"
+            aria-label="Resources"
+            ref={tablistRef}
+            onKeyDown={handleTabKeyDown}
           >
-            <Icon name="Shapes" size={14} />
-            Icons
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id={tabId('libraries')}
-            aria-selected={activeTab === 'libraries'}
-            aria-controls={panelId('libraries')}
-            tabIndex={activeTab === 'libraries' ? 0 : -1}
-            className={`resources-panel__tab ${activeTab === 'libraries' ? 'resources-panel__tab--active' : ''}`}
-            onClick={() => setActiveTab('libraries')}
-          >
-            <Icon name="Library" size={14} />
-            Libraries
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id={tabId('mockups')}
-            aria-selected={activeTab === 'mockups'}
-            aria-controls={panelId('mockups')}
-            tabIndex={activeTab === 'mockups' ? 0 : -1}
-            className={`resources-panel__tab ${activeTab === 'mockups' ? 'resources-panel__tab--active' : ''}`}
-            onClick={() => setActiveTab('mockups')}
-          >
-            <Icon name="Smartphone" size={14} />
-            Mockups
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id={tabId('assistant')}
-            aria-selected={activeTab === 'assistant'}
-            aria-controls={panelId('assistant')}
-            tabIndex={activeTab === 'assistant' ? 0 : -1}
-            className={`resources-panel__tab ${activeTab === 'assistant' ? 'resources-panel__tab--active' : ''}`}
-            onClick={() => setActiveTab('assistant')}
-          >
-            <Icon name="Bot" size={14} />
-            Assistant
-          </button>
+            <button
+              type="button"
+              role="tab"
+              id={tabId('icons')}
+              aria-selected={activeTab === 'icons'}
+              aria-controls={panelId('icons')}
+              tabIndex={activeTab === 'icons' ? 0 : -1}
+              className={`resources-panel__tab ${activeTab === 'icons' ? 'resources-panel__tab--active' : ''}`}
+              onClick={() => setActiveTab('icons')}
+            >
+              <Icon name="Shapes" size={14} />
+              Icons
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id={tabId('libraries')}
+              aria-selected={activeTab === 'libraries'}
+              aria-controls={panelId('libraries')}
+              tabIndex={activeTab === 'libraries' ? 0 : -1}
+              className={`resources-panel__tab ${activeTab === 'libraries' ? 'resources-panel__tab--active' : ''}`}
+              onClick={() => setActiveTab('libraries')}
+            >
+              <Icon name="Library" size={14} />
+              Libraries
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id={tabId('mockups')}
+              aria-selected={activeTab === 'mockups'}
+              aria-controls={panelId('mockups')}
+              tabIndex={activeTab === 'mockups' ? 0 : -1}
+              className={`resources-panel__tab ${activeTab === 'mockups' ? 'resources-panel__tab--active' : ''}`}
+              onClick={() => setActiveTab('mockups')}
+            >
+              <Icon name="Smartphone" size={14} />
+              Mockups
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id={tabId('assistant')}
+              aria-selected={activeTab === 'assistant'}
+              aria-controls={panelId('assistant')}
+              tabIndex={activeTab === 'assistant' ? 0 : -1}
+              className={`resources-panel__tab ${activeTab === 'assistant' ? 'resources-panel__tab--active' : ''}`}
+              onClick={() => setActiveTab('assistant')}
+            >
+              <Icon name="Bot" size={14} />
+              Assistant
+            </button>
+          </div>
+          <PanelDetachButton />
         </div>
       </PanelDragHandle>
 

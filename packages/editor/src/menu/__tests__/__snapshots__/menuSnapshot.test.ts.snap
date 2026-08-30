@@ -2150,6 +2150,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "checked": false,
         "disabled": false,
         "group": "workspace",
@@ -3482,6 +3500,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
       },
       {
         "id": "sep-after-guides",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
         "separator": true,
       },
       {
@@ -4955,6 +4991,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
       },
       {
         "id": "sep-after-panels",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
         "separator": true,
       },
       {
@@ -6752,6 +6806,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "checked": false,
         "disabled": false,
         "group": "workspace",
@@ -8502,6 +8574,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "checked": false,
         "disabled": false,
         "group": "workspace",
@@ -10178,6 +10268,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
       },
       {
         "id": "sep-after-guides",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
         "separator": true,
       },
       {
@@ -11862,6 +11970,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "checked": false,
         "disabled": false,
         "group": "workspace",
@@ -13452,6 +13578,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
       },
       {
         "id": "sep-after-print",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
         "separator": true,
       },
       {
@@ -15064,6 +15208,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "checked": false,
         "disabled": false,
         "group": "workspace",
@@ -16504,6 +16666,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
       },
       {
         "id": "sep-after-panels",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
         "separator": true,
       },
       {
@@ -17977,6 +18157,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
       },
       {
         "id": "sep-after-print",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
         "separator": true,
       },
       {
@@ -19753,6 +19951,24 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "checked": false,
         "disabled": false,
         "group": "workspace",
@@ -21388,6 +21604,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen emp
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "checked": false,
         "disabled": false,
         "group": "workspace",
@@ -22720,6 +22954,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen wit
       },
       {
         "id": "sep-after-guides",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
         "separator": true,
       },
       {
@@ -24193,6 +24445,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
       },
       {
         "id": "sep-after-panels",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
         "separator": true,
       },
       {
@@ -25990,6 +26260,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "checked": false,
         "disabled": false,
         "group": "workspace",
@@ -27740,6 +28028,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "checked": false,
         "disabled": false,
         "group": "workspace",
@@ -29416,6 +29722,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
       },
       {
         "id": "sep-after-guides",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
         "separator": true,
       },
       {
@@ -31100,6 +31424,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image empty
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "checked": false,
         "disabled": false,
         "group": "workspace",
@@ -32690,6 +33032,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image with 
       },
       {
         "id": "sep-after-print",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
         "separator": true,
       },
       {
@@ -34302,6 +34662,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion empt
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "checked": false,
         "disabled": false,
         "group": "workspace",
@@ -35742,6 +36120,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion with
       },
       {
         "id": "sep-after-panels",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
         "separator": true,
       },
       {
@@ -37215,6 +37611,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
       },
       {
         "id": "sep-after-print",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
         "separator": true,
       },
       {
@@ -38987,6 +39401,24 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
       },
       {
         "id": "sep-after-print",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "bringAllPanelsToCurrentDisplay",
+        "label": "Bring All Panels to This Display",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "resetPanelWindowLayout",
+        "label": "Reset Window Layout",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-panel-recovery",
         "separator": true,
       },
       {

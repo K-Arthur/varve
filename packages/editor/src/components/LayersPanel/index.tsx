@@ -26,7 +26,8 @@ import {
 import { type LayersSettingsStore, loadSettings, updateSettings } from '../../settings';
 import { applyThumbnailPreference } from '../../thumbnail/thumbnailCommands';
 import { openThumbnailPicker } from '../../thumbnail/thumbnailPickerBridge';
-import { PanelDragHandle } from '../PanelDragHandle';
+import { usePanelLocalState } from '../../workspace/panelLocalState';
+import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { LayerBulkBar } from './LayerBulkBar';
 import { LayerFilterBar } from './LayerFilterBar';
 import type { LayersDnDHandle } from './LayersTree';
@@ -79,7 +80,11 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     platform,
     showToast,
   } = useEditor();
-  const [filterSpec, setFilterSpec] = useState<LayerFilterSpec>(DEFAULT_FILTER);
+  const [filterSpec, setFilterSpec] = usePanelLocalState<LayerFilterSpec>(
+    'layers',
+    'filterSpec',
+    DEFAULT_FILTER,
+  );
   const anySolo = useMemo(() => documentHasSolo(state.document), [state.document]);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -396,7 +401,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   const [iconBrowserOpen, setIconBrowserOpen] = useState(false);
 
   return (
-    <div className="editor-layers layers-panel">
+    <div className="editor-layers layers-panel" data-panel-root="layers">
       <PanelDragHandle
         panelTypeId="layers"
         panelInstanceId="layers-primary"
@@ -476,6 +481,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
                   </button>
                 </Tooltip>
               )}
+              <PanelDetachButton />
             </div>
           </TooltipProvider>
         </div>

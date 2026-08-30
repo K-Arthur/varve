@@ -2729,34 +2729,100 @@ input[type="number"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 3px;
-  background: transparent;
+  inline-size: max(28px, var(--space-6));
+  block-size: max(28px, var(--space-6));
+  min-inline-size: 28px;
+  min-block-size: 28px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
   cursor: grab;
-  opacity: 0.6;
   padding: 0;
-  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  flex: 0 0 auto;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard),
+    transform var(--duration-quick) var(--ease-standard);
 }
-.panel-detach-btn:hover {
-  opacity: 0.9;
+.panel-drag-handle .varve-tooltip-trigger {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.panel-detach-btn:hover:not(:disabled) {
+  border-color: var(--color-interactive-default);
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+.panel-detach-btn:active:not(:disabled) {
   background: var(--color-surface-sunken);
+  color: var(--color-interactive-active);
+  transform: translateY(1px);
 }
 .panel-detach-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
-  opacity: 1;
+  outline: 3px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+  color: var(--color-text-primary);
+}
+.panel-drag-handle .varve-tooltip-trigger:focus-visible {
+  outline: 3px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 .panel-detach-btn[data-transferring="true"] {
   cursor: wait;
-  opacity: 0.5;
+  color: var(--color-text-muted);
+  background: var(--color-surface-sunken);
+}
+.panel-detach-btn:disabled:not([data-transferring="true"]) {
+  cursor: not-allowed;
+  color: var(--color-text-disabled);
+  border-color: var(--color-border-subtle);
+  background: var(--color-interactive-disabled);
 }
 .panel-detach-btn--error {
   color: var(--color-feedback-danger);
-  opacity: 1;
+  border-color: var(--color-feedback-danger);
   outline: 2px solid var(--color-feedback-danger);
-  outline-offset: -1px;
+  outline-offset: 2px;
+}
+[data-theme="high-contrast"] .panel-detach-btn {
+  color: var(--color-text-primary);
+  border-width: 2px;
+  background: var(--color-surface-raised);
+}
+[data-theme="high-contrast"] .panel-detach-btn:hover:not(:disabled),
+[data-theme="high-contrast"] .panel-detach-btn:focus-visible {
+  color: var(--color-text-on-accent);
+  border-color: var(--color-interactive-default);
+  background: var(--color-interactive-default);
+}
+@media (forced-colors: active) {
+  .panel-detach-btn {
+    border: 2px solid ButtonText;
+    background: Canvas;
+    color: ButtonText;
+    forced-color-adjust: auto;
+  }
+  .panel-detach-btn:hover:not(:disabled),
+  .panel-detach-btn:focus-visible,
+  .panel-drag-handle .varve-tooltip-trigger:focus-visible {
+    outline-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+  .panel-detach-btn:disabled {
+    border-color: GrayText;
+    color: GrayText;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel-detach-btn {
+    transition: none;
+  }
 }
 
 /* Desktop panel collapse (Ctrl+B / Ctrl+Shift+B): the shell zeroes the grid

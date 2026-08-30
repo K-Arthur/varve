@@ -209,6 +209,30 @@ describe('transferStateMachine: queries', () => {
     sm.advance(tx.id, 'removing-source');
     sm.complete(tx.id);
     expect(sm.isTransferring('pi-1')).toBe(false);
+    expect(sm.list()).toEqual([]);
+  });
+
+  it('does not retain completed transactions across repeated panel lifecycle cycles', () => {
+    const sm = new TransferStateMachine();
+    for (let index = 0; index < 100; index += 1) {
+      const tx = sm.start({
+        direction: 'detach',
+        panelInstanceId: `pi-${index}`,
+        panelTypeId: 'layers',
+        sourceWindowId: 'main',
+        sourceNodeId: `source-${index}`,
+        targetWindowId: `aux-${index}`,
+      });
+      sm.advance(tx.id, 'creating-destination');
+      sm.advance(tx.id, 'waiting-ready');
+      sm.setSnapshot(tx.id, {});
+      sm.advance(tx.id, 'hydrating');
+      sm.advance(tx.id, 'acknowledged');
+      sm.advance(tx.id, 'committing');
+      sm.advance(tx.id, 'removing-source');
+      sm.complete(tx.id);
+    }
+    expect(sm.list()).toEqual([]);
   });
 });
 

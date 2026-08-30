@@ -27,8 +27,9 @@ import {
 } from '@varve/codegen';
 import type { Document, SceneNode } from '@varve/scene';
 import { CopyButton, Icon, type IconName, type Tab, Tabs } from '@varve/ui';
-import { useCallback, useMemo, useState } from 'react';
-import { PanelDragHandle } from '../PanelDragHandle';
+import { useCallback, useMemo } from 'react';
+import { usePanelLocalState } from '../../workspace/panelLocalState';
+import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { buildFilename, downloadBlob } from '../SpecPanel/export';
 import { highlight } from '../SpecPanel/syntax';
 
@@ -131,8 +132,16 @@ function getCodeLanguage(target: CodeTarget): string {
 /* ─────────────────────────────────────── */
 
 function CodegenTab({ doc, selection }: CodePanelProps) {
-  const [activeTarget, setActiveTarget] = useState<CodeTarget>('css');
-  const [previewSize, setPreviewSize] = useState<PreviewSize>('desktop');
+  const [activeTarget, setActiveTarget] = usePanelLocalState<CodeTarget>(
+    'codegen',
+    'activeTarget',
+    'css',
+  );
+  const [previewSize, setPreviewSize] = usePanelLocalState<PreviewSize>(
+    'codegen',
+    'previewSize',
+    'desktop',
+  );
 
   const activeNode = selection[0];
   const code = useMemo(
@@ -474,10 +483,14 @@ function ReadinessTab({ doc, selection }: CodePanelProps) {
 /* ─────────────────────────────────────── */
 
 export function CodePanel({ doc, selection }: CodePanelProps) {
-  const [activeTab, setActiveTab] = useState<PrimaryTab>('codegen');
+  const [activeTab, setActiveTab] = usePanelLocalState<PrimaryTab>(
+    'codegen',
+    'activeTab',
+    'codegen',
+  );
 
   return (
-    <div className="code-panel">
+    <div className="code-panel" data-panel-root="codegen">
       <PanelDragHandle
         panelTypeId="codegen"
         panelInstanceId="codegen-primary"
@@ -486,6 +499,7 @@ export function CodePanel({ doc, selection }: CodePanelProps) {
       >
         <div className="code-panel__header">
           <h2 className="code-panel__title">Codegen & Audit</h2>
+          <PanelDetachButton />
         </div>
       </PanelDragHandle>
 

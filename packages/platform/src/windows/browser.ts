@@ -11,6 +11,7 @@
  * degrade to the single best-effort display.
  */
 
+import { defaultPanelWindowRoute, parsePanelWindowRoute } from './panelRoute';
 import type {
   CreateWorkspaceWindowOptions,
   DisplayInfo,
@@ -26,8 +27,7 @@ const POPUP_BASE_URL = typeof location !== 'undefined' ? location.origin : 'http
 
 function currentWindowId(): WorkspaceWindowId {
   if (typeof location === 'undefined') return 'main';
-  const routed = new URLSearchParams(location.search).get('windowId');
-  return isWorkspaceWindowId(routed) ? routed : 'main';
+  return parsePanelWindowRoute(location.search)?.windowId ?? 'main';
 }
 
 interface PopupEntry {
@@ -93,6 +93,18 @@ export class BrowserWindowService implements NativeWindowService {
     if (!isWorkspaceWindowId(id)) {
       return Promise.reject(new Error(`invalid workspace window id '${String(id)}'`));
     }
+    const route = options.route ?? defaultPanelWindowRoute(id);
+    const parsedRoute = parsePanelWindowRoute(route);
+    if (!parsedRoute) {
+      return Promise.reject(new Error('refusing invalid auxiliary application route (ADR-0040)'));
+    }
+    if (parsedRoute.windowId !== id) {
+      return Promise.reject(
+        new Error(
+          `window route identity '${parsedRoute.windowId}' does not match requested window identity '${id}'`,
+        ),
+      );
+    }
     if (this.popups.has(id)) {
       return Promise.reject(new Error(`window '${id}' already exists`));
     }
@@ -110,9 +122,7 @@ export class BrowserWindowService implements NativeWindowService {
     // In particular, the transaction and panel-instance identities are part
     // of the readiness proof; dropping them makes a browser popup look ready
     // while the primary correctly waits forever for a matching host.
-    const routeParams = new URLSearchParams(options.route?.startsWith('?') ? options.route : '');
-    routeParams.set('surface', 'panel-window');
-    routeParams.set('windowId', id);
+    const routeParams = new URLSearchParams(parsedRoute.params);
     if (!routeParams.get('session')) routeParams.set('session', 'current');
     const url = `${POPUP_BASE_URL}/index.html?${routeParams.toString()}`;
 

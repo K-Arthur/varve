@@ -43,8 +43,10 @@ const PRESSURE_MULTIPLIER: Record<PressureProfile, number> = {
 export function useRasterLod(
   memoryBudget: 'low' | 'medium' | 'high' = 'medium',
   pressure: PressureProfile = resolveRuntimePressureProfile(),
+  enabled = true,
 ): void {
   useEffect(() => {
+    if (!enabled) return;
     setRasterPyramidEnabled(true);
     const syncViewport = () => {
       if (typeof window === 'undefined') return;
@@ -56,9 +58,10 @@ export function useRasterLod(
       setRasterPyramidEnabled(false);
       window.removeEventListener('resize', syncViewport);
     };
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     const base = PYRAMID_BUDGET_BYTES[memoryBudget] ?? PYRAMID_BUDGET_BYTES.medium;
     // Pressure profiles shrink residency; the resolver mirrors
     // memoryBudget.ts so constrained tiers behave like every other cache.
@@ -73,5 +76,5 @@ export function useRasterLod(
     // curve — under pressure a 128 MiB default would otherwise keep two
     // full 4096^2 surfaces resident next to a shrunk pyramid.
     setRetainedSurfaceBudget(pressureBudgets.workerBitmapBytes);
-  }, [memoryBudget, pressure]);
+  }, [enabled, memoryBudget, pressure]);
 }

@@ -7,7 +7,7 @@
  * adapters that pull their props from the same editor context.
  */
 
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { CodePanel } from '../components/CodePanel/CodePanel';
 import { PropertiesPanel } from '../components/Inspector/PropertiesPanel';
 import { LayersPanel } from '../components/LayersPanel';
@@ -21,12 +21,12 @@ import type { PanelTypeId } from '../workspace/panelRegistry';
 // Props-driven adapters
 // ---------------------------------------------------------------------------
 
-function CodePanelAdapter(): ReactNode {
+function CodePanelAdapter() {
   const { state, selectedNodes } = useEditor();
   return <CodePanel doc={state.document} selection={selectedNodes()} />;
 }
 
-function ResourcesPanelAdapter(): ReactNode {
+function ResourcesPanelAdapter() {
   const { state, installLibrary, uninstallLibrary } = useEditor();
   return (
     <ResourcesPanel
@@ -41,18 +41,19 @@ function ResourcesPanelAdapter(): ReactNode {
 // Registry
 // ---------------------------------------------------------------------------
 
-export const AUXILIARY_PANEL_RENDERERS: Partial<Record<PanelTypeId, () => ReactNode>> = {
-  layers: () => <LayersPanel />,
-  inspector: () => <PropertiesPanel />,
+export type AuxiliaryPanelRenderer = ComponentType;
+
+export const AUXILIARY_PANEL_RENDERERS: Partial<Record<PanelTypeId, AuxiliaryPanelRenderer>> = {
+  layers: LayersPanel,
+  inspector: PropertiesPanel,
   library: ResourcesPanelAdapter,
   codegen: CodePanelAdapter,
-  logo: () => <LogoPanel />,
-  pagenav: () => <PageNav />,
+  logo: LogoPanel,
+  pagenav: PageNav,
 };
 
 /** Render a panel by type id; null when unsupported in auxiliary windows. */
 export function renderAuxiliaryPanel(panelTypeId: string): ReactNode | null {
-  const renderer = AUXILIARY_PANEL_RENDERERS[panelTypeId as PanelTypeId];
-  if (!renderer) return null;
-  return renderer();
+  const Renderer = AUXILIARY_PANEL_RENDERERS[panelTypeId as PanelTypeId];
+  return Renderer ? <Renderer /> : null;
 }
