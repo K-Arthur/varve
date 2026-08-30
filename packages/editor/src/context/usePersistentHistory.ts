@@ -151,14 +151,28 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
       // A previous attach for this document is still running; reuse it so
       // genesis/branches are never created twice (StrictMode double-mount,
       // rapid document switches).
-      const existing = inflight.then((session) => {
-        if (cancelled) return;
-        sessionRef.current = session;
-        setAttached(true);
-        setReconciled(session.lastAttach?.reconciled ?? false);
-        setAttachIssues(session.lastAttach?.issues ?? []);
-        bump();
-      });
+      const existing = inflight.then(
+        (session) => {
+          if (cancelled) return;
+          sessionRef.current = session;
+          setAttached(true);
+          setReconciled(session.lastAttach?.reconciled ?? false);
+          setAttachIssues(session.lastAttach?.issues ?? []);
+          bump();
+        },
+        (err) => {
+          // In development this is commonly the StrictMode replacement
+          // effect. Consume the shared attach failure here too: otherwise
+          // the child promise returned by `.then()` becomes an unhandled
+          // rejection even though the first effect already reported it.
+          if (cancelled) return;
+          console.warn('[history] attach failed; history disabled for this document', err);
+          setAttachIssues([
+            { severity: 'error', code: 'history.attach-failed', message: String(err) },
+          ]);
+          setAttached(false);
+        },
+      );
       attachPromiseRef.current = existing as unknown as Promise<void>;
       prevDocumentRef.current = { documentId, document };
       return () => {
@@ -184,9 +198,18 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
         throw err;
       });
     inflightAttachRef.current.set(documentId, tracked);
-    tracked.finally(() => {
-      inflightAttachRef.current.delete(documentId);
-    });
+    // Do not leave a second rejected promise behind when attach fails. The
+    // attach path below owns the visible failure state; a bare `.finally()`
+    // mirrors its rejection and was surfacing recoverable history corruption
+    // as an unhandled browser promise rejection.
+    void tracked.then(
+      () => {
+        inflightAttachRef.current.delete(documentId);
+      },
+      () => {
+        inflightAttachRef.current.delete(documentId);
+      },
+    );
     void attachPromise
       .then(() => {
         if (cancelled) return;

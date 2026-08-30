@@ -209,6 +209,35 @@ describe('EditorHistorySession', () => {
     expect(steps[2]!.revision.canonicalDocumentHash).toBe(canonicalHistoryHash(moved));
   });
 
+  it('attaches after recovering a checksum-clean hash-mismatched head', async () => {
+    const store = createMemoryHistoryStore();
+    const original = baseDoc();
+    const first = newSession(store);
+    await first.attach(original);
+    const changed = applyOperation(original, 'node.patch', {
+      nodeId: 'n1_aaaa',
+      path: 'opacity',
+      value: 0.4,
+    });
+    const badHead = await first.capture(original, changed, [], {
+      label: 'Corruptible edit',
+      kind: 'modify',
+    });
+    expect(badHead).not.toBeNull();
+    await store.putRevision({
+      ...badHead!,
+      canonicalDocumentHash: '0'.repeat(64),
+    });
+
+    // `attach` must re-read the branch after recoverTail moves it. Previously
+    // it retained the bad pre-recovery head and threw from replay instead.
+    const recovered = newSession(store);
+    const result = await recovered.attach(original);
+    expect(result.headRevision.revisionId).toBe((await first.steps())[0]!.revision.revisionId);
+    expect(result.issues.some((issue) => issue.code === 'history.tail-recovered')).toBe(true);
+    expect(recovered.attached).toBe(true);
+  });
+
   it('protects the attached branch and branches with unique work from deletion', async () => {
     const store = createMemoryHistoryStore();
     const session = newSession(store);

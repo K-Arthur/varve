@@ -12,7 +12,7 @@
 import { verifySegmentChecksum } from './log';
 import { replayAndVerify } from './replay';
 import type { HistoryStore } from './store';
-import type { IntegrityIssue, LogPosition, TailRecoveryReport } from './types';
+import type { IntegrityIssue, LogPosition, RevisionRecord, TailRecoveryReport } from './types';
 
 /**
  * Recover a document's log tail. With `applyTruncation: true` the store's
@@ -48,32 +48,28 @@ export async function recoverTail(
       report.discardedOperations += segments[i]!.operations.length;
     }
   }
-  if (firstBad < 0) {
-    return { ...report, lastKnownGoodRevisionId: await lastKnownGood(store, documentId) };
-  }
-
-  const validSegments = segments.slice(0, firstBad);
+  // A checksum-clean tail is not necessarily semantically valid: a buggy
+  // writer or an interrupted cross-version upgrade can leave a revision hash
+  // that no longer matches its replay.  Continue through the same verified
+  // head-recovery path in that case instead of returning early and leaving a
+  // branch pointed at the bad revision.
+  const validSegments = firstBad < 0 ? segments : segments.slice(0, firstBad);
   const lastValidEnd: LogPosition = validSegments.length
     ? {
-        segment: validSegments.length - 1,
+        segment: validSegments[validSegments.length - 1]!.segmentIndex,
         offset: validSegments[validSegments.length - 1]!.operations.length,
       }
     : { segment: -1, offset: 0 };
 
   // 2. Find the newest revision fully inside the valid log with a verified hash.
-  const revisions = (await store.listRevisions(documentId)).sort(
-    (a, b) => b.createdAt - a.createdAt,
-  );
-  let lastGood: { revisionId: string; createdAt: number } | undefined;
+  const revisions = (await store.listRevisions(documentId)).sort(compareNewestFirst);
+  let lastGood: RevisionRecord | undefined;
   for (const revision of revisions) {
-    const end = revision.operationEnd;
-    if (!end) continue;
-    if (end.segment > lastValidEnd.segment) continue;
-    if (end.segment === lastValidEnd.segment && end.offset > lastValidEnd.offset) continue;
+    if (!isRevisionInsideValidLog(revision, lastValidEnd)) continue;
     try {
       const result = await replayAndVerify(store, documentId, revision.revisionId);
       if (result.verified) {
-        lastGood = { revisionId: revision.revisionId, createdAt: revision.createdAt };
+        lastGood = revision;
         break;
       }
       report.warnings.push(`revision ${revision.revisionId}: hash mismatch during recovery scan`);
@@ -88,11 +84,7 @@ export async function recoverTail(
   for (const branch of await store.listBranches(documentId)) {
     const head = await store.getRevision(documentId, branch.headRevisionId);
     const dangling = !head;
-    const pastGood =
-      lastGood !== undefined &&
-      head !== null &&
-      (head.createdAt > lastGood.createdAt ||
-        (head.createdAt === lastGood.createdAt && head.revisionId !== lastGood.revisionId));
+    const pastGood = lastGood !== undefined && head !== null && isRevisionAfter(head, lastGood);
     if (dangling || pastGood) {
       if (opts.applyTruncation && lastGood) {
         await store.putBranch({
@@ -105,7 +97,7 @@ export async function recoverTail(
     }
   }
 
-  if (opts.applyTruncation) {
+  if (opts.applyTruncation && firstBad >= 0) {
     await truncateSegments(store, documentId, firstBad);
   }
   return report;
@@ -128,20 +120,46 @@ async function truncateSegments(
   }
 }
 
-async function lastKnownGood(store: HistoryStore, documentId: string): Promise<string | undefined> {
-  const revisions = (await store.listRevisions(documentId)).sort(
-    (a, b) => b.createdAt - a.createdAt,
-  );
-  for (const revision of revisions) {
-    if (revision.operationEnd === undefined) continue;
-    try {
-      const result = await replayAndVerify(store, documentId, revision.revisionId);
-      if (result.verified) return revision.revisionId;
-    } catch {
-      // keep scanning
-    }
+/**
+ * The append log gives us a stable ordering even when several commits land in
+ * the same millisecond.  `createdAt` is presentation metadata, so it must not
+ * decide which recoverable revision survives.
+ */
+function compareNewestFirst(a: RevisionRecord, b: RevisionRecord): number {
+  const aEnd = a.operationEnd;
+  const bEnd = b.operationEnd;
+  if (aEnd && bEnd) {
+    if (aEnd.segment !== bEnd.segment) return bEnd.segment - aEnd.segment;
+    if (aEnd.offset !== bEnd.offset) return bEnd.offset - aEnd.offset;
+  } else if (aEnd) {
+    return -1;
+  } else if (bEnd) {
+    return 1;
   }
-  return undefined;
+  if (a.createdAt !== b.createdAt) return b.createdAt - a.createdAt;
+  return b.revisionId.localeCompare(a.revisionId);
+}
+
+/** A snapshot-only genesis/import root is valid whenever it can replay. */
+function isRevisionInsideValidLog(revision: RevisionRecord, end: LogPosition): boolean {
+  const revisionEnd = revision.operationEnd;
+  if (!revisionEnd) return true;
+  if (revisionEnd.segment !== end.segment) return revisionEnd.segment < end.segment;
+  return revisionEnd.offset <= end.offset;
+}
+
+/** True only when the branch head is later in the append log than `baseline`. */
+function isRevisionAfter(head: RevisionRecord, baseline: RevisionRecord): boolean {
+  const headEnd = head.operationEnd;
+  const baselineEnd = baseline.operationEnd;
+  if (headEnd && baselineEnd) {
+    if (headEnd.segment !== baselineEnd.segment) return headEnd.segment > baselineEnd.segment;
+    if (headEnd.offset !== baselineEnd.offset) return headEnd.offset > baselineEnd.offset;
+    return head.revisionId !== baseline.revisionId;
+  }
+  if (headEnd) return true;
+  if (baselineEnd) return false;
+  return head.revisionId !== baseline.revisionId;
 }
 
 /**

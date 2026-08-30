@@ -204,7 +204,7 @@ export class EditorHistorySession {
     // History existence is determined by branch refs, not the manifest: a
     // genesis-only document has no operation segments yet, so the manifest
     // is legitimately absent.
-    const branches = await this.store.listBranches(this.documentId);
+    let branches = await this.store.listBranches(this.documentId);
     if (branches.length === 0) {
       const { genesis, branch } = await createGenesisRevision(this.store, document, {
         documentId: this.documentId,
@@ -217,14 +217,27 @@ export class EditorHistorySession {
     // truncation is APPLIED so the store never replays garbage; the report
     // records exactly what was discarded.
     const recovery = await recoverTail(this.store, this.documentId, { applyTruncation: true });
-    if (recovery.warnings.length > 0 || recovery.truncatedSegments.length > 0) {
+    if (
+      recovery.warnings.length > 0 ||
+      recovery.truncatedSegments.length > 0 ||
+      recovery.rewoundBranches.length > 0
+    ) {
+      const detail =
+        recovery.truncatedSegments.length > 0
+          ? `Recovered from an incomplete log tail: ${recovery.truncatedSegments.length} segment(s) truncated, ${recovery.discardedOperations} operation(s) discarded`
+          : `Recovered persistent history by rewinding ${recovery.rewoundBranches.length} invalid branch head(s)`;
       issues.push({
         severity: 'warning',
         code: 'history.tail-recovered',
-        message: `Recovered from an incomplete log tail: ${recovery.truncatedSegments.length} segment(s) truncated, ${recovery.discardedOperations} operation(s) discarded`,
+        message: detail,
       });
     }
 
+    // `recoverTail` may have repaired a checksum-clean but hash-mismatched
+    // branch head. Re-read refs before resolving the head; using the list
+    // captured above would immediately replay the very revision recovery
+    // just moved away from.
+    branches = await this.store.listBranches(this.documentId);
     const branch = branches[0]!;
     const head = await this.store.getRevision(this.documentId, branch.headRevisionId);
     if (!head) {

@@ -474,6 +474,33 @@ describe('tail recovery and validation (M6)', () => {
     expect(verify.verified).toBe(true);
   });
 
+  it('checksum-clean revision hash mismatch rewinds the head to the latest replayable revision', async () => {
+    const { store, branch, lastTx } = await buildHistory();
+    const corrupt = await store.getRevision('doc-1', lastTx.revisionId);
+    expect(corrupt).not.toBeNull();
+    await store.putRevision({
+      ...corrupt!,
+      canonicalDocumentHash: '0'.repeat(64),
+    });
+
+    const report = await recoverTail(store, 'doc-1', { applyTruncation: true });
+
+    // The log bytes are intact; this is a semantic replay failure, not a
+    // tail-truncation case. The previous valid transaction remains the head.
+    expect(report.truncatedSegments).toEqual([]);
+    expect(report.discardedOperations).toBe(0);
+    expect(report.warnings).toContain(
+      `revision ${lastTx.revisionId}: hash mismatch during recovery scan`,
+    );
+    expect(report.lastKnownGoodRevisionId).toBe(corrupt!.parentRevisionIds[0]);
+    expect(report.rewoundBranches).toContain(branch.branchId);
+    const head = await store.getBranch('doc-1', branch.branchId);
+    expect(head!.headRevisionId).toBe(corrupt!.parentRevisionIds[0]);
+    await expect(replayAndVerify(store, 'doc-1', head!.headRevisionId)).resolves.toMatchObject({
+      verified: true,
+    });
+  });
+
   it('dangling branch heads and missing checkpoints surface as issues', async () => {
     const { store } = await buildHistory();
     await store.putBranch({
