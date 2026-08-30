@@ -169,6 +169,10 @@ export function registerEditorActions(
     // No-shortcut File actions: menu-only, but must reach the registry so
     // menu clicks and keyboard paths share the same handler.
     ['saveCopy', 'Save a Copy…', 'file'],
+    ['archiveBackup', 'Backup Archive…', 'file'],
+    ['archiveRestore', 'Restore Archive…', 'file'],
+    ['downloadSnapshot', 'Download Snapshot…', 'file'],
+    ['restoreFromSnapshot', 'Restore from Snapshot…', 'file'],
     ['documentInfo', 'Document Info…', 'file'],
     ['revealInFiles', 'Reveal in Files', 'file'],
     ['copyFilePath', 'Copy File Path', 'file'],

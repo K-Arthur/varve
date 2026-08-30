@@ -1653,63 +1653,23 @@ function filterMenusByWorkspace(
 
 export function Menubar({
   onBackToHome,
-  onOpenSettings,
-  onStartTour,
   onGettingStarted,
-  onOpenPalette,
-  onOpenHelp,
-  onOpenHelpCenter,
-  onContactSupport,
-  onSendFeedback,
-  onReportSecurity,
-  onOpenPrivacy,
-  onWhatIsThis,
   onWhatsNew,
-  onOpenAbout,
-  onBatchBgRemove,
 }: {
   onBackToHome?: () => void;
-  onOpenSettings?: () => void;
-  onStartTour?: () => void;
   onGettingStarted?: () => void;
-  onOpenPalette?: () => void;
-  onOpenHelp?: () => void;
-  onOpenHelpCenter?: () => void;
-  onContactSupport?: () => void;
-  onSendFeedback?: () => void;
-  onReportSecurity?: () => void;
-  onOpenPrivacy?: () => void;
-  onWhatIsThis?: () => void;
   onWhatsNew?: () => void;
-  onOpenAbout?: () => void;
-  onBatchBgRemove?: () => void;
 }) {
   const {
     state,
-    newDocument,
     serializeDocument,
     loadDocument,
     openFile,
     undo,
     redo,
     setZoom,
-    setShowExportDialog,
-    clearAllGuides,
-    startPresentation,
-    addMaskToSelected,
-    removeMaskFromSelected,
-    toggleMask,
-    invertMask,
-    flattenSelected,
-    rasterizeSelected,
-    mergeSelected,
     assignMasterToPage,
-    createMaster,
-    toggleFacingPages,
-    requestWorkspaceSwitch,
-    toggleDistractionFreeMode,
     recordAction,
-    createAdjustmentLayer,
     showArchiveDialog,
     setShowArchiveDialog,
     platform,
@@ -2058,137 +2018,26 @@ export function Menubar({
         return;
       }
 
+      // All registered capabilities share one implementation across the
+      // custom menubar, native menu, command palette, and quick actions bar.
+      // The switch below is only for menu-only compatibility actions and
+      // harnesses that intentionally omit the editor action registration.
+      if (getActionRegistry().dispatch(action)) return;
+
       // Menubar-specific actions (not in the registry or with different behavior)
       switch (action) {
-        case 'new':
-          // Opens its own tab — the current document stays open and intact,
-          // so there is nothing to confirm.
-          newDocument();
-          return;
-        case 'settings':
-          onOpenSettings?.();
-          return;
         case 'clearRecent':
           clearRecent();
-          return;
-        case 'reopenLast':
-          {
-            const mostRecent = recentEntries[0];
-            if (mostRecent) void openRecentFile(mostRecent);
-          }
-          return;
-        case 'startTour':
-          onStartTour?.();
           return;
         case 'gettingStarted':
           onGettingStarted?.();
           return;
-        case 'shortcutPalette':
-          onOpenPalette?.();
-          return;
-        case 'whatIsThis':
-          onWhatIsThis?.();
-          return;
         case 'whatsNew':
           onWhatsNew?.();
-          return;
-        case 'about':
-          onOpenAbout?.();
-          return;
-        case 'contactSupport':
-          onContactSupport?.();
-          return;
-        case 'sendFeedback':
-          onSendFeedback?.();
-          return;
-        case 'reportSecurity':
-          onReportSecurity?.();
-          return;
-        case 'openPrivacy':
-          onOpenPrivacy?.();
-          return;
-        case 'batchBgRemove':
-          onBatchBgRemove?.();
-          return;
-        case 'export':
-          setShowExportDialog(true);
-          return;
-        case 'archiveBackup':
-          setShowArchiveDialog(true, 'backup');
-          return;
-        case 'archiveRestore':
-          setShowArchiveDialog(true, 'restore');
-          return;
-        case 'downloadSnapshot':
-          setShowArchiveDialog(true, 'backup');
-          return;
-        case 'restoreFromSnapshot':
-          setShowArchiveDialog(true, 'restore');
           return;
         case 'installDesktopApp':
           safeOpenInstallPage();
           return;
-        case 'addAlphaMask':
-          addMaskToSelected('alpha');
-          return;
-        case 'addClipMask':
-          addMaskToSelected('clip');
-          return;
-        case 'addLuminanceMask':
-          addMaskToSelected('luminance');
-          return;
-        case 'removeMask':
-          removeMaskFromSelected();
-          return;
-        case 'toggleMask':
-          toggleMask();
-          return;
-        case 'invertMask':
-          invertMask();
-          return;
-        case 'flattenSelection':
-          flattenSelected('flatten', 1);
-          return;
-        case 'rasterizeSelection':
-          rasterizeSelected(1);
-          return;
-        case 'mergeSelected':
-          mergeSelected();
-          return;
-        case 'clearGuides':
-          clearAllGuides();
-          return;
-        case 'present':
-          startPresentation();
-          return;
-        case 'toggleFacingPages':
-          toggleFacingPages();
-          return;
-        case 'toggleDistractionFree':
-          toggleDistractionFreeMode();
-          return;
-        case 'newAdjustmentLayer':
-          createAdjustmentLayer();
-          return;
-        case 'createMaster':
-          createMaster('Master', 1920, 1080);
-          return;
-        case 'applyMaster': {
-          const activeId = state.document.activePageId;
-          if (activeId) {
-            const masterEntries = state.document.masters ? Object.keys(state.document.masters) : [];
-            const first = masterEntries.find((id) => id !== activeId);
-            if (first) assignMasterToPage(activeId, first);
-          }
-          return;
-        }
-        case 'detachMaster': {
-          const activeId = state.document.activePageId;
-          if (activeId) {
-            assignMasterToPage(activeId, null);
-          }
-          return;
-        }
         default:
           if (action.startsWith('theme:')) {
             const theme = action.slice(6) as Theme;
@@ -2207,14 +2056,6 @@ export function Menubar({
             return;
           }
           break;
-      }
-
-      // Fallback to shared action registry
-      const registry = getActionRegistry();
-      const registered = registry.get(action);
-      if (registered) {
-        (registered.handler as () => void)();
-        return;
       }
 
       // Legacy fallbacks for actions not yet in the registry
@@ -2236,30 +2077,10 @@ export function Menubar({
       state,
       recentEntries,
       onBackToHome,
-      onOpenSettings,
-      onStartTour,
       onGettingStarted,
-      onOpenPalette,
-      onOpenHelp,
-      onOpenHelpCenter,
-      onWhatIsThis,
-      onOpenAbout,
-      onBatchBgRemove,
-      setShowExportDialog,
       setShowArchiveDialog,
-      addMaskToSelected,
-      removeMaskFromSelected,
-      toggleMask,
-      invertMask,
-      clearAllGuides,
-      startPresentation,
       assignMasterToPage,
-      createMaster,
-      toggleFacingPages,
-      requestWorkspaceSwitch,
-      toggleDistractionFreeMode,
       recordAction,
-      createAdjustmentLayer,
       openRecentFile,
       clearRecent,
     ],

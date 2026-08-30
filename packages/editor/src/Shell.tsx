@@ -452,26 +452,8 @@ function ShellInner({
           <header className="editor-shell__menubar">
             <Menubar
               onBackToHome={onBackToHome}
-              onOpenSettings={() => {
-                setSettingsSection('general');
-                setSettingsOpen(true);
-              }}
-              onStartTour={() => onboardingLayerRef.current?.reopen()}
               onGettingStarted={() => onboardingLayerRef.current?.openWelcome()}
-              onOpenPalette={openPalette}
-              onOpenHelp={editorHelp.openContextualHelp}
-              onOpenHelpCenter={() => editorHelp.setHelpCenterOpen(true)}
-              onContactSupport={() => openVarveContact('support')}
-              onSendFeedback={() => openVarveContact('feedback')}
-              onReportSecurity={() => openVarveContact('security')}
-              onOpenPrivacy={() => openVarveContact('privacy')}
-              onWhatIsThis={editorHelp.toggleWhatIsThis}
               onWhatsNew={() => editorHelp.setHelpCenterOpen(true)}
-              onOpenAbout={() => {
-                setSettingsSection('about');
-                setSettingsOpen(true);
-              }}
-              onBatchBgRemove={() => exportLayerRef.current?.openBatchBgRemove()}
             />
           </header>
         )}

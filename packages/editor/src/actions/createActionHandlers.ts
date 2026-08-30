@@ -604,6 +604,13 @@ export function createActionHandlers(
     save: () => e.save(),
     saveAs: () => e.saveAs(),
     saveCopy: () => e.saveCopy(),
+    archiveBackup: () => e.setShowArchiveDialog(true, 'backup'),
+    archiveRestore: () => e.setShowArchiveDialog(true, 'restore'),
+    // Snapshot names are retained as compatibility aliases for older menu
+    // ids and saved shortcuts; both aliases execute the canonical archive
+    // operation above.
+    downloadSnapshot: () => e.setShowArchiveDialog(true, 'backup'),
+    restoreFromSnapshot: () => e.setShowArchiveDialog(true, 'restore'),
     documentInfo: () => e.setShowDocumentInfo(true),
     revealInFiles: () => {
       const active = e.state.sessions.find((sess) => sess.id === e.state.activeId);
