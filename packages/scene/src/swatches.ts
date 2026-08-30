@@ -1,4 +1,4 @@
-import { managedColorToRgba } from '@varve/shared';
+import { managedColorToRgba, rgbToHex } from '@varve/shared';
 import type { ColorSwatch, ManagedColor, RgbColor } from './colorManagement';
 import type { Document } from './document';
 
@@ -96,13 +96,14 @@ export function reorderSwatches(doc: Document, fromIndex: number, toIndex: numbe
  */
 export function managedColorToHex(color: ManagedColor): string {
   if (color.space === 'rgb') {
-    const r = Math.round(color.r);
-    const g = Math.round(color.g);
-    const b = Math.round(color.b);
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    return rgbToHex(Math.round(color.r), Math.round(color.g), Math.round(color.b));
   }
   const [r, g, b] = managedColorToRgba(color);
-  return `#${Math.max(0, Math.min(255, r)).toString(16).padStart(2, '0')}${Math.max(0, Math.min(255, g)).toString(16).padStart(2, '0')}${Math.max(0, Math.min(255, b)).toString(16).padStart(2, '0')}`;
+  return rgbToHex(
+    Math.max(0, Math.min(255, r)),
+    Math.max(0, Math.min(255, g)),
+    Math.max(0, Math.min(255, b)),
+  );
 }
 
 /**

@@ -11,7 +11,7 @@ import type {
   Document as SceneDocument,
   SceneNode,
 } from '@varve/scene';
-import { managedColorToRgba, multiplyAffine, rotateDeg } from '@varve/shared';
+import { managedColorToRgba, multiplyAffine, rgbToHex, rotateDeg } from '@varve/shared';
 import type { TargetGap } from './types';
 
 /**
@@ -140,9 +140,9 @@ export function colorToSvgValue(
 export function colorToHex(c: ManagedColor | readonly [number, number, number, number]): string {
   if ('space' in c) {
     const [r, g, b] = managedColorToRgba(c);
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    return rgbToHex(r, g, b);
   }
-  return `#${c[0].toString(16).padStart(2, '0')}${c[1].toString(16).padStart(2, '0')}${c[2].toString(16).padStart(2, '0')}`;
+  return rgbToHex(c[0], c[1], c[2]);
 }
 
 export function affineToSvg(t: Affine): string {

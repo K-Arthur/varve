@@ -16,10 +16,10 @@
  *   conversion).
  */
 import {
-  clampChannel,
   labToXyz,
   linearToSrgb,
   oklabToLinearSrgb,
+  rgbToHex,
   rgbToLab,
   srgbToLinear,
   xyzD65ToLinearRgb,
@@ -131,8 +131,7 @@ export function dtcgColorToVarve(color: DtcgColor): ColorBridgeResult {
     );
   }
 
-  const toHex = (c: number): string => clampChannel(c, 'uint8').toString(16).padStart(2, '0');
-  const hex = `#${toHex(clamped[0])}${toHex(clamped[1])}${toHex(clamped[2])}`;
+  const hex = rgbToHex(clamped[0], clamped[1], clamped[2]);
 
   return { hex, alpha, converted: color.colorSpace !== 'srgb', warnings };
 }

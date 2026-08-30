@@ -118,10 +118,7 @@ export function rgbToHsl(r: number, g: number, b: number): [number, number, numb
   return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
 }
 
-export function rgbToHex(r: number, g: number, b: number): string {
-  const h = (n: number) => n.toString(16).padStart(2, '0');
-  return `#${h(r)}${h(g)}${h(b)}`;
-}
+export { rgbToHex } from '@varve/shared';
 
 /**
  * Parse a hex color string, supporting:
