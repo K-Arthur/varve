@@ -511,13 +511,24 @@
 }
 
 /* ─── Name ──────────────────────────────────────────────────── */
-.layers-row__name {
+.layers-row__label {
+  display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  overflow: hidden;
+  line-height: 1.2;
+}
+
+.layers-row__name {
+  display: block;
+  max-width: 100%;
   font-size: var(--font-size-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 80px;
+  min-width: 0;
 }
 
 .layers-row__name--instance {
@@ -526,7 +537,7 @@
 }
 
 .layers-row__name-input {
-  flex: 1;
+  align-self: stretch;
   border: 1px solid var(--color-interactive-focus-ring);
   background: var(--color-surface-app);
   color: var(--color-text-primary);
@@ -535,6 +546,7 @@
   border-radius: var(--radius-sm);
   outline: none;
   min-width: 0;
+  box-sizing: border-box;
 }
 
 .layers-row__name-input::placeholder {
@@ -544,6 +556,27 @@
 .layers-row__name-input:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
+}
+
+/* Derived stack identity: the persisted layer name stays user-editable while
+ * this second line reflects the ordered adjustments currently on the layer. */
+.layers-row__adjustment-summary {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layers-row__adjustment-summary--empty {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.layers-row--selected .layers-row__adjustment-summary {
+  color: color-mix(in srgb, var(--color-text-on-accent) 78%, transparent);
 }
 
 /* ─── Instance badge ────────────────────────────────────────── */

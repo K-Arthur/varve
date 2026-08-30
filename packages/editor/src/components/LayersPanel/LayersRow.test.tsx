@@ -1,4 +1,5 @@
 import { fireEvent, render } from '@testing-library/react';
+import { makeAdjustment } from '@varve/engine';
 import { createDocument, type Document, type SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { LayersRow } from './LayersRow';
@@ -203,7 +204,7 @@ describe('LayersRow Object Filter badge', () => {
     });
     const badge = container.querySelector('.layers-row__object-filter-badge');
     expect(badge).not.toBeNull();
-    expect(badge).toHaveTextContent('1/2 filters');
+    expect(badge).toHaveTextContent('Invert + Blur · 1/2');
     expect(badge).toHaveAttribute('aria-label', expect.stringContaining('2 Object Filters'));
     expect(badge?.tagName).toBe('BUTTON');
     expect(container.querySelectorAll('[role="treeitem"]')).toHaveLength(1);
@@ -239,7 +240,7 @@ describe('LayersRow Object Filter badge', () => {
     });
     const badge = container.querySelector('.layers-row__object-filter-badge');
     expect(badge).not.toBeNull();
-    expect(badge).toHaveTextContent('0/2 filters');
+    expect(badge).toHaveTextContent('Invert + Blur · 0/2');
     expect(badge).toHaveAttribute('aria-label', expect.stringContaining('2 Object Filters'));
   });
 
@@ -262,7 +263,49 @@ describe('LayersRow Object Filter badge', () => {
     });
     const badge = container.querySelector('.layers-row__object-filter-badge');
     expect(badge).not.toBeNull();
-    expect(badge).toHaveTextContent('1/3 filters');
+    expect(badge).toHaveTextContent('Invert + Blur + 1 more · 1/3');
+  });
+});
+
+describe('LayersRow adjustment stack identity', () => {
+  it('shows the ordered adjustment names and active count on the layer row', () => {
+    const node = makeNode('a1', 'Grade', 'adjustment', {
+      adjustments: [
+        makeAdjustment('threshold-1', 'threshold'),
+        makeAdjustment('map-1', 'gradientMap'),
+      ],
+    } as Partial<SceneNode>);
+    const { container } = renderRow({ node });
+    const row = container.querySelector('[role="treeitem"]');
+    const summary = container.querySelector('[data-adjustment-summary]');
+    const badge = container.querySelector('.layers-row__adjustment-badge');
+
+    expect(summary).toHaveTextContent('Threshold + Gradient Map');
+    expect(badge).toHaveTextContent('2/2');
+    expect(badge).toHaveAttribute('aria-label', '2 of 2 adjustments active');
+    expect(row).toHaveAttribute(
+      'aria-label',
+      'Grade, Adjustment Layer, Threshold, Gradient Map. 2 of 2 active.',
+    );
+  });
+
+  it('keeps disabled adjustment names discoverable while showing their inactive count', () => {
+    const node = makeNode('a1', 'Grade', 'adjustment', {
+      adjustments: [
+        makeAdjustment('threshold-1', 'threshold'),
+        makeAdjustment('map-1', 'gradientMap', { visible: false }),
+      ],
+    } as Partial<SceneNode>);
+    const { container } = renderRow({ node });
+
+    expect(container.querySelector('[data-adjustment-summary]')).toHaveTextContent(
+      'Threshold + Gradient Map',
+    );
+    expect(container.querySelector('.layers-row__adjustment-badge')).toHaveTextContent('1/2');
+    expect(container.querySelector('[role="treeitem"]')).toHaveAttribute(
+      'aria-label',
+      'Grade, Adjustment Layer, Threshold, Gradient Map (off). 1 of 2 active.',
+    );
   });
 });
 

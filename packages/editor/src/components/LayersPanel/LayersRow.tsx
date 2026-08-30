@@ -33,6 +33,7 @@ import { SOLID_CHROME_ICONS, SOLID_TOOL_ICONS, SolidIcon, Tooltip } from '@varve
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { autoName } from '../../intelligence/autoNamer';
 import { isNodeEffectivelyLocked } from '../../scene/world';
+import { summarizeAdjustmentStack } from './adjustmentStackSummary';
 import { EffectStackTransferBadge } from './EffectStackTransferBadge';
 import type { PresenceData } from './PresenceIndicator';
 import { PresenceIndicator } from './PresenceIndicator';
@@ -245,6 +246,16 @@ export const LayersRow = memo(function LayersRow({
   // the enabled count through the canonical resolver so the badge can never
   // disagree with what sceneToEngine actually draws.
   const enabledObjectFilterCount = objectFilterCount > 0 ? activeSmartFilters(node).length : 0;
+  const adjustmentSummary =
+    node.kind === 'adjustment'
+      ? summarizeAdjustmentStack((node as AdjustmentNode).adjustments ?? [])
+      : null;
+  const adjustmentBadgeText =
+    adjustmentSummary && adjustmentSummary.totalCount > 0
+      ? `${adjustmentSummary.activeCount}/${adjustmentSummary.totalCount}`
+      : node.kind === 'adjustment'
+        ? (node as AdjustmentNode).adjustmentType
+        : null;
 
   /**
    * Keep a control's own gesture out of dnd-kit's hands. The row is draggable
@@ -362,6 +373,11 @@ export const LayersRow = memo(function LayersRow({
         aria-level={depth + 1}
         aria-setsize={siblingCount ?? totalRows}
         aria-posinset={siblingIndex ?? idx + 1}
+        aria-label={
+          !editing && adjustmentSummary
+            ? `${node.name}, Adjustment Layer, ${adjustmentSummary.tooltip}`
+            : undefined
+        }
         className={rowClass}
         tabIndex={focused ? 0 : -1}
         onClick={handleClick}
@@ -482,26 +498,43 @@ export const LayersRow = memo(function LayersRow({
         </button>
 
         {/* Name or rename input */}
-        {editing ? (
-          <input
-            ref={inputRef}
-            id={`layers-row-rename-${node.id}`}
-            name={`layers-row-rename-${node.id}`}
-            className="layers-row__name-input"
-            value={editValue}
-            placeholder={ghostName ?? ''}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={handleRenameKeyDown}
-            aria-label={`Rename ${node.name}`}
-          />
-        ) : (
-          <Tooltip label={node.name} truncationOnly>
-            <span className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}`}>
-              {node.name}
-            </span>
-          </Tooltip>
-        )}
+        <span className="layers-row__label">
+          {editing ? (
+            <input
+              ref={inputRef}
+              id={`layers-row-rename-${node.id}`}
+              name={`layers-row-rename-${node.id}`}
+              className="layers-row__name-input"
+              value={editValue}
+              placeholder={ghostName ?? ''}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={handleRenameKeyDown}
+              aria-label={`Rename ${node.name}`}
+            />
+          ) : (
+            <Tooltip label={node.name} truncationOnly>
+              <span
+                className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}`}
+              >
+                {node.name}
+              </span>
+            </Tooltip>
+          )}
+
+          {!editing && adjustmentSummary && (
+            <Tooltip label={adjustmentSummary.tooltip}>
+              <span
+                className={`layers-row__adjustment-summary${adjustmentSummary.totalCount === 0 ? ' layers-row__adjustment-summary--empty' : ''}`}
+                role="img"
+                aria-label={adjustmentSummary.tooltip}
+                data-adjustment-summary
+              >
+                {adjustmentSummary.label}
+              </span>
+            </Tooltip>
+          )}
+        </span>
 
         {/* Animated-media badge (subtle, rows without animation unchanged) */}
         {!editing && doc && isAnimatedMediaNode(node, doc) && (
@@ -559,8 +592,16 @@ export const LayersRow = memo(function LayersRow({
 
         {/* Adjustment type badge */}
         {node.kind === 'adjustment' && !editing && (
-          <span className="layers-row__adjustment-badge">
-            {(node as AdjustmentNode).adjustmentType}
+          <span
+            className="layers-row__adjustment-badge"
+            role="img"
+            aria-label={
+              adjustmentSummary && adjustmentSummary.totalCount > 0
+                ? `${adjustmentSummary.activeCount} of ${adjustmentSummary.totalCount} adjustments active`
+                : `Legacy adjustment type: ${(node as AdjustmentNode).adjustmentType}`
+            }
+          >
+            {adjustmentBadgeText}
           </span>
         )}
         {/* Adjustment scope badge */}
@@ -661,9 +702,9 @@ export const LayersRow = memo(function LayersRow({
             statusLabel={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled`}
             onCopyToSelected={() => onCopyEffectStack?.(node.id, 'object-filters')}
           >
-            {enabledObjectFilterCount === objectFilterCount
-              ? `${objectFilterCount} filter${objectFilterCount === 1 ? '' : 's'}`
-              : `${enabledObjectFilterCount}/${objectFilterCount} filters`}
+            {summarizeAdjustmentStack(node.smartFilters ?? []).label}
+            {enabledObjectFilterCount !== objectFilterCount &&
+              ` · ${enabledObjectFilterCount}/${objectFilterCount}`}
           </EffectStackTransferBadge>
         )}
 
