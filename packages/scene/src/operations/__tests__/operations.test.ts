@@ -29,6 +29,7 @@ describe('operation registry', () => {
     expect(hasOperation('node.move')).toBe(true);
     expect(hasOperation('node.reorder')).toBe(true);
     expect(hasOperation('node.rename')).toBe(true);
+    expect(hasOperation('page.rename')).toBe(true);
     expect(hasOperation('node.patch')).toBe(true);
     expect(hasOperation('document.set')).toBe(true);
     expect(hasOperation('asset.register')).toBe(true);

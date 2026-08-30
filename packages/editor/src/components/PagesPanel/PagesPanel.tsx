@@ -15,16 +15,16 @@
  */
 
 import type { NodeId } from '@varve/scene';
-import {
-  addPage as addPageDoc,
-  computePageNumbering,
-  deletePageWithPolicy,
-  duplicatePage as duplicatePageDoc,
-  reorderPages as reorderPagesDoc,
-} from '@varve/scene';
+import { computePageNumbering } from '@varve/scene';
 import { Icon } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
+import {
+  createPageCommand,
+  deletePageCommand,
+  duplicatePageCommand,
+  reorderPagesCommand,
+} from '../../pageCommands';
 import {
   resolvePageSurfaceVisibility,
   useEffectiveWorkspaceConfig,
@@ -97,20 +97,20 @@ export function PagesPanel() {
   const handleAddPage = useCallback(() => {
     // Documents created from Home start flat (no pages array) — the page
     // counter must not assume pages exist.
-    updateDoc((doc) => addPageDoc(doc, { name: `Page ${(doc.pages ?? []).length + 1}` }));
+    updateDoc((doc) => createPageCommand(doc, { name: `Page ${(doc.pages ?? []).length + 1}` }));
     setCurrentPageId(null);
   }, [updateDoc, setCurrentPageId]);
 
   const handleDuplicate = useCallback(
     (pageId: NodeId) => {
-      updateDoc((doc) => duplicatePageDoc(doc, pageId));
+      updateDoc((doc) => duplicatePageCommand(doc, pageId));
     },
     [updateDoc],
   );
 
   const handleDelete = useCallback(
     (pageId: NodeId) => {
-      updateDoc((doc) => deletePageWithPolicy(doc, pageId, 'move-to-pasteboard'));
+      updateDoc((doc) => deletePageCommand(doc, pageId, 'move-to-pasteboard'));
       setCurrentPageId(null);
     },
     [updateDoc, setCurrentPageId],
@@ -126,7 +126,7 @@ export function PagesPanel() {
         const next = [...ids];
         const [moved] = next.splice(idx, 1);
         next.splice(swapIdx, 0, moved as NodeId);
-        return reorderPagesDoc(doc, next);
+        return reorderPagesCommand(doc, next);
       });
     },
     [updateDoc],

@@ -23,6 +23,13 @@ vi.mock('../../context', () => ({
   useEditor: vi.fn(),
 }));
 
+vi.mock('../../pageCommands', () => ({
+  createPageCommand: vi.fn((doc: unknown) => doc),
+  deletePageCommand: vi.fn((doc: unknown) => doc),
+  duplicatePageCommand: vi.fn((doc: unknown) => doc),
+  reorderPagesCommand: vi.fn((doc: unknown) => doc),
+}));
+
 vi.mock('../PageNav/usePageThumbnail', () => ({
   usePageThumbnail: vi.fn(() => null),
 }));

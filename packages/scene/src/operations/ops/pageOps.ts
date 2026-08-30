@@ -12,6 +12,7 @@ import {
   addPage,
   deletePageWithPolicy,
   duplicatePage,
+  renamePage,
   reorderPages,
   setPagePlacement,
   setPageSize,
@@ -89,6 +90,15 @@ function applyPageCreate(document: Document, payload: PageCreatePayload): Docume
   return { ...next, pages: reorderedPages };
 }
 
+// ── page.rename ─────────────────────────────────────────────────────────────
+
+export interface PageRenamePayload {
+  pageId: NodeId;
+  name: string;
+}
+
+// ── page.delete ──────────────────────────────────────────────────────────────
+
 // ── page.delete ──────────────────────────────────────────────────────────────
 
 export interface PageDeletePayload {
@@ -146,6 +156,44 @@ export function registerPageOperations(): void {
     maxPayloadBytes: 8_000,
   });
 
+  registerOperation<PageRenamePayload>({
+    type: 'page.rename',
+    schemaVersion: 1,
+    validate(payload) {
+      if (typeof payload !== 'object' || payload === null) {
+        return { ok: false, errors: ['page.rename payload must be an object'] };
+      }
+      const p = payload as Record<string, unknown>;
+      if (typeof p.pageId !== 'string' || p.pageId.length === 0) {
+        return { ok: false, errors: ['page.rename requires pageId'] };
+      }
+      if (typeof p.name !== 'string' || p.name.trim().length === 0) {
+        return { ok: false, errors: ['page.rename requires a non-empty name'] };
+      }
+      return { ok: true, value: { pageId: p.pageId, name: p.name.trim() } };
+    },
+    apply(document, payload) {
+      return renamePage(document, payload.pageId, payload.name);
+    },
+    summarize(payload) {
+      return {
+        label: `Rename page to ${payload.name}`,
+        kind: 'modify',
+        affectedEntityIds: [payload.pageId],
+      };
+    },
+    affectedEntities(payload) {
+      return [payload.pageId];
+    },
+    precondition(document, payload) {
+      if (!document.pages?.some((page) => page.id === payload.pageId)) {
+        return `page does not exist: ${payload.pageId}`;
+      }
+      return null;
+    },
+    maxPayloadBytes: 8_000,
+  });
+
   registerOperation<PageDeletePayload>({
     type: 'page.delete',
     schemaVersion: 1,
@@ -190,7 +238,9 @@ export function registerPageOperations(): void {
       if (!document.pages?.some((p) => p.id === payload.pageId)) {
         return `page does not exist: ${payload.pageId}`;
       }
-      if (document.pages.length <= 1) return 'cannot delete the last page';
+      if (document.pages.length <= 1 && payload.policy !== 'move-to-pasteboard') {
+        return 'cannot delete the last page while discarding its content';
+      }
       if (
         payload.policy === 'move-to-page' &&
         !document.pages.some((p) => p.id === payload.targetPageId && p.id !== payload.pageId)

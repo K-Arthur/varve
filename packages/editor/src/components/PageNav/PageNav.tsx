@@ -1,18 +1,17 @@
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import {
-  addPage as addPageFn,
-  deletePageWithPolicy,
-  duplicatePage,
-  type NodeId,
-  type Page,
-  renamePage,
-  reorderPages,
-} from '@varve/scene';
+import type { NodeId, Page } from '@varve/scene';
 import { ContextMenu, type MenuEntry } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
+import {
+  createPageCommand,
+  deletePageCommand,
+  duplicatePageCommand,
+  renamePageCommand,
+  reorderPagesCommand,
+} from '../../pageCommands';
 import { applyThumbnailPreference } from '../../thumbnail/thumbnailCommands';
 import { promptDialog } from '../PromptDialog';
 import { usePageThumbnail } from './usePageThumbnail';
@@ -167,7 +166,7 @@ export function PageNav() {
 
   const handleAddPage = useCallback(() => {
     const count = pages.length + 1;
-    updateDoc((doc) => addPageFn(doc, { name: `Page ${count}` }));
+    updateDoc((doc) => createPageCommand(doc, { name: `Page ${count}` }));
     setCurrentPageId(null);
     pendingFocusRef.current = 'last';
   }, [pages.length, updateDoc, setCurrentPageId]);
@@ -232,7 +231,7 @@ export function PageNav() {
       if (!over) return;
       const reordered = computeReorderedPageIds(pages, active.id as NodeId, over.id as NodeId);
       if (!reordered) return;
-      updateDoc((doc) => reorderPages(doc, reordered));
+      updateDoc((doc) => reorderPagesCommand(doc, reordered));
     },
     [pages, updateDoc],
   );
@@ -257,20 +256,20 @@ export function PageNav() {
   const handleDeletePage = useCallback(() => {
     if (!ctxPageId) return;
     pendingFocusRef.current = 'active';
-    updateDoc((doc) => deletePageWithPolicy(doc, ctxPageId, 'move-to-pasteboard'));
+    updateDoc((doc) => deletePageCommand(doc, ctxPageId, 'move-to-pasteboard'));
     closeContextMenu();
   }, [ctxPageId, pages.length, updateDoc, closeContextMenu]);
 
   const handleDeletePageAndContents = useCallback(() => {
     if (!ctxPageId) return;
     pendingFocusRef.current = 'active';
-    updateDoc((doc) => deletePageWithPolicy(doc, ctxPageId, 'delete-content'));
+    updateDoc((doc) => deletePageCommand(doc, ctxPageId, 'delete-content'));
     closeContextMenu();
   }, [ctxPageId, pages.length, updateDoc, closeContextMenu]);
 
   const handleDuplicatePage = useCallback(() => {
     if (!ctxPageId) return;
-    updateDoc((doc) => duplicatePage(doc, ctxPageId));
+    updateDoc((doc) => duplicatePageCommand(doc, ctxPageId));
     closeContextMenu();
   }, [ctxPageId, updateDoc, closeContextMenu]);
 
@@ -281,7 +280,7 @@ export function PageNav() {
     closeContextMenu();
     const nextName = await promptDialog('Rename page', page.name);
     if (nextName === null || !nextName.trim()) return;
-    updateDoc((doc) => renamePage(doc, ctxPageId, nextName));
+    updateDoc((doc) => renamePageCommand(doc, { pageId: ctxPageId, name: nextName }));
   }, [ctxPageId, pages, updateDoc, closeContextMenu]);
 
   // Non-drag equivalent for reordering (WCAG 2.5.7 Dragging Movements):
@@ -294,7 +293,7 @@ export function PageNav() {
       const target = pages[direction === 'left' ? idx - 1 : idx + 1];
       if (idx === -1 || !target) return;
       const reordered = computeReorderedPageIds(pages, ctxPageId as NodeId, target.id);
-      if (reordered) updateDoc((doc) => reorderPages(doc, reordered));
+      if (reordered) updateDoc((doc) => reorderPagesCommand(doc, reordered));
       closeContextMenu();
     },
     [ctxPageId, pages, updateDoc, closeContextMenu],

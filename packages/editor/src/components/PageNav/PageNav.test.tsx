@@ -23,6 +23,14 @@ vi.mock('../../context', () => ({
   useEditor: vi.fn(),
 }));
 
+vi.mock('../../pageCommands', () => ({
+  createPageCommand: vi.fn((doc: unknown) => doc),
+  deletePageCommand: vi.fn((doc: unknown) => doc),
+  duplicatePageCommand: vi.fn((doc: unknown) => doc),
+  renamePageCommand: vi.fn((doc: unknown) => doc),
+  reorderPagesCommand: vi.fn((doc: unknown) => doc),
+}));
+
 // Mock thumbnail generation so PageNav tests don't try to create
 // OffscreenCanvas or call canvas encoding APIs — these tests verify
 // page navigation behaviour, not thumbnail content.

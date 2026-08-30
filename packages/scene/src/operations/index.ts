@@ -10,6 +10,13 @@ export type {
   TransactionCapturePayload,
 } from './ops/captureOps';
 export { isAllowedPropertyPath, type NodeCreatePayload } from './ops/nodeOps';
+export type {
+  PageCreatePayload,
+  PageDeletePayload,
+  PageMoveOnPasteboardPayload,
+  PageRenamePayload,
+  PageResizePayload,
+} from './ops/pageOps';
 export {
   affectedEntitiesOf,
   applyOperation,

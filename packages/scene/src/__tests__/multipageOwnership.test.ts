@@ -248,6 +248,18 @@ describe('Duplicate page remaps text chains (ADR-0126 D4)', () => {
 describe('page.* operations (ADR-0149)', () => {
   registerBuiltinOperations();
 
+  it('page.rename trims and preserves page geometry', () => {
+    const doc = createDocument();
+    const page = firstPage(doc);
+    const result = applyOperation(doc, 'page.rename', {
+      pageId: page.id,
+      name: '  Cover  ',
+    });
+    expect(result.pages![0]!.name).toBe('Cover');
+    expect(result.pages![0]!.width).toBe(page.width);
+    expect(result.pages![0]!.contentRoot).toBe(page.contentRoot);
+  });
+
   it('page.create appends a page', () => {
     const doc = createDocument();
     const result = applyOperation(doc, 'page.create', {
@@ -363,6 +375,7 @@ describe('page.* operations (ADR-0149)', () => {
     expect(validatePayload('page.delete', { pageId: 'p1', policy: 'bogus' }).ok).toBe(false);
     expect(validatePayload('page.move-on-pasteboard', { pageId: 'p1', x: 1 }).ok).toBe(false);
     expect(validatePayload('page.create', { width: -5 }).ok).toBe(false);
+    expect(validatePayload('page.rename', { pageId: 'p1', name: '   ' }).ok).toBe(false);
   });
 });
 
