@@ -26,7 +26,8 @@ const {
   mockStoreListAll: vi.fn(),
 }));
 
-vi.mock('@varve/engine', () => ({
+vi.mock('@varve/engine', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@varve/engine')>()),
   // A class (not an arrow) so `new DownloadManager()` works — biome would
   // rewrite a `function` expression mock into a non-constructible arrow.
   DownloadManager: vi.fn().mockImplementation(
@@ -42,6 +43,7 @@ vi.mock('@varve/engine', () => ({
 }));
 
 vi.mock('@varve/platform', () => ({
+  isTauriRuntime: () => false,
   IndexedDbSemanticEmbeddingStore: vi.fn().mockImplementation(
     class {
       clear = mockStoreClear;

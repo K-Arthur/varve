@@ -22,7 +22,8 @@ const { mockExportRemoveBg, mockExportImageCache, mockExportIsModelAvailable } =
   mockExportIsModelAvailable: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock('@varve/engine', () => ({
+vi.mock('@varve/engine', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@varve/engine')>()),
   DEFAULT_PREVIEW_MAX_DIMENSION: 2048,
   checkGifExportSupport: () => ({ supported: false, reason: 'test' }),
   checkVideoExportSupport: () => ({ supported: false, reason: 'test' }),

@@ -18,7 +18,8 @@ const {
   mockVerifyBundled: vi.fn().mockResolvedValue('verified'),
 }));
 
-vi.mock('@varve/engine', () => ({
+vi.mock('@varve/engine', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@varve/engine')>()),
   deriveAcquisition: (entry: {
     id?: string;
     bundled: boolean;

@@ -7,7 +7,8 @@ const { mockDownloadModel, mockGetModelLoader } = vi.hoisted(() => ({
   mockGetModelLoader: vi.fn(),
 }));
 
-vi.mock('@varve/engine', () => ({
+vi.mock('@varve/engine', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@varve/engine')>()),
   AVAILABLE_MODELS: [
     {
       id: 'birefnet-general-lite',

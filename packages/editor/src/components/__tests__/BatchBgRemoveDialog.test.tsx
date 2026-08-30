@@ -14,7 +14,8 @@ const { mockRemoveBackground, mockImageCache, mockIsModelAvailable } = vi.hoiste
   mockIsModelAvailable: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock('@varve/engine', () => ({
+vi.mock('@varve/engine', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@varve/engine')>()),
   getImageCache: () => mockImageCache,
   removeBackground: mockRemoveBackground,
   DEFAULT_PREVIEW_MAX_DIMENSION: 2048,
