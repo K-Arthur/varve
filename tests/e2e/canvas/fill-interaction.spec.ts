@@ -13,8 +13,9 @@
  * Pixel validation samples the live content canvas, per the project rule
  * "DOM assertions alone are insufficient" for canvas features.
  */
-import { expect, test, type Page } from '@playwright/test';
+
 import { deflateSync } from 'node:zlib';
+import { expect, type Page, test } from '@playwright/test';
 import { navigateToCleanEditor } from '../helpers/nav';
 
 // ── deterministic fixture PNGs (no binary fixtures in the repo) ─────────────
@@ -45,7 +46,11 @@ function chunk(type: string, data: Uint8Array): Uint8Array {
   return out;
 }
 
-function png(width: number, height: number, pixel: (x: number, y: number) => [number, number, number, number]): Buffer {
+function png(
+  width: number,
+  height: number,
+  pixel: (x: number, y: number) => [number, number, number, number],
+): Buffer {
   const raw = Buffer.alloc((width * 4 + 1) * height);
   let o = 0;
   for (let y = 0; y < height; y++) {
@@ -74,9 +79,7 @@ function png(width: number, height: number, pixel: (x: number, y: number) => [nu
 }
 
 /** 32x24: left half pure red, right half pure blue — obvious distinct pixels. */
-const IMAGE_PNG = png(32, 24, (x) =>
-  x < 16 ? [200, 30, 30, 255] : [30, 60, 200, 255],
-);
+const IMAGE_PNG = png(32, 24, (x) => (x < 16 ? [200, 30, 30, 255] : [30, 60, 200, 255]));
 
 /** 8x8 black/white checker — repetition is mechanically verifiable. */
 const TILE_PNG = png(8, 8, (x, y) => {
@@ -134,7 +137,11 @@ function pixelDist(
   return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
 }
 
-function pixelCloseTo(a: [number, number, number, number] | null, b: [number, number, number, number], tol = 14): boolean {
+function pixelCloseTo(
+  a: [number, number, number, number] | null,
+  b: [number, number, number, number],
+  tol = 14,
+): boolean {
   if (!a) return false;
   return (
     Math.abs(a[0] - b[0]) <= tol &&
@@ -173,7 +180,13 @@ async function expectPixel(
 ): Promise<void> {
   for (let i = 0; i < maxTries; i++) {
     const [p] = await samplePixels(page, [point]);
-    if (p && Math.abs(p[0] - expected[0]) <= tol && Math.abs(p[1] - expected[1]) <= tol && Math.abs(p[2] - expected[2]) <= tol && Math.abs(p[3] - expected[3]) <= tol) {
+    if (
+      p &&
+      Math.abs(p[0] - expected[0]) <= tol &&
+      Math.abs(p[1] - expected[1]) <= tol &&
+      Math.abs(p[2] - expected[2]) <= tol &&
+      Math.abs(p[3] - expected[3]) <= tol
+    ) {
       return;
     }
     await page.waitForTimeout(250);
@@ -183,8 +196,12 @@ async function expectPixel(
     fileInputs: document.querySelectorAll('.insp-image-fill__file').length,
     previewImgs: document.querySelectorAll('.insp-image-fill__preview-img').length,
     emptyHint: !!document.querySelector('.insp-image-fill__empty-hint'),
-    choose: Array.from(document.querySelectorAll('button')).map((b) => b.textContent?.trim()).filter((t) => t === 'Choose image' || t === 'Replace image'),
-    srcInputs: Array.from(document.querySelectorAll('input[aria-label="Image source URL"]')).map((i) => (i as HTMLInputElement).value.slice(0, 40)),
+    choose: Array.from(document.querySelectorAll('button'))
+      .map((b) => b.textContent?.trim())
+      .filter((t) => t === 'Choose image' || t === 'Replace image'),
+    srcInputs: Array.from(document.querySelectorAll('input[aria-label="Image source URL"]')).map(
+      (i) => (i as HTMLInputElement).value.slice(0, 40),
+    ),
   }));
   throw new Error(
     `pixel at ${JSON.stringify(point)} never reached ${JSON.stringify(expected)}; last=${JSON.stringify(last)}; diag=${JSON.stringify(diag)}`,
@@ -392,7 +409,9 @@ test.describe('/try demo parity', () => {
     }
     const dismissNotice = page.getByRole('button', { name: /dismiss demo notice/i });
     if ((await dismissNotice.count()) > 0) {
-      await dismissNotice.evaluate((el) => (el as HTMLButtonElement).click()).catch(() => undefined);
+      await dismissNotice
+        .evaluate((el) => (el as HTMLButtonElement).click())
+        .catch(() => undefined);
       await page.waitForTimeout(300);
     }
     // The demo's analytics modal can appear on a delay; poll-close every open

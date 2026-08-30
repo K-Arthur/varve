@@ -8,8 +8,9 @@
  *  fill-visuals/05-pattern-after.png    — repeated checker tile
  *  fill-visuals/06-grad-editor.png      — GradientEditor with stops
  */
-import { test, type Page } from '@playwright/test';
+
 import { deflateSync } from 'node:zlib';
+import { type Page, test } from '@playwright/test';
 import { navigateToCleanEditor } from '../helpers/nav';
 
 const CRC_TABLE = (() => {
@@ -35,7 +36,11 @@ function chunk(type: string, data: Uint8Array): Uint8Array {
   dv.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)));
   return out;
 }
-function png(width: number, height: number, pixel: (x: number, y: number) => [number, number, number, number]): Buffer {
+function png(
+  width: number,
+  height: number,
+  pixel: (x: number, y: number) => [number, number, number, number],
+): Buffer {
   const raw = Buffer.alloc((width * 4 + 1) * height);
   let o = 0;
   for (let y = 0; y < height; y++) {
@@ -90,7 +95,10 @@ test('fill visual evidence set', async ({ page }) => {
   await page.screenshot({ path: 'test-results/fill-visuals/01-solid-before.png' });
 
   // Add fill → Linear gradient
-  await page.getByRole('button', { name: /add fill/i }).first().click();
+  await page
+    .getByRole('button', { name: /add fill/i })
+    .first()
+    .click();
   await page.waitForTimeout(250);
   await page.getByRole('menuitem', { name: 'Linear gradient' }).click();
   await page.waitForTimeout(800);
@@ -106,7 +114,10 @@ test('fill visual evidence set', async ({ page }) => {
   // Undo the added gradient; convert the existing fill to Image (empty)
   await page.keyboard.press('Control+z');
   await page.waitForTimeout(500);
-  await page.getByRole('combobox', { name: /fill type/i }).first().click();
+  await page
+    .getByRole('combobox', { name: /fill type/i })
+    .first()
+    .click();
   await page.waitForTimeout(250);
   await page.getByRole('option', { name: /^Image$/i }).click();
   await page.waitForTimeout(800);
@@ -123,7 +134,10 @@ test('fill visual evidence set', async ({ page }) => {
   await page.screenshot({ path: 'test-results/fill-visuals/04-image-after.png' });
 
   // Convert to Pattern and choose a tile
-  await page.getByRole('combobox', { name: /fill type/i }).first().click();
+  await page
+    .getByRole('combobox', { name: /fill type/i })
+    .first()
+    .click();
   await page.waitForTimeout(250);
   await page.getByRole('option', { name: /^Pattern$/i }).click();
   await page.waitForTimeout(700);

@@ -183,7 +183,13 @@ describe('envelope corner editing domain', () => {
     expect(validated).toBeNull();
     const edgesOut = {
       ...CORNERS,
-      edges: { ...CORNERS.edges, top: [{ x: 4, y: 0 }, { x: 0.7, y: -0.1 }] },
+      edges: {
+        ...CORNERS.edges,
+        top: [
+          { x: 4, y: 0 },
+          { x: 0.7, y: -0.1 },
+        ],
+      },
     };
     expect(validateWarpModifier(edgesOut)).toBeNull();
   });

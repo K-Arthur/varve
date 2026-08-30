@@ -251,12 +251,7 @@ const ENVELOPE_CORNER_HI = ENVELOPE_CONTROL_HI;
 const MESH_CONTROL_LO = -2;
 const MESH_CONTROL_HI = 3;
 
-function isCorners(
-  v: unknown,
-  absolute: boolean,
-  lo = 0,
-  hi = 1.0001,
-): v is PerspectiveCorners {
+function isCorners(v: unknown, absolute: boolean, lo = 0, hi = 1.0001): v is PerspectiveCorners {
   if (typeof v !== 'object' || v === null) return false;
   const c = v as Record<string, unknown>;
   return (
