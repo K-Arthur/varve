@@ -10,7 +10,12 @@
  * windowing backend (unit tests, headless builds).
  */
 
-import { clampPlacementToWorkArea, fingerprintFromDisplay } from './geometry';
+import {
+  clampPlacementToWorkArea,
+  fingerprintFromDisplay,
+  logicalWorkAreaForDisplay,
+  matchDisplayFingerprint,
+} from './geometry';
 import type {
   CreateWorkspaceWindowOptions,
   DisplayInfo,
@@ -20,7 +25,7 @@ import type {
   WorkspaceWindowId,
   WorkspaceWindowInfo,
 } from './types';
-import { deriveWindowLabel } from './types';
+import { deriveWindowLabel, isWorkspaceWindowId } from './types';
 
 export interface MemoryDisplayFixture {
   runtimeId: string;
@@ -120,19 +125,28 @@ export class MemoryWindowService implements NativeWindowService {
     if (this.windows.size >= this.maxWindows) {
       throw new Error(`window limit reached (${this.maxWindows})`);
     }
-    const id = this.nextWindowId();
+    const id = options.id ?? this.nextWindowId();
+    if (!isWorkspaceWindowId(id)) {
+      throw new Error(`invalid workspace window id '${String(id)}'`);
+    }
+    if (this.windows.has(id)) {
+      throw new Error(`window '${id}' already exists`);
+    }
     const label = options.label ? deriveWindowLabel(options.label) : deriveWindowLabel(id);
-    const primary = this.monitors.find((m) => m.isPrimary) ?? this.monitors[0];
+    const display =
+      this.findDisplayForPlacement(options.placement) ??
+      this.monitors.find((m) => m.isPrimary) ??
+      this.monitors[0];
     const minSize = options.minSize ?? { width: 240, height: 160 };
     let placement: WindowPlacement = options.placement ?? {
-      displayId: primary?.runtimeId,
-      displayFingerprint: primary ? fingerprintFromDisplay(primary, undefined) : undefined,
+      displayId: display?.runtimeId,
+      displayFingerprint: display ? fingerprintFromDisplay(display, undefined) : undefined,
       logicalPosition: { x: 0, y: 0 },
       logicalSize: options.size,
       state: 'normal',
     };
-    if (primary) {
-      placement = clampPlacementToWorkArea(placement, primary.workArea, minSize);
+    if (display) {
+      placement = clampPlacementToWorkArea(placement, logicalWorkAreaForDisplay(display), minSize);
     }
     const info: WorkspaceWindowInfo = {
       id,
@@ -144,7 +158,7 @@ export class MemoryWindowService implements NativeWindowService {
       maximized: false,
       fullscreen: false,
       placement,
-      monitor: primary ?? null,
+      monitor: display ?? null,
     };
     this.windows.set(id, {
       info,
@@ -209,14 +223,17 @@ export class MemoryWindowService implements NativeWindowService {
 
   async setWindowPlacement(windowId: WorkspaceWindowId, placement: WindowPlacement): Promise<void> {
     const window = this.requireWindow(windowId);
+    const display = this.findDisplayForPlacement(placement) ?? this.monitors[0];
     const clamped = clampPlacementToWorkArea(
       placement,
-      this.monitors[0]?.workArea ?? {
-        x: 0,
-        y: 0,
-        width: 1920,
-        height: 1080,
-      },
+      display
+        ? logicalWorkAreaForDisplay(display)
+        : {
+            x: 0,
+            y: 0,
+            width: 1920,
+            height: 1080,
+          },
       window.minSize,
       placement.state,
     );
@@ -224,6 +241,7 @@ export class MemoryWindowService implements NativeWindowService {
     window.info = {
       ...window.info,
       placement: clamped,
+      monitor: display ?? null,
       minimized: placement.state === 'minimized',
       maximized: placement.state === 'maximized',
       fullscreen: placement.state === 'fullscreen',
@@ -260,6 +278,32 @@ export class MemoryWindowService implements NativeWindowService {
       id = `window-${this.windowCounter}`;
     } while (this.windows.has(id));
     return id;
+  }
+
+  private findDisplayForPlacement(placement: WindowPlacement | undefined): DisplayInfo | undefined {
+    if (!placement) return undefined;
+    if (placement.displayId) {
+      const exact = this.monitors.find((monitor) => monitor.runtimeId === placement.displayId);
+      if (exact) return exact;
+    }
+    if (placement.displayFingerprint) {
+      const primary = this.monitors.find((monitor) => monitor.isPrimary);
+      let best: DisplayInfo | undefined;
+      let score = 0;
+      for (const monitor of this.monitors) {
+        const candidateScore = matchDisplayFingerprint(
+          placement.displayFingerprint,
+          monitor,
+          primary,
+        );
+        if (candidateScore > score) {
+          score = candidateScore;
+          best = monitor;
+        }
+      }
+      if (best) return best;
+    }
+    return undefined;
   }
 
   private windowCounter = 0;

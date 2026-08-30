@@ -233,13 +233,41 @@ describe('tauri window service: native behaviors', () => {
   let createdLabels: string[];
   let closedLabels: string[];
   let listeners: Array<() => void>;
+  let creationOptions: Array<{ label: string; options: Record<string, unknown> }>;
+  let positions: Map<string, unknown>;
+  let sizes: Map<string, unknown>;
 
   beforeEach(() => {
     createdLabels = [];
     closedLabels = [];
     listeners = [];
+    creationOptions = [];
+    positions = new Map();
+    sizes = new Map();
+
+    const primaryMonitor = {
+      name: 'Primary',
+      size: { width: 2560, height: 1440 },
+      position: { x: -2560, y: 0 },
+      workArea: {
+        position: { x: -2560, y: 40 },
+        size: { width: 2560, height: 1360 },
+      },
+      scaleFactor: 2,
+    };
+    const secondaryMonitor = {
+      name: 'Secondary',
+      size: { width: 1920, height: 1080 },
+      position: { x: 0, y: 0 },
+      workArea: {
+        position: { x: 0, y: 0 },
+        size: { width: 1920, height: 1040 },
+      },
+      scaleFactor: 1,
+    };
 
     const makeWindowLike = (label: string) => {
+      let closeRequested: ((event: { preventDefault(): void }) => void) | undefined;
       const state = {
         visible: false,
         focused: false,
@@ -251,10 +279,20 @@ describe('tauri window service: native behaviors', () => {
         title: 'Varve',
         setTitle: vi.fn(async () => {}),
         setPosition: vi.fn(async (p: unknown) => {
-          state.position = p as { x: number; y: number };
+          positions.set(label, p);
+          const position = p as { x: number; y: number };
+          state.position = {
+            x: position.x * primaryMonitor.scaleFactor,
+            y: position.y * primaryMonitor.scaleFactor,
+          };
         }),
         setSize: vi.fn(async (s: unknown) => {
-          state.size = s as { width: number; height: number };
+          sizes.set(label, s);
+          const size = s as { width: number; height: number };
+          state.size = {
+            width: size.width * primaryMonitor.scaleFactor,
+            height: size.height * primaryMonitor.scaleFactor,
+          };
         }),
         setMinSize: vi.fn(async () => {}),
         setFocus: vi.fn(async () => {}),
@@ -266,6 +304,7 @@ describe('tauri window service: native behaviors', () => {
         }),
         close: vi.fn(async () => {
           closedLabels.push(label);
+          closeRequested?.({ preventDefault() {} });
         }),
         isVisible: vi.fn(async () => state.visible),
         isFocused: vi.fn(async () => state.focused),
@@ -274,12 +313,7 @@ describe('tauri window service: native behaviors', () => {
         isFullscreen: vi.fn(async () => false),
         outerPosition: vi.fn(async () => state.position),
         outerSize: vi.fn(async () => state.size),
-        currentMonitor: vi.fn(async () => ({
-          name: 'Primary',
-          size: { width: 1920, height: 1080 },
-          position: { x: 0, y: 0 },
-          scaleFactor: 1,
-        })),
+        currentMonitor: vi.fn(async () => primaryMonitor),
         onMoved: vi.fn(async () => {
           const unlisten = () => {};
           listeners.push(unlisten);
@@ -300,9 +334,16 @@ describe('tauri window service: native behaviors', () => {
           listeners.push(unlisten);
           return unlisten;
         }),
-        onCloseRequested: vi.fn(async () => {
+        onCloseRequested: vi.fn(async (handler: (event: { preventDefault(): void }) => void) => {
+          closeRequested = handler;
           const unlisten = () => {};
           listeners.push(unlisten);
+          return unlisten;
+        }),
+        once: vi.fn(async (event: 'tauri://created' | 'tauri://error', handler: () => void) => {
+          const unlisten = () => {};
+          listeners.push(unlisten);
+          if (event === 'tauri://created') queueMicrotask(handler);
           return unlisten;
         }),
       };
@@ -314,46 +355,43 @@ describe('tauri window service: native behaviors', () => {
     allWindows.set('main', main);
 
     (window as unknown as { __TAURI__?: Record<string, unknown> }).__TAURI__ = {
-      window: {
-        // Vitest 4: `new WebviewWindow(...)` requires a constructible mock.
+      webviewWindow: {
+        // Tauri 2 exposes WebviewWindow and async webview enumeration here.
         WebviewWindow: vi.fn(function WebviewWindowMock(
           label: string,
           options: Record<string, unknown>,
         ) {
           const created = makeWindowLike(label);
+          creationOptions.push({ label, options });
           createdLabels.push(label);
           if (options.visible === true) created.show();
           allWindows.set(label, created);
           return created;
         }),
+        getCurrentWebviewWindow: () => main,
+        getAllWebviewWindows: async () => [...allWindows.values()],
+      },
+      window: {
         getCurrentWindow: () => main,
-        getAllWindows: () => [...allWindows.values()],
-        availableMonitors: async () => [
-          {
-            name: 'Primary',
-            size: { width: 1920, height: 1080 },
-            position: { x: 0, y: 0 },
-            scaleFactor: 1,
-          },
-          {
-            name: 'Secondary',
-            size: { width: 1920, height: 1080 },
-            position: { x: 1920, y: 0 },
-            scaleFactor: 1,
-          },
-        ],
-        currentMonitor: async () => ({
-          name: 'Primary',
-          size: { width: 1920, height: 1080 },
-          position: { x: 0, y: 0 },
-          scaleFactor: 1,
-        }),
-        primaryMonitor: async () => ({
-          name: 'Primary',
-          size: { width: 1920, height: 1080 },
-          position: { x: 0, y: 0 },
-          scaleFactor: 1,
-        }),
+        getAllWindows: async () => [...allWindows.values()],
+        availableMonitors: async () => [primaryMonitor, secondaryMonitor],
+        primaryMonitor: async () => primaryMonitor,
+      },
+      dpi: {
+        LogicalPosition: class LogicalPosition {
+          type = 'Logical';
+          constructor(
+            public x: number,
+            public y: number,
+          ) {}
+        },
+        LogicalSize: class LogicalSize {
+          type = 'Logical';
+          constructor(
+            public width: number,
+            public height: number,
+          ) {}
+        },
       },
     };
   });
@@ -362,16 +400,20 @@ describe('tauri window service: native behaviors', () => {
     delete (window as unknown as { __TAURI__?: unknown }).__TAURI__;
   });
 
-  it('creates windows with sanitized labels and application routes', async () => {
+  it('creates windows with a caller-owned canonical identity and application route', async () => {
     const { TauriWindowService } = await import('../tauri');
     service = new TauriWindowService();
     const created = await service.createWindow({
+      id: 'panel_layers_123',
       title: 'Layers',
       size: { width: 400, height: 600 },
-      route: '?surface=panel-window&windowId=abc',
+      route: '?surface=panel-window&windowId=panel_layers_123',
     });
+    expect(created.id).toBe('panel_layers_123');
     expect(created.label).toMatch(/^varve-w-[a-z0-9-]{1,12}$/);
     expect(createdLabels).toContain(created.label);
+    expect(creationOptions[0]?.options.url).toContain('windowId=panel_layers_123');
+    expect(creationOptions[0]?.options.visible).toBe(false);
   });
 
   it('refuses non-application routes', async () => {
@@ -393,6 +435,19 @@ describe('tauri window service: native behaviors', () => {
     ).rejects.toThrow(/refusing non-application route/);
   });
 
+  it('refuses a route whose panel identity disagrees with the requested identity', async () => {
+    const { TauriWindowService } = await import('../tauri');
+    service = new TauriWindowService();
+    await expect(
+      service.createWindow({
+        id: 'panel_one',
+        title: 'Mismatch',
+        size: { width: 300, height: 200 },
+        route: '?surface=panel-window&windowId=panel_two',
+      }),
+    ).rejects.toThrow(/does not match requested window identity/);
+  });
+
   it('lists the main window plus created windows with stable identities', async () => {
     const { TauriWindowService } = await import('../tauri');
     service = new TauriWindowService();
@@ -411,13 +466,43 @@ describe('tauri window service: native behaviors', () => {
     expect(closedLabels).toContain(created.label);
   });
 
+  it('uses Tauri logical DPI values for logical placement operations', async () => {
+    const { TauriWindowService } = await import('../tauri');
+    service = new TauriWindowService();
+    const created = await service.createWindow({ title: 'P', size: { width: 400, height: 600 } });
+    const displays = await service.listMonitors();
+    await service.setWindowPlacement(created.id, {
+      displayId: displays[0]?.runtimeId,
+      logicalPosition: { x: -1100, y: 100 },
+      logicalSize: { width: 500, height: 350 },
+      state: 'normal',
+    });
+
+    expect(positions.get(created.label)).toMatchObject({ type: 'Logical', x: -1100, y: 100 });
+    expect(sizes.get(created.label)).toMatchObject({ type: 'Logical', width: 500, height: 350 });
+  });
+
+  it('emits a close lifecycle event exactly once when native close also notifies', async () => {
+    const { TauriWindowService } = await import('../tauri');
+    service = new TauriWindowService();
+    const events: WorkspaceWindowEvent[] = [];
+    await service.listenToWindowEvents((event) => events.push(event));
+    const created = await service.createWindow({ title: 'P', size: { width: 400, height: 600 } });
+    await service.closeWindow(created.id);
+    expect(
+      events.filter((event) => event.type === 'closed' && event.windowId === created.id),
+    ).toHaveLength(1);
+  });
+
   it('maps monitors into the normalized DisplayInfo model', async () => {
     const { TauriWindowService } = await import('../tauri');
     service = new TauriWindowService();
     const monitors = await service.listMonitors();
     expect(monitors).toHaveLength(2);
     expect(monitors[0]?.isPrimary).toBe(true);
-    expect(monitors[0]?.size.width).toBe(1920);
+    expect(monitors[0]?.position.x).toBe(-2560);
+    expect(monitors[0]?.workArea).toEqual({ x: -2560, y: 40, width: 2560, height: 1360 });
+    expect(monitors[0]?.scaleFactor).toBe(2);
     expect(monitors[1]?.name).toBe('Secondary');
   });
 });

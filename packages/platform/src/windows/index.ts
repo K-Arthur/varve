@@ -46,11 +46,15 @@ export {
   clampPlacementToWorkArea,
   computeRelativeRole,
   fingerprintFromDisplay,
+  isFiniteLogicalRect,
   logicalToPhysical,
+  logicalWorkAreaForDisplay,
   MIN_DISPLAY_MATCH_SCORE,
   matchDisplayFingerprint,
+  normalizePlacementForDisplay,
   physicalToLogical,
   pickDisplayForFingerprint,
+  placementFromNormalizedBounds,
   TITLE_BAR_MARGIN,
 } from './geometry';
 export {
@@ -77,8 +81,10 @@ export type {
 export {
   DEFAULT_MAX_AUXILIARY_WINDOWS,
   deriveWindowLabel,
+  isWorkspaceWindowId,
   MAX_WINDOW_LABEL_LENGTH,
   sanitizeWindowLabel,
   UnsupportedOperationError,
+  WORKSPACE_WINDOW_ID_PATTERN,
 } from './types';
 export { BrowserWindowService, MemoryWindowService, TauriWindowService };

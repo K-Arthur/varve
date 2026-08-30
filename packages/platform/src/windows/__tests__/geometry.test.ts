@@ -10,10 +10,13 @@ import {
   computeRelativeRole,
   fingerprintFromDisplay,
   logicalToPhysical,
+  logicalWorkAreaForDisplay,
   MIN_DISPLAY_MATCH_SCORE,
   matchDisplayFingerprint,
+  normalizePlacementForDisplay,
   physicalToLogical,
   pickDisplayForFingerprint,
+  placementFromNormalizedBounds,
   TITLE_BAR_MARGIN,
 } from '../geometry';
 import type { DisplayInfo } from '../types';
@@ -123,6 +126,70 @@ describe('clampPlacementToWorkArea', () => {
     const result = clampPlacementToWorkArea(placement(), tiny, { width: 240, height: 160 });
     expect(result.logicalSize.width).toBe(200);
     expect(result.logicalSize.height).toBe(150);
+  });
+});
+
+describe('mixed-DPI logical placement geometry', () => {
+  const scaledLeft: DisplayInfo = {
+    runtimeId: 'scaled-left',
+    name: 'Scaled left',
+    isPrimary: false,
+    position: { x: -2560, y: 0 },
+    size: { width: 2560, height: 1440 },
+    workArea: { x: -2560, y: 40, width: 2560, height: 1360 },
+    scaleFactor: 2,
+  };
+
+  it('converts a negative-coordinate physical work area to logical units once', () => {
+    expect(logicalWorkAreaForDisplay(scaledLeft)).toEqual({
+      x: -1280,
+      y: 20,
+      width: 1280,
+      height: 680,
+    });
+  });
+
+  it('restores monitor-relative bounds across resolution and scale changes', () => {
+    const normalized = normalizePlacementForDisplay(
+      placement({
+        displayId: scaledLeft.runtimeId,
+        logicalPosition: { x: -1024, y: 88 },
+        logicalSize: { width: 512, height: 340 },
+      }),
+      scaledLeft,
+    );
+    expect(normalized).toEqual({ x: 0.2, y: 0.1, width: 0.4, height: 0.5 });
+
+    const replacement: DisplayInfo = {
+      runtimeId: 'replacement',
+      name: 'Replacement',
+      isPrimary: true,
+      position: { x: 0, y: 0 },
+      size: { width: 3000, height: 1800 },
+      workArea: { x: 0, y: 0, width: 3000, height: 1800 },
+      scaleFactor: 1.5,
+    };
+    expect(
+      placementFromNormalizedBounds(normalized, replacement, { width: 240, height: 160 }),
+    ).toMatchObject({
+      displayId: 'replacement',
+      logicalPosition: { x: 400, y: 120 },
+      logicalSize: { width: 800, height: 600 },
+      state: 'normal',
+    });
+  });
+
+  it('replaces corrupt persisted normalized bounds with a reachable default', () => {
+    const restored = placementFromNormalizedBounds(
+      { x: Number.NaN, y: Number.POSITIVE_INFINITY, width: 0, height: -1 },
+      scaledLeft,
+      { width: 240, height: 160 },
+    );
+    const workArea = logicalWorkAreaForDisplay(scaledLeft);
+    expect(Number.isFinite(restored.logicalPosition.x)).toBe(true);
+    expect(Number.isFinite(restored.logicalSize.width)).toBe(true);
+    expect(restored.logicalPosition.x).toBeGreaterThanOrEqual(workArea.x);
+    expect(restored.logicalPosition.y).toBeGreaterThanOrEqual(workArea.y);
   });
 });
 

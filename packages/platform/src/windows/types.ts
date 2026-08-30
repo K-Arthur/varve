@@ -12,6 +12,18 @@
 
 export type WorkspaceWindowId = string;
 
+/**
+ * IDs are supplied by the panel-session coordinator and travel unchanged
+ * through the URL, session broker, detached-panel store, and window service.
+ * They deliberately have a stricter alphabet than native window labels so
+ * they remain safe to persist and to use as protocol identifiers.
+ */
+export const WORKSPACE_WINDOW_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+export function isWorkspaceWindowId(value: unknown): value is WorkspaceWindowId {
+  return typeof value === 'string' && WORKSPACE_WINDOW_ID_PATTERN.test(value);
+}
+
 export type NativeWindowCapability = 'native' | 'browser-popup' | 'single-window';
 
 export interface PhysicalPoint {
@@ -80,6 +92,12 @@ export interface WorkspaceWindowInfo {
 }
 
 export interface CreateWorkspaceWindowOptions {
+  /**
+   * Caller-allocated logical identity.  This must be used for panel windows:
+   * native labels are implementation details and cannot be reconstructed from
+   * a second webview after a reload.
+   */
+  id?: WorkspaceWindowId;
   title: string;
   size: PhysicalSize;
   minSize?: PhysicalSize;

@@ -11,8 +11,58 @@ import type { DisplayFingerprint, DisplayInfo, WindowPlacement, WindowState } fr
 /** Margin reserved above a window so the title bar stays reachable. */
 export const TITLE_BAR_MARGIN = 32;
 
+export interface LogicalRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface NormalizedRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function finitePositive(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+/**
+ * Tauri reports monitor geometry in physical pixels while Varve persists
+ * window placements in logical pixels.  Convert at this one boundary; callers
+ * must never compare a logical placement with `DisplayInfo.workArea` directly.
+ */
+export function logicalWorkAreaForDisplay(display: DisplayInfo): LogicalRect {
+  const scale = finitePositive(display.scaleFactor, 1);
+  return {
+    x: display.workArea.x / scale,
+    y: display.workArea.y / scale,
+    width: display.workArea.width / scale,
+    height: display.workArea.height / scale,
+  };
+}
+
+export function isFiniteLogicalRect(value: unknown): value is LogicalRect {
+  if (typeof value !== 'object' || value === null) return false;
+  const rect = value as Record<string, unknown>;
+  return (
+    typeof rect.x === 'number' &&
+    Number.isFinite(rect.x) &&
+    typeof rect.y === 'number' &&
+    Number.isFinite(rect.y) &&
+    typeof rect.width === 'number' &&
+    Number.isFinite(rect.width) &&
+    rect.width > 0 &&
+    typeof rect.height === 'number' &&
+    Number.isFinite(rect.height) &&
+    rect.height > 0
+  );
 }
 
 /**
@@ -26,29 +76,113 @@ export function clampPlacementToWorkArea(
   minSize: { width: number; height: number },
   state: WindowState = placement.state,
 ): WindowPlacement {
+  const safeWorkArea: LogicalRect = {
+    x: Number.isFinite(workArea.x) ? workArea.x : 0,
+    y: Number.isFinite(workArea.y) ? workArea.y : 0,
+    width: finitePositive(workArea.width, minSize.width),
+    height: finitePositive(workArea.height, minSize.height),
+  };
+  const safeMinSize = {
+    width: finitePositive(minSize.width, 1),
+    height: finitePositive(minSize.height, 1),
+  };
+  const safePlacement: WindowPlacement = {
+    ...placement,
+    logicalPosition: {
+      x: Number.isFinite(placement.logicalPosition.x)
+        ? placement.logicalPosition.x
+        : safeWorkArea.x,
+      y: Number.isFinite(placement.logicalPosition.y)
+        ? placement.logicalPosition.y
+        : safeWorkArea.y,
+    },
+    logicalSize: {
+      width: finitePositive(placement.logicalSize.width, safeMinSize.width),
+      height: finitePositive(placement.logicalSize.height, safeMinSize.height),
+    },
+  };
   if (state === 'maximized' || state === 'fullscreen') {
-    return { ...placement, state };
+    return { ...safePlacement, state };
   }
-  const width = clampNumber(placement.logicalSize.width, minSize.width, workArea.width);
-  const height = clampNumber(placement.logicalSize.height, minSize.height, workArea.height);
+  const width = clampNumber(safePlacement.logicalSize.width, safeMinSize.width, safeWorkArea.width);
+  const height = clampNumber(
+    safePlacement.logicalSize.height,
+    safeMinSize.height,
+    safeWorkArea.height,
+  );
   const x = clampNumber(
-    placement.logicalPosition.x,
-    workArea.x,
-    workArea.x + workArea.width - width,
+    safePlacement.logicalPosition.x,
+    safeWorkArea.x,
+    safeWorkArea.x + safeWorkArea.width - width,
   );
   const y = clampNumber(
-    placement.logicalPosition.y,
-    workArea.y,
-    workArea.y + workArea.height - height,
+    safePlacement.logicalPosition.y,
+    safeWorkArea.y,
+    safeWorkArea.y + safeWorkArea.height - height,
   );
   // Title bar reachability: never allow the top edge above the work area.
-  const clampedY = Math.max(y, workArea.y + TITLE_BAR_MARGIN - Math.min(height, workArea.height));
+  const clampedY = Math.max(
+    y,
+    safeWorkArea.y + TITLE_BAR_MARGIN - Math.min(height, safeWorkArea.height),
+  );
   return {
-    ...placement,
+    ...safePlacement,
     state,
     logicalPosition: { x, y: clampedY },
     logicalSize: { width, height },
   };
+}
+
+/**
+ * Persist a placement relative to its monitor's logical work area.  The
+ * normalized value is resilient to a changed resolution, taskbar, or scale.
+ */
+export function normalizePlacementForDisplay(
+  placement: WindowPlacement,
+  display: DisplayInfo,
+): NormalizedRect {
+  const workArea = logicalWorkAreaForDisplay(display);
+  return {
+    x: (placement.logicalPosition.x - workArea.x) / workArea.width,
+    y: (placement.logicalPosition.y - workArea.y) / workArea.height,
+    width: placement.logicalSize.width / workArea.width,
+    height: placement.logicalSize.height / workArea.height,
+  };
+}
+
+/** Rebuild a logical placement from a normalized monitor-relative record. */
+export function placementFromNormalizedBounds(
+  normalized: NormalizedRect,
+  display: DisplayInfo,
+  minSize: { width: number; height: number },
+  state: WindowState = 'normal',
+): WindowPlacement {
+  const workArea = logicalWorkAreaForDisplay(display);
+  const safe = isFiniteLogicalRect({
+    x: normalized.x,
+    y: normalized.y,
+    width: normalized.width,
+    height: normalized.height,
+  })
+    ? normalized
+    : { x: 0.1, y: 0.1, width: 0.4, height: 0.6 };
+  return clampPlacementToWorkArea(
+    {
+      displayId: display.runtimeId,
+      logicalPosition: {
+        x: workArea.x + safe.x * workArea.width,
+        y: workArea.y + safe.y * workArea.height,
+      },
+      logicalSize: {
+        width: safe.width * workArea.width,
+        height: safe.height * workArea.height,
+      },
+      state,
+    },
+    workArea,
+    minSize,
+    state,
+  );
 }
 
 /**

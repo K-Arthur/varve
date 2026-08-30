@@ -1,17 +1,19 @@
 /**
- * Tauri window service (ADR-0022).
+ * Tauri 2 window service (ADR-0022 / ADR-0210).
  *
- * Wraps the `window.__TAURI__.window` global (withGlobalTauri) — the same
- * convention as the rest of @varve/platform — behind the NativeWindowService
- * port. Logical workspace window ids are mapped to sanitized Tauri labels
- * (ADR-0020); the mapping lives here, per session.
- *
- * Auxiliary windows are created hidden and only shown after the caller
- * places them (ADR-0024: visible only when the destination is ready).
- * Only application-owned routes are accepted (ADR-0040).
+ * This adapter is deliberately the only place that knows Tauri's window API.
+ * The Tauri 2 global API exposes WebviewWindow under `webviewWindow`, returns
+ * window lists asynchronously, and reports monitor/window bounds in physical
+ * pixels. We normalize those details here and expose logical placements to
+ * the rest of Varve.
  */
 
-import { clampPlacementToWorkArea, matchDisplayFingerprint } from './geometry';
+import {
+  clampPlacementToWorkArea,
+  fingerprintFromDisplay,
+  logicalWorkAreaForDisplay,
+  matchDisplayFingerprint,
+} from './geometry';
 import type {
   CreateWorkspaceWindowOptions,
   DisplayInfo,
@@ -21,27 +23,28 @@ import type {
   WorkspaceWindowId,
   WorkspaceWindowInfo,
 } from './types';
-import { deriveWindowLabel } from './types';
+import { deriveWindowLabel, isWorkspaceWindowId } from './types';
+
+interface TauriPhysicalPoint {
+  x: number;
+  y: number;
+}
+
+interface TauriPhysicalSize {
+  width: number;
+  height: number;
+}
 
 interface TauriMonitor {
   name: string | null;
-  size: { width: number; height: number };
-  position: { x: number; y: number };
+  size: TauriPhysicalSize;
+  position: TauriPhysicalPoint;
+  workArea?: { position: TauriPhysicalPoint; size: TauriPhysicalSize };
   scaleFactor: number;
-}
-
-interface TauriWindowApi {
-  WebviewWindow: new (label: string, options?: Record<string, unknown>) => TauriWindowLike;
-  getCurrentWindow(): TauriWindowLike;
-  getAllWindows(): TauriWindowLike[];
-  availableMonitors(): Promise<TauriMonitor[]>;
-  currentMonitor(): Promise<TauriMonitor | null>;
-  primaryMonitor(): Promise<TauriMonitor | null>;
 }
 
 interface TauriWindowLike {
   label: string;
-  title?: string;
   setTitle(title: string): Promise<void>;
   setPosition(position: unknown): Promise<void>;
   setSize(size: unknown): Promise<void>;
@@ -55,75 +58,187 @@ interface TauriWindowLike {
   isMinimized(): Promise<boolean>;
   isMaximized(): Promise<boolean>;
   isFullscreen(): Promise<boolean>;
-  outerPosition(): Promise<{ x: number; y: number }>;
-  outerSize(): Promise<{ width: number; height: number }>;
+  outerPosition(): Promise<TauriPhysicalPoint>;
+  outerSize(): Promise<TauriPhysicalSize>;
   currentMonitor(): Promise<TauriMonitor | null>;
-  onMoved(handler: (event: { payload: { x: number; y: number } }) => void): Promise<() => void>;
-  onResized(
-    handler: (event: { payload: { width: number; height: number } }) => void,
-  ): Promise<() => void>;
+  onMoved(handler: (event: { payload: TauriPhysicalPoint }) => void): Promise<() => void>;
+  onResized(handler: (event: { payload: TauriPhysicalSize }) => void): Promise<() => void>;
   onFocusChanged(handler: (event: { payload: boolean }) => void): Promise<() => void>;
   onScaleChanged(
-    handler: (event: { payload: { scaleFactor: number } }) => void,
+    handler: (event: { payload: { scaleFactor: number; size: TauriPhysicalSize } }) => void,
   ): Promise<() => void>;
   onCloseRequested(handler: (event: { preventDefault(): void }) => void): Promise<() => void>;
+  once?(
+    event: 'tauri://created' | 'tauri://error',
+    handler: (event: { payload?: unknown }) => void,
+  ): Promise<() => void>;
 }
 
-function getTauriWindowApi(): TauriWindowApi {
+interface TauriWebviewWindowApi {
+  WebviewWindow: new (label: string, options?: Record<string, unknown>) => TauriWindowLike;
+  getCurrentWebviewWindow?: () => TauriWindowLike;
+  getAllWebviewWindows?: () => Promise<TauriWindowLike[]>;
+  /** Compatibility with Tauri's static methods and the old test stub. */
+  getCurrent?: () => TauriWindowLike;
+  getAll?: () => Promise<TauriWindowLike[]> | TauriWindowLike[];
+}
+
+interface TauriWindowApi {
+  getCurrentWindow?: () => TauriWindowLike;
+  getAllWindows?: () => Promise<TauriWindowLike[]> | TauriWindowLike[];
+  availableMonitors(): Promise<TauriMonitor[]>;
+  primaryMonitor(): Promise<TauriMonitor | null>;
+}
+
+interface TauriDpiApi {
+  LogicalPosition?: new (x: number, y: number) => unknown;
+  LogicalSize?: new (width: number, height: number) => unknown;
+}
+
+interface TauriApi {
+  webviewWindow: TauriWebviewWindowApi;
+  window: TauriWindowApi;
+  dpi?: TauriDpiApi;
+}
+
+function getTauriApi(): TauriApi {
   const globalWithTauri = window as unknown as {
-    __TAURI__?: { window?: TauriWindowApi };
+    __TAURI__?: {
+      webviewWindow?: TauriWebviewWindowApi;
+      window?: TauriWindowApi & Partial<TauriWebviewWindowApi>;
+      dpi?: TauriDpiApi;
+    };
   };
-  const api = globalWithTauri.__TAURI__?.window;
-  if (!api) {
-    throw new Error('Tauri window API is not available in this runtime');
+  const globalApi = globalWithTauri.__TAURI__;
+  const webviewCandidate = globalApi?.webviewWindow ?? globalApi?.window;
+  const windowApi = globalApi?.window;
+  if (
+    !webviewCandidate?.WebviewWindow ||
+    !windowApi?.availableMonitors ||
+    !windowApi.primaryMonitor
+  ) {
+    throw new Error('Tauri 2 window API is not available in this runtime');
   }
-  return api;
-}
-
-function newLogicalPosition(x: number, y: number): unknown {
-  return { x, y };
-}
-
-function newLogicalSize(width: number, height: number): unknown {
-  return { width, height };
-}
-
-/** Map Tauri's Monitor type into the normalized DisplayInfo model. */
-function toDisplayInfo(monitor: TauriMonitor, index: number): DisplayInfo {
-  const primary = monitor.position.x === 0 && monitor.position.y === 0;
   return {
-    runtimeId: `tauri-monitor-${index}`,
+    webviewWindow: webviewCandidate as TauriWebviewWindowApi,
+    window: windowApi,
+    dpi: globalApi?.dpi,
+  };
+}
+
+function logicalPosition(api: TauriApi, x: number, y: number): unknown {
+  if (api.dpi?.LogicalPosition) return new api.dpi.LogicalPosition(x, y);
+  // Tauri's IPC serializer reads the `type` discriminator. This fallback is
+  // deliberately not a lookalike plain position object.
+  return { type: 'Logical', x, y };
+}
+
+function logicalSize(api: TauriApi, width: number, height: number): unknown {
+  if (api.dpi?.LogicalSize) return new api.dpi.LogicalSize(width, height);
+  return { type: 'Logical', width, height };
+}
+
+function monitorKey(monitor: TauriMonitor): string {
+  return [
+    monitor.name ?? '',
+    monitor.position.x,
+    monitor.position.y,
+    monitor.size.width,
+    monitor.size.height,
+    monitor.scaleFactor,
+  ].join('|');
+}
+
+function monitorRuntimeId(monitor: TauriMonitor): string {
+  const readable = (monitor.name ?? 'display').replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 24);
+  return `tauri-${readable}-${monitor.position.x}-${monitor.position.y}-${monitor.size.width}x${monitor.size.height}`;
+}
+
+function toDisplayInfo(monitor: TauriMonitor, isPrimary: boolean): DisplayInfo {
+  const workArea = monitor.workArea ?? { position: monitor.position, size: monitor.size };
+  return {
+    runtimeId: monitorRuntimeId(monitor),
     name: monitor.name ?? undefined,
-    isPrimary: primary,
+    isPrimary,
     position: { x: monitor.position.x, y: monitor.position.y },
     size: { width: monitor.size.width, height: monitor.size.height },
     workArea: {
-      x: monitor.position.x,
-      y: monitor.position.y,
-      width: monitor.size.width,
-      height: monitor.size.height,
+      x: workArea.position.x,
+      y: workArea.position.y,
+      width: workArea.size.width,
+      height: workArea.size.height,
     },
     scaleFactor: monitor.scaleFactor,
   };
 }
 
+function currentRouteWindowId(): WorkspaceWindowId | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const id = new URLSearchParams(window.location.search).get('windowId');
+  return isWorkspaceWindowId(id) ? id : undefined;
+}
+
+/** Native creation is asynchronous even though `new WebviewWindow()` returns a handle. */
+async function waitForWindowCreation(nativeWindow: TauriWindowLike): Promise<void> {
+  if (!nativeWindow.once) return;
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let createdUnlisten: (() => void) | undefined;
+    let errorUnlisten: (() => void) | undefined;
+    const timer = window.setTimeout(() => {
+      finish(() => reject(new Error('timed out while creating the auxiliary window')));
+    }, 10_000);
+
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      createdUnlisten?.();
+      errorUnlisten?.();
+      callback();
+    };
+
+    void Promise.all([
+      nativeWindow.once?.('tauri://created', () => finish(resolve)),
+      nativeWindow.once?.('tauri://error', (event) =>
+        finish(() =>
+          reject(new Error(`failed to create auxiliary window: ${String(event.payload)}`)),
+        ),
+      ),
+    ])
+      .then(([created, failed]) => {
+        createdUnlisten = created;
+        errorUnlisten = failed;
+      })
+      .catch((error) => finish(() => reject(error)));
+  });
+}
+
+/**
+ * Tauri window adapter. Every listener belongs to its native window and is
+ * disposed immediately when that window closes.
+ */
 export class TauriWindowService implements NativeWindowService {
   readonly capability = 'native' as const;
 
   private idByLabel = new Map<string, WorkspaceWindowId>();
   private labelById = new Map<WorkspaceWindowId, string>();
+  private titleById = new Map<WorkspaceWindowId, string>();
   private listeners = new Set<(event: WorkspaceWindowEvent) => void>();
-  private subscribedLabels = new Set<string>();
-  private unsubscribes: Array<() => void> = [];
+  private unsubscribesByLabel = new Map<string, Array<() => void>>();
+  private closedLabels = new Set<string>();
   private cleanupRegistered = false;
 
   private idForLabel(label: string): WorkspaceWindowId {
-    const existing = this.idByLabel.get(label);
-    if (existing) return existing;
-    const id =
-      label === 'main'
-        ? 'main'
-        : `ws-${label.replace(/[^a-z0-9]/g, '')}-${Date.now().toString(36)}`;
+    const known = this.idByLabel.get(label);
+    if (known) return known;
+
+    // Auxiliary webviews carry their canonical identity in the application
+    // route. Labels cannot become Date.now-based surrogate identities after
+    // a reload.
+    const routed = label === 'main' ? undefined : currentRouteWindowId();
+    const id = routed ?? (label === 'main' ? 'main' : label);
     this.idByLabel.set(label, id);
     this.labelById.set(id, label);
     return id;
@@ -139,292 +254,384 @@ export class TauriWindowService implements NativeWindowService {
   }
 
   async createWindow(options: CreateWorkspaceWindowOptions): Promise<WorkspaceWindowInfo> {
-    const api = getTauriWindowApi();
+    const api = getTauriApi();
     if (options.route && !isApplicationRoute(options.route)) {
       throw new Error(`refusing non-application route '${options.route}' (ADR-0040)`);
     }
-    const id = `ws-${cryptoRandomUuid().slice(0, 8)}`;
+
+    const id = options.id ?? createWorkspaceWindowId();
+    if (!isWorkspaceWindowId(id)) {
+      throw new Error(`invalid workspace window id '${String(id)}'`);
+    }
+    const routedId = options.route ? routeWindowId(options.route) : undefined;
+    if (routedId && routedId !== id) {
+      throw new Error(
+        `window route identity '${routedId}' does not match requested window identity '${id}'`,
+      );
+    }
     const label = options.label ? deriveWindowLabel(options.label) : deriveWindowLabel(id);
+    if ((await this.findWindowByLabel(label)).length > 0) {
+      throw new Error(`a window with label '${label}' already exists`);
+    }
     this.idByLabel.set(label, id);
     this.labelById.set(id, label);
+    this.titleById.set(id, options.title);
+    this.closedLabels.delete(label);
 
-    const url = options.route ? routeUrl(options.route) : routeUrl('?surface=panel-window');
-    const width = options.size.width;
-    const height = options.size.height;
-    const minWidth = options.minSize?.width;
-    const minHeight = options.minSize?.height;
-
-    const webview = new api.WebviewWindow(label, {
-      url,
+    const nativeWindow = new api.webviewWindow.WebviewWindow(label, {
+      url: options.route ? routeUrl(options.route) : routeUrl('?surface=panel-window'),
       title: options.title,
-      width,
-      height,
-      minWidth,
-      minHeight,
+      width: options.size.width,
+      height: options.size.height,
+      minWidth: options.minSize?.width,
+      minHeight: options.minSize?.height,
       visible: false,
       decorations: false,
     });
+    await waitForWindowCreation(nativeWindow);
 
     if (options.placement) {
-      const display = await this.findDisplayForPlacement(options.placement);
-      const placement = clampPlacementToWorkArea(
+      await this.applyPlacement(
+        nativeWindow,
         options.placement,
-        display?.workArea ?? { x: 0, y: 0, width: 1920, height: 1080 },
         options.minSize ?? { width: 240, height: 160 },
       );
-      await webview.setPosition(
-        newLogicalPosition(placement.logicalPosition.x, placement.logicalPosition.y),
-      );
-      await webview.setSize(
-        newLogicalSize(placement.logicalSize.width, placement.logicalSize.height),
-      );
     }
-    if (minWidth !== undefined && minHeight !== undefined) {
-      await webview.setMinSize(newLogicalSize(minWidth, minHeight));
+    if (options.minSize) {
+      await nativeWindow.setMinSize(
+        logicalSize(api, options.minSize.width, options.minSize.height),
+      );
     }
 
-    const info = await this.wrapWindow(webview, id);
-    await this.subscribeWindow(webview, id);
+    await this.subscribeWindow(nativeWindow, id);
+    const info = await this.wrapWindow(nativeWindow, id);
     this.emit({ type: 'created', windowId: id, info });
     return info;
   }
 
   async closeWindow(windowId: WorkspaceWindowId): Promise<void> {
-    const api = getTauriWindowApi();
     const label = this.labelForId(windowId);
-    const window = api.getAllWindows().find((w) => w.label === label);
-    if (window) {
-      await window.close();
-      this.emit({ type: 'closed', windowId });
-    }
+    const nativeWindow = (await this.findWindowByLabel(label))[0];
+    if (!nativeWindow) return;
+    await nativeWindow.close();
+    this.finalizeClosed(label, windowId);
   }
 
   async focusWindow(windowId: WorkspaceWindowId): Promise<void> {
-    const api = getTauriWindowApi();
-    const window = api.getAllWindows().find((w) => w.label === this.labelForId(windowId));
-    if (window) await window.setFocus();
+    const nativeWindow = (await this.findWindowByLabel(this.labelForId(windowId)))[0];
+    if (!nativeWindow) throw new Error(`unknown window '${windowId}'`);
+    await nativeWindow.setFocus();
   }
 
   async showWindow(windowId: WorkspaceWindowId): Promise<void> {
-    const api = getTauriWindowApi();
-    const window = api.getAllWindows().find((w) => w.label === this.labelForId(windowId));
-    if (window) await window.show();
+    const nativeWindow = (await this.findWindowByLabel(this.labelForId(windowId)))[0];
+    if (!nativeWindow) throw new Error(`unknown window '${windowId}'`);
+    await nativeWindow.show();
   }
 
   async hideWindow(windowId: WorkspaceWindowId): Promise<void> {
-    const api = getTauriWindowApi();
-    const window = api.getAllWindows().find((w) => w.label === this.labelForId(windowId));
-    if (window) await window.hide();
+    const nativeWindow = (await this.findWindowByLabel(this.labelForId(windowId)))[0];
+    if (!nativeWindow) throw new Error(`unknown window '${windowId}'`);
+    await nativeWindow.hide();
   }
 
   async getCurrentWindow(): Promise<WorkspaceWindowInfo> {
-    const api = getTauriWindowApi();
-    const window = api.getCurrentWindow();
-    const id = this.idForLabel(window.label);
-    await this.subscribeWindow(window, id);
-    return this.wrapWindow(window, id);
+    const api = getTauriApi();
+    const current =
+      api.webviewWindow.getCurrentWebviewWindow?.() ??
+      api.webviewWindow.getCurrent?.() ??
+      api.window.getCurrentWindow?.();
+    if (!current) throw new Error('unable to resolve the current Tauri window');
+    const id = this.idForLabel(current.label);
+    await this.subscribeWindow(current, id);
+    return this.wrapWindow(current, id);
   }
 
   async listWindows(): Promise<WorkspaceWindowInfo[]> {
-    const api = getTauriWindowApi();
-    const windows = api.getAllWindows();
     const results: WorkspaceWindowInfo[] = [];
-    for (const window of windows) {
-      const id = this.idForLabel(window.label);
-      await this.subscribeWindow(window, id);
-      results.push(await this.wrapWindow(window, id));
+    for (const nativeWindow of await this.getAllNativeWindows()) {
+      const id = this.idForLabel(nativeWindow.label);
+      await this.subscribeWindow(nativeWindow, id);
+      results.push(await this.wrapWindow(nativeWindow, id));
     }
     return results;
   }
 
   async listMonitors(): Promise<DisplayInfo[]> {
-    const monitors = await getTauriWindowApi().availableMonitors();
-    return monitors.map((monitor, index) => toDisplayInfo(monitor, index));
+    const api = getTauriApi();
+    const [monitors, primary] = await Promise.all([
+      api.window.availableMonitors(),
+      api.window.primaryMonitor(),
+    ]);
+    const primaryKey = primary ? monitorKey(primary) : undefined;
+    return monitors.map((monitor) => toDisplayInfo(monitor, monitorKey(monitor) === primaryKey));
   }
 
   async getWindowPlacement(windowId: WorkspaceWindowId): Promise<WindowPlacement | null> {
-    const api = getTauriWindowApi();
-    const window = api.getAllWindows().find((w) => w.label === this.labelForId(windowId));
-    if (!window) return null;
-    return this.readPlacement(window);
+    const nativeWindow = (await this.findWindowByLabel(this.labelForId(windowId)))[0];
+    return nativeWindow ? this.readPlacement(nativeWindow) : null;
   }
 
   async setWindowPlacement(windowId: WorkspaceWindowId, placement: WindowPlacement): Promise<void> {
-    const api = getTauriWindowApi();
-    const window = api.getAllWindows().find((w) => w.label === this.labelForId(windowId));
-    if (!window) throw new Error(`unknown window '${windowId}'`);
-    const display = await this.findDisplayForPlacement(placement);
-    const clamped = clampPlacementToWorkArea(
-      placement,
-      display?.workArea ?? { x: 0, y: 0, width: 1920, height: 1080 },
-      { width: 240, height: 160 },
-    );
-    await window.setPosition(
-      newLogicalPosition(clamped.logicalPosition.x, clamped.logicalPosition.y),
-    );
-    await window.setSize(newLogicalSize(clamped.logicalSize.width, clamped.logicalSize.height));
-    if (clamped.state === 'minimized') await window.hide();
+    const nativeWindow = (await this.findWindowByLabel(this.labelForId(windowId)))[0];
+    if (!nativeWindow) throw new Error(`unknown window '${windowId}'`);
+    await this.applyPlacement(nativeWindow, placement, { width: 240, height: 160 });
+    if (placement.state === 'minimized') await nativeWindow.hide();
   }
 
   async listenToWindowEvents(handler: (event: WorkspaceWindowEvent) => void): Promise<() => void> {
     this.listeners.add(handler);
     this.registerCleanupHook();
-    return () => {
-      this.listeners.delete(handler);
-    };
+    return () => this.listeners.delete(handler);
+  }
+
+  private async getAllNativeWindows(): Promise<TauriWindowLike[]> {
+    const api = getTauriApi();
+    if (api.webviewWindow.getAllWebviewWindows) {
+      return api.webviewWindow.getAllWebviewWindows();
+    }
+    if (api.webviewWindow.getAll) {
+      return Promise.resolve(api.webviewWindow.getAll());
+    }
+    if (api.window.getAllWindows) {
+      return Promise.resolve(api.window.getAllWindows());
+    }
+    return [];
+  }
+
+  private async findWindowByLabel(label: string): Promise<TauriWindowLike[]> {
+    return (await this.getAllNativeWindows()).filter(
+      (nativeWindow) => nativeWindow.label === label,
+    );
   }
 
   private async wrapWindow(
-    window: TauriWindowLike,
+    nativeWindow: TauriWindowLike,
     id: WorkspaceWindowId,
   ): Promise<WorkspaceWindowInfo> {
-    const [visible, focused, minimized, maximized, fullscreen, placement] = await Promise.all([
-      window.isVisible().catch(() => false),
-      window.isFocused().catch(() => false),
-      window.isMinimized().catch(() => false),
-      window.isMaximized().catch(() => false),
-      window.isFullscreen().catch(() => false),
-      this.readPlacement(window).catch(() => null),
-    ]);
+    const [visible, focused, minimized, maximized, fullscreen, placement, monitor] =
+      await Promise.all([
+        nativeWindow.isVisible().catch(() => false),
+        nativeWindow.isFocused().catch(() => false),
+        nativeWindow.isMinimized().catch(() => false),
+        nativeWindow.isMaximized().catch(() => false),
+        nativeWindow.isFullscreen().catch(() => false),
+        this.readPlacement(nativeWindow).catch(() => null),
+        nativeWindow
+          .currentMonitor()
+          .catch(() => null)
+          .then((monitor) => this.displayForNativeMonitor(monitor)),
+      ]);
     return {
       id,
-      label: window.label,
-      title: window.title ?? 'Varve',
+      label: nativeWindow.label,
+      title: this.titleById.get(id) ?? 'Varve',
       visible,
       focused,
       minimized,
       maximized,
       fullscreen,
       placement: placement ?? undefined,
+      monitor,
     };
   }
 
-  private async readPlacement(window: TauriWindowLike): Promise<WindowPlacement | null> {
-    const monitor = await window.currentMonitor().catch(() => null);
-    const scale = monitor?.scaleFactor ?? 1;
-    const [position, size] = await Promise.all([
-      window.outerPosition().catch(() => ({ x: 0, y: 0 })),
-      window.outerSize().catch(() => ({ width: 800, height: 600 })),
+  private async readPlacement(nativeWindow: TauriWindowLike): Promise<WindowPlacement | null> {
+    const [nativeMonitor, position, size, minimized, maximized, fullscreen] = await Promise.all([
+      nativeWindow.currentMonitor().catch(() => null),
+      nativeWindow.outerPosition().catch(() => ({ x: 0, y: 0 })),
+      nativeWindow.outerSize().catch(() => ({ width: 800, height: 600 })),
+      nativeWindow.isMinimized().catch(() => false),
+      nativeWindow.isMaximized().catch(() => false),
+      nativeWindow.isFullscreen().catch(() => false),
     ]);
+    const display = await this.displayForNativeMonitor(nativeMonitor);
+    const scale =
+      nativeMonitor?.scaleFactor && Number.isFinite(nativeMonitor.scaleFactor)
+        ? nativeMonitor.scaleFactor
+        : 1;
+    const state = fullscreen
+      ? 'fullscreen'
+      : maximized
+        ? 'maximized'
+        : minimized
+          ? 'minimized'
+          : 'normal';
+    const displays = display ? await this.listMonitors() : [];
     return {
-      displayId: undefined,
+      displayId: display?.runtimeId,
+      displayFingerprint: display
+        ? fingerprintFromDisplay(
+            display,
+            displays.find((candidate) => candidate.isPrimary),
+          )
+        : undefined,
       logicalPosition: { x: position.x / scale, y: position.y / scale },
       logicalSize: { width: size.width / scale, height: size.height / scale },
-      state: 'normal',
+      state,
     };
   }
 
-  private async findDisplayForPlacement(placement: WindowPlacement) {
+  private async displayForNativeMonitor(monitor: TauriMonitor | null): Promise<DisplayInfo | null> {
+    if (!monitor) return null;
+    return (
+      (await this.listMonitors()).find(
+        (candidate) =>
+          candidate.name === (monitor.name ?? undefined) &&
+          candidate.position.x === monitor.position.x &&
+          candidate.position.y === monitor.position.y &&
+          candidate.size.width === monitor.size.width &&
+          candidate.size.height === monitor.size.height,
+      ) ?? toDisplayInfo(monitor, false)
+    );
+  }
+
+  private async findDisplayForPlacement(
+    placement: WindowPlacement,
+  ): Promise<DisplayInfo | undefined> {
     const monitors = await this.listMonitors().catch(() => []);
     if (placement.displayId) {
-      const match = monitors.find((m) => m.runtimeId === placement.displayId);
-      if (match) return match;
+      const exact = monitors.find((monitor) => monitor.runtimeId === placement.displayId);
+      if (exact) return exact;
     }
     if (placement.displayFingerprint) {
-      const primary = monitors.find((m) => m.isPrimary);
+      const primary = monitors.find((monitor) => monitor.isPrimary);
       let best: DisplayInfo | undefined;
-      let bestScore = 0;
+      let score = 0;
       for (const candidate of monitors) {
-        const score = matchDisplayFingerprint(placement.displayFingerprint, candidate, primary);
-        if (score > bestScore) {
-          bestScore = score;
+        const candidateScore = matchDisplayFingerprint(
+          placement.displayFingerprint,
+          candidate,
+          primary,
+        );
+        if (candidateScore > score) {
+          score = candidateScore;
           best = candidate;
         }
       }
       if (best) return best;
     }
-    return monitors.find((m) => m.isPrimary) ?? monitors[0];
+    return monitors.find((monitor) => monitor.isPrimary) ?? monitors[0];
   }
 
-  private async subscribeWindow(window: TauriWindowLike, id: WorkspaceWindowId): Promise<void> {
-    if (this.subscribedLabels.has(window.label)) return;
-    this.subscribedLabels.add(window.label);
+  private async applyPlacement(
+    nativeWindow: TauriWindowLike,
+    placement: WindowPlacement,
+    minSize: { width: number; height: number },
+  ): Promise<void> {
+    const api = getTauriApi();
+    const display = await this.findDisplayForPlacement(placement);
+    const workArea = display
+      ? logicalWorkAreaForDisplay(display)
+      : { x: 0, y: 0, width: 1920, height: 1080 };
+    const clamped = clampPlacementToWorkArea(placement, workArea, minSize);
+    await nativeWindow.setPosition(
+      logicalPosition(api, clamped.logicalPosition.x, clamped.logicalPosition.y),
+    );
+    await nativeWindow.setSize(
+      logicalSize(api, clamped.logicalSize.width, clamped.logicalSize.height),
+    );
+  }
+
+  private async subscribeWindow(
+    nativeWindow: TauriWindowLike,
+    id: WorkspaceWindowId,
+  ): Promise<void> {
+    if (this.unsubscribesByLabel.has(nativeWindow.label)) return;
     const unsubscribes: Array<() => void> = [];
-    const cleanup = async (fn: () => Promise<() => void>) => {
+    const add = async (subscribe: () => Promise<() => void>) => {
       try {
-        unsubscribes.push(await fn());
+        unsubscribes.push(await subscribe());
       } catch {
-        // Window may be gone already; nothing to clean.
+        // The native window may have closed before a listener was installed.
       }
     };
-    await cleanup(() =>
-      window.onMoved((event) => {
-        const monitorScale = 1;
-        this.emit({
-          type: 'moved',
-          windowId: id,
-          placement: {
-            logicalPosition: {
-              x: event.payload.x / monitorScale,
-              y: event.payload.y / monitorScale,
-            },
-            logicalSize: { width: 0, height: 0 },
-            state: 'normal',
-          },
-        });
+
+    await add(() =>
+      nativeWindow.onMoved(() => {
+        void this.readPlacement(nativeWindow)
+          .then((placement) => {
+            if (placement) this.emit({ type: 'moved', windowId: id, placement });
+          })
+          .catch(() => {});
       }),
     );
-    await cleanup(() =>
-      window.onResized((event) => {
-        this.emit({
-          type: 'resized',
-          windowId: id,
-          size: { width: event.payload.width, height: event.payload.height },
-        });
+    await add(() =>
+      nativeWindow.onResized(() => {
+        void this.readPlacement(nativeWindow)
+          .then((placement) => {
+            if (placement)
+              this.emit({ type: 'resized', windowId: id, size: placement.logicalSize });
+          })
+          .catch(() => {});
       }),
     );
-    await cleanup(() =>
-      window.onFocusChanged((event) => {
+    await add(() =>
+      nativeWindow.onFocusChanged((event) => {
         this.emit(
           event.payload ? { type: 'focused', windowId: id } : { type: 'blurred', windowId: id },
         );
       }),
     );
-    await cleanup(() =>
-      window.onScaleChanged(() => {
-        void this.listMonitors().then((displays) =>
-          this.emit({ type: 'monitors-changed', displays }),
-        );
+    await add(() =>
+      nativeWindow.onScaleChanged(() => {
+        void this.listMonitors()
+          .then((displays) => this.emit({ type: 'monitors-changed', displays }))
+          .catch(() => {});
       }),
     );
-    await cleanup(() =>
-      window.onCloseRequested(() => {
-        this.emit({ type: 'closed', windowId: id });
+    await add(() =>
+      nativeWindow.onCloseRequested(() => {
+        this.finalizeClosed(nativeWindow.label, id);
       }),
     );
-    this.unsubscribes.push(...unsubscribes);
+    this.unsubscribesByLabel.set(nativeWindow.label, unsubscribes);
+  }
+
+  private finalizeClosed(label: string, windowId: WorkspaceWindowId): void {
+    if (this.closedLabels.has(label)) return;
+    this.closedLabels.add(label);
+    for (const unsubscribe of this.unsubscribesByLabel.get(label) ?? []) {
+      try {
+        unsubscribe();
+      } catch {
+        // Best-effort listener teardown.
+      }
+    }
+    this.unsubscribesByLabel.delete(label);
+    this.emit({ type: 'closed', windowId });
   }
 
   private registerCleanupHook(): void {
-    if (this.cleanupRegistered) return;
+    if (this.cleanupRegistered || typeof window === 'undefined') return;
     this.cleanupRegistered = true;
-    if (typeof window !== 'undefined' && 'addEventListener' in window) {
-      window.addEventListener('pagehide', () => {
-        for (const unsubscribe of this.unsubscribes) {
+    window.addEventListener('pagehide', () => {
+      for (const [label, unsubscribes] of this.unsubscribesByLabel) {
+        for (const unsubscribe of unsubscribes) {
           try {
             unsubscribe();
           } catch {
-            // Best-effort teardown.
+            // Best-effort teardown during process shutdown.
           }
         }
-        this.unsubscribes = [];
-      });
-    }
+        this.unsubscribesByLabel.delete(label);
+      }
+    });
   }
 
   private emit(event: WorkspaceWindowEvent): void {
-    for (const listener of this.listeners) {
-      listener(event);
-    }
+    for (const listener of this.listeners) listener(event);
   }
 }
 
-/** Only '?query'-style application routes are allowed (ADR-0040). */
+/** Only query-style application routes are accepted by dynamic webviews. */
 function isApplicationRoute(route: string): boolean {
-  if (!route.startsWith('?')) return false;
-  if (route.includes('//')) return false;
-  if (route.includes('http:') || route.includes('https:')) return false;
-  return true;
+  return (
+    route.startsWith('?') &&
+    !route.includes('//') &&
+    !route.includes('http:') &&
+    !route.includes('https:')
+  );
 }
 
 function routeUrl(route: string): string {
@@ -433,11 +640,17 @@ function routeUrl(route: string): string {
   return `${origin}${pathname}${route}`;
 }
 
-function cryptoRandomUuid(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
-  }
-  return `r-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+function routeWindowId(route: string): WorkspaceWindowId | undefined {
+  const id = new URLSearchParams(route.slice(1)).get('windowId');
+  return isWorkspaceWindowId(id) ? id : undefined;
+}
+
+function createWorkspaceWindowId(): WorkspaceWindowId {
+  const random =
+    typeof globalThis.crypto?.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID().replace(/-/g, '')
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+  return `window-${random.slice(0, 48)}`;
 }
 
 export function createTauriWindowService(): NativeWindowService {

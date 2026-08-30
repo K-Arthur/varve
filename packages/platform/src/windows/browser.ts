@@ -20,7 +20,7 @@ import type {
   WorkspaceWindowId,
   WorkspaceWindowInfo,
 } from './types';
-import { UnsupportedOperationError } from './types';
+import { isWorkspaceWindowId, UnsupportedOperationError } from './types';
 
 const CURRENT_WINDOW_ID = 'main';
 const POPUP_BASE_URL = typeof location !== 'undefined' ? location.origin : 'http://localhost:1420';
@@ -84,7 +84,13 @@ export class BrowserWindowService implements NativeWindowService {
     }
 
     this.counter += 1;
-    const id = `browser-popup-${this.counter}`;
+    const id = options.id ?? `browser-popup-${this.counter}`;
+    if (!isWorkspaceWindowId(id)) {
+      return Promise.reject(new Error(`invalid workspace window id '${String(id)}'`));
+    }
+    if (this.popups.has(id)) {
+      return Promise.reject(new Error(`window '${id}' already exists`));
+    }
     const name = `varve-panel-${this.counter}`;
     const width = options.size?.width ?? 320;
     const height = options.size?.height ?? 480;
@@ -92,10 +98,12 @@ export class BrowserWindowService implements NativeWindowService {
     const top = 24;
     const features = `width=${width},height=${height},left=${left},top=${top},popup=yes`;
 
-    // Build the panel-window route: strip any existing surface/windowId params
-    // and substitute this service's own identity.
-    const panelParam = options.route?.match(/panels=([^&]+)/)?.[1] ?? '';
-    const sessionParam = options.route?.match(/session=([^&]+)/)?.[1] ?? 'current';
+    // Browser popups have deliberately limited placement guarantees, but the
+    // application identity must still be identical to the service ID. Never
+    // rewrite it: the broker and the popup need the same protocol target.
+    const routeParams = new URLSearchParams(options.route?.startsWith('?') ? options.route : '');
+    const panelParam = routeParams.get('panels') ?? '';
+    const sessionParam = routeParams.get('session') ?? 'current';
     const url =
       `${POPUP_BASE_URL}/index.html` +
       `?surface=panel-window` +
