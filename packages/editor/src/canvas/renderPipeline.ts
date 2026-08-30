@@ -1763,7 +1763,12 @@ export function renderContent(deps: RenderContentDeps): void {
             regionX: bx,
             regionY: by,
             replayNode: (nodeId, ctx) =>
-              replaySubtreeToCtx(nodeId, ctx, instancePrefix, masterPlacement),
+              replaySubtreeToCtx(
+                nodeId,
+                ctx as CanvasRenderingContext2D,
+                instancePrefix,
+                masterPlacement,
+              ),
             getWorldTransform: (nodeId) => instanceWorldTransform(nodeId, masterPlacement),
           });
         }

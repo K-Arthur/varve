@@ -162,6 +162,9 @@ describe('foldover analysis', () => {
 
 describe('envelope corner editing domain', () => {
   const CORNERS = makeWarpPreset('four-edge');
+  if (CORNERS.kind !== 'envelope') {
+    throw new Error('The four-edge preset must produce an envelope modifier.');
+  }
 
   it('accepts a corner dragged outward past the unit square', () => {
     const moved = {

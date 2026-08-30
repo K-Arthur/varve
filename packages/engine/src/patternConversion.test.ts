@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import { createEngine } from '@varve/engine';
-import type { SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
+import type { SceneNode } from './types';
 
 describe('image→pattern fill conversion IR (regression)', () => {
   it('flattens a pattern fill that also carries a stale image payload', async () => {
@@ -28,7 +28,7 @@ describe('image→pattern fill conversion IR (regression)', () => {
       shape: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
     };
     const engine = await createEngine();
-    const items = await engine.buildIr({ nodes: [node], paintOrder: ['n1'] });
+    const items = await engine.buildIr({ nodes: [node] });
     const fill = items[0]?.fills?.[0];
     expect(fill?.type).toBe('pattern');
     if (fill?.type === 'pattern') {

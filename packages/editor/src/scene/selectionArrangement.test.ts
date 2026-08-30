@@ -219,7 +219,7 @@ describe('selectionArrangement', () => {
     expectClose(bounds(next, image.id).x, bounds(next, line.id).x);
     expect(getParent(next, image.id)).toBe(frame.id);
     expect(getParent(next, line.id)).toBe(frame.id);
-    expect(next.nodes[image.id]?.fills[0]?.type).toBe('image');
+    expect(next.nodes[image.id]?.fills?.[0]?.type).toBe('image');
   });
 
   it('aligns an image in a nested transformed frame with a container sibling without flattening either hierarchy', () => {
@@ -257,7 +257,7 @@ describe('selectionArrangement', () => {
     expect(getParent(next, sibling.id)).toBe(outer.id);
     expect(next.nodes[image.id]?.transform.slice(0, 4)).toEqual(imageLinear);
     expect(next.nodes[sibling.id]?.transform.slice(0, 4)).toEqual(siblingLinear);
-    expect(next.nodes[image.id]?.fills[0]?.type).toBe('image');
+    expect(next.nodes[image.id]?.fills?.[0]?.type).toBe('image');
   });
 
   it('aligns nested image and sibling roots to their common transformed frame', () => {
@@ -302,7 +302,7 @@ describe('selectionArrangement', () => {
     );
     expect(getParent(next, image.id)).toBe(inner.id);
     expect(getParent(next, sibling.id)).toBe(outer.id);
-    expect(next.nodes[image.id]?.fills[0]?.type).toBe('image');
+    expect(next.nodes[image.id]?.fills?.[0]?.type).toBe('image');
   });
 
   it('allows absolute auto-layout children but excludes flow children and hidden ancestors', () => {
@@ -321,7 +321,7 @@ describe('selectionArrangement', () => {
       },
     });
     const flow = rect('flow', 20, 0, 30, 30);
-    const absolute = { ...rect('absolute', 110, 0, 30, 30), layoutPosition: 'absolute' };
+    const absolute = { ...rect('absolute', 110, 0, 30, 30), layoutPosition: 'absolute' as const };
     const peer = rect('peer', 320, 20, 30, 30);
     const hiddenFrame = { ...makeFrameNode('hidden-frame', { w: 100, h: 100 }), visible: false };
     const hiddenChild = rect('hidden-child', 10, 10, 20, 20);

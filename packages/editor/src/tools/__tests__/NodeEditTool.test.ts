@@ -297,7 +297,7 @@ describe('NodeEditTool — keyboard anchor nudge', () => {
         nodes: { n1: original },
         rootChildren: ['n1'],
         name: 'Multi-anchor nudge',
-      } as ToolContext['document'],
+      } as unknown as ToolContext['document'],
       getNode: vi.fn((id) => (id === 'n1' ? original : undefined)),
     });
     const tool = new NodeEditTool();

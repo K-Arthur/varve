@@ -270,7 +270,7 @@ describe('executeNudge', () => {
     });
     const image = makeImageNode('image', {
       src: 'asset://photo',
-      imageFit: 'cover',
+      imageFit: 'fill',
       w: 80,
       h: 60,
       transform: [1, 0, 0, 1, -12, 6],

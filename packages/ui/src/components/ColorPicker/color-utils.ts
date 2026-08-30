@@ -1,3 +1,5 @@
+import { rgbToHex } from '@varve/shared';
+
 export type Color = readonly [number, number, number, number];
 
 export function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
@@ -118,7 +120,7 @@ export function rgbToHsl(r: number, g: number, b: number): [number, number, numb
   return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
 }
 
-export { rgbToHex } from '@varve/shared';
+export { rgbToHex };
 
 /**
  * Parse a hex color string, supporting:

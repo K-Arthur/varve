@@ -61,7 +61,7 @@ export function useShortcuts(
         return () => {
           const registry = getActionRegistry();
           const wsAction = registry.get('workspaceMotion');
-          if (wsAction && !wsAction.placeholder) wsAction.handler();
+          if (wsAction && !wsAction.placeholder) wsAction.handler(undefined);
         };
       default:
         return null;

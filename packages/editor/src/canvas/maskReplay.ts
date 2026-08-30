@@ -25,7 +25,7 @@ type RasterContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2
  * into the given context as a single path.
  */
 export function traceVectorMaskPoints(
-  ctx: CanvasRenderingContext2D,
+  ctx: RasterContext,
   points: import('@varve/engine').PathPoint[],
   closed: boolean,
 ): void {
@@ -146,7 +146,7 @@ export function applyAdjustmentSpatialMask(options: AdjustmentSpatialMaskOptions
       ctx.transform(...maskWorldTransform);
       ctx.beginPath();
       traceSceneNodeOutline(
-        ctx,
+        ctx as CanvasRenderingContext2D,
         maskSource as unknown as Parameters<typeof traceSceneNodeOutline>[1],
       );
       ctx.closePath();

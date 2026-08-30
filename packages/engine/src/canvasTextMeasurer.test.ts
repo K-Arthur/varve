@@ -37,9 +37,7 @@ function installFakeCanvas(options: { shaping: boolean; onMeasure?: () => void }
       return { width: [...text].reduce((sum, ch) => sum + glyphWidth(ch) * scale, 0) };
     },
   };
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
-    ctx as unknown as CanvasRenderingContext2D,
-  );
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as never);
   // Keep the document path in play; OffscreenCanvas would be preferred.
   vi.stubGlobal('OffscreenCanvas', undefined);
 }
