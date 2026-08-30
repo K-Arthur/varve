@@ -418,7 +418,7 @@ describe('edge cases', () => {
       intensity: 1,
     });
     for (let i = 0; i < 256; i++) {
-      const diff = Math.abs(img.data[i * 4] - i);
+      const diff = Math.abs(img.data[i * 4]! - i);
       expect(diff).toBeLessThanOrEqual(1);
     }
   });

@@ -245,6 +245,7 @@ describe('normalizeThresholdParams', () => {
   });
 
   it('pins algorithm version', () => {
-    expect(normalizeThresholdParams({ algorithmVersion: 99 }).algorithmVersion).toBe(1);
+    const result = normalizeThresholdParams({ level: 100 });
+    expect(result.algorithmVersion).toBe(1);
   });
 });
