@@ -35,8 +35,9 @@ describe('auxiliary panel-window capability', () => {
     expect(capability.windows).toEqual(['varve-w-*']);
   });
 
-  it('permits only the native lifecycle and geometry operations used by the window adapter', () => {
+  it('permits only the native event, lifecycle, and geometry operations used by the window adapter', () => {
     expect(capability.permissions).toEqual([
+      'core:event:allow-emit',
       'core:event:allow-listen',
       'core:event:allow-unlisten',
       'core:window:allow-close',

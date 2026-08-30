@@ -1079,6 +1079,7 @@ export type FilterIR =
       midtones: { cyanRed: number; magentaGreen: number; yellowBlue: number };
       highlights: { cyanRed: number; magentaGreen: number; yellowBlue: number };
       preserveLuminosity: boolean;
+      algorithmVersion?: 1;
       opacity: number;
       blendMode: string;
     }

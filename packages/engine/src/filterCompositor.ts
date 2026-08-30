@@ -20,6 +20,7 @@ import { applySelectiveColor } from './adjustment/selectiveColor';
 import { applyShadowHighlight } from './adjustment/shadowHighlight';
 import { applyBlackAndWhite } from './blackAndWhite';
 import { gaussianBlurSeparable } from './blur';
+import { applyColorBalance } from './colorBalance';
 import {
   applyColorHalftone,
   type ColorHalftoneDotShape,
@@ -383,19 +384,15 @@ export function applySoftwareFilter(
         midtones: { cyanRed: number; magentaGreen: number; yellowBlue: number };
         highlights: { cyanRed: number; magentaGreen: number; yellowBlue: number };
         preserveLuminosity: boolean;
+        algorithmVersion?: 1;
       };
-      const triplet = (t: {
-        cyanRed: number;
-        magentaGreen: number;
-        yellowBlue: number;
-      }): [number, number, number] => [t.cyanRed, t.magentaGreen, t.yellowBlue];
-      applyColorBalance(
-        imageData,
-        triplet(cf.shadows),
-        triplet(cf.midtones),
-        triplet(cf.highlights),
-        cf.preserveLuminosity,
-      );
+      applyColorBalance(imageData, {
+        shadows: cf.shadows,
+        midtones: cf.midtones,
+        highlights: cf.highlights,
+        preserveLuminosity: cf.preserveLuminosity,
+        algorithmVersion: cf.algorithmVersion,
+      });
       ctx.putImageData(imageData, 0, 0);
       break;
     }
@@ -1026,53 +1023,6 @@ function applyTint(data: ImageData, value: number): void {
     pixels[i] = clampByte(pixels[i]! + value * 0.5); // Red: increase for magenta
     pixels[i + 1] = clampByte(pixels[i + 1]! - value); // Green: decrease for magenta
     pixels[i + 2] = clampByte(pixels[i + 2]! + value * 0.5); // Blue: increase for magenta
-  }
-}
-
-/**
- * Color balance: adjust shadow, midtone, and highlight tonal ranges.
- * Each range gets [cyan-red, magenta-green, yellow-blue] adjustment.
- */
-function applyColorBalance(
-  data: ImageData,
-  shadows: [number, number, number],
-  midtones: [number, number, number],
-  highlights: [number, number, number],
-  preserveLuminosity: boolean,
-): void {
-  const pixels = data.data;
-  for (let i = 0; i < pixels.length; i += 4) {
-    if (pixels[i + 3] === 0) continue;
-    const lum = 0.299 * pixels[i]! + 0.587 * pixels[i + 1]! + 0.114 * pixels[i + 2]!;
-    // Determine tonal range weight
-    let shadowW = Math.max(0, 1 - lum / 85);
-    let highlightW = Math.max(0, (lum - 170) / 85);
-    let midtoneW = 1 - shadowW - highlightW;
-
-    shadowW *= shadowW;
-    highlightW *= highlightW;
-    midtoneW = 1 - shadowW - highlightW;
-
-    const dr = shadows[0] * shadowW + midtones[0] * midtoneW + highlights[0] * highlightW;
-    const dg = shadows[1] * shadowW + midtones[1] * midtoneW + highlights[1] * highlightW;
-    const db = shadows[2] * shadowW + midtones[2] * midtoneW + highlights[2] * highlightW;
-
-    let nr = pixels[i]! + dr;
-    let ng = pixels[i + 1]! + dg;
-    let nb = pixels[i + 2]! + db;
-
-    if (preserveLuminosity) {
-      // Adjust to maintain original luminance
-      const newLum = 0.299 * nr + 0.587 * ng + 0.114 * nb;
-      const scale = lum / (newLum || 1);
-      nr *= scale;
-      ng *= scale;
-      nb *= scale;
-    }
-
-    pixels[i] = clampByte(nr);
-    pixels[i + 1] = clampByte(ng);
-    pixels[i + 2] = clampByte(nb);
   }
 }
 

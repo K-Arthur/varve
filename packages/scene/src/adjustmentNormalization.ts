@@ -114,6 +114,12 @@ const KIND_NUMERIC_RANGES: Record<string, Record<string, [number, number]>> = {
     tonalWidth: [0, 100],
     midpoint: [0, 100],
   },
+  colorBalance: {
+    cyanRed: [-100, 100],
+    magentaGreen: [-100, 100],
+    yellowBlue: [-100, 100],
+    algorithmVersion: [1, 1],
+  },
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {

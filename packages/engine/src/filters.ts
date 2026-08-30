@@ -245,6 +245,8 @@ export interface ColorBalanceAdjustment extends AdjustmentBase {
   midtones: ColorBalanceTriplet;
   highlights: ColorBalanceTriplet;
   preserveLuminosity: boolean;
+  /** Version of the documented scalar Color Balance algorithm. */
+  algorithmVersion?: 1;
 }
 export interface ChannelMixerAdjustment extends AdjustmentBase {
   kind: 'channelMixer';
@@ -859,6 +861,7 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         midtones: adjustment.midtones,
         highlights: adjustment.highlights,
         preserveLuminosity: adjustment.preserveLuminosity,
+        algorithmVersion: adjustment.algorithmVersion,
         ...base,
       };
     case 'channelMixer':
@@ -1506,6 +1509,7 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         midtones: { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
         highlights: { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
         preserveLuminosity: true,
+        algorithmVersion: 1,
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'channelMixer':
       return {

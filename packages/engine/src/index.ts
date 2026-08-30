@@ -192,6 +192,15 @@ export {
   invalidateCanvasTextMeasurements,
   resetCanvasTextMeasurer,
 } from './canvasTextMeasurer';
+export type { ColorBalanceParams, ColorBalancePixel } from './colorBalance';
+export {
+  applyColorBalance,
+  applyColorBalancePixel,
+  COLOR_BALANCE_ALGORITHM_VERSION,
+  COLOR_BALANCE_MAX,
+  colorBalanceTonalWeights,
+  normalizeColorBalanceParams,
+} from './colorBalance';
 export type {
   ColorHalftoneDotShape,
   ColorHalftoneMode,
