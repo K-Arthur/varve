@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { makeAdjustment } from '@varve/engine';
+import { type Adjustment, makeAdjustment } from '@varve/engine';
 import {
   createDocument,
   type Document,
@@ -24,7 +24,7 @@ const mockedUseEditor = vi.mocked(useEditor) as unknown as {
   mockReturnValue: (value: unknown) => void;
 };
 
-function effectNode(id = 'shape-1', filters = []): SceneNode {
+function effectNode(id = 'shape-1', filters: Adjustment[] = []): SceneNode {
   return {
     ...makeShapeNode(
       id,
@@ -101,7 +101,7 @@ describe('EffectStudioSection', () => {
     ]);
     expect(screen.getByRole('status')).toHaveTextContent(/Bloom/);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Bloom', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bloom' }));
     expect(commitTransaction).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('button', { name: 'Preview Lens Flare' }));

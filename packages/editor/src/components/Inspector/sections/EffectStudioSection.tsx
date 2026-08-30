@@ -293,7 +293,8 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
     .map((id) => getEffectDefinition(id))
     .filter(
       (definition): definition is EffectDefinition =>
-        definition !== undefined && EFFECT_STUDIO_KINDS.includes(definition.id),
+        definition !== undefined &&
+        (EFFECT_STUDIO_KINDS as readonly string[]).includes(definition.id),
     )
     .slice(0, 4);
   const looks = state.document.effectLooks ?? [];
