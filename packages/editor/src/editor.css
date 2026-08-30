@@ -5646,8 +5646,8 @@ dialog.varve-dialog--settings[open] {
 
 .gm-editor__opacity {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
 }
 
 /* ---------- GradientImportDialog ------------------------------------------ */
