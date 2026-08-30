@@ -311,6 +311,83 @@
   padding: var(--space-1) 0;
 }
 
+/* Schema-backed treatment controls use one compact row for the slider and its
+ * editable value. Keeping the value in the same row prevents the visible
+ * label from being repeated by NumberField and keeps both controls inside a
+ * narrow inspector without relying on intrinsic input widths. */
+.adj-editor__parameter {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-1) 0;
+}
+
+.adj-editor__parameter-label {
+  align-items: center;
+  color: var(--color-text-secondary);
+  display: flex;
+  font-size: var(--font-size-xs);
+  gap: var(--space-2);
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.adj-editor__parameter-label > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adj-editor__parameter-label > output {
+  color: var(--color-text-muted);
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.adj-editor__parameter-controls {
+  align-items: center;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr) minmax(4.75rem, 0.35fr);
+  min-width: 0;
+}
+
+.adj-editor__parameter-controls > .adj-editor__slider {
+  min-width: 0;
+  width: 100%;
+}
+
+.adj-editor__parameter-value,
+.adj-editor__parameter-value .insp-field,
+.adj-editor__parameter-value .insp-field__control {
+  min-width: 0;
+  width: 100%;
+}
+
+.adj-editor__parameter-value .insp-field {
+  display: block;
+  min-height: 0;
+}
+
+.adj-editor__parameter-value .insp-field__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.adj-editor__parameter-value .insp-num__input {
+  box-sizing: border-box;
+  min-width: 0;
+  text-align: right;
+  width: 100%;
+}
+
 .adj-editor__slider-label {
   display: flex;
   justify-content: space-between;

@@ -26,36 +26,40 @@ export function ImageTreatmentEditor({ adjustment, onChange }: ImageTreatmentEdi
     const unit = parameter.unit;
     const formattedValue = unit ? `${value}${unit === '%' ? '%' : ` ${unit}`}` : String(value);
     return (
-      <div className="adj-editor__slider-row" key={parameter.key}>
-        <div className="adj-editor__slider-label">
+      <div className="adj-editor__parameter" key={parameter.key}>
+        <div className="adj-editor__parameter-label">
           <span>{parameter.label}</span>
-          <span>{formattedValue}</span>
+          <output>{formattedValue}</output>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
-          min={parameter.min}
-          max={parameter.max}
-          step={parameter.step}
-          value={value}
-          aria-label={parameter.label}
-          aria-description={parameter.description}
-          onChange={(event) =>
-            onChange({ [parameter.key]: Number(event.target.value) } as Partial<Adjustment>)
-          }
-        />
-        <NumberField
-          label={parameter.label}
-          displayLabel={`${parameter.label} value`}
-          value={value}
-          min={parameter.min}
-          max={parameter.max}
-          step={parameter.step}
-          altStep={parameter.fineStep}
-          shiftStep={parameter.step * 10}
-          unit={unit}
-          onChange={(next) => onChange({ [parameter.key]: next } as Partial<Adjustment>)}
-        />
+        <div className="adj-editor__parameter-controls">
+          <input
+            type="range"
+            className="adj-editor__slider"
+            min={parameter.min}
+            max={parameter.max}
+            step={parameter.step}
+            value={value}
+            aria-label={`${parameter.label} slider`}
+            aria-description={parameter.description}
+            onChange={(event) =>
+              onChange({ [parameter.key]: Number(event.target.value) } as Partial<Adjustment>)
+            }
+          />
+          <div className="adj-editor__parameter-value">
+            <NumberField
+              label={`${parameter.label} value`}
+              displayLabel="Value"
+              value={value}
+              min={parameter.min}
+              max={parameter.max}
+              step={parameter.step}
+              altStep={parameter.fineStep}
+              shiftStep={parameter.step * 10}
+              unit={unit}
+              onChange={(next) => onChange({ [parameter.key]: next } as Partial<Adjustment>)}
+            />
+          </div>
+        </div>
       </div>
     );
   };

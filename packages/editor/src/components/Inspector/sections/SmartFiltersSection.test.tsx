@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { filterKindDisplayName } from '@varve/engine';
-import type { SceneNode } from '@varve/scene';
+import { makeSmartFilter, type SceneNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../context', async (importOriginal) => {
@@ -50,6 +50,13 @@ function imageNode(id = 'image-1'): SceneNode {
         visible: true,
       },
     ],
+  } as SceneNode;
+}
+
+function grainNode(id = 'grain-object-1'): SceneNode {
+  return {
+    ...vectorNode(id),
+    smartFilters: [makeSmartFilter('grain-filter-1', 'grain')],
   } as SceneNode;
 }
 
@@ -143,5 +150,17 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
 
     expect(screen.queryByRole('heading', { name: 'Object Finishing' })).not.toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Add Object Filter' })).toBeInTheDocument();
+  });
+
+  it('keeps the selected treatment editor compact and avoids repeating default metadata', () => {
+    render(<SmartFiltersSection nodes={[grainNode()]} />);
+
+    expect(screen.getByRole('button', { name: 'Grain' })).toBeInTheDocument();
+    expect(screen.queryByText('Grain Amount value')).not.toBeInTheDocument();
+    expect(screen.getByRole('slider', { name: 'Grain Amount slider' })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Grain Amount value (%)' })).toBeInTheDocument();
+    expect(screen.getAllByRole('slider')).toHaveLength(5);
+    expect(document.querySelectorAll('.adj-editor__parameter-controls')).toHaveLength(4);
+    expect(document.querySelector('.smart-filters__meta')).not.toBeInTheDocument();
   });
 });

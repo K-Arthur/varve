@@ -296,9 +296,11 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
               aria-expanded={selectedId === filter.id}
             >
               <span>{filterName(filter)}</span>
-              <span className="smart-filters__meta">
-                {Math.round((filter.opacity ?? 1) * 100)}%
-              </span>
+              {(filter.opacity ?? 1) < 1 && (
+                <span className="smart-filters__meta">
+                  {Math.round((filter.opacity ?? 1) * 100)}%
+                </span>
+              )}
             </button>
             <button
               type="button"
@@ -341,10 +343,6 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
           }}
           onKeyUpCapture={finishTransaction}
         >
-          <div className="smart-filters__editor-title">
-            <span>{filterName(selected)}</span>
-            <span>{Math.round((selected.opacity ?? 1) * 100)}%</span>
-          </div>
           <AdjustmentEditor
             adjustment={selected}
             onChange={(patch) => updateFilter(selected.id, patch)}
@@ -359,6 +357,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
             </span>
             <input
               type="range"
+              className="adj-editor__slider smart-filters__effect-slider"
               min={0}
               max={100}
               step={1}
