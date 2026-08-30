@@ -25,32 +25,35 @@ terminology or layout. Product research informed the compact grouping,
 neutral-centered sliders, advanced disclosure, and non-destructive bypass;
 it did not supply a copied UI, preset collection, or implementation.
 
-## 1. Existing capability matrix
+## 1. Surface ownership matrix
 
-| Capability | Curated Image Tuning | Object Filters | Adjustment Layer | Canvas/export | Save/undo | Alpha | Web + desktop |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Exposure, contrast, shadows/highlights | Yes | Yes | Yes | Shared CPU compositor | Yes | Preserved | Yes |
-| Temperature, tint, vibrance, saturation | Yes | Yes | Yes | Shared CPU compositor | Yes | Preserved | Yes |
-| Fine Texture | Yes | Yes | Yes | Shared CPU compositor | Yes | Preserved | Yes |
-| Local Contrast | Yes | Yes | Yes | Shared CPU compositor | Yes | Preserved | Yes |
-| Atmospheric Depth | Yes | Yes | Yes | Shared CPU compositor | Yes | Preserved | Yes |
-| Dehaze | Yes | Yes | Yes | Shared CPU compositor | Yes | Preserved | Yes |
-| Vignette | Yes | Yes | Yes | Shared CPU compositor | Yes | Preserved | Yes |
-| Grain | Yes | Yes | Yes | Shared CPU compositor | Yes | Preserved | Yes |
-| Highlight Glow | Yes | Yes | Yes | Shared CPU compositor | Yes | Preserved | Yes |
+The engine definitions are shared, but discovery is intentionally not. This
+prevents three panels from presenting the same undifferentiated menu while
+preserving an advanced escape hatch for deliberate stacking.
 
-The first two rows existed before Image Treatments. The curated UI makes the
-common global tone/colour operators discoverable beside the new local and
-finishing treatments; it does not duplicate their implementation.
+| Capability family | Image Tuning | Object Filters | Adjustment Filters | Why it belongs there |
+| --- | --- | --- | --- | --- |
+| Exposure, contrast, shadows/highlights | Primary controls | Available in full stack | Available as backdrop correction | The operator is shared; attachment scope is different |
+| Temperature, tint, vibrance, saturation | Primary controls | Available in full stack | Available as backdrop correction | Photo-local balance versus shared backdrop grade |
+| Fine Texture, Local Contrast, Atmospheric Depth | Primary image workflow | Available in full stack | Not in curated menu | These are image finishing controls, not the default layer-correction vocabulary |
+| Dehaze, Vignette, Grain, Highlight Glow | Primary image workflow | Available in full stack | Not in curated menu | Local image finish is easier to reason about on the source image |
+| Print, poster, signal, light, and distortion effects | Not offered | Available in full stack | Only where a correction workflow explicitly needs it | These are Effect Studio's creative catalog, not photographic tuning |
 
-## 2. One model, two attachment semantics
+Image Tuning is shown only for image selections and owns four photographic
+presets. Object Filters remain the complete object-local escape hatch for
+images, vectors, text, frames, and groups. Adjustment Filters expose a smaller
+backdrop-scoped correction catalog plus correction presets. Effect Studio owns
+creative object-local discovery and does not expose the Image Tuning-only
+treatment family.
+
+## 2. One model, four product surfaces
 
 `Adjustment` is the serialised parameter union. `ADJUSTMENT_KINDS` is lowered
 through `adjustmentToFilter()` into portable `FilterIR`, and
 `applyFilterWithCompositing()` is the authoritative Canvas2D CPU path.
 
 ```text
-Image Tuning / Object Filters / Adjustment Layer editor
+Effect Studio / Image Tuning / Object Filters / Adjustment Filters editor
                          │
                          ▼
                  Adjustment (serialised intent)
@@ -72,14 +75,13 @@ object-local result             scoped backdrop result
 Image Tuning is a deliberately curated object-local surface. It appears only
 when every selected node is an image shape; mixed image/vector/text selections
 do not silently apply a treatment to a subset. A batch edit emits one
-`updateNodes()` document update and one history transaction. This is a
-discoverability choice, not a raster-only limitation: **Object Filters** can
-apply every treatment to any compatible rendered object, including a vector
-rectangle, text, frame, or group. For the common vector cases, Appearance →
-Object Filters begins with an **Object Finishing** quick-add row for Grain,
-Vignette, and Highlight Glow. An adjustment layer can use exactly the same
-kind and parameters when the user needs scope, an adjustment mask, explicit
-targets, or document-wide compositing.
+`updateNodes()` document update. This is a discoverability choice, not a
+raster-only limitation: **Object Filters** can apply every treatment to any
+compatible rendered object, including a vector rectangle, text, frame, or
+group. An **Adjustment Filter** can use the correction subset when the user
+needs scope, an adjustment mask, explicit targets, or document-wide
+compositing. **Effect Studio** is the creative discovery route for object-local
+effects such as posterization, print marks, light, signal, and distortion.
 
 There is no per-image-fill treatment attachment. An Object Filter receives the
 fully rendered node result: image placement, crop, frame clipping, fills, and
@@ -111,10 +113,12 @@ treatments remain available through **Add Object Filter** when a less common
 operator is intentional; photo-local controls can simply have little or no
 visible effect on a uniform flat fill.
 
-Use Object Filters when an effect belongs to one object, including order,
-per-entry opacity, blend mode, and repeated entries. Use an Adjustment Layer
-when the same effect must be scoped across several objects or masked over a
-backdrop. In either route, turning a treatment off bypasses it without
+Use Image Tuning for photographic image correction and finish. Use Effect
+Studio when the goal is an exploratory creative treatment on one object. Use
+Object Filters when an effect belongs to one object but needs explicit order,
+per-entry opacity, blend mode, masks, or repeated entries. Use an Adjustment
+Layer when a correction must be scoped across several objects or masked over a
+backdrop. In each route, turning a treatment off bypasses it without
 discarding its values.
 
 ## 4. Parameter schemas and interaction

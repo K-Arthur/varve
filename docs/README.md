@@ -464,6 +464,7 @@ records; check the current code before acting on their findings.
 | `audits/font-replacement-audit-2026-08-20.md` | Missing-font detection, ranked replacement UX, rich-text coverage, manifest provenance, and validation |
 | `audits/selection-system-audit-2026-08-23.md` | Pixel/node selection gap analysis preceding the selection-system work — see `architecture/selection-system.md` for current state |
 | `audits/selection-validation-report-2026-08-23.md` | Selection-system delivery and validation record, including the UI wiring landed after the implementation plan's "pending" notes |
+| `audits/effects-surfaces-audit-2026-08-29.md` | Research-backed separation of Effect Studio, Image Tuning, Object Filters, and Adjustment Filters, including raster/vector behavior |
 
 ## Website-specific (current state)
 
