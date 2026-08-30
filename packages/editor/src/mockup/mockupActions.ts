@@ -7,7 +7,9 @@
  */
 
 import {
+  addChild,
   addMockupTemplate,
+  addNode,
   createMockupInstanceData,
   type Document,
   getBuiltinMockupTemplate,
@@ -17,7 +19,9 @@ import {
   makeFrameNode,
   type NodeId,
   nextNodeId,
+  resolveOwnership,
 } from '@varve/scene';
+import { type Affine, multiplyAffine, tryInvertAffine } from '@varve/shared';
 import type { EditorContextValue } from '../context';
 import { requestMockupsTab } from './mockupTabStore';
 
@@ -61,6 +65,42 @@ export function bindingForSource(
 }
 
 /**
+ * Resolve the logical editing surface that owns a source node.  Page and
+ * Design Canvas content roots are deliberately hidden implementation groups;
+ * adding a new mockup directly to `rootChildren` would bypass the active
+ * surface and make it disappear from the canvas and Layers panel.
+ */
+function mockupInsertionParent(doc: Document, sourceId: NodeId): NodeId | null {
+  const owner = resolveOwnership(doc, sourceId);
+  switch (owner.kind) {
+    case 'designCanvas':
+      return (
+        doc.designCanvases?.find((canvas) => canvas.id === owner.designCanvasId)?.contentRoot ??
+        null
+      );
+    case 'page':
+      return doc.pages?.find((page) => page.id === owner.pageId)?.contentRoot ?? null;
+    case 'master':
+      return doc.masters?.[owner.masterId]?.contentRoot ?? null;
+    default:
+      return null;
+  }
+}
+
+/** Convert the desired pasteboard position into the target surface's local space. */
+function mockupTransformForParent(
+  editor: EditorContextValue,
+  parentId: NodeId | null,
+  x: number,
+  y: number,
+): Affine {
+  const world: Affine = [1, 0, 0, 1, x, y];
+  if (!parentId) return world;
+  const inverse = tryInvertAffine(editor.getWorldTransform(parentId));
+  return inverse ? multiplyAffine(inverse, world) : world;
+}
+
+/**
  * Apply a template to the given source nodes: creates a mockup frame beside
  * the first source, embeds the template asset (deduped), binds surfaces to
  * the sources (cycled for multi-surface templates), and selects the frame.
@@ -93,6 +133,8 @@ export function applyMockupToSources(
   const frameH = targetH;
   const x = (sourceBounds?.x ?? 0) + (sourceBounds?.w ?? 400) + 80;
   const y = sourceBounds?.y ?? 0;
+  const parentId = mockupInsertionParent(doc, sourceIds[0]!);
+  const transform = mockupTransformForParent(editor, parentId, x, y);
 
   const bindings: Record<string, MockupSourceBinding> = {};
   template.surfaces.forEach((surface, index) => {
@@ -108,26 +150,19 @@ export function applyMockupToSources(
       const { doc: next } = nextNodeId(withTemplate);
       const nodeId = createdNodeId;
       const frame = makeFrameNode(nodeId, {
-        transform: [1, 0, 0, 1, x, y],
+        transform,
         w: frameW,
         h: frameH,
         name: `${template.name} mockup`,
         clipContent: false,
       });
-      const withFrame = {
-        ...next,
-        nodes: {
-          ...next.nodes,
-          [nodeId]: {
-            ...frame,
-            mockup: createMockupInstanceData(resolvedTemplateId, bindings),
-          },
-        },
-      } as Document;
-      return {
-        ...withFrame,
-        rootChildren: [...withFrame.rootChildren, nodeId],
+      const mockupFrame = {
+        ...frame,
+        mockup: createMockupInstanceData(resolvedTemplateId, bindings),
       };
+      return parentId && next.nodes[parentId]
+        ? addChild(next, parentId, mockupFrame)
+        : addNode(next, mockupFrame);
     });
   } finally {
     editor.commitTransaction();
