@@ -307,6 +307,33 @@ describe('LayersRow adjustment stack identity', () => {
       'Grade, Adjustment Layer, Threshold, Gradient Map (off). 1 of 2 active.',
     );
   });
+
+  it('uses a named Effect Studio treatment instead of exposing only its recipe steps', () => {
+    const reticulationMember = (id: string, kind: 'dither' | 'grain', effectIndex: number) => ({
+      ...makeAdjustment(id, kind),
+      studioTreatment: {
+        treatmentId: 'studio-reticulation',
+        instanceId: 'reticulation-1',
+        effectIndex,
+        controls: {},
+      },
+    });
+    const node = makeNode('n1', 'Overlay', 'shape', {
+      smartFilters: [
+        reticulationMember('dither-1', 'dither', 0),
+        reticulationMember('grain-1', 'grain', 1),
+      ],
+    } as Partial<SceneNode>);
+    const { container } = renderRow({ node });
+    const badge = container.querySelector('.layers-row__object-filter-badge');
+
+    expect(badge).toHaveTextContent('Reticulation');
+    expect(badge).not.toHaveTextContent('Dither + Grain');
+    expect(badge).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('Reticulation (Dither, Grain)'),
+    );
+  });
 });
 
 describe('LayersRow clipping relationship', () => {

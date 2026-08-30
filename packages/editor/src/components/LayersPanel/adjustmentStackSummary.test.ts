@@ -49,4 +49,85 @@ describe('summarizeAdjustmentStack', () => {
       'Threshold, Gradient Map (off), Color Balance (off). 1 of 3 active.',
     );
   });
+
+  it('uses the named Effect Studio treatment for a coherent recipe', () => {
+    const summary = summarizeAdjustmentStack([
+      {
+        ...makeAdjustment('dither', 'dither'),
+        studioTreatment: {
+          treatmentId: 'studio-reticulation',
+          instanceId: 'reticulation-1',
+          effectIndex: 0,
+          controls: {},
+        },
+      },
+      {
+        ...makeAdjustment('grain', 'grain'),
+        studioTreatment: {
+          treatmentId: 'studio-reticulation',
+          instanceId: 'reticulation-1',
+          effectIndex: 1,
+          controls: {},
+        },
+      },
+    ]);
+
+    expect(summary.label).toBe('Reticulation');
+    expect(summary.tooltip).toBe('Reticulation (Dither, Grain). 2 of 2 active.');
+  });
+
+  it('keeps named recipes and independent filters distinct', () => {
+    const summary = summarizeAdjustmentStack([
+      {
+        ...makeAdjustment('dither', 'dither'),
+        studioTreatment: {
+          treatmentId: 'studio-reticulation',
+          instanceId: 'reticulation-1',
+          effectIndex: 0,
+          controls: {},
+        },
+      },
+      {
+        ...makeAdjustment('grain', 'grain'),
+        studioTreatment: {
+          treatmentId: 'studio-reticulation',
+          instanceId: 'reticulation-1',
+          effectIndex: 1,
+          controls: {},
+        },
+      },
+      makeAdjustment('raw-blur', 'blur', { radius: 4 }),
+    ]);
+
+    expect(summary.label).toBe('Reticulation + Blur');
+    expect(summary.tooltip).toContain('Reticulation (Dither, Grain), Blur.');
+  });
+
+  it('marks a named recipe customized without falling back to implementation names', () => {
+    const summary = summarizeAdjustmentStack([
+      {
+        ...makeAdjustment('dither', 'dither'),
+        studioTreatment: {
+          treatmentId: 'studio-reticulation',
+          instanceId: 'reticulation-1',
+          effectIndex: 0,
+          controls: {},
+          customized: true,
+        },
+      },
+      {
+        ...makeAdjustment('grain', 'grain'),
+        studioTreatment: {
+          treatmentId: 'studio-reticulation',
+          instanceId: 'reticulation-1',
+          effectIndex: 1,
+          controls: {},
+          customized: true,
+        },
+      },
+    ]);
+
+    expect(summary.label).toBe('Reticulation (customized)');
+    expect(summary.tooltip).toContain('Reticulation (customized) (Dither, Grain)');
+  });
 });

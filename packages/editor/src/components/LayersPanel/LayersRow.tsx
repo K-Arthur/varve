@@ -246,6 +246,8 @@ export const LayersRow = memo(function LayersRow({
   // the enabled count through the canonical resolver so the badge can never
   // disagree with what sceneToEngine actually draws.
   const enabledObjectFilterCount = objectFilterCount > 0 ? activeSmartFilters(node).length : 0;
+  const objectFilterSummary =
+    objectFilterCount > 0 ? summarizeAdjustmentStack(node.smartFilters ?? []) : null;
   const adjustmentSummary =
     node.kind === 'adjustment'
       ? summarizeAdjustmentStack((node as AdjustmentNode).adjustments ?? [])
@@ -699,10 +701,10 @@ export const LayersRow = memo(function LayersRow({
             sourceName={node.name}
             kind="object-filters"
             count={objectFilterCount}
-            statusLabel={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled`}
+            statusLabel={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled on ${node.name}: ${objectFilterSummary?.tooltip ?? ''}`}
             onCopyToSelected={() => onCopyEffectStack?.(node.id, 'object-filters')}
           >
-            {summarizeAdjustmentStack(node.smartFilters ?? []).label}
+            {objectFilterSummary?.label}
             {enabledObjectFilterCount !== objectFilterCount &&
               ` · ${enabledObjectFilterCount}/${objectFilterCount}`}
           </EffectStackTransferBadge>
