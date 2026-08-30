@@ -479,7 +479,7 @@ export function GradientEditor({
                 value={currentStop.midpoint ?? 0.5}
                 aria-label={`Stop ${selectedStop + 1} midpoint`}
                 onChange={(e) => updateStop(selectedStop, { midpoint: Number(e.target.value) })}
-                className="gradient-editor__slider"
+                className="varve-native-range gradient-editor__slider"
               />
               <span className="gradient-editor__unit">
                 {Math.round((currentStop.midpoint ?? 0.5) * 100)}%

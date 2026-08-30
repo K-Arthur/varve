@@ -245,7 +245,7 @@ function CropToolbar({
           step={0.1}
           value={straightenAngle}
           onChange={(e) => onStraightenChange(Number.parseFloat(e.target.value))}
-          className="crop-toolbar__range"
+          className="varve-native-range crop-toolbar__range"
           aria-label="Straighten angle"
         />
         <span className="crop-toolbar__value">

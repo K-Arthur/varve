@@ -1420,6 +1420,60 @@
   color: var(--color-text-primary);
 }
 
+/* Native range controls used by editor panels and dialogs. The value stays a
+ * real input for reliable keyboard and screen-reader behaviour, while the
+ * track and thumb use the same visual language as the APG Slider above. */
+.varve-native-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  block-size: 24px;
+  min-inline-size: 0;
+  cursor: pointer;
+}
+.varve-native-range::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+}
+.varve-native-range::-moz-range-track {
+  height: 4px;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+}
+.varve-native-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
+  border: 2px solid var(--color-surface-raised);
+  border-radius: 50%;
+  background: var(--color-interactive-default);
+}
+.varve-native-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-surface-raised);
+  border-radius: 50%;
+  background: var(--color-interactive-default);
+}
+.varve-native-range:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.varve-native-range:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+@media (pointer: coarse) {
+  .varve-native-range {
+    block-size: 44px;
+  }
+}
+
 /* ── Toolbar (APG roving tabindex) ───────────────── */
 .varve-toolbar {
   display: flex;

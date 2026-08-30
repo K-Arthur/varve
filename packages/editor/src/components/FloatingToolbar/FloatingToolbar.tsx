@@ -253,7 +253,7 @@ function DrawingToolbarControls() {
       <span className="floating-toolbar__drawing-label">Size</span>
       <input
         type="range"
-        className="floating-toolbar__drawing-slider"
+        className="varve-native-range floating-toolbar__drawing-slider"
         min={1}
         max={200}
         value={state.brushSettings.radius}
@@ -264,7 +264,7 @@ function DrawingToolbarControls() {
       <span className="floating-toolbar__drawing-label">Op</span>
       <input
         type="range"
-        className="floating-toolbar__drawing-slider"
+        className="varve-native-range floating-toolbar__drawing-slider"
         min={0}
         max={100}
         value={Math.round(state.brushSettings.opacity * 100)}

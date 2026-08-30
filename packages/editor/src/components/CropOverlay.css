@@ -1,3 +1,92 @@
+.crop-toolbar {
+  position: absolute;
+  top: var(--space-3);
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  max-width: calc(100% - var(--space-6));
+  padding: var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--elevation-surface-raised);
+  box-shadow: var(--shadow-lg);
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.crop-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.crop-toolbar__btn {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.crop-toolbar__btn:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+}
+
+.crop-toolbar__btn--active {
+  border-color: var(--color-interactive-default);
+  background: var(--color-accent-subtle);
+  color: var(--color-text-primary);
+}
+
+.crop-toolbar__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.crop-toolbar__separator {
+  width: 1px;
+  height: 24px;
+  margin: 0 var(--space-1);
+  background: var(--color-border-subtle);
+}
+
+.crop-toolbar__label,
+.crop-toolbar__value {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.crop-toolbar__range {
+  inline-size: 8rem;
+  min-inline-size: 5rem;
+  flex: 1 1 8rem;
+}
+
+.crop-toolbar__value {
+  min-inline-size: 3rem;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@media (pointer: coarse) {
+  .crop-toolbar__btn {
+    min-height: 44px;
+  }
+}
+
 .crop-overlay {
   position: absolute;
   inset: 0;

@@ -582,7 +582,7 @@ function TuningControlRow({
       <div className="image-tuning__input-row">
         <input
           type="range"
-          className="image-tuning__slider"
+          className="varve-native-range image-tuning__slider"
           min={control.min}
           max={control.max}
           step={control.step}

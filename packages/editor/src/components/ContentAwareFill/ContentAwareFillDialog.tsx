@@ -542,7 +542,7 @@ export function ContentAwareFillDialog({
             <input
               id="caf-dialog-brush"
               type="range"
-              className="caf-dialog__range"
+              className="varve-native-range caf-dialog__range"
               min={8}
               max={80}
               value={brushSize}

@@ -764,7 +764,7 @@ export function GradientMapEditor({
           aria-label="Gradient map intensity"
           onPointerDown={onEditStart}
           onPointerUp={onEditEnd}
-          className="gm-editor__slider"
+          className="varve-native-range gm-editor__slider"
         />
         <span className="gm-editor__unit">{Math.round(intensity * 100)}%</span>
       </div>
