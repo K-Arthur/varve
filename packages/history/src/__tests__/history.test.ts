@@ -501,6 +501,42 @@ describe('tail recovery and validation (M6)', () => {
     });
   });
 
+  it('rewinds an older corrupt branch to its own verified ancestor, not a newer branch head', async () => {
+    const { store, genesis, lastTx } = await buildHistory();
+    const corrupt = await store.getRevision('doc-1', lastTx.revisionId);
+    expect(corrupt).not.toBeNull();
+    const earlier = corrupt!.parentRevisionIds[0]!;
+
+    await store.putBranch({
+      branchId: 'b-older-corrupt',
+      documentId: 'doc-1',
+      name: 'older corrupt branch',
+      headRevisionId: earlier,
+      createdFromRevisionId: genesis.revisionId,
+      createdAt: 1,
+      updatedAt: 1,
+      status: 'active',
+    });
+    const earlierRevision = (await store.getRevision('doc-1', earlier))!;
+    await store.putRevision({
+      ...earlierRevision,
+      canonicalDocumentHash: '0'.repeat(64),
+    });
+
+    const report = await recoverTail(store, 'doc-1', { applyTruncation: true });
+
+    // The newer main head still replays, so it remains the globally latest
+    // good revision. The corrupt branch must instead keep its own ancestry.
+    expect(report.lastKnownGoodRevisionId).toBe(lastTx.revisionId);
+    expect(report.rewoundBranches).toContain('b-older-corrupt');
+    expect((await store.getBranch('doc-1', 'b-older-corrupt'))!.headRevisionId).toBe(
+      genesis.revisionId,
+    );
+    expect((await store.getBranch('doc-1', 'b-older-corrupt'))!.headRevisionId).not.toBe(
+      lastTx.revisionId,
+    );
+  });
+
   it('dangling branch heads and missing checkpoints surface as issues', async () => {
     const { store } = await buildHistory();
     await store.putBranch({

@@ -6,7 +6,8 @@
  * 2. truncate the corrupt segment and everything after it
  * 3. find the newest revision whose log range is fully inside the valid
  *    segments AND whose canonical hash replays correctly — last known good
- * 4. rewind any branch head past the last known good revision
+ * 4. repair each invalid branch head to its nearest verified first-parent
+ *    ancestor (never an unrelated branch's global head)
  * 5. report exactly what was preserved and discarded
  */
 import { verifySegmentChecksum } from './log';
@@ -63,33 +64,64 @@ export async function recoverTail(
 
   // 2. Find the newest revision fully inside the valid log with a verified hash.
   const revisions = (await store.listRevisions(documentId)).sort(compareNewestFirst);
+  const revisionsById = new Map(revisions.map((revision) => [revision.revisionId, revision]));
+  const verification = new Map<string, boolean>();
+
+  const isVerified = async (revision: RevisionRecord): Promise<boolean> => {
+    const cached = verification.get(revision.revisionId);
+    if (cached !== undefined) return cached;
+    try {
+      const result = await replayAndVerify(store, documentId, revision.revisionId);
+      verification.set(revision.revisionId, result.verified);
+      if (!result.verified) {
+        report.warnings.push(`revision ${revision.revisionId}: hash mismatch during recovery scan`);
+      }
+      return result.verified;
+    } catch {
+      verification.set(revision.revisionId, false);
+      report.warnings.push(`revision ${revision.revisionId}: replay failed during recovery scan`);
+      return false;
+    }
+  };
+
   let lastGood: RevisionRecord | undefined;
   for (const revision of revisions) {
     if (!isRevisionInsideValidLog(revision, lastValidEnd)) continue;
-    try {
-      const result = await replayAndVerify(store, documentId, revision.revisionId);
-      if (result.verified) {
-        lastGood = revision;
-        break;
-      }
-      report.warnings.push(`revision ${revision.revisionId}: hash mismatch during recovery scan`);
-    } catch {
-      report.warnings.push(`revision ${revision.revisionId}: replay failed during recovery scan`);
+    if (await isVerified(revision)) {
+      lastGood = revision;
+      break;
     }
   }
   if (!lastGood) report.warnings.push('no valid revision found in the surviving log');
   else report.lastKnownGoodRevisionId = lastGood.revisionId;
 
-  // 3. Rewind branch heads that point past the last known good revision.
+  // 3. Rewind each invalid branch to its own nearest verified ancestor.
+  //
+  // The newest globally valid revision is useful integrity-report metadata,
+  // but it is not necessarily on every branch.  Repointing an older corrupt
+  // branch to that unrelated revision can silently cross histories; walking
+  // first parents matches replay's own lineage semantics instead.
   for (const branch of await store.listBranches(documentId)) {
-    const head = await store.getRevision(documentId, branch.headRevisionId);
-    const dangling = !head;
-    const pastGood = lastGood !== undefined && head !== null && isRevisionAfter(head, lastGood);
-    if (dangling || pastGood) {
-      if (opts.applyTruncation && lastGood) {
+    const head = revisionsById.get(branch.headRevisionId);
+    const target = await findNearestVerifiedBranchRevision({
+      head,
+      branchBase: revisionsById.get(branch.createdFromRevisionId),
+      revisionsById,
+      lastValidEnd,
+      isVerified,
+    });
+
+    if (!target) {
+      report.warnings.push(
+        `branch ${branch.branchId}: no verified ancestor found; head was left unchanged`,
+      );
+      continue;
+    }
+    if (!head || target.revisionId !== head.revisionId) {
+      if (opts.applyTruncation) {
         await store.putBranch({
           ...branch,
-          headRevisionId: lastGood.revisionId,
+          headRevisionId: target.revisionId,
           updatedAt: Date.now(),
         });
       }
@@ -148,18 +180,48 @@ function isRevisionInsideValidLog(revision: RevisionRecord, end: LogPosition): b
   return revisionEnd.offset <= end.offset;
 }
 
-/** True only when the branch head is later in the append log than `baseline`. */
-function isRevisionAfter(head: RevisionRecord, baseline: RevisionRecord): boolean {
-  const headEnd = head.operationEnd;
-  const baselineEnd = baseline.operationEnd;
-  if (headEnd && baselineEnd) {
-    if (headEnd.segment !== baselineEnd.segment) return headEnd.segment > baselineEnd.segment;
-    if (headEnd.offset !== baselineEnd.offset) return headEnd.offset > baselineEnd.offset;
-    return head.revisionId !== baseline.revisionId;
-  }
-  if (headEnd) return true;
-  if (baselineEnd) return false;
-  return head.revisionId !== baseline.revisionId;
+interface BranchRecoverySearch {
+  head: RevisionRecord | undefined;
+  branchBase: RevisionRecord | undefined;
+  revisionsById: ReadonlyMap<string, RevisionRecord>;
+  lastValidEnd: LogPosition;
+  isVerified: (revision: RevisionRecord) => Promise<boolean>;
+}
+
+/**
+ * Find the closest usable revision on a branch's first-parent replay path.
+ *
+ * A missing head has no parent information, so the branch creation point is
+ * the only safe fallback. For a present but corrupt head, retain its actual
+ * first-parent chain. First-parent is intentional: `findReplayBase` follows
+ * it too, and a merge's secondary parent is not a safe substitute for the
+ * branch's visible document lineage.
+ */
+async function findNearestVerifiedBranchRevision(
+  input: BranchRecoverySearch,
+): Promise<RevisionRecord | undefined> {
+  const visit = async (start: RevisionRecord | undefined): Promise<RevisionRecord | undefined> => {
+    let current = start;
+    const visited = new Set<string>();
+    while (current && !visited.has(current.revisionId)) {
+      visited.add(current.revisionId);
+      if (
+        isRevisionInsideValidLog(current, input.lastValidEnd) &&
+        (await input.isVerified(current))
+      ) {
+        return current;
+      }
+      const parentId = current.parentRevisionIds[0];
+      current = parentId ? input.revisionsById.get(parentId) : undefined;
+    }
+    return undefined;
+  };
+
+  const fromHead = await visit(input.head);
+  if (fromHead) return fromHead;
+  // The base is normally on the visited ancestry above. It is only a fallback
+  // when the branch head is dangling or its lineage itself is incomplete.
+  return input.branchBase ? visit(input.branchBase) : undefined;
 }
 
 /**

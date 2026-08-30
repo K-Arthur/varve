@@ -238,6 +238,62 @@ describe('EditorHistorySession', () => {
     expect(recovered.attached).toBe(true);
   });
 
+  it('skips an unrecoverable branch returned before a healthy main branch', async () => {
+    const store = createMemoryHistoryStore();
+    const original = baseDoc();
+    const first = newSession(store);
+    await first.attach(original);
+    await store.putBranch({
+      branchId: 'b-unrecoverable',
+      documentId: DOC_ID,
+      name: 'interrupted-import',
+      headRevisionId: 'r-missing',
+      createdFromRevisionId: 'r-missing',
+      createdAt: 2,
+      updatedAt: 2,
+      status: 'active',
+    });
+
+    // IndexedDB does not promise a branch ordering. Model the orphaned branch
+    // being returned first so attach cannot accidentally depend on insertion
+    // order (the old implementation did exactly that).
+    const unorderedStore: HistoryStore = {
+      ...store,
+      listBranches: async (documentId) => {
+        const branches = await store.listBranches(documentId);
+        return [...branches].sort((left, right) =>
+          left.branchId === 'b-unrecoverable' ? -1 : right.branchId === 'b-unrecoverable' ? 1 : 0,
+        );
+      },
+    };
+
+    const recovered = newSession(unorderedStore);
+    const result = await recovered.attach(original);
+
+    expect(result.branch.name).toBe('main');
+    expect(recovered.attached).toBe(true);
+    expect(await unorderedStore.listRevisions(DOC_ID)).toHaveLength(1);
+  });
+
+  it('preserves the working document in a new branch when no history head can replay', async () => {
+    const store = createMemoryHistoryStore();
+    const original = baseDoc();
+    const first = newSession(store);
+    const initial = await first.attach(original);
+    await store.putRevision({
+      ...initial.headRevision,
+      canonicalDocumentHash: '0'.repeat(64),
+    });
+
+    const recovered = newSession(store);
+    const result = await recovered.attach(original);
+
+    expect(result.branch.name).toBe('recovered-working-state');
+    expect(result.headRevision.canonicalDocumentHash).toBe(canonicalHistoryHash(original));
+    expect(result.issues.some((issue) => issue.code === 'history.unrecoverable-head')).toBe(true);
+    expect(recovered.attached).toBe(true);
+  });
+
   it('protects the attached branch and branches with unique work from deletion', async () => {
     const store = createMemoryHistoryStore();
     const session = newSession(store);

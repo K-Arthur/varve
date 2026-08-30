@@ -120,7 +120,8 @@ per the plan's package ownership:
   (dedupe), threshold-based `SnapshotPolicy`/`SnapshotScheduler`
   (operation count, replayed bytes, replay time, checkpoint, shutdown).
 - `recovery.ts` — `recoverTail` (corrupt-tail detection → truncation →
-  last-known-good revision → branch-head rewind) and `validateHistory`
+  replay verification → branch-local first-parent rewind, never an unrelated
+  branch head) and `validateHistory`
   (segments, DAG invariants, ref resolution, replay-based hash checks).
 - `legacyImport.ts` — ADR-0024 convergence: legacy `VersionEntry` records
   import as parentless snapshot revisions (no fabricated lineage) with

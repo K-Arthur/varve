@@ -117,7 +117,7 @@ export interface TailRecoveryReport {
   /** Number of operations dropped with the truncated tail. */
   discardedOperations: number;
   lastKnownGoodRevisionId?: string;
-  /** Branch heads rewound to the last known good revision. */
+  /** Branch heads rewound to their nearest verified first-parent ancestor. */
   rewoundBranches: string[];
   warnings: string[];
 }

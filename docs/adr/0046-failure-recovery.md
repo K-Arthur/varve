@@ -25,10 +25,11 @@ backups; the history system needs tail recovery over its own writes.
   uncommitted revision — never a branch pointed at an incomplete revision.
 - **Startup recovery:** detect tail corruption (checksum failure, truncated
   segment, revision with missing parent or hash mismatch); truncate to the
-  last valid segment; walk back to the last committed revision; report
-  exactly what was preserved and what was discarded; reconcile against the
-  last-known-good revision (the newest revision whose canonical hash matches
-  replay).
+  last valid segment; walk each affected branch back through its own
+  first-parent lineage to the nearest replay-verified revision; report
+  exactly what was preserved and what was discarded. The globally newest
+  verified revision remains report metadata only—it is never used to move an
+  unrelated branch head.
 - **Recovery refs:** autosave/recovery points remain as whole-document
   fallbacks; recovery never fabricates a revision that did not commit.
 - **Repair tooling:** `varve repair <path>` validates structure, truncates

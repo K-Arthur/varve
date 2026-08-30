@@ -63,6 +63,7 @@ import {
   positionAfter,
   recoverTail,
   redoRevision,
+  replayAndVerify,
   SnapshotScheduler,
   undoN,
   undoRevision,
@@ -88,6 +89,56 @@ registerBuiltinOperations();
 
 const MAX_SELECTION_JOURNAL_ENTRIES = 500;
 const MAX_DOCUMENT_CACHE_ENTRIES = 8;
+
+interface VerifiedBranchHead {
+  branch: BranchRef;
+  head: RevisionRecord;
+}
+
+/**
+ * History stores do not persist a currently selected branch. Attach to the
+ * main branch when it is healthy, otherwise use the most recently updated
+ * healthy active branch. This avoids an orphaned/corrupt branch disabling
+ * the entire document's history merely because a backend returned it first.
+ */
+async function findVerifiedAttachHead(
+  store: HistoryStore,
+  documentId: string,
+  branches: readonly BranchRef[],
+): Promise<VerifiedBranchHead | null> {
+  const candidates = [...branches].sort((left, right) => {
+    const activeOrder = Number(right.status === 'active') - Number(left.status === 'active');
+    if (activeOrder !== 0) return activeOrder;
+    const mainOrder = Number(right.name === 'main') - Number(left.name === 'main');
+    if (mainOrder !== 0) return mainOrder;
+    if (right.updatedAt !== left.updatedAt) return right.updatedAt - left.updatedAt;
+    return left.branchId.localeCompare(right.branchId);
+  });
+
+  for (const branch of candidates) {
+    const head = await store.getRevision(documentId, branch.headRevisionId);
+    if (!head) continue;
+    try {
+      if ((await replayAndVerify(store, documentId, head.revisionId)).verified) {
+        return { branch, head };
+      }
+    } catch {
+      // Recovery has already recorded the structural failure. Try another
+      // surviving branch rather than turning a recoverable history problem
+      // into an editor-wide disabled state.
+    }
+  }
+  return null;
+}
+
+function nextRecoveryBranchName(branches: readonly BranchRef[]): string {
+  const base = 'recovered-working-state';
+  const names = new Set(branches.map((branch) => branch.name));
+  if (!names.has(base)) return base;
+  let suffix = 2;
+  while (names.has(`${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
+}
 
 export interface HistoryIssue {
   severity: 'error' | 'warning';
@@ -238,20 +289,22 @@ export class EditorHistorySession {
     // captured above would immediately replay the very revision recovery
     // just moved away from.
     branches = await this.store.listBranches(this.documentId);
-    const branch = branches[0]!;
-    const head = await this.store.getRevision(this.documentId, branch.headRevisionId);
-    if (!head) {
+    const verified = await findVerifiedAttachHead(this.store, this.documentId, branches);
+    if (!verified) {
       issues.push({
-        severity: 'error',
-        code: 'history.dangling-head',
-        message: `Branch ${branch.name} points at a missing revision; recreating genesis`,
+        severity: 'warning',
+        code: 'history.unrecoverable-head',
+        message:
+          'No replayable branch head remained after recovery; preserved the document in a new recovery branch',
       });
       const { genesis, branch: fresh } = await createGenesisRevision(this.store, document, {
         documentId: this.documentId,
         author: { actorId: this.actorId, kind: 'local-user' },
+        branchName: nextRecoveryBranchName(branches),
       });
       return this.finishAttach(genesis, fresh, true, issues);
     }
+    const { branch, head } = verified;
 
     // Reconcile the working document against the recorded head.
     const workingHash = canonicalHistoryHash(document);
