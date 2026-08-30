@@ -211,4 +211,22 @@ describe('EffectStudioSection', () => {
       'studio-analog-signal',
     );
   });
+
+  it('migrates saved primitive IDs to their closest curated treatment', () => {
+    window.localStorage.setItem('varve:effect-studio:favorites', JSON.stringify(['vhs']));
+    render(<EffectStudioSection nodes={[effectNode()]} />);
+
+    fireEvent.click(
+      within(screen.getByRole('toolbar', { name: 'Treatment gallery filters' })).getByRole(
+        'button',
+        {
+          name: 'Saved',
+        },
+      ),
+    );
+    expect(screen.getByText('Analog Signal')).toBeInTheDocument();
+    expect(window.localStorage.getItem('varve:effect-studio:favorites')).toContain(
+      'studio-analog-signal',
+    );
+  });
 });

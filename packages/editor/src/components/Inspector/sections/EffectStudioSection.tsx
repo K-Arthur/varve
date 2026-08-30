@@ -27,6 +27,23 @@ const FAVORITES_KEY = 'varve:effect-studio:favorites';
 const RECENTS_KEY = 'varve:effect-studio:recents';
 const MAX_LIBRARY_IDS = 32;
 
+/** Preserve prior raw-effect saves when the Studio becomes treatment-first. */
+const LEGACY_TREATMENT_BY_PRIMITIVE: Readonly<Record<string, string>> = {
+  bloom: 'studio-chromatic-bloom',
+  caustics: 'studio-refracted-light',
+  colorHalftone: 'studio-screen-print',
+  crt: 'studio-neon-phosphor',
+  dither: 'studio-pencil-poster',
+  duotone: 'studio-inked-paper',
+  lensFlare: 'studio-aperture-star',
+  lightLeak: 'studio-light-leak',
+  lightShafts: 'studio-cinema-shafts',
+  paletteSnap: 'studio-palette-cut',
+  rgbSplit: 'studio-glass-shift',
+  tritone: 'studio-pigment-wash',
+  vhs: 'studio-analog-signal',
+};
+
 interface StudioPreview {
   nodeId: string;
   treatmentId: string;
@@ -60,6 +77,15 @@ function writeIds(key: string, ids: readonly string[]): void {
   } catch {
     // Browser storage can be disabled or full; the current session still works.
   }
+}
+
+function readTreatmentIds(key: string): string[] {
+  const ids = readIds(key);
+  const migrated = [...new Set(ids.map((id) => LEGACY_TREATMENT_BY_PRIMITIVE[id] ?? id))];
+  if (migrated.length !== ids.length || migrated.some((id, index) => id !== ids[index])) {
+    writeIds(key, migrated);
+  }
+  return migrated;
 }
 
 function remember(id: string, current: readonly string[]): string[] {
@@ -152,8 +178,8 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
   const filters = node?.smartFilters ?? [];
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<EffectStudioCategoryId | undefined>();
-  const [favorites, setFavorites] = useState<string[]>(readIds(FAVORITES_KEY));
-  const [recents, setRecents] = useState<string[]>(readIds(RECENTS_KEY));
+  const [favorites, setFavorites] = useState<string[]>(() => readTreatmentIds(FAVORITES_KEY));
+  const [recents, setRecents] = useState<string[]>(() => readTreatmentIds(RECENTS_KEY));
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [preview, setPreview] = useState<StudioPreview | null>(null);
   const previewRef = useRef<StudioPreview | null>(null);
