@@ -1113,7 +1113,6 @@ export function createActionHandlers(
 
     // ── UI ──
     shortcutPalette: () => cb.onOpenPalette?.(),
-    quickActions: () => {},
     bringAllPanelsToCurrentDisplay: () => cb.onBringAllPanelsToCurrentDisplay?.(),
     resetPanelWindowLayout: () => cb.onResetPanelWindowLayout?.(),
     present: () => {

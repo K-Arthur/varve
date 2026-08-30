@@ -44,7 +44,7 @@ export function useShortcuts(
   const getHandler = useCallback((id: string): (() => void) | null => {
     const registry = getActionRegistry();
     const action = registry.get(id);
-    if (action) return action.handler as () => void;
+    if (action && !action.placeholder) return action.handler as () => void;
 
     switch (id) {
       case 'shortcutPalette':
