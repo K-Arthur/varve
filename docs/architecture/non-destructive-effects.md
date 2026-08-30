@@ -48,6 +48,22 @@ opacity, blend, and parameter edits retain the target entry id. This makes
 undo, save/reopen, copy/paste, and accessible stack controls address the same
 filter rather than relying on a mutable array index.
 
+## Layer-panel identity
+
+The Layers panel deliberately separates a layer's user name from its applied
+stack identity. The name is stable and user-editable; a derived second line
+shows the ordered adjustment kinds, for example `Threshold + Gradient Map`.
+When a stack contains more than two entries, the row keeps the first two names
+and reports the remainder as `+ N more`; the complete ordered list remains
+available from the row's hover/focus description.
+
+The adjacent badge reports active state (`2/2`, `1/2`, and so on). Disabled
+entries remain named in the summary and are marked in the full description, so
+turning an adjustment off does not make it look as though it was removed.
+Object Filter badges use the same derived naming rule. No persisted node name
+is rewritten when an entry is added, reordered, or bypassed, which preserves
+custom names and avoids rename or undo-history churn.
+
 ## 2. Scope, ordering, masks, and bounds
 
 Object Filters run on the node result in stack order. They are local to the
