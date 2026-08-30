@@ -379,4 +379,47 @@ describe('edge cases', () => {
       expect(v).toBeLessThanOrEqual(255);
     }
   });
+
+  it('handles empty stops array', () => {
+    const img = createTestImageData(1, 1, [128, 128, 128, 255]);
+    apply(img, { stops: [] });
+    expect(img.data[0]).toBe(128);
+  });
+
+  it('reverse is deterministic: same input + same params = same output', () => {
+    const pixels = [0, 0, 0, 255, 85, 85, 85, 255, 170, 170, 170, 255, 255, 255, 255, 255];
+    const run1 = createTestImageData(4, 1, [...pixels]);
+    const run2 = createTestImageData(4, 1, [...pixels]);
+    apply(run1, { reverse: true, dither: true });
+    apply(run2, { reverse: true, dither: true });
+    for (let i = 0; i < run1.data.length; i++) {
+      expect(run2.data[i]).toBe(run1.data[i]);
+    }
+  });
+
+  it('identity: black-to-white gradient on grayscale ramp approximates identity', () => {
+    const stops: GradientMapStop[] = [
+      { position: 0, color: [0, 0, 0, 255] },
+      { position: 1, color: [255, 255, 255, 255] },
+    ];
+    const data = new Uint8ClampedArray(4 * 256);
+    for (let i = 0; i < 256; i++) {
+      data[i * 4] = i;
+      data[i * 4 + 1] = i;
+      data[i * 4 + 2] = i;
+      data[i * 4 + 3] = 255;
+    }
+    const img = { data, width: 256, height: 1, colorSpace: 'srgb' as const };
+    applyGradientMapFilter(img, {
+      stops,
+      dither: false,
+      preserveLuminosity: false,
+      interpolation: 'srgb',
+      intensity: 1,
+    });
+    for (let i = 0; i < 256; i++) {
+      const diff = Math.abs(img.data[i * 4] - i);
+      expect(diff).toBeLessThanOrEqual(1);
+    }
+  });
 });
