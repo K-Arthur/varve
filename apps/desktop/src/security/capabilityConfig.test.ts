@@ -34,6 +34,7 @@ describe('auxiliary panel-window capability', () => {
       'core:event:allow-listen',
       'core:event:allow-unlisten',
       'core:window:allow-close',
+      'core:window:allow-destroy',
       'core:window:allow-minimize',
       'core:window:allow-unminimize',
       'core:window:allow-maximize',
