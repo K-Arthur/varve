@@ -20,6 +20,9 @@ export function useFileActions(platform: Platform, onRefresh: () => void): FileA
   const rename = useCallback(
     async (id: string, name: string) => {
       await platform.renameFile(id, name);
+      // Recent history stores a display snapshot as well as the stable file
+      // id. Keep the snapshot aligned when a Home rename succeeds.
+      await platform.patchRecentFile(id, { name });
       onRefresh();
     },
     [platform, onRefresh],

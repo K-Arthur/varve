@@ -20,6 +20,7 @@ import {
   filterRecentByWorkspace,
   fuzzyScore,
   mergeViewState,
+  RECENT_FILE_SCHEMA_VERSION,
   recentFileSections,
 } from '@varve/platform';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -75,15 +76,30 @@ export function useHomeView(platform: Platform): HomeView & {
     const loadRevision = viewStateRevisionRef.current;
     setLoading(true);
     try {
-      const [vs, fileList, trashList, projList, wsList] = await Promise.all([
-        platform.getViewState().catch(() => defaultViewState()),
-        platform.listFiles().catch(() => [] as FileEntry[]),
-        platform.listTrashedFiles().catch(() => [] as FileEntry[]),
-        platform.listProjects().catch(() => [] as Project[]),
-        platform.listWorkspaces().catch(() => [] as Workspace[]),
-      ]);
-      const recentList: RecentFileRecord[] = await (platform.listRecentFiles?.().catch(() => []) ??
-        Promise.resolve([]));
+      const [vsResult, filesResult, trashResult, projectsResult, workspacesResult, recentResult] =
+        await Promise.all([
+          readWithFallback(platform.getViewState(), defaultViewState()),
+          readWithFallback(platform.listFiles(), [] as FileEntry[]),
+          readWithFallback(platform.listTrashedFiles(), [] as FileEntry[]),
+          readWithFallback(platform.listProjects(), [] as Project[]),
+          readWithFallback(platform.listWorkspaces(), [] as Workspace[]),
+          readWithFallback(
+            platform.listRecentFiles?.() ?? Promise.resolve([] as RecentFileRecord[]),
+            [] as RecentFileRecord[],
+          ),
+        ]);
+      const vs = vsResult.value;
+      const fileList = filesResult.value;
+      const trashList = trashResult.value;
+      const projList = projectsResult.value;
+      const wsList = workspacesResult.value;
+      const recentList = reconcileRecentRecords(
+        recentResult.value,
+        fileList,
+        trashList,
+        filesResult.ok && trashResult.ok && recentResult.ok,
+        (id) => platform.removeRecentFile(id),
+      );
       const merged = mergeViewState(vs);
       const workspaceIds = new Set(wsList.map((w) => w.id));
       const personal = wsList.find((w) => w.kind === 'personal') ?? wsList[0] ?? null;
@@ -146,11 +162,32 @@ export function useHomeView(platform: Platform): HomeView & {
     [allTrashedFiles, activeWorkspace, projectIds],
   );
 
+  const recentRecordsForHome = useMemo(() => {
+    const filesById = new Map(files.map((file) => [file.id, file]));
+    const knownRecentIds = new Set(recentRecords.map((record) => record.id));
+    const persisted = recentRecords
+      .filter((record) => !record.missing && filesById.has(record.id))
+      .map((record) => {
+        const file = filesById.get(record.id);
+        // Use the current indexed name for Home while keeping the persisted
+        // record's identity, counters, visibility and relevance metadata.
+        return file && file.name !== record.name ? { ...record, name: file.name } : record;
+      });
+
+    // Files written before the durable recent-history store was introduced
+    // still have a meaningful openedAt. Keep them visible until their next
+    // successful open creates a persisted record.
+    const legacy = files
+      .filter((file) => file.openedAt > 0 && !knownRecentIds.has(file.id))
+      .map(legacyFileToRecentRecord);
+
+    return [...persisted, ...legacy].sort(
+      (a, b) => b.lastOpenedAt - a.lastOpenedAt || a.id.localeCompare(b.id),
+    );
+  }, [files, recentRecords]);
+
   const pinnedFiles = files.filter((f) => f.pinned && !f.trashedAt);
-  const recentFiles = recentRecords
-    .filter((r) => !r.hidden && !r.missing)
-    .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt)
-    .slice(0, 30);
+  const recentFiles = recentRecordsForHome.filter((r) => !r.hidden).slice(0, 30);
 
   const draftFiles = files.filter((f) => f.projectId === DRAFTS_ID && !f.trashedAt);
   const favoriteFiles = [...files]
@@ -162,21 +199,37 @@ export function useHomeView(platform: Platform): HomeView & {
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, 5);
 
-  const visibleFiles = computeVisibleFiles(files, state);
-
-  const recentSectionCounts = useMemo(() => recentFileSections(recentRecords), [recentRecords]);
+  const recentSectionCounts = useMemo(
+    () => recentFileSections(recentRecordsForHome),
+    [recentRecordsForHome],
+  );
   const recentWorkspaceFilter: RecentWorkspaceFilter =
     state.filter.recentWorkspaceFilter ?? DEFAULT_RECENT_WORKSPACE_FILTER;
   const editorMode: EditorWorkspaceMode | undefined =
     state.filter.recentWorkspaceFilter?.editorMode;
   const recentFilteredRecords = useMemo(() => {
-    const relevant = filterRecentByWorkspace(recentRecords, recentWorkspaceFilter, editorMode);
+    const relevant = filterRecentByWorkspace(
+      recentRecordsForHome,
+      recentWorkspaceFilter,
+      editorMode,
+    );
+    const visible = state.filter.showHidden ? relevant : relevant.filter((r) => !r.hidden);
     // Encrypted projects excluded from relevance inference
-    if (recentWorkspaceFilter.mode !== 'all') {
-      return relevant.filter((r) => !r.encrypted || r.userWorkspaceTag != null);
-    }
-    return relevant;
-  }, [recentRecords, recentWorkspaceFilter, editorMode]);
+    const privacyFiltered =
+      recentWorkspaceFilter.mode !== 'all'
+        ? visible.filter((r) => !r.encrypted || r.userWorkspaceTag != null)
+        : visible;
+    return privacyFiltered.slice(0, 30);
+  }, [recentRecordsForHome, recentWorkspaceFilter, editorMode, state.filter.showHidden]);
+
+  const recentVisibleFiles = useMemo(() => {
+    const filesById = new Map(files.map((file) => [file.id, file]));
+    return recentFilteredRecords
+      .map((record) => filesById.get(record.id))
+      .filter((file): file is FileEntry => file !== undefined);
+  }, [files, recentFilteredRecords]);
+
+  const visibleFiles = computeVisibleFiles(files, state, recentVisibleFiles);
 
   return {
     state,
@@ -280,13 +333,15 @@ function isFileInWorkspace(
   return projectIds.has(file.projectId);
 }
 
-function computeVisibleFiles(all: FileEntry[], state: HomeViewState): FileEntry[] {
-  let result = all.filter((f) => !f.trashedAt);
+function computeVisibleFiles(
+  all: FileEntry[],
+  state: HomeViewState,
+  recentFiles: readonly FileEntry[] = [],
+): FileEntry[] {
+  let result = state.section === 'recent' ? [...recentFiles] : all.filter((f) => !f.trashedAt);
 
   switch (state.section) {
     case 'recent':
-      result = result.filter((f) => f.openedAt > 0);
-      result.sort((a, b) => b.openedAt - a.openedAt);
       result = result.slice(0, 30);
       break;
     case 'all':
@@ -335,8 +390,65 @@ function computeVisibleFiles(all: FileEntry[], state: HomeViewState): FileEntry[
   const pinned = result.filter((f) => f.pinned);
   const unpinned = result.filter((f) => !f.pinned);
 
-  pinned.sort(compareBy(state.sort.key, state.sort.direction));
-  unpinned.sort(compareBy(state.sort.key, state.sort.direction));
+  if (state.section === 'recent' && state.sort.key === 'opened') {
+    // The durable recent store is authoritative for open order. FileEntry's
+    // legacy openedAt can be absent or stale after a migration, so sorting
+    // this view by it can silently reshuffle otherwise correct recent data.
+    const recentOrder = new Map(recentFiles.map((file, index) => [file.id, index]));
+    const direction = state.sort.direction === 'desc' ? 1 : -1;
+    const compareByRecentOrder = (a: FileEntry, b: FileEntry) =>
+      ((recentOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+        (recentOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER)) *
+      direction;
+    pinned.sort(compareByRecentOrder);
+    unpinned.sort(compareByRecentOrder);
+  } else {
+    pinned.sort(compareBy(state.sort.key, state.sort.direction));
+    unpinned.sort(compareBy(state.sort.key, state.sort.direction));
+  }
 
   return [...pinned, ...unpinned];
+}
+
+function legacyFileToRecentRecord(file: FileEntry): RecentFileRecord {
+  return {
+    id: file.id,
+    name: file.name,
+    lastOpenedAt: file.openedAt,
+    openedCount: 1,
+    pinned: file.pinned,
+    hidden: false,
+    workspaceRelevance: [],
+    userWorkspaceTag: null,
+    encrypted: false,
+    missing: false,
+    version: RECENT_FILE_SCHEMA_VERSION,
+    contentHash: file.contentHash,
+  };
+}
+
+function readWithFallback<T>(promise: Promise<T>, fallback: T): Promise<{ value: T; ok: boolean }> {
+  return promise.then(
+    (value) => ({ value, ok: true }),
+    () => ({ value: fallback, ok: false }),
+  );
+}
+
+function reconcileRecentRecords(
+  records: RecentFileRecord[],
+  liveFiles: FileEntry[],
+  trashedFiles: FileEntry[],
+  readsSucceeded: boolean,
+  remove: (id: string) => Promise<void>,
+): RecentFileRecord[] {
+  if (!readsSucceeded) return records;
+
+  const indexedIds = new Set([...liveFiles, ...trashedFiles].map((file) => file.id));
+  const orphanIds = records
+    .filter((record) => !indexedIds.has(record.id))
+    .map((record) => record.id);
+  if (orphanIds.length > 0) {
+    void Promise.all(orphanIds.map((id) => remove(id).catch(() => undefined)));
+  }
+  return records.filter((record) => indexedIds.has(record.id));
 }

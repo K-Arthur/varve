@@ -145,6 +145,66 @@ describe('useHomeView — fuzzy search', () => {
 });
 
 describe('useHomeView — recents and favorites', () => {
+  it('counts and renders only recent records with a live file row', async () => {
+    const platform = createMemoryPlatform();
+    await platform.upsertFile(
+      makeFileEntry({ id: 'live', name: 'Saved design', openedAt: 100 }),
+      sampleJson('Saved design'),
+    );
+
+    await platform.touchRecentFile('live', 'Saved design');
+    for (let i = 0; i < 46; i++) {
+      await platform.touchRecentFile(`deleted-${i}`, `Deleted ${i}`);
+    }
+
+    const { result } = renderHook(() => useHomeView(platform));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.recentSectionCounts.all).toBe(1);
+    expect(result.current.recentFiles.map((file) => file.id)).toEqual(['live']);
+    expect(result.current.visibleFiles.map((file) => file.id)).toEqual(['live']);
+    await waitFor(async () => expect(await platform.listRecentFiles()).toHaveLength(1));
+  });
+
+  it('does not show hidden, missing, or trashed files in Recent', async () => {
+    const platform = createMemoryPlatform();
+    for (const id of ['live', 'hidden', 'missing', 'trashed']) {
+      await platform.upsertFile(makeFileEntry({ id, name: id, openedAt: 100 }), sampleJson(id));
+      await platform.touchRecentFile(id, id);
+    }
+    await platform.patchRecentFile('hidden', { hidden: true });
+    await platform.patchRecentFile('missing', { missing: true });
+    await platform.trashFile('trashed');
+
+    const { result } = renderHook(() => useHomeView(platform));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.recentSectionCounts.all).toBe(1);
+    expect(result.current.recentSectionCounts.hidden).toBe(1);
+    expect(result.current.recentFiles.map((file) => file.id)).toEqual(['live']);
+    expect(result.current.visibleFiles.map((file) => file.id)).toEqual(['live']);
+  });
+
+  it('uses durable recent order when the file metadata is stale', async () => {
+    const platform = createMemoryPlatform();
+    await platform.upsertFile(
+      makeFileEntry({ id: 'first', name: 'First', openedAt: 100 }),
+      sampleJson('First'),
+    );
+    await platform.upsertFile(
+      makeFileEntry({ id: 'second', name: 'Second', openedAt: 200 }),
+      sampleJson('Second'),
+    );
+    await platform.touchRecentFile('second', 'Second');
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    await platform.touchRecentFile('first', 'First');
+
+    const { result } = renderHook(() => useHomeView(platform));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.visibleFiles.map((file) => file.id)).toEqual(['first', 'second']);
+  });
+
   it('lists recent files by lastOpenedAt and favorites by favoritedAt', async () => {
     const platform = createMemoryPlatform();
     await platform.upsertFile(

@@ -221,6 +221,13 @@ describe('recentFileSections', () => {
   it('hidden counts hidden entries', () => {
     expect(sections.hidden).toBe(1);
   });
+
+  it('does not count missing entries as displayable recent files', () => {
+    const missing = makeRecord({ id: 'missing', name: 'Missing', missing: true });
+    const withMissing = recentFileSections([...records, missing]);
+    expect(withMissing.all).toBe(3);
+    expect(withMissing.hidden).toBe(1);
+  });
 });
 
 describe('Memory platform recent-file operations', () => {

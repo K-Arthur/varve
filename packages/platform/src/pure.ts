@@ -484,14 +484,15 @@ export function recentFileSections(records: RecentFileRecord[]): {
   relevant: (mode: EditorWorkspaceMode) => number;
   hidden: number;
 } {
+  const available = records.filter((r) => !r.missing);
   return {
-    all: records.filter((r) => !r.hidden).length,
-    pinned: records.filter((r) => r.pinned && !r.hidden).length,
+    all: available.filter((r) => !r.hidden).length,
+    pinned: available.filter((r) => r.pinned && !r.hidden).length,
     relevant: (mode) =>
-      records.filter(
+      available.filter(
         (r) => !r.hidden && (r.userWorkspaceTag === mode || r.workspaceRelevance.includes(mode)),
       ).length,
-    hidden: records.filter((r) => r.hidden).length,
+    hidden: available.filter((r) => r.hidden).length,
   };
 }
 

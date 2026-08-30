@@ -198,10 +198,30 @@ export function HomeShell({
         }
       }
       setMissingFiles(missing);
+
+      // The existence sweep is also the authoritative signal for the
+      // durable recent-history flag. Without this write, a file deleted or
+      // moved while Home was open kept counting as Recent until the user
+      // attempted to open it.
+      const alreadyMarkedMissing = new Set(
+        view.recentRecords.filter((record) => record.missing).map((record) => record.id),
+      );
+      const recentIds = new Set(view.recentRecords.map((record) => record.id));
+      const newlyMissing = [...missing].filter(
+        (id) => recentIds.has(id) && !alreadyMarkedMissing.has(id),
+      );
+      if (newlyMissing.length > 0) {
+        await Promise.all(
+          newlyMissing.map((id) =>
+            platform.patchRecentFile(id, { missing: true }).catch(() => undefined),
+          ),
+        );
+        await view.refresh();
+      }
     };
 
     checkMissingFiles();
-  }, [platform, view.files]);
+  }, [platform, view.files, view.recentRecords, view.refresh]);
 
   // Reset folder state when switching to a different project
   useEffect(() => {
@@ -511,18 +531,23 @@ export function HomeShell({
           break;
         }
         case 'remove': {
-          for (const entry of selected) actions.purge(entry.id);
+          // "Remove from recents" is intentionally non-destructive: a
+          // missing disk binding may still have a valid library document.
+          await Promise.all(selected.map((entry) => platform.removeRecentFile(entry.id)));
+          await view.refresh();
           break;
         }
         case 'hide':
-          for (const entry of selected) {
-            platform.patchRecentFile(entry.id, { hidden: true }).then(() => view.refresh());
-          }
+          await Promise.all(
+            selected.map((entry) => platform.patchRecentFile(entry.id, { hidden: true })),
+          );
+          await view.refresh();
           break;
         case 'unhide':
-          for (const entry of selected) {
-            platform.patchRecentFile(entry.id, { hidden: false }).then(() => view.refresh());
-          }
+          await Promise.all(
+            selected.map((entry) => platform.patchRecentFile(entry.id, { hidden: false })),
+          );
+          await view.refresh();
           break;
         case 'reveal':
           if (contextFile.filePath) {

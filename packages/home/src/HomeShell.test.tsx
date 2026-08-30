@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { render, screen, waitFor } from '@testing-library/react';
-import { createMemoryPlatform } from '@varve/platform';
+import { createMemoryPlatform, makeFileEntry } from '@varve/platform';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomeShell } from './HomeShell';
 
@@ -53,6 +53,24 @@ describe('HomeShell', () => {
       },
       { timeout: 3000 },
     );
+  });
+
+  it('shows the live recent count instead of orphaned history rows', async () => {
+    const platform = createMemoryPlatform();
+    await platform.upsertFile(
+      makeFileEntry({ id: 'live', name: 'Saved design', openedAt: Date.now() }),
+      JSON.stringify({ id: 'live', name: 'Saved design', rootChildren: [], nodes: {} }),
+    );
+    await platform.touchRecentFile('live', 'Saved design');
+    for (let i = 0; i < 46; i++) {
+      await platform.touchRecentFile(`deleted-${i}`, `Deleted ${i}`);
+    }
+
+    render(<HomeShell platform={platform} onOpenFile={vi.fn()} />);
+
+    const recent = await screen.findByRole('button', { name: /^Recent/ });
+    await waitFor(() => expect(recent).toHaveTextContent('1'));
+    expect(recent).not.toHaveTextContent('46');
   });
 
   it('handles web platform without crashing (cross-platform check)', async () => {
