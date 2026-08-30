@@ -1,6 +1,6 @@
 import { imageTreatmentSchema, isImageTreatmentKind } from '@varve/engine';
 import type { Adjustment } from '@varve/scene';
-import { NumberField } from '../Inspector/controls/NumberField';
+import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
 
 export interface ImageTreatmentEditorProps {
   adjustment: Adjustment;
@@ -23,42 +23,24 @@ export function ImageTreatmentEditor({ adjustment, onChange }: ImageTreatmentEdi
   };
   const control = (parameter: (typeof schema.parameters)[number]) => {
     const value = parameterValue(parameter.key, parameter.defaultValue);
-    const unit = parameter.unit;
-    const formattedValue = unit ? `${value}${unit === '%' ? '%' : ` ${unit}`}` : String(value);
     return (
       <div className="adj-editor__parameter" key={parameter.key}>
         <div className="adj-editor__parameter-label">
           <span>{parameter.label}</span>
-          <output>{formattedValue}</output>
         </div>
         <div className="adj-editor__parameter-controls">
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label={parameter.label}
+            rangeClassName="adj-editor__slider"
             min={parameter.min}
             max={parameter.max}
             step={parameter.step}
             value={value}
-            aria-label={`${parameter.label} slider`}
-            aria-description={parameter.description}
-            onChange={(event) =>
-              onChange({ [parameter.key]: Number(event.target.value) } as Partial<Adjustment>)
-            }
+            fineStep={parameter.fineStep}
+            unit={parameter.unit}
+            rangeAriaLabel={`${parameter.label} slider`}
+            onChange={(next) => onChange({ [parameter.key]: next } as Partial<Adjustment>)}
           />
-          <div className="adj-editor__parameter-value">
-            <NumberField
-              label={`${parameter.label} value`}
-              displayLabel="Value"
-              value={value}
-              min={parameter.min}
-              max={parameter.max}
-              step={parameter.step}
-              altStep={parameter.fineStep}
-              shiftStep={parameter.step * 10}
-              unit={unit}
-              onChange={(next) => onChange({ [parameter.key]: next } as Partial<Adjustment>)}
-            />
-          </div>
         </div>
       </div>
     );

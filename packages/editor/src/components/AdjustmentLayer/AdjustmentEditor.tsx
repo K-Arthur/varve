@@ -19,6 +19,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { CurveEditor } from '../Inspector/controls/CurveEditor';
 import { GradientMapAdjustmentSection } from '../Inspector/controls/GradientMapAdjustmentSection';
 import { HistogramWidget } from '../Inspector/controls/HistogramWidget';
+import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
 import { ImageTreatmentEditor } from './ImageTreatmentEditor';
 import {
   BloomEditor,
@@ -64,9 +65,9 @@ function LegacyAdjustmentEditor({
   doc,
   sourceHistogram,
 }: AdjustmentEditorProps) {
-  const handleSlider = useCallback(
-    (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-      onChange({ [key]: Number(e.target.value) } as Partial<Adjustment>);
+  const handleValue = useCallback(
+    (key: string) => (value: number) => {
+      onChange({ [key]: value } as Partial<Adjustment>);
     },
     [onChange],
   );
@@ -90,14 +91,13 @@ function LegacyAdjustmentEditor({
             <span>Brightness</span>
             <span>{adjustment.value}</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="Brightness"
+            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adjustment.value}
-            onChange={handleSlider('value')}
-            aria-label="Brightness"
+            onChange={handleValue('value')}
           />
         </div>
       );
@@ -109,14 +109,13 @@ function LegacyAdjustmentEditor({
             <span>Contrast</span>
             <span>{adjustment.value}</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="Contrast"
+            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adjustment.value}
-            onChange={handleSlider('value')}
-            aria-label="Contrast"
+            onChange={handleValue('value')}
           />
         </div>
       );
@@ -163,15 +162,14 @@ function LegacyAdjustmentEditor({
             <span>EV</span>
             <span>{adjustment.value}</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="Exposure"
+            rangeClassName="adj-editor__slider"
             min={-10}
             max={10}
             step={0.1}
             value={adjustment.value}
-            onChange={handleSlider('value')}
-            aria-label="Exposure"
+            onChange={handleValue('value')}
           />
           <div className="adj-editor__row">
             <span className="adj-editor__label">Offset</span>
@@ -207,14 +205,13 @@ function LegacyAdjustmentEditor({
             <span>Temperature</span>
             <span>{adjustment.value}</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="Temperature"
+            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adjustment.value}
-            onChange={handleSlider('value')}
-            aria-label="Temperature"
+            onChange={handleValue('value')}
           />
         </div>
       );
@@ -226,14 +223,13 @@ function LegacyAdjustmentEditor({
             <span>Saturation</span>
             <span>{adjustment.value}</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="Saturation"
+            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adjustment.value}
-            onChange={handleSlider('value')}
-            aria-label="Saturation"
+            onChange={handleValue('value')}
           />
         </div>
       );
@@ -284,14 +280,14 @@ function LegacyAdjustmentEditor({
                   {unit}
                 </span>
               </div>
-              <input
-                type="range"
-                className="adj-editor__slider"
+              <RangeValueControl
+                label={`${label} ${activeRange}`}
+                rangeClassName="adj-editor__slider"
                 min={min}
                 max={max}
                 value={active[key]}
-                onChange={(event) => updateRange(key, Number(event.target.value))}
-                aria-label={`${label} ${activeRange}`}
+                unit={unit}
+                onChange={(value) => updateRange(key, value)}
               />
             </div>
           ))}
@@ -306,14 +302,14 @@ function LegacyAdjustmentEditor({
             <span>Hue</span>
             <span>{adjustment.value}°</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="Hue rotate"
+            rangeClassName="adj-editor__slider"
             min={-180}
             max={180}
             value={adjustment.value}
-            onChange={handleSlider('value')}
-            aria-label="Hue rotate"
+            unit="°"
+            onChange={handleValue('value')}
           />
         </div>
       );
@@ -325,14 +321,14 @@ function LegacyAdjustmentEditor({
             <span>Sepia</span>
             <span>{adjustment.value}%</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="Sepia"
+            rangeClassName="adj-editor__slider"
             min={0}
             max={100}
             value={adjustment.value}
-            onChange={handleSlider('value')}
-            aria-label="Sepia"
+            unit="%"
+            onChange={handleValue('value')}
           />
         </div>
       );
@@ -344,14 +340,14 @@ function LegacyAdjustmentEditor({
             <span>Grayscale</span>
             <span>{adjustment.value}%</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="Grayscale"
+            rangeClassName="adj-editor__slider"
             min={0}
             max={100}
             value={adjustment.value}
-            onChange={handleSlider('value')}
-            aria-label="Grayscale"
+            unit="%"
+            onChange={handleValue('value')}
           />
         </div>
       );
@@ -363,14 +359,14 @@ function LegacyAdjustmentEditor({
             <span>Invert</span>
             <span>{adjustment.value}%</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="Invert"
+            rangeClassName="adj-editor__slider"
             min={0}
             max={100}
             value={adjustment.value}
-            onChange={handleSlider('value')}
-            aria-label="Invert"
+            unit="%"
+            onChange={handleValue('value')}
           />
         </div>
       );
@@ -382,14 +378,14 @@ function LegacyAdjustmentEditor({
             <span>Opacity</span>
             <span>{adjustment.value}%</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="Opacity"
+            rangeClassName="adj-editor__slider"
             min={0}
             max={100}
             value={adjustment.value}
-            onChange={handleSlider('value')}
-            aria-label="Opacity"
+            unit="%"
+            onChange={handleValue('value')}
           />
         </div>
       );
@@ -401,15 +397,15 @@ function LegacyAdjustmentEditor({
             <span>Radius</span>
             <span>{adjustment.radius}px</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="Blur radius"
+            rangeClassName="adj-editor__slider"
             min={0}
             max={50}
             step={0.5}
             value={adjustment.radius}
-            onChange={handleSlider('radius')}
-            aria-label="Blur radius"
+            unit="px"
+            onChange={handleValue('radius')}
           />
         </div>
       );
@@ -462,14 +458,13 @@ function LegacyAdjustmentEditor({
             <span>Tint</span>
             <span>{adjustment.value}</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="Tint"
+            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adjustment.value}
-            onChange={handleSlider('value')}
-            aria-label="Tint"
+            onChange={handleValue('value')}
           />
         </div>
       );
@@ -481,14 +476,13 @@ function LegacyAdjustmentEditor({
             <span>Vibrance</span>
             <span>{adjustment.value}</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="Vibrance"
+            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adjustment.value}
-            onChange={handleSlider('value')}
-            aria-label="Vibrance"
+            onChange={handleValue('value')}
           />
         </div>
       );
@@ -731,19 +725,19 @@ function LegacyAdjustmentEditor({
             <span>Intensity</span>
             <span>{Math.round((adj.intensity ?? 1) * 100)}%</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label="LUT intensity"
+            rangeClassName="adj-editor__slider"
             min={0}
             max={100}
             step={1}
             value={Math.round((adj.intensity ?? 1) * 100)}
-            onChange={(e) =>
+            unit="%"
+            onChange={(value) =>
               onChange({
-                intensity: Number(e.target.value) / 100,
+                intensity: value / 100,
               } as unknown as Partial<Adjustment>)
             }
-            aria-label="LUT intensity"
           />
         </div>
 
@@ -934,8 +928,8 @@ function CurvesEditor({
 
 function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   const adj = adjustment as import('@varve/scene').SelectiveColorAdjustment;
-  const handleSlider = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange({ [key]: Number(e.target.value) } as unknown as Partial<Adjustment>);
+  const handleValue = (key: string) => (value: number) => {
+    onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
@@ -979,14 +973,13 @@ function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
             <span>{channel.charAt(0).toUpperCase() + channel.slice(1)}</span>
             <span>{adj[channel]}</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label={channel}
+            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adj[channel]}
-            onChange={handleSlider(channel)}
-            aria-label={channel}
+            onChange={handleValue(channel)}
           />
         </div>
       ))}
@@ -997,11 +990,9 @@ function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
 function ColorBalanceEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   const adj = adjustment as import('@varve/scene').ColorBalanceAdjustment;
   const handleTriplet =
-    (range: 'shadows' | 'midtones' | 'highlights', key: string) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const v = Number(e.target.value);
+    (range: 'shadows' | 'midtones' | 'highlights', key: string) => (value: number) => {
       onChange({
-        [range]: { ...adj[range], [key]: v },
+        [range]: { ...adj[range], [key]: value },
       } as unknown as Partial<Adjustment>);
     };
 
@@ -1024,48 +1015,36 @@ function ColorBalanceEditor({ adjustment, onChange }: AdjustmentEditorProps) {
       </span>
       <div className="adj-editor__triplet-row">
         <span className="adj-editor__triplet-label">Cyan / Red</span>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label={`${label} cyan/red`}
+          rangeClassName="adj-editor__slider"
           min={-100}
           max={100}
           value={adj[range].cyanRed}
           onChange={handleTriplet(range, 'cyanRed')}
-          aria-label={`${label} cyan/red`}
         />
-        <span style={{ fontSize: 'var(--font-size-2xs)', minWidth: 24, textAlign: 'right' }}>
-          {adj[range].cyanRed}
-        </span>
       </div>
       <div className="adj-editor__triplet-row">
         <span className="adj-editor__triplet-label">Magenta / Green</span>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label={`${label} magenta/green`}
+          rangeClassName="adj-editor__slider"
           min={-100}
           max={100}
           value={adj[range].magentaGreen}
           onChange={handleTriplet(range, 'magentaGreen')}
-          aria-label={`${label} magenta/green`}
         />
-        <span style={{ fontSize: 'var(--font-size-2xs)', minWidth: 24, textAlign: 'right' }}>
-          {adj[range].magentaGreen}
-        </span>
       </div>
       <div className="adj-editor__triplet-row">
         <span className="adj-editor__triplet-label">Yellow / Blue</span>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label={`${label} yellow/blue`}
+          rangeClassName="adj-editor__slider"
           min={-100}
           max={100}
           value={adj[range].yellowBlue}
           onChange={handleTriplet(range, 'yellowBlue')}
-          aria-label={`${label} yellow/blue`}
         />
-        <span style={{ fontSize: 'var(--font-size-2xs)', minWidth: 24, textAlign: 'right' }}>
-          {adj[range].yellowBlue}
-        </span>
       </div>
     </div>
   );
@@ -1181,11 +1160,8 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
-  const handleNumber = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = Number.parseFloat(e.target.value);
-    if (!Number.isNaN(v)) {
-      onChange({ [key]: v } as unknown as Partial<Adjustment>);
-    }
+  const handleValue = (key: string) => (value: number) => {
+    onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
 
   const currentPresetId = useMemo(() => {
@@ -1286,15 +1262,16 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           <span>Frequency (LPI)</span>
           <span>{adj.frequency}</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Screen frequency"
+          rangeClassName="adj-editor__slider"
           min={5}
           max={150}
           step={1}
           value={adj.frequency}
-          onChange={handleNumber('frequency')}
-          aria-label="Screen frequency in lines per inch"
+          unit="LPI"
+          rangeAriaLabel="Screen frequency in lines per inch"
+          onChange={handleValue('frequency')}
           disabled={adj.channel === 'cmyk'}
         />
       </div>
@@ -1303,15 +1280,16 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           <span>Angle</span>
           <span>{adj.angle}°</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Screen angle"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={179}
           step={1}
           value={adj.angle}
-          onChange={handleNumber('angle')}
-          aria-label="Screen angle in degrees"
+          unit="°"
+          rangeAriaLabel="Screen angle in degrees"
+          onChange={handleValue('angle')}
           disabled={adj.channel === 'cmyk'}
         />
       </div>
@@ -1320,15 +1298,14 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           <span>Threshold</span>
           <span>{adj.threshold ?? 128}</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Halftone threshold"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={255}
           step={1}
           value={adj.threshold ?? 128}
-          onChange={handleNumber('threshold')}
-          aria-label="Halftone threshold"
+          onChange={handleValue('threshold')}
         />
       </div>
       <div className="adj-editor__slider-row">
@@ -1336,17 +1313,17 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           <span>Intensity</span>
           <span>{Math.round((adj.intensity ?? 1) * 100)}%</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Halftone intensity"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           step={1}
           value={Math.round((adj.intensity ?? 1) * 100)}
-          onChange={(e) =>
-            onChange({ intensity: Number(e.target.value) / 100 } as unknown as Partial<Adjustment>)
+          unit="%"
+          onChange={(value) =>
+            onChange({ intensity: value / 100 } as unknown as Partial<Adjustment>)
           }
-          aria-label="Halftone intensity"
         />
       </div>
       <div className="adj-editor__slider-row">
@@ -1354,17 +1331,17 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           <span>Softness</span>
           <span>{Math.round((adj.softness ?? 0) * 100)}%</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Dot edge softness"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           step={1}
           value={Math.round((adj.softness ?? 0) * 100)}
-          onChange={(e) =>
-            onChange({ softness: Number(e.target.value) / 100 } as unknown as Partial<Adjustment>)
+          unit="%"
+          onChange={(value) =>
+            onChange({ softness: value / 100 } as unknown as Partial<Adjustment>)
           }
-          aria-label="Dot edge softness"
         />
       </div>
       <div className="adj-editor__row">
@@ -1436,8 +1413,8 @@ function ColorHalftoneEditor({
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
-  const handleSlider = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange({ [key]: Number(e.target.value) } as unknown as Partial<Adjustment>);
+  const handleValue = (key: string) => (value: number) => {
+    onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
 
   const currentPresetId = useMemo(() => {
@@ -1508,15 +1485,15 @@ function ColorHalftoneEditor({
           <span>Screen Size</span>
           <span>{adj.screenSize} LPI</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Screen size"
+          rangeClassName="adj-editor__slider"
           min={3}
           max={60}
           step={1}
           value={adj.screenSize}
-          onChange={handleSlider('screenSize')}
-          aria-label="Screen size"
+          unit="LPI"
+          onChange={handleValue('screenSize')}
         />
       </div>
       <div className="adj-editor__slider-row">
@@ -1524,15 +1501,15 @@ function ColorHalftoneEditor({
           <span>Angle</span>
           <span>{adj.angle}°</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Screen angle"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={359}
           step={1}
           value={adj.angle}
-          onChange={handleSlider('angle')}
-          aria-label="Screen angle"
+          unit="°"
+          onChange={handleValue('angle')}
         />
       </div>
       <div className="adj-editor__slider-row">
@@ -1540,17 +1517,17 @@ function ColorHalftoneEditor({
           <span>Intensity</span>
           <span>{Math.round(adj.intensity * 100)}%</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Color halftone intensity"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           step={1}
           value={Math.round(adj.intensity * 100)}
-          onChange={(e) =>
-            onChange({ intensity: Number(e.target.value) / 100 } as unknown as Partial<Adjustment>)
+          unit="%"
+          onChange={(value) =>
+            onChange({ intensity: value / 100 } as unknown as Partial<Adjustment>)
           }
-          aria-label="Color halftone intensity"
         />
       </div>
       {adj.mode === 'mono' && (
@@ -1579,26 +1556,23 @@ function PhotoFilterEditor({
   onEditEnd,
 }: AdjustmentEditorProps) {
   const adj = adjustment as import('@varve/scene').PhotoFilterAdjustment;
-  const handleSlider = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange({ [key]: Number(e.target.value) } as unknown as Partial<Adjustment>);
+  const handleValue = (key: string) => (value: number) => {
+    onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
 
   return (
     <div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Density</span>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Density"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           value={adj.density}
-          onChange={handleSlider('density')}
-          aria-label="Density"
+          unit="%"
+          onChange={handleValue('density')}
         />
-        <span style={{ fontSize: 'var(--font-size-2xs)', minWidth: 24, textAlign: 'right' }}>
-          {adj.density}
-        </span>
       </div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Filter Color</span>
@@ -1628,8 +1602,8 @@ function PhotoFilterEditor({
 
 function ShadowHighlightEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   const adj = adjustment as import('@varve/engine').ShadowHighlightAdjustment;
-  const handleSlider = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange({ [key]: Number(e.target.value) } as unknown as Partial<Adjustment>);
+  const handleValue = (key: string) => (value: number) => {
+    onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
 
   return (
@@ -1639,14 +1613,14 @@ function ShadowHighlightEditor({ adjustment, onChange }: AdjustmentEditorProps) 
           <span>Shadows</span>
           <span>{adj.shadows}</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Shadow brightening"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           value={adj.shadows}
-          onChange={handleSlider('shadows')}
-          aria-label="Shadow brightening"
+          unit="%"
+          onChange={handleValue('shadows')}
         />
       </div>
       <div className="adj-editor__slider-row">
@@ -1654,14 +1628,14 @@ function ShadowHighlightEditor({ adjustment, onChange }: AdjustmentEditorProps) 
           <span>Highlights</span>
           <span>{adj.highlights}</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Highlight recovery"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           value={adj.highlights}
-          onChange={handleSlider('highlights')}
-          aria-label="Highlight recovery"
+          unit="%"
+          onChange={handleValue('highlights')}
         />
       </div>
       <div className="adj-editor__slider-row">
@@ -1669,14 +1643,14 @@ function ShadowHighlightEditor({ adjustment, onChange }: AdjustmentEditorProps) 
           <span>Tonal Width</span>
           <span>{adj.tonalWidth}</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Tonal width"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           value={adj.tonalWidth}
-          onChange={handleSlider('tonalWidth')}
-          aria-label="Tonal width"
+          unit="%"
+          onChange={handleValue('tonalWidth')}
         />
       </div>
       <div className="adj-editor__slider-row">
@@ -1684,14 +1658,14 @@ function ShadowHighlightEditor({ adjustment, onChange }: AdjustmentEditorProps) 
           <span>Midpoint</span>
           <span>{adj.midpoint}</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Midpoint"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           value={adj.midpoint}
-          onChange={handleSlider('midpoint')}
-          aria-label="Midpoint"
+          unit="%"
+          onChange={handleValue('midpoint')}
         />
       </div>
     </div>
@@ -1732,17 +1706,14 @@ function DuotoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
           <span>Shadow Point</span>
           <span>{adj.shadowPoint.toFixed(2)}</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Shadow point"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={1}
           step={0.01}
           value={adj.shadowPoint}
-          onChange={(e) =>
-            onChange({ shadowPoint: Number(e.target.value) } as unknown as Partial<Adjustment>)
-          }
-          aria-label="Shadow point"
+          onChange={(value) => onChange({ shadowPoint: value } as unknown as Partial<Adjustment>)}
         />
       </div>
       <div className="adj-editor__slider-row">
@@ -1750,17 +1721,16 @@ function DuotoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
           <span>Highlight Point</span>
           <span>{adj.highlightPoint.toFixed(2)}</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Highlight point"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={1}
           step={0.01}
           value={adj.highlightPoint}
-          onChange={(e) =>
-            onChange({ highlightPoint: Number(e.target.value) } as unknown as Partial<Adjustment>)
+          onChange={(value) =>
+            onChange({ highlightPoint: value } as unknown as Partial<Adjustment>)
           }
-          aria-label="Highlight point"
         />
       </div>
       <div className="adj-editor__slider-row">
@@ -1768,17 +1738,14 @@ function DuotoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
           <span>Intensity</span>
           <span>{adj.intensity.toFixed(2)}</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Intensity"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={1}
           step={0.01}
           value={adj.intensity}
-          onChange={(e) =>
-            onChange({ intensity: Number(e.target.value) } as unknown as Partial<Adjustment>)
-          }
-          aria-label="Intensity"
+          onChange={(value) => onChange({ intensity: value } as unknown as Partial<Adjustment>)}
         />
       </div>
       <div className="adj-editor__color-row">
@@ -1869,16 +1836,13 @@ function BlackAndWhiteEditor({
             <span>{ch.label}</span>
             <span>{adj[ch.key] as number}</span>
           </div>
-          <input
-            type="range"
-            className="adj-editor__slider"
+          <RangeValueControl
+            label={ch.label}
+            rangeClassName="adj-editor__slider"
             min={-200}
             max={300}
             value={adj[ch.key] as number}
-            onChange={(e) =>
-              onChange({ [ch.key]: Number(e.target.value) } as unknown as Partial<Adjustment>)
-            }
-            aria-label={ch.label}
+            onChange={(value) => onChange({ [ch.key]: value } as unknown as Partial<Adjustment>)}
           />
         </div>
       ))}
@@ -1887,16 +1851,13 @@ function BlackAndWhiteEditor({
           <span>Brightness</span>
           <span>{adj.brightness}</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Brightness"
+          rangeClassName="adj-editor__slider"
           min={-100}
           max={100}
           value={adj.brightness}
-          onChange={(e) =>
-            onChange({ brightness: Number(e.target.value) } as unknown as Partial<Adjustment>)
-          }
-          aria-label="Brightness"
+          onChange={(value) => onChange({ brightness: value } as unknown as Partial<Adjustment>)}
         />
       </div>
       <label className="adj-editor__checkbox-row">
@@ -1943,16 +1904,13 @@ function PosterizeEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         <span>Levels</span>
         <span>{adj.levels}</span>
       </div>
-      <input
-        type="range"
-        className="adj-editor__slider"
+      <RangeValueControl
+        label="Posterize levels"
+        rangeClassName="adj-editor__slider"
         min={2}
         max={256}
         value={adj.levels}
-        onChange={(e) =>
-          onChange({ levels: Number(e.target.value) } as unknown as Partial<Adjustment>)
-        }
-        aria-label="Posterize levels"
+        onChange={(value) => onChange({ levels: value } as unknown as Partial<Adjustment>)}
       />
     </div>
   );
@@ -1966,16 +1924,13 @@ function ThresholdEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         <span>Level</span>
         <span>{adj.level}</span>
       </div>
-      <input
-        type="range"
-        className="adj-editor__slider"
+      <RangeValueControl
+        label="Threshold level"
+        rangeClassName="adj-editor__slider"
         min={0}
         max={255}
         value={adj.level}
-        onChange={(e) =>
-          onChange({ level: Number(e.target.value) } as unknown as Partial<Adjustment>)
-        }
-        aria-label="Threshold level"
+        onChange={(value) => onChange({ level: value } as unknown as Partial<Adjustment>)}
       />
     </div>
   );
@@ -2063,19 +2018,19 @@ function TritoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
           <span>Shadow Point</span>
           <span>{Math.round(adj.shadowPoint * 100)}%</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Shadow point"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           step={1}
           value={Math.round(adj.shadowPoint * 100)}
-          onChange={(e) =>
+          unit="%"
+          onChange={(value) =>
             onChange({
-              shadowPoint: Number(e.target.value) / 100,
+              shadowPoint: value / 100,
             } as unknown as Partial<Adjustment>)
           }
-          aria-label="Shadow point"
         />
       </div>
       <div className="adj-editor__slider-row">
@@ -2083,19 +2038,19 @@ function TritoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
           <span>Highlight Point</span>
           <span>{Math.round(adj.highlightPoint * 100)}%</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Highlight point"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           step={1}
           value={Math.round(adj.highlightPoint * 100)}
-          onChange={(e) =>
+          unit="%"
+          onChange={(value) =>
             onChange({
-              highlightPoint: Number(e.target.value) / 100,
+              highlightPoint: value / 100,
             } as unknown as Partial<Adjustment>)
           }
-          aria-label="Highlight point"
         />
       </div>
       <div className="adj-editor__slider-row">
@@ -2103,17 +2058,17 @@ function TritoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
           <span>Intensity</span>
           <span>{Math.round(adj.intensity * 100)}%</span>
         </div>
-        <input
-          type="range"
-          className="adj-editor__slider"
+        <RangeValueControl
+          label="Tritone intensity"
+          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           step={1}
           value={Math.round(adj.intensity * 100)}
-          onChange={(e) =>
-            onChange({ intensity: Number(e.target.value) / 100 } as unknown as Partial<Adjustment>)
+          unit="%"
+          onChange={(value) =>
+            onChange({ intensity: value / 100 } as unknown as Partial<Adjustment>)
           }
-          aria-label="Tritone intensity"
         />
       </div>
       <div className="adj-editor__row">

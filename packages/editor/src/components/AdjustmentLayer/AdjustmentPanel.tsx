@@ -14,6 +14,7 @@ import { Select, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { NumberField } from '../Inspector/controls/NumberField';
+import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
 import { AdjustmentScopeSection } from '../Inspector/sections/AdjustmentScopeSection';
 import { AdjustmentEditor } from './AdjustmentEditor';
 import { useAdjustmentHistogram } from './useAdjustmentHistogram';
@@ -458,26 +459,26 @@ export function AdjustmentPanel() {
             sourceHistogram={sourceHistogram}
           />
           <div className="adj-panel__effect-controls">
-            <label className="adj-editor__slider-row">
+            <div className="adj-editor__slider-row">
               <span className="adj-editor__slider-label">
                 <span>Effect Opacity</span>
                 <span>{Math.round(selectedAdj.opacity * 100)}%</span>
               </span>
-              <input
-                type="range"
-                className="adj-editor__slider"
+              <RangeValueControl
+                label={`${filterKindDisplayName(selectedAdj.kind)} effect opacity`}
+                rangeClassName="adj-editor__slider"
                 min={0}
                 max={100}
                 step={1}
                 value={Math.round(selectedAdj.opacity * 100)}
-                onChange={(event) =>
+                unit="%"
+                onChange={(next) =>
                   handleUpdateAdjustment(selectedAdj.id)({
-                    opacity: Number(event.target.value) / 100,
+                    opacity: next / 100,
                   })
                 }
-                aria-label={`${filterKindDisplayName(selectedAdj.kind)} effect opacity`}
               />
-            </label>
+            </div>
             <div className="adj-editor__row">
               <span className="adj-editor__label">Effect Blend</span>
               <Select

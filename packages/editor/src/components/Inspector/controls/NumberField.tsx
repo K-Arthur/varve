@@ -31,6 +31,8 @@ export interface NumberFieldProps {
   unit?: string;
   /** Optional compact visual label while preserving the full accessible name. */
   displayLabel?: string;
+  /** Keep the associated label available to assistive technology but hide it visually. */
+  hideLabel?: boolean;
   /** Resolved numeric variable aliases for `{name}` math expressions. */
   aliases?: Record<string, number>;
   disabled?: boolean;
@@ -70,6 +72,7 @@ export function NumberField({
   max = Infinity,
   unit,
   displayLabel,
+  hideLabel = false,
   aliases = {},
   disabled = false,
   mixed = false,
@@ -236,8 +239,12 @@ export function NumberField({
     <div className="insp-field">
       <label
         htmlFor={inputId}
-        className={`insp-field__label${disabled ? ' insp-field__label--disabled' : ''}`}
-        onPointerDown={disabled ? undefined : handleLabelPointerDown}
+        className={
+          hideLabel
+            ? 'varve-visually-hidden'
+            : `insp-field__label${disabled ? ' insp-field__label--disabled' : ''}`
+        }
+        onPointerDown={disabled || hideLabel ? undefined : handleLabelPointerDown}
       >
         {displayLabel ?? name}
       </label>

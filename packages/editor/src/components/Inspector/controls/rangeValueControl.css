@@ -1,0 +1,84 @@
+.range-value-control {
+  align-items: center;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr) minmax(4.75rem, 6.25rem);
+}
+
+.range-value-control > input[type="range"] {
+  inline-size: 100%;
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.range-value-control__number,
+.range-value-control__number .insp-field,
+.range-value-control__number .insp-field__control {
+  min-inline-size: 0;
+}
+
+.range-value-control__number .insp-field {
+  display: block;
+  min-height: 0;
+}
+
+.range-value-control__number .insp-field__control {
+  align-items: center;
+  display: block;
+}
+
+.range-value-control__number .insp-num__input {
+  background: var(--color-surface-sunken);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-feature-settings: "tnum";
+  font-size: var(--font-size-sm);
+  height: var(--space-6);
+  inline-size: 100%;
+  min-inline-size: 0;
+  outline: none;
+  padding: 0 var(--space-2);
+  text-align: end;
+  transition: border-color var(--duration-quick) var(--ease-standard);
+}
+
+.range-value-control__number .insp-num__input:hover {
+  border-color: var(--color-border-subtle);
+}
+
+.range-value-control__number .insp-num__input:focus-visible {
+  border-color: var(--color-border-focus);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+.range-value-control__number .insp-num__input[aria-invalid="true"] {
+  border-color: var(--color-feedback-danger);
+}
+
+.range-value-control__number .insp-num__unit {
+  color: var(--color-text-muted);
+  flex: 0 0 auto;
+  font-size: var(--font-size-xs);
+}
+
+.range-value-control__number .insp-num__error {
+  color: var(--color-feedback-danger);
+  font-size: var(--font-size-xs);
+  margin-top: var(--space-1);
+}
+
+.range-value-control__number .varve-visually-hidden {
+  block-size: 1px;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  inline-size: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+}

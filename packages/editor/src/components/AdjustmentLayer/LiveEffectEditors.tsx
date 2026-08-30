@@ -33,6 +33,7 @@ import { swatchesToPalette } from '@varve/scene';
 import { paletteFileFormat, parsePaletteFile } from '@varve/shared';
 import { Select } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
 
 export interface LiveEffectEditorProps {
   adjustment: Adjustment;
@@ -75,15 +76,15 @@ function SliderRow({
         <span>{label}</span>
         <span>{format ? format(value) : String(value)}</span>
       </div>
-      <input
-        type="range"
-        className="adj-editor__slider"
+      <RangeValueControl
+        label={ariaLabel}
+        rangeClassName="adj-editor__slider"
         min={min}
         max={max}
         step={step}
         value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        aria-label={ariaLabel}
+        rangeAriaLabel={ariaLabel}
+        onChange={onChange}
         disabled={disabled}
       />
     </div>
