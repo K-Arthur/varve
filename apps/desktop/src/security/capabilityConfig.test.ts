@@ -21,8 +21,14 @@ function loadPanelWindowCapability(): CapabilityConfig {
   return JSON.parse(readFileSync(capabilityPath, 'utf-8')) as CapabilityConfig;
 }
 
+function loadDefaultCapability(): CapabilityConfig {
+  const capabilityPath = join(__dirname, '../../src-tauri/capabilities/default.json');
+  return JSON.parse(readFileSync(capabilityPath, 'utf-8')) as CapabilityConfig;
+}
+
 describe('auxiliary panel-window capability', () => {
   const capability = loadPanelWindowCapability();
+  const defaultCapability = loadDefaultCapability();
 
   it('is scoped only to generated auxiliary labels', () => {
     expect(capability.identifier).toBe('panel-windows');
@@ -34,7 +40,6 @@ describe('auxiliary panel-window capability', () => {
       'core:event:allow-listen',
       'core:event:allow-unlisten',
       'core:window:allow-close',
-      'core:window:allow-destroy',
       'core:window:allow-minimize',
       'core:window:allow-unminimize',
       'core:window:allow-maximize',
@@ -80,5 +85,15 @@ describe('auxiliary panel-window capability', () => {
         false,
       );
     }
+  });
+
+  it('grants close-request destruction only to the primary listener context', () => {
+    // Tauri's Window.onCloseRequested listener calls `this.destroy()` in the
+    // source webview after its handler returns. The panel-window adapter
+    // registers those listeners from the primary window, so this grant must
+    // remain on `main` rather than broadening every auxiliary panel window.
+    expect(defaultCapability.windows).toEqual(['main']);
+    expect(defaultCapability.permissions).toContain('core:window:allow-destroy');
+    expect(capability.permissions).not.toContain('core:window:allow-destroy');
   });
 });
