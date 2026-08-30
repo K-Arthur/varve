@@ -81,8 +81,9 @@ test.describe('Image Editing Mode', () => {
         name: new RegExp(`^${workspace} workspace$`),
       });
       await expect(workspaceRadio).toBeChecked();
-      await expect(page.getByRole('treeitem')).toHaveCount(1);
-      await expect(page.getByRole('treeitem').filter({ hasText: /test-image/i })).toBeVisible();
+      const importedImage = page.getByRole('treeitem').filter({ hasText: /test-image/i });
+      await expect(importedImage).toHaveCount(1);
+      await expect(importedImage).toBeVisible();
     }
 
     const reviewPath = process.env.VARVE_IMAGE_REVIEW_PATH;
