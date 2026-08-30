@@ -147,6 +147,12 @@ export function validateDocument(doc: DocumentLike): DocValidationResult {
   }
 
   const roots = [...doc.rootChildren, ...(doc.globalChildren ?? [])];
+  // Master source roots are owned by `doc.masters`, not by the visible
+  // pasteboard root list. They are still strong scene references and must be
+  // included in reachability so valid master trees are not reported as
+  // orphans. Legacy documents may also list them in rootChildren; the set
+  // below keeps both representations valid during migration.
+  const masterRoots = Object.values(doc.masters ?? {}).map((master) => master.contentRoot);
   const seenRoots = new Set<NodeId>();
   for (const rootId of roots) {
     if (seenRoots.has(rootId)) errors.push(`Duplicate root reference: ${rootId}`);
@@ -154,10 +160,17 @@ export function validateDocument(doc: DocumentLike): DocValidationResult {
     if (!doc.nodes[rootId]) errors.push(`Root references non-existent node: ${rootId}`);
   }
   markReachable(roots);
+  for (const masterRoot of masterRoots) {
+    if (!doc.nodes[masterRoot]) {
+      errors.push(`Master references non-existent content root: ${masterRoot}`);
+      continue;
+    }
+    markReachable([masterRoot]);
+  }
 
   for (const nid of Object.keys(doc.nodes)) {
     if (!reachable.has(nid as NodeId)) {
-      errors.push(`Orphan node: ${nid} is not reachable from rootChildren or globalChildren`);
+      errors.push(`Orphan node: ${nid} is not reachable from document-owned roots`);
     }
   }
 

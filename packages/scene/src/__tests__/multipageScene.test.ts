@@ -309,6 +309,17 @@ describe('master projection into the placed scene (M8, ADR-0132)', () => {
     }
   });
 
+  it('does not paint the master source root as a second pasteboard copy', () => {
+    const doc = masterDoc();
+    const master = firstMaster(doc)!;
+    const roots = multipageRootNodes(doc);
+    expect(roots).not.toContain(master.contentRoot);
+    const masterRoot = doc.nodes[master.contentRoot] as GroupNode;
+    for (const childId of masterRoot.children) {
+      expect(roots.filter((id) => id === childId)).toHaveLength(1);
+    }
+  });
+
   it('projects nothing for unassigned pages', () => {
     const doc = createDocument('m8', false);
     const placed = placedPages(doc)[0]!;

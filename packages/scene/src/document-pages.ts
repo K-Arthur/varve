@@ -561,11 +561,12 @@ export function removeGlobalChild(doc: Document, nodeId: NodeId): Document {
 /** Get all nodes visible on the active page (page content + global children). */
 export function activePageNodes(doc: Document): NodeId[] {
   const globals = doc.globalChildren ?? [];
+  const masterRoots = new Set(Object.values(doc.masters ?? {}).map((master) => master.contentRoot));
   if (!doc.activePageId || !doc.pages || doc.pages.length === 0) {
-    return [...globals, ...doc.rootChildren];
+    return [...globals, ...doc.rootChildren.filter((id) => !masterRoots.has(id))];
   }
   const page = doc.pages?.find((p) => p.id === doc.activePageId);
-  if (!page) return [...globals, ...doc.rootChildren];
+  if (!page) return [...globals, ...doc.rootChildren.filter((id) => !masterRoots.has(id))];
   const contentRootNode = doc.nodes[page.contentRoot] as GroupNode | undefined;
   const pageChildren = contentRootNode?.children ?? [];
   return [...globals, ...pageChildren];

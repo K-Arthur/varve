@@ -93,10 +93,8 @@ describe('Master Page CRUD', () => {
       expect(master.appliesTo).toBe('left');
     });
 
-    it('adds contentRoot to rootChildren and nodes', () => {
+    it('stores the source root in nodes without making it a pasteboard root', () => {
       const doc = createDocument();
-      const originalRootCount = doc.rootChildren.length;
-
       const result = createMaster(doc, {
         name: 'Test Master',
         width: 1920,
@@ -104,10 +102,8 @@ describe('Master Page CRUD', () => {
       });
 
       const master = firstMaster(result);
-      // ContentRoot should be added to rootChildren
-      expect(result.rootChildren).toContain(master.contentRoot);
-      // There should be one more root child
-      expect(result.rootChildren.length).toBe(originalRootCount + 1);
+      // The source root is metadata-owned, not a visible pasteboard item.
+      expect(result.rootChildren).not.toContain(master.contentRoot);
       // ContentRoot node should exist in nodes
       const contentRoot = result.nodes[master.contentRoot] as GroupNode | undefined;
       expect(contentRoot).toBeDefined();

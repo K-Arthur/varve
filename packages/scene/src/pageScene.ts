@@ -190,6 +190,16 @@ export interface MultipageSceneOptions {
 }
 
 /**
+ * Master source roots are metadata-owned scene roots, not pasteboard items.
+ * Older documents may still contain them in `rootChildren` because the first
+ * master implementation used the ordinary root list. Keep those documents
+ * renderable without exposing the source tree as a second visible copy.
+ */
+function masterContentRootIds(doc: Document): Set<NodeId> {
+  return new Set(Object.values(doc.masters ?? {}).map((master) => master.contentRoot));
+}
+
+/**
  * Paint-order root node ids for the shared multipage canvas (ADR-0144):
  *
  *   1. global children (world-space, painted first — behind everything)
@@ -265,11 +275,14 @@ function pageIntersectsViewport(
 
 export function multipageRootNodes(doc: Document, options: MultipageSceneOptions = {}): NodeId[] {
   const ids: NodeId[] = [];
+  const masterRoots = masterContentRootIds(doc);
   for (const gid of doc.globalChildren ?? []) ids.push(gid);
 
   const pages = doc.pages ?? [];
   if (pages.length === 0) {
-    for (const rid of doc.rootChildren) ids.push(rid);
+    for (const rid of doc.rootChildren) {
+      if (!masterRoots.has(rid)) ids.push(rid);
+    }
     return ids;
   }
 
@@ -287,6 +300,7 @@ export function multipageRootNodes(doc: Document, options: MultipageSceneOptions
 
   const viewport = options.viewportWorldRect ?? null;
   for (const rid of doc.rootChildren) {
+    if (masterRoots.has(rid)) continue;
     const placed = placedByContentRoot.get(rid);
     if (!placed) {
       // A pasteboard item: an ordinary world-space root node.

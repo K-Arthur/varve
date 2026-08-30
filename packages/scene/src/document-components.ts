@@ -25,8 +25,9 @@ export interface CreateMasterOptions {
 /**
  * Create a new master page. A master is a reusable template that can be
  * applied to one or more pages. Masters are stored in `doc.masters` keyed
- * by their ID and their contentRoot is added to `rootChildren` so it
- * participates in the scene render walk.
+ * by their ID. The content root is owned by the master record rather than
+ * `rootChildren`: assigned pages project its children into their own paint
+ * order, while the source is rendered only in master-editing context.
  */
 export function createMaster(doc: Document, opts: CreateMasterOptions): Document {
   const masterId = cryptoId();
@@ -52,7 +53,6 @@ export function createMaster(doc: Document, opts: CreateMasterOptions): Document
       ...(d1.masters ?? {}),
       [masterId]: master,
     },
-    rootChildren: [...d1.rootChildren, contentRootId],
     nodes: { ...d1.nodes, [contentRootId]: contentRoot },
   };
 }
@@ -127,7 +127,6 @@ export function duplicateMaster(doc: Document, masterId: NodeId): Document {
   const d: Document = {
     ...doc,
     nodes: { ...doc.nodes, ...cloneResult.nodes },
-    rootChildren: [...doc.rootChildren, cloneResult.rootId],
   };
 
   const duplicate: MasterPage = {
