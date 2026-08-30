@@ -299,6 +299,21 @@ export {
   clampByte,
   computeScreenBounds,
 } from './effectPipeline';
+export type {
+  EffectCategoryId,
+  EffectDefinition,
+  EffectParameterDefinition,
+  EffectParameterType,
+  EffectScope,
+  EffectTargetKind,
+} from './effectRegistry';
+export {
+  EFFECT_CATEGORIES,
+  EFFECT_REGISTRY,
+  getEffectDefinition,
+  listEffectDefinitions,
+  searchEffectDefinitions,
+} from './effectRegistry';
 export type { Engine } from './engine';
 export {
   applyStyleOverrides,

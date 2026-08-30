@@ -194,6 +194,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `adr/0222-vision-runtime-selection.md` | Capability-driven visual-awareness runtime boundary |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
+| `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |
 ## Architecture Docs (current state)
 
 | Doc | Purpose |
@@ -243,6 +244,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/email-template-system.md` | Email template authoring, preview, and export system |
 | `architecture/live-effects-system.md` | Live-effect kind registry and non-destructive adjustment model |
 | `architecture/non-destructive-effects.md` | Object Filters, Adjustment Layer scope, mask replay, alpha, and Smart Content decision |
+| `architecture/effect-studio.md` | Effect Studio catalog, preview, stack, and rendering boundaries |
 | `architecture/gradient-map-system.md` | Gradient map adjustment system |
 | `architecture/warp-system.md` | Persistent geometry modifier (warp) model (ADRs 0155–0169) |
 | `architecture/persistent-history.md` | Version history architecture (milestones 1–14 landed) |
