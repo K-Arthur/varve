@@ -94,7 +94,7 @@ test.describe('Shared multipage canvas (M5)', () => {
 
   test('renders all pages on one pasteboard, not only the active page', async ({ page }) => {
     const addPage = page
-      .getByTestId('layers-panel')
+      .getByRole('region', { name: 'Publishing pages' })
       .getByRole('button', { name: 'Add publishing page' });
     for (let i = 0; i < 2; i++) {
       await addPage.click();
@@ -126,7 +126,7 @@ test.describe('Shared multipage canvas (M5)', () => {
     // Page 2 becomes the active page; content created there must render at
     // page 2's placed position (not at the pasteboard origin).
     const addPage = page
-      .getByTestId('layers-panel')
+      .getByRole('region', { name: 'Publishing pages' })
       .getByRole('button', { name: 'Add publishing page' });
     // A new document starts without pages, so the first add creates Page 1;
     // create both pages needed for the cross-page placement assertion.
