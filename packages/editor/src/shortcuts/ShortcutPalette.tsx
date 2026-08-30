@@ -368,7 +368,7 @@ export function ShortcutPalette({
               ref={inputRef}
               type="text"
               className="shortcut-palette__search"
-              placeholder="Search commands\u2026"
+              placeholder="Search commands..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Search commands"

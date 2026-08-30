@@ -196,7 +196,7 @@ export function QuickActionsBar({
               setQuery(e.target.value);
               setActiveIndex(0);
             }}
-            placeholder="Search actions\u2026"
+            placeholder="Search actions..."
             aria-label="Search actions"
           />
           <button
