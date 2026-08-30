@@ -8,24 +8,28 @@ test.describe('Layers Panel - Multi-Page', () => {
     // A blank editor starts without a page. Create the first page so these
     // tests exercise the page strip rather than waiting for a hidden nav.
     await page.getByTestId('layers-panel').getByRole('button', { name: 'Add page' }).click();
-    await page.waitForSelector('[role="tablist"][aria-label="Page navigation"]');
+    await page.waitForSelector('[role="tablist"][aria-label="Publishing page navigator"]');
   });
 
   test('page strip renders page thumbnails', async ({ page }) => {
-    const tabs = page.locator('[role="tablist"][aria-label="Page navigation"] [role="tab"]');
+    const tabs = page.locator(
+      '[role="tablist"][aria-label="Publishing page navigator"] [role="tab"]',
+    );
     const count = await tabs.count();
     expect(count).toBeGreaterThanOrEqual(1);
 
     const firstTab = tabs.first();
     await expect(firstTab).toBeVisible();
-    await expect(firstTab).toHaveAttribute('aria-label', /Page:/);
+    await expect(firstTab).toHaveAttribute('aria-label', /Publishing page:/);
   });
 
   test('clicking page thumbnail switches active page', async ({ page }) => {
     const addBtn = page.locator('.page-nav__add-btn');
     await addBtn.click();
 
-    const tabs = page.locator('[role="tablist"][aria-label="Page navigation"] [role="tab"]');
+    const tabs = page.locator(
+      '[role="tablist"][aria-label="Publishing page navigator"] [role="tab"]',
+    );
     await expect(tabs).toHaveCount(2);
     const count = await tabs.count();
     expect(count).toBeGreaterThanOrEqual(2);
@@ -45,12 +49,16 @@ test.describe('Layers Panel - Multi-Page', () => {
 
   test('adding a new page creates new thumbnail', async ({ page }) => {
     const addBtn = page.locator('.page-nav__add-btn');
-    const tabsBefore = page.locator('[role="tablist"][aria-label="Page navigation"] [role="tab"]');
+    const tabsBefore = page.locator(
+      '[role="tablist"][aria-label="Publishing page navigator"] [role="tab"]',
+    );
     const beforeCount = await tabsBefore.count();
 
     await addBtn.click();
 
-    const tabsAfter = page.locator('[role="tablist"][aria-label="Page navigation"] [role="tab"]');
+    const tabsAfter = page.locator(
+      '[role="tablist"][aria-label="Publishing page navigator"] [role="tab"]',
+    );
     await expect(tabsAfter).toHaveCount(beforeCount + 1);
     const afterCount = await tabsAfter.count();
     expect(afterCount).toBe(beforeCount + 1);
@@ -61,7 +69,9 @@ test.describe('Layers Panel - Multi-Page', () => {
     const addBtn = page.locator('.page-nav__add-btn');
     await addBtn.click();
 
-    const tabs = page.locator('[role="tablist"][aria-label="Page navigation"] [role="tab"]');
+    const tabs = page.locator(
+      '[role="tablist"][aria-label="Publishing page navigator"] [role="tab"]',
+    );
     await expect(tabs).toHaveCount(2);
     const beforeCount = await tabs.count();
     expect(beforeCount).toBeGreaterThanOrEqual(2);
@@ -79,7 +89,9 @@ test.describe('Layers Panel - Multi-Page', () => {
   });
 
   test('cannot delete the last page', async ({ page }) => {
-    const tabs = page.locator('[role="tablist"][aria-label="Page navigation"] [role="tab"]');
+    const tabs = page.locator(
+      '[role="tablist"][aria-label="Publishing page navigator"] [role="tab"]',
+    );
     const count = await tabs.count();
     expect(count).toBeGreaterThanOrEqual(1);
 
@@ -101,7 +113,9 @@ test.describe('Layers Panel - Multi-Page', () => {
     const addBtn = page.locator('.page-nav__add-btn');
     await addBtn.click();
 
-    const tabs = page.locator('[role="tablist"][aria-label="Page navigation"] [role="tab"]');
+    const tabs = page.locator(
+      '[role="tablist"][aria-label="Publishing page navigator"] [role="tab"]',
+    );
     await expect(tabs).toHaveCount(2);
     const layersPanel = page.getByTestId('layers-panel');
 
@@ -116,7 +130,9 @@ test.describe('Layers Panel - Multi-Page', () => {
   });
 
   test('global children visible across all pages', async ({ page }) => {
-    const tabs = page.locator('[role="tablist"][aria-label="Page navigation"] [role="tab"]');
+    const tabs = page.locator(
+      '[role="tablist"][aria-label="Publishing page navigator"] [role="tab"]',
+    );
 
     // Get tree items on first page
     await tabs.first().click();

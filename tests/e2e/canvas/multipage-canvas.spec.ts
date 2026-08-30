@@ -124,7 +124,7 @@ test.describe('Shared multipage canvas (M5)', () => {
     // create both pages needed for the cross-page placement assertion.
     await addPage.click();
     await addPage.click();
-    const page2Tab = page.getByRole('tab', { name: 'Page: Page 2' });
+    const page2Tab = page.getByRole('tab', { name: 'Publishing page: Page 2' });
     await page2Tab.waitFor({ state: 'visible', timeout: 10000 });
     // PageNav tabs are sortable and may be replaced in the same React commit
     // that adds a page; dispatch on the current node to avoid a stale DnD
