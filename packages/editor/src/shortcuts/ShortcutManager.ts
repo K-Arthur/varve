@@ -460,6 +460,11 @@ export const SHORTCUT_DEFS = {
     label: 'Open Fonts Panel',
     category: 'View',
   },
+  openAppearancePanel: {
+    binding: { key: 'a', ctrl: true, alt: true },
+    label: 'Open Effect Studio',
+    category: 'View',
+  },
   home: {
     binding: { key: 'h', ctrl: true, shift: true },
     label: 'Home',

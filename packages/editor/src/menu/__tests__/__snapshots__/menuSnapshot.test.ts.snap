@@ -2401,6 +2401,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-adjustment",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "disabled": true,
         "id": "path",
         "label": "Path",
@@ -3751,6 +3762,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
       },
       {
         "id": "sep-after-transform",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-adjustment",
         "separator": true,
       },
       {
@@ -5261,6 +5283,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
       {
         "id": "sep-after-transform",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -7076,6 +7105,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
       {
         "badge": undefined,
         "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "newAdjustmentLayer",
         "label": "New Adjustment Layer",
         "onAction": [Function],
@@ -8843,6 +8879,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-adjustment",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "disabled": true,
         "id": "createClippingMask",
         "label": "Create Clipping Mask",
@@ -10541,6 +10588,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-adjustment",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "disabled": true,
         "id": "createClippingMask",
         "label": "Create Clipping Mask",
@@ -12229,6 +12287,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
       {
         "badge": undefined,
         "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "newAdjustmentLayer",
         "label": "New Adjustment Layer",
         "onAction": [Function],
@@ -13837,6 +13902,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
       {
         "id": "sep-after-transform",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -15459,6 +15531,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-adjustment",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "disabled": true,
         "id": "path",
         "label": "Path",
@@ -16917,6 +17000,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
       },
       {
         "id": "sep-after-transform",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-adjustment",
         "separator": true,
       },
       {
@@ -18427,6 +18521,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
       {
         "id": "sep-after-transform",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -20221,6 +20322,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
       {
         "badge": undefined,
         "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "newAdjustmentLayer",
         "label": "New Adjustment Layer",
         "onAction": [Function],
@@ -21855,6 +21963,17 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen emp
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-adjustment",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "disabled": true,
         "id": "path",
         "label": "Path",
@@ -23205,6 +23324,17 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen wit
       },
       {
         "id": "sep-after-transform",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-adjustment",
         "separator": true,
       },
       {
@@ -24715,6 +24845,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
       {
         "id": "sep-after-transform",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -26530,6 +26667,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
       {
         "badge": undefined,
         "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "newAdjustmentLayer",
         "label": "New Adjustment Layer",
         "onAction": [Function],
@@ -28297,6 +28441,17 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-adjustment",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "disabled": true,
         "id": "createClippingMask",
         "label": "Create Clipping Mask",
@@ -29995,6 +30150,17 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-adjustment",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "disabled": true,
         "id": "createClippingMask",
         "label": "Create Clipping Mask",
@@ -31683,6 +31849,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image empty
       {
         "badge": undefined,
         "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "newAdjustmentLayer",
         "label": "New Adjustment Layer",
         "onAction": [Function],
@@ -33291,6 +33464,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image with 
       {
         "id": "sep-after-transform",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -34913,6 +35093,17 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion empt
       },
       {
         "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-adjustment",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
         "disabled": true,
         "id": "path",
         "label": "Path",
@@ -36371,6 +36562,17 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion with
       },
       {
         "id": "sep-after-transform",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-adjustment",
         "separator": true,
       },
       {
@@ -37881,6 +38083,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
       {
         "id": "sep-after-transform",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -39671,6 +39880,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
       {
         "id": "sep-after-transform",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openEffectStudio",
+        "label": "Open Effect Studio…",
+        "onAction": [Function],
       },
       {
         "badge": undefined,

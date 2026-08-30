@@ -33,8 +33,14 @@ export function AdjustmentsPanel() {
     return (
       <EmptyState
         illustration={<span aria-hidden />}
-        headline="Select an image"
-        description="Image enhancement, cleanup, recognition, and compositing tools appear here."
+        headline={
+          nodes.length === 0 ? 'Select an image or adjustment layer' : 'Image Tuning is raster-only'
+        }
+        description={
+          nodes.length === 0
+            ? 'Use Image Tuning for a selected raster image. Select an Adjustment Layer to edit a scoped correction, or create one from Properties or Object.'
+            : 'Use Effect Studio for object-local creative treatments. For a shared raster-and-vector correction, add an Adjustment Layer from Properties or Object.'
+        }
       />
     );
   }

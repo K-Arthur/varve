@@ -38,7 +38,10 @@ export function AdjustmentLayerAccessSection({ nodes }: AdjustmentLayerAccessSec
   return (
     <DisclosureSection title="Adjustment Layer" sectionId="adjustment-layer-access">
       <div className="insp-adjustment-access">
-        <p className="insp-adjustment-access__description">{targetDescription}</p>
+        <p className="insp-adjustment-access__description">
+          {targetDescription} Use this for scoped colour and tone correction; it opens in
+          Adjustments for full editing.
+        </p>
         <Button
           type="button"
           variant="secondary"

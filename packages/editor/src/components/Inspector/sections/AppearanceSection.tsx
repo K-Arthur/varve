@@ -9,7 +9,7 @@
  */
 import type { BlendMode } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
-import { Select } from '@varve/ui';
+import { Button, Select } from '@varve/ui';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -36,7 +36,7 @@ const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
 ];
 
 export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
-  const { setSelectedOpacity, setSelectedBlendMode } = useEditor();
+  const { setInspectorTab, setSelectedOpacity, setSelectedBlendMode } = useEditor();
 
   const opacityRaw = commonValue(nodes, (n) => n.opacity ?? 1);
   const blendRaw = commonValue(nodes, (n) => n.blendMode ?? 'normal');
@@ -65,6 +65,16 @@ export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
           }}
           placeholder="Mixed"
         />
+      </FieldRow>
+      <FieldRow label="Creative effects">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => setInspectorTab('appearance')}
+        >
+          Open Effect Studio
+        </Button>
       </FieldRow>
     </DisclosureSection>
   );

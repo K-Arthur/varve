@@ -208,6 +208,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.object.removeMask': 'Remove Mask',
   'menu.object.toggleMask': 'Toggle Mask',
   'menu.object.invertMask': 'Invert Mask',
+  'menu.object.openEffectStudio': 'Open Effect Studio…',
   'menu.object.newAdjustmentLayer': 'New Adjustment Layer',
   'menu.object.cropImage': 'Crop Image',
   'menu.object.perspectiveImage': 'Perspective Image',

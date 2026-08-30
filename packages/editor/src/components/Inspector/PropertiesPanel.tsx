@@ -50,7 +50,6 @@ import { PathTextSection } from './sections/PathTextSection';
 import { PerspectiveSection } from './sections/PerspectiveSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
 import { SelectionColorsSection } from './sections/SelectionColorsSection';
-import { SmartFiltersSection } from './sections/SmartFiltersSection';
 import { StrokeSection } from './sections/StrokeSection';
 import { TableCellsSection, TableTracksSection } from './sections/TableCellsSection';
 import { TableSection } from './sections/TableSection';
@@ -574,7 +573,6 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     if (!isFrame) add('layout', <LayoutChildSection nodes={nodes} />);
     add('appearance', <AppearanceSection nodes={nodes} />);
     add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
-    add('smart-filters', <SmartFiltersSection nodes={nodes} />);
     add('selection-colors', <SelectionColorsSection nodes={nodes} />);
     add('fills', <FillSection nodes={nodes} />);
     add('animation', <AnimationSection nodes={nodes} />);

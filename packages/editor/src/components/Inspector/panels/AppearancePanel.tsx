@@ -1,7 +1,6 @@
 import { isImageShape } from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import { useEditor } from '../../../context';
-import { AdjustmentLayerAccessSection } from '../sections/AdjustmentLayerAccessSection';
 import { EffectStudioSection } from '../sections/EffectStudioSection';
 import { EffectsSection } from '../sections/EffectsSection';
 import { MaskSection } from '../sections/MaskSection';
@@ -33,7 +32,6 @@ export function AppearancePanel() {
       {nodes.length === 1 && <MaskSection nodes={nodes} />}
       <PaintLibrarySection />
       {nodes.length === 1 && isImageShape(nodes[0]!) && <PaletteSection />}
-      <AdjustmentLayerAccessSection nodes={nodes} />
       <EffectStudioSection nodes={nodes} />
       {nodes.length === 1 && <SmartFiltersSection nodes={nodes} />}
       {effectsCompatible && <EffectsSection nodes={nodes} />}

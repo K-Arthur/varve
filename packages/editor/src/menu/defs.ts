@@ -1274,6 +1274,14 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
       run: () => runAction('bakeWarp'),
     },
     {
+      id: 'openEffectStudio',
+      labelKey: 'menu.object.openEffectStudio',
+      accelerator: acceleratorFor('openAppearancePanel'),
+      kind: 'command',
+      group: 'adjustment',
+      run: () => runAction('openAppearancePanel'),
+    },
+    {
       id: 'newAdjustmentLayer',
       labelKey: 'menu.object.newAdjustmentLayer',
       accelerator: a('a', true, true),

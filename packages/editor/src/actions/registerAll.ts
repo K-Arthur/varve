@@ -213,7 +213,11 @@ export function registerEditorActions(
 
   const panelActions = [
     ['openInspectorProperties', 'Open Properties', ['inspector', 'selection', 'properties']],
-    ['openAppearancePanel', 'Open Appearance & Effects', ['effects', 'mask', 'paint', 'styles']],
+    [
+      'openAppearancePanel',
+      'Open Effect Studio',
+      ['effects', 'treatments', 'object filters', 'appearance', 'mask', 'paint', 'styles'],
+    ],
     ['openAdjustmentsPanel', 'Open Adjustments', ['image', 'retouch', 'enhance', 'ai']],
     ['openPrototypePanel', 'Open Prototype', ['interaction', 'flow', 'trigger']],
     ['openFontsPanel', 'Open Fonts Panel', ['font', 'typography', 'typeface']],

@@ -212,6 +212,17 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     }
   });
 
+  it('keeps Object Filter editing out of Properties and routes creative work to Appearance', async () => {
+    await renderPanelWithSelectedRect();
+
+    expect(screen.queryByRole('button', { name: 'Object Filters' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Effect Studio' }));
+    expect(screen.getByRole('tab', { name: 'Appearance' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+
   it('does not render the State Machine section inline (moved to its own panel)', async () => {
     // State machines are document-wide (document.stateMachines), not tied to
     // the current selection — it previously rendered unconditionally at the

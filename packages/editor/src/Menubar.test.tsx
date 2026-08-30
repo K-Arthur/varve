@@ -449,6 +449,7 @@ describe('Menubar menu structure', () => {
     expect(within(menu).getByRole('menuitem', { name: /Intersect/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Exclude/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Add Alpha Mask/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Open Effect Studio/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /New Adjustment Layer/ })).toBeTruthy();
   });
 

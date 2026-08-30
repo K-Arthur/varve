@@ -367,7 +367,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   },
   {
     id: 'effects',
-    title: 'Effects',
+    title: 'Layer Effects',
     defaultExpanded: true,
     canHide: true,
     essential: false,

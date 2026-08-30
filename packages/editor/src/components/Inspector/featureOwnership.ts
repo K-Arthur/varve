@@ -175,7 +175,8 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     frequency: 'occasional',
     complexity: 'large-editor',
     status: 'functional',
-    rationale: 'A potentially long reorderable stack needs dedicated vertical space.',
+    rationale:
+      'Layer effects such as shadows, glows, and blur need dedicated vertical space and remain distinct from Studio treatments and Object Filters.',
   },
   'smart-filters': {
     surface: 'appearance',

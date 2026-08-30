@@ -188,6 +188,7 @@ describe('SHORTCUT_DEFS', () => {
     expect(ids).toContain('delete');
     expect(ids).toContain('save');
     expect(ids).toContain('exportSvg');
+    expect(ids).toContain('openAppearancePanel');
   });
 
   it('each def has required fields', () => {

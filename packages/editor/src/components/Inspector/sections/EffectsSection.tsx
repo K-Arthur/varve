@@ -1,5 +1,5 @@
 /**
- * EffectsSection — stacked effect controls (shadows, blurs) for the Inspector.
+ * EffectsSection — stacked layer-effect controls (shadows, glows, and blurs).
  *
  * Multi-select: matches effects by index, shows "Mixed" for differing
  * properties. Property edits batch across all selected nodes in one undo step.
@@ -309,7 +309,7 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
   const countMixed = !effectNodes.every((n) => n.effects.length === minEffects);
 
   return (
-    <DisclosureSection title="Effects">
+    <DisclosureSection title="Layer Effects">
       {effectNodes.every((n) => n.effects.length === 0) ? (
         <div className="insp-empty-message">No effects</div>
       ) : (

@@ -1072,6 +1072,13 @@ function buildMenus(
         },
         { label: '---' },
         {
+          label: 'Open Effect Studio…',
+          shortcut: formatShortcut(SHORTCUT_DEFS.openAppearancePanel.binding),
+          ariaKeyshortcut: ks('openAppearancePanel'),
+          action: 'openAppearancePanel',
+        },
+        { label: '---' },
+        {
           label: 'New Adjustment Layer',
           shortcut: formatShortcut(SHORTCUT_DEFS.newAdjustmentLayer.binding),
           ariaKeyshortcut: ks('newAdjustmentLayer'),
