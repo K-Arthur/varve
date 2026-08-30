@@ -16,10 +16,10 @@ describe('WelcomeDialog', () => {
     );
     expect(screen.getByText('Take the tour')).toBeInTheDocument();
     expect(screen.getByText('Start with a template')).toBeInTheDocument();
-    expect(screen.getByText('Blank canvas')).toBeInTheDocument();
+    expect(screen.getByText('Blank design canvas')).toBeInTheDocument();
   });
 
-  it('"Blank canvas" calls onStartBlank', () => {
+  it('"Blank design canvas" calls onStartBlank', () => {
     const onStartBlank = vi.fn();
     render(
       <WelcomeDialog
@@ -30,7 +30,7 @@ describe('WelcomeDialog', () => {
         onClose={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByText('Blank canvas'));
+    fireEvent.click(screen.getByText('Blank design canvas'));
     expect(onStartBlank).toHaveBeenCalledTimes(1);
   });
 

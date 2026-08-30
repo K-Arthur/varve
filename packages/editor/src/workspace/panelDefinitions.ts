@@ -125,7 +125,7 @@ const definitions: PanelDefinition[] = [
   },
   {
     id: 'pagenav',
-    title: 'Pages',
+    title: 'Page Navigator',
     instancePolicy: 'singleton',
     documentRequirement: 'active-document',
     selectionScope: 'none',
@@ -146,10 +146,10 @@ const definitions: PanelDefinition[] = [
       supportsDocumentPinning: false,
     },
     a11yLabels: {
-      detach: 'Detach Pages panel',
-      reattach: 'Reattach Pages panel',
-      moveTo: 'Move Pages panel to another window',
-      close: 'Close Pages panel',
+      detach: 'Detach Page Navigator panel',
+      reattach: 'Reattach Page Navigator panel',
+      moveTo: 'Move Page Navigator panel to another window',
+      close: 'Close Page Navigator panel',
     },
   },
   {

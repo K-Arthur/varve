@@ -98,7 +98,7 @@ export function WorkspaceCustomizeDialog({
     { id: 'layers', label: 'Layers' },
     { id: 'inspector', label: 'Inspector' },
     { id: 'timeline', label: 'Timeline' },
-    { id: 'pagenav', label: 'Page Navigation' },
+    { id: 'pagenav', label: 'Page Navigator' },
     { id: 'library', label: 'Resources' },
     { id: 'codegen', label: 'Code Panel' },
     { id: 'logo', label: 'Logo Panel' },

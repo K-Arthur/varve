@@ -11,7 +11,7 @@ export interface HomeShortcutHelpProps {
 }
 
 const SHORTCUTS: ShortcutEntry[] = [
-  { label: 'New file', combo: 'Ctrl+N' },
+  { label: 'New design', combo: 'Ctrl+N' },
   { label: 'Open file', combo: 'Ctrl+O' },
   { label: 'Search files', combo: 'Ctrl+F' },
   { label: 'Focus search', combo: '/' },

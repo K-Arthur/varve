@@ -13,6 +13,28 @@ describe('resolvePageSurfaceVisibility', () => {
     });
   });
 
+  it('exposes the same publishing-page controls in Design without adding print chrome', () => {
+    expect(
+      resolvePageSurfaceVisibility({ mode: 'design', pageCount: 2, pagePanelVisible: true }),
+    ).toEqual({
+      renderPageSurfaces: true,
+      showPagesPanel: true,
+      showPageNavigation: true,
+      showPrintGeometry: false,
+    });
+  });
+
+  it('keeps the ordinary design canvas available when no publishing page exists', () => {
+    expect(
+      resolvePageSurfaceVisibility({ mode: 'design', pageCount: 0, pagePanelVisible: true }),
+    ).toEqual({
+      renderPageSurfaces: false,
+      showPagesPanel: false,
+      showPageNavigation: false,
+      showPrintGeometry: false,
+    });
+  });
+
   it('offers page management for an empty Print document', () => {
     expect(
       resolvePageSurfaceVisibility({ mode: 'print', pageCount: 0, pagePanelVisible: true }),

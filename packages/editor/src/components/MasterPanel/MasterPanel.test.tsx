@@ -224,6 +224,13 @@ describe('MasterPanel', () => {
     expect(setMasterAppliesTo).toHaveBeenCalledWith('m1', 'left');
   });
 
+  it('labels the reusable print source as a master page', () => {
+    mockEditor({ masters: {} });
+    render(<MasterPanel />);
+    expect(screen.getByText('Master pages')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Create new master page' })).toBeDefined();
+  });
+
   it('calls duplicateMaster when copy button is clicked', () => {
     const duplicateMaster = vi.fn();
     mockEditor({
@@ -478,10 +485,10 @@ describe('MasterPanel', () => {
     render(<MasterPanel />);
     expect(screen.getByText('No master pages yet.')).toBeDefined();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Hide master pages' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Master pages section' }));
 
     expect(screen.queryByText('No master pages yet.')).toBeNull();
     // The header stays, so it can be reopened.
-    expect(screen.getByRole('button', { name: 'Show master pages' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Show Master pages section' })).toBeDefined();
   });
 });

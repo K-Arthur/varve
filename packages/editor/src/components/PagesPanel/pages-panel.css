@@ -19,6 +19,15 @@
   gap: var(--space-2);
 }
 
+.pages-panel__description {
+  display: block;
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  max-width: 28rem;
+  margin: 0;
+}
+
 .pages-panel__title {
   display: flex;
   align-items: center;

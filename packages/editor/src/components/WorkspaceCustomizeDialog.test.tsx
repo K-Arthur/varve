@@ -31,7 +31,7 @@ describe('WorkspaceCustomizeDialog', () => {
       'Layers',
       'Inspector',
       'Timeline',
-      'Page Navigation',
+      'Page Navigator',
       'Resources',
       'Code Panel',
       'Logo Panel',

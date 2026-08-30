@@ -454,9 +454,9 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       description:
         'Multi-page layouts, typography, preflight, colour management, and production output.',
       tips: [
-        'Use Page Nav (bottom strip) to add, reorder, and navigate pages.',
+        'Use the Page Navigator (bottom strip) to add, reorder, and navigate publishing pages.',
         'Toggle Facing Pages in the View menu for book/magazine layouts.',
-        'Master pages (Page menu) let you reuse headers, footers, and page numbers.',
+        'Master pages let you reuse headers, footers, and page numbers across publishing pages.',
         'Preflight warnings appear in the status bar when issues are detected.',
         'Export to PDF/X for print production via File → Export.',
       ],

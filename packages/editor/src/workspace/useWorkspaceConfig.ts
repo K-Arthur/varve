@@ -17,7 +17,7 @@ import {
 import { ALL_WORKSPACE_MODES, type WorkspaceConfig, type WorkspaceMode } from './workspaceTypes';
 
 export interface PageSurfaceVisibility {
-  /** Whether page surfaces remain part of the canvas document view. */
+  /** Whether publishing page surfaces remain part of the canvas document view. */
   renderPageSurfaces: boolean;
   /** Whether the page-management panel should be mounted. */
   showPagesPanel: boolean;
@@ -28,10 +28,12 @@ export interface PageSurfaceVisibility {
 }
 
 /**
- * Resolve page-related UI disclosure without filtering document semantics.
+ * Resolve publishing-page UI disclosure without filtering document semantics.
  *
  * A panel preference can hide management controls, but workspace mode must
  * never hide page rendering, ownership, persistence, or explicit commands.
+ * The ordinary canvas and its frames remain available in every workspace;
+ * print-only controls are disclosed only when a publishing page exists.
  * Print keeps an empty management panel available so a flat document can be
  * promoted intentionally by the user rather than by an implicit conversion.
  */

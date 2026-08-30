@@ -23,11 +23,36 @@ import { sitePath } from '../../../lib/siteUrl';
         <ul>
           <li><strong>Menubar</strong> — the top bar with File, Edit, View, Object, and other menus</li>
           <li><strong>Toolbar</strong> — the vertical strip on the left with all drawing and selection tools</li>
-          <li><strong>Canvas</strong> — the central workspace where you create and edit your design</li>
+          <li><strong>Design canvas</strong> — the central workspace where you create and edit your design</li>
           <li><strong>Layers Panel</strong> — the right sidebar showing your document's layer hierarchy</li>
           <li><strong>Inspector Panel</strong> — the right sidebar below layers for editing properties of the selected node</li>
           <li><strong>Status Bar</strong> — the bottom strip showing zoom level, canvas info, and toggle controls</li>
         </ul>
+      </section>
+
+      <section class="docs-section" aria-labelledby="surface-terms-heading">
+        <h2 id="surface-terms-heading">Design canvases, frames, and publishing pages</h2>
+        <p>
+          Varve uses precise names for surfaces that behave differently. A
+          <strong>design canvas</strong> is the open-ended editing view used for
+          screens, exploration, components, and prototypes. A <strong>frame</strong>
+          is an editable scene container inside that view; it has its own size,
+          transform, clipping, auto layout, and direct export behavior.
+        </p>
+        <p>
+          A <strong>publishing page</strong> is an ordered output surface for
+          print and page-layout work. It carries trim, bleed, numbering,
+          spreads, master pages, and page-aware export. The <strong>Pages
+          panel</strong> manages those publishing pages, while the <strong>Page
+          Navigator</strong> is the compact switcher along the bottom of the
+          editor.
+        </p>
+        <p>
+          If you are coming from Figma, its organizational “pages” are closest
+          to Varve design canvases. Varve does not rename frames or turn them
+          into publishing pages; switching workspaces changes which controls
+          are disclosed while the same document and artwork remain intact.
+        </p>
       </section>
 
       <section class="docs-section">

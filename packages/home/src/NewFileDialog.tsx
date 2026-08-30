@@ -180,8 +180,8 @@ export function NewFileDialog({
   }, [savingPresetName, onSaveCustomPreset, customW, customH, unit, colorMode, bleed, dpi]);
 
   return (
-    <Dialog open={open} onClose={onClose} title="New file">
-      <div className="new-file__tabs" role="tablist" aria-label="New file source">
+    <Dialog open={open} onClose={onClose} title="New design">
+      <div className="new-file__tabs" role="tablist" aria-label="New design source">
         <button
           type="button"
           role="tab"
@@ -218,15 +218,15 @@ export function NewFileDialog({
                 stroke="currentColor"
                 strokeWidth="1.5"
               >
-                <title>Blank canvas</title>
+                <title>Blank design canvas</title>
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <path d="M12 8v8M8 12h8" />
               </svg>
             </span>
             <span className="new-file__blank-text">
-              <span className="new-file__blank-title">Blank canvas</span>
+              <span className="new-file__blank-title">Blank design canvas</span>
               <span className="new-file__blank-sub">
-                Start empty at any size, or choose a preset below.
+                Start with an unbounded design canvas, or choose a publishing preset below.
               </span>
             </span>
           </button>

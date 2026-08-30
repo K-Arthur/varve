@@ -38,6 +38,12 @@ const MOCK_TEMPLATES: TemplateLibrary[] = [
 ];
 
 describe('NewDesignDialog', () => {
+  it('names the unbounded starting point as a design canvas', () => {
+    render(<NewDesignDialog open onClose={vi.fn()} onCreate={vi.fn()} />);
+    expect(screen.getByRole('radio', { name: /empty design canvas/i })).toBeChecked();
+    expect(screen.getByText(/unbounded design canvas/i)).toBeVisible();
+  });
+
   it('shows the document name field with the suggested default', () => {
     render(<NewDesignDialog open onClose={vi.fn()} onCreate={vi.fn()} defaultName="Untitled 3" />);
     const nameInput = screen.getByLabelText('Document name') as HTMLInputElement;

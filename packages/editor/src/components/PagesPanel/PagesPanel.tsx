@@ -189,32 +189,36 @@ export function PagesPanel() {
   }
 
   return (
-    <section className="pages-panel" aria-label="Pages">
+    <section className="pages-panel" aria-label="Publishing pages">
       <div className="pages-panel__header">
         <h3 className="pages-panel__title">
           <SectionCollapseToggle
             collapsed={collapsed}
             onToggle={() => setCollapsed((c) => !c)}
-            label="Pages section"
+            label="Publishing pages section"
           />
-          Pages
+          Publishing pages
           <span className="pages-panel__count">{rows.length}</span>
         </h3>
         <button
           type="button"
           className="pages-panel__add-btn"
           onClick={handleAddPage}
-          aria-label="Add page"
+          aria-label="Add publishing page"
         >
           +
         </button>
       </div>
+      <p className="pages-panel__description">
+        Publishing pages define trim, print order, and export. Frames remain editable design
+        containers.
+      </p>
       {!collapsed && (
         <ul
           className="pages-panel__list"
           ref={scrollRef}
           onScroll={handleScroll}
-          aria-label="Page list"
+          aria-label="Publishing page list"
           style={{ height: Math.min(rows.length * ROW_HEIGHT, 320) }}
         >
           {visibleRows.map((row, i) => (
@@ -234,7 +238,7 @@ export function PagesPanel() {
             />
           ))}
           {rows.length === 0 && (
-            <p className="pages-panel__empty">No pages — click + to add one.</p>
+            <p className="pages-panel__empty">No publishing pages — click + to add one.</p>
           )}
         </ul>
       )}
@@ -276,7 +280,7 @@ function PageRow({
       data-page-row={dataRowId}
       tabIndex={tabIndex}
       aria-current={active ? 'page' : undefined}
-      aria-label={`Page ${row.number || row.name}${row.side ? `, ${row.side} page` : ''}${row.masterName ? `, master ${row.masterName}` : ''}${active ? ', current page' : ''}`}
+      aria-label={`Publishing page ${row.number || row.name}${row.side ? `, ${row.side} page` : ''}${row.masterName ? `, master ${row.masterName}` : ''}${active ? ', current page' : ''}`}
       onClick={onNavigate}
       onKeyDown={(e) => onKeyDown(e, index)}
       style={{ height: ROW_HEIGHT }}

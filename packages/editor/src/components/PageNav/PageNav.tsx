@@ -77,7 +77,7 @@ function SortablePageTab({
       style={style}
       className={`page-nav__item${isActive ? ' page-nav__item--active' : ''}`}
       aria-selected={isActive}
-      aria-label={`Page: ${page.name}`}
+      aria-label={`Publishing page: ${page.name}`}
       data-page-id={page.id}
       onClick={() => onSelect(page.id)}
       onContextMenu={(e) => onContextMenu(e, page.id)}
@@ -358,7 +358,12 @@ export function PageNav() {
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="page-nav" ref={stripRef} role="tablist" aria-label="Page navigation">
+      <div
+        className="page-nav"
+        ref={stripRef}
+        role="tablist"
+        aria-label="Publishing page navigator"
+      >
         <SortableContext items={pages.map((p) => p.id)} strategy={horizontalListSortingStrategy}>
           {pages.map((page) => (
             <SortablePageTab
@@ -377,7 +382,7 @@ export function PageNav() {
         type="button"
         className="page-nav__add-btn"
         onClick={handleAddPage}
-        aria-label="Add page"
+        aria-label="Add publishing page"
       >
         +
       </button>

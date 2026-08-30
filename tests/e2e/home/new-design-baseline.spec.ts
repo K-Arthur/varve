@@ -57,7 +57,7 @@ test.describe('New Design dialog', () => {
 
     await expect(dialog.locator('.varve-dialog__title')).toContainText(/new design/i);
     await expect(dialog.locator('input[aria-label="Document name"]')).toBeVisible();
-    await expect(dialog.getByText('Empty document')).toBeVisible();
+    await expect(dialog.getByText('Empty design canvas')).toBeVisible();
     await chooseStartMode(dialog, 'Start with a frame');
     await expect(dialog.getByText('Presets')).toBeVisible();
     await expect(dialog.getByText('A4')).toBeVisible();

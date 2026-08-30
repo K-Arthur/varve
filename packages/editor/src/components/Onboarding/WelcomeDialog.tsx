@@ -48,8 +48,8 @@ export function WelcomeDialog({
 
           <button type="button" className="welcome-dialog__option" onClick={onStartBlank}>
             <Icon name="FilePlus" size="1.5em" />
-            <span className="welcome-dialog__option-label">Blank canvas</span>
-            <span className="welcome-dialog__option-desc">Begin with an empty design</span>
+            <span className="welcome-dialog__option-label">Blank design canvas</span>
+            <span className="welcome-dialog__option-desc">Begin with an empty design canvas</span>
           </button>
         </div>
 

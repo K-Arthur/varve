@@ -65,7 +65,7 @@ export function MasterPanel() {
   }
 
   // Within print it renders even with no masters: returning null when empty
-  // left the "+ New Master" control unreachable — it lives in this markup —
+  // left the "+ New master page" control unreachable — it lives in this markup —
   // and made the empty state below dead code.
   return (
     <div className="master-panel">
@@ -73,9 +73,9 @@ export function MasterPanel() {
         <SectionCollapseToggle
           collapsed={collapsed}
           onToggle={() => setCollapsed((value) => !value)}
-          label="master pages"
+          label="Master pages section"
         />
-        <span className="master-panel__title">Masters</span>
+        <span className="master-panel__title">Master pages</span>
         <Tooltip label="Master pages let you define reusable layouts that propagate across pages.">
           <button
             type="button"
@@ -83,7 +83,7 @@ export function MasterPanel() {
             onClick={handleCreate}
             aria-label="Create new master page"
           >
-            + New Master
+            + New master page
           </button>
         </Tooltip>
       </div>

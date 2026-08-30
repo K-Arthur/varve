@@ -170,7 +170,7 @@ export function NewDesignDialog({
     } else {
       // Print intent (or a non-RGB color mode) creates a PAGED document —
       // print/publication work needs pages, spreads and print geometry
-      // (M14). Screen intent stays on the flat infinite canvas.
+      // (M14). Screen intent stays on the flat infinite design canvas.
       request = {
         documentName: trimmed || defaultName,
         startMode: intent === 'print' || colorMode !== 'rgb' ? 'pages' : 'empty',
@@ -394,13 +394,13 @@ export function NewDesignDialog({
               [
                 [
                   'empty',
-                  'Empty document',
-                  'Start on an unbounded canvas with no frame. Add frames or pages anytime.',
+                  'Empty design canvas',
+                  'Start on an unbounded design canvas with no frame. Add frames or publishing pages anytime.',
                 ],
                 [
                   'frame',
                   'Start with a frame',
-                  'Create the first frame from a preset or custom size.',
+                  'Create the first in-document frame from a preset or custom size.',
                 ],
                 ['template', 'Template', 'Start from a template with ready-made content.'],
               ] as const
@@ -427,9 +427,9 @@ export function NewDesignDialog({
         {startMode === 'empty' && (
           <div className="new-design__body-section">
             <p className="new-design__empty-hint" role="note">
-              An empty Varve document is an infinite canvas — there are no page bounds. Create
-              frames with the Frame tool (F) whenever you need a sized area, and add pages for print
-              layouts.
+              An empty Varve document is an infinite design canvas — there are no page bounds.
+              Create frames with the Frame tool (F) whenever you need a sized area, and add
+              publishing pages for print layouts.
             </p>
           </div>
         )}
@@ -511,8 +511,8 @@ export function NewDesignDialog({
                   />
                 </div>
                 <p className="new-design__custom-hint">
-                  These dimensions create the first frame on an unbounded canvas — the document
-                  itself has no size.
+                  These dimensions create the first frame on an unbounded design canvas — the
+                  document itself has no size.
                 </p>
               </div>
             )}

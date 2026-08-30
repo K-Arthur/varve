@@ -130,7 +130,7 @@ describe('PagesPanel', () => {
     );
     mockEditor({ pages: [makePage('p1', 'Page 1', 'a0')], updateDoc });
     render(<PagesPanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Add page' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add publishing page' }));
     expect(updateDoc).toHaveBeenCalled();
   });
 
@@ -163,7 +163,7 @@ describe('PagesPanel', () => {
       setCurrentPageId,
     });
     render(<PagesPanel />);
-    fireEvent.click(screen.getByRole('listitem', { name: /Page 2/ }));
+    fireEvent.click(screen.getByRole('listitem', { name: /Publishing page 2/ }));
     expect(setActivePage).toHaveBeenCalledWith('p2');
     expect(setCurrentPageId).toHaveBeenCalledWith('p2');
   });
@@ -190,8 +190,9 @@ describe('PagesPanel', () => {
   it('keeps the empty page-management affordance available in Print', () => {
     mockEditor({ pages: [], workspaceMode: 'print' });
     render(<PagesPanel />);
-    expect(screen.getByRole('heading', { name: /Pages/ })).toBeTruthy();
-    expect(screen.getByText('No pages — click + to add one.')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /Publishing pages/ })).toBeTruthy();
+    expect(screen.getByText('No publishing pages — click + to add one.')).toBeTruthy();
+    expect(screen.getByText(/Publishing pages define trim/)).toBeTruthy();
   });
 
   it('does not disclose an empty page panel in Design', () => {

@@ -709,7 +709,7 @@ describe('WelcomeDialog', () => {
     // WelcomeDialog has "Welcome to Varve" in both the Dialog title and heading
     expect(screen.getAllByText('Welcome to Varve').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Take the tour')).toBeTruthy();
-    expect(screen.getByText('Blank canvas')).toBeTruthy();
+    expect(screen.getByText('Blank design canvas')).toBeTruthy();
   });
 });
 

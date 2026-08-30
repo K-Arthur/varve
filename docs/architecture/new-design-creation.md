@@ -4,16 +4,16 @@ Adopted 2026-08-04. Supersedes the "New File" preset-as-document-size model.
 
 ## Product model
 
-- **A new Varve document is an untitled infinite-canvas document.** It never
+- **A new Varve document is an untitled infinite design-canvas document.** It never
   carries a width, height, page, or color mode of its own.
-- **Width/height belong to frames, pages, and print layouts.** Device, social,
+- **Width/height belong to frames, publishing pages, and print layouts.** Device, social,
   photo, print, and presentation presets define *frame* properties.
 - **Three starting points**, mutually exclusive:
 
   | Start | Result |
   |---|---|
-  | Empty document | Flat, page-less document. No frame. |
-  | Start with a frame | Flat document + exactly one frame node at the origin with the preset/custom dimensions. |
+  | Empty design canvas | Flat, page-less document. No frame. |
+  | Start with a frame | Flat document + exactly one in-document frame node at the origin with the preset/custom dimensions. |
   | Template | Document decoded from `templateJson` through the versioned migration pipeline. |
 
 - **Templates are separate from frame presets**: they carry actual design
@@ -51,7 +51,7 @@ document behind.
 
 Callers (all wired to the service):
 
-- Home screen "New" button and empty states → `NewDesignDialog`
+- Home screen "New" launcher and empty states → `NewDesignDialog`
 - File → New / Ctrl+N / command palette / QuickActions → `usePersistence.newDocument`
 - Template creation (home Templates section and dialog)
 - `createDocumentFromPreset` in `presetToDocument.ts` remains for legacy

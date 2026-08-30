@@ -39,7 +39,8 @@ const EMPTY_COPY: Record<string, CopyEntry> = {
   },
   all: {
     headline: 'Start with a blank slate',
-    description: 'No designs yet. Drop a file, import something, or begin with a fresh canvas.',
+    description:
+      'No designs yet. Drop a file, import something, or begin with a fresh design canvas.',
     cta: 'New design',
   },
   templates: {

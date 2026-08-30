@@ -40,7 +40,7 @@ const MOCK_TEMPLATES: TemplateLibrary[] = [
 describe('NewFileDialog', () => {
   it('renders blank tab with a blank canvas option when open', () => {
     const { container } = render(<NewFileDialog open onClose={vi.fn()} onCreate={vi.fn()} />);
-    expect(container.textContent).toContain('Blank canvas');
+    expect(container.textContent).toContain('Blank design canvas');
   });
 
   it('switches to templates tab', () => {

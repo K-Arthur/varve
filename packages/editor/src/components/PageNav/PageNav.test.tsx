@@ -97,8 +97,9 @@ describe('PageNav', () => {
     render(<PageNav />);
     const tabs = screen.getAllByRole('tab');
     expect(tabs).toHaveLength(2);
-    expect(tabs[0]).toHaveAttribute('aria-label', 'Page: Page 1');
-    expect(tabs[1]).toHaveAttribute('aria-label', 'Page: Page 2');
+    expect(tabs[0]).toHaveAttribute('aria-label', 'Publishing page: Page 1');
+    expect(tabs[1]).toHaveAttribute('aria-label', 'Publishing page: Page 2');
+    expect(screen.getByRole('tablist', { name: 'Publishing page navigator' })).toBeTruthy();
   });
 
   it('marks the document active page as selected', () => {
@@ -142,7 +143,7 @@ describe('PageNav', () => {
     mockEditor({ pages, currentPageId: 'p1' });
 
     render(<PageNav />);
-    expect(screen.getByLabelText('Add page')).toBeTruthy();
+    expect(screen.getByLabelText('Add publishing page')).toBeTruthy();
   });
 
   it('opens context menu on right-click with duplicate/delete', () => {

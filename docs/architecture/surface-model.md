@@ -23,6 +23,37 @@ frames. Varve’s page is closer to a publishing surface: page order, trim,
 bleed, slug, numbering, sections, spreads, parent/master composition, and
 page-oriented export all have meaning even when the page contains no frame.
 
+## Product terminology
+
+Varve reserves **Page** for a publishing page. It is an ordered output surface
+with trim, print geometry, numbering, spreads, master-page composition, and
+page-aware export. The editor labels this surface **Publishing pages** so it is
+not confused with a design container.
+
+The Figma-like organizational role is described as a **Design canvas** in Varve
+product language. A design canvas is an open-ended editing view for exploration,
+screen design, components, and prototypes. Its authored work areas are
+**Frames**: scene nodes with their own transform, size, clipping, auto-layout,
+and direct export behavior. A frame is never silently promoted to a publishing
+page, and a publishing page is never represented as a frame.
+
+The remaining terms are intentionally specific:
+
+- **Page Navigator** — the compact control for switching and reordering
+  publishing pages.
+- **Pages panel** — the full publishing-page manager, including numbering,
+  sections, page sides, and master assignments.
+- **Master page** — a reusable source projected onto assigned publishing pages;
+  it is not a duplicate frame and is not a second document page.
+- **Design frame** — a frame used as a screen, artboard, component, or other
+  editable design container.
+
+When documenting Figma interoperability, “Figma page” may be used as the source
+product’s term, followed by “Varve design canvas.” It must not be mapped to
+`Document.pages` unless the imported object has publishing intent. The current
+persisted `Document.pages` collection is publishing-first; Varve does not add a
+second ambiguous `Page` collection merely to reproduce an organizational view.
+
 The `Surface` projection in `@varve/scene` gives all consumers one vocabulary
 without changing persisted storage. Use `surfaceKey({ kind, id })` when page
 and node ids might otherwise collide.
@@ -59,8 +90,8 @@ Workspace filtering is a UI disclosure policy, not a scene filter.
 | Concern | Design with pages | Print with pages | Drawing, Image, Motion, Logo, Email, Codegen |
 |---|---|---|---|
 | Canvas page rendering | Render | Render | Render |
-| Page navigation | Effective `pagenav` preference and at least one page | Same | Hidden by default/config |
-| Pages management panel | Effective `pagenav` preference and at least one page | Available, including an empty-state add-page affordance | Hidden by default/config |
+| Publishing page navigation | Effective `pagenav` preference and at least one page | Same | Hidden by default/config |
+| Publishing pages panel | Effective `pagenav` preference and at least one page | Available, including an empty-state add-page affordance | Hidden by default/config |
 | Print geometry controls | Hidden | Available for existing pages | Hidden |
 | Frames/artboards | Always available to canvas/tools | Always available to canvas/tools | Always available to canvas/tools |
 | Export regions | Marker system only | Marker system only | Marker system only |
@@ -94,8 +125,9 @@ New consumers should:
 ## Known boundaries
 
 The projection is intentionally not a storage migration. Remaining work
-includes routing all page UI mutations through the typed operation/history
-pipeline, completing native/browser multi-page PDF output, adding a dedicated
-parent edit/override workflow, and adding Playwright coverage for page create,
-switch, placement, save/reopen, and export. Those are downstream consumers of
-this contract, not reasons to give frames page semantics.
+includes completing native/browser multi-page PDF output and expanding
+Playwright coverage for page placement, save/reopen, and exported artifacts.
+Typed page/master operations, parent-source editing, and the core
+page-management surfaces are already routed through the shared document/history
+model. These remaining gaps are downstream consumers of this contract, not
+reasons to give frames page semantics.

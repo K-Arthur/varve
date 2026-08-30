@@ -44,8 +44,8 @@ test.describe('New Design dialog', () => {
   test('empty document is the default starting point', async ({ page }) => {
     const dialog = await openNewDesign(page);
     // Empty-document radio is pre-selected; no preset catalogue required.
-    await expect(dialog.getByRole('radio', { name: /empty document/i })).toBeChecked();
-    await expect(dialog.getByText(/infinite canvas/i)).toBeVisible();
+    await expect(dialog.getByRole('radio', { name: /empty design canvas/i })).toBeChecked();
+    await expect(dialog.getByText(/infinite design canvas/i)).toBeVisible();
   });
 
   test('starting with a frame shows the searchable preset picker', async ({ page }) => {
