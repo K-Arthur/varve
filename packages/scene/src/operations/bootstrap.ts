@@ -8,6 +8,7 @@
 
 import { registerCaptureOperation } from './ops/captureOps';
 import { registerDocumentAssetOperations } from './ops/documentAssetOps';
+import { registerMasterOperations } from './ops/masterOps';
 import { registerNodeOperations } from './ops/nodeOps';
 import { registerPageOperations } from './ops/pageOps';
 
@@ -19,6 +20,7 @@ export function registerBuiltinOperations(): void {
   registerNodeOperations();
   registerDocumentAssetOperations();
   registerPageOperations();
+  registerMasterOperations();
   registerCaptureOperation();
   registered = true;
 }

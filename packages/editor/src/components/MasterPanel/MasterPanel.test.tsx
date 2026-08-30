@@ -47,6 +47,7 @@ function mockEditor(overrides: {
   duplicateMaster?: ReturnType<typeof vi.fn>;
   assignMasterToPage?: ReturnType<typeof vi.fn>;
   setMasterAppliesTo?: ReturnType<typeof vi.fn>;
+  resetMasterOverrides?: ReturnType<typeof vi.fn>;
   getPageNumber?: ReturnType<typeof vi.fn>;
   /** Master pages are a multi-page print concept; the panel is scoped to it. */
   workspaceMode?: string;
@@ -70,6 +71,7 @@ function mockEditor(overrides: {
     duplicateMaster: overrides.duplicateMaster ?? vi.fn(),
     assignMasterToPage: overrides.assignMasterToPage ?? vi.fn(),
     setMasterAppliesTo: overrides.setMasterAppliesTo ?? vi.fn(),
+    resetMasterOverrides: overrides.resetMasterOverrides ?? vi.fn(),
     getPageNumber: overrides.getPageNumber ?? vi.fn(() => 1),
   } as never);
 }
@@ -122,6 +124,18 @@ describe('MasterPanel', () => {
     render(<MasterPanel />);
     fireEvent.click(screen.getByLabelText('Create new master page'));
     expect(createMaster).toHaveBeenCalledWith('Master', 1920, 1080);
+  });
+
+  it('uses the active page dimensions for a new master', () => {
+    const createMaster = vi.fn();
+    mockEditor({
+      createMaster,
+      pages: [{ id: 'p1', name: 'Poster', width: 1200, height: 1800, contentRoot: 'root' }],
+      activePageId: 'p1',
+    });
+    render(<MasterPanel />);
+    fireEvent.click(screen.getByLabelText('Create new master page'));
+    expect(createMaster).toHaveBeenCalledWith('Master', 1200, 1800);
   });
 
   it('shows appliesTo select for each master', () => {
@@ -213,6 +227,28 @@ describe('MasterPanel', () => {
     expect(screen.getByText('Grid Master')).toBeDefined();
   });
 
+  it('applies the selected master to the current page', () => {
+    const assignMasterToPage = vi.fn();
+    mockEditor({
+      masters: {
+        m1: {
+          id: 'm1',
+          name: 'Grid Master',
+          width: 1920,
+          height: 1080,
+          contentRoot: 'cr1',
+          appliesTo: 'all',
+        },
+      },
+      pages: [{ id: 'p1', name: 'Page 1', width: 1920, height: 1080, contentRoot: 'pr1' }],
+      activePageId: 'p1',
+      assignMasterToPage,
+    });
+    render(<MasterPanel />);
+    fireEvent.click(screen.getByLabelText('Apply Grid Master to current page'));
+    expect(assignMasterToPage).toHaveBeenCalledWith('p1', 'm1');
+  });
+
   it('shows no-master status when page has no master', () => {
     mockEditor({
       masters: {},
@@ -281,6 +317,38 @@ describe('MasterPanel', () => {
     render(<MasterPanel />);
     fireEvent.click(screen.getByLabelText('Remove master from this page'));
     expect(assignMasterToPage).toHaveBeenCalledWith('p1', null);
+  });
+
+  it('resets sparse overrides for the current page', () => {
+    const resetMasterOverrides = vi.fn();
+    mockEditor({
+      masters: {
+        m1: {
+          id: 'm1',
+          name: 'Master',
+          width: 1920,
+          height: 1080,
+          contentRoot: 'cr1',
+          appliesTo: 'all',
+        },
+      },
+      pages: [
+        {
+          id: 'p1',
+          name: 'Page 1',
+          width: 1920,
+          height: 1080,
+          contentRoot: 'pr1',
+          masterPageId: 'm1',
+          masterOverrides: { n1: { type: 'hidden' } },
+        },
+      ],
+      activePageId: 'p1',
+      resetMasterOverrides,
+    });
+    render(<MasterPanel />);
+    fireEvent.click(screen.getByLabelText('Reset master overrides'));
+    expect(resetMasterOverrides).toHaveBeenCalledWith('p1');
   });
 
   it('enter key on rename input commits the rename', () => {

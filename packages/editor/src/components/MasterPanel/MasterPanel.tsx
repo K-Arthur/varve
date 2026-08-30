@@ -15,6 +15,7 @@ export function MasterPanel() {
     duplicateMaster,
     assignMasterToPage,
     setMasterAppliesTo,
+    resetMasterOverrides,
     getPageNumber,
   } = useEditor();
 
@@ -32,8 +33,9 @@ export function MasterPanel() {
   const [collapsed, setCollapsed] = useState(false);
 
   const handleCreate = useCallback(() => {
-    createMaster('Master', 1920, 1080);
-  }, [createMaster]);
+    const activePage = pages.find((page) => page.id === doc.activePageId);
+    createMaster('Master', activePage?.width ?? 1920, activePage?.height ?? 1080);
+  }, [createMaster, doc.activePageId, pages]);
 
   const handleRemoveFromPage = useCallback(() => {
     if (doc.activePageId) {
@@ -126,6 +128,18 @@ export function MasterPanel() {
               )}
 
               <div className="master-panel__actions">
+                <button
+                  type="button"
+                  className="master-panel__apply-btn"
+                  disabled={!doc.activePageId}
+                  onClick={() => {
+                    if (doc.activePageId) assignMasterToPage(doc.activePageId, master.id);
+                  }}
+                  aria-label={`Apply ${master.name} to current page`}
+                >
+                  Apply
+                </button>
+
                 <Select
                   label={`Apply to pages: ${master.appliesTo}`}
                   value={master.appliesTo}
@@ -199,6 +213,16 @@ export function MasterPanel() {
                     <span className="master-panel__override-badge">
                       {' '}
                       ({overrideCount} {overrideCount === 1 ? 'override' : 'overrides'})
+                      <button
+                        type="button"
+                        className="master-panel__reset-overrides-btn"
+                        onClick={() => {
+                          if (doc.activePageId) resetMasterOverrides(doc.activePageId);
+                        }}
+                        aria-label="Reset master overrides"
+                      >
+                        Reset
+                      </button>
                     </span>
                   )}
                   <button

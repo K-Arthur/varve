@@ -1307,6 +1307,14 @@ export interface EditorContextValue {
   duplicateMaster: (masterId: NodeId) => void;
   assignMasterToPage: (pageId: NodeId, masterId: NodeId | null) => void;
   setMasterAppliesTo: (masterId: NodeId, appliesTo: import('@varve/scene').MasterAppliesTo) => void;
+  setMasterOverride: (
+    pageId: NodeId,
+    masterNodeId: NodeId,
+    type: import('@varve/scene').MasterOverrideType,
+    localNodeId?: NodeId,
+  ) => void;
+  removeMasterOverride: (pageId: NodeId, masterNodeId: NodeId) => void;
+  resetMasterOverrides: (pageId: NodeId) => void;
   activePageNodesWithMaster: () => NodeId[];
 
   // Spread methods

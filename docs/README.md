@@ -198,6 +198,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `adr/0226-surface-read-model.md` | Additive page and frame surface read model |
 | `adr/0227-page-layout-guides.md` | Publishing page margins and columns as derived geometry |
 | `adr/0228-page-export-selection.md` | Explicit page/range/spread export selection |
+| `adr/0229-master-operations-and-overrides.md` | Typed master assignments and sparse override lifecycle |
 ## Architecture Docs (current state)
 
 | Doc | Purpose |
@@ -244,6 +245,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/surface-model.md` | Page-layout surfaces, design frames, artboards, export markers, and workspace disclosure |
 | `architecture/page-layout-guides.md` | Publishing page margins, columns, inheritance, and view-only guides |
 | `architecture/page-export-selection.md` | Ordered page export selection, exclusions, ranges, and spread units |
+| `architecture/master-pages.md` | Master source ownership, projection, assignments, and sparse overrides |
 | `architecture/paint-system.md` | Paint subsystem: stroke-to-pixels pipeline, brush library, invariants |
 | `architecture/animated-image-media-system.md` | GIF/APNG/WebP media pipeline |
 | `architecture/effect-rendering.md` | Effect pass structure in `replay.ts` and render-parity contract |

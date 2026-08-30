@@ -9,6 +9,17 @@ export type {
   CapturedTextRanges,
   TransactionCapturePayload,
 } from './ops/captureOps';
+export type {
+  MasterAssignPayload,
+  MasterCreatePayload,
+  MasterDeletePayload,
+  MasterDuplicatePayload,
+  MasterOverridePayload,
+  MasterRemoveOverridePayload,
+  MasterRenamePayload,
+  MasterResetOverridesPayload,
+  MasterSetAppliesToPayload,
+} from './ops/masterOps';
 export { isAllowedPropertyPath, type NodeCreatePayload } from './ops/nodeOps';
 export type {
   PageCreatePayload,

@@ -31,6 +31,9 @@ describe('Master page context integration', () => {
     expect(typeof getCtx().duplicateMaster).toBe('function');
     expect(typeof getCtx().assignMasterToPage).toBe('function');
     expect(typeof getCtx().setMasterAppliesTo).toBe('function');
+    expect(typeof getCtx().setMasterOverride).toBe('function');
+    expect(typeof getCtx().removeMasterOverride).toBe('function');
+    expect(typeof getCtx().resetMasterOverrides).toBe('function');
     expect(typeof getCtx().activePageNodesWithMaster).toBe('function');
 
     // Spread methods exist

@@ -47,6 +47,17 @@ import { applySelectedLayoutChildField } from './context/layoutChildSetters';
 import { isCapabilityRestricted, setBumpThemeRevisionHandler } from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
 import { type ImportedResourceSet, mergeImportedResources } from './import/mergeImportedResources';
+import {
+  assignMasterCommand,
+  createMasterCommand,
+  deleteMasterCommand,
+  duplicateMasterCommand,
+  removeMasterOverrideCommand,
+  renameMasterCommand,
+  resetMasterOverridesCommand,
+  setMasterAppliesToCommand,
+  setMasterOverrideCommand,
+} from './masterCommands';
 import { pathPointsWorldToLocal } from './tools/pathCoords';
 import { getLastRepeatTransform } from './transform/repeatTransform';
 
@@ -127,7 +138,6 @@ import {
   applyLayerState as applyLayerStateDoc,
   arrangeNodes as arrangeNodesDoc,
   assignDocumentColorMode as assignDocumentColorModeDoc,
-  assignMasterToPage as assignMasterToPageDoc,
   type BitDepth,
   type BleedConfig,
   booleanAnchorForNode,
@@ -147,7 +157,6 @@ import {
   createDocument,
   createEmptySelectionSetsData,
   createGuideId,
-  createMaster as createMasterDoc,
   createNewDocument,
   createSelectionSet as createSelectionSetDoc,
   createSpotLibrary as createSpotLibraryDoc,
@@ -161,7 +170,6 @@ import {
   deepCloneSubtree,
   defaultConstraints,
   defaultProofConfig,
-  deleteMaster as deleteMasterDoc,
   deleteSelectionSet as deleteSelectionSetDoc,
   deleteSpotLibrary as deleteSpotLibraryDoc,
   deleteTextChain as deleteTextChainDoc,
@@ -169,7 +177,6 @@ import {
   detachInstance as detachInstanceDoc,
   booleanOp as doBooleanOp,
   duplicateGuide as duplicateGuideDoc,
-  duplicateMaster as duplicateMasterDoc,
   duplicateSelectionSet as duplicateSelectionSetDoc,
   duplicateSMState,
   type ExportPreset,
@@ -241,7 +248,6 @@ import {
   removeSpotFromLibrary as removeSpotFromLibraryDoc,
   removeStateMachine,
   renameLayerState as renameLayerStateDoc,
-  renameMaster as renameMasterDoc,
   renameNode,
   renameSelectionSet as renameSelectionSetDoc,
   renameSMState,
@@ -287,7 +293,6 @@ import {
   setMaskType as setMaskTypeDoc,
   setMaskVectorPath as setMaskVectorPathDoc,
   setMaskVisible as setMaskVisibleDoc,
-  setMasterAppliesTo as setMasterAppliesToDoc,
   setPagePlacement as setPagePlacementDoc,
   setPageSize as setPageSizeDoc,
   setPropertyOverride as setPropertyOverrideDoc,
@@ -1668,6 +1673,17 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   assignMasterToPage: (pageId: NodeId, masterId: NodeId | null) => void;
   /** Set whether a master applies to all, left, or right pages. */
   setMasterAppliesTo: (masterId: NodeId, appliesTo: MasterAppliesTo) => void;
+  /** Set or replace one sparse page override for an inherited master node. */
+  setMasterOverride: (
+    pageId: NodeId,
+    masterNodeId: NodeId,
+    type: import('@varve/scene').MasterOverrideType,
+    localNodeId?: NodeId,
+  ) => void;
+  /** Remove one sparse override and reveal the inherited master node again. */
+  removeMasterOverride: (pageId: NodeId, masterNodeId: NodeId) => void;
+  /** Clear every sparse override on a page. */
+  resetMasterOverrides: (pageId: NodeId) => void;
   /** Get nodes visible on the active page, including applied master content. */
   activePageNodesWithMaster: () => NodeId[];
 
@@ -6113,22 +6129,33 @@ export function EditorProvider({
 
       // Master page methods
       createMaster: (name, width, height) => {
-        updateDoc((doc) => createMasterDoc(doc, { name, width, height }));
+        updateDoc((doc) => createMasterCommand(doc, { name, width, height }));
       },
       deleteMaster: (masterId) => {
-        updateDoc((doc) => deleteMasterDoc(doc, masterId));
+        updateDoc((doc) => deleteMasterCommand(doc, { masterId }));
       },
       renameMaster: (masterId, name) => {
-        updateDoc((doc) => renameMasterDoc(doc, masterId, name));
+        updateDoc((doc) => renameMasterCommand(doc, { masterId, name }));
       },
       duplicateMaster: (masterId) => {
-        updateDoc((doc) => duplicateMasterDoc(doc, masterId));
+        updateDoc((doc) => duplicateMasterCommand(doc, { masterId }));
       },
       assignMasterToPage: (pageId, masterId) => {
-        updateDoc((doc) => assignMasterToPageDoc(doc, pageId, masterId));
+        updateDoc((doc) => assignMasterCommand(doc, { pageId, masterId }));
       },
       setMasterAppliesTo: (masterId, appliesTo) => {
-        updateDoc((doc) => setMasterAppliesToDoc(doc, masterId, appliesTo));
+        updateDoc((doc) => setMasterAppliesToCommand(doc, { masterId, appliesTo }));
+      },
+      setMasterOverride: (pageId, masterNodeId, type, localNodeId) => {
+        updateDoc((doc) =>
+          setMasterOverrideCommand(doc, { pageId, masterNodeId, type, localNodeId }),
+        );
+      },
+      removeMasterOverride: (pageId, masterNodeId) => {
+        updateDoc((doc) => removeMasterOverrideCommand(doc, { pageId, masterNodeId }));
+      },
+      resetMasterOverrides: (pageId) => {
+        updateDoc((doc) => resetMasterOverridesCommand(doc, { pageId }));
       },
       activePageNodesWithMaster: () => {
         const doc = state.document;
