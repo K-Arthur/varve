@@ -1,7 +1,7 @@
 # Varve Panels and Canvas Information Target
 
 Date: 2026-08-29
-Status: target for progressive implementation; changes are intentionally
+Status: target implemented through the first progressive slices; changes remain
 incremental and rollback-friendly.
 
 ## Product target
@@ -167,6 +167,18 @@ state formats are unchanged. No feature is removed or hidden. If future visual
 testing shows that a near-selection label obscures artwork at a specific zoom,
 the rollback is to adjust its placement policy, not to remove the persistent
 selection summary.
+
+## Implemented alignment
+
+- `LayersTree` carries logical sibling position/count alongside virtualization
+  metadata, including filtered results.
+- `PanelResizeHandle` exposes its default or persisted width, range, accessible
+  name, and controlled panel.
+- Responsive Layers, Inspector, and Resources drawers share Escape/backdrop
+  dismissal, return focus to their invoking FAB, and hide closed mounted drawers
+  from the mobile focus tree.
+- `SelectionInfoBar` is a named region with a concise polite status message;
+  pointer-move geometry remains visual-only in the live announcement.
 
 ## Acceptance checklist
 

@@ -14,22 +14,22 @@ layers tree, workspace-driven inspector tabs, keyboard alternatives for page
 and layer reordering, tokenized themes, screen-space selection geometry, and
 responsive side drawers.
 
-The highest-value remaining issues found in this pass are semantic rather than
-visual:
+The highest-value issues found in this pass were semantic rather than visual:
 
 - virtualized layer rows report the flattened tree's position and size as if
   they were sibling metadata;
 - focusable panel splitters do not expose their default current value and do
   not identify the pane they resize;
-- mobile drawer Escape/focus restoration is incomplete for the Resources
+- mobile drawer Escape/focus restoration was incomplete for the Resources
   drawer;
-- the selection strip is visually clear but lacks an explicit status/landmark
+- the selection strip was visually clear but lacked an explicit status/landmark
   name, while the canvas deliberately repeats dimensions near the selected
   artwork for direct manipulation.
 
-No Critical findings were observed. Two High-reach Medium findings are being
-implemented in the first slices (tree metadata and splitters). The mobile
-drawer and selection-strip findings remain queued for the next vertical slice.
+No Critical findings were observed. The four actionable findings are now
+implemented in small, independently committed slices. The near-selection
+geometry remains intentionally duplicated with the persistent strip because it
+serves a different direct-manipulation context.
 
 ## Understanding and boundaries
 
@@ -87,14 +87,32 @@ Captured locally under the ignored artifact directory
 The images were opened and inspected at full-shell scale. The selected image
 shows the same dimensions/position in two contexts; this is retained as an
 intentional pointer-versus-persistent information split, with the persistent
-strip receiving stronger semantics in the next slice.
+strip now has explicit region and concise status semantics.
+
+### Captured after-state
+
+Captured locally under the ignored artifact directory
+`artifacts/ui-ux-panels-canvas/2026-08-29-after/` after the implementation
+slices:
+
+| Artifact | Conditions | Notes |
+|---|---|---|
+| `home.png` | Chromium, 1440×900, DPR 1, empty home | Navigation and empty state remain visually stable |
+| `editor-1440x900.png` | Chromium, 1440×900, DPR 1, blank document | Full shell remains balanced; panel and status chrome are readable |
+| `editor-selected-1440x900.png` | Same, one rectangle selected | Canvas readout, tree selection, inspector, and persistent strip agree |
+| `editor-900x700.png` | Chromium, 900×700, DPR 1, blank document | Compact desktop keeps both panel regions usable |
+| `editor-640x700.png` | Chromium, 640×700, DPR 1, blank document | Closed drawers are off-screen and the three FABs remain available |
+
+The after-state images were reopened and inspected. A browser semantic probe
+observed `Selection information`, a concise selection status message, and
+splitter values `288`/`320` with `aria-controls` targeting the two panel IDs.
 
 ### Runtime and platform coverage
 
 Actually tested: Linux/CachyOS environment, Chromium through the Vite desktop
 entry point, DPR 1, 1440×900, 900×700, and 640×700, light theme, blank and
 single-rectangle documents. Console/page errors were absent during baseline
-capture.
+and after-state capture.
 
 Not tested here: real Tauri window management, Wayland compositor behavior,
 Firefox, Safari/WebKit, Windows/macOS, real touch or pen hardware, screen
@@ -123,15 +141,15 @@ but this document does not claim a fresh pass for them.
 | Feature | Current owner | Scope | Access paths | Finding / disposition |
 |---|---|---|---|---|
 | Workspace switching | `WorkspaceTabs` + shortcut registry | global | tabs, View menu, shortcuts, palette | no issue found; preserve stable ordering |
-| Panel visibility | `Shell` + workspace config | workspace | menu, shortcuts, mobile FABs | mobile Escape/focus gap queued |
-| Panel width | `PanelResizeHandle` + settings | workspace | pointer, keyboard, reset | splitter semantics fixed in slice 1 |
+| Panel visibility | `Shell` + workspace config | workspace | menu, shortcuts, mobile FABs | mobile Escape/focus path fixed |
+| Panel width | `PanelResizeHandle` + settings | workspace | pointer, keyboard, reset | splitter semantics fixed |
 | Layer search/filter | `LayerFilterBar` + indexed `LayersTree` | document | search, chips, clear | no issue found in baseline |
-| Layer selection | `LayersTree` + editor selection context | selection | canvas, tree, breadcrumb | no stale mismatch observed; metadata defect fixed in slice 1 |
+| Layer selection | `LayersTree` + editor selection context | selection | canvas, tree, breadcrumb | no stale mismatch observed; metadata defect fixed |
 | Layer rename | `LayersRow` + tree focus | selection | F2, context menu, inline input | no issue found in baseline |
 | Layer reorder/reparent | `useLayersDnD` + `layerDropResolver` + keyboard commands | document | pointer DnD, keyboard reorder, context menu | no issue found in baseline; retain existing alternatives |
 | Inspector grouping | `sectionRegistry` + `PropertiesPanel` | selection/workspace | tabs, section manager, palette | no issue found; registry is source of truth |
 | Inspector tabs | `PropertiesPanel` | workspace | tablist, shortcuts/palette | APG structure present; preserve automatic activation |
-| Selection dimensions | `SelectionOverlay` + `SelectionInfoBar` | selection/camera | near object, persistent strip | intentional two-context presentation; semantics queued |
+| Selection dimensions | `SelectionOverlay` + `SelectionInfoBar` | selection/camera | near object, persistent strip | intentional two-context presentation; persistent strip named and announced |
 | Selection path | `SelectionBreadcrumb` + selection strip breadcrumbs | selection | breadcrumb, deep selection | no issue found in baseline |
 | Zoom/units/snap | `StatusBar` | camera/document | bottom bar, shortcuts | dense but legible at tested widths |
 | Empty/loading/error states | per-panel owners + shared `EmptyState` | all | panel surface | no issue found in captured blank state |
@@ -170,7 +188,7 @@ tabs or rows.
 | Proposed fix | Derive sibling count/index after flattening, preserving filter and isolation results; pass explicit metadata to each row |
 | Acceptance | nested and filtered rows report 1-based sibling positions; keyboard behavior and virtualization remain unchanged |
 | Verification | `useFlatTree` unit tests, `LayersRow` semantic assertions, layers axe E2E |
-| Confidence / status | High / implementing |
+| Confidence / status | High / implemented |
 
 #### PNL-02 — Focusable panel splitters omit their default current value and controlled pane
 
@@ -188,8 +206,8 @@ tabs or rows.
 | Standards | WAI-ARIA Window Splitter pattern; focusable `separator` requires range value metadata |
 | Proposed fix | Resolve the same default width used by the shell, always emit `aria-valuenow`, and point `aria-controls` at the side panel |
 | Acceptance | fresh and persisted sessions expose a numeric current width within min/max; arrow/Home/End behavior remains unchanged |
-| Verification | focused component tests and panel E2E geometry/keyboard checks |
-| Confidence / status | High / implementing |
+| Verification | focused component tests, browser semantic probe, and unchanged keyboard behavior |
+| Confidence / status | High / implemented |
 
 #### PNL-03 — Resources mobile drawer lacks the shared Escape/focus-return path
 
@@ -197,24 +215,24 @@ tabs or rows.
 |---|---|
 | Surface | Resources FAB and responsive Resources drawer at ≤899px |
 | User task | Open a utility drawer, dismiss it without a pointer, and resume canvas work |
-| Evidence | `Shell.tsx` Escape effect watches layers/inspector only; Resources is toggled through editor state; baseline 640px screenshot shows the Resources FAB path |
+| Evidence | `Shell.tsx` Escape effect watched layers/inspector only; Resources was toggled through editor state; baseline 640px screenshot showed the Resources FAB path |
 | Expected | Escape, backdrop, and the explicit trigger close the drawer and return focus to the trigger |
-| Actual | Escape handling is not shared with Resources and close paths do not consistently restore trigger focus |
+| Actual | Escape handling was not shared with Resources, close paths did not consistently restore trigger focus, and closed mounted drawers remained in the focus tree |
 | Root cause | local mobile panel state and editor-owned library state use separate dismissal logic |
 | Impact / reach | Medium impact; medium reach because it affects compact layouts and keyboard users |
 | Severity | Medium |
 | Inputs | keyboard, touch, screen reader |
 | Standards | WCAG 2.4.3/2.4.11; drawer focus-management convention |
-| Proposed fix | Centralize responsive drawer close/focus restoration and include Resources |
+| Proposed fix | Centralize responsive drawer close/focus restoration, include Resources, and hide closed mounted drawers from the focus tree |
 | Acceptance | all three drawers close by Escape/backdrop/trigger and focus returns to the invoking FAB |
 | Verification | focused E2E at 640px and manual keyboard pass |
-| Confidence / status | High / queued |
+| Confidence / status | High / implemented |
 
 ### Low findings
 
 | ID | Surface | Issue | Disposition |
 |---|---|---|---|
-| PNL-04 | Selection information strip | No explicit accessible name/status role; changing selection is less discoverable nonvisually | queue with PNL-03; avoid noisy live updates during pointer drags |
+| PNL-04 | Selection information strip | No explicit accessible name/status role; changing selection is less discoverable nonvisually | implemented as a named region plus concise identity/count status; geometry is not live-announced |
 | PNL-05 | Selection overlay | Dimensions/position appear both near the object and in the bottom strip | retain: near-object data is manipulation context, strip is persistent summary; document this split |
 | PNL-06 | Layers/inspector headers | Visual titles are not consistently heading elements | existing named landmarks are adequate for the tested surface; consider shared heading primitive only if a concrete navigation failure is found |
 | PNL-07 | Status bar | Many compact controls share one horizontal strip | no clipping at tested widths; run 200%/localization pass before changing stable ordering |
@@ -255,9 +273,9 @@ tabs or rows.
 
 ## Priority plan
 
-1. Fix PNL-01 and PNL-02 with focused unit tests.
-2. Fix PNL-03 through a small responsive drawer controller change and E2E.
-3. Add named selection status semantics without making pointer updates noisy.
-4. Run the affected planner, focused tests, layers/a11y E2E, and visual captures.
+1. Complete PNL-01 and PNL-02 with focused unit tests. Done.
+2. Complete PNL-03 through a small responsive drawer controller change and E2E. Done.
+3. Add named selection status semantics without making pointer updates noisy. Done.
+4. Run the affected planner, focused tests, layers/a11y E2E, and visual captures. In progress.
 5. Re-open all after-state screenshots and record limitations in the verification
-   document.
+   document. In progress.
