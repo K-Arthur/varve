@@ -221,7 +221,11 @@ describe('fault injection', () => {
     const store = createMemoryHistoryStore();
     const doc = {} as Document;
     const segments = [segment(0, 1, 2)];
-    const revs = [revision('r-1', [], canonicalHash(doc))];
+    const hash = canonicalHash(doc);
+    // A snapshot-only root is a valid healthy history head. Give the
+    // synthetic fixture the snapshot reference that real genesis revisions
+    // always carry, so semantic recovery can verify it as well as its log.
+    const revs = [{ ...revision('r-1', [], hash), snapshotId: hash }];
     await seedStore(store, doc, segments, revs, { main: 'r-1' });
     // Recover a healthy store: no truncation, head untouched.
     const report = await recoverTail(store, DOC_ID, { applyTruncation: true });
