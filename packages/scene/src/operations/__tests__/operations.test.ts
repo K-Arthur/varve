@@ -30,6 +30,7 @@ describe('operation registry', () => {
     expect(hasOperation('node.reorder')).toBe(true);
     expect(hasOperation('node.rename')).toBe(true);
     expect(hasOperation('page.rename')).toBe(true);
+    expect(hasOperation('page.set-layout')).toBe(true);
     expect(hasOperation('node.patch')).toBe(true);
     expect(hasOperation('document.set')).toBe(true);
     expect(hasOperation('asset.register')).toBe(true);
@@ -114,6 +115,28 @@ describe('node ops', () => {
     doc = applyOperation(doc, 'node.delete', { nodeId: 'n1_aaaa' });
     expect(doc.nodes.n1_aaaa).toBeUndefined();
     expect(doc.rootChildren).toEqual([]);
+  });
+});
+
+describe('page layout ops', () => {
+  it('validates and applies a page-local layout as one operation', () => {
+    const doc = createDocument('print');
+    const pageId = doc.pages?.[0]?.id;
+    if (!pageId) throw new Error('expected default page');
+    const layout = {
+      margins: { top: 12, bottom: 18, inside: 24, outside: 30 },
+      columns: { count: 2, gutter: 16 },
+    };
+    const result = validatePayload('page.set-layout', { pageId, layout });
+    expect(result.ok).toBe(true);
+    const next = applyOperation(doc, 'page.set-layout', { pageId, layout });
+    expect(next.pages?.[0]?.layout).toEqual(layout);
+    expect(
+      validatePayload('page.set-layout', {
+        pageId,
+        layout: { margins: layout.margins, columns: { count: 0, gutter: 0 } },
+      }).ok,
+    ).toBe(false);
   });
 });
 

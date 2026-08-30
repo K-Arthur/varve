@@ -13,6 +13,7 @@ export { isAllowedPropertyPath, type NodeCreatePayload } from './ops/nodeOps';
 export type {
   PageCreatePayload,
   PageDeletePayload,
+  PageLayoutPayload,
   PageMoveOnPasteboardPayload,
   PageRenamePayload,
   PageResizePayload,

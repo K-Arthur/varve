@@ -19,6 +19,7 @@ import {
   setPageSizeWithContentScale,
 } from '../../document';
 import type { DeletePagePolicy } from '../../document-pages';
+import { setPageLayout, validatePageLayoutSettings } from '../../pageLayout';
 import type { NodeId } from '../../types';
 import { registerOperation } from '../registry';
 import type { ValidationResult } from '../types';
@@ -125,6 +126,13 @@ export interface PageMoveOnPasteboardPayload {
   pageId: NodeId;
   x: number;
   y: number;
+}
+
+// ── page.set-layout ─────────────────────────────────────────────────────────
+
+export interface PageLayoutPayload {
+  pageId: NodeId;
+  layout: import('../../types').PageLayoutSettings;
 }
 
 /** Register the page.* operation family (idempotent guard inside registry). */
@@ -398,6 +406,48 @@ export function registerPageOperations(): void {
     },
     precondition(document, payload) {
       if (!document.pages?.some((p) => p.id === payload.pageId)) {
+        return `page does not exist: ${payload.pageId}`;
+      }
+      return null;
+    },
+    maxPayloadBytes: 8_000,
+  });
+
+  registerOperation<PageLayoutPayload>({
+    type: 'page.set-layout',
+    schemaVersion: 1,
+    validate(payload) {
+      if (typeof payload !== 'object' || payload === null) {
+        return { ok: false, errors: ['page.set-layout payload must be an object'] };
+      }
+      const p = payload as Record<string, unknown>;
+      if (typeof p.pageId !== 'string' || p.pageId.length === 0) {
+        return { ok: false, errors: ['page.set-layout requires pageId'] };
+      }
+      const layoutIssues = validatePageLayoutSettings(p.layout);
+      if (layoutIssues.length > 0) {
+        return {
+          ok: false,
+          errors: layoutIssues.map((issue) => issue.message),
+        };
+      }
+      return { ok: true, value: p as unknown as PageLayoutPayload };
+    },
+    apply(document, payload) {
+      return setPageLayout(document, payload.pageId, payload.layout);
+    },
+    summarize(payload) {
+      return {
+        label: 'Set page layout',
+        kind: 'modify',
+        affectedEntityIds: [payload.pageId],
+      };
+    },
+    affectedEntities(payload) {
+      return [payload.pageId];
+    },
+    precondition(document, payload) {
+      if (!document.pages?.some((page) => page.id === payload.pageId)) {
         return `page does not exist: ${payload.pageId}`;
       }
       return null;

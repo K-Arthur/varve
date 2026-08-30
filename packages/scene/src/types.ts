@@ -1922,6 +1922,8 @@ export interface Page {
   rulerOrigin?: { x: number; y: number };
   /** ID of the master page applied to this page (unset = no master). */
   masterPageId?: NodeId;
+  /** Optional page-layout override; values are canonical document pixels. */
+  layout?: PageLayoutSettings;
   /** Per-node overrides against the applied master. Keyed by master node ID. */
   masterOverrides?: Record<NodeId, MasterOverride>;
   /** Print/export settings for this page. */
@@ -1968,6 +1970,28 @@ export interface MasterPage {
   appliesTo: MasterAppliesTo;
   /** Optional description shown in the masters panel. */
   description?: string;
+  /** Optional layout defaults inherited by pages using this master. */
+  layout?: PageLayoutSettings;
+}
+
+/**
+ * Publishing-page layout settings. These are deliberately separate from a
+ * frame's responsive auto-layout: margins/columns describe the page's
+ * composition guides and never reposition authored objects by themselves.
+ * Values are stored in canonical document pixels; the UI may present them in
+ * another unit without changing the persisted geometry.
+ */
+export interface PageLayoutSettings {
+  margins: {
+    top: number;
+    bottom: number;
+    inside: number;
+    outside: number;
+  };
+  columns: {
+    count: number;
+    gutter: number;
+  };
 }
 
 // ── Arrange operations ─────────────────────────────────────────────────────────

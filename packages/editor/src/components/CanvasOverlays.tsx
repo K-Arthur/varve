@@ -39,6 +39,7 @@ import { MeshWarpOverlay } from './MeshWarpOverlay';
 import { MotionPathOverlay } from './MotionPathOverlay';
 import { NodeEditOverlay } from './NodeEditOverlay';
 import { OnionSkinOverlay } from './OnionSkinOverlay';
+import { PageLayoutOverlay } from './PageLayoutOverlay';
 import { PagePrintOverlays } from './PagePrintOverlays';
 import { PageToolOverlay } from './PageToolOverlay';
 import { PerspectiveOverlay } from './PerspectiveOverlay';
@@ -633,6 +634,13 @@ export function CanvasOverlays({
       )}
       <ZoomIndicator zoom={zoom} />
       <PageToolOverlay
+        document={doc}
+        activePageId={editor.state.document.activePageId ?? null}
+        tool={tool}
+        zoom={zoom}
+        worldToCanvas={(wx, wy) => editor.worldToCanvas(wx, wy)}
+      />
+      <PageLayoutOverlay
         document={doc}
         activePageId={editor.state.document.activePageId ?? null}
         tool={tool}

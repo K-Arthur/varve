@@ -191,6 +191,8 @@ export interface Document {
   gridSettings?: import('./types').DocumentGridSettings;
   /** Pages (v1.2+). When unset, the document is in flat (pre-page) mode. */
   pages?: Page[];
+  /** Default publishing-page margins and columns; page/master values override it. */
+  pageLayout?: import('./types').PageLayoutSettings;
   /** State machines for prototype interactions (v1.3). */
   stateMachines?: Record<string, import('./state-machine-types').StateMachine>;
 

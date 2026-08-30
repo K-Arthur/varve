@@ -53,6 +53,7 @@ const DOCUMENT_KEY_ORDER: readonly string[] = [
   'nodes',
   'components',
   'pages',
+  'pageLayout',
   'spreads',
   'sections',
   'facingPages',

@@ -101,6 +101,7 @@ export * from './motion-types';
 export * from './newDocument';
 export * from './nodeBounds';
 export * from './operations';
+export * from './pageLayout';
 export * from './pageNumbering';
 export * from './pageOwnership';
 export * from './pageRange';

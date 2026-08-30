@@ -6,12 +6,13 @@
  * context setters. Document defaults stay untouched unless overridden.
  */
 
-import type { BleedConfig, SafeAreaConfig, SlugConfig } from '@varve/scene';
-import { resolvePagePrintGeometry, updateBleedEdge } from '@varve/scene';
+import type { BleedConfig, PageLayoutSettings, SafeAreaConfig, SlugConfig } from '@varve/scene';
+import { resolvePageLayout, resolvePagePrintGeometry, updateBleedEdge } from '@varve/scene';
 import { BUILTIN_PRESET_GROUPS, physicalToPx, pxToPhysical } from '@varve/shared';
 import { Select } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
+import { setPageLayoutCommand } from '../../../pageCommands';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
@@ -115,12 +116,16 @@ function EdgeFields({
 }
 
 export function PagePrintSection() {
-  const { state, setPageBleed, setPageSafeArea, setPageSlug, resizePage } = useEditor();
+  const { state, updateDoc, setPageBleed, setPageSafeArea, setPageSlug, resizePage } = useEditor();
   const doc = state.document;
   const pageId = doc.activePageId;
 
   const geometry = useMemo(
     () => (pageId ? resolvePagePrintGeometry(doc, pageId) : null),
+    [doc, pageId],
+  );
+  const layoutGeometry = useMemo(
+    () => (pageId ? resolvePageLayout(doc, pageId) : null),
     [doc, pageId],
   );
   const page = useMemo(
@@ -215,7 +220,20 @@ export function PagePrintSection() {
     [pageId, resizePage],
   );
 
-  if (state.tool !== 'page' || !pageId || !geometry) return null;
+  const updateLayout = useCallback(
+    (updater: (current: PageLayoutSettings) => PageLayoutSettings) => {
+      if (!pageId || !layoutGeometry) return;
+      updateDoc((currentDoc) =>
+        setPageLayoutCommand(currentDoc, {
+          pageId,
+          layout: updater(layoutGeometry.settings),
+        }),
+      );
+    },
+    [layoutGeometry, pageId, updateDoc],
+  );
+
+  if (state.tool !== 'page' || !pageId || !geometry || !layoutGeometry) return null;
 
   // Display in each config's own unit: resolved values are document px, the
   // fields edit physical units (mm/in/pt for print docs). UI display
@@ -284,6 +302,58 @@ export function PagePrintSection() {
         >
           Swap orientation
         </button>
+        <h4 className="page-print__sub">Layout guides</h4>
+        <div className="page-print__edges">
+          {(['top', 'bottom', 'inside', 'outside'] as const).map((edge) => (
+            <NumberField
+              key={edge}
+              label={`Margin ${edge}`}
+              value={layoutGeometry.settings.margins[edge]}
+              unit="px"
+              min={0}
+              max={10_000_000}
+              onChange={(value) =>
+                updateLayout((current) => ({
+                  ...current,
+                  margins: { ...current.margins, [edge]: value },
+                }))
+              }
+            />
+          ))}
+        </div>
+        <div className="page-print__edges">
+          <NumberField
+            label="Columns"
+            value={layoutGeometry.settings.columns.count}
+            min={1}
+            max={100}
+            step={1}
+            onChange={(value) =>
+              updateLayout((current) => ({
+                ...current,
+                columns: { ...current.columns, count: Math.round(value) },
+              }))
+            }
+          />
+          <NumberField
+            label="Column gutter"
+            value={layoutGeometry.settings.columns.gutter}
+            unit="px"
+            min={0}
+            max={10_000_000}
+            onChange={(value) =>
+              updateLayout((current) => ({
+                ...current,
+                columns: { ...current.columns, gutter: value },
+              }))
+            }
+          />
+        </div>
+        {layoutGeometry.issues.length > 0 && (
+          <div className="page-print__warning" role="status">
+            {layoutGeometry.issues[0]?.message}
+          </div>
+        )}
         <h4 className="page-print__sub">Bleed</h4>
         <EdgeFields
           label="Bleed"

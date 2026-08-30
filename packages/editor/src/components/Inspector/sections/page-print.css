@@ -26,3 +26,8 @@
   color: var(--color-text-secondary);
   cursor: pointer;
 }
+
+.page-print__warning {
+  color: var(--color-text-warning, var(--color-text-secondary));
+  font-size: var(--font-size-xs);
+}

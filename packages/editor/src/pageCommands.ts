@@ -12,6 +12,7 @@ import {
   type NodeId,
   type PageCreatePayload,
   type PageDeletePayload,
+  type PageLayoutPayload,
   type PageMoveOnPasteboardPayload,
   type PageRenamePayload,
   type PageResizePayload,
@@ -67,4 +68,8 @@ export function resizePageCommand(doc: Document, payload: PageResizePayload): Do
 
 export function movePageCommand(doc: Document, payload: PageMoveOnPasteboardPayload): Document {
   return applyPageOperation(doc, 'page.move-on-pasteboard', payload);
+}
+
+export function setPageLayoutCommand(doc: Document, payload: PageLayoutPayload): Document {
+  return applyPageOperation(doc, 'page.set-layout', payload);
 }
