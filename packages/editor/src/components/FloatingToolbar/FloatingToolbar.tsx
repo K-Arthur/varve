@@ -1,4 +1,5 @@
 import type { BooleanOpKind } from '@varve/scene';
+import { rgbToHex } from '@varve/shared';
 import type { IconName, MenuEntry } from '@varve/ui';
 import { ContextMenu, Icon, Toolbar, Tooltip, TooltipProvider } from '@varve/ui';
 import { useMemo, useState } from 'react';
@@ -225,14 +226,6 @@ function MoreToolsButton({ expanded, onToggle }: MoreToolsButtonProps) {
   );
 }
 
-function rgbToHex(rgba: [number, number, number, number]): string {
-  const toHex = (n: number) =>
-    Math.max(0, Math.min(255, Math.round(n)))
-      .toString(16)
-      .padStart(2, '0');
-  return `#${toHex(rgba[0])}${toHex(rgba[1])}${toHex(rgba[2])}`;
-}
-
 function hexToRgba(hex: string): [number, number, number, number] {
   const clean = hex.replace('#', '');
   const r = Number.parseInt(clean.slice(0, 2), 16);
@@ -245,8 +238,16 @@ function DrawingToolbarControls() {
   const { state, setBrushSetting, setForegroundColor, setBackgroundColor, swapColors } =
     useEditor();
 
-  const fgHex = rgbToHex(state.foregroundColor);
-  const bgHex = rgbToHex(state.backgroundColor);
+  const fgHex = rgbToHex(
+    state.foregroundColor[0],
+    state.foregroundColor[1],
+    state.foregroundColor[2],
+  );
+  const bgHex = rgbToHex(
+    state.backgroundColor[0],
+    state.backgroundColor[1],
+    state.backgroundColor[2],
+  );
 
   return (
     <div className="floating-toolbar__drawing">
