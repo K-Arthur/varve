@@ -117,5 +117,34 @@ were left untouched and are not part of these commits.
 The scoped remediation is implemented and browser-verified for the supported
 local environment above. The remaining repository-wide typecheck and
 architecture-audit limitations are recorded rather than attributed to these
-UI changes. The final impact-aware validation result is appended below after
-`pnpm verify:affected` completes.
+UI changes.
+
+## Final Agent Validation Report
+
+```text
+Changed scope: panel/canvas audit docs; Layers tree semantics; panel splitter semantics;
+responsive panel drawer dismissal/focus; selection information semantics; one missing
+MockupsPanel Icon import exposed by browser verification.
+Validation plan: pnpm verify:plan selected Tier 0–4 for the shared dirty worktree
+and escalated to the full gate because concurrent workspace/validation-infrastructure
+changes were present.
+Commands actually run: pnpm verify:plan; pnpm verify:affected; pnpm verify:full with
+VARVE_FULL_GATE_REASON; focused Biome/Vitest/typecheck:e2e; responsive drawer E2E;
+Layers accessibility/axe E2E; audit:docs; audit:emoji; audit:tokens; architecture audit.
+Passed: focused UI tests, E2E interaction/axe checks, e2e typecheck, docs/emoji/token
+audits, staged pre-commit health/import/secret/contact checks, visual/semantic probe.
+Skipped as unrelated: no unrelated files were staged; full downstream packages after
+the full gate stopped at the existing engine typecheck failure.
+Escalations: full gate was required by the affected planner; architecture scan was
+run and reported existing cycles/instability/budget warnings.
+Full suite run: yes, verify:full was started under the explicit planner escalation.
+If yes, reason: pre-existing workspace and validation-infrastructure edits made the
+affected planner require the Tier 5 gate.
+```
+
+`pnpm verify:affected` itself exited 2 after planning because it required
+`pnpm verify:full`. The full gate then exited 1 at `@varve/engine` typecheck
+before downstream editor checks, with existing GPU canvas, scene-type, and warp
+test errors. A direct current `pnpm --filter @varve/editor typecheck` also exits
+2 on existing mask replay, nudge, export-region, selection-arrangement, and
+NodeEditTool typing errors; none reference the scoped remediation files.
