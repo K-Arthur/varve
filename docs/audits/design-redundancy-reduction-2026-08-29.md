@@ -171,6 +171,7 @@ slice; the action and UI tests cover the changed behavior.
 | `b8eda7a9a` | Mark shortcut placeholders and hide them from executable Quick Actions |
 | `c15093b22` | Preserve the local Quick Actions keyboard fallback when a shortcut entry is still a placeholder |
 | `5dcf78ee8` | Refresh Quick Actions after the registry registration effect has populated it |
+| `9e4215360` | Render palette search placeholders as user-facing text instead of literal escape sequences |
 
 ## Validation report
 
@@ -192,9 +193,11 @@ Commands run and results:
 - `pnpm exec vitest run packages/editor/src/Menubar.test.tsx --reporter=verbose`: passed, 21/21.
 - `pnpm exec vitest run packages/editor/src/shortcuts/useShortcuts.test.ts --reporter=verbose`: passed, 1/1.
 - `pnpm exec vitest run packages/editor/src/components/QuickActionsBar/QuickActionsBar.test.tsx --reporter=verbose`: passed, 18/18.
+- `pnpm exec vitest run packages/editor/src/components/QuickActionsBar/QuickActionsBar.test.tsx packages/editor/src/shortcuts/ShortcutPalette.test.tsx --reporter=verbose`: passed, 36/36.
 - `pnpm exec tsc -p packages/editor/tsconfig.json --noEmit --pretty false`: passed for the menubar slice; the later workspace-wide run is listed below.
 - `pnpm verify:plan --staged`: passed and selected the affected editor plan with no full-suite escalation.
-- Clean temporary-worktree browser pass: home screen, new-document editor, View menu, and shortcut palette rendered; the Quick Actions shortcut opened its dialog after the registry refresh fix. Screenshots were inspected from `/tmp` and were not added to the repository.
+- `node scripts/audit-architecture.mjs --ci`: completed with 15 total distinct cycles and no layer violations; existing hub-budget warnings remain in the current integration tree.
+- Clean temporary-worktree browser pass: home screen, new-document editor, View menu, Quick Actions, and shortcut palette rendered with no page errors. Quick Actions opened with 12 options, and both search placeholders rendered as `...`. Screenshots were inspected from `/tmp` and were not added to the repository.
 
 Known unrelated failures and skips:
 
@@ -202,6 +205,10 @@ Known unrelated failures and skips:
   existing/concurrent canvas, document-fixture, and type-contract files
   (`maskReplay`, `renderPipeline`, nudge/export-region fixtures, selection
   arrangement, and NodeEditTool). None is in these commits.
+- `pnpm verify:affected` was invoked for the whole dirty worktree but stopped
+  at the repository's explicit full-gate escalation because the concurrent
+  scratch Playwright config changes validation infrastructure. The full gate
+  was intentionally not run for this focused implementation.
 - The repository pre-commit emoji audit was blocked by concurrent comments in
   `packages/shared/src/colorConversion.ts` and a concurrent star glyph in
   `packages/editor/src/components/Inspector/sections/EffectStudioSection.tsx`;
