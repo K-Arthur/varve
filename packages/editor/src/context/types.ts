@@ -828,7 +828,8 @@ export interface EditorContextValue {
   ) => void;
   /** Reset image node to source image natural dimensions. */
   resetImageBounds: () => void;
-  beginTransaction: () => void;
+  /** Start an undo-coalesced edit; preview transactions stay clean until commit. */
+  beginTransaction: (mode?: 'edit' | 'preview') => void;
   commitTransaction: () => void;
   abortTransaction: () => void;
   undo: () => void;

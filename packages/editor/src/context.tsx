@@ -1036,8 +1036,8 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
     target: string,
     binding: import('@varve/scene').PropertyBinding | null,
   ) => void;
-  /** F6: transaction API — begin, commit, abort for single-undo scrubbing. */
-  beginTransaction: () => void;
+  /** Start an undo-coalesced edit; preview transactions stay clean until commit. */
+  beginTransaction: (mode?: 'edit' | 'preview') => void;
   commitTransaction: () => void;
   abortTransaction: () => void;
   /** Typography: Create a text chain for linked text frames. */
@@ -2729,8 +2729,10 @@ export function EditorProvider({
 
   /** F6: transaction state for single-undo scrubbing. */
   const inTransactionRef = useRef(false);
+  const transactionModeRef = useRef<'edit' | 'preview'>('edit');
   const txSnapshotRef = useRef<Document | null>(null);
   const txSelRef = useRef<NodeId[] | null>(null);
+  const txBaseDocumentRevisionRef = useRef<number | null>(null);
   const interactionState = useInteractionState();
   /** Auto-save + versioned-backup services (absent in an auxiliary projection). */
   const { autoSaveRef, backupRef, recoveryRef } = useAutoBackupServices(
@@ -2931,6 +2933,8 @@ export function EditorProvider({
 
       areaUndoStackRef.current = [];
       areaRedoStackRef.current = [];
+      const isPreviewTransaction =
+        inTransactionRef.current && transactionModeRef.current === 'preview';
       if (!inTransactionRef.current) {
         undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
         undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
@@ -2939,7 +2943,7 @@ export function EditorProvider({
         redoSelStackRef.current = [];
         redoLabelsRef.current = [];
       }
-      if (onMutationRef.current) {
+      if (onMutationRef.current && !isPreviewTransaction) {
         lastMutatedDocRef.current = {
           documentJson: JSON.stringify(newDoc),
           baseDocumentRevision: mutationBaseDocumentRevision,
@@ -2952,15 +2956,15 @@ export function EditorProvider({
         documentGrid: synced.documentGrid,
         isometricGrid: synced.isometricGrid,
         snapGrid: synced.documentGrid.spacingX,
-        dirty: true,
-        canUndo: true,
-        canRedo: false,
-        undoLabel: 'Edit',
-        redoLabel: 'Redo',
-        revision: s.revision + 1,
-        sessions: s.sessions.map((sess) =>
-          sess.id === s.activeId ? { ...sess, dirty: true } : sess,
-        ),
+        dirty: isPreviewTransaction ? s.dirty : true,
+        canUndo: isPreviewTransaction ? s.canUndo : true,
+        canRedo: isPreviewTransaction ? s.canRedo : false,
+        undoLabel: isPreviewTransaction ? s.undoLabel : 'Edit',
+        redoLabel: isPreviewTransaction ? s.redoLabel : 'Redo',
+        revision: isPreviewTransaction ? s.revision : s.revision + 1,
+        sessions: isPreviewTransaction
+          ? s.sessions
+          : s.sessions.map((sess) => (sess.id === s.activeId ? { ...sess, dirty: true } : sess)),
       };
     });
   }, []);
@@ -3028,14 +3032,16 @@ export function EditorProvider({
 
   // F6: transaction API — begin/commit/abort for single-undo scrubbing
   // P5: Wired to @varve/collab transaction hooks for Yjs integration
-  const beginTransaction = useCallback(() => {
+  const beginTransaction = useCallback((mode: 'edit' | 'preview' = 'edit') => {
     inTransactionRef.current = true;
+    transactionModeRef.current = mode;
     // Gesture callbacks can be retained by portaled controls across a
     // document render. Read the synchronous ref so a transaction always
     // snapshots the document the user is actually seeing, not the closure's
     // previous render.
     txSnapshotRef.current = stateRef.current.document;
     txSelRef.current = stateRef.current.selection;
+    txBaseDocumentRevisionRef.current = documentRevisionRef.current;
     getTransactionHooks().onBeginTransaction();
   }, []);
 
@@ -3046,6 +3052,7 @@ export function EditorProvider({
     // on top of the real snapshot, making the first Undo appear to do nothing.
     setState((current) => {
       if (inTransactionRef.current) {
+        const transactionMode = transactionModeRef.current;
         inTransactionRef.current = false;
         // Only record an undo entry if the transaction actually changed the
         // document. The document is updated immutably (structural sharing), so
@@ -3075,10 +3082,33 @@ export function EditorProvider({
             historySkipRef.current = true;
             persistentNow.capture(before, current.document, 'Edit', 'modify');
           }
+          if (transactionMode === 'preview' && onMutationRef.current) {
+            lastMutatedDocRef.current = {
+              documentJson: JSON.stringify(current.document),
+              baseDocumentRevision:
+                txBaseDocumentRevisionRef.current ?? documentRevisionRef.current,
+            };
+          }
         }
         txSnapshotRef.current = null;
         txSelRef.current = null;
+        txBaseDocumentRevisionRef.current = null;
+        transactionModeRef.current = 'edit';
         getTransactionHooks().onCommitTransaction();
+        if (transactionMode === 'preview' && changed) {
+          return {
+            ...current,
+            dirty: true,
+            canUndo: true,
+            canRedo: false,
+            undoLabel: 'Edit',
+            redoLabel: 'Redo',
+            revision: current.revision + 1,
+            sessions: current.sessions.map((sess) =>
+              sess.id === current.activeId ? { ...sess, dirty: true } : sess,
+            ),
+          };
+        }
       }
       return current;
     });
@@ -3092,6 +3122,8 @@ export function EditorProvider({
       }
       txSnapshotRef.current = null;
       txSelRef.current = null;
+      txBaseDocumentRevisionRef.current = null;
+      transactionModeRef.current = 'edit';
       getTransactionHooks().onAbortTransaction();
     }
   }, [patch]);

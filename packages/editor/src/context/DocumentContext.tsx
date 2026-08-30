@@ -88,7 +88,8 @@ export interface DocumentContextValue {
     axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom',
     reference?: 'selection' | 'container' | 'page',
   ) => void;
-  beginTransaction: () => void;
+  /** Start an undo-coalesced edit; preview transactions stay clean until commit. */
+  beginTransaction: (mode?: 'edit' | 'preview') => void;
   commitTransaction: () => void;
   abortTransaction: () => void;
   undo: () => void;
