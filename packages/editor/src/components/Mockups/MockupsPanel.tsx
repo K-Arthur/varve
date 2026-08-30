@@ -13,7 +13,7 @@
 
 import type { MockupCategory, MockupTemplateAsset, NodeId } from '@varve/scene';
 import { getBuiltinMockupTemplates } from '@varve/scene';
-import { Button, SearchField } from '@varve/ui';
+import { Button, Icon, SearchField } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { applyMockupToSources, templatesForDocument } from '../../mockup/mockupActions';

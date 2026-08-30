@@ -1877,6 +1877,13 @@ input[type="number"] {
   .editor__logo-panel {
     transform: translateX(0);
   }
+  /* Hidden drawers stay mounted for state preservation, but must not remain
+     in the keyboard/focus tree while translated off-screen. */
+  .editor__layers-panel:not([data-visible]),
+  .editor__inspector-panel:not([data-visible]),
+  .editor__library-panel:not([data-visible]) {
+    visibility: hidden;
+  }
 
   .editor-status {
     font-size: var(--font-size-2xs);

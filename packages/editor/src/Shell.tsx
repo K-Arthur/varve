@@ -229,6 +229,7 @@ function ShellInner({
   }, [openFile, editor]);
   const fileRef = useRef<HTMLInputElement>(null);
   const fileImport = useFileImport(editor);
+  const responsivePanelTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -262,20 +263,6 @@ function ShellInner({
     window.addEventListener('varve:open-privacy-settings', openPrivacy);
     return () => window.removeEventListener('varve:open-privacy-settings', openPrivacy);
   }, []);
-
-  // Responsive panel drawers (<=899px) previously closed only by clicking the
-  // backdrop, so keyboard and switch users had no dismissal path once a
-  // drawer covered the canvas.
-  useEffect(() => {
-    if (!layersVisible && !inspectorVisible) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      setLayersVisible(false);
-      setInspectorVisible(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [layersVisible, inspectorVisible]);
 
   // Register all actions into the ActionRegistry.
   // NOTE: registerEditorActions MUST run first so its handlers take
@@ -361,6 +348,28 @@ function ShellInner({
     workspaceMode,
     distractionFreeMode,
   } = editor.state;
+  const closeResponsivePanels = useCallback(() => {
+    if (!layersVisible && !inspectorVisible && !libraryPanelVisible) return;
+    setLayersVisible(false);
+    setInspectorVisible(false);
+    if (libraryPanelVisible) editor.toggleLibraryPanel();
+    const trigger = responsivePanelTriggerRef.current;
+    window.requestAnimationFrame(() => trigger?.focus());
+  }, [editor, inspectorVisible, layersVisible, libraryPanelVisible]);
+
+  // Responsive panel drawers (<=899px) close with Escape and return focus to
+  // the trigger that opened them, so keyboard and switch users do not lose
+  // their place behind a mobile drawer.
+  useEffect(() => {
+    if (!layersVisible && !inspectorVisible && !libraryPanelVisible) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      closeResponsivePanels();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [closeResponsivePanels, inspectorVisible, layersVisible, libraryPanelVisible]);
+
   const gridStyle: React.CSSProperties = { ...shellStyle };
   if (!leftPanelVisible) (gridStyle as Record<string, string>)['--sidebar-width'] = '0px';
   if (!rightPanelVisible) (gridStyle as Record<string, string>)['--inspector-width'] = '0px';
@@ -710,7 +719,10 @@ function ShellInner({
             <button
               type="button"
               className="editor__fab editor__fab--layers"
-              onClick={() => setLayersVisible((v) => !v)}
+              onClick={(event) => {
+                responsivePanelTriggerRef.current = event.currentTarget;
+                setLayersVisible((v) => !v);
+              }}
               aria-expanded={layersVisible}
               aria-label={layersVisible ? 'Hide layers panel' : 'Show layers panel'}
             >
@@ -720,7 +732,10 @@ function ShellInner({
             <button
               type="button"
               className="editor__fab editor__fab--inspector"
-              onClick={() => setInspectorVisible((v) => !v)}
+              onClick={(event) => {
+                responsivePanelTriggerRef.current = event.currentTarget;
+                setInspectorVisible((v) => !v);
+              }}
               aria-expanded={inspectorVisible}
               aria-label={inspectorVisible ? 'Hide inspector panel' : 'Show inspector panel'}
             >
@@ -730,7 +745,10 @@ function ShellInner({
             <button
               type="button"
               className="editor__fab editor__fab--library"
-              onClick={() => editor.toggleLibraryPanel()}
+              onClick={(event) => {
+                responsivePanelTriggerRef.current = event.currentTarget;
+                editor.toggleLibraryPanel();
+              }}
               aria-expanded={libraryPanelVisible}
               aria-label={libraryPanelVisible ? 'Hide resources panel' : 'Show resources panel'}
             >
@@ -743,11 +761,7 @@ function ShellInner({
               // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismisses panels
               <div
                 className="editor__panel-backdrop"
-                onClick={() => {
-                  setLayersVisible(false);
-                  setInspectorVisible(false);
-                  if (libraryPanelVisible) editor.toggleLibraryPanel();
-                }}
+                onClick={closeResponsivePanels}
                 role="presentation"
               />
             )}
