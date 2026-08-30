@@ -86,7 +86,7 @@ const MULTI_PAGE_FIXTURE = {
   id: 'multi-0000-0000-0000-000000000002',
   formatVersion: '2.0',
   name: 'multi-page',
-  rootChildren: ['page1Root'],
+  rootChildren: ['page1Root', 'page2Root'],
   nodes: {
     page1Root: {
       id: 'page1Root',
@@ -102,6 +102,22 @@ const MULTI_PAGE_FIXTURE = {
       transform: [1, 0, 0, 1, 0, 0],
       fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
       children: [],
+      effects: [],
+    },
+    page2Root: {
+      id: 'page2Root',
+      kind: 'group',
+      name: 'Page 2 Content',
+      layerColor: null,
+      order: 'a1',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+      children: ['page2Rect'],
       effects: [],
     },
     page2Rect: {
@@ -124,7 +140,7 @@ const MULTI_PAGE_FIXTURE = {
     },
   },
   components: {},
-  nextId: 3,
+  nextId: 4,
   activePageId: 'pg1',
   globalChildren: [],
   pages: [
@@ -144,7 +160,7 @@ const MULTI_PAGE_FIXTURE = {
       width: 1920,
       height: 1080,
       backgrounds: [],
-      contentRoot: 'page2Rect',
+      contentRoot: 'page2Root',
     },
   ],
 };
@@ -294,9 +310,14 @@ test.describe('Navigation to finding', () => {
   test('navigates to a node on a different page', async ({ page }) => {
     await loadFixture(page, MULTI_PAGE_FIXTURE);
 
-    // Navigate to page 2 via the page tab or list
-    const page2Tab = page.locator('[role="tab"]').filter({ hasText: 'Page 2' });
-    await page2Tab.click();
+    // Publishing pages are exposed only in Print; loaded documents open in
+    // Design by default, where Design Canvas navigation intentionally hides
+    // the page tabs.
+    await page.getByRole('radio', { name: 'Print workspace' }).click();
+    const page2Tab = page.getByRole('tab', { name: 'Publishing page: Page 2' });
+    await page2Tab.waitFor({ state: 'visible', timeout: 10000 });
+    await page2Tab.evaluate((element) => (element as HTMLElement).click());
+    await expect(page2Tab).toHaveAttribute('aria-selected', 'true');
     await page.waitForTimeout(300);
 
     // Verify we can see Page 2's rect

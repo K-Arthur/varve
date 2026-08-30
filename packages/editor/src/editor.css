@@ -2019,6 +2019,26 @@ input[type="number"] {
   display: flex;
   flex-direction: column;
 }
+
+/* Print mode can stack the minimap, master controls, publishing pages, and
+ * spread settings ahead of Layers. At shorter desktop heights that formerly
+ * clipped the tree completely because the rail itself could not scroll. Keep
+ * Layers reachable without shrinking its own virtualized scroll region into
+ * unusability; the rail becomes the outer scroller only in the constrained
+ * height where the supporting surfaces do not fit together. */
+@media (min-width: 900px) and (max-height: 900px) {
+  .editor__layers-panel {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .editor__layers-panel .editor-layers {
+    flex: 0 0 auto;
+    min-height: 15rem;
+  }
+}
+
 .editor__inspector-panel {
   container-type: inline-size;
   container-name: inspector;
