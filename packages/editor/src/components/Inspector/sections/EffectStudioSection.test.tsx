@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { type Adjustment, makeAdjustment } from '@varve/engine';
 import {
   createDocument,
@@ -46,6 +46,15 @@ function updatedNode(node: SceneNode): SceneNode {
   return updater?.(node) ?? node;
 }
 
+function updatedBatchNode(node: SceneNode): SceneNode {
+  const updates = mockedUseEditor().updateNodes as unknown as ReturnType<typeof vi.fn>;
+  const batch = updates.mock.calls.at(-1)?.[0] as
+    | Array<{ update: (value: SceneNode) => SceneNode }>
+    | undefined;
+  expect(batch).toBeDefined();
+  return batch?.[0]?.update(node) ?? node;
+}
+
 describe('EffectStudioSection', () => {
   const updateNode = vi.fn();
   const updateDoc = vi.fn();
@@ -77,34 +86,38 @@ describe('EffectStudioSection', () => {
 
   afterEach(cleanup);
 
-  it('searches the canonical library and adds through the existing stack command', () => {
+  it('searches curated treatments and applies their full editable stack', () => {
     render(<EffectStudioSection nodes={[effectNode()]} />);
 
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search effects' }), {
-      target: { value: 'retro' },
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search treatments' }), {
+      target: { value: 'crosshatch' },
     });
-    expect(screen.getByText('VHS')).toBeInTheDocument();
+    expect(screen.getByText('Crosshatch')).toBeInTheDocument();
     expect(screen.queryByText('Brightness')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add VHS to stack' }));
-    expect(addSmartFilterToSelected).toHaveBeenCalledWith('vhs', undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Crosshatch' }));
+    expect(updatedBatchNode(effectNode()).smartFilters?.map((filter) => filter.kind)).toEqual([
+      'blackAndWhite',
+      'halftone',
+    ]);
   });
 
   it('previews, commits, replaces, and cancels without creating extra stack commands', () => {
     const node = effectNode();
     render(<EffectStudioSection nodes={[node]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Preview Bloom' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Chromatic Bloom' }));
     expect(beginTransaction).toHaveBeenCalledWith('preview');
-    expect(updatedNode(node).smartFilters).toEqual([
-      expect.objectContaining({ kind: 'bloom', visible: true }),
+    expect(updatedNode(node).smartFilters?.map((filter) => filter.kind)).toEqual([
+      'bloom',
+      'rgbSplit',
     ]);
-    expect(screen.getByRole('status')).toHaveTextContent(/Bloom/);
+    expect(screen.getByRole('status')).toHaveTextContent(/Chromatic Bloom/);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Bloom' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Chromatic Bloom' }));
     expect(commitTransaction).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Preview Lens Flare' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Aperture Star' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel preview' }));
     expect(abortTransaction).toHaveBeenCalledTimes(1);
     expect(announce).toHaveBeenLastCalledWith('Preview cancelled');
@@ -123,18 +136,19 @@ describe('EffectStudioSection', () => {
     expect(addSmartFilterToSelected).not.toHaveBeenCalled();
   });
 
-  it('offers creative multi-effect presets without exposing correction controls', () => {
+  it('keeps low-level primitives separate from the curated gallery', () => {
     const node = effectNode();
     render(<EffectStudioSection nodes={[node]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Studio preset Chromatic Bloom' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Palette Cut' }));
+    expect(updatedBatchNode(node).smartFilters?.map((filter) => filter.kind)).toEqual([
+      'posterize',
+      'paletteSnap',
+    ]);
 
-    const updates = updateNodes.mock.calls.at(-1)?.[0] as
-      | Array<{ update: (value: SceneNode) => SceneNode }>
-      | undefined;
-    const updated = updates?.[0]?.update(node);
-    expect(updated?.smartFilters?.map((filter) => filter.kind)).toEqual(['bloom', 'rgbSplit']);
-    expect(screen.queryByText('Brightness')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add VHS primitive to stack' }));
+    expect(addSmartFilterToSelected).toHaveBeenCalledWith('vhs', undefined);
+    expect(screen.getByText(/Use Image Tuning for photo correction/i)).toBeInTheDocument();
   });
 
   it('saves Looks in the document and applies one through the object stack', () => {
@@ -180,12 +194,21 @@ describe('EffectStudioSection', () => {
     ]);
   });
 
-  it('persists favorites locally and filters the library by them', () => {
+  it('persists saved treatments locally and filters the gallery by them', () => {
     render(<EffectStudioSection nodes={[effectNode()]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Favorite VHS' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
-    expect(screen.getByText('VHS')).toBeInTheDocument();
-    expect(window.localStorage.getItem('varve:effect-studio:favorites')).toContain('vhs');
+    fireEvent.click(screen.getByRole('button', { name: 'Save Analog Signal' }));
+    fireEvent.click(
+      within(screen.getByRole('toolbar', { name: 'Treatment gallery filters' })).getByRole(
+        'button',
+        {
+          name: 'Saved',
+        },
+      ),
+    );
+    expect(screen.getByText('Analog Signal')).toBeInTheDocument();
+    expect(window.localStorage.getItem('varve:effect-studio:favorites')).toContain(
+      'studio-analog-signal',
+    );
   });
 });

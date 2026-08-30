@@ -1,13 +1,12 @@
 import {
   EFFECT_STUDIO_CATEGORIES,
-  EFFECT_STUDIO_KINDS,
-  EFFECT_STUDIO_PRESETS,
   EFFECT_SURFACE_GUIDANCE,
   type EffectDefinition,
   type EffectStudioCategoryId,
-  getEffectDefinition,
-  type SurfacePreset,
+  getEffectStudioTreatment,
+  type StudioTreatment,
   searchEffectStudioDefinitions,
+  searchEffectStudioTreatments,
 } from '@varve/engine';
 import {
   appendEffectLook,
@@ -27,6 +26,20 @@ import './effectStudio.css';
 const FAVORITES_KEY = 'varve:effect-studio:favorites';
 const RECENTS_KEY = 'varve:effect-studio:recents';
 const MAX_LIBRARY_IDS = 32;
+
+interface StudioPreview {
+  nodeId: string;
+  treatmentId: string;
+  effectIds: string[];
+  name: string;
+}
+
+interface TreatmentGroup {
+  id: string;
+  label: string;
+  description: string;
+  treatments: StudioTreatment[];
+}
 
 function readIds(key: string): string[] {
   if (typeof window === 'undefined') return [];
@@ -53,18 +66,13 @@ function remember(id: string, current: readonly string[]): string[] {
   return [id, ...current.filter((entry) => entry !== id)].slice(0, MAX_LIBRARY_IDS);
 }
 
-function effectLabel(kind: string): string {
-  return getEffectDefinition(kind)?.displayName ?? kind;
-}
-
-function appendStudioPreset(node: SceneNode, preset: SurfacePreset): SceneNode {
-  if (preset.surface !== 'effect-studio') return node;
+function appendStudioTreatment(node: SceneNode, treatment: StudioTreatment): SceneNode {
   return {
     ...node,
     smartFiltersEnabled: true,
     smartFilters: [
       ...(node.smartFilters ?? []),
-      ...preset.effects.map((effect) =>
+      ...treatment.effects.map((effect) =>
         makeSmartFilter(cryptoId(), effect.kind, {
           ...effect.overrides,
           visible: true,
@@ -74,14 +82,57 @@ function appendStudioPreset(node: SceneNode, preset: SurfacePreset): SceneNode {
   };
 }
 
+function treatmentGroupsFor(
+  treatments: StudioTreatment[],
+  query: string,
+  category: EffectStudioCategoryId | undefined,
+  favoritesOnly: boolean,
+): TreatmentGroup[] {
+  if (category) {
+    const selectedCategory = EFFECT_STUDIO_CATEGORIES.find((entry) => entry.id === category);
+    return selectedCategory && treatments.length > 0
+      ? [
+          {
+            id: selectedCategory.id,
+            label: selectedCategory.label,
+            description: selectedCategory.description,
+            treatments,
+          },
+        ]
+      : [];
+  }
+
+  if (query || favoritesOnly) {
+    return treatments.length > 0
+      ? [
+          {
+            id: favoritesOnly ? 'saved' : 'results',
+            label: favoritesOnly ? 'Saved treatments' : 'Search results',
+            description: favoritesOnly
+              ? 'Treatments saved on this device.'
+              : 'Treatment recipes matching your search.',
+            treatments,
+          },
+        ]
+      : [];
+  }
+
+  return EFFECT_STUDIO_CATEGORIES.map((entry) => ({
+    id: entry.id,
+    label: entry.label,
+    description: entry.description,
+    treatments: treatments.filter((treatment) => treatment.categoryId === entry.id),
+  })).filter((group) => group.treatments.length > 0);
+}
+
 export interface EffectStudioSectionProps {
   nodes: import('@varve/scene').SceneNode[];
 }
 
 /**
- * Effect Studio's discovery surface. The committed Object Filters stack and
- * its editors remain the authoritative editor; this component only provides
- * catalog discovery, preview transactions, comparison, and Looks.
+ * Effect Studio is the creative discovery route for named, editable stacks.
+ * Object Filters stays authoritative for entry ordering and parameter editing;
+ * Image Tuning and Adjustment Filters keep their correction-specific jobs.
  */
 export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
   const {
@@ -104,20 +155,26 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
   const [favorites, setFavorites] = useState<string[]>(readIds(FAVORITES_KEY));
   const [recents, setRecents] = useState<string[]>(readIds(RECENTS_KEY));
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [preview, setPreview] = useState<{ nodeId: string; effectId: string; kind: string } | null>(
-    null,
-  );
-  const previewRef = useRef<typeof preview>(null);
+  const [preview, setPreview] = useState<StudioPreview | null>(null);
+  const previewRef = useRef<StudioPreview | null>(null);
   const compareRef = useRef(false);
   const compareNodeRef = useRef<string | null>(null);
   const [compareOriginal, setCompareOriginal] = useState(false);
   const [lookName, setLookName] = useState('My Look');
 
-  const definitions = useMemo(() => {
-    const listed = searchEffectStudioDefinitions(query, category);
+  const treatments = useMemo(() => {
+    const listed = searchEffectStudioTreatments(query, category);
     if (!favoritesOnly) return listed;
-    return listed.filter((definition) => favorites.includes(definition.id));
+    return listed.filter((treatment) => favorites.includes(treatment.id));
   }, [category, favorites, favoritesOnly, query]);
+  const primitiveDefinitions = useMemo(
+    () => searchEffectStudioDefinitions('', category),
+    [category],
+  );
+  const groups = useMemo(
+    () => treatmentGroupsFor(treatments, query, category, favoritesOnly),
+    [category, favoritesOnly, query, treatments],
+  );
 
   const updateRecents = useCallback((id: string) => {
     setRecents((current) => {
@@ -148,26 +205,44 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
     [abortTransaction, announce],
   );
 
-  const previewEffect = useCallback(
-    (definition: EffectDefinition) => {
+  const previewTreatment = useCallback(
+    (treatment: StudioTreatment) => {
       if (!nodeId) return;
       const current = previewRef.current;
-      const effectId = current?.effectId ?? cryptoId();
+      if (current && current.nodeId !== nodeId) return;
+      const effectIds =
+        current?.treatmentId === treatment.id
+          ? current.effectIds
+          : treatment.effects.map(() => cryptoId());
       if (!current) beginTransaction('preview');
       updateNode(nodeId, (owner) => {
         const withoutPreview = (owner.smartFilters ?? []).filter(
-          (effect) => effect.id !== effectId,
+          (effect) => !current?.effectIds.includes(effect.id),
         );
         return {
           ...owner,
-          smartFilters: [...withoutPreview, makeSmartFilter(effectId, definition.id)],
+          smartFiltersEnabled: true,
+          smartFilters: [
+            ...withoutPreview,
+            ...treatment.effects.map((effect, index) =>
+              makeSmartFilter(effectIds[index]!, effect.kind, {
+                ...effect.overrides,
+                visible: true,
+              }),
+            ),
+          ],
         };
       });
-      const next = { nodeId, effectId, kind: definition.id };
+      const next: StudioPreview = {
+        nodeId,
+        treatmentId: treatment.id,
+        effectIds,
+        name: treatment.name,
+      };
       previewRef.current = next;
       setPreview(next);
-      updateRecents(definition.id);
-      announce(`${definition.displayName} previewed`);
+      updateRecents(treatment.id);
+      announce(`${treatment.name} previewed`);
     },
     [announce, beginTransaction, nodeId, updateNode, updateRecents],
   );
@@ -178,36 +253,38 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
     commitTransaction();
     previewRef.current = null;
     setPreview(null);
-    announce(`${effectLabel(current.kind)} added`);
+    announce(`${current.name} applied`);
   }, [announce, commitTransaction]);
 
-  const addEffect = useCallback(
-    (definition: EffectDefinition) => {
+  const applyTreatment = useCallback(
+    (treatment: StudioTreatment) => {
       if (previewRef.current) {
-        if (previewRef.current.kind === definition.id) {
+        if (previewRef.current.treatmentId === treatment.id) {
           commitPreview();
-          return;
+        } else {
+          previewTreatment(treatment);
         }
-        previewEffect(definition);
         return;
       }
-      addSmartFilterToSelected(definition.id, undefined);
-      updateRecents(definition.id);
-    },
-    [addSmartFilterToSelected, commitPreview, previewEffect, updateRecents],
-  );
-
-  const applyPreset = useCallback(
-    (preset: SurfacePreset) => {
       updateNodes(
         nodes.map((selectedNode) => ({
           id: selectedNode.id,
-          update: (current) => appendStudioPreset(current, preset),
+          update: (current) => appendStudioTreatment(current, treatment),
         })),
       );
-      announce(`Applied Studio preset ${preset.name}`);
+      updateRecents(treatment.id);
+      announce(`Applied treatment ${treatment.name}`);
     },
-    [announce, nodes, updateNodes],
+    [announce, commitPreview, nodes, previewTreatment, updateNodes, updateRecents],
+  );
+
+  const addPrimitive = useCallback(
+    (definition: EffectDefinition) => {
+      if (previewRef.current) cancelPreview('Preview cancelled');
+      addSmartFilterToSelected(definition.id, undefined);
+      announce(`${definition.displayName} added to Object Filters`);
+    },
+    [addSmartFilterToSelected, announce, cancelPreview],
   );
 
   const toggleCompare = useCallback(() => {
@@ -289,18 +366,15 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
 
   if (!compatible) return null;
 
-  const recentDefinitions = recents
-    .map((id) => getEffectDefinition(id))
-    .filter(
-      (definition): definition is EffectDefinition =>
-        definition !== undefined &&
-        (EFFECT_STUDIO_KINDS as readonly string[]).includes(definition.id),
-    )
+  const recentTreatments = recents
+    .map((id) => getEffectStudioTreatment(id))
+    .filter((treatment): treatment is StudioTreatment => treatment !== undefined)
     .slice(0, 4);
   const looks = state.document.effectLooks ?? [];
   const targetLabel =
     nodes.length === 1 ? (node?.name ?? 'selected object') : `${nodes.length} objects`;
   const previewing = preview !== null;
+  const canPreview = nodeId !== undefined;
   const stackEnabled = !compareOriginal && node?.smartFiltersEnabled !== false;
   const targetGuidance = EFFECT_SURFACE_GUIDANCE['effect-studio'];
 
@@ -309,8 +383,11 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
       <div className="effect-studio" data-effect-studio>
         <div className="effect-studio__intro">
           <div>
-            <h3>Explore editable treatments</h3>
-            <p>Preview on {targetLabel}, then add the result to the Object Filters stack.</p>
+            <h3>Curated editable treatments</h3>
+            <p>
+              Browse a creative family, preview a matched stack on {targetLabel}, then refine its
+              entries in Object Filters.
+            </p>
             <details className="effect-studio__target-guidance">
               <summary>How this works on raster and vector objects</summary>
               <p>
@@ -338,17 +415,21 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
         </div>
 
         <label className="effect-studio__search-label">
-          <span className="sr-only">Search effects</span>
+          <span className="sr-only">Search treatments</span>
           <input
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search effects"
-            aria-label="Search effects"
+            placeholder="Search treatments"
+            aria-label="Search treatments"
           />
         </label>
 
-        <div className="effect-studio__filters" role="toolbar" aria-label="Effect library filters">
+        <div
+          className="effect-studio__filters"
+          role="toolbar"
+          aria-label="Treatment gallery filters"
+        >
           <button
             type="button"
             className={!category && !favoritesOnly ? 'is-selected' : ''}
@@ -369,7 +450,7 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
               setCategory(undefined);
             }}
           >
-            Favorites
+            Saved
           </button>
           {EFFECT_STUDIO_CATEGORIES.map((entry) => (
             <button
@@ -387,109 +468,129 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
           ))}
         </div>
 
-        {recentDefinitions.length > 0 && !query && !category && !favoritesOnly && (
+        {recentTreatments.length > 0 && !query && !category && !favoritesOnly && (
           <fieldset className="effect-studio__recent">
-            <legend>Recent</legend>
-            {recentDefinitions.map((definition) => (
-              <button type="button" key={definition.id} onClick={() => previewEffect(definition)}>
-                {definition.displayName}
+            <legend>Recent treatments</legend>
+            {recentTreatments.map((treatment) => (
+              <button
+                type="button"
+                key={treatment.id}
+                onClick={() => previewTreatment(treatment)}
+                disabled={!canPreview || preview?.treatmentId === treatment.id}
+                aria-label={`Preview ${treatment.name}`}
+              >
+                {treatment.name}
               </button>
             ))}
           </fieldset>
         )}
 
-        <fieldset className="effect-studio__presets">
-          <legend>Studio presets</legend>
-          <div className="effect-studio__preset-grid">
-            {EFFECT_STUDIO_PRESETS.map((preset) => (
-              <button
-                type="button"
-                key={preset.id}
-                className="effect-studio__preset"
-                onClick={() => applyPreset(preset)}
-                aria-label={`Apply Studio preset ${preset.name}`}
-              >
-                <strong>{preset.name}</strong>
-                <span>{preset.description}</span>
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <ul className="effect-studio__library" aria-label="Effect Library">
-          {definitions.map((definition) => {
-            const isFavorite = favorites.includes(definition.id);
-            const isPreview = preview?.kind === definition.id;
-            return (
-              <li className={isPreview ? 'is-previewing' : ''} key={definition.id}>
-                <div className="effect-studio__card-art" aria-hidden="true">
-                  <span
-                    data-effect-category={definition.studioCategoryId ?? definition.categoryId}
-                  />
-                </div>
-                <div className="effect-studio__card-copy">
-                  <strong>{definition.displayName}</strong>
-                  <span>{definition.description}</span>
-                  <small>
-                    {definition.rendering.estimatedCost === 'high'
-                      ? 'Settled preview may take longer'
-                      : 'Live preview'}
-                  </small>
-                </div>
-                <div className="effect-studio__card-actions">
-                  <button
-                    type="button"
-                    onClick={() => (isPreview ? commitPreview() : previewEffect(definition))}
-                    aria-label={
-                      isPreview
-                        ? `Add ${definition.displayName}`
-                        : `Preview ${definition.displayName}`
-                    }
-                  >
-                    {isPreview ? 'Add' : 'Preview'}
-                  </button>
-                  <button
-                    type="button"
-                    className="effect-studio__favorite"
-                    aria-pressed={isFavorite}
-                    aria-label={
-                      isFavorite
-                        ? `Remove ${definition.displayName} from favorites`
-                        : `Favorite ${definition.displayName}`
-                    }
-                    onClick={() => toggleFavorite(definition.id)}
-                  >
-                    {isFavorite ? 'Saved' : 'Fav'}
-                  </button>
-                  <button
-                    type="button"
-                    className="effect-studio__add"
-                    onClick={() => addEffect(definition)}
-                    aria-label={`Add ${definition.displayName} to stack`}
-                  >
-                    Add
-                  </button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-        {definitions.length === 0 && (
+        <section className="effect-studio__gallery" aria-label="Treatment Gallery">
+          {groups.map((group) => (
+            <section className="effect-studio__treatment-group" key={group.id}>
+              <div className="effect-studio__treatment-group-header">
+                <h4>{group.label}</h4>
+                <p>{group.description}</p>
+              </div>
+              <ul className="effect-studio__treatment-grid">
+                {group.treatments.map((treatment) => {
+                  const isFavorite = favorites.includes(treatment.id);
+                  const isPreview = preview?.treatmentId === treatment.id;
+                  return (
+                    <li className={isPreview ? 'is-previewing' : ''} key={treatment.id}>
+                      <div
+                        className="effect-studio__treatment-art"
+                        data-treatment-art={treatment.art}
+                        data-treatment-category={treatment.categoryId}
+                        aria-hidden="true"
+                      />
+                      <div className="effect-studio__treatment-copy">
+                        <strong>{treatment.name}</strong>
+                        <span>{treatment.description}</span>
+                        <small>
+                          {treatment.effects.length} editable effect
+                          {treatment.effects.length === 1 ? '' : 's'} · raster + vector
+                        </small>
+                      </div>
+                      <div className="effect-studio__card-actions">
+                        <button
+                          type="button"
+                          onClick={() => previewTreatment(treatment)}
+                          disabled={!canPreview || isPreview}
+                          aria-label={`Preview ${treatment.name}`}
+                        >
+                          {isPreview ? 'Previewing' : 'Preview'}
+                        </button>
+                        <button
+                          type="button"
+                          className="effect-studio__add"
+                          onClick={() => applyTreatment(treatment)}
+                          aria-label={`Apply ${treatment.name}`}
+                        >
+                          {isPreview ? 'Keep' : 'Apply'}
+                        </button>
+                        <button
+                          type="button"
+                          className="effect-studio__favorite"
+                          aria-pressed={isFavorite}
+                          aria-label={
+                            isFavorite
+                              ? `Remove ${treatment.name} from saved treatments`
+                              : `Save ${treatment.name}`
+                          }
+                          onClick={() => toggleFavorite(treatment.id)}
+                        >
+                          {isFavorite ? 'Saved' : 'Save'}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </section>
+        {treatments.length === 0 && (
           <p className="effect-studio__empty" role="status">
-            No effects match this search. Try a category or clear the query.
+            No treatments match this search. Try a category or clear the query.
           </p>
         )}
 
         {previewing && (
           <div className="effect-studio__preview-status" role="status" aria-live="polite">
             <span>
-              Previewing <strong>{effectLabel(preview.kind)}</strong> on the canvas.
+              Previewing <strong>{preview.name}</strong> on the canvas. Keep applies its ordered
+              stack.
             </span>
             <button type="button" onClick={() => cancelPreview()}>
               Cancel preview
             </button>
           </div>
         )}
+
+        <details className="effect-studio__primitives">
+          <summary>Individual creative effects</summary>
+          <p>
+            These are raw building blocks, not a second effect gallery. Add one here when you know
+            the operator you need, then use Object Filters for its parameters, order, mask, and
+            blend. Use Image Tuning for photo correction and Adjustment Filters for a scoped
+            backdrop correction.
+          </p>
+          <ul aria-label="Individual creative effects">
+            {primitiveDefinitions.map((definition) => (
+              <li key={definition.id}>
+                <span>{definition.displayName}</span>
+                <button
+                  type="button"
+                  onClick={() => addPrimitive(definition)}
+                  aria-label={`Add ${definition.displayName} primitive to stack`}
+                >
+                  Add
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
 
         <div className="effect-studio__looks">
           <div className="effect-studio__looks-header">
@@ -538,8 +639,9 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
         </div>
 
         <p className="effect-studio__stack-note">
-          The committed Object Filters stack below remains the source of truth for order, settings,
-          masks, and undo history.
+          Effect Studio writes ordered editable entries to Object Filters; it never flattens raster
+          source or converts vector geometry. Image Tuning is for image-local photographic work,
+          while Adjustment Filters correct a scoped backdrop.
         </p>
       </div>
     </DisclosureSection>

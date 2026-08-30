@@ -13,7 +13,8 @@
 }
 
 .effect-studio__intro h3,
-.effect-studio__looks h3 {
+.effect-studio__looks h3,
+.effect-studio__treatment-group h4 {
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   margin: 0;
@@ -21,21 +22,28 @@
 
 .effect-studio__intro p,
 .effect-studio__looks p,
-.effect-studio__stack-note {
+.effect-studio__stack-note,
+.effect-studio__treatment-group-header p,
+.effect-studio__primitives p {
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   line-height: 1.4;
   margin: var(--space-1) 0 0;
 }
 
-.effect-studio__target-guidance {
+.effect-studio__target-guidance,
+.effect-studio__primitives {
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
-  line-height: 1.4;
+  line-height: 1.45;
+}
+
+.effect-studio__target-guidance {
   margin-top: var(--space-2);
 }
 
-.effect-studio__target-guidance summary {
+.effect-studio__target-guidance summary,
+.effect-studio__primitives summary {
   color: var(--color-text-secondary);
   cursor: pointer;
   font-weight: var(--font-weight-semibold);
@@ -49,6 +57,7 @@
 .effect-studio__looks-header button,
 .effect-studio__preview-status button,
 .effect-studio__card-actions button,
+.effect-studio__primitives button,
 .effect-studio__looks li button {
   align-items: center;
   background: var(--color-surface-raised);
@@ -71,8 +80,10 @@
 .effect-studio__looks-header button:focus-visible,
 .effect-studio__preview-status button:hover,
 .effect-studio__preview-status button:focus-visible,
-.effect-studio__card-actions button:hover,
+.effect-studio__card-actions button:hover:not(:disabled),
 .effect-studio__card-actions button:focus-visible,
+.effect-studio__primitives button:hover:not(:disabled),
+.effect-studio__primitives button:focus-visible,
 .effect-studio__looks li button:hover,
 .effect-studio__looks li button:focus-visible {
   border-color: var(--color-accent);
@@ -83,6 +94,7 @@
 .effect-studio__looks-header button:focus-visible,
 .effect-studio__preview-status button:focus-visible,
 .effect-studio__card-actions button:focus-visible,
+.effect-studio__primitives button:focus-visible,
 .effect-studio__looks li button:focus-visible,
 .effect-studio__filters button:focus-visible,
 .effect-studio__recent button:focus-visible {
@@ -91,7 +103,9 @@
 }
 
 .effect-studio__compare:disabled,
-.effect-studio__looks-header button:disabled {
+.effect-studio__looks-header button:disabled,
+.effect-studio__card-actions button:disabled,
+.effect-studio__recent button:disabled {
   cursor: default;
   opacity: 0.5;
 }
@@ -123,12 +137,6 @@
   gap: var(--space-1);
 }
 
-.effect-studio__recent {
-  border: 0;
-  margin: 0;
-  padding: 0;
-}
-
 .effect-studio__filters {
   max-height: 5.5rem;
   overflow: auto;
@@ -149,7 +157,7 @@
 
 .effect-studio__filters button.is-selected,
 .effect-studio__filters button:hover,
-.effect-studio__recent button:hover {
+.effect-studio__recent button:hover:not(:disabled) {
   background: var(--color-surface-selected);
   border-color: var(--color-accent);
   color: var(--color-text-primary);
@@ -157,6 +165,9 @@
 
 .effect-studio__recent {
   align-items: center;
+  border: 0;
+  margin: 0;
+  padding: 0;
 }
 
 .effect-studio__recent > legend {
@@ -167,203 +178,379 @@
   text-transform: uppercase;
 }
 
-.effect-studio__presets {
-  border: 0;
+.effect-studio__gallery,
+.effect-studio__treatment-group {
   display: grid;
   gap: var(--space-2);
-  margin: 0;
-  min-inline-size: 0;
-  padding: 0;
 }
 
-.effect-studio__presets > legend {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
-  padding: 0;
-  text-transform: uppercase;
+.effect-studio__treatment-group {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-3);
 }
 
-.effect-studio__preset-grid {
+.effect-studio__treatment-group:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.effect-studio__treatment-group-header {
   display: grid;
-  gap: var(--space-1);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
 }
 
-.effect-studio__preset {
-  align-items: flex-start;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  padding: var(--space-2);
-  text-align: left;
-}
-
-.effect-studio__preset:hover,
-.effect-studio__preset:focus-visible {
-  border-color: var(--color-accent);
-  color: var(--color-text-primary);
-}
-
-.effect-studio__preset:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
-}
-
-.effect-studio__preset strong,
-.effect-studio__preset span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.effect-studio__preset strong {
+.effect-studio__treatment-group-header h4 {
   font-size: var(--font-size-xs);
-  white-space: nowrap;
 }
 
-.effect-studio__preset span {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
-  line-height: 1.35;
+.effect-studio__treatment-group-header p {
+  margin: 0;
 }
 
-.effect-studio__library,
-.effect-studio__looks ul {
+.effect-studio__treatment-grid {
   display: grid;
   gap: var(--space-2);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.effect-studio__library > li {
-  align-items: center;
+.effect-studio__treatment-grid > li {
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   display: grid;
   gap: var(--space-2);
-  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
+  overflow: hidden;
   padding: var(--space-2);
 }
 
-.effect-studio__library > li.is-previewing {
+.effect-studio__treatment-grid > li.is-previewing {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 1px var(--color-accent);
 }
 
-.effect-studio__card-art {
-  align-items: center;
+.effect-studio__treatment-art {
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
-  display: flex;
-  height: 2.75rem;
-  justify-content: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: calc(var(--radius-sm) - 1px);
+  min-height: 5.5rem;
   overflow: hidden;
-  width: 2.75rem;
+  position: relative;
 }
 
-.effect-studio__card-art span {
-  background: linear-gradient(135deg, var(--color-accent), var(--color-surface-selected));
-  border-radius: 50%;
-  display: block;
-  height: 1.6rem;
+.effect-studio__treatment-art::before,
+.effect-studio__treatment-art::after {
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+
+.effect-studio__treatment-art::before {
+  background:
+    radial-gradient(circle at 68% 30%, var(--color-accent), transparent 34%),
+    linear-gradient(145deg, var(--color-surface-selected), var(--color-surface-sunken));
+}
+
+.effect-studio__treatment-art::after {
+  background: linear-gradient(
+    115deg,
+    transparent 22%,
+    var(--color-surface-raised) 50%,
+    transparent 78%
+  );
+  mix-blend-mode: soft-light;
+  opacity: 0.75;
+}
+
+.effect-studio__treatment-art[data-treatment-art="cutout"]::before {
+  background:
+    linear-gradient(
+      135deg,
+      transparent 42%,
+      var(--color-warning, var(--color-accent)) 43% 58%,
+      transparent 59%
+    ),
+    linear-gradient(
+      45deg,
+      var(--color-accent) 0 32%,
+      var(--color-surface-selected) 33% 67%,
+      var(--color-danger, var(--color-accent)) 68%
+    );
+}
+
+.effect-studio__treatment-art[data-treatment-art="wash"]::before {
+  background:
+    radial-gradient(ellipse at 24% 64%, var(--color-accent) 0 18%, transparent 52%),
+    radial-gradient(ellipse at 78% 30%, var(--color-surface-selected) 0 22%, transparent 56%),
+    linear-gradient(155deg, var(--color-surface-raised), var(--color-surface-sunken));
+  filter: blur(1px);
+}
+
+.effect-studio__treatment-art[data-treatment-art="ink"]::before,
+.effect-studio__treatment-art[data-treatment-art="graphite"]::before,
+.effect-studio__treatment-art[data-treatment-art="chalk"]::before {
+  background:
+    repeating-linear-gradient(
+      14deg,
+      transparent 0 5px,
+      var(--color-text-muted) 6px 7px,
+      transparent 8px 13px
+    ),
+    linear-gradient(135deg, var(--color-text-primary), var(--color-surface-sunken) 70%);
   opacity: 0.85;
-  width: 1.6rem;
 }
 
-.effect-studio__card-art span[data-effect-category="colour"],
-.effect-studio__card-art span[data-effect-category="stylize"] {
-  background: conic-gradient(
-    var(--color-accent),
-    var(--color-warning, var(--color-accent)),
-    var(--color-danger, var(--color-accent)),
-    var(--color-accent)
-  );
+.effect-studio__treatment-art[data-treatment-art="chalk"]::before {
+  background:
+    radial-gradient(circle, var(--color-text-secondary) 0 1px, transparent 2px) 0 0 / 9px 8px,
+    linear-gradient(135deg, var(--color-text-muted), var(--color-surface-sunken));
 }
 
-.effect-studio__card-art span[data-effect-category="surface-grain"],
-.effect-studio__card-art span[data-effect-category="print-pattern"],
-.effect-studio__card-art span[data-effect-category="print-strokes"],
-.effect-studio__card-art span[data-effect-category="sketch-poster"],
-.effect-studio__card-art span[data-effect-category="texture-tape"] {
-  background: repeating-linear-gradient(
-    45deg,
-    var(--color-accent),
-    var(--color-accent) 2px,
-    var(--color-text-muted) 2px,
-    var(--color-text-muted) 4px
-  );
-  border-radius: 0;
+.effect-studio__treatment-art[data-treatment-art="screen"]::before,
+.effect-studio__treatment-art[data-treatment-art="newsprint"]::before,
+.effect-studio__treatment-art[data-treatment-art="riso"]::before {
+  background:
+    radial-gradient(circle, var(--color-accent) 0 1.5px, transparent 2px) 0 0 / 8px 8px,
+    linear-gradient(135deg, var(--color-surface-raised), var(--color-surface-selected));
 }
 
-.effect-studio__card-art span[data-effect-category="distort"] {
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--color-accent),
-    var(--color-accent) 5px,
-    var(--color-surface-selected) 5px,
-    var(--color-surface-selected) 8px
-  );
-  border-radius: 25% 50% 25% 50%;
-  transform: skew(-12deg, 8deg);
+.effect-studio__treatment-art[data-treatment-art="newsprint"]::before {
+  background:
+    radial-gradient(circle, var(--color-text-primary) 0 1.25px, transparent 1.75px) 0 0 / 6px 6px,
+    linear-gradient(135deg, var(--color-surface-raised), var(--color-surface-sunken));
 }
 
-.effect-studio__card-copy {
+.effect-studio__treatment-art[data-treatment-art="riso"]::before {
+  background:
+    radial-gradient(circle, var(--color-danger, var(--color-accent)) 0 1.8px, transparent 2px) 2px
+    1px / 9px 9px,
+    radial-gradient(circle, var(--color-accent) 0 1.8px, transparent 2px) 0 0 / 9px 9px,
+    var(--color-surface-raised);
+}
+
+.effect-studio__treatment-art[data-treatment-art="hatch"]::before {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      transparent 0 5px,
+      var(--color-text-primary) 6px 7px,
+      transparent 8px 13px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent 0 7px,
+      var(--color-text-muted) 8px 9px,
+      transparent 10px 17px
+    ),
+    var(--color-surface-raised);
+}
+
+.effect-studio__treatment-art[data-treatment-art="spray"]::before,
+.effect-studio__treatment-art[data-treatment-art="reticulation"]::before {
+  background:
+    radial-gradient(circle, var(--color-accent) 0 1px, transparent 2px) 0 0 / 8px 7px,
+    radial-gradient(circle, var(--color-text-muted) 0 1.5px, transparent 2.5px) 4px 5px / 13px 11px,
+    var(--color-surface-sunken);
+}
+
+.effect-studio__treatment-art[data-treatment-art="reticulation"]::before {
+  background:
+    repeating-radial-gradient(
+      ellipse at 35% 48%,
+      var(--color-text-muted) 0 1px,
+      transparent 2px 7px
+    ),
+    linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
+}
+
+.effect-studio__treatment-art[data-treatment-art="glass"]::before,
+.effect-studio__treatment-art[data-treatment-art="ripple"]::before {
+  background:
+    repeating-radial-gradient(
+      ellipse at 62% 34%,
+      transparent 0 8px,
+      var(--color-accent) 9px 11px,
+      transparent 12px 20px
+    ),
+    linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
+  opacity: 0.85;
+}
+
+.effect-studio__treatment-art[data-treatment-art="ripple"]::before {
+  background:
+    repeating-radial-gradient(
+      ellipse at 50% 50%,
+      transparent 0 6px,
+      var(--color-text-secondary) 7px 8px,
+      transparent 9px 15px
+    ),
+    linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
+}
+
+.effect-studio__treatment-art[data-treatment-art="prism"]::before,
+.effect-studio__treatment-art[data-treatment-art="glow"]::before,
+.effect-studio__treatment-art[data-treatment-art="leak"]::before {
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      var(--color-warning, var(--color-accent)) 0 6%,
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 50% 50%,
+      transparent 0 34%,
+      var(--color-accent) 35% 38%,
+      transparent 39%
+    ),
+    linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
+}
+
+.effect-studio__treatment-art[data-treatment-art="leak"]::before {
+  background:
+    radial-gradient(
+      ellipse at 10% 42%,
+      var(--color-warning, var(--color-accent)) 0 20%,
+      transparent 58%
+    ),
+    linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
+}
+
+.effect-studio__treatment-art[data-treatment-art="relief"]::before,
+.effect-studio__treatment-art[data-treatment-art="stamp"]::before {
+  background:
+    linear-gradient(
+      45deg,
+      var(--color-text-primary) 0 25%,
+      transparent 26% 48%,
+      var(--color-text-muted) 49% 72%,
+      transparent 73%
+    ),
+    linear-gradient(135deg, var(--color-surface-raised), var(--color-surface-sunken));
+}
+
+.effect-studio__treatment-art[data-treatment-art="stamp"]::before {
+  background:
+    linear-gradient(
+      135deg,
+      transparent 20%,
+      var(--color-text-primary) 21% 42%,
+      transparent 43% 60%,
+      var(--color-accent) 61% 80%,
+      transparent 81%
+    ),
+    var(--color-surface-raised);
+}
+
+.effect-studio__treatment-art[data-treatment-art="shafts"]::before {
+  background:
+    linear-gradient(
+      112deg,
+      transparent 24%,
+      var(--color-warning, var(--color-accent)) 26% 30%,
+      transparent 32% 42%,
+      var(--color-accent) 44% 47%,
+      transparent 49%
+    ),
+    linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
+}
+
+.effect-studio__treatment-art[data-treatment-art="phosphor"]::before,
+.effect-studio__treatment-art[data-treatment-art="signal"]::before,
+.effect-studio__treatment-art[data-treatment-art="tape"]::before {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 3px,
+      var(--color-text-muted) 4px 5px,
+      transparent 6px 8px
+    ),
+    linear-gradient(135deg, var(--color-accent), var(--color-surface-sunken));
+}
+
+.effect-studio__treatment-art[data-treatment-art="tape"]::before {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 5px,
+      var(--color-text-muted) 6px 7px,
+      transparent 8px 12px
+    ),
+    linear-gradient(
+      90deg,
+      var(--color-danger, var(--color-accent)),
+      var(--color-accent),
+      var(--color-surface-sunken)
+    );
+}
+
+.effect-studio__treatment-art[data-treatment-art="paper"]::before {
+  background:
+    radial-gradient(circle, var(--color-text-muted) 0 0.7px, transparent 1.4px) 0 0 / 5px 5px,
+    repeating-linear-gradient(
+      80deg,
+      transparent 0 8px,
+      var(--color-surface-selected) 9px 10px,
+      transparent 11px 18px
+    ),
+    var(--color-surface-raised);
+}
+
+.effect-studio__treatment-copy {
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
-.effect-studio__card-copy strong,
-.effect-studio__card-copy span,
-.effect-studio__card-copy small {
+.effect-studio__treatment-copy strong,
+.effect-studio__treatment-copy span,
+.effect-studio__treatment-copy small {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.effect-studio__treatment-copy strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
   white-space: nowrap;
 }
 
-.effect-studio__card-copy strong {
-  color: var(--color-text-primary);
-  font-size: var(--font-size-xs);
-}
-
-.effect-studio__card-copy span,
-.effect-studio__card-copy small {
+.effect-studio__treatment-copy span,
+.effect-studio__treatment-copy small {
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
+  line-height: 1.35;
+}
+
+.effect-studio__treatment-copy small {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
 }
 
 .effect-studio__card-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
-  justify-content: flex-end;
 }
 
 .effect-studio__card-actions button {
+  flex: 1 1 auto;
   min-height: 1.75rem;
   padding: 0 var(--space-2);
-}
-
-.effect-studio__card-actions .effect-studio__favorite {
-  border: 0;
-  background: transparent;
-  font-size: var(--font-size-md);
-  min-width: 1.75rem;
-  padding: 0;
 }
 
 .effect-studio__card-actions .effect-studio__add {
   background: var(--color-accent);
   border-color: var(--color-accent);
   color: var(--color-text-on-accent);
+}
+
+.effect-studio__card-actions .effect-studio__favorite {
+  background: transparent;
 }
 
 .effect-studio__empty {
@@ -390,6 +577,54 @@
   min-width: 0;
 }
 
+.effect-studio__primitives {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+}
+
+.effect-studio__primitives[open] {
+  background: var(--color-surface-sunken);
+}
+
+.effect-studio__primitives > p {
+  margin: var(--space-2) 0;
+}
+
+.effect-studio__primitives ul {
+  display: grid;
+  gap: var(--space-1);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.effect-studio__primitives li {
+  align-items: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: flex;
+  gap: var(--space-1);
+  justify-content: space-between;
+  min-width: 0;
+  padding: var(--space-1);
+}
+
+.effect-studio__primitives li > span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.effect-studio__primitives button {
+  flex: 0 0 auto;
+  min-height: 1.625rem;
+  padding: 0 var(--space-1);
+}
+
 .effect-studio__looks {
   border-top: 1px solid var(--color-border-subtle);
   display: grid;
@@ -405,6 +640,14 @@
 .effect-studio__looks > label span {
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
+}
+
+.effect-studio__looks ul {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .effect-studio__looks li {
@@ -454,18 +697,8 @@
     flex-direction: column;
   }
 
-  .effect-studio__library > li {
-    align-items: start;
-    grid-template-columns: 2.25rem minmax(0, 1fr);
-  }
-
-  .effect-studio__card-art {
-    height: 2.25rem;
-    width: 2.25rem;
-  }
-
-  .effect-studio__card-actions {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
+  .effect-studio__treatment-grid,
+  .effect-studio__primitives ul {
+    grid-template-columns: 1fr;
   }
 }

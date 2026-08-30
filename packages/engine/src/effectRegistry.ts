@@ -25,32 +25,32 @@ export type EffectCategoryId = (typeof EFFECT_CATEGORIES)[number]['id'];
 export const EFFECT_STUDIO_CATEGORIES = [
   {
     id: 'artistic',
-    label: 'Artistic',
+    label: 'Illustrative',
     description: 'Reinterpret colour and tone as a deliberately designed image.',
   },
   {
     id: 'brush-ink',
-    label: 'Brush & Ink',
+    label: 'Mark Making',
     description: 'Turn tone into drawn marks, ink, hatching, and imperfect media.',
   },
   {
     id: 'distort',
-    label: 'Distort',
+    label: 'Optics & Shift',
     description: 'Bend, split, and refract the rendered object result.',
   },
   {
     id: 'sketch',
-    label: 'Sketch',
+    label: 'Drawing & Graphic',
     description: 'Build graphic studies from relief, graphite, chalk, and stamped tone.',
   },
   {
     id: 'stylize',
-    label: 'Stylize',
+    label: 'Light & Signal',
     description: 'Add luminous, electronic, and cinematic visual signatures.',
   },
   {
     id: 'texture',
-    label: 'Texture',
+    label: 'Print & Material',
     description: 'Give an object a material, printed, taped, or weathered surface language.',
   },
 ] as const;

@@ -51,7 +51,7 @@ describe('surface preset catalogs', () => {
   });
 
   it('provides a populated outcome catalog instead of single-slider aliases', () => {
-    expect(EFFECT_STUDIO_TREATMENTS.length).toBeGreaterThanOrEqual(24);
+    expect(EFFECT_STUDIO_TREATMENTS.length).toBeGreaterThanOrEqual(32);
     expect(EFFECT_STUDIO_TREATMENTS.every((treatment) => treatment.effects.length > 1)).toBe(true);
     expect(FEATURED_EFFECT_STUDIO_TREATMENTS.length).toBeGreaterThanOrEqual(4);
     for (const category of EFFECT_STUDIO_CATEGORIES) {
@@ -59,6 +59,20 @@ describe('surface preset catalogs', () => {
         EFFECT_STUDIO_TREATMENTS.some((treatment) => treatment.categoryId === category.id),
       ).toBe(true);
     }
+    expect(EFFECT_STUDIO_CATEGORIES.map((category) => category.label)).toEqual([
+      'Illustrative',
+      'Mark Making',
+      'Optics & Shift',
+      'Drawing & Graphic',
+      'Light & Signal',
+      'Print & Material',
+    ]);
+    expect(
+      EFFECT_STUDIO_TREATMENTS.filter((treatment) => treatment.categoryId === 'sketch').length,
+    ).toBeGreaterThanOrEqual(8);
+    expect(
+      EFFECT_STUDIO_TREATMENTS.filter((treatment) => treatment.categoryId === 'stylize').length,
+    ).toBeGreaterThanOrEqual(8);
     expect(searchEffectStudioTreatments('crosshatch').map((treatment) => treatment.id)).toContain(
       'studio-crosshatch',
     );
