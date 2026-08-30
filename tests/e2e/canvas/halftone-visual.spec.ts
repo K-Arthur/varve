@@ -654,20 +654,19 @@ test.describe('Halftone visual verification', () => {
     await hex.press('Enter');
     await page.waitForTimeout(600);
 
-    // Create an adjustment layer and add the color halftone adjustment
-    await page.getByRole('menuitem', { name: /^Object$/i }).click();
-    await page.getByRole('menuitem', { name: /new adjustment layer/i }).click();
-    await page.waitForTimeout(600);
-    const adjTab = page.locator('[role="tablist"] button[role="tab"]', {
-      hasText: /^adjustments$/i,
+    // Color Halftone is a creative object-local treatment, so it belongs in
+    // the Object Filter stack rather than an Adjustment Layer correction.
+    await page.getByRole('tab', { name: 'Appearance' }).click();
+    const objectFiltersDisclosure = page.getByRole('button', {
+      name: 'Object Filters',
+      exact: true,
     });
-    await adjTab.click();
-    await page.waitForTimeout(400);
-    await page.getByRole('button', { name: /add adjustment/i }).click();
-    await page.waitForTimeout(300);
-    const colorHt = page.getByRole('menuitem', { name: /color halftone/i });
-    await colorHt.scrollIntoViewIfNeeded();
-    await colorHt.click();
+    if ((await objectFiltersDisclosure.getAttribute('aria-expanded')) !== 'true') {
+      await objectFiltersDisclosure.click();
+    }
+    const addFilter = page.getByRole('combobox', { name: 'Add Object Filter' });
+    await addFilter.click();
+    await page.getByRole('option', { name: 'Color Halftone', exact: true }).click();
     await page.waitForTimeout(1000);
 
     // RGB mode selector must be present with presets

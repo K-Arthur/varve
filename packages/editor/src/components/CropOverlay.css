@@ -113,6 +113,10 @@
 
 .crop-overlay__handle {
   position: absolute;
+  /* The option toolbar can occupy the top of a tightly fitted crop. Keep the
+   * resize affordances above it so a real pointer drag still reaches the
+   * intended handle instead of an overlapping toolbar control. */
+  z-index: 3;
   width: var(--toolbar-height);
   height: var(--toolbar-height);
   padding: 0;

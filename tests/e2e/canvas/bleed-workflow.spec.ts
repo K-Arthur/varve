@@ -155,7 +155,7 @@ async function seedPrintDocument(page: import('@playwright/test').Page) {
   });
   await navigateToEditor(page);
   await page.getByRole('radio', { name: 'Print workspace' }).click();
-  await page.getByRole('button', { name: 'Add page' }).click();
+  await page.getByRole('button', { name: 'Add publishing page' }).click();
   await page.waitForTimeout(400);
   await waitForContentCanvas(page);
   await page.keyboard.press('r');

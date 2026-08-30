@@ -46,7 +46,8 @@ test.describe('Cross-mode workflow — safe switching preserves document state',
     await page.mouse.up();
     await page.keyboard.press('v'); // select tool, keeps the new shape selected
 
-    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+    const rectangleLayer = page.getByRole('treeitem', { name: /Rectangle 1/i });
+    await expect(rectangleLayer).toHaveCount(1, { timeout: 10000 });
     const selectionLabel = page.locator('.editor-status').getByText('Rectangle 1', { exact: true });
     await expect(selectionLabel).toBeVisible();
 
@@ -63,8 +64,9 @@ test.describe('Cross-mode workflow — safe switching preserves document state',
         page.locator(`.workspace-tabs__tab[aria-label="${mode} workspace"]`),
       ).toHaveAttribute('aria-checked', 'true');
 
-      // Document survives: the shape is still the only layer.
-      await expect(page.getByRole('treeitem')).toHaveCount(1);
+      // Document survives: Design Canvas container chrome may be visible in
+      // the tree, but the created shape remains exactly once.
+      await expect(rectangleLayer).toHaveCount(1);
       // Viewport survives: zoom is untouched by mode switching.
       await expect(zoomInput).toHaveValue('250');
     }
@@ -75,6 +77,6 @@ test.describe('Cross-mode workflow — safe switching preserves document state',
     // History survived: undo (from Design mode, after 4 mode switches) still
     // removes the shape created before any mode switch happened.
     await page.keyboard.press('Control+z');
-    await expect(page.getByRole('treeitem')).toHaveCount(0);
+    await expect(rectangleLayer).toHaveCount(0);
   });
 });

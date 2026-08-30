@@ -12,8 +12,8 @@ test.describe('Page context menu - axe-core scan', () => {
     await navigateToEditor(page);
     await page.getByRole('radio', { name: 'Print workspace' }).click();
 
-    await page.getByRole('button', { name: 'Add page' }).click();
-    const pageTab = page.getByRole('tab', { name: /^Page:/i }).first();
+    await page.getByRole('button', { name: 'Add publishing page' }).click();
+    const pageTab = page.getByRole('tab', { name: /^Publishing page:/i }).first();
     await pageTab.waitFor({ state: 'visible' });
     await pageTab.click({ button: 'right' });
 
@@ -35,8 +35,8 @@ test.describe('PromptDialog - axe-core scan', () => {
     await navigateToEditor(page);
     await page.getByRole('radio', { name: 'Print workspace' }).click();
 
-    await page.getByRole('button', { name: 'Add page' }).click();
-    const pageTab = page.getByRole('tab', { name: /^Page:/i }).first();
+    await page.getByRole('button', { name: 'Add publishing page' }).click();
+    const pageTab = page.getByRole('tab', { name: /^Publishing page:/i }).first();
     await pageTab.waitFor({ state: 'visible' });
     await pageTab.click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Rename page' }).click();

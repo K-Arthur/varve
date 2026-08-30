@@ -9,7 +9,8 @@ const IMAGE_FIXTURE = path.resolve('tests/e2e/fixtures/test-image.png');
 async function createAdjustmentLayer(page: import('@playwright/test').Page) {
   await page.getByRole('menuitem', { name: /^Object$/i }).click();
   await page.getByRole('menuitem', { name: /new adjustment layer/i }).click();
-  await expect(page.locator('.adj-panel__header-name')).toHaveText('Adjustment Layer');
+  await expect(page.locator('.adj-panel__header-name')).toHaveText('Adjustment Filters');
+  await expect(page.locator('.adj-panel__header-context')).toHaveText('Adjustment Layer');
 }
 
 async function addAdjustment(page: import('@playwright/test').Page, name: string) {
@@ -96,8 +97,17 @@ test.describe('front-facing adjustment and canvas controls', () => {
 
     await page.keyboard.press('r');
     await dragOnCanvas(page, 180, 160, 460, 380);
-    await createAdjustmentLayer(page);
-    await addAdjustment(page, 'RGB Split');
+    await page.getByRole('tab', { name: 'Appearance' }).click();
+    const objectFiltersDisclosure = page.getByRole('button', {
+      name: 'Object Filters',
+      exact: true,
+    });
+    if ((await objectFiltersDisclosure.getAttribute('aria-expanded')) !== 'true') {
+      await objectFiltersDisclosure.click();
+    }
+    const addFilter = page.getByRole('combobox', { name: 'Add Object Filter' });
+    await addFilter.click();
+    await page.getByRole('option', { name: 'RGB Split', exact: true }).click();
 
     const mode = page.getByRole('combobox', { name: 'RGB split mode' });
     await mode.click();

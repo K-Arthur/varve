@@ -5,7 +5,7 @@
  * here instead of managing ~200 lines of inline state-machine logic.
  */
 
-import type { NodeId, SceneNode } from '@varve/scene';
+import { multipageRootNodes, type NodeId, type SceneNode } from '@varve/scene';
 import type { Camera } from '@varve/shared';
 import {
   clampZoom,
@@ -963,7 +963,16 @@ export function useCanvasInputs({
             }
           }
         };
-        walkIds(doc.rootChildren);
+        // Select only the roots rendered on the current editing surface.
+        // Surface content-root groups are persistence containers, not user
+        // objects: including them made Tab select a hidden Design Canvas root
+        // that has no corresponding Layers row.
+        walkIds(
+          multipageRootNodes(doc, {
+            masterEditId: s.masterEditId,
+            designCanvasId: s.workspaceMode === 'print' ? null : doc.activeDesignCanvasId,
+          }),
+        );
         const idx = firstSel ? nodes.findIndex((n) => n.id === firstSel) : -1;
         paintOrderCache = { nodes, idx };
         return paintOrderCache;

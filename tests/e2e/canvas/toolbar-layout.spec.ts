@@ -29,7 +29,9 @@ test.describe('Toolbar layout', () => {
     // Design mode intentionally hides page navigation for a single-page
     // document. Create a second page so this layout contract exercises the
     // chrome stack it names instead of depending on an optional element.
-    const addPage = page.getByTestId('layers-panel').getByRole('button', { name: 'Add page' });
+    const addPage = page
+      .getByTestId('layers-panel')
+      .getByRole('button', { name: 'Add publishing page' });
     await addPage.click();
     await addPage.click();
     await expect(page.locator('.page-nav-container')).toBeVisible();

@@ -94,10 +94,11 @@ test('search filters history steps', async ({ page }) => {
   await openHistoryPanel(page);
   await expect(page.locator('.history-panel__step')).toHaveCount(2);
 
-  await page.locator('.history-panel__search-input').fill('zzz-nonexistent');
+  const historySearch = page.getByRole('searchbox', { name: 'Search history' });
+  await historySearch.fill('zzz-nonexistent');
   await expect(page.locator('.history-panel__step')).toHaveCount(0);
 
-  await page.locator('.history-panel__search-input').fill('Create');
+  await historySearch.fill('Create');
   await expect(page.locator('.history-panel__step')).toHaveCount(1);
 });
 

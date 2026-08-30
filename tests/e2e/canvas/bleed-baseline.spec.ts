@@ -83,7 +83,7 @@ test.describe('Bleed canvas behavior', () => {
 
     // A new document starts with a Design Canvas; bleed is a Publishing Page
     // concept, so create the print surface in Print workspace first.
-    await page.getByRole('button', { name: 'Add page' }).click();
+    await page.getByRole('button', { name: 'Add publishing page' }).click();
     await page.waitForTimeout(400);
     await page
       .locator('canvas.editor-canvas__content-layer')
