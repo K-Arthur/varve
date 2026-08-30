@@ -7,8 +7,6 @@ export interface ImportProgressProps {
   onCancel?: () => void;
 }
 
-import './ImportProgress.css';
-
 export function ImportProgress({ current, total, fileName, onCancel }: ImportProgressProps) {
   const progress = total > 0 ? Math.round((current / total) * 100) : 0;
 

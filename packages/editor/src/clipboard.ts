@@ -125,26 +125,6 @@ export async function writeClipboard(
   }
 }
 
-export async function readClipboard(): Promise<ClipboardData | null> {
-  try {
-    const items = await navigator.clipboard.read();
-    for (const item of items) {
-      const mime = item.types.find(isVarvePayloadType);
-      if (mime) {
-        const blob = await item.getType(mime);
-        const text = await blob.text();
-        const parsed = JSON.parse(text) as ClipboardData;
-        if (parsed.nodes && Array.isArray(parsed.nodes)) {
-          return parsed;
-        }
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Single clipboard read that returns both Strata JSON data and importable
  * items (SVG text, images) with raw data in the correct format.
