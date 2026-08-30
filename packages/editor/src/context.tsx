@@ -2432,8 +2432,11 @@ export function EditorProvider({
   projectionMode?: boolean;
 }) {
   const [state, setState] = useState<EditorState>(() => {
-    let doc = createDocument(initialDocumentName ?? 'Untitled');
     let name = initialDocumentName ?? 'Untitled';
+    const initialDocument = createNewDocument({ documentName: name });
+    let doc = initialDocument.ok
+      ? initialDocument.result.document
+      : createDocument(initialDocumentName ?? 'Untitled', true);
     if (initialDocumentJson) {
       const decoded = DocumentCodec.decode(initialDocumentJson);
       if (decoded.ok) {
@@ -4389,7 +4392,8 @@ export function EditorProvider({
           getOrCreateFrameSpatialIndex(state.document, frameSpatialIndexRef.current);
         frameSpatialIndexRef.current = frameIndex;
         return findContainingFrameInDoc(state.document, world, frameIndex, {
-          designCanvasId: state.workspaceMode === 'print' ? null : state.document.activeDesignCanvasId,
+          designCanvasId:
+            state.workspaceMode === 'print' ? null : state.document.activeDesignCanvasId,
         });
       },
 
@@ -4465,7 +4469,8 @@ export function EditorProvider({
         const engine = new HitTestEngine(state.document, {
           isolatedNodeId: state.isolatedNodeId,
           masterEditId: state.masterEditId,
-          designCanvasId: state.workspaceMode === 'print' ? null : state.document.activeDesignCanvasId,
+          designCanvasId:
+            state.workspaceMode === 'print' ? null : state.document.activeDesignCanvasId,
           zoom: state.zoom,
         });
         const hit = engine.hitTest(world);
@@ -4480,7 +4485,8 @@ export function EditorProvider({
         const engine = HitTestEngine.withPolicy(state.document, policyName, {
           isolatedNodeId: state.isolatedNodeId,
           masterEditId: state.masterEditId,
-          designCanvasId: state.workspaceMode === 'print' ? null : state.document.activeDesignCanvasId,
+          designCanvasId:
+            state.workspaceMode === 'print' ? null : state.document.activeDesignCanvasId,
           zoom: state.zoom,
         });
         const hit = engine.hitTest(world);
@@ -6616,10 +6622,7 @@ export function EditorProvider({
           // Resolve it to the Design Canvas or publishing Page root instead of
           // splicing into doc.rootChildren and hiding the layer from the
           // currently visible surface.
-          const contentRootId = activeWorkspaceContentRoot(
-            doc,
-            stateRef.current.workspaceMode,
-          );
+          const contentRootId = activeWorkspaceContentRoot(doc, stateRef.current.workspaceMode);
           const effectiveParentId =
             newParentId ?? (contentRootId && doc.nodes[contentRootId] ? contentRootId : null);
           let newDoc: Document;
@@ -7268,10 +7271,7 @@ export function EditorProvider({
         } else {
           // With no scoped selection, place the new layer on the active
           // workspace surface so it is immediately visible and editable.
-          const contentRootId = activeWorkspaceContentRoot(
-            newDoc,
-            stateRef.current.workspaceMode,
-          );
+          const contentRootId = activeWorkspaceContentRoot(newDoc, stateRef.current.workspaceMode);
           doc =
             contentRootId && newDoc.nodes[contentRootId]
               ? addChild(newDoc, contentRootId, adjustmentNode)
@@ -7825,11 +7825,15 @@ export function EditorProvider({
           for (const result of importResults) {
             for (const id of result.nodeIds) {
               const offset = pasteIndex * 40;
-              const inserted = insertImportedSubtree(doc, result.document, id, (node) =>
-                applyDropPosition(node, {
-                  x: pasteCenter[0] + offset,
-                  y: pasteCenter[1] + offset,
-                }),
+              const inserted = insertImportedSubtree(
+                doc,
+                result.document,
+                id,
+                (node) =>
+                  applyDropPosition(node, {
+                    x: pasteCenter[0] + offset,
+                    y: pasteCenter[1] + offset,
+                  }),
                 s.workspaceMode,
               );
               if (!inserted) continue;
@@ -7883,12 +7887,20 @@ export function EditorProvider({
           undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
           redoStackRef.current = [];
           redoLabelsRef.current = [];
-          const inserted = insertImportedSubtree(s.document, sourceDoc, node.id, (clonedRoot) =>
-            applyDropPosition(
-              clonedRoot,
-              options?.position ??
-                viewportCenterWorld({ zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation }),
-            ),
+          const inserted = insertImportedSubtree(
+            s.document,
+            sourceDoc,
+            node.id,
+            (clonedRoot) =>
+              applyDropPosition(
+                clonedRoot,
+                options?.position ??
+                  viewportCenterWorld({
+                    zoom: s.zoom,
+                    pan: s.pan,
+                    cameraRotation: s.cameraRotation,
+                  }),
+              ),
             s.workspaceMode,
           );
           if (!inserted) return s;
@@ -7936,8 +7948,11 @@ export function EditorProvider({
               y: fallback.y + batchIndex * 40,
             };
             batchIndex += 1;
-            const inserted = insertImportedSubtree(doc, sourceDoc, node.id, (clonedRoot) =>
-              applyDropPosition(clonedRoot, target),
+            const inserted = insertImportedSubtree(
+              doc,
+              sourceDoc,
+              node.id,
+              (clonedRoot) => applyDropPosition(clonedRoot, target),
               s.workspaceMode,
             );
             if (!inserted) continue;

@@ -17,7 +17,7 @@ describe('Shell', () => {
     // Toolbar present
     expect(screen.getByRole('toolbar')).toBeTruthy();
     // Canvas region present
-    expect(screen.getByRole('region', { name: /canvas/i })).toBeTruthy();
+    expect(screen.getByRole('region', { name: /^canvas$/i })).toBeTruthy();
     // Layers panel present (its tree renders only when layers exist; the
     // empty state is deliberately not a role=tree)
     expect(document.querySelector('.layers-panel')).toBeTruthy();
@@ -51,6 +51,7 @@ describe('EditorContext', () => {
     expect(ctx?.state.tool).toBe('select');
     expect(ctx?.state.zoom).toBe(1);
     expect(ctx?.state.selection).toEqual([]);
+    expect(ctx?.state.document.activeDesignCanvasId).toBeTruthy();
   });
 
   it('updates tool via setTool', async () => {

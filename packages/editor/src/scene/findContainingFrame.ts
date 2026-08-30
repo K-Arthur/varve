@@ -143,7 +143,9 @@ export function findContainingFrameInDoc(
     }
   }
   if (deepest) return deepest;
-  if (!options.adoptIntoPage || options.designCanvasId !== null) return null;
+  // `undefined` preserves legacy page-scoped behavior for direct callers;
+  // only an explicit Design Canvas (a concrete id) suppresses page adoption.
+  if (!options.adoptIntoPage || options.designCanvasId != null) return null;
 
   // No frame or group under the point. On a page-based document the page
   // itself is a surface that can adopt content, so fall back to its content

@@ -9,6 +9,7 @@
  */
 
 import {
+  activePageNodes,
   type Document,
   isContainer,
   isExportRegion,
@@ -101,13 +102,10 @@ export function countActivePageLayers(doc: Document): number {
     }
   };
 
-  const activePage = doc.pages?.find((page) => page.id === doc.activePageId);
-  const contentRoot = activePage ? doc.nodes[activePage.contentRoot] : undefined;
-  const roots =
-    contentRoot && isContainer(contentRoot)
-      ? [...contentRoot.children, ...(doc.globalChildren ?? [])]
-      : doc.rootChildren;
-  for (const rootId of roots) visit(rootId);
+  // `activePageNodes` resolves the visible content roots for both paged
+  // documents and Design Canvases. Walking `rootChildren` directly would
+  // count the Design Canvas' implementation group as a user layer.
+  for (const rootId of activePageNodes(doc)) visit(rootId);
   return visited.size;
 }
 

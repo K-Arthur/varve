@@ -51,8 +51,8 @@ describe('wcagLevel', () => {
     expect(wcagLevel(3.1, true)).toBe('AA');
   });
 
-  it('returns fail for 2:1 ratio', () => {
-    expect(wcagLevel(2, false)).toBe('fail');
+  it('returns FAIL for 2:1 ratio', () => {
+    expect(wcagLevel(2, false)).toBe('FAIL');
   });
 });
 

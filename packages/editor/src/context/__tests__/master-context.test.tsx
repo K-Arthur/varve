@@ -1,6 +1,14 @@
 import { render, waitFor } from '@testing-library/react';
+import { createDocument, DocumentCodec } from '@varve/scene';
+import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../..';
+
+const PAGE_DOCUMENT_JSON = DocumentCodec.encode(createDocument('Publication'));
+
+function PageEditorProvider({ children }: { children: ReactNode }) {
+  return <EditorProvider initialDocumentJson={PAGE_DOCUMENT_JSON}>{children}</EditorProvider>;
+}
 
 describe('Master page context integration', () => {
   it('context methods exist', async () => {
@@ -12,9 +20,9 @@ describe('Master page context integration', () => {
     }
 
     render(
-      <EditorProvider>
+      <PageEditorProvider>
         <TestComponent />
-      </EditorProvider>,
+      </PageEditorProvider>,
     );
 
     await waitFor(() => {
@@ -61,9 +69,9 @@ describe('Master page context integration', () => {
     }
 
     render(
-      <EditorProvider>
+      <PageEditorProvider>
         <TestComponent />
-      </EditorProvider>,
+      </PageEditorProvider>,
     );
 
     await waitFor(() => {
@@ -100,9 +108,9 @@ describe('Master page context integration', () => {
     }
 
     render(
-      <EditorProvider>
+      <PageEditorProvider>
         <TestComponent />
-      </EditorProvider>,
+      </PageEditorProvider>,
     );
 
     await waitFor(() => {
@@ -147,9 +155,9 @@ describe('Master page context integration', () => {
     }
 
     render(
-      <EditorProvider>
+      <PageEditorProvider>
         <TestComponent />
-      </EditorProvider>,
+      </PageEditorProvider>,
     );
 
     await waitFor(() => expect(ctx).toBeDefined());
@@ -178,9 +186,9 @@ describe('Master page context integration', () => {
     }
 
     render(
-      <EditorProvider>
+      <PageEditorProvider>
         <TestComponent />
-      </EditorProvider>,
+      </PageEditorProvider>,
     );
 
     await waitFor(() => {
@@ -203,9 +211,9 @@ describe('Master page context integration', () => {
     }
 
     render(
-      <EditorProvider>
+      <PageEditorProvider>
         <TestComponent />
-      </EditorProvider>,
+      </PageEditorProvider>,
     );
 
     await waitFor(() => {
@@ -240,9 +248,9 @@ describe('Master page context integration', () => {
     }
 
     render(
-      <EditorProvider>
+      <PageEditorProvider>
         <TestComponent />
-      </EditorProvider>,
+      </PageEditorProvider>,
     );
 
     await waitFor(() => {
@@ -272,9 +280,9 @@ describe('Master page context integration', () => {
     }
 
     render(
-      <EditorProvider>
+      <PageEditorProvider>
         <TestComponent />
-      </EditorProvider>,
+      </PageEditorProvider>,
     );
 
     await waitFor(() => {

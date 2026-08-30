@@ -414,10 +414,10 @@ describe('Editor native clipboard paste (Varve-format data)', () => {
       </EditorProvider>,
     );
 
-    // The EditorProvider's default document (createDocument('Untitled') with
-    // no `flat` option) is a paged document — the normal case for every
-    // real session, not an edge case.
-    expect(ctx?.state.document.activePageId).toBeTruthy();
+    // Design is the default workspace, so a new editor session owns its
+    // content through the active Design Canvas. `activePageNodes` abstracts
+    // that surface just as it does a publishing page.
+    expect(ctx?.state.document.activeDesignCanvasId).toBeTruthy();
 
     screen.getByText('paste').click();
     await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));

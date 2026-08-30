@@ -3,7 +3,7 @@
  */
 
 import { render, screen, within } from '@testing-library/react';
-import { addChild, createDocument, makeShapeNode } from '@varve/scene';
+import { addChild, createDesignCanvas, createDocument, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider } from '../../context';
 import {
@@ -64,5 +64,21 @@ describe('SelectionInfoBar', () => {
     expect(getDisplayAncestorChain(document, rectangle.id).map((node) => node.name)).toEqual([
       rectangle.name,
     ]);
+  });
+
+  it('does not count the Design Canvas content root as a user layer', () => {
+    let document = createDesignCanvas(createDocument('Design', true), { name: 'Canvas 1' });
+    const canvas = document.designCanvases?.[0];
+    if (!canvas) throw new Error('Design Canvas missing');
+    const rectangle = makeShapeNode('canvas-rectangle', {
+      kind: 'rect',
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 80,
+    });
+    document = addChild(document, canvas.contentRoot, rectangle);
+
+    expect(countActivePageLayers(document)).toBe(1);
   });
 });

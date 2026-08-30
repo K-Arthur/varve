@@ -72,6 +72,7 @@ describe('Inspector feature ownership', () => {
       'ocr',
       'blend-images',
       'font-detect',
+      'image-tuning',
     ]);
   });
 

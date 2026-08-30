@@ -1,4 +1,11 @@
-import { addChild, addNode, createDocument, type Document, makeFrameNode } from '@varve/scene';
+import {
+  addChild,
+  addNode,
+  createDesignCanvas,
+  createDocument,
+  type Document,
+  makeFrameNode,
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { findContainingFrameInDoc } from '../findContainingFrame';
 
@@ -176,6 +183,20 @@ describe('page surfaces as drop targets', () => {
     // shared caller keep resolving to the document root over a bare page.
     const doc = createDocument('page-drop-default');
     expect(findContainingFrameInDoc(doc, { x: 10, y: 10 })).toBeNull();
+  });
+
+  it('does not route a Design Canvas drop into a page root', () => {
+    const doc = createDesignCanvas(createDocument('design-drop', true), { name: 'Canvas 1' });
+    const canvas = doc.designCanvases?.[0];
+    expect(canvas).toBeTruthy();
+    if (!canvas) throw new Error('Expected Design Canvas');
+
+    expect(
+      findContainingFrameInDoc(doc, { x: 10, y: 10 }, null, {
+        adoptIntoPage: true,
+        designCanvasId: canvas.id,
+      }),
+    ).toBeNull();
   });
 
   it('prefers a frame over the page that contains it', () => {
