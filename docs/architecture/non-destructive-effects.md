@@ -52,10 +52,14 @@ filter rather than relying on a mutable array index.
 
 The Layers panel deliberately separates a layer's user name from its applied
 stack identity. The name is stable and user-editable; a derived second line
-shows the ordered adjustment kinds, for example `Threshold + Gradient Map`.
-When a stack contains more than two entries, the row keeps the first two names
-and reports the remainder as `+ N more`; the complete ordered list remains
-available from the row's hover/focus description.
+shows the named treatment when the stack carries coherent Studio provenance,
+for example `Reticulation`. Its underlying steps remain available from the
+row's hover/focus description. Raw or mixed stacks show their ordered filter
+kinds, for example `Threshold + Gradient Map`.
+
+When a stack identity contains more than two displayed entries, the row keeps
+the first two names and reports the remainder as `+ N more`; the complete
+ordered list remains available from the row's hover/focus description.
 
 The adjacent badge reports active state (`2/2`, `1/2`, and so on). Disabled
 entries remain named in the summary and are marked in the full description, so
