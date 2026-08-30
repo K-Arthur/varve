@@ -410,6 +410,7 @@ export type {
   ShadowHighlightAdjustment,
   SharpenAdjustment,
   SoftBloomAdjustment,
+  StudioTreatmentInstanceMetadata,
   TemperatureAdjustment,
   ThresholdAdjustment,
   TintAdjustment,
@@ -1081,21 +1082,27 @@ export * from './storyComposition';
 export type {
   StudioTreatment,
   StudioTreatmentArt,
+  StudioTreatmentControl,
+  StudioTreatmentControlTarget,
+  StudioTreatmentControlValues,
   SurfacePreset,
   SurfacePresetEffect,
 } from './surfacePresets';
 export {
   ADJUSTMENT_LAYER_PRESETS,
+  defaultStudioTreatmentControlValues,
   EFFECT_STUDIO_PRESETS,
   EFFECT_STUDIO_TREATMENTS,
   FEATURED_EFFECT_STUDIO_TREATMENTS,
   getEffectStudioTreatment,
   IMAGE_TUNING_PRESETS,
   listEffectStudioTreatments,
+  resolveStudioTreatmentEffects,
   STUDIO_TREATMENT_ARTS,
   SURFACE_PRESET_KIND_SETS,
   SURFACE_PRESETS,
   searchEffectStudioTreatments,
+  studioTreatmentControls,
   surfacePresetKinds,
 } from './surfacePresets';
 export * from './text/lineBreak';

@@ -16,6 +16,7 @@ import {
   imageTreatmentParameter,
   isImageTreatmentKind,
   isKnownAdjustmentKind,
+  type StudioTreatmentInstanceMetadata,
 } from '@varve/engine';
 
 const BLEND_MODES: readonly AdjustmentBlendMode[] = [
@@ -122,6 +123,41 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function finiteNumber(value: unknown, fallback: number, min = -4096, max = 4096): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
+}
+
+function normalizeStudioTreatmentMetadata(
+  value: unknown,
+): StudioTreatmentInstanceMetadata | undefined {
+  if (!isRecord(value)) return undefined;
+  const treatmentId = value.treatmentId;
+  const instanceId = value.instanceId;
+  if (
+    typeof treatmentId !== 'string' ||
+    treatmentId.length === 0 ||
+    treatmentId.length > 160 ||
+    typeof instanceId !== 'string' ||
+    instanceId.length === 0 ||
+    instanceId.length > 160 ||
+    !Number.isInteger(value.effectIndex) ||
+    value.effectIndex < 0 ||
+    value.effectIndex > 64
+  ) {
+    return undefined;
+  }
+  const rawControls = isRecord(value.controls) ? value.controls : {};
+  const controls = Object.fromEntries(
+    Object.entries(rawControls)
+      .filter(([key, control]) => key.length > 0 && key.length <= 80 && typeof control === 'number')
+      .slice(0, 24)
+      .map(([key, control]) => [key, finiteNumber(control, 0)]),
+  );
+  return {
+    treatmentId,
+    instanceId,
+    effectIndex: value.effectIndex,
+    controls,
+    ...(value.customized === true ? { customized: true } : {}),
+  };
 }
 
 function numberRange(kind: AdjustmentKind, key: string): [number, number] {
@@ -313,6 +349,12 @@ export function normalizeAdjustmentStack(
     normalized.blendMode = BLEND_MODES.includes(raw.blendMode as AdjustmentBlendMode)
       ? raw.blendMode
       : (defaults.blendMode ?? 'normal');
+
+    if (raw.studioTreatment !== undefined) {
+      const studioTreatment = normalizeStudioTreatmentMetadata(raw.studioTreatment);
+      if (studioTreatment) normalized.studioTreatment = studioTreatment;
+      else delete normalized.studioTreatment;
+    }
 
     for (const [key, fallback] of Object.entries(defaults)) {
       if (key === 'visible' || key === 'opacity' || key === 'blendMode') continue;

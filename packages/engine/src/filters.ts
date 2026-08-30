@@ -106,12 +106,32 @@ export type AdjustmentBlendMode =
   | 'luminosity'
   | 'passThrough';
 
+/**
+ * Provenance for a member of a curated Effect Studio treatment.
+ *
+ * The renderer deliberately ignores this UI-level metadata: the executable
+ * contract remains the ordinary ordered Adjustment stack. Keeping provenance
+ * on each member lets the Studio present one named treatment after it has
+ * been applied, while Object Filters can still expose the underlying entries
+ * for advanced work. `customized` becomes true when an advanced edit no
+ * longer matches the intent-level treatment controls.
+ */
+export interface StudioTreatmentInstanceMetadata {
+  treatmentId: string;
+  instanceId: string;
+  effectIndex: number;
+  controls: Record<string, number>;
+  customized?: boolean;
+}
+
 export interface AdjustmentBase {
   id: string;
   kind: AdjustmentKind;
   visible: boolean;
   opacity: number;
   blendMode: AdjustmentBlendMode;
+  /** Optional Effect Studio recipe membership; has no rendering semantics. */
+  studioTreatment?: StudioTreatmentInstanceMetadata;
 }
 
 export interface BrightnessAdjustment extends AdjustmentBase {

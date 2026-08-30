@@ -50,6 +50,30 @@ export const STUDIO_TREATMENT_ARTS = [
 
 export type StudioTreatmentArt = (typeof STUDIO_TREATMENT_ARTS)[number];
 
+/** A small, intent-level control exposed by a curated Studio treatment. */
+export interface StudioTreatmentControl {
+  id: string;
+  label: string;
+  description: string;
+  min: number;
+  max: number;
+  step: number;
+  defaultValue: number;
+  unit?: '%' | 'steps' | 'px';
+  targets: readonly StudioTreatmentControlTarget[];
+}
+
+/** One numeric treatment control can drive one or more underlying filter fields. */
+export interface StudioTreatmentControlTarget {
+  effectIndex: number;
+  parameter: string;
+  outputMin: number;
+  outputMax: number;
+  round?: boolean;
+}
+
+export type StudioTreatmentControlValues = Readonly<Record<string, number>>;
+
 /**
  * A named, outcome-oriented recipe rather than an individual filter control.
  *
@@ -65,6 +89,11 @@ export interface StudioTreatment extends SurfacePreset {
   tags: readonly string[];
   art: StudioTreatmentArt;
   featured?: boolean;
+  /**
+   * Author-defined macro controls for this treatment. When omitted, the
+   * Studio derives up to two safe controls from its constituent primitives.
+   */
+  controls?: readonly StudioTreatmentControl[];
 }
 
 type StudioEffectOverrides<K extends AdjustmentKind> = Partial<
@@ -84,6 +113,359 @@ function rgb(red: number, green: number, blue: number): [number, number, number]
 
 function rgba(red: number, green: number, blue: number, alpha = 255): Color {
   return [red, green, blue, alpha];
+}
+
+interface AutoTreatmentControl {
+  id: string;
+  label: string;
+  description: string;
+  min: number;
+  max: number;
+  step: number;
+  defaultValue: number;
+  unit?: StudioTreatmentControl['unit'];
+  targets: readonly Omit<StudioTreatmentControlTarget, 'effectIndex'>[];
+}
+
+/**
+ * Intent-level controls for common recipe primitives. They deliberately stop
+ * before exposing every implementation parameter: the full Object Filters
+ * editor remains the advanced escape hatch.
+ */
+const AUTO_TREATMENT_CONTROLS: Partial<Record<AdjustmentKind, readonly AutoTreatmentControl[]>> = {
+  posterize: [
+    {
+      id: 'tone-steps',
+      label: 'Tone steps',
+      description: 'Choose how many tonal bands the graphic treatment keeps.',
+      min: 2,
+      max: 12,
+      step: 1,
+      defaultValue: 4,
+      unit: 'steps',
+      targets: [{ parameter: 'levels', outputMin: 2, outputMax: 12, round: true }],
+    },
+  ],
+  paletteSnap: [
+    {
+      id: 'palette-strength',
+      label: 'Palette strength',
+      description: 'Control how firmly colours resolve to the treatment palette.',
+      min: 0,
+      max: 100,
+      step: 1,
+      defaultValue: 90,
+      unit: '%',
+      targets: [{ parameter: 'amount', outputMin: 0, outputMax: 1 }],
+    },
+  ],
+  dither: [
+    {
+      id: 'mark-density',
+      label: 'Mark density',
+      description: 'Make dithered marks coarser or more tightly packed.',
+      min: 1,
+      max: 100,
+      step: 1,
+      defaultValue: 60,
+      unit: '%',
+      targets: [{ parameter: 'cellSize', outputMin: 8, outputMax: 1, round: true }],
+    },
+    {
+      id: 'tone-steps',
+      label: 'Tone steps',
+      description: 'Set the number of tone bands used to build the marks.',
+      min: 2,
+      max: 8,
+      step: 1,
+      defaultValue: 4,
+      unit: 'steps',
+      targets: [{ parameter: 'levels', outputMin: 2, outputMax: 8, round: true }],
+    },
+  ],
+  grain: [
+    {
+      id: 'material-grain',
+      label: 'Material grain',
+      description: 'Increase or soften the material character over the result.',
+      min: 0,
+      max: 100,
+      step: 1,
+      defaultValue: 40,
+      unit: '%',
+      targets: [{ parameter: 'strength', outputMin: 0, outputMax: 40 }],
+    },
+  ],
+  halftone: [
+    {
+      id: 'screen-density',
+      label: 'Screen density',
+      description: 'Control how tightly the print screen is packed.',
+      min: 4,
+      max: 80,
+      step: 1,
+      defaultValue: 20,
+      targets: [{ parameter: 'frequency', outputMin: 4, outputMax: 80 }],
+    },
+    {
+      id: 'ink-strength',
+      label: 'Ink strength',
+      description: 'Control the visual weight of the screened marks.',
+      min: 0,
+      max: 100,
+      step: 1,
+      defaultValue: 75,
+      unit: '%',
+      targets: [{ parameter: 'intensity', outputMin: 0, outputMax: 1 }],
+    },
+  ],
+  colorHalftone: [
+    {
+      id: 'dot-scale',
+      label: 'Dot scale',
+      description: 'Set the size of the colour-print dots.',
+      min: 4,
+      max: 28,
+      step: 1,
+      defaultValue: 12,
+      unit: 'px',
+      targets: [{ parameter: 'screenSize', outputMin: 4, outputMax: 28 }],
+    },
+    {
+      id: 'ink-strength',
+      label: 'Ink strength',
+      description: 'Control the weight of the printed colour screen.',
+      min: 0,
+      max: 100,
+      step: 1,
+      defaultValue: 72,
+      unit: '%',
+      targets: [{ parameter: 'intensity', outputMin: 0, outputMax: 1 }],
+    },
+  ],
+  tritone: [
+    {
+      id: 'colour-strength',
+      label: 'Colour strength',
+      description: 'Blend the three-tone colour interpretation with the source.',
+      min: 0,
+      max: 100,
+      step: 1,
+      defaultValue: 80,
+      unit: '%',
+      targets: [{ parameter: 'intensity', outputMin: 0, outputMax: 1 }],
+    },
+  ],
+  duotone: [
+    {
+      id: 'ink-strength',
+      label: 'Ink strength',
+      description: 'Blend the two-tone ink interpretation with the source.',
+      min: 0,
+      max: 100,
+      step: 1,
+      defaultValue: 90,
+      unit: '%',
+      targets: [{ parameter: 'intensity', outputMin: 0, outputMax: 1 }],
+    },
+  ],
+  bloom: [
+    {
+      id: 'glow-strength',
+      label: 'Glow strength',
+      description: 'Control how strongly bright areas bloom.',
+      min: 0,
+      max: 200,
+      step: 1,
+      defaultValue: 100,
+      unit: '%',
+      targets: [{ parameter: 'intensity', outputMin: 0, outputMax: 2 }],
+    },
+    {
+      id: 'glow-spread',
+      label: 'Glow spread',
+      description: 'Set how far the highlight glow extends.',
+      min: 0,
+      max: 96,
+      step: 1,
+      defaultValue: 24,
+      unit: 'px',
+      targets: [{ parameter: 'radius', outputMin: 0, outputMax: 96 }],
+    },
+  ],
+  softBloom: [
+    {
+      id: 'glow-strength',
+      label: 'Glow strength',
+      description: 'Control the softness of highlight diffusion.',
+      min: 0,
+      max: 100,
+      step: 1,
+      defaultValue: 25,
+      unit: '%',
+      targets: [{ parameter: 'strength', outputMin: 0, outputMax: 100 }],
+    },
+    {
+      id: 'glow-spread',
+      label: 'Glow spread',
+      description: 'Set how far the soft bloom extends.',
+      min: 0,
+      max: 96,
+      step: 1,
+      defaultValue: 18,
+      unit: 'px',
+      targets: [{ parameter: 'radius', outputMin: 0, outputMax: 96 }],
+    },
+  ],
+  rgbSplit: [
+    {
+      id: 'channel-shift',
+      label: 'Channel shift',
+      description: 'Separate colour channels more or less strongly.',
+      min: 0,
+      max: 24,
+      step: 1,
+      defaultValue: 4,
+      unit: 'px',
+      targets: [{ parameter: 'amount', outputMin: 0, outputMax: 24 }],
+    },
+    {
+      id: 'shift-strength',
+      label: 'Shift strength',
+      description: 'Blend the split-channel treatment with the source.',
+      min: 0,
+      max: 100,
+      step: 1,
+      defaultValue: 100,
+      unit: '%',
+      targets: [{ parameter: 'intensity', outputMin: 0, outputMax: 1 }],
+    },
+  ],
+};
+
+function clampControlValue(value: number, control: StudioTreatmentControl): number {
+  return Math.min(control.max, Math.max(control.min, value));
+}
+
+function mapControlValue(
+  value: number,
+  control: StudioTreatmentControl,
+  target: StudioTreatmentControlTarget,
+): number {
+  const span = control.max - control.min;
+  const amount = span === 0 ? 0 : (clampControlValue(value, control) - control.min) / span;
+  const mapped = target.outputMin + (target.outputMax - target.outputMin) * amount;
+  return target.round ? Math.round(mapped) : mapped;
+}
+
+function mapTargetToControlValue(
+  value: number,
+  control: Pick<StudioTreatmentControl, 'min' | 'max'>,
+  target: Omit<StudioTreatmentControlTarget, 'effectIndex'>,
+): number {
+  const span = target.outputMax - target.outputMin;
+  const amount = span === 0 ? 0 : (value - target.outputMin) / span;
+  return Math.min(
+    control.max,
+    Math.max(control.min, control.min + (control.max - control.min) * amount),
+  );
+}
+
+function numericOverride(effect: SurfacePresetEffect, parameter: string): number | undefined {
+  const value = (effect.overrides as Record<string, unknown> | undefined)?.[parameter];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function defaultAmountControl(treatment: StudioTreatment): StudioTreatmentControl {
+  return {
+    id: 'amount',
+    label: 'Amount',
+    description: 'Blend the whole treatment stack with the unfiltered object result.',
+    min: 0,
+    max: 100,
+    step: 1,
+    defaultValue: 100,
+    unit: '%',
+    targets: treatment.effects.map((_, effectIndex) => ({
+      effectIndex,
+      parameter: 'opacity',
+      outputMin: 0,
+      outputMax: 1,
+    })),
+  };
+}
+
+function derivedControls(treatment: StudioTreatment): StudioTreatmentControl[] {
+  const controls: StudioTreatmentControl[] = [];
+  for (const [effectIndex, effect] of treatment.effects.entries()) {
+    const templates = AUTO_TREATMENT_CONTROLS[effect.kind] ?? [];
+    for (const template of templates) {
+      if (controls.length >= 2) return controls;
+      const firstTarget = template.targets[0];
+      const initialTargetValue = firstTarget
+        ? numericOverride(effect, firstTarget.parameter)
+        : undefined;
+      const base = {
+        min: template.min,
+        max: template.max,
+      };
+      const derivedDefault =
+        initialTargetValue === undefined || !firstTarget
+          ? template.defaultValue
+          : mapTargetToControlValue(initialTargetValue, base, firstTarget);
+      controls.push({
+        ...template,
+        id: `${effect.kind}-${effectIndex}-${template.id}`,
+        defaultValue: template.step >= 1 ? Math.round(derivedDefault) : derivedDefault,
+        targets: template.targets.map((target) => ({ ...target, effectIndex })),
+      });
+    }
+  }
+  return controls;
+}
+
+/** Return the compact, treatment-appropriate controls shown in Effect Studio. */
+export function studioTreatmentControls(treatment: StudioTreatment): StudioTreatmentControl[] {
+  return [defaultAmountControl(treatment), ...(treatment.controls ?? derivedControls(treatment))];
+}
+
+/** Return a complete set of default values for the Studio's treatment controls. */
+export function defaultStudioTreatmentControlValues(
+  treatment: StudioTreatment,
+): Record<string, number> {
+  return Object.fromEntries(
+    studioTreatmentControls(treatment).map((control) => [control.id, control.defaultValue]),
+  );
+}
+
+/**
+ * Resolve intent-level control values into an ordinary ordered recipe.
+ *
+ * The output remains a standard Adjustment recipe. This lets the Studio own
+ * simple named controls while the renderer, undo, export, and Object Filters
+ * continue to use exactly one stack representation.
+ */
+export function resolveStudioTreatmentEffects(
+  treatment: StudioTreatment,
+  values: StudioTreatmentControlValues = {},
+): SurfacePresetEffect[] {
+  const effects = treatment.effects.map((effect) => ({
+    ...effect,
+    overrides: effect.overrides ? { ...effect.overrides } : undefined,
+  }));
+  for (const control of studioTreatmentControls(treatment)) {
+    const raw = values[control.id];
+    const value = typeof raw === 'number' && Number.isFinite(raw) ? raw : control.defaultValue;
+    for (const target of control.targets) {
+      const effect = effects[target.effectIndex];
+      if (!effect) continue;
+      effect.overrides = {
+        ...effect.overrides,
+        [target.parameter]: mapControlValue(value, control, target),
+      } as Partial<Adjustment>;
+    }
+  }
+  return effects;
 }
 
 /**
@@ -964,6 +1346,43 @@ export const EFFECT_STUDIO_TREATMENTS: readonly StudioTreatment[] = [
     categoryId: 'texture',
     tags: ['reticulation', 'texture', 'grain', 'abstract'],
     art: 'reticulation',
+    controls: [
+      {
+        id: 'cluster-density',
+        label: 'Cluster density',
+        description: 'Pack the reticulated marks more tightly or let them open up.',
+        min: 1,
+        max: 100,
+        step: 1,
+        defaultValue: 67,
+        unit: '%',
+        targets: [
+          { effectIndex: 0, parameter: 'cellSize', outputMin: 7, outputMax: 1, round: true },
+        ],
+      },
+      {
+        id: 'tone-steps',
+        label: 'Tone steps',
+        description: 'Control how many tonal levels resolve into clustered marks.',
+        min: 2,
+        max: 8,
+        step: 1,
+        defaultValue: 4,
+        unit: 'steps',
+        targets: [{ effectIndex: 0, parameter: 'levels', outputMin: 2, outputMax: 8, round: true }],
+      },
+      {
+        id: 'material-grain',
+        label: 'Material grain',
+        description: 'Set the irregular surface grain behind the clusters.',
+        min: 0,
+        max: 100,
+        step: 1,
+        defaultValue: 60,
+        unit: '%',
+        targets: [{ effectIndex: 1, parameter: 'strength', outputMin: 0, outputMax: 40 }],
+      },
+    ],
     effects: [
       studioEffect('dither', {
         algorithm: 'blue-noise',

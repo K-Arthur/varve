@@ -3,6 +3,7 @@ import {
   ADJUSTMENT_KINDS,
   ADJUSTMENT_LAYER_KINDS,
   ADJUSTMENT_LAYER_PRESETS,
+  defaultStudioTreatmentControlValues,
   EFFECT_STUDIO_CATEGORIES,
   EFFECT_STUDIO_KINDS,
   EFFECT_STUDIO_PRESETS,
@@ -10,7 +11,9 @@ import {
   FEATURED_EFFECT_STUDIO_TREATMENTS,
   IMAGE_TUNING_KINDS,
   IMAGE_TUNING_PRESETS,
+  resolveStudioTreatmentEffects,
   searchEffectStudioTreatments,
+  studioTreatmentControls,
   surfacePresetKinds,
 } from './index';
 
@@ -78,5 +81,56 @@ describe('surface preset catalogs', () => {
     );
     expect(IMAGE_TUNING_PRESETS.some((preset) => preset.effects.length > 1)).toBe(true);
     expect(ADJUSTMENT_LAYER_PRESETS.some((preset) => preset.effects.length > 1)).toBe(true);
+  });
+
+  it('keeps a curated Reticulation treatment tunable without inventing a second renderer path', () => {
+    const reticulation = EFFECT_STUDIO_TREATMENTS.find(
+      (treatment) => treatment.id === 'studio-reticulation',
+    );
+    expect(reticulation).toBeDefined();
+    if (!reticulation) return;
+
+    expect(studioTreatmentControls(reticulation).map((control) => control.label)).toEqual([
+      'Amount',
+      'Cluster density',
+      'Tone steps',
+      'Material grain',
+    ]);
+    const tuned = resolveStudioTreatmentEffects(reticulation, {
+      ...defaultStudioTreatmentControlValues(reticulation),
+      amount: 50,
+      'cluster-density': 100,
+      'tone-steps': 6,
+      'material-grain': 20,
+    });
+    expect(tuned).toEqual([
+      expect.objectContaining({
+        kind: 'dither',
+        overrides: expect.objectContaining({ cellSize: 1, levels: 6, opacity: 0.5 }),
+      }),
+      expect.objectContaining({
+        kind: 'grain',
+        overrides: expect.objectContaining({ strength: 8, opacity: 0.5 }),
+      }),
+    ]);
+  });
+
+  it('gives every treatment a global amount and derives concise safe controls where possible', () => {
+    for (const treatment of EFFECT_STUDIO_TREATMENTS) {
+      expect(studioTreatmentControls(treatment)[0]).toMatchObject({
+        id: 'amount',
+        label: 'Amount',
+      });
+    }
+    const paletteCut = EFFECT_STUDIO_TREATMENTS.find(
+      (treatment) => treatment.id === 'studio-palette-cut',
+    );
+    expect(paletteCut).toBeDefined();
+    if (!paletteCut) return;
+    expect(studioTreatmentControls(paletteCut).map((control) => control.label)).toEqual([
+      'Amount',
+      'Tone steps',
+      'Palette strength',
+    ]);
   });
 });

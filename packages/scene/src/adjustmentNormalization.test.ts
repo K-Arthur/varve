@@ -146,6 +146,35 @@ describe('adjustment normalization', () => {
     });
   });
 
+  it('preserves bounded Effect Studio treatment provenance without giving it renderer semantics', () => {
+    const result = normalizeAdjustmentStack(
+      [
+        {
+          id: 'reticulation-dither',
+          kind: 'dither',
+          studioTreatment: {
+            treatmentId: 'studio-reticulation',
+            instanceId: 'treatment-instance-1',
+            effectIndex: 0,
+            controls: { amount: 85, 'cluster-density': 72, invalid: Number.POSITIVE_INFINITY },
+            customized: true,
+          },
+        },
+      ],
+      'shape-1',
+    );
+
+    expect(result.adjustments[0]).toMatchObject({
+      studioTreatment: {
+        treatmentId: 'studio-reticulation',
+        instanceId: 'treatment-instance-1',
+        effectIndex: 0,
+        controls: { amount: 85, 'cluster-density': 72 },
+        customized: true,
+      },
+    });
+  });
+
   it('preserves unknown entries as safe pass-through placeholders', () => {
     const doc = createDocument('Malformed adjustments', true);
     const adjustmentNode = makeAdjustmentNode('layer-1', 'levels', {
