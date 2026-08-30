@@ -20,6 +20,7 @@ import { CurveEditor } from '../Inspector/controls/CurveEditor';
 import { GradientMapAdjustmentSection } from '../Inspector/controls/GradientMapAdjustmentSection';
 import { HistogramWidget } from '../Inspector/controls/HistogramWidget';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
+import { ColorBalanceAdjustmentEditor } from './ColorBalanceAdjustmentEditor';
 import { ImageTreatmentEditor } from './ImageTreatmentEditor';
 import {
   BloomEditor,
@@ -33,6 +34,7 @@ import {
   RgbSplitEditor,
   VhsEditor,
 } from './LiveEffectEditors';
+import { ThresholdAdjustmentEditor } from './ThresholdAdjustmentEditor';
 import './adjustment.css';
 
 export interface AdjustmentEditorProps {
@@ -153,7 +155,14 @@ function LegacyAdjustmentEditor({
       );
 
     case 'colorBalance':
-      return <ColorBalanceEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <ColorBalanceAdjustmentEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
+        />
+      );
 
     case 'exposure':
       return (
@@ -562,7 +571,15 @@ function LegacyAdjustmentEditor({
       return <PosterizeEditor adjustment={adjustment} onChange={onChange} />;
 
     case 'threshold':
-      return <ThresholdEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <ThresholdAdjustmentEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
+          sourceHistogram={sourceHistogram}
+        />
+      );
 
     case 'lut':
       return (
@@ -983,88 +1000,6 @@ function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           />
         </div>
       ))}
-    </div>
-  );
-}
-
-function ColorBalanceEditor({ adjustment, onChange }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@varve/scene').ColorBalanceAdjustment;
-  const handleTriplet =
-    (range: 'shadows' | 'midtones' | 'highlights', key: string) => (value: number) => {
-      onChange({
-        [range]: { ...adj[range], [key]: value },
-      } as unknown as Partial<Adjustment>);
-    };
-
-  const TripletRow = ({
-    label,
-    range,
-  }: {
-    label: string;
-    range: 'shadows' | 'midtones' | 'highlights';
-  }) => (
-    <div className="adj-editor__triplet">
-      <span
-        style={{
-          fontSize: 'var(--font-size-xs)',
-          fontWeight: 'var(--font-weight-semibold)',
-          color: 'var(--text-secondary)',
-        }}
-      >
-        {label}
-      </span>
-      <div className="adj-editor__triplet-row">
-        <span className="adj-editor__triplet-label">Cyan / Red</span>
-        <RangeValueControl
-          label={`${label} cyan/red`}
-          rangeClassName="adj-editor__slider"
-          min={-100}
-          max={100}
-          value={adj[range].cyanRed}
-          onChange={handleTriplet(range, 'cyanRed')}
-        />
-      </div>
-      <div className="adj-editor__triplet-row">
-        <span className="adj-editor__triplet-label">Magenta / Green</span>
-        <RangeValueControl
-          label={`${label} magenta/green`}
-          rangeClassName="adj-editor__slider"
-          min={-100}
-          max={100}
-          value={adj[range].magentaGreen}
-          onChange={handleTriplet(range, 'magentaGreen')}
-        />
-      </div>
-      <div className="adj-editor__triplet-row">
-        <span className="adj-editor__triplet-label">Yellow / Blue</span>
-        <RangeValueControl
-          label={`${label} yellow/blue`}
-          rangeClassName="adj-editor__slider"
-          min={-100}
-          max={100}
-          value={adj[range].yellowBlue}
-          onChange={handleTriplet(range, 'yellowBlue')}
-        />
-      </div>
-    </div>
-  );
-
-  return (
-    <div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Preserve Luminosity</span>
-        <input
-          type="checkbox"
-          checked={adj.preserveLuminosity}
-          onChange={(e) =>
-            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
-          }
-          aria-label="Preserve luminosity"
-        />
-      </div>
-      <TripletRow label="Shadows" range="shadows" />
-      <TripletRow label="Midtones" range="midtones" />
-      <TripletRow label="Highlights" range="highlights" />
     </div>
   );
 }
@@ -1911,26 +1846,6 @@ function PosterizeEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         max={256}
         value={adj.levels}
         onChange={(value) => onChange({ levels: value } as unknown as Partial<Adjustment>)}
-      />
-    </div>
-  );
-}
-
-function ThresholdEditor({ adjustment, onChange }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@varve/scene').ThresholdAdjustment;
-  return (
-    <div className="adj-editor__slider-row">
-      <div className="adj-editor__slider-label">
-        <span>Level</span>
-        <span>{adj.level}</span>
-      </div>
-      <RangeValueControl
-        label="Threshold level"
-        rangeClassName="adj-editor__slider"
-        min={0}
-        max={255}
-        value={adj.level}
-        onChange={(value) => onChange({ level: value } as unknown as Partial<Adjustment>)}
       />
     </div>
   );

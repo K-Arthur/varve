@@ -639,6 +639,115 @@
   height: var(--space-2);
 }
 
+/* ── Threshold and Color Balance editors ─────────────────────────────── */
+
+.threshold-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.threshold-editor__histogram {
+  position: relative;
+  min-height: 92px;
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+
+.threshold-editor__histogram canvas {
+  display: block;
+  width: 100%;
+  height: 92px;
+}
+
+.threshold-editor__empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.color-balance-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.color-balance-editor__tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.color-balance-editor__tab {
+  min-height: var(--space-6);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.color-balance-editor__tab:hover,
+.color-balance-editor__tab.is-active {
+  color: var(--color-text-primary);
+}
+
+.color-balance-editor__tab.is-active {
+  border-bottom-color: var(--color-interactive-default);
+}
+
+.color-balance-editor__tab:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+.color-balance-editor__axes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.color-balance-editor__axis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.color-balance-editor__axis-labels {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.color-balance-editor__axis-label--right {
+  text-align: right;
+}
+
+.color-balance-editor__axis-labels output {
+  min-width: 3ch;
+  color: var(--color-text-primary);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.color-balance-editor__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 /* Adjustment layer row in layers panel */
 .adj-layer-row {
   display: flex;

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   AdjustmentEditor,
@@ -160,6 +160,49 @@ describe('AdjustmentEditor — shadow / highlight', () => {
 });
 
 describe('AdjustmentEditor — color controls', () => {
+  it('shows Color Balance tonal-range tabs and preserves range values', () => {
+    const onChange = vi.fn();
+    render(
+      <AdjustmentEditor
+        adjustment={{
+          ...base,
+          kind: 'colorBalance',
+          shadows: { cyanRed: 10, magentaGreen: 0, yellowBlue: 0 },
+          midtones: { cyanRed: -20, magentaGreen: 0, yellowBlue: 0 },
+          highlights: { cyanRed: 30, magentaGreen: 0, yellowBlue: 0 },
+          preserveLuminosity: true,
+        }}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByRole('tab', { name: 'Shadows' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('tab', { name: 'Midtones' }));
+    expect(screen.getByRole('tab', { name: 'Midtones' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('slider', { name: /midtones cyan to red/i })).toHaveValue('-20');
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Midtones' }));
+    expect(onChange).toHaveBeenCalledWith({
+      midtones: { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
+    });
+  });
+
+  it('shows Threshold histogram and tonal-source controls', () => {
+    render(
+      <AdjustmentEditor
+        adjustment={{
+          ...base,
+          kind: 'threshold',
+          level: 128,
+          luminanceMode: 'relative-luminance',
+        }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('img', { name: /luminance histogram/i })).toBeTruthy();
+    expect(screen.getByRole('slider', { name: 'Threshold level' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Threshold tonal source' })).toBeTruthy();
+  });
+
   it('renders editable colors for duotone without passing an invalid ColorPicker prop', () => {
     render(
       <AdjustmentEditor
