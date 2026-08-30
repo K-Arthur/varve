@@ -17,11 +17,11 @@ import {
 import { ALL_WORKSPACE_MODES, type WorkspaceConfig, type WorkspaceMode } from './workspaceTypes';
 
 export interface PageSurfaceVisibility {
-  /** Whether publishing page surfaces remain part of the canvas document view. */
+  /** Whether publishing page surfaces are the active canvas document view. */
   renderPageSurfaces: boolean;
-  /** Whether the page-management panel should be mounted. */
+  /** Whether the page/surface management panel should be mounted. */
   showPagesPanel: boolean;
-  /** Whether the compact page navigator should be mounted. */
+  /** Whether the compact publishing-page navigator should be mounted. */
   showPageNavigation: boolean;
   /** Whether print-only geometry controls have a page to act on. */
   showPrintGeometry: boolean;
@@ -31,11 +31,10 @@ export interface PageSurfaceVisibility {
  * Resolve publishing-page UI disclosure without filtering document semantics.
  *
  * A panel preference can hide management controls, but workspace mode must
- * never hide page rendering, ownership, persistence, or explicit commands.
- * The ordinary canvas and its frames remain available in every workspace;
- * print-only controls are disclosed only when a publishing page exists.
- * Print keeps an empty management panel available so a flat document can be
- * promoted intentionally by the user rather than by an implicit conversion.
+ * never hide ownership, persistence, or explicit commands. Design workspace
+ * exposes Design Canvases; Print exposes Publishing Pages. This boundary is
+ * intentional: a Design Canvas is an unbounded exploratory surface, while a
+ * Publishing Page owns trim, order, and print/export geometry.
  */
 export function resolvePageSurfaceVisibility(input: {
   mode: WorkspaceMode;
@@ -43,12 +42,14 @@ export function resolvePageSurfaceVisibility(input: {
   pagePanelVisible: boolean;
 }): PageSurfaceVisibility {
   const hasPages = Number.isFinite(input.pageCount) && input.pageCount > 0;
-  const showPagesPanel = input.pagePanelVisible && (hasPages || input.mode === 'print');
+  const isDesign = input.mode === 'design';
+  const isPrint = input.mode === 'print';
+  const showPagesPanel = input.pagePanelVisible && (isDesign || isPrint);
   return {
-    renderPageSurfaces: hasPages,
+    renderPageSurfaces: isPrint && hasPages,
     showPagesPanel,
-    showPageNavigation: input.pagePanelVisible && hasPages,
-    showPrintGeometry: input.mode === 'print' && hasPages,
+    showPageNavigation: input.pagePanelVisible && isPrint && hasPages,
+    showPrintGeometry: isPrint && hasPages,
   };
 }
 

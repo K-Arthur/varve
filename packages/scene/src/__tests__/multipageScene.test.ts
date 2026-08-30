@@ -3,17 +3,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { createDesignCanvas, designCanvasContentRoot } from '../designCanvas';
 import type { Document } from '../document';
-import {
-  addChild,
-  addNode,
-  addPage,
-  createDesignCanvas,
-  createDocument,
-  designCanvasContentRoot,
-  makeShapeNode,
-  nextNodeId,
-} from '../document';
+import { addChild, addNode, addPage, createDocument, makeShapeNode, nextNodeId } from '../document';
 import { addMasterOverride, assignMasterToPage, createMaster } from '../document-components';
 import { deletePageWithPolicy } from '../document-pages';
 import {

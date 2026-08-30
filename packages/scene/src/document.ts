@@ -72,18 +72,6 @@ import type { Variable } from './variables';
 import { createVariableStore, deleteVariable } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';
 
-export {
-  createDesignCanvas,
-  deleteDesignCanvas,
-  designCanvasChildren,
-  designCanvasContentRoot,
-  duplicateDesignCanvas,
-  getActiveDesignCanvas,
-  getDesignCanvas,
-  renameDesignCanvas,
-  reorderDesignCanvases,
-  setActiveDesignCanvas,
-} from './designCanvas';
 export type { CreateMasterOptions } from './document-components';
 export {
   activePageNodesWithMaster,

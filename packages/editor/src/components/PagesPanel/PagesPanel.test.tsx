@@ -34,7 +34,16 @@ vi.mock('../PageNav/usePageThumbnail', () => ({
   usePageThumbnail: vi.fn(() => null),
 }));
 
+vi.mock('../../workspace/useWorkspaceConfig', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../workspace/useWorkspaceConfig')>();
+  return {
+    ...actual,
+    useEffectiveWorkspaceConfig: vi.fn(() => ({ panels: { pagenav: { visible: true } } })),
+  };
+});
+
 import { useEditor } from '../../context';
+import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import { PagesPanel } from './PagesPanel';
 
 interface MockPage {
@@ -61,11 +70,15 @@ function mockEditor(overrides: {
   updateDoc?: ReturnType<typeof vi.fn>;
   setActivePage?: ReturnType<typeof vi.fn>;
   setCurrentPageId?: ReturnType<typeof vi.fn>;
+  setSelection?: ReturnType<typeof vi.fn>;
+  announce?: ReturnType<typeof vi.fn>;
+  designCanvases?: Array<{ id: string; name: string; order: string; contentRoot: string }>;
+  activeDesignCanvasId?: string | null;
 }) {
   const activePageId = overrides.activePageId ?? overrides.pages[0]?.id ?? null;
   vi.mocked(useEditor).mockReturnValue({
     state: {
-      workspaceMode: overrides.workspaceMode ?? 'design',
+      workspaceMode: overrides.workspaceMode ?? 'print',
       document: {
         pages: overrides.pages,
         activePageId,
@@ -74,12 +87,16 @@ function mockEditor(overrides: {
         nodes: {},
         rootChildren: [],
         globalChildren: [],
+        designCanvases: overrides.designCanvases,
+        activeDesignCanvasId: overrides.activeDesignCanvasId,
       },
       currentPageId: activePageId,
     },
     updateDoc: overrides.updateDoc ?? vi.fn(),
     setActivePage: overrides.setActivePage ?? vi.fn(),
     setCurrentPageId: overrides.setCurrentPageId ?? vi.fn(),
+    setSelection: overrides.setSelection ?? vi.fn(),
+    announce: overrides.announce ?? vi.fn(),
     getPageSide: (pageId: string) => {
       const idx = overrides.pages.findIndex((p) => p.id === pageId);
       return idx % 2 === 0 ? 'left' : 'right';
@@ -195,9 +212,56 @@ describe('PagesPanel', () => {
     expect(screen.getByText(/Publishing pages define trim/)).toBeTruthy();
   });
 
-  it('does not disclose an empty page panel in Design', () => {
+  it('discloses the Design Canvas panel even when the collection is empty', () => {
     mockEditor({ pages: [], workspaceMode: 'design' });
+    render(<PagesPanel />);
+    expect(screen.getByRole('heading', { name: /Design Canvases/ })).toBeTruthy();
+    expect(screen.getByText('No Design Canvases — click + to create one.')).toBeTruthy();
+  });
+
+  it('respects the Design Canvas panel visibility preference', () => {
+    mockEditor({ pages: [], workspaceMode: 'design' });
+    const workspaceConfig = vi.mocked(useEffectiveWorkspaceConfig);
+    workspaceConfig.mockReturnValue({ panels: { pagenav: { visible: false } } });
     const { container } = render(<PagesPanel />);
     expect(container.innerHTML).toBe('');
+    workspaceConfig.mockReturnValue({ panels: { pagenav: { visible: true } } });
+  });
+});
+
+describe('Design Canvas presentation', () => {
+  it('shows canvases as a separate surface list, not as publishing pages', () => {
+    mockEditor({
+      pages: [],
+      workspaceMode: 'design',
+      designCanvases: [{ id: 'c1', name: 'Campaign', order: 'a0', contentRoot: 'root-c1' }],
+      activeDesignCanvasId: 'c1',
+    });
+
+    render(<PagesPanel />);
+
+    expect(screen.getByRole('region', { name: 'Design Canvases' })).toBeInTheDocument();
+    expect(screen.getByText('Campaign')).toBeInTheDocument();
+    expect(screen.queryByText('Publishing pages')).not.toBeInTheDocument();
+  });
+
+  it('exposes create and rename actions for Design Canvases', () => {
+    const updateDoc = vi.fn();
+    const setSelection = vi.fn();
+    mockEditor({
+      pages: [],
+      workspaceMode: 'design',
+      designCanvases: [{ id: 'c1', name: 'Campaign', order: 'a0', contentRoot: 'root-c1' }],
+      activeDesignCanvasId: 'c1',
+      updateDoc,
+      setSelection,
+    });
+
+    render(<PagesPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add Design Canvas' }));
+
+    expect(updateDoc).toHaveBeenCalledTimes(1);
+    expect(setSelection).toHaveBeenCalledWith(null);
+    expect(screen.getByRole('button', { name: 'Rename Campaign' })).toBeInTheDocument();
   });
 });

@@ -5,8 +5,9 @@ test.describe('Layers Panel - Multi-Page', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
-    // A blank editor starts without a page. Create the first page so these
-    // tests exercise the page strip rather than waiting for a hidden nav.
+    await page.getByRole('radio', { name: 'Print workspace' }).click();
+    // A blank editor starts with a Design Canvas. Create the first Publishing
+    // Page so these tests exercise the page strip rather than the canvas nav.
     await page.getByTestId('layers-panel').getByRole('button', { name: 'Add page' }).click();
     await page.waitForSelector('[role="tablist"][aria-label="Publishing page navigator"]');
   });

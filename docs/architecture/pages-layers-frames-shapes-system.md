@@ -18,6 +18,23 @@ The page model uses stable fractional-indexing for page ordering:
 - `activePageNodes(doc)`: the active renderer/hit-test traversal entry point, returning globals plus the active page content root's children.
 - `activePageNodesWithMaster(doc, pageId)`: returns visible nodes including applied master content with override filtering.
 
+### Design Canvas Model v2.22
+
+Design workspace organization is represented separately from Publishing Pages:
+
+- `Document.designCanvases`: ordered named `DesignCanvas[]` surfaces.
+- `Document.activeDesignCanvasId`: the active Design workspace surface.
+- `DesignCanvas.contentRoot`: an internal transparent group that owns the
+  canvas's authored nodes; it is not a user-facing layer.
+- `designCanvasChildren(doc, canvasId)`: the direct artwork roots used by
+  rendering, hit testing, filtering, and layer reordering.
+
+The Design Canvas navigator is exposed above Layers in Design workspace. The
+Layers tree receives only the active canvas's authored descendants, so the
+canvas itself never appears as a layer row. Print workspace instead resolves
+the active Publishing Page and exposes page navigation, trim, spreads, masters,
+and page-aware output controls.
+
 ### Master Pages
 
 Master pages provide reusable layout templates:

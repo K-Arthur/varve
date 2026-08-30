@@ -1,19 +1,21 @@
 import {
   addChild,
   addPage,
+  createDesignCanvas,
   createDocument,
+  designCanvasContentRoot,
   makeGroupNode,
   makeShapeNode,
   nextNodeId,
   type Page,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { collectActivePageNodeIds, computeActivePageLayerCount } from './layerCounts';
+import { collectActiveSurfaceNodeIds, computeActiveSurfaceLayerCount } from './layerCounts';
 
-describe('computeActivePageLayerCount', () => {
+describe('computeActiveSurfaceLayerCount', () => {
   it('is 0 for a brand-new blank document (contentRoot is not a layer)', () => {
     const doc = createDocument();
-    expect(computeActivePageLayerCount(doc)).toBe(0);
+    expect(computeActiveSurfaceLayerCount(doc)).toBe(0);
   });
 
   it('counts only the active page, not other pages in the same document', () => {
@@ -49,11 +51,11 @@ describe('computeActivePageLayerCount', () => {
 
     // Still viewing page 1 by default: only the 1 shape on page 1 counts.
     expect(doc.activePageId).toBe(doc.pages?.[0]?.id);
-    expect(computeActivePageLayerCount(doc)).toBe(1);
+    expect(computeActiveSurfaceLayerCount(doc)).toBe(1);
 
     // Switch to page 2: only its 2 shapes count, not page 1's.
     doc = { ...doc, activePageId: page2.id };
-    expect(computeActivePageLayerCount(doc)).toBe(2);
+    expect(computeActiveSurfaceLayerCount(doc)).toBe(2);
   });
 
   it('counts nested descendants (group/frame children), recursively', () => {
@@ -75,7 +77,31 @@ describe('computeActivePageLayerCount', () => {
     doc = addChild(doc, page1ContentRoot.id, group);
 
     // The group itself + its 1 child = 2 layers.
-    expect(computeActivePageLayerCount(doc)).toBe(2);
-    expect(collectActivePageNodeIds(doc)).toContain(childId);
+    expect(computeActiveSurfaceLayerCount(doc)).toBe(2);
+    expect(collectActiveSurfaceNodeIds(doc)).toContain(childId);
+  });
+
+  it('counts only artwork on the selected Design Canvas', () => {
+    let doc = createDesignCanvas(createDocument('design', true), { name: 'Exploration' });
+    const firstCanvasId = doc.activeDesignCanvasId!;
+    const firstRootId = designCanvasContentRoot(doc)!;
+    const firstNode = nextNodeId(doc);
+    doc = addChild(
+      firstNode.doc,
+      firstRootId,
+      makeShapeNode(firstNode.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+    );
+    doc = createDesignCanvas(doc, { name: 'Production' });
+    const secondCanvasId = doc.activeDesignCanvasId!;
+    const secondRootId = designCanvasContentRoot(doc)!;
+    const secondNode = nextNodeId(doc);
+    doc = addChild(
+      secondNode.doc,
+      secondRootId,
+      makeShapeNode(secondNode.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+    );
+
+    expect(computeActiveSurfaceLayerCount(doc, secondCanvasId)).toBe(1);
+    expect(collectActiveSurfaceNodeIds(doc, firstCanvasId)).toEqual([firstNode.id]);
   });
 });

@@ -31,6 +31,7 @@ import {
 } from '../../workspace/useWorkspaceConfig';
 import { usePageThumbnail } from '../PageNav/usePageThumbnail';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
+import { DesignCanvasPanel } from './DesignCanvasPanel';
 import './pages-panel.css';
 
 /** Windowed-row budget: rows outside [first, last] are not rendered. */
@@ -47,6 +48,20 @@ interface PageRowData {
 }
 
 export function PagesPanel() {
+  const { state } = useEditor();
+  const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
+  const pageSurfaceVisibility = resolvePageSurfaceVisibility({
+    mode: state.workspaceMode,
+    pageCount: state.document.pages?.length ?? 0,
+    pagePanelVisible: effectiveConfig.panels.pagenav.visible,
+  });
+  if (state.workspaceMode === 'design') {
+    return pageSurfaceVisibility.showPagesPanel ? <DesignCanvasPanel /> : null;
+  }
+  return <PublishingPagesPanel />;
+}
+
+function PublishingPagesPanel() {
   const { state, updateDoc, setActivePage, setCurrentPageId, getPageSide } = useEditor();
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
 
@@ -95,8 +110,8 @@ export function PagesPanel() {
   );
 
   const handleAddPage = useCallback(() => {
-    // Documents created from Home start flat (no pages array) — the page
-    // counter must not assume pages exist.
+    // Documents created from Home start with a Design Canvas; Print mode can
+    // add the first Publishing Page without assuming pages already exist.
     updateDoc((doc) => createPageCommand(doc, { name: `Page ${(doc.pages ?? []).length + 1}` }));
     setCurrentPageId(null);
   }, [updateDoc, setCurrentPageId]);

@@ -584,6 +584,7 @@ export function renderContent(deps: RenderContentDeps): void {
     const entries = multipageNodeInstances(doc, {
       viewportWorldRect: viewportWorld,
       masterEditId: s.masterEditId,
+      designCanvasId: s.workspaceMode === 'print' ? null : doc.activeDesignCanvasId,
     });
     // A node-id map cannot represent one master source projected onto more
     // than one page. The occurrence walk keeps those instances in paint

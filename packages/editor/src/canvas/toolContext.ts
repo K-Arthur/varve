@@ -3,6 +3,7 @@ import {
   addChild,
   addNode,
   buildParentIndexMap,
+  designCanvasContentRoot,
   getGuidesForPage,
   makeRasterLayerNode,
   multipageRootNodes,
@@ -138,6 +139,7 @@ export function buildToolContext(
     snapGrid: s.snapGrid,
     isolatedNodeId: s.isolatedNodeId,
     masterEditId: s.masterEditId,
+    designCanvasId: s.workspaceMode === 'print' ? null : s.document.activeDesignCanvasId,
     enterIsolation: (nodeId) => e.enterIsolation(nodeId),
     exitIsolation: () => e.exitIsolation(),
 
@@ -190,6 +192,16 @@ export function buildToolContext(
           walkNodes(
             s.document,
             multipageRootNodes(s.document, { masterEditId: s.masterEditId }),
+          ).keys(),
+        );
+      }
+      if (s.workspaceMode !== 'print' && s.document.activeDesignCanvasId) {
+        return new Set(
+          walkNodes(
+            s.document,
+            multipageRootNodes(s.document, {
+              designCanvasId: s.document.activeDesignCanvasId,
+            }),
           ).keys(),
         );
       }
@@ -442,7 +454,9 @@ export function buildToolContext(
       const s2 = deps.stateRef.current;
       const { id, doc: d2 } = nextNodeId(s2.document);
       const layer = makeRasterLayerNode(id, { width, height }, { name: 'Brush Layer' });
-      const newDoc = parentId ? addChild(d2, parentId, layer) : addNode(d2, layer);
+      const activeRoot =
+        parentId ?? (s.workspaceMode === 'print' ? null : designCanvasContentRoot(d2));
+      const newDoc = activeRoot ? addChild(d2, activeRoot, layer) : addNode(d2, layer);
       e.updateDoc(() => newDoc);
       return id;
     },

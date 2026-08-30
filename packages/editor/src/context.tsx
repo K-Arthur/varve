@@ -174,6 +174,7 @@ import {
   deleteSpotLibrary as deleteSpotLibraryDoc,
   deleteTextChain as deleteTextChainDoc,
   deleteVariableFromDocument as deleteVariableFromDocumentDoc,
+  designCanvasContentRoot,
   detachInstance as detachInstanceDoc,
   booleanOp as doBooleanOp,
   duplicateGuide as duplicateGuideDoc,
@@ -656,6 +657,7 @@ function insertImportedSubtree(
   sourceDoc: Document,
   rootId: NodeId,
   adjustRoot: (node: SceneNode) => SceneNode,
+  workspaceMode: string = 'print',
 ): { doc: Document; rootId: NodeId; idMap: Map<string, string> } | null {
   // Cross-document import/clipboard paste: mask and scope references that
   // point outside the pasted subtree must not leak source-document IDs —
@@ -682,11 +684,14 @@ function insertImportedSubtree(
     ? { ...(targetDoc.iconAssets ?? {}), ...sourceDoc.iconAssets }
     : targetDoc.iconAssets;
 
-  // For paged documents, add to the active page's contentRoot so the node
-  // is visible to the page-scoped renderer (activePageNodes). Adding to
-  // rootChildren bypasses the page system and the node is never traversed.
-  const activePage = targetDoc.pages?.find((p) => p.id === targetDoc.activePageId);
-  const contentRootId = activePage?.contentRoot;
+  // Design workspace imports belong to the active Design Canvas. Print
+  // workspace imports belong to the active publishing Page. Adding directly
+  // to rootChildren would bypass either scoped renderer and make the layer
+  // appear in a panel while silently disappearing from the canvas.
+  const contentRootId =
+    workspaceMode === 'print'
+      ? targetDoc.pages?.find((p) => p.id === targetDoc.activePageId)?.contentRoot
+      : designCanvasContentRoot(targetDoc);
   if (contentRootId && targetDoc.nodes[contentRootId]) {
     const contentRoot = targetDoc.nodes[contentRootId] as ContainerNode;
     const children = contentRoot.children ?? [];
@@ -730,6 +735,21 @@ function insertImportedSubtree(
       ...(mergedIconAssets !== targetDoc.iconAssets ? { iconAssets: mergedIconAssets } : {}),
     },
   };
+}
+
+/**
+ * Resolve the content owner for editor-created layers. Design Canvas content
+ * is intentionally unavailable to Print workspace commands; Print commands
+ * target the active publishing Page instead.
+ */
+function activeWorkspaceContentRoot(doc: Document, workspaceMode: string): NodeId | null {
+  if (workspaceMode !== 'print') return designCanvasContentRoot(doc);
+  return doc.pages?.find((page) => page.id === doc.activePageId)?.contentRoot ?? null;
+}
+
+function addNodeToActiveWorkspace(doc: Document, node: SceneNode, workspaceMode: string): Document {
+  const rootId = activeWorkspaceContentRoot(doc, workspaceMode);
+  return rootId && doc.nodes[rootId] ? addChild(doc, rootId, node) : addNode(doc, node);
 }
 
 /**
@@ -3072,8 +3092,15 @@ export function EditorProvider({
     if (sourceRoot && 'children' in sourceRoot) {
       return sourceRoot.children.map((id) => nodes[id]).filter((n): n is SceneNode => Boolean(n));
     }
+    if (state.workspaceMode !== 'print') {
+      const designRootId = designCanvasContentRoot(state.document);
+      const designRoot = designRootId ? nodes[designRootId] : undefined;
+      if (designRoot && 'children' in designRoot) {
+        return designRoot.children.map((id) => nodes[id]).filter((n): n is SceneNode => Boolean(n));
+      }
+    }
     return rootChildren.map((id) => nodes[id]).filter((n): n is SceneNode => Boolean(n));
-  }, [state.document, state.masterEditId]);
+  }, [state.document, state.masterEditId, state.workspaceMode]);
 
   const updateNodeProp = useCallback(
     (id: NodeId, updater: (n: SceneNode) => SceneNode) => {
@@ -4026,7 +4053,12 @@ export function EditorProvider({
             node = makeShapeNode(id, shape, { name: 'Node', transform, ...strokeOpts });
           }
 
-          const effectiveParentId = parentId ?? findContainingFrameInDoc(d2, world);
+          const effectiveParentId =
+            parentId ??
+            findContainingFrameInDoc(d2, world, null, {
+              designCanvasId:
+                s.workspaceMode === 'print' ? null : (d2.activeDesignCanvasId ?? null),
+            });
           let newDoc: Document;
           if (effectiveParentId) {
             // Convert world→local: the node's transform must be in the
@@ -4070,10 +4102,13 @@ export function EditorProvider({
             newDoc = addChild(d2, effectiveParentId, node);
             newDoc = applyFrameLayout(newDoc, effectiveParentId);
           } else {
-            // No containing frame: add to the current page's content root so
-            // the node is scoped to the active page, not global rootChildren.
-            const activePage = d2.pages?.find((p) => p.id === d2.activePageId);
-            const contentRootId = activePage?.contentRoot;
+            // No containing frame: add to the active workspace surface. Design
+            // workspace uses the active Design Canvas; Print uses its page.
+            const activePage =
+              s.workspaceMode === 'print'
+                ? d2.pages?.find((p) => p.id === d2.activePageId)
+                : undefined;
+            const contentRootId = activeWorkspaceContentRoot(d2, s.workspaceMode);
             if (contentRootId && d2.nodes[contentRootId]) {
               const local = activePage ? pageContentPoint(d2, activePage.id, world) : world;
               newDoc = addChild(d2, contentRootId, {
@@ -4187,7 +4222,12 @@ export function EditorProvider({
             textResizing: size ? 'fixed' : 'autoWidth',
           });
 
-          const effectiveParentId = parentId ?? findContainingFrameInDoc(d2, world);
+          const effectiveParentId =
+            parentId ??
+            findContainingFrameInDoc(d2, world, null, {
+              designCanvasId:
+                s.workspaceMode === 'print' ? null : (d2.activeDesignCanvasId ?? null),
+            });
           let newDoc: Document;
           if (effectiveParentId) {
             // Convert world→local: the node's transform must be in the
@@ -4206,10 +4246,13 @@ export function EditorProvider({
             newDoc = addChild(d2, effectiveParentId, localNode);
             newDoc = applyFrameLayout(newDoc, effectiveParentId);
           } else {
-            // No containing frame: add to the current page's content root so
-            // the node is scoped to the active page, not global rootChildren.
-            const activePage = d2.pages?.find((p) => p.id === d2.activePageId);
-            const contentRootId = activePage?.contentRoot;
+            // No containing frame: scope the node to the active workspace
+            // surface instead of bypassing its root into rootChildren.
+            const activePage =
+              s.workspaceMode === 'print'
+                ? d2.pages?.find((p) => p.id === d2.activePageId)
+                : undefined;
+            const contentRootId = activeWorkspaceContentRoot(d2, s.workspaceMode);
             if (contentRootId && d2.nodes[contentRootId]) {
               const local = activePage ? pageContentPoint(d2, activePage.id, world) : world;
               newDoc = addChild(d2, contentRootId, {
@@ -4299,12 +4342,13 @@ export function EditorProvider({
             h: preset.h,
           });
 
-          // Add to the active page's content root so the node is scoped to
-          // the active page (activePageNodes), not global rootChildren —
-          // otherwise it's invisible to the canvas renderer while still
-          // showing in the Layers panel. Mirrors createShapeAt.
-          const activePage = d2.pages?.find((p) => p.id === d2.activePageId);
-          const contentRootId = activePage?.contentRoot;
+          // Scope the new frame to the active workspace surface: Design
+          // Canvas in design-oriented workspaces, publishing Page in Print.
+          const activePage =
+            s.workspaceMode === 'print'
+              ? d2.pages?.find((p) => p.id === d2.activePageId)
+              : undefined;
+          const contentRootId = activeWorkspaceContentRoot(d2, s.workspaceMode);
           const localCenter = activePage
             ? pageContentPoint(d2, activePage.id, { x: center[0], y: center[1] })
             : { x: center[0], y: center[1] };
@@ -4332,7 +4376,9 @@ export function EditorProvider({
           providedFrameIndex ??
           getOrCreateFrameSpatialIndex(state.document, frameSpatialIndexRef.current);
         frameSpatialIndexRef.current = frameIndex;
-        return findContainingFrameInDoc(state.document, world, frameIndex);
+        return findContainingFrameInDoc(state.document, world, frameIndex, {
+          designCanvasId: state.workspaceMode === 'print' ? null : state.document.activeDesignCanvasId,
+        });
       },
 
       nodeWorldBounds: (n) =>
@@ -4407,6 +4453,7 @@ export function EditorProvider({
         const engine = new HitTestEngine(state.document, {
           isolatedNodeId: state.isolatedNodeId,
           masterEditId: state.masterEditId,
+          designCanvasId: state.workspaceMode === 'print' ? null : state.document.activeDesignCanvasId,
           zoom: state.zoom,
         });
         const hit = engine.hitTest(world);
@@ -4421,6 +4468,7 @@ export function EditorProvider({
         const engine = HitTestEngine.withPolicy(state.document, policyName, {
           isolatedNodeId: state.isolatedNodeId,
           masterEditId: state.masterEditId,
+          designCanvasId: state.workspaceMode === 'print' ? null : state.document.activeDesignCanvasId,
           zoom: state.zoom,
         });
         const hit = engine.hitTest(world);
@@ -4619,8 +4667,7 @@ export function EditorProvider({
             // doc.rootChildren, which holds page group IDs.
             const parentId = getParentFast(s.document, id, parentCacheRef.current);
             if (parentId === null) {
-              const activePage = d.pages?.find((p) => p.id === d.activePageId);
-              const contentRootId = activePage?.contentRoot;
+              const contentRootId = activeWorkspaceContentRoot(d, s.workspaceMode);
               if (contentRootId && d.nodes[contentRootId]) {
                 const cr = d.nodes[contentRootId] as ContainerNode;
                 const crChildren = cr.children ?? [];
@@ -4754,8 +4801,7 @@ export function EditorProvider({
 
               const parentId = getParentFast(s.document, id, parentCacheRef.current);
               if (parentId === null) {
-                const activePage = d.pages?.find((p) => p.id === d.activePageId);
-                const contentRootId = activePage?.contentRoot;
+                const contentRootId = activeWorkspaceContentRoot(d, s.workspaceMode);
                 if (contentRootId && d.nodes[contentRootId]) {
                   const cr = d.nodes[contentRootId] as ContainerNode;
                   const crChildren = cr.children ?? [];
@@ -4874,8 +4920,7 @@ export function EditorProvider({
 
             const parentId = getParentFast(s.document, id, parentCacheRef.current);
             if (parentId === null) {
-              const activePage = d.pages?.find((p) => p.id === d.activePageId);
-              const contentRootId = activePage?.contentRoot;
+              const contentRootId = activeWorkspaceContentRoot(d, s.workspaceMode);
               if (contentRootId && d.nodes[contentRootId]) {
                 const cr = d.nodes[contentRootId] as ContainerNode;
                 const crChildren = cr.children ?? [];
@@ -5979,7 +6024,7 @@ export function EditorProvider({
           const def = doc.components[componentId];
           if (!def) return doc;
           const { node, doc: d2 } = instantiateComponent(doc, def);
-          return addNode(d2, node);
+          return addNodeToActiveWorkspace(d2, node, stateRef.current.workspaceMode);
         });
       },
 
@@ -6555,14 +6600,14 @@ export function EditorProvider({
           const node = doc.nodes[id];
           if (!node) return doc;
           const oldParentId = getParentFast(doc, id, parentCacheRef.current);
-          // A null newParentId means "move to the active page's top level."
-          // doc.rootChildren holds each page's contentRoot group id, not page
-          // content, so splicing directly into it (like createShapeAt used to)
-          // orphans the node from activePageNodes and makes it vanish from the
-          // canvas while still showing in the Layers panel. Resolve to the
-          // active page's contentRoot instead, mirroring createShapeAt.
-          const activePage = doc.pages?.find((p) => p.id === doc.activePageId);
-          const contentRootId = activePage?.contentRoot;
+          // A null newParentId means "move to the active workspace surface."
+          // Resolve it to the Design Canvas or publishing Page root instead of
+          // splicing into doc.rootChildren and hiding the layer from the
+          // currently visible surface.
+          const contentRootId = activeWorkspaceContentRoot(
+            doc,
+            stateRef.current.workspaceMode,
+          );
           const effectiveParentId =
             newParentId ?? (contentRootId && doc.nodes[contentRootId] ? contentRootId : null);
           let newDoc: Document;
@@ -7209,10 +7254,12 @@ export function EditorProvider({
           const index = doc.rootChildren.indexOf(insertAfterId);
           doc = index >= 0 ? moveNode(doc, id, index + 1) : doc;
         } else {
-          // With no scoped selection, retain the established active-page
-          // placement so the new layer is part of the rendered page tree.
-          const activePage = newDoc.pages?.find((p) => p.id === newDoc.activePageId);
-          const contentRootId = activePage?.contentRoot;
+          // With no scoped selection, place the new layer on the active
+          // workspace surface so it is immediately visible and editable.
+          const contentRootId = activeWorkspaceContentRoot(
+            newDoc,
+            stateRef.current.workspaceMode,
+          );
           doc =
             contentRootId && newDoc.nodes[contentRootId]
               ? addChild(newDoc, contentRootId, adjustmentNode)
@@ -7303,7 +7350,11 @@ export function EditorProvider({
           },
         );
         const withLut = { ...node, adjustments: [lutAdjustment] };
-        const doc = addNode(newDoc, withLut as import('@varve/scene').SceneNode);
+        const doc = addNodeToActiveWorkspace(
+          newDoc,
+          withLut as import('@varve/scene').SceneNode,
+          stateRef.current.workspaceMode,
+        );
         patch({ document: doc, selection: [id] });
         announcerRef.current?.announce('Created LUT adjustment layer');
       },
@@ -7386,7 +7437,11 @@ export function EditorProvider({
           },
         );
         const withAdjustments = { ...node, adjustments: adjs };
-        const doc = addNode(newDoc, withAdjustments as import('@varve/scene').SceneNode);
+        const doc = addNodeToActiveWorkspace(
+          newDoc,
+          withAdjustments as import('@varve/scene').SceneNode,
+          stateRef.current.workspaceMode,
+        );
         patch({ document: doc, selection: [id] });
         announcerRef.current?.announce(
           `Created linked adjustment for ${targetIds.length} target(s)`,
@@ -7442,7 +7497,11 @@ export function EditorProvider({
             ...node,
             adjustments: [...toCopy.map((a: Adjustment) => ({ ...a }))],
           };
-          doc = addNode(doc, withCopied as import('@varve/scene').SceneNode);
+          doc = addNodeToActiveWorkspace(
+            doc,
+            withCopied as import('@varve/scene').SceneNode,
+            stateRef.current.workspaceMode,
+          );
           newIds.push(id);
         }
 
@@ -7683,7 +7742,13 @@ export function EditorProvider({
               // active page's contentRoot (or doc.rootChildren for flat
               // documents) — the same page-scoping every other insertion
               // path (importNode, drag-and-drop) already relies on.
-              const inserted = insertImportedSubtree(doc, tempDoc, node.id, (n) => n);
+              const inserted = insertImportedSubtree(
+                doc,
+                tempDoc,
+                node.id,
+                (n) => n,
+                s.workspaceMode,
+              );
               if (!inserted) continue;
               doc = inserted.doc;
               resourceImports.push({ sourceDoc: tempDoc, idMap: inserted.idMap });
@@ -7746,6 +7811,7 @@ export function EditorProvider({
                   x: pasteCenter[0] + offset,
                   y: pasteCenter[1] + offset,
                 }),
+                s.workspaceMode,
               );
               if (!inserted) continue;
               doc = inserted.doc;
@@ -7804,6 +7870,7 @@ export function EditorProvider({
               options?.position ??
                 viewportCenterWorld({ zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation }),
             ),
+            s.workspaceMode,
           );
           if (!inserted) return s;
           return {
@@ -7852,6 +7919,7 @@ export function EditorProvider({
             batchIndex += 1;
             const inserted = insertImportedSubtree(doc, sourceDoc, node.id, (clonedRoot) =>
               applyDropPosition(clonedRoot, target),
+              s.workspaceMode,
             );
             if (!inserted) continue;
             doc = inserted.doc;

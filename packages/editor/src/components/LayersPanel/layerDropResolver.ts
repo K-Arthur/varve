@@ -25,7 +25,7 @@
  */
 
 import type { ContainerNode, Document, NodeId } from '@varve/scene';
-import { getParent, isContainer } from '@varve/scene';
+import { designCanvasChildren, getParent, isContainer } from '@varve/scene';
 import type { FlatEntry } from './useFlatTree';
 
 export type LayerDropZone = 'before' | 'after' | 'into';
@@ -70,7 +70,8 @@ export interface LayerDropTarget {
  * what reparentNode resolves a null parentId to, or drop/reorder indices are
  * computed against the wrong list.
  */
-export function resolveRootLevelSiblings(doc: Document): NodeId[] {
+export function resolveRootLevelSiblings(doc: Document, designCanvasId?: NodeId): NodeId[] {
+  if (designCanvasId) return designCanvasChildren(doc, designCanvasId);
   const activePage = doc.pages?.find((p) => p.id === doc.activePageId);
   const contentRootId = activePage?.contentRoot;
   const contentRoot = contentRootId ? doc.nodes[contentRootId] : undefined;
@@ -78,8 +79,12 @@ export function resolveRootLevelSiblings(doc: Document): NodeId[] {
 }
 
 /** The raw `children` array a row's siblings live in, for a row's parentId. */
-export function siblingsOf(doc: Document, parentId: NodeId | null): NodeId[] {
-  if (!parentId) return resolveRootLevelSiblings(doc);
+export function siblingsOf(
+  doc: Document,
+  parentId: NodeId | null,
+  designCanvasId?: NodeId,
+): NodeId[] {
+  if (!parentId) return resolveRootLevelSiblings(doc, designCanvasId);
   const parent = doc.nodes[parentId];
   return parent && isContainer(parent) ? (parent as ContainerNode).children : [];
 }
@@ -181,6 +186,8 @@ export function findRowIndexAtOffset(geometry: RowGeometry[], offset: number): n
 
 export interface ResolveLayerDropTargetArgs {
   doc: Document;
+  /** Design Canvas whose top-level children are the layer-tree root. */
+  designCanvasId?: NodeId;
   /** The flattened, currently-visible tree rows, in panel order. */
   entries: FlatEntry[];
   /** Row extents from the virtualizer, indexed identically to `entries`. */
@@ -215,6 +222,7 @@ export interface ResolveLayerDropTargetArgs {
 export function resolveLayerDropTarget(args: ResolveLayerDropTargetArgs): LayerDropTarget | null {
   const {
     doc,
+    designCanvasId,
     entries,
     geometry,
     pointerY,
@@ -315,7 +323,7 @@ export function resolveLayerDropTarget(args: ResolveLayerDropTargetArgs): LayerD
   }
 
   const targetParentId = entry.parentId ?? null;
-  const targetSiblings = siblingsOf(doc, targetParentId);
+  const targetSiblings = siblingsOf(doc, targetParentId, designCanvasId);
   let overIdx = targetSiblings.indexOf(overId);
   if (overIdx < 0) overIdx = targetSiblings.length;
 

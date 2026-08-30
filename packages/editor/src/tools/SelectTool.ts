@@ -503,7 +503,9 @@ export class SelectTool extends BaseTool {
         ctx.document,
         ctx.masterEditId
           ? multipageRootNodes(ctx.document, { masterEditId: ctx.masterEditId })
-          : activePageNodes(ctx.document),
+          : ctx.designCanvasId
+            ? multipageRootNodes(ctx.document, { designCanvasId: ctx.designCanvasId })
+            : activePageNodes(ctx.document),
       );
       const ordered = [...entries.values()].reverse();
       const marqueeIds: string[] = [];
@@ -854,7 +856,9 @@ export class SelectTool extends BaseTool {
       ctx.document,
       ctx.masterEditId
         ? multipageRootNodes(ctx.document, { masterEditId: ctx.masterEditId })
-        : activePageNodes(ctx.document),
+        : ctx.designCanvasId
+          ? multipageRootNodes(ctx.document, { designCanvasId: ctx.designCanvasId })
+          : activePageNodes(ctx.document),
     );
     // Screen-pixel threshold for path hit-testing (world units at current zoom).
     const pathThresh = 6 / Math.max(0.001, ctx.zoom);

@@ -10,6 +10,7 @@ import { navigateToEditor } from '../shared';
 test.describe('Page context menu - axe-core scan', () => {
   test('page tab context menu has no automated accessibility violations', async ({ page }) => {
     await navigateToEditor(page);
+    await page.getByRole('radio', { name: 'Print workspace' }).click();
 
     await page.getByRole('button', { name: 'Add page' }).click();
     const pageTab = page.getByRole('tab', { name: /^Page:/i }).first();
@@ -32,6 +33,7 @@ test.describe('Page context menu - axe-core scan', () => {
 test.describe('PromptDialog - axe-core scan', () => {
   test('rename-page prompt has no automated accessibility violations', async ({ page }) => {
     await navigateToEditor(page);
+    await page.getByRole('radio', { name: 'Print workspace' }).click();
 
     await page.getByRole('button', { name: 'Add page' }).click();
     const pageTab = page.getByRole('tab', { name: /^Page:/i }).first();

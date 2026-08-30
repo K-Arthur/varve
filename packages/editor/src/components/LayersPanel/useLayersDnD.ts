@@ -89,6 +89,8 @@ export function describeDrop(
 
 export interface UseLayersDnDArgs {
   doc: Document;
+  /** Design Canvas whose top-level children are the layer-tree root. */
+  designCanvasId?: NodeId;
   selection: NodeId[];
   /** The tree's scroll container (the clip viewport). */
   treeRef: React.RefObject<HTMLDivElement | null>;
@@ -125,6 +127,7 @@ export interface UseLayersDnDResult {
 export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
   const {
     doc,
+    designCanvasId,
     treeRef,
     treeContentRef,
     virtualizer,
@@ -229,6 +232,7 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
 
     const target = resolveLayerDropTarget({
       doc: currentDoc,
+      designCanvasId,
       entries: entriesRef.current ?? [],
       geometry: readGeometry(),
       pointerY: lastPointerRef.current.y,
@@ -264,6 +268,7 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     readGeometry,
     cancelAutoExpand,
     startAutoExpand,
+    designCanvasId,
   ]);
 
   const refreshDropTargetRef = useRef(refreshDropTarget);
@@ -454,7 +459,7 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
       return;
     }
 
-    const targetSiblings = siblingsOf(currentDoc, targetParentId);
+    const targetSiblings = siblingsOf(currentDoc, targetParentId, designCanvasId);
     const steps = computeMultiMoveSteps(targetSiblings, moveIds, target.insertionIndex);
     if (isNoOpMove(targetSiblings, steps)) {
       // Releasing a row where it already sits must not spend an undo step.
@@ -480,6 +485,7 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     swallowNextClick,
     beginTransaction,
     commitTransaction,
+    designCanvasId,
   ]);
 
   const handleDragCancel = useCallback(() => {

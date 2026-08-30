@@ -79,9 +79,10 @@ test.describe('Bleed canvas behavior', () => {
       localStorage.removeItem('varve:safe-mode');
     });
     await navigateToEditor(page);
+    await page.getByRole('radio', { name: 'Print workspace' }).click();
 
-    // A new document starts page-less (flat pasteboard); bleed is a page
-    // concept, so create the print surface first.
+    // A new document starts with a Design Canvas; bleed is a Publishing Page
+    // concept, so create the print surface in Print workspace first.
     await page.getByRole('button', { name: 'Add page' }).click();
     await page.waitForTimeout(400);
     await page

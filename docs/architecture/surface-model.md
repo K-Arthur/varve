@@ -11,6 +11,7 @@ bounded surfaces have different semantics.
 
 | Surface | Meaning | Geometry | Output behavior |
 |---|---|---|---|
+| Design Canvas | Named, unbounded design-workspace surface | Transparent document-owned content root | Organizes and scopes editable artwork; not a page export target |
 | Page | Ordered publishing surface | Page trim plus resolved print geometry and spread placement | Participates in page export unless excluded |
 | Frame | Authored container | Node transform and `w`/`h` | Direct bounds export; page-owned frames are included in that page’s scene |
 | Artboard | Frame with the existing artboard capability | Same as frame | Same as frame; never implies a page |
@@ -31,11 +32,19 @@ page-aware export. The editor labels this surface **Publishing pages** so it is
 not confused with a design container.
 
 The Figma-like organizational role is described as a **Design canvas** in Varve
-product language. A design canvas is an open-ended editing view for exploration,
-screen design, components, and prototypes. Its authored work areas are
-**Frames**: scene nodes with their own transform, size, clipping, auto-layout,
-and direct export behavior. A frame is never silently promoted to a publishing
-page, and a publishing page is never represented as a frame.
+product language. A document can contain multiple named design canvases, and
+the Design workspace exposes them in a dedicated navigator above Layers. A
+design canvas is an open-ended editing surface for exploration, screen design,
+components, and prototypes. Its authored work areas are **Frames**: scene
+nodes with their own transform, size, clipping, auto-layout, and direct export
+behavior. A frame is never silently promoted to a publishing page, and a
+publishing page is never represented as a frame.
+
+The canvas's content root is transparent scene plumbing. It is used to scope
+rendering, hit testing, insertion, filtering, and layer reordering, but it is
+never emitted as a Layers row. This keeps the UI aligned with the Figma model:
+the surface is navigation, while Frames, groups, text, images, and other
+authored nodes are the layers.
 
 The remaining terms are intentionally specific:
 
@@ -50,13 +59,15 @@ The remaining terms are intentionally specific:
 
 When documenting Figma interoperability, “Figma page” may be used as the source
 product’s term, followed by “Varve design canvas.” It must not be mapped to
-`Document.pages` unless the imported object has publishing intent. The current
-persisted `Document.pages` collection is publishing-first; Varve does not add a
-second ambiguous `Page` collection merely to reproduce an organizational view.
+`Document.pages` unless the imported object has publishing intent. Design
+surfaces are persisted as `Document.designCanvases` with
+`Document.activeDesignCanvasId`; the separate `Document.pages` collection
+remains publishing-first.
 
 The `Surface` projection in `@varve/scene` gives all consumers one vocabulary
-without changing persisted storage. Use `surfaceKey({ kind, id })` when page
-and node ids might otherwise collide.
+over both persisted Design Canvas metadata and authored frame/page nodes. Use
+`surfaceKey({ kind, id })` when page, canvas, and node ids might otherwise
+collide.
 
 ## Coordinate and ownership contract
 
@@ -87,25 +98,29 @@ flowchart LR
 
 Workspace filtering is a UI disclosure policy, not a scene filter.
 
-| Concern | Design with pages | Print with pages | Drawing, Image, Motion, Logo, Email, Codegen |
+| Concern | Design workspace | Print workspace | Drawing, Image, Motion, Logo, Email, Codegen |
 |---|---|---|---|
-| Canvas page rendering | Render | Render | Render |
-| Publishing page navigation | Effective `pagenav` preference and at least one page | Same | Hidden by default/config |
-| Publishing pages panel | Effective `pagenav` preference and at least one page | Available, including an empty-state add-page affordance | Hidden by default/config |
+| Active surface rendering | Active Design Canvas | Publishing Pages | Active Design Canvas |
+| Design Canvas navigator | Effective `pagenav` preference | Hidden; use Print's Publishing Pages panel | Hidden by default/config |
+| Publishing page navigation | Hidden; switch to Print | Effective `pagenav` preference and at least one page | Hidden by default/config |
+| Publishing pages panel | Hidden; switch to Print | Available, including an empty-state add-page affordance | Hidden by default/config |
 | Print geometry controls | Hidden | Available for existing pages | Hidden |
 | Frames/artboards | Always available to canvas/tools | Always available to canvas/tools | Always available to canvas/tools |
 | Export regions | Marker system only | Marker system only | Marker system only |
 | Explicit page commands/export | Available through commands and export UI | Available | Available; workspace does not delete or hide document semantics |
 
-This means a hidden Pages panel cannot make page content disappear, and a
-non-print workspace cannot make a page stop existing. Command-palette and
-keyboard paths must remain capable of adding, selecting, or exporting pages
-even when a panel is not disclosed. Conversely, showing a page panel must not
-auto-convert an ordinary flat design document into a page document.
+This means a hidden surface panel cannot delete or invalidate its underlying
+content. A non-print workspace does not make Publishing Pages stop existing;
+it simply exposes the active Design Canvas as its editing surface. Command
+palette and keyboard paths must remain capable of adding, selecting, or
+exporting Publishing Pages even when the panel is not disclosed. Conversely,
+showing the Design Canvas navigator must not auto-convert a design document
+into a page document.
 
 The Print workspace may disclose bleed, slug, facing-page, section, and
-preflight controls. Other workspaces can still render and edit the same page
-content, but should not imply that print geometry is their primary workflow.
+preflight controls. Other workspaces can still work on the active Design
+Canvas and retain access to explicit publishing commands, but should not imply
+that print geometry is their primary workflow.
 
 ## Consumer rules
 

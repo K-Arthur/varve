@@ -78,6 +78,8 @@ export interface HitTestOptions {
   isolatedNodeId?: NodeId | null;
   /** Master source editing view; page content is replaced by this source. */
   masterEditId?: NodeId | null;
+  /** Visible Design Canvas id, or null to explicitly hit-test publishing pages. */
+  designCanvasId?: NodeId | null;
   /** Current zoom level — used to compute screen-space hit tolerance. */
   zoom?: number;
   /** When true, select the deepest matching child rather than topmost.
@@ -117,7 +119,10 @@ export class HitTestEngine {
     this.strokeToleranceWorld = screenToWorldTolerance(this.policy.strokeTolerancePx, zoom);
     this.parentIndex = buildParentIndexMap(doc);
     this.spatialIndex = getOrCreateSpatialIndex(doc, null);
-    this.entries = multipageNodeInstances(doc, { masterEditId: options.masterEditId });
+    this.entries = multipageNodeInstances(doc, {
+      masterEditId: options.masterEditId,
+      designCanvasId: options.designCanvasId,
+    });
   }
 
   /** Create an engine with a specific named policy. */

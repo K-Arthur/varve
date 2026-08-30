@@ -2,9 +2,11 @@ import { renderHook } from '@testing-library/react';
 import {
   addChild,
   addNode,
+  createDesignCanvas,
   createDocument,
   createMaster,
   type Document,
+  designCanvasContentRoot,
   makeFrameNode,
   makeShapeNode,
   nextNodeId,
@@ -535,5 +537,32 @@ describe('benchmark — 10K nodes', () => {
     expect(diff!.structureChanged).toBe(false);
     expect(diff!.changedNodeIds).toHaveLength(1);
     expect(best).toBeLessThan(100);
+  });
+});
+
+describe('flattenTree (Design Canvas surface)', () => {
+  it('shows active canvas artwork without exposing its transparent root', () => {
+    let doc = createDesignCanvas(createDocument('design', true), { name: 'Exploration' });
+    const rootId = designCanvasContentRoot(doc)!;
+    const { id: artworkId, doc: withId } = nextNodeId(doc);
+    doc = addChild(
+      withId,
+      rootId,
+      makeShapeNode(artworkId, { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }, { name: 'Artwork' }),
+    );
+
+    const entries = flattenTree(
+      doc,
+      new Set(),
+      DEFAULT_FILTER,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      doc.activeDesignCanvasId,
+    );
+
+    expect(entries.map((entry) => entry.node.id)).toEqual([artworkId]);
+    expect(entries.some((entry) => entry.node.id === rootId)).toBe(false);
   });
 });

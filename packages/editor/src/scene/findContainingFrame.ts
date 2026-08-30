@@ -5,6 +5,7 @@ import {
   type GroupNode,
   activePageNodes as getActivePageNodes,
   isExportRegion,
+  multipageRootNodes,
   type NodeId,
   walkNodes,
   worldToPageAtPoint,
@@ -25,6 +26,8 @@ export interface FindContainingSurfaceOptions {
    * opt in.
    */
   adoptIntoPage?: boolean;
+  /** Visible Design Canvas root, or null for the publishing/page scene. */
+  designCanvasId?: NodeId | null;
 }
 
 /**
@@ -57,7 +60,12 @@ export function findContainingFrameInDoc(
   // Scoped to the active page: an unscoped walk here would let a newly
   // drawn shape silently auto-parent into a frame that belongs to a
   // different (invisible) page, making the shape vanish from the canvas.
-  const entries = walkNodes(doc, getActivePageNodes(doc));
+  const entries = walkNodes(
+    doc,
+    options.designCanvasId === undefined
+      ? getActivePageNodes(doc)
+      : multipageRootNodes(doc, { designCanvasId: options.designCanvasId }),
+  );
   // This runs on every pointer move during a drag (SelectTool.onDragMove's
   // drop-target-frame check). nodeWorldTransform falls back to an O(n)
   // linear scan (getParent) per call when no parentIndex is passed, so
@@ -135,7 +143,7 @@ export function findContainingFrameInDoc(
     }
   }
   if (deepest) return deepest;
-  if (!options.adoptIntoPage) return null;
+  if (!options.adoptIntoPage || options.designCanvasId !== null) return null;
 
   // No frame or group under the point. On a page-based document the page
   // itself is a surface that can adopt content, so fall back to its content

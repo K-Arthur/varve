@@ -428,9 +428,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     expanded,
     filterSpec,
     matchedIds,
-    state.document.activePageId ?? undefined,
+    state.workspaceMode === 'print' ? (state.document.activePageId ?? undefined) : undefined,
     state.isolatedNodeId ?? undefined,
     state.masterEditId ?? undefined,
+    state.workspaceMode !== 'print' ? state.document.activeDesignCanvasId : undefined,
   );
 
   // Dev-mode performance benchmark: log when flatten takes > 50ms
@@ -903,10 +904,12 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
         if (!focusEntry) return;
         const parentId = focusEntry.parentId;
         const doc = state.document;
+        const designCanvasId =
+          state.workspaceMode !== 'print' ? state.document.activeDesignCanvasId : undefined;
         const siblings = parentId
           ? ((doc.nodes[parentId] as ContainerNode | undefined)?.children ??
-            resolveRootLevelSiblings(doc))
-          : resolveRootLevelSiblings(doc);
+            resolveRootLevelSiblings(doc, designCanvasId))
+          : resolveRootLevelSiblings(doc, designCanvasId);
         const myIdx = siblings.indexOf(focusEntry.node.id);
         if (myIdx < 0) return;
         // `entries` (panel/visual order) is front-most-first, the reverse of
@@ -1010,6 +1013,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     handleDragCancel,
   } = useLayersDnD({
     doc: state.document,
+    designCanvasId:
+      state.workspaceMode !== 'print' ? state.document.activeDesignCanvasId : undefined,
     selection: state.selection,
     treeRef,
     treeContentRef,

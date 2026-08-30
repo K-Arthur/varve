@@ -154,6 +154,7 @@ async function seedPrintDocument(page: import('@playwright/test').Page) {
     localStorage.removeItem('varve:safe-mode');
   });
   await navigateToEditor(page);
+  await page.getByRole('radio', { name: 'Print workspace' }).click();
   await page.getByRole('button', { name: 'Add page' }).click();
   await page.waitForTimeout(400);
   await waitForContentCanvas(page);

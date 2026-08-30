@@ -86,6 +86,10 @@ test.describe('Shared multipage canvas (M5)', () => {
 
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
+    // Publishing Pages are exposed in Print; new documents open in Design
+    // with Design Canvases as their active surfaces.
+    await page.getByRole('radio', { name: 'Print workspace' }).click();
+    await page.getByRole('heading', { name: /Publishing pages/ }).waitFor({ state: 'visible' });
   });
 
   test('renders all pages on one pasteboard, not only the active page', async ({ page }) => {

@@ -30,14 +30,8 @@ import {
   physicalToPx,
 } from '@varve/shared';
 import { defaultColorConfig, uniformBleed } from './colorManagement';
-import {
-  createDesignCanvas,
-  createDocument,
-  type Document,
-  designCanvasContentRoot,
-  makeFrameNode,
-  nextNodeId,
-} from './document';
+import { createDesignCanvas, designCanvasContentRoot } from './designCanvas';
+import { createDocument, type Document, makeFrameNode, nextNodeId } from './document';
 import { addChild, addNode } from './document-nodes';
 import { DocumentCodec } from './documentCodec';
 import { resolveColorProfileRef } from './presetToDocument';

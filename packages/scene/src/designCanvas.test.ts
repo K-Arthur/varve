@@ -1,20 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import type { Document } from './document';
 import {
-  activePageNodes,
-  addChild,
   createDesignCanvas,
-  createDocument,
   deleteDesignCanvas,
   designCanvasChildren,
   designCanvasContentRoot,
   duplicateDesignCanvas,
   getActiveDesignCanvas,
-  makeShapeNode,
-  nextNodeId,
   renameDesignCanvas,
   reorderDesignCanvases,
   setActiveDesignCanvas,
+} from './designCanvas';
+import type { Document } from './document';
+import {
+  activePageNodes,
+  addChild,
+  createDocument,
+  makeShapeNode,
+  nextNodeId,
   validateDocument,
 } from './document';
 import { owningDesignCanvas, resolveOwnership, validatePageOwnership } from './pageOwnership';

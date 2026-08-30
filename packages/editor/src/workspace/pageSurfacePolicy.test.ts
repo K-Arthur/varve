@@ -2,34 +2,34 @@ import { describe, expect, it } from 'vitest';
 import { resolvePageSurfaceVisibility } from './useWorkspaceConfig';
 
 describe('resolvePageSurfaceVisibility', () => {
-  it('keeps page rendering independent from management-panel disclosure', () => {
+  it('keeps publishing pages out of the Design workspace', () => {
     expect(
       resolvePageSurfaceVisibility({ mode: 'design', pageCount: 2, pagePanelVisible: false }),
     ).toEqual({
-      renderPageSurfaces: true,
+      renderPageSurfaces: false,
       showPagesPanel: false,
       showPageNavigation: false,
       showPrintGeometry: false,
     });
   });
 
-  it('exposes the same publishing-page controls in Design without adding print chrome', () => {
+  it('exposes Design Canvas management in Design without adding publishing chrome', () => {
     expect(
       resolvePageSurfaceVisibility({ mode: 'design', pageCount: 2, pagePanelVisible: true }),
     ).toEqual({
-      renderPageSurfaces: true,
+      renderPageSurfaces: false,
       showPagesPanel: true,
-      showPageNavigation: true,
+      showPageNavigation: false,
       showPrintGeometry: false,
     });
   });
 
-  it('keeps the ordinary design canvas available when no publishing page exists', () => {
+  it('keeps Design Canvas management available when no publishing page exists', () => {
     expect(
       resolvePageSurfaceVisibility({ mode: 'design', pageCount: 0, pagePanelVisible: true }),
     ).toEqual({
       renderPageSurfaces: false,
-      showPagesPanel: false,
+      showPagesPanel: true,
       showPageNavigation: false,
       showPrintGeometry: false,
     });
@@ -46,13 +46,13 @@ describe('resolvePageSurfaceVisibility', () => {
     });
   });
 
-  it('does not create print controls for other workspaces', () => {
+  it('reserves publishing-page chrome for Print workspace', () => {
     expect(
       resolvePageSurfaceVisibility({ mode: 'image', pageCount: 1, pagePanelVisible: true }),
     ).toEqual({
-      renderPageSurfaces: true,
-      showPagesPanel: true,
-      showPageNavigation: true,
+      renderPageSurfaces: false,
+      showPagesPanel: false,
+      showPageNavigation: false,
       showPrintGeometry: false,
     });
   });

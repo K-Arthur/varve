@@ -32,7 +32,7 @@ import { LayerBulkBar } from './LayerBulkBar';
 import { LayerFilterBar } from './LayerFilterBar';
 import type { LayersDnDHandle } from './LayersTree';
 import { LayersTree, resolveRootLevelSiblings } from './LayersTree';
-import { computeActivePageLayerCount, countActivePageNodesMatching } from './layerCounts';
+import { computeActiveSurfaceLayerCount, countActiveSurfaceNodesMatching } from './layerCounts';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTypes';
 import './layers.css';
@@ -97,16 +97,23 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   const parentCacheRef = useRef<ParentIndexCache | null>(null);
   parentCacheRef.current = getOrCreateParentCache(state.document, parentCacheRef.current);
 
-  // Compute match count for the filter bar — scoped to the active page only
-  // (document.nodes spans every page plus each page's own contentRoot group,
+  // Compute match count for the filter bar — scoped to the active surface only
+  // (document.nodes spans every canvas/page plus each surface's contentRoot,
   // neither of which the tree ever shows as a row).
-  const totalCount = useMemo(() => computeActivePageLayerCount(state.document), [state.document]);
+  const designCanvasId =
+    state.workspaceMode !== 'print' ? state.document.activeDesignCanvasId : undefined;
+  const totalCount = useMemo(
+    () => computeActiveSurfaceLayerCount(state.document, designCanvasId),
+    [state.document, designCanvasId],
+  );
   const matchCount = useMemo(() => {
     if (!isFiltering(filterSpec)) return totalCount;
-    return countActivePageNodesMatching(state.document, (node) =>
-      nodeMatchesFilter(node, filterSpec),
+    return countActiveSurfaceNodesMatching(
+      state.document,
+      (node) => nodeMatchesFilter(node, filterSpec),
+      designCanvasId,
     );
-  }, [state.document, filterSpec, totalCount]);
+  }, [state.document, filterSpec, totalCount, designCanvasId]);
 
   // Outside click and Escape handled by shared ContextMenu component.
   // This effect remains for stale-context-menu cleanup on unmount.

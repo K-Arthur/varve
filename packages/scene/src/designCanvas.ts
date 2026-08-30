@@ -25,7 +25,10 @@ export interface CreateDesignCanvasOptions {
 export type DeleteDesignCanvasPolicy = 'delete-content' | 'move-to-canvas' | 'move-to-pasteboard';
 
 function nextDesignCanvasName(doc: Document): string {
-  return `Canvas ${(doc.designCanvases?.length ?? 0) + 1}`;
+  const names = new Set((doc.designCanvases ?? []).map((canvas) => canvas.name));
+  let index = 1;
+  while (names.has(`Canvas ${index}`)) index += 1;
+  return `Canvas ${index}`;
 }
 
 function nextCanvasOrder(doc: Document): string {

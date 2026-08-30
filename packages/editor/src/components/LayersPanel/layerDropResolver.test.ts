@@ -9,8 +9,11 @@
 
 import type { Document, NodeId } from '@varve/scene';
 import {
+  addChild,
   addNode,
+  createDesignCanvas,
   createDocument,
+  designCanvasContentRoot,
   makeFrameNode,
   makeShapeNode,
   nextNodeId,
@@ -363,6 +366,28 @@ describe('siblingsOf', () => {
     expect(siblingsOf(doc, null)).toEqual([a.id]);
     expect(doc.rootChildren).toEqual([contentRootId]);
     expect(siblingsOf(doc, null)).not.toEqual(doc.rootChildren);
+  });
+
+  it('resolves a Design Canvas root to its artwork, not its internal root node', () => {
+    let doc = createDesignCanvas(createDocument('design', true), { name: 'Campaign' });
+    const canvasId = doc.activeDesignCanvasId!;
+    const contentRootId = designCanvasContentRoot(doc, canvasId)!;
+    const first = nextNodeId(doc);
+    doc = addChild(
+      first.doc,
+      contentRootId,
+      makeShapeNode(first.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+    );
+    const second = nextNodeId(doc);
+    doc = addChild(
+      second.doc,
+      contentRootId,
+      makeShapeNode(second.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+    );
+
+    expect(resolveRootLevelSiblings(doc, canvasId)).toEqual([first.id, second.id]);
+    expect(resolveRootLevelSiblings(doc, canvasId)).not.toContain(contentRootId);
+    expect(siblingsOf(doc, null, canvasId)).toEqual([first.id, second.id]);
   });
 
   it('drops a page-rooted layer at the page content root, not at rootChildren', () => {

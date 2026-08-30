@@ -25,6 +25,7 @@ test.describe('Toolbar layout', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
+    await page.getByRole('radio', { name: 'Print workspace' }).click();
     // Design mode intentionally hides page navigation for a single-page
     // document. Create a second page so this layout contract exercises the
     // chrome stack it names instead of depending on an optional element.
