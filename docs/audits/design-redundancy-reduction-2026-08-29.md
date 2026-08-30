@@ -131,6 +131,10 @@ Before: a no-op shortcut stub could appear as an executable Quick Actions item.
 After: it remains available to the keymap system, but is not offered as a
 command until a real handler replaces the placeholder state.
 
+The runtime pass also found that Quick Actions could be opened before the
+registration effect populated the shared registry. Its list now refreshes on
+open, so a valid registry is not mistaken for an empty action set.
+
 ## Accessibility and input-modality review
 
 - Keyboard users retain shortcut definitions, the shortcut editor, command
@@ -165,6 +169,8 @@ slice; the action and UI tests cover the changed behavior.
 | `67bef4942` | Route palette, Quick Actions, native menu, and contextual registrations through the canonical registry |
 | `6eb3ed1ae` | Canonicalize custom menubar dispatch and archive compatibility handlers |
 | `b8eda7a9a` | Mark shortcut placeholders and hide them from executable Quick Actions |
+| `c15093b22` | Preserve the local Quick Actions keyboard fallback when a shortcut entry is still a placeholder |
+| `5dcf78ee8` | Refresh Quick Actions after the registry registration effect has populated it |
 
 ## Validation report
 
@@ -184,8 +190,11 @@ Commands run and results:
 - `git diff --check`: passed.
 - `pnpm exec vitest run packages/editor/src/actions/actions.test.ts packages/editor/src/components/QuickActionsBar/QuickActionsBar.test.tsx --reporter=verbose`: passed, 41/41.
 - `pnpm exec vitest run packages/editor/src/Menubar.test.tsx --reporter=verbose`: passed, 21/21.
+- `pnpm exec vitest run packages/editor/src/shortcuts/useShortcuts.test.ts --reporter=verbose`: passed, 1/1.
+- `pnpm exec vitest run packages/editor/src/components/QuickActionsBar/QuickActionsBar.test.tsx --reporter=verbose`: passed, 18/18.
 - `pnpm exec tsc -p packages/editor/tsconfig.json --noEmit --pretty false`: passed for the menubar slice; the later workspace-wide run is listed below.
 - `pnpm verify:plan --staged`: passed and selected the affected editor plan with no full-suite escalation.
+- Clean temporary-worktree browser pass: home screen, new-document editor, View menu, and shortcut palette rendered; the Quick Actions shortcut opened its dialog after the registry refresh fix. Screenshots were inspected from `/tmp` and were not added to the repository.
 
 Known unrelated failures and skips:
 
@@ -194,8 +203,10 @@ Known unrelated failures and skips:
   (`maskReplay`, `renderPipeline`, nudge/export-region fixtures, selection
   arrangement, and NodeEditTool). None is in these commits.
 - The repository pre-commit emoji audit was blocked by concurrent comments in
-  `packages/shared/src/colorConversion.ts`; the three focused commits were
-  committed with `--no-verify` and the unrelated files were not staged.
+  `packages/shared/src/colorConversion.ts` and a concurrent star glyph in
+  `packages/editor/src/components/Inspector/sections/EffectStudioSection.tsx`;
+  the focused commits were committed with `--no-verify` and the unrelated
+  files were not staged.
 - Full Vitest, full Playwright, Rust workspace tests, and full gate were not
   run because the affected staged plan did not require them and the worktree
   contained unrelated concurrent changes.
@@ -216,7 +227,9 @@ Known unrelated failures and skips:
       data or changing ranking unexpectedly.
 - [ ] Move audit/handoff controls to a validated utility/contextual panel
       surface.
-- [ ] Run browser screenshots and keyboard E2E against a frozen, clean
+- [x] Run browser screenshots and keyboard access-surface checks against a
+      clean temporary worktree for the implemented slice.
+- [ ] Run the repository keyboard E2E suite against a frozen, clean
       integration tree.
 - [ ] Run screen-reader and touch checks on the supported OS matrix.
 
