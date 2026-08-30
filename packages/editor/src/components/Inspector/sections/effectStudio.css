@@ -278,7 +278,8 @@
   width: 1.6rem;
 }
 
-.effect-studio__card-art span[data-effect-category="colour"] {
+.effect-studio__card-art span[data-effect-category="colour"],
+.effect-studio__card-art span[data-effect-category="stylize"] {
   background: conic-gradient(
     var(--color-accent),
     var(--color-warning, var(--color-accent)),
@@ -288,7 +289,10 @@
 }
 
 .effect-studio__card-art span[data-effect-category="surface-grain"],
-.effect-studio__card-art span[data-effect-category="print-pattern"] {
+.effect-studio__card-art span[data-effect-category="print-pattern"],
+.effect-studio__card-art span[data-effect-category="print-strokes"],
+.effect-studio__card-art span[data-effect-category="sketch-poster"],
+.effect-studio__card-art span[data-effect-category="texture-tape"] {
   background: repeating-linear-gradient(
     45deg,
     var(--color-accent),
@@ -297,6 +301,18 @@
     var(--color-text-muted) 4px
   );
   border-radius: 0;
+}
+
+.effect-studio__card-art span[data-effect-category="distort"] {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-accent),
+    var(--color-accent) 5px,
+    var(--color-surface-selected) 5px,
+    var(--color-surface-selected) 8px
+  );
+  border-radius: 25% 50% 25% 50%;
+  transform: skew(-12deg, 8deg);
 }
 
 .effect-studio__card-copy {

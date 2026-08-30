@@ -423,7 +423,9 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
             return (
               <li className={isPreview ? 'is-previewing' : ''} key={definition.id}>
                 <div className="effect-studio__card-art" aria-hidden="true">
-                  <span data-effect-category={definition.categoryId} />
+                  <span
+                    data-effect-category={definition.studioCategoryId ?? definition.categoryId}
+                  />
                 </div>
                 <div className="effect-studio__card-copy">
                   <strong>{definition.displayName}</strong>
