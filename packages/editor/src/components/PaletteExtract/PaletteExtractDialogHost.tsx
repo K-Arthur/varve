@@ -13,7 +13,7 @@ import {
   type PaletteAnalysis,
   type PaletteSwatch,
 } from '@varve/engine';
-import { type ManagedColorShim, managedColorToRgba } from '@varve/shared';
+import { type ManagedColorShim, managedColorToRgba, rgbToHex } from '@varve/shared';
 import { Button, Dialog } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -33,7 +33,7 @@ const DEFAULT_COLORS = PALETTE_DEFAULT_COLOR_COUNT;
 
 function hexOf(color: ManagedColorShim): string {
   const [r, g, b] = managedColorToRgba(color);
-  return `#${[r, g, b].map((c) => Math.round(c).toString(16).padStart(2, '0')).join('')}`;
+  return rgbToHex(r, g, b);
 }
 
 function swatchLabel(swatch: PaletteSwatch): string {

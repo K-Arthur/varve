@@ -13,7 +13,7 @@ import {
   getImageFill,
   type ManagedColor,
 } from '@varve/scene';
-import { managedColorToCss, managedColorToRgba } from '@varve/shared';
+import { managedColorToCss, managedColorToRgba, rgbToHex } from '@varve/shared';
 import { Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -61,9 +61,7 @@ function imageSourceForSelection(doc: Document, selection: string[]): ImageSourc
 
 function createHex(color: ManagedColor): string {
   const [r, g, b] = managedColorToRgba(color);
-  return `#${[r, g, b]
-    .map((channel) => Math.round(channel).toString(16).padStart(2, '0'))
-    .join('')}`;
+  return rgbToHex(r, g, b);
 }
 
 function nextAvailableName(usedNames: Set<string>, base: string): string {
