@@ -15,7 +15,7 @@
  */
 import { evaluate } from '@varve/scene';
 import { useCallback, useContext, useId, useRef, useState } from 'react';
-import { EditorCtx } from '../../../context';
+import { EditorCtx } from '../../../context/types';
 
 export interface NumberFieldProps {
   /** Visible label text; also the accessible name (plus unit, if any). */

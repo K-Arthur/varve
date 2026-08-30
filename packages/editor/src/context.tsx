@@ -346,7 +346,7 @@ import {
   zoomAboutPoint,
 } from '@varve/shared';
 import {
-  createContext,
+  type Context,
   type ReactNode,
   useCallback,
   useContext,
@@ -431,6 +431,7 @@ import type {
 import {
   createDefaultDocumentGridSettings,
   DEFAULT_SELECTION_ORIGIN,
+  EditorCtx as StableEditorCtx,
   newSessionId,
   nextSelectionPrimary,
 } from './context/types';
@@ -1963,7 +1964,11 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   layerNavigation?: import('./components/LayersPanel/layerNavigationCommands').LayerNavigationCommands;
 }
 
-export const EditorCtx = createContext<EditorContextValue | null>(null);
+// Keep the runtime context object in `context/types.ts` so an edit to this
+// large provider module does not replace it during Fast Refresh. This local
+// alias restores the richer implementation-facing type without changing that
+// stable runtime identity.
+const EditorCtx = StableEditorCtx as Context<EditorContextValue | null>;
 
 /** F2: full snapshot of an inactive session stored in a ref (not state). */
 interface SavedSession {

@@ -26,6 +26,7 @@ import type {
 } from '@varve/scene';
 import { createDefaultDocumentGrid } from '@varve/scene';
 import type { Camera, DistributeMode, DocumentUnit, Viewport } from '@varve/shared';
+import { createContext } from 'react';
 import type { SectionVisibilityState } from '../components/Inspector/sectionState';
 import type { LayerNavigationCommands } from '../components/LayersPanel/layerNavigationCommands';
 import type {
@@ -55,6 +56,14 @@ export type InspectorTab =
   | 'audit'
   | 'fonts'
   | 'email';
+
+/**
+ * The editor context identity must survive edits to `context.tsx` during
+ * development. Keeping the singleton in this stable module prevents React
+ * Fast Refresh from remounting consumers against a newly-created context
+ * object before `EditorProvider` has been recreated.
+ */
+export const EditorCtx = createContext<EditorContextValue | null>(null);
 
 /** Persistent revision history surface exposed on the editor context. */
 export interface PersistentHistoryApi {

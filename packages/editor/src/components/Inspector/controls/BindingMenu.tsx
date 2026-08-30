@@ -12,7 +12,7 @@
 import type { VariableStore, VariableValue } from '@varve/scene';
 import { FloatingPortal } from '@varve/ui';
 import { useCallback, useContext, useEffect, useId, useMemo, useState } from 'react';
-import { EditorCtx } from '../../../context';
+import { EditorCtx } from '../../../context/types';
 
 interface BindingMenuProps {
   variableStore: VariableStore;

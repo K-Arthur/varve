@@ -5,7 +5,7 @@ import type { EasingDefinition } from '@varve/shared';
 import { Select, Tooltip, TooltipProvider } from '@varve/ui';
 import { type FC, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { PanelDragHandle } from '../components/PanelDragHandle';
-import { EditorCtx } from '../context';
+import { EditorCtx } from '../context/types';
 import { GraphEditor } from './GraphEditor';
 import { MediaFrameStrip } from './MediaFrameStrip';
 import { PlaybackControls } from './PlaybackControls';
