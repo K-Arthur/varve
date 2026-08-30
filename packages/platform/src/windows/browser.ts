@@ -22,8 +22,13 @@ import type {
 } from './types';
 import { isWorkspaceWindowId, UnsupportedOperationError } from './types';
 
-const CURRENT_WINDOW_ID = 'main';
 const POPUP_BASE_URL = typeof location !== 'undefined' ? location.origin : 'http://localhost:1420';
+
+function currentWindowId(): WorkspaceWindowId {
+  if (typeof location === 'undefined') return 'main';
+  const routed = new URLSearchParams(location.search).get('windowId');
+  return isWorkspaceWindowId(routed) ? routed : 'main';
+}
 
 interface PopupEntry {
   info: WorkspaceWindowInfo;
@@ -58,8 +63,8 @@ export class BrowserWindowService implements NativeWindowService {
 
   private currentInfo(): WorkspaceWindowInfo {
     return {
-      id: CURRENT_WINDOW_ID,
-      label: 'main',
+      id: currentWindowId(),
+      label: currentWindowId() === 'main' ? 'main' : `browser-panel-${currentWindowId()}`,
       title: typeof document !== 'undefined' ? document.title || 'Varve' : 'Varve',
       visible: true,
       focused: true,
@@ -101,15 +106,15 @@ export class BrowserWindowService implements NativeWindowService {
     // Browser popups have deliberately limited placement guarantees, but the
     // application identity must still be identical to the service ID. Never
     // rewrite it: the broker and the popup need the same protocol target.
+    // Preserve the bounded application route assigned by the coordinator.
+    // In particular, the transaction and panel-instance identities are part
+    // of the readiness proof; dropping them makes a browser popup look ready
+    // while the primary correctly waits forever for a matching host.
     const routeParams = new URLSearchParams(options.route?.startsWith('?') ? options.route : '');
-    const panelParam = routeParams.get('panels') ?? '';
-    const sessionParam = routeParams.get('session') ?? 'current';
-    const url =
-      `${POPUP_BASE_URL}/index.html` +
-      `?surface=panel-window` +
-      `&windowId=${encodeURIComponent(id)}` +
-      `&session=${encodeURIComponent(sessionParam)}` +
-      (panelParam ? `&panels=${encodeURIComponent(panelParam)}` : '');
+    routeParams.set('surface', 'panel-window');
+    routeParams.set('windowId', id);
+    if (!routeParams.get('session')) routeParams.set('session', 'current');
+    const url = `${POPUP_BASE_URL}/index.html?${routeParams.toString()}`;
 
     let win: Window | null = null;
     try {
@@ -147,6 +152,14 @@ export class BrowserWindowService implements NativeWindowService {
     } catch (error) {
       return Promise.reject(error);
     }
+    if (windowId === currentWindowId() && windowId !== 'main') {
+      try {
+        window.close();
+      } catch {
+        // The browser may deny closing a non-script-opened tab.
+      }
+      return Promise.resolve();
+    }
     const popup = this.popups.get(windowId);
     if (!popup) return Promise.resolve();
     try {
@@ -165,7 +178,14 @@ export class BrowserWindowService implements NativeWindowService {
     } catch (error) {
       return Promise.reject(error);
     }
-    if (windowId === CURRENT_WINDOW_ID) return Promise.resolve();
+    if (windowId === currentWindowId()) {
+      try {
+        window.focus();
+      } catch {
+        // Best-effort browser focus.
+      }
+      return Promise.resolve();
+    }
     const popup = this.popups.get(windowId);
     if (!popup) return Promise.reject(new Error(`unknown window '${windowId}'`));
     try {
@@ -183,7 +203,7 @@ export class BrowserWindowService implements NativeWindowService {
     } catch (error) {
       return Promise.reject(error);
     }
-    if (windowId === CURRENT_WINDOW_ID) return Promise.resolve();
+    if (windowId === currentWindowId()) return Promise.resolve();
     const popup = this.popups.get(windowId);
     if (!popup) return Promise.reject(new Error(`unknown window '${windowId}'`));
     this.emit({ type: 'restored', windowId });
@@ -196,7 +216,7 @@ export class BrowserWindowService implements NativeWindowService {
     } catch (error) {
       return Promise.reject(error);
     }
-    if (windowId === CURRENT_WINDOW_ID) return Promise.resolve();
+    if (windowId === currentWindowId()) return Promise.resolve();
     const popup = this.popups.get(windowId);
     if (!popup) return Promise.reject(new Error(`unknown window '${windowId}'`));
     this.emit({ type: 'blurred', windowId });
@@ -220,7 +240,7 @@ export class BrowserWindowService implements NativeWindowService {
   }
 
   getWindowPlacement(windowId: WorkspaceWindowId): Promise<WindowPlacement | null> {
-    if (windowId === CURRENT_WINDOW_ID) {
+    if (windowId === currentWindowId()) {
       return Promise.resolve({
         logicalPosition: { x: window.screenX, y: window.screenY },
         logicalSize: { width: window.outerWidth, height: window.outerHeight },
@@ -247,7 +267,7 @@ export class BrowserWindowService implements NativeWindowService {
     } catch (error) {
       return Promise.reject(error);
     }
-    if (windowId === CURRENT_WINDOW_ID) return Promise.resolve();
+    if (windowId === currentWindowId()) return Promise.resolve();
     const popup = this.popups.get(windowId);
     if (!popup?.win) return Promise.reject(new Error(`unknown window '${windowId}'`));
     try {

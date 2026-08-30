@@ -216,6 +216,34 @@ describe('browser window service: honest popup capability (ADR-0034)', () => {
     ).rejects.toThrow(UnsupportedOperationError);
   });
 
+  it('preserves transaction identity in the browser popup route', async () => {
+    const opened = {
+      close: vi.fn(),
+      focus: vi.fn(),
+      screenX: 20,
+      screenY: 30,
+      outerWidth: 320,
+      outerHeight: 480,
+    } as unknown as Window;
+    const open = vi.spyOn(window, 'open').mockReturnValue(opened);
+    const service = createBrowserWindowService();
+
+    await service.createWindow({
+      id: 'panel_layers_123',
+      title: 'Layers — Varve',
+      size: { width: 320, height: 480 },
+      route:
+        '?surface=panel-window&windowId=panel_layers_123&session=session_123&panels=layers&transaction=tx_123&panelInstanceId=layers_primary',
+    });
+
+    const route = String(open.mock.calls[0]?.[0]);
+    expect(route).toContain('windowId=panel_layers_123');
+    expect(route).toContain('session=session_123');
+    expect(route).toContain('transaction=tx_123');
+    expect(route).toContain('panelInstanceId=layers_primary');
+    open.mockRestore();
+  });
+
   it('reports the single current window', async () => {
     const service = createBrowserWindowService(false);
     const windows = await service.listWindows();
@@ -236,6 +264,16 @@ describe('tauri window service: native behaviors', () => {
   let creationOptions: Array<{ label: string; options: Record<string, unknown> }>;
   let positions: Map<string, unknown>;
   let sizes: Map<string, unknown>;
+  let nativeWindows: Map<
+    string,
+    {
+      maximize: ReturnType<typeof vi.fn>;
+      unmaximize: ReturnType<typeof vi.fn>;
+      minimize: ReturnType<typeof vi.fn>;
+      unminimize: ReturnType<typeof vi.fn>;
+      setFullscreen: ReturnType<typeof vi.fn>;
+    }
+  >;
 
   beforeEach(() => {
     createdLabels = [];
@@ -244,6 +282,7 @@ describe('tauri window service: native behaviors', () => {
     creationOptions = [];
     positions = new Map();
     sizes = new Map();
+    nativeWindows = new Map();
 
     const primaryMonitor = {
       name: 'Primary',
@@ -271,6 +310,9 @@ describe('tauri window service: native behaviors', () => {
       const state = {
         visible: false,
         focused: false,
+        minimized: false,
+        maximized: false,
+        fullscreen: false,
         position: { x: 0, y: 0 },
         size: { width: 400, height: 300 },
       };
@@ -302,15 +344,30 @@ describe('tauri window service: native behaviors', () => {
         hide: vi.fn(async () => {
           state.visible = false;
         }),
+        minimize: vi.fn(async () => {
+          state.minimized = true;
+        }),
+        unminimize: vi.fn(async () => {
+          state.minimized = false;
+        }),
+        maximize: vi.fn(async () => {
+          state.maximized = true;
+        }),
+        unmaximize: vi.fn(async () => {
+          state.maximized = false;
+        }),
+        setFullscreen: vi.fn(async (fullscreen: boolean) => {
+          state.fullscreen = fullscreen;
+        }),
         close: vi.fn(async () => {
           closedLabels.push(label);
           closeRequested?.({ preventDefault() {} });
         }),
         isVisible: vi.fn(async () => state.visible),
         isFocused: vi.fn(async () => state.focused),
-        isMinimized: vi.fn(async () => false),
-        isMaximized: vi.fn(async () => false),
-        isFullscreen: vi.fn(async () => false),
+        isMinimized: vi.fn(async () => state.minimized),
+        isMaximized: vi.fn(async () => state.maximized),
+        isFullscreen: vi.fn(async () => state.fullscreen),
         outerPosition: vi.fn(async () => state.position),
         outerSize: vi.fn(async () => state.size),
         currentMonitor: vi.fn(async () => primaryMonitor),
@@ -352,6 +409,7 @@ describe('tauri window service: native behaviors', () => {
     const allWindows = new Map<string, ReturnType<typeof makeWindowLike>>();
     const main = makeWindowLike('main');
     main.show();
+    nativeWindows.set('main', main);
     allWindows.set('main', main);
 
     (window as unknown as { __TAURI__?: Record<string, unknown> }).__TAURI__ = {
@@ -362,6 +420,7 @@ describe('tauri window service: native behaviors', () => {
           options: Record<string, unknown>,
         ) {
           const created = makeWindowLike(label);
+          nativeWindows.set(label, created);
           creationOptions.push({ label, options });
           createdLabels.push(label);
           if (options.visible === true) created.show();
@@ -414,6 +473,7 @@ describe('tauri window service: native behaviors', () => {
     expect(createdLabels).toContain(created.label);
     expect(creationOptions[0]?.options.url).toContain('windowId=panel_layers_123');
     expect(creationOptions[0]?.options.visible).toBe(false);
+    expect(creationOptions[0]?.options.decorations).toBe(true);
   });
 
   it('refuses non-application routes', async () => {
@@ -480,6 +540,50 @@ describe('tauri window service: native behaviors', () => {
 
     expect(positions.get(created.label)).toMatchObject({ type: 'Logical', x: -1100, y: 100 });
     expect(sizes.get(created.label)).toMatchObject({ type: 'Logical', width: 500, height: 350 });
+  });
+
+  it('restores maximized and fullscreen placement state through native APIs', async () => {
+    const { TauriWindowService } = await import('../tauri');
+    service = new TauriWindowService();
+    const created = await service.createWindow({ title: 'P', size: { width: 400, height: 600 } });
+    const native = nativeWindows.get(created.label);
+    if (!native) throw new Error('missing created native window');
+
+    await service.setWindowPlacement(created.id, {
+      logicalPosition: { x: 20, y: 30 },
+      logicalSize: { width: 400, height: 300 },
+      state: 'maximized',
+    });
+    expect(native.maximize).toHaveBeenCalledOnce();
+
+    await service.setWindowPlacement(created.id, {
+      logicalPosition: { x: 20, y: 30 },
+      logicalSize: { width: 400, height: 300 },
+      state: 'fullscreen',
+    });
+    expect(native.unmaximize).toHaveBeenCalledOnce();
+    expect(native.setFullscreen).toHaveBeenLastCalledWith(true);
+
+    await service.setWindowPlacement(created.id, {
+      logicalPosition: { x: 20, y: 30 },
+      logicalSize: { width: 400, height: 300 },
+      state: 'normal',
+    });
+    expect(native.setFullscreen).toHaveBeenLastCalledWith(false);
+
+    await service.setWindowPlacement(created.id, {
+      logicalPosition: { x: 20, y: 30 },
+      logicalSize: { width: 400, height: 300 },
+      state: 'minimized',
+    });
+    expect(native.minimize).toHaveBeenCalledOnce();
+
+    await service.setWindowPlacement(created.id, {
+      logicalPosition: { x: 20, y: 30 },
+      logicalSize: { width: 400, height: 300 },
+      state: 'normal',
+    });
+    expect(native.unminimize).toHaveBeenCalledOnce();
   });
 
   it('emits a close lifecycle event exactly once when native close also notifies', async () => {

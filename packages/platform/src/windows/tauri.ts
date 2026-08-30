@@ -52,6 +52,11 @@ interface TauriWindowLike {
   setFocus(): Promise<void>;
   show(): Promise<void>;
   hide(): Promise<void>;
+  minimize(): Promise<void>;
+  unminimize(): Promise<void>;
+  maximize(): Promise<void>;
+  unmaximize(): Promise<void>;
+  setFullscreen(fullscreen: boolean): Promise<void>;
   close(): Promise<void>;
   isVisible(): Promise<boolean>;
   isFocused(): Promise<boolean>;
@@ -286,7 +291,12 @@ export class TauriWindowService implements NativeWindowService {
       minWidth: options.minSize?.width,
       minHeight: options.minSize?.height,
       visible: false,
-      decorations: false,
+      // Panel windows intentionally use platform-native chrome. The primary
+      // application has an established custom shell, but duplicating it in a
+      // lean auxiliary webview would require a second, platform-specific set
+      // of drag/minimize/maximize/close controls. Native decorations keep
+      // those recovery controls reachable on Wayland, Windows and macOS.
+      decorations: true,
     });
     await waitForWindowCreation(nativeWindow);
 
@@ -376,7 +386,6 @@ export class TauriWindowService implements NativeWindowService {
     const nativeWindow = (await this.findWindowByLabel(this.labelForId(windowId)))[0];
     if (!nativeWindow) throw new Error(`unknown window '${windowId}'`);
     await this.applyPlacement(nativeWindow, placement, { width: 240, height: 160 });
-    if (placement.state === 'minimized') await nativeWindow.hide();
   }
 
   async listenToWindowEvents(handler: (event: WorkspaceWindowEvent) => void): Promise<() => void> {
@@ -525,12 +534,34 @@ export class TauriWindowService implements NativeWindowService {
       ? logicalWorkAreaForDisplay(display)
       : { x: 0, y: 0, width: 1920, height: 1080 };
     const clamped = clampPlacementToWorkArea(placement, workArea, minSize);
+    // A restored placement must leave any previous special state before it
+    // applies normal bounds. Otherwise some platforms accept the calls but
+    // retain the old maximized/fullscreen frame, which makes a recovered
+    // window appear to ignore its persisted placement.
+    if (placement.state !== 'fullscreen' && (await nativeWindow.isFullscreen())) {
+      await nativeWindow.setFullscreen(false);
+    }
+    if (placement.state !== 'maximized' && (await nativeWindow.isMaximized())) {
+      await nativeWindow.unmaximize();
+    }
+    if (placement.state !== 'minimized' && (await nativeWindow.isMinimized())) {
+      await nativeWindow.unminimize();
+    }
+
     await nativeWindow.setPosition(
       logicalPosition(api, clamped.logicalPosition.x, clamped.logicalPosition.y),
     );
     await nativeWindow.setSize(
       logicalSize(api, clamped.logicalSize.width, clamped.logicalSize.height),
     );
+
+    if (placement.state === 'maximized') {
+      await nativeWindow.maximize();
+    } else if (placement.state === 'fullscreen') {
+      await nativeWindow.setFullscreen(true);
+    } else if (placement.state === 'minimized') {
+      await nativeWindow.minimize();
+    }
   }
 
   private async subscribeWindow(
