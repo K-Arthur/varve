@@ -1,7 +1,7 @@
 import { getPlatformInfo, shouldUseNativeMenu } from '@varve/platform';
 import type { Document } from '@varve/scene';
 import { useEffect, useMemo, useRef } from 'react';
-import { getActionRegistry } from '../actions/ActionRegistry';
+import { dispatchRegisteredAction } from '../actions/ActionRegistry';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import { getAllMenuDefs, type MenuDefsOptions } from './defs';
 import { buildIntelFacts, buildMenuContext, detectPlatformFacts } from './facts';
@@ -24,11 +24,7 @@ export interface UseNativeMenuOptions {
 }
 
 export function dispatchNativeMenuAction(action: string, runAction: (id: string) => void): void {
-  const registered = getActionRegistry().get(action);
-  if (registered) {
-    registered.handler(undefined);
-    return;
-  }
+  if (dispatchRegisteredAction(action)) return;
   runAction(action);
 }
 

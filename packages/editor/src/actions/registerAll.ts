@@ -9,6 +9,8 @@ import { registerThumbnailActions } from '../thumbnail/thumbnailCommands';
 import { type ActionCategory, getActionRegistry } from './ActionRegistry';
 import { type ActionHandlerCallbacks, createActionHandlers } from './createActionHandlers';
 
+export { dispatchRegisteredAction } from './ActionRegistry';
+
 /**
  * Commands that run on-device inference. A deployment that withholds it must
  * not list them in the command palette: the guards downstream make them safe,
@@ -107,23 +109,21 @@ export function registerEditorActions(
   registerColorConversionActions();
 
   const reg = (id: string, label: string, category: ActionCategory, handler: () => void) => {
-    if (!r.has(id)) {
-      r.register({ id, label, category }, handler);
-    }
+    if (!r.updateHandler(id, handler)) r.register({ id, label, category }, handler);
   };
 
   for (const [id, handler] of Object.entries(handlers)) {
     const def = SHORTCUT_DEFS[id as keyof typeof SHORTCUT_DEFS];
     if (def) {
-      r.register(
-        {
-          id,
-          label: def.label,
-          category: categoryFromShortcut(def.category),
-          shortcut: def.binding,
-        },
-        handler,
-      );
+      const actionDef = {
+        id,
+        label: def.label,
+        category: categoryFromShortcut(def.category),
+        shortcut: def.binding,
+      } as const;
+      if (!r.updateHandler(id, handler)) {
+        r.register(actionDef, handler);
+      }
     }
   }
 
@@ -184,59 +184,25 @@ export function registerEditorActions(
   // the boot context would always compute `!false` (toggling to true, i.e.
   // never hiding the guides). Re-registering here on every state change
   // keeps the closure fresh, like the SHORTCUT_DEFS-bound actions.
-  r.register(
-    {
-      id: 'toggleBleedGuides',
-      label: 'Toggle Bleed Guides',
-      category: 'view',
-    },
-    handlers.toggleBleedGuides ?? (() => {}),
-  );
+  reg('toggleBleedGuides', 'Toggle Bleed Guides', 'view', handlers.toggleBleedGuides ?? (() => {}));
 
-  if (!r.has('runAudit')) {
-    r.register(
-      {
-        id: 'runAudit',
-        label: 'Audit',
-        category: 'object',
-        keywords: ['contrast', 'wcag', 'a11y'],
-      },
-      handlers.runAudit ?? (() => {}),
-    );
-  }
-  if (!r.has('scanDebt')) {
-    r.register(
-      {
-        id: 'scanDebt',
-        label: 'Scan for Debt',
-        category: 'object',
-        keywords: ['debt', 'issues', 'problems'],
-      },
-      handlers.scanDebt ?? (() => {}),
-    );
-  }
-  if (!r.has('suggestNames')) {
-    r.register(
-      {
-        id: 'suggestNames',
-        label: 'Suggest Names',
-        category: 'object',
-        keywords: ['rename', 'naming', 'layers'],
-      },
-      handlers.suggestNames ?? (() => {}),
-    );
-  }
-  if (!r.has('detectDuplicates')) {
-    r.register(
-      {
-        id: 'detectDuplicates',
-        label: 'Detect Duplicates',
-        category: 'component',
-        keywords: ['component', 'variant', 'duplicate'],
-      },
-      handlers.detectDuplicates ?? (() => {}),
-    );
-  }
+  reg('runAudit', 'Audit', 'object', handlers.runAudit ?? (() => {}));
+  const audit = r.get('runAudit');
+  if (audit) audit.keywords = ['contrast', 'wcag', 'a11y'];
+  reg('scanDebt', 'Scan for Debt', 'object', handlers.scanDebt ?? (() => {}));
+  const debt = r.get('scanDebt');
+  if (debt) debt.keywords = ['debt', 'issues', 'problems'];
+  reg('suggestNames', 'Suggest Names', 'object', handlers.suggestNames ?? (() => {}));
+  const names = r.get('suggestNames');
+  if (names) names.keywords = ['rename', 'naming', 'layers'];
+  reg(
+    'detectDuplicates',
+    'Detect Duplicates',
+    'component',
+    handlers.detectDuplicates ?? (() => {}),
+  );
+  const duplicates = r.get('detectDuplicates');
+  if (duplicates) duplicates.keywords = ['component', 'variant', 'duplicate'];
 
   const panelActions = [
     ['openInspectorProperties', 'Open Properties', ['inspector', 'selection', 'properties']],
@@ -354,35 +320,30 @@ export function registerEditorActions(
   // with a SHORTCUT_DEFS entry already take the unguarded path above — these
   // two have no shortcut, so they need it spelled out. `remove` first, since
   // `register` warns about duplicates in development.
-  r.remove('attachTextToPath');
-  r.register(
-    {
-      id: 'attachTextToPath',
-      label: 'Text on Path',
-      category: 'object',
-      keywords: [
-        'text on path',
-        'type on path',
-        'curved text',
-        'text path',
-        'textpath',
-        'circular text',
-        'attach text',
-        'follow path',
-      ],
-    },
-    handlers.attachTextToPath ?? (() => {}),
-  );
-  r.remove('detachTextFromPath');
-  r.register(
-    {
-      id: 'detachTextFromPath',
-      label: 'Detach Text from Path',
-      category: 'object',
-      keywords: ['detach text', 'remove text from path', 'straighten text', 'unattach'],
-    },
+  reg('attachTextToPath', 'Text on Path', 'object', handlers.attachTextToPath ?? (() => {}));
+  const attachText = r.get('attachTextToPath');
+  if (attachText) {
+    attachText.keywords = [
+      'text on path',
+      'type on path',
+      'curved text',
+      'text path',
+      'textpath',
+      'circular text',
+      'attach text',
+      'follow path',
+    ];
+  }
+  reg(
+    'detachTextFromPath',
+    'Detach Text from Path',
+    'object',
     handlers.detachTextFromPath ?? (() => {}),
   );
+  const detachText = r.get('detachTextFromPath');
+  if (detachText) {
+    detachText.keywords = ['detach text', 'remove text from path', 'straighten text', 'unattach'];
+  }
   // Mask operations (reachable via Object menu and Layers context menu)
   const maskOps = [
     ['addAlphaMask', 'Add Alpha Mask', ['mask', 'alpha', 'transparency']],

@@ -1,5 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { getActionRegistry, resetActionRegistryForTesting } from './ActionRegistry';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  dispatchRegisteredAction,
+  getActionRegistry,
+  resetActionRegistryForTesting,
+} from './ActionRegistry';
 
 describe('ActionRegistry', () => {
   afterEach(() => {
@@ -117,6 +121,31 @@ describe('ActionRegistry', () => {
     r.register({ id: 'dup', label: 'First', category: 'edit' }, () => {});
     r.register({ id: 'dup', label: 'Second', category: 'view' }, () => {});
     expect(r.get('dup')?.label).toBe('Second');
+  });
+
+  it('updates a live handler without changing action metadata', () => {
+    const r = getActionRegistry();
+    const first = () => {};
+    const second = () => {};
+    r.register(
+      { id: 'contextual', label: 'Contextual Action', category: 'edit', keywords: ['current'] },
+      first,
+    );
+
+    expect(r.updateHandler('contextual', second)).toBe(true);
+    expect(r.get('contextual')?.handler).toBe(second);
+    expect(r.get('contextual')?.label).toBe('Contextual Action');
+    expect(r.get('contextual')?.keywords).toEqual(['current']);
+  });
+
+  it('dispatches only registered actions through the shared boundary', () => {
+    const r = getActionRegistry();
+    const handler = vi.fn();
+    r.register({ id: 'dispatchable', label: 'Dispatchable', category: 'edit' }, handler);
+
+    expect(dispatchRegisteredAction('dispatchable', { source: 'test' })).toBe(true);
+    expect(handler).toHaveBeenCalledWith({ source: 'test' });
+    expect(dispatchRegisteredAction('missing')).toBe(false);
   });
 });
 

@@ -16,7 +16,11 @@ import {
   useRef,
   useState,
 } from 'react';
-import { getActionRegistry, type RegisteredAction } from '../../actions/ActionRegistry';
+import {
+  dispatchRegisteredAction,
+  getActionRegistry,
+  type RegisteredAction,
+} from '../../actions/ActionRegistry';
 import { getRegisteredTools, type ToolId } from '../../tools/toolRegistry';
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import { getToolbarToolIds, type WorkspaceMode } from '../../workspace/workspaceTypes';
@@ -113,7 +117,7 @@ export function QuickActionsBar({
       setRecent(updated);
       saveRecent(updated);
       onExecute?.(action.id);
-      action.handler(undefined);
+      dispatchRegisteredAction(action.id);
       onClose();
     },
     [recent, onExecute, onClose],

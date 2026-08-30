@@ -6,6 +6,7 @@ import { getAllRules, registerBuiltinRules } from '@varve/scene';
 import { ContextMenu, Icon, ToastProvider, Tooltip, useToast } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  dispatchRegisteredAction,
   openVarveContact,
   registerAllShortcuts,
   registerEditorActions,
@@ -335,10 +336,15 @@ function ShellInner({
   }, [bringAllPanelsToCurrentDisplay, editor, editorHelp, onBackToHome, resetPanelWindowLayout]);
 
   const handlePaletteSelect = useCallback((id: string) => {
+    // The palette is an access surface, not a second command implementation.
+    // Dispatch through the registry so keyboard, menu, toolbar, and palette
+    // invocations share the same handler and state transaction.
+    if (dispatchRegisteredAction(id)) return;
+
+    // Keep the legacy DOM fallback for boot/test harnesses that render the
+    // palette before the editor action registration effect has run.
     const input = fileRef.current;
-    if (id === 'open' && input) {
-      input.click();
-    }
+    if (id === 'open' && input) input.click();
   }, []);
 
   // Desktop panel visibility (Ctrl+B / Ctrl+Shift+B): collapse the grid

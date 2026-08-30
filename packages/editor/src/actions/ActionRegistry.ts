@@ -113,6 +113,27 @@ export class ActionRegistry {
     this.actions.set(def.id, { ...def, handler });
   }
 
+  /**
+   * Replace the live handler without replacing action metadata or emitting a
+   * duplicate-registration warning. Editor handlers close over the current
+   * context, so the shell refreshes them as state changes while keeping one
+   * canonical action definition for every access surface.
+   */
+  updateHandler(id: string, handler: ActionHandler): boolean {
+    const action = this.actions.get(id);
+    if (!action) return false;
+    action.handler = handler;
+    return true;
+  }
+
+  /** Dispatch an action through its canonical registered handler. */
+  dispatch(id: string, context?: unknown): boolean {
+    const action = this.actions.get(id);
+    if (!action) return false;
+    action.handler(context);
+    return true;
+  }
+
   get(id: string): RegisteredAction | undefined {
     return this.actions.get(id);
   }
@@ -191,6 +212,11 @@ export function getActionRegistry(): ActionRegistry {
     _instance = new ActionRegistry();
   }
   return _instance;
+}
+
+/** Shared dispatch boundary for menus, palettes, toolbars, and integrations. */
+export function dispatchRegisteredAction(id: string, context?: unknown): boolean {
+  return getActionRegistry().dispatch(id, context);
 }
 
 export function resetActionRegistryForTesting(): void {
