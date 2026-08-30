@@ -461,6 +461,33 @@ test.describe('Auto Layout comprehensive verification', () => {
     await page.screenshot({ path: 'test-results/autolayout-11-child-absolute.png' });
   });
 
+  test('11b - dragging a flow child reorders it within its flex frame', async ({ page }) => {
+    test.setTimeout(300000);
+    const box = await drawFrame(page, 80, 80, 480, 380);
+    await drawRect(page, 120, 120, 200, 200);
+    await drawRect(page, 240, 120, 320, 200);
+    await selectFrame(page, box);
+    await selectFromCombobox(page, 'Layout mode', 'Flex');
+    await page.waitForTimeout(300);
+
+    const rows = page.locator('.layers-row').filter({ hasText: /Rectangle/ });
+    const before = await rows.allTextContents();
+    expect(before).toHaveLength(2);
+
+    const canvas = await getCanvas(page);
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('canvas not found');
+    await selectTool(page);
+    await page.mouse.move(canvasBox.x + 120, canvasBox.y + 120);
+    await page.mouse.down();
+    await page.mouse.move(canvasBox.x + 400, canvasBox.y + 120, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    await expect.poll(async () => rows.allTextContents(), { timeout: 5000 }).not.toEqual(before);
+    await page.screenshot({ path: 'test-results/autolayout-11b-canvas-reorder.png' });
+  });
+
   // ── 12. Nested auto layout ─────────────────────────────────────
 
   test('12 - nested auto layout frames reflow correctly', async ({ page }) => {

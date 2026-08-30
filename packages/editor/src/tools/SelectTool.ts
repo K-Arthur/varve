@@ -42,6 +42,7 @@ import { nodeWorldBounds, nodeWorldTransform, worldToParent } from '../scene/wor
 import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
 import { interactionSession } from './InteractionContext';
+import { layoutDropInsertionIndex } from './layoutDrop';
 import {
   isMarqueeSelectableNode,
   marqueeGeometryHit,
@@ -534,7 +535,26 @@ export class SelectTool extends BaseTool {
             const frameId = ctx.findContainingFrame(center);
             if (frameId) {
               const currentParent = getParent(ctx.document, selId);
-              if (currentParent !== frameId) {
+              if (currentParent === frameId && sel.length === 1) {
+                // A flow child dropped inside its existing layout parent is a
+                // reorder, not a no-op move. The scene child array is the
+                // authoritative layout order; reparentNode performs the
+                // atomic remove/reinsert and reflow in this gesture's undo
+                // transaction.
+                const insertionIndex = layoutDropInsertionIndex(
+                  ctx.document,
+                  frameId,
+                  selId,
+                  center,
+                );
+                const currentIndex =
+                  ctx.document.nodes[frameId]?.kind === 'frame'
+                    ? ctx.document.nodes[frameId].children.indexOf(selId)
+                    : -1;
+                if (insertionIndex !== null && insertionIndex !== currentIndex) {
+                  ctx.reparentNode(selId, frameId, insertionIndex);
+                }
+              } else if (currentParent !== frameId) {
                 // Size heuristic: only reparent if the node is not larger
                 // than the target frame (matching Figma/Sketch behaviour).
                 const frameNode = ctx.getNode(frameId);

@@ -103,7 +103,7 @@ A child whose cross-axis sizing is `hug` never stretches, even under `alignItems
 
 - **Cycle diagnostic not surfaced**: `checkLayoutCycle` exists and is tested but isn't called from any mutation path — there's no user-facing warning when a configuration would have cycled (the engine still resolves deterministically; this is about UX feedback, not correctness).
 - **Absolute-child constraints** (left+top / right+bottom / center / stretch scale) are not layered on top of `layoutPosition: 'absolute'` — absolute children currently just keep their existing transform, with no responsive anchoring within the layout parent.
-- **Canvas direct-manipulation** (drag-to-reorder within a flex frame, gap/padding drag handles, insertion indicators) was not built this pass — all layout editing goes through the inspector.
+- **Canvas reordering**: dragging a single flow child within its existing flex frame now updates scene child order and reflows in the same undo transaction. A visual insertion indicator, multi-child reordering, and gap/padding drag handles remain future work.
 - **Real typographic baseline alignment** is not implemented; `alignItems` has no `baseline` option, which is correct per the "don't expose a fake option" principle rather than an oversight.
 - **RTL/logical direction** (`start`/`end` independent of `left`/`right`) is not modeled — `row`/`column` are physical, not logical.
 - Components/instances, save/reopen round-trip, undo/redo, and codegen fidelity were not independently re-verified this pass (pre-existing behavior, structurally unaffected by the engine changes, but not proven).

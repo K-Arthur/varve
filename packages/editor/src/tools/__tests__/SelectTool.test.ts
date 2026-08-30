@@ -4,6 +4,7 @@ import {
   addPage,
   createClippingMask,
   createDocument,
+  makeFrameNode,
   makeGroupNode,
   makeShapeNode,
   type Page,
@@ -1072,6 +1073,64 @@ describe('SelectTool drag-end auto-reparent', () => {
 
     expect(reparentNode).toHaveBeenCalledTimes(1);
     expect(reparentNode).toHaveBeenCalledWith('n0', null, expect.any(Number));
+  });
+
+  it('reorders a flow child dropped later in its existing layout frame', () => {
+    let doc = createDocument('layout reorder');
+    const root = doc.pages![0]!.contentRoot;
+    const frame = makeFrameNode('f1', {
+      w: 400,
+      h: 100,
+      layoutStyle: {
+        mode: 'flex',
+        direction: 'row',
+        gap: 0,
+        wrap: false,
+        padding: [0, 0, 0, 0],
+        grow: 0,
+        shrink: 0,
+      },
+    });
+    doc = addChild(doc, root, frame);
+    doc = addChild(
+      doc,
+      frame.id,
+      makeShapeNode(
+        'a',
+        { kind: 'rect', x: 0, y: 0, w: 50, h: 20 },
+        { transform: [1, 0, 0, 1, 0, 0] },
+      ),
+    );
+    doc = addChild(
+      doc,
+      frame.id,
+      makeShapeNode(
+        'b',
+        { kind: 'rect', x: 0, y: 0, w: 50, h: 20 },
+        { transform: [1, 0, 0, 1, 350, 0] },
+      ),
+    );
+    doc = addChild(
+      doc,
+      frame.id,
+      makeShapeNode(
+        'c',
+        { kind: 'rect', x: 0, y: 0, w: 50, h: 20 },
+        { transform: [1, 0, 0, 1, 200, 0] },
+      ),
+    );
+    const reparentNode = vi.fn();
+    const ctx = makeCtx({
+      document: doc,
+      selection: ['b'],
+      findContainingFrame: vi.fn().mockReturnValue('f1'),
+      getNode: vi.fn((id: string) => doc.nodes[id]),
+      reparentNode,
+    });
+
+    endDrag(new SelectTool(), ctx);
+
+    expect(reparentNode).toHaveBeenCalledWith('b', 'f1', 2);
   });
 });
 
