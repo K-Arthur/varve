@@ -4,8 +4,9 @@
  *
  * This is deliberately the broker used by `useDetachedPanels`, not the
  * older protocol-only experiment under `workspace/session/`. The transport
- * is a BroadcastChannel in a real auxiliary window, so every boundary here
- * treats messages as untrusted data even though they share an origin.
+ * uses Tauri core events in desktop auxiliary windows and BroadcastChannel
+ * in browser popups, so every boundary here treats messages as untrusted
+ * data even though they share an origin.
  */
 
 import type { DetachedPanelRecord } from './detachedPanelsStore';
@@ -523,6 +524,11 @@ export class SessionBroker {
   /** Identity of the transport channel this broker owns. */
   getSessionId(): string {
     return this.sessionId;
+  }
+
+  /** Ensure the primary native listener is armed before creating a child webview. */
+  ready(): Promise<void> {
+    return this.transport.ready?.() ?? Promise.resolve();
   }
 
   /** Attach the editor API. */

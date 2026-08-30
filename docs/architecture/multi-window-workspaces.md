@@ -92,7 +92,8 @@ is carried through the route, broker, detached record, and window service;
 Tauri labels are sanitized derived implementation details, not identities.
 
 The runtime protocol is `SESSION_BROKER_PROTOCOL_VERSION = 1` in
-`workspace/sessionBroker.ts`. Its transport is session-scoped, but transport
+`workspace/sessionBroker.ts`. Desktop uses Tauri core-event IPC and browser
+popups use `BroadcastChannel`; both are session-scoped, but transport
 membership alone is not trusted. Each auxiliary-to-primary message must carry
 the protocol version, canonical window id, and a positive generation. The
 broker rejects malformed, oversized, stale, mismatched, or unregistered
@@ -252,10 +253,10 @@ one allow-listed, bounded set of query fields; it rejects hashes, duplicate or
 unknown fields, unsafe tokens, and a route/window identity mismatch. The shell
 then requires exactly one registered detachable panel plus a complete
 transactional identity before it creates a session transport. Tauri labels are
-safe derivatives, not durable identities. The `panel-windows` capability lists
-only the event and window lifecycle/geometry calls the adapter needs; it does
-not inherit `core:default` or grant filesystem, dialog, path, webview, menu,
-tray, or app access.
+safe derivatives, not durable identities. The `panel-windows` capability grants
+only core-event emit/listen/unlisten and the window lifecycle/geometry calls
+the adapter needs; it does not inherit `core:default` or grant filesystem,
+dialog, path, webview, menu, tray, or app access.
 
 The broker treats transport data as untrusted even when it shares an origin:
 

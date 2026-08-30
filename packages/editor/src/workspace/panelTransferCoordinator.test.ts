@@ -63,6 +63,32 @@ beforeEach(() => {
 });
 
 describe('PanelTransferCoordinator', () => {
+  it('waits for asynchronous native transport setup before reserving a panel host', async () => {
+    const service = createMemoryWindowService({ currentWindowId: 'main' });
+    const broker = createControlledBroker();
+    let resolveTransport: (() => void) | undefined;
+    broker.ready = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveTransport = resolve;
+        }),
+    );
+    const coordinator = makeCoordinator(service, broker);
+
+    const detaching = coordinator.detach({
+      panelTypeId: 'layers',
+      panelInstanceId: 'layers-main',
+      sourceWindowId: 'main',
+    });
+    await vi.waitFor(() => expect(broker.ready).toHaveBeenCalledOnce());
+    expect(broker.requests).toEqual([]);
+
+    resolveTransport?.();
+    await vi.waitFor(() => expect(broker.requests).toHaveLength(1));
+    broker.resolveReady();
+    await expect(detaching).resolves.toMatchObject({ status: 'detached' });
+  });
+
   it('keeps the source panel mounted until the destination hydrates, then shows and commits once', async () => {
     const service = createMemoryWindowService({ currentWindowId: 'main' });
     const broker = createControlledBroker();

@@ -1,9 +1,9 @@
 /**
  * Per-primary-process identities for auxiliary panel windows.
  *
- * The session id scopes BroadcastChannel traffic to one running editor
- * instance.  It is intentionally ephemeral: a restart cannot accidentally
- * accept a stale auxiliary window from a previous process.  Window ids are
+ * The session id scopes cross-window transport traffic to one running editor
+ * instance. It is intentionally ephemeral: a restart cannot accidentally
+ * accept a stale auxiliary window from a previous process. Window ids are
  * allocated before native creation and therefore remain the one canonical
  * identity used by the route, broker, store, and platform service.
  */

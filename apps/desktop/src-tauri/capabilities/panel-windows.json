@@ -4,6 +4,7 @@
   "description": "Restricted capability for auxiliary panel windows (ADR-0040): window lifecycle, placement, monitor enumeration, and native window events only. No filesystem, dialog, opener, path, webview, menu, tray, or app access.",
   "windows": ["varve-w-*"],
   "permissions": [
+    "core:event:allow-emit",
     "core:event:allow-listen",
     "core:event:allow-unlisten",
     "core:window:allow-close",

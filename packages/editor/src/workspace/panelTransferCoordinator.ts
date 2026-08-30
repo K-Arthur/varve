@@ -43,6 +43,8 @@ export class PanelTransferError extends Error {
 }
 
 export interface PanelHostBroker {
+  /** Optional asynchronous transport setup for native webview IPC. */
+  ready?(): Promise<void>;
   reservePanelHost(request: {
     transactionId: string;
     windowId: string;
@@ -207,6 +209,17 @@ export class PanelTransferCoordinator {
       !definition.localStateCodec
     ) {
       throw new PanelTransferError('not-detachable', `${definition.title} cannot be detached.`);
+    }
+
+    try {
+      // Tauri event listeners are registered asynchronously. Arm the primary
+      // before the child can send its queued `window-ready` registration.
+      await this.options.broker.ready?.();
+    } catch (error) {
+      const failure = createTransferFailure('host-unavailable', error);
+      request.focusSource?.();
+      request.announce?.(`Panel detachment failed; the ${definition.title} panel remains docked.`);
+      throw failure;
     }
 
     const targetWindowId = this.createWindowId();
