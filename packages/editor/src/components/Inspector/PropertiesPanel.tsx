@@ -220,6 +220,18 @@ export function PropertiesPanel() {
     }
   }, [state.workspaceMode, effectiveConfig, tab, visibleTabs]);
 
+  // Auto-switch to Adjustments tab when an adjustment layer is selected
+  // and the current tab is Properties (which shows nothing useful for adjustments).
+  const isAdjustmentOnly =
+    selNodes.length === 1 &&
+    selNodes[0]?.kind === 'adjustment' &&
+    visibleTabs.includes('adjustments');
+  useEffect(() => {
+    if (isAdjustmentOnly && tab === 'properties') {
+      setTab('adjustments');
+    }
+  }, [isAdjustmentOnly, tab]);
+
   useEffect(() => {
     if (state.tool === 'inspect') setExportSubTab('code');
   }, [state.tool]);
