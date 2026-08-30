@@ -492,6 +492,7 @@ export {
   buildGradientColorLut,
   buildGradientLUT,
   DEFAULT_GRADIENT_LUT_SIZE,
+  GRADIENT_MAP_ALGORITHM_VERSION,
   interpolateGradientMapColor,
 } from './gradientMap';
 export type { GrainAnchor, GrainResolution, GrainSampleParams } from './grainSampler';
@@ -1128,7 +1129,14 @@ export type {
 export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
 export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textWarpPipeline';
 export { warpTextToMesh } from './textWarpPipeline';
-export { applyThreshold, type ThresholdParams } from './threshold';
+export type { ThresholdLuminanceMode, ThresholdParams } from './threshold';
+export {
+  applyThreshold,
+  applyThresholdPixel,
+  normalizeThresholdParams,
+  THRESHOLD_ALGORITHM_VERSION,
+  thresholdLuminance,
+} from './threshold';
 export type { ThumbnailOptions as LegacyThumbnailOptions } from './thumbnail';
 export { renderThumbnail as legacyRenderThumbnail } from './thumbnail';
 export type {

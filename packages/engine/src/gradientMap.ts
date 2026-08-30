@@ -91,18 +91,23 @@ export interface GradientMapParams {
   interpolation?: GradientInterpolationSpace;
   /** LUT resolution. Default 256. */
   lutSize?: number;
+  /** Version of the documented gradient-map algorithm. */
+  algorithmVersion?: 1;
 }
 
 export interface GradientLut {
   r: Uint8Array;
   g: Uint8Array;
   b: Uint8Array;
+  /** Interpolated stop alpha, retained for consumers that need the ramp alpha. */
+  a: Uint8Array;
   /** Number of LUT entries. */
   lutSize: number;
 }
 
 /** Default LUT resolution. 256 entries matches 8-bit input precision. */
 export const DEFAULT_GRADIENT_LUT_SIZE = 256;
+export const GRADIENT_MAP_ALGORITHM_VERSION = 1 as const;
 
 /** 4x4 Bayer ordered dither matrix for banding reduction. */
 const BAYER_4X4: number[][] = [
@@ -128,9 +133,36 @@ function clampByte(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));
 }
 
-function clamp01(v: number): number {
-  if (Number.isNaN(v) || !Number.isFinite(v)) return 1;
+function clamp01(v: number, fallback = 1): number {
+  if (!Number.isFinite(v)) return fallback;
   return Math.max(0, Math.min(1, v));
+}
+
+function normalizeGradientStop(
+  stop: GradientMapStop,
+  index: number,
+  count: number,
+): GradientMapStop {
+  const fallbackPosition = count > 1 ? index / (count - 1) : 0;
+  return {
+    ...stop,
+    position: Number.isFinite(stop.position)
+      ? Math.max(0, Math.min(1, stop.position))
+      : fallbackPosition,
+    color: [
+      clampByte(stop.color[0]),
+      clampByte(stop.color[1]),
+      clampByte(stop.color[2]),
+      clampByte(stop.color[3] ?? 255),
+    ],
+    ...(stop.opacity === undefined ? {} : { opacity: clamp01(stop.opacity) }),
+    ...(stop.midpoint === undefined ? {} : { midpoint: clamp01(stop.midpoint, 0.5) }),
+  };
+}
+
+function normalizeLutSize(value: number | undefined, fallback: number): number {
+  const raw = Number.isFinite(value) ? Math.round(value!) : fallback;
+  return Math.max(2, Math.min(4096, raw));
 }
 
 /** Map a stop list to the shared interpolation input shape (sRGB RGBA). */
@@ -139,17 +171,23 @@ function toInterpolationStops(stops: readonly GradientMapStop[]): {
   color: { space: 'rgb'; r: number; g: number; b: number; a: number };
   midpoint?: number;
 }[] {
-  return stops.map((s) => ({
-    position: s.position,
-    color: {
-      space: 'rgb' as const,
-      r: s.color[0],
-      g: s.color[1],
-      b: s.color[2],
-      a: 255,
-    },
-    midpoint: s.midpoint ?? 0.5,
-  }));
+  return stops
+    .map((stop, index) => ({
+      stop: normalizeGradientStop(stop, index, stops.length),
+      order: index,
+    }))
+    .sort((a, b) => a.stop.position - b.stop.position || a.order - b.order)
+    .map(({ stop }) => ({
+      position: stop.position,
+      color: {
+        space: 'rgb' as const,
+        r: stop.color[0],
+        g: stop.color[1],
+        b: stop.color[2],
+        a: stop.color[3] ?? 255,
+      },
+      midpoint: stop.midpoint ?? 0.5,
+    }));
 }
 
 export interface GradientColorLutOptions {
@@ -174,18 +212,16 @@ export function buildGradientColorLut(
   stops: readonly GradientMapStop[],
   opts: GradientColorLutOptions = {},
 ): GradientLut {
-  const size = opts.size ?? DEFAULT_GRADIENT_LUT_SIZE;
+  const size = normalizeLutSize(opts.size, DEFAULT_GRADIENT_LUT_SIZE);
   const lutR = new Uint8Array(size);
   const lutG = new Uint8Array(size);
   const lutB = new Uint8Array(size);
+  const lutA = new Uint8Array(size);
 
-  if (stops.length < 2) return { r: lutR, g: lutG, b: lutB, lutSize: size };
+  if (stops.length < 2) return { r: lutR, g: lutG, b: lutB, a: lutA, lutSize: size };
 
   const space = opts.interpolation ?? 'srgb';
-  const sorted = [...stops]
-    .map((s) => ({ ...s, position: Math.max(0, Math.min(1, s.position)) }))
-    .sort((a, b) => a.position - b.position);
-  const inputs = toInterpolationStops(sorted);
+  const inputs = toInterpolationStops(stops);
 
   for (let i = 0; i < size; i++) {
     let t = size > 1 ? i / (size - 1) : 0;
@@ -195,9 +231,10 @@ export function buildGradientColorLut(
     lutR[i] = c.r;
     lutG[i] = c.g;
     lutB[i] = c.b;
+    lutA[i] = c.a;
   }
 
-  return { r: lutR, g: lutG, b: lutB, lutSize: size };
+  return { r: lutR, g: lutG, b: lutB, a: lutA, lutSize: size };
 }
 
 /**
@@ -216,9 +253,20 @@ export function interpolateGradientMapColor(
       r: stops[0]!.color.r,
       g: stops[0]!.color.g,
       b: stops[0]!.color.b,
-      a: 255,
+      a: stops[0]!.color.a,
     };
   const p = Math.max(0, Math.min(1, t));
+  for (let i = 0; i < stops.length; i++) {
+    if (p !== stops[i]!.position) continue;
+    let lastAtPosition = i;
+    while (
+      lastAtPosition + 1 < stops.length &&
+      stops[lastAtPosition + 1]!.position === stops[i]!.position
+    ) {
+      lastAtPosition += 1;
+    }
+    return stops[lastAtPosition]!.color;
+  }
   if (p <= stops[0]!.position) return stops[0]!.color;
   const last = stops[stops.length - 1]!;
   if (p >= last.position) return last.color;
@@ -242,7 +290,7 @@ export function buildGradientLUT(stops: readonly GradientMapStop[]): GradientLut
   return buildGradientColorLut(stops, { size: DEFAULT_GRADIENT_LUT_SIZE, interpolation: 'srgb' });
 }
 
-/** Normalize combined opacity stops (dedupe by position, first wins). */
+/** Normalize scalar opacity stops (dedupe by position, first wins). */
 function normalizeOpacityStops(
   stops: ReadonlyArray<{ position: number; midpoint?: number; opacity: number }>,
 ): {
@@ -252,12 +300,12 @@ function normalizeOpacityStops(
 }[] {
   const seen = new Map<number, { position: number; midpoint: number; opacity: number }>();
   for (const s of stops) {
-    const position = clamp01(s.position);
+    const position = clamp01(s.position, 0);
     if (seen.has(position)) continue;
     seen.set(position, {
       position,
-      midpoint: clamp01(s.midpoint ?? 0.5),
-      opacity: clamp01(s.opacity),
+      midpoint: clamp01(s.midpoint ?? 0.5, 0.5),
+      opacity: clamp01(s.opacity, 1),
     });
   }
   return [...seen.values()].sort((a, b) => a.position - b.position);
@@ -272,56 +320,56 @@ export function buildGradientAlphaLut(
   opacityStops: readonly GradientMapOpacityStop[] | undefined,
   size: number,
 ): Uint8Array {
-  const lut = new Uint8Array(size);
-  if (size === 0) return lut;
+  const normalizedSize = normalizeLutSize(size, DEFAULT_GRADIENT_LUT_SIZE);
+  const lut = new Uint8Array(normalizedSize);
+  const normalizedColors = toInterpolationStops(stops).map((stop) => ({
+    position: stop.position,
+    midpoint: stop.midpoint,
+    opacity: clamp01(stop.color.a / 255, 1),
+  }));
+  const normalizedExplicit = normalizeOpacityStops(
+    (opacityStops ?? []).map((stop) => ({
+      position: stop.position,
+      midpoint: stop.midpoint,
+      opacity: stop.opacity,
+    })),
+  );
+  const normalizedPerStop = normalizeOpacityStops(
+    stops.map((stop) => ({
+      position: stop.position,
+      midpoint: stop.midpoint,
+      opacity: clamp01(stop.opacity, 1),
+    })),
+  );
 
-  let combined: { position: number; midpoint?: number; opacity: number }[] = [];
-  if (opacityStops && opacityStops.length > 0) {
-    combined = opacityStops.map((s) => ({
-      position: s.position,
-      midpoint: s.midpoint,
-      opacity: s.opacity,
-    }));
-  } else {
-    const fromStops = stops
-      .filter((s) => s.opacity !== undefined && s.opacity !== 1)
-      .map((s) => ({ position: s.position, midpoint: s.midpoint, opacity: s.opacity ?? 1 }));
-    if (fromStops.length === 0) {
-      lut.fill(255);
-      return lut;
-    }
-    combined = fromStops;
-  }
-
-  const normalized = normalizeOpacityStops(combined);
-  if (normalized.length === 0) {
-    lut.fill(255);
-    return lut;
-  }
-
-  for (let i = 0; i < size; i++) {
-    const t = size > 1 ? i / (size - 1) : 0;
-    let opacity: number;
-    if (t <= normalized[0]!.position) {
-      opacity = normalized[0]!.opacity;
-    } else if (t >= normalized[normalized.length - 1]!.position) {
-      opacity = normalized[normalized.length - 1]!.opacity;
-    } else {
-      let lo = normalized[0]!;
-      let hi = normalized[normalized.length - 1]!;
-      for (let j = 0; j < normalized.length - 1; j++) {
-        if (t >= normalized[j]!.position && t <= normalized[j + 1]!.position) {
-          lo = normalized[j]!;
-          hi = normalized[j + 1]!;
-          break;
-        }
-      }
+  const sample = (
+    scalarStops: readonly { position: number; midpoint: number; opacity: number }[],
+    t: number,
+  ): number => {
+    if (scalarStops.length === 0) return 1;
+    if (scalarStops.length === 1) return scalarStops[0]!.opacity;
+    if (t <= scalarStops[0]!.position) return scalarStops[0]!.opacity;
+    const last = scalarStops[scalarStops.length - 1]!;
+    if (t >= last.position) return last.opacity;
+    for (let i = 0; i < scalarStops.length - 1; i++) {
+      const lo = scalarStops[i]!;
+      const hi = scalarStops[i + 1]!;
+      if (t < lo.position || t > hi.position) continue;
+      if (t === hi.position) return hi.opacity;
       const span = hi.position - lo.position;
       const linearT = span === 0 ? 0 : (t - lo.position) / span;
       const blendT = applyMidpointBias(linearT, hi.midpoint);
-      opacity = lo.opacity + (hi.opacity - lo.opacity) * blendT;
+      return lo.opacity + (hi.opacity - lo.opacity) * blendT;
     }
-    lut[i] = clampByte(opacity * 255);
+    return last.opacity;
+  };
+
+  for (let i = 0; i < normalizedSize; i++) {
+    const t = normalizedSize > 1 ? i / (normalizedSize - 1) : 0;
+    const colorAlpha = sample(normalizedColors, t);
+    const perStopOpacity = sample(normalizedPerStop, t);
+    const explicitOpacity = sample(normalizedExplicit, t);
+    lut[i] = clampByte(colorAlpha * perStopOpacity * explicitOpacity * 255);
   }
   return lut;
 }

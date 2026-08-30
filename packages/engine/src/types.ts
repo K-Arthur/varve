@@ -1175,6 +1175,7 @@ export type FilterIR =
       preserveSourceAlpha?: boolean;
       interpolation?: import('@varve/shared').GradientInterpolationSpace;
       lutSize?: number;
+      algorithmVersion?: 1;
       opacity: number;
       blendMode: string;
     }
@@ -1254,6 +1255,8 @@ export type FilterIR =
   | {
       kind: 'threshold';
       level: number;
+      luminanceMode?: import('./threshold').ThresholdLuminanceMode;
+      algorithmVersion?: 1;
       opacity: number;
       blendMode: string;
     }

@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { applyThreshold } from './threshold';
+import { applyThreshold, applyThresholdPixel } from './threshold';
 
 function makeImageData(w = 4, h = 4): ImageData {
   return new ImageData(w, h);
@@ -90,5 +90,21 @@ describe('applyThreshold', () => {
         expect(r === 0 || r === 255).toBe(true);
       }
     }
+  });
+
+  it('supports explicit average and max-channel tonal sources', () => {
+    expect(
+      applyThresholdPixel([255, 0, 0, 255], { level: 80, luminanceMode: 'average-rgb' })[0],
+    ).toBe(255);
+    expect(
+      applyThresholdPixel([255, 0, 0, 255], { level: 254, luminanceMode: 'max-channel' })[0],
+    ).toBe(255);
+    expect(
+      applyThresholdPixel([255, 0, 0, 255], { level: 100, luminanceMode: 'relative-luminance' })[0],
+    ).toBe(0);
+  });
+
+  it('preserves hidden RGB on fully transparent pixels', () => {
+    expect(applyThresholdPixel([17, 29, 41, 0], { level: 0 })).toEqual([17, 29, 41, 0]);
   });
 });

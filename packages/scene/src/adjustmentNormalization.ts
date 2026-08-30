@@ -106,7 +106,12 @@ const KIND_NUMERIC_RANGES: Record<string, Record<string, [number, number]>> = {
     outputHighlights: [0, 255],
   },
   posterize: { levels: [2, 256] },
-  threshold: { level: [0, 255] },
+  gradientMap: {
+    intensity: [0, 1],
+    ditherSize: [4, 8],
+    algorithmVersion: [1, 1],
+  },
+  threshold: { level: [0, 255], algorithmVersion: [1, 1] },
   lut: { intensity: [0, 1] },
   shadowHighlight: {
     shadows: [0, 100],
@@ -274,6 +279,9 @@ function normalizeValue(
   if (key === 'color' || key === 'tintColor' || key.endsWith('Color')) {
     return normalizeColor(value, fallback);
   }
+  if (kind === 'gradientMap' && key === 'ditherSize') {
+    return value === 4 || value === 8 ? value : fallback;
+  }
   if (typeof fallback === 'number') {
     const [min, max] = numberRange(kind, key);
     return finiteNumber(value, fallback, min, max);
@@ -281,7 +289,25 @@ function normalizeValue(
   if (typeof fallback === 'boolean') return typeof value === 'boolean' ? value : fallback;
   if (typeof fallback === 'string') {
     const allowed =
-      kind === 'halftone' && key === 'channel' ? ['k', 'c', 'm', 'y', 'cmyk'] : ENUMS[key];
+      kind === 'halftone' && key === 'channel'
+        ? ['k', 'c', 'm', 'y', 'cmyk']
+        : kind === 'gradientMap' && key === 'interpolation'
+          ? ['srgb', 'linear-srgb', 'oklab', 'oklch', 'hsl']
+          : kind === 'gradientMap' && key === 'luminanceMode'
+            ? [
+                'relative-luminance',
+                'perceptual-lightness',
+                'average-rgb',
+                'max-channel',
+                'alpha',
+                'red',
+                'green',
+                'blue',
+                'compatibility',
+              ]
+            : kind === 'gradientMap' && key === 'mode'
+              ? ['luminance', 'channel']
+              : ENUMS[key];
     return allowed?.includes(value as string) ? value : fallback;
   }
   if (Array.isArray(fallback)) return normalizeColor(value, fallback);
@@ -385,6 +411,10 @@ export function normalizeAdjustmentStack(
       }
       if (raw.intensity !== undefined) normalized.intensity = finiteNumber(raw.intensity, 1, 0, 1);
       if (raw.lutSize !== undefined) normalized.lutSize = finiteNumber(raw.lutSize, 256, 2, 4096);
+      if (raw.ditherSize !== undefined)
+        normalized.ditherSize = raw.ditherSize === 4 || raw.ditherSize === 8 ? raw.ditherSize : 8;
+      if (raw.algorithmVersion !== undefined)
+        normalized.algorithmVersion = raw.algorithmVersion === 1 ? 1 : 1;
       if (raw.reverse !== undefined) normalized.reverse = raw.reverse === true;
       if (raw.preserveSourceAlpha !== undefined)
         normalized.preserveSourceAlpha = raw.preserveSourceAlpha === true;

@@ -394,6 +394,8 @@ export interface GradientMapAdjustment extends AdjustmentBase {
   interpolation?: import('@varve/shared').GradientInterpolationSpace;
   /** LUT resolution. Default 256. */
   lutSize?: number;
+  /** Version of the documented gradient-map algorithm. */
+  algorithmVersion?: 1;
   /** Reference to a global preset (for diagnostics). Rendering uses
    *  `embeddedGradient`/`stops`, so a missing global preset never breaks it. */
   presetId?: string;
@@ -457,6 +459,8 @@ export interface PosterizeAdjustment extends AdjustmentBase {
 export interface ThresholdAdjustment extends AdjustmentBase {
   kind: 'threshold';
   level: number;
+  luminanceMode?: import('./threshold').ThresholdLuminanceMode;
+  algorithmVersion?: 1;
 }
 
 export interface LutAdjustment extends AdjustmentBase {
@@ -955,6 +959,9 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
           ? { interpolation: adjustment.interpolation }
           : {}),
         ...(adjustment.lutSize !== undefined ? { lutSize: adjustment.lutSize } : {}),
+        ...(adjustment.algorithmVersion !== undefined
+          ? { algorithmVersion: adjustment.algorithmVersion }
+          : {}),
         ...base,
       };
     case 'tritone':
@@ -999,7 +1006,13 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
     case 'posterize':
       return { kind: 'posterize', levels: adjustment.levels, ...base };
     case 'threshold':
-      return { kind: 'threshold', level: adjustment.level, ...base };
+      return {
+        kind: 'threshold',
+        level: adjustment.level,
+        luminanceMode: adjustment.luminanceMode,
+        algorithmVersion: adjustment.algorithmVersion,
+        ...base,
+      };
     case 'colorHalftone':
       return {
         kind: 'colorHalftone',
@@ -1562,6 +1575,13 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         dither: true,
         preserveLuminosity: false,
         ditherSize: 8,
+        mode: 'luminance',
+        reverse: false,
+        intensity: 1,
+        luminanceMode: 'relative-luminance',
+        preserveSourceAlpha: true,
+        interpolation: 'oklab',
+        algorithmVersion: 1,
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'tritone':
       return {
@@ -1614,6 +1634,8 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
       return {
         ...base,
         level: 128,
+        luminanceMode: 'relative-luminance',
+        algorithmVersion: 1,
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'lut':
       return {

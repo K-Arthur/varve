@@ -279,6 +279,47 @@ describe('buildGradientAlphaLut', () => {
     expect(lut[128]).toBeLessThan(160);
     expect(lut[255]).toBe(255);
   });
+
+  it('combines color alpha with per-stop opacity', () => {
+    const lut = buildGradientAlphaLut(
+      [
+        { position: 0, color: [255, 0, 0, 128], opacity: 0.5 },
+        { position: 1, color: [0, 0, 255, 255], opacity: 1 },
+      ],
+      undefined,
+      256,
+    );
+    expect(lut[0]).toBe(64);
+    expect(lut[255]).toBe(255);
+  });
+});
+
+describe('stop normalization', () => {
+  it('retains color alpha in the color LUT', () => {
+    const lut = buildGradientColorLut(
+      [
+        { position: 0, color: [255, 0, 0, 32] },
+        { position: 1, color: [0, 0, 255, 224] },
+      ],
+      { size: 2 },
+    );
+    expect([...lut.a]).toEqual([32, 224]);
+  });
+
+  it('uses the last duplicate-position stop as a hard stop', () => {
+    const lut = buildGradientColorLut(
+      [
+        { position: 0, color: [255, 0, 0, 255] },
+        { position: 0.5, color: [0, 255, 0, 255] },
+        { position: 0.5, color: [0, 0, 255, 255] },
+        { position: 1, color: [255, 255, 255, 255] },
+      ],
+      { size: 3 },
+    );
+    expect(lut.r[1]).toBe(0);
+    expect(lut.g[1]).toBe(0);
+    expect(lut.b[1]).toBe(255);
+  });
 });
 
 describe('interpolateGradientMapColor', () => {

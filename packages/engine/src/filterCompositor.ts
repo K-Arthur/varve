@@ -590,6 +590,7 @@ export function applySoftwareFilter(
         preserveSourceAlpha?: boolean;
         interpolation?: import('@varve/shared').GradientInterpolationSpace;
         lutSize?: number;
+        algorithmVersion?: 1;
       };
       applyGradientMapFilter(imageData, {
         stops: gf.stops,
@@ -605,6 +606,7 @@ export function applySoftwareFilter(
         preserveSourceAlpha: gf.preserveSourceAlpha,
         interpolation: gf.interpolation,
         lutSize: gf.lutSize,
+        algorithmVersion: gf.algorithmVersion,
       });
       ctx.putImageData(imageData, 0, 0);
       break;
@@ -708,8 +710,16 @@ export function applySoftwareFilter(
       break;
     }
     case 'threshold': {
-      const tf = filter as { level: number };
-      applyThreshold(imageData, { level: tf.level });
+      const tf = filter as {
+        level: number;
+        luminanceMode?: import('./threshold').ThresholdLuminanceMode;
+        algorithmVersion?: 1;
+      };
+      applyThreshold(imageData, {
+        level: tf.level,
+        luminanceMode: tf.luminanceMode,
+        algorithmVersion: tf.algorithmVersion,
+      });
       ctx.putImageData(imageData, 0, 0);
       break;
     }
