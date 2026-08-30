@@ -78,6 +78,52 @@ already know the operator they want. It explicitly directs parameter editing,
 order, masks, and blending to Object Filters instead of creating a second
 stack editor.
 
+## Treatment identity and direct controls
+
+A Studio treatment is more than a coincidental sequence of operators. Each
+recipe member persists a bounded **studioTreatment** record containing its
+treatment id, instance id, recipe index, and intent-level control values. The
+renderer ignores that record; it exists so the Studio can find an applied
+recipe without making a user hunt through a long raw stack.
+
+The owner still keeps the executable truth: every Object Filter has its own
+stable filter id and occupies one position in the ordered `smartFilters`
+array. Studio grouping uses the **pair** of treatment id and instance id, so
+an imported or legacy instance-id collision cannot merge unrelated named
+treatments. Applying a Look gives every filter a fresh id and every treatment
+instance a fresh instance id. Copying one raw member deliberately clears its
+Studio provenance; it becomes an ordinary independent filter.
+
+The **Applied treatments** list is therefore the canonical place to tune a
+named result. It exposes a small set of coherent controls rather than every
+primitive parameter. Every recipe has Amount, and relevant treatments add at
+most two safe outcome controls. For example, Varve's **Reticulation** is a
+blue-noise clustered dither followed by seeded material grain. Its controls
+are Amount, Cluster density, Tone steps, and Material grain. It is a
+Varve-native irregular-tone/material treatment, not a claim to reproduce
+another application's implementation.
+
+The raw Object Filter stack remains fully editable, but it is an advanced
+escape hatch:
+
+- it is collapsed when an object has a named Studio recipe;
+- a raw parameter, visibility, opacity, blend, reorder, or removal change
+  marks every remaining member of that recipe **Customized**;
+- the Applied treatments list continues to show that result honestly and can
+  restore only that recipe to a coherent named form; and
+- duplicating one raw member creates a standalone raw filter rather than
+  pretending that a partial duplicate is a second named recipe.
+
+This keeps freeform experimentation possible without silently relabelling a
+user's modified stack as the original treatment.
+
+Adjustment Layers use a separate identity domain. The `AdjustmentNode` owns a
+sequential `adjustments` array whose entries each have a collision-resistant
+id, while `scope` and any adjustment mask stay on the layer node. Reordering
+therefore changes only correction execution order; changing scope changes only
+which rendered backdrop is fed to the same stack. It never changes the source
+object or turns an Adjustment Layer into an Object Filter.
+
 ## Shared rendering contract
 
 The stack array is execution order: entry 0 runs first, then each later entry
@@ -110,9 +156,36 @@ selection or leaving the surface cancels the transient comparison.
 
 Looks are document-local declarative recipes of stable effect IDs, ordered
 parameters, enabled state, opacity, and blend mode. Applying a Look appends
-new entries to Object Filters; it never stores a flattened image. A missing or
-future definition remains an unavailable recipe entry, so an older build does
-not silently delete content when it loads or reorders a newer stack.
+new entries to Object Filters; it never stores a flattened image. A Look that
+contains a named Studio treatment receives fresh treatment instance IDs on
+every application, so two applications never merge into one Applied treatment
+row. A missing or future definition remains an unavailable recipe entry, so an
+older build does not silently delete content when it loads or reorders a newer
+stack.
+
+## Workflow homes and entry points
+
+The UI deliberately separates a compact contextual entry point from the
+full-sized editors:
+
+| Surface | What is shown there | What is deliberately not duplicated |
+| --- | --- | --- |
+| **Properties** | Normal opacity/blend controls, **Open Effect Studio**, and **Add adjustment layer** for eligible selection | The Object Filter stack and Studio gallery |
+| **Appearance & Effects** | Canonical Effect Studio gallery, Applied treatments, advanced Object Filters, and Layer Effects | Image-local Image Tuning and adjustment-layer editing |
+| **Adjustments** | Image Tuning for raster selection, or the complete Adjustment Layer editor when an adjustment node is selected | Creative Studio treatments and an object-local raw stack |
+
+**Object → Open Effect Studio** and the command palette open the canonical
+Appearance & Effects workspace. **Ctrl/Cmd+Alt/Option+A** is the keyboard
+route. **Object → New Adjustment Layer** (and **Alt/Option+N**) creates a
+scoped Adjustment Layer and then opens Adjustments with the new layer
+selected.
+
+The desktop app can detach the Inspector as a whole. That preserves the
+existing panel transfer/lifecycle contract while keeping Effect Studio active
+in the detached Inspector tab. A separately detachable Studio window is
+intentionally deferred until it has an independent panel definition, local
+state codec, and auxiliary-window renderer; a second ad-hoc popup would make
+selection synchronization and preview transactions unreliable.
 
 ## Raster and vector rules
 
@@ -133,8 +206,8 @@ Verified in the repository:
 - Studio treatments are non-empty, surface-specific, categorized, and include
   multi-effect recipes;
 - Effect Studio, Image Tuning, Adjustment Filters, and Object Filters have
-  focused frontend coverage for discovery, application, bypass, and unknown
-  future entries; and
+  focused frontend coverage for discovery, application, direct treatment
+  tuning, customization/restoration, bypass, and unknown future entries; and
 - preview and Compare View use the transaction contract without dirtying a
   cancelled preview.
 

@@ -309,10 +309,12 @@ descendants of a shared container. The scope inspector exposes the same model
 for later changes and preserves a current image-local target when switching
 modes.
 
-The Inspector exposes Object Filters directly in Properties and Appearance,
-and exposes an “Add adjustment layer” action for eligible selections. The
-menubar and shortcut remain available as command-level access, but are no
-longer the only route. SVG/PDF export treats visible Object Filters as replay
+Properties keeps compact entry points: **Open Effect Studio** and **Add
+adjustment layer**. The full Object Filter stack lives only in the
+Appearance & Effects workspace, where it is explicitly the advanced editor
+below the curated Studio treatment workflow. The Object menu and shortcuts
+remain command-level access, including **Open Effect Studio** and **New
+Adjustment Layer**. SVG/PDF export treats visible Object Filters as replay
 features and rasterizes the smallest affected boundary; raster export keeps
 the shared replay path so vector and raster content use the same filter math.
 

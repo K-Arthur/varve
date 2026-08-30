@@ -25,9 +25,20 @@ duplicate document state and make preview, export, and undo diverge.
    accelerators only and cannot change serialized semantics.
 6. Looks are ordered, validated recipes, not raster snapshots or executable
    imports.
-7. `surfacePresets.ts` owns named, outcome-oriented Studio treatment recipes.
+7. **surfacePresets.ts** owns named, outcome-oriented Studio treatment recipes.
    Those recipes may compose shared primitives without promoting photographic
    correction controls into the Studio's primary discovery vocabulary.
+8. A persisted Studio treatment carries bounded identity and direct-control
+   metadata on its Object Filter members. The metadata does not affect
+   rendering; it lets the Studio tune a named recipe and report when advanced
+   edits have made that recipe customized.
+9. The Appearance & Effects workspace is the single full Studio/Object Filter
+   editor. Properties retains compact navigation and adjustment-layer creation;
+   Adjustments owns Image Tuning and selected Adjustment Layer editing.
+10. Filter-entry identity, Studio treatment provenance, and Adjustment Layer
+    scope remain separate persisted concerns. Creation, duplication, and Look
+    application mint fresh appropriate ids instead of using a stack index as
+    identity.
 
 ## Consequences
 
@@ -37,7 +48,9 @@ duplicate document state and make preview, export, and undo diverge.
   wiring; it does not require another menu list or renderer.
 - Preview and export can be tested against the same semantic render graph.
 - The registry is a compatibility surface and must be tested for complete
-  coverage of `ADJUSTMENT_KINDS`.
+  coverage of **ADJUSTMENT_KINDS**.
+- Users can combine curated and raw work without losing provenance: advanced
+  edits remain editable but cannot masquerade as an untouched named treatment.
 
 ## Component and render flow
 

@@ -78,12 +78,36 @@ Filters, where order and identity are visible.
 
 Effect Studio provides a visual treatment gallery, searchable creative cards,
 outcome-oriented category filters, saved and recent treatments, transient
-preview, Compare View, and document Looks. Its expanded Drawing & Graphic and
-Light & Signal families each contain at least eight distinct recipes. A
-collapsed Individual creative effects section keeps the raw creative primitives
-available without presenting them as a duplicate general-purpose filter menu.
-Object Filters remains the source of truth for stack order, masks, per-entry
-settings, and undo history.
+preview, Compare View, direct treatment controls, an Applied treatments list,
+and document Looks. Its expanded Drawing & Graphic and Light & Signal families
+each contain at least eight distinct recipes. A collapsed Individual creative
+effects section keeps the raw creative primitives available without presenting
+them as a duplicate general-purpose filter menu.
+
+Applied Studio recipe members carry bounded treatment identity metadata. The
+Studio is the canonical place to tune named recipes, including Varve's
+Reticulation (blue-noise clustered dither plus seeded material grain). The raw
+Object Filters editor is now explicitly advanced and collapses for curated
+recipes. Editing, reordering, hiding, or removing a recipe member marks that
+recipe Customized; the user can restore just that coherent recipe or continue
+with the advanced stack. Duplicated raw members become standalone entries.
+
+Tracking remains data-led rather than UI-led: Object Filters retain individual
+filter ids plus their ordered owner-local stack; Studio provenance groups
+members by the pair of treatment id and instance id; applying a Look rebases
+both filter and treatment-instance identities. Adjustment Layers retain a
+separate scene-node identity, individually addressed correction entries, and a
+serialised scope/mask. Their editor can reorder, bypass, duplicate, and remove
+entries without losing which scoped correction the user is editing.
+
+Properties no longer renders the full Object Filters editor. It keeps compact
+navigation to Effect Studio and adjustment-layer creation; Appearance & Effects
+is the sole full Studio/Object Filter home. Adjustments remains either the
+raster-only Image Tuning surface or the selected Adjustment Layer editor.
+Layer Effects is named separately for shadows, glows, and blur. The Object
+menu, command palette, and **Ctrl/Cmd+Alt/Option+A** provide a direct Effect
+Studio route; **New Adjustment Layer** continues to open Adjustments after
+creation.
 
 Image Tuning provides image-only groups, photo presets, batch updates, mixed
 value handling, per-parameter reset, and bypass. It is intentionally not

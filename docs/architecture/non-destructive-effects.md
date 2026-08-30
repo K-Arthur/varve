@@ -40,6 +40,14 @@ and both editors consume that catalogue rather than keeping parallel string
 lists. This is a schema/API consolidation, not a migration: the JSON shape of
 existing `Adjustment` and `smartFilters` entries is unchanged.
 
+Each entry carries its own stable id. Object Filter identity is local to its
+owner node and its place in `smartFilters`; an Adjustment Layer has its own
+scene-node id, sequential `adjustments` entry ids, and separately serialised
+scope/mask. Addition and duplication mint fresh ids, while move, visibility,
+opacity, blend, and parameter edits retain the target entry id. This makes
+undo, save/reopen, copy/paste, and accessible stack controls address the same
+filter rather than relying on a mutable array index.
+
 ## 2. Scope, ordering, masks, and bounds
 
 Object Filters run on the node result in stack order. They are local to the
@@ -48,13 +56,15 @@ child does not affect siblings. `smartFiltersEnabled` bypasses the whole local
 stack without deleting it; individual entries retain their enabled state,
 opacity, and blend mode.
 
-The Appearance inspector keeps the full Object Filter catalogue available for
-every compatible rendered object. On non-image objects it also offers an
-**Object Finishing** quick-add route for Grain, Vignette, and Highlight Glow.
-Those are ordinary Object Filters with useful starting values, not a parallel
-effects system: a gray vector rectangle at 50% opacity stays an editable,
-50%-opacity rectangle while its finishing filter is enabled, tuned, bypassed,
-or removed.
+The Appearance & Effects workspace keeps the full Object Filter catalogue
+available for every compatible rendered object. It presents the raw stack as
+an advanced editor below the curated Effect Studio workflow, so a named
+treatment can be tuned without scrolling through its implementation entries.
+On non-image objects the advanced editor also offers an **Object Finishing**
+quick-add route for Grain, Vignette, and Highlight Glow. Those are ordinary
+Object Filters with useful starting values, not a parallel effects system: a
+gray vector rectangle at 50% opacity stays an editable, 50%-opacity rectangle
+while its finishing filter is enabled, tuned, bypassed, or removed.
 
 An Adjustment Layer resolves one of four serialised scopes:
 
