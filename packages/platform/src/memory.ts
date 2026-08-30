@@ -234,6 +234,9 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
         state.thumbnails.delete(rec.entry.contentHash);
       }
       state.files.delete(id);
+      // A permanently deleted file cannot be reopened, so its durable
+      // recent-history row must be removed with the file row.
+      state.recentFiles.delete(id);
     },
 
     // ─── Recent Files ───────────────────────────────────────────────────────

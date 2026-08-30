@@ -458,10 +458,17 @@ impl DocumentStore {
     }
 
     pub fn purge_file(&self, id: &str) -> Result<(), rusqlite::Error> {
-        let conn = self.conn();
-        conn.execute("DELETE FROM documents WHERE id = ?1", rusqlite::params![id])?;
-        conn.execute("DELETE FROM files WHERE id = ?1", rusqlite::params![id])?;
-        Ok(())
+        let mut conn = self.conn();
+        let transaction = conn.transaction()?;
+        transaction.execute("DELETE FROM documents WHERE id = ?1", rusqlite::params![id])?;
+        transaction.execute("DELETE FROM files WHERE id = ?1", rusqlite::params![id])?;
+        // A permanently deleted library id is no longer a valid recent
+        // target. Keep the file, document and recent indexes atomic.
+        transaction.execute(
+            "DELETE FROM recent_files WHERE id = ?1",
+            rusqlite::params![id],
+        )?;
+        transaction.commit()
     }
 
     pub fn search_files(&self, query: &str) -> Result<Vec<FileRow>, rusqlite::Error> {
@@ -677,8 +684,8 @@ impl DocumentStore {
                 last_opened_at = excluded.last_opened_at,
                 opened_count = opened_count + 1,
                 missing = 0,
-                source_workspace_id = excluded.source_workspace_id,
-                content_hash = excluded.content_hash",
+                source_workspace_id = COALESCE(excluded.source_workspace_id, recent_files.source_workspace_id),
+                content_hash = COALESCE(excluded.content_hash, recent_files.content_hash)",
             rusqlite::params![id, name, now_ms, source_workspace_id, content_hash],
         )?;
         let mut stmt = conn.prepare("SELECT * FROM recent_files WHERE id = ?1")?;
@@ -946,9 +953,16 @@ mod tests {
                 "f3", "Purge Me", "strata", None, &t, &t, &t, 0, false, None, None, "", "", None,
             )
             .expect("upsert");
+        store
+            .touch_recent_file("f3", "Purge Me", None, None)
+            .expect("recent row");
         store.purge_file("f3").expect("purge");
         assert!(store.load_document("f3").expect("load").is_none());
         assert!(store.get_file("f3").expect("get").is_none());
+        assert!(store
+            .list_recent_files(50)
+            .expect("list recents")
+            .is_empty());
     }
 
     #[test]
@@ -1174,6 +1188,7 @@ mod tests {
             .touch_recent_file("doc-1", "Design.varve", None, Some("hash-2"))
             .expect("second open");
         assert_eq!(second.opened_count, 2);
+        assert_eq!(second.source_workspace_id.as_deref(), Some("design"));
         assert_eq!(second.content_hash.as_deref(), Some("hash-2"));
 
         store

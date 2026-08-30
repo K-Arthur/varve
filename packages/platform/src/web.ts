@@ -55,7 +55,7 @@ import type {
   VersionStats,
   Workspace,
 } from './types';
-import { DRAFTS_ID } from './types';
+import { DRAFTS_ID, MAX_RECENT_FILES } from './types';
 import { chooseWebSaveTarget, writeWebSaveTarget } from './web-save';
 
 const DB_NAME = 'varve-home';
@@ -349,6 +349,9 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
         await this.deleteThumbnail(rec.entry.contentHash);
       }
       await db.delete(STORE_FILES, id);
+      // Keep the file index and durable recent history consistent. A
+      // permanently deleted library id is no longer a valid recent target.
+      await db.delete(STORE_RECENT_FILES, id);
     },
 
     // ─── Projects ──────────────────────────────────────────────────────────────
@@ -1215,7 +1218,7 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     async listRecentFiles() {
       const db = await openHomeDb();
       const records = await db.getAllFromIndex(STORE_RECENT_FILES, 'lastOpenedAt');
-      return records.reverse();
+      return records.reverse().slice(0, MAX_RECENT_FILES);
     },
     async touchRecentFile(id, name, sourceWorkspaceId, contentHash) {
       const db = await openHomeDb();

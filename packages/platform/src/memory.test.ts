@@ -62,9 +62,11 @@ describe('createMemoryPlatform — file lifecycle', () => {
   it('purge permanently deletes', async () => {
     const p = createMemoryPlatform();
     await p.upsertFile(makeFileEntry({ id: 'f1', name: 'A' }), sampleJson('A'));
+    await p.touchRecentFile('f1', 'A');
     await p.purgeFile('f1');
     expect(await p.getFile('f1')).toBeUndefined();
     expect(await p.readFile('f1')).toBeUndefined();
+    expect(await p.listRecentFiles()).toHaveLength(0);
   });
 });
 

@@ -6,6 +6,19 @@ import { createWebPlatform } from '../web';
 
 async function testPlatform(name: string, factory: () => Promise<Platform>) {
   describe(name, () => {
+    describe('file/recent lifecycle', () => {
+      it('purging a file also removes its recent-history row', async () => {
+        const p = await factory();
+        const file = makeFileEntry({ id: `${name}-purge-${Date.now()}`, name: 'Purge me' });
+        await p.upsertFile(file, '{}');
+        await p.touchRecentFile(file.id, file.name);
+
+        await p.purgeFile(file.id);
+
+        expect((await p.listRecentFiles()).some((record) => record.id === file.id)).toBe(false);
+      });
+    });
+
     describe('folders', () => {
       it('creates, lists, renames, and deletes folders', async () => {
         const p = await factory();

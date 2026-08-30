@@ -51,6 +51,7 @@ import type {
   VersionStats,
   Workspace,
 } from './types';
+import { MAX_RECENT_FILES } from './types';
 
 interface TauriCore {
   invoke(cmd: string, args?: Record<string, unknown>): Promise<unknown>;
@@ -866,7 +867,9 @@ export function createTauriPlatform(): Platform {
     // ─── Recent Files ──────────────────────────────────────────────────────────
     async listRecentFiles() {
       const c = core();
-      return (await c.invoke('home_list_recent_files')) as RecentFileRecord[];
+      return (await c.invoke('home_list_recent_files', {
+        limit: MAX_RECENT_FILES,
+      })) as RecentFileRecord[];
     },
     async touchRecentFile(id, name, sourceWorkspaceId, contentHash) {
       const c = core();
