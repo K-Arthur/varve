@@ -10,6 +10,8 @@
  * large text require >= 3:1.
  */
 
+import { linearToSrgbUnit, rgbToHex, srgbToLinearUnit } from '@varve/shared';
+
 /** RGB triplet, 0-255. */
 export type Rgb = readonly [number, number, number];
 
@@ -28,9 +30,9 @@ export interface Oklch {
  * Based on Björn Ottosson's OKLab color space (2020).
  */
 export function rgbToOklch([r, g, b]: Rgb): Oklch {
-  const rLin = srgbToLinear(r / 255);
-  const gLin = srgbToLinear(g / 255);
-  const bLin = srgbToLinear(b / 255);
+  const rLin = srgbToLinearUnit(r / 255);
+  const gLin = srgbToLinearUnit(g / 255);
+  const bLin = srgbToLinearUnit(b / 255);
 
   // Linear sRGB → LMS cone response
   const l = 0.4122214708 * rLin + 0.5363325363 * gLin + 0.0514459929 * bLin;
@@ -106,24 +108,14 @@ export function oklchToRgb(c: Oklch): Rgb {
   const bLin = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
 
   // Linear → sRGB gamma, clamp to [0,255]
-  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(linearToSrgb(v) * 255)));
+  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(linearToSrgbUnit(v) * 255)));
 
   return [clamp(rLin), clamp(gLin), clamp(bLin)];
 }
 
-/** sRGB 0-1 to linear. */
-function srgbToLinear(c: number): number {
-  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-}
-
-/** Linear to sRGB 0-1. */
-function linearToSrgb(c: number): number {
-  return c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055;
-}
-
 function channelLuminance(c: number): number {
   const s = c / 255;
-  return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  return srgbToLinearUnit(s);
 }
 
 /** WCAG relative luminance of an sRGB color (0 = black, 1 = white). */
@@ -168,7 +160,6 @@ export function oklchPasses(grade: ContrastGrade, a: Oklch, b: Oklch): boolean {
 }
 
 /** Format an Rgb as `#rrggbb` (lowercase). */
-export function toHex([r, g, b]: Rgb): string {
-  const h = (n: number) => n.toString(16).padStart(2, '0');
-  return `#${h(r)}${h(g)}${h(b)}`;
+export function toHex(rgb: Rgb): string {
+  return rgbToHex(rgb[0], rgb[1], rgb[2]);
 }
