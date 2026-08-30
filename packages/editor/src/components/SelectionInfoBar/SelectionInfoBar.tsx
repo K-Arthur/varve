@@ -120,6 +120,23 @@ function countByType(nodes: SceneNode[]): Record<string, number> {
   return counts;
 }
 
+/**
+ * Keep the live announcement focused on selection identity, not geometry.
+ * Bounds and position change during pointer drags and would make a status
+ * region noisy for assistive-technology users.
+ */
+export function getSelectionAnnouncement(doc: Document, nodes: readonly SceneNode[]): string {
+  if (nodes.length === 0) {
+    const page = doc.pages?.find((p) => p.id === doc.activePageId);
+    return `No selection. ${page?.name || 'Untitled'}. ${countActivePageLayers(doc)} layers.`;
+  }
+  if (nodes.length === 1) {
+    const node = nodes[0];
+    return node ? `${node.name}, ${getNodeTypeLabel(node)} selected.` : 'No selection.';
+  }
+  return `${nodes.length} objects selected.`;
+}
+
 export function SelectionInfoBar() {
   const { state, setSelection } = useEditor();
   const { revealSelection } = useViewport();
@@ -134,6 +151,10 @@ export function SelectionInfoBar() {
     [state.document, state.selection, state.primaryId, state.activeContainerId],
   );
   const sel = selectionContext.nodes;
+  const selectionAnnouncement = useMemo(
+    () => getSelectionAnnouncement(state.document, sel),
+    [sel, state.document],
+  );
 
   const handleBreadcrumbClick = useCallback(
     (nodeId: NodeId) => {
@@ -253,5 +274,12 @@ export function SelectionInfoBar() {
     );
   }, [sel, state.document, selectionContext.hierarchy, handleBreadcrumbClick, revealSelection]);
 
-  return <div className="selection-info-bar">{content}</div>;
+  return (
+    <section className="selection-info-bar" aria-label="Selection information">
+      <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {selectionAnnouncement}
+      </span>
+      {content}
+    </section>
+  );
 }
