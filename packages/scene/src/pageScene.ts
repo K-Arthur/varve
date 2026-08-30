@@ -14,10 +14,11 @@
 
 import type { Rect } from '@varve/shared';
 import { groupWorldBounds } from './coordinateService';
-import type { Document } from './document';
+import type { Document, NodeEntry } from './document';
 import { computePageNumbering } from './pageNumbering';
 import { autoPageLayout } from './pasteboardLayout';
 import type { GroupNode, NodeId, Page, PagePlacement } from './types';
+import { isContainer } from './types';
 
 export interface PlacedPage {
   page: Page;
@@ -192,6 +193,24 @@ export interface MultipageSceneOptions {
 }
 
 /**
+ * A node occurrence in the placed multipage scene.
+ *
+ * `walkNodes` intentionally returns a map keyed by node id, which is the
+ * right contract for document-wide operations but cannot represent a master
+ * node projected onto two pages. This occurrence form preserves paint order
+ * and gives each master projection a stable instance key while keeping the
+ * authored node id available for selection, effects, and history.
+ */
+export interface MultipageNodeInstance extends NodeEntry {
+  /** Unique within this placed scene, including repeated master projections. */
+  instanceId: string;
+  /** Prefix shared by all descendants of one master occurrence. */
+  instancePrefix?: string;
+  /** Page placement used when the occurrence is a projected master node. */
+  masterPlacement?: PagePlacement;
+}
+
+/**
  * Master source roots are metadata-owned scene roots, not pasteboard items.
  * Older documents may still contain them in `rootChildren` because the first
  * master implementation used the ordinary root list. Keep those documents
@@ -343,4 +362,115 @@ export function multipageRootNodes(doc: Document, options: MultipageSceneOptions
     for (const childId of placed.contentNodes) ids.push(childId);
   }
   return ids;
+}
+
+function appendNodeInstances(
+  doc: Document,
+  ids: NodeId[],
+  result: MultipageNodeInstance[],
+  options: {
+    instancePrefix?: string;
+    masterPlacement?: PagePlacement;
+    visited: Set<NodeId>;
+  },
+): void {
+  function walk(nodeIds: NodeId[], parentId: NodeId | null, depth: number): void {
+    for (const nodeId of nodeIds) {
+      if (options.visited.has(nodeId)) continue;
+      const node = doc.nodes[nodeId];
+      if (!node) continue;
+      options.visited.add(nodeId);
+      const instanceId = options.instancePrefix ? `${options.instancePrefix}:${nodeId}` : nodeId;
+      result.push({
+        nodeId,
+        node,
+        parentId,
+        depth,
+        instanceId,
+        ...(options.instancePrefix ? { instancePrefix: options.instancePrefix } : {}),
+        ...(options.masterPlacement ? { masterPlacement: options.masterPlacement } : {}),
+      });
+      if (isContainer(node) && node.children.length > 0) {
+        walk(node.children, nodeId, depth + 1);
+      }
+    }
+  }
+
+  walk(ids, null, 0);
+}
+
+/**
+ * Walk the visible placed scene while preserving repeated master instances.
+ *
+ * Ordinary document nodes retain their authored node id as `instanceId`.
+ * Master projections use `master:<pageId>:<nodeId>` so a single source can
+ * be rendered once for every assigned publishing page. This is deliberately
+ * separate from `walkNodes`: callers that need a node-id map should keep the
+ * existing deduplicating API.
+ */
+export function multipageNodeInstances(
+  doc: Document,
+  options: MultipageSceneOptions = {},
+): MultipageNodeInstance[] {
+  const result: MultipageNodeInstance[] = [];
+  const ordinaryVisited = new Set<NodeId>();
+  const appendOrdinary = (ids: NodeId[]) =>
+    appendNodeInstances(doc, ids, result, { visited: ordinaryVisited });
+
+  appendOrdinary(doc.globalChildren ?? []);
+
+  if (options.masterEditId) {
+    const placement = buildPlacedScene(doc).placements.get(doc.activePageId ?? '');
+    const master = doc.masters?.[options.masterEditId];
+    if (master) {
+      const masterRoot = doc.nodes[master.contentRoot];
+      const children = masterRoot && 'children' in masterRoot ? masterRoot.children : [];
+      appendNodeInstances(doc, children, result, {
+        instancePrefix: `master-edit:${options.masterEditId}`,
+        ...(placement ? { masterPlacement: placement } : {}),
+        visited: new Set<NodeId>(),
+      });
+    }
+    return result;
+  }
+
+  const masterRoots = masterContentRootIds(doc);
+  const pages = doc.pages ?? [];
+  if (pages.length === 0) {
+    appendOrdinary(doc.rootChildren.filter((id) => !masterRoots.has(id)));
+    return result;
+  }
+
+  const placedScene = buildPlacedScene(doc);
+  const placedByContentRoot = new Map<NodeId, PlacedPage>();
+  for (const placed of placedScene.pages) {
+    placedByContentRoot.set(placed.page.contentRoot, placed);
+  }
+
+  const appendPlacedPage = (placed: PlacedPage) => {
+    const viewport = options.viewportWorldRect ?? null;
+    if (viewport && !pageIntersectsViewport(doc, placed, viewport)) return;
+    appendOrdinary(placed.backgroundNodes);
+    appendNodeInstances(doc, placed.masterNodes, result, {
+      instancePrefix: `master:${placed.page.id}`,
+      masterPlacement: placed.placement,
+      visited: new Set<NodeId>(),
+    });
+    appendOrdinary(placed.contentNodes);
+  };
+
+  for (const rootId of doc.rootChildren) {
+    if (masterRoots.has(rootId)) continue;
+    const placed = placedByContentRoot.get(rootId);
+    if (placed) appendPlacedPage(placed);
+    else appendOrdinary([rootId]);
+  }
+
+  // Preserve the malformed-document fallback from multipageRootNodes: a
+  // page whose content root is missing from rootChildren still contributes a
+  // deterministic occurrence at the end of the scene.
+  for (const placed of placedByContentRoot.values()) {
+    if (!doc.rootChildren.includes(placed.page.contentRoot)) appendPlacedPage(placed);
+  }
+  return result;
 }

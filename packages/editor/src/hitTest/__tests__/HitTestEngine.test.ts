@@ -395,6 +395,38 @@ describe('HitTestEngine', () => {
       expect(engine.hitTest({ x: 10, y: 10 })).toBeNull();
     });
 
+    it('hits the same master source at every assigned page placement', () => {
+      let doc = createDocument('repeated master hit', false);
+      doc = createMaster(doc, { name: 'Master', width: 1920, height: 1080 });
+      const master = Object.values(doc.masters!)[0]!;
+      const { id: sourceId, doc: d1 } = nextNodeId(doc);
+      doc = addChild(
+        d1,
+        master.contentRoot,
+        makeShapeNode(
+          sourceId,
+          { kind: 'rect', x: 0, y: 0, w: 100, h: 20 },
+          { transform: [1, 0, 0, 1, 10, 10] as Affine },
+        ),
+      );
+      doc = addPage2(doc, { width: 1920, height: 1080 });
+      const [firstPage, secondPage] = doc.pages!;
+      doc = {
+        ...doc,
+        pages: [
+          { ...firstPage!, placement: { x: 100, y: 40 } },
+          { ...secondPage!, placement: { x: 500, y: 40 } },
+        ],
+      };
+      doc = assignMasterToPage(doc, firstPage!.id, master.id);
+      doc = assignMasterToPage(doc, secondPage!.id, master.id);
+
+      const engine = new HitTestEngine(doc);
+      expect(engine.hitTest({ x: 120, y: 60 })?.nodeId).toBe(sourceId);
+      expect(engine.hitTest({ x: 520, y: 60 })?.nodeId).toBe(sourceId);
+      expect(engine.hitTest({ x: 20, y: 20 })).toBeNull();
+    });
+
     it('uses the active page placement while editing a master source', () => {
       let doc = createDocument('master source hit', false);
       doc = createMaster(doc, { name: 'Master', width: 1920, height: 1080 });

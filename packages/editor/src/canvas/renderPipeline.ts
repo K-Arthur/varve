@@ -36,12 +36,11 @@ import {
   isAnimatedMediaNode,
   isContainer,
   isWarpedContainer,
-  multipageRootNodes,
+  multipageNodeInstances,
   type NodeId,
   resolveAdjustmentScope,
   resolveAllStyles,
   type SceneNode,
-  walkNodes,
 } from '@varve/scene';
 import {
   type Camera,
@@ -79,12 +78,7 @@ import {
   documentTreatmentSpaceForCapture,
   pixelToDocumentFromCapture,
 } from '../render/treatmentSpace';
-import {
-  collectMasterEditOffsets,
-  collectMasterOffsets,
-  offsetWorldBounds,
-  offsetWorldTransform,
-} from '../scene/masterOffsets';
+import { type MasterOffset, offsetWorldBounds, offsetWorldTransform } from '../scene/masterOffsets';
 import {
   getWorldBounds as getCachedWorldBounds,
   getWorldTransform as getCachedWorldTransform,
@@ -587,22 +581,17 @@ export function renderContent(deps: RenderContentDeps): void {
     // per-node loop. The world rect is the AABB of the viewport corners
     // (over-inclusive under camera rotation — safe for culling).
     const viewportWorld = viewportWorldRect(s, { width: cssW, height: cssH });
-    const entries = walkNodes(
-      doc,
-      multipageRootNodes(doc, {
-        viewportWorldRect: viewportWorld,
-        masterEditId: s.masterEditId,
-      }),
-    );
-    // Master projection offsets (M8, ADR-0132): projected master items
-    // render at their page's placement — master roots sit at the pasteboard
-    // origin, so the loop applies the containing page's translation.
-    const masterOffsets = s.masterEditId
-      ? collectMasterEditOffsets(doc, s.masterEditId, doc.activePageId)
-      : collectMasterOffsets(doc);
+    const entries = multipageNodeInstances(doc, {
+      viewportWorldRect: viewportWorld,
+      masterEditId: s.masterEditId,
+    });
+    // A node-id map cannot represent one master source projected onto more
+    // than one page. The occurrence walk keeps those instances in paint
+    // order and carries the placement needed by the renderer.
+    const hasMasterProjection = entries.some((entry) => entry.masterPlacement !== undefined);
     const nodeWork = createNodeWorkCounters();
     nodeWork.totalSceneNodes = Object.keys(doc.nodes).length;
-    nodeWork.candidates = entries.size;
+    nodeWork.candidates = entries.length;
     const cache = transformCacheRef.current;
     // Use parent client dimensions (cssW/cssH) instead of getBoundingClientRect()
     // to avoid forcing a layout recalc on every frame. The canvas is sized to
@@ -622,17 +611,22 @@ export function renderContent(deps: RenderContentDeps): void {
     // moves on flat docs (unchanged doc, no containers) never pay for it.
     let parentIndex: Map<NodeId, NodeId> | undefined;
 
-    for (const [id] of entries) {
+    for (const entry of entries) {
+      const id = entry.nodeId;
       const n = doc.nodes[id];
       if (!n) continue;
       if (
+        !hasMasterProjection &&
         isContainer(n) &&
         canCullDescendantsWithContainerBounds(n) &&
         'children' in n &&
         n.children.length > 0
       ) {
         parentIndex ??= buildParentIndexMap(doc);
-        const containerBounds = nodeVisualWorldBounds(doc, id, resolvedStyles, parentIndex);
+        const unplacedBounds = nodeVisualWorldBounds(doc, id, resolvedStyles, parentIndex);
+        const containerBounds = entry.masterPlacement
+          ? offsetWorldBounds(unplacedBounds, entry.masterPlacement)
+          : unplacedBounds;
         if (containerBounds && !isWorldRectInViewport(cam, vp, containerBounds)) {
           const queue = [...n.children];
           while (queue.length > 0) {
@@ -674,7 +668,7 @@ export function renderContent(deps: RenderContentDeps): void {
     const preLoopStart = performance.now();
 
     // One profile per frame (pre-loop) so pruning, worker and paint agree.
-    const profile = computeProfile(getAverageFrameTime(), getOverBudgetCount(), entries.size);
+    const profile = computeProfile(getAverageFrameTime(), getOverBudgetCount(), entries.length);
     const cacheMultiplier = profile.cacheMultiplier;
     const profileCanUseWorker = profile.enableWorker;
 
@@ -713,11 +707,16 @@ export function renderContent(deps: RenderContentDeps): void {
       worldToScreen: (wx: number, wy: number) =>
         worldToScreen(cam, wx, wy, vp, computeFloatingOrigin(cam, vp)),
     });
-    const dirtyWorldRects = pruneDecision.worldRects;
+    // The dirty replay expansion API is node-id based. A projected master
+    // occurrence has an additional instance placement, so expansion cannot
+    // express its descendants without reintroducing them at an unplaced
+    // transform. Retain the full visible list for the partial clip instead.
+    const dirtyWorldRects = hasMasterProjection ? null : pruneDecision.worldRects;
     const pruneScreenRects = pruneDecision.screenRects;
     recordPruneScreenRects(pruneScreenRects);
 
     const nodeIds: string[] = [];
+    const renderKeys: string[] = [];
     const flatNodes: EngineNode[] = [];
     const engineMemo = engineNodeMemoRef.current;
     // Counters are cumulative; snapshot them to report per-frame deltas.
@@ -732,7 +731,8 @@ export function renderContent(deps: RenderContentDeps): void {
       doc.styles,
       s.showOriginalBgNodeId ?? '',
     );
-    for (const [id] of entries) {
+    for (const entry of entries) {
+      const id = entry.nodeId;
       const raw = doc.nodes[id];
       if (!raw) continue;
       let n = getEffectiveNode(doc, id, variantCaches) ?? raw;
@@ -742,10 +742,9 @@ export function renderContent(deps: RenderContentDeps): void {
       n = applyBindingsToNode(n, variableStore);
       let world = getCachedWorldTransform(cache, doc, id);
       let worldBounds = getCachedWorldBounds(cache, doc, id);
-      const masterOffset = masterOffsets.get(id);
-      if (masterOffset) {
-        world = offsetWorldTransform(world, masterOffset);
-        worldBounds = offsetWorldBounds(worldBounds, masterOffset);
+      if (entry.masterPlacement) {
+        world = offsetWorldTransform(world, entry.masterPlacement);
+        worldBounds = offsetWorldBounds(worldBounds, entry.masterPlacement);
       }
       const styleOverrides = resolvedStyles.get(id);
       // Cull before converting to an engine node. appearancePaddingWorld reads
@@ -772,7 +771,7 @@ export function renderContent(deps: RenderContentDeps): void {
         continue;
       }
 
-      let engineNode = canMemoEngineNodes ? engineMemo.get(id, n, world) : undefined;
+      let engineNode = canMemoEngineNodes ? engineMemo.get(entry.instanceId, n, world) : undefined;
       if (!engineNode) {
         let built = toEngineNode(n, doc);
         if (styleOverrides) built = applyStyleOverrides(built, styleOverrides);
@@ -787,8 +786,9 @@ export function renderContent(deps: RenderContentDeps): void {
           const pathNode = doc.nodes[pathNodeId] as import('@varve/scene').ShapeNode | undefined;
           if (pathNode?.shape) {
             let pathWorld = getCachedWorldTransform(cache, doc, pathNodeId);
-            const pathMasterOffset = masterOffsets.get(pathNodeId);
-            if (pathMasterOffset) pathWorld = offsetWorldTransform(pathWorld, pathMasterOffset);
+            if (entry.masterPlacement) {
+              pathWorld = offsetWorldTransform(pathWorld, entry.masterPlacement);
+            }
             (built.shape as Record<string, unknown>).pathShape = pathShapeInTextSpace(
               pathNode.shape as import('@varve/engine').Shape,
               pathWorld,
@@ -798,13 +798,14 @@ export function renderContent(deps: RenderContentDeps): void {
         }
         engineNode = { ...built, transform: world };
         if (canMemoEngineNodes && !isPathText) {
-          engineMemo.set(id, n, world, engineNode);
+          engineMemo.set(entry.instanceId, n, world, engineNode);
         }
       }
       nodeWork.acceptedForReplay++;
       if (n.kind === 'rasterLayer') nodeWork.rasterRepainted++;
       else nodeWork.vectorRepainted++;
       nodeIds.push(id);
+      renderKeys.push(entry.instanceId);
       flatNodes.push(engineNode);
     }
     const preLoopMs = performance.now() - preLoopStart;
@@ -832,6 +833,7 @@ export function renderContent(deps: RenderContentDeps): void {
       nodeWork.ancestorsIncluded = expanded.ancestorsIncluded;
       nodeWork.compositingDependencies = expanded.compositingDependencies;
       nodeIds.push(...expanded.nodeIds);
+      renderKeys.push(...expanded.nodeIds);
       flatNodes.push(...expanded.flatNodes);
     }
     recordNodeWork(nodeWork, dirtyRecorderRef.current);
@@ -903,13 +905,14 @@ export function renderContent(deps: RenderContentDeps): void {
 
       for (let i = 0; i < nodeIds.length; i++) {
         const nodeId = nodeIds[i]!;
+        const renderKey = renderKeys[i] ?? nodeId;
         const fn = flatNodes[i];
         if (!fn) continue;
         const isAnimated = animatedNodeIds.has(nodeId);
         if (!isAnimated) {
           const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
-          const { hash } = memo.hash(nodeId, fn, styleKey);
-          const cached = subtreeIrCacheRef.current.get(nodeId, hash);
+          const { hash } = memo.hash(renderKey, fn, styleKey);
+          const cached = subtreeIrCacheRef.current.get(renderKey, hash);
           if (cached) {
             irSlots[i] = cached;
             cacheHitsInFrame++;
@@ -931,14 +934,15 @@ export function renderContent(deps: RenderContentDeps): void {
         buildIrMs = performance.now() - t0;
         for (let i = 0; i < nodeIds.length; i++) {
           const nodeId = nodeIds[i];
+          const renderKey = renderKeys[i];
           const fn = flatNodes[i];
           const item = ir[i];
-          if (!nodeId || !fn || !item) continue;
+          if (!nodeId || !renderKey || !fn || !item) continue;
           if (!animatedNodeIds.has(nodeId)) {
             const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
             // Memoized from the lookup loop above (same doc + transform) → hit.
-            const { hash } = memo.hash(nodeId, fn, styleKey);
-            subtreeIrCacheRef.current.set(nodeId, hash, item);
+            const { hash } = memo.hash(renderKey, fn, styleKey);
+            subtreeIrCacheRef.current.set(renderKey, hash, item);
           }
         }
       } else {
@@ -948,14 +952,15 @@ export function renderContent(deps: RenderContentDeps): void {
         let builtIdx = 0;
         for (const slot of buildSlotIndices) {
           const nodeId = nodeIds[slot];
+          const renderKey = renderKeys[slot];
           const fn = flatNodes[slot];
           const item = built[builtIdx++];
           if (item) irSlots[slot] = item;
-          if (nodeId && fn && item && !animatedNodeIds.has(nodeId)) {
+          if (nodeId && renderKey && fn && item && !animatedNodeIds.has(nodeId)) {
             const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
             // Memoized from the lookup loop above (same doc + transform) → hit.
-            const { hash } = memo.hash(nodeId, fn, styleKey);
-            subtreeIrCacheRef.current.set(nodeId, hash, item);
+            const { hash } = memo.hash(renderKey, fn, styleKey);
+            subtreeIrCacheRef.current.set(renderKey, hash, item);
           }
         }
         ir = irSlots as Awaited<ReturnType<Engine['buildIr']>>;
@@ -1054,11 +1059,11 @@ export function renderContent(deps: RenderContentDeps): void {
     }
 
     type IrItem = (typeof ir)[number];
-    const irByNodeId = new Map<string, IrItem>();
-    for (let i = 0; i < nodeIds.length; i++) {
-      const nid = nodeIds[i];
+    const irByRenderKey = new Map<string, IrItem>();
+    for (let i = 0; i < renderKeys.length; i++) {
+      const nid = renderKeys[i];
       const item = ir[i];
-      if (nid && item) irByNodeId.set(nid, item);
+      if (nid && item) irByRenderKey.set(nid, item);
     }
 
     frameBackend = compositorRef.current;
@@ -1143,11 +1148,25 @@ export function renderContent(deps: RenderContentDeps): void {
     // Pruned replay: skip nodes outside the set; `replayForceAll` disables
     // the check inside mask/flatten rendering (whole subtrees required).
     let replayForceAll = false;
-    function replaySubtreeToCtx(nodeId: string, targetCtx: CanvasRenderingContext2D): void {
+    const instanceKey = (nodeId: string, instancePrefix?: string) =>
+      instancePrefix ? `${instancePrefix}:${nodeId}` : nodeId;
+    const instanceWorldTransform = (
+      nodeId: string,
+      masterPlacement?: MasterOffset,
+    ): import('@varve/shared').Affine => {
+      const world = getCachedWorldTransform(cache, doc, nodeId);
+      return masterPlacement ? offsetWorldTransform(world, masterPlacement) : world;
+    };
+    function replaySubtreeToCtx(
+      nodeId: string,
+      targetCtx: CanvasRenderingContext2D,
+      instancePrefix?: string,
+      masterPlacement?: MasterOffset,
+    ): void {
       if (replaySet && !replayForceAll && !replaySet.has(nodeId)) return;
       const n = doc.nodes[nodeId];
       if (!n || n.visible === false) return;
-      const item = irByNodeId.get(nodeId);
+      const item = irByRenderKey.get(instanceKey(nodeId, instancePrefix));
 
       const mask = 'mask' in n && n.mask && n.mask.visible ? n.mask : null;
       const maskSrcId = mask ? mask.sourceNodeId : null;
@@ -1179,8 +1198,9 @@ export function renderContent(deps: RenderContentDeps): void {
           doc,
           cache,
           baseTransform: targetCtx.getTransform(),
-          replayNode: (nodeId, ctx) => replaySubtreeToCtx(nodeId, ctx),
-          getWorldTransform: (nodeId) => getCachedWorldTransform(cache, doc, nodeId),
+          replayNode: (nodeId, ctx) =>
+            replaySubtreeToCtx(nodeId, ctx, instancePrefix, masterPlacement),
+          getWorldTransform: (nodeId) => instanceWorldTransform(nodeId, masterPlacement),
         });
         if (handled) return;
       }
@@ -1199,11 +1219,11 @@ export function renderContent(deps: RenderContentDeps): void {
               if (child?.kind === 'adjustment') {
                 adjIds.push(childId);
               } else {
-                replaySubtreeToCtx(childId, ctx);
+                replaySubtreeToCtx(childId, ctx, instancePrefix, masterPlacement);
               }
             }
             for (const adjId of adjIds) {
-              replaySubtreeToCtx(adjId, ctx);
+              replaySubtreeToCtx(adjId, ctx, instancePrefix, masterPlacement);
             }
           };
           const shouldClip = n.clipContent !== false;
@@ -1234,11 +1254,11 @@ export function renderContent(deps: RenderContentDeps): void {
             if (child?.kind === 'adjustment') {
               oAdjIds.push(childId);
             } else {
-              replaySubtreeToCtx(childId, targetCtx);
+              replaySubtreeToCtx(childId, targetCtx, instancePrefix, masterPlacement);
             }
           }
           for (const adjId of oAdjIds) {
-            replaySubtreeToCtx(adjId, targetCtx);
+            replaySubtreeToCtx(adjId, targetCtx, instancePrefix, masterPlacement);
           }
           return;
         }
@@ -1267,7 +1287,10 @@ export function renderContent(deps: RenderContentDeps): void {
             maxX = -Infinity,
             maxY = -Infinity;
           if (warpItems && warpItems.items.length > 0) {
-            const wb = warpedContainerWorldBounds(warpItems.items);
+            const unplacedBounds = warpedContainerWorldBounds(warpItems.items);
+            const wb = masterPlacement
+              ? offsetWorldBounds(unplacedBounds, masterPlacement)
+              : unplacedBounds;
             if (wb) {
               minX = wb.x;
               minY = wb.y;
@@ -1290,7 +1313,7 @@ export function renderContent(deps: RenderContentDeps): void {
             targetCtx.save();
             const effectPadding =
               subtreeEffectPadding(doc, n.children) +
-              appearancePaddingWorld(n, getCachedWorldTransform(cache, doc, n.id));
+              appearancePaddingWorld(n, instanceWorldTransform(n.id, masterPlacement));
             const groupWidth = Math.max(1, maxX - minX + effectPadding * 2);
             const groupHeight = Math.max(1, maxY - minY + effectPadding * 2);
             const desiredScale = Math.max(1, dpr * s.zoom);
@@ -1315,7 +1338,13 @@ export function renderContent(deps: RenderContentDeps): void {
               // Evaluated warped items already carry world transforms and
               // container-local warped geometry — paint them directly.
               for (const { item: warpItem } of warpItems.items) {
-                paintLeafItem(warpItem, gCtx as unknown as CanvasRenderingContext2D);
+                const placedWarpItem = masterPlacement
+                  ? {
+                      ...warpItem,
+                      transform: offsetWorldTransform(warpItem.transform, masterPlacement),
+                    }
+                  : warpItem;
+                paintLeafItem(placedWarpItem, gCtx as unknown as CanvasRenderingContext2D);
               }
             } else {
               const gAdjIds: string[] = [];
@@ -1324,11 +1353,21 @@ export function renderContent(deps: RenderContentDeps): void {
                 if (child?.kind === 'adjustment') {
                   gAdjIds.push(childId);
                 } else {
-                  replaySubtreeToCtx(childId, gCtx as unknown as CanvasRenderingContext2D);
+                  replaySubtreeToCtx(
+                    childId,
+                    gCtx as unknown as CanvasRenderingContext2D,
+                    instancePrefix,
+                    masterPlacement,
+                  );
                 }
               }
               for (const adjId of gAdjIds) {
-                replaySubtreeToCtx(adjId, gCtx as unknown as CanvasRenderingContext2D);
+                replaySubtreeToCtx(
+                  adjId,
+                  gCtx as unknown as CanvasRenderingContext2D,
+                  instancePrefix,
+                  masterPlacement,
+                );
               }
             }
             gCtx.restore();
@@ -1540,11 +1579,11 @@ export function renderContent(deps: RenderContentDeps): void {
             if (child?.kind === 'adjustment') {
               adjIds.push(childId);
             } else {
-              replaySubtreeToCtx(childId, targetCtx);
+              replaySubtreeToCtx(childId, targetCtx, instancePrefix, masterPlacement);
             }
           }
           for (const adjId of adjIds) {
-            replaySubtreeToCtx(adjId, targetCtx);
+            replaySubtreeToCtx(adjId, targetCtx, instancePrefix, masterPlacement);
           }
         }
       } else if (n.kind === 'adjustment') {
@@ -1579,7 +1618,10 @@ export function renderContent(deps: RenderContentDeps): void {
           const raw = doc.nodes[nid];
           if (!raw || raw.visible === false) continue;
           parentIndex ??= buildParentIndexMap(doc);
-          const b = nodeVisualWorldBounds(doc, nid, resolvedStyles, parentIndex);
+          const unplacedBounds = nodeVisualWorldBounds(doc, nid, resolvedStyles, parentIndex);
+          const b = masterPlacement
+            ? offsetWorldBounds(unplacedBounds, masterPlacement)
+            : unplacedBounds;
           if (b) {
             minX = Math.min(minX, b.x);
             minY = Math.min(minY, b.y);
@@ -1661,7 +1703,7 @@ export function renderContent(deps: RenderContentDeps): void {
             );
             replayForceAll = true;
             for (const targetId of targetIds) {
-              replaySubtreeToCtx(targetId, targetSurfaceCtx);
+              replaySubtreeToCtx(targetId, targetSurfaceCtx, instancePrefix, masterPlacement);
             }
             const actual = alphaBounds(targetSurfaceCtx, targetSurface.width, targetSurface.height);
             if (actual) {
@@ -1719,8 +1761,9 @@ export function renderContent(deps: RenderContentDeps): void {
             camera: cam,
             regionX: bx,
             regionY: by,
-            replayNode: (nodeId, ctx) => replaySubtreeToCtx(nodeId, ctx),
-            getWorldTransform: (nodeId) => getCachedWorldTransform(cache, doc, nodeId),
+            replayNode: (nodeId, ctx) =>
+              replaySubtreeToCtx(nodeId, ctx, instancePrefix, masterPlacement),
+            getWorldTransform: (nodeId) => instanceWorldTransform(nodeId, masterPlacement),
           });
         }
 
@@ -1738,11 +1781,15 @@ export function renderContent(deps: RenderContentDeps): void {
       }
     }
 
-    function replaySubtree(nodeId: string): void {
+    function replaySubtree(
+      nodeId: string,
+      instancePrefix?: string,
+      masterPlacement?: MasterOffset,
+    ): void {
       // The force flag set by mask/flatten subtrees must not leak into the
       // next root's pruning decision.
       replayForceAll = false;
-      replaySubtreeToCtx(nodeId, ctxNN);
+      replaySubtreeToCtx(nodeId, ctxNN, instancePrefix, masterPlacement);
     }
 
     // Worker path when structural compositing is not required and every
@@ -1813,19 +1860,28 @@ export function renderContent(deps: RenderContentDeps): void {
 
     replayStartTime = performance.now();
     if (needsStructural) {
-      const deferredAdjustments: string[] = [];
-      for (const [id, entry] of entries) {
+      const deferredAdjustments: Array<{
+        id: string;
+        instancePrefix?: string;
+        masterPlacement?: MasterOffset;
+      }> = [];
+      for (const entry of entries) {
+        const id = entry.nodeId;
         if (entry.parentId === null) {
           const node = doc.nodes[id];
           if (node?.kind === 'adjustment') {
-            deferredAdjustments.push(id);
+            deferredAdjustments.push({
+              id,
+              instancePrefix: entry.instancePrefix,
+              masterPlacement: entry.masterPlacement,
+            });
           } else {
-            replaySubtree(id);
+            replaySubtree(id, entry.instancePrefix, entry.masterPlacement);
           }
         }
       }
-      for (const id of deferredAdjustments) {
-        replaySubtree(id);
+      for (const entry of deferredAdjustments) {
+        replaySubtree(entry.id, entry.instancePrefix, entry.masterPlacement);
       }
     } else if (
       renderWorkerRef.current &&

@@ -24,15 +24,14 @@ import {
   shapeContains,
   warpShapeToPath,
 } from '@varve/engine';
-import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
+import type { Document, MultipageNodeInstance, NodeId, SceneNode, ShapeNode } from '@varve/scene';
 import {
   buildParentIndexMap,
   deriveGeometryFromPaints,
   isWarpedContainer,
-  multipageRootNodes,
+  multipageNodeInstances,
   nodeLocalBoundsSource,
   resolveNodePaints,
-  walkNodes,
   warpsOnNode,
 } from '@varve/scene';
 import {
@@ -41,13 +40,7 @@ import {
   pathPointToBezier,
   pointToSegmentDistSq,
 } from '@varve/shared';
-import {
-  collectMasterEditOffsets,
-  collectMasterOffsets,
-  type MasterOffset,
-  offsetWorldBounds,
-  offsetWorldTransform,
-} from '../scene/masterOffsets';
+import { type MasterOffset, offsetWorldBounds, offsetWorldTransform } from '../scene/masterOffsets';
 import { getOrCreateSpatialIndex, queryPoint } from '../scene/spatialIndex';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { evaluateWarpedContainerItems } from '../warp/warpContainerRender';
@@ -112,7 +105,7 @@ export class HitTestEngine {
    * found the O(n^2) pattern in a document-open hang and swept the codebase.
    */
   private readonly parentIndex: Map<NodeId, NodeId>;
-  private readonly masterOffsets: Map<NodeId, MasterOffset>;
+  private readonly entries: MultipageNodeInstance[];
   private spatialIndex: ReturnType<typeof getOrCreateSpatialIndex>;
 
   constructor(doc: Document, options: HitTestOptions = {}, policy?: HitTestPolicy) {
@@ -124,9 +117,7 @@ export class HitTestEngine {
     this.strokeToleranceWorld = screenToWorldTolerance(this.policy.strokeTolerancePx, zoom);
     this.parentIndex = buildParentIndexMap(doc);
     this.spatialIndex = getOrCreateSpatialIndex(doc, null);
-    this.masterOffsets = options.masterEditId
-      ? collectMasterEditOffsets(doc, options.masterEditId, doc.activePageId)
-      : collectMasterOffsets(doc);
+    this.entries = multipageNodeInstances(doc, { masterEditId: options.masterEditId });
   }
 
   /** Create an engine with a specific named policy. */
@@ -157,11 +148,7 @@ export class HitTestEngine {
   hitTest(world: { x: number; y: number }): HitResult | null {
     const candidates = this.queryWithTolerance(world.x, world.y);
 
-    const entries = walkNodes(
-      this.doc,
-      multipageRootNodes(this.doc, { masterEditId: this.options.masterEditId }),
-    );
-    const ordered = [...entries.values()].reverse();
+    const ordered = [...this.entries].reverse();
     let bestHit: HitResult | null = null;
     let bestDepth = -1;
 
@@ -170,7 +157,10 @@ export class HitTestEngine {
       if (!this.policy.includeLocked && n.locked) continue;
       if (!this.policy.includeHidden && !n.visible) continue;
       if (!candidates.has(entry.nodeId)) continue;
-      if (this.policy.respectClips && !this.isPointVisibleThroughClipMasks(entry.nodeId, world))
+      if (
+        this.policy.respectClips &&
+        !this.isPointVisibleThroughClipMasks(entry.nodeId, world, entry.masterPlacement)
+      )
         continue;
 
       if (this.options.isolatedNodeId !== undefined && this.options.isolatedNodeId !== null) {
@@ -181,7 +171,7 @@ export class HitTestEngine {
       let isHit = false;
 
       if (n.kind === 'shape') {
-        const worldMat = this.worldTransform(entry.nodeId);
+        const worldMat = this.worldTransform(entry.nodeId, entry.masterPlacement);
         const wInv = invertAffine(worldMat);
         const local = [...applyAffine(wInv, [world.x, world.y])] as [number, number];
         const shape = hitGeometry(n, this.doc);
@@ -197,7 +187,7 @@ export class HitTestEngine {
         }
 
         if (!isHit && this.toleranceWorld > 0) {
-          const bbox = this.worldBounds(entry.nodeId);
+          const bbox = this.worldBounds(entry.nodeId, entry.masterPlacement);
           if (bbox) {
             const expanded = {
               x: bbox.x - this.toleranceWorld,
@@ -224,9 +214,13 @@ export class HitTestEngine {
           for (const { item } of evaluated.items) {
             const prim = item.primitive;
             if (prim?.kind !== 'path') continue;
-            const wInv = invertAffine([
-              ...item.transform,
-            ] as unknown as import('@varve/shared').Affine);
+            const itemTransform = entry.masterPlacement
+              ? offsetWorldTransform(
+                  item.transform as unknown as import('@varve/shared').Affine,
+                  entry.masterPlacement,
+                )
+              : (item.transform as unknown as import('@varve/shared').Affine);
+            const wInv = invertAffine(itemTransform);
             const local = [...applyAffine(wInv, [world.x, world.y])] as [number, number];
             if (shapeContains(prim, local)) {
               isHit = true;
@@ -240,7 +234,7 @@ export class HitTestEngine {
         if (!this.policy.includeContainers && n.kind === 'frame') {
           continue;
         }
-        const bbox = this.worldBounds(entry.nodeId);
+        const bbox = this.worldBounds(entry.nodeId, entry.masterPlacement);
         if (bbox) {
           const expanded = {
             x: bbox.x - this.toleranceWorld,
@@ -268,7 +262,7 @@ export class HitTestEngine {
               (!this.policy.includeHidden && child.visible === false)
             )
               continue;
-            if (this.hitTestSingleChild(childId, child, world)) {
+            if (this.hitTestSingleChild(childId, child, world, entry.masterPlacement)) {
               isHit = true;
               break;
             }
@@ -303,11 +297,7 @@ export class HitTestEngine {
   findNodesAtPoint(world: { x: number; y: number }, policy?: HitTestPolicy): HitResult[] {
     const activePolicy = policy ?? this.policy;
     const candidates = this.queryWithTolerance(world.x, world.y);
-    const entries = walkNodes(
-      this.doc,
-      multipageRootNodes(this.doc, { masterEditId: this.options.masterEditId }),
-    );
-    const ordered = [...entries.values()].reverse();
+    const ordered = [...this.entries].reverse();
     const results: HitResult[] = [];
     const maxCandidates = activePolicy.maxCandidates;
 
@@ -318,7 +308,10 @@ export class HitTestEngine {
       if (!activePolicy.includeLocked && n.locked) continue;
       if (!activePolicy.includeHidden && !n.visible) continue;
       if (!candidates.has(entry.nodeId)) continue;
-      if (activePolicy.respectClips && !this.isPointVisibleThroughClipMasks(entry.nodeId, world))
+      if (
+        activePolicy.respectClips &&
+        !this.isPointVisibleThroughClipMasks(entry.nodeId, world, entry.masterPlacement)
+      )
         continue;
 
       if (this.options.isolatedNodeId !== undefined && this.options.isolatedNodeId !== null) {
@@ -338,7 +331,7 @@ export class HitTestEngine {
       let isHit = false;
 
       if (n.kind === 'shape') {
-        const worldMat = this.worldTransform(entry.nodeId);
+        const worldMat = this.worldTransform(entry.nodeId, entry.masterPlacement);
         const wInv = invertAffine(worldMat);
         const local = [...applyAffine(wInv, [world.x, world.y])] as [number, number];
         const shape = hitGeometry(n, this.doc);
@@ -357,7 +350,7 @@ export class HitTestEngine {
         }
 
         if (!isHit && toleranceWorld > 0) {
-          const bbox = this.worldBounds(entry.nodeId);
+          const bbox = this.worldBounds(entry.nodeId, entry.masterPlacement);
           if (bbox) {
             const expanded = {
               x: bbox.x - toleranceWorld,
@@ -374,7 +367,7 @@ export class HitTestEngine {
           }
         }
       } else if (n.kind === 'text' || n.kind === 'frame' || n.kind === 'table') {
-        const bbox = this.worldBounds(entry.nodeId);
+        const bbox = this.worldBounds(entry.nodeId, entry.masterPlacement);
         if (bbox) {
           const expanded = {
             x: bbox.x - toleranceWorld,
@@ -398,7 +391,7 @@ export class HitTestEngine {
                 (!activePolicy.includeHidden && child.visible === false)
               )
                 continue;
-              if (this.hitTestSingleChild(childId, child, world)) {
+              if (this.hitTestSingleChild(childId, child, world, entry.masterPlacement)) {
                 results.push({ nodeId: entry.nodeId, node: n });
                 break;
               }
@@ -419,16 +412,17 @@ export class HitTestEngine {
     childId: NodeId,
     child: SceneNode,
     world: { x: number; y: number },
+    masterPlacement?: MasterOffset,
   ): boolean {
     if (child.kind === 'shape') {
-      const childWorld = this.worldTransform(childId);
+      const childWorld = this.worldTransform(childId, masterPlacement);
       const childInv = invertAffine(childWorld);
       const childLocal = applyAffine(childInv, [world.x, world.y]);
       const childShape = hitGeometry(child, this.doc);
       if (shapeContains(childShape, childLocal)) return true;
 
       if (this.toleranceWorld > 0) {
-        const childBounds = this.worldBounds(childId);
+        const childBounds = this.worldBounds(childId, masterPlacement);
         if (childBounds) {
           const expanded = {
             x: childBounds.x - this.toleranceWorld,
@@ -440,7 +434,7 @@ export class HitTestEngine {
         }
       }
     } else {
-      const childBounds = this.worldBounds(childId);
+      const childBounds = this.worldBounds(childId, masterPlacement);
       if (childBounds) {
         const expanded = {
           x: childBounds.x - this.toleranceWorld,
@@ -458,13 +452,8 @@ export class HitTestEngine {
     // The spatial index stores unplaced document geometry. Master projections
     // and source-edit views can be translated to a page placement, so a grid
     // lookup would reject visible nodes before precise geometry runs.
-    if (this.masterOffsets.size > 0) {
-      return new Set(
-        walkNodes(
-          this.doc,
-          multipageRootNodes(this.doc, { masterEditId: this.options.masterEditId }),
-        ).keys(),
-      );
+    if (this.entries.some((entry) => entry.masterPlacement)) {
+      return new Set(this.entries.map((entry) => entry.nodeId));
     }
     const toleranceWorld = screenToWorldTolerance(this.policy.tolerancePx, this.options.zoom ?? 1);
     const radiusCells = Math.ceil(toleranceWorld / CELL_SIZE);
@@ -486,7 +475,11 @@ export class HitTestEngine {
     return result;
   }
 
-  private isPointVisibleThroughClipMasks(nodeId: NodeId, world: { x: number; y: number }): boolean {
+  private isPointVisibleThroughClipMasks(
+    nodeId: NodeId,
+    world: { x: number; y: number },
+    masterPlacement?: MasterOffset,
+  ): boolean {
     let currentId: NodeId | undefined = nodeId;
     const visited = new Set<NodeId>();
     while (currentId && !visited.has(currentId)) {
@@ -500,7 +493,7 @@ export class HitTestEngine {
           mask.linked === false && mask.transform
             ? mask.transform
             : sourceId
-              ? this.worldTransform(sourceId)
+              ? this.worldTransform(sourceId, masterPlacement)
               : mask.transform;
 
         if (maskTransform) {
@@ -546,16 +539,20 @@ export class HitTestEngine {
     return false;
   }
 
-  private worldTransform(nodeId: NodeId): import('@varve/shared').Affine {
+  private worldTransform(
+    nodeId: NodeId,
+    masterPlacement?: MasterOffset,
+  ): import('@varve/shared').Affine {
     const world = nodeWorldTransform(this.doc, nodeId, this.parentIndex);
-    const offset = this.masterOffsets.get(nodeId);
-    return offset ? offsetWorldTransform(world, offset) : world;
+    return masterPlacement ? offsetWorldTransform(world, masterPlacement) : world;
   }
 
-  private worldBounds(nodeId: NodeId): import('@varve/shared').Rect | null {
+  private worldBounds(
+    nodeId: NodeId,
+    masterPlacement?: MasterOffset,
+  ): import('@varve/shared').Rect | null {
     const bounds = nodeWorldBounds(this.doc, nodeId, this.parentIndex);
-    const offset = this.masterOffsets.get(nodeId);
-    return offset ? offsetWorldBounds(bounds, offset) : bounds;
+    return masterPlacement ? offsetWorldBounds(bounds, masterPlacement) : bounds;
   }
 
   /** Get the current active policy */

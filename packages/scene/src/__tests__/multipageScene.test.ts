@@ -9,6 +9,7 @@ import { addMasterOverride, assignMasterToPage, createMaster } from '../document
 import { deletePageWithPolicy } from '../document-pages';
 import {
   buildPlacedScene,
+  multipageNodeInstances,
   multipageRootNodes,
   pagesVisibleInWorldRect,
   placedPages,
@@ -324,6 +325,34 @@ describe('master projection into the placed scene (M8, ADR-0132)', () => {
     const doc = createDocument('m8', false);
     const placed = placedPages(doc)[0]!;
     expect(placed.masterNodes).toEqual([]);
+  });
+
+  it('preserves one occurrence for every page using the same master', () => {
+    let doc = masterDoc();
+    const master = firstMaster(doc)!;
+    doc = addPage(doc, { width: 1920, height: 1080 });
+    const secondPage = doc.pages![1]!;
+    doc = assignMasterToPage(doc, secondPage.id, master.id);
+    doc = {
+      ...doc,
+      pages: doc.pages!.map((page, index) => ({
+        ...page,
+        placement: { x: index * 2400, y: index * 1400 },
+      })),
+    };
+
+    const masterChildren = (doc.nodes[master.contentRoot] as GroupNode).children;
+    const instances = multipageNodeInstances(doc).filter((entry) =>
+      masterChildren.includes(entry.nodeId),
+    );
+    expect(instances).toHaveLength(masterChildren.length * 2);
+    expect(new Set(instances.map((entry) => entry.instanceId)).size).toBe(instances.length);
+    expect(instances.map((entry) => entry.masterPlacement)).toEqual([
+      { x: 0, y: 0 },
+      { x: 0, y: 0 },
+      { x: 2400, y: 1400 },
+      { x: 2400, y: 1400 },
+    ]);
   });
 });
 
