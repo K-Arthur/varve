@@ -9,7 +9,13 @@ import { AdjustmentPanel } from './AdjustmentPanel';
 afterEach(cleanup);
 
 function Harness() {
-  const { createAdjustmentLayer, undo } = useEditor();
+  const { createAdjustmentLayer, state, undo } = useEditor();
+  const selectedNode =
+    state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : undefined;
+  const adjustmentIds =
+    selectedNode?.kind === 'adjustment'
+      ? (selectedNode.adjustments ?? []).map((item) => item.id)
+      : [];
   return (
     <div>
       <button type="button" onClick={() => createAdjustmentLayer()}>
@@ -18,6 +24,7 @@ function Harness() {
       <button type="button" onClick={undo}>
         Undo
       </button>
+      <output data-testid="adjustment-filter-ids">{JSON.stringify(adjustmentIds)}</output>
       <AdjustmentPanel />
     </div>
   );
@@ -185,6 +192,11 @@ describe('AdjustmentPanel', () => {
 
     await user.click(screen.getByRole('button', { name: 'Duplicate' }));
     expect(document.querySelectorAll('.adj-panel__item-name')).toHaveLength(3);
+    const ids = JSON.parse(
+      screen.getByTestId('adjustment-filter-ids').textContent ?? '[]',
+    ) as string[];
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size).toBe(3);
   });
 
   it('coalesces a slider scrub into one undo operation', async () => {

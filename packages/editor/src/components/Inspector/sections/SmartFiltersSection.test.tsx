@@ -60,6 +60,30 @@ function grainNode(id = 'grain-object-1'): SceneNode {
   } as SceneNode;
 }
 
+function treatmentNode(id = 'treatment-object-1'): SceneNode {
+  return {
+    ...vectorNode(id),
+    smartFilters: [
+      makeSmartFilter('bloom-filter-1', 'bloom', {
+        studioTreatment: {
+          treatmentId: 'studio-chromatic-bloom',
+          instanceId: 'chromatic-bloom-1',
+          effectIndex: 0,
+          controls: { amount: 100, glowStrength: 60 },
+        },
+      }),
+      makeSmartFilter('split-filter-1', 'rgbSplit', {
+        studioTreatment: {
+          treatmentId: 'studio-chromatic-bloom',
+          instanceId: 'chromatic-bloom-1',
+          effectIndex: 1,
+          controls: { amount: 100, glowStrength: 60 },
+        },
+      }),
+    ],
+  } as SceneNode;
+}
+
 function futureFilterNode(id = 'future-object-1'): SceneNode {
   return {
     ...vectorNode(id),
@@ -203,5 +227,33 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
       'grain',
       'futureTreatment',
     ]);
+  });
+
+  it('keeps the raw stack collapsed for a curated recipe and marks its members customized', () => {
+    const node = treatmentNode();
+    render(<SmartFiltersSection nodes={[node]} />);
+
+    const advanced = screen.getByText('Advanced stack editor').closest('details');
+    expect(advanced).not.toHaveAttribute('open');
+    expect(screen.getByText(/Named treatments are tuned in Effect Studio/i)).toBeInTheDocument();
+
+    const disableBloom = advanced?.querySelector<HTMLButtonElement>('[aria-label="Disable Bloom"]');
+    expect(disableBloom).toBeTruthy();
+    fireEvent.click(disableBloom!);
+
+    const updated = latestUpdatedNode(node);
+    expect(updated.smartFilters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'bloom-filter-1',
+          visible: false,
+          studioTreatment: expect.objectContaining({ customized: true }),
+        }),
+        expect.objectContaining({
+          id: 'split-filter-1',
+          studioTreatment: expect.objectContaining({ customized: true }),
+        }),
+      ]),
+    );
   });
 });

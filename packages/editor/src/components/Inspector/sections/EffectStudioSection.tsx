@@ -1,12 +1,16 @@
 import {
+  type Adjustment,
+  defaultStudioTreatmentControlValues,
   EFFECT_STUDIO_CATEGORIES,
   EFFECT_SURFACE_GUIDANCE,
   type EffectDefinition,
   type EffectStudioCategoryId,
   getEffectStudioTreatment,
+  resolveStudioTreatmentEffects,
   type StudioTreatment,
   searchEffectStudioDefinitions,
   searchEffectStudioTreatments,
+  studioTreatmentControls,
 } from '@varve/engine';
 import {
   appendEffectLook,
@@ -47,8 +51,36 @@ const LEGACY_TREATMENT_BY_PRIMITIVE: Readonly<Record<string, string>> = {
 interface StudioPreview {
   nodeId: string;
   treatmentId: string;
+  instanceId: string;
   effectIds: string[];
+  values: Record<string, number>;
   name: string;
+}
+
+interface TreatmentTuning {
+  treatmentId: string;
+  values: Record<string, number>;
+  /** Present when the user is editing an already-applied recipe. */
+  instanceId?: string;
+  customized?: boolean;
+}
+
+interface AppliedStudioTreatment {
+  /** Treatment and instance together are the durable group identity. */
+  key: string;
+  treatment: StudioTreatment;
+  instanceId: string;
+  effectIds: string[];
+  values: Record<string, number>;
+  customized: boolean;
+  firstIndex: number;
+}
+
+function studioTreatmentInstanceKey(treatmentId: string, instanceId: string): string {
+  // Instance IDs are generated uniquely in normal operation, but documents and
+  // Looks are imported data. Keep the treatment id in the group key so a
+  // malformed or legacy collision cannot merge two visible applied treatments.
+  return `${treatmentId}\u0000${instanceId}`;
 }
 
 interface TreatmentGroup {
@@ -92,20 +124,168 @@ function remember(id: string, current: readonly string[]): string[] {
   return [id, ...current.filter((entry) => entry !== id)].slice(0, MAX_LIBRARY_IDS);
 }
 
-function appendStudioTreatment(node: SceneNode, treatment: StudioTreatment): SceneNode {
+function treatmentControlValues(
+  treatment: StudioTreatment,
+  values: Readonly<Record<string, number>> = {},
+): Record<string, number> {
+  const defaults = defaultStudioTreatmentControlValues(treatment);
+  return Object.fromEntries(
+    Object.entries(defaults).map(([id, defaultValue]) => {
+      const candidate = values[id];
+      return [
+        id,
+        typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : defaultValue,
+      ];
+    }),
+  );
+}
+
+function studioTreatmentFilters(
+  treatment: StudioTreatment,
+  values: Readonly<Record<string, number>>,
+  instanceId: string,
+  effectIds?: readonly string[],
+): Adjustment[] {
+  const controls = treatmentControlValues(treatment, values);
+  return resolveStudioTreatmentEffects(treatment, controls).map((effect, effectIndex) =>
+    makeSmartFilter(effectIds?.[effectIndex] ?? cryptoId(), effect.kind, {
+      ...effect.overrides,
+      visible: true,
+      studioTreatment: {
+        treatmentId: treatment.id,
+        instanceId,
+        effectIndex,
+        controls,
+      },
+    }),
+  );
+}
+
+function appendStudioTreatment(
+  node: SceneNode,
+  treatment: StudioTreatment,
+  values: Readonly<Record<string, number>> = {},
+  instanceId = cryptoId(),
+): SceneNode {
   return {
     ...node,
     smartFiltersEnabled: true,
     smartFilters: [
       ...(node.smartFilters ?? []),
-      ...treatment.effects.map((effect) =>
-        makeSmartFilter(cryptoId(), effect.kind, {
-          ...effect.overrides,
-          visible: true,
-        }),
-      ),
+      ...studioTreatmentFilters(treatment, values, instanceId),
     ],
   };
+}
+
+function appliedStudioTreatments(filters: readonly Adjustment[]): AppliedStudioTreatment[] {
+  const instances = new Map<string, AppliedStudioTreatment>();
+  for (const [index, filter] of filters.entries()) {
+    const metadata = filter.studioTreatment;
+    if (!metadata) continue;
+    const treatment = getEffectStudioTreatment(metadata.treatmentId);
+    if (!treatment) continue;
+    const key = studioTreatmentInstanceKey(metadata.treatmentId, metadata.instanceId);
+    const existing = instances.get(key);
+    if (existing) {
+      existing.effectIds.push(filter.id);
+      existing.customized ||= metadata.customized === true;
+      continue;
+    }
+    instances.set(key, {
+      key,
+      treatment,
+      instanceId: metadata.instanceId,
+      effectIds: [filter.id],
+      values: treatmentControlValues(treatment, metadata.controls),
+      customized: metadata.customized === true,
+      firstIndex: index,
+    });
+  }
+  return [...instances.values()].sort((left, right) => left.firstIndex - right.firstIndex);
+}
+
+function updateStudioTreatmentInstance(
+  node: SceneNode,
+  treatment: StudioTreatment,
+  instanceId: string,
+  values: Readonly<Record<string, number>>,
+): SceneNode {
+  const controls = treatmentControlValues(treatment, values);
+  const effects = resolveStudioTreatmentEffects(treatment, controls);
+  return {
+    ...node,
+    smartFilters: (node.smartFilters ?? []).map((filter) => {
+      const metadata = filter.studioTreatment;
+      if (
+        !metadata ||
+        metadata.treatmentId !== treatment.id ||
+        metadata.instanceId !== instanceId ||
+        !effects[metadata.effectIndex]
+      ) {
+        return filter;
+      }
+      const effect = effects[metadata.effectIndex]!;
+      return {
+        ...filter,
+        ...effect.overrides,
+        studioTreatment: {
+          ...metadata,
+          controls,
+        },
+      } as Adjustment;
+    }),
+  };
+}
+
+function replaceStudioTreatmentInstance(
+  node: SceneNode,
+  instance: AppliedStudioTreatment,
+  values: Readonly<Record<string, number>>,
+): SceneNode {
+  const filters = node.smartFilters ?? [];
+  const firstIndex = filters.findIndex(
+    (filter) =>
+      filter.studioTreatment?.treatmentId === instance.treatment.id &&
+      filter.studioTreatment.instanceId === instance.instanceId,
+  );
+  if (firstIndex < 0) return node;
+  const isMember = (filter: Adjustment) =>
+    filter.studioTreatment?.treatmentId === instance.treatment.id &&
+    filter.studioTreatment.instanceId === instance.instanceId;
+  const insertionIndex = filters.slice(0, firstIndex).filter((filter) => !isMember(filter)).length;
+  const withoutInstance = filters.filter((filter) => !isMember(filter));
+  return {
+    ...node,
+    smartFilters: [
+      ...withoutInstance.slice(0, insertionIndex),
+      ...studioTreatmentFilters(instance.treatment, values, instance.instanceId),
+      ...withoutInstance.slice(insertionIndex),
+    ],
+  };
+}
+
+function removeStudioTreatmentInstance(
+  node: SceneNode,
+  instance: AppliedStudioTreatment,
+): SceneNode {
+  return {
+    ...node,
+    smartFilters: (node.smartFilters ?? []).filter(
+      (filter) =>
+        filter.studioTreatment?.treatmentId !== instance.treatment.id ||
+        filter.studioTreatment.instanceId !== instance.instanceId,
+    ),
+  };
+}
+
+function formatControlValue(value: number, unit: '%' | 'steps' | 'px' | undefined): string {
+  const display = Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+  if (unit === '%') return `${display}%`;
+  if (unit === 'px') return `${display}px`;
+  if (unit === 'steps') return `${display} steps`;
+  return display;
 }
 
 function treatmentGroupsFor(
@@ -187,6 +367,8 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
   const compareNodeRef = useRef<string | null>(null);
   const [compareOriginal, setCompareOriginal] = useState(false);
   const [lookName, setLookName] = useState('My Look');
+  const [tuning, setTuning] = useState<TreatmentTuning | null>(null);
+  const tuningTransactionRef = useRef(false);
 
   const treatments = useMemo(() => {
     const listed = searchEffectStudioTreatments(query, category);
@@ -201,6 +383,8 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
     () => treatmentGroupsFor(treatments, query, category, favoritesOnly),
     [category, favoritesOnly, query, treatments],
   );
+  const appliedTreatments = useMemo(() => appliedStudioTreatments(filters), [filters]);
+  const tuningTreatment = tuning ? getEffectStudioTreatment(tuning.treatmentId) : undefined;
 
   const updateRecents = useCallback((id: string) => {
     setRecents((current) => {
@@ -232,14 +416,16 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
   );
 
   const previewTreatment = useCallback(
-    (treatment: StudioTreatment) => {
+    (treatment: StudioTreatment, values: Readonly<Record<string, number>> = {}) => {
       if (!nodeId) return;
       const current = previewRef.current;
       if (current && current.nodeId !== nodeId) return;
+      const controls = treatmentControlValues(treatment, values);
       const effectIds =
         current?.treatmentId === treatment.id
           ? current.effectIds
           : treatment.effects.map(() => cryptoId());
+      const instanceId = current?.treatmentId === treatment.id ? current.instanceId : cryptoId();
       if (!current) beginTransaction('preview');
       updateNode(nodeId, (owner) => {
         const withoutPreview = (owner.smartFilters ?? []).filter(
@@ -250,19 +436,16 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
           smartFiltersEnabled: true,
           smartFilters: [
             ...withoutPreview,
-            ...treatment.effects.map((effect, index) =>
-              makeSmartFilter(effectIds[index]!, effect.kind, {
-                ...effect.overrides,
-                visible: true,
-              }),
-            ),
+            ...studioTreatmentFilters(treatment, controls, instanceId, effectIds),
           ],
         };
       });
       const next: StudioPreview = {
         nodeId,
         treatmentId: treatment.id,
+        instanceId,
         effectIds,
+        values: controls,
         name: treatment.name,
       };
       previewRef.current = next;
@@ -279,29 +462,149 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
     commitTransaction();
     previewRef.current = null;
     setPreview(null);
+    setTuning((active) =>
+      active?.treatmentId === current.treatmentId
+        ? { ...active, instanceId: current.instanceId, values: current.values, customized: false }
+        : active,
+    );
     announce(`${current.name} applied`);
   }, [announce, commitTransaction]);
 
   const applyTreatment = useCallback(
-    (treatment: StudioTreatment) => {
+    (treatment: StudioTreatment, values: Readonly<Record<string, number>> = {}) => {
+      const controls = treatmentControlValues(treatment, values);
       if (previewRef.current) {
         if (previewRef.current.treatmentId === treatment.id) {
           commitPreview();
         } else {
-          previewTreatment(treatment);
+          previewTreatment(treatment, controls);
         }
         return;
       }
+      const singleInstanceId = nodes.length === 1 ? cryptoId() : undefined;
       updateNodes(
         nodes.map((selectedNode) => ({
           id: selectedNode.id,
-          update: (current) => appendStudioTreatment(current, treatment),
+          update: (current) =>
+            appendStudioTreatment(current, treatment, controls, singleInstanceId ?? cryptoId()),
         })),
       );
+      if (singleInstanceId) {
+        setTuning((active) =>
+          active?.treatmentId === treatment.id
+            ? { ...active, instanceId: singleInstanceId, values: controls, customized: false }
+            : active,
+        );
+      }
       updateRecents(treatment.id);
       announce(`Applied treatment ${treatment.name}`);
     },
     [announce, commitPreview, nodes, previewTreatment, updateNodes, updateRecents],
+  );
+
+  const openTreatmentTuning = useCallback(
+    (treatment: StudioTreatment) => {
+      if (previewRef.current && previewRef.current.treatmentId !== treatment.id) {
+        cancelPreview('Preview cancelled');
+      }
+      const values = treatmentControlValues(treatment);
+      setTuning({ treatmentId: treatment.id, values });
+      if (nodeId) previewTreatment(treatment, values);
+    },
+    [cancelPreview, nodeId, previewTreatment],
+  );
+
+  const openAppliedTreatmentTuning = useCallback(
+    (instance: AppliedStudioTreatment) => {
+      if (previewRef.current) cancelPreview('Preview cancelled');
+      setTuning({
+        treatmentId: instance.treatment.id,
+        instanceId: instance.instanceId,
+        values: instance.values,
+        customized: instance.customized,
+      });
+    },
+    [cancelPreview],
+  );
+
+  const beginTuningTransaction = useCallback(() => {
+    if (!tuning?.instanceId || tuningTransactionRef.current) return;
+    tuningTransactionRef.current = true;
+    beginTransaction();
+  }, [beginTransaction, tuning?.instanceId]);
+
+  const finishTuningTransaction = useCallback(() => {
+    if (!tuningTransactionRef.current) return;
+    tuningTransactionRef.current = false;
+    commitTransaction();
+  }, [commitTransaction]);
+
+  const setTreatmentControl = useCallback(
+    (controlId: string, candidate: number) => {
+      if (!tuning || !tuningTreatment) return;
+      const control = studioTreatmentControls(tuningTreatment).find(
+        (entry) => entry.id === controlId,
+      );
+      if (!control) return;
+      const value = Math.min(control.max, Math.max(control.min, candidate));
+      const values = { ...tuning.values, [controlId]: value };
+      setTuning({ ...tuning, values });
+      if (tuning.instanceId && nodeId) {
+        updateNode(nodeId, (owner) =>
+          updateStudioTreatmentInstance(owner, tuningTreatment, tuning.instanceId!, values),
+        );
+      } else if (previewRef.current?.treatmentId === tuningTreatment.id) {
+        previewTreatment(tuningTreatment, values);
+      }
+    },
+    [nodeId, previewTreatment, tuning, tuningTreatment, updateNode],
+  );
+
+  const resetTreatmentControls = useCallback(() => {
+    if (!tuning || !tuningTreatment) return;
+    const values = treatmentControlValues(tuningTreatment);
+    setTuning({ ...tuning, values });
+    if (tuning.instanceId && nodeId) {
+      updateNode(nodeId, (owner) =>
+        updateStudioTreatmentInstance(owner, tuningTreatment, tuning.instanceId!, values),
+      );
+    } else if (previewRef.current?.treatmentId === tuningTreatment.id) {
+      previewTreatment(tuningTreatment, values);
+    }
+  }, [nodeId, previewTreatment, tuning, tuningTreatment, updateNode]);
+
+  const closeTreatmentTuning = useCallback(() => {
+    if (!tuning) return;
+    if (!tuning.instanceId && previewRef.current?.treatmentId === tuning.treatmentId) {
+      cancelPreview('Preview cancelled');
+    }
+    setTuning(null);
+  }, [cancelPreview, tuning]);
+
+  const restoreAppliedTreatment = useCallback(() => {
+    if (!nodeId || !tuning?.instanceId || !tuningTreatment) return;
+    const instance = appliedTreatments.find(
+      (entry) =>
+        entry.treatment.id === tuningTreatment.id && entry.instanceId === tuning.instanceId,
+    );
+    if (!instance) return;
+    updateNode(nodeId, (owner) => replaceStudioTreatmentInstance(owner, instance, tuning.values));
+    setTuning({ ...tuning, customized: false });
+    announce(`Restored ${tuningTreatment.name} recipe`);
+  }, [announce, appliedTreatments, nodeId, tuning, tuningTreatment, updateNode]);
+
+  const removeAppliedTreatment = useCallback(
+    (instance: AppliedStudioTreatment) => {
+      if (!nodeId) return;
+      updateNode(nodeId, (owner) => removeStudioTreatmentInstance(owner, instance));
+      setTuning((active) =>
+        active?.treatmentId === instance.treatment.id && active.instanceId === instance.instanceId
+          ? null
+          : active,
+      );
+      announce(`Removed ${instance.treatment.name} treatment`);
+    },
+    [announce, nodeId, updateNode],
   );
 
   const addPrimitive = useCallback(
@@ -381,13 +684,26 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
     if (compareRef.current && compareNodeRef.current !== nodeId) {
       cancelCompare('Compare View cancelled: target changed');
     }
-  }, [cancelCompare, cancelPreview, nodeId, preview]);
+    if (
+      tuning?.instanceId &&
+      !appliedTreatments.some(
+        (instance) =>
+          instance.treatment.id === tuning.treatmentId && instance.instanceId === tuning.instanceId,
+      )
+    ) {
+      setTuning(null);
+    }
+  }, [appliedTreatments, cancelCompare, cancelPreview, nodeId, preview, tuning?.instanceId]);
 
   useEffect(
     () => () => {
+      if (tuningTransactionRef.current) {
+        tuningTransactionRef.current = false;
+        commitTransaction();
+      }
       if (previewRef.current || compareRef.current) abortTransaction();
     },
-    [abortTransaction],
+    [abortTransaction, commitTransaction],
   );
 
   if (!compatible) return null;
@@ -411,8 +727,8 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
           <div>
             <h3>Curated editable treatments</h3>
             <p>
-              Browse a creative family, preview a matched stack on {targetLabel}, then refine its
-              entries in Object Filters.
+              Browse a creative family, then tune the named treatment directly on {targetLabel}.
+              Object Filters is reserved for advanced recipe internals.
             </p>
             <details className="effect-studio__target-guidance">
               <summary>How this works on raster and vector objects</summary>
@@ -494,6 +810,154 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
           ))}
         </div>
 
+        {appliedTreatments.length > 0 && (
+          <section className="effect-studio__applied" aria-label="Applied treatments">
+            <div className="effect-studio__applied-header">
+              <div>
+                <h3>Applied treatments</h3>
+                <p>
+                  Tune these named recipes here instead of hunting through the raw filter stack.
+                </p>
+              </div>
+            </div>
+            <ul>
+              {appliedTreatments.map((instance) => (
+                <li
+                  className={
+                    tuning?.treatmentId === instance.treatment.id &&
+                    tuning.instanceId === instance.instanceId
+                      ? 'is-selected'
+                      : undefined
+                  }
+                  key={instance.key}
+                >
+                  <span className="effect-studio__applied-summary">
+                    <strong className="effect-studio__applied-name">
+                      {instance.treatment.name}
+                    </strong>
+                    <small className="effect-studio__applied-description">
+                      {instance.customized
+                        ? 'Customized in advanced editing'
+                        : `${instance.effectIds.length} effect${
+                            instance.effectIds.length === 1 ? '' : 's'
+                          } · curated recipe`}
+                    </small>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => openAppliedTreatmentTuning(instance)}
+                    aria-label={`Tune ${instance.treatment.name}`}
+                  >
+                    Tune
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeAppliedTreatment(instance)}
+                    aria-label={`Remove ${instance.treatment.name} treatment`}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {tuning && tuningTreatment && (
+          <section
+            className="effect-studio__tuning"
+            aria-label={`${tuningTreatment.name} settings`}
+          >
+            <div className="effect-studio__tuning-header">
+              <div>
+                <h3>{tuningTreatment.name} settings</h3>
+                <p>
+                  {tuning.instanceId
+                    ? 'These controls keep the treatment coherent while preserving its editable stack.'
+                    : 'Preview the intended treatment, tune its key controls, then add it to the stack.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeTreatmentTuning}
+                aria-label="Close treatment settings"
+              >
+                Close
+              </button>
+            </div>
+            {tuning.customized && (
+              <p className="effect-studio__customized" role="status">
+                This recipe has advanced edits. Its current appearance is preserved; restoring it
+                will replace just this treatment with its coherent recipe again.
+              </p>
+            )}
+            <div className="effect-studio__tuning-controls">
+              {studioTreatmentControls(tuningTreatment).map((control) => {
+                const value = tuning.values[control.id] ?? control.defaultValue;
+                return (
+                  <label key={control.id}>
+                    <span className="effect-studio__control-label">
+                      <strong>{control.label}</strong>
+                      <output>{formatControlValue(value, control.unit)}</output>
+                    </span>
+                    <input
+                      type="range"
+                      min={control.min}
+                      max={control.max}
+                      step={control.step}
+                      value={value}
+                      aria-label={`${tuningTreatment.name} ${control.label}`}
+                      onPointerDown={beginTuningTransaction}
+                      onPointerUp={finishTuningTransaction}
+                      onPointerCancel={finishTuningTransaction}
+                      onKeyDown={beginTuningTransaction}
+                      onKeyUp={finishTuningTransaction}
+                      onChange={(event) =>
+                        setTreatmentControl(control.id, Number(event.target.value))
+                      }
+                    />
+                    <small>{control.description}</small>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="effect-studio__tuning-actions">
+              {!tuning.instanceId && (
+                <button
+                  type="button"
+                  onClick={() => previewTreatment(tuningTreatment, tuning.values)}
+                  disabled={!canPreview || preview?.treatmentId === tuningTreatment.id}
+                >
+                  {preview?.treatmentId === tuningTreatment.id ? 'Previewing' : 'Preview'}
+                </button>
+              )}
+              {!tuning.instanceId && (
+                <button
+                  type="button"
+                  className="effect-studio__add"
+                  onClick={() => applyTreatment(tuningTreatment, tuning.values)}
+                >
+                  {preview?.treatmentId === tuningTreatment.id ? 'Keep treatment' : 'Add to stack'}
+                </button>
+              )}
+              {tuning.instanceId && (
+                <button type="button" onClick={resetTreatmentControls}>
+                  Reset controls
+                </button>
+              )}
+              {tuning.instanceId && tuning.customized && (
+                <button
+                  type="button"
+                  className="effect-studio__add"
+                  onClick={restoreAppliedTreatment}
+                >
+                  Restore recipe
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+
         {recentTreatments.length > 0 && !query && !category && !favoritesOnly && (
           <fieldset className="effect-studio__recent">
             <legend>Recent treatments</legend>
@@ -539,6 +1003,13 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
                         </small>
                       </div>
                       <div className="effect-studio__card-actions">
+                        <button
+                          type="button"
+                          onClick={() => openTreatmentTuning(treatment)}
+                          aria-label={`Configure ${treatment.name} before adding`}
+                        >
+                          Configure
+                        </button>
                         <button
                           type="button"
                           onClick={() => previewTreatment(treatment)}
@@ -597,10 +1068,11 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
         <details className="effect-studio__primitives">
           <summary>Individual creative effects</summary>
           <p>
-            These are raw building blocks, not a second effect gallery. Add one here when you know
-            the operator you need, then use Object Filters for its parameters, order, mask, and
-            blend. Use Image Tuning for photo correction and Adjustment Filters for a scoped
-            backdrop correction.
+            These are raw building blocks, not a second treatment gallery. Tune an applied named
+            treatment above to retain its intent. Add one here only when you know the operator you
+            need; Object Filters then exposes its parameters, order, mask, and blend. Raw changes to
+            a curated treatment are marked Customized rather than silently relabelled. Use Image
+            Tuning for photo correction and Adjustment Filters for a scoped backdrop correction.
           </p>
           <ul aria-label="Individual creative effects">
             {primitiveDefinitions.map((definition) => (
@@ -665,9 +1137,10 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
         </div>
 
         <p className="effect-studio__stack-note">
-          Effect Studio writes ordered editable entries to Object Filters; it never flattens raster
-          source or converts vector geometry. Image Tuning is for image-local photographic work,
-          while Adjustment Filters correct a scoped backdrop.
+          Effect Studio owns named treatment settings and applied-recipe management. Its recipes are
+          still ordered editable Object Filter entries, so stacking never flattens raster source or
+          converts vector geometry. Image Tuning is for image-local photographic work, while
+          Adjustment Filters correct a scoped backdrop.
         </p>
       </div>
     </DisclosureSection>

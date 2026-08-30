@@ -9,7 +9,7 @@ import {
   type SurfacePreset,
 } from '@varve/engine';
 import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@varve/scene';
-import { makeAdjustment } from '@varve/scene';
+import { cryptoId, makeAdjustment } from '@varve/scene';
 import { Select, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
@@ -39,17 +39,9 @@ const ADJUSTMENT_BLEND_OPTIONS: { value: AdjustmentBlendMode; label: string }[] 
   { value: 'passThrough', label: 'Pass Through' },
 ];
 
-let _localAdjCounter = 0;
-function localAdjId(): string {
-  _localAdjCounter++;
-  return `adj-${Date.now()}-${_localAdjCounter}`;
-}
-
 function presetAdjustments(preset: SurfacePreset): Adjustment[] {
   if (preset.surface !== 'adjustment-layer') return [];
-  return preset.effects.map((effect) =>
-    makeAdjustment(localAdjId(), effect.kind, effect.overrides),
-  );
+  return preset.effects.map((effect) => makeAdjustment(cryptoId(), effect.kind, effect.overrides));
 }
 
 /**
@@ -128,7 +120,7 @@ export function AdjustmentPanel() {
   const handleAddAdjustment = useCallback(
     (kind: AdjustmentKind) => {
       if (!nodeId) return;
-      const newId = localAdjId();
+      const newId = cryptoId();
       const adj = makeAdjustment(newId, kind);
       updateNode(nodeId, (n) => {
         const an = n as AdjustmentNode;
@@ -144,7 +136,7 @@ export function AdjustmentPanel() {
   const handleAutoWhiteBalance = useCallback(() => {
     if (!nodeId || !sourceHistogram) return;
     const correction = autoWhiteBalanceParams(sourceHistogram);
-    const id = localAdjId();
+    const id = cryptoId();
     const auto = makeAdjustment(id, 'colorBalance', {
       shadows: correction,
       midtones: correction,
@@ -230,7 +222,7 @@ export function AdjustmentPanel() {
   const handleDuplicateAdjustment = useCallback(
     (adjId: string) => {
       if (!nodeId) return;
-      const duplicateId = localAdjId();
+      const duplicateId = cryptoId();
       updateNode(nodeId, (n) => {
         if (n.kind !== 'adjustment') return n;
         const adjustments = n.adjustments ?? [];

@@ -57,6 +57,8 @@
 .effect-studio__looks-header button,
 .effect-studio__preview-status button,
 .effect-studio__card-actions button,
+.effect-studio__applied button,
+.effect-studio__tuning button,
 .effect-studio__primitives button,
 .effect-studio__looks li button {
   align-items: center;
@@ -82,6 +84,10 @@
 .effect-studio__preview-status button:focus-visible,
 .effect-studio__card-actions button:hover:not(:disabled),
 .effect-studio__card-actions button:focus-visible,
+.effect-studio__applied button:hover:not(:disabled),
+.effect-studio__applied button:focus-visible,
+.effect-studio__tuning button:hover:not(:disabled),
+.effect-studio__tuning button:focus-visible,
 .effect-studio__primitives button:hover:not(:disabled),
 .effect-studio__primitives button:focus-visible,
 .effect-studio__looks li button:hover,
@@ -94,6 +100,8 @@
 .effect-studio__looks-header button:focus-visible,
 .effect-studio__preview-status button:focus-visible,
 .effect-studio__card-actions button:focus-visible,
+.effect-studio__applied button:focus-visible,
+.effect-studio__tuning button:focus-visible,
 .effect-studio__primitives button:focus-visible,
 .effect-studio__looks li button:focus-visible,
 .effect-studio__filters button:focus-visible,
@@ -105,6 +113,7 @@
 .effect-studio__compare:disabled,
 .effect-studio__looks-header button:disabled,
 .effect-studio__card-actions button:disabled,
+.effect-studio__tuning button:disabled,
 .effect-studio__recent button:disabled {
   cursor: default;
   opacity: 0.5;
@@ -161,6 +170,155 @@
   background: var(--color-surface-selected);
   border-color: var(--color-accent);
   color: var(--color-text-primary);
+}
+
+.effect-studio__applied,
+.effect-studio__tuning {
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2);
+}
+
+.effect-studio__applied-header,
+.effect-studio__tuning-header {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.effect-studio__applied h3,
+.effect-studio__tuning h3 {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  margin: 0;
+}
+
+.effect-studio__applied p,
+.effect-studio__tuning p {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.4;
+  margin: var(--space-1) 0 0;
+}
+
+.effect-studio__applied ul {
+  display: grid;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.effect-studio__applied li {
+  align-items: center;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+}
+
+.effect-studio__applied li.is-selected {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.effect-studio__applied-summary {
+  display: grid;
+  gap: 1px;
+  margin-right: auto;
+  min-width: 0;
+}
+
+.effect-studio__applied-name,
+.effect-studio__applied-description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.effect-studio__applied-name {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.effect-studio__applied-description {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.effect-studio__applied button,
+.effect-studio__tuning-header > button,
+.effect-studio__tuning-actions button {
+  min-height: 1.75rem;
+  padding: 0 var(--space-2);
+}
+
+.effect-studio__tuning {
+  border-color: var(--color-accent);
+}
+
+.effect-studio__customized {
+  background: var(--color-surface-raised);
+  border-left: 2px solid var(--color-warning, var(--color-accent));
+  padding: var(--space-1) var(--space-2);
+}
+
+.effect-studio__tuning-controls {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.effect-studio__tuning-controls > label {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.effect-studio__control-label {
+  align-items: baseline;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.effect-studio__tuning-controls strong {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.effect-studio__tuning-controls output {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.effect-studio__tuning-controls input[type="range"] {
+  accent-color: var(--color-accent);
+  inline-size: 100%;
+  margin: 0;
+}
+
+.effect-studio__tuning-controls small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.35;
+}
+
+.effect-studio__tuning-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.effect-studio__tuning-actions .effect-studio__add {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-text-on-accent);
 }
 
 .effect-studio__recent {
@@ -692,6 +850,8 @@
 @media (max-width: 24rem) {
   .effect-studio__intro,
   .effect-studio__looks-header,
+  .effect-studio__applied-header,
+  .effect-studio__tuning-header,
   .effect-studio__preview-status {
     align-items: stretch;
     flex-direction: column;
@@ -700,5 +860,10 @@
   .effect-studio__treatment-grid,
   .effect-studio__primitives ul {
     grid-template-columns: 1fr;
+  }
+
+  .effect-studio__applied li {
+    align-items: stretch;
+    flex-wrap: wrap;
   }
 }

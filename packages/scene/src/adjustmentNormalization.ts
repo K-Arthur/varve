@@ -131,6 +131,7 @@ function normalizeStudioTreatmentMetadata(
   if (!isRecord(value)) return undefined;
   const treatmentId = value.treatmentId;
   const instanceId = value.instanceId;
+  const effectIndex = value.effectIndex;
   if (
     typeof treatmentId !== 'string' ||
     treatmentId.length === 0 ||
@@ -138,9 +139,10 @@ function normalizeStudioTreatmentMetadata(
     typeof instanceId !== 'string' ||
     instanceId.length === 0 ||
     instanceId.length > 160 ||
-    !Number.isInteger(value.effectIndex) ||
-    value.effectIndex < 0 ||
-    value.effectIndex > 64
+    typeof effectIndex !== 'number' ||
+    !Number.isInteger(effectIndex) ||
+    effectIndex < 0 ||
+    effectIndex > 64
   ) {
     return undefined;
   }
@@ -154,7 +156,7 @@ function normalizeStudioTreatmentMetadata(
   return {
     treatmentId,
     instanceId,
-    effectIndex: value.effectIndex,
+    effectIndex,
     controls,
     ...(value.customized === true ? { customized: true } : {}),
   };

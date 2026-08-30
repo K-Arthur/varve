@@ -9,6 +9,7 @@ import type { Adjustment, AdjustmentBlendMode, AdjustmentKind } from '@varve/eng
 import {
   EFFECT_SURFACE_GUIDANCE,
   filterKindDisplayName,
+  getEffectStudioTreatment,
   isKnownAdjustmentKind,
 } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
@@ -56,6 +57,27 @@ function filterName(filter: Adjustment): string {
     : `Unavailable effect (${String(filter.kind)})`;
 }
 
+function studioTreatmentName(filter: Adjustment): string | undefined {
+  const treatmentId = filter.studioTreatment?.treatmentId;
+  return treatmentId ? getEffectStudioTreatment(treatmentId)?.name : undefined;
+}
+
+function markTreatmentCustomized(filters: readonly Adjustment[], filterId: string): Adjustment[] {
+  const source = filters.find((filter) => filter.id === filterId);
+  const metadata = source?.studioTreatment;
+  if (!metadata) return [...filters];
+  return filters.map((filter) => {
+    const member = filter.studioTreatment;
+    if (member?.treatmentId !== metadata.treatmentId || member.instanceId !== metadata.instanceId) {
+      return filter;
+    }
+    return {
+      ...filter,
+      studioTreatment: { ...member, customized: true },
+    } as Adjustment;
+  });
+}
+
 export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
   const { updateNode, beginTransaction, commitTransaction, announce } = useEditor();
   const node = nodes.length === 1 ? nodes[0] : undefined;
@@ -64,7 +86,9 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
   const filters = compatible && node ? (node.smartFilters ?? []) : [];
   const stackEnabled = node?.smartFiltersEnabled !== false;
   const hasVectorFinishing = !!node && !isImageShape(node);
+  const hasCuratedRecipeMembers = filters.some((filter) => filter.studioTreatment);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(() => !hasCuratedRecipeMembers);
   const draggedFilterIdRef = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const editingRef = useRef(false);
@@ -87,6 +111,10 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
     }
   }, [filters, selectedId]);
 
+  useEffect(() => {
+    setAdvancedOpen(!hasCuratedRecipeMembers);
+  }, [hasCuratedRecipeMembers, nodeId]);
+
   useEffect(
     () => () => {
       if (editingRef.current) {
@@ -102,7 +130,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
       if (!nodeId) return;
       updateNode(nodeId, (current) => ({
         ...current,
-        smartFilters: (current.smartFilters ?? []).map((filter) =>
+        smartFilters: markTreatmentCustomized(current.smartFilters ?? [], filterId).map((filter) =>
           filter.id === filterId ? ({ ...filter, ...patch } as Adjustment) : filter,
         ),
       }));
@@ -130,7 +158,9 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
       const filter = filters.find((f) => f.id === filterId);
       updateNode(nodeId, (current) => ({
         ...current,
-        smartFilters: (current.smartFilters ?? []).filter((filter) => filter.id !== filterId),
+        smartFilters: markTreatmentCustomized(current.smartFilters ?? [], filterId).filter(
+          (filter) => filter.id !== filterId,
+        ),
       }));
       setSelectedId((current) => (current === filterId ? null : current));
       if (filter) announce(`Removed ${filterName(filter)} filter`);
@@ -142,7 +172,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
     (filterId: string, nextIndex: number) => {
       if (!nodeId) return;
       updateNode(nodeId, (current) => {
-        const stack = [...(current.smartFilters ?? [])];
+        const stack = markTreatmentCustomized(current.smartFilters ?? [], filterId);
         const index = stack.findIndex((filter) => filter.id === filterId);
         if (index < 0) return current;
         const [filter] = stack.splice(index, 1);
@@ -185,6 +215,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
       const source = filters.find((filter) => filter.id === filterId);
       const copy = source ? cloneSmartFilters([source])[0] : undefined;
       if (!copy) return;
+      delete copy.studioTreatment;
       updateNode(nodeId, (current) => {
         const stack = current.smartFilters ?? [];
         const index = stack.findIndex((filter) => filter.id === filterId);
@@ -216,11 +247,6 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
 
   return (
     <DisclosureSection title="Object Filters" sectionId="smart-filters">
-      {hasVectorFinishing && (
-        <VectorFinishingQuickActions
-          onAdd={(kind: VectorFinishingKind, preset) => addFilter(kind, preset)}
-        />
-      )}
       <div className="smart-filters__intro-row">
         <div className="smart-filters__intro">
           {EFFECT_SURFACE_GUIDANCE['object-filter'].scope}. Raster placement and vector geometry
@@ -241,179 +267,225 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
         </button>
       </div>
 
-      <ul className="smart-filters__stack" aria-label="Object Filter stack">
-        {filters.length === 0 && <li className="smart-filters__empty">No filters applied.</li>}
-        {filters.map((filter, index) => (
-          <li
-            className={`smart-filters__row${selectedId === filter.id ? ' smart-filters__row--selected' : ''}${dragOverId === filter.id ? ' smart-filters__row--drag-over' : ''}`}
-            key={filter.id}
-            draggable={filters.length > 1}
-            onDragStart={(event) => handleFilterDragStart(event, filter.id)}
-            onDragOver={(event) => {
-              if (!draggedFilterIdRef.current || draggedFilterIdRef.current === filter.id) return;
-              event.preventDefault();
-              event.dataTransfer.dropEffect = 'move';
-              setDragOverId(filter.id);
-            }}
-            onDragLeave={() => setDragOverId((current) => (current === filter.id ? null : current))}
-            onDrop={(event) => handleFilterDrop(event, index)}
-            onDragEnd={() => {
-              draggedFilterIdRef.current = null;
-              setDragOverId(null);
-              finishTransaction();
-            }}
-          >
-            <div className="smart-filters__reorder">
-              <button
-                type="button"
-                disabled={index === 0}
-                onClick={() => reorderFilter(filter.id, index - 1)}
-                aria-label={`Move ${filterName(filter)} up`}
-              >
-                <SolidIcon name={SOLID_CHROME_ICONS.chevronUp} size="0.65em" />
-              </button>
-              <button
-                type="button"
-                disabled={index === filters.length - 1}
-                onClick={() => reorderFilter(filter.id, index + 1)}
-                aria-label={`Move ${filterName(filter)} down`}
-              >
-                <SolidIcon name={SOLID_CHROME_ICONS.chevronDown} size="0.65em" />
-              </button>
-            </div>
-            <button
-              type="button"
-              className="smart-filters__visibility"
-              onClick={() => updateFilter(filter.id, { visible: !filter.visible })}
-              aria-label={
-                filter.visible ? `Disable ${filterName(filter)}` : `Enable ${filterName(filter)}`
-              }
-              aria-pressed={filter.visible}
-            >
-              <SolidIcon
-                name={
-                  filter.visible ? SOLID_CHROME_ICONS.visibility : SOLID_CHROME_ICONS.visibilityOff
-                }
-                size="0.75em"
-              />
-            </button>
-            <button
-              type="button"
-              className="smart-filters__name"
-              onClick={() => setSelectedId(filter.id)}
-              aria-expanded={selectedId === filter.id}
-            >
-              <span>{filterName(filter)}</span>
-              {!isKnownAdjustmentKind(filter.kind) && (
-                <span className="smart-filters__unavailable">Unavailable in this build</span>
-              )}
-              {(filter.opacity ?? 1) < 1 && (
-                <span className="smart-filters__meta">
-                  {Math.round((filter.opacity ?? 1) * 100)}%
-                </span>
-              )}
-            </button>
-            <button
-              type="button"
-              className="smart-filters__remove"
-              onClick={() => removeFilter(filter.id)}
-              aria-label={`Remove ${filterName(filter)}`}
-            >
-              <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.7em" />
-            </button>
-          </li>
-        ))}
-      </ul>
+      {hasCuratedRecipeMembers && (
+        <p className="smart-filters__curated-notice" role="status">
+          Named treatments are tuned in Effect Studio above. Changing an entry here turns that
+          treatment into a customized recipe; its current result remains editable.
+        </p>
+      )}
 
-      <div className="smart-filters__add-label">
-        <span>Add Object Filter</span>
-        <Select
-          label="Add Object Filter"
-          value=""
-          placeholder="Choose a filter…"
-          options={SMART_FILTER_KINDS.map((kind) => ({
-            value: kind,
-            label: filterKindDisplayName(kind),
-          }))}
-          onChange={(value) => {
-            if (value) addFilter(value as AdjustmentKind);
-          }}
-        />
-      </div>
-
-      {selected && (
-        <div
-          className="smart-filters__editor"
-          onPointerDownCapture={(event) => {
-            if ((event.target as Element).matches('input[type="range"]')) startTransaction();
-          }}
-          onPointerUpCapture={finishTransaction}
-          onPointerCancelCapture={finishTransaction}
-          onKeyDownCapture={(event) => {
-            if ((event.target as Element).matches('input[type="range"]')) startTransaction();
-          }}
-          onKeyUpCapture={finishTransaction}
-        >
-          {selectedIsKnown ? (
-            <AdjustmentEditor
-              adjustment={selected}
-              onChange={(patch) => updateFilter(selected.id, patch)}
-              onEditStart={startTransaction}
-              onEditEnd={finishTransaction}
-              doc={undefined}
+      <details
+        className="smart-filters__advanced"
+        open={advancedOpen}
+        onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
+      >
+        <summary>
+          <span className="smart-filters__advanced-title">Advanced stack editor</span>
+          <small className="smart-filters__advanced-hint">
+            Raw filters, order, opacity, and blending
+          </small>
+        </summary>
+        <div className="smart-filters__advanced-body">
+          {hasVectorFinishing && (
+            <VectorFinishingQuickActions
+              onAdd={(kind: VectorFinishingKind, preset) => addFilter(kind, preset)}
             />
-          ) : (
-            <div className="smart-filters__unavailable-panel" role="status">
-              <strong>Effect unavailable</strong>
-              <span>
-                This effect was created by a newer Varve build. It will round-trip safely, but it
-                cannot be previewed or edited here.
-              </span>
+          )}
+
+          <ul className="smart-filters__stack" aria-label="Object Filter stack">
+            {filters.length === 0 && <li className="smart-filters__empty">No filters applied.</li>}
+            {filters.map((filter, index) => (
+              <li
+                className={`smart-filters__row${selectedId === filter.id ? ' smart-filters__row--selected' : ''}${dragOverId === filter.id ? ' smart-filters__row--drag-over' : ''}`}
+                key={filter.id}
+                draggable={filters.length > 1}
+                onDragStart={(event) => handleFilterDragStart(event, filter.id)}
+                onDragOver={(event) => {
+                  if (!draggedFilterIdRef.current || draggedFilterIdRef.current === filter.id)
+                    return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                  setDragOverId(filter.id);
+                }}
+                onDragLeave={() =>
+                  setDragOverId((current) => (current === filter.id ? null : current))
+                }
+                onDrop={(event) => handleFilterDrop(event, index)}
+                onDragEnd={() => {
+                  draggedFilterIdRef.current = null;
+                  setDragOverId(null);
+                  finishTransaction();
+                }}
+              >
+                <div className="smart-filters__reorder">
+                  <button
+                    type="button"
+                    disabled={index === 0}
+                    onClick={() => reorderFilter(filter.id, index - 1)}
+                    aria-label={`Move ${filterName(filter)} up`}
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.chevronUp} size="0.65em" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={index === filters.length - 1}
+                    onClick={() => reorderFilter(filter.id, index + 1)}
+                    aria-label={`Move ${filterName(filter)} down`}
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.chevronDown} size="0.65em" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="smart-filters__visibility"
+                  onClick={() => updateFilter(filter.id, { visible: !filter.visible })}
+                  aria-label={
+                    filter.visible
+                      ? `Disable ${filterName(filter)}`
+                      : `Enable ${filterName(filter)}`
+                  }
+                  aria-pressed={filter.visible}
+                >
+                  <SolidIcon
+                    name={
+                      filter.visible
+                        ? SOLID_CHROME_ICONS.visibility
+                        : SOLID_CHROME_ICONS.visibilityOff
+                    }
+                    size="0.75em"
+                  />
+                </button>
+                <button
+                  type="button"
+                  className="smart-filters__name"
+                  onClick={() => setSelectedId(filter.id)}
+                  aria-expanded={selectedId === filter.id}
+                >
+                  <span className="smart-filters__name-copy">
+                    <span>{filterName(filter)}</span>
+                    {studioTreatmentName(filter) && (
+                      <small className="smart-filters__treatment-member">
+                        {studioTreatmentName(filter)}
+                        {filter.studioTreatment?.customized
+                          ? ' · customized recipe'
+                          : ' · recipe member'}
+                      </small>
+                    )}
+                  </span>
+                  {!isKnownAdjustmentKind(filter.kind) && (
+                    <span className="smart-filters__unavailable">Unavailable in this build</span>
+                  )}
+                  {(filter.opacity ?? 1) < 1 && (
+                    <span className="smart-filters__meta">
+                      {Math.round((filter.opacity ?? 1) * 100)}%
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="smart-filters__remove"
+                  onClick={() => removeFilter(filter.id)}
+                  aria-label={`Remove ${filterName(filter)}`}
+                >
+                  <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.7em" />
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <div className="smart-filters__add-label">
+            <span>Add Object Filter</span>
+            <Select
+              label="Add Object Filter"
+              value=""
+              placeholder="Choose a filter…"
+              options={SMART_FILTER_KINDS.map((kind) => ({
+                value: kind,
+                label: filterKindDisplayName(kind),
+              }))}
+              onChange={(value) => {
+                if (value) addFilter(value as AdjustmentKind);
+              }}
+            />
+          </div>
+
+          {selected && (
+            <div
+              className="smart-filters__editor"
+              onPointerDownCapture={(event) => {
+                if ((event.target as Element).matches('input[type="range"]')) startTransaction();
+              }}
+              onPointerUpCapture={finishTransaction}
+              onPointerCancelCapture={finishTransaction}
+              onKeyDownCapture={(event) => {
+                if ((event.target as Element).matches('input[type="range"]')) startTransaction();
+              }}
+              onKeyUpCapture={finishTransaction}
+            >
+              {selectedIsKnown ? (
+                <AdjustmentEditor
+                  adjustment={selected}
+                  onChange={(patch) => updateFilter(selected.id, patch)}
+                  onEditStart={startTransaction}
+                  onEditEnd={finishTransaction}
+                  doc={undefined}
+                />
+              ) : (
+                <div className="smart-filters__unavailable-panel" role="status">
+                  <strong>Effect unavailable</strong>
+                  <span>
+                    This effect was created by a newer Varve build. It will round-trip safely, but
+                    it cannot be previewed or edited here.
+                  </span>
+                </div>
+              )}
+              <label className="smart-filters__opacity">
+                <span>
+                  <span>Effect Opacity</span>
+                  <span>{Math.round((selected.opacity ?? 1) * 100)}%</span>
+                </span>
+                <input
+                  type="range"
+                  className="adj-editor__slider smart-filters__effect-slider"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={Math.round((selected.opacity ?? 1) * 100)}
+                  onChange={(event) =>
+                    updateFilter(selected.id, { opacity: Number(event.target.value) / 100 })
+                  }
+                  aria-label={`${filterName(selected)} effect opacity`}
+                />
+              </label>
+              <div className="smart-filters__blend">
+                <span>Effect Blend</span>
+                <Select
+                  label={`${filterName(selected)} effect blend mode`}
+                  value={selected.blendMode}
+                  options={BLEND_OPTIONS}
+                  onChange={(value) =>
+                    updateFilter(selected.id, { blendMode: value as AdjustmentBlendMode })
+                  }
+                />
+              </div>
+              <div className="smart-filters__actions">
+                <button
+                  type="button"
+                  disabled={!selectedIsKnown}
+                  onClick={() =>
+                    updateFilter(selected.id, makeSmartFilter(selected.id, selected.kind))
+                  }
+                >
+                  Reset
+                </button>
+                <button type="button" onClick={() => duplicateFilter(selected.id)}>
+                  Duplicate
+                </button>
+              </div>
             </div>
           )}
-          <label className="smart-filters__opacity">
-            <span>
-              <span>Effect Opacity</span>
-              <span>{Math.round((selected.opacity ?? 1) * 100)}%</span>
-            </span>
-            <input
-              type="range"
-              className="adj-editor__slider smart-filters__effect-slider"
-              min={0}
-              max={100}
-              step={1}
-              value={Math.round((selected.opacity ?? 1) * 100)}
-              onChange={(event) =>
-                updateFilter(selected.id, { opacity: Number(event.target.value) / 100 })
-              }
-              aria-label={`${filterName(selected)} effect opacity`}
-            />
-          </label>
-          <div className="smart-filters__blend">
-            <span>Effect Blend</span>
-            <Select
-              label={`${filterName(selected)} effect blend mode`}
-              value={selected.blendMode}
-              options={BLEND_OPTIONS}
-              onChange={(value) =>
-                updateFilter(selected.id, { blendMode: value as AdjustmentBlendMode })
-              }
-            />
-          </div>
-          <div className="smart-filters__actions">
-            <button
-              type="button"
-              disabled={!selectedIsKnown}
-              onClick={() => updateFilter(selected.id, makeSmartFilter(selected.id, selected.kind))}
-            >
-              Reset
-            </button>
-            <button type="button" onClick={() => duplicateFilter(selected.id)}>
-              Duplicate
-            </button>
-          </div>
         </div>
-      )}
+      </details>
     </DisclosureSection>
   );
 }

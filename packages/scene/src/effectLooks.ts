@@ -97,14 +97,35 @@ export function appendEffectLook(
   look: EffectLook,
   makeId: () => string,
 ): Adjustment[] {
+  const treatmentInstanceIds = new Map<string, string>();
+  const rebaseTreatmentInstance = (effect: Adjustment) => {
+    const metadata = effect.studioTreatment;
+    if (!metadata) return undefined;
+    // Keep Look application resilient to imported IDs that happen to contain
+    // a printable separator. A treatment instance is only shared by members
+    // with this exact pair, never by either field alone.
+    const sourceKey = `${metadata.treatmentId}\u0000${metadata.instanceId}`;
+    const instanceId = treatmentInstanceIds.get(sourceKey) ?? makeId();
+    treatmentInstanceIds.set(sourceKey, instanceId);
+    return { ...metadata, instanceId };
+  };
+
   return [
     ...stack,
     ...look.effects.map((effect) => {
       const id = makeId();
       const { id: _sourceId, kind: _sourceKind, ...parameters } = effect;
+      const studioTreatment = rebaseTreatmentInstance(effect);
       return isKnownAdjustmentKind(effect.kind)
-        ? makeAdjustment(id, effect.kind, JSON.parse(JSON.stringify(parameters)))
-        : ({ ...effect, id } as Adjustment);
+        ? makeAdjustment(id, effect.kind, {
+            ...JSON.parse(JSON.stringify(parameters)),
+            ...(studioTreatment ? { studioTreatment } : {}),
+          })
+        : ({
+            ...effect,
+            id,
+            ...(studioTreatment ? { studioTreatment } : {}),
+          } as Adjustment);
     }),
   ];
 }

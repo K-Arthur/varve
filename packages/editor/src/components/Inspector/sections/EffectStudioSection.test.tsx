@@ -37,6 +37,75 @@ function effectNode(id = 'shape-1', filters: Adjustment[] = []): SceneNode {
   } as SceneNode;
 }
 
+function reticulationNode(id = 'reticulation-shape-1', customized = false): SceneNode {
+  const controls = {
+    amount: 100,
+    'cluster-density': 67,
+    'tone-steps': 4,
+    'material-grain': 60,
+  };
+  return effectNode(id, [
+    makeAdjustment('reticulation-dither', 'dither', {
+      algorithm: 'blue-noise',
+      levels: 4,
+      strength: 0.48,
+      bayerSize: 8,
+      cellSize: 3,
+      seed: 61,
+      studioTreatment: {
+        treatmentId: 'studio-reticulation',
+        instanceId: 'reticulation-1',
+        effectIndex: 0,
+        controls,
+        ...(customized ? { customized: true } : {}),
+      },
+    }),
+    makeAdjustment('reticulation-grain', 'grain', {
+      strength: 24,
+      scale: 1.7,
+      character: 82,
+      seed: 61,
+      studioTreatment: {
+        treatmentId: 'studio-reticulation',
+        instanceId: 'reticulation-1',
+        effectIndex: 1,
+        controls,
+        ...(customized ? { customized: true } : {}),
+      },
+    }),
+  ]);
+}
+
+function importedInstanceCollisionNode(): SceneNode {
+  const reticulation = reticulationNode('collision-shape');
+  const controls = { amount: 100 };
+  return {
+    ...reticulation,
+    smartFilters: [
+      ...(reticulation.smartFilters ?? []).map((filter) => ({
+        ...filter,
+        studioTreatment: { ...filter.studioTreatment!, instanceId: 'shared-imported-id' },
+      })),
+      makeAdjustment('collision-bloom', 'bloom', {
+        studioTreatment: {
+          treatmentId: 'studio-chromatic-bloom',
+          instanceId: 'shared-imported-id',
+          effectIndex: 0,
+          controls,
+        },
+      }),
+      makeAdjustment('collision-split', 'rgbSplit', {
+        studioTreatment: {
+          treatmentId: 'studio-chromatic-bloom',
+          instanceId: 'shared-imported-id',
+          effectIndex: 1,
+          controls,
+        },
+      }),
+    ],
+  } as SceneNode;
+}
+
 function updatedNode(node: SceneNode): SceneNode {
   const updateNode = mockedUseEditor().updateNode as unknown as ReturnType<typeof vi.fn>;
   const updater = updateNode.mock.calls.at(-1)?.[1] as
@@ -149,6 +218,53 @@ describe('EffectStudioSection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add VHS primitive to stack' }));
     expect(addSmartFilterToSelected).toHaveBeenCalledWith('vhs', undefined);
     expect(screen.getByText(/Use Image Tuning for photo correction/i)).toBeInTheDocument();
+  });
+
+  it('tunes an applied Reticulation treatment without making users find its raw members', () => {
+    const node = reticulationNode();
+    render(<EffectStudioSection nodes={[node]} />);
+
+    expect(screen.getByText('Applied treatments')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Tune Reticulation' }));
+    expect(screen.getByRole('slider', { name: 'Reticulation Cluster density' })).toHaveValue('67');
+
+    fireEvent.change(screen.getByRole('slider', { name: 'Reticulation Cluster density' }), {
+      target: { value: '100' },
+    });
+    const updated = updatedNode(node);
+    expect(updated.smartFilters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'reticulation-dither',
+          cellSize: 1,
+          studioTreatment: expect.objectContaining({
+            controls: expect.objectContaining({ 'cluster-density': 100 }),
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it('offers an explicit restoration path after advanced edits customize a treatment', () => {
+    const node = reticulationNode('custom-reticulation', true);
+    render(<EffectStudioSection nodes={[node]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tune Reticulation' }));
+    expect(screen.getByText(/This recipe has advanced edits/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Restore recipe' }));
+
+    const updated = updatedNode(node);
+    expect(updated.smartFilters?.map((filter) => filter.kind)).toEqual(['dither', 'grain']);
+    expect(
+      updated.smartFilters?.every((filter) => filter.studioTreatment?.customized !== true),
+    ).toBe(true);
+  });
+
+  it('keeps imported treatments separate when an instance token collides', () => {
+    render(<EffectStudioSection nodes={[importedInstanceCollisionNode()]} />);
+
+    expect(screen.getByRole('button', { name: 'Tune Reticulation' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tune Chromatic Bloom' })).toBeInTheDocument();
   });
 
   it('saves Looks in the document and applies one through the object stack', () => {

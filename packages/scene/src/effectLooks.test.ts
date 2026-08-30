@@ -24,6 +24,44 @@ describe('Effect Studio Looks and stack operations', () => {
     expect(applied[1]).not.toBe(look.effects[0]);
   });
 
+  it('rebases curated treatment instance identities when a Look is applied', () => {
+    const source = [
+      makeAdjustment('bloom-source', 'bloom', {
+        studioTreatment: {
+          treatmentId: 'studio-chromatic-bloom',
+          instanceId: 'source-treatment',
+          effectIndex: 0,
+          controls: { amount: 100, glowStrength: 60 },
+        },
+      }),
+      makeAdjustment('split-source', 'rgbSplit', {
+        studioTreatment: {
+          treatmentId: 'studio-chromatic-bloom',
+          instanceId: 'source-treatment',
+          effectIndex: 1,
+          controls: { amount: 100, glowStrength: 60 },
+        },
+      }),
+    ];
+    const look = createEffectLook('look-treatment', 'Chromatic look', source);
+    let id = 0;
+    const nextId = () => `applied-${++id}`;
+
+    const first = appendEffectLook([], look, nextId);
+    const second = appendEffectLook(first, look, nextId);
+    const firstInstance = first[0]?.studioTreatment?.instanceId;
+    const secondInstance = second[2]?.studioTreatment?.instanceId;
+
+    expect(first.map((effect) => effect.studioTreatment?.instanceId)).toEqual([
+      firstInstance,
+      firstInstance,
+    ]);
+    expect(firstInstance).not.toBe('source-treatment');
+    expect(secondInstance).toBeDefined();
+    expect(secondInstance).not.toBe(firstInstance);
+    expect(second[2]?.studioTreatment?.instanceId).toBe(second[3]?.studioTreatment?.instanceId);
+  });
+
   it('normalizes malformed Look values without allowing invalid effect numbers', () => {
     const result = normalizeEffectLook(
       {
