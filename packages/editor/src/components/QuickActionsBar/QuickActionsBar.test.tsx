@@ -26,6 +26,19 @@ describe('QuickActionsBar', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('refreshes the action list when opened after registry population', () => {
+    const onClose = vi.fn();
+    const { rerender } = render(<QuickActionsBar open={false} onClose={onClose} />);
+
+    getActionRegistry().register(
+      { id: 'registeredAfterMount', label: 'Registered After Mount', category: 'tools' },
+      () => {},
+    );
+    rerender(<QuickActionsBar open={true} onClose={onClose} />);
+
+    expect(screen.getByText('Registered After Mount')).toBeInTheDocument();
+  });
+
   it('renders when open', () => {
     render(<QuickActionsBar open={true} onClose={vi.fn()} />);
     expect(screen.getByRole('dialog')).toBeInTheDocument();

@@ -79,7 +79,7 @@ export function QuickActionsBar({
 
   const allActions = useMemo(
     () => registry.getAll().filter((action) => !action.placeholder),
-    [registry],
+    [registry, open],
   );
 
   const filtered = useMemo(() => {
