@@ -9,7 +9,8 @@ import { describe, expect, it, vi } from 'vitest';
 const maskPixels = { value: new Uint8ClampedArray() };
 const maskSize = { w: 2, h: 2 };
 
-vi.mock('@varve/engine', () => ({
+vi.mock('@varve/engine', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@varve/engine')>()),
   getImageCache: () => ({ load: async () => ({ width: maskSize.w, height: maskSize.h }) }),
   fitBezierToContour: vi.fn(),
 }));
