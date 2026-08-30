@@ -195,6 +195,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
 | `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |
+| `adr/0226-surface-read-model.md` | Additive page and frame surface read model |
 ## Architecture Docs (current state)
 
 | Doc | Purpose |
@@ -238,6 +239,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/analytics.md` | Privacy-first analytics architecture |
 | `architecture/auto-layout-system.md` | Auto-layout (flex/grid) engine — canonical doc |
 | `architecture/blend-spaces.md` | Blend-space model from the 2026-08-17 blend-space landing |
+| `architecture/surface-model.md` | Page-layout surfaces, design frames, artboards, export markers, and workspace disclosure |
 | `architecture/paint-system.md` | Paint subsystem: stroke-to-pixels pipeline, brush library, invariants |
 | `architecture/animated-image-media-system.md` | GIF/APNG/WebP media pipeline |
 | `architecture/effect-rendering.md` | Effect pass structure in `replay.ts` and render-parity contract |
@@ -465,6 +467,7 @@ records; check the current code before acting on their findings.
 | `audits/selection-system-audit-2026-08-23.md` | Pixel/node selection gap analysis preceding the selection-system work — see `architecture/selection-system.md` for current state |
 | `audits/selection-validation-report-2026-08-23.md` | Selection-system delivery and validation record, including the UI wiring landed after the implementation plan's "pending" notes |
 | `audits/effects-surfaces-audit-2026-08-29.md` | Research-backed separation of Effect Studio, Image Tuning, Object Filters, and Adjustment Filters, including raster/vector behavior |
+| `audits/pages-master-layout-audit-2026-08-29.md` | Current page, parent/master, spread, frame, workspace, I/O, and validation capability audit |
 
 ## Website-specific (current state)
 

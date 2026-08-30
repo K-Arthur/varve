@@ -134,6 +134,7 @@ export * from './storyOps';
 export * from './strokeEngine';
 export * from './styles';
 export * from './suppressions';
+export * from './surfaceModel';
 export * from './swatches';
 export * from './table';
 export * from './tableLayout';
