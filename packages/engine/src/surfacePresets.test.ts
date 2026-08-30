@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ADJUSTMENT_KINDS,
   ADJUSTMENT_LAYER_KINDS,
   ADJUSTMENT_LAYER_PRESETS,
+  EFFECT_STUDIO_CATEGORIES,
   EFFECT_STUDIO_KINDS,
   EFFECT_STUDIO_PRESETS,
+  EFFECT_STUDIO_TREATMENTS,
+  FEATURED_EFFECT_STUDIO_TREATMENTS,
   IMAGE_TUNING_KINDS,
   IMAGE_TUNING_PRESETS,
+  searchEffectStudioTreatments,
   surfacePresetKinds,
 } from './index';
 
@@ -26,8 +31,8 @@ describe('surface preset catalogs', () => {
 
   it('does not leak surface-specific recipes into another catalog', () => {
     expect(
-      surfacePresetKinds(EFFECT_STUDIO_PRESETS).every((kind) =>
-        (EFFECT_STUDIO_KINDS as readonly string[]).includes(kind),
+      surfacePresetKinds(EFFECT_STUDIO_TREATMENTS).every((kind) =>
+        (ADJUSTMENT_KINDS as readonly string[]).includes(kind),
       ),
     ).toBe(true);
     expect(
@@ -40,12 +45,23 @@ describe('surface preset catalogs', () => {
         (ADJUSTMENT_LAYER_KINDS as readonly string[]).includes(kind),
       ),
     ).toBe(true);
-    expect(surfacePresetKinds(EFFECT_STUDIO_PRESETS)).not.toContain('microDetail');
+    expect(surfacePresetKinds(EFFECT_STUDIO_TREATMENTS)).toContain('grain');
+    expect(EFFECT_STUDIO_KINDS).not.toContain('grain');
     expect(surfacePresetKinds(IMAGE_TUNING_PRESETS)).not.toContain('halftone');
   });
 
-  it('provides stack recipes rather than only single-slider aliases', () => {
-    expect(EFFECT_STUDIO_PRESETS.some((preset) => preset.effects.length > 1)).toBe(true);
+  it('provides a populated outcome catalog instead of single-slider aliases', () => {
+    expect(EFFECT_STUDIO_TREATMENTS.length).toBeGreaterThanOrEqual(24);
+    expect(EFFECT_STUDIO_TREATMENTS.every((treatment) => treatment.effects.length > 1)).toBe(true);
+    expect(FEATURED_EFFECT_STUDIO_TREATMENTS.length).toBeGreaterThanOrEqual(4);
+    for (const category of EFFECT_STUDIO_CATEGORIES) {
+      expect(
+        EFFECT_STUDIO_TREATMENTS.some((treatment) => treatment.categoryId === category.id),
+      ).toBe(true);
+    }
+    expect(searchEffectStudioTreatments('crosshatch').map((treatment) => treatment.id)).toContain(
+      'studio-crosshatch',
+    );
     expect(IMAGE_TUNING_PRESETS.some((preset) => preset.effects.length > 1)).toBe(true);
     expect(ADJUSTMENT_LAYER_PRESETS.some((preset) => preset.effects.length > 1)).toBe(true);
   });

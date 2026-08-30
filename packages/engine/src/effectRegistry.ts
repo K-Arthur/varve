@@ -24,14 +24,14 @@ export const EFFECT_CATEGORIES = [
 export type EffectCategoryId = (typeof EFFECT_CATEGORIES)[number]['id'];
 export const EFFECT_STUDIO_CATEGORIES = [
   {
-    id: 'artistic-media',
-    label: 'Artistic Media',
-    description: 'Reduce, remap, and reinterpret an object as a designed image.',
+    id: 'artistic',
+    label: 'Artistic',
+    description: 'Reinterpret colour and tone as a deliberately designed image.',
   },
   {
-    id: 'print-strokes',
-    label: 'Print Strokes',
-    description: 'Turn tone into marks, dots, and deliberate print structure.',
+    id: 'brush-ink',
+    label: 'Brush & Ink',
+    description: 'Turn tone into drawn marks, ink, hatching, and imperfect media.',
   },
   {
     id: 'distort',
@@ -39,9 +39,9 @@ export const EFFECT_STUDIO_CATEGORIES = [
     description: 'Bend, split, and refract the rendered object result.',
   },
   {
-    id: 'sketch-poster',
-    label: 'Sketch & Poster',
-    description: 'Push an object toward graphic, posterized, or hand-made abstraction.',
+    id: 'sketch',
+    label: 'Sketch',
+    description: 'Build graphic studies from relief, graphite, chalk, and stamped tone.',
   },
   {
     id: 'stylize',
@@ -49,9 +49,9 @@ export const EFFECT_STUDIO_CATEGORIES = [
     description: 'Add luminous, electronic, and cinematic visual signatures.',
   },
   {
-    id: 'texture-tape',
-    label: 'Texture & Tape',
-    description: 'Add a surface language that reads as material, tape, or signal.',
+    id: 'texture',
+    label: 'Texture',
+    description: 'Give an object a material, printed, taped, or weathered surface language.',
   },
 ] as const;
 
@@ -171,19 +171,19 @@ const STUDIO_CATEGORY_BY_KIND: Record<
   (typeof EFFECT_STUDIO_KINDS)[number],
   EffectStudioCategoryId
 > = {
-  duotone: 'artistic-media',
-  tritone: 'artistic-media',
-  paletteSnap: 'artistic-media',
-  colorHalftone: 'print-strokes',
+  duotone: 'artistic',
+  tritone: 'artistic',
+  paletteSnap: 'artistic',
+  colorHalftone: 'brush-ink',
   rgbSplit: 'distort',
   caustics: 'distort',
-  dither: 'sketch-poster',
+  dither: 'sketch',
   bloom: 'stylize',
   lightShafts: 'stylize',
   lensFlare: 'stylize',
   lightLeak: 'stylize',
-  crt: 'stylize',
-  vhs: 'texture-tape',
+  crt: 'texture',
+  vhs: 'texture',
 };
 export type EffectTargetKind = 'shape' | 'text' | 'path' | 'frame' | 'group' | 'rasterLayer';
 export type EffectScope = 'object' | 'adjustment-layer';

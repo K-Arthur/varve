@@ -1078,13 +1078,24 @@ export {
 export type { ShapingCacheKeyOptions } from './shapingCache';
 export { ShapingCache, shapingCache } from './shapingCache';
 export * from './storyComposition';
-export type { SurfacePreset, SurfacePresetEffect } from './surfacePresets';
+export type {
+  StudioTreatment,
+  StudioTreatmentArt,
+  SurfacePreset,
+  SurfacePresetEffect,
+} from './surfacePresets';
 export {
   ADJUSTMENT_LAYER_PRESETS,
   EFFECT_STUDIO_PRESETS,
+  EFFECT_STUDIO_TREATMENTS,
+  FEATURED_EFFECT_STUDIO_TREATMENTS,
+  getEffectStudioTreatment,
   IMAGE_TUNING_PRESETS,
+  listEffectStudioTreatments,
+  STUDIO_TREATMENT_ARTS,
   SURFACE_PRESET_KIND_SETS,
   SURFACE_PRESETS,
+  searchEffectStudioTreatments,
   surfacePresetKinds,
 } from './surfacePresets';
 export * from './text/lineBreak';
