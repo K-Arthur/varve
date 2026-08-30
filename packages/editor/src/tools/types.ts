@@ -205,6 +205,8 @@ export interface ToolContext {
   ) => void;
   /** Activate a page (page-scoped commands, insertion target, inspector). */
   setActivePage?: (pageId: NodeId) => void;
+  /** Master source currently being edited, when the canvas is source-scoped. */
+  masterEditId?: NodeId | null;
   /** Move a page on the pasteboard (placement metadata only, ADR-0124). */
   movePageOnPasteboard?: (pageId: NodeId, x: number, y: number) => void;
   /** Resize a page's trim without scaling its content (page-only resize). */

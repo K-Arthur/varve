@@ -1,5 +1,5 @@
 import type { Document, NodeId, SceneNode } from '@varve/scene';
-import { applyAffine, type Point } from '@varve/shared';
+import { type Affine, applyAffine, type Point, type Rect } from '@varve/shared';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 
 export interface MarqueeRect {
@@ -99,6 +99,7 @@ function primitivePolygon(
   node: SceneNode,
   nodeId: NodeId,
   parentIndex?: Map<NodeId, NodeId>,
+  getWorldTransform: (nodeId: NodeId) => Affine = (id) => nodeWorldTransform(doc, id, parentIndex),
 ): Point[] | null {
   if (node.kind !== 'shape' || !['rect', 'ellipse', 'circle'].includes(node.shape.kind)) {
     return null;
@@ -112,13 +113,13 @@ function primitivePolygon(
       [local.x + local.w, local.y + local.h],
       [local.x, local.y + local.h],
     ];
-    return corners.map((point) => applyAffine(nodeWorldTransform(doc, nodeId, parentIndex), point));
+    return corners.map((point) => applyAffine(getWorldTransform(nodeId), point));
   }
   const points: Point[] = [];
   const count = 48;
   const cx = local.x + local.w / 2;
   const cy = local.y + local.h / 2;
-  const transform = nodeWorldTransform(doc, nodeId, parentIndex);
+  const transform = getWorldTransform(nodeId);
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2;
     points.push(
@@ -142,11 +143,13 @@ export function marqueeGeometryHit(
   marquee: MarqueeRect,
   containment: boolean,
   parentIndex?: Map<NodeId, NodeId>,
+  getWorldTransform: (nodeId: NodeId) => Affine = (id) => nodeWorldTransform(doc, id, parentIndex),
+  getWorldBounds: (nodeId: NodeId) => Rect | null = (id) => nodeWorldBounds(doc, id, parentIndex),
 ): boolean {
   const node = doc.nodes[nodeId];
-  const bounds = nodeWorldBounds(doc, nodeId, parentIndex);
+  const bounds = getWorldBounds(nodeId);
   if (!node || !bounds) return false;
-  const polygon = primitivePolygon(doc, node, nodeId, parentIndex);
+  const polygon = primitivePolygon(doc, node, nodeId, parentIndex, getWorldTransform);
   if (!polygon) {
     return containment
       ? marqueeRectContainsRect(marquee, bounds)

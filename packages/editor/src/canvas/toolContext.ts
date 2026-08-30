@@ -5,9 +5,11 @@ import {
   buildParentIndexMap,
   getGuidesForPage,
   makeRasterLayerNode,
+  multipageRootNodes,
   type NodeId,
   nextNodeId,
   type SceneNode,
+  walkNodes,
 } from '@varve/scene';
 import type { Camera } from '@varve/shared';
 import type { EditorContextValue, EditorState } from '../context';
@@ -20,7 +22,6 @@ import {
 } from '../scene/spatialIndex';
 import {
   getWorldBounds as getCachedWorldBounds,
-  getWorldTransform as getCachedWorldTransform,
   type TransformCache,
 } from '../scene/transformCache';
 import { nodeWorldBounds } from '../scene/world';
@@ -136,6 +137,7 @@ export function buildToolContext(
     snapEnabled: s.snapEnabled,
     snapGrid: s.snapGrid,
     isolatedNodeId: s.isolatedNodeId,
+    masterEditId: s.masterEditId,
     enterIsolation: (nodeId) => e.enterIsolation(nodeId),
     exitIsolation: () => e.exitIsolation(),
 
@@ -181,9 +183,16 @@ export function buildToolContext(
     },
     worldToCanvas: (wx, wy) => e.worldToCanvas(wx, wy),
     canvasDeltaToWorld: (dx, dy) => e.canvasDeltaToWorld(dx, dy),
-    getWorldTransform: (id) =>
-      getCachedWorldTransform(deps.transformCacheRef.current, s.document, id),
+    getWorldTransform: (id) => e.getWorldTransform(id),
     queryMarqueeCandidates: (rect) => {
+      if (s.masterEditId) {
+        return new Set(
+          walkNodes(
+            s.document,
+            multipageRootNodes(s.document, { masterEditId: s.masterEditId }),
+          ).keys(),
+        );
+      }
       const cached = deps.marqueeIndexRef.current;
       const index =
         cached && cached.docRef === s.document ? cached : getOrCreateSpatialIndex(s.document, null);
@@ -217,9 +226,7 @@ export function buildToolContext(
 
     findContainingFrame: (world) => e.findContainingFrame(world, deps.frameIndexRef.current),
     setDropTargetFrame: deps.setDropTargetFrameId,
-    nodeWorldBounds: (n) =>
-      getCachedWorldBounds(deps.transformCacheRef.current, s.document, n.id) ??
-      nodeWorldBounds(s.document, n.id),
+    nodeWorldBounds: (n) => e.nodeWorldBounds(n),
 
     engine: eng,
     canvasElement: deps.contentCanvasRef.current,

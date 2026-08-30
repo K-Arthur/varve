@@ -586,6 +586,41 @@ function pageContentPoint(
   return local ? { x: local[0], y: local[1] } : point;
 }
 
+/** World translation used when a master source is displayed over the active page. */
+function masterEditOffset(doc: Document, masterId: NodeId | null): { x: number; y: number } | null {
+  if (!masterId || !doc.masters?.[masterId]) return null;
+  const page = doc.pages?.find((candidate) => candidate.id === doc.activePageId);
+  if (!page) return { x: 0, y: 0 };
+  const bounds = pageBoundsInWorld(doc, page.id);
+  return bounds ? { x: bounds.x, y: bounds.y } : { x: 0, y: 0 };
+}
+
+function masterEditNodeOffset(
+  doc: Document,
+  masterId: NodeId | null,
+  nodeId: NodeId,
+): { x: number; y: number } | null {
+  const offset = masterEditOffset(doc, masterId);
+  const rootId = masterId ? doc.masters?.[masterId]?.contentRoot : undefined;
+  if (!offset || !rootId) return null;
+  let current: NodeId | null = nodeId;
+  const visited = new Set<NodeId>();
+  while (current && !visited.has(current)) {
+    if (current === rootId) return offset;
+    visited.add(current);
+    current = getParent(doc, current);
+  }
+  return null;
+}
+
+function offsetRect(
+  bounds: { x: number; y: number; w: number; h: number } | null,
+  offset: { x: number; y: number } | null,
+): { x: number; y: number; w: number; h: number } | null {
+  if (!bounds || !offset) return bounds;
+  return { ...bounds, x: bounds.x + offset.x, y: bounds.y + offset.y };
+}
+
 /** Resolve the active canvas/page trim in placed world space for alignment. */
 function alignmentPageBounds(doc: Document): { x: number; y: number; w: number; h: number } {
   const placed = doc.activePageId ? pageBoundsInWorld(doc, doc.activePageId) : null;
@@ -4301,11 +4336,22 @@ export function EditorProvider({
       },
 
       nodeWorldBounds: (n) =>
-        getCachedWorldBounds(transformCacheRef.current, state.document, n.id) ??
-        nodeWorldBounds(state.document, n.id),
+        offsetRect(
+          getCachedWorldBounds(transformCacheRef.current, state.document, n.id) ??
+            nodeWorldBounds(state.document, n.id),
+          masterEditNodeOffset(state.document, state.masterEditId, n.id),
+        ),
       getWorldTransform: (id) =>
-        getCachedWorldTransform(transformCacheRef.current, state.document, id),
-      getWorldBounds: (id) => getCachedWorldBounds(transformCacheRef.current, state.document, id),
+        (() => {
+          const world = getCachedWorldTransform(transformCacheRef.current, state.document, id);
+          const offset = masterEditNodeOffset(state.document, state.masterEditId, id);
+          return offset ? multiplyAffine([1, 0, 0, 1, offset.x, offset.y], world) : world;
+        })(),
+      getWorldBounds: (id) =>
+        offsetRect(
+          getCachedWorldBounds(transformCacheRef.current, state.document, id),
+          masterEditNodeOffset(state.document, state.masterEditId, id),
+        ),
 
       canvasToWorld: (cx, cy) => {
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
@@ -4360,6 +4406,7 @@ export function EditorProvider({
       hitTestNode: (world) => {
         const engine = new HitTestEngine(state.document, {
           isolatedNodeId: state.isolatedNodeId,
+          masterEditId: state.masterEditId,
           zoom: state.zoom,
         });
         const hit = engine.hitTest(world);
@@ -4373,6 +4420,7 @@ export function EditorProvider({
       ) => {
         const engine = HitTestEngine.withPolicy(state.document, policyName, {
           isolatedNodeId: state.isolatedNodeId,
+          masterEditId: state.masterEditId,
           zoom: state.zoom,
         });
         const hit = engine.hitTest(world);

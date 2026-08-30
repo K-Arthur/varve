@@ -1,8 +1,10 @@
 import {
   addChild,
   addPage as addPage2,
+  assignMasterToPage,
   createClippingMask,
   createDocument,
+  createMaster,
   makeFrameNode,
   makeShapeNode,
   nextNodeId,
@@ -365,6 +367,54 @@ describe('HitTestEngine', () => {
       expect(doc.activePageId).toBe(p1b.id);
       // Pasteboard point between pages hits nothing.
       expect(engine.hitTest({ x: 210, y: 30 })).toBeNull();
+    });
+
+    it('hits projected master content at the page placement', () => {
+      let doc = createDocument('master hit', false);
+      doc = createMaster(doc, { name: 'Master', width: 1920, height: 1080 });
+      const master = Object.values(doc.masters!)[0]!;
+      const { id: headerId, doc: d1 } = nextNodeId(doc);
+      doc = addChild(
+        d1,
+        master.contentRoot,
+        makeShapeNode(
+          headerId,
+          { kind: 'rect', x: 0, y: 0, w: 100, h: 20 },
+          { transform: [1, 0, 0, 1, 10, 10] as Affine },
+        ),
+      );
+      const page = doc.pages![0]!;
+      doc = {
+        ...doc,
+        pages: [{ ...page, placement: { x: 220, y: 40 } }],
+      };
+      doc = assignMasterToPage(doc, page.id, master.id);
+
+      const engine = new HitTestEngine(doc);
+      expect(engine.hitTest({ x: 230, y: 50 })?.nodeId).toBe(headerId);
+      expect(engine.hitTest({ x: 10, y: 10 })).toBeNull();
+    });
+
+    it('uses the active page placement while editing a master source', () => {
+      let doc = createDocument('master source hit', false);
+      doc = createMaster(doc, { name: 'Master', width: 1920, height: 1080 });
+      const master = Object.values(doc.masters!)[0]!;
+      const { id: sourceId, doc: d1 } = nextNodeId(doc);
+      doc = addChild(
+        d1,
+        master.contentRoot,
+        makeShapeNode(sourceId, { kind: 'rect', x: 0, y: 0, w: 100, h: 20 }),
+      );
+      const page = doc.pages![0]!;
+      doc = {
+        ...doc,
+        pages: [{ ...page, placement: { x: 300, y: 60 } }],
+      };
+      doc = assignMasterToPage(doc, page.id, master.id);
+
+      const engine = new HitTestEngine(doc, { masterEditId: master.id });
+      expect(engine.hitTest({ x: 350, y: 70 })?.nodeId).toBe(sourceId);
+      expect(engine.hitTest({ x: 50, y: 10 })).toBeNull();
     });
   });
 });

@@ -19,6 +19,7 @@ import {
   buildParentIndexMap,
   getParent,
   isInIsolatedSubtree,
+  multipageRootNodes,
   type NodeId,
   walkNodes,
   worldToPageAtPoint,
@@ -89,9 +90,10 @@ function worldCenterOf(
   doc: import('@varve/scene').Document,
   selId: NodeId,
   bounds?: { x: number; y: number; w: number; h: number } | null,
+  getWorldTransform?: (nodeId: NodeId) => import('@varve/shared').Affine,
 ): { x: number; y: number } {
   if (bounds) return { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 };
-  const t = nodeWorldTransform(doc, selId);
+  const t = getWorldTransform?.(selId) ?? nodeWorldTransform(doc, selId);
   return { x: t[4], y: t[5] };
 }
 
@@ -245,7 +247,9 @@ export class SelectTool extends BaseTool {
           ctx.beginTransaction();
           this.initialPositions.clear();
           // ctx.selection is a stale snapshot; use the newly-selected id directly.
-          const worldMat = nodeWorldTransform(ctx.document, nextNode.nodeId);
+          const worldMat =
+            ctx.getWorldTransform?.(nextNode.nodeId) ??
+            nodeWorldTransform(ctx.document, nextNode.nodeId);
           this.initialPositions.set(nextNode.nodeId, { x: worldMat[4], y: worldMat[5] });
           return { consumed: true, captured: true };
         }
@@ -313,7 +317,7 @@ export class SelectTool extends BaseTool {
           : [hit.nodeId]; // replaced: only the new node
       this.initialPositions.clear();
       for (const id of effectiveIds) {
-        const worldMat = nodeWorldTransform(ctx.document, id);
+        const worldMat = ctx.getWorldTransform?.(id) ?? nodeWorldTransform(ctx.document, id);
         this.initialPositions.set(id, { x: worldMat[4], y: worldMat[5] });
       }
     } else {
@@ -463,7 +467,11 @@ export class SelectTool extends BaseTool {
         const parentId = getParent(ctx.document, id);
         const toLocal = (wx: number, wy: number): { x: number; y: number } => {
           if (!parentId) return { x: wx, y: wy };
-          const local = worldToParent(ctx.document, parentId, [wx, wy]);
+          const parentWorld = ctx.getWorldTransform?.(parentId);
+          const parentInverse = parentWorld ? invertAffine(parentWorld) : null;
+          const local = parentInverse
+            ? applyAffine(parentInverse, [wx, wy])
+            : worldToParent(ctx.document, parentId, [wx, wy]);
           if (!local) return { x: wx, y: wy };
           return { x: local[0], y: local[1] };
         };
@@ -491,7 +499,12 @@ export class SelectTool extends BaseTool {
       //   Ctrl/Cmd: temporarily toggle containment, independently of the op
       const useContainment = this.marqueeContainment;
       const operation = this.marqueeOperation;
-      const entries = walkNodes(ctx.document, activePageNodes(ctx.document));
+      const entries = walkNodes(
+        ctx.document,
+        ctx.masterEditId
+          ? multipageRootNodes(ctx.document, { masterEditId: ctx.masterEditId })
+          : activePageNodes(ctx.document),
+      );
       const ordered = [...entries.values()].reverse();
       const marqueeIds: string[] = [];
       const parentIndex = buildParentIndexMap(ctx.document);
@@ -505,7 +518,22 @@ export class SelectTool extends BaseTool {
         )
           continue;
         if (broadPhase && !broadPhase.has(entry.nodeId)) continue;
-        if (marqueeGeometryHit(ctx.document, entry.nodeId, rect, useContainment, parentIndex)) {
+        if (
+          marqueeGeometryHit(
+            ctx.document,
+            entry.nodeId,
+            rect,
+            useContainment,
+            parentIndex,
+            ctx.masterEditId ? ctx.getWorldTransform : undefined,
+            ctx.masterEditId
+              ? (id) => {
+                  const node = ctx.document.nodes[id];
+                  return node ? ctx.nodeWorldBounds(node) : null;
+                }
+              : undefined,
+          )
+        ) {
           marqueeIds.push(entry.nodeId);
         }
       }
@@ -530,8 +558,10 @@ export class SelectTool extends BaseTool {
             const node = ctx.getNode(selId);
             if (!node || node.locked || !node.visible) continue;
             // Use world-space center (accounts for parent transforms) for reparent.
-            const worldBounds = nodeWorldBounds(ctx.document, selId);
-            const center = worldCenterOf(ctx.document, selId, worldBounds);
+            const worldBounds = ctx.masterEditId
+              ? ctx.nodeWorldBounds(node)
+              : nodeWorldBounds(ctx.document, selId);
+            const center = worldCenterOf(ctx.document, selId, worldBounds, ctx.getWorldTransform);
             const frameId = ctx.findContainingFrame(center);
             if (frameId) {
               const currentParent = getParent(ctx.document, selId);
@@ -559,7 +589,9 @@ export class SelectTool extends BaseTool {
                 // than the target frame (matching Figma/Sketch behaviour).
                 const frameNode = ctx.getNode(frameId);
                 if (frameNode && frameNode.kind === 'frame') {
-                  const fb = nodeWorldBounds(ctx.document, frameId);
+                  const fb = ctx.masterEditId
+                    ? ctx.nodeWorldBounds(frameNode)
+                    : nodeWorldBounds(ctx.document, frameId);
                   if (fb && worldBounds) {
                     const nodeArea = worldBounds.w * worldBounds.h;
                     const frameArea = fb.w * fb.h;
@@ -818,7 +850,12 @@ export class SelectTool extends BaseTool {
     ctx: ToolContext,
   ): Array<{ nodeId: string; node: import('@varve/scene').SceneNode }> {
     const results: Array<{ nodeId: string; node: import('@varve/scene').SceneNode }> = [];
-    const entries = walkNodes(ctx.document, activePageNodes(ctx.document));
+    const entries = walkNodes(
+      ctx.document,
+      ctx.masterEditId
+        ? multipageRootNodes(ctx.document, { masterEditId: ctx.masterEditId })
+        : activePageNodes(ctx.document),
+    );
     // Screen-pixel threshold for path hit-testing (world units at current zoom).
     const pathThresh = 6 / Math.max(0.001, ctx.zoom);
     // Reverse for paint order (later siblings on top)
@@ -835,7 +872,16 @@ export class SelectTool extends BaseTool {
       if (!bbox) continue;
       // F: Path ray-cast — use segment distance test instead of bbox alone
       if (entry.node.kind === 'shape' && entry.node.shape?.kind === 'path') {
-        if (isPointNearPath(world, entry.node, entry.nodeId, ctx.document, pathThresh)) {
+        if (
+          isPointNearPath(
+            world,
+            entry.node,
+            entry.nodeId,
+            ctx.document,
+            pathThresh,
+            ctx.getWorldTransform,
+          )
+        ) {
           results.push({ nodeId: entry.nodeId, node: entry.node });
         }
         continue;
@@ -952,12 +998,13 @@ function isPointNearPath(
   nodeId: string,
   doc: import('@varve/scene').Document,
   threshold: number,
+  getWorldTransform?: (nodeId: NodeId) => import('@varve/shared').Affine,
 ): boolean {
   if (node.kind !== 'shape' || node.shape.kind !== 'path') return false;
   const points = node.shape.points;
   if (!points || points.length < 2) return false;
 
-  const worldMat = nodeWorldTransform(doc, nodeId);
+  const worldMat = getWorldTransform?.(nodeId) ?? nodeWorldTransform(doc, nodeId);
   const invMat = invertAffine(worldMat);
   if (!invMat) return false;
 

@@ -70,4 +70,24 @@ describe('marquee geometry', () => {
     expect(marqueeGeometryHit(doc, 'rotated', { x: 5.8, y: 0, w: 1, h: 1 }, false)).toBe(false);
     expect(marqueeGeometryHit(doc, 'rotated', { x: 5.8, y: 6.5, w: 1, h: 1 }, false)).toBe(true);
   });
+
+  it('accepts placed-world geometry callbacks for projected sources', () => {
+    const doc = createDocument('placed-source');
+    const source = makeShapeNode('source', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    const placed = { x: 100, y: 50, w: 10, h: 10 };
+    const transform = [1, 0, 0, 1, 100, 50] as const;
+    const withSource = { ...doc, nodes: { ...doc.nodes, source } };
+
+    expect(
+      marqueeGeometryHit(
+        withSource,
+        source.id,
+        { x: 100, y: 50, w: 10, h: 10 },
+        true,
+        undefined,
+        () => transform,
+        () => placed,
+      ),
+    ).toBe(true);
+  });
 });
