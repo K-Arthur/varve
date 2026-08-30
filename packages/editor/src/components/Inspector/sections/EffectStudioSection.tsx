@@ -212,29 +212,31 @@ function updateStudioTreatmentInstance(
 ): SceneNode {
   const controls = treatmentControlValues(treatment, values);
   const effects = resolveStudioTreatmentEffects(treatment, controls);
-  return {
-    ...node,
-    smartFilters: (node.smartFilters ?? []).map((filter) => {
-      const metadata = filter.studioTreatment;
-      if (
-        !metadata ||
-        metadata.treatmentId !== treatment.id ||
-        metadata.instanceId !== instanceId ||
-        !effects[metadata.effectIndex]
-      ) {
-        return filter;
-      }
-      const effect = effects[metadata.effectIndex]!;
-      return {
-        ...filter,
-        ...effect.overrides,
-        studioTreatment: {
-          ...metadata,
-          controls,
-        },
-      } as Adjustment;
-    }),
-  };
+  let updated = false;
+  const smartFilters = (node.smartFilters ?? []).map((filter) => {
+    const metadata = filter.studioTreatment;
+    if (
+      !metadata ||
+      metadata.treatmentId !== treatment.id ||
+      metadata.instanceId !== instanceId ||
+      !effects[metadata.effectIndex]
+    ) {
+      return filter;
+    }
+    updated = true;
+    const effect = effects[metadata.effectIndex]!;
+    return {
+      ...filter,
+      ...effect.overrides,
+      studioTreatment: {
+        ...metadata,
+        controls,
+      },
+    } as Adjustment;
+  });
+  // A deliberate tuning action means "show this treatment". This also heals
+  // a stack left bypassed by a prior bypass action or a document reload.
+  return updated ? { ...node, smartFiltersEnabled: true, smartFilters } : node;
 }
 
 function replaceStudioTreatmentInstance(
@@ -256,6 +258,7 @@ function replaceStudioTreatmentInstance(
   const withoutInstance = filters.filter((filter) => !isMember(filter));
   return {
     ...node,
+    smartFiltersEnabled: true,
     smartFilters: [
       ...withoutInstance.slice(0, insertionIndex),
       ...studioTreatmentFilters(instance.treatment, values, instance.instanceId),

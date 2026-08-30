@@ -221,7 +221,7 @@ describe('EffectStudioSection', () => {
   });
 
   it('tunes an applied Reticulation treatment without making users find its raw members', () => {
-    const node = reticulationNode();
+    const node = { ...reticulationNode(), smartFiltersEnabled: false } as SceneNode;
     render(<EffectStudioSection nodes={[node]} />);
 
     expect(screen.getByText('Applied treatments')).toBeInTheDocument();
@@ -232,6 +232,7 @@ describe('EffectStudioSection', () => {
       target: { value: '100' },
     });
     const updated = updatedNode(node);
+    expect(updated.smartFiltersEnabled).toBe(true);
     expect(updated.smartFilters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
