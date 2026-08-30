@@ -49,5 +49,8 @@ export function useFitOnFirstDocument(editor: FitEditor, enabled: boolean): void
  */
 
 export { useDetachedPanels } from './useDetachedPanels';
-export { useEffectiveWorkspaceConfig } from './useWorkspaceConfig';
+export {
+  resolvePageSurfaceVisibility,
+  useEffectiveWorkspaceConfig,
+} from './useWorkspaceConfig';
 export { useWorkspacePanelWidths } from './useWorkspacePanelWidths';

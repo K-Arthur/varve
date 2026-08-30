@@ -9,7 +9,10 @@
  * of that, so it stays out on purpose.
  */
 
-export { useEffectiveWorkspaceConfig } from './useWorkspaceConfig';
+export {
+  resolvePageSurfaceVisibility,
+  useEffectiveWorkspaceConfig,
+} from './useWorkspaceConfig';
 export { workspaceShortcutLabel } from './workspaceShortcutLabel';
 export {
   // Effective configuration — the one resolver (built-in + user overrides)

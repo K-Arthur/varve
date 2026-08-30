@@ -10,21 +10,25 @@
  * on later without a second interaction model.
  *
  * Thumbnails use the same engine pipeline as PageNav (lazy, cached per page
- * id, cancellable). Deletion uses the scene's delete-content policy — the
- * explicit content-disposition workflow is a later milestone.
+ * id, cancellable). Deletion uses the safe move-to-pasteboard policy; the
+ * explicit destructive content-disposition workflow remains in PageNav.
  */
 
 import type { NodeId } from '@varve/scene';
 import {
   addPage as addPageDoc,
   computePageNumbering,
+  deletePageWithPolicy,
   duplicatePage as duplicatePageDoc,
-  removePage as removePageDoc,
   reorderPages as reorderPagesDoc,
 } from '@varve/scene';
 import { Icon } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
+import {
+  resolvePageSurfaceVisibility,
+  useEffectiveWorkspaceConfig,
+} from '../../workspace/useWorkspaceConfig';
 import { usePageThumbnail } from '../PageNav/usePageThumbnail';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
 import './pages-panel.css';
@@ -44,10 +48,16 @@ interface PageRowData {
 
 export function PagesPanel() {
   const { state, updateDoc, setActivePage, setCurrentPageId, getPageSide } = useEditor();
+  const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
 
   const doc = state.document;
   const pages = doc.pages ?? [];
   const masters = doc.masters ?? {};
+  const pageSurfaceVisibility = resolvePageSurfaceVisibility({
+    mode: state.workspaceMode,
+    pageCount: pages.length,
+    pagePanelVisible: effectiveConfig.panels.pagenav.visible,
+  });
 
   const [collapsed, setCollapsed] = useState(false);
   const [scrollTop, setScrollTop] = useState(0);
@@ -100,7 +110,7 @@ export function PagesPanel() {
 
   const handleDelete = useCallback(
     (pageId: NodeId) => {
-      updateDoc((doc) => removePageDoc(doc, pageId));
+      updateDoc((doc) => deletePageWithPolicy(doc, pageId, 'move-to-pasteboard'));
       setCurrentPageId(null);
     },
     [updateDoc, setCurrentPageId],
@@ -174,7 +184,7 @@ export function PagesPanel() {
     setScrollTop(scrollRef.current?.scrollTop ?? 0);
   }, []);
 
-  if (state.workspaceMode !== 'design' && state.workspaceMode !== 'print') {
+  if (!pageSurfaceVisibility.showPagesPanel) {
     return null;
   }
 

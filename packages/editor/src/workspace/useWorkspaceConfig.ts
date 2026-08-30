@@ -16,6 +16,40 @@ import {
 } from './workspaceStore';
 import { ALL_WORKSPACE_MODES, type WorkspaceConfig, type WorkspaceMode } from './workspaceTypes';
 
+export interface PageSurfaceVisibility {
+  /** Whether page surfaces remain part of the canvas document view. */
+  renderPageSurfaces: boolean;
+  /** Whether the page-management panel should be mounted. */
+  showPagesPanel: boolean;
+  /** Whether the compact page navigator should be mounted. */
+  showPageNavigation: boolean;
+  /** Whether print-only geometry controls have a page to act on. */
+  showPrintGeometry: boolean;
+}
+
+/**
+ * Resolve page-related UI disclosure without filtering document semantics.
+ *
+ * A panel preference can hide management controls, but workspace mode must
+ * never hide page rendering, ownership, persistence, or explicit commands.
+ * Print keeps an empty management panel available so a flat document can be
+ * promoted intentionally by the user rather than by an implicit conversion.
+ */
+export function resolvePageSurfaceVisibility(input: {
+  mode: WorkspaceMode;
+  pageCount: number;
+  pagePanelVisible: boolean;
+}): PageSurfaceVisibility {
+  const hasPages = Number.isFinite(input.pageCount) && input.pageCount > 0;
+  const showPagesPanel = input.pagePanelVisible && (hasPages || input.mode === 'print');
+  return {
+    renderPageSurfaces: hasPages,
+    showPagesPanel,
+    showPageNavigation: input.pagePanelVisible && hasPages,
+    showPrintGeometry: input.mode === 'print' && hasPages,
+  };
+}
+
 export function useEffectiveWorkspaceConfig(mode: WorkspaceMode): WorkspaceConfig {
   const [prefs, setPrefs] = useState(getWorkspacePreferences);
   useEffect(() => subscribeWorkspacePreferences(() => setPrefs(getWorkspacePreferences())), []);

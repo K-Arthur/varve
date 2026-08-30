@@ -12,6 +12,7 @@ vi.mock('@varve/scene', async (importOriginal) => {
   return {
     ...actual,
     addPage: vi.fn((doc: unknown) => doc),
+    deletePageWithPolicy: vi.fn((doc: unknown) => doc),
     duplicatePage: vi.fn((doc: unknown) => doc),
     removePage: vi.fn((doc: unknown) => doc),
     reorderPages: vi.fn((doc: unknown) => doc),
@@ -173,8 +174,21 @@ describe('PagesPanel', () => {
     expect(updateDoc).toHaveBeenCalled();
   });
 
-  it('renders nothing outside design and print workspaces', () => {
-    mockEditor({ pages: [makePage('p1', 'Page 1', 'a0')], workspaceMode: 'draw' });
+  it('renders nothing when the active workspace hides page navigation', () => {
+    mockEditor({ pages: [makePage('p1', 'Page 1', 'a0')], workspaceMode: 'drawing' });
+    const { container } = render(<PagesPanel />);
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('keeps the empty page-management affordance available in Print', () => {
+    mockEditor({ pages: [], workspaceMode: 'print' });
+    render(<PagesPanel />);
+    expect(screen.getByRole('heading', { name: /Pages/ })).toBeTruthy();
+    expect(screen.getByText('No pages — click + to add one.')).toBeTruthy();
+  });
+
+  it('does not disclose an empty page panel in Design', () => {
+    mockEditor({ pages: [], workspaceMode: 'design' });
     const { container } = render(<PagesPanel />);
     expect(container.innerHTML).toBe('');
   });
