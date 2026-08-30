@@ -305,14 +305,25 @@ export type {
   EffectParameterDefinition,
   EffectParameterType,
   EffectScope,
+  EffectStudioCategoryId,
+  EffectSurface,
+  EffectSurfaceGuidance,
   EffectTargetKind,
 } from './effectRegistry';
 export {
+  ADJUSTMENT_LAYER_KINDS,
   EFFECT_CATEGORIES,
   EFFECT_REGISTRY,
+  EFFECT_STUDIO_CATEGORIES,
+  EFFECT_STUDIO_KINDS,
+  EFFECT_SURFACE_GUIDANCE,
   getEffectDefinition,
+  IMAGE_TUNING_KINDS,
   listEffectDefinitions,
+  listEffectStudioDefinitions,
+  OBJECT_FILTER_KINDS,
   searchEffectDefinitions,
+  searchEffectStudioDefinitions,
 } from './effectRegistry';
 export type { Engine } from './engine';
 export {
@@ -1067,6 +1078,15 @@ export {
 export type { ShapingCacheKeyOptions } from './shapingCache';
 export { ShapingCache, shapingCache } from './shapingCache';
 export * from './storyComposition';
+export type { SurfacePreset, SurfacePresetEffect } from './surfacePresets';
+export {
+  ADJUSTMENT_LAYER_PRESETS,
+  EFFECT_STUDIO_PRESETS,
+  IMAGE_TUNING_PRESETS,
+  SURFACE_PRESET_KIND_SETS,
+  SURFACE_PRESETS,
+  surfacePresetKinds,
+} from './surfacePresets';
 export * from './text/lineBreak';
 export * from './text/paragraphs';
 export * from './text/visualOrder';

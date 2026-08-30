@@ -66,6 +66,7 @@ describe('ImageTuningSection', () => {
   const beginTransaction = vi.fn();
   const commitTransaction = vi.fn();
   const abortTransaction = vi.fn();
+  const announce = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -78,6 +79,7 @@ describe('ImageTuningSection', () => {
       beginTransaction,
       commitTransaction,
       abortTransaction,
+      announce,
     });
   });
 
@@ -105,6 +107,22 @@ describe('ImageTuningSection', () => {
     ]);
     expect(nextFirst?.smartFiltersEnabled).toBe(true);
     expect(nextSecond?.smartFiltersEnabled).toBe(true);
+  });
+
+  it('applies a photographic preset as a multi-effect image-local recipe', () => {
+    const node = imageNode('image-1');
+    render(<ImageTuningSection nodes={[node]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply photo preset Warm Portrait' }));
+
+    const [updated] = updatedNodes([node]);
+    expect(updated?.smartFilters?.map((filter) => filter.kind)).toEqual([
+      'temperature',
+      'tint',
+      'vibrance',
+      'softBloom',
+    ]);
+    expect(announce).toHaveBeenCalledWith('Applied photo preset Warm Portrait');
   });
 
   it('represents differing selected values as mixed instead of averaging them', () => {

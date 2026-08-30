@@ -6,7 +6,11 @@
  * one parameter editor and one engine FilterIR implementation.
  */
 import type { Adjustment, AdjustmentBlendMode, AdjustmentKind } from '@varve/engine';
-import { filterKindDisplayName } from '@varve/engine';
+import {
+  EFFECT_SURFACE_GUIDANCE,
+  filterKindDisplayName,
+  isKnownAdjustmentKind,
+} from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
 import {
   canHaveSmartFilters,
@@ -47,7 +51,9 @@ const BLEND_OPTIONS: { value: AdjustmentBlendMode; label: string }[] = [
 ];
 
 function filterName(filter: Adjustment): string {
-  return filterKindDisplayName(filter.kind as AdjustmentKind);
+  return isKnownAdjustmentKind(filter.kind)
+    ? filterKindDisplayName(filter.kind)
+    : `Unavailable effect (${String(filter.kind)})`;
 }
 
 export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
@@ -204,6 +210,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
     () => filters.find((filter) => filter.id === selectedId) ?? null,
     [filters, selectedId],
   );
+  const selectedIsKnown = selected ? isKnownAdjustmentKind(selected.kind) : false;
 
   if (!node || !compatible) return null;
 
@@ -216,7 +223,8 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
       )}
       <div className="smart-filters__intro-row">
         <div className="smart-filters__intro">
-          Filters are attached to this object and keep the original content editable.
+          {EFFECT_SURFACE_GUIDANCE['object-filter'].scope}. Raster placement and vector geometry
+          stay editable while the rendered result is filtered.
         </div>
         <button
           type="button"
@@ -296,6 +304,9 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
               aria-expanded={selectedId === filter.id}
             >
               <span>{filterName(filter)}</span>
+              {!isKnownAdjustmentKind(filter.kind) && (
+                <span className="smart-filters__unavailable">Unavailable in this build</span>
+              )}
               {(filter.opacity ?? 1) < 1 && (
                 <span className="smart-filters__meta">
                   {Math.round((filter.opacity ?? 1) * 100)}%
@@ -343,13 +354,23 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
           }}
           onKeyUpCapture={finishTransaction}
         >
-          <AdjustmentEditor
-            adjustment={selected}
-            onChange={(patch) => updateFilter(selected.id, patch)}
-            onEditStart={startTransaction}
-            onEditEnd={finishTransaction}
-            doc={undefined}
-          />
+          {selectedIsKnown ? (
+            <AdjustmentEditor
+              adjustment={selected}
+              onChange={(patch) => updateFilter(selected.id, patch)}
+              onEditStart={startTransaction}
+              onEditEnd={finishTransaction}
+              doc={undefined}
+            />
+          ) : (
+            <div className="smart-filters__unavailable-panel" role="status">
+              <strong>Effect unavailable</strong>
+              <span>
+                This effect was created by a newer Varve build. It will round-trip safely, but it
+                cannot be previewed or edited here.
+              </span>
+            </div>
+          )}
           <label className="smart-filters__opacity">
             <span>
               <span>Effect Opacity</span>
@@ -382,6 +403,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
           <div className="smart-filters__actions">
             <button
               type="button"
+              disabled={!selectedIsKnown}
               onClick={() => updateFilter(selected.id, makeSmartFilter(selected.id, selected.kind))}
             >
               Reset

@@ -47,6 +47,21 @@ describe('AdjustmentPanel', () => {
     expect(screen.getByRole('button', { name: /add adjustment/i })).toBeInTheDocument();
   });
 
+  it('applies a backdrop correction preset as one multi-adjustment recipe', async () => {
+    const user = userEvent.setup();
+    renderHarness();
+    await user.click(screen.getByText('Create adjustment layer'));
+    await waitFor(() => screen.getByText('Adjustment Layer'));
+
+    await user.click(
+      screen.getByRole('button', { name: 'Apply correction preset Balanced Correction' }),
+    );
+
+    expect(screen.getAllByText('Exposure').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Contrast').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Shadow / Highlight').length).toBeGreaterThan(0);
+  });
+
   it('does not violate the Rules of Hooks when selection changes from none to an adjustment node', async () => {
     // Regression test: AdjustmentPanel used to call useState/useRef/useCallback
     // *after* an early `if (...) return null`, so the very transition this
@@ -65,7 +80,7 @@ describe('AdjustmentPanel', () => {
     errorSpy.mockRestore();
   });
 
-  it('lists halftone in the add-adjustment menu (it was previously missing, making halftone unreachable from the UI)', async () => {
+  it('keeps backdrop-scoped halftone available in the adjustment-layer menu', async () => {
     renderHarness();
     fireEvent.click(screen.getByText('Create adjustment layer'));
     await waitFor(() => screen.getByText('Adjustment Layer'));
@@ -74,19 +89,14 @@ describe('AdjustmentPanel', () => {
     expect(screen.getByRole('menuitem', { name: 'Halftone' })).toBeInTheDocument();
   });
 
-  it('renders the schema-backed Fine Texture control after adding that treatment', async () => {
+  it('keeps image-local Fine Texture out of the backdrop correction menu', async () => {
     const user = userEvent.setup();
     renderHarness();
     await user.click(screen.getByText('Create adjustment layer'));
     await waitFor(() => screen.getByText('Adjustment Layer'));
 
     await user.click(screen.getByRole('button', { name: /add adjustment/i }));
-    await user.click(screen.getByRole('menuitem', { name: 'Fine Texture' }));
-
-    expect(screen.getByRole('slider', { name: 'Fine Texture' })).toBeInTheDocument();
-    expect(
-      screen.getByText('Accentuate or soften fine texture without changing global tone.'),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Fine Texture' })).not.toBeInTheDocument();
   });
 
   it('adds the non-first adjustment selected with a real pointer interaction', async () => {

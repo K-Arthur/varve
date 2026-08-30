@@ -53,6 +53,7 @@ describe('EffectStudioSection', () => {
   const commitTransaction = vi.fn();
   const abortTransaction = vi.fn();
   const addSmartFilterToSelected = vi.fn();
+  const updateNodes = vi.fn();
   const announce = vi.fn();
 
   beforeEach(() => {
@@ -69,6 +70,7 @@ describe('EffectStudioSection', () => {
       commitTransaction,
       abortTransaction,
       addSmartFilterToSelected,
+      updateNodes,
       announce,
     });
   });
@@ -79,33 +81,60 @@ describe('EffectStudioSection', () => {
     render(<EffectStudioSection nodes={[effectNode()]} />);
 
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search effects' }), {
-      target: { value: 'film' },
+      target: { value: 'retro' },
     });
-    expect(screen.getByText('Grain')).toBeInTheDocument();
+    expect(screen.getByText('VHS')).toBeInTheDocument();
     expect(screen.queryByText('Brightness')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Grain to stack' }));
-    expect(addSmartFilterToSelected).toHaveBeenCalledWith('grain', undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Add VHS to stack' }));
+    expect(addSmartFilterToSelected).toHaveBeenCalledWith('vhs', undefined);
   });
 
   it('previews, commits, replaces, and cancels without creating extra stack commands', () => {
     const node = effectNode();
     render(<EffectStudioSection nodes={[node]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Preview Brightness' }));
-    expect(beginTransaction).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Bloom' }));
+    expect(beginTransaction).toHaveBeenCalledWith('preview');
     expect(updatedNode(node).smartFilters).toEqual([
-      expect.objectContaining({ kind: 'brightness', visible: true }),
+      expect.objectContaining({ kind: 'bloom', visible: true }),
     ]);
-    expect(screen.getByRole('status')).toHaveTextContent(/Brightness/);
+    expect(screen.getByRole('status')).toHaveTextContent(/Bloom/);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Brightness', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bloom', exact: true }));
     expect(commitTransaction).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Preview Contrast' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Lens Flare' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel preview' }));
     expect(abortTransaction).toHaveBeenCalledTimes(1);
     expect(announce).toHaveBeenLastCalledWith('Preview cancelled');
+  });
+
+  it('keeps Compare View ephemeral and restores the stack without an undo command', () => {
+    const node = effectNode('shape-1', [makeAdjustment('grain-1', 'grain')]);
+    render(<EffectStudioSection nodes={[node]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Compare original' }));
+    expect(beginTransaction).toHaveBeenCalledWith('preview');
+    expect(updatedNode(node).smartFiltersEnabled).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show effects' }));
+    expect(abortTransaction).toHaveBeenCalledTimes(1);
+    expect(addSmartFilterToSelected).not.toHaveBeenCalled();
+  });
+
+  it('offers creative multi-effect presets without exposing correction controls', () => {
+    const node = effectNode();
+    render(<EffectStudioSection nodes={[node]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Studio preset Chromatic Bloom' }));
+
+    const updates = updateNodes.mock.calls.at(-1)?.[0] as
+      | Array<{ update: (value: SceneNode) => SceneNode }>
+      | undefined;
+    const updated = updates?.[0]?.update(node);
+    expect(updated?.smartFilters?.map((filter) => filter.kind)).toEqual(['bloom', 'rgbSplit']);
+    expect(screen.queryByText('Brightness')).not.toBeInTheDocument();
   });
 
   it('saves Looks in the document and applies one through the object stack', () => {
@@ -128,6 +157,7 @@ describe('EffectStudioSection', () => {
       commitTransaction,
       abortTransaction,
       addSmartFilterToSelected,
+      updateNodes,
       announce,
     });
     render(<EffectStudioSection nodes={[node]} />);
@@ -153,9 +183,9 @@ describe('EffectStudioSection', () => {
   it('persists favorites locally and filters the library by them', () => {
     render(<EffectStudioSection nodes={[effectNode()]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Favorite Grain' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Favorite VHS' }));
     fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
-    expect(screen.getByText('Grain')).toBeInTheDocument();
-    expect(window.localStorage.getItem('varve:effect-studio:favorites')).toContain('grain');
+    expect(screen.getByText('VHS')).toBeInTheDocument();
+    expect(window.localStorage.getItem('varve:effect-studio:favorites')).toContain('vhs');
   });
 });

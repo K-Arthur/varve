@@ -1,9 +1,12 @@
 import {
   type Adjustment,
   type AdjustmentKind,
+  EFFECT_SURFACE_GUIDANCE,
   IMAGE_TREATMENT_SCHEMAS,
+  IMAGE_TUNING_PRESETS,
   type ImageTreatmentGroup,
   type ImageTreatmentSchema,
+  type SurfacePreset,
 } from '@varve/engine';
 import { cryptoId, isImageShape, makeSmartFilter, type SceneNode } from '@varve/scene';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -237,6 +240,35 @@ function resetTreatmentParameter(node: SceneNode, control: TuningControl): Scene
   };
 }
 
+function applyImagePreset(node: SceneNode, preset: SurfacePreset): SceneNode {
+  if (preset.surface !== 'image-tuning') return node;
+  let next = node;
+  for (const effect of preset.effects) {
+    const matches = matchesFor(next, effect.kind);
+    if (matches.length > 1) continue;
+    const overrides = { ...effect.overrides, visible: true } as Partial<Adjustment>;
+    if (matches.length === 1) {
+      const existing = matches[0];
+      if (!existing) continue;
+      next = {
+        ...next,
+        smartFilters: (next.smartFilters ?? []).map((filter) =>
+          filter.id === existing.id ? ({ ...filter, ...overrides } as Adjustment) : filter,
+        ),
+      };
+    } else {
+      next = {
+        ...next,
+        smartFilters: [
+          ...(next.smartFilters ?? []),
+          makeSmartFilter(cryptoId(), effect.kind, overrides),
+        ],
+      };
+    }
+  }
+  return { ...next, smartFiltersEnabled: true };
+}
+
 function setTreatmentVisibility(
   node: SceneNode,
   kind: AdjustmentKind,
@@ -276,7 +308,8 @@ function formatValue(control: TuningControl, value: number): string {
 }
 
 export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
-  const { abortTransaction, beginTransaction, commitTransaction, updateNodes } = useEditor();
+  const { abortTransaction, announce, beginTransaction, commitTransaction, updateNodes } =
+    useEditor();
   const gestureOpenRef = useRef(false);
 
   const startGesture = useCallback(() => {
@@ -346,6 +379,19 @@ export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
     [nodes, updateNodes],
   );
 
+  const applyPreset = useCallback(
+    (preset: SurfacePreset) => {
+      updateNodes(
+        nodes.map((node) => ({
+          id: node.id,
+          update: (current) => applyImagePreset(current, preset),
+        })),
+      );
+      announce(`Applied photo preset ${preset.name}`);
+    },
+    [announce, nodes, updateNodes],
+  );
+
   if (nodes.length === 0 || !nodes.every(isImageShape)) return null;
 
   return (
@@ -371,10 +417,29 @@ export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
         }}
       >
         <p className="image-tuning__intro">
-          Non-destructive image adjustments. Use Object Filters for stack order, masks, blend modes,
-          or repeated effects.
+          {EFFECT_SURFACE_GUIDANCE['image-tuning'].rasterBehavior} Use Object Filters for stack
+          order, masks, blend modes, or repeated effects. Image Tuning is intentionally unavailable
+          for vector selections.
         </p>
         {nodes.length > 1 && <p className="image-tuning__batch">Editing {nodes.length} images</p>}
+
+        <fieldset className="image-tuning__presets">
+          <legend>Photo presets</legend>
+          <div className="image-tuning__preset-grid">
+            {IMAGE_TUNING_PRESETS.map((preset) => (
+              <button
+                type="button"
+                key={preset.id}
+                className="image-tuning__preset"
+                onClick={() => applyPreset(preset)}
+                aria-label={`Apply photo preset ${preset.name}`}
+              >
+                <strong>{preset.name}</strong>
+                <span>{preset.description}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
 
         {GROUPS.map((group) => {
           const controls = standardControlsByGroup.get(group.id) ?? [];

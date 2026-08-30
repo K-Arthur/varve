@@ -7,6 +7,7 @@ import {
   filterKindDisplayName,
   isKnownAdjustmentKind,
 } from './filters';
+import { IMAGE_TREATMENT_KINDS } from './imageTreatments';
 
 /** Stable, intent-oriented Effect Studio categories. */
 export const EFFECT_CATEGORIES = [
@@ -21,6 +22,169 @@ export const EFFECT_CATEGORIES = [
 ] as const;
 
 export type EffectCategoryId = (typeof EFFECT_CATEGORIES)[number]['id'];
+export const EFFECT_STUDIO_CATEGORIES = [
+  {
+    id: 'artistic-media',
+    label: 'Artistic Media',
+    description: 'Reduce, remap, and reinterpret an object as a designed image.',
+  },
+  {
+    id: 'print-strokes',
+    label: 'Print Strokes',
+    description: 'Turn tone into marks, dots, and deliberate print structure.',
+  },
+  {
+    id: 'distort',
+    label: 'Distort',
+    description: 'Bend, split, and refract the rendered object result.',
+  },
+  {
+    id: 'sketch-poster',
+    label: 'Sketch & Poster',
+    description: 'Push an object toward graphic, posterized, or hand-made abstraction.',
+  },
+  {
+    id: 'stylize',
+    label: 'Stylize',
+    description: 'Add luminous, electronic, and cinematic visual signatures.',
+  },
+  {
+    id: 'texture-tape',
+    label: 'Texture & Tape',
+    description: 'Add a surface language that reads as material, tape, or signal.',
+  },
+] as const;
+
+export type EffectStudioCategoryId = (typeof EFFECT_STUDIO_CATEGORIES)[number]['id'];
+export type EffectSurface = 'effect-studio' | 'image-tuning' | 'adjustment-layer' | 'object-filter';
+
+export interface EffectSurfaceGuidance {
+  id: EffectSurface;
+  label: string;
+  scope: string;
+  rasterBehavior: string;
+  vectorBehavior: string;
+}
+
+/** Product contract for how each discovery surface treats raster and vector content. */
+export const EFFECT_SURFACE_GUIDANCE: Readonly<Record<EffectSurface, EffectSurfaceGuidance>> = {
+  'effect-studio': {
+    id: 'effect-studio',
+    label: 'Effect Studio',
+    scope: 'Object-local creative effect',
+    rasterBehavior:
+      'Processes the rendered image object while preserving its source fill, placement, and crop.',
+    vectorBehavior:
+      'Renders the vector object to a temporary effect surface; the original geometry, fill, and text stay editable.',
+  },
+  'image-tuning': {
+    id: 'image-tuning',
+    label: 'Image Tuning',
+    scope: 'Image-local photographic adjustment',
+    rasterBehavior:
+      'Tunes image pixels in a batch-friendly photographic workflow, with source pixels and placement preserved.',
+    vectorBehavior:
+      'Not offered for vector selections; use Object Filters for rendered-object treatments or Effect Studio for creative effects.',
+  },
+  'adjustment-layer': {
+    id: 'adjustment-layer',
+    label: 'Adjustment Filters',
+    scope: 'Backdrop-scoped tonal and colour correction',
+    rasterBehavior:
+      'Applies to the rendered raster content below the layer and can be limited with the layer scope and mask.',
+    vectorBehavior:
+      'Applies after vector content is rendered into the backdrop; vector geometry remains unchanged and editable.',
+  },
+  'object-filter': {
+    id: 'object-filter',
+    label: 'Object Filters',
+    scope: 'Advanced ordered object-local stack',
+    rasterBehavior:
+      'Filters the selected image result with per-entry order, opacity, blend, and mask controls.',
+    vectorBehavior:
+      'Filters the rendered vector result with per-entry order, opacity, blend, and mask controls; source geometry remains editable.',
+  },
+};
+
+/** Creative, object-oriented effects surfaced by Effect Studio. */
+export const EFFECT_STUDIO_KINDS = [
+  'duotone',
+  'tritone',
+  'paletteSnap',
+  'colorHalftone',
+  'rgbSplit',
+  'caustics',
+  'dither',
+  'bloom',
+  'lightShafts',
+  'lensFlare',
+  'lightLeak',
+  'crt',
+  'vhs',
+] as const satisfies readonly AdjustmentKind[];
+
+/** Image-only photographic controls; the curated Image Tuning surface owns these. */
+export const IMAGE_TUNING_KINDS = [
+  'exposure',
+  'contrast',
+  'shadowHighlight',
+  'temperature',
+  'tint',
+  'vibrance',
+  'saturation',
+  ...IMAGE_TREATMENT_KINDS,
+] as const satisfies readonly AdjustmentKind[];
+
+/** Backdrop-scoped correction controls exposed when an Adjustment Layer is selected. */
+export const ADJUSTMENT_LAYER_KINDS = [
+  'brightness',
+  'contrast',
+  'exposure',
+  'saturation',
+  'hueSaturation',
+  'hueRotate',
+  'sepia',
+  'grayscale',
+  'invert',
+  'temperature',
+  'tint',
+  'vibrance',
+  'levels',
+  'curves',
+  'selectiveColor',
+  'colorBalance',
+  'channelMixer',
+  'photoFilter',
+  'shadowHighlight',
+  'gradientMap',
+  'halftone',
+  'blackAndWhite',
+  'posterize',
+  'threshold',
+  'lut',
+] as const satisfies readonly AdjustmentKind[];
+
+/** Full advanced object-local escape hatch, including photographic treatments. */
+export const OBJECT_FILTER_KINDS = ADJUSTMENT_KINDS;
+
+const STUDIO_CATEGORY_BY_KIND: Record<
+  (typeof EFFECT_STUDIO_KINDS)[number],
+  EffectStudioCategoryId
+> = {
+  duotone: 'artistic-media',
+  tritone: 'artistic-media',
+  paletteSnap: 'artistic-media',
+  colorHalftone: 'print-strokes',
+  rgbSplit: 'distort',
+  caustics: 'distort',
+  dither: 'sketch-poster',
+  bloom: 'stylize',
+  lightShafts: 'stylize',
+  lensFlare: 'stylize',
+  lightLeak: 'stylize',
+  crt: 'stylize',
+  vhs: 'texture-tape',
+};
 export type EffectTargetKind = 'shape' | 'text' | 'path' | 'frame' | 'group' | 'rasterLayer';
 export type EffectScope = 'object' | 'adjustment-layer';
 export type EffectParameterType = 'number' | 'boolean' | 'enum' | 'colour' | 'structured';
@@ -47,6 +211,9 @@ export interface EffectDefinition {
   displayName: string;
   description: string;
   categoryId: EffectCategoryId;
+  studioCategoryId?: EffectStudioCategoryId;
+  /** Surface-specific discovery and scope; the renderer remains shared. */
+  surfaces: readonly EffectSurface[];
   tags: readonly string[];
   supportedTargets: readonly EffectTargetKind[];
   supportedScopes: readonly EffectScope[];
@@ -207,6 +374,16 @@ function definitionFor(kind: AdjustmentKind): EffectDefinition {
     : properties?.hasCssPath
       ? 'low'
       : 'medium';
+  const surfaces: EffectSurface[] = ['object-filter'];
+  if ((EFFECT_STUDIO_KINDS as readonly string[]).includes(kind)) {
+    surfaces.push('effect-studio');
+  }
+  if ((IMAGE_TUNING_KINDS as readonly string[]).includes(kind)) {
+    surfaces.push('image-tuning');
+  }
+  if ((ADJUSTMENT_LAYER_KINDS as readonly string[]).includes(kind)) {
+    surfaces.push('adjustment-layer');
+  }
 
   return {
     id: kind,
@@ -216,9 +393,17 @@ function definitionFor(kind: AdjustmentKind): EffectDefinition {
     displayName: name,
     description,
     categoryId,
+    ...(STUDIO_CATEGORY_BY_KIND[kind as (typeof EFFECT_STUDIO_KINDS)[number]]
+      ? {
+          studioCategoryId: STUDIO_CATEGORY_BY_KIND[kind as (typeof EFFECT_STUDIO_KINDS)[number]],
+        }
+      : {}),
+    surfaces,
     tags,
     supportedTargets: ['shape', 'text', 'path', 'frame', 'group', 'rasterLayer'],
-    supportedScopes: ['object', 'adjustment-layer'],
+    supportedScopes: surfaces.includes('adjustment-layer')
+      ? ['object', 'adjustment-layer']
+      : ['object'],
     parameters: parameterDefinitions(kind),
     renderCapabilities: {
       native: contract?.nativeStatus === 'implemented',
@@ -260,6 +445,24 @@ export function getEffectDefinition(kind: string): EffectDefinition | undefined 
 
 export function listEffectDefinitions(): EffectDefinition[] {
   return ADJUSTMENT_KINDS.map((kind) => EFFECT_REGISTRY[kind]);
+}
+
+export function listEffectStudioDefinitions(): EffectDefinition[] {
+  return EFFECT_STUDIO_KINDS.map((kind) => EFFECT_REGISTRY[kind]);
+}
+
+export function searchEffectStudioDefinitions(
+  query: string,
+  categoryId?: EffectStudioCategoryId,
+): EffectDefinition[] {
+  const normalized = query.trim().toLocaleLowerCase();
+  return listEffectStudioDefinitions().filter((definition) => {
+    if (categoryId && definition.studioCategoryId !== categoryId) return false;
+    if (!normalized) return true;
+    return [definition.displayName, definition.description, ...definition.tags].some((value) =>
+      value.toLocaleLowerCase().includes(normalized),
+    );
+  });
 }
 
 export function searchEffectDefinitions(

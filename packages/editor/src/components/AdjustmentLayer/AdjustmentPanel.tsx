@@ -1,9 +1,12 @@
 import {
-  ADJUSTMENT_KINDS,
+  ADJUSTMENT_LAYER_KINDS,
+  ADJUSTMENT_LAYER_PRESETS,
   type AdjustmentBlendMode,
   autoWhiteBalanceParams,
   type BlendMode,
+  EFFECT_SURFACE_GUIDANCE,
   filterKindDisplayName,
+  type SurfacePreset,
 } from '@varve/engine';
 import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@varve/scene';
 import { makeAdjustment } from '@varve/scene';
@@ -42,6 +45,13 @@ function localAdjId(): string {
   return `adj-${Date.now()}-${_localAdjCounter}`;
 }
 
+function presetAdjustments(preset: SurfacePreset): Adjustment[] {
+  if (preset.surface !== 'adjustment-layer') return [];
+  return preset.effects.map((effect) =>
+    makeAdjustment(localAdjId(), effect.kind, effect.overrides),
+  );
+}
+
 /**
  * AdjustmentPanel — flat layout for adjustment layer controls.
  *
@@ -62,6 +72,7 @@ export function AdjustmentPanel() {
     reorderAdjustmentInLayer,
     setSelectedOpacity,
     setSelectedBlendMode,
+    announce,
   } = useEditor();
   const selId = state.selection.length === 1 ? state.selection[0] : undefined;
   const selNode = selId ? state.document.nodes[selId] : undefined;
@@ -146,6 +157,21 @@ export function AdjustmentPanel() {
     });
     setSelectedAdjId(id);
   }, [nodeId, sourceHistogram, updateNode]);
+
+  const applyPreset = useCallback(
+    (preset: SurfacePreset) => {
+      if (!nodeId) return;
+      const additions = presetAdjustments(preset);
+      if (additions.length === 0) return;
+      updateNode(nodeId, (n) => {
+        if (n.kind !== 'adjustment') return n;
+        return { ...n, adjustments: [...(n.adjustments ?? []), ...additions] } as SceneNode;
+      });
+      setSelectedAdjId(additions[0]?.id ?? null);
+      announce(`Applied correction preset ${preset.name}`);
+    },
+    [announce, nodeId, updateNode],
+  );
 
   const handleRemoveAdjustment = useCallback(
     (adjId: string) => {
@@ -236,7 +262,14 @@ export function AdjustmentPanel() {
     <div className="insp-panel">
       <header className="adj-panel__header">
         <SolidIcon name="Faders" size="1em" aria-hidden className="adj-panel__header-icon" />
-        <span className="adj-panel__header-name">Adjustment Layer</span>
+        <div>
+          <span className="adj-panel__header-name">Adjustment Filters</span>
+          <span className="adj-panel__header-context">Adjustment Layer</span>
+          <p className="adj-panel__header-hint">
+            {EFFECT_SURFACE_GUIDANCE['adjustment-layer'].scope}. It affects raster and vector
+            content below this layer; source objects remain editable.
+          </p>
+        </div>
       </header>
 
       <div className="adj-panel__opacity">
@@ -275,6 +308,24 @@ export function AdjustmentPanel() {
           });
         }}
       />
+
+      <fieldset className="adj-panel__presets">
+        <legend>Correction presets</legend>
+        <div className="adj-panel__preset-grid">
+          {ADJUSTMENT_LAYER_PRESETS.map((preset) => (
+            <button
+              type="button"
+              key={preset.id}
+              className="adj-panel__preset"
+              onClick={() => applyPreset(preset)}
+              aria-label={`Apply correction preset ${preset.name}`}
+            >
+              <strong>{preset.name}</strong>
+              <span>{preset.description}</span>
+            </button>
+          ))}
+        </div>
+      </fieldset>
 
       <div className="adj-panel__stack">
         <div className="adj-panel__stack-header">
@@ -527,7 +578,7 @@ function AddAdjustmentMenu({
       aria-label="Add adjustment"
       onKeyDown={handleKeyDown}
     >
-      {ADJUSTMENT_KINDS.map((kind) => (
+      {ADJUSTMENT_LAYER_KINDS.map((kind) => (
         <button
           key={kind}
           type="button"

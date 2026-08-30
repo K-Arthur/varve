@@ -1,9 +1,13 @@
 import {
-  EFFECT_CATEGORIES,
-  type EffectCategoryId,
+  EFFECT_STUDIO_CATEGORIES,
+  EFFECT_STUDIO_KINDS,
+  EFFECT_STUDIO_PRESETS,
+  EFFECT_SURFACE_GUIDANCE,
   type EffectDefinition,
+  type EffectStudioCategoryId,
   getEffectDefinition,
-  searchEffectDefinitions,
+  type SurfacePreset,
+  searchEffectStudioDefinitions,
 } from '@varve/engine';
 import {
   appendEffectLook,
@@ -12,6 +16,7 @@ import {
   cryptoId,
   type EffectLook,
   makeSmartFilter,
+  type SceneNode,
 } from '@varve/scene';
 import { SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -52,6 +57,23 @@ function effectLabel(kind: string): string {
   return getEffectDefinition(kind)?.displayName ?? kind;
 }
 
+function appendStudioPreset(node: SceneNode, preset: SurfacePreset): SceneNode {
+  if (preset.surface !== 'effect-studio') return node;
+  return {
+    ...node,
+    smartFiltersEnabled: true,
+    smartFilters: [
+      ...(node.smartFilters ?? []),
+      ...preset.effects.map((effect) =>
+        makeSmartFilter(cryptoId(), effect.kind, {
+          ...effect.overrides,
+          visible: true,
+        }),
+      ),
+    ],
+  };
+}
+
 export interface EffectStudioSectionProps {
   nodes: import('@varve/scene').SceneNode[];
 }
@@ -70,15 +92,15 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
     commitTransaction,
     abortTransaction,
     addSmartFilterToSelected,
+    updateNodes,
     announce,
   } = useEditor();
   const node = nodes.length === 1 ? nodes[0] : undefined;
   const compatible = nodes.length > 0 && nodes.every(canHaveSmartFilters);
   const nodeId = node?.id;
   const filters = node?.smartFilters ?? [];
-  const stackEnabled = node?.smartFiltersEnabled !== false;
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useState<EffectCategoryId | undefined>();
+  const [category, setCategory] = useState<EffectStudioCategoryId | undefined>();
   const [favorites, setFavorites] = useState<string[]>(readIds(FAVORITES_KEY));
   const [recents, setRecents] = useState<string[]>(readIds(RECENTS_KEY));
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -86,10 +108,13 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
     null,
   );
   const previewRef = useRef<typeof preview>(null);
+  const compareRef = useRef(false);
+  const compareNodeRef = useRef<string | null>(null);
+  const [compareOriginal, setCompareOriginal] = useState(false);
   const [lookName, setLookName] = useState('My Look');
 
   const definitions = useMemo(() => {
-    const listed = searchEffectDefinitions(query, category);
+    const listed = searchEffectStudioDefinitions(query, category);
     if (!favoritesOnly) return listed;
     return listed.filter((definition) => favorites.includes(definition.id));
   }, [category, favorites, favoritesOnly, query]);
@@ -128,7 +153,7 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
       if (!nodeId) return;
       const current = previewRef.current;
       const effectId = current?.effectId ?? cryptoId();
-      if (!current) beginTransaction();
+      if (!current) beginTransaction('preview');
       updateNode(nodeId, (owner) => {
         const withoutPreview = (owner.smartFilters ?? []).filter(
           (effect) => effect.id !== effectId,
@@ -172,14 +197,48 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
     [addSmartFilterToSelected, commitPreview, previewEffect, updateRecents],
   );
 
+  const applyPreset = useCallback(
+    (preset: SurfacePreset) => {
+      updateNodes(
+        nodes.map((selectedNode) => ({
+          id: selectedNode.id,
+          update: (current) => appendStudioPreset(current, preset),
+        })),
+      );
+      announce(`Applied Studio preset ${preset.name}`);
+    },
+    [announce, nodes, updateNodes],
+  );
+
   const toggleCompare = useCallback(() => {
-    if (!nodeId) return;
-    updateNode(nodeId, (owner) => ({
-      ...owner,
-      smartFiltersEnabled: owner.smartFiltersEnabled === false,
-    }));
-    announce(stackEnabled ? 'Compare View: showing original' : 'Compare View: showing effects');
-  }, [announce, nodeId, stackEnabled, updateNode]);
+    if (!nodeId || filters.length === 0 || previewRef.current) return;
+    if (compareRef.current) {
+      abortTransaction();
+      compareRef.current = false;
+      compareNodeRef.current = null;
+      setCompareOriginal(false);
+      announce('Compare View: showing effects');
+      return;
+    }
+    beginTransaction('preview');
+    updateNode(nodeId, (owner) => ({ ...owner, smartFiltersEnabled: false }));
+    compareRef.current = true;
+    compareNodeRef.current = nodeId;
+    setCompareOriginal(true);
+    announce('Compare View: showing original');
+  }, [abortTransaction, announce, beginTransaction, filters.length, nodeId, updateNode]);
+
+  const cancelCompare = useCallback(
+    (message = 'Compare View cancelled') => {
+      if (!compareRef.current) return;
+      abortTransaction();
+      compareRef.current = false;
+      compareNodeRef.current = null;
+      setCompareOriginal(false);
+      announce(message);
+    },
+    [abortTransaction, announce],
+  );
 
   const saveLook = useCallback(() => {
     if (filters.length === 0) return;
@@ -216,11 +275,14 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
 
   useEffect(() => {
     if (preview && preview.nodeId !== nodeId) cancelPreview('Preview cancelled: target changed');
-  }, [cancelPreview, nodeId, preview]);
+    if (compareRef.current && compareNodeRef.current !== nodeId) {
+      cancelCompare('Compare View cancelled: target changed');
+    }
+  }, [cancelCompare, cancelPreview, nodeId, preview]);
 
   useEffect(
     () => () => {
-      if (previewRef.current) abortTransaction();
+      if (previewRef.current || compareRef.current) abortTransaction();
     },
     [abortTransaction],
   );
@@ -229,12 +291,17 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
 
   const recentDefinitions = recents
     .map((id) => getEffectDefinition(id))
-    .filter((definition): definition is EffectDefinition => definition !== undefined)
+    .filter(
+      (definition): definition is EffectDefinition =>
+        definition !== undefined && EFFECT_STUDIO_KINDS.includes(definition.id),
+    )
     .slice(0, 4);
   const looks = state.document.effectLooks ?? [];
   const targetLabel =
     nodes.length === 1 ? (node?.name ?? 'selected object') : `${nodes.length} objects`;
   const previewing = preview !== null;
+  const stackEnabled = !compareOriginal && node?.smartFiltersEnabled !== false;
+  const targetGuidance = EFFECT_SURFACE_GUIDANCE['effect-studio'];
 
   return (
     <DisclosureSection title="Effect Studio" id="effect-studio" defaultExpanded>
@@ -243,13 +310,22 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
           <div>
             <h3>Explore editable treatments</h3>
             <p>Preview on {targetLabel}, then add the result to the Object Filters stack.</p>
+            <details className="effect-studio__target-guidance">
+              <summary>How this works on raster and vector objects</summary>
+              <p>
+                <strong>Raster:</strong> {targetGuidance.rasterBehavior}
+              </p>
+              <p>
+                <strong>Vector:</strong> {targetGuidance.vectorBehavior}
+              </p>
+            </details>
           </div>
           <button
             type="button"
             className="effect-studio__compare"
             aria-pressed={!stackEnabled}
             onClick={toggleCompare}
-            disabled={filters.length === 0}
+            disabled={filters.length === 0 || previewing}
           >
             <SolidIcon
               name={stackEnabled ? SOLID_CHROME_ICONS.visibilityOff : SOLID_CHROME_ICONS.visibility}
@@ -294,7 +370,7 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
           >
             Favorites
           </button>
-          {EFFECT_CATEGORIES.map((entry) => (
+          {EFFECT_STUDIO_CATEGORIES.map((entry) => (
             <button
               type="button"
               key={entry.id}
@@ -320,6 +396,24 @@ export function EffectStudioSection({ nodes }: EffectStudioSectionProps) {
             ))}
           </fieldset>
         )}
+
+        <fieldset className="effect-studio__presets">
+          <legend>Studio presets</legend>
+          <div className="effect-studio__preset-grid">
+            {EFFECT_STUDIO_PRESETS.map((preset) => (
+              <button
+                type="button"
+                key={preset.id}
+                className="effect-studio__preset"
+                onClick={() => applyPreset(preset)}
+                aria-label={`Apply Studio preset ${preset.name}`}
+              >
+                <strong>{preset.name}</strong>
+                <span>{preset.description}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
 
         <ul className="effect-studio__library" aria-label="Effect Library">
           {definitions.map((definition) => {

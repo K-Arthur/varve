@@ -60,6 +60,22 @@ function grainNode(id = 'grain-object-1'): SceneNode {
   } as SceneNode;
 }
 
+function futureFilterNode(id = 'future-object-1'): SceneNode {
+  return {
+    ...vectorNode(id),
+    smartFilters: [
+      {
+        id: 'future-filter-1',
+        kind: 'futureTreatment',
+        visible: true,
+        opacity: 1,
+        blendMode: 'normal',
+      } as never,
+      makeSmartFilter('grain-filter-1', 'grain'),
+    ],
+  } as SceneNode;
+}
+
 type NodeUpdater = (node: SceneNode) => SceneNode;
 
 function latestUpdatedNode(node: SceneNode): SceneNode {
@@ -162,5 +178,30 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
     expect(screen.getAllByRole('slider')).toHaveLength(5);
     expect(document.querySelectorAll('.adj-editor__parameter-controls')).toHaveLength(4);
     expect(document.querySelector('.smart-filters__meta')).not.toBeInTheDocument();
+  });
+
+  it('keeps unknown future effects visible, reorderable, and explicitly unavailable', () => {
+    const node = futureFilterNode();
+    render(<SmartFiltersSection nodes={[node]} />);
+
+    expect(screen.getByText('Unavailable effect (futureTreatment)')).toBeInTheDocument();
+    expect(screen.getByText('Unavailable in this build')).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Unavailable effect (futureTreatment)Unavailable in this build',
+      }),
+    );
+    expect(screen.getByText(/cannot be previewed or edited/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reset' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Grain up' }));
+    const updateNode = mockedUseEditor().updateNode as unknown as ReturnType<typeof vi.fn>;
+    const updater = updateNode.mock.calls.at(-1)?.[1] as
+      | ((value: SceneNode) => SceneNode)
+      | undefined;
+    expect(updater?.(node).smartFilters?.map((filter) => filter.kind)).toEqual([
+      'grain',
+      'futureTreatment',
+    ]);
   });
 });

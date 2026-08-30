@@ -28,6 +28,23 @@
   margin: var(--space-1) 0 0;
 }
 
+.effect-studio__target-guidance {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.4;
+  margin-top: var(--space-2);
+}
+
+.effect-studio__target-guidance summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-weight: var(--font-weight-semibold);
+}
+
+.effect-studio__target-guidance p {
+  margin-top: var(--space-1);
+}
+
 .effect-studio__compare,
 .effect-studio__looks-header button,
 .effect-studio__preview-status button,
@@ -148,6 +165,71 @@
   font-weight: var(--font-weight-semibold);
   margin-right: var(--space-1);
   text-transform: uppercase;
+}
+
+.effect-studio__presets {
+  border: 0;
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+.effect-studio__presets > legend {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.effect-studio__preset-grid {
+  display: grid;
+  gap: var(--space-1);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.effect-studio__preset {
+  align-items: flex-start;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-2);
+  text-align: left;
+}
+
+.effect-studio__preset:hover,
+.effect-studio__preset:focus-visible {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.effect-studio__preset:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.effect-studio__preset strong,
+.effect-studio__preset span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.effect-studio__preset strong {
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.effect-studio__preset span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.35;
 }
 
 .effect-studio__library,
