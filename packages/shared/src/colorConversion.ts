@@ -1240,6 +1240,109 @@ export function roundTo(value: number, digits: number): number {
   return Math.round(value * f + sign * Number.EPSILON) / f;
 }
 
+// ── HSL <-> RGB (CSS Color Level 4) ─────────────────────────────────────────
+
+/**
+ * HSL to RGB conversion (CSS Color Level 4).
+ *
+ * @param h - Hue in degrees [0, 360)
+ * @param s - Saturation as percentage [0, 100]
+ * @param l - Lightness as percentage [0, 100]
+ * @returns [r, g, b] in 0–255 sRGB, rounded to nearest integer.
+ */
+export function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const hh = (((h % 360) + 360) % 360) / 360;
+  const ss = s / 100;
+  const ll = l / 100;
+  if (ss === 0) {
+    const v = Math.round(ll * 255);
+    return [v, v, v];
+  }
+  const hue2rgb = (p: number, q: number, t: number): number => {
+    let tt = t;
+    if (tt < 0) tt += 1;
+    if (tt > 1) tt -= 1;
+    if (tt < 1 / 6) return p + (q - p) * 6 * tt;
+    if (tt < 1 / 2) return q;
+    if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
+    return p;
+  };
+  const q = ll < 0.5 ? ll * (1 + ss) : ll + ss - ll * ss;
+  const p = 2 * ll - q;
+  return [
+    Math.round(hue2rgb(p, q, hh + 1 / 3) * 255),
+    Math.round(hue2rgb(p, q, hh) * 255),
+    Math.round(hue2rgb(p, q, hh - 1 / 3) * 255),
+  ];
+}
+
+/**
+ * RGB to HSL conversion (CSS Color Level 4).
+ *
+ * @param r - Red [0, 255]
+ * @param g - Green [0, 255]
+ * @param b - Blue [0, 255]
+ * @returns [h, s, l] with h in [0, 360), s and l in [0, 100], all rounded.
+ */
+export function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  const rr = r / 255;
+  const gg = g / 255;
+  const bb = b / 255;
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, Math.round(l * 100)];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if (max === rr) h = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6;
+  else if (max === gg) h = ((bb - rr) / d + 2) / 6;
+  else h = ((rr - gg) / d + 4) / 6;
+  return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+
+// ── Hex <-> RGB ─────────────────────────────────────────────────────────────
+
+/**
+ * Format RGB as a 6-digit lowercase hex color string.
+ *
+ * @param r - Red [0, 255]
+ * @param g - Green [0, 255]
+ * @param b - Blue [0, 255]
+ * @returns Hex string, e.g. `"#ff8800"`.
+ */
+export function rgbToHex(r: number, g: number, b: number): string {
+  const h = (n: number) =>
+    Math.max(0, Math.min(255, Math.round(n)))
+      .toString(16)
+      .padStart(2, '0');
+  return `#${h(r)}${h(g)}${h(b)}`;
+}
+
+/**
+ * Parse a hex color string to RGB.
+ *
+ * Supports `#RGB`, `#RRGGBB`, `#RGBA`, `#RRGGBBAA` (case-insensitive,
+ * optional leading `#`).
+ *
+ * @returns [r, g, b] in 0–255, or null if invalid.
+ */
+export function hexToRgb(hex: string): [number, number, number] | null {
+  const raw = hex.replace('#', '').trim();
+  if (raw.length === 3 || raw.length === 4) {
+    const m = /^([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])/.exec(raw);
+    if (!m) return null;
+    const d = (c: string) => Number.parseInt(c, 16) * 17;
+    return [d(m[1]!), d(m[2]!), d(m[3]!)];
+  }
+  if (raw.length === 6 || raw.length === 8) {
+    const m = /^([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})/.exec(raw);
+    if (!m) return null;
+    return [Number.parseInt(m[1]!, 16), Number.parseInt(m[2]!, 16), Number.parseInt(m[3]!, 16)];
+  }
+  return null;
+}
+
 // ── Precision and determinism conventions ───────────────────────────────────
 
 /**
