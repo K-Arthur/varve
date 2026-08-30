@@ -310,13 +310,14 @@ for later changes and preserves a current image-local target when switching
 modes.
 
 Properties keeps compact entry points: **Open Effect Studio** and **Add
-adjustment layer**. The full Object Filter stack lives only in the
-Appearance & Effects workspace, where it is explicitly the advanced editor
-below the curated Studio treatment workflow. The Object menu and shortcuts
-remain command-level access, including **Open Effect Studio** and **New
-Adjustment Layer**. SVG/PDF export treats visible Object Filters as replay
-features and rasterizes the smallest affected boundary; raster export keeps
-the shared replay path so vector and raster content use the same filter math.
+adjustment layer**. Open Effect Studio is a controlled primary-editor dialog
+for the curated gallery and named-treatment tuning; Appearance & Effects keeps
+the raw Object Filter stack and Layer Effects as compact advanced surfaces. The
+Object menu and shortcuts open the same Studio dialog, including
+**Open Effect Studio** and **New Adjustment Layer**. SVG/PDF export treats
+visible Object Filters as replay features and rasterizes the smallest affected
+boundary; raster export keeps the shared replay path so vector and raster
+content use the same filter math.
 
 Node masks remain the stack-level spatial mask for node-local workflows and
 stay separate from source pixels; adjustment-layer masks remain scope masks. A

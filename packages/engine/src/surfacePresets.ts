@@ -50,6 +50,12 @@ export const STUDIO_TREATMENT_ARTS = [
 
 export type StudioTreatmentArt = (typeof STUDIO_TREATMENT_ARTS)[number];
 
+/** A categorical recipe value shown in Studio and editable in the raw stack. */
+export interface StudioTreatmentFixedSetting {
+  label: string;
+  value: string;
+}
+
 /** A small, intent-level control exposed by a curated Studio treatment. */
 export interface StudioTreatmentControl {
   id: string;
@@ -89,6 +95,11 @@ export interface StudioTreatment extends SurfacePreset {
   tags: readonly string[];
   art: StudioTreatmentArt;
   featured?: boolean;
+  /**
+   * Stable categorical choices such as a halftone pattern. They document the
+   * curated recipe in Studio; Object Filters exposes them for advanced edits.
+   */
+  fixedSettings?: readonly StudioTreatmentFixedSetting[];
   /**
    * Author-defined macro controls for this treatment. When omitted, the
    * Studio derives up to two safe controls from its constituent primitives.
@@ -934,6 +945,64 @@ export const EFFECT_STUDIO_TREATMENTS: readonly StudioTreatment[] = [
         backgroundColor: rgb(242, 238, 228),
       }),
       studioEffect('grain', { strength: 8, scale: 0.85, character: 36, seed: 67 }),
+    ],
+  },
+  {
+    id: 'studio-halftone-pattern',
+    name: 'Halftone Pattern',
+    description: 'Build a dense black-and-white dot screen from the object’s rendered tones.',
+    surface: 'effect-studio',
+    categoryId: 'sketch',
+    tags: ['halftone pattern', 'dot', 'screen', 'newsprint', 'sketch'],
+    art: 'screen',
+    fixedSettings: [
+      { label: 'Pattern type', value: 'Dot' },
+      { label: 'Screening', value: 'AM · Round dots · Black (K)' },
+      { label: 'Screen angle', value: '45°' },
+    ],
+    controls: [
+      {
+        id: 'dot-size',
+        label: 'Dot size',
+        description: 'Set the screen density. Smaller values create a denser dot pattern.',
+        min: 1,
+        max: 12,
+        step: 1,
+        defaultValue: 2,
+        unit: 'px',
+        targets: [
+          { effectIndex: 1, parameter: 'frequency', outputMin: 64, outputMax: 15, round: true },
+        ],
+      },
+      {
+        id: 'contrast',
+        label: 'Contrast',
+        description: 'Tighten the tonal transition and make the dot pattern more decisive.',
+        min: 1,
+        max: 20,
+        step: 1,
+        defaultValue: 5,
+        targets: [
+          { effectIndex: 1, parameter: 'threshold', outputMin: 112, outputMax: 144, round: true },
+          { effectIndex: 1, parameter: 'intensity', outputMin: 0.72, outputMax: 1 },
+        ],
+      },
+    ],
+    effects: [
+      studioEffect('blackAndWhite', { brightness: 0, preserveLuminosity: false }),
+      studioEffect('halftone', {
+        pattern: 'dot',
+        frequency: 60,
+        angle: 45,
+        dotShape: 'round',
+        channel: 'k',
+        method: 'am',
+        threshold: 119,
+        intensity: 0.78,
+        softness: 0.02,
+        foregroundColor: rgb(20, 20, 20),
+        backgroundColor: rgb(247, 247, 244),
+      }),
     ],
   },
   {

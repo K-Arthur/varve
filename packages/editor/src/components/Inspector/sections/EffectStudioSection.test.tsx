@@ -16,6 +16,12 @@ vi.mock('../../../context', async (importOriginal) => {
   return { ...actual, useEditor: vi.fn() };
 });
 
+// Rendering the paired preview is covered at its own boundary and in the
+// browser E2E. Keep this recipe/state suite focused on Studio interactions.
+vi.mock('../../EffectStudio/EffectStudioComparison', () => ({
+  EffectStudioComparison: () => <div data-testid="effect-studio-comparison" />,
+}));
+
 import { useEditor } from '../../../context';
 import { EffectStudioSection } from './EffectStudioSection';
 
@@ -73,6 +79,41 @@ function reticulationNode(id = 'reticulation-shape-1', customized = false): Scen
         ...(customized ? { customized: true } : {}),
       },
     }),
+  ]);
+}
+
+function halftoneThenReticulationNode(): SceneNode {
+  const halftoneControls = { amount: 100, 'dot-size': 2, contrast: 5 };
+  const reticulation = reticulationNode('halftone-reticulation-shape');
+  return effectNode('halftone-reticulation-shape', [
+    makeAdjustment('halftone-pattern-black-and-white', 'blackAndWhite', {
+      brightness: 0,
+      preserveLuminosity: false,
+      studioTreatment: {
+        treatmentId: 'studio-halftone-pattern',
+        instanceId: 'halftone-pattern-1',
+        effectIndex: 0,
+        controls: halftoneControls,
+      },
+    }),
+    makeAdjustment('halftone-pattern-screen', 'halftone', {
+      pattern: 'dot',
+      frequency: 60,
+      angle: 45,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'am',
+      threshold: 119,
+      intensity: 0.78,
+      softness: 0.02,
+      studioTreatment: {
+        treatmentId: 'studio-halftone-pattern',
+        instanceId: 'halftone-pattern-1',
+        effectIndex: 1,
+        controls: halftoneControls,
+      },
+    }),
+    ...(reticulation.smartFilters ?? []),
   ]);
 }
 
@@ -192,19 +233,6 @@ describe('EffectStudioSection', () => {
     expect(announce).toHaveBeenLastCalledWith('Preview cancelled');
   });
 
-  it('keeps Compare View ephemeral and restores the stack without an undo command', () => {
-    const node = effectNode('shape-1', [makeAdjustment('grain-1', 'grain')]);
-    render(<EffectStudioSection nodes={[node]} />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Compare original' }));
-    expect(beginTransaction).toHaveBeenCalledWith('preview');
-    expect(updatedNode(node).smartFiltersEnabled).toBe(false);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show effects' }));
-    expect(abortTransaction).toHaveBeenCalledTimes(1);
-    expect(addSmartFilterToSelected).not.toHaveBeenCalled();
-  });
-
   it('keeps low-level primitives separate from the curated gallery', () => {
     const node = effectNode();
     render(<EffectStudioSection nodes={[node]} />);
@@ -224,15 +252,22 @@ describe('EffectStudioSection', () => {
     const node = { ...reticulationNode(), smartFiltersEnabled: false } as SceneNode;
     render(<EffectStudioSection nodes={[node]} />);
 
-    expect(screen.getByText('Applied treatments')).toBeInTheDocument();
+    expect(screen.getByText('Applied effect stack')).toBeInTheDocument();
+    const stack = screen.getByRole('region', { name: 'Applied effect stack' });
+    expect(within(stack).getByText('Dither')).toBeInTheDocument();
+    expect(within(stack).getByText('Grain')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Tune Reticulation' }));
     expect(screen.getByRole('slider', { name: 'Reticulation Cluster density' })).toHaveValue('67');
+    expect(
+      screen.getByRole('spinbutton', { name: /Reticulation Cluster density value/ }),
+    ).toHaveValue('67');
 
     fireEvent.change(screen.getByRole('slider', { name: 'Reticulation Cluster density' }), {
       target: { value: '100' },
     });
     const updated = updatedNode(node);
     expect(updated.smartFiltersEnabled).toBe(true);
+    expect(updated.smartFilters?.map((filter) => filter.kind)).toEqual(['dither', 'grain']);
     expect(updated.smartFilters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -244,6 +279,87 @@ describe('EffectStudioSection', () => {
         }),
       ]),
     );
+
+    const precision = screen.getByRole('spinbutton', {
+      name: /Reticulation Cluster density value/,
+    });
+    fireEvent.change(precision, { target: { value: '42' } });
+    fireEvent.keyDown(precision, { key: 'Enter' });
+    expect(updatedNode(node).smartFilters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'reticulation-dither',
+          studioTreatment: expect.objectContaining({
+            controls: expect.objectContaining({ 'cluster-density': 42 }),
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it('offers a named Halftone Pattern with Photoshop-like dot settings and direct values', () => {
+    const node = effectNode();
+    render(<EffectStudioSection nodes={[node]} />);
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search treatments' }), {
+      target: { value: 'halftone pattern' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Adjust Halftone Pattern recipe' }));
+
+    expect(screen.getByRole('spinbutton', { name: /Halftone Pattern Dot size value/ })).toHaveValue(
+      '2',
+    );
+    expect(screen.getByRole('spinbutton', { name: /Halftone Pattern Contrast value/ })).toHaveValue(
+      '5',
+    );
+    expect(screen.getByText('Pattern type')).toBeInTheDocument();
+    expect(screen.getByText('AM · Round dots · Black (K)')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Halftone Pattern' }));
+    expect(updatedBatchNode(node).smartFilters?.map((filter) => filter.kind)).toEqual([
+      'blackAndWhite',
+      'halftone',
+    ]);
+  });
+
+  it('moves complete named treatments without changing their curated provenance', () => {
+    const node = halftoneThenReticulationNode();
+    render(<EffectStudioSection nodes={[node]} />);
+
+    const namedStack = screen.getByRole('list', { name: 'Applied treatments' });
+    expect(within(namedStack).getByText('Halftone Pattern')).toBeInTheDocument();
+    expect(within(namedStack).getByText('Reticulation')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Reticulation up' }));
+    const updated = updatedNode(node);
+    expect(updated.smartFilters?.map((filter) => filter.id)).toEqual([
+      'reticulation-dither',
+      'reticulation-grain',
+      'halftone-pattern-black-and-white',
+      'halftone-pattern-screen',
+    ]);
+    expect(
+      updated.smartFilters?.every((filter) => filter.studioTreatment?.customized !== true),
+    ).toBe(true);
+  });
+
+  it('marks only a recipe touched through individual advanced ordering as customized', () => {
+    const node = reticulationNode();
+    render(<EffectStudioSection nodes={[node]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Dither down', hidden: true }));
+    const updated = updatedNode(node);
+    expect(updated.smartFilters?.map((filter) => filter.kind)).toEqual(['grain', 'dither']);
+    expect(
+      updated.smartFilters?.every((filter) => filter.studioTreatment?.customized === true),
+    ).toBe(true);
+  });
+
+  it('drops disclosure chrome when rendered in the Studio dialog', () => {
+    render(<EffectStudioSection nodes={[effectNode()]} presentation="dialog" />);
+
+    expect(screen.queryByRole('button', { name: 'Effect Studio' })).toBeNull();
+    expect(document.querySelector('[data-effect-studio]')).toBeInTheDocument();
   });
 
   it('offers an explicit restoration path after advanced edits customize a treatment', () => {

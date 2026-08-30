@@ -26,6 +26,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { AdjustmentEditor } from '../../AdjustmentLayer/AdjustmentEditor';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { RangeValueControl } from '../controls/RangeValueControl';
 import {
   type VectorFinishingKind,
   VectorFinishingQuickActions,
@@ -269,8 +270,8 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
 
       {hasCuratedRecipeMembers && (
         <p className="smart-filters__curated-notice" role="status">
-          Named treatments are tuned in Effect Studio above. Changing an entry here turns that
-          treatment into a customized recipe; its current result remains editable.
+          Named treatments are tuned in Effect Studio. Changing an entry here turns that treatment
+          into a customized recipe; its current result remains editable.
         </p>
       )}
 
@@ -439,24 +440,22 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
                   </span>
                 </div>
               )}
-              <label className="smart-filters__opacity">
+              <div className="smart-filters__opacity">
                 <span>
                   <span>Effect Opacity</span>
                   <span>{Math.round((selected.opacity ?? 1) * 100)}%</span>
                 </span>
-                <input
-                  type="range"
-                  className="adj-editor__slider smart-filters__effect-slider"
+                <RangeValueControl
+                  label={`${filterName(selected)} effect opacity`}
+                  rangeClassName="adj-editor__slider smart-filters__effect-slider"
                   min={0}
                   max={100}
                   step={1}
                   value={Math.round((selected.opacity ?? 1) * 100)}
-                  onChange={(event) =>
-                    updateFilter(selected.id, { opacity: Number(event.target.value) / 100 })
-                  }
-                  aria-label={`${filterName(selected)} effect opacity`}
+                  unit="%"
+                  onChange={(next) => updateFilter(selected.id, { opacity: next / 100 })}
                 />
-              </label>
+              </div>
               <div className="smart-filters__blend">
                 <span>Effect Blend</span>
                 <Select

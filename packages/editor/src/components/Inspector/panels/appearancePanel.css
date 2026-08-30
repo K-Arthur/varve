@@ -1,0 +1,32 @@
+.appearance-panel {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.appearance-panel__effect-launch {
+  align-items: center;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+  padding: var(--space-3);
+}
+
+.appearance-panel__effect-launch h2 {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.appearance-panel__effect-launch p {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  margin: var(--space-1) 0 0;
+}
+
+.appearance-panel__effect-launch .varve-btn {
+  flex: 0 0 auto;
+}

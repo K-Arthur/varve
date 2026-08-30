@@ -1,6 +1,6 @@
 # Effect Studio
 
-**Status:** current architecture · **Date:** 2026-08-29
+**Status:** current architecture · **Date:** 2026-08-30
 
 Effect Studio is Varve's discovery surface for object-local creative effects.
 It is a Filter Gallery-style way to explore, preview, and apply designed
@@ -52,7 +52,7 @@ renderer owns execution. No UI surface creates a parallel effect list.
 
 ## Effect Studio catalog
 
-Effect Studio exposes 34 named treatment recipes across six outcome-oriented
+Effect Studio exposes 36 named treatment recipes across six outcome-oriented
 families. The labels intentionally describe the result rather than reproduce a
 generic filter-menu taxonomy:
 
@@ -61,7 +61,7 @@ generic filter-menu taxonomy:
 | Illustrative | Palette Cut, Pigment Wash, Inked Paper, Screen Print | Turn an object into a limited-palette illustration, wash, or print response. |
 | Mark Making | Dry Ink, Crosshatch, Ink Wash, Sprayed Stroke | Build drawn marks, hatching, ink, and loose sprayed media. |
 | Optics & Shift | Glass Shift, Ocean Ripple, Refracted Light, Prism Flare | Refract, split, ripple, or optically scatter the rendered result. |
-| Drawing & Graphic | Relief Study, Chalk Field, Pencil Poster, Stamp Cut, Graphic Pen, Dot Study, Paper Copy, Contour Dither | Produce graphic drawing studies without pretending the source has become destructive pixels. |
+| Drawing & Graphic | Relief Study, Chalk Field, Pencil Poster, Stamp Cut, Graphic Pen, Dot Study, Halftone Pattern, Paper Copy, Contour Dither | Produce graphic drawing studies without pretending the source has become destructive pixels. |
 | Light & Signal | Chromatic Bloom, Cinema Shafts, Neon Phosphor, Light Leak, Aperture Star, Laser Streak, Solar Shift, Terminal Glow | Add luminous, cinematic, electronic, or surreal light behaviour. |
 | Print & Material | Analog Signal, Newsprint, Riso Ink, Water Paper, Worn Tape, Reticulation | Give an object a printed, fibrous, weathered, taped, or irregular surface language. |
 
@@ -71,8 +71,12 @@ Preview command is the authoritative visual result for the selected object.
 Apply appends the full recipe in one batch update; it does not flatten artwork
 or alter source geometry.
 
-The gallery has search, category filters, saved treatments, recent treatments,
-preview/keep/cancel, and Compare View. A collapsed **Individual creative
+The dialog follows a three-zone workflow: a large rendered preview, a compact
+treatment browser, and a focused applied-stack/settings column. The gallery
+has search, category filters, saved treatments, recent treatments, and
+preview/keep/cancel. The preview offers Original, Effects, and a
+keyboard-accessible split comparison; its two images are canonical rendered
+variants of the selected object rather than card art. A collapsed **Individual creative
 effects** section retains the thirteen raw Studio primitives for users who
 already know the operator they want. It explicitly directs parameter editing,
 order, masks, and blending to Object Filters instead of creating a second
@@ -103,6 +107,30 @@ are Amount, Cluster density, Tone steps, and Material grain. It is a
 Varve-native irregular-tone/material treatment, not a claim to reproduce
 another application's implementation.
 
+Moving an entire named treatment swaps its contiguous recipe block with the
+next or previous stack block, so its identity and curated meaning remain
+intact. The advanced filter-order disclosure exposes the individual entries
+when a designer deliberately needs to move one derived member; that marks only
+the corresponding treatment **Customized**. An interleaved customized recipe
+cannot be moved as a whole until it is restored, which prevents a misleading
+named order from hiding its real execution order.
+
+### Halftone Pattern + Reticulation
+
+For the dense monochrome result commonly made with a **Halftone Pattern**
+followed by **Reticulation**, apply Varve's named **Halftone Pattern** first,
+then **Reticulation**. Halftone Pattern defaults to **Dot size 2** and
+**Contrast 5** with a fixed **Dot / AM / Round / Black (K) / 45°** recipe;
+Reticulation then adds clustered dither and material grain. Both controls have
+typed numeric fields. Its categorical halftone configuration is displayed in
+the treatment settings and can be changed in Advanced filter order, which
+honestly marks the recipe Customized.
+
+This produces the same controllable visual language, not a byte-identical copy
+of another application’s proprietary Halftone Pattern or Reticulation kernels.
+Use a smaller Dot size for a denser screen, then increase Reticulation’s
+Cluster density and Material grain for a closer distressed-print result.
+
 The raw Object Filter stack remains fully editable, but it is an advanced
 escape hatch:
 
@@ -116,6 +144,13 @@ escape hatch:
 
 This keeps freeform experimentation possible without silently relabelling a
 user's modified stack as the original treatment.
+
+Every continuous effect control uses the same compact precision control: a
+slider for exploratory tuning and a labelled editable numeric value for typed
+values, keyboard stepping, and arithmetic expressions. The Studio, raw Object
+Filters, and Adjustment Filters therefore are never slider-only workflows.
+The static duplicate value readout is omitted when a direct field is present;
+the visible hierarchy remains label, control, and a short explanation.
 
 Adjustment Layers use a separate identity domain. The `AdjustmentNode` owns a
 sequential `adjustments` array whose entries each have a collision-resistant
@@ -140,17 +175,19 @@ declare whether bounds expand, and the adjustment pipeline reserves that
 space before filtering. Deterministic effects retain their stable seed and do
 not sample frame time or viewport pixels.
 
-## Preview and Compare View
+## Preview and comparison
 
 Effect previews use a preview transaction. The document state can render the
 candidate effect immediately, but preview updates do not mark the document
 dirty, publish a remote mutation, or create undo history. Add/Enter commits one
 undoable document edit; Cancel/Escape restores the exact pre-preview state.
 
-Compare View uses the same preview transaction to temporarily bypass the
-object stack. Showing the original therefore does not persist a
-`smartFiltersEnabled` change and does not create an undo entry. Changing the
-selection or leaving the surface cancels the transient comparison.
+The Studio's Original / Effects / Compare control renders two selection-scoped
+documents through the canonical thumbnail renderer: one has
+`smartFiltersEnabled` disabled for the selected object and the other enabled.
+It never mutates the live canvas object or creates an undo entry. If one
+variant fails, the successful variant remains visible with an explicit status
+instead of silently pretending the two states are the same.
 
 ## Looks
 
@@ -171,21 +208,18 @@ full-sized editors:
 | Surface | What is shown there | What is deliberately not duplicated |
 | --- | --- | --- |
 | **Properties** | Normal opacity/blend controls, **Open Effect Studio**, and **Add adjustment layer** for eligible selection | The Object Filter stack and Studio gallery |
-| **Appearance & Effects** | Canonical Effect Studio gallery, Applied treatments, advanced Object Filters, and Layer Effects | Image-local Image Tuning and adjustment-layer editing |
+| **Appearance & Effects** | A compact Studio launch card, advanced Object Filters, and Layer Effects | The Studio gallery and its applied-treatment manager |
+| **Effect Studio dialog** | Curated gallery, preview/compare, Applied treatments, direct recipe tuning, raw creative primitives, and Looks | Inspector tabs and the raw Object Filter stack editor |
 | **Adjustments** | Image Tuning for raster selection, or the complete Adjustment Layer editor when an adjustment node is selected | Creative Studio treatments and an object-local raw stack |
 
-**Object → Open Effect Studio** and the command palette open the canonical
-Appearance & Effects workspace. **Ctrl/Cmd+Alt/Option+A** is the keyboard
-route. **Object → New Adjustment Layer** (and **Alt/Option+N**) creates a
-scoped Adjustment Layer and then opens Adjustments with the new layer
-selected.
-
-The desktop app can detach the Inspector as a whole. That preserves the
-existing panel transfer/lifecycle contract while keeping Effect Studio active
-in the detached Inspector tab. A separately detachable Studio window is
-intentionally deferred until it has an independent panel definition, local
-state codec, and auxiliary-window renderer; a second ad-hoc popup would make
-selection synchronization and preview transactions unreliable.
+**Object → Open Effect Studio**, the command palette, and
+**Ctrl/Cmd+Alt/Option+A** open the controlled **Effect Studio dialog** in the
+primary editor. It reads the live document and selection directly, so changing
+the selection retargets the Studio without a document projection, message
+broker, popup, or second Tauri webview. It does not add a hidden Studio panel
+to workspace preferences. **Object → New Adjustment Layer** (and
+**Alt/Option+N**) creates a scoped Adjustment Layer and then opens
+Adjustments with the new layer selected.
 
 ## Raster and vector rules
 
@@ -208,8 +242,12 @@ Verified in the repository:
 - Effect Studio, Image Tuning, Adjustment Filters, and Object Filters have
   focused frontend coverage for discovery, application, direct treatment
   tuning, customization/restoration, bypass, and unknown future entries; and
-- preview and Compare View use the transaction contract without dirtying a
-  cancelled preview.
+- the compact primary launch surface, controlled in-app dialog, and direct
+  numeric Studio tuning have unit and Playwright visual coverage; and
+- preview transactions cancel without dirtying a document; comparison renders
+  independently without mutating the live stack; and
+- the dialog, true before/after split, direct numeric configuration, and named
+  treatment reordering have focused unit and Playwright visual coverage.
 
 Not claimed by this document: native Windows/macOS runs, screen-reader runs,
 WebGPU availability on WebKitGTK, or cross-browser visual parity. Those need

@@ -25,7 +25,6 @@ import { MissingFontController } from './components/FontBrowser/MissingFontContr
 import { HistoryPanel } from './components/HistoryPanel';
 import { ImageCompareOverlay } from './components/ImageCompareOverlay';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
-import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
 import { PresenceIndicator } from './components/LayersPanel/PresenceIndicator';
 import { LogoPanel } from './components/LogoPanel/LogoPanel';
 import { LogoPreviewDialog } from './components/LogoPreview/LogoPreviewDialog';
@@ -45,6 +44,7 @@ import { SettingsDialog } from './components/Settings/SettingsDialog';
 import {
   ColorConversionHost,
   DnDShell,
+  EffectStudioDialogHost,
   ExportLayer,
   type ExportLayerHandle,
   FindReplaceLayer,
@@ -68,7 +68,7 @@ import { WorkspaceCustomizeDialog } from './components/WorkspaceCustomizeDialog'
 import { EditorProvider, setToastHandler, useEditor } from './context';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { useFileImport } from './importing/useFileImport';
-import { LayersPanel } from './LayersPanel';
+import { type LayersDnDHandle, LayersPanel } from './LayersPanel';
 import { ContextualHelpPanel, resetOnboarding, useEditorHelp, WhatIsThis } from './onboard';
 import { StatusBar } from './StatusBar';
 import { nodeLocalBounds } from './scene/world';
@@ -917,6 +917,9 @@ function ShellInner({
         {editor.upscaleDialogOpen && (
           <UpscaleDialogHost open={editor.upscaleDialogOpen} onClose={editor.closeUpscaleDialog} />
         )}
+
+        {/* Curated effects dialog — shares the live primary editor state. */}
+        <EffectStudioDialogHost />
 
         <ImageResizeDialogHost />
 

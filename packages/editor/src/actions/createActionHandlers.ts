@@ -816,7 +816,10 @@ export function createActionHandlers(
     newAdjustmentLayer: () => e.createAdjustmentLayer(),
     smartFilterInvert: () => e.addSmartFilterToSelected('invert'),
     openInspectorProperties: () => e.setInspectorTab('properties'),
-    openAppearancePanel: () => e.setInspectorTab('appearance'),
+    openAppearancePanel: () => {
+      e.openEffectStudioDialog();
+      e.announce?.('Effect Studio opened.');
+    },
     openAdjustmentsPanel: () => e.setInspectorTab('adjustments'),
     openPrototypePanel: () => e.setInspectorTab('prototype'),
     openFontsPanel: () => e.setInspectorTab('fonts'),

@@ -1,7 +1,224 @@
 .effect-studio {
+  /* The legacy accent references below stay scoped to this surface, but map
+   * to the contrast-checked interactive token in every theme. */
+  --color-accent: var(--color-interactive-default);
+
   display: grid;
   gap: var(--space-3);
   min-width: 0;
+}
+
+/* The dialog body owns scrolling. Keep the content fluid so the gallery uses
+ * the available modal width without creating a second nested scroll region. */
+.effect-studio-panel {
+  min-width: 0;
+}
+
+.varve-dialog.effect-studio-dialog {
+  max-width: min(96vw, 72rem);
+  max-height: min(calc(100vh - 2rem), 52rem);
+  width: min(96vw, 72rem);
+}
+
+.effect-studio-dialog .varve-dialog__body {
+  overscroll-behavior: contain;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+.effect-studio__workspace {
+  align-items: start;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-areas: "preview browser inspector";
+  grid-template-columns: minmax(18rem, 1.05fr) minmax(18rem, 1fr) minmax(17rem, 0.9fr);
+}
+
+.effect-studio__browser {
+  display: grid;
+  gap: var(--space-3);
+  grid-area: browser;
+  min-width: 0;
+}
+
+.effect-studio__inspector {
+  align-self: start;
+  display: grid;
+  gap: var(--space-2);
+  grid-area: inspector;
+  min-width: 0;
+}
+
+.effect-studio-comparison {
+  align-self: start;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-2);
+  grid-area: preview;
+  min-width: 0;
+  padding: var(--space-2);
+}
+
+.effect-studio-comparison__header {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.effect-studio-comparison h3 {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  margin: 0;
+}
+
+.effect-studio-comparison p,
+.effect-studio-comparison__header > span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.4;
+  margin: var(--space-1) 0 0;
+}
+
+.effect-studio-comparison__header > span {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.effect-studio-comparison__modes {
+  border: 0;
+  display: grid;
+  gap: var(--space-1);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.effect-studio-comparison__modes button {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  min-height: 1.875rem;
+  padding: 0 var(--space-1);
+}
+
+.effect-studio-comparison__modes button[aria-pressed="true"] {
+  background: var(--color-surface-selected);
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.effect-studio-comparison__modes button:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.effect-studio-comparison__modes button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.effect-studio-comparison__stage {
+  aspect-ratio: 4 / 3;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: calc(var(--radius-sm) - 1px);
+  display: grid;
+  isolation: isolate;
+  min-height: 14rem;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.effect-studio-comparison__stage > img {
+  background: var(--color-surface-raised);
+  grid-area: 1 / 1;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.effect-studio-comparison__effects-image {
+  z-index: 0;
+}
+
+.effect-studio-comparison__original-image {
+  clip-path: inset(0 calc(100% - var(--effect-studio-split)) 0 0);
+  z-index: 1;
+}
+
+.effect-studio-comparison__divider {
+  background: var(--color-accent);
+  bottom: 0;
+  box-shadow: 0 0 0 1px var(--color-surface-raised);
+  left: var(--effect-studio-split);
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  width: 2px;
+  z-index: 2;
+}
+
+.effect-studio-comparison__label {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 2px var(--space-1);
+  position: absolute;
+  top: var(--space-1);
+  z-index: 3;
+}
+
+.effect-studio-comparison__label--before {
+  left: var(--space-1);
+}
+
+.effect-studio-comparison__label--after {
+  right: var(--space-1);
+}
+
+.effect-studio-comparison__split-control {
+  align-items: center;
+  color: var(--color-text-muted);
+  display: grid;
+  font-size: var(--font-size-2xs);
+  gap: var(--space-1);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.effect-studio-comparison__split-control input {
+  accent-color: var(--color-accent);
+  inline-size: 100%;
+  margin: 0;
+}
+
+.effect-studio-comparison__split-control output {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.effect-studio-comparison .effect-studio-comparison__empty {
+  background: var(--color-surface-raised);
+  border-radius: calc(var(--radius-sm) - 1px);
+  margin: 0;
+  padding: var(--space-2);
+}
+
+.effect-studio-comparison .effect-studio-comparison__notice {
+  background: var(--color-surface-raised);
+  border-left: 2px solid var(--color-warning, var(--color-accent));
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
 }
 
 .effect-studio__intro,
@@ -205,7 +422,8 @@
   margin: var(--space-1) 0 0;
 }
 
-.effect-studio__applied ul {
+.effect-studio__treatment-stack,
+.effect-studio__stack-entries {
   display: grid;
   gap: var(--space-1);
   list-style: none;
@@ -213,19 +431,116 @@
   padding: 0;
 }
 
-.effect-studio__applied li {
+.effect-studio__recipe-entry {
   align-items: center;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  display: flex;
+  display: grid;
   gap: var(--space-1);
+  grid-template-columns: 1.35rem minmax(0, 1fr) auto auto auto;
+  min-width: 0;
   padding: var(--space-1) var(--space-2);
 }
 
-.effect-studio__applied li.is-selected {
+.effect-studio__recipe-entry.is-selected {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.effect-studio__applied-header > small {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  font-size: var(--font-size-2xs);
+  padding: 2px var(--space-1);
+  white-space: nowrap;
+}
+
+.effect-studio__applied-header > small.is-live {
+  background: var(--color-surface-selected);
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.effect-studio__applied-header > small.is-bypassed {
+  color: var(--color-text-muted);
+}
+
+.effect-studio__stack-entries > li {
+  align-items: center;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-1);
+  grid-template-columns: 1.35rem minmax(0, 1fr) auto auto;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+}
+
+.effect-studio__stack-order {
+  align-items: center;
+  background: var(--color-surface-selected);
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  height: 1.25rem;
+  justify-content: center;
+  width: 1.25rem;
+}
+
+.effect-studio__stack-summary {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.effect-studio__stack-summary strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.effect-studio__stack-summary small,
+.effect-studio__stack-entries .is-muted {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.effect-studio__stack-internals {
+  border-top: 1px solid var(--color-border-subtle);
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+}
+
+.effect-studio__stack-internals summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.effect-studio__stack-internals > p {
+  margin: 0;
+}
+
+.effect-studio__reorder-actions {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.effect-studio__reorder-actions button {
+  min-height: 1.5rem;
+  min-width: 1.5rem;
+  padding: 0;
 }
 
 .effect-studio__applied-summary {
@@ -252,7 +567,7 @@
   font-size: var(--font-size-2xs);
 }
 
-.effect-studio__applied button,
+.effect-studio__recipe-entry > button,
 .effect-studio__tuning-header > button,
 .effect-studio__tuning-actions button {
   min-height: 1.75rem;
@@ -274,7 +589,8 @@
   gap: var(--space-2);
 }
 
-.effect-studio__tuning-controls > label {
+.effect-studio__tuning-controls > label,
+.effect-studio__tuning-controls > div {
   display: grid;
   gap: var(--space-1);
 }
@@ -313,6 +629,107 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
+}
+
+.effect-studio__fixed-settings {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+}
+
+.effect-studio__fixed-settings h4 {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  margin: 0;
+}
+
+.effect-studio__fixed-settings dl {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+}
+
+.effect-studio__fixed-settings dl > div {
+  display: flex;
+  font-size: var(--font-size-2xs);
+  gap: var(--space-1);
+  justify-content: space-between;
+}
+
+.effect-studio__fixed-settings dt {
+  color: var(--color-text-muted);
+}
+
+.effect-studio__fixed-settings dd {
+  color: var(--color-text-primary);
+  margin: 0;
+  text-align: end;
+}
+
+.effect-studio__fixed-settings p {
+  margin: 0;
+}
+
+.effect-studio__recipe-details {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.4;
+  padding: var(--space-1) var(--space-2);
+}
+
+.effect-studio__recipe-details summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-weight: var(--font-weight-semibold);
+}
+
+.effect-studio__recipe-details > ol {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding-left: 1.25rem;
+}
+
+.effect-studio__recipe-details > ol > li {
+  color: var(--color-text-muted);
+  padding-left: var(--space-1);
+}
+
+.effect-studio__recipe-details strong {
+  color: var(--color-text-primary);
+}
+
+.effect-studio__recipe-details ul {
+  display: grid;
+  gap: 1px;
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+}
+
+.effect-studio__recipe-details small {
+  color: var(--color-text-muted);
+}
+
+.effect-studio__settings-empty {
+  background: var(--color-surface-sunken);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.4;
+  margin: 0;
+  padding: var(--space-2);
+}
+
+.effect-studio__settings-empty strong {
+  color: var(--color-text-secondary);
 }
 
 .effect-studio__tuning-actions .effect-studio__add {
@@ -367,8 +784,8 @@
 
 .effect-studio__treatment-grid {
   display: grid;
-  gap: var(--space-2);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1);
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
   list-style: none;
   margin: 0;
   padding: 0;
@@ -379,11 +796,11 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   overflow: hidden;
-  padding: var(--space-2);
+  padding: var(--space-1);
 }
 
 .effect-studio__treatment-grid > li.is-previewing {
@@ -395,7 +812,8 @@
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: calc(var(--radius-sm) - 1px);
-  min-height: 5.5rem;
+  aspect-ratio: 16 / 7;
+  min-height: 0;
   overflow: hidden;
   position: relative;
 }
@@ -428,24 +846,40 @@
   background:
     linear-gradient(
       135deg,
-      transparent 42%,
-      var(--color-warning, var(--color-accent)) 43% 58%,
-      transparent 59%
+      var(--color-text-primary) 0%,
+      var(--color-text-primary) 29%,
+      var(--color-surface-raised) 29%,
+      var(--color-surface-raised) 53%,
+      var(--color-text-secondary) 53%,
+      var(--color-text-secondary) 76%,
+      var(--color-surface-sunken) 76%
     ),
     linear-gradient(
       45deg,
-      var(--color-accent) 0 32%,
-      var(--color-surface-selected) 33% 67%,
-      var(--color-danger, var(--color-accent)) 68%
+      transparent 0%,
+      transparent 43%,
+      var(--color-text-primary) 43%,
+      var(--color-text-primary) 57%,
+      transparent 57%
     );
 }
 
 .effect-studio__treatment-art[data-treatment-art="wash"]::before {
   background:
-    radial-gradient(ellipse at 24% 64%, var(--color-accent) 0 18%, transparent 52%),
-    radial-gradient(ellipse at 78% 30%, var(--color-surface-selected) 0 22%, transparent 56%),
+    linear-gradient(
+      24deg,
+      transparent 0%,
+      transparent 17%,
+      var(--color-text-primary) 18%,
+      var(--color-text-primary) 36%,
+      transparent 37%,
+      transparent 58%,
+      var(--color-text-secondary) 59%,
+      var(--color-text-secondary) 78%,
+      transparent 79%
+    ),
     linear-gradient(155deg, var(--color-surface-raised), var(--color-surface-sunken));
-  filter: blur(1px);
+  opacity: 0.82;
 }
 
 .effect-studio__treatment-art[data-treatment-art="ink"]::before,
@@ -472,8 +906,21 @@
 .effect-studio__treatment-art[data-treatment-art="newsprint"]::before,
 .effect-studio__treatment-art[data-treatment-art="riso"]::before {
   background:
-    radial-gradient(circle, var(--color-accent) 0 1.5px, transparent 2px) 0 0 / 8px 8px,
-    linear-gradient(135deg, var(--color-surface-raised), var(--color-surface-selected));
+    repeating-linear-gradient(
+      45deg,
+      var(--color-text-primary) 0px,
+      var(--color-text-primary) 1px,
+      transparent 1px,
+      transparent 7px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      var(--color-text-secondary) 0px,
+      var(--color-text-secondary) 1px,
+      transparent 1px,
+      transparent 7px
+    ),
+    var(--color-surface-raised);
 }
 
 .effect-studio__treatment-art[data-treatment-art="newsprint"]::before {
@@ -510,8 +957,24 @@
 .effect-studio__treatment-art[data-treatment-art="spray"]::before,
 .effect-studio__treatment-art[data-treatment-art="reticulation"]::before {
   background:
-    radial-gradient(circle, var(--color-accent) 0 1px, transparent 2px) 0 0 / 8px 7px,
-    radial-gradient(circle, var(--color-text-muted) 0 1.5px, transparent 2.5px) 4px 5px / 13px 11px,
+    repeating-linear-gradient(
+      12deg,
+      transparent 0px,
+      transparent 5px,
+      var(--color-text-primary) 5px,
+      var(--color-text-primary) 6px,
+      transparent 6px,
+      transparent 13px
+    ),
+    repeating-linear-gradient(
+      -33deg,
+      transparent 0px,
+      transparent 8px,
+      var(--color-text-muted) 8px,
+      var(--color-text-muted) 9px,
+      transparent 9px,
+      transparent 17px
+    ),
     var(--color-surface-sunken);
 }
 
@@ -684,20 +1147,27 @@
   line-height: 1.35;
 }
 
+.effect-studio__treatment-copy span {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  overflow: hidden;
+}
+
 .effect-studio__treatment-copy small {
   color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
 .effect-studio__card-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: var(--space-1);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .effect-studio__card-actions button {
-  flex: 1 1 auto;
   min-height: 1.75rem;
+  min-width: 0;
   padding: 0 var(--space-2);
 }
 
@@ -847,6 +1317,33 @@
   padding-top: var(--space-2);
 }
 
+@media (max-width: 64rem) {
+  .effect-studio__workspace {
+    grid-template-areas:
+      "preview inspector"
+      "browser browser";
+    grid-template-columns: minmax(0, 1fr) minmax(17.5rem, 22rem);
+  }
+
+  .effect-studio__browser {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 48rem) {
+  .effect-studio__workspace {
+    grid-template-areas:
+      "preview"
+      "inspector"
+      "browser";
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .effect-studio__browser {
+    grid-column: auto;
+  }
+}
+
 @media (max-width: 24rem) {
   .effect-studio__intro,
   .effect-studio__looks-header,
@@ -862,8 +1359,25 @@
     grid-template-columns: 1fr;
   }
 
-  .effect-studio__applied li {
+  .effect-studio__recipe-entry {
+    grid-template-columns: 1.35rem minmax(0, 1fr) auto auto;
+  }
+
+  .effect-studio__recipe-entry > button:last-child {
+    grid-column: 3 / -1;
+  }
+
+  .effect-studio-comparison__header {
     align-items: stretch;
-    flex-wrap: wrap;
+    flex-direction: column;
+  }
+
+  .effect-studio-comparison__split-control {
+    grid-template-columns: 1fr auto;
+  }
+
+  .effect-studio-comparison__split-control input {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }

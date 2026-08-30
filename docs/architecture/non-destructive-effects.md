@@ -56,11 +56,12 @@ child does not affect siblings. `smartFiltersEnabled` bypasses the whole local
 stack without deleting it; individual entries retain their enabled state,
 opacity, and blend mode.
 
-The Appearance & Effects workspace keeps the full Object Filter catalogue
-available for every compatible rendered object. It presents the raw stack as
-an advanced editor below the curated Effect Studio workflow, so a named
-treatment can be tuned without scrolling through its implementation entries.
-On non-image objects the advanced editor also offers an **Object Finishing**
+Appearance & Effects keeps the full Object Filter catalogue available for
+every compatible rendered object, but presents it as an advanced stack below a
+compact launch card for the dedicated Effect Studio dialog. The Studio owns
+the curated gallery and named-treatment tuning, so a user never needs to
+scroll through implementation entries to edit a treatment's intent. On
+non-image objects the advanced editor also offers an **Object Finishing**
 quick-add route for Grain, Vignette, and Highlight Glow. Those are ordinary
 Object Filters with useful starting values, not a parallel effects system: a
 gray vector rectangle at 50% opacity stays an editable, 50%-opacity rectangle

@@ -11,6 +11,7 @@ function makeEditorMock(overrides: Partial<EditorContextValue> = {}): EditorCont
     setTool: vi.fn(),
     enterIsolation: vi.fn(),
     announce: vi.fn(),
+    openEffectStudioDialog: vi.fn(),
     ...overrides,
   } as unknown as EditorContextValue;
 }
@@ -233,7 +234,6 @@ describe('createActionHandlers — intelligence menu actions', () => {
 
   it.each([
     ['openInspectorProperties', 'properties'],
-    ['openAppearancePanel', 'appearance'],
     ['openAdjustmentsPanel', 'adjustments'],
     ['openPrototypePanel', 'prototype'],
     ['openFontsPanel', 'fonts'],
@@ -243,6 +243,21 @@ describe('createActionHandlers — intelligence menu actions', () => {
     const editor = makeEditorMock();
     createActionHandlers(editor)[action]?.();
     expect(editor.setInspectorTab).toHaveBeenCalledWith(tab);
+  });
+
+  it('opens the controlled Effect Studio dialog instead of routing to Appearance', () => {
+    const announce = vi.fn();
+    const openEffectStudioDialog = vi.fn();
+    const editor = makeEditorMock({
+      announce,
+      openEffectStudioDialog,
+    });
+
+    createActionHandlers(editor).openAppearancePanel?.();
+
+    expect(openEffectStudioDialog).toHaveBeenCalledExactlyOnceWith();
+    expect(announce).toHaveBeenCalledExactlyOnceWith('Effect Studio opened.');
+    expect(editor.setInspectorTab).not.toHaveBeenCalledWith('appearance');
   });
 
   it('opens document settings at the canonical empty-selection Properties surface', () => {

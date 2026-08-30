@@ -107,15 +107,15 @@ on the photographic or material result you want:
 | Make a digital object or photo feel less sterile | Grain | Grain Amount | **Grain Size** sets feature size, **Grain Roughness** changes fine-versus-clustered structure, and **Pattern Variation** chooses a repeatable pattern. |
 | Add a soft halo around bright parts | Highlight Glow | Glow Amount | Lower **Highlight Threshold** for mid-tone material; increase **Glow Size** before raising amount for a gentler result. |
 
-For a 50%-opacity gray vector rectangle, select the rectangle, use
-**Properties → Creative effects → Open Effect Studio**, then open
-**Advanced Object Filters → Object Finishing → Grain**. This adds a node-local
-filter; it does not flatten the rectangle or change its fill or object
-opacity. Tune Grain Amount first, then Grain Size and Grain Roughness. The
-same quick-add row offers Vignette and Highlight Glow. All treatments remain
-available through **Add Object Filter** when a less common operator is
-intentional; photo-local controls can simply have little or no visible effect
-on a uniform flat fill.
+For a 50%-opacity gray vector rectangle, select the rectangle and use
+**Properties → Creative effects → Open Effect Studio** for a curated treatment.
+For a raw finishing operator instead, open **Appearance → Object Filters →
+Object Finishing → Grain**. This adds a node-local filter; it does not flatten
+the rectangle or change its fill or object opacity. Tune Grain Amount first,
+then Grain Size and Grain Roughness. The same quick-add row offers Vignette
+and Highlight Glow. All treatments remain available through **Add Object
+Filter** when a less common operator is intentional; photo-local controls can
+simply have little or no visible effect on a uniform flat fill.
 
 Use Image Tuning for photographic image correction and finish. Use Effect
 Studio when the goal is an exploratory creative treatment on one object. Use

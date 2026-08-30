@@ -1392,6 +1392,12 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   showArchiveDialog: boolean;
   archiveDialogMode: 'backup' | 'restore';
   setShowArchiveDialog: (show: boolean, mode?: 'backup' | 'restore') => void;
+  /** Whether the curated Effect Studio dialog is open in the primary editor. */
+  effectStudioDialogOpen: boolean;
+  /** Open the curated Effect Studio dialog without transferring editor state. */
+  openEffectStudioDialog: () => void;
+  /** Close the curated Effect Studio dialog. */
+  closeEffectStudioDialog: () => void;
   /** Whether the upscale dialog is open. */
   upscaleDialogOpen: boolean;
   /** Open the upscale dialog for the selected image. */
@@ -8640,6 +8646,9 @@ export function EditorProvider({
       showArchiveDialog: dialogState.showArchiveDialog,
       archiveDialogMode: dialogState.archiveDialogMode,
       setShowArchiveDialog: dialogState.setShowArchiveDialog,
+      effectStudioDialogOpen: dialogState.effectStudioDialogOpen,
+      openEffectStudioDialog: dialogState.openEffectStudioDialog,
+      closeEffectStudioDialog: dialogState.closeEffectStudioDialog,
 
       upscaleDialogOpen: state.upscaleDialogOpen,
       openUpscaleDialog: () => {
@@ -9932,6 +9941,9 @@ export function EditorProvider({
       dialogState.showArchiveDialog,
       dialogState.archiveDialogMode,
       dialogState.setShowArchiveDialog,
+      dialogState.effectStudioDialogOpen,
+      dialogState.openEffectStudioDialog,
+      dialogState.closeEffectStudioDialog,
       protoValue,
       bgRemoval,
       logoProject,

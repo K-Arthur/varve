@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
+import { resetPanelLocalStateForTest } from '../../workspace/panelLocalState';
 import { PropertiesPanel } from './PropertiesPanel';
+
+beforeEach(() => resetPanelLocalStateForTest());
+afterEach(() => resetPanelLocalStateForTest());
 
 function renderPanel() {
   // Mock clientWidth so the overflow logic doesn't trigger in jsdom
@@ -212,14 +216,17 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     }
   });
 
-  it('keeps Object Filter editing out of Properties and routes creative work to Appearance', async () => {
+  it('keeps Object Filter editing out of Properties and exposes the standalone Studio launcher', async () => {
     await renderPanelWithSelectedRect();
 
     expect(screen.queryByRole('button', { name: 'Object Filters' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Open Effect Studio' }));
+    expect(screen.getByRole('button', { name: 'Open Effect Studio' })).toHaveAttribute(
+      'data-testid',
+      'open-effect-studio',
+    );
     expect(screen.getByRole('tab', { name: 'Appearance' })).toHaveAttribute(
       'aria-selected',
-      'true',
+      'false',
     );
   });
 

@@ -115,6 +115,43 @@ describe('surface preset catalogs', () => {
     ]);
   });
 
+  it('provides a Halftone Pattern recipe that maps Photoshop-like dot settings to the shared renderer', () => {
+    const halftonePattern = EFFECT_STUDIO_TREATMENTS.find(
+      (treatment) => treatment.id === 'studio-halftone-pattern',
+    );
+    expect(halftonePattern).toBeDefined();
+    if (!halftonePattern) return;
+
+    expect(studioTreatmentControls(halftonePattern).map((control) => control.label)).toEqual([
+      'Amount',
+      'Dot size',
+      'Contrast',
+    ]);
+    expect(halftonePattern.fixedSettings).toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: 'Pattern type', value: 'Dot' })]),
+    );
+    expect(
+      resolveStudioTreatmentEffects(halftonePattern, {
+        ...defaultStudioTreatmentControlValues(halftonePattern),
+        'dot-size': 2,
+        contrast: 5,
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        kind: 'blackAndWhite',
+        overrides: expect.objectContaining({ opacity: 1 }),
+      }),
+      expect.objectContaining({
+        kind: 'halftone',
+        overrides: expect.objectContaining({
+          pattern: 'dot',
+          frequency: 60,
+          threshold: 119,
+        }),
+      }),
+    ]);
+  });
+
   it('gives every treatment a global amount and derives concise safe controls where possible', () => {
     for (const treatment of EFFECT_STUDIO_TREATMENTS) {
       expect(studioTreatmentControls(treatment)[0]).toMatchObject({
