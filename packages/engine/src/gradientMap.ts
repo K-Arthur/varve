@@ -322,11 +322,12 @@ export function buildGradientAlphaLut(
 ): Uint8Array {
   const normalizedSize = normalizeLutSize(size, DEFAULT_GRADIENT_LUT_SIZE);
   const lut = new Uint8Array(normalizedSize);
-  const normalizedColors = toInterpolationStops(stops).map((stop) => ({
-    position: stop.position,
-    midpoint: stop.midpoint,
-    opacity: clamp01(stop.color.a / 255, 1),
-  }));
+  const normalizedColors: { position: number; midpoint: number; opacity: number }[] =
+    toInterpolationStops(stops).map((stop) => ({
+      position: stop.position,
+      midpoint: stop.midpoint ?? 0.5,
+      opacity: clamp01(stop.color.a / 255, 1),
+    }));
   const normalizedExplicit = normalizeOpacityStops(
     (opacityStops ?? []).map((stop) => ({
       position: stop.position,
@@ -338,7 +339,7 @@ export function buildGradientAlphaLut(
     stops.map((stop) => ({
       position: stop.position,
       midpoint: stop.midpoint,
-      opacity: clamp01(stop.opacity, 1),
+      opacity: clamp01(stop.opacity ?? 1),
     })),
   );
 
