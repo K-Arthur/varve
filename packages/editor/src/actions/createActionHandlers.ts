@@ -841,6 +841,7 @@ export function createActionHandlers(
     booleanSubtract: () => e.booleanOp('subtract'),
     booleanIntersect: () => e.booleanOp('intersect'),
     booleanExclude: () => e.booleanOp('exclude'),
+    flattenSelection: () => e.flattenSelected('flatten', 1),
     expandStroke: () => e.expandStrokeSelected(),
     offsetPath: async () => {
       const { promptDialog } = await import('../components/PromptDialog');
