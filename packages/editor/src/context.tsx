@@ -1645,6 +1645,8 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   setActivePage: (pageId: NodeId) => void;
   /** Set the currently selected page in the editor UI (null = no pages mode). */
   setCurrentPageId: (id: string | null) => void;
+  /** Enter or leave a master source editing surface. */
+  setMasterEdit: (masterId: NodeId | null) => void;
 
   /** Get node IDs visible on the active page (page content + global children). */
   activePageNodes: () => NodeId[];
@@ -2475,6 +2477,7 @@ export function EditorProvider({
       guidesVisible: vpDefaults.guidesVisible,
       selectedGuideId: null,
       currentPageId: null,
+      masterEditId: null,
       isolatedNodeId: null,
       createTableFromDataOpen: false,
       tableEdit: null,
@@ -3028,9 +3031,14 @@ export function EditorProvider({
   }, [state.isPresenting, state.prototypeMode, patch, updateDoc]);
 
   const rootNodes = useCallback(() => {
-    const { rootChildren, nodes } = state.document;
+    const { rootChildren, nodes, masters } = state.document;
+    const master = state.masterEditId ? masters?.[state.masterEditId] : undefined;
+    const sourceRoot = master ? nodes[master.contentRoot] : undefined;
+    if (sourceRoot && 'children' in sourceRoot) {
+      return sourceRoot.children.map((id) => nodes[id]).filter((n): n is SceneNode => Boolean(n));
+    }
     return rootChildren.map((id) => nodes[id]).filter((n): n is SceneNode => Boolean(n));
-  }, [state.document]);
+  }, [state.document, state.masterEditId]);
 
   const updateNodeProp = useCallback(
     (id: NodeId, updater: (n: SceneNode) => SceneNode) => {
@@ -6085,6 +6093,25 @@ export function EditorProvider({
       },
       setCurrentPageId: (id) => {
         patch({ currentPageId: id });
+      },
+      setMasterEdit: (masterId) => {
+        const current = stateRef.current;
+        if (masterId && !current.document.masters?.[masterId]) return;
+        const masterName = masterId ? current.document.masters?.[masterId]?.name : undefined;
+        patch({
+          masterEditId: masterId,
+          selection: [],
+          primaryId: null,
+          focusedNodeId: null,
+          activeContainerId: null,
+          selectionRevision: current.selectionRevision + 1,
+          selectionOrigin: 'navigation',
+        });
+        announcerRef.current?.announce(
+          masterId
+            ? `Editing master source ${masterName ?? ''}`.trim()
+            : 'Returned to page editing',
+        );
       },
 
       movePageOnPasteboard: (pageId, x, y) => {

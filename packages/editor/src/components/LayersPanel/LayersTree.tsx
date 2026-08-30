@@ -430,6 +430,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     matchedIds,
     state.document.activePageId ?? undefined,
     state.isolatedNodeId ?? undefined,
+    state.masterEditId ?? undefined,
   );
 
   // Dev-mode performance benchmark: log when flatten takes > 50ms

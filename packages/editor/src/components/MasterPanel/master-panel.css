@@ -62,6 +62,43 @@
   font-size: var(--font-size-xs);
 }
 
+.master-panel__edit-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  color: var(--color-interactive-default);
+  background: var(--color-surface-selected);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+}
+
+.master-panel__edit-btn,
+.master-panel__return-btn {
+  font: inherit;
+  padding: 1px 6px;
+  background: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.master-panel__edit-btn:hover,
+.master-panel__return-btn:hover,
+.master-panel__edit-btn[aria-pressed="true"] {
+  color: var(--color-interactive-default);
+  border-color: var(--color-interactive-default);
+}
+
+.master-panel__edit-btn:focus-visible,
+.master-panel__return-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
 .master-panel__hint {
   margin-top: var(--space-1);
   font-size: var(--font-size-xs);

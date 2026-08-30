@@ -187,6 +187,8 @@ export interface MultipageSceneOptions {
    * never reach the renderer's per-node loop).
    */
   viewportWorldRect?: { x: number; y: number; w: number; h: number } | null;
+  /** Render one master source in editing context instead of the page scene. */
+  masterEditId?: NodeId | null;
 }
 
 /**
@@ -197,6 +199,14 @@ export interface MultipageSceneOptions {
  */
 function masterContentRootIds(doc: Document): Set<NodeId> {
   return new Set(Object.values(doc.masters ?? {}).map((master) => master.contentRoot));
+}
+
+/** Direct source children for a master-editing canvas or layer tree. */
+export function masterSourceNodes(doc: Document, masterId: NodeId): NodeId[] {
+  const master = doc.masters?.[masterId];
+  if (!master) return [];
+  const root = doc.nodes[master.contentRoot];
+  return root && 'children' in root ? [...root.children] : [];
 }
 
 /**
@@ -275,8 +285,17 @@ function pageIntersectsViewport(
 
 export function multipageRootNodes(doc: Document, options: MultipageSceneOptions = {}): NodeId[] {
   const ids: NodeId[] = [];
-  const masterRoots = masterContentRootIds(doc);
   for (const gid of doc.globalChildren ?? []) ids.push(gid);
+
+  // A master source is edited as its own logical surface. Keep document-wide
+  // globals visible, but do not mix page content into the source-edit view.
+  // The editor renderer applies the active page placement separately so the
+  // source remains visible in the same pasteboard coordinate system.
+  if (options.masterEditId) {
+    return [...ids, ...masterSourceNodes(doc, options.masterEditId)];
+  }
+
+  const masterRoots = masterContentRootIds(doc);
 
   const pages = doc.pages ?? [];
   if (pages.length === 0) {

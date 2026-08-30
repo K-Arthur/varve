@@ -19,6 +19,7 @@ export interface DocumentLike {
   nodes: Record<NodeId, SceneNode>;
   pages?: Array<{ id: NodeId; name: string; contentRoot: NodeId; backgrounds: NodeId[] }>;
   activePageId?: NodeId;
+  masters?: Record<NodeId, { contentRoot: NodeId }>;
   /** Component master definitions, keyed by component id. */
   components?: Record<NodeId, { masterRootId: NodeId }>;
 }

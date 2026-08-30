@@ -41,6 +41,7 @@ function mockEditor(overrides: {
     masterOverrides?: Record<string, unknown>;
   }>;
   activePageId?: string | null;
+  masterEditId?: string | null;
   createMaster?: ReturnType<typeof vi.fn>;
   deleteMaster?: ReturnType<typeof vi.fn>;
   renameMaster?: ReturnType<typeof vi.fn>;
@@ -48,6 +49,7 @@ function mockEditor(overrides: {
   assignMasterToPage?: ReturnType<typeof vi.fn>;
   setMasterAppliesTo?: ReturnType<typeof vi.fn>;
   resetMasterOverrides?: ReturnType<typeof vi.fn>;
+  setMasterEdit?: ReturnType<typeof vi.fn>;
   getPageNumber?: ReturnType<typeof vi.fn>;
   /** Master pages are a multi-page print concept; the panel is scoped to it. */
   workspaceMode?: string;
@@ -64,6 +66,7 @@ function mockEditor(overrides: {
         pages,
         activePageId,
       },
+      masterEditId: overrides.masterEditId ?? null,
     },
     createMaster: overrides.createMaster ?? vi.fn(),
     deleteMaster: overrides.deleteMaster ?? vi.fn(),
@@ -72,6 +75,7 @@ function mockEditor(overrides: {
     assignMasterToPage: overrides.assignMasterToPage ?? vi.fn(),
     setMasterAppliesTo: overrides.setMasterAppliesTo ?? vi.fn(),
     resetMasterOverrides: overrides.resetMasterOverrides ?? vi.fn(),
+    setMasterEdit: overrides.setMasterEdit ?? vi.fn(),
     getPageNumber: overrides.getPageNumber ?? vi.fn(() => 1),
   } as never);
 }
@@ -155,6 +159,48 @@ describe('MasterPanel', () => {
     const select = screen.getByLabelText(/Apply to pages/);
     expect(select).toBeDefined();
     expect(select).toHaveTextContent('All pages');
+  });
+
+  it('enters a master source editing surface', () => {
+    const setMasterEdit = vi.fn();
+    mockEditor({
+      masters: {
+        m1: {
+          id: 'm1',
+          name: 'Master 1',
+          width: 1920,
+          height: 1080,
+          contentRoot: 'cr1',
+          appliesTo: 'all',
+        },
+      },
+      setMasterEdit,
+    });
+    render(<MasterPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit source of Master 1' }));
+    expect(setMasterEdit).toHaveBeenCalledWith('m1');
+  });
+
+  it('shows a return action while editing a master source', () => {
+    const setMasterEdit = vi.fn();
+    mockEditor({
+      masterEditId: 'm1',
+      masters: {
+        m1: {
+          id: 'm1',
+          name: 'Master 1',
+          width: 1920,
+          height: 1080,
+          contentRoot: 'cr1',
+          appliesTo: 'all',
+        },
+      },
+      setMasterEdit,
+    });
+    render(<MasterPanel />);
+    expect(screen.getByText('Editing master source: Master 1')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Return to page editing' }));
+    expect(setMasterEdit).toHaveBeenCalledWith(null);
   });
 
   it('calls setMasterAppliesTo when select changes', () => {

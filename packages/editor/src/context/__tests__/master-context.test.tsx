@@ -34,6 +34,7 @@ describe('Master page context integration', () => {
     expect(typeof getCtx().setMasterOverride).toBe('function');
     expect(typeof getCtx().removeMasterOverride).toBe('function');
     expect(typeof getCtx().resetMasterOverrides).toBe('function');
+    expect(typeof getCtx().setMasterEdit).toBe('function');
     expect(typeof getCtx().activePageNodesWithMaster).toBe('function');
 
     // Spread methods exist
@@ -135,6 +136,37 @@ describe('Master page context integration', () => {
       const page = getCtx().state.document.pages?.find((p) => p.id === pageId);
       expect(page?.masterPageId).toBe(masterId);
     });
+  });
+
+  it('setMasterEdit scopes the view to a valid master and can return to page editing', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+
+    function TestComponent() {
+      ctx = useEditor();
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <TestComponent />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx).toBeDefined());
+    if (!ctx) throw new Error('ctx not found');
+    const getCtx = () => ctx as NonNullable<typeof ctx>;
+
+    getCtx().createMaster('Grid Master', 1920, 1080);
+    await waitFor(() => expect(getCtx().state.document.masters).toBeDefined());
+    const masterId = Object.keys(getCtx().state.document.masters ?? {})[0];
+    if (!masterId) throw new Error('master not created');
+
+    getCtx().setMasterEdit(masterId);
+    await waitFor(() => expect(getCtx().state.masterEditId).toBe(masterId));
+    expect(getCtx().state.selection).toEqual([]);
+
+    getCtx().setMasterEdit(null);
+    await waitFor(() => expect(getCtx().state.masterEditId).toBeNull());
   });
 
   it('activePageNodesWithMaster returns nodes', async () => {

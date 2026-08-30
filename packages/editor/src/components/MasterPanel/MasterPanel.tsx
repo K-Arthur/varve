@@ -16,12 +16,14 @@ export function MasterPanel() {
     assignMasterToPage,
     setMasterAppliesTo,
     resetMasterOverrides,
+    setMasterEdit,
     getPageNumber,
   } = useEditor();
 
   const doc = state.document;
   const masters = doc.masters;
   const pages = doc.pages ?? [];
+  const masterEditId = state.masterEditId;
 
   const masterList: MasterPage[] = masters ? Object.values(masters) : [];
 
@@ -86,6 +88,20 @@ export function MasterPanel() {
         </Tooltip>
       </div>
 
+      {masterEditId && masters?.[masterEditId] ? (
+        <div className="master-panel__edit-status" role="status" aria-live="polite">
+          <span>Editing master source: {masters[masterEditId].name}</span>
+          <button
+            type="button"
+            className="master-panel__return-btn"
+            onClick={() => setMasterEdit(null)}
+            aria-label="Return to page editing"
+          >
+            Return to page
+          </button>
+        </div>
+      ) : null}
+
       {/* One line, not a block: this panel shares a fixed-height sidebar column
        * with the layers tree, and a tall empty state pushed the tree down to its
        * minimum height, hiding most of its rows. The fuller explanation lives on
@@ -128,6 +144,15 @@ export function MasterPanel() {
               )}
 
               <div className="master-panel__actions">
+                <button
+                  type="button"
+                  className="master-panel__edit-btn"
+                  onClick={() => setMasterEdit(master.id)}
+                  aria-label={`Edit source of ${master.name}`}
+                  aria-pressed={masterEditId === master.id}
+                >
+                  {masterEditId === master.id ? 'Editing' : 'Edit source'}
+                </button>
                 <button
                   type="button"
                   className="master-panel__apply-btn"

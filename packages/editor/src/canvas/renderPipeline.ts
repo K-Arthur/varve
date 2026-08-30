@@ -80,6 +80,7 @@ import {
   pixelToDocumentFromCapture,
 } from '../render/treatmentSpace';
 import {
+  collectMasterEditOffsets,
   collectMasterOffsets,
   offsetWorldBounds,
   offsetWorldTransform,
@@ -586,11 +587,19 @@ export function renderContent(deps: RenderContentDeps): void {
     // per-node loop. The world rect is the AABB of the viewport corners
     // (over-inclusive under camera rotation — safe for culling).
     const viewportWorld = viewportWorldRect(s, { width: cssW, height: cssH });
-    const entries = walkNodes(doc, multipageRootNodes(doc, { viewportWorldRect: viewportWorld }));
+    const entries = walkNodes(
+      doc,
+      multipageRootNodes(doc, {
+        viewportWorldRect: viewportWorld,
+        masterEditId: s.masterEditId,
+      }),
+    );
     // Master projection offsets (M8, ADR-0132): projected master items
     // render at their page's placement — master roots sit at the pasteboard
     // origin, so the loop applies the containing page's translation.
-    const masterOffsets = collectMasterOffsets(doc);
+    const masterOffsets = s.masterEditId
+      ? collectMasterEditOffsets(doc, s.masterEditId, doc.activePageId)
+      : collectMasterOffsets(doc);
     const nodeWork = createNodeWorkCounters();
     nodeWork.totalSceneNodes = Object.keys(doc.nodes).length;
     nodeWork.candidates = entries.size;

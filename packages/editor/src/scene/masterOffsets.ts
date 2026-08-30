@@ -11,7 +11,7 @@
  */
 
 import type { Document, NodeId } from '@varve/scene';
-import { buildPlacedScene } from '@varve/scene';
+import { buildPlacedScene, walkNodes } from '@varve/scene';
 import type { Affine, Rect } from '@varve/shared';
 import { multiplyAffine } from '@varve/shared';
 
@@ -33,6 +33,26 @@ export function collectMasterOffsets(doc: Document): Map<NodeId, MasterOffset> {
     const offset: MasterOffset = { x: placed.placement.x, y: placed.placement.y };
     for (const id of placed.masterNodes) map.set(id, offset);
   }
+  return map;
+}
+
+/**
+ * Offset every node in a master source while it is being edited. A source is
+ * authored at master-local origin; showing it over the active page keeps the
+ * canvas coordinate system stable and makes inherited geometry line up with
+ * the page projection the user is editing for.
+ */
+export function collectMasterEditOffsets(
+  doc: Document,
+  masterId: NodeId,
+  pageId?: NodeId | null,
+): Map<NodeId, MasterOffset> {
+  const map = new Map<NodeId, MasterOffset>();
+  const master = doc.masters?.[masterId];
+  if (!master) return map;
+  const placement = buildPlacedScene(doc).placements.get(pageId ?? doc.activePageId ?? '');
+  const offset: MasterOffset = placement ? { x: placement.x, y: placement.y } : { x: 0, y: 0 };
+  for (const id of walkNodes(doc, [master.contentRoot]).keys()) map.set(id, offset);
   return map;
 }
 

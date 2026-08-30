@@ -3,6 +3,7 @@ import {
   addChild,
   addNode,
   createDocument,
+  createMaster,
   type Document,
   makeFrameNode,
   makeShapeNode,
@@ -445,6 +446,31 @@ describe('useFlatTree (hook caching)', () => {
     // something to anchor to and the user isn't left with a totally blank,
     // dead-end tree — only the non-matching child is filtered out.
     expect(entries.map((e) => e.node.id)).toEqual([frame]);
+  });
+
+  it('shows master source children when a master edit surface is active', () => {
+    let doc = createDocument('master-edit', true);
+    doc = createMaster(doc, { name: 'Header', width: 100, height: 100 });
+    const master = Object.values(doc.masters ?? {})[0]!;
+    const { id: sourceId, doc: d1 } = nextNodeId(doc);
+    doc = addChild(
+      d1,
+      master.contentRoot,
+      makeShapeNode(sourceId, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Source' }),
+    );
+
+    const entries = flattenTree(
+      doc,
+      new Set(),
+      DEFAULT_FILTER,
+      undefined,
+      undefined,
+      undefined,
+      master.id,
+    );
+
+    expect(entries.map((entry) => entry.node.id)).toEqual([sourceId]);
+    expect(entries[0]?.depth).toBe(0);
   });
 });
 

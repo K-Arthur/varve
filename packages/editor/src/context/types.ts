@@ -404,6 +404,8 @@ export interface EditorState {
   /** Selected guide for keyboard adjustment; null when no guide is focused. */
   selectedGuideId: string | null;
   currentPageId: string | null;
+  /** Master source currently being edited; transient view state only. */
+  masterEditId: NodeId | null;
   /** Isolation/focus view: when set, the layers panel shows only this
    *  container's subtree. A view-mode flag, not a document mutation — not
    *  part of undo/redo history. */
@@ -1285,6 +1287,8 @@ export interface EditorContextValue {
   setPageSlug: (pageId: string, slug: import('@varve/scene').SlugConfig) => void;
   setActivePage: (pageId: NodeId) => void;
   setCurrentPageId: (id: string | null) => void;
+  /** Enter or leave a master source editing surface. */
+  setMasterEdit: (masterId: NodeId | null) => void;
   activePageNodes: () => NodeId[];
   /** Move a page on the pasteboard (placement metadata only, ADR-0124). */
   movePageOnPasteboard: (pageId: string, x: number, y: number) => void;

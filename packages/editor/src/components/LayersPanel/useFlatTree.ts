@@ -230,6 +230,8 @@ function propsAffectFilter(
  * @param isolatedNodeId - When provided (and it resolves to a real node),
  *   show only that node and its subtree — a "focus view" that takes
  *   precedence over `activePageId`. Used by isolation/focus mode.
+ * @param masterEditId - When provided, show the direct children of that
+ *   master's source root as the transparent top-level editing surface.
  * @returns Flat array of entries, each with node, depth, parentId
  */
 export function flattenTree(
@@ -239,6 +241,7 @@ export function flattenTree(
   matchedIds?: Set<NodeId>,
   activePageId?: NodeId,
   isolatedNodeId?: NodeId,
+  masterEditId?: NodeId,
 ): FlatEntry[] {
   const filtering = isFiltering(filterSpec);
   const hasSearchIndex = matchedIds !== undefined && filterSpec.search !== '';
@@ -333,6 +336,12 @@ export function flattenTree(
     return annotateSiblingMetadata(walk(null, [isolatedNodeId], 0, isolatedNodeId));
   }
 
+  if (masterEditId && doc.masters?.[masterEditId]) {
+    const masterRoot = doc.nodes[doc.masters[masterEditId].contentRoot];
+    const sourceChildren = masterRoot && isContainer(masterRoot) ? masterRoot.children : [];
+    return annotateSiblingMetadata(walk(null, sourceChildren, 0));
+  }
+
   // When a page content root is active, show that page's direct children as
   // top-level entries (transparent root). Also surface any nodes that sit
   // directly in rootChildren but aren't page content roots — these are
@@ -377,6 +386,7 @@ export function useFlatTree(
   matchedIds?: Set<NodeId>,
   activePageId?: NodeId,
   isolatedNodeId?: NodeId,
+  masterEditId?: NodeId,
 ): FlatEntry[] {
   const prevDocRef = useRef<Document | null>(null);
   const prevEntriesRef = useRef<FlatEntry[]>([]);
@@ -385,6 +395,7 @@ export function useFlatTree(
   const prevMatchedIdsRef = useRef<Set<NodeId> | undefined>(undefined);
   const prevActivePageIdRef = useRef<NodeId | undefined>(undefined);
   const prevIsolatedNodeIdRef = useRef<NodeId | undefined>(undefined);
+  const prevMasterEditIdRef = useRef<NodeId | undefined>(undefined);
 
   return useMemo(() => {
     const prevDoc = prevDocRef.current;
@@ -402,7 +413,8 @@ export function useFlatTree(
       prevFilterSpecRef.current === filterSpec &&
       prevMatchedIdsRef.current === matchedIds &&
       prevActivePageIdRef.current === activePageId &&
-      prevIsolatedNodeIdRef.current === isolatedNodeId
+      prevIsolatedNodeIdRef.current === isolatedNodeId &&
+      prevMasterEditIdRef.current === masterEditId
     ) {
       return prevEntriesRef.current;
     }
@@ -418,7 +430,8 @@ export function useFlatTree(
         prevFilterSpecRef.current === filterSpec &&
         prevMatchedIdsRef.current === matchedIds &&
         prevActivePageIdRef.current === activePageId &&
-        prevIsolatedNodeIdRef.current === isolatedNodeId;
+        prevIsolatedNodeIdRef.current === isolatedNodeId &&
+        prevMasterEditIdRef.current === masterEditId;
 
       if (
         !diff.structureChanged &&
@@ -466,6 +479,7 @@ export function useFlatTree(
       matchedIds,
       activePageId,
       isolatedNodeId,
+      masterEditId,
     );
     const elapsed = performance.now() - start;
     if (process.env.NODE_ENV === 'development' && elapsed > 50) {
@@ -478,7 +492,8 @@ export function useFlatTree(
     prevMatchedIdsRef.current = matchedIds;
     prevActivePageIdRef.current = activePageId;
     prevIsolatedNodeIdRef.current = isolatedNodeId;
+    prevMasterEditIdRef.current = masterEditId;
     prevEntriesRef.current = entries;
     return entries;
-  }, [doc, expanded, filterSpec, matchedIds, activePageId, isolatedNodeId]);
+  }, [doc, expanded, filterSpec, matchedIds, activePageId, isolatedNodeId, masterEditId]);
 }
