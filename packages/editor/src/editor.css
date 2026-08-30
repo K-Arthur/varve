@@ -269,11 +269,13 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 32px;
+  height: 32px;
   background: none;
   border: none;
   color: inherit;
   cursor: pointer;
-  padding: var(--space-1);
+  padding: 0;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
@@ -705,8 +707,10 @@ input[type="number"] {
   align-items: center;
   justify-content: center;
   /* L3 (2026-08-10): 8-10px target was far under WCAG 2.5.8's 24px minimum. */
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -748,8 +752,10 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-6);
-  height: var(--space-6);
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
@@ -2968,6 +2974,7 @@ dialog.varve-dialog--settings[open] {
 .settings-dialog__tab {
   display: block;
   width: 100%;
+  min-height: 32px;
   padding: var(--space-1) var(--space-2);
   border: none;
   border-radius: var(--radius-md);

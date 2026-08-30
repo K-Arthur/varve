@@ -1244,8 +1244,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
@@ -3152,9 +3154,58 @@
 }
 
 .insp-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  block-size: 24px;
+  border: 0;
+  cursor: pointer;
   flex: 1;
   min-width: 0;
   accent-color: var(--color-interactive-default);
+}
+
+.insp-range::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+}
+
+.insp-range::-moz-range-track {
+  height: 4px;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+}
+
+.insp-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
+  border: 2px solid var(--color-surface-raised);
+  border-radius: 50%;
+  background: var(--color-interactive-default);
+}
+
+.insp-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-surface-raised);
+  border-radius: 50%;
+  background: var(--color-interactive-default);
+}
+
+.insp-range:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.insp-range:disabled {
+  cursor: default;
+  opacity: 0.5;
 }
 
 .insp-field__control output {

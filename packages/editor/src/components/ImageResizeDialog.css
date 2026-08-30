@@ -52,7 +52,11 @@
   color: var(--color-text-secondary);
   font-size: 18px;
   cursor: pointer;
-  padding: var(--space-1);
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
   line-height: 1;
 }
 

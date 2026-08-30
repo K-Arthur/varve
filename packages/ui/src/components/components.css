@@ -226,6 +226,7 @@
   border-radius: var(--radius-pill);
   height: 32px;
   min-height: 32px;
+  min-width: 32px;
   padding: 0 var(--space-3);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -240,6 +241,7 @@
   border-radius: var(--radius-pill);
   height: 32px;
   min-height: 32px;
+  min-width: 32px;
   padding: 0 var(--space-3);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -250,14 +252,28 @@
   color: var(--color-interactive-default);
 }
 .varve-btn--sm {
-  height: var(--space-6);
+  height: 32px;
+  min-height: 32px;
+  min-width: 32px;
   padding: 0 var(--space-2);
   font-size: var(--font-size-xs);
 }
 .varve-btn--lg {
-  height: var(--space-7);
+  height: 52px;
+  min-height: 52px;
   padding: 0 var(--space-4);
   font-size: var(--font-size-md);
+}
+
+/* Compact controls stay visually compact on desktop while retaining the
+ * larger target required on coarse-pointer devices. */
+@media (pointer: coarse) {
+  .varve-btn--sm,
+  .varve-btn--pill,
+  .varve-btn--pill-outline {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 .varve-btn:active {
@@ -1184,8 +1200,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   background: none;
   border: none;
   border-radius: var(--radius-sm);
@@ -1882,16 +1900,30 @@
   background: var(--color-accent-subtle);
 }
 .varve-toggle-btn--sm {
-  height: var(--space-6);
-  width: var(--space-6);
+  height: 24px;
+  min-height: 24px;
+  min-width: 24px;
+  width: 24px;
 }
 .varve-toggle-btn--md {
-  height: var(--space-6);
-  width: var(--space-6);
+  height: 32px;
+  min-height: 32px;
+  min-width: 32px;
+  width: 32px;
 }
 .varve-toggle-btn--lg {
-  height: var(--space-6);
-  width: var(--space-6);
+  height: 36px;
+  min-height: 36px;
+  min-width: 36px;
+  width: 36px;
+}
+@media (pointer: coarse) {
+  .varve-toggle-btn--sm,
+  .varve-toggle-btn--md,
+  .varve-toggle-btn--lg {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 .varve-toggle-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);

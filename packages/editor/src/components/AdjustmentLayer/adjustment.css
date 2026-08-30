@@ -311,6 +311,20 @@
   padding: var(--space-1) 0;
 }
 
+.adj-editor__slider {
+  width: 100%;
+  min-width: 0;
+  height: var(--space-2);
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  outline: none;
+  cursor: pointer;
+}
+
 /* Schema-backed treatment controls use one compact row for the slider and its
  * editable value. Keeping the value in the same row prevents the visible
  * label from being repeated by NumberField and keeps both controls inside a
@@ -393,20 +407,6 @@
   justify-content: space-between;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-}
-
-.adj-editor__slider {
-  width: 100%;
-  min-width: 0;
-  height: var(--space-2);
-  -webkit-appearance: none;
-  appearance: none;
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
-  box-sizing: border-box;
-  outline: none;
-  cursor: pointer;
 }
 
 .adj-editor__slider::-webkit-slider-runnable-track {
