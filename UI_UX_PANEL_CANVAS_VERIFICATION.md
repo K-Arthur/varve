@@ -83,10 +83,16 @@ Known failures or limitations:
   The command was run before the import fix; the focused Mockups test and
   browser run pass after it.
 - `node scripts/audit-architecture.mjs --ci` was started because `Shell.tsx`
-  was touched. Its partial output reported existing engine/scene dependency
-  cycles, then the repository-wide complexity scan exceeded six minutes and
-  was terminated. No new Shell import was added; the pre-commit health gate
-  passed on the touched Shell file.
+  was touched. The standalone scan exceeded six minutes and was terminated,
+  but the same architecture audit completed inside `pnpm verify:full`: it
+  reported 15 existing dependency cycles, existing instability and hub-budget
+  warnings, no layer violations, and a clean dead-code scan. No new Shell
+  import was added; the pre-commit health gate passed on the touched Shell
+  file.
+- The full gate's repository-wide format/lint phase also reported existing
+  diagnostics in `CreateTableFromDataDialog`, `CropOverlay`, `UpscaleDialog`,
+  `useToolManagerSync`, `SidebarNav`, warp files, and fill E2E files before the
+  engine typecheck stopped downstream execution.
 - The first responsive E2E attempt exposed a shared-helper assumption that
   Layers must be visible at mobile width; the test now navigates at desktop and
   switches to 640px before exercising the mobile drawer. The second attempt
