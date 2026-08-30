@@ -136,6 +136,7 @@ const LUMINANCE_OPTIONS: { value: GradientMapLuminanceMode; label: string }[] = 
 const INTERPOLATION_OPTIONS: { value: GradientInterpolationSpace; label: string }[] = [
   { value: 'oklab', label: 'OKLab' },
   { value: 'oklch', label: 'OKLCH' },
+  { value: 'linear-srgb', label: 'Linear RGB' },
   { value: 'srgb', label: 'sRGB' },
   { value: 'hsl', label: 'HSL' },
 ];

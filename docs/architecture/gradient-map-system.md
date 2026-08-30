@@ -30,14 +30,15 @@ remain distinct scene concepts.
   effects embed a snapshot (`GradientMapAdjustment.embeddedGradient`), so
   documents render correctly even when the global preset is renamed/deleted.
 - Engine structural mirror — `GradientMapStop`/`GradientMapOpacityStop` use
-  `Color` tuples; conversion helpers
+  `Color` tuples and optional stable stop ids; conversion helpers
   `gradientPresetToGradientMapStops` / `gradientPresetToEmbeddedGradient` /
   `embeddedGradientToGradientPreset`.
 
 ## Rendering
 
 - LUT evaluation: `packages/engine/src/gradientMap.ts`
-  (`buildGradientColorLut`, `buildGradientAlphaLut`, `applyGradientMapFilter`).
+  (`buildGradientColorLut`, `buildGradientAlphaLut`, `applyGradientMapFilter`),
+  algorithm version 1.
   Color math reuses `@varve/shared` `interpolateManagedColor` so gradient-map
   stops blend identically to fill gradients in the same space. Midpoint
   semantics follow the Photoshop `.grd` convention (a stop's midpoint governs
@@ -47,12 +48,19 @@ remain distinct scene concepts.
   `alpha`/`red`/`green`/`blue`/`compatibility` for imported-asset compat.
 - Parameters: `reverse`, `intensity` (mix with source), `dither` (deterministic
   Bayer 4×4/8×8), `preserveSourceAlpha` (default on — transparent pixels never
-  develop fringes), independent `opacityStops`, `lutSize` (64–4096).
+  develop fringes), independent `opacityStops`, stable stop ids, duplicate
+  positions as hard stops (the last stop wins at the exact boundary),
+  `lutSize` (64–4096).
 - Pipeline: `AdjustmentNode.adjustments` → `adjustmentsToFilters` →
   `FilterIR.gradientMap` → `applySoftwareFilter` → backdrop compositing of the
   scope targets (raster AND vector — vectors are painted into the effect
   surface first, then filtered). Preview and export run the same function, so
   they cannot diverge.
+
+The software compositor exposes an optional `FilterDiagnostic` callback. A
+runtime filter kind from a newer producer is preserved as-is and leaves its
+pixels unchanged, but reports `unsupported-filter`; it is not silently treated
+as a successful effect.
 
 ## Import
 
