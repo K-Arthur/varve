@@ -59,36 +59,35 @@ export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
 
   return (
     <DisclosureSection title="Appearance" sectionId="appearance">
-      <div ref={bindingTriggerRef} className="insp-field" style={{ position: 'relative' }}>
-        <NumberField
-          label="Opacity"
-          value={opacityBinding?.value ?? (isMixed(opacityRaw) ? 1 : opacityRaw)}
-          mixed={opacityState.kind === 'mixed'}
-          propertyState={opacityState}
-          readOnly={opacityBinding?.readOnly ?? false}
-          bindingLabel={opacityBinding?.sourceLabel}
-          onUnbind={opacityBinding ? () => editor.setSelectedBinding('opacity', null) : undefined}
-          step={0.01}
-          min={0}
-          max={1}
-          onChange={setSelectedOpacity}
-          fieldName="opacity"
-          onShiftClick={() => editor.setBindingField('opacity')}
+      <NumberField
+        label="Opacity"
+        value={opacityBinding?.value ?? (isMixed(opacityRaw) ? 1 : opacityRaw)}
+        mixed={opacityState.kind === 'mixed'}
+        propertyState={opacityState}
+        readOnly={opacityBinding?.readOnly ?? false}
+        bindingLabel={opacityBinding?.sourceLabel}
+        onUnbind={opacityBinding ? () => editor.setSelectedBinding('opacity', null) : undefined}
+        step={0.01}
+        min={0}
+        max={1}
+        onChange={setSelectedOpacity}
+        fieldName="opacity"
+        onShiftClick={() => editor.setBindingField('opacity')}
+        containerRef={bindingTriggerRef}
+      />
+      {editor.bindingField === 'opacity' && (
+        <BindingMenu
+          variableStore={docVariableStore(editor.state.document)}
+          targetType="number"
+          targetField="opacity"
+          onBind={(variableId, expression) => {
+            editor.setSelectedBinding('opacity', { variableId, expression });
+            editor.setBindingField(null);
+          }}
+          onClose={() => editor.setBindingField(null)}
+          triggerRef={bindingTriggerRef}
         />
-        {editor.bindingField === 'opacity' && (
-          <BindingMenu
-            variableStore={docVariableStore(editor.state.document)}
-            targetType="number"
-            targetField="opacity"
-            onBind={(variableId, expression) => {
-              editor.setSelectedBinding('opacity', { variableId, expression });
-              editor.setBindingField(null);
-            }}
-            onClose={() => editor.setBindingField(null)}
-            triggerRef={bindingTriggerRef}
-          />
-        )}
-      </div>
+      )}
       <FieldRow label="Blend mode">
         <Select
           label="Blend mode"

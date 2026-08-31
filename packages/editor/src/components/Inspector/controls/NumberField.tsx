@@ -14,7 +14,7 @@
  * `aria-describedby` error and does NOT commit.
  */
 import { evaluate } from '@varve/scene';
-import { useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
+import { type Ref, useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
 import { EditorCtx } from '../../../context/types';
 import { describePropertyState, type InspectorPropertyState } from '../propertyState';
 import { TokenBindIndicator } from './TokenBindIndicator';
@@ -55,6 +55,8 @@ export interface NumberFieldProps {
   fieldName?: string;
   /** Called when user shift+clicks the field to open binding menu. */
   onShiftClick?: () => void;
+  /** Optional ref for popovers anchored to the field's existing root element. */
+  containerRef?: Ref<HTMLDivElement>;
 }
 
 /** Parse a committed string into a number, honouring math + aliases. null = invalid. */
@@ -96,6 +98,7 @@ export function NumberField({
   id,
   fieldName,
   onShiftClick,
+  containerRef,
 }: NumberFieldProps) {
   const autoId = useId();
   const inputId = id ?? `nf-${autoId}`;
@@ -410,7 +413,7 @@ export function NumberField({
     stateText ?? (visualMixed ? 'Mixed values' : unit ? `${value}${unit}` : String(value));
 
   return (
-    <div className="insp-field">
+    <div ref={containerRef} className="insp-field">
       <label
         htmlFor={inputId}
         className={
