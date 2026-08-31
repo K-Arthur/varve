@@ -1537,7 +1537,8 @@ input[type="number"] {
   /* Glassmorphism container: subtle translucency + backdrop blur. */
   background: oklch(from var(--color-surface-sunken) l c h / 0.6);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
+  /* Match the compact menubar controls rather than forming a second pill. */
+  border-radius: var(--radius-sm);
   padding: 4px 6px;
   box-sizing: border-box;
   height: 36px;
