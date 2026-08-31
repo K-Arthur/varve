@@ -184,17 +184,56 @@ test.describe('Layers Panel - Context Menu', () => {
     const menu = page.locator('.varve-ctxmenu');
     await expect(menu).toBeVisible();
 
-    // Click the "Red" color tag button
-    const redBtn = menu.getByRole('menuitem', { name: /^Red$/i });
-    if ((await redBtn.count()) > 0) {
-      await redBtn.click();
-      await page.waitForTimeout(100);
+    await menu.getByRole('menuitem', { name: 'Color Tag' }).click();
+    const redBtn = page
+      .getByRole('menu', { name: 'Color Tag submenu' })
+      .getByRole('menuitem', { name: /^Red$/i });
+    await redBtn.click();
+    await page.waitForTimeout(100);
 
-      // The row should now have a color tag indicator
-      const colorDot = firstItem.locator('[data-layer-color]');
-      if ((await colorDot.count()) > 0) {
-        await expect(colorDot).toHaveAttribute('data-layer-color', 'red');
-      }
+    // The row itself carries the document label; there is no competing color
+    // marker in the identity lane.
+    await expect(firstItem).toHaveAttribute('data-layer-color', 'red');
+    await expect(firstItem.locator('.layers-row__color-tag')).toHaveCount(0);
+  });
+
+  test('color tag targets the context row without changing layer order', async ({ page }) => {
+    const items = page.getByRole('treeitem');
+    const count = await items.count();
+    test.skip(count < 2, 'Need at least 2 layers for context-row color tagging');
+
+    const beforeOrder = await items.evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute('data-node-id')),
+    );
+    const target = items.nth(1);
+
+    // Right-click an unselected row. The menu must snapshot this row as its
+    // target before the asynchronous selection update settles.
+    await target.click({ button: 'right' });
+    await expect(target).toHaveAttribute('aria-selected', 'true');
+    const menu = page.locator('.varve-ctxmenu');
+    await expect(menu).toBeVisible();
+    await menu.getByRole('menuitem', { name: 'Color Tag' }).click();
+    await page.screenshot({
+      path: 'test-results/layers-colour-tag-submenu-open.png',
+    });
+    await page
+      .getByRole('menu', { name: 'Color Tag submenu' })
+      .getByRole('menuitem', { name: /^Blue$/i })
+      .click();
+
+    await expect(target).toHaveAttribute('data-layer-color', 'blue');
+    await expect(
+      items.evaluateAll((rows) => rows.map((row) => row.getAttribute('data-node-id'))),
+    ).resolves.toEqual(beforeOrder);
+    await items.nth(0).click();
+    await expect(target).not.toHaveAttribute('aria-selected', 'true');
+    await page.getByTestId('layers-panel').screenshot({
+      path: 'test-results/layers-colour-tag-stable-order.png',
+    });
+    for (const index of [0, 2]) {
+      if (index < count)
+        await expect(items.nth(index)).not.toHaveAttribute('data-layer-color', 'blue');
     }
   });
 

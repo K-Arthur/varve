@@ -1,6 +1,8 @@
 /**
- * LayersPanel — container for the layers tree, search/filter, context menu,
- * and embedded VariablePanel.
+ * LayersPanel — the authoritative layer hierarchy, search/filter, context
+ * menu, and structure navigation surface. Saved Layer States are owned by
+ * the Inspector's selection/state workflow rather than being rendered as a
+ * second list below this tree.
  *
  * Research basis: W3C APG Tree View, Menu pattern (for context menu).
  */
@@ -51,7 +53,6 @@ import { computeActiveSurfaceLayerCount, countActiveSurfaceNodesMatching } from 
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTypes';
 import './layers.css';
-import { LayerStatesSection } from './LayerStatesSection';
 import { SelectionSetsSection } from './SelectionSetsSection';
 
 interface EffectStackClipboard {
@@ -121,6 +122,9 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     x: number;
     y: number;
     id: NodeId;
+    /** Selection captured when the menu opened; actions must not use a stale
+     * selection while the row's context-menu selection settles. */
+    selection: NodeId[];
   } | null>(null);
   const [effectStackClipboard, setEffectStackClipboard] = useState<EffectStackClipboard | null>(
     null,
@@ -158,10 +162,12 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, id: NodeId) => {
       e.preventDefault();
+      e.stopPropagation();
+      const selection = state.selection.includes(id) ? [...state.selection] : [id];
       if (!state.selection.includes(id)) {
         setSelection(id);
       }
-      setContextMenu({ x: e.clientX, y: e.clientY, id });
+      setContextMenu({ x: e.clientX, y: e.clientY, id, selection });
     },
     [state.selection, setSelection],
   );
@@ -170,6 +176,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   // row): position the menu at the row instead of a pointer location.
   const handleContextMenuKeyboard = useCallback(
     (id: NodeId) => {
+      const selection = state.selection.includes(id) ? [...state.selection] : [id];
       if (!state.selection.includes(id)) {
         setSelection(id);
       }
@@ -179,6 +186,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
         x: rect ? rect.left + 16 : 320,
         y: rect ? rect.top + 16 : 160,
         id,
+        selection,
       });
     },
     [state.selection, setSelection],
@@ -200,22 +208,25 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
 
   const handleLockFromMenu = useCallback(
     (locked: boolean) => {
-      for (const id of state.selection) setNodeLocked(id, locked);
+      const selection = contextMenu?.selection ?? state.selection;
+      for (const id of selection) setNodeLocked(id, locked);
       closeMenu();
     },
-    [state.selection, setNodeLocked, closeMenu],
+    [contextMenu?.selection, state.selection, setNodeLocked, closeMenu],
   );
 
   const handleVisibilityFromMenu = useCallback(
     (visible: boolean) => {
-      for (const id of state.selection) setNodeVisible(id, visible);
+      const selection = contextMenu?.selection ?? state.selection;
+      for (const id of selection) setNodeVisible(id, visible);
       closeMenu();
     },
-    [state.selection, setNodeVisible, closeMenu],
+    [contextMenu?.selection, state.selection, setNodeVisible, closeMenu],
   );
 
   const handleSnapExclusionToggle = useCallback(() => {
-    for (const id of state.selection) {
+    const selection = contextMenu?.selection ?? state.selection;
+    for (const id of selection) {
       const node = state.document.nodes[id];
       if (node) {
         const current = node.snapExcluded === true;
@@ -226,10 +237,11 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       }
     }
     closeMenu();
-  }, [state.selection, state.document.nodes, updateNode, closeMenu]);
+  }, [contextMenu?.selection, state.selection, state.document.nodes, updateNode, closeMenu]);
 
   const handleMoveToFront = useCallback(() => {
-    for (const id of state.selection) {
+    const selection = contextMenu?.selection ?? state.selection;
+    for (const id of selection) {
       const parentId = getParentFast(state.document, id, parentCacheRef.current);
       const siblings = parentId
         ? ((state.document.nodes[parentId] as ContainerNode | undefined)?.children ??
@@ -239,16 +251,17 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       announce('Moved to front');
     }
     closeMenu();
-  }, [state.selection, state.document, reparentNode, announce, closeMenu]);
+  }, [contextMenu?.selection, state.selection, state.document, reparentNode, announce, closeMenu]);
 
   const handleMoveToBack = useCallback(() => {
-    for (const id of state.selection) {
+    const selection = contextMenu?.selection ?? state.selection;
+    for (const id of selection) {
       const parentId = getParentFast(state.document, id, parentCacheRef.current);
       reparentNode(id, parentId, 0);
       announce('Moved to back');
     }
     closeMenu();
-  }, [state.selection, state.document, reparentNode, announce, closeMenu]);
+  }, [contextMenu?.selection, state.selection, state.document, reparentNode, announce, closeMenu]);
 
   const handleGroup = useCallback(() => {
     groupSelected();
@@ -423,10 +436,10 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
 
   const handleSetLayerColor = useCallback(
     (color: LayerColor) => {
-      bulkSetLayerColor(state.selection, color);
+      bulkSetLayerColor(contextMenu?.selection ?? state.selection, color);
       closeMenu();
     },
-    [state.selection, bulkSetLayerColor, closeMenu],
+    [contextMenu?.selection, state.selection, bulkSetLayerColor, closeMenu],
   );
 
   const handleBulkLockAll = useCallback(() => {
@@ -521,12 +534,13 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     closeMenu();
   }, [state.selection, revealSelection, closeMenu]);
 
-  const canGroup = state.selection.length >= 2;
-  const firstSelId = state.selection[0];
+  const contextSelection = contextMenu?.selection ?? state.selection;
+  const canGroup = contextSelection.length >= 2;
+  const firstSelId = contextSelection[0];
   const firstSel = firstSelId ? state.document.nodes[firstSelId] : undefined;
-  const isGroupSelected = state.selection.length === 1 && firstSel?.kind === 'group';
+  const isGroupSelected = contextSelection.length === 1 && firstSel?.kind === 'group';
   const isInstanceSelected =
-    state.selection.length === 1 &&
+    contextSelection.length === 1 &&
     firstSel?.kind === 'frame' &&
     !!('componentId' in firstSel && (firstSel as { componentId?: string }).componentId);
 
@@ -680,7 +694,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             isInstanceSelected,
             isComponentMasterSelected,
             canIsolateContextMenuNode,
-            selection: state.selection,
+            selection: contextSelection,
             documentNodes: state.document.nodes,
             handleRenameFromMenu,
             handleDeleteFromMenu,
@@ -745,8 +759,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       )}
 
       <SelectionSetsSection />
-
-      <LayerStatesSection />
     </div>
   );
 }

@@ -225,6 +225,28 @@ describe('LayersRow Object Filter badge', () => {
     expect(onCopyEffectStack).toHaveBeenCalledWith('n1', 'object-filters');
   });
 
+  it('opens the Object Filters editor on normal activation when navigation is available', () => {
+    const onOpenEffectStack = vi.fn();
+    const onCopyEffectStack = vi.fn();
+    const { getByRole } = renderRow({
+      node: makeNode('n1', 'Layer 1', 'shape', {
+        smartFilters: [
+          { id: 'f1', kind: 'invert', visible: true, opacity: 1, blendMode: 'normal', value: 100 },
+        ],
+      }),
+      onOpenEffectStack,
+      onCopyEffectStack,
+    });
+    const badge = getByRole('button', { name: /1 of 1 Object Filters enabled on Layer 1/i });
+
+    fireEvent.click(badge);
+    expect(onOpenEffectStack).toHaveBeenCalledWith('n1', 'object-filters');
+    expect(onCopyEffectStack).not.toHaveBeenCalled();
+
+    fireEvent.click(badge, { shiftKey: true });
+    expect(onCopyEffectStack).toHaveBeenCalledWith('n1', 'object-filters');
+  });
+
   it('agrees with the renderer when the whole filter stack is bypassed', () => {
     // smartFiltersEnabled === false disables every entry for rendering
     // (sceneToEngine/sceneCompositing consume activeSmartFilters). The row
@@ -334,6 +356,17 @@ describe('LayersRow adjustment stack identity', () => {
       expect.stringContaining('Reticulation (Dither, Grain)'),
     );
   });
+
+  it('opens the Adjustment Layer editor when its summary is activated', () => {
+    const onOpenAdjustment = vi.fn();
+    const node = makeNode('a1', 'Grade', 'adjustment', {
+      adjustments: [makeAdjustment('threshold-1', 'threshold')],
+    } as Partial<SceneNode>);
+    const { container } = renderRow({ node, onOpenAdjustment });
+
+    fireEvent.click(container.querySelector('[data-adjustment-summary]')!);
+    expect(onOpenAdjustment).toHaveBeenCalledWith('a1');
+  });
 });
 
 describe('LayersRow clipping relationship', () => {
@@ -353,6 +386,37 @@ describe('LayersRow clipping relationship', () => {
     expect(contentBadge).not.toBeNull();
     expect(contentBadge?.textContent).toBe('clipped');
     expect(contentBadge).toHaveAttribute('aria-label', 'Clipped content');
+  });
+});
+
+describe('LayersRow visual differentiation', () => {
+  it('renders an assigned layer colour as a row backdrop cue without a marker shape', () => {
+    const { container } = renderRow({
+      node: makeNode('n1', 'Tagged artwork', 'shape', { layerColor: 'purple' }),
+    });
+    const row = container.querySelector('[role="treeitem"]');
+
+    expect(row).toHaveAttribute('data-layer-category', 'vector');
+    expect(row).toHaveAttribute('data-layer-color', 'purple');
+    expect(container.querySelector('.layers-row__color-tag')).toBeNull();
+    expect(row?.getAttribute('style')).toContain('--layers-row-color');
+  });
+
+  it('keeps inactive masks visible and explains their source form', () => {
+    const { container } = renderRow({
+      node: makeNode('n1', 'Masked artwork', 'shape', {
+        mask: {
+          type: 'alpha',
+          visible: false,
+          rasterMask: {} as never,
+        },
+      }),
+    });
+    const badge = container.querySelector('.layers-row__mask-badge');
+
+    expect(badge).toHaveTextContent('alpha mask');
+    expect(badge).toHaveClass('layers-row__mask-badge--disabled');
+    expect(badge).toHaveAttribute('aria-label', 'raster alpha mask, disabled');
   });
 });
 

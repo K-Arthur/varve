@@ -234,40 +234,105 @@
   background: var(--color-tree-row);
 }
 
+/* A user-assigned layer label is a document-organizing cue, not a second
+ * type system. Use the row backdrop as the marker so it is discoverable
+ * without adding another shape to an already dense identity lane. The
+ * selected-row surface still wins below. */
+.layers-row[data-layer-color] {
+  background: color-mix(in oklab, var(--layers-row-color) 13%, var(--color-tree-row));
+}
+
+.layers-row[data-layer-color]:hover:not(.layers-row--selected) {
+  background: color-mix(in oklab, var(--layers-row-color) 19%, var(--color-tree-row-hover));
+}
+
+[data-theme="high-contrast"] .layers-row[data-layer-color] {
+  background: color-mix(in oklab, var(--layers-row-color) 26%, var(--color-tree-row));
+}
+
+[data-theme="high-contrast"] .layers-row[data-layer-color]:hover:not(.layers-row--selected) {
+  background: color-mix(in oklab, var(--layers-row-color) 32%, var(--color-tree-row-hover));
+}
+
 /* Selected state must win over type-coded wash. */
 .layers-row--selected[data-layer-type] {
-  background: var(--color-tree-row-selected);
-  color: var(--color-text-on-accent);
+  background: color-mix(in oklab, var(--color-tree-row-selected) 24%, var(--color-tree-row));
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-interactive-default) 60%, transparent);
 }
 .layers-row--selected[data-layer-type]:hover {
-  background: var(--color-tree-row-selected);
+  background: color-mix(in oklab, var(--color-tree-row-selected) 30%, var(--color-tree-row-hover));
+}
+
+/* Category colour is carried by the icon as well as the leading rail, so a
+ * row remains identifiable when its name is truncated or its label is unset.
+ * Selected rows keep the high-contrast selection foreground. */
+.layers-row:not(.layers-row--selected)[data-layer-category="frame"] .layers-row__icon-area {
+  color: var(--color-layer-accent-frame);
+}
+.layers-row:not(.layers-row--selected)[data-layer-category="group"] .layers-row__icon-area {
+  color: var(--color-layer-accent-group);
+}
+.layers-row:not(.layers-row--selected)[data-layer-category="component"] .layers-row__icon-area,
+.layers-row:not(.layers-row--selected)[data-layer-category="instance"] .layers-row__icon-area {
+  color: var(--color-layer-accent-component);
+}
+.layers-row:not(.layers-row--selected)[data-layer-category="text"] .layers-row__icon-area {
+  color: var(--color-layer-accent-text);
+}
+.layers-row:not(.layers-row--selected)[data-layer-category="vector"] .layers-row__icon-area {
+  color: var(--color-layer-accent-shape);
+}
+.layers-row:not(.layers-row--selected)[data-layer-category="raster"] .layers-row__icon-area {
+  color: var(--color-layer-accent-image);
+}
+.layers-row:not(.layers-row--selected)[data-layer-category="adjustment"] .layers-row__icon-area {
+  color: var(--color-layer-accent-adjustment);
 }
 
 /* Accent bar colors per type */
-.layers-row[data-layer-type="frame"]::before {
+.layers-row[data-layer-type="frame"]::before,
+.layers-row[data-layer-category="frame"]::before {
   background: var(--color-layer-accent-frame);
 }
-.layers-row[data-layer-type="group"]::before {
+.layers-row[data-layer-type="group"]::before,
+.layers-row[data-layer-category="group"]::before {
   background: var(--color-layer-accent-group);
 }
-.layers-row[data-layer-type="text"]::before {
+.layers-row[data-layer-type="text"]::before,
+.layers-row[data-layer-category="text"]::before {
   background: var(--color-layer-accent-text);
 }
-.layers-row[data-layer-type="shape"]::before {
+.layers-row[data-layer-type="shape"]::before,
+.layers-row[data-layer-category="vector"]::before {
   background: var(--color-layer-accent-shape);
 }
-.layers-row[data-layer-type="component"]::before {
+.layers-row[data-layer-type="component"]::before,
+.layers-row[data-layer-category="component"]::before,
+.layers-row[data-layer-category="instance"]::before {
   background: var(--color-layer-accent-component);
 }
-.layers-row[data-layer-type="image"]::before {
+.layers-row[data-layer-type="image"]::before,
+.layers-row[data-layer-category="raster"]::before {
   background: var(--color-layer-accent-image);
 }
-.layers-row[data-layer-type="adjustment"]::before {
+.layers-row[data-layer-type="adjustment"]::before,
+.layers-row[data-layer-category="adjustment"]::before {
   background: var(--color-layer-accent-adjustment);
 }
 
+/* Selection is a state of the row, not a second type label. Its rail and
+ * inset boundary remain stable while the type icon keeps its category shape. */
+.layers-row.layers-row--selected::before {
+  background: var(--color-interactive-default);
+  bottom: 0;
+  top: 0;
+  width: 4px;
+}
+
 /* High-contrast: add text label so image type remains distinguishable */
-[data-theme="high-contrast"] .layers-row[data-layer-type="image"]::after {
+[data-theme="high-contrast"] .layers-row[data-layer-type="image"]::after,
+[data-theme="high-contrast"] .layers-row[data-layer-category="raster"]::after {
   content: "IMG";
   position: absolute;
   right: var(--space-2);
@@ -283,12 +348,13 @@
 }
 
 .layers-row--selected {
-  background: var(--color-tree-row-selected);
-  color: var(--color-text-on-accent);
+  background: color-mix(in oklab, var(--color-tree-row-selected) 24%, var(--color-tree-row));
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-interactive-default) 60%, transparent);
 }
 
 .layers-row--selected:hover {
-  background: var(--color-tree-row-selected);
+  background: color-mix(in oklab, var(--color-tree-row-selected) 30%, var(--color-tree-row-hover));
 }
 
 .layers-row--focused {
@@ -343,37 +409,6 @@
   flex-shrink: 0;
 }
 
-/* ─── Color tag dot ─────────────────────────────────────────── */
-.layers-row__color-tag {
-  width: var(--space-2);
-  height: var(--space-2);
-  border-radius: 50%;
-  flex-shrink: 0;
-  pointer-events: none;
-}
-
-.layers-row__color-tag--red {
-  background: var(--color-layer-tag-red);
-}
-.layers-row__color-tag--orange {
-  background: var(--color-layer-tag-orange);
-}
-.layers-row__color-tag--yellow {
-  background: var(--color-layer-tag-yellow);
-}
-.layers-row__color-tag--green {
-  background: var(--color-layer-tag-green);
-}
-.layers-row__color-tag--blue {
-  background: var(--color-layer-tag-blue);
-}
-.layers-row__color-tag--purple {
-  background: var(--color-layer-tag-purple);
-}
-.layers-row__color-tag--gray {
-  background: var(--color-layer-tag-gray);
-}
-
 /* ─── Thumbnail preview ─────────────────────────────────────── */
 .layers-row__thumbnail {
   width: var(--space-5);
@@ -409,8 +444,8 @@
   color: var(--color-text-primary);
 }
 .layers-row--selected .layers-row__icon-area {
-  background: color-mix(in oklch, var(--color-text-on-accent) 14%, transparent);
-  color: var(--color-text-on-accent);
+  background: color-mix(in oklch, var(--color-interactive-default) 12%, transparent);
+  color: var(--color-interactive-default);
 }
 .layers-row__icon-area:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -428,24 +463,28 @@
   cursor: pointer;
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
-  opacity: 0.55;
+  opacity: 0;
+  pointer-events: none;
   transition:
     opacity var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard);
 }
-.layers-row:hover .layers-row__selection-checkbox,
-.layers-row:focus-within .layers-row__selection-checkbox {
-  opacity: 1;
-  color: var(--color-text-primary);
-}
 .layers-row__selection-checkbox--selected {
   opacity: 1;
+  pointer-events: auto;
   color: var(--color-interactive-default);
 }
 .layers-row--selected .layers-row__selection-checkbox,
 .layers-row--selected .layers-row__selection-checkbox--selected {
   opacity: 1;
-  color: var(--color-text-on-accent);
+  pointer-events: auto;
+  color: var(--color-interactive-default);
+}
+
+.layers-row:hover .layers-row__selection-checkbox,
+.layers-row:focus-within .layers-row__selection-checkbox {
+  color: var(--color-text-primary);
+  pointer-events: auto;
 }
 
 /* ─── Type icon ─────────────────────────────────────────────── */
@@ -456,14 +495,20 @@
 }
 
 .layers-row--selected .layers-row__type-icon {
-  color: var(--color-text-on-accent);
+  color: var(--color-interactive-default);
 }
 
 [data-theme="high-contrast"] .layers-row {
   outline: 1px solid transparent;
 }
 [data-theme="high-contrast"] .layers-row--selected {
+  background: var(--color-tree-row-selected);
+  color: var(--color-text-on-accent);
+  box-shadow: none;
   outline-color: var(--color-border-subtle);
+}
+[data-theme="high-contrast"] .layers-row--selected:hover {
+  background: var(--color-tree-row-selected);
 }
 [data-theme="high-contrast"] .layers-row__type-icon {
   opacity: 1;
@@ -476,6 +521,9 @@
 }
 [data-theme="high-contrast"] .layers-row--selected .layers-row__icon-area {
   background: var(--color-surface-raised);
+  color: var(--color-text-on-accent);
+}
+[data-theme="high-contrast"] .layers-row--selected .layers-row__type-icon {
   color: var(--color-text-on-accent);
 }
 /* HC: checkbox always visible; use explicit border for contrast */
@@ -572,7 +620,11 @@
 }
 
 .layers-row--selected .layers-row__adjustment-summary {
-  color: color-mix(in srgb, var(--color-text-on-accent) 78%, transparent);
+  color: var(--color-text-secondary);
+}
+
+[data-theme="high-contrast"] .layers-row--selected .layers-row__adjustment-summary {
+  color: var(--color-text-on-accent);
 }
 
 /* ─── Instance badge ────────────────────────────────────────── */
@@ -758,15 +810,50 @@
   white-space: nowrap;
 }
 
-.layers-row__mask-role {
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
-  white-space: nowrap;
+/* Mask state is structural information. Give it a stable pill and connector
+ * treatment so it cannot disappear into the row's incidental metadata. */
+.layers-row__mask-badge {
+  align-items: center;
+  border: 1px solid color-mix(in oklab, var(--color-feedback-info) 48%, transparent);
+  border-radius: var(--radius-sm);
+  color: var(--color-feedback-info);
+  display: inline-flex;
   flex-shrink: 0;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  padding: 0 var(--space-1);
+  white-space: nowrap;
+}
+
+.layers-row__mask-badge--alpha,
+.layers-row__mask-badge--luminance {
+  color: var(--color-layer-accent-component);
+  border-color: color-mix(in oklab, var(--color-layer-accent-component) 48%, transparent);
+}
+
+.layers-row__mask-badge--disabled {
+  color: var(--color-text-muted);
+  border-style: dashed;
+  text-decoration: line-through;
+}
+
+.layers-row__mask-role {
+  align-items: center;
+  background: color-mix(in oklab, var(--color-feedback-info) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-feedback-info) 36%, transparent);
+  border-radius: var(--radius-sm);
+  color: var(--color-feedback-info);
+  display: inline-flex;
+  font-size: var(--font-size-2xs);
+  line-height: 1.25;
+  padding: 0 var(--space-1);
 }
 
 .layers-row__mask-role--source {
-  font-weight: 600;
+  background: color-mix(in oklab, var(--color-layer-accent-adjustment) 14%, transparent);
+  border-color: color-mix(in oklab, var(--color-layer-accent-adjustment) 42%, transparent);
+  color: var(--color-layer-accent-adjustment);
 }
 
 /* ─── Toggles ───────────────────────────────────────────────── */
@@ -817,7 +904,33 @@
 }
 
 .layers-row__toggle--solo-off {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.layers-row:hover .layers-row__toggle--solo-off,
+.layers-row:focus-within .layers-row__toggle--solo-off {
   opacity: 0.25;
+  pointer-events: auto;
+}
+
+/* Pointer and touch routes remain available without requiring hover. */
+@media (any-hover: none) {
+  .layers-row__selection-checkbox,
+  .layers-row__toggle--solo-off {
+    opacity: 0.55;
+    pointer-events: auto;
+  }
+}
+
+/* Forced-colors/high-contrast must not let a user label reduce text contrast.
+ * The type/label data attribute and accessible name remain available, while
+ * the system row surface and type rail provide the non-colour fallback. */
+@media (forced-colors: active) {
+  .layers-row[data-layer-color],
+  [data-theme="high-contrast"] .layers-row[data-layer-color] {
+    background: var(--color-tree-row);
+  }
 }
 
 /* Mixed visibility/lock state — dash icon for multi-selection with mixed values */

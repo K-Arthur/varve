@@ -80,7 +80,7 @@ test.describe('Layers Panel - APG Tree View', () => {
   });
 
   test('search filter narrows visible rows', async ({ page }) => {
-    const filter = page.locator('.layers-panel__filter-input');
+    const filter = page.getByRole('searchbox', { name: 'Filter layers by name' });
     const items = page.getByRole('treeitem');
     const initialCount = await items.count();
     if (initialCount > 1) {
@@ -93,6 +93,91 @@ test.describe('Layers Panel - APG Tree View', () => {
         expect(afterCount).toBeGreaterThanOrEqual(1);
       }
     }
+  });
+
+  test('layer colour labels remain visible as a row cue', async ({ page }) => {
+    const firstItem = page.getByRole('treeitem').first();
+    await firstItem.click({ button: 'right' });
+    const menu = page.locator('.varve-ctxmenu');
+    await expect(menu).toBeVisible();
+    await menu.getByRole('menuitem', { name: 'Color Tag' }).click();
+    await page
+      .getByRole('menu', { name: 'Color Tag submenu' })
+      .getByRole('menuitem', { name: /^Red$/i })
+      .click();
+
+    await expect(firstItem).toHaveAttribute('data-layer-color', 'red');
+    await expect(firstItem.locator('.layers-row__color-tag')).toHaveCount(0);
+
+    // A backdrop must remain visible when the tagged row is not selected; the
+    // selected-row surface intentionally takes precedence for clarity.
+    if ((await page.getByRole('treeitem').count()) > 1) {
+      await page.getByRole('treeitem').nth(1).click();
+    }
+
+    for (const theme of ['light', 'dark', 'high-contrast'] as const) {
+      await page.evaluate((nextTheme) => {
+        document.documentElement.setAttribute('data-theme', nextTheme);
+      }, theme);
+      const taggedBackground = await firstItem.evaluate(
+        (element) => getComputedStyle(element).backgroundColor,
+      );
+      const neutralBackground = await page
+        .getByRole('treeitem')
+        .nth(2)
+        .evaluate((element) => getComputedStyle(element).backgroundColor);
+      expect(taggedBackground).not.toBe(neutralBackground);
+      await page.getByTestId('layers-panel').screenshot({
+        path: `test-results/layers-colour-label-${theme}.png`,
+      });
+    }
+  });
+
+  test('search reveals a descendant in a collapsed hierarchy and restores the view', async ({
+    page,
+  }) => {
+    const rows = page.getByRole('treeitem');
+    await rows.nth(0).click();
+    await rows.nth(1).click({ modifiers: ['Control'] });
+
+    const groupButton = page.locator('.layers-bulk-bar__btn[aria-label="Group"]');
+    await expect(groupButton).toBeVisible();
+    await groupButton.click({ force: true });
+
+    const group = page
+      .getByRole('treeitem')
+      .filter({ hasText: /^Group/ })
+      .first();
+    await expect(group).toBeVisible();
+    const groupId = await group.getAttribute('data-node-id');
+    expect(groupId).toBeTruthy();
+
+    const child = page
+      .getByRole('treeitem')
+      .filter({ hasText: /Rectangle/ })
+      .first();
+    const childId = await child.getAttribute('data-node-id');
+    const childName = await child.locator('.layers-row__name').textContent();
+    expect(childId).toBeTruthy();
+    expect(childName).toBeTruthy();
+
+    await group.getByRole('button', { name: 'Collapse' }).click();
+    await expect(group).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator(`[data-node-id="${childId}"]`)).not.toBeVisible();
+
+    const filter = page.getByRole('searchbox', { name: 'Filter layers by name' });
+    await filter.fill(childName!.trim());
+
+    const filteredChild = page.locator(`[data-node-id="${childId}"]`);
+    await expect(filteredChild).toBeVisible();
+    await expect(group).toHaveAttribute('aria-expanded', 'true');
+    await page.getByTestId('layers-panel').screenshot({
+      path: 'test-results/layers-collapsed-search-revealed.png',
+    });
+
+    await page.getByRole('button', { name: 'Clear all filters' }).click();
+    await expect(group).toHaveAttribute('aria-expanded', 'false');
+    await expect(filteredChild).not.toBeVisible();
   });
 
   test('keyboard reorder moves selected row', async ({ page }) => {

@@ -1033,7 +1033,11 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
               : undefined;
             const selected = isSelected(node.id);
             const focused = virtualItem.index === focusIdx;
-            const isExpanded = expanded.has(node.id);
+            // Filtered projections reveal matching descendants without
+            // mutating the user's normal expansion state. Read the effective
+            // projection flag so ARIA does not claim a row is collapsed while
+            // its matching children are visibly present.
+            const isExpanded = entry.childrenVisible ?? expanded.has(node.id);
             const dropClass =
               dropIndicator?.targetId === node.id
                 ? `layers-row--drop-${dropIndicator.zone}${dropIndicator.valid ? '' : ' layers-row--drop-invalid'}`

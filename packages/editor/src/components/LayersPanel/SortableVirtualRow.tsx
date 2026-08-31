@@ -185,7 +185,6 @@ export function SortableVirtualRow({
       ) : null}
       <LayersRow
         node={node}
-        doc={editorState.document}
         depth={depth}
         selected={selected}
         focused={focused}
@@ -219,6 +218,7 @@ export function SortableVirtualRow({
         syncStatus={syncStatus}
         presences={presences}
         docId={editorState.document.id}
+        doc={editorState.document}
         onDoubleClickIcon={(id) => revealSelection({ nodeId: id, fit: true })}
         selectedIds={selectedIds}
         onCopyEffectStack={onCopyEffectStack}
