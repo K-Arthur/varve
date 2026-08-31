@@ -1,6 +1,6 @@
 # Inspector organization audit — 2026-08-30
 
-This is a repository-first audit and the record for the first five implementation
+This is a repository-first audit and the record for the first six implementation
 slices of the Inspector reorganization. It deliberately distinguishes shipped
 behavior from proposed architecture and from unverified behavior. It does not
 claim that the full Inspector program is complete.
@@ -15,8 +15,9 @@ claim that the full Inspector program is complete.
 | Registry/header slice commit | `3259040da` |
 | Property-state/control slice | `b29361917` (`feat(inspector): make numeric property states explicit`) |
 | Commit subject | `feat(inspector): make numeric property states explicit` |
+| Restriction presentation slice | `3cc99d4a9` (`feat(inspector): explain selection restrictions`) |
 | Worktree | `/home/kevina/CodingProjects/varve` |
-| Dirty state | Concurrent docs, engine thumbnail, and UI overlay work remained unstaged; Inspector slice was committed separately |
+| Dirty state | Concurrent docs, engine thumbnail, and UI overlay work remained unstaged; Inspector slices were committed separately |
 | Package manager | pnpm 11.9.0 |
 | Node | v22.23.2 |
 | Rust/Cargo | 1.97.1 / 1.97.1 |
@@ -37,7 +38,7 @@ or reverted.
 
 ## Scope and invariant
 
-The first five vertical slices establish one tab metadata path, a real
+The first six vertical slices establish one tab metadata path, a real
 responsive tab surface, a pure derived context read model, deterministic
 section ordering/integrity checks, a visible non-selection context header, and
 an additive property-state contract with safer numeric editing.
@@ -52,6 +53,11 @@ Their invariants are:
 > derived from authoritative editor/document state; stale IDs are discarded,
 > ancestry is considered for lock/visibility safety, and no Inspector-only
 > state is serialized or used as a second selection system.
+
+> Locked and partially locked selections remain safe from accidental mutation,
+> while the Inspector keeps the selected values visible and states the exact
+> affected count and restriction source. Hidden selections remain inspectable
+> and explain why canvas feedback is unavailable.
 
 Out of scope for these slices: replacing manual section composition, adding a
 context provider, changing property commands or scene state, changing the
@@ -82,10 +88,10 @@ The five highest-impact root causes are:
 3. Property state semantics are uneven. `SelectionColorsSection` and several
    paint/effect controls model mixed or bound values, but there is no canonical
    property-state algebra applied to every NumberField, toggle, list, and stack.
-4. Lock/visibility guarding is coarse. The context slice now derives effective
-   ancestor restrictions and partial editable IDs, but `PropertiesPanel` still
-   guards the whole content and does not yet expose source-aware safe
-   inspection at control level.
+4. Lock/visibility guarding was coarse. The restriction slice now presents
+   effective source names and exact partial-selection counts without duplicating
+   the notice across nested surfaces; locked content remains inert for safety,
+   while control-level read-only/copy/source navigation is still deferred.
 5. Control lifecycle and specialist workflow ownership are incomplete. Some
   controls use `beginTransaction`/`commitTransaction`, while cancellation,
   pointer loss, selection changes, and collapse/unmount policies are not
@@ -107,7 +113,7 @@ The five highest-impact root causes are:
 | Section customization exposes only part of its model | Confirmed | `sectionState.ts` stores order, hidden, and collapsed state; `SectionManagerTrigger` currently provides show/hide/reset, not reorder. |
 | Legacy and registry disclosures coexist | Confirmed | `sectionState.ts` migration exists, but `DisclosureSection` callers and local/session state still need a complete inventory and removal plan. |
 | Collapse destroys draft state | Unverified risk | No cross-control lifecycle matrix or E2E exists for collapse during every draft type. The current code does not establish a universal mounted/hidden policy. |
-| Lock/visibility guarding is too coarse | Partly repaired | `inspectorContext.ts` derives direct and ancestor-effective restrictions, source IDs, and partial editable IDs; `SelectionLockGuard` still disables the whole locked selection and control-level safe inspection is deferred. |
+| Lock/visibility guarding is too coarse | Partly repaired | `inspectorContext.ts` derives direct and ancestor-effective restrictions, source IDs, and partial editable IDs; `SelectionLockGuard` now explains counts/sources once per active surface and preserves hidden inspection, while locked controls remain inert and control-level safe inspection is deferred. |
 | Mixed values vary by control | Partly repaired | `propertyState.ts` now defines common/mixed/unset/partial and richer source/error vocabulary; `NumberField` consumes it, while other controls still use legacy booleans. |
 | Numeric editing has lifecycle gaps | Partly repaired | `NumberField` now scopes Layout drafts by document/selection, selects the mixed placeholder for replacement, handles pointercancel/window blur/unmount, and coalesces arrow/scrub history; wheel and other control families remain to audit. |
 | Plugins bypass product IA | Partly confirmed | `pluginSections.ts` has namespacing and availability metadata, but `PluginSectionContribution` has no renderer/factory despite its module contract, no surface ownership validation, no order band enforcement, and no host rendering path found in the current Inspector composition. |
@@ -140,6 +146,8 @@ The five highest-impact root causes are:
 | E22 | E2E + visual | `VARVE_E2E_PORT=1487 ... ownership.spec.ts` | Complete Inspector ownership suite passes 7/7, including normal, overflow, prototype/tool separation, mixed-value screenshot, and responsive drawer checks | High for Chromium |
 | E23 | Affected validation | `VARVE_E2E_PORT=1489 VARVE_E2E_WORKERS=1 VARVE_TEST_WORKERS=1 pnpm verify:affected` | Tier 0, E2E typecheck, focused Inspector tests, and Inspector E2E pass; broad editor unit execution exposes unrelated menu snapshot drift and unrelated editor/ImageTuning failures. The ImageTuning expectation was corrected and its focused test then passed; broad run was stopped after hanging | High |
 | E24 | Visual inspection | `view_image` on document, rectangle, and mixed Inspector snapshots | No clipping, unstable hierarchy, or unreadable mixed state observed; mixed X/Y fields visibly say `Mixed` and remain aligned | High |
+| E25 | Unit/integration | `PropertiesPanel.test.tsx`, `restrictionState.test.ts`, `inspectorContext.test.ts` | Full, partial, ancestor-derived, and hidden restrictions are represented with source-aware copy; 31 focused tests pass | High |
+| E26 | E2E + screenshot | `ownership.spec.ts` locked-selection scenario and `locked-properties-chromium-linux.png` | Real Layers lock action leaves Inspector values visible, presents one source-aware notice, keeps controls inert, and has no clipping at the normal panel width | High for Chromium |
 
 ## Current-state feature ownership matrix
 
