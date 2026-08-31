@@ -19,21 +19,34 @@ function withNodes(nodes: SceneNode[]): Document {
   };
 }
 
+/** The section is registry-driven and collapsed by default (progressive
+ * disclosure); these tests exercise the content, so expand it first. */
+function expandSection() {
+  const trigger = screen.queryByRole('button', { name: 'Selection Colors' });
+  if (trigger && trigger.getAttribute('aria-expanded') === 'false') {
+    fireEvent.click(trigger);
+  }
+}
+
 function renderSection(document: Document, selectionIds: string[]) {
-  return render(
+  const utils = render(
     <EditorProvider>
       <SelectionColorsSection document={document} selectionIds={selectionIds} />
     </EditorProvider>,
   );
+  expandSection();
+  return utils;
 }
 
 function renderEditableSection(document: Document, selectionIds: string[]) {
-  return render(
+  const utils = render(
     <EditorProvider initialDocumentJson={JSON.stringify(document)} disablePersistentHistory>
       <SelectionColorsSection selectionIds={selectionIds} />
       <HistoryControls />
     </EditorProvider>,
   );
+  expandSection();
+  return utils;
 }
 
 function HistoryControls() {

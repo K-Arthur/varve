@@ -114,9 +114,13 @@ describe('PropertiesPanel canvas settings', () => {
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent?.trim());
     const tabLabels = tabs.filter(Boolean);
-    // Prototype and Fonts are contextual — they appear for a frame and a text
-    // selection respectively, so an empty selection shows neither.
-    expect(tabLabels).toEqual(['Properties', 'Appearance', 'Export', 'Audit']);
+    // Appearance and Audit are merged into the Design tab (single
+    // context-adaptive surface, Figma-style). Prototype and Fonts are
+    // contextual — they appear for a frame and a text selection
+    // respectively, so an empty selection shows neither.
+    expect(tabLabels).toEqual(['Design', 'Export']);
+    expect(screen.queryByRole('tab', { name: 'Appearance' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Audit' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Prototype' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Fonts' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Document' })).toBeNull();
@@ -127,19 +131,20 @@ describe('PropertiesPanel canvas settings', () => {
   it('implements APG roving focus for arrow, Home, and End keys across the tab row', () => {
     renderPanel();
     // Derived from what actually renders: the tab row is contextual, and the
-    // roving-focus contract applies to whichever tabs are present.
+    // roving-focus contract applies to whichever tabs are present. With
+    // Appearance and Audit merged into Design, an empty selection shows two
+    // tabs (Design, Export), so every arrow press wraps.
     const tabs = screen.getAllByRole('tab');
-    expect(tabs.length).toBeGreaterThanOrEqual(3);
+    expect(tabs.length).toBeGreaterThanOrEqual(2);
     const first = tabs[0]!;
     const second = tabs[1]!;
-    const third = tabs[2]!;
     const last = tabs[tabs.length - 1]!;
 
     second.focus();
     fireEvent.keyDown(second, { key: 'ArrowRight' });
-    expect(third).toHaveFocus();
+    expect(first).toHaveFocus();
 
-    fireEvent.keyDown(third, { key: 'End' });
+    fireEvent.keyDown(first, { key: 'End' });
     expect(last).toHaveFocus();
 
     fireEvent.keyDown(last, { key: 'Home' });
@@ -216,18 +221,18 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     }
   });
 
-  it('keeps Object Filter editing out of Properties and exposes the standalone Studio launcher', async () => {
+  it('hosts Object Filter editing in the merged Design surface and exposes the Studio launcher', async () => {
     await renderPanelWithSelectedRect();
 
-    expect(screen.queryByRole('button', { name: 'Object Filters' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Open Effect Studio' })).toHaveAttribute(
-      'data-testid',
-      'open-effect-studio',
-    );
-    expect(screen.getByRole('tab', { name: 'Appearance' })).toHaveAttribute(
-      'aria-selected',
-      'false',
-    );
+    // Appearance content — including Object Filters — is merged into the
+    // single context-adaptive Design tab; the Effect Studio dialog remains
+    // the focused surface for browsing curated treatment stacks. The merged
+    // panels are lazy-loaded; the generous timeout absorbs slow CI workers.
+    expect(
+      await screen.findByRole('button', { name: 'Object Filters' }, { timeout: 15000 }),
+    ).toBeTruthy();
+    expect(await screen.findByTestId('open-effect-studio', {}, { timeout: 15000 })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: 'Appearance' })).toBeNull();
   });
 
   it('does not render the State Machine section inline (moved to its own panel)', async () => {

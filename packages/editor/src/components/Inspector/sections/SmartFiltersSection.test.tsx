@@ -118,7 +118,10 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedUseEditor.mockReturnValue({
-      state: { sectionVisibility: {} },
+      // 'smart-filters' is collapsed by default in the section registry
+      // (progressive disclosure); these tests exercise the section content,
+      // so seed the visibility state expanded.
+      state: { sectionVisibility: { 'smart-filters': { collapsed: false } } },
       toggleSectionCollapse: vi.fn(),
       toggleSubSectionCollapse: vi.fn(),
       hideInspectorSection: vi.fn(),

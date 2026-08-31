@@ -296,7 +296,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'constraints',
     title: 'Constraints',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 115,
@@ -318,7 +318,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'mask',
     title: 'Mask',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 210,
@@ -328,7 +328,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'selection-colors',
     title: 'Selection Colors',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 215,
@@ -348,7 +348,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'paint-library',
     title: 'Paint Library',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 230,
@@ -368,7 +368,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'effects',
     title: 'Layer Effects',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 250,
@@ -378,7 +378,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'smart-filters',
     title: 'Object Filters',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 245,
@@ -388,7 +388,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'adjustment-layer-access',
     title: 'Adjustment Layer',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 246,
@@ -400,7 +400,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'warp',
     title: 'Warp',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 255,
@@ -551,7 +551,12 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 275,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    // While the crop tool is active the tool-options popover owns this
+    // surface (featureOwnership: 'tool-options', same convention as
+    // brush-settings/frame-presets); the Inspector hosts it for
+    // selection-based access under every other tool.
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.activeTool !== 'crop',
   },
   {
     id: 'ai-tools-hint',
@@ -570,7 +575,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'layer-states',
     title: 'Layer States',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 305,

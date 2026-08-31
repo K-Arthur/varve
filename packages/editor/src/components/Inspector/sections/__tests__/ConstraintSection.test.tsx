@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EditorProvider } from '../../../../context';
 import { ConstraintSection } from '../ConstraintSection';
@@ -59,9 +59,16 @@ function buildDocJson(frameChildren: string[] = []) {
 }
 
 function renderWithProvider(element: React.ReactElement) {
-  return render(
+  const utils = render(
     <EditorProvider initialDocumentJson={buildDocJson(['c1'])}>{element}</EditorProvider>,
   );
+  // 'constraints' is collapsed by default in the section registry
+  // (progressive disclosure); these tests exercise the content.
+  const trigger = screen.queryByRole('button', { name: 'Constraints' });
+  if (trigger && trigger.getAttribute('aria-expanded') === 'false') {
+    fireEvent.click(trigger);
+  }
+  return utils;
 }
 
 describe('ConstraintSection', () => {

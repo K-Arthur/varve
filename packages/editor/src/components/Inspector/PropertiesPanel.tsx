@@ -24,6 +24,7 @@ import { LayerStatesSection } from '../LayersPanel/LayerStatesSection';
 import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
+import { DisclosureSection } from './controls/DisclosureSection';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
 import { SelectionSourcesPanel } from './SelectionSourcesPanel';
 import {
@@ -84,7 +85,7 @@ const EmailPanel = lazy(() =>
 type ExportSubTab = 'format' | 'code';
 
 const FALLBACK_TAB_LABELS: Record<InspectorTab, string> = {
-  properties: 'Properties',
+  properties: 'Design',
   appearance: 'Appearance',
   adjustments: 'Adjustments',
   prototype: 'Prototype',
@@ -123,7 +124,6 @@ export function PropertiesPanel() {
     const isImageSelected = selNodes.length > 0 && selNodes.every(isImageShape);
     const isAdjustmentSelected = selNodes.length === 1 && selNodes[0]?.kind === 'adjustment';
     const isSingleNodeSelected = selNodes.length === 1;
-    const isTextSelected = selNodes.length === 1 && selNodes[0]?.kind === 'text';
 
     // Show Adjustments tab for any image-only selection: the image-editing
     // actions the selection quick bar offers in every workspace (Remove
@@ -142,11 +142,16 @@ export function PropertiesPanel() {
       }
     }
 
-    // Fonts tab: only when a text node is selected
-    if (tabs.includes('fonts')) {
-      if (!isTextSelected) {
-        tabs.splice(tabs.indexOf('fonts'), 1);
-      }
+    // Fonts tab is merged away: font discovery lives in the Browse-fonts
+    // dialog inside the Typography section. The legacy tab block remains for
+    // the openFontsPanel deep link.
+    tabs.splice(tabs.indexOf('fonts'), 1);
+
+    // Appearance and Audit tabs are merged into the Design (properties) tab.
+    // Hide them from the tab bar — their content renders inline below.
+    for (const merged of ['appearance', 'audit'] as const) {
+      const idx = tabs.indexOf(merged);
+      if (idx >= 0) tabs.splice(idx, 1);
     }
 
     // Audit and Export tabs: always available but show a hint when nothing is selected
@@ -314,9 +319,34 @@ export function PropertiesPanel() {
             {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
             {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
           </SelectionLockGuard>
+          {/* Merged from the Appearance and Audit tabs. Both panels are lazy,
+              so they must render inside a Suspense boundary — at HEAD they
+              only ever mounted inside LazyTabPanel. Hidden on empty selection:
+              the DocumentPanel above is the empty-selection surface. */}
+          <Suspense fallback={null}>
+            {summary.kind !== 'empty' && (
+              <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
+                <AppearancePanel />
+              </SelectionLockGuard>
+            )}
+            {/* Merged from the Audit tab. Unlike the appearance surfaces,
+                intelligence is a document-level analysis reachable with no
+                selection (audit page/document menu actions), so it renders
+                regardless of selection, collapsed by default. Deep-link
+                requests (openAuditPanel) still reach IntelligencePanel
+                through the request prop. */}
+            <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
+              <DisclosureSection title="Insights" defaultExpanded={false}>
+                <AuditPanel request={intelRequest} />
+              </DisclosureSection>
+            </SelectionLockGuard>
+          </Suspense>
         </div>
       )}
 
+      {/* Legacy appearance tab — content is merged into the Design tab; this
+          block remains so stored preferences and deep links that request the
+          appearance tab still render correctly. */}
       {tab === 'appearance' && (
         <LazyTabPanel tab={tab}>
           <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
