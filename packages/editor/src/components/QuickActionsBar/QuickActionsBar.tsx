@@ -7,11 +7,19 @@
  *
  * Research basis: Figma ⌘/ palette, VS Code Ctrl+Shift+P, Penpot shortcuts.
  */
-import { FocusTrap, Icon } from '@varve/ui';
+import {
+  FloatingPortal,
+  FocusTrap,
+  Icon,
+  type OverlayAnchor,
+  pointAnchor,
+  viewportPoint,
+} from '@varve/ui';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -49,6 +57,9 @@ export interface QuickActionsBarProps {
   onClose: () => void;
   context?: 'always' | 'selection' | 'textEdit' | 'multiSelect' | 'canvas';
   onExecute?: (actionId: string) => void;
+  /** Explicit viewport/element/range anchor for detached-window callers. */
+  anchor?: OverlayAnchor | null;
+  /** Legacy viewport CSS-pixel point; prefer `anchor` for new callers. */
   position?: { x: number; y: number };
   workspaceMode?: WorkspaceMode;
 }
@@ -57,6 +68,7 @@ export function QuickActionsBar({
   open,
   onClose,
   onExecute,
+  anchor,
   position,
   workspaceMode = 'design',
 }: QuickActionsBarProps) {
@@ -65,6 +77,7 @@ export function QuickActionsBar({
   const listRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [recent, setRecent] = useState<string[]>(loadRecent);
+  const launchElementRef = useRef<HTMLElement | null>(null);
 
   const registry = getActionRegistry();
   const effectiveConfig = useEffectiveWorkspaceConfig(workspaceMode);
@@ -97,24 +110,48 @@ export function QuickActionsBar({
     return actions.slice(0, MAX_VISIBLE);
   }, [query, registry, allActions, recent]);
 
-  // Save the launching element while the palette is open and hand focus back
-  // when it closes. FocusTrap also restores, but only while focus is still
-  // inside the trap at cleanup — an executed action can move focus first, so
-  // the palette owns this explicitly rather than relying on that path.
-  const launchElementRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
+    if (!open) return;
+    setQuery('');
+    setActiveIndex(0);
+  }, [open]);
+
+  // Capture before FloatingPortal mounts its window-local host. FocusTrap is
+  // deliberately not also restoring focus: this is the one owner for the
+  // command surface's handoff, and it can avoid stealing focus from a dialog
+  // opened synchronously by an action.
+  useLayoutEffect(() => {
+    const ownerDocument =
+      anchor?.kind === 'point'
+        ? anchor.ownerDocument
+        : anchor?.kind === 'element'
+          ? anchor.element.ownerDocument
+          : anchor?.kind === 'range'
+            ? (anchor.range.startContainer.ownerDocument ?? document)
+            : document;
     if (open) {
-      const active = document.activeElement as HTMLElement | null;
-      if (active && active !== document.body) launchElementRef.current = active;
-      setQuery('');
-      setActiveIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 0);
+      const active = ownerDocument.activeElement as HTMLElement | null;
+      if (active && active !== ownerDocument.body) launchElementRef.current = active;
       return;
     }
     const target = launchElementRef.current;
     launchElementRef.current = null;
-    if (target?.isConnected) target.focus({ preventScroll: true });
+    const active = ownerDocument.activeElement;
+    if (target?.isConnected && (!active || active === ownerDocument.body || !active.isConnected)) {
+      target.focus({ preventScroll: true });
+    }
   }, [open]);
+
+  const actionAnchor = useMemo(() => {
+    if (anchor) return anchor;
+    const ownerDocument = document;
+    const ownerWindow = ownerDocument.defaultView;
+    const width = ownerWindow?.innerWidth ?? ownerDocument.documentElement.clientWidth;
+    const height = ownerWindow?.innerHeight ?? ownerDocument.documentElement.clientHeight;
+    const x = position?.x ?? width / 2;
+    const y = position?.y ?? Math.max(0, height - 8);
+    return pointAnchor(viewportPoint(x, y), ownerDocument);
+  }, [anchor, position?.x, position?.y]);
 
   const execute = useCallback(
     (action: RegisteredAction) => {
@@ -158,88 +195,90 @@ export function QuickActionsBar({
 
   if (!open) return null;
 
-  const barStyle: React.CSSProperties = position
-    ? {
-        position: 'fixed',
-        left: Math.min(position.x, window.innerWidth - 320),
-        top: Math.min(position.y, window.innerHeight - 400),
-      }
-    : {
-        position: 'fixed',
-        bottom: 'var(--space-8)',
-        left: '50%',
-        transform: 'translateX(-50%)',
-      };
-
   return (
-    // FocusTrap supplies what aria-modal only claims: Tab containment plus
-    // restoration of focus to whatever launched the palette. Without it, Tab
-    // walked into the editor behind a supposedly modal surface and closing
-    // could drop focus to <body>.
-    <FocusTrap active initialFocus=".quick-actions-bar__input" onClose={onClose}>
-      <div
-        className="quick-actions-bar"
-        style={barStyle}
-        role="dialog"
-        aria-modal={true}
-        aria-label="Quick actions"
-        onKeyDown={handleKeyDown}
+    <FloatingPortal
+      anchor={actionAnchor}
+      open={open}
+      placement={position ? 'bottom-start' : 'top'}
+      fallbackPlacements={['top-start', 'bottom-end', 'left-start', 'right-start']}
+      offsetDistance={8}
+      maxHeight={420}
+      kind="action-menu"
+      dismissOnEscape={false}
+      onClose={onClose}
+      className="quick-actions-bar__layer"
+    >
+      {/* FocusTrap supplies what aria-modal only claims: Tab containment plus
+          restoration of focus to whatever launched the palette. */}
+      <FocusTrap
+        active
+        initialFocus=".quick-actions-bar__input"
+        onClose={onClose}
+        restoreFocus={false}
       >
-        <div className="quick-actions-bar__input-wrap">
-          <Icon name="Search" size={16} className="quick-actions-bar__search-icon" />
-          <input
-            ref={inputRef}
-            className="quick-actions-bar__input"
-            type="text"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setActiveIndex(0);
-            }}
-            placeholder="Search actions..."
-            aria-label="Search actions"
-          />
-          <button
-            type="button"
-            className="quick-actions-bar__close-btn"
-            onClick={onClose}
-            aria-label="Close quick actions"
-          >
-            <Icon name="X" size={16} />
-          </button>
-        </div>
-
         <div
-          className="quick-actions-bar__results"
-          ref={listRef}
-          role="listbox"
-          aria-label="Actions"
+          className="quick-actions-bar"
+          role="dialog"
+          aria-modal={true}
+          aria-label="Quick actions"
+          onKeyDown={handleKeyDown}
         >
-          {filtered.length === 0 && (
-            <div className="quick-actions-bar__empty">No actions found</div>
-          )}
-          {filtered.map((action, i) => (
+          <div className="quick-actions-bar__input-wrap">
+            <Icon name="Search" size={16} className="quick-actions-bar__search-icon" />
+            <input
+              ref={inputRef}
+              className="quick-actions-bar__input"
+              type="text"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setActiveIndex(0);
+              }}
+              placeholder="Search actions..."
+              aria-label="Search actions"
+            />
             <button
-              key={action.id}
               type="button"
-              className={`quick-actions-bar__item${i === activeIndex ? ' quick-actions-bar__item--active' : ''}`}
-              role="option"
-              aria-selected={i === activeIndex}
-              aria-label={`${action.label}${hiddenToolActionIds.has(action.id) ? ', hidden from current toolbar' : ''}`}
-              onClick={() => execute(action)}
-              onMouseEnter={() => setActiveIndex(i)}
+              className="quick-actions-bar__close-btn"
+              onClick={onClose}
+              aria-label="Close quick actions"
             >
-              <span className="quick-actions-bar__item-label">
-                {action.label}
-                {hiddenToolActionIds.has(action.id) && (
-                  <span className="quick-actions-bar__item-note">Hidden from toolbar</span>
-                )}
-              </span>
-              <span className="quick-actions-bar__item-category">{action.category}</span>
+              <Icon name="X" size={16} />
             </button>
-          ))}
+          </div>
+
+          <div
+            className="quick-actions-bar__results"
+            ref={listRef}
+            role="listbox"
+            aria-label="Actions"
+          >
+            {filtered.length === 0 && (
+              <div className="quick-actions-bar__empty">No actions found</div>
+            )}
+            {filtered.map((action, i) => (
+              <button
+                key={action.id}
+                type="button"
+                className={`quick-actions-bar__item${i === activeIndex ? ' quick-actions-bar__item--active' : ''}`}
+                role="option"
+                aria-selected={i === activeIndex}
+                aria-label={`${action.label}${hiddenToolActionIds.has(action.id) ? ', hidden from current toolbar' : ''}`}
+                onClick={() => execute(action)}
+                onMouseEnter={() => setActiveIndex(i)}
+              >
+                <span className="quick-actions-bar__item-label">
+                  {action.label}
+                  {hiddenToolActionIds.has(action.id) && (
+                    <span className="quick-actions-bar__item-note">Hidden from toolbar</span>
+                  )}
+                </span>
+                <span className="quick-actions-bar__item-category">{action.category}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
-    </FocusTrap>
+      </FocusTrap>
+    </FloatingPortal>
   );
 }

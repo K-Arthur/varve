@@ -167,6 +167,8 @@ export function ToolOptionsPopover() {
 
   useEffect(() => {
     if (!open) return;
+    const ownerDocument = triggerRef.current?.ownerDocument;
+    const ownerWindow = ownerDocument?.defaultView;
     const focusFirstControl = () => {
       const control = popoverRef.current?.querySelector<HTMLElement>(
         'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
@@ -175,37 +177,27 @@ export function ToolOptionsPopover() {
       control.focus();
       return true;
     };
-    const focusObserver = new MutationObserver(() => {
-      if (focusFirstControl()) focusObserver.disconnect();
-    });
-    if (!focusFirstControl() && popoverRef.current) {
-      focusObserver.observe(popoverRef.current, { childList: true, subtree: true });
+    const OwnerMutationObserver = ownerWindow?.MutationObserver;
+    let focusObserver: MutationObserver | null = null;
+    const tryFocus = () => {
+      if (focusFirstControl()) {
+        focusObserver?.disconnect();
+        return;
+      }
+      // FloatingPortal mounts its measured layer after this effect runs, and
+      // the brush controls may arrive later through Suspense. Observe the
+      // owner document's body only until the first real control is focusable;
+      // this avoids a timing guess while still cleaning the observer promptly.
+      if (focusObserver && ownerDocument?.body) {
+        focusObserver.observe(ownerDocument.body, { childList: true, subtree: true });
+      }
+    };
+    if (OwnerMutationObserver) {
+      focusObserver = new OwnerMutationObserver(tryFocus);
     }
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      const isPortaledSelect =
-        target instanceof Element && target.closest('.varve-select__listbox') !== null;
-      if (
-        !popoverRef.current?.contains(target) &&
-        !triggerRef.current?.contains(target) &&
-        !isPortaledSelect
-      ) {
-        setOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        setOpen(false);
-        triggerRef.current?.focus();
-      }
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
+    tryFocus();
     return () => {
-      focusObserver.disconnect();
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
+      focusObserver?.disconnect();
     };
   }, [open]);
 
@@ -228,7 +220,13 @@ export function ToolOptionsPopover() {
         anchorRef={triggerRef}
         open={open}
         placement="top"
-        maxHeight={typeof window === 'undefined' ? 640 : Math.min(window.innerHeight * 0.7, 640)}
+        maxHeight={640}
+        kind="popover"
+        dismissOnEscape
+        onClose={(reason) => {
+          setOpen(false);
+          if (reason === 'escape') triggerRef.current?.focus();
+        }}
         className="tool-options__popover"
       >
         <div

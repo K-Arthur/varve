@@ -397,10 +397,7 @@
   line-height: 1;
 }
 .insp-section-manager__panel {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: var(--z-overlay);
+  position: static;
   width: 280px;
   max-height: 400px;
   overflow-y: auto;

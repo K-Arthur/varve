@@ -61,6 +61,7 @@ vi.mock('../../controls/DisclosureSection', () => ({
 vi.mock('@floating-ui/dom', () => ({
   computePosition: vi.fn(() => Promise.resolve({ x: 0, y: 0 })),
   autoUpdate: vi.fn(() => vi.fn()),
+  hide: vi.fn(),
 }));
 
 afterEach(cleanup);

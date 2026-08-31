@@ -6,7 +6,7 @@
  *
  * Research basis: Figma layer panel options, VS Code panel header menus.
  */
-import { Icon } from '@varve/ui';
+import { FloatingPortal, Icon } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { FEATURE_OWNERSHIP, type InspectorSurface } from './featureOwnership';
@@ -34,40 +34,43 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
   const surfaceIds = new Set<SectionId>(
     Object.entries(FEATURE_OWNERSHIP)
       .filter(([, ownership]) => ownership.surface === surface)
-      .map(([id]) => id),
+      .map(([id]) => id as SectionId),
   );
   const hiddenIds = getHiddenSectionIds(state.sectionVisibility).filter((id) => surfaceIds.has(id));
   const hiddenCount = hiddenIds.length;
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
-    panelRef.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus();
-    const handle = (e: MouseEvent) => {
-      if (
-        panelRef.current &&
-        !panelRef.current.contains(e.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
+    const focusFirst = () => {
+      const control = panelRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), input:not([disabled])',
+      );
+      if (!control) return false;
+      control.focus();
+      return true;
+    };
+    const ownerDocument = buttonRef.current?.ownerDocument;
+    const OwnerMutationObserver = ownerDocument?.defaultView?.MutationObserver;
+    let focusObserver: MutationObserver | null = null;
+    const tryFocus = () => {
+      if (focusFirst()) {
+        focusObserver?.disconnect();
+        return;
+      }
+      // The measured portal is mounted after this effect's first pass. Watch
+      // only until the first control is available; this keeps focus handoff
+      // deterministic without a timer tied to an assumed render delay.
+      if (focusObserver && ownerDocument?.body) {
+        focusObserver.observe(ownerDocument.body, { childList: true, subtree: true });
       }
     };
-    document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
-  }, [open]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    const handle = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setOpen(false);
-        buttonRef.current?.focus();
-      }
+    if (OwnerMutationObserver) {
+      focusObserver = new OwnerMutationObserver(tryFocus);
+    }
+    tryFocus();
+    return () => {
+      focusObserver?.disconnect();
     };
-    document.addEventListener('keydown', handle);
-    return () => document.removeEventListener('keydown', handle);
   }, [open]);
 
   const orderedSectionIds = getOrderedSectionIds(state.sectionVisibility, [...surfaceIds]);
@@ -95,7 +98,7 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
         type="button"
         className="insp-section-manager__trigger"
         aria-expanded={open}
-        aria-haspopup="true"
+        aria-haspopup="dialog"
         aria-label={`Customize sections${hiddenCount > 0 ? `, ${hiddenCount} hidden` : ''}`}
         onClick={() => setOpen(!open)}
       >
@@ -103,7 +106,20 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
         {hiddenCount > 0 && <span className="insp-section-manager__badge">{hiddenCount}</span>}
       </button>
 
-      {open && (
+      <FloatingPortal
+        anchorRef={buttonRef}
+        open={open}
+        placement="bottom-end"
+        fallbackPlacements={['top-end', 'bottom-start', 'top-start']}
+        maxHeight={400}
+        kind="popover"
+        dismissOnEscape
+        onClose={(reason) => {
+          setOpen(false);
+          if (reason === 'escape') buttonRef.current?.focus();
+        }}
+        className="insp-section-manager__layer"
+      >
         <div
           ref={panelRef}
           className="insp-section-manager__panel"
@@ -230,7 +246,7 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
             </div>
           )}
         </div>
-      )}
+      </FloatingPortal>
     </div>
   );
 }

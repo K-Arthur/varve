@@ -40,7 +40,7 @@ export interface DocumentContextValue {
     text?: string,
   ) => void;
   applyFramePreset: (preset: { name: string; w: number; h: number }) => void;
-  removeSelected: () => void;
+  removeSelected: (selection?: NodeId[]) => void;
   renameSelected: (name: string) => void;
   moveNode: (id: NodeId, toIndex: number) => void;
   duplicateSelected: () => void;

@@ -299,7 +299,7 @@ export interface LayersTreeProps {
   filterSpec?: LayerFilterSpec;
   onContextMenu?: (e: React.MouseEvent, id: NodeId) => void;
   /** Keyboard-triggered context menu (Shift+F10 / Menu key) for the focused row. */
-  onContextMenuKeyboard?: (id: NodeId) => void;
+  onContextMenuKeyboard?: (id: NodeId, focusedRow?: HTMLElement) => void;
   /** Toggle the solo flag on a node (focus mode). */
   onToggleSolo?: (id: NodeId) => void;
 }
@@ -993,21 +993,27 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       </div>
     );
   })();
+  const hasTreeItems = entries.length > 0;
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the handlers are only present when this surface exposes an interactive tree.
+    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: the role changes to a labelled region while the empty-state content has no treeitems.
     <div
       ref={treeRef}
       className="layers-panel__tree"
-      role="tree"
+      // An empty tree cannot satisfy the tree required-child contract. Keep
+      // the labelled surface discoverable while exposing tree semantics only
+      // when it actually contains treeitems.
+      role={hasTreeItems ? 'tree' : 'region'}
       aria-label="Layers"
-      aria-multiselectable="true"
+      aria-multiselectable={hasTreeItems ? 'true' : undefined}
       // Keep the tree root in the normal Tab order. Rows still use roving
       // tabindex for arrow navigation, but keyboard users must have a
       // reliable way to reach the panel without guessing its Tab position.
-      tabIndex={0}
-      onFocus={handleTreeFocus}
-      onKeyDown={handleKeyDown}
-      onContextMenu={handleContextMenu}
+      tabIndex={hasTreeItems ? 0 : undefined}
+      onFocus={hasTreeItems ? handleTreeFocus : undefined}
+      onKeyDown={hasTreeItems ? handleKeyDown : undefined}
+      onContextMenu={hasTreeItems ? handleContextMenu : undefined}
     >
       {emptyState}
       <div

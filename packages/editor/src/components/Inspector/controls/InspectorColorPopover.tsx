@@ -163,6 +163,10 @@ export function InspectorColorPopover({
       onEditEnd?.();
     }
     setOpen(false);
+    // This dialog owns the only focus handoff for its close paths. The
+    // trigger may not have been focused before a synthetic or pointer open,
+    // so FocusTrap's saved active element is not sufficient on its own.
+    triggerRef.current?.focus({ preventScroll: true });
   }, [onEditEnd]);
 
   const handlePointerDownCapture = useCallback(() => {
@@ -176,27 +180,6 @@ export function InspectorColorPopover({
     gestureActiveRef.current = false;
     onEditEnd?.();
   }, [onEditEnd]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        close();
-      }
-    };
-    document.addEventListener('keydown', onKey, true);
-    return () => document.removeEventListener('keydown', onKey, true);
-  }, [open, close]);
-
-  const wasOpenRef = useRef(false);
-  useEffect(() => {
-    if (wasOpenRef.current && !open) {
-      triggerRef.current?.focus();
-    }
-    wasOpenRef.current = open;
-  }, [open]);
 
   return (
     <>
@@ -236,6 +219,8 @@ export function InspectorColorPopover({
         placement="left-start"
         maxHeight={560}
         id={dialogId}
+        kind="dialog"
+        dismissOnEscape
         className="insp-picker-popover insp-picker-popover--portaled"
       >
         <FocusTrap active={open}>

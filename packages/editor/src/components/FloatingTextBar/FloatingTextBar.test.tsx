@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { TextNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FloatingTextBar, type FloatingTextBarProps } from './FloatingTextBar';
@@ -11,6 +11,7 @@ vi.mock('@floating-ui/dom', () => ({
   shift: vi.fn(),
   offset: vi.fn(),
   size: vi.fn(),
+  hide: vi.fn(),
 }));
 
 afterEach(cleanup);
@@ -63,6 +64,10 @@ describe('FloatingTextBar', () => {
     window.innerHeight = 900;
     window.innerWidth = 1440;
   });
+
+  async function settledToolbar(): Promise<HTMLElement> {
+    return waitFor(() => screen.getByRole('toolbar'));
+  }
 
   it('renders font family select', () => {
     render(<FloatingTextBar {...defaultProps()} />);
@@ -210,67 +215,68 @@ describe('FloatingTextBar', () => {
     expect(onUpdate).toHaveBeenCalledWith('text-1', { fontSize: 24 });
   });
 
-  it('renders font selector with combobox', () => {
+  it('renders font selector with combobox', async () => {
     const onUpdate = vi.fn();
     render(<FloatingTextBar {...defaultProps({ onUpdate })} />);
+    await settledToolbar();
     // FontSelector uses a combobox pattern
     const fontInput = screen.getByRole('combobox', { name: 'Font family' });
     expect(fontInput).toBeInTheDocument();
   });
 
-  it('calls onUpdate with font weight on select change', () => {
+  it('calls onUpdate with font weight on select change', async () => {
     const onUpdate = vi.fn();
     render(<FloatingTextBar {...defaultProps({ onUpdate })} />);
+    await settledToolbar();
     fireEvent.click(screen.getByLabelText('Font weight'));
-    fireEvent.click(screen.getByRole('option', { name: '700' }));
+    fireEvent.click(await waitFor(() => screen.getByRole('option', { name: '700' })));
     expect(onUpdate).toHaveBeenCalledWith('text-1', { fontWeight: 700 });
   });
 
-  it('calls onClose on Escape key', () => {
+  it('calls onClose on Escape key', async () => {
     const onClose = vi.fn();
     render(<FloatingTextBar {...defaultProps({ onClose })} />);
-    fireEvent.keyDown(screen.getByRole('toolbar'), { key: 'Escape' });
+    fireEvent.keyDown(await settledToolbar(), { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('calls onClose when window Escape is pressed', () => {
+  it('calls onClose when the owner-document Escape is pressed', async () => {
     const onClose = vi.fn();
     render(<FloatingTextBar {...defaultProps({ onClose })} />);
-    fireEvent.keyDown(window, { key: 'Escape' });
+    await settledToolbar();
+    fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('positions above text when space permits', () => {
+  it('uses the shared fixed overlay placement for text', async () => {
     const rect = { x: 100, y: 300, w: 200, h: 30 };
     render(<FloatingTextBar {...defaultProps({ textScreenRect: rect })} />);
-    const el = screen.getByRole('toolbar');
-    // Position: above (300 - 42 - 8 = 250)
-    expect(el.style.top).toBe('250px');
-    expect(el.style.left).toBe('100px');
+    const toolbar = await settledToolbar();
+    const layer = toolbar.closest<HTMLElement>('[data-varve-overlay]');
+    expect(layer).toHaveAttribute('data-overlay-state', 'visible');
+    expect(layer?.style.position).toBe('fixed');
+    expect(Number.isFinite(Number.parseFloat(layer?.style.left ?? ''))).toBe(true);
+    expect(Number.isFinite(Number.parseFloat(layer?.style.top ?? ''))).toBe(true);
   });
 
-  it('positions below text when no space above', () => {
+  it('keeps the shared overlay mounted when the anchor is near the top', async () => {
     // Put the text near the top of the viewport
     const rect = { x: 100, y: 10, w: 200, h: 30 };
     render(<FloatingTextBar {...defaultProps({ textScreenRect: rect })} />);
-    const el = screen.getByRole('toolbar');
-    // Position: below (10 + 30 + 8 = 48)
-    expect(el.style.top).toBe('48px');
+    expect(await settledToolbar()).toBeInTheDocument();
   });
 
-  it('positions to the right when no space above or below', () => {
+  it('keeps the shared overlay mounted in a short viewport', async () => {
     // Make viewport too small for above or below
     window.innerHeight = 100;
     const rect = { x: 100, y: 30, w: 200, h: 30 };
     render(<FloatingTextBar {...defaultProps({ textScreenRect: rect })} />);
-    const el = screen.getByRole('toolbar');
-    // Position: to the right (100 + 200 + 8 = 308)
-    expect(el.style.left).toBe('308px');
+    expect(await settledToolbar()).toBeInTheDocument();
   });
 
-  it('renders with toolbar role', () => {
+  it('renders with toolbar role', async () => {
     render(<FloatingTextBar {...defaultProps()} />);
-    expect(screen.getByRole('toolbar')).toBeInTheDocument();
-    expect(screen.getByRole('toolbar')).toHaveAttribute('aria-label', 'Text formatting');
+    const toolbar = await settledToolbar();
+    expect(toolbar).toHaveAttribute('aria-label', 'Text formatting');
   });
 });

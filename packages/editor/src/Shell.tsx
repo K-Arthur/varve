@@ -3,7 +3,15 @@
 import { HelpBrowser } from '@varve/help';
 import type { Platform } from '@varve/platform';
 import { getAllRules, registerBuiltinRules } from '@varve/scene';
-import { ContextMenu, Icon, ToastProvider, Tooltip, useToast } from '@varve/ui';
+import {
+  ContextMenu,
+  Icon,
+  type OverlayAnchor,
+  pointAnchor,
+  ToastProvider,
+  Tooltip,
+  useToast,
+} from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   dispatchRegisteredAction,
@@ -12,7 +20,7 @@ import {
   registerEditorActions,
 } from './actions/registerAll';
 import { AuditOverlayHost } from './audit/overlay/AuditOverlayHost';
-import { CanvasArea } from './CanvasArea';
+import { CanvasArea, type CanvasContextMenuRequest } from './CanvasArea';
 import { cancelPasteFallback, captureClipboardEvent } from './clipboard';
 import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPickerOverlay';
 import { SelectionBreadcrumb } from './components/Breadcrumb/SelectionBreadcrumb';
@@ -160,11 +168,52 @@ function ShellInner({
     editor.state.pan,
   );
 
-  const [canvasContextMenu, setCanvasContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [canvasContextMenu, setCanvasContextMenu] = useState<{
+    anchor: OverlayAnchor;
+    documentId: string;
+    activeId: string;
+    activePageId: string | null;
+    workspaceMode: string;
+    selection: string[];
+  } | null>(null);
 
-  const handleCanvasContextMenu = useCallback((pos: { x: number; y: number }) => {
-    setCanvasContextMenu(pos);
-  }, []);
+  const handleCanvasContextMenu = useCallback(
+    (request: CanvasContextMenuRequest) => {
+      setCanvasContextMenu({
+        anchor: pointAnchor(
+          request.point,
+          request.contextElement.ownerDocument,
+          request.contextElement,
+        ),
+        documentId: editor.state.document.id,
+        activeId: editor.state.activeId,
+        activePageId: editor.state.document.activePageId ?? null,
+        workspaceMode: editor.state.workspaceMode,
+        selection: [...editor.state.selection],
+      });
+    },
+    [editor.state],
+  );
+
+  // Canvas context commands are derived from the invocation state. If a
+  // document, page, workspace, session, or selection changes while the menu
+  // is open, close it before its live command list can target something else.
+  useEffect(() => {
+    if (!canvasContextMenu) return;
+    const current = editor.state;
+    const sameSelection =
+      current.selection.length === canvasContextMenu.selection.length &&
+      current.selection.every((id, index) => id === canvasContextMenu.selection[index]);
+    if (
+      current.document.id !== canvasContextMenu.documentId ||
+      current.activeId !== canvasContextMenu.activeId ||
+      (current.document.activePageId ?? null) !== canvasContextMenu.activePageId ||
+      current.workspaceMode !== canvasContextMenu.workspaceMode ||
+      !sameSelection
+    ) {
+      setCanvasContextMenu(null);
+    }
+  }, [canvasContextMenu, editor.state]);
 
   // Record tool selections for intelligence features (adaptive UI, onboarding, etc.)
   useEffect(() => {
@@ -940,7 +989,7 @@ function ShellInner({
             return (
               <ContextMenu
                 items={items}
-                position={canvasContextMenu}
+                anchor={canvasContextMenu.anchor}
                 onClose={closeMenu}
                 label="Canvas context menu"
               />

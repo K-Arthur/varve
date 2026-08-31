@@ -10,11 +10,15 @@
 import { getWindowService } from '@varve/platform';
 import {
   ContextMenu,
+  elementAnchor,
   type MenuEntry,
+  type OverlayAnchor,
+  pointAnchor,
   SOLID_CHROME_ICONS,
   SolidIcon,
   Tooltip,
   TooltipProvider,
+  viewportPoint,
 } from '@varve/ui';
 import type React from 'react';
 import {
@@ -183,10 +187,7 @@ export function PanelDragHandle({
   const [transferring, setTransferring] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState('');
-  const [contextMenuPosition, setContextMenuPosition] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
+  const [contextMenuAnchor, setContextMenuAnchor] = useState<OverlayAnchor | null>(null);
   const detachBtnRef = useRef<HTMLButtonElement>(null);
   const handleRef = useRef<HTMLFieldSetElement>(null);
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -393,7 +394,7 @@ export function PanelDragHandle({
     };
   }, [advanceDrag, cancelDrag, finishDrag]);
 
-  const closeContextMenu = useCallback(() => setContextMenuPosition(null), []);
+  const closeContextMenu = useCallback(() => setContextMenuAnchor(null), []);
 
   const openContextMenu = useCallback(
     (event: React.MouseEvent<HTMLFieldSetElement>) => {
@@ -406,15 +407,23 @@ export function PanelDragHandle({
       if (transferring) return;
       if (event.clientX === 0 && event.clientY === 0) {
         // Keyboard-invoked context menus have no pointer coordinates. Anchor
-        // them at the focused header control instead of the viewport origin.
-        const target = event.target as HTMLElement;
+        // to the focused header control instead of inventing screen points.
+        const target = (event.target as HTMLElement | null)?.closest
+          ? (event.target as HTMLElement)
+          : event.currentTarget;
         const anchor =
           target.closest<HTMLElement>('button, [role="tab"], [data-panel-root]') ?? target;
-        const rect = anchor.getBoundingClientRect();
-        setContextMenuPosition({ x: rect.left + rect.width / 2, y: rect.bottom });
+        setContextMenuAnchor(elementAnchor(anchor));
         return;
       }
-      setContextMenuPosition({ x: event.clientX, y: event.clientY });
+      const contextElement = event.currentTarget as HTMLElement;
+      setContextMenuAnchor(
+        pointAnchor(
+          viewportPoint(event.clientX, event.clientY),
+          contextElement.ownerDocument,
+          contextElement,
+        ),
+      );
     },
     [canOpenAuxiliaryWindow, cancelDrag, disabledReason, transferring],
   );
@@ -486,7 +495,7 @@ export function PanelDragHandle({
         </div>
         <ContextMenu
           items={contextMenuItems}
-          position={contextMenuPosition}
+          anchor={contextMenuAnchor}
           onClose={closeContextMenu}
           label={`${title} panel context menu`}
         />

@@ -20,6 +20,7 @@ vi.mock('@floating-ui/dom', () => ({
   shift: vi.fn(),
   offset: vi.fn(),
   size: vi.fn(),
+  hide: vi.fn(),
 }));
 
 afterEach(cleanup);
@@ -86,7 +87,7 @@ describe('InteractionSection', () => {
     await waitFor(() => expect(screen.getByLabelText('Trigger')).toBeTruthy());
 
     fireEvent.click(screen.getByLabelText('Trigger'));
-    fireEvent.click(screen.getByRole('option', { name: /on hover/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /on hover/i }));
     await waitFor(() => {
       const ix = getCtx().getNodeInteractions('btn1')[0];
       expect(ix?.trigger).toMatchObject({ kind: 'onHover' });
@@ -100,7 +101,7 @@ describe('InteractionSection', () => {
     await waitFor(() => expect(screen.getByLabelText('Target screen')).toBeTruthy());
 
     fireEvent.click(screen.getByLabelText('Target screen'));
-    fireEvent.click(screen.getByRole('option', { name: /details/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /details/i }));
     await waitFor(() => {
       const action = getCtx().getNodeInteractions('btn1')[0]?.actions[0] as {
         targetId?: string;
@@ -168,11 +169,11 @@ describe('InteractionSection', () => {
     await waitFor(() => expect(screen.getByLabelText('Action')).toBeTruthy());
 
     fireEvent.click(screen.getByLabelText('Action'));
-    fireEvent.click(screen.getByRole('option', { name: /play animation/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /play animation/i }));
     await waitFor(() => expect(screen.getByLabelText('Target animation')).toBeTruthy());
 
     fireEvent.click(screen.getByLabelText('Target animation'));
-    fireEvent.click(screen.getByRole('option', { name: /spin/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /spin/i }));
     await waitFor(() => {
       const action = getCtx().getNodeInteractions('btn1')[0]?.actions[0] as {
         animationId?: string;

@@ -1,6 +1,6 @@
 .floating-text-bar {
-  position: fixed;
-  z-index: calc(var(--z-overlay, 1000) - 1);
+  position: static;
+  z-index: auto;
   display: flex;
   flex-direction: row;
   align-items: center;

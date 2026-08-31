@@ -22,11 +22,15 @@ import {
 } from '@varve/scene';
 import {
   ContextMenu,
+  elementAnchor,
   type MenuEntry,
+  type OverlayAnchor,
+  pointAnchor,
   SOLID_CHROME_ICONS,
   SolidIcon,
   Tooltip,
   TooltipProvider,
+  viewportPoint,
 } from '@varve/ui';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -119,8 +123,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   );
   const anySolo = useMemo(() => documentHasSolo(state.document), [state.document]);
   const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
+    anchor: OverlayAnchor;
     id: NodeId;
     /** Selection captured when the menu opened; actions must not use a stale
      * selection while the row's context-menu selection settles. */
@@ -167,7 +170,16 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       if (!state.selection.includes(id)) {
         setSelection(id);
       }
-      setContextMenu({ x: e.clientX, y: e.clientY, id, selection });
+      const contextElement = e.currentTarget as HTMLElement;
+      setContextMenu({
+        anchor: pointAnchor(
+          viewportPoint(e.clientX, e.clientY),
+          contextElement.ownerDocument,
+          contextElement,
+        ),
+        id,
+        selection,
+      });
     },
     [state.selection, setSelection],
   );
@@ -175,22 +187,31 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   // Keyboard-triggered context menu (Shift+F10 / Menu key on the focused
   // row): position the menu at the row instead of a pointer location.
   const handleContextMenuKeyboard = useCallback(
-    (id: NodeId) => {
+    (id: NodeId, focusedRow?: HTMLElement) => {
       const selection = state.selection.includes(id) ? [...state.selection] : [id];
       if (!state.selection.includes(id)) {
         setSelection(id);
       }
-      const rowEl = document.querySelector<HTMLElement>(`[data-node-id="${id}"]`);
-      const rect = rowEl?.getBoundingClientRect();
+      const rowEl = focusedRow;
+      if (!rowEl?.isConnected) return;
+      rowEl.scrollIntoView({ block: 'nearest' });
       setContextMenu({
-        x: rect ? rect.left + 16 : 320,
-        y: rect ? rect.top + 16 : 160,
+        anchor: elementAnchor(rowEl),
         id,
         selection,
       });
     },
     [state.selection, setSelection],
   );
+
+  // A context menu snapshots its target, but it must not outlive the target
+  // itself. The shared overlay also guards DOM anchors; this state guard keeps
+  // command construction from exposing actions for a deleted scene node.
+  useEffect(() => {
+    if (contextMenu && !state.document.nodes[contextMenu.id]) {
+      setContextMenu(null);
+    }
+  }, [contextMenu, state.document]);
 
   const closeMenu = useCallback(() => setContextMenu(null), []);
 
@@ -202,9 +223,10 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   }, [contextMenu, dndRef, closeMenu]);
 
   const handleDeleteFromMenu = useCallback(() => {
-    if (state.selection.length > 0) removeSelected();
+    const selection = contextMenu?.selection ?? state.selection;
+    if (selection.length > 0) removeSelected(selection);
     closeMenu();
-  }, [state.selection, removeSelected, closeMenu]);
+  }, [contextMenu?.selection, state.selection, removeSelected, closeMenu]);
 
   const handleLockFromMenu = useCallback(
     (locked: boolean) => {
@@ -752,7 +774,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             LAYER_COLORS,
             COLOR_LABELS,
           })}
-          position={contextMenu}
+          anchor={contextMenu.anchor}
           onClose={closeMenu}
           label="Layer context menu"
         />

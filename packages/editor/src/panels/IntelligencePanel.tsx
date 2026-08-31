@@ -61,7 +61,7 @@ import {
   runLinterScan,
   type SuppressionEntry,
 } from '@varve/scene';
-import { Icon, Tooltip } from '@varve/ui';
+import { Icon, Menu, type MenuEntry, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuditWorkerPool, type ScanProgress } from '../audit/auditWorker';
 import { useEditor } from '../context';
@@ -158,9 +158,25 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
   const { primaryTabs, moreGroups } = useWorkspaceTabs();
   const [tab, setTab] = useState<ExtendedTab>(initialTab ?? primaryTabs[0] ?? 'review');
   const [showMore, setShowMore] = useState(false);
+  const moreTriggerRef = useRef<HTMLButtonElement>(null);
 
   const allMoreTabs = moreGroups.flatMap((g) => g.tabs);
   const moreLabel = allMoreTabs.find((t) => t === tab) ?? null;
+  const moreMenuItems = useMemo<MenuEntry[]>(
+    () =>
+      moreGroups.flatMap((group, groupIndex) => [
+        ...(groupIndex > 0 ? [{ id: `separator-${group.label}`, separator: true as const }] : []),
+        ...group.tabs.map((t) => ({
+          id: t,
+          label: `${group.label}: ${t}`,
+          onAction: () => {
+            setTab(t);
+            setShowMore(false);
+          },
+        })),
+      ]),
+    [moreGroups],
+  );
 
   return (
     <div className="intelligence-panel">
@@ -182,9 +198,12 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
         {moreLabel ? (
           <button
             type="button"
+            ref={moreTriggerRef}
             role="tab"
             className="intelligence-tab intelligence-tab--active"
             aria-selected
+            aria-haspopup="menu"
+            aria-expanded={showMore}
             onClick={() => setShowMore((s) => !s)}
           >
             {moreLabel}
@@ -192,45 +211,25 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
         ) : (
           <button
             type="button"
+            ref={moreTriggerRef}
             role="tab"
             className="intelligence-tab"
             aria-selected={showMore}
+            aria-haspopup="menu"
+            aria-expanded={showMore}
             onClick={() => setShowMore((s) => !s)}
           >
             More
           </button>
         )}
       </div>
-      {showMore && (
-        <div className="intelligence-more-menu" role="menu" aria-label="More intelligence tabs">
-          {moreGroups.map((group) => (
-            <fieldset
-              key={group.label}
-              className="intelligence-more-group"
-              aria-label={group.label}
-            >
-              <span className="intelligence-more-group__label">{group.label}</span>
-              {group.tabs.map((t) => (
-                <button
-                  type="button"
-                  key={t}
-                  role="menuitem"
-                  className={`intelligence-tab intelligence-tab--small${tab === t ? ' intelligence-tab--active' : ''}`}
-                  onClick={() => {
-                    setTab(t);
-                    setShowMore(false);
-                  }}
-                >
-                  {t === 'governance' && <Icon name="Shield" label={undefined} size="0.8em" />}
-                  {t === 'debt' && <Icon name="TriangleAlert" label={undefined} size="0.8em" />}
-                  {t === 'similar' && <Icon name="Images" label={undefined} size="0.8em" />}
-                  {t}
-                </button>
-              ))}
-            </fieldset>
-          ))}
-        </div>
-      )}
+      <Menu
+        triggerRef={moreTriggerRef}
+        open={showMore}
+        onClose={() => setShowMore(false)}
+        label="More intelligence tabs"
+        items={moreMenuItems}
+      />
 
       {tab === 'review' && <ReviewTab />}
       {tab === 'audit' && <AuditTab />}

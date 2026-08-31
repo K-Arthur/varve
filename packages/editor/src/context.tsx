@@ -957,7 +957,7 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   /** Set a draft rectangle for live feedback during gestures. */
   setDraft: (draft: DraftShape | null) => void;
   /** Remove all currently selected nodes. */
-  removeSelected: () => void;
+  removeSelected: (selection?: NodeId[]) => void;
   /** Rename the first selected node. */
   renameSelected: (name: string) => void;
   /** Rename a specific node, independent of the current selection. */
@@ -4523,8 +4523,8 @@ export function EditorProvider({
         // value structure is always valid. CanvasArea overrides it.
       },
 
-      removeSelected: () => {
-        const sel = state.selection;
+      removeSelected: (selectionOverride) => {
+        const sel = selectionOverride ?? state.selection;
         if (sel.length === 0) return;
         const doRemove = () => {
           const parentIds = new Set(

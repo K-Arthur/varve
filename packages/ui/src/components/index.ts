@@ -40,7 +40,7 @@ export type { AlertDialogProps, DialogProps } from './Dialog';
 export { AlertDialog, Dialog } from './Dialog';
 export type { EmptyStateProps } from './EmptyState';
 export { EmptyState } from './EmptyState';
-export type { FloatingPortalProps } from './FloatingPortal';
+export type { FloatingPortalProps, FloatingPositionResult } from './FloatingPortal';
 export { FloatingPortal } from './FloatingPortal';
 export type { FocusTrapProps } from './FocusTrap';
 export { FocusTrap } from './FocusTrap';
@@ -69,6 +69,49 @@ export {
 } from './NestedOverlayContext';
 export type { NumberInputProps } from './NumberInput';
 export { NumberInput } from './NumberInput';
+export type {
+  OverlayCloseReason,
+  OverlayKind,
+  OverlayRegistrationInput,
+  OverlaySnapshot,
+  OverlayTraceEvent,
+} from './OverlayRegistry';
+export {
+  closeAllOverlays,
+  closeOverlayTree,
+  getOverlaySnapshot,
+  getOverlayTrace,
+  installOverlayDebugBridge,
+  registerOverlay,
+  setOverlayDebugEnabled,
+  traceOverlayEvent,
+} from './OverlayRegistry';
+export type {
+  CanvasWorldPoint,
+  ElementAnchor,
+  OverlayAnchor,
+  PagePoint,
+  PointAnchor,
+  RangeAnchor,
+  SafeViewportRect,
+  ScreenPoint,
+  ViewportPoint,
+} from './overlayGeometry';
+export {
+  canvasWorldPoint,
+  elementAnchor,
+  ownerDocumentForAnchor,
+  pagePoint,
+  pageToViewport,
+  pointAnchor,
+  portalRootForAnchor,
+  rangeAnchor,
+  safeViewportRect,
+  screenPoint,
+  viewportPoint,
+  virtualPointReference,
+  virtualRangeReference,
+} from './overlayGeometry';
 export type { PanelProps } from './Panel';
 export { Panel } from './Panel';
 export type { PopoverProps } from './Popover';

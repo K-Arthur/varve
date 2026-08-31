@@ -1,7 +1,7 @@
 import type { RasterTraceMode } from '@varve/engine';
 import type { LiveTraceParams, SceneNode } from '@varve/scene';
 import { isImageShape } from '@varve/scene';
-import { Button, Select } from '@varve/ui';
+import { Button, Select, Separator } from '@varve/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { isCapabilityRestricted } from '../../../capabilities/restrictions';
 import { useEditor } from '../../../context';
@@ -171,7 +171,7 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
         </div>
       </div>
 
-      <hr className="insp-divider" />
+      <Separator className="insp-divider" decorative tone="subtle" />
 
       <div className="insp-field-group">
         <p className="insp-subsection__label">Vectorize</p>

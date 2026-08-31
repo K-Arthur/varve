@@ -212,6 +212,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/text-on-path.md` | Text-on-path data, rendering, editing, export, and fidelity limits |
 | `architecture/loading-system.md` | Loading experience system |
 | `architecture/workspace-system.md` | Workspace mode contract, resolution, and persistence |
+| `architecture/overlay-system.md` | Shared floating geometry, owner-document, overlay-tree, dismissal, and focus contracts |
 | `architecture/lifecycle-system.md` | Quit/close/exit lifecycle and shutdown architecture |
 | `architecture/logo-system.md` | Logo workspace system |
 | `architecture/typography-platform.md` | Typography platform |

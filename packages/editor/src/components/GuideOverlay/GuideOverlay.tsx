@@ -1,4 +1,5 @@
 import type { Guide } from '@varve/scene';
+import { type OverlayAnchor, pointAnchor, viewportPoint } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
 import { getEditorViewport } from '../../canvas/cameraState';
 import {
@@ -40,8 +41,7 @@ export function GuideOverlay({
 }: GuideOverlayProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
+    anchor: OverlayAnchor;
     guideId: string;
   } | null>(null);
   const draggingRef = useRef<string | null>(null);
@@ -81,7 +81,16 @@ export function GuideOverlay({
     (guide: Guide, e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setContextMenu({ x: e.clientX, y: e.clientY, guideId: guide.id });
+      const contextElement = containerRef.current;
+      if (!contextElement) return;
+      setContextMenu({
+        anchor: pointAnchor(
+          viewportPoint(e.clientX, e.clientY),
+          contextElement.ownerDocument,
+          contextElement,
+        ),
+        guideId: guide.id,
+      });
       onSelectGuide?.(guide.id);
     },
     [onSelectGuide],
@@ -226,8 +235,7 @@ export function GuideOverlay({
       </svg>
       {ctxGuide && contextMenu && (
         <GuideContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
+          anchor={contextMenu.anchor}
           guideId={contextMenu.guideId}
           isLocked={ctxGuide.locked ?? false}
           onToggleLock={onToggleLock}

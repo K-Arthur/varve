@@ -41,7 +41,7 @@ interface UseTreeKeyboardNavigationArgs {
   reparentNode: (id: NodeId, parentId: NodeId | null, toIndex: number) => void;
   announce: (message: string) => void;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
-  onContextMenuKeyboard?: (id: NodeId) => void;
+  onContextMenuKeyboard?: (id: NodeId, focusedRow?: HTMLElement) => void;
 }
 
 export function useTreeKeyboardNavigation({
@@ -73,7 +73,15 @@ export function useTreeKeyboardNavigation({
         e.preventDefault();
         const focused = entries[focusIdx];
         if (focused) {
-          onContextMenuKeyboard?.(focused.node.id);
+          // Resolve the row from the event's owner document. A detached
+          // Layers window must not query the main application document, and
+          // a virtualized row may not exist until the navigation hook has
+          // revealed it.
+          const active = e.currentTarget.ownerDocument.activeElement as HTMLElement | null;
+          const focusedRow =
+            active?.closest<HTMLElement>('[data-node-id]') ??
+            (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-node-id]');
+          onContextMenuKeyboard?.(focused.node.id, focusedRow ?? undefined);
         }
         return;
       }

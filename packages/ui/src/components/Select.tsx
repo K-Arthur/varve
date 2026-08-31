@@ -80,9 +80,12 @@ export function Select({
 
   useEffect(() => {
     if (open && shouldShowSearch) {
-      requestAnimationFrame(() => {
+      const ownerWindow = triggerRef.current?.ownerDocument.defaultView;
+      if (!ownerWindow) return;
+      const frame = ownerWindow.requestAnimationFrame(() => {
         searchInputRef.current?.focus();
       });
+      return () => ownerWindow.cancelAnimationFrame(frame);
     }
   }, [open, shouldShowSearch]);
 
@@ -114,7 +117,8 @@ export function Select({
   }, [disabled, value, options]);
 
   const closeListbox = useCallback(() => {
-    const active = document.activeElement;
+    const ownerDocument = triggerRef.current?.ownerDocument ?? document;
+    const active = ownerDocument.activeElement;
     const listbox = listboxRef.current;
     const trigger = triggerRef.current;
     if (active && listbox?.contains(active) && trigger) {
@@ -330,9 +334,12 @@ export function Select({
         anchorRef={triggerRef}
         open={open}
         onClose={closeListbox}
+        kind="listbox"
+        dismissOnEscape={false}
         matchAnchorWidth
         maxHeight={256}
         placement="bottom-start"
+        className="varve-floating-layer"
       >
         <div
           ref={listboxRef}
@@ -340,6 +347,7 @@ export function Select({
           role="listbox"
           aria-label={label}
           className="varve-select__listbox"
+          style={{ position: 'static' }}
         >
           {shouldShowSearch && (
             <div className="varve-select__search">

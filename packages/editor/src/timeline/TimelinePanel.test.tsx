@@ -9,6 +9,7 @@ vi.mock('@floating-ui/dom', () => ({
   shift: vi.fn(),
   offset: vi.fn(),
   size: vi.fn(),
+  hide: vi.fn(),
 }));
 
 import { formatTime } from './PlaybackControls';
@@ -59,7 +60,7 @@ describe('TimelinePanel', () => {
     expect(screen.getByText('No timeline selected')).toBeTruthy();
   });
 
-  it('renders timeline selector when timelines exist', () => {
+  it('renders timeline selector when timelines exist', async () => {
     const timelines: Record<string, Timeline> = {
       'tl-1': makeTimeline('tl-1', 'Anim 1', 5000),
       'tl-2': makeTimeline('tl-2', 'Anim 2', 3000),
@@ -67,7 +68,7 @@ describe('TimelinePanel', () => {
     render(<TimelinePanel {...defaultProps} timelines={timelines} />);
     expect(screen.getByLabelText('Select timeline')).toBeTruthy();
     fireEvent.click(screen.getByLabelText('Select timeline'));
-    const options = screen.getAllByRole('option');
+    const options = await screen.findAllByRole('option');
     expect(options).toHaveLength(3); // placeholder + 2 timelines
     expect(options[1]).toHaveTextContent('Anim 1');
     expect(options[2]).toHaveTextContent('Anim 2');
@@ -200,7 +201,7 @@ describe('TimelinePanel', () => {
     }
   });
 
-  it('calls onSelectTimeline when selector changes', () => {
+  it('calls onSelectTimeline when selector changes', async () => {
     const onSelectTimeline = vi.fn();
     const timelines: Record<string, Timeline> = {
       'tl-1': makeTimeline('tl-1', 'Anim', 5000),
@@ -214,10 +215,10 @@ describe('TimelinePanel', () => {
       />,
     );
     fireEvent.click(screen.getByLabelText('Select timeline'));
-    fireEvent.click(screen.getByRole('option', { name: /no timeline/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /no timeline/i }));
     expect(onSelectTimeline).toHaveBeenCalledWith(null);
     fireEvent.click(screen.getByLabelText('Select timeline'));
-    fireEvent.click(screen.getByRole('option', { name: /anim/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /anim/i }));
     expect(onSelectTimeline).toHaveBeenCalledWith('tl-1');
   });
 
@@ -230,7 +231,7 @@ describe('TimelinePanel', () => {
     expect(formatTime(-100)).toBe('00:00.000');
   });
 
-  it('save and apply preset controls call handlers', () => {
+  it('save and apply preset controls call handlers', async () => {
     const onSavePreset = vi.fn();
     const onApplyPreset = vi.fn();
     const timelines: Record<string, Timeline> = {
@@ -249,7 +250,7 @@ describe('TimelinePanel', () => {
     fireEvent.click(screen.getByLabelText('Save timeline as motion preset'));
     expect(onSavePreset).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByLabelText('Apply motion preset'));
-    fireEvent.click(screen.getByRole('option', { name: /fade in/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /fade in/i }));
     expect(onApplyPreset).toHaveBeenCalledWith('p1');
   });
 

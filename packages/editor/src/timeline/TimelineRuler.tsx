@@ -1,4 +1,11 @@
-import { ContextMenu, type MenuEntry, Tooltip } from '@varve/ui';
+import {
+  ContextMenu,
+  type MenuEntry,
+  type OverlayAnchor,
+  pointAnchor,
+  Tooltip,
+  viewportPoint,
+} from '@varve/ui';
 import { type FC, useCallback, useRef, useState } from 'react';
 
 export interface TimelineRulerProps {
@@ -32,7 +39,7 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
 }) => {
   const rulerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
-  const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
+  const [ctxAnchor, setCtxAnchor] = useState<OverlayAnchor | null>(null);
   const [ctxMarkerId, setCtxMarkerId] = useState<string | null>(null);
 
   const computeTimeFromEvent = useCallback(
@@ -111,12 +118,19 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
   const handleMarkerContextMenu = useCallback((e: React.MouseEvent, markerId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setCtxPos({ x: e.clientX, y: e.clientY });
+    const contextElement = e.currentTarget as HTMLElement;
+    setCtxAnchor(
+      pointAnchor(
+        viewportPoint(e.clientX, e.clientY),
+        contextElement.ownerDocument,
+        contextElement,
+      ),
+    );
     setCtxMarkerId(markerId);
   }, []);
 
   const closeContextMenu = useCallback(() => {
-    setCtxPos(null);
+    setCtxAnchor(null);
     setCtxMarkerId(null);
   }, []);
 
@@ -213,7 +227,7 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
       </div>
       <ContextMenu
         items={ctxItems}
-        position={ctxPos}
+        anchor={ctxAnchor}
         onClose={closeContextMenu}
         label="Marker context menu"
       />

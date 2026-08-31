@@ -3,6 +3,7 @@
 import { VARVE_URLS } from '@varve/shared';
 import {
   AlertDialog,
+  closeAllOverlays,
   FloatingPortal,
   IconButton,
   SOLID_CHROME_ICONS,
@@ -1782,6 +1783,9 @@ export function Menubar({
   const dropdownMenuRef = useRef<HTMLDivElement>(null);
   const submenuRef = useRef<HTMLDivElement>(null);
   const topLevelRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Each submenu is anchored to its own parent item. A single dropdown ref
+  // makes every flyout originate from the menu's top-left corner.
+  const submenuAnchorRefs = useRef(new Map<string, { current: HTMLButtonElement | null }>());
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
   const [activeSubmenuIndex, setActiveSubmenuIndex] = useState(0);
@@ -1801,6 +1805,7 @@ export function Menubar({
   // Non-null when Tab/Shift+Tab closed the menu: restore must walk the tab
   // order past the anchor instead of returning focus to it.
   const tabWalkDirRef = useRef<1 | -1 | null>(null);
+  const menuContextRef = useRef({ workspaceMode: state.workspaceMode, activeId: state.activeId });
   const MENU_ITEM_SELECTOR = '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]';
 
   useEffect(() => {
@@ -1860,13 +1865,19 @@ export function Menubar({
   });
 
   useEffect(() => {
-    if (openMenu) {
-      setOpenMenu(null);
-      setOpenSubmenu(null);
-      setActiveItemIndex(0);
-      setActiveSubmenuIndex(0);
-    }
-  }, [state.workspaceMode]);
+    const contextChanged =
+      menuContextRef.current.workspaceMode !== state.workspaceMode ||
+      menuContextRef.current.activeId !== state.activeId;
+    menuContextRef.current = { workspaceMode: state.workspaceMode, activeId: state.activeId };
+    if (!contextChanged || !openMenu) return;
+    const ownerDocument = dropdownMenuRef.current?.ownerDocument ?? menuRef.current?.ownerDocument;
+    if (!ownerDocument) return;
+    closeAllOverlays(ownerDocument, 'workspace-change');
+    setOpenMenu(null);
+    setOpenSubmenu(null);
+    setActiveItemIndex(0);
+    setActiveSubmenuIndex(0);
+  }, [state.workspaceMode, state.activeId, openMenu]);
 
   const openMenuIndex = openMenu ? menus.findIndex((m) => m.id === openMenu) : -1;
   const openMenuAnchorRef = useRef<HTMLButtonElement | null>(null);
@@ -2188,7 +2199,7 @@ export function Menubar({
               }}
               role="menuitem"
               className="editor-menubar__item"
-              aria-haspopup="true"
+              aria-haspopup="menu"
               aria-expanded={openMenu === menu.id}
               tabIndex={focusedIndex === i ? 0 : -1}
               type="button"
@@ -2213,6 +2224,8 @@ export function Menubar({
             <FloatingPortal
               anchorRef={openMenuAnchorRef}
               open
+              kind="menubar-menu"
+              dismissOnEscape={false}
               onClose={() => {
                 setOpenMenu(null);
                 setOpenSubmenu(null);
@@ -2221,7 +2234,19 @@ export function Menubar({
               }}
               className="editor-menubar__menu"
             >
-              <div ref={dropdownMenuRef} role="menu" aria-label={openMenu}>
+              <div
+                ref={dropdownMenuRef}
+                role="menu"
+                aria-label={openMenu}
+                onKeyDown={(event) => {
+                  // The portal remains a logical child of the menubar in
+                  // React's event tree. Stop here so a dropdown key is not
+                  // processed a second time by the menubar container (which
+                  // would turn `e` into `ee` for type-ahead).
+                  event.stopPropagation();
+                  handleMenuKeyDown(event);
+                }}
+              >
                 {/* activeItemIndex counts only focusable items (separators
                     excluded), matching menubarKeynav and the MENU_ITEM_SELECTOR
                     NodeList it focuses through. Comparing it against the raw
@@ -2250,6 +2275,12 @@ export function Menubar({
                       isChecked;
                     const hasSubmenu = !!item.items;
                     const isSubmenuOpen = openSubmenu === itemIdx;
+                    const submenuAnchorKey = `${openMenu}:${item.action ?? item.label}`;
+                    let submenuAnchorRef = submenuAnchorRefs.current.get(submenuAnchorKey);
+                    if (!submenuAnchorRef) {
+                      submenuAnchorRef = { current: null };
+                      submenuAnchorRefs.current.set(submenuAnchorKey, submenuAnchorRef);
+                    }
                     return (
                       <div
                         key={item.label}
@@ -2257,6 +2288,10 @@ export function Menubar({
                         className="editor-menubar__menu-item-wrapper"
                         onMouseEnter={() => {
                           if (hasSubmenu) {
+                            // Pointer-opening a flyout must still establish
+                            // the owning parent item for Escape/Left focus
+                            // restoration; hover must not itself steal focus.
+                            setActiveItemIndex(itemFocusableIdx);
                             setOpenSubmenu(itemIdx);
                             setActiveSubmenuIndex(0);
                           }
@@ -2264,9 +2299,10 @@ export function Menubar({
                       >
                         {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox */}
                         <button
+                          ref={hasSubmenu ? submenuAnchorRef : undefined}
                           role={hasSubmenu ? 'menuitem' : role}
                           type="button"
-                          aria-haspopup={hasSubmenu ? true : undefined}
+                          aria-haspopup={hasSubmenu ? 'menu' : undefined}
                           aria-expanded={hasSubmenu ? isSubmenuOpen : undefined}
                           aria-checked={
                             !hasSubmenu && (role === 'menuitemradio' || role === 'menuitemcheckbox')
@@ -2300,16 +2336,18 @@ export function Menubar({
                             parentLabel={item.label}
                             open
                             activeSubmenuIndex={activeSubmenuIndex}
-                            anchorRef={dropdownMenuRef}
+                            anchorRef={submenuAnchorRef}
                             submenuRef={submenuRef}
                             currentTheme={currentTheme}
                             state={state}
+                            onKeyDown={handleMenuKeyDown}
                             onClose={() => {
                               setOpenSubmenu(null);
                               setActiveSubmenuIndex(0);
                               // Return focus to the parent item when the submenu
                               // had it (outside-click close).
-                              const active = document.activeElement;
+                              const active =
+                                submenuRef.current?.ownerDocument.activeElement ?? null;
                               if (active && submenuRef.current?.contains(active)) {
                                 const parentItems =
                                   dropdownMenuRef.current?.querySelectorAll<HTMLButtonElement>(

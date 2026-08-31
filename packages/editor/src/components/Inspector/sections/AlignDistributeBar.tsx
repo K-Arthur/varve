@@ -7,9 +7,8 @@
  * Research basis: Figma/Sketch align toolbar; APG Toolbar pattern; pill-chip pattern.
  */
 
-import { NumberInput, Tooltip, TooltipProvider } from '@varve/ui';
+import { FloatingPortal, Menu, NumberInput, Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useEditor } from '../../../context';
 import {
   type AlignmentReference,
@@ -268,10 +267,6 @@ export function AlignDistributeBar() {
     'equalGap',
   );
   const [distributionGap, setDistributionGap] = useState(0);
-  const [distributionMenuPosition, setDistributionMenuPosition] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
   const tidyBtnRef = useRef<HTMLButtonElement>(null);
   const distributionBtnRef = useRef<HTMLButtonElement>(null);
   const capabilities = getAlignmentCapabilities(state.document, state.selection);
@@ -286,26 +281,6 @@ export function AlignDistributeBar() {
     if (alignToPage) setAlignmentReference('page');
     else setAlignmentReference((current) => (current === 'page' ? 'selection' : current));
   }, [alignToPage]);
-
-  useEffect(() => {
-    if (!showDistributionMenu || !distributionBtnRef.current) return;
-    const updatePosition = () => {
-      const rect = distributionBtnRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const width = 220;
-      setDistributionMenuPosition({
-        top: Math.min(window.innerHeight - 12, rect.bottom + 6),
-        left: Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width)),
-      });
-    };
-    updatePosition();
-    window.addEventListener('resize', updatePosition);
-    window.addEventListener('scroll', updatePosition, true);
-    return () => {
-      window.removeEventListener('resize', updatePosition);
-      window.removeEventListener('scroll', updatePosition, true);
-    };
-  }, [showDistributionMenu]);
 
   const chooseAlignmentReference = useCallback(
     (reference: AlignmentReference) => {
@@ -483,78 +458,76 @@ export function AlignDistributeBar() {
                 Gap
               </button>
             </Tooltip>
-            {showDistributionMenu &&
-              distributionMenuPosition &&
-              createPortal(
-                <>
+            <FloatingPortal
+              anchorRef={distributionBtnRef}
+              open={showDistributionMenu}
+              kind="popover"
+              placement="bottom-end"
+              fallbackPlacements={['top-end', 'bottom-start', 'top-start']}
+              onClose={() => setShowDistributionMenu(false)}
+              dismissOnEscape
+              className="varve-floating-layer"
+            >
+              <div
+                className="insp-align-popover"
+                role="dialog"
+                aria-label="Distribution options"
+                style={{ position: 'static' }}
+              >
+                <div className="insp-align-popover__header">
+                  <span>Distribution options</span>
                   <button
-                    className="insp-dropdown-backdrop"
-                    onClick={() => setShowDistributionMenu(false)}
-                    aria-label="Close distribution options"
                     type="button"
-                  />
-                  <div
-                    className="insp-align-popover"
-                    role="dialog"
-                    aria-label="Distribution options"
-                    style={distributionMenuPosition}
+                    className="insp-align-popover__close"
+                    aria-label="Close distribution options"
+                    onClick={() => setShowDistributionMenu(false)}
                   >
-                    <div className="insp-align-popover__header">
-                      <span>Distribution options</span>
-                      <button
-                        type="button"
-                        className="insp-align-popover__close"
-                        aria-label="Close distribution options"
-                        onClick={() => setShowDistributionMenu(false)}
-                      >
-                        <CloseIcon />
-                      </button>
-                    </div>
-                    <fieldset>
-                      <legend>Spacing mode</legend>
-                      <label>
-                        <input
-                          type="radio"
-                          name="distribution-mode"
-                          checked={distributionMode === 'equalGap'}
-                          onChange={() => setDistributionMode('equalGap')}
-                        />
-                        Equal gaps
-                      </label>
-                      <label>
-                        <input
-                          type="radio"
-                          name="distribution-mode"
-                          checked={distributionMode === 'equalCenter'}
-                          onChange={() => setDistributionMode('equalCenter')}
-                        />
-                        Equal centers
-                      </label>
-                      <label>
-                        <input
-                          type="radio"
-                          name="distribution-mode"
-                          checked={distributionMode === 'fixedGap'}
-                          onChange={() => setDistributionMode('fixedGap')}
-                        />
-                        Fixed gap
-                      </label>
-                    </fieldset>
-                    {distributionMode === 'fixedGap' && (
-                      <NumberInput
-                        label="Gap (px)"
-                        value={distributionGap}
-                        min={-99999}
-                        max={99999}
-                        step={1}
-                        onChange={setDistributionGap}
-                      />
-                    )}
-                    <p>Negative gaps intentionally overlap items.</p>
-                  </div>
-                </>,
-                document.body,
-              )}
+                    <CloseIcon />
+                  </button>
+                </div>
+                <fieldset>
+                  <legend>Spacing mode</legend>
+                  <label>
+                    <input
+                      type="radio"
+                      name="distribution-mode"
+                      checked={distributionMode === 'equalGap'}
+                      onChange={() => setDistributionMode('equalGap')}
+                    />
+                    Equal gaps
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="distribution-mode"
+                      checked={distributionMode === 'equalCenter'}
+                      onChange={() => setDistributionMode('equalCenter')}
+                    />
+                    Equal centers
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="distribution-mode"
+                      checked={distributionMode === 'fixedGap'}
+                      onChange={() => setDistributionMode('fixedGap')}
+                    />
+                    Fixed gap
+                  </label>
+                </fieldset>
+                {distributionMode === 'fixedGap' && (
+                  <NumberInput
+                    label="Gap (px)"
+                    value={distributionGap}
+                    min={-99999}
+                    max={99999}
+                    step={1}
+                    onChange={setDistributionGap}
+                  />
+                )}
+                <p>Negative gaps intentionally overlap items.</p>
+              </div>
+            </FloatingPortal>
           </div>
         </div>
         <div className="insp-align-bar" role="toolbar" aria-label="Advanced alignment options">
@@ -637,45 +610,17 @@ export function AlignDistributeBar() {
                 <GridIcon />
               </button>
             </Tooltip>
-            {showTidyMenu && (
-              <>
-                <div className="insp-dropdown" role="menu" aria-label="Tidy up columns">
-                  <button
-                    type="button"
-                    className="insp-dropdown__item"
-                    role="menuitem"
-                    onClick={() => handleTidyUp(4)}
-                  >
-                    4 columns
-                  </button>
-                  <button
-                    type="button"
-                    className="insp-dropdown__item"
-                    role="menuitem"
-                    onClick={() => handleTidyUp(6)}
-                  >
-                    6 columns
-                  </button>
-                  <button
-                    type="button"
-                    className="insp-dropdown__item"
-                    role="menuitem"
-                    onClick={() => handleTidyUp(8)}
-                  >
-                    8 columns
-                  </button>
-                </div>
-                {createPortal(
-                  <button
-                    className="insp-dropdown-backdrop"
-                    onClick={() => setShowTidyMenu(false)}
-                    aria-label="Close menu"
-                    type="button"
-                  />,
-                  document.body,
-                )}
-              </>
-            )}
+            <Menu
+              triggerRef={tidyBtnRef}
+              open={showTidyMenu}
+              onClose={() => setShowTidyMenu(false)}
+              label="Tidy up columns"
+              items={[4, 6, 8].map((columns) => ({
+                id: `tidy-${columns}`,
+                label: `${columns} columns`,
+                onAction: () => handleTidyUp(columns),
+              }))}
+            />
           </div>
           <Tooltip label="Toggle oriented bounding box alignment">
             <button

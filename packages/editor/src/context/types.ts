@@ -732,7 +732,7 @@ export interface EditorContextValue {
     { nodeId: NodeId; node: SceneNode; parentId: NodeId | null; depth: number }
   >;
   setDraft: (draft: DraftShape | null) => void;
-  removeSelected: () => void;
+  removeSelected: (selection?: NodeId[]) => void;
   renameSelected: (name: string) => void;
   /**
    * Rename a specific node. `renameSelected` targets `selection[0]`, which is

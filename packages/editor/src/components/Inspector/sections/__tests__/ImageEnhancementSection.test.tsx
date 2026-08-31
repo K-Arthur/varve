@@ -12,6 +12,7 @@ vi.mock('@floating-ui/dom', () => ({
   shift: vi.fn(),
   offset: vi.fn(),
   size: vi.fn(),
+  hide: vi.fn(),
 }));
 
 import { useEditor } from '../../../../context';
@@ -334,7 +335,7 @@ describe('ImageEnhancementSection — original one-shot', () => {
 
     // Trace controls are still inline
     fireEvent.click(screen.getByLabelText('Trace mode'));
-    fireEvent.click(screen.getByRole('option', { name: 'Color' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Color' }));
     fireEvent.change(screen.getByLabelText('Trace color count'), { target: { value: '6' } });
     fireEvent.change(screen.getByLabelText('Minimum trace area'), { target: { value: '3' } });
     fireEvent.click(screen.getByRole('button', { name: 'Trace color' }));

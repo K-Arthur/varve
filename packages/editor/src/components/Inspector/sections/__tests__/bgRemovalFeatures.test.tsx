@@ -113,6 +113,7 @@ vi.mock('@floating-ui/dom', () => ({
   shift: vi.fn(),
   offset: vi.fn(),
   size: vi.fn(),
+  hide: vi.fn(),
 }));
 
 vi.mock('../../../BackgroundRemoval/ModelDownloadDialog', () => ({
@@ -500,7 +501,7 @@ describe('ExportDialog - Remove background toggle', () => {
     );
     fireEvent.click(screen.getByText('Remove background before export'));
     fireEvent.click(screen.getByLabelText('Background removal method for export'));
-    fireEvent.click(screen.getByRole('option', { name: /balanced/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /balanced/i }));
     await vi.waitFor(() => {
       expect(screen.getByRole('button', { name: /download ai model/i })).toBeTruthy();
     });
@@ -534,7 +535,7 @@ describe('ExportDialog - Remove background toggle', () => {
     );
     fireEvent.click(screen.getByText('Remove background before export'));
     fireEvent.click(screen.getByLabelText('Background removal method for export'));
-    fireEvent.click(screen.getByRole('option', { name: /balanced/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /balanced/i }));
     await vi.waitFor(() => {
       expect(screen.queryByRole('button', { name: /download ai model/i })).toBeNull();
     });

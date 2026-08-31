@@ -15,7 +15,15 @@ import {
   nextUntitledName,
   type Preset,
 } from '@varve/shared';
-import { ContentSkeleton, Dialog, Icon, Tooltip } from '@varve/ui';
+import {
+  ContentSkeleton,
+  Dialog,
+  Icon,
+  type OverlayAnchor,
+  pointAnchor,
+  Tooltip,
+  viewportPoint,
+} from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityFeed } from './ActivityFeed';
 import { AssetBrowser } from './AssetBrowser';
@@ -115,8 +123,9 @@ export function HomeShell({
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
-  const [contextPos, setContextPos] = useState<{ x: number; y: number } | null>(null);
+  const [contextAnchor, setContextAnchor] = useState<OverlayAnchor | null>(null);
   const [contextFile, setContextFile] = useState<FileEntry | null>(null);
+  const [contextSelection, setContextSelection] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -303,7 +312,7 @@ export function HomeShell({
     [platform, onOpenFile, view],
   );
 
-  const dialogOpen = newFileOpen || contextPos !== null;
+  const dialogOpen = newFileOpen || contextAnchor !== null;
 
   const shortcutHandlers: HomeShortcutHandlers = {
     newFile: useCallback(() => setNewFileOpen(true), []),
@@ -324,8 +333,9 @@ export function HomeShell({
     templates: useCallback(() => view.setSection('templates'), [view]),
     closeDialog: useCallback(() => {
       setNewFileOpen(false);
-      setContextPos(null);
+      setContextAnchor(null);
       setContextFile(null);
+      setContextSelection([]);
     }, []),
     selectAll: useCallback(() => {
       setSelectedIds(view.visibleFiles.map((f) => f.id));
@@ -454,15 +464,27 @@ export function HomeShell({
     [actions],
   );
 
-  const handleFileContext = useCallback((e: React.MouseEvent, entry: FileEntry) => {
-    e.preventDefault();
-    // Desktop convention: right-clicking an unselected file selects it;
-    // right-clicking inside the current multi-selection keeps the selection
-    // so context actions apply to every selected file.
-    setSelectedIds((prev) => (prev.includes(entry.id) ? prev : [entry.id]));
-    setContextFile(entry);
-    setContextPos({ x: e.clientX, y: e.clientY });
-  }, []);
+  const handleFileContext = useCallback(
+    (e: React.MouseEvent, entry: FileEntry) => {
+      e.preventDefault();
+      // Desktop convention: right-clicking an unselected file selects it;
+      // right-clicking inside the current multi-selection keeps the selection
+      // so context actions apply to every selected file.
+      const selection = selectedIds.includes(entry.id) ? [...selectedIds] : [entry.id];
+      setSelectedIds(selection);
+      setContextSelection(selection);
+      setContextFile(entry);
+      const contextElement = e.currentTarget as HTMLElement;
+      setContextAnchor(
+        pointAnchor(
+          viewportPoint(e.clientX, e.clientY),
+          contextElement.ownerDocument,
+          contextElement,
+        ),
+      );
+    },
+    [selectedIds],
+  );
 
   const handleStartRename = useCallback((id: string | null) => {
     setRenamingId(id);
@@ -475,8 +497,8 @@ export function HomeShell({
       // actions (favorite/pin/trash/restore/purge/remove/hide) apply to every
       // selected file; per-file actions (open/rename/duplicate/versions/
       // locate/reveal) always target the clicked file.
-      const selected = selectedIds.includes(contextFile.id)
-        ? selectedIds
+      const selected = contextSelection.includes(contextFile.id)
+        ? contextSelection
             .map((id) => view.files.find((f) => f.id === id))
             .filter((f): f is FileEntry => Boolean(f))
         : [contextFile];
@@ -567,12 +589,13 @@ export function HomeShell({
           break;
         }
       }
-      setContextPos(null);
+      setContextAnchor(null);
       setContextFile(null);
+      setContextSelection([]);
     },
     [
       contextFile,
-      selectedIds,
+      contextSelection,
       view.files,
       actions,
       onOpenFile,
@@ -588,13 +611,24 @@ export function HomeShell({
   const handleMoveToProject = useCallback(
     (projectId: string | null) => {
       if (!contextFile) return;
-      const selected = selectedIds.includes(contextFile.id) ? selectedIds : [contextFile.id];
+      const selected = contextSelection.includes(contextFile.id)
+        ? contextSelection
+        : [contextFile.id];
       for (const id of selected) actions.moveToProject(id, projectId);
-      setContextPos(null);
+      setContextAnchor(null);
       setContextFile(null);
+      setContextSelection([]);
     },
-    [contextFile, selectedIds, actions],
+    [contextFile, contextSelection, actions],
   );
+
+  useEffect(() => {
+    if (contextFile && !view.files.some((entry) => entry.id === contextFile.id)) {
+      setContextAnchor(null);
+      setContextFile(null);
+      setContextSelection([]);
+    }
+  }, [contextFile, view.files]);
 
   const handleSelect = useCallback((id: string) => {
     setSelectedIds([id]);
@@ -1157,15 +1191,16 @@ export function HomeShell({
           onDuplicateCustomPreset={(preset) => presetLibrary.duplicateCustomPreset(preset.id)}
           onDeleteCustomPreset={(preset) => presetLibrary.deleteCustomPreset(preset.id)}
         />
-        {contextPos && contextFile && (
+        {contextAnchor && contextFile && (
           <FileContextMenu
             file={contextFile}
-            position={contextPos}
+            anchor={contextAnchor}
             onAction={handleContextAction}
             onMoveToProject={handleMoveToProject}
             onClose={() => {
-              setContextPos(null);
+              setContextAnchor(null);
               setContextFile(null);
+              setContextSelection([]);
             }}
             projects={view.projects}
             isTrash={view.state.section === 'trash'}

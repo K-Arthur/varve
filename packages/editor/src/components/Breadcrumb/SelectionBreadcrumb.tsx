@@ -1,5 +1,5 @@
 import type { Document, NodeId } from '@varve/scene';
-import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
+import { Menu, type MenuEntry, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import {
@@ -57,7 +57,7 @@ interface BreadcrumbBarProps {
 function BreadcrumbBar({ segments }: BreadcrumbBarProps) {
   const { setSelection, enterIsolation, revealSelection } = useEditor();
   const [overflowOpen, setOverflowOpen] = useState(false);
-  const overflowRef = useRef<HTMLDivElement>(null);
+  const overflowTriggerRef = useRef<HTMLButtonElement>(null);
 
   const handleSegmentClick = useCallback(
     (segment: BreadcrumbSegment) => {
@@ -81,7 +81,24 @@ function BreadcrumbBar({ segments }: BreadcrumbBarProps) {
   const visible = segments.length <= 5 ? segments : segments.slice(0, 2).concat(segments.slice(-2));
   const overflowCount = segments.length - visible.length;
 
-  const kindLabel = (kind: string): string => {
+  const overflowItems = useMemo<MenuEntry[]>(
+    () =>
+      segments.slice(0, overflowCount + 2).map((segment, index) => ({
+        id: `breadcrumb-${segment.id || index}`,
+        label: `${kindLabel(segment.kind)}: ${segment.name}`,
+        onAction: () => {
+          handleSegmentClick(segment);
+          setOverflowOpen(false);
+        },
+        onContextMenu: (event) => {
+          handleSegmentContext(event, segment);
+          setOverflowOpen(false);
+        },
+      })),
+    [handleSegmentClick, handleSegmentContext, overflowCount, segments],
+  );
+
+  function kindLabel(kind: string): string {
     switch (kind) {
       case 'exportRegion':
         return 'Export Region';
@@ -98,43 +115,30 @@ function BreadcrumbBar({ segments }: BreadcrumbBarProps) {
       default:
         return kind;
     }
-  };
+  }
 
   return (
     <nav className="selection-breadcrumb" aria-label="Selection path">
       {overflowCount > 0 && (
-        <div className="selection-breadcrumb__overflow-wrapper" ref={overflowRef}>
+        <div className="selection-breadcrumb__overflow-wrapper">
           <button
+            ref={overflowTriggerRef}
             type="button"
             className="selection-breadcrumb__overflow-btn"
             onClick={() => setOverflowOpen(!overflowOpen)}
             aria-label={`${overflowCount} more levels`}
             aria-expanded={overflowOpen}
+            aria-haspopup="menu"
           >
             <SolidIcon name={SOLID_CHROME_ICONS.ellipsis} size="0.75em" />
           </button>
-          {overflowOpen && (
-            <div className="selection-breadcrumb__overflow-menu" role="menu">
-              {segments.slice(0, overflowCount + 2).map((seg) => (
-                <button
-                  key={seg.id}
-                  type="button"
-                  className="selection-breadcrumb__overflow-item"
-                  role="menuitem"
-                  onClick={() => {
-                    handleSegmentClick(seg);
-                    setOverflowOpen(false);
-                  }}
-                  onContextMenu={(e) => handleSegmentContext(e, seg)}
-                >
-                  <span className="selection-breadcrumb__overflow-item-kind">
-                    {kindLabel(seg.kind)}
-                  </span>
-                  <span className="selection-breadcrumb__overflow-item-name">{seg.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          <Menu
+            triggerRef={overflowTriggerRef}
+            open={overflowOpen}
+            onClose={() => setOverflowOpen(false)}
+            label="Selection path"
+            items={overflowItems}
+          />
         </div>
       )}
       {visible.map((seg, i) => (

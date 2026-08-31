@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { TimelineRuler } from './TimelineRuler';
 
@@ -98,7 +98,7 @@ describe('TimelineRuler', () => {
     }
   });
 
-  it('shows marker context menu on right-click', () => {
+  it('shows marker context menu on right-click', async () => {
     const onDeleteMarker = vi.fn();
     render(
       <TimelineRuler
@@ -109,8 +109,9 @@ describe('TimelineRuler', () => {
     );
     const marker = screen.getByLabelText('Marker: Beat');
     fireEvent.contextMenu(marker);
-    expect(screen.getByRole('menu', { name: 'Marker context menu' })).toBeTruthy();
-    fireEvent.click(screen.getByText('Delete marker'));
+    const menu = await screen.findByRole('menu', { name: 'Marker context menu' });
+    expect(menu).toBeTruthy();
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Delete marker' }));
     expect(onDeleteMarker).toHaveBeenCalledWith('m1');
   });
 

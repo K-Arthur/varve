@@ -1,7 +1,15 @@
 import type { BooleanOpKind } from '@varve/scene';
 import { rgbToHex } from '@varve/shared';
 import type { IconName, MenuEntry } from '@varve/ui';
-import { ContextMenu, Icon, Toolbar, Tooltip, TooltipProvider } from '@varve/ui';
+import {
+  ContextMenu,
+  elementAnchor,
+  Icon,
+  type OverlayAnchor,
+  Toolbar,
+  Tooltip,
+  TooltipProvider,
+} from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { toolShortcutLabel } from '../../shortcuts';
@@ -69,7 +77,7 @@ interface FlyoutButtonProps {
   pressed: boolean;
   disabledReason?: string;
   onActivate: (toolId: ToolId) => void;
-  onToggleMenu: (rect: DOMRect) => void;
+  onToggleMenu: (element: HTMLElement) => void;
 }
 
 /**
@@ -114,7 +122,7 @@ function FlyoutButton({
           disabled={disabled}
           onClick={(e) => {
             if (disabled) return;
-            onToggleMenu(e.currentTarget.getBoundingClientRect());
+            onToggleMenu(e.currentTarget);
           }}
         >
           <Icon name="ChevronDown" size={12} />
@@ -129,7 +137,7 @@ interface ToolbarSlotViewProps {
   activeTool: ToolId;
   canBoolean: boolean;
   onActivate: (flyoutId: string, toolId: ToolId) => void;
-  onToggleMenu: (id: string, rect: DOMRect) => void;
+  onToggleMenu: (id: string, element: HTMLElement) => void;
 }
 
 function ToolbarSlotView({
@@ -157,7 +165,7 @@ function ToolbarSlotView({
       pressed={!isAction && activeTool === current}
       disabledReason={isAction && !canBoolean ? 'Select 2+ shapes for boolean' : undefined}
       onActivate={(toolId) => onActivate(slot.id, toolId)}
-      onToggleMenu={(rect) => onToggleMenu(slot.id, rect)}
+      onToggleMenu={(element) => onToggleMenu(slot.id, element)}
     />
   );
 }
@@ -205,7 +213,7 @@ function getOverflowMenuItems(
 
 interface MoreToolsButtonProps {
   expanded: boolean;
-  onToggle: (rect: DOMRect) => void;
+  onToggle: (element: HTMLElement) => void;
 }
 
 function MoreToolsButton({ expanded, onToggle }: MoreToolsButtonProps) {
@@ -218,7 +226,7 @@ function MoreToolsButton({ expanded, onToggle }: MoreToolsButtonProps) {
         aria-haspopup="menu"
         aria-expanded={expanded}
         data-testid="toolbar-more-tools"
-        onClick={(event) => onToggle(event.currentTarget.getBoundingClientRect())}
+        onClick={(event) => onToggle(event.currentTarget)}
       >
         <Icon name="Ellipsis" size={16} />
       </button>
@@ -339,7 +347,7 @@ export function FloatingToolbar() {
     setTouchMultiSelect,
     openCreateTableFromDataDialog,
   } = useEditor();
-  const [openMenu, setOpenMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [openMenu, setOpenMenu] = useState<{ id: string; anchor: OverlayAnchor } | null>(null);
   const canBoolean = selectedNodes().filter((n) => n.kind === 'shape').length >= 2;
 
   // Resolve through the effective config, not the raw WORKSPACE_CONFIGS map:
@@ -425,11 +433,11 @@ export function FloatingToolbar() {
             {collapsedGroups.length > 0 && (
               <MoreToolsButton
                 expanded={isMoreToolsOpen}
-                onToggle={(rect) =>
+                onToggle={(element) =>
                   setOpenMenu((prev) =>
                     prev?.id === RESPONSIVE_MORE_ID
                       ? null
-                      : { id: RESPONSIVE_MORE_ID, x: rect.left, y: rect.top },
+                      : { id: RESPONSIVE_MORE_ID, anchor: elementAnchor(element) },
                   )
                 }
               />
@@ -442,9 +450,9 @@ export function FloatingToolbar() {
                   activeTool={state.tool as ToolId}
                   canBoolean={canBoolean}
                   onActivate={activate}
-                  onToggleMenu={(id, rect) =>
+                  onToggleMenu={(id, element) =>
                     setOpenMenu((prev) =>
-                      prev?.id === id ? null : { id, x: rect.left, y: rect.top },
+                      prev?.id === id ? null : { id, anchor: elementAnchor(element) },
                     )
                   }
                 />
@@ -498,9 +506,7 @@ export function FloatingToolbar() {
         // Guard on the resolved flyout, not just the stored id: a workspace
         // switch or customization can remove the open flyout, and an empty
         // popup would otherwise linger at the last position.
-        position={
-          (openFlyout || isMoreToolsOpen) && openMenu ? { x: openMenu.x, y: openMenu.y } : null
-        }
+        anchor={(openFlyout || isMoreToolsOpen) && openMenu ? openMenu.anchor : null}
         onClose={() => setOpenMenu(null)}
         label={contextMenuLabel}
       />

@@ -1,14 +1,5 @@
 import * as React from 'react';
-import {
-  type KeyboardEvent,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import { createPortal } from 'react-dom';
+import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../icons/Icon';
 import {
   firstEnabledIndex,
@@ -18,6 +9,14 @@ import {
 } from '../utils/focusMovement';
 import { getTypeAheadResetMs, matchMenuTypeAhead, shouldTypeAhead } from '../utils/menuTypeAhead';
 import { FloatingPortal } from './FloatingPortal';
+import type { OverlayCloseReason } from './OverlayRegistry';
+import {
+  elementAnchor,
+  type OverlayAnchor,
+  pointAnchor,
+  type ViewportPoint,
+  viewportPoint,
+} from './overlayGeometry';
 
 // ============================================================
 // Types
@@ -27,9 +26,17 @@ export interface MenuItem {
   id: string;
   label: string;
   onAction: () => void;
+  onContextMenu?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   /** When true, shows a trailing "…" indicating a dialog follows. */
   dialog?: boolean;
+  /**
+   * Explicitly tells the menu that activation transfers focus to another
+   * managed surface. The visual `dialog` marker is intentionally separate:
+   * an ellipsis describes the command, but must not by itself suppress focus
+   * restoration when a caller only uses it as a label.
+   */
+  focusTransfer?: 'dialog' | 'external';
   /** Optional badge count/text shown after the label. */
   badge?: string;
 }
@@ -76,15 +83,27 @@ export interface MenuProps {
   /** The element that opens the menu (receives focus-back on close). */
   triggerRef: React.RefObject<HTMLElement | null>;
   open: boolean;
-  onClose: () => void;
+  onClose: (reason?: OverlayCloseReason) => void;
   label: string;
+  /** Optional legacy item cap. Normal menus rely on measured viewport sizing. */
+  maxVisibleItems?: number;
 }
 
 export interface ContextMenuProps {
   items: readonly MenuEntry[];
-  /** Where to position the menu (page coordinates). */
-  position: { x: number; y: number } | null;
-  onClose: () => void;
+  /** Explicit element or viewport-point anchor. */
+  anchor?: OverlayAnchor | null;
+  /**
+   * Compatibility adapter for older callers. Values are interpreted as
+   * viewport/client coordinates and converted to a point anchor immediately.
+   * New code should pass `anchor`.
+   */
+  position?: ViewportPoint | { x: number; y: number } | null;
+  /** Context element used by the legacy position adapter and keyboard opens. */
+  contextElement?: HTMLElement | null;
+  /** Owner document for legacy point positions, especially detached windows. */
+  ownerDocument?: Document;
+  onClose: (reason?: OverlayCloseReason) => void;
   label?: string;
 }
 
@@ -115,6 +134,10 @@ function isRadio(e: MenuEntry): e is MenuItemRadio {
 
 function isSubmenuItem(e: MenuEntry): e is SubmenuItem {
   return 'type' in e && e.type === 'submenu';
+}
+
+function focusMenuTrigger(triggerRef: React.RefObject<HTMLElement | null> | undefined): void {
+  triggerRef?.current?.focus({ preventScroll: true });
 }
 
 function itemLabel(entry: MenuEntry): string {
@@ -153,14 +176,13 @@ export const MenuButton = React.forwardRef<HTMLButtonElement, MenuButtonProps>(f
 interface MenuInternalProps {
   items: readonly MenuEntry[];
   open: boolean;
-  onClose: () => void;
-  closeAll: () => void;
+  onClose: (reason?: OverlayCloseReason) => void;
+  closeAll: (reason?: OverlayCloseReason) => void;
   label: string;
   level: number;
   triggerRef?: React.RefObject<HTMLElement | null>;
   menuClassName: string;
   menuStyle?: React.CSSProperties;
-  containerRef?: React.RefObject<HTMLDivElement | null>;
   maxVisibleItems?: number;
   /**
    * Top-level Tab handler: closes the whole tree and walks the tab order
@@ -168,6 +190,10 @@ interface MenuInternalProps {
    * always the element focused before the menu tree opened.
    */
   topTabHandler?: (shift: boolean) => void;
+  /** Cancels the parent level's delayed close while crossing into a portaled child. */
+  cancelParentClose?: () => void;
+  /** Shared by every level so a dialog action suppresses root focus restore. */
+  focusRestoreSuppressionRef?: React.MutableRefObject<boolean>;
 }
 
 const MENU_PERF_ENABLED = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
@@ -194,12 +220,16 @@ function MenuInternal({
   triggerRef,
   menuClassName,
   menuStyle,
-  containerRef: externalRef,
-  maxVisibleItems = 30,
+  maxVisibleItems,
   topTabHandler,
+  cancelParentClose,
+  focusRestoreSuppressionRef,
 }: MenuInternalProps) {
   const internalRef = useRef<HTMLDivElement>(null);
-  const menuRef = externalRef ?? internalRef;
+  const menuRef = internalRef;
+  const submenuAnchorRefs = useRef(
+    new Map<string, React.MutableRefObject<HTMLButtonElement | null>>(),
+  );
   const [focusIdx, setFocusIdx] = useState(0);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   // "Show all" expands the truncated list in place. It previously only called
@@ -208,6 +238,9 @@ function MenuInternal({
   const [showAllItems, setShowAllItems] = useState(false);
   const typeaheadRef = useRef('');
   const typeaheadTimerRef = useRef<number | null>(null);
+  const submenuCloseTimerRef = useRef<number | null>(null);
+  const localSuppressFocusRestoreRef = useRef(false);
+  const suppressFocusRestore = focusRestoreSuppressionRef ?? localSuppressFocusRestoreRef;
   // Element focused before this menu took focus; restored on close/unmount.
   const restoreRef = useRef<HTMLElement | null>(null);
   // True while focus has been inside this menu — the restore may only run
@@ -218,6 +251,34 @@ function MenuInternal({
   // Non-null when Tab/Shift+Tab closed the menu: restore must walk the tab
   // order past the anchor instead of returning focus to it.
   const tabDirectionRef = useRef<1 | -1 | null>(null);
+
+  const clearSubmenuClose = useCallback(() => {
+    if (submenuCloseTimerRef.current === null) return;
+    const ownerWindow = menuRef.current?.ownerDocument.defaultView ?? window;
+    ownerWindow.clearTimeout(submenuCloseTimerRef.current);
+    submenuCloseTimerRef.current = null;
+  }, []);
+
+  const scheduleSubmenuClose = useCallback(() => {
+    clearSubmenuClose();
+    const ownerWindow = menuRef.current?.ownerDocument.defaultView ?? window;
+    submenuCloseTimerRef.current = ownerWindow.setTimeout(() => {
+      submenuCloseTimerRef.current = null;
+      onClose('outside-pointer');
+    }, 150);
+  }, [clearSubmenuClose, onClose]);
+
+  const activateAction = useCallback(
+    (item: MenuItem) => {
+      // Close before dispatch so an action-launched dialog can take focus after
+      // the menu tree unmounts. Dialog actions explicitly suppress the root
+      // menu's ordinary focus restoration.
+      if (item.focusTransfer) suppressFocusRestore.current = true;
+      closeAll('action');
+      item.onAction();
+    },
+    [closeAll, suppressFocusRestore],
+  );
 
   const flatItems = useMemo(
     () => items.filter((i): i is Exclude<MenuEntry, MenuSeparator> => !isSeparator(i)),
@@ -237,30 +298,38 @@ function MenuInternal({
   const handleTopTab = useCallback(
     (shift: boolean) => {
       tabDirectionRef.current = shift ? -1 : 1;
-      closeAll();
+      closeAll('tab');
     },
     [closeAll],
   );
 
   // Navigation range: only rendered items are reachable by arrow keys.
-  const navLength = showAllItems ? flatItems.length : Math.min(flatItems.length, maxVisibleItems);
+  const navLength =
+    showAllItems || maxVisibleItems === undefined
+      ? flatItems.length
+      : Math.min(flatItems.length, maxVisibleItems);
 
   useEffect(() => {
     if (!open) return;
 
-    // Capture the previously focused element so every close path can restore
-    // it. Runs on first mount too (ContextMenu mounts with open=true).
-    const prior = document.activeElement;
-    if (
-      prior instanceof HTMLElement &&
-      prior !== document.body &&
-      !menuRef.current?.contains(prior)
-    ) {
-      restoreRef.current = prior;
-    } else if (triggerRef?.current && !menuRef.current?.contains(triggerRef.current)) {
-      // Nothing focused before open (e.g. mouse-open in Firefox) — fall back
-      // to the trigger so Escape/action/Tab still restore predictably.
-      restoreRef.current = triggerRef.current;
+    const ownerDocument =
+      menuRef.current?.ownerDocument ?? triggerRef?.current?.ownerDocument ?? document;
+    const ownerWindow = ownerDocument.defaultView ?? window;
+
+    // Only the root owns focus restoration. A child submenu returns focus to
+    // its parent item on keyboard close; letting every level restore here
+    // would produce duplicate, racing focus writes during tree teardown.
+    if (level === 0) {
+      // Capture the previously focused element so every close path can restore
+      // it. Runs on first mount too (ContextMenu mounts with open=true).
+      const prior = ownerDocument.activeElement;
+      if (prior && prior !== ownerDocument.body && !menuRef.current?.contains(prior)) {
+        restoreRef.current = prior as HTMLElement;
+      } else if (triggerRef?.current && !menuRef.current?.contains(triggerRef.current)) {
+        // Nothing focused before open (e.g. mouse-open in Firefox) — fall back
+        // to the trigger so Escape/action/Tab still restore predictably.
+        restoreRef.current = triggerRef.current;
+      }
     }
 
     // Track whether focus has been inside the menu (see focusInsideRef).
@@ -275,7 +344,7 @@ function MenuInternal({
     setFocusIdx(safeIdx);
     setOpenSubmenu(null);
 
-    const timer = setTimeout(() => {
+    const timer = ownerWindow.setTimeout(() => {
       const el = menuRef.current?.querySelector<HTMLElement>(`[data-focusable-idx="${safeIdx}"]`);
       el?.focus();
     }, 0);
@@ -287,15 +356,20 @@ function MenuInternal({
     capturePostPaint(`menu:open:${label}:painted`);
 
     return () => {
-      window.clearTimeout(timer);
+      ownerWindow.clearTimeout(timer);
       menuEl?.removeEventListener('focusin', handleFocusIn);
+      if (level !== 0) return;
+      if (suppressFocusRestore.current) {
+        suppressFocusRestore.current = false;
+        return;
+      }
       const target = restoreRef.current ?? (triggerRef?.current as HTMLElement | null) ?? null;
-      const active = document.activeElement;
+      const active = ownerDocument.activeElement;
       const focusWasInside = focusInsideRef.current;
       // Only restore when this menu owned focus at close time and no other
       // surface took it afterwards (activeElement is body when the focused
       // element was removed with the menu).
-      if (!focusWasInside || (active !== document.body && !menuEl?.contains(active))) return;
+      if (!focusWasInside || (active !== ownerDocument.body && !menuEl?.contains(active))) return;
       if (!target?.isConnected) return;
 
       // Tab closed the menu: walk the global tab order from the anchor.
@@ -313,35 +387,32 @@ function MenuInternal({
         target.focus({ preventScroll: true });
       }
     };
-  }, [open, menuRef, triggerRef, label, navLength, isItemDisabled]);
+  }, [open, triggerRef, label, navLength, isItemDisabled, level, suppressFocusRestore]);
 
   useEffect(() => {
     if (!open) return;
     const el = menuRef.current?.querySelector<HTMLElement>(`[data-focusable-idx="${focusIdx}"]`);
     el?.focus();
-  }, [focusIdx, open, menuRef]);
+  }, [focusIdx, open]);
 
   useEffect(() => {
-    if (!open) return;
-    function handleOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        closeAll();
+    const ownerWindow = menuRef.current?.ownerDocument.defaultView;
+    return () => {
+      (ownerWindow ?? window).clearTimeout(typeaheadTimerRef.current ?? undefined);
+      if (submenuCloseTimerRef.current !== null) {
+        (ownerWindow ?? window).clearTimeout(submenuCloseTimerRef.current);
+        submenuCloseTimerRef.current = null;
       }
-    }
-    window.addEventListener('pointerdown', handleOutside);
-    return () => window.removeEventListener('pointerdown', handleOutside);
-  }, [open, closeAll, menuRef]);
-
-  useEffect(() => {
-    return () => window.clearTimeout(typeaheadTimerRef.current ?? undefined);
+    };
   }, []);
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
+      const ownerWindow = menuRef.current?.ownerDocument.defaultView ?? window;
       if (shouldTypeAhead(e, typeaheadRef.current)) {
-        window.clearTimeout(typeaheadTimerRef.current ?? undefined);
+        ownerWindow.clearTimeout(typeaheadTimerRef.current ?? undefined);
         typeaheadRef.current += e.key;
-        typeaheadTimerRef.current = window.setTimeout(() => {
+        typeaheadTimerRef.current = ownerWindow.setTimeout(() => {
           typeaheadRef.current = '';
         }, getTypeAheadResetMs());
 
@@ -354,7 +425,7 @@ function MenuInternal({
           e.preventDefault();
           e.stopPropagation();
           setFocusIdx(Math.min(matchIdx, navLength - 1));
-          setTimeout(() => {
+          ownerWindow.setTimeout(() => {
             const el = menuRef.current?.querySelector<HTMLElement>(
               `[data-focusable-idx="${Math.min(matchIdx, navLength - 1)}"]`,
             );
@@ -366,7 +437,7 @@ function MenuInternal({
 
       function resetTypeahead() {
         typeaheadRef.current = '';
-        window.clearTimeout(typeaheadTimerRef.current ?? undefined);
+        ownerWindow.clearTimeout(typeaheadTimerRef.current ?? undefined);
       }
 
       switch (e.key) {
@@ -414,14 +485,16 @@ function MenuInternal({
             e.preventDefault();
             e.stopPropagation();
             resetTypeahead();
-            onClose();
+            focusMenuTrigger(triggerRef);
+            onClose('left-arrow');
           }
           break;
         case 'Escape':
           e.preventDefault();
           e.stopPropagation();
           resetTypeahead();
-          onClose();
+          if (level > 0) focusMenuTrigger(triggerRef);
+          onClose('escape');
           break;
         case 'Enter':
         case ' ': {
@@ -436,8 +509,7 @@ function MenuInternal({
           } else {
             const regItem = item as MenuItem;
             if (!regItem.disabled) {
-              regItem.onAction();
-              closeAll();
+              activateAction(regItem);
             }
           }
           break;
@@ -460,23 +532,23 @@ function MenuInternal({
       flatItems,
       focusIdx,
       onClose,
-      closeAll,
       level,
-      menuRef,
       navLength,
       isItemDisabled,
       topTabHandler,
       handleTopTab,
+      activateAction,
+      triggerRef,
     ],
   );
 
   let focusableCounter = -1;
 
-  const isTruncatable = items.length > maxVisibleItems;
+  const isTruncatable = maxVisibleItems !== undefined && items.length > maxVisibleItems;
   const shouldLimitItems = isTruncatable && !showAllItems;
-  const displayItems = shouldLimitItems ? items.slice(0, maxVisibleItems) : items;
+  const displayItems = shouldLimitItems ? items.slice(0, maxVisibleItems ?? items.length) : items;
   const scrollStyle: React.CSSProperties = isTruncatable
-    ? { maxHeight: `${maxVisibleItems * 32}px`, overflowY: 'auto' }
+    ? { maxHeight: `${(maxVisibleItems ?? items.length) * 32}px`, overflowY: 'auto' }
     : {};
 
   const renderedItems = displayItems.map((entry) => {
@@ -504,6 +576,8 @@ function MenuInternal({
             if (!entry.disabled) entry.onToggle();
           }}
           onMouseEnter={() => {
+            clearSubmenuClose();
+            cancelParentClose?.();
             if (!entry.disabled) setFocusIdx(idx);
           }}
         >
@@ -532,6 +606,8 @@ function MenuInternal({
             if (!entry.disabled) entry.onToggle();
           }}
           onMouseEnter={() => {
+            clearSubmenuClose();
+            cancelParentClose?.();
             if (!entry.disabled) setFocusIdx(idx);
           }}
         >
@@ -568,9 +644,17 @@ function MenuInternal({
 
     if (isSubmenuItem(entry)) {
       const submenuOpen = openSubmenu === entry.id;
+      const submenuAnchorRef = (() => {
+        const existing = submenuAnchorRefs.current.get(entry.id);
+        if (existing) return existing;
+        const created = { current: null } as React.MutableRefObject<HTMLButtonElement | null>;
+        submenuAnchorRefs.current.set(entry.id, created);
+        return created;
+      })();
       return (
         <div key={entry.id} className="varve-menu__item-wrapper">
           <button
+            ref={submenuAnchorRef}
             type="button"
             role="menuitem"
             aria-haspopup="menu"
@@ -581,11 +665,15 @@ function MenuInternal({
             tabIndex={isCurrent ? 0 : -1}
             data-focusable-idx={idx}
             onMouseEnter={() => {
+              clearSubmenuClose();
+              cancelParentClose?.();
               if (!entry.disabled) {
                 setFocusIdx(idx);
-                if (openSubmenu && openSubmenu !== entry.id) {
-                  setOpenSubmenu(entry.id);
-                }
+                // Pointer navigation opens the hovered branch immediately;
+                // the parent-level leave delay below keeps the corridor to a
+                // portaled child usable without making keyboard navigation
+                // wait for a timer.
+                setOpenSubmenu(entry.id);
               }
             }}
             onClick={() => {
@@ -599,16 +687,37 @@ function MenuInternal({
             <span className="varve-menu__submenu-arrow">▸</span>
           </button>
           {submenuOpen && open && (
-            <MenuInternal
-              items={entry.submenu}
+            <FloatingPortal
+              anchorRef={submenuAnchorRef}
               open
+              kind="submenu"
+              placement="right-start"
+              logicalPlacement={true}
+              fallbackPlacements={['left-start']}
+              offsetDistance={0}
+              dismissOnEscape={false}
               onClose={() => setOpenSubmenu(null)}
-              closeAll={closeAll}
-              label={`${itemLabel(entry)} submenu`}
-              level={level + 1}
-              menuClassName="varve-menu varve-menu__submenu"
-              topTabHandler={handleTopTab}
-            />
+              className="varve-floating-layer"
+            >
+              <MenuInternal
+                items={entry.submenu}
+                open
+                onClose={(reason) => {
+                  if (reason === 'escape' || reason === 'left-arrow') {
+                    submenuAnchorRef.current?.focus({ preventScroll: true });
+                  }
+                  setOpenSubmenu(null);
+                }}
+                closeAll={closeAll}
+                label={`${itemLabel(entry)} submenu`}
+                level={level + 1}
+                triggerRef={submenuAnchorRef}
+                menuClassName="varve-menu varve-menu--portaled"
+                topTabHandler={handleTopTab}
+                cancelParentClose={clearSubmenuClose}
+                focusRestoreSuppressionRef={suppressFocusRestore}
+              />
+            </FloatingPortal>
           )}
         </div>
       );
@@ -626,11 +735,13 @@ function MenuInternal({
         data-focusable-idx={idx}
         onClick={() => {
           if (!entry.disabled) {
-            entry.onAction();
-            closeAll();
+            activateAction(entry);
           }
         }}
+        onContextMenu={entry.onContextMenu}
         onMouseEnter={() => {
+          clearSubmenuClose();
+          cancelParentClose?.();
           if (!entry.disabled) setFocusIdx(idx);
         }}
       >
@@ -655,6 +766,11 @@ function MenuInternal({
       className={menuClassName}
       style={containerStyle}
       onKeyDown={handleKey}
+      onPointerEnter={() => {
+        clearSubmenuClose();
+        cancelParentClose?.();
+      }}
+      onPointerLeave={scheduleSubmenuClose}
     >
       {renderedItems}
       {shouldLimitItems && (
@@ -664,10 +780,14 @@ function MenuInternal({
           className="varve-menu__item varve-menu__show-more"
           tabIndex={showMoreIdx === focusIdx ? 0 : -1}
           data-focusable-idx={showMoreIdx}
-          onMouseEnter={() => setFocusIdx(showMoreIdx)}
+          onMouseEnter={() => {
+            clearSubmenuClose();
+            cancelParentClose?.();
+            setFocusIdx(showMoreIdx);
+          }}
           onClick={() => {
             setShowAllItems(true);
-            setFocusIdx(maxVisibleItems);
+            setFocusIdx(maxVisibleItems ?? items.length);
           }}
         >
           <span>Show all ({items.length} items)</span>
@@ -681,11 +801,18 @@ function MenuInternal({
 // Menu (public)
 // ============================================================
 
-export function Menu({ items, triggerRef, open, onClose, label }: MenuProps) {
+export function Menu({ items, triggerRef, open, onClose, label, maxVisibleItems }: MenuProps) {
   if (!open) return null;
 
   return (
-    <FloatingPortal anchorRef={triggerRef} open={open} onClose={onClose} placement="bottom-start">
+    <FloatingPortal
+      anchorRef={triggerRef}
+      open={open}
+      onClose={onClose}
+      kind="action-menu"
+      placement="bottom-start"
+      dismissOnEscape={false}
+    >
       <MenuInternal
         items={items}
         open={open}
@@ -695,6 +822,7 @@ export function Menu({ items, triggerRef, open, onClose, label }: MenuProps) {
         level={0}
         triggerRef={triggerRef}
         menuClassName="varve-menu varve-menu--portaled"
+        maxVisibleItems={maxVisibleItems}
       />
     </FloatingPortal>
   );
@@ -706,46 +834,52 @@ export function Menu({ items, triggerRef, open, onClose, label }: MenuProps) {
 
 export function ContextMenu({
   items,
+  anchor,
   position,
+  contextElement,
+  ownerDocument,
   onClose,
   label = 'Context menu',
 }: ContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useLayoutEffect(() => {
-    if (!position || !menuRef.current) return;
-    const rect = menuRef.current.getBoundingClientRect();
-    let x = position.x;
-    let y = position.y;
-    if (x + rect.width > window.innerWidth) {
-      x = position.x - rect.width;
+  const resolvedAnchor = useMemo<OverlayAnchor | null>(() => {
+    if (anchor) return anchor;
+    if (!position) return null;
+    try {
+      const point = 'space' in position ? position : viewportPoint(position.x, position.y);
+      const documentForPoint =
+        ownerDocument ??
+        contextElement?.ownerDocument ??
+        (typeof document !== 'undefined' ? document : null);
+      return documentForPoint ? pointAnchor(point, documentForPoint, contextElement) : null;
+    } catch {
+      return null;
     }
-    if (y + rect.height > window.innerHeight) {
-      y = position.y - rect.height;
-    }
-    menuRef.current.style.left = `${Math.max(0, x)}px`;
-    menuRef.current.style.top = `${Math.max(0, y)}px`;
-  }, [position]);
+  }, [anchor, position, contextElement, ownerDocument]);
 
-  if (!position) return null;
+  if (!resolvedAnchor) return null;
 
-  return createPortal(
-    <MenuInternal
-      items={items}
+  return (
+    <FloatingPortal
+      anchor={resolvedAnchor}
       open
       onClose={onClose}
-      closeAll={onClose}
-      label={label}
-      level={0}
-      menuClassName="varve-ctxmenu"
-      menuStyle={{
-        position: 'fixed',
-        left: position.x,
-        top: position.y,
-      }}
-      containerRef={menuRef}
-    />,
-    document.body,
+      kind="context-menu"
+      placement="bottom-start"
+      fallbackPlacements={['top-start', 'bottom-end', 'top-end']}
+      offsetDistance={0}
+      dismissOnEscape={false}
+      className="varve-floating-layer"
+    >
+      <MenuInternal
+        items={items}
+        open
+        onClose={onClose}
+        closeAll={onClose}
+        label={label}
+        level={0}
+        menuClassName="varve-ctxmenu varve-menu--portaled"
+      />
+    </FloatingPortal>
   );
 }
 
@@ -754,19 +888,22 @@ export function ContextMenu({
 // ============================================================
 
 export function useContextMenu(containerRef: React.RefObject<HTMLElement | null>) {
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [anchor, setAnchor] = useState<OverlayAnchor | null>(null);
+  const longPressRef = useRef<number | null>(null);
 
-  const close = useCallback(() => setPos(null), []);
+  const close = useCallback(() => setAnchor(null), []);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
+    const ownerDocument = el.ownerDocument;
+    const ownerWindow = ownerDocument.defaultView ?? window;
+
     function handleContext(e: MouseEvent) {
       if (e.button === 2) {
         e.preventDefault();
-        setPos({ x: e.clientX, y: e.clientY });
+        setAnchor(pointAnchor(viewportPoint(e.clientX, e.clientY), ownerDocument, el));
       }
     }
 
@@ -775,41 +912,47 @@ export function useContextMenu(containerRef: React.RefObject<HTMLElement | null>
         e.preventDefault();
         const current = containerRef.current;
         if (!current) return;
-        const rect = current.getBoundingClientRect();
-        setPos({ x: rect.left + 16, y: rect.top + 16 });
+        const active = ownerDocument.activeElement;
+        const focusedElement =
+          active && current.contains(active) ? (active as HTMLElement) : current;
+        setAnchor(elementAnchor(focusedElement));
       }
     }
 
-    function handleTouchStart() {
-      longPressRef.current = setTimeout(() => {
-        setPos({ x: 0, y: 0 });
+    function handleTouchStart(e: TouchEvent) {
+      const touch = e.touches[0];
+      if (!touch) return;
+      longPressRef.current = ownerWindow.setTimeout(() => {
+        setAnchor(pointAnchor(viewportPoint(touch.clientX, touch.clientY), ownerDocument, el));
       }, 500);
     }
 
     function handleTouchEnd() {
-      if (longPressRef.current) {
-        clearTimeout(longPressRef.current);
+      if (longPressRef.current !== null) {
+        ownerWindow.clearTimeout(longPressRef.current);
         longPressRef.current = null;
       }
     }
 
     el.addEventListener('contextmenu', handleContext);
-    el.addEventListener('keydown', handleContext as unknown as EventListener);
-    document.addEventListener('keydown', handleKey as unknown as EventListener);
+    ownerDocument.addEventListener('keydown', handleKey as unknown as EventListener);
     el.addEventListener('touchstart', handleTouchStart);
     el.addEventListener('touchend', handleTouchEnd);
     el.addEventListener('touchmove', handleTouchEnd);
 
     return () => {
       el.removeEventListener('contextmenu', handleContext);
-      el.removeEventListener('keydown', handleContext as unknown as EventListener);
-      document.removeEventListener('keydown', handleKey as unknown as EventListener);
+      ownerDocument.removeEventListener('keydown', handleKey as unknown as EventListener);
       el.removeEventListener('touchstart', handleTouchStart);
       el.removeEventListener('touchend', handleTouchEnd);
       el.removeEventListener('touchmove', handleTouchEnd);
-      if (longPressRef.current) clearTimeout(longPressRef.current);
+      if (longPressRef.current !== null) ownerWindow.clearTimeout(longPressRef.current);
     };
   }, [containerRef]);
 
-  return { position: pos, close };
+  return {
+    anchor,
+    position: anchor?.kind === 'point' ? anchor.point : null,
+    close,
+  };
 }

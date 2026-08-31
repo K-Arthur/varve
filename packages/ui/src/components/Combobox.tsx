@@ -114,17 +114,6 @@ export function Combobox({
     [filteredOptions],
   );
 
-  useEffect(() => {
-    if (!open) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        close();
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open, close]);
-
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLInputElement>) => {
       if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
@@ -230,13 +219,22 @@ export function Combobox({
           : ''}
       </div>
       {open && filteredOptions.length > 0 && (
-        <FloatingPortal anchorRef={wrapperRef} open={open}>
+        <FloatingPortal
+          anchorRef={wrapperRef}
+          open={open}
+          onClose={close}
+          kind="combobox-popup"
+          dismissOnEscape={false}
+          matchAnchorWidth
+          className="varve-floating-layer"
+        >
           <div
             ref={listboxRef}
             id={listboxId}
             role="listbox"
             aria-labelledby={`${listboxId}-label`}
             className="varve-combobox__listbox"
+            style={{ position: 'static', width: '100%' }}
           >
             {filteredOptions.map((opt, idx) => (
               // biome-ignore lint/a11y/useFocusableInteractive: APG combobox pattern — options are non-focusable in an aria-activedescendant listbox; the input owns keyboard navigation.

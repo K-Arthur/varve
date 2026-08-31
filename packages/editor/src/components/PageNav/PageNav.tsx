@@ -2,7 +2,13 @@ import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } f
 import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { NodeId, Page } from '@varve/scene';
-import { ContextMenu, type MenuEntry } from '@varve/ui';
+import {
+  ContextMenu,
+  type MenuEntry,
+  type OverlayAnchor,
+  pointAnchor,
+  viewportPoint,
+} from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import {
@@ -130,7 +136,7 @@ export function PageNav() {
   const platformRef = useRef(platform);
   platformRef.current = platform;
 
-  const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
+  const [ctxAnchor, setCtxAnchor] = useState<OverlayAnchor | null>(null);
   const [ctxPageId, setCtxPageId] = useState<string | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   // Roving focus index: the page tab that owns tabindex=0. Follows focus
@@ -239,12 +245,19 @@ export function PageNav() {
   const handleContextMenu = useCallback((e: React.MouseEvent, pageId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setCtxPos({ x: e.clientX, y: e.clientY });
+    const contextElement = e.currentTarget as HTMLElement;
+    setCtxAnchor(
+      pointAnchor(
+        viewportPoint(e.clientX, e.clientY),
+        contextElement.ownerDocument,
+        contextElement,
+      ),
+    );
     setCtxPageId(pageId);
   }, []);
 
   const closeContextMenu = useCallback(() => {
-    setCtxPos(null);
+    setCtxAnchor(null);
     setCtxPageId(null);
   }, []);
 
@@ -388,7 +401,7 @@ export function PageNav() {
       </button>
       <ContextMenu
         items={ctxItems}
-        position={ctxPos}
+        anchor={ctxAnchor}
         onClose={closeContextMenu}
         label="Page context menu"
       />

@@ -185,7 +185,7 @@ describe('Menu', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<TestMenu open onClose={onClose} />);
-    const menu = screen.getByRole('menu');
+    const menu = screen.getByRole('menu', { hidden: true });
     menu.focus();
     await user.keyboard('{Escape}');
     expect(onClose).toHaveBeenCalled();
@@ -194,7 +194,7 @@ describe('Menu', () => {
   it('navigates with ArrowDown and ArrowUp', async () => {
     const user = userEvent.setup();
     render(<TestMenu open onClose={vi.fn()} />);
-    const items = screen.getAllByRole('menuitem');
+    const items = screen.getAllByRole('menuitem', { hidden: true });
     expect(items[0]).toHaveAttribute('tabIndex', '0');
 
     {
@@ -212,7 +212,7 @@ describe('Menu', () => {
   it('navigates to first/last with Home/End', async () => {
     const user = userEvent.setup();
     render(<TestMenu open onClose={vi.fn()} />);
-    const items = screen.getAllByRole('menuitem');
+    const items = screen.getAllByRole('menuitem', { hidden: true });
     {
       const el = items[0] as HTMLElement | undefined;
       if (el) el.focus();
@@ -338,7 +338,7 @@ describe('Menu submenus', () => {
 describe('Menu checkbox items', () => {
   it('renders menuitemcheckbox with aria-checked', () => {
     render(<TestMenuWithCheckbox open onClose={vi.fn()} checked={false} />);
-    const cb = screen.getByRole('menuitemcheckbox');
+    const cb = screen.getByRole('menuitemcheckbox', { hidden: true });
     expect(cb).toBeInTheDocument();
     expect(cb).toHaveAttribute('aria-checked', 'false');
   });
@@ -363,7 +363,7 @@ describe('Menu checkbox items', () => {
   it('toggles on Enter key', async () => {
     const user = userEvent.setup();
     render(<TestMenuWithCheckbox open onClose={vi.fn()} checked={false} />);
-    const cb = screen.getByRole('menuitemcheckbox');
+    const cb = screen.getByRole('menuitemcheckbox', { hidden: true });
     cb.focus();
     await user.keyboard('{Enter}');
     expect(cb).toHaveAttribute('aria-checked', 'true');
@@ -372,7 +372,7 @@ describe('Menu checkbox items', () => {
   it('toggles on Space key', async () => {
     const user = userEvent.setup();
     render(<TestMenuWithCheckbox open onClose={vi.fn()} checked={false} />);
-    const cb = screen.getByRole('menuitemcheckbox');
+    const cb = screen.getByRole('menuitemcheckbox', { hidden: true });
     cb.focus();
     await user.keyboard(' ');
     expect(cb).toHaveAttribute('aria-checked', 'true');
@@ -386,7 +386,7 @@ describe('Menu checkbox items', () => {
 describe('Menu radio items', () => {
   it('renders menuitemradio with aria-checked', () => {
     render(<TestMenuWithRadios open onClose={vi.fn()} />);
-    const radios = screen.getAllByRole('menuitemradio');
+    const radios = screen.getAllByRole('menuitemradio', { hidden: true });
     expect(radios.length).toBe(3);
     expect(radios[0] as HTMLElement).toHaveAttribute('aria-checked', 'true');
     expect(radios[1] as HTMLElement).toHaveAttribute('aria-checked', 'false');
@@ -395,7 +395,7 @@ describe('Menu radio items', () => {
   it('toggles radio group on click, unchecking siblings', async () => {
     const user = userEvent.setup();
     render(<TestMenuWithRadios open onClose={vi.fn()} />);
-    const radios = screen.getAllByRole('menuitemradio');
+    const radios = screen.getAllByRole('menuitemradio', { hidden: true });
     expect(radios.length).toBe(3);
     const [r0, r1, r2] = radios;
     if (!r0 || !r1 || !r2) throw new Error('missing radio');
@@ -453,7 +453,7 @@ describe('ContextMenu', () => {
         onClose={vi.fn()}
       />,
     );
-    const menu = screen.getByRole('menu');
+    const menu = screen.getByRole('menu', { hidden: true });
     expect(menu).toBeInTheDocument();
     expect(screen.getByText('Action A')).toBeInTheDocument();
   });
@@ -469,7 +469,7 @@ describe('ContextMenu', () => {
     expect(container.querySelector('[role="menu"]')).toBeNull();
   });
 
-  it('adjusts position when near viewport edge', () => {
+  it('adjusts position when near viewport edge', async () => {
     const originalWidth = window.innerWidth;
     const originalHeight = window.innerHeight;
 
@@ -494,10 +494,12 @@ describe('ContextMenu', () => {
       />,
     );
 
-    const menu = document.body.querySelector('[role="menu"]') as HTMLElement;
-    // The layout effect will adjust the position. Check that it's clamped.
-    const left = parseInt(menu.style.left, 10);
-    const top = parseInt(menu.style.top, 10);
+    const layer = document.body.querySelector('[data-varve-overlay="true"]') as HTMLElement;
+    // The shared fixed layer owns the measured coordinates; menu content is
+    // intentionally static so its intrinsic dimensions are measurable.
+    await vi.waitFor(() => expect(layer.style.visibility).toBe('visible'));
+    const left = parseInt(layer.style.left, 10);
+    const top = parseInt(layer.style.top, 10);
     expect(left).toBeGreaterThanOrEqual(0);
     expect(top).toBeGreaterThanOrEqual(0);
 
@@ -555,7 +557,7 @@ describe('Menu focus lifecycle', () => {
 
   it('moves focus to the first item when it opens', async () => {
     render(<ControlledMenu initiallyOpen />);
-    const items = screen.getAllByRole('menuitem');
+    const items = screen.getAllByRole('menuitem', { hidden: true });
     expect(items[0]).toHaveFocus();
   });
 
@@ -568,7 +570,7 @@ describe('Menu focus lifecycle', () => {
         ]}
       />,
     );
-    const items = screen.getAllByRole('menuitem');
+    const items = screen.getAllByRole('menuitem', { hidden: true });
     expect(items[1]).toHaveFocus();
   });
 
@@ -625,7 +627,7 @@ describe('Menu focus lifecycle', () => {
         ]}
       />,
     );
-    const items = screen.getAllByRole('menuitem');
+    const items = screen.getAllByRole('menuitem', { hidden: true });
     expect(items[0]).toHaveFocus();
     await user.keyboard('{ArrowDown}');
     expect(items[2]).toHaveFocus();
@@ -648,7 +650,14 @@ describe('Menu item truncation', () => {
         <button type="button" ref={ref}>
           trigger
         </button>
-        <Menu items={items} triggerRef={ref} open onClose={onClose} label="test" />
+        <Menu
+          items={items}
+          triggerRef={ref}
+          open
+          onClose={onClose}
+          label="test"
+          maxVisibleItems={30}
+        />
       </>
     );
   }
@@ -658,7 +667,8 @@ describe('Menu item truncation', () => {
     const onClose = vi.fn();
     render(<TruncatedMenu onClose={onClose} />);
 
-    // Default maxVisibleItems is 30.
+    // An explicit item cap remains available for callers that need it;
+    // normal menus rely on the measured viewport max-height.
     expect(document.body.querySelectorAll('[role="menuitem"]').length).toBe(31); // 30 + Show all
 
     const showAll = screen.getByText(/Show all \(40 items\)/);

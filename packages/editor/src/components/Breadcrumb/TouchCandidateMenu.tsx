@@ -1,7 +1,7 @@
 import type { NodeId, SceneNode } from '@varve/scene';
 import { isContainer } from '@varve/scene';
-import { SOLID_TOOL_ICONS, SolidIcon } from '@varve/ui';
-import { useCallback, useEffect, useRef } from 'react';
+import { FloatingPortal, pointAnchor, SOLID_TOOL_ICONS, SolidIcon, viewportPoint } from '@varve/ui';
+import { useMemo } from 'react';
 
 interface Candidate {
   nodeId: NodeId;
@@ -15,6 +15,7 @@ interface TouchCandidateMenuProps {
   screenX: number;
   screenY: number;
   candidates: Candidate[];
+  contextElement?: HTMLElement;
   onSelect: (nodeId: NodeId) => void;
   onEnterContainer: (nodeId: NodeId) => void;
   onClose: () => void;
@@ -26,43 +27,17 @@ export function TouchCandidateMenu({
   screenX,
   screenY,
   candidates,
+  contextElement,
   onSelect,
   onEnterContainer,
   onClose,
 }: TouchCandidateMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  const handleBackdropClick = useCallback(
-    (e: MouseEvent | TouchEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    },
-    [onClose],
-  );
-
-  useEffect(() => {
-    document.addEventListener('mousedown', handleBackdropClick);
-    document.addEventListener('touchstart', handleBackdropClick);
-    return () => {
-      document.removeEventListener('mousedown', handleBackdropClick);
-      document.removeEventListener('touchstart', handleBackdropClick);
-    };
-  }, [handleBackdropClick]);
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
-  // Clamp position to viewport
   const menuWidth = 220;
-  const menuHeight = Math.min(candidates.length * 32 + 8, 240);
-  const clampedX = Math.max(8, Math.min(screenX, window.innerWidth - menuWidth - 8));
-  const clampedY = Math.max(8, Math.min(screenY, window.innerHeight - menuHeight - 8));
+  const ownerDocument = contextElement?.ownerDocument ?? document;
+  const anchor = useMemo(
+    () => pointAnchor(viewportPoint(screenX, screenY), ownerDocument, contextElement),
+    [contextElement, ownerDocument, screenX, screenY],
+  );
 
   const kindIcon = (node: SceneNode): string => {
     if (node.kind === 'shape' && node.shape?.kind) {
@@ -76,27 +51,24 @@ export function TouchCandidateMenu({
   const kindLabel = (node: SceneNode): string => node.kind;
 
   return (
-    <div
-      className="touch-candidate-overlay"
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 9999,
-        background: 'transparent',
-      }}
+    <FloatingPortal
+      anchor={anchor}
+      open
+      kind="context-menu"
+      placement="bottom-start"
+      fallbackPlacements={['top-start', 'bottom-end', 'top-end']}
+      offsetDistance={0}
+      maxHeight={240}
+      onClose={onClose}
+      dismissOnEscape
+      className="varve-floating-layer"
     >
       <div
-        ref={menuRef}
         className="touch-candidate-menu"
         role="menu"
         aria-label="Select nested object"
         style={{
-          position: 'fixed',
-          left: clampedX,
-          top: clampedY,
+          position: 'static',
           width: menuWidth,
           maxHeight: 240,
           overflowY: 'auto',
@@ -171,6 +143,6 @@ export function TouchCandidateMenu({
           );
         })}
       </div>
-    </div>
+    </FloatingPortal>
   );
 }
