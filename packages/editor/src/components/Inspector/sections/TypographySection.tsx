@@ -21,6 +21,7 @@ import { Select } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
+import { FontBrowserDialog } from '../../FontBrowser/FontBrowserDialog';
 import { FontSelector } from '../../FontBrowser/FontSelector';
 import { GlyphTypographySection } from '../../Typography/GlyphTypographySection';
 import { BindingMenu } from '../controls/BindingMenu';
@@ -207,6 +208,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   } = editor;
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
   const [richTextEnabled, setRichTextEnabled] = useState(false);
+  const [fontBrowserOpen, setFontBrowserOpen] = useState(false);
 
   const textNodes = useMemo(() => nodes.filter((n): n is TextNode => n.kind === 'text'), [nodes]);
 
@@ -294,6 +296,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
 
   return (
     <DisclosureSection title="Typography" sectionId="typography">
+      <FontBrowserDialog open={fontBrowserOpen} onClose={() => setFontBrowserOpen(false)} />
       <div ref={bindingTriggerRef} className="insp-field-group">
         {textContent !== null && (
           <>
@@ -341,6 +344,15 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             value={isMixed(familyRaw) ? '' : familyRaw}
             onChange={(v) => batchUpdate((n) => ({ ...n, fontFamily: v || undefined }))}
           />
+          <button
+            type="button"
+            className="typography__browse-fonts"
+            onClick={() => setFontBrowserOpen(true)}
+            aria-label="Browse fonts"
+            title="Browse fonts"
+          >
+            …
+          </button>
         </FieldRow>
         <FieldRow label="Weight">
           <Select
