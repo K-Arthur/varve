@@ -25,6 +25,7 @@ import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { DisclosureSection } from './controls/DisclosureSection';
+import { VariablesPanelDialog } from './panels/VariablesPanelDialog';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
 import { SelectionSourcesPanel } from './SelectionSourcesPanel';
 import {
@@ -107,7 +108,7 @@ const TAB_ORDER: InspectorTab[] = [
 ];
 
 export function PropertiesPanel() {
-  const { selectedNodes, state, platform } = useEditor();
+  const { selectedNodes, state, platform, toggleVariablesPanel } = useEditor();
   const { addPreset, updatePreset, removePreset, setShowExportDialog } = useEditor();
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
   const selNodes = selectedNodes();
@@ -270,6 +271,7 @@ export function PropertiesPanel() {
 
   return (
     <section className="editor-inspector" data-panel-root="inspector" aria-label="Inspector">
+      <VariablesPanelDialog open={state.variablesPanelVisible} onClose={toggleVariablesPanel} />
       <PanelDragHandle
         panelTypeId="inspector"
         panelInstanceId="inspector-primary"

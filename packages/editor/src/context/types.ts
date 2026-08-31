@@ -385,6 +385,12 @@ export interface EditorState {
    * rather than living in the per-selection Properties inspector.
    */
   stateMachinePanelVisible: boolean;
+  /**
+   * Variables/tokens dialog (document-scoped design-system management).
+   * Opt-in like the state-machine panel: reachable from the command palette
+   * rather than occupying permanent panel space.
+   */
+  variablesPanelVisible: boolean;
   /** Which property track is currently shown in the graph editor (nodeId.property). */
   selectedGraphProperty: string | null;
   /**

@@ -739,6 +739,9 @@ export function createActionHandlers(
     restoreAllPanels: () => e.restoreAllPanels(),
     toggleGraphEditor: () => e.toggleGraphEditor(),
     toggleStateMachinePanel: () => e.toggleStateMachinePanel(),
+    openVariablesPanel: () => {
+      if (!e.state.variablesPanelVisible) e.toggleVariablesPanel();
+    },
     toggleDistractionFree: () => e.toggleDistractionFreeMode(),
     toggleBeforeAfterCompare: () => e.toggleBeforeAfterCompare(),
     workspaceDesign: () => e.requestWorkspaceSwitch('design'),

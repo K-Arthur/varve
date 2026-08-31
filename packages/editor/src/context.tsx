@@ -1620,6 +1620,8 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   toggleAutoKeyframe: () => void;
   toggleGraphEditor: () => void;
   toggleStateMachinePanel: () => void;
+  /** Open/close the document-scoped Variables and tokens dialog. */
+  toggleVariablesPanel: () => void;
   deleteKeyframe: (timelineId: string, trackId: string, progress: number) => void;
   moveKeyframe: (
     timelineId: string,
@@ -2538,6 +2540,10 @@ export function EditorProvider({
       // state machines are a document-wide prototyping workflow, opt-in via
       // its own toggle rather than something every selection surfaces.
       stateMachinePanelVisible: false,
+      // variables/tokens are a document-wide design-system workflow, opt-in
+      // via its own toggle (command palette) rather than permanent panel
+      // space.
+      variablesPanelVisible: false,
       selectedGraphProperty: null,
       pendingFormat: null,
       selectionRange: null,
@@ -9528,6 +9534,10 @@ export function EditorProvider({
       // --- State machines ---
       toggleStateMachinePanel: () => {
         patch({ stateMachinePanelVisible: !stateRef.current.stateMachinePanelVisible });
+      },
+      // --- Variables and tokens ---
+      toggleVariablesPanel: () => {
+        patch({ variablesPanelVisible: !stateRef.current.variablesPanelVisible });
       },
       getStateMachines: () => {
         const sms = stateRef.current.document.stateMachines ?? {};
