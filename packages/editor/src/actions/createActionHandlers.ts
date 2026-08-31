@@ -22,6 +22,7 @@ import { startTextEditing } from '../context';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
 import { getLifecycleCoordinator } from '../lifecycle';
 import { nodeLocalBounds } from '../scene/world';
+import { loadSettings, updateSettings } from '../settings';
 import { deserializeAreaSelection, serializeAreaSelection } from '../tools/savedAreaSelections';
 import {
   areaSelectionFromMaskPixels,
@@ -707,6 +708,15 @@ export function createActionHandlers(
     gridOverlayIsometric: () =>
       e.setGridOverlayMode(e.state.gridOverlayMode === 'isometric' ? 'none' : 'isometric'),
     toggleSnap: () => e.setSnapEnabled(!e.state.snapEnabled),
+    toggleMarqueeContainment: () => {
+      const next = !loadSettings().layers.marqueeContainment;
+      updateSettings({ layers: { marqueeContainment: next } });
+      e.announce(
+        next
+          ? 'Marquee selects only fully-contained objects'
+          : 'Marquee selects any intersecting object',
+      );
+    },
     toggleGuidesVisible: () => e.toggleGuidesVisible(),
     toggleGuides: () => e.toggleGuidesVisible(),
     lockAllGuides: () => e.toggleLockAllGuides(),

@@ -951,6 +951,13 @@ export function getViewMenu(
       run: () => runAction('toggleGuides'),
     },
     {
+      id: 'toggleMarqueeContainment',
+      labelKey: 'menu.view.toggleMarqueeContainment',
+      kind: 'command',
+      group: 'guides',
+      run: () => runAction('toggleMarqueeContainment'),
+    },
+    {
       id: 'lockGuides',
       labelKey: 'menu.view.lockGuides',
       accelerator: a('l', true, true),

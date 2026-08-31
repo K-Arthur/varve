@@ -31,32 +31,40 @@
   gap: var(--space-1);
 }
 
-.layers-panel__auto-reveal-btn {
+/* Unified header icon button — one size, one transition, one focus ring. */
+.layers-panel__header-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: var(--space-5);
+  height: var(--space-5);
   border: none;
-  background: transparent;
+  background: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: var(--radius-sm);
   padding: 0;
-  transition: color 0.15s;
+  border-radius: var(--radius-sm);
+  transition:
+    color var(--duration-quick) var(--ease-standard),
+    background var(--duration-quick) var(--ease-standard);
 }
 
-.layers-panel__auto-reveal-btn:hover {
+.layers-panel__header-btn:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-hover);
 }
 
-.layers-panel__auto-reveal-btn--active {
+.layers-panel__header-btn--active {
   color: var(--color-interactive-default);
 }
 
-.layers-panel__auto-reveal-btn--active:hover {
+.layers-panel__header-btn--active:hover {
   color: var(--color-interactive-hover);
+}
+
+.layers-panel__header-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 
 .layers-panel__isolation-breadcrumb {
@@ -93,28 +101,6 @@
   background: var(--color-surface-hover);
 }
 
-.layers-panel__collapse-all-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
-  border: none;
-  background: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0;
-  border-radius: var(--radius-sm);
-  transition:
-    color var(--duration-quick) var(--ease-standard),
-    background var(--duration-quick) var(--ease-standard);
-}
-
-.layers-panel__collapse-all-btn:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-hover);
-}
-
 .layers-panel__solo-exit-btn {
   display: inline-flex;
   align-items: center;
@@ -130,11 +116,6 @@
 
 .layers-panel__solo-exit-btn:hover {
   background: color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
-.layers-panel__collapse-all-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
 }
 
 /* ─── Filter — compact search field ──────────────────────────── */
@@ -564,10 +545,25 @@
   display: block;
   max-width: 100%;
   overflow: hidden;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--color-text-secondary);
+  cursor: pointer;
   font-size: var(--font-size-2xs);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.layers-row__adjustment-summary:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.layers-row__adjustment-summary:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
 }
 
 .layers-row__adjustment-summary--empty {
@@ -998,17 +994,6 @@
   color: var(--color-text-muted);
   text-align: right;
   padding: 0 var(--space-1);
-}
-
-/* ─── VariablePanel wrapper ───────────────────────── */
-.layers-panel__variables {
-  margin-top: var(--space-3);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--color-border-subtle);
-  flex: 0 1 auto;
-  min-height: var(--space-10);
-  max-height: 220px;
-  overflow-y: auto;
 }
 
 /* ─── Empty state ────────────────────────────────────────────── */

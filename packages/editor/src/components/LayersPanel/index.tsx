@@ -51,9 +51,6 @@ import { computeActiveSurfaceLayerCount, countActiveSurfaceNodesMatching } from 
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTypes';
 import './layers.css';
-import { VariablePanel } from '../../VariablePanel';
-import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
-import { TokenSyncPanel } from '../TokenSync/TokenSyncPanel';
 import { LayerStatesSection } from './LayerStatesSection';
 import { SelectionSetsSection } from './SelectionSetsSection';
 
@@ -569,7 +566,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     const next = updateSettings({ layers: patch });
     setLayerSettings(next.layers);
   }, []);
-  const [iconBrowserOpen, setIconBrowserOpen] = useState(false);
 
   return (
     <div className="editor-layers layers-panel" data-panel-root="layers">
@@ -592,7 +588,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
               >
                 <button
                   type="button"
-                  className={`layers-panel__auto-reveal-btn ${layerSettings.autoReveal ? 'layers-panel__auto-reveal-btn--active' : ''}`}
+                  className={`layers-panel__header-btn ${layerSettings.autoReveal ? 'layers-panel__header-btn--active' : ''}`}
                   onClick={() => updateLayerSettings({ autoReveal: !layerSettings.autoReveal })}
                   aria-label={`Auto-reveal canvas selection in Layers panel: ${layerSettings.autoReveal ? 'enabled' : 'disabled'}`}
                   aria-pressed={layerSettings.autoReveal}
@@ -600,43 +596,14 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
                   <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
                 </button>
               </Tooltip>
-              <Tooltip
-                label={
-                  layerSettings.marqueeContainment
-                    ? 'Marquee selects only fully-contained objects'
-                    : 'Marquee selects any intersecting object'
-                }
-              >
-                <button
-                  type="button"
-                  className={`layers-panel__auto-reveal-btn ${layerSettings.marqueeContainment ? 'layers-panel__auto-reveal-btn--active' : ''}`}
-                  onClick={() =>
-                    updateLayerSettings({ marqueeContainment: !layerSettings.marqueeContainment })
-                  }
-                  aria-label={`Marquee containment: ${layerSettings.marqueeContainment ? 'enabled' : 'disabled'}`}
-                  aria-pressed={layerSettings.marqueeContainment}
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.crosshair} size="0.85em" />
-                </button>
-              </Tooltip>
               <Tooltip label="Collapse all layers">
                 <button
                   type="button"
-                  className="layers-panel__collapse-all-btn"
+                  className="layers-panel__header-btn"
                   onClick={handleCollapseAll}
                   aria-label="Collapse all layers"
                 >
                   <SolidIcon name={SOLID_CHROME_ICONS.collapseAll} size="0.85em" />
-                </button>
-              </Tooltip>
-              <Tooltip label="Insert icon">
-                <button
-                  type="button"
-                  className="layers-panel__collapse-all-btn"
-                  onClick={() => setIconBrowserOpen(true)}
-                  aria-label="Insert icon from library"
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.image} size="0.85em" />
                 </button>
               </Tooltip>
               {anySolo && (
@@ -657,8 +624,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
           </TooltipProvider>
         </div>
       </PanelDragHandle>
-
-      <IconBrowserDialog open={iconBrowserOpen} onClose={() => setIconBrowserOpen(false)} />
 
       {isolatedNode && (
         <div className="layers-panel__isolation-breadcrumb" role="status">
@@ -778,11 +743,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
           label="Layer context menu"
         />
       )}
-
-      <div className="layers-panel__variables">
-        <VariablePanel />
-        <TokenSyncPanel />
-      </div>
 
       <SelectionSetsSection />
 

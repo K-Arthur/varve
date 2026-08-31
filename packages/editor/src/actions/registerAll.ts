@@ -148,6 +148,7 @@ export function registerEditorActions(
     ['rulerModeArtboard', 'Use Artboard Rulers', 'view'],
     ['rulerModeGlobal', 'Use Global Rulers', 'view'],
     ['toggleGuides', 'Toggle Guides', 'view'],
+    ['toggleMarqueeContainment', 'Marquee Selects Contained Objects', 'view'],
     ['toggleBleedGuides', 'Toggle Bleed Guides', 'view'],
     ['lockGuides', 'Lock Guides', 'view'],
     ['clearGuides', 'Clear Guides', 'view'],
