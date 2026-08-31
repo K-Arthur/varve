@@ -32,6 +32,7 @@ test.describe('Inspector feature ownership', () => {
 
     await design.click();
     await expect(page.getByRole('tab', { name: 'Document' })).toHaveCount(0);
+    await expect(page.locator('[data-inspector-context-header="true"]')).toContainText('Canvas');
     await expect(page.getByRole('button', { name: 'Canvas', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Document Color' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Canvas background' })).toBeVisible();

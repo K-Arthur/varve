@@ -31,6 +31,7 @@ import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { DisclosureSection } from './controls/DisclosureSection';
+import { InspectorContextHeader } from './InspectorContextHeader';
 import { InspectorTabBar } from './InspectorTabBar';
 import { deriveInspectorContext, type InspectorContext } from './inspectorContext';
 import { VariablesPanelDialog } from './panels/VariablesPanelDialog';
@@ -274,6 +275,7 @@ export function PropertiesPanel() {
           onDetach={<PanelDetachButton />}
         />
       </PanelDragHandle>
+      <InspectorContextHeader context={inspectorContext} />
 
       {tab === 'properties' && (
         <div

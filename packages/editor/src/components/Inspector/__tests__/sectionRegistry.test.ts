@@ -13,6 +13,7 @@ import {
   getAvailableSections,
   getHideableSectionIds,
   getSectionDefinition,
+  getSectionRegistryIntegrityIssues,
   getSectionsByCategory,
   SECTION_DEFINITIONS,
   type SectionAvailabilityContext,
@@ -116,11 +117,24 @@ describe('Section Registry', () => {
     expect(unique.size).toBe(ids.length);
   });
 
-  it('has no duplicate order values', () => {
+  it('has no registry integrity errors', () => {
+    expect(getSectionRegistryIntegrityIssues()).toEqual([]);
+  });
+
+  it('uses declaration order as the deterministic tie-breaker', () => {
     const orders = SECTION_DEFINITIONS.map((d) => d.order);
-    // Orders don't need to be unique (multiple sections can share),
-    // but they should be in ascending order within each category
+    // Orders do not need to be unique; the registry comparator preserves the
+    // explicit declaration order for ties instead of relying on engine sort
+    // stability.
     expect(orders.length).toBeGreaterThan(0);
+    expect(getAllSections().map((d) => d.id)).toEqual(
+      [...SECTION_DEFINITIONS]
+        .sort(
+          (a, b) =>
+            a.order - b.order || SECTION_DEFINITIONS.indexOf(a) - SECTION_DEFINITIONS.indexOf(b),
+        )
+        .map((d) => d.id),
+    );
   });
 
   it('getSectionDefinition returns definition for valid ID', () => {

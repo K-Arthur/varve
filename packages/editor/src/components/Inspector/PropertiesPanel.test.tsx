@@ -156,6 +156,7 @@ describe('PropertiesPanel canvas settings', () => {
 
   it('renders canvas settings inline in the Properties empty state', async () => {
     renderPanel();
+    expect(screen.getByLabelText(/Inspector context: (Document|Canvas)/)).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Canvas' })).toBeTruthy();
     expect(await screen.findByText(/^Background$/)).toBeTruthy();
   });
@@ -324,6 +325,7 @@ describe('PropertiesPanel empty selection', () => {
     );
 
     await waitFor(() => expect(ctx?.state.tool).toBe('paint'));
+    expect(screen.getByLabelText('Inspector context: Tool options')).toBeInTheDocument();
     expect(screen.getByText(/tool controls stay with the active tool/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Canvas' })).toBeNull();
   });
