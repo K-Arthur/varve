@@ -122,6 +122,8 @@ export type { RadioGroupProps, RadioOption, RadioOptionProps, RadioProps } from 
 export { Radio, RadioCard, RadioGroup } from './Radio';
 export type { RegionLoaderProps } from './RegionLoader';
 export { RegionLoader } from './RegionLoader';
+export type { ScrollAreaOrientation, ScrollAreaProps, ScrollProgressProps } from './ScrollArea';
+export { ScrollArea, ScrollProgress } from './ScrollArea';
 export type { SearchFieldProps } from './SearchField';
 export { HighlightMatch, SearchField } from './SearchField';
 export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
