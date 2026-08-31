@@ -18,8 +18,10 @@ claim that the full Inspector program is complete.
 | Restriction presentation slice | `3cc99d4a9` (`feat(inspector): explain selection restrictions`) |
 | Numeric wheel lifecycle slice | `28fec396c` (`fix(inspector): coalesce numeric wheel edits`) |
 | Section ordering slice | `cfeca8ad9` (`feat(inspector): expose safe section ordering`) |
+| Source-aware numeric binding slice | `4efa17279` (landed in a concurrent workspace-dock commit; Inspector files are present, but the commit is not Inspector-only) |
+| Current HEAD | `9b3128d0776b18a6fe985e2484c56fbc391750a0` (`fix(editor): use compact corners for workspace dock`) |
 | Worktree | `/home/kevina/CodingProjects/varve` |
-| Dirty state | Concurrent docs, editor/canvas, layers, home, engine, and UI overlay work remained unstaged; Inspector slices were committed separately |
+| Dirty state | Concurrent docs, editor/canvas, layers, home, engine, and UI overlay work remains unstaged; the source-aware Inspector slice is committed at `4efa17279` together with unrelated workspace-dock files |
 | Package manager | pnpm 11.9.0 |
 | Node | v22.23.2 |
 | Rust/Cargo | 1.97.1 / 1.97.1 |
@@ -34,9 +36,11 @@ claim that the full Inspector program is complete.
 | Selection | Empty in baseline; rectangle workflow exercised by the existing ownership spec |
 
 The branch advanced while the audit was in progress. The prior observed HEAD
-was `8067c472a`; the tab slice is committed at `c1fb91add` and the derived
-context slice at `02c2e44b8`. The concurrent Layers files were not rewritten
-or reverted.
+was `8067c472a`; later commits include the tab, context, property-state,
+restriction, wheel, ordering, and source-aware numeric slices. The concurrent
+workspace-dock and other dirty files were not rewritten or reverted. The
+source-aware slice landed inside `4efa17279`; that mixed commit is recorded
+explicitly so its Inspector changes are not mistaken for an isolated commit.
 
 ## Scope and invariant
 
@@ -87,13 +91,16 @@ The five highest-impact root causes are:
    workspace config and fallback labels/order in `PropertiesPanel`. The first
    slice removes that duplicate path and adds actual overflow behavior, but
    contextual tab insertion and hidden-tab lifecycle still need integrity tests.
-3. Property state semantics are uneven. `SelectionColorsSection` and several
-   paint/effect controls model mixed or bound values, but there is no canonical
-   property-state algebra applied to every NumberField, toggle, list, and stack.
+3. Property state semantics are uneven. A canonical property-state algebra now
+   feeds the high-frequency X/Y NumberFields, and a source-aware binding helper
+   resolves numeric variable values with explicit read-only/unbind or missing
+   source states. It is not yet applied to every NumberField, toggle, list, and
+   stack.
 4. Lock/visibility guarding was coarse. The restriction slice now presents
    effective source names and exact partial-selection counts without duplicating
-   the notice across nested surfaces; locked content remains inert for safety,
-   while control-level read-only/copy/source navigation is still deferred.
+   the notice across nested surfaces; locked content remains inert for safety.
+   Numeric variable-bound X/Y fields are separately readable and recoverable,
+   while control-level lock/read-only/copy/source navigation remains deferred.
 5. Control lifecycle and specialist workflow ownership are incomplete. Some
   controls use `beginTransaction`/`commitTransaction`, while cancellation,
   pointer loss, selection changes, and collapse/unmount policies are not
@@ -118,6 +125,7 @@ The five highest-impact root causes are:
 | Lock/visibility guarding is too coarse | Partly repaired | `inspectorContext.ts` derives direct and ancestor-effective restrictions, source IDs, and partial editable IDs; `SelectionLockGuard` now explains counts/sources once per active surface and preserves hidden inspection, while locked controls remain inert and control-level safe inspection is deferred. |
 | Mixed values vary by control | Partly repaired | `propertyState.ts` now defines common/mixed/unset/partial and richer source/error vocabulary; `NumberField` consumes it, while other controls still use legacy booleans. |
 | Numeric editing has lifecycle gaps | Partly repaired | `NumberField` now scopes Layout drafts by document/selection, selects the mixed placeholder for replacement, handles pointercancel/window blur/unmount, and coalesces arrow/scrub/wheel history; other control families remain to audit. |
+| Inherited/overridden/bound values lack an explicit recovery path | Partly repaired | `boundPropertyState.ts` resolves X/Y variable bindings for a single selection, exposes a read-only resolved value and explicit unbind action, and reports missing sources as recoverable errors; batch-bound selections are blocked rather than silently partially edited. Other property families remain. |
 | Plugins bypass product IA | Partly confirmed | `pluginSections.ts` has namespacing and availability metadata, but `PluginSectionContribution` has no renderer/factory despite its module contract, no surface ownership validation, no order band enforcement, and no host rendering path found in the current Inspector composition. |
 
 ## Evidence index
@@ -152,6 +160,7 @@ The five highest-impact root causes are:
 | E26 | E2E + screenshot | `ownership.spec.ts` locked-selection scenario and `locked-properties-chromium-linux.png` | Real Layers lock action leaves Inspector values visible, presents one source-aware notice, keeps controls inert, and has no clipping at the normal panel width | High for Chromium |
 | E27 | Unit | `NumberField.test.tsx` | Focused wheel edits coalesce into one transaction; changing the draft target aborts the pending wheel transaction; 22 NumberField tests pass | High |
 | E28 | Unit + E2E + screenshot | `sectionOrdering.test.ts`, `SectionManagerTrigger.test.tsx`, `ownership.spec.ts`, and `section-manager-chromium-linux.png` | Reorder helpers handle both relative directions correctly; the manager exposes stable per-surface up/down controls and Reset order; Chromium workflow passed and screenshot was manually inspected | High for Chromium |
+| E29 | Unit + E2E + screenshot | `boundPropertyState.test.ts`, `NumberField.test.tsx`, `ownership.spec.ts`, and `bound-property-field-chromium-linux.png` | X/Y variable-bound geometry resolves its source, remains readable and read-only, blocks bound batch edits, reports missing sources, and provides an explicit unbind recovery path; two isolated Chromium runs passed and the field screenshot was manually inspected | High for Chromium |
 
 ## Current-state feature ownership matrix
 
@@ -229,7 +238,7 @@ false architecture claim.
 
 | Property | Canonical model path | Current control | Mixed semantics | Inheritance/binding | Reset | History/render/export |
 |---|---|---|---|---|---|---|
-| x / y | node geometry / transform | `PositionSizeSection` NumberField | section supports selection aggregation; lifecycle audit pending | source semantics pending | command-specific | document command; canvas render |
+| x / y | node geometry / transform | `PositionSizeSection` NumberField | common/mixed; single numeric variable binding resolves read-only | bound source/unbind for single selection; bound batch is unavailable | command-specific; unbind uses canonical binding command | document command; canvas render |
 | width / height | node geometry / bounds | `PositionSizeSection` NumberField | batch path present | calculated bounds can differ | command-specific | document command; canvas render |
 | rotation | node transform | `PositionSizeSection` | mixed audit pending | none identified | command-specific | document command; canvas render |
 | scale | node transform | `PositionSizeSection`/transform tools | relative edit policy pending | none identified | command-specific | document command; canvas render |
@@ -656,6 +665,10 @@ pointer capture or IME composition.
 | `Inspector/SectionManagerTrigger.tsx`, `Inspector/inspector.css` | Renders the actual per-surface order with stable IDs, accessible up/down controls, reset order, category context, and disambiguated duplicate titles | Makes persisted ordering real and discoverable without adaptive reordering |
 | `Inspector/__tests__/sectionOrdering.test.ts`, `Inspector/__tests__/SectionManagerTrigger.test.tsx` | Tests relative moves, subset boundaries, and manager interaction | Protects ordering correctness and keyboard-labeled controls |
 | `tests/e2e/inspector/ownership.spec.ts`, `section-manager-chromium-linux.png` | Exercises the manager in Chromium and captures the opened customization surface | Confirms layout, labels, controls, and reorder behavior in the real browser |
+| `Inspector/boundPropertyState.ts` | Resolves numeric variable bindings from the document store and classifies missing sources or bound multi-selection as explicit read-only/error/unavailable states | Makes binding provenance visible without forking document state or silently editing a subset |
+| `Inspector/controls/NumberField.tsx`, `Inspector/inspector.css` | Adds readable bound-state presentation, source chip, unbind affordance, read-only guards, and accessible state text | Keeps a bound value inspectable and prevents accidental literal edits |
+| `Inspector/sections/PositionSizeSection.tsx` | Wires the source-aware path to X/Y while retaining the canonical `setSelectedBinding` command | Delivers a small, high-frequency vertical slice without moving controls or changing history ownership |
+| `Inspector/boundPropertyState.test.ts`, `NumberField.test.tsx`, `tests/e2e/inspector/ownership.spec.ts` | Covers resolved, expression, missing-source, mixed-bound, read-only, unbind, and browser visual behavior | Protects the binding path and its recovery affordance |
 
 ## Verification and baseline
 
@@ -685,6 +698,12 @@ pointer capture or IME composition.
 | `VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/editor/src/components/Inspector/controls/NumberField.test.tsx --maxWorkers=1 --reporter=dot` | Pass, 22 tests | Focused wheel coalescing and target-scope cancellation pass with the shared numeric control |
 | `VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/editor/src/components/Inspector/__tests__/sectionOrdering.test.ts packages/editor/src/components/Inspector/__tests__/SectionManagerTrigger.test.tsx --maxWorkers=1 --reporter=dot` | Pass, 19 tests | Relative movement, subset boundaries, manager controls, and Reset order pass |
 | `VARVE_E2E_PORT=1498 pnpm exec playwright test tests/e2e/inspector/ownership.spec.ts -g "section customization exposes stable ordering controls" --project=chromium --workers=1 --reporter=line` | Pass, 1 test | Real manager workflow passed after a separate host-memory Chromium crash; screenshot was opened and manually inspected |
+| `./node_modules/.bin/vitest run packages/editor/src/components/Inspector/boundPropertyState.test.ts packages/editor/src/components/Inspector/controls/NumberField.test.tsx --pool=threads --maxWorkers=1 --reporter=dot` | Pass, 2 files / 28 tests | Source-aware binding and shared numeric lifecycle tests pass |
+| `./node_modules/.bin/vitest run packages/editor/src/components/Inspector/PropertiesPanel.test.tsx --pool=threads --maxWorkers=1 --reporter=dot` | Pass, 1 file / 22 tests | Existing panel behavior remains green after binding integration |
+| `./node_modules/.bin/tsc -p tests/e2e/tsconfig.json --noEmit` | Pass | E2E helper and binding scenario typecheck cleanly |
+| `VARVE_E2E_PORT=1504 ... ownership.spec.ts -g "bound geometry shows" --update-snapshots` and `VARVE_E2E_PORT=1505 ...` without snapshot update | Pass, 1 test each | Real Chromium interaction passed twice; the stable X-field screenshot was opened and inspected manually |
+| `pnpm verify:affected` after the binding slice | Blocked at Tier 0 | Concurrent unrelated formatting/import diagnostics prevented the affected plan from reaching Inspector tests |
+| `./node_modules/.bin/tsc -p packages/editor/tsconfig.json --noEmit` | OOM, exit 137 | Host memory/swap pressure terminated the broad editor typecheck without Inspector diagnostics; not reported as a clean pass |
 | `pnpm --filter @varve/editor typecheck` | Fails outside Inspector slice | Current error is concurrent dirty `LayersPanel/layerPresentation.ts:167,169` (`kind` on `never`); no Inspector diagnostics reported |
 | `pnpm verify:affected` | Blocked at Tier 0 | Concurrent `LayersPanel/useFlatTree.ts` formatting error; no Inspector failure reached |
 | Full suite | No | Not authorized by impact plan; no workspace/toolchain/schema/release escalation |
@@ -707,11 +726,11 @@ This is a status matrix, not a claim that all rows pass.
 |---|---|---|
 | 1–9 context-specific object/page/image/component/table states | Partial | Document/Canvas/Tool context and stale/effective restriction derivation now covered; object/page/component/table UI remains |
 | 10–15 common/mixed/relative/partial multi-selection | Partial | Common/mixed/unset/partial state contract and real mixed X/Y presentation are covered; relative semantics and batch-scope policy remain |
-| 16–21 lock/hidden/effective/inherited/component/master | Partial | Effective ancestry and partial-lock read model now tested; source-aware safe inspection and component/master UI remain |
+| 16–21 lock/hidden/effective/inherited/component/master | Partial | Effective ancestry and partial-lock read model now tested; numeric X/Y variable binding is inspectable and recoverable; component/master UI and general inherited/override controls remain |
 | 22–29 duplicate ownership/document/tool/image/selection surfaces | Partial | Ownership docs and existing panel split; duplicate command audit needed |
 | 30–35 tabs/order/contextual/deep links/return | Partial | Tab metadata/order/overflow and visible context are covered; deep-link E2E remains |
 | 36–42 search/customization/legacy/collapse | Partial | Section manager show/hide, stable per-surface order controls, and Reset order are covered; section search, legacy migration, and collapse lifecycle remain |
-| 43–51 numeric/color/gradient/undo/view history | Partial | NumberField lifecycle is covered for scoped drafts, scrub/arrow/wheel transactions, pointer cancel, blur, and unmount; color/gradient/stack integration remains |
+| 43–51 numeric/color/gradient/undo/view history | Partial | NumberField lifecycle is covered for scoped drafts, scrub/arrow/wheel transactions, pointer cancel, blur, unmount, and X/Y binding recovery; color/gradient/stack integration remains |
 | 52–56 plugins/heavy workflow/large selection/document switch | Deferred | Plugin host contract, lazy launchers, profiling |
 | 57–65 detach/mobile/AT/scaling/RTL/themes/parity/manual artifacts | Deferred | Responsive/a11y/platform slice |
 
@@ -722,11 +741,11 @@ This is a status matrix, not a claim that all rows pass.
 | Selection context | empty document context; one rectangle; ownership fixture | stale ID, 1,000 nodes, mixed/parent-child, component/master, table/text range/pixel selection |
 | Tab behavior | normal row; APG arrow navigation; narrow overflow menu in Chromium | active contextual removal, requested hidden tab, workspace/document switch, detached tab focus |
 | Section behavior | registry ordering tests; manager list/order/reset controls; ownership E2E | dirty draft collapse/hide, open popover, plugin unload, stale order migration |
-| Property states | shared classifier tests; mixed X/Y DOM and `aria-valuetext` screenshot | universal control migration; inherited/overridden/bound/calculated/error rendering |
+| Property states | shared classifier tests; mixed X/Y DOM and `aria-valuetext` screenshot; bound X/Y source chip and missing-source tests | universal control migration; inherited/overridden/bound/calculated/error rendering for other control families |
 | Numeric editing | NumberField replacement, scoped draft, pointercancel, blur/unmount cleanup, scrub/arrow transaction tests, focused wheel coalescing and target-scope cancellation | IME, cross-control selection switching, full exact cancel history assertion |
 | Color/gradient | color popover and gradient component tests | wide gamut, viewport edge, mode switch, collapse during draft |
 | Ordered stacks | fill/effect focused unit coverage | keyboard reorder across every stack, invalid import, mixed identity alignment |
-| Restrictions | direct/ancestor lock and visibility, source IDs, partial editable subset | read-only linked resource, control-level source explanation, unlock/reveal workflows |
+| Restrictions | direct/ancestor lock and visibility, source IDs, partial editable subset; bound batch edits are blocked | read-only linked resource, control-level lock source explanation, unlock/reveal workflows |
 | Responsive/accessibility | normal Chromium DOM roles; Chromium overflow | 200%, RTL, forced colors, screen reader, touch/stylus, Firefox/WebKitGTK/Tauri |
 | Persistence | section-state migration tests and existing panel state tests | save/reload with drafts, plugin removal, detached multi-document state |
 
@@ -747,9 +766,15 @@ This is a status matrix, not a claim that all rows pass.
 - The context header intentionally does not replace existing selection headers;
   table-cell and temporary-workflow visual ownership still need dedicated
   treatment.
-- The new property-state algebra is intentionally additive. Only X/Y in the
-  high-frequency Layout path consumes it; the rest of the Inspector still has
-  legacy `mixed` booleans and must migrate control family by control family.
+- The new property-state algebra is intentionally additive. X/Y in the
+  high-frequency Layout path consumes it, including numeric variable binding;
+  the rest of the Inspector still has legacy `mixed` booleans and must migrate
+  control family by control family.
+- Source-aware binding coverage is currently limited to numeric X/Y. Width,
+  height, rotation, typography, color, toggles, lists, inherited values, and
+  component/master overrides still need their own canonical adapters. The
+  current unbind action is explicit and safe, but reset/revert/unbind are not
+  yet a universal semantic vocabulary.
 - The mixed visual baseline was generated successfully and manually reviewed;
   a later four-test rerun had one Chromium target crash while seeding shapes
   under severe host memory pressure. This is an environment limitation, not a
@@ -767,20 +792,22 @@ This is a status matrix, not a claim that all rows pass.
 
 ## Next vertical slice
 
-Implement one canonical source-aware property control, beginning with pure
-contracts and a safe read-only path:
+Migrate one additional clean property-control family to the source-aware state
+contract, after the concurrent dirty control files are settled. The smallest
+safe candidate is a read-only/calculated or toggle path with no new surface
+movement:
 
-1. Keep locked and hidden selections inspectable while exposing effective
-   ancestor/source reasons in the context header or field description.
-2. Define and test partial-edit policy before enabling any subset mutation.
-3. Add inherited/overridden/bound state presentation to one canonical control,
-   including resolved value, source, reset/revert/unbind semantics, and safe
-   handling of missing sources without changing document history ownership.
-4. Extend the property-state contract to one toggle and one color control only
-   after the numeric path has focused interaction tests.
+1. Specify common, mixed, unavailable, read-only, and source/error semantics
+   for the chosen control.
+2. Reuse the existing canonical command and transaction owner; do not add
+   Inspector-only document state.
+3. Define selection-change, Escape, pointer-cancel, and reset behavior before
+   enabling batch mutation.
+4. Add focused unit/component tests and one real Chromium interaction/visual
+   check, then run the affected validation plan.
 
-Acceptance: restrictions explain their source, no unsafe partial edit is
-silently applied, one source-aware control can inspect and recover its value,
-and no existing scene/history command path changes. The control must remain
-usable when the source is missing, selection changes during a draft, or the
-property is unavailable to part of a selection.
+Acceptance: the migrated control preserves the existing layout and muscle
+memory, distinguishes its value states nonvisually, never silently edits an
+unsupported subset, and remains recoverable when its source is missing or the
+selection changes. Do not begin this slice by touching the currently dirty
+shared color/disclosure files unless their ownership is first isolated.
