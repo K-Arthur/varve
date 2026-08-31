@@ -2742,40 +2742,14 @@ input[type="number"] {
 
 /* ── Panel resize handles (APG window splitter) ── */
 .panel-resize {
+  /* Positioning is local to the shell; affordance comes from ResizableHandle. */
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: var(--space-2);
-  cursor: col-resize;
-  z-index: var(--z-raised);
-  background: transparent;
-  touch-action: none;
 }
 .panel-resize--right {
   right: -4px;
 }
 .panel-resize--left {
   left: -4px;
-}
-/* Visible affordance: a 2px accent line on hover / drag / focus. */
-.panel-resize::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 3px;
-  width: 2px;
-  background: transparent;
-  transition: background var(--duration-quick) var(--ease-standard);
-}
-.panel-resize:hover::after,
-.panel-resize--active::after,
-.panel-resize:focus-visible::after {
-  background: var(--color-interactive-default);
-}
-.panel-resize:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -2px;
 }
 /* Overlay mode (small screens): panels are fixed drawers — no resizing. */
 @media (max-width: 899px) {
