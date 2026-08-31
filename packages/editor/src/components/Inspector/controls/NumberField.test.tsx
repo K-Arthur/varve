@@ -228,6 +228,31 @@ describe('NumberField', () => {
     expect(input.getAttribute('aria-valuetext')).toBe('80%');
   });
 
+  it('keeps a bound value inspectable and requires explicit unbinding to edit', () => {
+    const onChange = vi.fn();
+    const onUnbind = vi.fn();
+    render(
+      <NumberField
+        label="X"
+        value={48}
+        onChange={onChange}
+        bindingLabel="Spacing"
+        onUnbind={onUnbind}
+        propertyState={{ kind: 'bound', value: 48, bindingId: 'spacing' }}
+      />,
+    );
+    const input = screen.getByLabelText('X') as HTMLInputElement;
+    expect(input.value).toBe('48');
+    expect(input.readOnly).toBe(true);
+    expect(input.getAttribute('aria-readonly')).toBe('true');
+    expect(input.getAttribute('aria-valuetext')).toBe('Variable-bound value');
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    fireEvent.change(input, { target: { value: '100' } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Unbind variable Spacing' }));
+    expect(onUnbind).toHaveBeenCalledTimes(1);
+  });
+
   it('is keyboard-operable as a control (Home/End jump to min/max)', () => {
     let val = 50;
     render(<NumberField label="X" value={val} min={0} max={100} onChange={(v) => (val = v)} />);

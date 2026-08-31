@@ -17,6 +17,7 @@ import { evaluate } from '@varve/scene';
 import { useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
 import { EditorCtx } from '../../../context/types';
 import { describePropertyState, type InspectorPropertyState } from '../propertyState';
+import { TokenBindIndicator } from './TokenBindIndicator';
 
 export interface NumberFieldProps {
   /** Visible label text; also the accessible name (plus unit, if any). */
@@ -43,6 +44,12 @@ export interface NumberFieldProps {
   draftKey?: string;
   /** Rich property state used to explain inherited, bound, or unavailable values. */
   propertyState?: InspectorPropertyState<number>;
+  /** Keep a resolved bound value inspectable without allowing a misleading literal edit. */
+  readOnly?: boolean;
+  /** Human-readable binding source shown beside a bound value. */
+  bindingLabel?: string;
+  /** Explicitly remove the binding so the user can resume literal editing. */
+  onUnbind?: () => void;
   id?: string;
   /** Field name for variable binding (e.g. "x", "y", "width", "height"). */
   fieldName?: string;
@@ -83,6 +90,9 @@ export function NumberField({
   mixed = false,
   draftKey,
   propertyState,
+  readOnly = false,
+  bindingLabel,
+  onUnbind,
   id,
   fieldName,
   onShiftClick,
@@ -130,6 +140,7 @@ export function NumberField({
 
   const visualMixed =
     mixed || propertyState?.kind === 'mixed' || propertyState?.kind === 'partially-applicable';
+  const isReadOnly = readOnly || propertyState?.kind === 'bound';
   const displayed = visualMixed ? 'Mixed' : (dirty ?? String(value));
   const name = unit ? `${label} (${unit})` : label;
 
@@ -197,8 +208,18 @@ export function NumberField({
     setError(null);
   }, [draftKey, finishArrowTransaction, finishScrub, finishWheelTransaction]);
 
+  useEffect(() => {
+    if (!isReadOnly) return;
+    setDirty(null);
+    setError(null);
+    finishArrowTransaction(true);
+    finishWheelTransaction(true);
+    finishScrub(true);
+  }, [finishArrowTransaction, finishScrub, finishWheelTransaction, isReadOnly]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (isReadOnly) return;
       if (e.key === 'Enter') {
         e.preventDefault();
         if (dirty !== null) commit(dirty);
@@ -274,6 +295,7 @@ export function NumberField({
       max,
       min,
       onChange,
+      isReadOnly,
       shiftStep,
       step,
       value,
@@ -284,7 +306,7 @@ export function NumberField({
   // Transaction coalescing: begin on first move, commit on pointer up → single undo.
   const handleLabelPointerDown = useCallback(
     (e: React.PointerEvent<HTMLLabelElement>) => {
-      if (disabled || e.button !== 0) return;
+      if (disabled || isReadOnly || e.button !== 0) return;
       finishScrub(true);
       if (e.shiftKey && onShiftClick) {
         e.preventDefault();
@@ -336,12 +358,24 @@ export function NumberField({
       document.body.style.cursor = 'ew-resize';
       document.body.style.userSelect = 'none';
     },
-    [altStep, clamp, ctx, disabled, draftKey, finishScrub, onChange, onShiftClick, shiftStep, step],
+    [
+      altStep,
+      clamp,
+      ctx,
+      disabled,
+      draftKey,
+      finishScrub,
+      onChange,
+      onShiftClick,
+      isReadOnly,
+      shiftStep,
+      step,
+    ],
   );
 
   const onWheel = useCallback(
     (e: React.WheelEvent<HTMLInputElement>) => {
-      if (document.activeElement !== e.currentTarget) return;
+      if (isReadOnly || document.activeElement !== e.currentTarget) return;
       if (ctx) {
         const session = wheelTransaction.current;
         if (!session || session.draftKey !== draftKey) {
@@ -360,11 +394,18 @@ export function NumberField({
       const dir = e.deltaY < 0 ? 1 : -1;
       onChange(clamp(value + dir * step));
     },
-    [clamp, ctx, draftKey, finishWheelTransaction, onChange, step, value],
+    [clamp, ctx, draftKey, finishWheelTransaction, isReadOnly, onChange, step, value],
   );
 
   const ariaNow = visualMixed ? undefined : Math.round(value * 100) / 100;
   const stateText = propertyState ? describePropertyState(propertyState) : undefined;
+  const showStateText = Boolean(
+    stateText && !['mixed', 'partially-applicable', 'bound'].includes(propertyState?.kind ?? ''),
+  );
+  const stateId = `${inputId}-state`;
+  const describedBy = [error ? errorId : null, showStateText ? stateId : null]
+    .filter((item): item is string => Boolean(item))
+    .join(' ');
   const ariaText =
     stateText ?? (visualMixed ? 'Mixed values' : unit ? `${value}${unit}` : String(value));
 
@@ -375,30 +416,33 @@ export function NumberField({
         className={
           hideLabel
             ? 'varve-visually-hidden'
-            : `insp-field__label${disabled ? ' insp-field__label--disabled' : ''}`
+            : `insp-field__label${disabled ? ' insp-field__label--disabled' : ''}${isReadOnly ? ' insp-field__label--readonly' : ''}`
         }
         onPointerDown={disabled || hideLabel ? undefined : handleLabelPointerDown}
       >
         {displayLabel ?? name}
       </label>
-      <div className="insp-field__control">
+      <div className="insp-field__control insp-num__control">
         <input
           ref={inputRef}
           id={inputId}
           type="text"
           inputMode="decimal"
           role="spinbutton"
-          className={`insp-num__input${visualMixed ? ' insp-num__input--mixed' : ''}`}
+          className={`insp-num__input${visualMixed ? ' insp-num__input--mixed' : ''}${isReadOnly ? ' insp-num__input--readonly' : ''}`}
           value={displayed}
           disabled={disabled}
+          readOnly={isReadOnly}
           aria-label={name}
           aria-valuenow={ariaNow}
           aria-valuemin={Number.isFinite(min) ? min : undefined}
           aria-valuemax={Number.isFinite(max) ? max : undefined}
           aria-valuetext={ariaText}
           aria-invalid={error ? 'true' : 'false'}
-          aria-describedby={error ? errorId : undefined}
+          aria-readonly={isReadOnly ? 'true' : undefined}
+          aria-describedby={describedBy || undefined}
           onChange={(e) => {
+            if (isReadOnly) return;
             const next = e.target.value;
             setDirty(next === 'Mixed' || next === '—' ? '' : next);
             if (error) setError(null);
@@ -415,6 +459,18 @@ export function NumberField({
           }}
           onWheel={onWheel}
         />
+        {bindingLabel && onUnbind && (
+          <TokenBindIndicator variableName={bindingLabel} onUnbind={onUnbind} />
+        )}
+        {showStateText && (
+          <div
+            id={stateId}
+            className={`insp-num__state${propertyState?.kind === 'error' ? ' insp-num__state--error' : ''}`}
+            role={propertyState?.kind === 'error' ? 'alert' : 'status'}
+          >
+            {stateText}
+          </div>
+        )}
         {error && (
           <div className="insp-num__error" id={errorId} role="alert">
             {error}

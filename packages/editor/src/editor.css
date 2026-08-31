@@ -412,6 +412,12 @@ input[type="number"] {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  /* The workspace dock is 36px tall including its padding. Give the
+     menubar a real track with breathing room instead of compressing the
+     dock or letting its contents enlarge the flex row unpredictably. */
+  min-height: calc(var(--topbar-height) + var(--space-2));
+  height: 100%;
+  box-sizing: border-box;
   padding: 0 var(--space-2);
   background: var(--elevation-surface-default);
   border-bottom: var(--border-micro);
@@ -1533,6 +1539,9 @@ input[type="number"] {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   padding: 4px 6px;
+  box-sizing: border-box;
+  height: 36px;
+  flex: 0 0 auto;
   min-width: 0;
   overflow: visible;
   backdrop-filter: blur(12px);
@@ -1554,7 +1563,7 @@ input[type="number"] {
   gap: 5px;
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
-  /* Fixed circular hit target — JS drives width/height for magnification. */
+  /* Fixed hit target — magnification transforms the icon, never this button. */
   height: 28px;
   width: 28px;
   padding: 0;
@@ -1565,8 +1574,7 @@ input[type="number"] {
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
-  /* GPU-accelerated scale via will-change; width/height are set inline. */
-  will-change: width, height;
+  will-change: auto;
   transition:
     background var(--duration-fast) var(--ease-default),
     color var(--duration-fast) var(--ease-default),
@@ -1603,6 +1611,8 @@ input[type="number"] {
   justify-content: center;
   line-height: 0;
   pointer-events: none;
+  transform-origin: center;
+  will-change: transform;
 }
 
 .workspace-dock__item:hover {
@@ -1714,6 +1724,9 @@ input[type="number"] {
     transition:
       background var(--duration-fast) var(--ease-default),
       color var(--duration-fast) var(--ease-default);
+    will-change: auto;
+  }
+  .workspace-dock__icon {
     will-change: auto;
   }
 }

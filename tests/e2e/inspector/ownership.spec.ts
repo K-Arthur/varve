@@ -174,6 +174,151 @@ test.describe('Inspector feature ownership', () => {
     });
   });
 
+  test('bound geometry shows its resolved source and has an explicit recovery path', async ({
+    page,
+  }) => {
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas not found');
+
+    await page.keyboard.press('r');
+    await page.mouse.move(box.x + 250, box.y + 220);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 390, box.y + 320);
+    await page.mouse.up();
+    await page.getByRole('tab', { name: 'Design' }).click();
+
+    const shape = page.locator('[role="treeitem"][data-layer-type="shape"]').first();
+    await shape.click();
+
+    const added = await page.evaluate(() => {
+      const root = document.getElementById('root');
+      if (!root) return false;
+      const rootRecord = root as unknown as Record<string, unknown>;
+      const fiberKey = Object.keys(root).find(
+        (key) => key.startsWith('__reactFiber$') || key.startsWith('__reactContainer$'),
+      );
+      if (!fiberKey) return false;
+      const walk = (fiber: Record<string, unknown> | null): Record<string, unknown> | null => {
+        if (!fiber) return null;
+        for (const propsKey of ['memoizedProps', 'pendingProps']) {
+          const props = fiber[propsKey] as Record<string, unknown> | undefined;
+          const value = props?.value as Record<string, unknown> | undefined;
+          if (value && typeof value.addVariable === 'function' && value.state) return value;
+        }
+        return (
+          walk(fiber.child as Record<string, unknown> | null) ||
+          walk(fiber.sibling as Record<string, unknown> | null)
+        );
+      };
+      const ctx = walk(rootRecord[fiberKey] as Record<string, unknown> | null);
+      if (!ctx || typeof ctx.addVariable !== 'function') return false;
+      (ctx.addVariable as (variable: unknown) => void)({
+        name: 'Inspector spacing',
+        type: 'number',
+        valuesByMode: { default: 48 },
+      });
+      return true;
+    });
+    expect(added).toBe(true);
+
+    let variableId: string | null = null;
+    await expect
+      .poll(
+        async () => {
+          variableId = await page.evaluate(() => {
+            const root = document.getElementById('root');
+            if (!root) return null;
+            const rootRecord = root as unknown as Record<string, unknown>;
+            const fiberKey = Object.keys(root).find(
+              (key) => key.startsWith('__reactFiber$') || key.startsWith('__reactContainer$'),
+            );
+            if (!fiberKey) return null;
+            const walk = (
+              fiber: Record<string, unknown> | null,
+            ): Record<string, unknown> | null => {
+              if (!fiber) return null;
+              for (const propsKey of ['memoizedProps', 'pendingProps']) {
+                const props = fiber[propsKey] as Record<string, unknown> | undefined;
+                const value = props?.value as Record<string, unknown> | undefined;
+                if (value && typeof value.setSelectedBinding === 'function' && value.state) {
+                  return value;
+                }
+              }
+              return (
+                walk(fiber.child as Record<string, unknown> | null) ||
+                walk(fiber.sibling as Record<string, unknown> | null)
+              );
+            };
+            const ctx = walk(rootRecord[fiberKey] as Record<string, unknown> | null);
+            const documentState = ctx?.state as
+              | {
+                  document?: {
+                    variableStore?: { variables?: Record<string, { id: string; name: string }> };
+                  };
+                }
+              | undefined;
+            const variable = Object.values(
+              documentState?.document?.variableStore?.variables ?? {},
+            ).find((candidate) => candidate.name === 'Inspector spacing');
+            return variable?.id ?? null;
+          });
+          return variableId;
+        },
+        { timeout: 10000 },
+      )
+      .toBeTruthy();
+    if (!variableId) throw new Error('variable was not created');
+
+    const bound = await page.evaluate((id) => {
+      const root = document.getElementById('root');
+      if (!root) return false;
+      const rootRecord = root as unknown as Record<string, unknown>;
+      const fiberKey = Object.keys(root).find(
+        (key) => key.startsWith('__reactFiber$') || key.startsWith('__reactContainer$'),
+      );
+      if (!fiberKey) return false;
+      const walk = (fiber: Record<string, unknown> | null): Record<string, unknown> | null => {
+        if (!fiber) return null;
+        for (const propsKey of ['memoizedProps', 'pendingProps']) {
+          const props = fiber[propsKey] as Record<string, unknown> | undefined;
+          const value = props?.value as Record<string, unknown> | undefined;
+          if (value && typeof value.setSelectedBinding === 'function' && value.state) return value;
+        }
+        return (
+          walk(fiber.child as Record<string, unknown> | null) ||
+          walk(fiber.sibling as Record<string, unknown> | null)
+        );
+      };
+      const ctx = walk(rootRecord[fiberKey] as Record<string, unknown> | null);
+      if (!ctx || typeof ctx.setSelectedBinding !== 'function') return false;
+      (ctx.setSelectedBinding as (property: string, binding: unknown) => void)('x', {
+        variableId: id,
+      });
+      return true;
+    }, variableId);
+    expect(bound).toBe(true);
+
+    const x = page.getByRole('spinbutton', { name: /^X(?: \(AB\))? \(px\)$/ });
+    await expect(x).toHaveValue('48');
+    await expect(x).toHaveAttribute('aria-readonly', 'true');
+    await expect(
+      page.getByRole('status', { name: /bound to variable: inspector spacing/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Unbind variable Inspector spacing' }),
+    ).toBeVisible();
+    await expect(x.locator('xpath=../..')).toHaveScreenshot('bound-property-field.png', {
+      animations: 'disabled',
+    });
+
+    await page.getByRole('button', { name: 'Unbind variable Inspector spacing' }).click();
+    await expect(x).not.toHaveAttribute('aria-readonly', 'true');
+    await expect(
+      page.getByRole('button', { name: 'Unbind variable Inspector spacing' }),
+    ).toHaveCount(0);
+  });
+
   test('locked selection stays inspectable with a source-aware restriction notice', async ({
     page,
   }) => {

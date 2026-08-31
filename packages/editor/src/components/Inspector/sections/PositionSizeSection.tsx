@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { nodeLocalBounds } from '../../../scene/nodeBounds';
+import { deriveNumericBindingPresentation } from '../boundPropertyState';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
@@ -65,10 +66,17 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
   }, [isImageNode]);
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
 
-  const xState = classifySelectionProperty(nodes.map((n) => n.transform[4] ?? 0));
-  const yState = classifySelectionProperty(nodes.map((n) => n.transform[5] ?? 0));
-  const xValue = xState.kind === 'common' ? xState.value : 0;
-  const yValue = yState.kind === 'common' ? yState.value : 0;
+  const rawXValues = nodes.map((n) => n.transform[4] ?? 0);
+  const rawYValues = nodes.map((n) => n.transform[5] ?? 0);
+  const rawXState = classifySelectionProperty(rawXValues);
+  const rawYState = classifySelectionProperty(rawYValues);
+  const variableStore = docVariableStore(doc);
+  const xBinding = deriveNumericBindingPresentation(nodes, 'x', rawXValues, variableStore);
+  const yBinding = deriveNumericBindingPresentation(nodes, 'y', rawYValues, variableStore);
+  const xState = xBinding?.state ?? rawXState;
+  const yState = yBinding?.state ?? rawYState;
+  const xValue = xBinding?.value ?? (rawXState.kind === 'common' ? rawXState.value : 0);
+  const yValue = yBinding?.value ?? (rawYState.kind === 'common' ? rawYState.value : 0);
   const draftKey = `${doc.id}:${nodes
     .map((node) => node.id)
     .sort()
@@ -276,6 +284,11 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           value={toDisplayX(xValue)}
           mixed={xState.kind === 'mixed'}
           propertyState={xState}
+          readOnly={xBinding?.readOnly ?? false}
+          bindingLabel={nodes.length === 1 ? xBinding?.sourceLabel : undefined}
+          onUnbind={
+            nodes.length === 1 && xBinding ? () => editor.setSelectedBinding('x', null) : undefined
+          }
           draftKey={draftKey}
           onChange={(v) => editor.setSelectedX(fromDisplayX(v))}
           fieldName="x"
@@ -287,6 +300,11 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           value={toDisplayY(yValue)}
           mixed={yState.kind === 'mixed'}
           propertyState={yState}
+          readOnly={yBinding?.readOnly ?? false}
+          bindingLabel={nodes.length === 1 ? yBinding?.sourceLabel : undefined}
+          onUnbind={
+            nodes.length === 1 && yBinding ? () => editor.setSelectedBinding('y', null) : undefined
+          }
           draftKey={draftKey}
           onChange={(v) => editor.setSelectedY(fromDisplayY(v))}
           fieldName="y"

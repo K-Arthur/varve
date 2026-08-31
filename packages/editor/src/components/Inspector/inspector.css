@@ -884,12 +884,18 @@
   cursor: default;
   opacity: 0.6;
 }
+.insp-field__label--readonly {
+  cursor: default;
+}
 .insp-field__control {
   flex: 1;
   display: flex;
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
+}
+.insp-num__control {
+  flex-wrap: wrap;
 }
 .insp-num {
   flex: 1;
@@ -964,6 +970,21 @@
 .insp-num__input--mixed {
   color: var(--color-text-muted);
   font-style: italic;
+}
+.insp-num__input--readonly {
+  cursor: text;
+  border-color: var(--color-border-subtle);
+}
+.insp-num__state {
+  flex: 1 0 100%;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.insp-num__state--error {
+  color: var(--color-feedback-danger);
 }
 
 /* ---------- Shared inspector controls ---------- */
