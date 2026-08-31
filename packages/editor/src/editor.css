@@ -1612,8 +1612,16 @@ input[type="number"] {
   justify-content: center;
   line-height: 0;
   pointer-events: none;
-  transform-origin: center;
-  will-change: transform;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+}
+
+.workspace-dock__icon svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+  shape-rendering: geometricPrecision;
 }
 
 .workspace-dock__item:hover {
@@ -1725,9 +1733,6 @@ input[type="number"] {
     transition:
       background var(--duration-fast) var(--ease-default),
       color var(--duration-fast) var(--ease-default);
-    will-change: auto;
-  }
-  .workspace-dock__icon {
     will-change: auto;
   }
 }

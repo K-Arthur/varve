@@ -128,7 +128,7 @@ function toAriaKeyshortcuts(label: string): string {
 
 /**
  * Compute the target scale for a dock item at `distance` px from the
- * cursor. The hit target remains fixed; only the icon is transformed.
+ * cursor. The hit target remains fixed; only the SVG dimensions change.
  */
 function magnificationTarget(distance: number): number {
   const norm = 1 - Math.min(1, Math.max(0, distance / DOCK_DISTANCE_RANGE));
@@ -233,11 +233,13 @@ export function WorkspaceTabs() {
       for (const mode of layout.visible) {
         const el = tabRefs.current[mode];
         const iconEl = iconRefs.current[mode];
-        if (!el || !iconEl) continue;
+        const svg = iconEl?.querySelector('svg');
+        if (!el || !iconEl || !svg) continue;
 
         // Skip the active item — CSS handles its sizing (expanding pill).
         if (mode === active) {
-          iconEl.style.transform = '';
+          svg.style.width = '';
+          svg.style.height = '';
           continue;
         }
 
@@ -261,7 +263,9 @@ export function WorkspaceTabs() {
         }
 
         // Write directly to DOM — no React re-render.
-        iconEl.style.transform = `scale(${s.value})`;
+        const iconSize = Math.round(15 * s.value);
+        svg.style.width = `${iconSize}px`;
+        svg.style.height = `${iconSize}px`;
       }
 
       if (anyMoving) {
@@ -288,13 +292,15 @@ export function WorkspaceTabs() {
       for (const mode of layout.visible) {
         const el = tabRefs.current[mode];
         const iconEl = iconRefs.current[mode];
-        if (!el || !iconEl) continue;
+        const svg = iconEl?.querySelector('svg');
+        if (!el || !iconEl || !svg) continue;
         const s = springs.current[mode];
         if (s) {
           s.value = 1;
           s.velocity = 0;
         }
-        iconEl.style.transform = '';
+        svg.style.width = '';
+        svg.style.height = '';
       }
     };
 
