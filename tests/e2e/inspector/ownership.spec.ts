@@ -40,6 +40,24 @@ test.describe('Inspector feature ownership', () => {
     });
   });
 
+  test('uses an accessible overflow menu when the tab row is narrow', async ({ page }) => {
+    const tablist = page.getByRole('tablist', { name: 'Inspector tabs' });
+    await tablist.evaluate((element) => {
+      const node = element as HTMLElement;
+      node.style.flex = '0 0 80px';
+      node.style.width = '80px';
+    });
+
+    const more = page.getByRole('button', { name: /more inspector tabs/i });
+    await expect(more).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Design', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Export', exact: true })).toHaveCount(0);
+
+    await more.click();
+    await expect(page.getByRole('menu', { name: 'More inspector tabs' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Export', exact: true })).toBeVisible();
+  });
+
   test('prototype authoring is discoverable without living in Properties', async ({ page }) => {
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const box = await canvas.boundingBox();

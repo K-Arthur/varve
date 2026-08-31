@@ -199,6 +199,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `adr/0227-page-layout-guides.md` | Publishing page margins and columns as derived geometry |
 | `adr/0228-page-export-selection.md` | Explicit page/range/spread export selection |
 | `adr/0229-master-operations-and-overrides.md` | Typed master assignments and sparse override lifecycle |
+| `adr/0230-merge-position-size-constraints-layout.md` | Merge Position & Size and Constraints into the canonical Layout section |
 ## Architecture Docs (current state)
 
 | Doc | Purpose |

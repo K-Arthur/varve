@@ -257,6 +257,11 @@ describe('PropertiesPanel image-treatment tab gating', () => {
     await renderPanelWithSelectedNodes(JSON.stringify(doc), ['image-1', 'image-2']);
 
     expect(screen.getByRole('tab', { name: 'Adjustments' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent?.trim())).toEqual([
+      'Design',
+      'Adjustments',
+      'Export',
+    ]);
   });
 
   it('does not show Adjustments for a mixed image and non-image selection', async () => {

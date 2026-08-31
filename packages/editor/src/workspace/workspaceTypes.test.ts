@@ -4,7 +4,10 @@ import { suppressedTipShortcutIds, workspaceShortcutLabel } from './workspaceSho
 import {
   ALL_WORKSPACE_MODES,
   getDefaultInspectorTab,
+  getGroupedInspectorTabs,
   getHiddenTools,
+  getInspectorTabDefinition,
+  getVisibleInspectorTabConfigs,
   getVisibleInspectorTabs,
   getVisibleStatusSections,
   getVisibleToolbarToolIds,
@@ -215,6 +218,43 @@ describe('workspaceTypes', () => {
   it('image mode places adjustments before appearance for photo-processing-first workflow', () => {
     const tabs = getVisibleInspectorTabs('image');
     expect(tabs).toEqual(['properties', 'adjustments', 'appearance', 'export', 'audit']);
+  });
+
+  it('resolves tab labels and group metadata from the effective workspace config', () => {
+    const design = getWorkspaceConfig('design');
+    const properties = getInspectorTabDefinition('properties', design);
+    expect(properties?.label).toBe('Design');
+    expect(getVisibleInspectorTabConfigs('design', design).map((tab) => tab.id)).toEqual([
+      'properties',
+      'appearance',
+      'prototype',
+      'export',
+      'audit',
+      'fonts',
+    ]);
+    expect(getGroupedInspectorTabs('design', design).primary?.map((tab) => tab.id)).toEqual([
+      'properties',
+    ]);
+  });
+
+  it('finds metadata for contextual tabs omitted from a workspace row', () => {
+    const design = getWorkspaceConfig('design');
+    expect(getInspectorTabDefinition('adjustments', design)).toMatchObject({
+      id: 'adjustments',
+      label: 'Adjustments',
+      group: 'workflow',
+    });
+  });
+
+  it('keeps labels stable for the same tab across built-in workspaces', () => {
+    const labels = new Map<string, string>();
+    for (const config of Object.values(WORKSPACE_CONFIGS)) {
+      for (const tab of config.inspectorTabs) {
+        const previous = labels.get(tab.id);
+        if (previous) expect(tab.label).toBe(previous);
+        else labels.set(tab.id, tab.label);
+      }
+    }
   });
 
   it('default inspector tab is properties for all modes (except codegen)', () => {
