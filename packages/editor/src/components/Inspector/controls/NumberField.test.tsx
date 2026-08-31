@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { EditorContextValue } from '../../../context/types';
+import { EditorCtx } from '../../../context/types';
 import { NumberField } from './NumberField';
 
 afterEach(cleanup);
@@ -80,6 +82,30 @@ describe('NumberField', () => {
     expect((input as HTMLInputElement).value).toBe('100');
   });
 
+  it('coalesces repeated arrow edits into one transaction', () => {
+    const beginTransaction = vi.fn();
+    const commitTransaction = vi.fn();
+    const abortTransaction = vi.fn();
+    const value = {
+      beginTransaction,
+      commitTransaction,
+      abortTransaction,
+    } as unknown as EditorContextValue;
+    render(
+      <EditorCtx.Provider value={value}>
+        <Holder label="X" initial={10} />
+      </EditorCtx.Provider>,
+    );
+    const input = screen.getByLabelText('X');
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    fireEvent.keyDown(input, { key: 'ArrowUp', repeat: true });
+    fireEvent.keyUp(window, { key: 'ArrowUp' });
+    expect((input as HTMLInputElement).value).toBe('12');
+    expect(beginTransaction).toHaveBeenCalledTimes(1);
+    expect(commitTransaction).toHaveBeenCalledTimes(1);
+    expect(abortTransaction).not.toHaveBeenCalled();
+  });
+
   it('commits a typed number on Enter', () => {
     let val = 100;
     render(<NumberField label="W" value={val} onChange={(v) => (val = v)} />);
@@ -148,5 +174,74 @@ describe('NumberField', () => {
     expect(val).toBe(0);
     fireEvent.keyDown(screen.getByLabelText('X'), { key: 'End' });
     expect(val).toBe(100);
+  });
+
+  it('lets a mixed field replace the state label with the first typed value', () => {
+    let val = 10;
+    render(<NumberField label="X" value={0} mixed onChange={(v) => (val = v)} />);
+    const input = screen.getByLabelText('X') as HTMLInputElement;
+    expect(input.value).toBe('Mixed');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '42' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(val).toBe(42);
+  });
+
+  it('cancels a draft when its target scope changes', () => {
+    const view = render(<NumberField label="X" value={10} draftKey="doc:a" onChange={() => {}} />);
+    const input = screen.getByLabelText('X') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '42' } });
+    expect(input.value).toBe('42');
+    view.rerender(<NumberField label="X" value={20} draftKey="doc:b" onChange={() => {}} />);
+    expect((screen.getByLabelText('X') as HTMLInputElement).value).toBe('20');
+  });
+
+  it('aborts a label scrub when the pointer is cancelled', () => {
+    const beginTransaction = vi.fn();
+    const commitTransaction = vi.fn();
+    const abortTransaction = vi.fn();
+    const onChange = vi.fn();
+    const value = {
+      beginTransaction,
+      commitTransaction,
+      abortTransaction,
+    } as unknown as EditorContextValue;
+    render(
+      <EditorCtx.Provider value={value}>
+        <NumberField label="X" value={10} onChange={onChange} />
+      </EditorCtx.Provider>,
+    );
+    fireEvent.pointerDown(screen.getByText('X'), { button: 0, clientX: 0 });
+    fireEvent.pointerMove(window, { clientX: 12 });
+    fireEvent.pointerCancel(window);
+    expect(beginTransaction).toHaveBeenCalledTimes(1);
+    expect(abortTransaction).toHaveBeenCalledTimes(1);
+    expect(commitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('keeps a scrub transaction open across preview rerenders and commits once', () => {
+    const beginTransaction = vi.fn();
+    const commitTransaction = vi.fn();
+    const abortTransaction = vi.fn();
+    const value = {
+      beginTransaction,
+      commitTransaction,
+      abortTransaction,
+    } as unknown as EditorContextValue;
+    function ScrubHolder() {
+      const [current, setCurrent] = useState(10);
+      return <NumberField label="X" value={current} onChange={setCurrent} />;
+    }
+    render(
+      <EditorCtx.Provider value={value}>
+        <ScrubHolder />
+      </EditorCtx.Provider>,
+    );
+    fireEvent.pointerDown(screen.getByText('X'), { button: 0, clientX: 0 });
+    fireEvent.pointerMove(window, { clientX: 12 });
+    fireEvent.pointerUp(window);
+    expect(beginTransaction).toHaveBeenCalledTimes(1);
+    expect(commitTransaction).toHaveBeenCalledTimes(1);
+    expect(abortTransaction).not.toHaveBeenCalled();
   });
 });

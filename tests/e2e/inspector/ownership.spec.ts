@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { navigateToEditor, seedLayers } from '../shared';
 
 test.describe('Inspector feature ownership', () => {
   test.beforeEach(async ({ page }) => {
@@ -134,13 +134,30 @@ test.describe('Inspector feature ownership', () => {
     });
   });
 
+  test('mixed geometry values are explicit and remain visually legible', async ({ page }) => {
+    await seedLayers(page, 2);
+    const shapes = page.locator('[role="treeitem"][data-layer-type="shape"]');
+    await expect(shapes).toHaveCount(2);
+
+    await shapes.first().click();
+    await shapes.nth(1).click({ modifiers: ['Control'] });
+    await page.getByRole('tab', { name: 'Design' }).click();
+
+    const x = page.getByRole('spinbutton', { name: /^X(?: \(AB\))? \(px\)$/ });
+    await expect(x).toHaveValue('Mixed');
+    await expect(x).toHaveAttribute('aria-valuetext', 'Mixed values');
+    await expect(page.locator('.editor-inspector')).toHaveScreenshot('mixed-properties.png', {
+      animations: 'disabled',
+    });
+  });
+
   test('brush behavior opens from Tool Options instead of Properties', async ({ page }) => {
     await page.getByRole('radio', { name: 'Draw workspace' }).click();
     await page.locator('canvas.editor-canvas__content-layer').focus();
     await page.keyboard.press('b');
     const dialog = page.getByRole('dialog', { name: 'paint tool options' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Brush' })).toBeFocused();
+    await expect(dialog.getByRole('button', { name: 'Brush', exact: true })).toBeFocused();
   });
 
   test('responsive inspector drawer is inside the viewport when opened', async ({ page }) => {

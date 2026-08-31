@@ -27,6 +27,7 @@ import { nodeLocalBounds } from '../../../scene/nodeBounds';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
+import { classifySelectionProperty } from '../propertyState';
 import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionState';
 import { ConstraintControls } from './ConstraintSection';
 
@@ -64,8 +65,14 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
   }, [isImageNode]);
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
 
-  const xRaw = commonValue(nodes, (n) => n.transform[4] ?? 0);
-  const yRaw = commonValue(nodes, (n) => n.transform[5] ?? 0);
+  const xState = classifySelectionProperty(nodes.map((n) => n.transform[4] ?? 0));
+  const yState = classifySelectionProperty(nodes.map((n) => n.transform[5] ?? 0));
+  const xValue = xState.kind === 'common' ? xState.value : 0;
+  const yValue = yState.kind === 'common' ? yState.value : 0;
+  const draftKey = `${doc.id}:${nodes
+    .map((node) => node.id)
+    .sort()
+    .join(',')}`;
   // Only node kinds `nodeLocalBounds` can measure (shape/text/frame) get a W/H
   // editor — groups/adjustment nodes have no geometry of their own.
   const allSizable = nodes.every((n) => nodeLocalBounds(n) !== null);
@@ -266,8 +273,10 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
         <NumberField
           label={useArtboardCoords ? 'X (AB)' : 'X'}
           unit="px"
-          value={isMixed(xRaw) ? 0 : toDisplayX(xRaw)}
-          mixed={isMixed(xRaw)}
+          value={toDisplayX(xValue)}
+          mixed={xState.kind === 'mixed'}
+          propertyState={xState}
+          draftKey={draftKey}
           onChange={(v) => editor.setSelectedX(fromDisplayX(v))}
           fieldName="x"
           onShiftClick={() => editor.setBindingField('x')}
@@ -275,8 +284,10 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
         <NumberField
           label={useArtboardCoords ? 'Y (AB)' : 'Y'}
           unit="px"
-          value={isMixed(yRaw) ? 0 : toDisplayY(yRaw)}
-          mixed={isMixed(yRaw)}
+          value={toDisplayY(yValue)}
+          mixed={yState.kind === 'mixed'}
+          propertyState={yState}
+          draftKey={draftKey}
           onChange={(v) => editor.setSelectedY(fromDisplayY(v))}
           fieldName="y"
           onShiftClick={() => editor.setBindingField('y')}
@@ -306,6 +317,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 unit="px"
                 value={lineLength}
                 min={0}
+                draftKey={draftKey}
                 onChange={handleLineLength}
               />
               <NumberField
@@ -314,6 +326,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 value={lineAngle}
                 min={-180}
                 max={360}
+                draftKey={draftKey}
                 onChange={handleLineAngle}
               />
             </div>
@@ -325,6 +338,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 value={wRaw !== null && !isMixed(wRaw) ? wRaw : 0}
                 mixed={wRaw !== null && isMixed(wRaw)}
                 min={0}
+                draftKey={draftKey}
                 onChange={handleW}
                 fieldName="width"
                 onShiftClick={() => editor.setBindingField('width')}
@@ -371,6 +385,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 value={hRaw !== null && !isMixed(hRaw) ? hRaw : 0}
                 mixed={hRaw !== null && isMixed(hRaw)}
                 min={0}
+                draftKey={draftKey}
                 onChange={handleH}
                 fieldName="height"
                 onShiftClick={() => editor.setBindingField('height')}
@@ -388,6 +403,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           mixed={isMixed(rotationRaw)}
           min={0}
           max={360}
+          draftKey={draftKey}
           onChange={(v) => editor.setSelectedRotation(v % 360 < 0 ? (v % 360) + 360 : v % 360)}
           fieldName="rotation"
           onShiftClick={() => editor.setBindingField('rotation')}
@@ -458,6 +474,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           mixed={isMixed(skewRaw)}
           min={-89}
           max={89}
+          draftKey={draftKey}
           onChange={(v) => editor.setSelectedSkew(v, isMixed(skewYRaw) ? 0 : skewYRaw)}
           fieldName="skewX"
         />
@@ -468,6 +485,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           mixed={isMixed(skewYRaw)}
           min={-89}
           max={89}
+          draftKey={draftKey}
           onChange={(v) => editor.setSelectedSkew(isMixed(skewRaw) ? 0 : skewRaw, v)}
           fieldName="skewY"
         />

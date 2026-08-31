@@ -14,8 +14,9 @@
  * `aria-describedby` error and does NOT commit.
  */
 import { evaluate } from '@varve/scene';
-import { useCallback, useContext, useId, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
 import { EditorCtx } from '../../../context/types';
+import { describePropertyState, type InspectorPropertyState } from '../propertyState';
 
 export interface NumberFieldProps {
   /** Visible label text; also the accessible name (plus unit, if any). */
@@ -38,6 +39,10 @@ export interface NumberFieldProps {
   disabled?: boolean;
   /** When true the field renders a "Mixed" placeholder (multi-select batch edit). */
   mixed?: boolean;
+  /** Derived target identity; changing it cancels an uncommitted draft. */
+  draftKey?: string;
+  /** Rich property state used to explain inherited, bound, or unavailable values. */
+  propertyState?: InspectorPropertyState<number>;
   id?: string;
   /** Field name for variable binding (e.g. "x", "y", "width", "height"). */
   fieldName?: string;
@@ -76,6 +81,8 @@ export function NumberField({
   aliases = {},
   disabled = false,
   mixed = false,
+  draftKey,
+  propertyState,
   id,
   fieldName,
   onShiftClick,
@@ -86,7 +93,18 @@ export function NumberField({
   const inputRef = useRef<HTMLInputElement>(null);
   const [dirty, setDirty] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const scrub = useRef<{ startX: number; startValue: number; active: boolean } | null>(null);
+  const scrub = useRef<{
+    startX: number;
+    startValue: number;
+    active: boolean;
+    transactionOpen: boolean;
+    draftKey?: string;
+    cleanup: () => void;
+  } | null>(null);
+  const arrowTransaction = useRef<{ draftKey?: string; cleanup: () => void } | null>(null);
+  const ctx = useContext(EditorCtx);
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
 
   const clamp = useCallback((v: number) => Math.min(max, Math.max(min, v)), [min, max]);
 
@@ -105,11 +123,61 @@ export function NumberField({
     [aliases, clamp, onChange],
   );
 
-  const displayed = mixed ? '—' : (dirty ?? String(value));
+  const visualMixed =
+    mixed || propertyState?.kind === 'mixed' || propertyState?.kind === 'partially-applicable';
+  const displayed = visualMixed ? 'Mixed' : (dirty ?? String(value));
   const name = unit ? `${label} (${unit})` : label;
 
-  // Access editor context for setBindingField
-  const ctx = useContext(EditorCtx);
+  const finishArrowTransaction = useCallback((cancel: boolean) => {
+    const session = arrowTransaction.current;
+    if (!session) return;
+    session.cleanup();
+    arrowTransaction.current = null;
+    const currentContext = ctxRef.current;
+    if (!currentContext) return;
+    if (cancel) currentContext.abortTransaction();
+    else currentContext.commitTransaction();
+  }, []);
+
+  const finishScrub = useCallback((cancel: boolean) => {
+    const session = scrub.current;
+    if (!session) return;
+    session.cleanup();
+    scrub.current = null;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    const currentContext = ctxRef.current;
+    if (session.transactionOpen && currentContext) {
+      if (cancel) currentContext.abortTransaction();
+      else currentContext.commitTransaction();
+    }
+    if (!cancel && !session.active) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+    if (cancel) {
+      setDirty(null);
+      setError(null);
+    }
+  }, []);
+
+  useEffect(
+    () => () => {
+      finishArrowTransaction(true);
+      finishScrub(true);
+    },
+    [finishArrowTransaction, finishScrub],
+  );
+
+  const previousDraftKey = useRef(draftKey);
+  useEffect(() => {
+    if (previousDraftKey.current === draftKey) return;
+    previousDraftKey.current = draftKey;
+    finishArrowTransaction(true);
+    finishScrub(true);
+    setDirty(null);
+    setError(null);
+  }, [draftKey, finishArrowTransaction, finishScrub]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -118,10 +186,11 @@ export function NumberField({
         if (dirty !== null) commit(dirty);
         return;
       }
-      if (e.key === 'Escape' && dirty !== null) {
+      if (e.key === 'Escape' && (dirty !== null || arrowTransaction.current)) {
         e.preventDefault();
         setDirty(null);
         setError(null);
+        finishArrowTransaction(true);
         return;
       }
       if (e.key === 'Home' && Number.isFinite(min)) {
@@ -146,28 +215,46 @@ export function NumberField({
         // On first press (not repeat), begin a transaction. On repeat, keep
         // updating within the same transaction. On key up, commit.
         if (ctx) {
-          if (!e.repeat) {
+          if (!e.repeat && !arrowTransaction.current) {
             ctx.beginTransaction();
+            const onKeyUp = (ke: KeyboardEvent) => {
+              if (ke.key === 'ArrowUp' || ke.key === 'ArrowDown') {
+                finishArrowTransaction(false);
+              }
+            };
+            const onWindowBlur = () => finishArrowTransaction(true);
+            const cleanup = () => {
+              window.removeEventListener('keyup', onKeyUp);
+              window.removeEventListener('blur', onWindowBlur);
+            };
+            arrowTransaction.current = { draftKey, cleanup };
+            window.addEventListener('keyup', onKeyUp);
+            window.addEventListener('blur', onWindowBlur);
           }
           const dir = e.key === 'ArrowUp' ? 1 : -1;
           onChange(clamp(value + dir * factor));
-          // Commit on key up via a one-shot listener
-          if (!e.repeat) {
-            const onKeyUp = (ke: KeyboardEvent) => {
-              if (ke.key === 'ArrowUp' || ke.key === 'ArrowDown') {
-                ctx.commitTransaction();
-                window.removeEventListener('keyup', onKeyUp);
-              }
-            };
-            window.addEventListener('keyup', onKeyUp);
-          }
         } else {
           const dir = e.key === 'ArrowUp' ? 1 : -1;
           onChange(clamp(value + dir * factor));
         }
       }
     },
-    [altStep, clamp, commit, ctx, dirty, fieldName, max, min, onChange, shiftStep, step, value],
+    [
+      altStep,
+      clamp,
+      commit,
+      ctx,
+      dirty,
+      draftKey,
+      fieldName,
+      finishArrowTransaction,
+      max,
+      min,
+      onChange,
+      shiftStep,
+      step,
+      value,
+    ],
   );
 
   // Drag-on-label scrubbing (Pointer Events — works on Wayland/X11/macOS/Windows).
@@ -175,6 +262,7 @@ export function NumberField({
   const handleLabelPointerDown = useCallback(
     (e: React.PointerEvent<HTMLLabelElement>) => {
       if (disabled || e.button !== 0) return;
+      finishScrub(true);
       if (e.shiftKey && onShiftClick) {
         e.preventDefault();
         onShiftClick();
@@ -183,44 +271,49 @@ export function NumberField({
       const startX = e.clientX;
       const startValue = value;
       let active = false;
-      let transactionOpen = false;
       const onMove = (me: PointerEvent) => {
         const dx = me.clientX - startX;
         if (!active && Math.abs(dx) < 2) return;
         if (!active) {
           active = true;
+          if (scrub.current) scrub.current.active = true;
           // Begin transaction on first actual move — coalesces all scrub updates
           if (ctx) {
             ctx.beginTransaction();
-            transactionOpen = true;
+            if (scrub.current) {
+              scrub.current.transactionOpen = true;
+            }
           }
         }
         const f = me.shiftKey ? shiftStep / step : me.altKey ? altStep / step : 1;
         const next = clamp(Math.round((startValue + dx * step * f) * 100) / 100);
         onChange(next);
       };
-      const onUp = () => {
+      const onUp = () => finishScrub(false);
+      const onCancel = () => finishScrub(true);
+      const cleanup = () => {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        // Commit the scrub transaction — all intermediate values become one undo step
-        if (transactionOpen && ctx) {
-          ctx.commitTransaction();
-        }
-        if (!active) {
-          // treat as a label click — focus & select the field
-          inputRef.current?.focus();
-          inputRef.current?.select();
-        }
+        window.removeEventListener('pointercancel', onCancel);
+        window.removeEventListener('blur', onWindowBlur);
+      };
+      const onWindowBlur = () => finishScrub(true);
+      scrub.current = {
+        startX,
+        startValue,
+        active: false,
+        transactionOpen: false,
+        draftKey,
+        cleanup,
       };
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onCancel);
+      window.addEventListener('blur', onWindowBlur);
       document.body.style.cursor = 'ew-resize';
       document.body.style.userSelect = 'none';
-      scrub.current = { startX, startValue, active: false };
     },
-    [altStep, clamp, ctx, disabled, onChange, onShiftClick, shiftStep, step, value],
+    [altStep, clamp, ctx, disabled, draftKey, finishScrub, onChange, onShiftClick, shiftStep, step],
   );
 
   const onWheel = useCallback(
@@ -232,8 +325,10 @@ export function NumberField({
     [clamp, onChange, step, value],
   );
 
-  const ariaNow = mixed ? undefined : Math.round(value * 100) / 100;
-  const ariaText = unit ? `${value}${unit}` : String(value);
+  const ariaNow = visualMixed ? undefined : Math.round(value * 100) / 100;
+  const stateText = propertyState ? describePropertyState(propertyState) : undefined;
+  const ariaText =
+    stateText ?? (visualMixed ? 'Mixed values' : unit ? `${value}${unit}` : String(value));
 
   return (
     <div className="insp-field">
@@ -255,22 +350,26 @@ export function NumberField({
           type="text"
           inputMode="decimal"
           role="spinbutton"
-          className={`insp-num__input${mixed ? ' insp-num__input--mixed' : ''}`}
+          className={`insp-num__input${visualMixed ? ' insp-num__input--mixed' : ''}`}
           value={displayed}
           disabled={disabled}
           aria-label={name}
           aria-valuenow={ariaNow}
           aria-valuemin={Number.isFinite(min) ? min : undefined}
           aria-valuemax={Number.isFinite(max) ? max : undefined}
-          aria-valuetext={mixed ? 'Mixed values' : ariaText}
+          aria-valuetext={ariaText}
           aria-invalid={error ? 'true' : 'false'}
           aria-describedby={error ? errorId : undefined}
           onChange={(e) => {
-            setDirty(e.target.value);
+            const next = e.target.value;
+            setDirty(next === 'Mixed' || next === '—' ? '' : next);
             if (error) setError(null);
           }}
           onKeyDown={handleKeyDown}
-          onFocus={() => fieldName && ctx?.setFocusedField(fieldName)}
+          onFocus={(e) => {
+            if (visualMixed) e.currentTarget.select();
+            if (fieldName) ctx?.setFocusedField(fieldName);
+          }}
           onBlur={() => {
             if (dirty !== null) commit(dirty);
             if (fieldName && ctx?.setFocusedField) ctx.setFocusedField(null);
