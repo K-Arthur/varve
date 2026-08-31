@@ -596,9 +596,11 @@ input[type="number"] {
 }
 
 .editor-menubar__submenu {
-  position: absolute;
-  left: 100%;
-  top: -4px;
+  /* FloatingPortal owns the fixed geometry. Keeping the menu in normal flow
+   * lets Floating UI measure its intrinsic width/height before paint. */
+  position: static;
+  left: auto;
+  top: auto;
   min-width: 12rem;
   padding: var(--space-1);
   background: var(--elevation-surface-overlay);
@@ -606,7 +608,7 @@ input[type="number"] {
   border-radius: var(--radius-md);
   box-shadow: var(--elevation-shadow-overlay);
   font-family: var(--font-body);
-  z-index: var(--z-dropdown);
+  z-index: auto;
 }
 
 .editor-menubar__doc-name-text {
@@ -1492,51 +1494,16 @@ input[type="number"] {
  * always visible. The wrapper is flex:1 so it claims the space between the
  * menus and the undo/redo/zoom controls — stable width that the layout
  * math measures against (never the content-sized strip). */
-/* ── Workspace mode color palette ──
- * Each mode gets a unique accent hue from the existing ramp system.
- * Light theme uses mid-dark steps (adequate contrast on light surfaces);
- * Dark theme uses mid-light steps (adequate on dark surfaces).
- * High-contrast overrides the active background to the single HC accent
- * (all modes look the same there — colour differentiation is not a WCAG
- * requirement, and the HC accent already passes all UI contrast pairs).
+/*
+ * ── Workspace dock ──
  *
- * Inactive tabs: icon tinted with --ws-mode-icon (visible on sunken bg).
- * Active tab:    pill background with --ws-mode-bg, icon + label in white.
- */
-.workspace-tabs {
-  display: flex;
-  align-items: center;
-  /* flex-basis 0: the wrapper's width is decided by the flex layout (space
-     before undo/redo/zoom), never by its own tab content. */
-  flex: 1 1 0;
-  min-width: 0;
-  justify-content: flex-end;
-}
-
-.workspace-tabs__strip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  padding: 4px;
-  min-width: 0;
-  overflow: hidden;
-  /* Recessed tray: inner top highlight + bottom shadow create inset depth.
-     No outer shadow — overflow:hidden clips it, causing visual bleed. */
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 0.08),
-    inset 0 -1px 2px oklch(0 0 0 / 0.1);
-}
-
-/* ── Workspace mode palette ──
- * A mode's accent hue is reserved for the ACTIVE tab's pill background only.
- * Unselected tabs are monochrome: the icon is a theme-aware neutral (light in
- * dark mode, dark in light mode) so the strip reads as a calm, single-accent
- * control that lights up only the selected mode.
+ * Dock-style workspace switcher with mouse-proximity magnification.
+ * Inspired by the macOS Dock: icons spring-scale toward the cursor
+ * as the pointer moves across the strip. The active mode expands into
+ * an accent-colored pill with its label; inactive modes remain as
+ * compact circular icons.
  *
- * Hue map (minimum 25° between any pair), active-pill only:
+ * Mode accent palette (active pill only):
  *   design   = Teal    (190°)
  *   drawing  = Green   (148°)
  *   image    = Violet  (300°)
@@ -1545,69 +1512,124 @@ input[type="number"] {
  *   codegen  = Rose    (15°)
  *   logo     = Lemon   (95°)
  *
- * High-contrast: all active tabs use the single HC accent (green). */
+ * High-contrast: all active tabs use the single HC accent (green).
+ */
+.workspace-dock {
+  display: flex;
+  align-items: center;
+  /* flex-basis 0: the wrapper's width is decided by the flex layout (space
+     before undo/redo/zoom), never by its own dock content. */
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: flex-end;
+}
 
-.workspace-tabs__tab {
+.workspace-dock__bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  /* Glassmorphism container: subtle translucency + backdrop blur. */
+  background: oklch(from var(--color-surface-sunken) l c h / 0.6);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 4px 6px;
+  min-width: 0;
+  overflow: visible;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 1px 3px oklch(0 0 0 / 0.06),
+    inset 0 1px 0 oklch(1 0 0 / 0.05);
+}
+
+/* ── Dock item (inactive icon circle) ── */
+.workspace-dock__item {
   --ws-mode-bg: var(--color-interactive-default);
   --ws-mode-icon: var(--color-text-secondary);
   --ws-mode-hover: var(--color-surface-hover);
-}
 
-.workspace-tabs__tab[data-mode="design"] {
-  --ws-mode-bg: oklch(0.5449 0.0866 189.77);
-}
-.workspace-tabs__tab[data-mode="drawing"] {
-  --ws-mode-bg: oklch(0.5052 0.1304 148.06);
-}
-.workspace-tabs__tab[data-mode="image"] {
-  --ws-mode-bg: oklch(0.5129 0.1428 294.74);
-}
-.workspace-tabs__tab[data-mode="print"] {
-  --ws-mode-bg: oklch(0.5063 0.1332 255.23);
-}
-.workspace-tabs__tab[data-mode="motion"] {
-  --ws-mode-bg: oklch(0.52 0.15 45);
-}
-.workspace-tabs__tab[data-mode="codegen"] {
-  --ws-mode-bg: oklch(0.52 0.15 15);
-}
-.workspace-tabs__tab[data-mode="logo"] {
-  --ws-mode-bg: oklch(0.48 0.14 95);
-}
-
-.workspace-tabs__tab {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
-  height: 1.75rem;
-  /* Inactive: icon-only pill — symmetric square for clean rounded look */
-  width: 1.75rem;
+  /* Fixed circular hit target — JS drives width/height for magnification. */
+  height: 28px;
+  width: 28px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   background: none;
   color: var(--ws-mode-icon);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
+  /* GPU-accelerated scale via will-change; width/height are set inline. */
+  will-change: width, height;
   transition:
     background var(--duration-fast) var(--ease-default),
     color var(--duration-fast) var(--ease-default),
-    width var(--duration-normal) var(--ease-default),
-    padding var(--duration-normal) var(--ease-default),
-    transform var(--duration-fast) var(--ease-default),
-    box-shadow var(--duration-fast) var(--ease-default);
+    border-radius var(--duration-normal) var(--ease-default);
 }
 
-.workspace-tabs__label {
+/* ── Per-mode accent (active pill background) ── */
+.workspace-dock__item[data-mode="design"] {
+  --ws-mode-bg: oklch(0.5449 0.0866 189.77);
+}
+.workspace-dock__item[data-mode="drawing"] {
+  --ws-mode-bg: oklch(0.5052 0.1304 148.06);
+}
+.workspace-dock__item[data-mode="image"] {
+  --ws-mode-bg: oklch(0.5129 0.1428 294.74);
+}
+.workspace-dock__item[data-mode="print"] {
+  --ws-mode-bg: oklch(0.5063 0.1332 255.23);
+}
+.workspace-dock__item[data-mode="motion"] {
+  --ws-mode-bg: oklch(0.52 0.15 45);
+}
+.workspace-dock__item[data-mode="codegen"] {
+  --ws-mode-bg: oklch(0.52 0.15 15);
+}
+.workspace-dock__item[data-mode="logo"] {
+  --ws-mode-bg: oklch(0.48 0.14 95);
+}
+
+/* ── Icon wrapper — targeted by the magnification RAF loop ── */
+.workspace-dock__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  pointer-events: none;
+}
+
+.workspace-dock__item:hover {
+  color: var(--ws-mode-icon);
+  background: var(--ws-mode-hover);
+}
+
+/* ── Active pill — expands to fit label ── */
+.workspace-dock__item--active {
+  width: auto;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  background: var(--ws-mode-bg);
+  color: var(--color-text-on-accent);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.15);
+}
+
+.workspace-dock__item--active:hover {
+  filter: brightness(0.9);
+}
+
+/* ── Label (collapsed by default, expanded when active) ── */
+.workspace-dock__label {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 6.5rem;
-  /* Collapsed by default (icon-only inactive tabs). The active state
-     expands the tab and the label becomes visible via width auto. */
   width: 0;
   opacity: 0;
   transition:
@@ -1615,36 +1637,19 @@ input[type="number"] {
     opacity var(--duration-fast) var(--ease-default);
 }
 
-.workspace-tabs__tab:hover {
-  color: var(--ws-mode-icon);
-  background: var(--ws-mode-hover);
-}
-
-.workspace-tabs__tab--active {
-  width: auto;
-  padding: 0 10px;
-  background: var(--ws-mode-bg);
-  color: var(--color-text-on-accent);
-  /* Subtle inner highlight for raised feel — no outer shadow or transform
-     to avoid exceeding the strip bounds. */
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.15);
-}
-
-.workspace-tabs__tab--active:hover {
-  filter: brightness(0.9);
-}
-
-.workspace-tabs__tab--active .workspace-tabs__label {
+.workspace-dock__item--active .workspace-dock__label {
   width: auto;
   opacity: 1;
 }
 
-.workspace-tabs__tab:focus-visible {
+/* ── Focus ring ── */
+.workspace-dock__item:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
-.workspace-tabs__customized-dot {
+/* ── Customization dot ── */
+.workspace-dock__customized-dot {
   width: 4px;
   height: 4px;
   border-radius: 50%;
@@ -1653,25 +1658,28 @@ input[type="number"] {
   transition: background var(--duration-fast) var(--ease-default);
 }
 
-.workspace-tabs__tab--active .workspace-tabs__customized-dot {
+.workspace-dock__item--active .workspace-dock__customized-dot {
   background: var(--color-text-on-accent);
 }
 
-.workspace-tabs__divider {
+/* ── Overflow divider ── */
+.workspace-dock__divider {
   width: 1px;
   height: 1rem;
   background: var(--color-border-subtle);
   flex-shrink: 0;
+  margin: 0 2px;
 }
 
-.workspace-tabs__more {
+/* ── Overflow "More" button ── */
+.workspace-dock__more {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 28px;
+  height: 28px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   background: none;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -1681,23 +1689,33 @@ input[type="number"] {
     color var(--duration-fast) var(--ease-default);
 }
 
-.workspace-tabs__more:hover,
-.workspace-tabs__more--open {
+.workspace-dock__more:hover,
+.workspace-dock__more--open {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
 }
 
-.workspace-tabs__more:focus-visible {
+.workspace-dock__more:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
 /* ── HC override: all active tabs use the single HC accent ── */
-[data-theme="high-contrast"] .workspace-tabs__tab--active {
+[data-theme="high-contrast"] .workspace-dock__item--active {
   background: var(--color-interactive-default);
 }
-[data-theme="high-contrast"] .workspace-tabs__tab:hover {
+[data-theme="high-contrast"] .workspace-dock__item:hover {
   background: color-mix(in oklch, var(--color-interactive-default) 80%, oklch(1 0 0));
+}
+
+/* ── Reduced motion: disable magnification width/height transitions ── */
+@media (prefers-reduced-motion: reduce) {
+  .workspace-dock__item {
+    transition:
+      background var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default);
+    will-change: auto;
+  }
 }
 
 /* ── Docs name in menubar ── */
@@ -1978,14 +1996,14 @@ input[type="number"] {
     gap: 0;
     overflow: hidden;
   }
-  .editor-menubar__controls .workspace-tabs {
+  .editor-menubar__controls .workspace-dock {
     justify-content: flex-start;
   }
-  .editor-menubar .workspace-tabs__tab--active {
-    width: 1.75rem;
+  .editor-menubar .workspace-dock__item--active {
+    width: 28px;
     padding-inline: 0;
   }
-  .editor-menubar .workspace-tabs__tab--active .workspace-tabs__label {
+  .editor-menubar .workspace-dock__item--active .workspace-dock__label {
     width: 0;
     opacity: 0;
   }

@@ -1,4 +1,5 @@
-import { useCallback, useId, useRef } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
+import { Icon } from '../icons/Icon';
 
 export interface SliderProps {
   value: number;
@@ -9,6 +10,12 @@ export interface SliderProps {
   onChange: (value: number) => void;
   formatValue?: (value: number) => string;
   disabled?: boolean;
+  /** Show an inline numeric input instead of the value display. */
+  showInput?: boolean;
+  /** When provided, renders a reset button that calls this handler. */
+  onReset?: () => void;
+  /** Size variant: 'sm' (14px thumb), 'md' (20px default), 'lg' (24px thumb). */
+  size?: 'sm' | 'md' | 'lg';
 }
 
 export function Slider({
@@ -20,10 +27,15 @@ export function Slider({
   onChange,
   formatValue,
   disabled,
+  showInput,
+  onReset,
+  size,
 }: SliderProps) {
   const id = useId();
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [inputRaw, setInputRaw] = useState<string | null>(null);
 
   const fraction = max === min ? 0 : Math.max(0, Math.min(1, (value - min) / (max - min)));
   const bigStep = step * 10;
@@ -94,10 +106,34 @@ export function Slider({
     thumbEl?.addEventListener('pointerup', handlePointerUp);
   }
 
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value;
+    setInputRaw(raw);
+    if (raw === '' || raw === '-' || raw === '.') return;
+    const num = parseFloat(raw);
+    if (!Number.isNaN(num)) {
+      onChange(clamp(roundToStep(num)));
+    }
+  }
+
+  function handleInputBlur() {
+    setInputRaw(null);
+  }
+
+  function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      inputRef.current?.blur();
+    }
+  }
+
   const valueText = formatValue ? formatValue(value) : `${value}`;
+  const displayValue = inputRaw !== null ? inputRaw : valueText;
+
+  const sizeClass = size ? ` varve-slider--${size}` : '';
 
   return (
-    <fieldset className={`varve-slider${disabled ? ' varve-slider--disabled' : ''}`}>
+    <fieldset className={`varve-slider${disabled ? ' varve-slider--disabled' : ''}${sizeClass}`}>
       <legend className="varve-slider__legend" id={`${id}-label`}>
         {label}
       </legend>
@@ -126,9 +162,37 @@ export function Slider({
             style={{ left: `${fraction * 100}%` }}
           />
         </div>
-        <output className="varve-slider__value" htmlFor={`${id}-label`}>
-          {valueText}
-        </output>
+        {showInput ? (
+          <input
+            ref={inputRef}
+            type="number"
+            className="varve-slider__input"
+            value={displayValue}
+            min={min}
+            max={max}
+            step={step}
+            disabled={disabled}
+            aria-label={label}
+            onChange={handleInputChange}
+            onBlur={handleInputBlur}
+            onKeyDown={handleInputKeyDown}
+          />
+        ) : (
+          <output className="varve-slider__value" htmlFor={`${id}-label`}>
+            {valueText}
+          </output>
+        )}
+        {onReset && (
+          <button
+            type="button"
+            className="varve-slider__reset"
+            onClick={onReset}
+            disabled={disabled}
+            aria-label={`Reset ${label}`}
+          >
+            <Icon name="RotateCcw" size="0.75em" />
+          </button>
+        )}
       </div>
     </fieldset>
   );

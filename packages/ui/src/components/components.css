@@ -312,7 +312,9 @@
 
 .varve-tooltip {
   position: fixed;
-  z-index: var(--z-tooltip);
+  /* Active menus/listboxes own the interaction layer. A tooltip must never
+   * cover a menu item while pointer intent crosses into a flyout. */
+  z-index: var(--z-popover);
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -480,6 +482,17 @@
   z-index: auto;
 }
 
+/* The fixed outer layer is the placement reference. Menu content must retain
+ * intrinsic dimensions so Floating UI measures the real surface, including
+ * shortcut and submenu-indicator lanes. */
+.varve-floating-layer {
+  position: fixed;
+  z-index: var(--z-overlay);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100vw - (var(--space-4) * 2));
+}
+
 .varve-menu {
   position: absolute;
   z-index: var(--z-overlay);
@@ -531,8 +544,8 @@
 }
 
 .varve-ctxmenu {
-  position: fixed;
-  z-index: var(--z-overlay);
+  position: static;
+  z-index: auto;
   min-width: 12rem;
   padding: var(--space-1) 0;
   background: var(--color-surface-raised);
@@ -1367,6 +1380,7 @@
   display: block;
   margin-bottom: var(--space-1);
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
   padding: 0;
 }
@@ -1378,34 +1392,59 @@
 .varve-slider__track {
   flex: 1;
   height: var(--space-1);
-  background: var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
   position: relative;
   cursor: pointer;
+  transition: height var(--duration-quick) var(--ease-standard);
+}
+.varve-slider__track:hover {
+  height: 3px;
 }
 .varve-slider--disabled .varve-slider__track {
   cursor: default;
 }
+.varve-slider--disabled .varve-slider__track:hover {
+  height: var(--space-1);
+}
 .varve-slider__fill {
   height: 100%;
   background: var(--color-interactive-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-fast) var(--ease-standard);
 }
 .varve-slider__thumb {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: var(--space-6);
-  height: var(--space-6);
-  border-radius: 50%;
-  background: var(--color-interactive-default);
-  border: 2px solid var(--color-surface-app);
-  box-shadow: var(--elevation-shadow-raised);
+  width: var(--space-5);
+  height: var(--space-5);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  border: 2px solid var(--color-interactive-default);
+  box-shadow: var(--shadow-sm);
   cursor: grab;
   touch-action: none;
+  transition:
+    transform var(--duration-quick) var(--ease-standard),
+    box-shadow var(--duration-quick) var(--ease-standard);
+}
+.varve-slider__thumb:hover {
+  transform: translate(-50%, -50%) scale(1.12);
+  box-shadow: var(--shadow-md);
+}
+.varve-slider__thumb:active {
+  transform: translate(-50%, -50%) scale(0.92);
+  box-shadow: var(--shadow-xs);
+  cursor: grabbing;
 }
 .varve-slider--disabled .varve-slider__thumb {
   cursor: default;
+}
+.varve-slider--disabled .varve-slider__thumb:hover,
+.varve-slider--disabled .varve-slider__thumb:active {
+  transform: translate(-50%, -50%);
+  box-shadow: var(--shadow-sm);
 }
 /* U19 (2026-08-10): explicit focus ring for the slider thumb (previously
  * UA-default only, invisible on some platforms). */
@@ -1417,7 +1456,101 @@
   min-width: var(--space-8);
   text-align: right;
   font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
+}
+/* ── Slider: inline numeric input ──────────────── */
+.varve-slider__input {
+  width: var(--space-10);
+  height: var(--space-5);
+  padding: 0 var(--space-1);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  outline: none;
+  cursor: text;
+  transition: border-color var(--duration-quick) var(--ease-standard);
+  -moz-appearance: textfield;
+}
+.varve-slider__input::-webkit-inner-spin-button,
+.varve-slider__input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.varve-slider__input:hover {
+  border-color: var(--color-border-strong);
+}
+.varve-slider__input:focus-visible {
+  border-color: var(--color-interactive-default);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+/* ── Slider: reset button ──────────────────────── */
+.varve-slider__reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--space-5);
+  height: var(--space-5);
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    color var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard),
+    background var(--duration-quick) var(--ease-standard);
+}
+.varve-slider__reset:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-sunken);
+}
+.varve-slider__reset:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+/* ── Slider: size variants ─────────────────────── */
+.varve-slider--sm .varve-slider__track {
+  height: 3px;
+}
+.varve-slider--sm .varve-slider__track:hover {
+  height: 4px;
+}
+.varve-slider--sm .varve-slider__thumb {
+  width: 14px;
+  height: 14px;
+  border-width: 1.5px;
+}
+.varve-slider--sm .varve-slider__thumb:hover {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+.varve-slider--sm .varve-slider__thumb:active {
+  transform: translate(-50%, -50%) scale(0.9);
+}
+.varve-slider--lg .varve-slider__track {
+  height: 8px;
+}
+.varve-slider--lg .varve-slider__track:hover {
+  height: 10px;
+}
+.varve-slider--lg .varve-slider__thumb {
+  width: var(--space-6);
+  height: var(--space-6);
+}
+.varve-slider--lg .varve-slider__thumb:hover {
+  transform: translate(-50%, -50%) scale(1.08);
+}
+.varve-slider--lg .varve-slider__thumb:active {
+  transform: translate(-50%, -50%) scale(0.94);
 }
 
 /* Native range controls used by editor panels and dialogs. The value stays a
@@ -1432,33 +1565,39 @@
   cursor: pointer;
 }
 .varve-native-range::-webkit-slider-runnable-track {
-  height: 4px;
+  height: 6px;
   background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-pill);
 }
 .varve-native-range::-moz-range-track {
-  height: 4px;
+  height: 6px;
   background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-pill);
 }
 .varve-native-range::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   margin-top: -6px;
-  border: 2px solid var(--color-surface-raised);
-  border-radius: 50%;
-  background: var(--color-interactive-default);
+  border: 2px solid var(--color-interactive-default);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-xs);
+  transition:
+    transform var(--duration-quick) var(--ease-standard),
+    box-shadow var(--duration-quick) var(--ease-standard);
 }
 .varve-native-range::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--color-surface-raised);
-  border-radius: 50%;
-  background: var(--color-interactive-default);
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-interactive-default);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-xs);
+  transition:
+    transform var(--duration-quick) var(--ease-standard),
+    box-shadow var(--duration-quick) var(--ease-standard);
 }
 .varve-native-range:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
