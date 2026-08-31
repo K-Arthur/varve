@@ -306,6 +306,28 @@ describe('PropertiesPanel export tab has merged export and code', () => {
 });
 
 describe('PropertiesPanel empty selection', () => {
+  it('does not present document settings while an active tool owns the context', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function ToolSelector() {
+      ctx = useEditor();
+      React.useEffect(() => {
+        ctx?.setTool('paint');
+      }, []);
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <ToolSelector />
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.state.tool).toBe('paint'));
+    expect(screen.getByText(/tool controls stay with the active tool/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Canvas' })).toBeNull();
+  });
+
   it('does not render the State Machine section inline', () => {
     renderPanel();
     expect(screen.queryByRole('button', { name: 'State Machine' })).toBeNull();

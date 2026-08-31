@@ -32,6 +32,7 @@ import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { DisclosureSection } from './controls/DisclosureSection';
 import { InspectorTabBar } from './InspectorTabBar';
+import { deriveInspectorContext, type InspectorContext } from './inspectorContext';
 import { VariablesPanelDialog } from './panels/VariablesPanelDialog';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
 import { SelectionSourcesPanel } from './SelectionSourcesPanel';
@@ -97,8 +98,9 @@ export function PropertiesPanel() {
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
   const selNodes = selectedNodes();
   const summary = summarize(selNodes);
-  const hasLockedSelection = selNodes.some((node) => node.locked);
-  const hasHiddenSelection = selNodes.some((node) => node.visible === false);
+  const inspectorContext = useMemo(() => deriveInspectorContext(state), [state]);
+  const hasLockedSelection = inspectorContext.restrictions.effectiveLockedNodeIds.length > 0;
+  const hasHiddenSelection = inspectorContext.restrictions.effectiveHiddenNodeIds.length > 0;
   const configuredTabs = useMemo(
     () => getVisibleInspectorTabConfigs(state.workspaceMode, effectiveConfig),
     [state.workspaceMode, effectiveConfig],
@@ -252,7 +254,12 @@ export function PropertiesPanel() {
   };
 
   return (
-    <section className="editor-inspector" data-panel-root="inspector" aria-label="Inspector">
+    <section
+      className="editor-inspector"
+      data-panel-root="inspector"
+      data-inspector-context={inspectorContext.scope}
+      aria-label="Inspector"
+    >
       <VariablesPanelDialog open={state.variablesPanelVisible} onClose={toggleVariablesPanel} />
       <PanelDragHandle
         panelTypeId="inspector"
@@ -280,7 +287,7 @@ export function PropertiesPanel() {
           </div>
           <SelectionSourcesPanel />
           <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
-            {summary.kind === 'empty' && <EmptySelectionState />}
+            {summary.kind === 'empty' && <EmptySelectionState context={inspectorContext} />}
             {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
             {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
           </SelectionLockGuard>
@@ -484,7 +491,15 @@ function SelectionLockGuard({
   );
 }
 
-function EmptySelectionState() {
+function EmptySelectionState({ context }: { context: InspectorContext }) {
+  const showsDocumentSettings =
+    context.scope === 'document' || context.scope === 'canvas' || context.scope === 'page';
+  const scopeDescription =
+    context.scope === 'tool'
+      ? `Inspecting ${context.target.label}. Tool controls stay with the active tool. Select a layer to return to object properties.`
+      : context.scope === 'pixel-selection'
+        ? `Inspecting ${context.target.label}. Select a layer to return to object properties.`
+        : `Inspecting ${context.target.label} settings. Select a layer to edit its properties.`;
   return (
     <div className="insp-panel__empty">
       <EmptyState
@@ -513,17 +528,25 @@ function EmptySelectionState() {
           </svg>
         }
         headline="No selection"
-        description="Select a layer to edit its properties"
+        description={scopeDescription}
       />
-      <Suspense
-        fallback={
-          <p className="insp-panel__empty-hint" role="status">
-            Loading document settings…
-          </p>
-        }
-      >
-        <DocumentPanel />
-      </Suspense>
+      {showsDocumentSettings ? (
+        <Suspense
+          fallback={
+            <p className="insp-panel__empty-hint" role="status">
+              Loading document settings…
+            </p>
+          }
+        >
+          <DocumentPanel />
+        </Suspense>
+      ) : (
+        <p className="insp-panel__empty-hint" role="status">
+          {context.scope === 'tool'
+            ? 'Open the active tool controls to adjust its options.'
+            : 'Choose a layer or return to the originating workflow to continue.'}
+        </p>
+      )}
     </div>
   );
 }

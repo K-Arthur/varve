@@ -1,7 +1,7 @@
 # Inspector organization audit — 2026-08-30
 
-This is a repository-first audit and the record for the first implementation
-slice of the Inspector reorganization. It deliberately distinguishes shipped
+This is a repository-first audit and the record for the first two implementation
+slices of the Inspector reorganization. It deliberately distinguishes shipped
 behavior from proposed architecture and from unverified behavior. It does not
 claim that the full Inspector program is complete.
 
@@ -10,8 +10,8 @@ claim that the full Inspector program is complete.
 | Field | Actual value |
 |---|---|
 | Branch | `feat/adjustment-hardening` |
-| Commit | `5a2a60637c08041406f7e06a2e0899d2172f8998` |
-| Commit subject | `feat(inspector): merge Position & Size + Constraints into single Layout section (ADR-0230)` |
+| Commit | `c1fb91add` (tab slice; context slice is the next scoped commit) |
+| Commit subject | `feat(inspector): make tab navigation metadata-driven and responsive` |
 | Worktree | `/home/kevina/CodingProjects/varve` |
 | Dirty state | Inspector tab slice plus concurrent Layers work; see `git status --short` at audit time |
 | Package manager | pnpm 11.9.0 |
@@ -28,23 +28,31 @@ claim that the full Inspector program is complete.
 | Selection | Empty in baseline; rectangle workflow exercised by the existing ownership spec |
 
 The branch advanced while the audit was in progress. The prior observed HEAD
-was `8067c472a`; the current SHA above is the value used for all final claims.
-The concurrent Layers files were not rewritten or reverted.
+was `8067c472a`; the tab slice is now committed at `c1fb91add`, and the
+derived-context slice is being recorded separately. The concurrent Layers
+files were not rewritten or reverted.
 
 ## Scope and invariant
 
-The first complete vertical slice establishes one tab metadata path and a real
-responsive tab surface. Its invariant is:
+The first two vertical slices establish one tab metadata path, a real
+responsive tab surface, and a pure derived context read model. Their invariants
+are:
 
 > The rendered Inspector tab row is derived from effective workspace tab
 > configuration, preserves configured order, exposes one APG tab for each
 > visible destination, and moves low-priority destinations to an accessible
 > menu when the row is too narrow.
 
-Out of scope for this slice: replacing manual section composition, introducing
-a serialized Inspector context, changing property commands, changing scene
-state, changing history semantics, moving Selection Sources, or altering the
-concurrent Layers implementation.
+> Inspector scope, valid targets, and effective selection restrictions are
+> derived from authoritative editor/document state; stale IDs are discarded,
+> ancestry is considered for lock/visibility safety, and no Inspector-only
+> state is serialized or used as a second selection system.
+
+Out of scope for these slices: replacing manual section composition, adding a
+context provider, changing property commands, changing scene state, changing
+history semantics, moving Selection Sources, rendering a context header,
+implementing control-level read-only inspection, or altering the concurrent
+Layers implementation.
 
 ## Executive diagnosis
 
@@ -69,10 +77,10 @@ The five highest-impact root causes are:
 3. Property state semantics are uneven. `SelectionColorsSection` and several
    paint/effect controls model mixed or bound values, but there is no canonical
    property-state algebra applied to every NumberField, toggle, list, and stack.
-4. Lock/visibility guarding is coarse. `PropertiesPanel` currently guards the
-   whole content using direct `node.locked`/`node.visible` checks; effective
-   ancestor lock/visibility, partial edit scope, and safe inspection are not
-   represented by one derived context.
+4. Lock/visibility guarding is coarse. The context slice now derives effective
+   ancestor restrictions and partial editable IDs, but `PropertiesPanel` still
+   guards the whole content and does not yet expose source-aware safe
+   inspection at control level.
 5. Control lifecycle and specialist workflow ownership are incomplete. Some
    controls use `beginTransaction`/`commitTransaction`, while cancellation,
    pointer loss, selection changes, and collapse/unmount policies are not
@@ -86,13 +94,13 @@ The five highest-impact root causes are:
 | Registry intent and manual composition drift | Confirmed | `sectionRegistry.ts` has metadata only; `PropertiesPanel.tsx:539-704` manually calls `add`. The `layout`/`layout-child` paths demonstrate predicate/render duplication. |
 | Tab metadata drifts from workspace config | Confirmed and partly repaired | Config contains labels, groups, and priorities; prior `PropertiesPanel` had fallback labels and `TAB_ORDER`. `InspectorTabBar.tsx` and the workspace helpers now consume config metadata. |
 | Properties contains workflows owned elsewhere | Partly confirmed | `AppearancePanel`, `AdjustmentsPanel`, `PrototypePanel`, `AuditPanel`, `DocumentPanel`, `CodeGenView`, and tool sections exist. Prior audits moved several workflows, but document settings and Selection Sources still need explicit context ownership. |
-| Empty state is contradictory | Confirmed | `EmptySelectionState` says “No selection” and “Select a layer” while also rendering `DocumentPanel`. The current product decision is an explicit document-context treatment; wording and context header remain to be repaired. |
+| Empty state is contradictory | Partly repaired | `EmptySelectionState` now describes the derived Document/Canvas/Tool scope while retaining the existing “No selection” visual and `DocumentPanel`; a compact context header and explicit document panel boundary remain. |
 | Adjustments is an excessively long list | Confirmed after invocation | `AdjustmentsPanel.tsx` mounts Image Tuning plus eleven single-image workflows. It is lazy at tab boundary but not yet categorized into compact launchers/focused editors. |
 | Appearance and Properties overlap | Confirmed, partly intentional | `AppearanceSection` summarizes routine properties while `AppearancePanel` owns masks, paints, palette, Object Filters, and Layer Effects. The summary/deep-editor boundary is undocumented at control level and duplicate-command audit remains. |
 | Section customization exposes only part of its model | Confirmed | `sectionState.ts` stores order, hidden, and collapsed state; `SectionManagerTrigger` currently provides show/hide/reset, not reorder. |
 | Legacy and registry disclosures coexist | Confirmed | `sectionState.ts` migration exists, but `DisclosureSection` callers and local/session state still need a complete inventory and removal plan. |
 | Collapse destroys draft state | Unverified risk | No cross-control lifecycle matrix or E2E exists for collapse during every draft type. The current code does not establish a universal mounted/hidden policy. |
-| Lock/visibility guarding is too coarse | Confirmed | `PropertiesPanel.tsx:99-101` derives only direct lock/visibility and wraps all selection content in `SelectionLockGuard`. |
+| Lock/visibility guarding is too coarse | Partly repaired | `inspectorContext.ts` derives direct and ancestor-effective restrictions, source IDs, and partial editable IDs; `SelectionLockGuard` still disables the whole locked selection and control-level safe inspection is deferred. |
 | Mixed values vary by control | Confirmed | Selection summary and selection-color code provide some mixed semantics; shared control APIs do not expose one required state contract. |
 | Numeric editing has lifecycle gaps | Partly confirmed | Number fields and many sections use transactions, but pointercancel, blur, selection-switch, and stale-target coverage is not present as a shared Inspector acceptance suite. |
 | Plugins bypass product IA | Partly confirmed | `pluginSections.ts` has namespacing and availability metadata, but `PluginSectionContribution` has no renderer/factory despite its module contract, no surface ownership validation, no order band enforcement, and no host rendering path found in the current Inspector composition. |
@@ -102,7 +110,7 @@ The five highest-impact root causes are:
 | ID | Modality | Source | Finding | Confidence |
 |---|---|---|---|---|
 | E1 | Git | `git branch --show-current`, `git rev-parse HEAD`, `git status --short` | Current branch, SHA, and dirty state recorded above | High |
-| E2 | Source | `PropertiesPanel.tsx:93-704` | Manual tab and section composition hub; direct lock guard; document panel in empty state | High |
+| E2 | Source | `PropertiesPanel.tsx:93-704` | Manual tab and section composition hub; effective restriction guard; document panel in empty state | High |
 | E3 | Source | `workspaceTypes.ts:1130-1210` | Workspace config is capable of owning tab metadata; effective helpers added in this slice | High |
 | E4 | Source | `sectionRegistry.ts` and `featureOwnership.ts` | Availability and ownership are separate maps with no renderer registry | High |
 | E5 | Source | `AppearancePanel.tsx`, `AdjustmentsPanel.tsx` | Persistent appearance and image workflows are already separated into lazy panels, but the adjustment panel is long after invocation | High |
@@ -113,8 +121,11 @@ The five highest-impact root causes are:
 | E10 | Screenshot | `test-results/run-2915479-1463/.../test-failed-1.png` | Narrow style experiment exposed that the empty baseline has only Design + Export; the test was corrected to force overflow by reducing width | High |
 | E11 | Screenshot | `test-results/run-2903636-1462/.../document-settings-actual.png` | Normal document context visually inspected; baseline mismatch is small but real | High |
 | E12 | Screenshot | `test-results/run-2904049-1462/.../rectangle-properties-actual.png` | Rectangle context visually inspected; current Layout merge and group divider visible | High |
-| E13 | Typecheck | `pnpm --filter @varve/editor typecheck` | Fails in pre-existing `packages/engine/src/thumbnail/service.ts:126` (`text` IR case), outside slice | High |
+| E13 | Typecheck | `pnpm --filter @varve/editor typecheck` | No Inspector type errors; remains red for pre-existing engine thumbnail IR mismatch and concurrent Layers errors | High |
 | E14 | E2E console | ownership run with current dirty Layers tree | `ReferenceError: Cannot access 'adjustmentSummary' before initialization` in `LayersRow`; treated as concurrent/pre-existing | High |
+| E15 | Unit | `Inspector/inspectorContext.test.ts` | Seven pure derivation cases pass: document/canvas/tool/temporary scope, stale IDs, ancestor restrictions, and partial lock | High |
+| E16 | Source | `Inspector/inspectorContext.ts`, `PropertiesPanel.tsx` | Context is read-only, stale-safe, ancestry-aware, and now drives the panel context marker and empty-state copy | High |
+| E17 | Focused validation | `80` Inspector/workspace tests, Biome, docs, emoji, and token audits | Second slice passes focused tests and quality audits; affected gate remains blocked by concurrent Layers formatting | High |
 
 ## Current-state feature ownership matrix
 
@@ -584,7 +595,7 @@ pointer capture or IME composition.
   announcements should cover batch count, unavailable reason, operation
   status, cancellation, and errors.
 
-## First-slice implementation
+## Implementation slices
 
 | File/symbol | Change | Reason |
 |---|---|---|
@@ -597,6 +608,9 @@ pointer capture or IME composition.
 | `workspace/workspaceTypes.test.ts` | Config labels, order, groups, contextual fallback | Protects metadata ownership |
 | `tests/e2e/inspector/ownership.spec.ts` | Narrow row overflow scenario | Real browser/layout verification |
 | `docs/README.md` | Indexed ADR-0230 | Repairs docs audit drift from concurrent commit |
+| `Inspector/inspectorContext.ts` | Pure derived scope, target, stale-selection, and effective restriction read model | Establishes authoritative context without a provider, document mutation, or serialized Inspector state |
+| `Inspector/inspectorContext.test.ts` | Seven derivation and restriction cases | Protects document/canvas/tool/temporary scopes, stale IDs, ancestor restrictions, and partial-lock behavior |
+| `Inspector/PropertiesPanel.tsx` | Consumes the derived context for scope metadata, effective lock/visibility guarding, and empty-state copy; keeps document settings out of active-tool empty states | Makes context explicit while preserving the existing visual structure and command paths |
 
 ## Verification and baseline
 
@@ -607,11 +621,17 @@ pointer capture or IME composition.
 | Focused Inspector Vitest baseline | Pass, 4 files / 101 tests | Registry, ownership, ordering, PropertiesPanel |
 | `VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/editor/src/components/Inspector/InspectorTabBar.test.tsx packages/editor/src/workspace/workspaceTypes.test.ts packages/editor/src/components/Inspector/PropertiesPanel.test.tsx --maxWorkers=1` | Pass, 3 files / 72 tests | Includes the new tab bar tests |
 | `pnpm exec biome format --write` on six changed Inspector/workspace files | Pass | Formatting only on touched files |
-| `pnpm --filter @varve/editor typecheck` | Pre-existing failure | `packages/engine/src/thumbnail/service.ts:126` handles unsupported `text` IR case; no error reported in slice files |
+| `pnpm --filter @varve/editor typecheck` | Fails outside Inspector slice | No errors in context or PropertiesPanel; remaining errors are engine thumbnail IR plus concurrent Layers files |
 | `VARVE_E2E_PORT=1462 ... ownership.spec.ts` | 2 pass / 3 fail | Two screenshot baselines differ by ~0.01%; brush test has concurrent Layers `adjustmentSummary` ReferenceError and strict selector issue |
 | `view_image` on document and rectangle actual/diff screenshots | Inspected | Differences are visible baseline/layout changes, not ignored |
 | Focused overflow E2E before final width correction | Failed | Empty baseline had only Design + Export, which fit at 120 px; test corrected to 80 px to exercise overflow |
-| `VARVE_E2E_PORT=1463 ... -g "accessible overflow"` | Pending at document creation | Must be rerun after the 80 px correction and recorded in the final report |
+| `VARVE_E2E_PORT=1464 ... -g "accessible overflow"` and `VARVE_E2E_PORT=1466 ... -g "accessible overflow"` | Pass, one test each | Chromium verified the 80 px overflow path after width and contextual insertion fixes |
+| `VARVE_TEST_WORKERS=1 pnpm exec vitest run ...InspectorTabBar...inspectorContext...workspaceTypes...PropertiesPanel... --maxWorkers=1` | Pass, 4 files / 79 tests | Combined tab and context focused suite |
+| `./node_modules/.bin/biome check` on touched Inspector files | Pass | No formatting/lint diagnostics in the Inspector slice |
+| `pnpm audit:docs` | Pass | 626 docs, 156 links, 170 ADRs indexed |
+| `pnpm audit:emoji` | Pass | 3,910 files scanned |
+| `pnpm audit:tokens` | Pass | All 135 contrast pairs pass across light, dark, and high-contrast themes |
+| `pnpm verify:affected` | Blocked at Tier 0 | Concurrent `LayersPanel/useFlatTree.ts` formatting error; no Inspector failure reached |
 | Full suite | No | Not authorized by impact plan; no workspace/toolchain/schema/release escalation |
 
 ### Skipped as unrelated
@@ -631,7 +651,7 @@ This is a status matrix, not a claim that all rows pass.
 |---|---|---|
 | 1–9 context-specific object/page/image/component/table states | Partial | Existing ownership and section tests; canonical context/header slice needed |
 | 10–15 common/mixed/relative/partial multi-selection | Partial | Selection summary exists; property-state and batch-scope contract needed |
-| 16–21 lock/hidden/effective/inherited/component/master | Partial | Direct lock guard exists; effective-context slice needed |
+| 16–21 lock/hidden/effective/inherited/component/master | Partial | Effective ancestry and partial-lock read model now tested; source-aware safe inspection and component/master UI remain |
 | 22–29 duplicate ownership/document/tool/image/selection surfaces | Partial | Ownership docs and existing panel split; duplicate command audit needed |
 | 30–35 tabs/order/contextual/deep links/return | Partial | Tab slice covers metadata/order and overflow; deep-link E2E remains |
 | 36–42 search/customization/legacy/collapse | Deferred | Section manager and disclosure lifecycle slice |
@@ -650,7 +670,7 @@ This is a status matrix, not a claim that all rows pass.
 | Numeric editing | shared NumberField unit coverage and existing Inspector tests | pointercancel, blur, IME, wheel, selection switch, exact cancel transaction |
 | Color/gradient | color popover and gradient component tests | wide gamut, viewport edge, mode switch, collapse during draft |
 | Ordered stacks | fill/effect focused unit coverage | keyboard reorder across every stack, invalid import, mixed identity alignment |
-| Restrictions | direct lock/hidden guard is present | ancestor lock/visibility, partial edit scope, read-only linked resource |
+| Restrictions | direct/ancestor lock and visibility, source IDs, partial editable subset | read-only linked resource, control-level source explanation, unlock/reveal workflows |
 | Responsive/accessibility | normal Chromium DOM roles; Chromium overflow | 200%, RTL, forced colors, screen reader, touch/stylus, Firefox/WebKitGTK/Tauri |
 | Persistence | section-state migration tests and existing panel state tests | save/reload with drafts, plugin removal, detached multi-document state |
 
@@ -662,8 +682,12 @@ This is a status matrix, not a claim that all rows pass.
   proving every contextual ID has a valid ordering position in every workspace.
 - `PropertiesPanel` remains a high-complexity manual hub. The next architecture
   change must respect the repository’s complexity/import budgets.
-- Direct lock/visibility guarding can obscure safe inspection and does not yet
-  explain ancestor restrictions.
+- The derived context identifies ancestor restriction sources, but the current
+  whole-selection guard still obscures safe inspection and does not expose
+  source-aware control affordances.
+- `PropertiesPanel` derives context from the whole EditorState object, so the
+  next performance slice should measure and narrow subscriptions rather than
+  adding speculative memoization.
 - Adjustment workflows are lazy at panel boundary, but not yet launcher-based
   after opening; model/resource initialization and memory need profiling.
 - Plugin metadata promises a factory/error-safe rendering model that is not
@@ -677,20 +701,20 @@ This is a status matrix, not a claim that all rows pass.
 
 ## Next vertical slice
 
-Implement the canonical derived `InspectorContext` and registry integrity
-checks, beginning with pure functions and tests:
+Implement registry integrity and a compact context header, beginning with pure
+contracts and tests:
 
-1. Add `deriveInspectorContext(editorState, selectedNodes)` in an Inspector
-   context/read-model module without adding a provider or serialized state.
-2. Add explicit document/page/canvas/selection/tool scope and stale-selection
-   handling.
-3. Add effective ancestor lock/visibility calculation with safe inspection and
-   partial-edit capability metadata.
-4. Add registry/ownership/renderer referential-integrity tests before changing
+1. Add registry/ownership/renderer referential-integrity tests before changing
    manual composition.
-5. Render a compact context header and repair the no-selection wording.
+2. Render a compact context header from the existing derived read model and
+   make document/page/canvas/tool scope boundaries visually explicit.
+3. Replace whole-selection lock blocking with source-aware, safe read-only
+   inspection and an explicit partial-edit policy.
+4. Add the first shared property-state algebra for common/mixed/unset/
+   inherited/overridden/bound/calculated/unavailable values.
 
-Acceptance: context derivation is deterministic and pure; stale IDs render a
-safe empty state; the empty Inspector clearly identifies Document or Canvas;
-effective restrictions explain their source; and no existing scene/history
-command path changes.
+Acceptance: registry contracts are referentially complete; the context header
+clearly identifies Document, Canvas, Page, Tool, or selection scope; effective
+restrictions explain their source without hiding safe inspection; property
+state labels are non-ambiguous; and no existing scene/history command path
+changes.
