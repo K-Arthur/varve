@@ -28,7 +28,6 @@ export type SectionId =
   | 'corner-radius'
   | 'layout'
   | 'layout-child'
-  | 'constraints'
   | 'appearance'
   | 'mask'
   | 'selection-colors'
@@ -248,7 +247,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   // -- Geometry group --
   {
     id: 'position-size',
-    title: 'Position & Size',
+    title: 'Layout',
     defaultExpanded: true,
     canHide: false,
     essential: true,
@@ -293,16 +292,9 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     category: 'geometry',
     isAvailable: (ctx) => hasNodes(ctx) && !isFrameNode(ctx.selectedNodes),
   },
-  {
-    id: 'constraints',
-    title: 'Constraints',
-    defaultExpanded: false,
-    canHide: true,
-    essential: false,
-    order: 115,
-    category: 'geometry',
-    isAvailable: (ctx) => hasNodes(ctx),
-  },
+  // 'constraints' was merged into 'position-size' (ADR-0230). The id is
+  // deliberately absent from the SectionId union and SECTION_DEFINITIONS.
+  // Stale persisted state is silently dropped by migrateSectionState.
 
   // -- Appearance group --
   {

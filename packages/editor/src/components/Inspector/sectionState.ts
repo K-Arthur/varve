@@ -57,8 +57,12 @@ export function createDefaultSectionState(): SectionVisibilityState {
   return state;
 }
 
-/** Section state schema version for migration. */
-export const SECTION_STATE_VERSION = 1;
+/**
+ * Section state schema version for migration.
+ * v2: Merged 'constraints' into 'position-size' (ADR-0230). Stale id is
+ *     silently dropped from persisted state.
+ */
+export const SECTION_STATE_VERSION = 2;
 
 /** Persisted shape including version for safe migration. */
 export interface PersistedSectionState {
@@ -87,7 +91,9 @@ const LEGACY_SLUG_MAP: Record<string, SectionId> = {
   'position-&-size': 'position-size',
   'corner-radius': 'corner-radius',
   layout: 'layout',
-  constraints: 'constraints',
+  // 'constraints' slug from legacy sessionStorage maps to the merged section.
+  // migrateSectionState drops the retired id, so this is a no-op safety net.
+  constraints: 'position-size',
   appearance: 'appearance',
   mask: 'mask',
   fills: 'fills',
@@ -148,6 +154,9 @@ export function migrateLegacyDisclosureState(
   }
 }
 
+/** IDs retired by ADRs that must be silently dropped during migration. */
+const RETIRED_IDS = new Set(['constraints']);
+
 /** Migrate persisted state from older versions. Unknown IDs are ignored. */
 export function migrateSectionState(
   raw: Record<string, unknown> | undefined | null,
@@ -167,6 +176,8 @@ export function migrateSectionState(
 
   const result = { ...defaults };
   for (const [key, value] of Object.entries(sections)) {
+    // Drop retired section IDs (e.g. 'constraints' merged into 'position-size').
+    if (RETIRED_IDS.has(key)) continue;
     if (key in result && typeof value === 'object' && value !== null) {
       const v = value as Record<string, unknown>;
       const subsections = v.subsections as Record<string, unknown> | undefined;

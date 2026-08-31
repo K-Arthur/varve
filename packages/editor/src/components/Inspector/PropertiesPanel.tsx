@@ -38,7 +38,6 @@ import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AnimationSection } from './sections/AnimationSection';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { ComponentSection } from './sections/ComponentSection';
-import { ConstraintSection } from './sections/ConstraintSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { FillSection } from './sections/FillSection';
 import { IconSection } from './sections/IconSection';
@@ -610,7 +609,6 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       add('mockups', <MockupsSection node={node as import('@varve/scene').FrameNode} />);
     }
     add('position-size', <PositionSizeSection nodes={nodes} />);
-    add('constraints', <ConstraintSection nodes={nodes} />);
     if (!isFrame) add('layout-child', <LayoutChildSection nodes={nodes} />);
     if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} />);
     if (isFrame) add('layout', <LayoutSection node={node as import('@varve/scene').FrameNode} />);

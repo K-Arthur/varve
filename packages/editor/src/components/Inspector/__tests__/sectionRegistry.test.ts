@@ -126,7 +126,7 @@ describe('Section Registry', () => {
   it('getSectionDefinition returns definition for valid ID', () => {
     const def = getSectionDefinition('position-size');
     expect(def).toBeDefined();
-    expect(def?.title).toBe('Position & Size');
+    expect(def?.title).toBe('Layout');
     expect(def?.id).toBe('position-size');
   });
 

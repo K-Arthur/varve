@@ -113,14 +113,7 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Per-axis child sizing and flow/absolute position controls.',
   },
-  constraints: {
-    surface: 'properties',
-    scope: 'mixed-selection',
-    frequency: 'frequent',
-    complexity: 'compact',
-    status: 'functional',
-    rationale: 'Selection-specific responsive behavior.',
-  },
+  // 'constraints' was merged into 'position-size' (ADR-0230).
   appearance: {
     surface: 'properties',
     scope: 'mixed-selection',

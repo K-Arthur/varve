@@ -21,7 +21,6 @@ describe('Inspector feature ownership', () => {
       'component',
       'icon',
       'corner-radius',
-      'constraints',
       'table',
       'table-cells',
       'layout',

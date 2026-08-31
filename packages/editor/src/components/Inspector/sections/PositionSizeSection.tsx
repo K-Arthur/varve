@@ -1,5 +1,6 @@
 /**
- * Position & Size section — X/Y/W/H/Rotation/Flip for the current selection.
+ * Layout section — position, size, rotation, flip, skew, and constraints
+ * for the current selection (ADR-0230: merged Position & Size + Constraints).
  *
  * Multi-select: each axis uses `commonValue`; a differing axis renders the
  * NumberField in its `mixed` state (WCAG 1.4.1 — conveyed as "Mixed values"
@@ -15,10 +16,11 @@
  * Research basis: Figma/Sketch position/size panel with aspect lock.
  */
 
-import type { SceneNode } from '@varve/scene';
+import type { FrameNode, SceneNode } from '@varve/scene';
+import { getParent } from '@varve/scene';
 import { decomposeAffineFull, formatCoordForRuler } from '@varve/shared';
 import { Tooltip, TooltipProvider } from '@varve/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { nodeLocalBounds } from '../../../scene/nodeBounds';
@@ -26,9 +28,25 @@ import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
 import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionState';
+import { ConstraintControls } from './ConstraintSection';
 
 export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
   const editor = useEditor();
+  const doc = editor.state.document;
+
+  // Auto-layout detection: hide constraint controls when ALL selected nodes
+  // are inside auto-layout frames (ADR-0230). Constraints are meaningless
+  // when a parent frame uses flex/grid layout.
+  const parentHasAutoLayout = useMemo(() => {
+    if (nodes.length === 0) return false;
+    return nodes.every((n) => {
+      const parentId = getParent(doc, n.id);
+      if (!parentId) return false;
+      const parent = doc.nodes[parentId];
+      if (parent?.kind !== 'frame') return false;
+      return Boolean((parent as FrameNode).layoutStyle);
+    });
+  }, [nodes, doc]);
   // Default aspect lock ON for image/raster nodes — they should preserve
   // aspect ratio unless the user explicitly unlocks.
   const isImageNode = nodes.some(
@@ -240,7 +258,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
   );
 
   return (
-    <DisclosureSection title="Position & Size" sectionId="position-size">
+    <DisclosureSection title="Layout" sectionId="position-size">
       {useArtboardCoords && (
         <p className="insp-panel__empty-hint">Coordinates shown relative to active artboard</p>
       )}
@@ -480,6 +498,10 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           </Tooltip>
         </TooltipProvider>
       </div>
+      {/* Constraint controls — embedded from the former standalone Constraints
+          section (ADR-0230). Hidden when the parent frame uses auto-layout
+          where constraints are semantically meaningless. */}
+      {!parentHasAutoLayout && <ConstraintControls nodes={nodes} />}
     </DisclosureSection>
   );
 }

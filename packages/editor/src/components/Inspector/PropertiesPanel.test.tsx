@@ -177,7 +177,7 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     await renderPanelWithSelectedRect(true);
 
     expect(screen.getByText(/selection is locked/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Position & Size' }).closest('[inert]')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Layout' }).closest('[inert]')).toBeTruthy();
   });
 
   it('honors section-manager visibility for optional Properties sections', async () => {
