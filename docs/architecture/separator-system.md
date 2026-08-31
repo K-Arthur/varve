@@ -42,6 +42,10 @@ virtualized rows, table/grid rules, state indicators, or surface boundaries.
 Those recipes are more efficient at the container or row level than inserting
 one DOM node per boundary.
 
+Menubar separators are also retained as native `<hr>` elements because their
+keyboard indexing and portal-owned menu behavior belong to the menubar. Their
+visual recipe now uses the shared separator thickness and subtle color tokens.
+
 ## Remaining Work
 
 - Complete representative desktop and browser screenshot capture once the

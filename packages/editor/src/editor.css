@@ -527,9 +527,11 @@ input[type="number"] {
 }
 
 .editor-menubar__menu-sep {
+  height: var(--separator-thickness);
   margin: var(--space-1) 0;
-  border: none;
-  border-top: var(--border-micro);
+  border: 0;
+  background: var(--color-separator-subtle);
+  pointer-events: none;
 }
 
 .editor-menubar__menu-item {
