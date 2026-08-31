@@ -10,8 +10,9 @@ claim that the full Inspector program is complete.
 | Field | Actual value |
 |---|---|
 | Branch | `feat/adjustment-hardening` |
-| Commit | `c1fb91add` (tab slice; context slice is the next scoped commit) |
-| Commit subject | `feat(inspector): make tab navigation metadata-driven and responsive` |
+| Tab slice commit | `c1fb91add` |
+| Context slice commit | `02c2e44b8` |
+| Commit subject | `feat(inspector): derive contextual selection restrictions` |
 | Worktree | `/home/kevina/CodingProjects/varve` |
 | Dirty state | Inspector tab slice plus concurrent Layers work; see `git status --short` at audit time |
 | Package manager | pnpm 11.9.0 |
@@ -28,9 +29,9 @@ claim that the full Inspector program is complete.
 | Selection | Empty in baseline; rectangle workflow exercised by the existing ownership spec |
 
 The branch advanced while the audit was in progress. The prior observed HEAD
-was `8067c472a`; the tab slice is now committed at `c1fb91add`, and the
-derived-context slice is being recorded separately. The concurrent Layers
-files were not rewritten or reverted.
+was `8067c472a`; the tab slice is committed at `c1fb91add` and the derived
+context slice at `02c2e44b8`. The concurrent Layers files were not rewritten
+or reverted.
 
 ## Scope and invariant
 
