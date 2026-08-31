@@ -1,6 +1,6 @@
 import type { ManagedColor } from '@varve/scene';
 import { managedColorToCss } from '@varve/shared';
-import { Dialog, Select, Tooltip } from '@varve/ui';
+import { Dialog, ScrollArea, Select, Tooltip } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import type { MappingMode, MappingResult } from '../intelligence/paletteMapper';
 
@@ -227,7 +227,10 @@ export function PalettePreviewDialog({
                   {mappingResult.mappings.length} mapping
                   {mappingResult.mappings.length === 1 ? '' : 's'}
                 </summary>
-                <div style={{ maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
+                <ScrollArea
+                  viewportClassName="palette-preview-dialog__mappings"
+                  style={{ maxHeight: 200, marginTop: 4 }}
+                >
                   {mappingResult.mappings.map((m) => (
                     <div
                       key={`m-${m.nodeId}-${m.fillIndex}`}
@@ -290,7 +293,7 @@ export function PalettePreviewDialog({
                       )}
                     </div>
                   ))}
-                </div>
+                </ScrollArea>
               </details>
             )}
           </>
