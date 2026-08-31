@@ -99,10 +99,16 @@ const NON_COLOR = `
   /* Component aliases. */
   --panel-padding: clamp(0.70rem, 0.66rem + 0.20vw, 0.90rem);
   --toolbar-height: clamp(2.5rem, 2.4rem + 0.5vw, 3rem);
-  --topbar-height: clamp(2rem, 1.95rem + 0.25vw, 2.25rem);
+  --topbar-height: clamp(2.25rem, 2.15rem + 0.25vw, 2.5rem);
   --statusbar-height: clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem);
   --sidebar-width: clamp(14rem, 12rem + 8vw, 18rem);
   --inspector-width: clamp(15rem, 13rem + 8vw, 20rem);
+
+  /* --- Separator recipes --- */
+  --separator-thickness: 1px;
+  --separator-content-gap: var(--space-3);
+  --separator-inset: var(--space-4);
+  --separator-min-length: var(--space-4);
 
   /* --- Radius --- */
   --radius-sm: 4px;

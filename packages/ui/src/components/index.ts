@@ -130,6 +130,14 @@ export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl'
 export { SegmentedControl } from './SegmentedControl';
 export type { SelectOption, SelectProps } from './Select';
 export { Select } from './Select';
+export type {
+  AnimatedSeparatorProps,
+  SeparatorProps,
+  SeparatorTone,
+  SeparatorVariant,
+  SeparatorWithContentProps,
+} from './Separator';
+export { AnimatedSeparator, Separator, SeparatorWithContent } from './Separator';
 export type { SliderProps } from './Slider';
 export { Slider } from './Slider';
 export type { StartupLoaderProps } from './StartupLoader';

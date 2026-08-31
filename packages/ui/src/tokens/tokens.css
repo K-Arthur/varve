@@ -20,6 +20,10 @@
   --color-text-on-danger: oklch(1 0 0);
   --color-border-subtle: oklch(0.8948 0.0145 254.61);
   --color-border-strong: oklch(0.5699 0.0308 260.28);
+  --color-separator-subtle: oklch(0.8948 0.0145 254.61);
+  --color-separator-default: oklch(0.8948 0.0145 254.61);
+  --color-separator-strong: oklch(0.5699 0.0308 260.28);
+  --color-separator-accent: oklch(0.4452 0.0693 190.9);
   --color-border-focus: oklch(0.5449 0.0866 189.77);
   --color-interactive-default: oklch(0.4452 0.0693 190.9);
   --color-interactive-hover: oklch(0.38 0.0577 191.62);
@@ -159,10 +163,16 @@
   /* Component aliases. */
   --panel-padding: clamp(0.7rem, 0.66rem + 0.2vw, 0.9rem);
   --toolbar-height: clamp(2.5rem, 2.4rem + 0.5vw, 3rem);
-  --topbar-height: clamp(2rem, 1.95rem + 0.25vw, 2.25rem);
+  --topbar-height: clamp(2.25rem, 2.15rem + 0.25vw, 2.5rem);
   --statusbar-height: clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem);
   --sidebar-width: clamp(14rem, 12rem + 8vw, 18rem);
   --inspector-width: clamp(15rem, 13rem + 8vw, 20rem);
+
+  /* --- Separator recipes --- */
+  --separator-thickness: 1px;
+  --separator-content-gap: var(--space-3);
+  --separator-inset: var(--space-4);
+  --separator-min-length: var(--space-4);
 
   /* --- Radius --- */
   --radius-sm: 4px;
@@ -264,6 +274,10 @@
   --color-text-on-danger: oklch(1 0 0);
   --color-border-subtle: oklch(0.3123 0.0293 262.83);
   --color-border-strong: oklch(0.5699 0.0308 260.28);
+  --color-separator-subtle: oklch(0.3123 0.0293 262.83);
+  --color-separator-default: oklch(0.3123 0.0293 262.83);
+  --color-separator-strong: oklch(0.5699 0.0308 260.28);
+  --color-separator-accent: oklch(0.7873 0.1127 186.47);
   --color-border-focus: oklch(0.7873 0.1127 186.47);
   --color-interactive-default: oklch(0.7873 0.1127 186.47);
   --color-interactive-hover: oklch(0.8387 0.0977 187.29);
@@ -370,6 +384,10 @@
   --color-text-on-danger: oklch(0 0 0);
   --color-border-subtle: oklch(1 0 0);
   --color-border-strong: oklch(1 0 0);
+  --color-separator-subtle: oklch(0.55 0 0);
+  --color-separator-default: oklch(1 0 0);
+  --color-separator-strong: oklch(1 0 0);
+  --color-separator-accent: oklch(0.9519 0.2924 111.62);
   --color-border-focus: oklch(0.9519 0.2924 111.62);
   --color-interactive-default: oklch(0.9519 0.2924 111.62);
   --color-interactive-hover: oklch(0.9519 0.2924 111.62);
@@ -478,6 +496,10 @@
     --color-text-on-danger: oklch(1 0 0);
     --color-border-subtle: oklch(0.3123 0.0293 262.83);
     --color-border-strong: oklch(0.5699 0.0308 260.28);
+    --color-separator-subtle: oklch(0.3123 0.0293 262.83);
+    --color-separator-default: oklch(0.3123 0.0293 262.83);
+    --color-separator-strong: oklch(0.5699 0.0308 260.28);
+    --color-separator-accent: oklch(0.7873 0.1127 186.47);
     --color-border-focus: oklch(0.7873 0.1127 186.47);
     --color-interactive-default: oklch(0.7873 0.1127 186.47);
     --color-interactive-hover: oklch(0.8387 0.0977 187.29);
@@ -589,6 +611,10 @@
     --color-text-on-danger: oklch(0 0 0);
     --color-border-subtle: oklch(1 0 0);
     --color-border-strong: oklch(1 0 0);
+    --color-separator-subtle: oklch(0.55 0 0);
+    --color-separator-default: oklch(1 0 0);
+    --color-separator-strong: oklch(1 0 0);
+    --color-separator-accent: oklch(0.9519 0.2924 111.62);
     --color-border-focus: oklch(0.9519 0.2924 111.62);
     --color-interactive-default: oklch(0.9519 0.2924 111.62);
     --color-interactive-hover: oklch(0.9519 0.2924 111.62);

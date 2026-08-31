@@ -178,6 +178,10 @@ export type SemanticToken =
   | 'text-on-danger'
   | 'border-subtle'
   | 'border-strong'
+  | 'separator-subtle'
+  | 'separator-default'
+  | 'separator-strong'
+  | 'separator-accent'
   | 'border-focus'
   | 'interactive-default'
   | 'interactive-hover'
@@ -280,6 +284,10 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'text-on-danger': N(1),
     'border-subtle': N(4),
     'border-strong': N(7),
+    'separator-subtle': N(4),
+    'separator-default': N(4),
+    'separator-strong': N(7),
+    'separator-accent': T(9),
     'border-focus': T(8),
     'interactive-default': T(9),
     'interactive-hover': T(10),
@@ -363,6 +371,10 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'text-on-danger': N(1),
     'border-subtle': N(10),
     'border-strong': N(7),
+    'separator-subtle': N(10),
+    'separator-default': N(10),
+    'separator-strong': N(7),
+    'separator-accent': T(5),
     'border-focus': T(5),
     'interactive-default': T(5),
     'interactive-hover': T(4),
@@ -445,6 +457,10 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'text-on-danger': ok(0.0, 0.0, 0),
     'border-subtle': ok(1.0, 0.0, 0),
     'border-strong': ok(1.0, 0.0, 0),
+    'separator-subtle': ok(0.55, 0.0, 0),
+    'separator-default': ok(1.0, 0.0, 0),
+    'separator-strong': ok(1.0, 0.0, 0),
+    'separator-accent': ok(0.9519, 0.2924, 111.62),
     'border-focus': ok(0.9519, 0.2924, 111.62),
     'interactive-default': ok(0.9519, 0.2924, 111.62),
     'interactive-hover': ok(0.9519, 0.2924, 111.62),
