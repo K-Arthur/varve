@@ -106,6 +106,67 @@ describe('NumberField', () => {
     expect(abortTransaction).not.toHaveBeenCalled();
   });
 
+  it('coalesces a focused wheel gesture into one transaction', () => {
+    vi.useFakeTimers();
+    try {
+      const beginTransaction = vi.fn();
+      const commitTransaction = vi.fn();
+      const abortTransaction = vi.fn();
+      const value = {
+        beginTransaction,
+        commitTransaction,
+        abortTransaction,
+      } as unknown as EditorContextValue;
+      render(
+        <EditorCtx.Provider value={value}>
+          <Holder label="X" initial={10} draftKey="doc:a" />
+        </EditorCtx.Provider>,
+      );
+      const input = screen.getByLabelText('X');
+      (input as HTMLInputElement).focus();
+      fireEvent.wheel(input, { deltaY: -1 });
+      fireEvent.wheel(input, { deltaY: -1 });
+      expect(beginTransaction).toHaveBeenCalledTimes(1);
+      expect(commitTransaction).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(250);
+      expect(commitTransaction).toHaveBeenCalledTimes(1);
+      expect(abortTransaction).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels a wheel transaction when its target scope changes', () => {
+    vi.useFakeTimers();
+    try {
+      const commitTransaction = vi.fn();
+      const abortTransaction = vi.fn();
+      const value = {
+        beginTransaction: vi.fn(),
+        commitTransaction,
+        abortTransaction,
+      } as unknown as EditorContextValue;
+      const view = render(
+        <EditorCtx.Provider value={value}>
+          <NumberField label="X" value={10} draftKey="doc:a" onChange={() => {}} />
+        </EditorCtx.Provider>,
+      );
+      const input = screen.getByLabelText('X');
+      (input as HTMLInputElement).focus();
+      fireEvent.wheel(input, { deltaY: -1 });
+      view.rerender(
+        <EditorCtx.Provider value={value}>
+          <NumberField label="X" value={20} draftKey="doc:b" onChange={() => {}} />
+        </EditorCtx.Provider>,
+      );
+      expect(abortTransaction).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(250);
+      expect(commitTransaction).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('commits a typed number on Enter', () => {
     let val = 100;
     render(<NumberField label="W" value={val} onChange={(v) => (val = v)} />);

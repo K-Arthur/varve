@@ -102,6 +102,11 @@ export function NumberField({
     cleanup: () => void;
   } | null>(null);
   const arrowTransaction = useRef<{ draftKey?: string; cleanup: () => void } | null>(null);
+  const wheelTransaction = useRef<{
+    draftKey?: string;
+    timer: ReturnType<typeof window.setTimeout>;
+    cleanup: () => void;
+  } | null>(null);
   const ctx = useContext(EditorCtx);
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
@@ -139,6 +144,17 @@ export function NumberField({
     else currentContext.commitTransaction();
   }, []);
 
+  const finishWheelTransaction = useCallback((cancel: boolean) => {
+    const session = wheelTransaction.current;
+    if (!session) return;
+    session.cleanup();
+    wheelTransaction.current = null;
+    const currentContext = ctxRef.current;
+    if (!currentContext) return;
+    if (cancel) currentContext.abortTransaction();
+    else currentContext.commitTransaction();
+  }, []);
+
   const finishScrub = useCallback((cancel: boolean) => {
     const session = scrub.current;
     if (!session) return;
@@ -164,9 +180,10 @@ export function NumberField({
   useEffect(
     () => () => {
       finishArrowTransaction(true);
+      finishWheelTransaction(true);
       finishScrub(true);
     },
-    [finishArrowTransaction, finishScrub],
+    [finishArrowTransaction, finishScrub, finishWheelTransaction],
   );
 
   const previousDraftKey = useRef(draftKey);
@@ -174,10 +191,11 @@ export function NumberField({
     if (previousDraftKey.current === draftKey) return;
     previousDraftKey.current = draftKey;
     finishArrowTransaction(true);
+    finishWheelTransaction(true);
     finishScrub(true);
     setDirty(null);
     setError(null);
-  }, [draftKey, finishArrowTransaction, finishScrub]);
+  }, [draftKey, finishArrowTransaction, finishScrub, finishWheelTransaction]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -186,11 +204,15 @@ export function NumberField({
         if (dirty !== null) commit(dirty);
         return;
       }
-      if (e.key === 'Escape' && (dirty !== null || arrowTransaction.current)) {
+      if (
+        e.key === 'Escape' &&
+        (dirty !== null || arrowTransaction.current || wheelTransaction.current)
+      ) {
         e.preventDefault();
         setDirty(null);
         setError(null);
         finishArrowTransaction(true);
+        finishWheelTransaction(true);
         return;
       }
       if (e.key === 'Home' && Number.isFinite(min)) {
@@ -248,6 +270,7 @@ export function NumberField({
       draftKey,
       fieldName,
       finishArrowTransaction,
+      finishWheelTransaction,
       max,
       min,
       onChange,
@@ -319,10 +342,25 @@ export function NumberField({
   const onWheel = useCallback(
     (e: React.WheelEvent<HTMLInputElement>) => {
       if (document.activeElement !== e.currentTarget) return;
+      if (ctx) {
+        const session = wheelTransaction.current;
+        if (!session || session.draftKey !== draftKey) {
+          finishWheelTransaction(true);
+          ctx.beginTransaction();
+          const cleanup = () => window.clearTimeout(wheelTransaction.current?.timer);
+          wheelTransaction.current = { draftKey, timer: 0, cleanup };
+        } else {
+          window.clearTimeout(session.timer);
+        }
+        const currentSession = wheelTransaction.current;
+        if (currentSession) {
+          currentSession.timer = window.setTimeout(() => finishWheelTransaction(false), 250);
+        }
+      }
       const dir = e.deltaY < 0 ? 1 : -1;
       onChange(clamp(value + dir * step));
     },
-    [clamp, onChange, step, value],
+    [clamp, ctx, draftKey, finishWheelTransaction, onChange, step, value],
   );
 
   const ariaNow = visualMixed ? undefined : Math.round(value * 100) / 100;
@@ -372,6 +410,7 @@ export function NumberField({
           }}
           onBlur={() => {
             if (dirty !== null) commit(dirty);
+            finishWheelTransaction(false);
             if (fieldName && ctx?.setFocusedField) ctx.setFocusedField(null);
           }}
           onWheel={onWheel}
