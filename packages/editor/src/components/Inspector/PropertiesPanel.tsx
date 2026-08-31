@@ -35,6 +35,7 @@ import { InspectorContextHeader } from './InspectorContextHeader';
 import { InspectorTabBar } from './InspectorTabBar';
 import { deriveInspectorContext, type InspectorContext } from './inspectorContext';
 import { VariablesPanelDialog } from './panels/VariablesPanelDialog';
+import { describeSelectionRestrictions, type SelectionRestrictionNotice } from './restrictionState';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
 import { SelectionSourcesPanel } from './SelectionSourcesPanel';
 import {
@@ -100,8 +101,15 @@ export function PropertiesPanel() {
   const selNodes = selectedNodes();
   const summary = summarize(selNodes);
   const inspectorContext = useMemo(() => deriveInspectorContext(state), [state]);
-  const hasLockedSelection = inspectorContext.restrictions.effectiveLockedNodeIds.length > 0;
-  const hasHiddenSelection = inspectorContext.restrictions.effectiveHiddenNodeIds.length > 0;
+  const restrictionNotice = useMemo(
+    () =>
+      describeSelectionRestrictions(
+        inspectorContext.restrictions,
+        state.document,
+        inspectorContext.selectedNodeIds.length,
+      ),
+    [inspectorContext.restrictions, inspectorContext.selectedNodeIds.length, state.document],
+  );
   const configuredTabs = useMemo(
     () => getVisibleInspectorTabConfigs(state.workspaceMode, effectiveConfig),
     [state.workspaceMode, effectiveConfig],
@@ -288,7 +296,7 @@ export function PropertiesPanel() {
             <SectionManagerTrigger />
           </div>
           <SelectionSourcesPanel />
-          <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
+          <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'properties'}>
             {summary.kind === 'empty' && <EmptySelectionState context={inspectorContext} />}
             {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
             {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
@@ -299,7 +307,7 @@ export function PropertiesPanel() {
               the DocumentPanel above is the empty-selection surface. */}
           <Suspense fallback={null}>
             {summary.kind !== 'empty' && (
-              <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
+              <SelectionLockGuard restriction={restrictionNotice}>
                 <AppearancePanel />
               </SelectionLockGuard>
             )}
@@ -309,7 +317,7 @@ export function PropertiesPanel() {
                 regardless of selection, collapsed by default. Deep-link
                 requests (openAuditPanel) still reach IntelligencePanel
                 through the request prop. */}
-            <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
+            <SelectionLockGuard restriction={restrictionNotice}>
               <DisclosureSection title="Insights" defaultExpanded={false}>
                 <AuditPanel request={intelRequest} />
               </DisclosureSection>
@@ -323,21 +331,21 @@ export function PropertiesPanel() {
           appearance tab still render correctly. */}
       {tab === 'appearance' && (
         <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
-          <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
+          <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'appearance'}>
             <AppearancePanel />
           </SelectionLockGuard>
         </LazyTabPanel>
       )}
       {tab === 'adjustments' && (
         <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
-          <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
+          <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'adjustments'}>
             <AdjustmentsPanel />
           </SelectionLockGuard>
         </LazyTabPanel>
       )}
       {tab === 'prototype' && (
         <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
-          <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
+          <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'prototype'}>
             <PrototypePanel />
           </SelectionLockGuard>
         </LazyTabPanel>
@@ -463,29 +471,36 @@ function LazyTabPanel({
 }
 
 function SelectionLockGuard({
-  locked,
-  hidden,
+  restriction,
+  showNotice = false,
   children,
 }: {
-  locked: boolean;
-  hidden: boolean;
+  restriction: SelectionRestrictionNotice;
+  showNotice?: boolean;
   children: React.ReactNode;
 }) {
+  const lockMessage = restriction.hasPartialLock
+    ? `${restriction.lockedCount} of ${restriction.totalCount} selected layers are locked. Inspector editing is disabled until all selected layers are unlocked.`
+    : `Selection is locked${restriction.lockSourceLabel ? ` by ${restriction.lockSourceLabel}` : ''}. Unlock it in Layers to edit these controls.`;
+  const hiddenMessage = restriction.hasPartialHidden
+    ? `${restriction.hiddenCount} of ${restriction.totalCount} selected layers are hidden${restriction.visibilitySourceLabel ? ` by ${restriction.visibilitySourceLabel}` : ''}. Changes apply, but canvas feedback is unavailable until they are shown.`
+    : `Selection is hidden${restriction.visibilitySourceLabel ? ` by ${restriction.visibilitySourceLabel}` : ''}. Changes apply, but canvas feedback is unavailable until it is shown.`;
   return (
     <>
-      {locked && (
-        <p className="insp-panel__empty-hint" role="status">
-          Selection is locked. Unlock it in Layers to edit these controls.
+      {showNotice && restriction.locked && (
+        <p className="insp-panel__restriction" role="status" aria-live="polite">
+          {lockMessage}
         </p>
       )}
-      {!locked && hidden && (
-        <p className="insp-panel__empty-hint" role="status">
-          Selection is hidden. Changes apply, but canvas feedback is unavailable until it is shown.
+      {showNotice && restriction.hidden && (
+        <p className="insp-panel__restriction" role="status" aria-live="polite">
+          {hiddenMessage}
         </p>
       )}
       <div
-        aria-disabled={locked || undefined}
-        {...(locked ? ({ inert: true } as Record<string, unknown>) : {})}
+        aria-disabled={restriction.locked || undefined}
+        data-inspector-restriction={restriction.locked ? 'locked' : undefined}
+        {...(restriction.locked ? ({ inert: true } as Record<string, unknown>) : {})}
       >
         {children}
       </div>

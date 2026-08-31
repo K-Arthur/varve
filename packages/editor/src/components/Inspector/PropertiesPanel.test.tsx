@@ -27,13 +27,13 @@ function renderPanel() {
 /** Renders PropertiesPanel with one real rect node selected via the actual
  * editor context (not a mocked useEditor), so section-registry gating runs
  * through its real call path rather than being bypassed by a test double. */
-async function renderPanelWithSelectedRect(locked = false) {
+async function renderPanelWithSelectedRect(locked = false, visible = true) {
   const { createDocument, makeShapeNode, addChild } = await import('@varve/scene');
   let doc = createDocument('selection-test');
   const rect = makeShapeNode(
     'r1',
     { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
-    { name: 'Rect1', transform: [1, 0, 0, 1, 0, 0], locked },
+    { name: 'Rect1', transform: [1, 0, 0, 1, 0, 0], locked, visible },
   );
   doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, rect);
 
@@ -179,6 +179,38 @@ describe('PropertiesPanel section gating for a real single selection', () => {
 
     expect(screen.getByText(/selection is locked/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Layout' }).closest('[inert]')).toBeTruthy();
+  });
+
+  it('explains the full scope when a mixed selection contains a locked node', async () => {
+    const { addChild, createDocument, makeShapeNode } = await import('@varve/scene');
+    let doc = createDocument('partial-lock-test');
+    const rootId = doc.pages?.[0]?.contentRoot as string;
+    const locked = makeShapeNode(
+      'locked',
+      { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      { name: 'Locked shape', locked: true },
+    );
+    const editable = makeShapeNode(
+      'editable',
+      { kind: 'rect', x: 60, y: 0, w: 50, h: 50 },
+      { name: 'Editable shape' },
+    );
+    doc = addChild(doc, rootId, locked);
+    doc = addChild(doc, rootId, editable);
+
+    await renderPanelWithSelectedNodes(JSON.stringify(doc), ['locked', 'editable']);
+
+    expect(screen.getByText(/1 of 2 selected layers are locked/i)).toBeTruthy();
+    expect(screen.getByText(/disabled until all selected layers are unlocked/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Layout' }).closest('[inert]')).toBeTruthy();
+  });
+
+  it('keeps a hidden selection inspectable and explains the missing canvas feedback', async () => {
+    await renderPanelWithSelectedRect(false, false);
+
+    expect(screen.getByText(/selection is hidden by Rect1/i)).toBeTruthy();
+    expect(screen.getByText(/canvas feedback is unavailable/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Layout' }).closest('[inert]')).toBeNull();
   });
 
   it('honors section-manager visibility for optional Properties sections', async () => {

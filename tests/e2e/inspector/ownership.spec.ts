@@ -151,6 +151,25 @@ test.describe('Inspector feature ownership', () => {
     });
   });
 
+  test('locked selection stays inspectable with a source-aware restriction notice', async ({
+    page,
+  }) => {
+    await seedLayers(page, 1);
+    const row = page.locator('[role="treeitem"][data-layer-type="shape"]').first();
+    await row.click();
+    const lock = row.locator('.layers-row__toggle--locked-off');
+    await expect(lock).toBeVisible();
+    await lock.click();
+
+    await expect(row.locator('.layers-row__toggle--locked-on')).toBeVisible();
+    await expect(page.getByText(/selection is locked/i)).toBeVisible();
+    await expect(page.locator('[data-inspector-restriction="locked"]').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Layout', exact: true })).toBeVisible();
+    await expect(page.locator('.editor-inspector')).toHaveScreenshot('locked-properties.png', {
+      animations: 'disabled',
+    });
+  });
+
   test('brush behavior opens from Tool Options instead of Properties', async ({ page }) => {
     await page.getByRole('radio', { name: 'Draw workspace' }).click();
     await page.locator('canvas.editor-canvas__content-layer').focus();
