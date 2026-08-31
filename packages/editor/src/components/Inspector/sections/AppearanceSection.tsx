@@ -10,11 +10,16 @@
 import type { BlendMode } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
 import { Select } from '@varve/ui';
+import { useRef } from 'react';
 import { useEditor } from '../../../context';
+import { docVariableStore } from '../../../docVariableStore';
 import { EffectStudioLauncher } from '../../EffectStudio/EffectStudioLauncher';
+import { deriveNumericBindingPresentation } from '../boundPropertyState';
+import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
+import { classifySelectionProperty } from '../propertyState';
 import { commonValue, isMixed } from '../selection/selectionState';
 
 const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
@@ -37,22 +42,53 @@ const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
 ];
 
 export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
-  const { setSelectedOpacity, setSelectedBlendMode } = useEditor();
+  const editor = useEditor();
+  const { setSelectedOpacity, setSelectedBlendMode } = editor;
 
   const opacityRaw = commonValue(nodes, (n) => n.opacity ?? 1);
+  const opacityValues = nodes.map((n) => n.opacity ?? 1);
+  const opacityBinding = deriveNumericBindingPresentation(
+    nodes,
+    'opacity',
+    opacityValues,
+    docVariableStore(editor.state.document),
+  );
+  const opacityState = opacityBinding?.state ?? classifySelectionProperty(opacityValues);
   const blendRaw = commonValue(nodes, (n) => n.blendMode ?? 'normal');
+  const bindingTriggerRef = useRef<HTMLDivElement>(null);
 
   return (
     <DisclosureSection title="Appearance" sectionId="appearance">
-      <NumberField
-        label="Opacity"
-        value={isMixed(opacityRaw) ? 1 : opacityRaw}
-        mixed={isMixed(opacityRaw)}
-        step={0.01}
-        min={0}
-        max={1}
-        onChange={setSelectedOpacity}
-      />
+      <div ref={bindingTriggerRef} className="insp-field" style={{ position: 'relative' }}>
+        <NumberField
+          label="Opacity"
+          value={opacityBinding?.value ?? (isMixed(opacityRaw) ? 1 : opacityRaw)}
+          mixed={opacityState.kind === 'mixed'}
+          propertyState={opacityState}
+          readOnly={opacityBinding?.readOnly ?? false}
+          bindingLabel={opacityBinding?.sourceLabel}
+          onUnbind={opacityBinding ? () => editor.setSelectedBinding('opacity', null) : undefined}
+          step={0.01}
+          min={0}
+          max={1}
+          onChange={setSelectedOpacity}
+          fieldName="opacity"
+          onShiftClick={() => editor.setBindingField('opacity')}
+        />
+        {editor.bindingField === 'opacity' && (
+          <BindingMenu
+            variableStore={docVariableStore(editor.state.document)}
+            targetType="number"
+            targetField="opacity"
+            onBind={(variableId, expression) => {
+              editor.setSelectedBinding('opacity', { variableId, expression });
+              editor.setBindingField(null);
+            }}
+            onClose={() => editor.setBindingField(null)}
+            triggerRef={bindingTriggerRef}
+          />
+        )}
+      </div>
       <FieldRow label="Blend mode">
         <Select
           label="Blend mode"

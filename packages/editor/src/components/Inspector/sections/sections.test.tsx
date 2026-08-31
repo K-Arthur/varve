@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { addChild, createDocument, makeShapeNode, type VariableStore } from '@varve/scene';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EditorProvider } from '../../../context';
 import { AppearanceSection } from './AppearanceSection';
@@ -31,6 +32,41 @@ function createRectNode(id: string, overrides: Record<string, unknown> = {}) {
 
 function renderWithProvider(element: React.ReactElement) {
   return render(<EditorProvider>{element}</EditorProvider>);
+}
+
+function boundOpacityDocument() {
+  const document = createDocument('bound opacity');
+  const rootId = document.pages?.[0]?.contentRoot as string;
+  const node = makeShapeNode('opacity-bound-rect', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 });
+  let next = addChild(document, rootId, node);
+  const variableStore: VariableStore = {
+    variables: {
+      opacity: {
+        id: 'opacity',
+        name: 'Card opacity',
+        type: 'number',
+        valuesByMode: { default: 0.4 },
+      },
+    },
+    collections: {},
+    activeCollectionId: '',
+    modes: ['default'],
+    activeMode: 'default',
+  };
+  const boundNode = next.nodes[node.id];
+  if (!boundNode) throw new Error('bound opacity fixture node was not added');
+  next = {
+    ...next,
+    variableStore,
+    nodes: {
+      ...next.nodes,
+      [node.id]: { ...next.nodes[node.id], bindings: { opacity: { variableId: 'opacity' } } },
+    },
+  };
+  return {
+    document: next,
+    node: { ...boundNode, bindings: { opacity: { variableId: 'opacity' } } },
+  };
 }
 
 function createTextNode(id: string, overrides: Record<string, unknown> = {}) {
@@ -124,6 +160,21 @@ describe('AppearanceSection', () => {
     renderWithProvider(<AppearanceSection nodes={[nodeA, nodeB]} />);
     const input = screen.getByLabelText('Opacity') as HTMLInputElement;
     expect(input.getAttribute('aria-valuetext')).toBe('Mixed values');
+  });
+
+  it('keeps variable-bound opacity readable and exposes its source', () => {
+    const fixture = boundOpacityDocument();
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(fixture.document)}>
+        <AppearanceSection nodes={[fixture.node]} />
+      </EditorProvider>,
+    );
+
+    const input = screen.getByLabelText('Opacity') as HTMLInputElement;
+    expect(input).toHaveValue('0.4');
+    expect(input).toHaveAttribute('aria-readonly', 'true');
+    expect(screen.getByRole('status', { name: /bound to variable: card opacity/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Unbind variable Card opacity' })).toBeTruthy();
   });
 });
 
