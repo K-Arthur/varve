@@ -19,7 +19,9 @@ claim that the full Inspector program is complete.
 | Numeric wheel lifecycle slice | `28fec396c` (`fix(inspector): coalesce numeric wheel edits`) |
 | Section ordering slice | `cfeca8ad9` (`feat(inspector): expose safe section ordering`) |
 | Source-aware numeric binding slice | `4efa17279` (landed in a concurrent workspace-dock commit; Inspector files are present, but the commit is not Inspector-only) |
-| Current HEAD | `9b3128d0776b18a6fe985e2484c56fbc391750a0` (`fix(editor): use compact corners for workspace dock`) |
+| Source-aware opacity slice | `694ce7b4f` (`feat(inspector): expose source-aware opacity state`) |
+| Opacity DOM-budget fix | `e0084ec8b` (`fix(inspector): avoid nested opacity field wrapper`) |
+| Current HEAD | `e0084ec8b56ce7fa822c1d9e0e30709fafe87941` (`fix(inspector): avoid nested opacity field wrapper`) |
 | Worktree | `/home/kevina/CodingProjects/varve` |
 | Dirty state | Concurrent docs, editor/canvas, layers, home, engine, and UI overlay work remains unstaged; the source-aware Inspector slice is committed at `4efa17279` together with unrelated workspace-dock files |
 | Package manager | pnpm 11.9.0 |
@@ -41,6 +43,8 @@ restriction, wheel, ordering, and source-aware numeric slices. The concurrent
 workspace-dock and other dirty files were not rewritten or reverted. The
 source-aware slice landed inside `4efa17279`; that mixed commit is recorded
 explicitly so its Inspector changes are not mistaken for an isolated commit.
+The opacity integration and its DOM-budget repair were then committed
+progressively as `694ce7b4f` and `e0084ec8b`.
 
 ## Scope and invariant
 
@@ -161,6 +165,8 @@ The five highest-impact root causes are:
 | E27 | Unit | `NumberField.test.tsx` | Focused wheel edits coalesce into one transaction; changing the draft target aborts the pending wheel transaction; 22 NumberField tests pass | High |
 | E28 | Unit + E2E + screenshot | `sectionOrdering.test.ts`, `SectionManagerTrigger.test.tsx`, `ownership.spec.ts`, and `section-manager-chromium-linux.png` | Reorder helpers handle both relative directions correctly; the manager exposes stable per-surface up/down controls and Reset order; Chromium workflow passed and screenshot was manually inspected | High for Chromium |
 | E29 | Unit + E2E + screenshot | `boundPropertyState.test.ts`, `NumberField.test.tsx`, `ownership.spec.ts`, and `bound-property-field-chromium-linux.png` | X/Y variable-bound geometry resolves its source, remains readable and read-only, blocks bound batch edits, reports missing sources, and provides an explicit unbind recovery path; two isolated Chromium runs passed and the field screenshot was manually inspected | High for Chromium |
+| E30 | Unit | `sections.test.tsx` AppearanceSection binding fixture | Variable-bound opacity resolves from the document store, exposes `aria-readonly`, source status, and unbind affordance without changing Appearance ownership | High |
+| E31 | Chromium + visual inspection | `VARVE_E2E_PORT=1506 ... ownership.spec.ts -g "common shape stays"` and `test-results/run-3414336-1507/.../rectangle-properties-actual.png` | DOM budget caught one redundant wrapper (341 vs 340); after removal the budget passed and the opened screenshot showed intact hierarchy/alignment. The final run hit only the known 311×597 vs 311×600 capture-height variance; no baseline was changed | High for Chromium |
 
 ## Current-state feature ownership matrix
 
@@ -669,6 +675,9 @@ pointer capture or IME composition.
 | `Inspector/controls/NumberField.tsx`, `Inspector/inspector.css` | Adds readable bound-state presentation, source chip, unbind affordance, read-only guards, and accessible state text | Keeps a bound value inspectable and prevents accidental literal edits |
 | `Inspector/sections/PositionSizeSection.tsx` | Wires the source-aware path to X/Y while retaining the canonical `setSelectedBinding` command | Delivers a small, high-frequency vertical slice without moving controls or changing history ownership |
 | `Inspector/boundPropertyState.test.ts`, `NumberField.test.tsx`, `tests/e2e/inspector/ownership.spec.ts` | Covers resolved, expression, missing-source, mixed-bound, read-only, unbind, and browser visual behavior | Protects the binding path and its recovery affordance |
+| `Inspector/sections/AppearanceSection.tsx` | Applies the same source-aware numeric presentation to opacity, adds an explicit opacity binding entry point, and preserves the existing Appearance section and `setSelectedOpacity` command | Extends state consistency to a second high-frequency numeric property without moving controls |
+| `Inspector/controls/NumberField.tsx` | Accepts a ref on its existing root so binding popovers do not require an extra wrapper node | Preserves DOM budget, field semantics, and popover anchoring |
+| `Inspector/sections/sections.test.tsx` | Adds a document-backed variable-bound opacity integration fixture | Verifies the second control family at component level |
 
 ## Verification and baseline
 
