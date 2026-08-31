@@ -1,4 +1,9 @@
-// COMPLEXITY: 220 cyclo — see docs/plans/architecture-health-remediation-2026-07-26.md
+// COMPLEXITY: ~103 branch constructs (was 220) — see
+// docs/plans/architecture-health-remediation-2026-07-26.md. Keyboard
+// navigation lives in useTreeKeyboardNavigation.ts and the virtual row in
+// SortableVirtualRow.tsx; next reduction: split the auto-reveal and
+// search-index effects into dedicated hooks.
+
 /**
  * LayersTree — virtualized APG Tree View with full keyboard navigation,
  * multi-select, expand/collapse, and type-ahead.
@@ -18,15 +23,18 @@
  * DndContext is provided by the parent (Shell) for cross-panel drag support.
  * This component manages SortableContext and exposes DnD handlers via ref.
  *
+ * Keyboard navigation lives in useTreeKeyboardNavigation.ts;
+ * SortableVirtualRow lives in SortableVirtualRow.tsx.
+ *
  * Research basis: W3C APG Tree View pattern, @tanstack/react-virtual,
  * WICG virtual-scroller principles.
  */
 
 import type { DragEndEvent, DragMoveEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
-import type { ContainerNode, Document, NodeId } from '@varve/scene';
-import { getInstanceStatus, getKeyframeCount, getNodesInTimeline, isContainer } from '@varve/scene';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import type { Document, NodeId } from '@varve/scene';
+import { getKeyframeCount, getNodesInTimeline, isContainer } from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import type React from 'react';
 import {
@@ -39,7 +47,6 @@ import {
   useState,
 } from 'react';
 import { setInvalidateThumbnailHandler, useEditor } from '../../context';
-import type { DragNodeData } from '../../dnd-types';
 import {
   getOrCreateParentCache,
   getParentFast,
@@ -48,9 +55,7 @@ import {
 } from '../../scene/parentIndexCache';
 import { resolvePrimarySelectionId } from '../../selection/selectionContext';
 import { loadSettings } from '../../settings';
-import { useEffectStackDrag } from '../Shell/effectStackDragContext';
-import { LayersRow } from './LayersRow';
-import { type LayerDropTarget, resolveRootLevelSiblings } from './layerDropResolver';
+import type { LayerDropTarget } from './layerDropResolver';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
 import {
@@ -60,12 +65,13 @@ import {
   searchIndex,
   updateIndex,
 } from './layerSearchIndex';
-import { usePresence } from './presenceStore';
+import { SortableVirtualRow } from './SortableVirtualRow';
 import { computeDocumentDiff, type FlatEntry, useFlatTree } from './useFlatTree';
 import { useLayerNavigation } from './useLayerNavigation';
 import { useLayersDnD } from './useLayersDnD';
 import { sharedThumbnailCache } from './useThumbnail';
 import { useTreeFocus } from './useTreeFocus';
+import { useTreeKeyboardNavigation } from './useTreeKeyboardNavigation';
 import { useTypeAhead } from './useTypeAhead';
 
 // ── Expand/Collapse utilities ───────────────────────────────────────────
@@ -333,6 +339,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     copyEffectStackToNodes,
     announce,
     revealSelection,
+    setSelection,
+    setInspectorTab,
+    showInspectorSection,
+    toggleSectionCollapse,
     beginTransaction,
     commitTransaction,
     exitIsolation,
@@ -434,6 +444,33 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       );
     },
     [copyEffectStackToNodes, state.selection],
+  );
+  const handleOpenEffectStack = useCallback(
+    (id: NodeId, kind: import('@varve/scene').EffectStackKind) => {
+      const sectionId = kind === 'layer-effects' ? 'effects' : 'smart-filters';
+      setSelection(id, 'layers');
+      setInspectorTab('appearance');
+      const section = state.sectionVisibility[sectionId];
+      if (section?.hidden) {
+        showInspectorSection(sectionId);
+      } else if (section?.collapsed) {
+        toggleSectionCollapse(sectionId);
+      }
+    },
+    [
+      setInspectorTab,
+      setSelection,
+      showInspectorSection,
+      state.sectionVisibility,
+      toggleSectionCollapse,
+    ],
+  );
+  const handleOpenAdjustment = useCallback(
+    (id: NodeId) => {
+      setSelection(id, 'layers');
+      setInspectorTab('adjustments');
+    },
+    [setInspectorTab, setSelection],
   );
   const primarySelectionId = useMemo(
     () => resolvePrimarySelectionId(state.document, state.selection, state.primaryId),
@@ -766,231 +803,29 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     [entries, focusIdx],
   );
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
-        e.preventDefault();
-        const focused = entries[focusIdx];
-        if (focused) {
-          onContextMenuKeyboard?.(focused.node.id);
-        }
-        return;
-      }
-
-      // Escape exits isolation/focus view regardless of filter state.
-      if (e.key === 'Escape' && state.isolatedNodeId) {
-        e.preventDefault();
-        exitIsolation();
-        return;
-      }
-
-      if (entries.length === 0) return;
-
-      const focusedNode = entries[focusIdx]?.node;
-
-      // Shift+Arrow: extend selection
-      if (e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-        e.preventDefault();
-        const delta = e.key === 'ArrowDown' ? 1 : -1;
-        const next = Math.max(0, Math.min(focusIdx + delta, entries.length - 1));
-        setFocusIdx(next);
-        const nextEntry = entries[next];
-        if (!nextEntry) throw new Error('next entry not found');
-        toggleSelection(nextEntry.node.id, true, 'layers');
-        virtualizer.scrollToIndex(next, { align: 'auto' });
-        return;
-      }
-
-      // Arrow navigation
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        doKeyboardMove(1);
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        doKeyboardMove(-1);
-        return;
-      }
-
-      // Right arrow: expand or step into children
-      if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        if (focusedNode && isContainer(focusedNode)) {
-          if (expanded.has(focusedNode.id)) {
-            // Step into first child
-            const childId = focusedNode.children[0];
-            if (childId) {
-              const childIdx = entries.findIndex((e) => e.node.id === childId);
-              if (childIdx >= 0) {
-                setFocusIdx(childIdx);
-                toggleSelection(childId, false, 'layers');
-                setAnchorIdx(childIdx);
-                virtualizer.scrollToIndex(childIdx, { align: 'auto' });
-              }
-            }
-          } else {
-            toggleExpand(focusedNode.id);
-          }
-        }
-        return;
-      }
-
-      // Left arrow: collapse or step to parent
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        if (focusedNode && isContainer(focusedNode) && expanded.has(focusedNode.id)) {
-          toggleExpand(focusedNode.id);
-        } else if (focusedNode) {
-          const parentId = entries[focusIdx]?.parentId;
-          if (parentId) {
-            const parentIdx = entries.findIndex((e) => e.node.id === parentId);
-            if (parentIdx >= 0) {
-              setFocusIdx(parentIdx);
-              toggleSelection(parentId, false, 'layers');
-              setAnchorIdx(parentIdx);
-              virtualizer.scrollToIndex(parentIdx, { align: 'auto' });
-            }
-          }
-        }
-        return;
-      }
-
-      // Home/End
-      if (e.key === 'Home') {
-        e.preventDefault();
-        jumpToStart();
-        const homeEntry = entries[0];
-        if (!homeEntry) throw new Error('home entry not found');
-        toggleSelection(homeEntry.node.id, false, 'layers');
-        setAnchorIdx(0);
-        virtualizer.scrollToIndex(0, { align: 'start' });
-        return;
-      }
-      if (e.key === 'End') {
-        e.preventDefault();
-        jumpToEnd(entries.length);
-        const endEntry = entries[entries.length - 1];
-        if (!endEntry) throw new Error('end entry not found');
-        toggleSelection(endEntry.node.id, false, 'layers');
-        setAnchorIdx(entries.length - 1);
-        virtualizer.scrollToIndex(entries.length - 1, { align: 'end' });
-        return;
-      }
-
-      // Enter
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        if (focusedNode) {
-          toggleSelection(focusedNode.id, false, 'layers');
-          setAnchorIdx(focusIdx);
-        }
-        return;
-      }
-
-      // Space: toggle selection
-      if (e.key === ' ') {
-        e.preventDefault();
-        if (focusedNode) {
-          toggleSelection(focusedNode.id, true, 'layers');
-        }
-        return;
-      }
-
-      // Ctrl+A: select all
-      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-        e.preventDefault();
-        selectAll();
-        return;
-      }
-
-      // F2: rename
-      if (e.key === 'F2') {
-        e.preventDefault();
-        if (focusedNode) {
-          setRenamingId(focusedNode.id);
-        }
-        return;
-      }
-
-      // Keyboard reorder: Ctrl+[ move up (visually, toward front-most),
-      // Ctrl+] move down (visually, toward back-most).
-      if ((e.ctrlKey || e.metaKey) && (e.key === '[' || e.key === ']')) {
-        e.preventDefault();
-        const focusEntry = entries[focusIdx];
-        if (!focusEntry) return;
-        const parentId = focusEntry.parentId;
-        const doc = state.document;
-        const designCanvasId =
-          state.workspaceMode !== 'print' ? state.document.activeDesignCanvasId : undefined;
-        const siblings = parentId
-          ? ((doc.nodes[parentId] as ContainerNode | undefined)?.children ??
-            resolveRootLevelSiblings(doc, designCanvasId))
-          : resolveRootLevelSiblings(doc, designCanvasId);
-        const myIdx = siblings.indexOf(focusEntry.node.id);
-        if (myIdx < 0) return;
-        // `entries` (panel/visual order) is front-most-first, the reverse of
-        // `siblings` (raw document array, back-to-front) — see
-        // computeMultiMoveSteps above. Moving "up" visually means moving
-        // toward the *end* of the raw array, so the array-index delta is the
-        // negation of the visual delta.
-        const visualDelta = e.key === '[' ? -1 : 1;
-        const rawDelta = -visualDelta;
-        const newIdx = myIdx + rawDelta;
-        if (newIdx < 0 || newIdx >= siblings.length) return;
-        reparentNode(focusEntry.node.id, parentId, newIdx);
-        const siblingId = siblings[newIdx];
-        if (!siblingId) throw new Error('sibling not found');
-        const otherNode = doc.nodes[siblingId];
-        announce(
-          visualDelta < 0
-            ? `Moved ${focusEntry.node.name} above ${otherNode?.name || ''}`
-            : `Moved ${focusEntry.node.name} below ${otherNode?.name || ''}`,
-        );
-        return;
-      }
-
-      // Type-ahead: single character
-      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-        const matchIdx = handleTypeAhead(
-          e.key,
-          (i) => entries[i]?.node.name ?? '',
-          focusIdx,
-          entries.length,
-        );
-        if (matchIdx !== null) {
-          setFocusIdx(matchIdx);
-          const matchEntry = entries[matchIdx];
-          if (!matchEntry) throw new Error('match entry not found');
-          toggleSelection(matchEntry.node.id, false, 'layers');
-          setAnchorIdx(matchIdx);
-          virtualizer.scrollToIndex(matchIdx, { align: 'auto' });
-        }
-      }
-    },
-    [
-      entries,
-      focusIdx,
-      expanded,
-      state.document,
-      state.isolatedNodeId,
-      exitIsolation,
-      doKeyboardMove,
-      toggleExpand,
-      toggleSelection,
-      setFocusIdx,
-      setAnchorIdx,
-      jumpToStart,
-      jumpToEnd,
-      selectAll,
-      handleTypeAhead,
-      handleRename,
-      reparentNode,
-      announce,
-      virtualizer,
-      onContextMenuKeyboard,
-    ],
-  );
+  const { handleKeyDown } = useTreeKeyboardNavigation({
+    entries,
+    focusIdx,
+    expanded,
+    doc: state.document,
+    isolatedNodeId: state.isolatedNodeId,
+    workspaceMode: state.workspaceMode,
+    exitIsolation,
+    doKeyboardMove,
+    toggleExpand,
+    toggleSelection,
+    setFocusIdx,
+    setAnchorIdx,
+    jumpToStart,
+    jumpToEnd,
+    selectAll,
+    handleTypeAhead,
+    handleRename,
+    reparentNode,
+    announce,
+    virtualizer,
+    onContextMenuKeyboard,
+  });
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
@@ -1261,6 +1096,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                 rowRefs={rowRefs}
                 selectedIds={selectedIdSet}
                 onCopyEffectStack={handleCopyEffectStack}
+                onOpenEffectStack={handleOpenEffectStack}
+                onOpenAdjustment={handleOpenAdjustment}
               />
             );
           })}
@@ -1279,214 +1116,3 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     </div>
   );
 });
-
-interface SortableVirtualRowProps {
-  node: import('@varve/scene').SceneNode;
-  depth: number;
-  selected: boolean;
-  focused: boolean;
-  expanded: boolean;
-  editing: boolean;
-  virtualItem: import('@tanstack/react-virtual').VirtualItem;
-  virtualizer: Virtualizer<HTMLDivElement, Element>;
-  dropClass: string;
-  /** True while the drop preview targets a clipping mask source row — the
-   *  row shows a "clip" hint so the user sees the resulting relationship
-   *  before releasing the pointer. */
-  dropClip: boolean;
-  hasMotion: boolean;
-  keyframeCount: number;
-  maskRole?: 'source' | 'content';
-  onToggleExpand: (id: NodeId) => void;
-  onExpandSubtree: (id: NodeId) => void;
-  onCollapseSubtree: (id: NodeId) => void;
-  onExpandToDepth1: (id: NodeId) => void;
-  onSelect: (id: NodeId, shift: boolean, ctrl: boolean) => void;
-  onRename: (id: NodeId, name: string) => void;
-  onRenameStart: (id: NodeId) => void;
-  onRenameCommit: () => void;
-  onRenameCancel: () => void;
-  onRenameCycle?: (direction: 'next' | 'previous') => void;
-  onToggleVisibility: (id: NodeId) => void;
-  onToggleLock: (id: NodeId) => void;
-  onToggleSolo?: (id: NodeId) => void;
-  onToggleSelectionCheckbox?: (id: NodeId) => void;
-  onFocus: (idx: number) => void;
-  idx: number;
-  siblingIndex?: number;
-  siblingCount?: number;
-  /** Shared map of currently-mounted row elements, keyed by node id — used by
-   * the parent's DnD handlers to resolve a row's rect for drop-zone math. */
-  rowRefs: React.MutableRefObject<Map<NodeId, HTMLDivElement>>;
-  selectedIds?: Set<NodeId>;
-  onCopyEffectStack: (
-    sourceId: NodeId,
-    kind: import('@varve/scene').EffectStackKind,
-    mode?: import('@varve/scene').EffectStackTransferMode,
-  ) => void;
-}
-
-function SortableVirtualRow({
-  node,
-  depth,
-  selected,
-  focused,
-  expanded,
-  editing,
-  virtualItem,
-  virtualizer,
-  dropClass,
-  dropClip,
-  hasMotion,
-  keyframeCount,
-  maskRole,
-  onToggleExpand,
-  onExpandSubtree,
-  onCollapseSubtree,
-  onExpandToDepth1,
-  onSelect,
-  onRename,
-  onRenameStart,
-  onRenameCommit,
-  onRenameCancel,
-  onRenameCycle,
-  onToggleVisibility,
-  onToggleLock,
-  onToggleSolo,
-  onToggleSelectionCheckbox,
-  onFocus,
-  idx,
-  siblingIndex,
-  siblingCount,
-  rowRefs,
-  selectedIds,
-  onCopyEffectStack,
-}: SortableVirtualRowProps) {
-  const totalRows = virtualizer.options.count;
-  const { state: editorState, revealSelection } = useEditor();
-  const effectStackDrag = useEffectStackDrag();
-  const presences = usePresence(node.id);
-  const {
-    attributes,
-    listeners,
-    setNodeRef: setSortableRef,
-    isDragging,
-  } = useSortable({
-    id: node.id,
-    data: {
-      type: 'layer',
-      nodeId: node.id,
-      parentId: null, // resolved at drop time
-    } satisfies DragNodeData,
-  });
-  const effectStackDrop =
-    effectStackDrag?.targetId === node.id
-      ? {
-          sourceId: effectStackDrag.sourceId,
-          kind: effectStackDrag.stackKind,
-          mode: effectStackDrag.transferMode,
-        }
-      : undefined;
-
-  // Resolve variant name for component instances
-  const variantName =
-    node.kind === 'frame' && node.componentId && node.variant
-      ? (() => {
-          const comp = editorState.document.components[node.componentId];
-          if (!comp?.variants) return undefined;
-          const v = comp.variants.find((v) => v.id === node.variant);
-          return v?.name;
-        })()
-      : undefined;
-
-  // Resolve sync status for component instances
-  const syncStatus: import('@varve/scene').InstanceStatus | undefined =
-    node.kind === 'frame' && node.componentId
-      ? (() => {
-          try {
-            return getInstanceStatus(editorState.document, node.id);
-          } catch {
-            return undefined;
-          }
-        })()
-      : undefined;
-
-  const style = {
-    position: 'absolute' as const,
-    top: 0,
-    left: 0,
-    width: '100%',
-    // A sortable transform assumes every item has a stable DOM rectangle.
-    // Virtual rows do not: applying both transforms makes the visible row and
-    // the hit-tested row diverge during scroll and mount/unmount.
-    transform: `translateY(${virtualItem.start}px)`,
-    transition: 'none',
-    opacity: isDragging ? 0.3 : undefined,
-  };
-
-  return (
-    <div
-      ref={(el) => {
-        setSortableRef(el);
-        virtualizer.measureElement(el);
-        // This div is just the virtualizer's absolute-positioned wrapper —
-        // it has no tabIndex and can't receive focus. The focusable
-        // role="treeitem" element (LayersRow's root) is its direct child;
-        // that's what roving-tabindex focus management needs a handle to.
-        const row = el?.querySelector<HTMLDivElement>('[role="treeitem"]');
-        if (row) rowRefs.current.set(node.id, row);
-        else rowRefs.current.delete(node.id);
-      }}
-      data-index={virtualItem.index}
-      style={style}
-      className={dropClass}
-    >
-      {dropClip ? (
-        <span className="layers-row__clip-hint" role="status">
-          Clip to {node.name}
-        </span>
-      ) : null}
-      <LayersRow
-        node={node}
-        doc={editorState.document}
-        depth={depth}
-        selected={selected}
-        focused={focused}
-        expanded={expanded}
-        editing={editing}
-        onRenameStart={onRenameStart}
-        onToggleExpand={onToggleExpand}
-        onExpandSubtree={onExpandSubtree}
-        onCollapseSubtree={onCollapseSubtree}
-        onExpandToDepth1={onExpandToDepth1}
-        onSelect={onSelect}
-        onRename={onRename}
-        onRenameCommit={onRenameCommit}
-        onRenameCancel={onRenameCancel}
-        onRenameCycle={onRenameCycle}
-        onToggleVisibility={onToggleVisibility}
-        onToggleLock={onToggleLock}
-        onToggleSolo={onToggleSolo}
-        onToggleSelectionCheckbox={onToggleSelectionCheckbox}
-        onFocus={onFocus}
-        idx={idx}
-        totalRows={totalRows}
-        siblingIndex={siblingIndex}
-        siblingCount={siblingCount}
-        dragListeners={isDragging ? undefined : listeners}
-        dragAttributes={isDragging ? undefined : attributes}
-        variantName={variantName}
-        hasMotion={hasMotion}
-        keyframeCount={keyframeCount}
-        maskRole={maskRole}
-        syncStatus={syncStatus}
-        presences={presences}
-        docId={editorState.document.id}
-        onDoubleClickIcon={(id) => revealSelection({ nodeId: id, fit: true })}
-        selectedIds={selectedIds}
-        onCopyEffectStack={onCopyEffectStack}
-        effectStackDrop={effectStackDrop}
-      />
-    </div>
-  );
-}
