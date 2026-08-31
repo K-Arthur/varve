@@ -298,7 +298,7 @@ test.describe('Image Tuning', () => {
     await rectangle.click();
 
     const inspector = page.locator('.editor__inspector-panel');
-    await inspector.getByRole('tab', { name: 'Properties', exact: true }).click();
+    await inspector.getByRole('tab', { name: 'Design', exact: true }).click();
     const appearance = inspector.getByRole('button', { name: 'Appearance', exact: true });
     await expect(appearance).toBeVisible();
     if ((await appearance.getAttribute('aria-expanded')) !== 'true') await appearance.click();
@@ -309,7 +309,7 @@ test.describe('Image Tuning', () => {
     await opacity.press('Enter');
     await expect(opacity).toHaveValue('0.5');
 
-    await inspector.getByRole('tab', { name: 'Appearance', exact: true }).click();
+    await inspector.getByRole('tab', { name: 'Design', exact: true }).click();
     const objectFilters = inspector.getByRole('button', { name: 'Object Filters', exact: true });
     await expect(objectFilters).toBeVisible();
     if ((await objectFilters.getAttribute('aria-expanded')) !== 'true') await objectFilters.click();
@@ -331,7 +331,7 @@ test.describe('Image Tuning', () => {
     const beforePixels = await canvasPixelFingerprint(page);
     await actions.getByRole('button', { name: 'Add Grain object filter', exact: true }).click();
     await expect(inspector.locator('.smart-filters__row')).toContainText('Grain');
-    await inspector.getByRole('tab', { name: 'Properties', exact: true }).click();
+    await inspector.getByRole('tab', { name: 'Design', exact: true }).click();
     const propertiesAppearance = inspector.getByRole('button', { name: 'Appearance', exact: true });
     if ((await propertiesAppearance.getAttribute('aria-expanded')) !== 'true') {
       await propertiesAppearance.click();

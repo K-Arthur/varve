@@ -54,7 +54,7 @@ test('imports an animated GIF, plays, and scrubs frames', async ({ page }) => {
   // inspector panel must be mounted — Design workspace default; a detached
   // panel is tolerated as an app-shell concern, not a media regression)
   await row.click();
-  const propsTab = page.getByRole('tab', { name: 'Properties' });
+  const propsTab = page.getByRole('tab', { name: 'Design' });
   if (await propsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
     await propsTab.click();
     const animationSection = page.locator('.animation-section');

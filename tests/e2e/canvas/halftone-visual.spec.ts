@@ -656,7 +656,7 @@ test.describe('Halftone visual verification', () => {
 
     // Color Halftone is a creative object-local treatment, so it belongs in
     // the Object Filter stack rather than an Adjustment Layer correction.
-    await page.getByRole('tab', { name: 'Appearance' }).click();
+    await page.getByRole('tab', { name: 'Design' }).click();
     const objectFiltersDisclosure = page.getByRole('button', {
       name: 'Object Filters',
       exact: true,

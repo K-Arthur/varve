@@ -97,7 +97,7 @@ test.describe('front-facing adjustment and canvas controls', () => {
 
     await page.keyboard.press('r');
     await dragOnCanvas(page, 180, 160, 460, 380);
-    await page.getByRole('tab', { name: 'Appearance' }).click();
+    await page.getByRole('tab', { name: 'Design' }).click();
     const objectFiltersDisclosure = page.getByRole('button', {
       name: 'Object Filters',
       exact: true,
@@ -134,7 +134,7 @@ test.describe('front-facing adjustment and canvas controls', () => {
 
     await page.keyboard.press('r');
     await dragOnCanvas(page, 160, 140, 430, 340);
-    await page.getByRole('tab', { name: 'Appearance' }).click();
+    await page.getByRole('tab', { name: 'Design' }).click();
     const objectFiltersDisclosure = page.getByRole('button', {
       name: 'Object Filters',
       exact: true,

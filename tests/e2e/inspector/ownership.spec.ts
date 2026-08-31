@@ -9,8 +9,8 @@ test.describe('Inspector feature ownership', () => {
   test('tabs use one compact row with roving focus and no duplicate overflow items', async ({
     page,
   }) => {
-    const properties = page.getByRole('tab', { name: 'Properties' });
-    const appearance = page.getByRole('tab', { name: 'Appearance' });
+    const design = page.getByRole('tab', { name: 'Design' });
+    const exportTab = page.getByRole('tab', { name: 'Export' });
 
     const tabs = page.getByRole('tablist', { name: 'Inspector tabs' });
     const tabCount = await tabs.getByRole('tab').count();
@@ -23,12 +23,14 @@ test.describe('Inspector feature ownership', () => {
       );
     expect(new Set(tabTopEdges).size).toBe(1);
 
-    await properties.focus();
+    // Empty selection: Appearance/Audit are merged into Design, Prototype
+    // and Fonts are contextual, so the row is Design + Export.
+    await design.focus();
     await page.keyboard.press('ArrowRight');
-    await expect(appearance).toBeFocused();
-    await expect(appearance).toHaveAttribute('aria-selected', 'true');
+    await expect(exportTab).toBeFocused();
+    await expect(exportTab).toHaveAttribute('aria-selected', 'true');
 
-    await properties.click();
+    await design.click();
     await expect(page.getByRole('tab', { name: 'Document' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Canvas', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Document Color' })).toBeVisible();
@@ -49,7 +51,7 @@ test.describe('Inspector feature ownership', () => {
     await page.mouse.move(box.x + 390, box.y + 320);
     await page.mouse.up();
 
-    await page.getByRole('tab', { name: 'Properties' }).click();
+    await page.getByRole('tab', { name: 'Design' }).click();
     await expect(page.getByRole('button', { name: 'Prototype Interactions' })).toHaveCount(0);
     await page.getByRole('tab', { name: 'Prototype' }).click();
     await expect(page.getByRole('button', { name: 'Prototype Interactions' })).toBeVisible();
@@ -65,7 +67,7 @@ test.describe('Inspector feature ownership', () => {
     await page.mouse.down();
     await page.mouse.move(box.x + 390, box.y + 320);
     await page.mouse.up();
-    await page.getByRole('tab', { name: 'Properties' }).click();
+    await page.getByRole('tab', { name: 'Design' }).click();
 
     await expect(page.locator('.editor-inspector')).toHaveCount(1);
     const inspector = page.locator('.editor-inspector');
@@ -95,11 +97,18 @@ test.describe('Inspector feature ownership', () => {
       viewportHeight: element.clientHeight,
     }));
 
-    // The contextual inspector now includes the collapsed Selection Sources
-    // entry point; keep a bounded budget while allowing that shared control.
-    expect(metrics.descendants).toBeLessThanOrEqual(280);
+    // The contextual inspector includes the collapsed Selection Sources
+    // entry point plus the merged appearance surfaces (mask/paint/filters/
+    // effects triggers) and the collapsed Insights disclosure; keep a
+    // bounded budget while allowing those collapsed entry points.
+    expect(metrics.descendants).toBeLessThanOrEqual(340);
     expect(metrics.scrollHeight / metrics.viewportHeight).toBeLessThanOrEqual(1.75);
-    await expect(page.getByRole('button', { name: 'Effects' })).toHaveCount(0);
+    // Effect editing is merged into the Design surface, collapsed by
+    // default — assert the collapsed state instead of absence.
+    await expect(inspector.getByRole('button', { name: 'Layer Effects' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
     await expect(page.getByRole('button', { name: 'Prototype Interactions' })).toHaveCount(0);
     await expect(page.locator('.editor-inspector')).toHaveScreenshot('rectangle-properties.png', {
       animations: 'disabled',
