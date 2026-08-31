@@ -59,6 +59,29 @@ test.describe('Inspector feature ownership', () => {
     await expect(page.getByRole('menuitem', { name: 'Export', exact: true })).toBeVisible();
   });
 
+  test('section customization exposes stable ordering controls', async ({ page }) => {
+    await page.getByRole('button', { name: /customize sections/i }).click();
+    const list = page.getByRole('list', { name: 'Section order' });
+    await expect(list).toBeVisible();
+    await expect(list.locator('[data-section-id]')).not.toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Reset order' })).toBeVisible();
+    await expect(page.locator('.editor-inspector')).toHaveScreenshot('section-manager.png', {
+      animations: 'disabled',
+    });
+
+    const items = list.locator('[data-section-id]');
+    const first = items.first();
+    const second = items.nth(1);
+    const firstId = await first.getAttribute('data-section-id');
+    const secondId = await second.getAttribute('data-section-id');
+    if (!firstId || !secondId) throw new Error('section manager order is missing stable IDs');
+
+    await first.getByRole('button', { name: / down$/i }).click();
+    await expect(items.first()).toHaveAttribute('data-section-id', secondId);
+    await expect(items.nth(1)).toHaveAttribute('data-section-id', firstId);
+    await page.getByRole('button', { name: 'Reset order' }).click();
+  });
+
   test('prototype authoring is discoverable without living in Properties', async ({ page }) => {
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const box = await canvas.boundingBox();

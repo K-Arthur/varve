@@ -463,7 +463,7 @@ export function getHiddenSectionIds(state: SectionVisibilityState): SectionId[] 
 /** Get section IDs sorted by their effective order. */
 export function getOrderedSectionIds(
   state: SectionVisibilityState,
-  sectionIds?: SectionId[],
+  sectionIds?: readonly SectionId[],
 ): SectionId[] {
   const ids = sectionIds ?? getAllSectionIds();
   return [...ids].sort((a, b) => {
@@ -478,15 +478,16 @@ export function moveSectionBefore(
   state: SectionVisibilityState,
   sectionId: SectionId,
   targetId: SectionId,
+  sectionIds?: readonly SectionId[],
 ): SectionVisibilityState {
   if (sectionId === targetId) return state;
-  const ordered = getOrderedSectionIds(state);
+  const ordered = getOrderedSectionIds(state, sectionIds);
   const fromIdx = ordered.indexOf(sectionId);
-  const toIdx = ordered.indexOf(targetId);
-  if (fromIdx === -1 || toIdx === -1) return state;
-  const reordered = [...ordered];
-  reordered.splice(fromIdx, 1);
-  reordered.splice(toIdx, 0, sectionId);
+  if (fromIdx === -1 || ordered.indexOf(targetId) === -1) return state;
+  const reordered = ordered.filter((id) => id !== sectionId);
+  const targetIdx = reordered.indexOf(targetId);
+  if (targetIdx === -1) return state;
+  reordered.splice(targetIdx, 0, sectionId);
   return assignStableOrders(state, reordered);
 }
 
@@ -495,16 +496,16 @@ export function moveSectionAfter(
   state: SectionVisibilityState,
   sectionId: SectionId,
   targetId: SectionId,
+  sectionIds?: readonly SectionId[],
 ): SectionVisibilityState {
   if (sectionId === targetId) return state;
-  const ordered = getOrderedSectionIds(state);
+  const ordered = getOrderedSectionIds(state, sectionIds);
   const fromIdx = ordered.indexOf(sectionId);
-  let toIdx = ordered.indexOf(targetId);
-  if (fromIdx === -1 || toIdx === -1) return state;
-  if (fromIdx < toIdx) toIdx += 1;
-  const reordered = [...ordered];
-  reordered.splice(fromIdx, 1);
-  reordered.splice(toIdx, 0, sectionId);
+  if (fromIdx === -1 || ordered.indexOf(targetId) === -1) return state;
+  const reordered = ordered.filter((id) => id !== sectionId);
+  const targetIdx = reordered.indexOf(targetId);
+  if (targetIdx === -1) return state;
+  reordered.splice(targetIdx + 1, 0, sectionId);
   return assignStableOrders(state, reordered);
 }
 
@@ -512,34 +513,37 @@ export function moveSectionAfter(
 export function moveSectionUp(
   state: SectionVisibilityState,
   sectionId: SectionId,
+  sectionIds?: readonly SectionId[],
 ): SectionVisibilityState {
-  const ordered = getOrderedSectionIds(state);
+  const ordered = getOrderedSectionIds(state, sectionIds);
   const idx = ordered.indexOf(sectionId);
   if (idx <= 0) return state;
   const prev = ordered[idx - 1]!;
   if (prev === undefined) return state;
-  return moveSectionBefore(state, sectionId, prev);
+  return moveSectionBefore(state, sectionId, prev, sectionIds);
 }
 
 /** Move a section down one position. */
 export function moveSectionDown(
   state: SectionVisibilityState,
   sectionId: SectionId,
+  sectionIds?: readonly SectionId[],
 ): SectionVisibilityState {
-  const ordered = getOrderedSectionIds(state);
+  const ordered = getOrderedSectionIds(state, sectionIds);
   const idx = ordered.indexOf(sectionId);
   if (idx === -1 || idx >= ordered.length - 1) return state;
   const next = ordered[idx + 1]!;
   if (next === undefined) return state;
-  return moveSectionAfter(state, sectionId, next);
+  return moveSectionAfter(state, sectionId, next, sectionIds);
 }
 
 /** Move a section to the start of the list. */
 export function moveSectionToStart(
   state: SectionVisibilityState,
   sectionId: SectionId,
+  sectionIds?: readonly SectionId[],
 ): SectionVisibilityState {
-  const ordered = getOrderedSectionIds(state);
+  const ordered = getOrderedSectionIds(state, sectionIds);
   if (ordered[0] === sectionId) return state;
   const reordered = [sectionId, ...ordered.filter((id) => id !== sectionId)];
   return assignStableOrders(state, reordered);
@@ -549,8 +553,9 @@ export function moveSectionToStart(
 export function moveSectionToEnd(
   state: SectionVisibilityState,
   sectionId: SectionId,
+  sectionIds?: readonly SectionId[],
 ): SectionVisibilityState {
-  const ordered = getOrderedSectionIds(state);
+  const ordered = getOrderedSectionIds(state, sectionIds);
   if (ordered[ordered.length - 1] === sectionId) return state;
   const reordered = [...ordered.filter((id) => id !== sectionId), sectionId];
   return assignStableOrders(state, reordered);

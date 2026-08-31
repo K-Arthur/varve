@@ -641,8 +641,14 @@ export interface EditorContextValue {
   restoreDefaultCollapsed: () => void;
   hideOptionalSections: () => void;
   // Section ordering
-  moveSectionUp: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
-  moveSectionDown: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
+  moveSectionUp: (
+    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
+    withinSectionIds?: readonly import('../components/Inspector/sectionRegistry').SectionId[],
+  ) => void;
+  moveSectionDown: (
+    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
+    withinSectionIds?: readonly import('../components/Inspector/sectionRegistry').SectionId[],
+  ) => void;
   moveSectionToStart: (
     sectionId: import('../components/Inspector/sectionRegistry').SectionId,
   ) => void;

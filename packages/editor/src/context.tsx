@@ -3746,13 +3746,13 @@ export function EditorProvider({
         announcerRef.current?.announce(`Optional sections hidden`);
       },
       // Section ordering
-      moveSectionUp: (sectionId: SectionId) => {
-        const next = moveSectionUpDoc(state.sectionVisibility, sectionId);
+      moveSectionUp: (sectionId: SectionId, withinSectionIds?: readonly SectionId[]) => {
+        const next = moveSectionUpDoc(state.sectionVisibility, sectionId, withinSectionIds);
         patch({ sectionVisibility: next });
         updateSettings({ sections: { version: 1, sections: next } });
       },
-      moveSectionDown: (sectionId: SectionId) => {
-        const next = moveSectionDownDoc(state.sectionVisibility, sectionId);
+      moveSectionDown: (sectionId: SectionId, withinSectionIds?: readonly SectionId[]) => {
+        const next = moveSectionDownDoc(state.sectionVisibility, sectionId, withinSectionIds);
         patch({ sectionVisibility: next });
         updateSettings({ sections: { version: 1, sections: next } });
       },

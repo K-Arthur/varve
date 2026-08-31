@@ -10,16 +10,28 @@ import { Icon } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { FEATURE_OWNERSHIP, type InspectorSurface } from './featureOwnership';
-import { CATEGORY_LABELS, getAllSections, getSectionDefinition } from './sectionRegistry';
-import { getHiddenSectionIds } from './sectionState';
+import {
+  CATEGORY_LABELS,
+  getSectionDefinition,
+  type SectionDefinition,
+  type SectionId,
+} from './sectionRegistry';
+import { getHiddenSectionIds, getOrderedSectionIds } from './sectionState';
 
 export function SectionManagerTrigger({ surface = 'properties' }: { surface?: InspectorSurface }) {
-  const { state, restoreDefaultSectionState, hideInspectorSection, showInspectorSection } =
-    useEditor();
+  const {
+    state,
+    restoreDefaultSectionState,
+    hideInspectorSection,
+    showInspectorSection,
+    moveSectionUp,
+    moveSectionDown,
+    resetSectionOrder,
+  } = useEditor();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const surfaceIds = new Set(
+  const surfaceIds = new Set<SectionId>(
     Object.entries(FEATURE_OWNERSHIP)
       .filter(([, ownership]) => ownership.surface === surface)
       .map(([id]) => id),
@@ -58,16 +70,23 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
     return () => document.removeEventListener('keydown', handle);
   }, [open]);
 
-  const allSections = (getAllSections() as import('./sectionRegistry').SectionDefinition[]).filter(
-    (section) => surfaceIds.has(section.id),
-  );
-  const grouped = new Map<string, typeof allSections>();
-  for (const s of allSections) {
-    const cat = CATEGORY_LABELS[s.category] ?? s.category;
-    const list = grouped.get(cat) ?? [];
-    list.push(s);
-    grouped.set(cat, list);
-  }
+  const orderedSectionIds = getOrderedSectionIds(state.sectionVisibility, [...surfaceIds]);
+  const allSections = orderedSectionIds
+    .map((id) => getSectionDefinition(id))
+    .filter((section): section is SectionDefinition => section !== undefined);
+
+  const managerTitle = (definition: SectionDefinition): string => {
+    switch (definition.id) {
+      case 'position-size':
+        return 'Position & size';
+      case 'layout':
+        return 'Frame layout';
+      case 'layout-child':
+        return 'Child layout';
+      default:
+        return definition.title;
+    }
+  };
 
   return (
     <div className="insp-section-manager">
@@ -124,42 +143,72 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
             >
               Restore defaults
             </button>
+            <button
+              type="button"
+              className="insp-section-manager__action"
+              onClick={() => resetSectionOrder()}
+            >
+              Reset order
+            </button>
           </div>
 
-          <div className="insp-section-manager__list">
-            {Array.from(grouped.entries()).map(([category, sections]) => (
-              <div key={category} className="insp-section-manager__group">
-                <span className="insp-section-manager__group-label">{category}</span>
-                {sections.map((def) => {
-                  const hidden = state.sectionVisibility[def.id]?.hidden ?? false;
-                  return (
-                    <label
-                      key={def.id}
-                      className={`insp-section-manager__item${hidden ? ' insp-section-manager__item--hidden' : ''}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={!hidden}
-                        disabled={!def.canHide}
-                        onChange={() => {
-                          if (hidden) {
-                            showInspectorSection(def.id);
-                          } else {
-                            hideInspectorSection(def.id);
-                          }
-                        }}
-                        className="insp-section-manager__checkbox"
-                      />
-                      <span className="insp-section-manager__label">{def.title}</span>
-                      {def.essential && (
-                        <span className="insp-section-manager__essential">required</span>
-                      )}
-                    </label>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+          <ol className="insp-section-manager__list" aria-label="Section order">
+            {allSections.map((def, index) => {
+              const hidden = state.sectionVisibility[def.id]?.hidden ?? false;
+              const checkboxId = `${surface}-section-${def.id}`;
+              const category = CATEGORY_LABELS[def.category] ?? def.category;
+              const title = managerTitle(def);
+              return (
+                <li
+                  key={def.id}
+                  className={`insp-section-manager__item${hidden ? ' insp-section-manager__item--hidden' : ''}`}
+                  data-section-id={def.id}
+                >
+                  <input
+                    id={checkboxId}
+                    type="checkbox"
+                    checked={!hidden}
+                    disabled={!def.canHide}
+                    onChange={() => {
+                      if (hidden) {
+                        showInspectorSection(def.id);
+                      } else {
+                        hideInspectorSection(def.id);
+                      }
+                    }}
+                    className="insp-section-manager__checkbox"
+                  />
+                  <label htmlFor={checkboxId} className="insp-section-manager__label">
+                    {title}
+                  </label>
+                  <span className="insp-section-manager__category">{category}</span>
+                  {def.essential && (
+                    <span className="insp-section-manager__essential">required</span>
+                  )}
+                  <button
+                    type="button"
+                    className="insp-section-manager__toggle"
+                    aria-label={`Move ${title} up`}
+                    title="Move up"
+                    disabled={index === 0}
+                    onClick={() => moveSectionUp(def.id, orderedSectionIds)}
+                  >
+                    <Icon name="ChevronUp" label={undefined} size="0.85em" />
+                  </button>
+                  <button
+                    type="button"
+                    className="insp-section-manager__toggle"
+                    aria-label={`Move ${title} down`}
+                    title="Move down"
+                    disabled={index === allSections.length - 1}
+                    onClick={() => moveSectionDown(def.id, orderedSectionIds)}
+                  >
+                    <Icon name="ChevronDown" label={undefined} size="0.85em" />
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
 
           {hiddenIds.length > 0 && (
             <div className="insp-section-manager__recovery">
