@@ -1,6 +1,6 @@
 # Inspector organization audit — 2026-08-30
 
-This is a repository-first audit and the record for the first four implementation
+This is a repository-first audit and the record for the first five implementation
 slices of the Inspector reorganization. It deliberately distinguishes shipped
 behavior from proposed architecture and from unverified behavior. It does not
 claim that the full Inspector program is complete.
@@ -13,10 +13,10 @@ claim that the full Inspector program is complete.
 | Tab slice commit | `c1fb91add` |
 | Context slice commit | `02c2e44b8` |
 | Registry/header slice commit | `3259040da` |
-| Property-state/control slice | Working tree at audit update; commit recorded after validation |
-| Commit subject | `feat(inspector): clarify context and stabilize section registry` |
+| Property-state/control slice | `b29361917` (`feat(inspector): make numeric property states explicit`) |
+| Commit subject | `feat(inspector): make numeric property states explicit` |
 | Worktree | `/home/kevina/CodingProjects/varve` |
-| Dirty state | Inspector tab slice plus concurrent Layers work; see `git status --short` at audit time |
+| Dirty state | Concurrent docs, engine thumbnail, and UI overlay work remained unstaged; Inspector slice was committed separately |
 | Package manager | pnpm 11.9.0 |
 | Node | v22.23.2 |
 | Rust/Cargo | 1.97.1 / 1.97.1 |
@@ -37,7 +37,7 @@ or reverted.
 
 ## Scope and invariant
 
-The first four vertical slices establish one tab metadata path, a real
+The first five vertical slices establish one tab metadata path, a real
 responsive tab surface, a pure derived context read model, deterministic
 section ordering/integrity checks, a visible non-selection context header, and
 an additive property-state contract with safer numeric editing.
@@ -128,16 +128,18 @@ The five highest-impact root causes are:
 | E10 | Screenshot | `test-results/run-2915479-1463/.../test-failed-1.png` | Narrow style experiment exposed that the empty baseline has only Design + Export; the test was corrected to force overflow by reducing width | High |
 | E11 | Screenshot | `test-results/run-2903636-1462/.../document-settings-actual.png` | Normal document context visually inspected; baseline mismatch is small but real | High |
 | E12 | Screenshot | `test-results/run-2904049-1462/.../rectangle-properties-actual.png` | Rectangle context visually inspected; current Layout merge and group divider visible | High |
-| E13 | Typecheck | `pnpm --filter @varve/editor typecheck` | No Inspector type errors; remains red for pre-existing engine thumbnail IR mismatch and concurrent Layers errors | High |
+| E13 | Typecheck | `pnpm --filter @varve/editor typecheck`, `pnpm --filter @varve/engine typecheck` | Both affected package typechecks pass after the concurrent Layers commit; the separately dirty engine thumbnail file was not changed by this slice | High |
 | E14 | E2E console | ownership run with current dirty Layers tree | `ReferenceError: Cannot access 'adjustmentSummary' before initialization` in `LayersRow`; treated as concurrent/pre-existing | High |
 | E15 | Unit | `Inspector/inspectorContext.test.ts` | Seven pure derivation cases pass: document/canvas/tool/temporary scope, stale IDs, ancestor restrictions, and partial lock | High |
 | E16 | Source | `Inspector/inspectorContext.ts`, `PropertiesPanel.tsx` | Context is read-only, stale-safe, ancestry-aware, and now drives the panel context marker and empty-state copy | High |
 | E17 | Focused validation | `80` Inspector/workspace tests, Biome, docs, emoji, and token audits | Second slice passes focused tests and quality audits; affected gate remains blocked by concurrent Layers formatting | High |
 | E18 | Focused unit/integration | `150` Inspector/workspace tests plus context-header assertions | Registry integrity, deterministic ordering, visible document/canvas/tool context, and tool/document separation pass | High |
 | E19 | Screenshot | `tests/e2e/inspector/ownership.spec.ts-snapshots/{document-settings,rectangle-properties}-chromium-linux.png` | Reviewed updated baselines: context header is compact and readable; rectangle layout remains stable | High |
-| E20 | Unit | `propertyState.test.ts`, `NumberField.test.tsx`, `selectionState.test.ts` | Explicit property-state classification, legacy unset compatibility, mixed replacement, scoped-draft cancellation, and pointer transaction cleanup pass | High |
+| E20 | Unit | `propertyState.test.ts`, `NumberField.test.tsx`, `selectionState.test.ts`, `ImageTuningSection.test.tsx` | Explicit property-state classification, legacy unset compatibility, mixed replacement, scoped-draft cancellation, pointer transaction cleanup, and updated shared mixed semantics pass | High |
 | E21 | E2E + screenshot | `ownership.spec.ts` mixed geometry scenario and `mixed-properties-chromium-linux.png` | Two selected shapes show readable Mixed X/Y fields, stable Layout hierarchy, and `aria-valuetext="Mixed values"`; screenshot manually opened | High for Chromium |
-| E22 | Typecheck | `pnpm --filter @varve/editor typecheck` after property slice | Failure is in concurrent dirty `LayersPanel/layerPresentation.ts:167,169` (`kind` on `never`); no reported Inspector error | High |
+| E22 | E2E + visual | `VARVE_E2E_PORT=1487 ... ownership.spec.ts` | Complete Inspector ownership suite passes 7/7, including normal, overflow, prototype/tool separation, mixed-value screenshot, and responsive drawer checks | High for Chromium |
+| E23 | Affected validation | `VARVE_E2E_PORT=1489 VARVE_E2E_WORKERS=1 VARVE_TEST_WORKERS=1 pnpm verify:affected` | Tier 0, E2E typecheck, focused Inspector tests, and Inspector E2E pass; broad editor unit execution exposes unrelated menu snapshot drift and unrelated editor/ImageTuning failures. The ImageTuning expectation was corrected and its focused test then passed; broad run was stopped after hanging | High |
+| E24 | Visual inspection | `view_image` on document, rectangle, and mixed Inspector snapshots | No clipping, unstable hierarchy, or unreadable mixed state observed; mixed X/Y fields visibly say `Mixed` and remain aligned | High |
 
 ## Current-state feature ownership matrix
 
