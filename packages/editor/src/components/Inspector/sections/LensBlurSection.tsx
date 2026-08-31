@@ -12,7 +12,7 @@ import {
 } from '@varve/engine';
 import type { Effect, SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
-import { Button } from '@varve/ui';
+import { Button, Separator } from '@varve/ui';
 import { type MouseEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { commitRasterMask } from '../../../backgroundRemoval/commitRasterMask';
 import { useEditor, useViewport } from '../../../context';
@@ -804,7 +804,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
 
         {showBlurControls && (
           <>
-            <hr className="insp-divider" />
+            <Separator className="insp-divider" decorative tone="subtle" />
 
             <p className="insp-subsection__label">Blur Controls</p>
 
@@ -900,7 +900,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
 
         {depthData && depthState === 'ready' && (
           <>
-            <hr className="insp-divider" />
+            <Separator className="insp-divider" decorative tone="subtle" />
             <p className="insp-subsection__label">Depth Range Mask</p>
             <p className="insp-hint">
               Converts the DepthMap into a non-destructive layer mask. Useful for foreground or

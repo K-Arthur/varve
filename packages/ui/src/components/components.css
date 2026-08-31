@@ -534,9 +534,11 @@
   cursor: default;
 }
 .varve-menu__sep {
-  height: 1px;
-  background: var(--color-border-subtle);
+  height: var(--separator-thickness);
+  border: 0;
+  background: var(--color-separator-subtle);
   margin: var(--space-1) var(--space-2);
+  pointer-events: none;
 }
 .varve-menu__ellipsis {
   margin-left: var(--space-4);

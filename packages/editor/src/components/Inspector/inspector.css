@@ -3240,8 +3240,6 @@
 
 .insp-divider {
   margin: var(--space-3) 0;
-  border: none;
-  border-top: 1px solid var(--color-border-subtle);
 }
 
 .insp-actions {
