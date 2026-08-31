@@ -394,12 +394,12 @@
 .adj-editor__slider {
   width: 100%;
   min-width: 0;
-  height: var(--space-2);
+  height: var(--space-6);
   -webkit-appearance: none;
   appearance: none;
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
   box-sizing: border-box;
   outline: none;
   cursor: pointer;
@@ -466,22 +466,50 @@
 
 .adj-editor__slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: var(--space-3);
-  height: var(--space-3);
-  border-radius: 50%;
-  background: var(--color-interactive-default);
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
   cursor: pointer;
-  border: 2px solid var(--color-surface-raised);
-  margin-top: calc((var(--space-1) - var(--space-3)) / 2);
+  border: 2px solid var(--color-interactive-default);
+  box-shadow: var(--shadow-xs);
+  margin-top: calc((var(--space-1) - var(--space-4)) / 2);
+  transition:
+    transform var(--duration-quick) var(--ease-standard),
+    box-shadow var(--duration-quick) var(--ease-standard);
 }
 
 .adj-editor__slider::-moz-range-thumb {
-  width: var(--space-3);
-  height: var(--space-3);
-  border-radius: 50%;
-  background: var(--color-interactive-default);
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
   cursor: pointer;
-  border: 2px solid var(--color-surface-raised);
+  border: 2px solid var(--color-interactive-default);
+  box-shadow: var(--shadow-xs);
+  transition:
+    transform var(--duration-quick) var(--ease-standard),
+    box-shadow var(--duration-quick) var(--ease-standard);
+}
+
+.adj-editor__slider:hover::-webkit-slider-thumb {
+  transform: scale(1.12);
+  box-shadow: var(--shadow-sm);
+}
+
+.adj-editor__slider:active::-webkit-slider-thumb {
+  transform: scale(0.92);
+  box-shadow: var(--shadow-xs);
+}
+
+.adj-editor__slider:hover::-moz-range-thumb {
+  transform: scale(1.12);
+  box-shadow: var(--shadow-sm);
+}
+
+.adj-editor__slider:active::-moz-range-thumb {
+  transform: scale(0.92);
+  box-shadow: var(--shadow-xs);
 }
 
 .adj-editor__slider:focus-visible {

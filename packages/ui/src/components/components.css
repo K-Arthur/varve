@@ -1399,7 +1399,7 @@
   transition: height var(--duration-quick) var(--ease-standard);
 }
 .varve-slider__track:hover {
-  height: 3px;
+  height: var(--space-2);
 }
 .varve-slider--disabled .varve-slider__track {
   cursor: default;
@@ -1523,7 +1523,7 @@
   height: 3px;
 }
 .varve-slider--sm .varve-slider__track:hover {
-  height: 4px;
+  height: var(--space-1);
 }
 .varve-slider--sm .varve-slider__thumb {
   width: 14px;
