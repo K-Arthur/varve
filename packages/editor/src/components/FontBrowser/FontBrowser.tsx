@@ -10,6 +10,9 @@ import { getFontRegistry } from '@varve/engine';
 import {
   type FontSearchResult,
   type FontSemanticRecord,
+  findFontAlternatives,
+  findFontPairings,
+  findSimilarFonts,
   getFontSemanticCatalog,
   parseFontSemanticQuery,
   tagLabel,
@@ -185,6 +188,18 @@ export function FontBrowser({
   const selectedResult = selectedRecord
     ? searchResults.find((result) => result.record.familyId === selectedRecord.familyId)
     : undefined;
+  const recommendations = useMemo(() => {
+    if (!selectedRecord) return undefined;
+    const candidates = semantic.all();
+    return {
+      similar: findSimilarFonts(selectedRecord, candidates, { limit: 3 }),
+      alternatives: findFontAlternatives(selectedRecord, candidates, {
+        limit: 3,
+        preserveScripts: true,
+      }),
+      pairings: findFontPairings(selectedRecord, candidates, { limit: 3 }),
+    };
+  }, [selectedRecord, semantic, semanticRevision]);
 
   const handleSelect = useCallback(
     (record: FontSemanticRecord) => {
@@ -449,6 +464,40 @@ export function FontBrowser({
                 ))}
               </ul>
             </details>
+          )}
+          {recommendations && (
+            <div
+              className="font-browser__recommendations"
+              role="region"
+              aria-label="Font recommendations"
+            >
+              {(
+                [
+                  ['Similar', recommendations.similar],
+                  ['Alternatives', recommendations.alternatives],
+                  ['Pairings', recommendations.pairings],
+                ] as const
+              ).map(
+                ([title, items]) =>
+                  items.length > 0 && (
+                    <div key={title} className="font-browser__recommendation-lane">
+                      <strong>{title}</strong>
+                      <div>
+                        {items.map((item) => (
+                          <button
+                            key={item.record.familyId}
+                            type="button"
+                            onClick={() => handleSelect(item.record)}
+                            title={item.reasons[0]?.label ?? title}
+                          >
+                            {item.record.familyName}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ),
+              )}
+            </div>
           )}
           <div className="font-browser__detail-meta">
             <span>

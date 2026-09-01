@@ -18,7 +18,7 @@ tag migration, editor integration, and website messaging.
 | Recommendation lanes | Separate similarity, alternatives, and pairing functions with reason objects |
 | User state | Versioned local storage for tags, project tags, hidden overrides, favorites, and recents |
 | Migration | Legacy face tags group by normalized family and merge without mutating the legacy catalog |
-| Editor | Compact selector searches installed semantic records only; full browser exposes natural-language interpretation, explicit install, reasons, coverage, license, and personal tags |
+| Editor | Compact selector searches installed semantic records only; full browser exposes natural-language interpretation, explicit install, reasons, coverage, license, personal tags, and distinct Similar / Alternatives / Pairings lanes |
 | Website | Typography feature/docs pages explain intent search, provenance, offline catalog behavior, and explicit desktop installs |
 
 ## Validation run
