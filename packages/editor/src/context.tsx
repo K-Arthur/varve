@@ -5971,6 +5971,7 @@ export function EditorProvider({
               rotation: original.rotation,
               visible: original.visible,
               locked: original.locked,
+              layerColor: original.layerColor,
             };
             next = removeNode(next, nodeId);
             next = parentId ? addChild(next, parentId, placed) : addNode(next, placed);
@@ -6029,6 +6030,7 @@ export function EditorProvider({
               rotation: original.rotation,
               visible: original.visible,
               locked: original.locked,
+              layerColor: original.layerColor,
               variant: assignment.variantName,
             };
 
