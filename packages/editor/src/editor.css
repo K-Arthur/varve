@@ -1654,6 +1654,8 @@ input[type="number"] {
 }
 
 .workspace-dock__item--active:hover {
+  background: var(--ws-mode-bg);
+  color: var(--ws-mode-fg, var(--color-text-on-accent));
   filter: brightness(0.9);
 }
 
@@ -1737,7 +1739,7 @@ input[type="number"] {
   --ws-mode-fg: var(--color-text-on-accent);
   background: var(--color-interactive-default);
 }
-[data-theme="high-contrast"] .workspace-dock__item:hover {
+[data-theme="high-contrast"] .workspace-dock__item:hover:not(.workspace-dock__item--active) {
   background: color-mix(in oklch, var(--color-interactive-default) 80%, oklch(1 0 0));
 }
 
