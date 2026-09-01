@@ -1,4 +1,4 @@
-import { LAYER_COLOR_LABELS, LAYER_COLORS, type LayerColor } from '@varve/scene';
+import type { LayerColor } from '@varve/scene';
 import {
   SOLID_CHROME_ICONS,
   SOLID_TOOL_ICONS,
@@ -6,9 +6,11 @@ import {
   Tooltip,
   TooltipProvider,
 } from '@varve/ui';
+import { type LayerColorPickerValue, LayerColorTagPicker } from './LayerColorTagPicker';
 
 export interface LayerBulkBarProps {
   selectedCount: number;
+  selectedColor?: LayerColorPickerValue;
   onGroup: () => void;
   onLockAll: () => void;
   onUnlockAll: () => void;
@@ -21,6 +23,7 @@ export interface LayerBulkBarProps {
 
 export function LayerBulkBar({
   selectedCount,
+  selectedColor,
   onGroup,
   onLockAll,
   onUnlockAll,
@@ -87,28 +90,16 @@ export function LayerBulkBar({
               <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
             </button>
           </Tooltip>
-          <div className="layers-bulk-bar__color-group">
-            {LAYER_COLORS.map((c) => (
-              <Tooltip key={c} label={LAYER_COLOR_LABELS[c]}>
-                <button
-                  type="button"
-                  className={`layers-bulk-bar__color-btn layers-bulk-bar__color-btn--${c}`}
-                  onClick={() => onColorTag(c)}
-                  aria-label={LAYER_COLOR_LABELS[c]}
-                />
-              </Tooltip>
-            ))}
-            <Tooltip label="Clear layer colour">
-              <button
-                type="button"
-                className="layers-bulk-bar__color-btn layers-bulk-bar__color-btn--clear"
-                onClick={onClearColorTag}
-                aria-label="Clear layer colour"
-              >
-                <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.65em" />
-              </button>
-            </Tooltip>
-          </div>
+          <LayerColorTagPicker
+            ariaLabel="Set color tag for selected layers"
+            value={selectedColor}
+            includeClear
+            clearLabel="Clear layer color"
+            onChange={(color) => {
+              if (color === null) onClearColorTag();
+              else onColorTag(color);
+            }}
+          />
           <Tooltip label="Delete all selected">
             <button
               type="button"

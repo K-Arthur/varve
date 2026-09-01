@@ -228,8 +228,8 @@
 }
 
 /* Resting row uses the flat tree surface — type is communicated via the
- * accent bar + Lucide type icon, not a full-row coloured wash (which read as
- * unexplained "squares" behind icons). */
+ * accent bar + Lucide type icon. Layer tags add a deliberate, low-noise row
+ * backdrop below so the metadata is scannable without another icon. */
 .layers-row[data-layer-type] {
   background: var(--color-tree-row);
 }
@@ -239,19 +239,19 @@
  * without adding another shape to an already dense identity lane. The
  * selected-row surface still wins below. */
 .layers-row[data-layer-color] {
-  background: color-mix(in oklab, var(--layers-row-color) 13%, var(--color-tree-row));
+  background: color-mix(in oklab, var(--layers-row-color) 30%, var(--color-tree-row));
 }
 
 .layers-row[data-layer-color]:hover:not(.layers-row--selected) {
-  background: color-mix(in oklab, var(--layers-row-color) 19%, var(--color-tree-row-hover));
+  background: color-mix(in oklab, var(--layers-row-color) 38%, var(--color-tree-row-hover));
 }
 
 [data-theme="high-contrast"] .layers-row[data-layer-color] {
-  background: color-mix(in oklab, var(--layers-row-color) 26%, var(--color-tree-row));
+  background: color-mix(in oklab, var(--layers-row-color) 44%, var(--color-tree-row));
 }
 
 [data-theme="high-contrast"] .layers-row[data-layer-color]:hover:not(.layers-row--selected) {
-  background: color-mix(in oklab, var(--layers-row-color) 32%, var(--color-tree-row-hover));
+  background: color-mix(in oklab, var(--layers-row-color) 52%, var(--color-tree-row-hover));
 }
 
 /* Selected state must win over type-coded wash. */
@@ -321,6 +321,15 @@
   background: var(--color-layer-accent-adjustment);
 }
 
+/* A tag owns the rail when present. The wider, full-height rail remains
+ * visible in resting and selected states, so selection cannot hide the tag. */
+.layers-row[data-layer-color]::before {
+  background: var(--layers-row-color);
+  bottom: 0;
+  top: 0;
+  width: 6px;
+}
+
 /* Selection is a state of the row, not a second type label. Its rail and
  * inset boundary remain stable while the type icon keeps its category shape. */
 .layers-row.layers-row--selected::before {
@@ -328,6 +337,11 @@
   bottom: 0;
   top: 0;
   width: 4px;
+}
+
+.layers-row.layers-row--selected[data-layer-color]::before {
+  background: var(--layers-row-color);
+  width: 6px;
 }
 
 /* High-contrast: add text label so image type remains distinguishable */
@@ -355,6 +369,14 @@
 
 .layers-row--selected:hover {
   background: color-mix(in oklab, var(--color-tree-row-selected) 30%, var(--color-tree-row-hover));
+}
+
+.layers-row--selected[data-layer-color] {
+  background: color-mix(in oklab, var(--layers-row-color) 38%, var(--color-tree-row-selected));
+}
+
+.layers-row--selected[data-layer-color]:hover {
+  background: color-mix(in oklab, var(--layers-row-color) 46%, var(--color-tree-row-hover));
 }
 
 .layers-row--focused {
@@ -451,6 +473,7 @@
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
 }
+
 
 /* ─── Selection checkbox ─────────────────────────────────────── */
 .layers-row__selection-checkbox {
@@ -1109,6 +1132,112 @@
   padding: 0 var(--space-1);
 }
 
+.layer-color-tag-picker {
+  align-items: center;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+.layer-color-tag-picker__button {
+  align-items: center;
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  box-sizing: content-box;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: var(--space-2);
+  justify-content: center;
+  padding: var(--space-1);
+  transition:
+    border-color var(--duration-quick) var(--ease-standard),
+    transform var(--duration-quick) var(--ease-standard);
+  width: var(--space-2);
+}
+
+.layer-color-tag-picker__button:hover {
+  border-color: var(--color-border-strong);
+  transform: scale(1.15);
+}
+
+.layer-color-tag-picker__button:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.layer-color-tag-picker__button[aria-pressed="true"],
+.layer-color-tag-picker__button--selected {
+  border-color: var(--color-text-primary);
+  box-shadow: 0 0 0 1px var(--color-surface-app);
+}
+
+.layer-color-tag-picker__button--red {
+  background: var(--color-layer-tag-red);
+}
+.layer-color-tag-picker__button--orange {
+  background: var(--color-layer-tag-orange);
+}
+.layer-color-tag-picker__button--yellow {
+  background: var(--color-layer-tag-yellow);
+}
+.layer-color-tag-picker__button--green {
+  background: var(--color-layer-tag-green);
+}
+.layer-color-tag-picker__button--blue {
+  background: var(--color-layer-tag-blue);
+}
+.layer-color-tag-picker__button--purple {
+  background: var(--color-layer-tag-purple);
+}
+.layer-color-tag-picker__button--gray {
+  background: var(--color-layer-tag-gray);
+}
+
+.layer-color-tag-picker__button--none,
+.layer-color-tag-picker__button--clear {
+  background: transparent;
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-muted);
+}
+
+.layer-color-tag-picker__button--none {
+  font-size: var(--font-size-xs);
+  line-height: 1;
+}
+
+.layer-color-tag-picker__button--none:hover,
+.layer-color-tag-picker__button--clear:hover {
+  color: var(--color-text-primary);
+}
+
+.layer-color-tag-picker__mixed {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+
+.layers-filter-bar__clear-tag {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: var(--font-size-2xs);
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.layers-filter-bar__clear-tag:hover {
+  color: var(--color-text-primary);
+}
+
 /* ─── Empty state ────────────────────────────────────────────── */
 .layers-panel__empty {
   padding: var(--space-3);
@@ -1424,67 +1553,8 @@
   background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
 }
 
-.layers-bulk-bar__color-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-05);
+.layers-bulk-bar .layer-color-tag-picker {
   border-left: 1px solid var(--color-border-subtle);
   border-right: 1px solid var(--color-border-subtle);
-}
-
-.layers-bulk-bar__color-btn {
-  width: var(--space-2);
-  height: var(--space-2);
-  border-radius: 50%;
-  border: 1px solid transparent;
-  cursor: pointer;
-  /* Padding expands hit area to ≥ 24px (WCAG 2.5.8) */
-  padding: var(--space-1);
-  box-sizing: content-box;
-  flex-shrink: 0;
-  transition:
-    border-color var(--duration-quick) var(--ease-standard),
-    transform var(--duration-quick) var(--ease-standard);
-}
-
-.layers-bulk-bar__color-btn:hover {
-  border-color: var(--color-border-strong);
-  transform: scale(1.3);
-}
-
-.layers-bulk-bar__color-btn--red {
-  background: var(--color-layer-tag-red);
-}
-.layers-bulk-bar__color-btn--orange {
-  background: var(--color-layer-tag-orange);
-}
-.layers-bulk-bar__color-btn--yellow {
-  background: var(--color-layer-tag-yellow);
-}
-.layers-bulk-bar__color-btn--green {
-  background: var(--color-layer-tag-green);
-}
-.layers-bulk-bar__color-btn--blue {
-  background: var(--color-layer-tag-blue);
-}
-.layers-bulk-bar__color-btn--purple {
-  background: var(--color-layer-tag-purple);
-}
-.layers-bulk-bar__color-btn--gray {
-  background: var(--color-layer-tag-gray);
-}
-
-/* Clear colour button — transparent with border, distinct from coloured dots */
-.layers-bulk-bar__color-btn--clear {
-  background: transparent;
-  border-color: var(--color-border-subtle);
-  color: var(--color-text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.layers-bulk-bar__color-btn--clear:hover {
-  border-color: var(--color-border-strong);
-  color: var(--color-text-primary);
+  padding: 0 var(--space-05);
 }

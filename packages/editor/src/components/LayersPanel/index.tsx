@@ -60,6 +60,7 @@ import { computeActiveSurfaceLayerCount, countActiveSurfaceNodesMatching } from 
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTypes';
 import './layers.css';
+import type { LayerColorPickerValue } from './LayerColorTagPicker';
 import { SelectionSetsSection } from './SelectionSetsSection';
 
 interface EffectStackClipboard {
@@ -158,6 +159,12 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       designCanvasId,
     );
   }, [state.document, filterSpec, totalCount, designCanvasId]);
+  const selectedLayerColor = useMemo<LayerColorPickerValue>(() => {
+    if (state.selection.length < 2) return undefined;
+    const colors = state.selection.map((id) => state.document.nodes[id]?.layerColor ?? null);
+    const first = colors[0];
+    return colors.every((color) => color === first) ? first : 'mixed';
+  }, [state.document.nodes, state.selection]);
 
   // Outside click and Escape handled by shared ContextMenu component.
   // This effect remains for stale-context-menu cleanup on unmount.
@@ -676,6 +683,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       {state.selection.length >= 2 && !isFiltering(filterSpec) && (
         <LayerBulkBar
           selectedCount={state.selection.length}
+          selectedColor={selectedLayerColor}
           onGroup={handleGroup}
           onLockAll={handleBulkLockAll}
           onUnlockAll={handleBulkUnlockAll}

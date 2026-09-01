@@ -386,6 +386,7 @@ import {
   bulkSetLayerColorDoc,
   bulkSetNodeLockedDoc,
   bulkSetNodeVisibleDoc,
+  collectLayerColorScope,
   findAllOfKindIds,
   findSameKindIds,
   findSameLayerColorIds,
@@ -6514,7 +6515,16 @@ export function EditorProvider({
       },
 
       selectAllWithSameLayerColor: () => {
-        const ids = findSameLayerColorIds(state.document, state.selection);
+        const ids = findSameLayerColorIds(
+          state.document,
+          state.selection,
+          collectLayerColorScope(state.document, {
+            designCanvasId:
+              state.workspaceMode === 'print' ? undefined : state.document.activeDesignCanvasId,
+            isolatedNodeId: state.isolatedNodeId,
+            masterEditId: state.masterEditId,
+          }),
+        );
         if (ids.length > 0) {
           patch({
             selection: ids,

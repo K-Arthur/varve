@@ -109,8 +109,14 @@ test.describe('Layers Panel - APG Tree View', () => {
     await expect(firstItem).toHaveAttribute('data-layer-color', 'red');
     await expect(firstItem.locator('.layers-row__color-tag')).toHaveCount(0);
 
+    await firstItem.click();
+    await expect(firstItem).toHaveAttribute('aria-selected', 'true');
+    await page.getByTestId('layers-panel').screenshot({
+      path: 'test-results/layers-colour-label-selected.png',
+    });
+
     // A backdrop must remain visible when the tagged row is not selected; the
-    // selected-row surface intentionally takes precedence for clarity.
+    // selected-row treatment also preserves the tag color for clarity.
     if ((await page.getByRole('treeitem').count()) > 1) {
       await page.getByRole('treeitem').nth(1).click();
     }

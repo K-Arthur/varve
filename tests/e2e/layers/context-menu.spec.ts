@@ -191,8 +191,7 @@ test.describe('Layers Panel - Context Menu', () => {
     await redBtn.click();
     await page.waitForTimeout(100);
 
-    // The row itself carries the document label; there is no competing color
-    // marker in the identity lane.
+    // The row carries the document label through its visible backdrop cue.
     await expect(firstItem).toHaveAttribute('data-layer-color', 'red');
     await expect(firstItem.locator('.layers-row__color-tag')).toHaveCount(0);
   });
