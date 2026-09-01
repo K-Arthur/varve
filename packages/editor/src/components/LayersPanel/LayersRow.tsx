@@ -113,6 +113,8 @@ export interface LayersRowProps {
     kind: EffectStackKind;
     mode: EffectStackTransferMode;
   };
+  /** True when the current layer filter matches this row by name. */
+  searchMatch?: boolean;
 }
 
 export const LayersRow = memo(function LayersRow({
@@ -158,6 +160,7 @@ export const LayersRow = memo(function LayersRow({
   onOpenEffectStack,
   onOpenAdjustment,
   effectStackDrop,
+  searchMatch = false,
 }: LayersRowProps) {
   const [editValue, setEditValue] = useState(node.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -343,6 +346,7 @@ export const LayersRow = memo(function LayersRow({
         data-layer-category={layerPresentation.category}
         data-layer-subtype={layerPresentation.subtype}
         data-layer-color={node.layerColor ?? undefined}
+        data-search-match={searchMatch || undefined}
         aria-selected={selected}
         aria-expanded={container ? expanded : undefined}
         aria-level={depth + 1}
@@ -476,7 +480,7 @@ export const LayersRow = memo(function LayersRow({
           ) : (
             <Tooltip label={node.name} truncationOnly>
               <span
-                className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}`}
+                className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}${searchMatch ? ' layers-row__name--match' : ''}`}
               >
                 {node.name}
               </span>

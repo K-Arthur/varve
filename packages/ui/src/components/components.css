@@ -199,7 +199,7 @@
   transition:
     background var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard),
-    transform var(--duration-fast) var(--ease-default);
+    border-color var(--duration-quick) var(--ease-standard);
 }
 .varve-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -291,8 +291,8 @@
   }
 }
 
-.varve-btn:active {
-  transform: scale(0.97);
+.varve-btn:active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-interactive-pressed-surface);
 }
 .varve-btn:disabled {
   cursor: default;
@@ -533,14 +533,22 @@
   white-space: nowrap;
 }
 .varve-menu__item:hover {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
+  background: var(--color-interactive-hover-surface);
+  color: var(--color-text-primary);
 }
 .varve-menu__item:focus-visible {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
+  background: var(--color-interactive-selected-surface);
+  color: var(--color-interactive-selected-foreground);
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
+}
+.varve-menu__item[aria-checked="true"] {
+  background: var(--color-interactive-checked-surface);
+  color: var(--color-text-on-accent);
+}
+.varve-menu__item[aria-checked="true"]:hover {
+  background: var(--color-interactive-selected-surface-hover);
+  color: var(--color-interactive-selected-foreground);
 }
 .varve-menu__item:disabled,
 .varve-menu__item[aria-disabled="true"] {
@@ -803,8 +811,8 @@
 }
 
 .varve-select__option--highlighted {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
+  background: var(--color-interactive-selected-surface);
+  color: var(--color-interactive-selected-foreground);
   outline: none;
 }
 
@@ -2403,14 +2411,51 @@
     color var(--duration-quick) var(--ease-standard);
 }
 .varve-toggle-btn:hover {
-  background: var(--color-surface-sunken);
+  background: var(--color-interactive-hover-surface);
 }
 .varve-toggle-btn--pressed {
-  background: var(--color-accent-subtle);
-  color: var(--color-interactive-default);
+  background: var(--color-interactive-checked-surface);
+  color: var(--color-interactive-selected-foreground);
 }
 .varve-toggle-btn--pressed:hover {
-  background: var(--color-accent-subtle);
+  background: var(--color-interactive-selected-surface-hover);
+}
+
+/* Coarse pointers do not have a stable hover state. Keep persistent state
+ * styling, but do not leave a temporary hover tint behind after tapping. */
+@media (hover: none), (pointer: coarse) {
+  .varve-btn--primary:hover:not(:active):not(:disabled),
+  .varve-btn--pill:hover:not(:active):not(:disabled) {
+    background: var(--color-interactive-default);
+  }
+
+  .varve-btn--secondary:hover:not(:active):not(:disabled),
+  .varve-btn--ghost:hover:not(:active):not(:disabled),
+  .varve-btn--pill-outline:hover:not(:active):not(:disabled) {
+    background: transparent;
+    color: var(--color-text-primary);
+    border-color: var(--color-border-strong);
+  }
+
+  .varve-menu__item:hover:not(:focus-visible):not(:disabled),
+  .varve-menu__item[aria-checked="true"]:hover:not(:focus-visible):not(:disabled) {
+    background: transparent;
+    color: var(--color-text-primary);
+  }
+
+  .varve-toggle-btn:hover:not(.varve-toggle-btn--pressed):not(:disabled) {
+    background: transparent;
+  }
+
+  .varve-toggle-btn--pressed:hover:not(:disabled) {
+    background: var(--color-interactive-checked-surface);
+    color: var(--color-interactive-selected-foreground);
+  }
+
+  .varve-tab:hover:not([aria-selected="true"]),
+  .varve-radio:hover:not(.varve-radio--disabled) {
+    background: transparent;
+  }
 }
 .varve-toggle-btn--sm {
   min-block-size: var(--component-compact-height);
@@ -2522,7 +2567,8 @@
   color: var(--color-text-primary);
 }
 .varve-combobox__option--highlighted {
-  background: var(--color-surface-sunken);
+  background: var(--color-interactive-selected-surface);
+  color: var(--color-interactive-selected-foreground);
 }
 .varve-combobox__option--disabled {
   opacity: 0.5;

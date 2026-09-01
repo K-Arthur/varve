@@ -1063,6 +1063,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                 virtualizer={virtualizer}
                 dropClass={dropClass}
                 dropClip={dropClip}
+                searchMatch={matchedIds?.has(node.id) ?? false}
                 hasMotion={animatedNodes.has(node.id)}
                 keyframeCount={keyframeCounts.get(node.id) ?? 0}
                 maskRole={maskRole}

@@ -243,7 +243,11 @@
 }
 
 .layers-row[data-layer-color]:hover:not(.layers-row--selected) {
-  background: color-mix(in oklab, var(--layers-row-color) 38%, var(--color-tree-row-hover));
+  background: color-mix(
+    in oklab,
+    var(--layers-row-color) 38%,
+    var(--color-interactive-hover-surface)
+  );
 }
 
 [data-theme="high-contrast"] .layers-row[data-layer-color] {
@@ -251,42 +255,54 @@
 }
 
 [data-theme="high-contrast"] .layers-row[data-layer-color]:hover:not(.layers-row--selected) {
-  background: color-mix(in oklab, var(--layers-row-color) 52%, var(--color-tree-row-hover));
+  background: color-mix(
+    in oklab,
+    var(--layers-row-color) 52%,
+    var(--color-interactive-hover-surface)
+  );
 }
 
 /* Selected state must win over type-coded wash. */
 .layers-row--selected[data-layer-type] {
-  background: color-mix(in oklab, var(--color-tree-row-selected) 24%, var(--color-tree-row));
+  background: var(--color-interactive-selected-surface);
   color: var(--color-text-primary);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-interactive-default) 60%, transparent);
+  box-shadow: inset 0 0 0 1px var(--color-interactive-selected-border);
 }
 .layers-row--selected[data-layer-type]:hover {
-  background: color-mix(in oklab, var(--color-tree-row-selected) 30%, var(--color-tree-row-hover));
+  background: var(--color-interactive-selected-surface-hover);
 }
 
 /* Category colour is carried by the icon as well as the leading rail, so a
  * row remains identifiable when its name is truncated or its label is unset.
  * Selected rows keep the high-contrast selection foreground. */
-.layers-row:not(.layers-row--selected)[data-layer-category="frame"] .layers-row__icon-area {
+:where(.layers-row:not(.layers-row--selected)[data-layer-category="frame"] .layers-row__icon-area) {
   color: var(--color-layer-accent-frame);
 }
-.layers-row:not(.layers-row--selected)[data-layer-category="group"] .layers-row__icon-area {
+:where(.layers-row:not(.layers-row--selected)[data-layer-category="group"] .layers-row__icon-area) {
   color: var(--color-layer-accent-group);
 }
-.layers-row:not(.layers-row--selected)[data-layer-category="component"] .layers-row__icon-area,
-.layers-row:not(.layers-row--selected)[data-layer-category="instance"] .layers-row__icon-area {
+:where(
+  .layers-row:not(.layers-row--selected)[data-layer-category="component"] .layers-row__icon-area,
+  .layers-row:not(.layers-row--selected)[data-layer-category="instance"] .layers-row__icon-area
+) {
   color: var(--color-layer-accent-component);
 }
-.layers-row:not(.layers-row--selected)[data-layer-category="text"] .layers-row__icon-area {
+:where(.layers-row:not(.layers-row--selected)[data-layer-category="text"] .layers-row__icon-area) {
   color: var(--color-layer-accent-text);
 }
-.layers-row:not(.layers-row--selected)[data-layer-category="vector"] .layers-row__icon-area {
+:where(
+  .layers-row:not(.layers-row--selected)[data-layer-category="vector"] .layers-row__icon-area
+) {
   color: var(--color-layer-accent-shape);
 }
-.layers-row:not(.layers-row--selected)[data-layer-category="raster"] .layers-row__icon-area {
+:where(
+  .layers-row:not(.layers-row--selected)[data-layer-category="raster"] .layers-row__icon-area
+) {
   color: var(--color-layer-accent-image);
 }
-.layers-row:not(.layers-row--selected)[data-layer-category="adjustment"] .layers-row__icon-area {
+:where(
+  .layers-row:not(.layers-row--selected)[data-layer-category="adjustment"] .layers-row__icon-area
+) {
   color: var(--color-layer-accent-adjustment);
 }
 
@@ -358,25 +374,33 @@
 }
 
 .layers-row:hover {
-  background: var(--color-tree-row-hover);
+  background: var(--color-interactive-hover-surface);
 }
 
 .layers-row--selected {
-  background: color-mix(in oklab, var(--color-tree-row-selected) 24%, var(--color-tree-row));
+  background: var(--color-interactive-selected-surface);
   color: var(--color-text-primary);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-interactive-default) 60%, transparent);
+  box-shadow: inset 0 0 0 1px var(--color-interactive-selected-border);
 }
 
 .layers-row--selected:hover {
-  background: color-mix(in oklab, var(--color-tree-row-selected) 30%, var(--color-tree-row-hover));
+  background: var(--color-interactive-selected-surface-hover);
 }
 
 .layers-row--selected[data-layer-color] {
-  background: color-mix(in oklab, var(--layers-row-color) 38%, var(--color-tree-row-selected));
+  background: color-mix(
+    in oklab,
+    var(--layers-row-color) 38%,
+    var(--color-interactive-selected-surface)
+  );
 }
 
 .layers-row--selected[data-layer-color]:hover {
-  background: color-mix(in oklab, var(--layers-row-color) 46%, var(--color-tree-row-hover));
+  background: color-mix(
+    in oklab,
+    var(--layers-row-color) 46%,
+    var(--color-interactive-selected-surface-hover)
+  );
 }
 
 .layers-row--focused {
@@ -937,7 +961,7 @@
 }
 
 /* Pointer and touch routes remain available without requiring hover. */
-@media (any-hover: none) {
+@media (hover: none), (pointer: coarse) {
   .layers-row__selection-checkbox,
   .layers-row__toggle--solo-off {
     opacity: 0.55;
@@ -1267,7 +1291,7 @@
 }
 
 /* Touch devices have no hover to reveal the drag handle (WCAG 2.5.8). */
-@media (any-hover: none) {
+@media (hover: none), (pointer: coarse) {
   .layers-row__drag-handle {
     opacity: 1;
   }
@@ -1330,9 +1354,9 @@
 }
 
 .layers-row--drop-into {
-  background: var(--color-interactive-hover);
+  background: var(--color-interactive-drop-target-surface);
   border-radius: var(--radius-control-compact);
-  outline: 2px solid var(--color-interactive-default);
+  outline: 2px solid var(--color-interactive-drop-target-border);
   outline-offset: -2px;
 }
 
@@ -1356,33 +1380,33 @@
 }
 
 .layers-panel__drop-root--invalid {
-  border-top-color: var(--color-feedback-error);
-  background: color-mix(in srgb, var(--color-feedback-error) 16%, transparent);
+  border-top-color: var(--color-interactive-drop-denied-border);
+  background: var(--color-interactive-drop-denied-surface);
 }
 
 .layers-row--drop-invalid {
-  background: color-mix(in srgb, var(--color-feedback-error) 16%, transparent);
-  outline: 2px solid var(--color-feedback-error);
+  background: var(--color-interactive-drop-denied-surface);
+  outline: 2px solid var(--color-interactive-drop-denied-border);
   outline-offset: -2px;
 }
 
 .layers-row--drop-invalid::after,
 .layers-row--drop-invalid::before {
-  background: var(--color-feedback-error);
-  border-color: var(--color-feedback-error);
+  background: var(--color-interactive-drop-denied-border);
+  border-color: var(--color-interactive-drop-denied-border);
 }
 
 /* Appearance-stack drops use the row itself as a target but never change its
    measured height, so virtualized hit testing stays stable while hovering. */
 .layers-row--effect-stack-drop {
-  background: color-mix(in srgb, var(--color-interactive-default) 18%, var(--color-tree-row));
-  outline: 2px solid var(--color-interactive-default);
+  background: var(--color-interactive-drop-target-surface);
+  outline: 2px solid var(--color-interactive-drop-target-border);
   outline-offset: -2px;
 }
 
 .layers-row--effect-stack-drop-invalid {
-  background: color-mix(in srgb, var(--color-feedback-error) 14%, var(--color-tree-row));
-  outline: 2px solid var(--color-feedback-error);
+  background: var(--color-interactive-drop-denied-surface);
+  outline: 2px solid var(--color-interactive-drop-denied-border);
   outline-offset: -2px;
 }
 
@@ -1406,7 +1430,7 @@
 }
 
 .layers-row--effect-stack-drop-invalid .layers-row__effect-stack-drop-hint {
-  background: var(--color-feedback-error);
+  background: var(--color-interactive-drop-denied-border);
 }
 
 /* Clip-into drop preview: the target row is a clipping mask source, so the
@@ -1438,9 +1462,44 @@
 
 /* ─── Match highlight for search ────────────────────────────── */
 .layers-row__match {
-  background: var(--color-feedback-warning);
+  background: var(--color-highlight-search-match);
   color: var(--color-text-primary);
   border-radius: var(--radius-control-compact);
+}
+
+.layers-row__name--match {
+  background: var(--color-highlight-search-match);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-control-compact);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding-inline: 2px;
+}
+
+/* A tap must not leave a temporary row-hover tint behind. Persistent selected,
+ * document-color, and drop states remain authoritative on coarse pointers. */
+@media (hover: none), (pointer: coarse) {
+  .layers-row:hover:not(.layers-row--selected):not(.layers-row--drop-into):not(
+    .layers-row--drop-invalid
+  ):not(.layers-row--effect-stack-drop):not(.layers-row--effect-stack-drop-invalid) {
+    background: var(--color-tree-row);
+  }
+
+  .layers-row[data-layer-color]:hover:not(.layers-row--selected) {
+    background: color-mix(in oklab, var(--layers-row-color) 30%, var(--color-tree-row));
+  }
+
+  .layers-row--selected:hover {
+    background: var(--color-interactive-selected-surface);
+  }
+
+  .layers-row--selected[data-layer-color]:hover {
+    background: color-mix(
+      in oklab,
+      var(--layers-row-color) 38%,
+      var(--color-interactive-selected-surface)
+    );
+  }
 }
 
 /* ─── Presence indicators (collaboration) ──────────────────── */

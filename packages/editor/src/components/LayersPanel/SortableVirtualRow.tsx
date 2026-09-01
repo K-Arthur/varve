@@ -23,6 +23,7 @@ export interface SortableVirtualRowProps {
   virtualItem: import('@tanstack/react-virtual').VirtualItem;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   dropClass: string;
+  searchMatch: boolean;
   /** True while the drop preview targets a clipping mask source row — the
    *  row shows a "clip" hint so the user sees the resulting relationship
    *  before releasing the pointer. */
@@ -72,6 +73,7 @@ export function SortableVirtualRow({
   virtualizer,
   dropClass,
   dropClip,
+  searchMatch,
   hasMotion,
   keyframeCount,
   maskRole,
@@ -225,6 +227,7 @@ export function SortableVirtualRow({
         onOpenEffectStack={onOpenEffectStack}
         onOpenAdjustment={onOpenAdjustment}
         effectStackDrop={effectStackDrop}
+        searchMatch={searchMatch}
       />
     </div>
   );

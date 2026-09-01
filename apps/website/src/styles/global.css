@@ -95,8 +95,8 @@
   }
 
   ::selection {
-    background: var(--color-accent-subtle);
-    color: var(--text-primary);
+    background: var(--highlight-text-selection);
+    color: var(--highlight-text-selection-foreground);
   }
 
   :focus-visible {
@@ -308,7 +308,10 @@
     color: var(--text-on-accent);
     font-weight: 600;
     border-radius: var(--website-radius-pill);
-    transition: all var(--duration-fast) var(--ease-default);
+    transition:
+      background-color var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default),
+      border-color var(--duration-fast) var(--ease-default);
     border: none;
     cursor: pointer;
     font-size: 0.875rem;
@@ -333,7 +336,10 @@
     color: var(--text-primary);
     font-weight: 600;
     border-radius: var(--website-radius-pill);
-    transition: all var(--duration-fast) var(--ease-default);
+    transition:
+      background-color var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default),
+      border-color var(--duration-fast) var(--ease-default);
     border: 1px solid var(--border-strong);
     cursor: pointer;
     font-size: 0.875rem;

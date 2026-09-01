@@ -752,7 +752,7 @@ input[type="number"] {
   opacity: 1;
 }
 /* Touch devices have no hover to reveal the close button (WCAG 2.5.8). */
-@media (any-hover: none) {
+@media (hover: none), (pointer: coarse) {
   .editor-tabs__close {
     opacity: 1;
   }
@@ -5625,8 +5625,8 @@ dialog.varve-dialog--settings[open] {
 
 .archive-dialog__strength-breach {
   font-size: var(--font-size-sm);
-  color: var(--color-feedback-error-strong);
-  background: color-mix(in oklch, var(--color-feedback-error) 12%, transparent);
+  color: var(--color-feedback-danger);
+  background: color-mix(in oklch, var(--color-feedback-danger) 12%, transparent);
   padding: 8px 12px;
   border-radius: var(--radius-control-compact);
 }
@@ -5769,7 +5769,7 @@ dialog.varve-dialog--settings[open] {
 
 .thumbnail-info-dialog__error {
   font-size: var(--font-size-sm);
-  color: var(--color-feedback-error-strong);
+  color: var(--color-feedback-danger);
 }
 
 .thumbnail-info-dialog__footer {
@@ -5828,7 +5828,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .restore-browser__item-status--corrupted {
-  color: var(--color-feedback-error-strong);
+  color: var(--color-feedback-danger);
 }
 
 /* ---------- BatchBgRemoveDialog ------------------------------------------- */

@@ -325,11 +325,13 @@
 }
 
 .varve-multi-select__option--highlighted {
-  background: var(--color-interactive-hover);
+  background: var(--color-interactive-selected-surface);
+  color: var(--color-interactive-selected-foreground);
 }
 
 .varve-multi-select__option--selected {
-  color: var(--color-interactive-default);
+  color: var(--color-interactive-selected-foreground);
+  background: var(--color-interactive-selected-surface);
 }
 
 .varve-multi-select__option--disabled {
