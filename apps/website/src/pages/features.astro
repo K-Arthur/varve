@@ -166,6 +166,15 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           <h2>Workspaces</h2>
           <p>Eight task-focused workspaces with per-mode panels, toolbar, inspector, and status bar customization</p>
         </a>
+
+        <div class="feature-card feature-card--static">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
+          </div>
+          <StatusPill status="available" class="feature-card-pill" />
+          <h2>Quiet Operation Feedback</h2>
+          <p>Clear success, warning, and recovery messages that stay out of the way while you work</p>
+        </div>
       </div>
 
       <ClosingCTA
@@ -212,6 +221,10 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       box-shadow var(--duration-fast) var(--ease-default);
     text-decoration: none;
     display: block;
+  }
+
+  .feature-card--static {
+    cursor: default;
   }
 
   /* Feature icon: a small colored tile with the design-tool glyph.
