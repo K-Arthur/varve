@@ -64,10 +64,11 @@ async function dragRowToRow(
 ) {
   const from = rowByName(page, fromName);
   await from.scrollIntoViewIfNeeded();
-  const fromBox = await from.boundingBox();
+  const fromHandle = from.locator('.layers-row__drag-handle');
+  const fromBox = await fromHandle.boundingBox();
   if (!fromBox) throw new Error(`source row ${fromName} not visible`);
   // Grab by the labeled handle; dnd-kit PointerSensor needs >5px travel.
-  const startX = fromBox.x + 8;
+  const startX = fromBox.x + fromBox.width / 2;
   const startY = fromBox.y + fromBox.height / 2;
   await page.mouse.move(startX, startY);
   await page.mouse.down();
@@ -220,7 +221,10 @@ test.describe('Layers Panel — real drag & drop', () => {
     const from = rowByName(page, firstName);
     const fromBox = await from.boundingBox();
     if (!fromBox) throw new Error('row not visible');
-    const startX = fromBox.x + 8;
+    const handle = from.locator('.layers-row__drag-handle');
+    const handleBox = await handle.boundingBox();
+    if (!handleBox) throw new Error('drag handle not visible');
+    const startX = handleBox.x + handleBox.width / 2;
     const startY = fromBox.y + fromBox.height / 2;
     await page.mouse.move(startX, startY);
     await page.mouse.down();

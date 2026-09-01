@@ -157,7 +157,20 @@ test.describe('front-facing adjustment and canvas controls', () => {
     await expect(rows.nth(1)).toContainText('Contrast');
     await expect(page.getByRole('button', { name: 'Move Contrast up' })).toBeVisible();
 
-    await rows.nth(1).dragTo(rows.nth(0));
+    const sourceHandle = rows.nth(1).locator('.smart-filters__drag-handle');
+    const sourceBox = await sourceHandle.boundingBox();
+    if (!sourceBox) throw new Error('Object Filter drag handle is not measurable');
+    const startX = sourceBox.x + sourceBox.width / 2;
+    const startY = sourceBox.y + sourceBox.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX, startY - 12);
+    const targetBox = await rows.nth(0).boundingBox();
+    if (!targetBox) throw new Error('Object Filter target is not measurable');
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
+      steps: 6,
+    });
+    await page.mouse.up();
     await expect(rows.nth(0)).toContainText('Contrast');
     await expect(rows.nth(1)).toContainText('Brightness');
     const moveBrightnessUp = page.getByRole('button', { name: 'Move Brightness up' });

@@ -201,7 +201,7 @@
   border-radius: var(--radius-sm);
   display: grid;
   gap: var(--space-1);
-  grid-template-columns: 24px 24px minmax(0, 1fr) 24px;
+  grid-template-columns: 28px 24px 24px minmax(0, 1fr) 24px;
   min-height: 2.125rem;
   min-width: 0;
   padding: 0 2px;
@@ -212,17 +212,16 @@
   background: var(--color-surface-selected);
 }
 
-.smart-filters__row[draggable="true"] {
-  cursor: grab;
+.smart-filters__drag-handle {
+  min-height: 2rem;
+  min-width: 1.75rem;
+  width: 1.75rem;
 }
 
-.smart-filters__row[draggable="true"]:active {
-  cursor: grabbing;
-}
-
-.smart-filters__row--drag-over {
-  border-color: var(--color-accent-primary);
-  box-shadow: inset 0 2px 0 var(--color-accent-primary);
+.smart-filters__drag-overlay {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
 }
 
 .smart-filters__reorder {

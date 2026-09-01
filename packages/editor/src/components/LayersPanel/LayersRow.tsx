@@ -233,11 +233,7 @@ export const LayersRow = memo(function LayersRow({
         ? (node as AdjustmentNode).adjustmentType
         : null;
 
-  /**
-   * Keep a control's own gesture out of dnd-kit's hands. The row is draggable
-   * from anywhere (Figma/Illustrator convention) which means its pointerdown
-   * listener sits above every button, toggle and checkbox inside it.
-   */
+  /** Keep control gestures out of dnd-kit's hands. */
   const stopDragActivation = useCallback((e: React.PointerEvent) => {
     e.stopPropagation();
   }, []);
@@ -366,12 +362,6 @@ export const LayersRow = memo(function LayersRow({
             ...style,
           } as React.CSSProperties
         }
-        // Draggable from anywhere on the row (Figma/Illustrator/Photoshop
-        // convention), not just the small grip handle — but not while renaming,
-        // so dragging to select text in the rename input isn't hijacked as a
-        // reorder/reparent gesture. dragAttributes (ARIA role/description)
-        // stays scoped to the labeled handle button below for a11y.
-        {...(!editing ? dragListeners : undefined)}
       >
         {/* Drag handle */}
         <button

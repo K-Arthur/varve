@@ -68,9 +68,9 @@ async function readIndicator(page: Page): Promise<Indicator | null> {
 async function beginDrag(page: Page, rowId: string): Promise<{ x: number; y: number }> {
   const row = page.locator(`[role="treeitem"][data-node-id="${rowId}"]`);
   await row.scrollIntoViewIfNeeded();
-  const box = await row.boundingBox();
+  const box = await row.locator('.layers-row__drag-handle').boundingBox();
   if (!box) throw new Error(`row ${rowId} has no geometry`);
-  const x = box.x + 8;
+  const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
   await page.mouse.move(x, y);
   await page.mouse.down();
@@ -385,8 +385,7 @@ test.describe('Layers DnD — preview matches commit', () => {
     const row = page.locator(`[role="treeitem"][data-node-id="${rows[0]!.id}"]`);
 
     // Press the visibility toggle and slip well past the 5px activation
-    // distance before releasing — the row itself is draggable, so this used
-    // to start a drag from a button press.
+    // distance before releasing — only the dedicated handle is draggable.
     const toggle = row.locator('.layers-row__toggle--visibility-on');
     const box = await toggle.boundingBox();
     if (!box) throw new Error('visibility toggle not found');

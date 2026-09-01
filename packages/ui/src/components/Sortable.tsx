@@ -12,6 +12,7 @@ import {
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
+  pointerWithin,
   type UniqueIdentifier,
   useSensor,
   useSensors,
@@ -93,7 +94,7 @@ function layoutConfig(layout: SortableLayout): {
   }
   return {
     strategy: verticalListSortingStrategy,
-    collisionDetection: closestCenter,
+    collisionDetection: pointerWithin,
   };
 }
 
@@ -135,18 +136,30 @@ export function Sortable({
   const { strategy, collisionDetection } = layoutConfig(layout);
   const sensors = useSortableSensors(activationDistance);
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const [overId, setOverId] = useState<UniqueIdentifier | null>(null);
 
   const handleDragStart: DndContextProps['onDragStart'] = (event) => {
     setActiveId(event.active.id);
+    setOverId(null);
     onDragStart?.(event);
+  };
+  const handleDragMove = (event: DragMoveEvent) => {
+    setOverId(event.over?.id ?? null);
+    onDragMove?.(event);
+  };
+  const handleDragOver = (event: DragOverEvent) => {
+    setOverId(event.over?.id ?? null);
+    onDragOver?.(event);
   };
   const handleDragEnd = (event: DragEndEvent) => {
     const nextItems = reorderSortableItems(normalizedItems, event.active.id, event.over?.id);
     setActiveId(null);
+    setOverId(null);
     onReorder?.({ event, items: nextItems });
   };
   const handleDragCancel: DndContextProps['onDragCancel'] = (event) => {
     setActiveId(null);
+    setOverId(null);
     onDragCancel?.(event);
   };
 
@@ -155,14 +168,16 @@ export function Sortable({
       sensors={sensors}
       collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
-      onDragMove={onDragMove}
-      onDragOver={onDragOver}
+      onDragMove={handleDragMove}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <DndSortableContext items={normalizedItems} strategy={strategy}>
-        {children}
-      </DndSortableContext>
+      <SortableCollectionContext.Provider value={{ overId }}>
+        <DndSortableContext items={normalizedItems} strategy={strategy}>
+          {children}
+        </DndSortableContext>
+      </SortableCollectionContext.Provider>
       {renderOverlay ? (
         <DragOverlay dropAnimation={null} className={className}>
           {activeId == null ? null : renderOverlay(activeId)}
@@ -172,6 +187,9 @@ export function Sortable({
   );
 }
 
+const SortableCollectionContext = createContext<{ overId: UniqueIdentifier | null }>({
+  overId: null,
+});
 const SortableItemContext = createContext<SortableItemRenderProps | null>(null);
 
 export interface SortableItemProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'id'> {
@@ -193,9 +211,11 @@ export function SortableItem({
   children,
   className,
   style,
+  onKeyDown: itemOnKeyDown,
   ...rest
 }: SortableItemProps) {
   const sortable = useSortable({ id, data, disabled });
+  const collection = useContext(SortableCollectionContext);
   const renderProps: SortableItemRenderProps = {
     attributes: sortable.attributes,
     listeners: sortable.listeners,
@@ -211,14 +231,23 @@ export function SortableItem({
     opacity: sortable.isDragging ? 0.45 : style?.opacity,
   };
   const Element = as;
+  const sortableOnKeyDown = dragFromItem ? sortable.listeners?.onKeyDown : undefined;
+  const onKeyDown = sortableOnKeyDown
+    ? (event: React.KeyboardEvent<HTMLElement>) => {
+        sortableOnKeyDown(event);
+        if (!event.defaultPrevented) itemOnKeyDown?.(event as React.KeyboardEvent<HTMLDivElement>);
+      }
+    : itemOnKeyDown;
 
   const elementProps = {
     ref: sortable.setNodeRef,
     className: `varve-sortable-item${sortable.isDragging ? ' varve-sortable-item--dragging' : ''}${className ? ` ${className}` : ''}`,
     style: itemStyle,
     'data-sortable-item': String(id),
+    'data-sortable-over': collection.overId === id ? 'true' : undefined,
     ...(dragFromItem ? sortable.attributes : {}),
     ...(dragFromItem ? sortable.listeners : {}),
+    onKeyDown,
     ...rest,
   } as React.HTMLAttributes<HTMLElement> & { ref: typeof sortable.setNodeRef };
   return (

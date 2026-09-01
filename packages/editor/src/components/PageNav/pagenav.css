@@ -75,6 +75,14 @@
   outline-offset: -2px;
 }
 
+.page-nav__drag-overlay {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  white-space: nowrap;
+}
+
 /* Thumbnail (small preview icon) — shown when canvas has content */
 .page-nav__thumbnail {
   display: flex;

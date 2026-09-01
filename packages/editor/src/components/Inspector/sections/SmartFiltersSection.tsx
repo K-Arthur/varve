@@ -21,7 +21,15 @@ import {
   makeSmartFilter,
   SMART_FILTER_KINDS,
 } from '@varve/scene';
-import { Select, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
+import {
+  Select,
+  SOLID_CHROME_ICONS,
+  SolidIcon,
+  Sortable,
+  SortableItem,
+  SortableItemHandle,
+  SortableOverlay,
+} from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { AdjustmentEditor } from '../../AdjustmentLayer/AdjustmentEditor';
@@ -80,7 +88,8 @@ function markTreatmentCustomized(filters: readonly Adjustment[], filterId: strin
 }
 
 export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
-  const { updateNode, beginTransaction, commitTransaction, announce } = useEditor();
+  const { updateNode, beginTransaction, commitTransaction, abortTransaction, announce } =
+    useEditor();
   const node = nodes.length === 1 ? nodes[0] : undefined;
   const nodeId = node?.id;
   const compatible = node ? canHaveSmartFilters(node) : false;
@@ -90,8 +99,6 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
   const hasCuratedRecipeMembers = filters.some((filter) => filter.studioTreatment);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(() => !hasCuratedRecipeMembers);
-  const draggedFilterIdRef = useRef<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const editingRef = useRef(false);
 
   const finishTransaction = useCallback(() => {
@@ -99,6 +106,12 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
     editingRef.current = false;
     commitTransaction();
   }, [commitTransaction]);
+
+  const cancelTransaction = useCallback(() => {
+    if (!editingRef.current) return;
+    editingRef.current = false;
+    abortTransaction();
+  }, [abortTransaction]);
 
   const startTransaction = useCallback(() => {
     if (editingRef.current) return;
@@ -185,29 +198,29 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
     [nodeId, updateNode],
   );
 
-  const handleFilterDragStart = useCallback(
-    (event: React.DragEvent<HTMLLIElement>, filterId: string) => {
-      draggedFilterIdRef.current = filterId;
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', filterId);
-      startTransaction();
-    },
-    [startTransaction],
-  );
-
-  const handleFilterDrop = useCallback(
-    (event: React.DragEvent<HTMLLIElement>, targetIndex: number) => {
-      event.preventDefault();
-      const draggedId = draggedFilterIdRef.current;
-      const sourceIndex = draggedId ? filters.findIndex((filter) => filter.id === draggedId) : -1;
-      if (sourceIndex >= 0 && sourceIndex !== targetIndex && draggedId) {
-        reorderFilter(draggedId, sourceIndex < targetIndex ? targetIndex - 1 : targetIndex);
+  const handleFilterReorder = useCallback(
+    ({ event, items }: import('@varve/ui').SortableEndResult) => {
+      if (!items || !nodeId) {
+        finishTransaction();
+        return;
       }
-      draggedFilterIdRef.current = null;
-      setDragOverId(null);
+      const orderedIds = items.map(String);
+      const activeId = String(event.active.id);
+      updateNode(nodeId, (current) => {
+        const stack = markTreatmentCustomized(current.smartFilters ?? [], activeId);
+        const byId = new Map(stack.map((filter) => [filter.id, filter]));
+        const reordered = orderedIds
+          .map((id) => byId.get(id))
+          .filter((filter): filter is Adjustment => Boolean(filter));
+        return reordered.length === stack.length
+          ? { ...current, smartFilters: reordered }
+          : current;
+      });
       finishTransaction();
+      const moved = filters.find((filter) => filter.id === activeId);
+      if (moved) announce(`Moved ${filterName(moved)} filter`);
     },
-    [filters, finishTransaction, reorderFilter],
+    [announce, filters, finishTransaction, nodeId, updateNode],
   );
 
   const duplicateFilter = useCallback(
@@ -295,103 +308,110 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
 
           <ul className="smart-filters__stack" aria-label="Object Filter stack">
             {filters.length === 0 && <li className="smart-filters__empty">No filters applied.</li>}
-            {filters.map((filter, index) => (
-              <li
-                className={`smart-filters__row${selectedId === filter.id ? ' smart-filters__row--selected' : ''}${dragOverId === filter.id ? ' smart-filters__row--drag-over' : ''}`}
-                key={filter.id}
-                draggable={filters.length > 1}
-                onDragStart={(event) => handleFilterDragStart(event, filter.id)}
-                onDragOver={(event) => {
-                  if (!draggedFilterIdRef.current || draggedFilterIdRef.current === filter.id)
-                    return;
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = 'move';
-                  setDragOverId(filter.id);
-                }}
-                onDragLeave={() =>
-                  setDragOverId((current) => (current === filter.id ? null : current))
-                }
-                onDrop={(event) => handleFilterDrop(event, index)}
-                onDragEnd={() => {
-                  draggedFilterIdRef.current = null;
-                  setDragOverId(null);
-                  finishTransaction();
-                }}
-              >
-                <div className="smart-filters__reorder">
-                  <button
-                    type="button"
-                    disabled={index === 0}
-                    onClick={() => reorderFilter(filter.id, index - 1)}
-                    aria-label={`Move ${filterName(filter)} up`}
-                  >
-                    <SolidIcon name={SOLID_CHROME_ICONS.chevronUp} size="0.65em" />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={index === filters.length - 1}
-                    onClick={() => reorderFilter(filter.id, index + 1)}
-                    aria-label={`Move ${filterName(filter)} down`}
-                  >
-                    <SolidIcon name={SOLID_CHROME_ICONS.chevronDown} size="0.65em" />
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  className="smart-filters__visibility"
-                  onClick={() => updateFilter(filter.id, { visible: !filter.visible })}
-                  aria-label={
-                    filter.visible
-                      ? `Disable ${filterName(filter)}`
-                      : `Enable ${filterName(filter)}`
-                  }
-                  aria-pressed={filter.visible}
+            <Sortable
+              items={filters.map((filter) => filter.id)}
+              layout="vertical"
+              onDragStart={startTransaction}
+              onDragCancel={cancelTransaction}
+              onReorder={handleFilterReorder}
+              renderOverlay={(id) => {
+                const filter = filters.find((candidate) => candidate.id === id);
+                return filter ? (
+                  <SortableOverlay className="smart-filters__drag-overlay">
+                    {filterName(filter)}
+                  </SortableOverlay>
+                ) : null;
+              }}
+            >
+              {filters.map((filter, index) => (
+                <SortableItem
+                  as="li"
+                  className={`smart-filters__row${selectedId === filter.id ? ' smart-filters__row--selected' : ''}`}
+                  key={filter.id}
+                  id={filter.id}
+                  data={{ type: 'smart-filter', filterId: filter.id }}
                 >
-                  <SolidIcon
-                    name={
+                  <SortableItemHandle
+                    className="smart-filters__drag-handle"
+                    aria-label={`Drag ${filterName(filter)} filter to reorder`}
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.gripVertical} size="0.7em" />
+                  </SortableItemHandle>
+                  <div className="smart-filters__reorder">
+                    <button
+                      type="button"
+                      disabled={index === 0}
+                      onClick={() => reorderFilter(filter.id, index - 1)}
+                      aria-label={`Move ${filterName(filter)} up`}
+                    >
+                      <SolidIcon name={SOLID_CHROME_ICONS.chevronUp} size="0.65em" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={index === filters.length - 1}
+                      onClick={() => reorderFilter(filter.id, index + 1)}
+                      aria-label={`Move ${filterName(filter)} down`}
+                    >
+                      <SolidIcon name={SOLID_CHROME_ICONS.chevronDown} size="0.65em" />
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="smart-filters__visibility"
+                    onClick={() => updateFilter(filter.id, { visible: !filter.visible })}
+                    aria-label={
                       filter.visible
-                        ? SOLID_CHROME_ICONS.visibility
-                        : SOLID_CHROME_ICONS.visibilityOff
+                        ? `Disable ${filterName(filter)}`
+                        : `Enable ${filterName(filter)}`
                     }
-                    size="0.75em"
-                  />
-                </button>
-                <button
-                  type="button"
-                  className="smart-filters__name"
-                  onClick={() => setSelectedId(filter.id)}
-                  aria-expanded={selectedId === filter.id}
-                >
-                  <span className="smart-filters__name-copy">
-                    <span>{filterName(filter)}</span>
-                    {studioTreatmentName(filter) && (
-                      <small className="smart-filters__treatment-member">
-                        {studioTreatmentName(filter)}
-                        {filter.studioTreatment?.customized
-                          ? ' · customized recipe'
-                          : ' · recipe member'}
-                      </small>
-                    )}
-                  </span>
-                  {!isKnownAdjustmentKind(filter.kind) && (
-                    <span className="smart-filters__unavailable">Unavailable in this build</span>
-                  )}
-                  {(filter.opacity ?? 1) < 1 && (
-                    <span className="smart-filters__meta">
-                      {Math.round((filter.opacity ?? 1) * 100)}%
+                    aria-pressed={filter.visible}
+                  >
+                    <SolidIcon
+                      name={
+                        filter.visible
+                          ? SOLID_CHROME_ICONS.visibility
+                          : SOLID_CHROME_ICONS.visibilityOff
+                      }
+                      size="0.75em"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="smart-filters__name"
+                    onClick={() => setSelectedId(filter.id)}
+                    aria-expanded={selectedId === filter.id}
+                  >
+                    <span className="smart-filters__name-copy">
+                      <span>{filterName(filter)}</span>
+                      {studioTreatmentName(filter) && (
+                        <small className="smart-filters__treatment-member">
+                          {studioTreatmentName(filter)}
+                          {filter.studioTreatment?.customized
+                            ? ' · customized recipe'
+                            : ' · recipe member'}
+                        </small>
+                      )}
                     </span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="smart-filters__remove"
-                  onClick={() => removeFilter(filter.id)}
-                  aria-label={`Remove ${filterName(filter)}`}
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.7em" />
-                </button>
-              </li>
-            ))}
+                    {!isKnownAdjustmentKind(filter.kind) && (
+                      <span className="smart-filters__unavailable">Unavailable in this build</span>
+                    )}
+                    {(filter.opacity ?? 1) < 1 && (
+                      <span className="smart-filters__meta">
+                        {Math.round((filter.opacity ?? 1) * 100)}%
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="smart-filters__remove"
+                    onClick={() => removeFilter(filter.id)}
+                    aria-label={`Remove ${filterName(filter)}`}
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.7em" />
+                  </button>
+                </SortableItem>
+              ))}
+            </Sortable>
           </ul>
 
           <div className="smart-filters__add-label">
