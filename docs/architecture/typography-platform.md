@@ -165,11 +165,21 @@ registered, persisted, and made ready. Failed installation preserves the
 previous family and editing session. The browser demo can browse the shipped
 catalog, but restricts additional downloads.
 
+Imported missing families use this same boundary. The recovery dialog checks
+for an exact Fontsource family, id, or declared alias and shows the resolved
+weight, style, and license before an explicit install. It never describes a
+fuzzy semantic result as exact. If no exact identity exists, Browse fonts opens
+the full semantic catalog and local substitution remains available. Successful
+installs preserve Fontsource provenance across reloads; alias matches are
+rewritten to the canonical family in one undoable replacement transaction.
+
 The maintainer-only catalog generator reads the official Fontsource metadata
 API. Runtime code never calls the Google Fonts metadata API and does not need a
 Google API key. Runtime downloads are constrained to HTTPS Fontsource CDN
 artifacts with exact package versions; redirects, MIME/signature, size, and
 face identity are validation concerns at the download boundary.
+WOFF2 metadata decompression has a bounded fallback so an unavailable webview
+decompressor cannot strand installation in a permanent pending state.
 
 ## Remaining Limitations
 

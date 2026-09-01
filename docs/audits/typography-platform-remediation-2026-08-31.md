@@ -45,23 +45,27 @@ claims stay aligned with runtime behavior.
   local-only.
 - Repeated identical registry entries are ignored while distinct source
   entries remain available for provenance and fallback decisions.
+- Runtime discovery now uses the shipped Fontsource and semantic catalogs;
+  metadata search is local, installation is explicit and version-pinned, and
+  the legacy Google provider is disabled.
+- The missing-font dialog resolves exact catalog identities and requested
+  faces, displays license metadata, respects the browser-demo restriction, and
+  opens the full browser for alternatives without removing local replacement.
+- Downloaded and restored Fontsource artifacts retain provider, weight, and
+  style identity. WOFF2 decompressor initialization is bounded so installation
+  cannot remain permanently pending in a browser or native webview.
 
 ## Remaining work / explicit follow-up
 
-- Complete the Fontsource-first catalog and artifact resolver described in the
-  provider migration audit. Search should work from a generated offline catalog;
-  installation should accept only immutable, allowlisted artifacts.
 - Carry exact parsed face identity (content hash, PostScript name, collection
   index, axes, and embedding rights) through `FontEntry`, `FontLoader`, the
   download manager, IndexedDB, and Tauri filesystem storage. Family name alone
   is not an identity key.
 - Add redirect-host, content-signature, face-identity, and persisted-byte
   verification tests at the download boundary.
-- Add real-browser coverage for click-to-edit, immediate typing, toolbar focus,
-  font installation failure, and the public-demo capability message. The first
-  active-editing spec is present at
-  `tests/e2e/canvas/typography-editing.spec.ts`; it is currently blocked by an
-  unrelated dirty-worktree ToastProvider edit that prevents Vite startup.
+- Extend real-browser coverage from the passing active-editing, exact
+  Fontsource recovery, and public-demo capability cases to installation
+  failure and retry behavior.
 - Verify accessibility with screen reader announcements, IME composition,
   bidi text, and keyboard-only toolbar navigation in Chromium and at least one
   native webview.

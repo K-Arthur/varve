@@ -11,7 +11,7 @@ const fontReplacementFaq = {
       name: 'What happens when an imported design uses a missing font?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve identifies the missing family, ranks local replacement candidates, and opens a review dialog only when a decision is needed. The text stays editable, and the original family is retained in the document font manifest.',
+        text: 'Varve identifies the missing family, offers an exact Fontsource face when the shipped catalog has one, and ranks installed replacements. Nothing downloads until you approve it. The text stays editable, and the original family is retained in the document font manifest.',
       },
     },
     {
@@ -64,7 +64,7 @@ const fontReplacementFaq = {
           Varve's typography system provides multi-line layout, text decoration, overflow handling, list styles, letter spacing, vertical alignment, and text case transforms. It supports OpenType feature toggles, variable font axis control, text placed along arbitrary paths, and a logical Unicode source model designed to keep shaping, editing, and export aligned.
         </p>
         <p>
-          For native Figma <code>.fig</code>, REST, or plugin-export JSON imports, Varve also treats fonts as document dependencies. It detects missing families in ordinary text, rich-text runs, and reusable text styles; ranks local candidates; and keeps the original family reference in the saved document manifest. You can continue editing locally without keeping Figma open.
+          For native Figma <code>.fig</code>, REST, or plugin-export JSON imports, Varve also treats fonts as document dependencies. It detects missing families in ordinary text, rich-text runs, and reusable text styles; checks the shipped Fontsource catalog for the requested face; ranks installed candidates; and keeps the original family reference in the saved document manifest. You can continue editing locally without keeping Figma open.
         </p>
         <p>
           The catalog ships with Varve, so font discovery works offline and does not require a Google Fonts key or runtime metadata request. On desktop, installing a result is an explicit action that retrieves one exact, version-pinned Fontsource artifact, stores it locally, and only then makes it available to the document. The browser demo can browse the catalog but does not download additional font files.
@@ -75,7 +75,7 @@ const fontReplacementFaq = {
         <p class="feature-callout__eyebrow">Import with confidence</p>
         <h2>Missing fonts are a reviewable decision, not silent damage</h2>
         <p>
-          Choose a substitute once and apply it across the document in one undoable action. Varve labels exact, compatible, and fallback matches, updates rich text without flattening it, and warns when new font metrics may reflow the design.
+          Install the requested Fontsource face when an exact catalog identity exists, or choose a substitute and apply it across the document in one undoable action. Varve shows the requested weight, style, and license before installation; labels compatible and fallback replacements; updates rich text without flattening it; and warns when new metrics may reflow the design.
         </p>
         <div class="feature-callout__links">
           <a href={sitePath('/docs/tools/typography')}>Read the typography workflow</a>
@@ -174,7 +174,7 @@ const fontReplacementFaq = {
       <section class="feature-section feature-faq">
         <h2>Common questions</h2>
         <h3>What happens when an imported design uses a missing font?</h3>
-        <p>Varve identifies the family, suggests local candidates, and asks for a replacement only when necessary. The source family remains available as provenance in the document manifest.</p>
+        <p>Varve identifies the family and checks the shipped catalog for the requested Fontsource face. You can explicitly install an exact match, browse semantic alternatives, or choose an installed replacement. The source family remains available as provenance in the document manifest.</p>
         <h3>Can I replace a font everywhere?</h3>
         <p>Yes. Replace All covers node-level text, mixed rich-text runs, and shared text styles as one undoable operation.</p>
         <h3>Does replacement upload my document or fonts?</h3>

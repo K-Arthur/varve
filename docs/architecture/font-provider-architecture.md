@@ -17,7 +17,7 @@ FontsourceCatalogStore ── resolve ──▶ version-pinned CDN artifact
                                                │
                                   shared IndexedDB artifact store
                                                │
-                                  FontLoader + FontRegistry (user face)
+                                  FontLoader + FontRegistry (Fontsource face)
 ```
 
 The catalog is generated with `pnpm fonts:catalog` from the official
@@ -46,7 +46,10 @@ store.
 Document manifests retain canonical identity and missing/substituted status.
 Opening an older document never triggers a download and never silently changes
 the text family. A user may explicitly install a matching catalog artifact and
-then resolve the manifest again.
+then resolve the manifest again. Restoring a persisted artifact preserves its
+provider, weight, and style in `FontRegistry` and marks the matching local
+catalog record installed; a reopened project therefore does not regress to a
+generic user-font label or offer the same download again.
 
 ## Capability and UI contract
 
@@ -60,3 +63,24 @@ The browser demo exposes the shipped catalog and bundled fonts, but its
 `onlineFonts` capability blocks additional downloads. Desktop CSP permits only
 the explicit Fontsource CDN transport; the Google Fonts API origin is not
 allowlisted.
+
+## Missing-font recovery
+
+The missing-font controller performs an identity-only lookup against the same
+shipped Fontsource catalog. An exact family, canonical id, or declared alias may
+offer installation; fuzzy and semantic search results never become an “exact”
+action. The requested weight and style are resolved to the immutable artifact,
+and the dialog labels any nearest-face fallback before the user acts.
+
+Installation does not mutate the document when the canonical family name is
+unchanged. Alias recovery updates the document to the canonical family in one
+undoable replacement transaction so CSS and canvas lookup can resolve the
+newly registered face. When there is no exact catalog identity, the dialog can
+open the full semantic browser for a reviewed alternative while preserving the
+existing local replacement controls.
+
+WOFF2 metadata decompression is bounded. If the optional decompressor cannot
+initialize in a browser or native webview within two seconds, parsing falls
+back to its header metadata and the browser's `FontFace` parser remains the
+final validity gate. A decompressor initialization failure must never leave an
+explicit install permanently pending.

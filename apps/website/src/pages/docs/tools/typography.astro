@@ -66,7 +66,7 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><strong>Explicit desktop installs</strong> — When enabled, retrieve one exact, version-pinned Fontsource artifact after reviewing the result and its license metadata</li>
         </ul>
         <p>
-          The compact font family selector shows installed fonts only and never starts a download. Open Browse fonts for semantic discovery, coverage and license inspection. The public browser demo keeps search local-first and does not make remote provider requests; desktop installation is a separate explicit action. Missing fonts trigger a visible warning in the Typography section.
+          The compact font family selector shows installed fonts only and never starts a download. Open Browse fonts for semantic discovery, coverage and license inspection. The public browser demo keeps search local-first and does not make remote provider requests; desktop installation is a separate explicit action. Missing fonts open a recovery dialog that uses the same shipped catalog and install boundary.
         </p>
 
         <h3>Semantic discovery</h3>
@@ -83,6 +83,8 @@ import { sitePath } from '../../../lib/siteUrl';
         </p>
         <ol>
           <li><strong>Review the source:</strong> See the original family, affected text count, and candidate match quality.</li>
+          <li><strong>Recover the requested face:</strong> When the shipped catalog has an exact identity, review its resolved weight, style, and license, then explicitly install the version-pinned artifact.</li>
+          <li><strong>Browse alternatives:</strong> Open the full semantic font browser when there is no exact catalog match or the design calls for a different direction.</li>
           <li><strong>Choose a local candidate:</strong> Select an installed or bundled font that fits the design and script.</li>
           <li><strong>Apply once:</strong> Replace All updates matching nodes, rich-text runs, and shared styles in one undoable transaction.</li>
           <li><strong>Keep provenance:</strong> The original family and substitute remain recorded in the document font manifest for save/reopen diagnostics.</li>

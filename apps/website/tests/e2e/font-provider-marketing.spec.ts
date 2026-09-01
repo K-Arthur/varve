@@ -19,6 +19,8 @@ test.describe('Font provider marketing copy', () => {
     const featurePage = page.locator('.feature-page');
     await expect(featurePage).toContainText('does not require a Google Fonts key');
     await expect(featurePage).toContainText('version-pinned Fontsource artifact');
+    await expect(featurePage).toContainText('requested Fontsource face');
+    await expect(featurePage).toContainText('requested weight, style, and license');
     await page.screenshot({
       path: test.info().outputPath('typography-fontsource-flow.png'),
       fullPage: true,
