@@ -4367,8 +4367,8 @@ dialog.varve-dialog--settings[open] {
 
 /* ── Timeline playback button active state ─────────────── */
 .timeline-playback-btn--active {
-  color: var(--color-interactive-default);
-  background: var(--color-interactive-hover);
+  color: var(--color-interactive-selected-foreground);
+  background: var(--color-interactive-checked-surface);
 }
 
 /* ── Timeline panel enhanced ───────────────────────────── */
@@ -4421,7 +4421,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .timeline-playback-btn:hover {
-  background: var(--color-interactive-hover);
+  background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
 }
 
@@ -4476,9 +4476,9 @@ dialog.varve-dialog--settings[open] {
 .timeline-panel__create-btn {
   height: 24px;
   padding: 0 var(--space-2);
-  background: transparent;
-  color: var(--color-interactive-default);
-  border: 1px solid var(--color-interactive-default);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   font: inherit;
   font-size: var(--font-size-xs);
@@ -4488,13 +4488,22 @@ dialog.varve-dialog--settings[open] {
 }
 
 .timeline-panel__create-btn:hover {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
+  background: var(--color-interactive-hover-surface);
+  color: var(--color-text-primary);
 }
 
 .timeline-panel__create-btn--primary {
   padding: var(--space-2) var(--space-3);
   margin-top: var(--space-2);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  border-color: var(--color-interactive-default);
+}
+
+.timeline-panel__create-btn--primary:hover {
+  background: var(--color-interactive-hover);
+  border-color: var(--color-interactive-hover);
+  color: var(--color-text-on-accent);
 }
 
 .timeline-panel__zoom-controls {
@@ -4510,16 +4519,16 @@ dialog.varve-dialog--settings[open] {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
   cursor: pointer;
   border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
 }
 
 .timeline-panel__zoom-btn:hover {
-  background: var(--color-interactive-hover);
+  background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
 }
 
@@ -4541,20 +4550,22 @@ dialog.varve-dialog--settings[open] {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-sunken);
   color: var(--color-text-muted);
   cursor: pointer;
   border-radius: var(--radius-control-compact);
 }
 
 .timeline-panel__toggle-btn:hover {
-  background: var(--color-interactive-hover);
+  background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
 }
 
 .timeline-panel__toggle-btn--active {
-  color: var(--color-interactive-default);
+  background: var(--color-interactive-checked-surface);
+  border-color: var(--color-interactive-selected-border);
+  color: var(--color-interactive-selected-foreground);
 }
 
 .timeline-panel__empty {
@@ -4579,11 +4590,12 @@ dialog.varve-dialog--settings[open] {
 }
 
 .timeline-track-row:hover {
-  background: var(--color-interactive-hover);
+  background: var(--color-interactive-hover-surface);
 }
 
 .timeline-track-row--selected {
-  background: var(--color-accent-subtle);
+  background: var(--color-interactive-selected-surface);
+  box-shadow: inset 2px 0 0 var(--color-interactive-selected-border);
 }
 
 .timeline-track-row--muted {
