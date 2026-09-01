@@ -5072,6 +5072,10 @@ dialog.varve-dialog--settings[open] {
   margin-top: 4px;
   accent-color: var(--color-interactive-default);
 }
+.safe-mode-screen__option input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
 .safe-mode-screen__option-text {
   display: flex;
   flex-direction: column;
@@ -5101,9 +5105,17 @@ dialog.varve-dialog--settings[open] {
   min-height: 40px;
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
 }
 .safe-mode-screen__btn:hover {
-  background: var(--color-surface-hover);
+  background: var(--color-interactive-hover-surface);
+}
+.safe-mode-screen__btn:active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
 }
 .safe-mode-screen__btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -5113,11 +5125,50 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
+.safe-mode-screen__btn--primary:hover {
+  background: var(--color-interactive-hover);
+}
+.safe-mode-screen__btn--primary:active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
+}
+.safe-mode-screen__btn:disabled,
+.safe-mode-screen__btn[aria-disabled="true"] {
+  cursor: not-allowed;
+}
 .safe-mode-screen__note {
   margin: 0;
   font-size: 0.8125rem;
   color: var(--color-text-muted);
   line-height: var(--font-line-normal);
+}
+
+@media (hover: none), (pointer: coarse) {
+  .safe-mode-screen__btn {
+    min-height: var(--touch-target-min);
+  }
+  .safe-mode-screen__btn:hover {
+    background: var(--elevation-surface-default);
+  }
+  .safe-mode-screen__btn--primary:hover {
+    background: var(--color-interactive-default);
+  }
+}
+
+@media (forced-colors: active) {
+  .safe-mode-screen__btn {
+    forced-color-adjust: none;
+    background: ButtonFace;
+    color: ButtonText;
+  }
+  .safe-mode-screen__btn--primary {
+    background: Highlight;
+    color: HighlightText;
+  }
+  .safe-mode-screen__btn:focus-visible,
+  .safe-mode-screen__option input:focus-visible {
+    outline-color: Highlight;
+  }
 }
 
 /* ── Privacy & Diagnostics settings section ──────────────── */
