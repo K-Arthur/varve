@@ -1,4 +1,4 @@
-import type { LayerColor } from '@varve/scene';
+import { LAYER_COLOR_LABELS, LAYER_COLORS, type LayerColor } from '@varve/scene';
 import {
   SOLID_CHROME_ICONS,
   SOLID_TOOL_ICONS,
@@ -18,26 +18,6 @@ export interface LayerBulkBarProps {
   onClearColorTag: () => void;
   onDeleteAll: () => void;
 }
-
-const LAYER_COLORS: NonNullable<LayerColor>[] = [
-  'red',
-  'orange',
-  'yellow',
-  'green',
-  'blue',
-  'purple',
-  'gray',
-];
-
-const COLOR_LABELS: Record<NonNullable<LayerColor>, string> = {
-  red: 'Red',
-  orange: 'Orange',
-  yellow: 'Yellow',
-  green: 'Green',
-  blue: 'Blue',
-  purple: 'Purple',
-  gray: 'Gray',
-};
 
 export function LayerBulkBar({
   selectedCount,
@@ -109,12 +89,12 @@ export function LayerBulkBar({
           </Tooltip>
           <div className="layers-bulk-bar__color-group">
             {LAYER_COLORS.map((c) => (
-              <Tooltip key={c} label={COLOR_LABELS[c]}>
+              <Tooltip key={c} label={LAYER_COLOR_LABELS[c]}>
                 <button
                   type="button"
                   className={`layers-bulk-bar__color-btn layers-bulk-bar__color-btn--${c}`}
                   onClick={() => onColorTag(c)}
-                  aria-label={COLOR_LABELS[c]}
+                  aria-label={LAYER_COLOR_LABELS[c]}
                 />
               </Tooltip>
             ))}

@@ -1,5 +1,5 @@
-import type { Document, LayerColor, SceneNode } from '@varve/scene';
-import { isExportRegion, isImageShape, isTableNode } from '@varve/scene';
+import type { Document, SceneNode } from '@varve/scene';
+import { isExportRegion, isImageShape, isTableNode, layerColorLabel } from '@varve/scene';
 import type { SolidIconName } from '@varve/ui';
 import { SOLID_TOOL_ICONS } from '@varve/ui';
 
@@ -219,19 +219,7 @@ function shapeLabel(kind: string): string {
   }
 }
 
-const COLOR_LABELS: Record<Exclude<LayerColor, null>, string> = {
-  red: 'red',
-  orange: 'orange',
-  yellow: 'yellow',
-  green: 'green',
-  blue: 'blue',
-  purple: 'purple',
-  gray: 'gray',
-};
-
-export function layerColorLabel(color: LayerColor): string | null {
-  return color ? `${COLOR_LABELS[color]} layer label` : null;
-}
+export { layerColorLabel } from '@varve/scene';
 
 export function maskTypeLabel(mask: SceneNode['mask']): string | null {
   if (!mask) return null;

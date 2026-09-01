@@ -16,7 +16,10 @@ import {
   type EffectStackKind,
   type EffectStackPayload,
   isContainer,
+  LAYER_COLOR_LABELS,
+  LAYER_COLORS,
   type LayerColor,
+  type LayerColorName,
   type NodeId,
   type SceneNode,
 } from '@varve/scene';
@@ -518,26 +521,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     closeMenu();
   }, [contextMenu, setNodeSolo, state.document.nodes, closeMenu]);
 
-  const COLOR_LABELS: Record<NonNullable<LayerColor>, string> = {
-    red: 'Red',
-    orange: 'Orange',
-    yellow: 'Yellow',
-    green: 'Green',
-    blue: 'Blue',
-    purple: 'Purple',
-    gray: 'Gray',
-  };
-
-  const LAYER_COLORS: NonNullable<LayerColor>[] = [
-    'red',
-    'orange',
-    'yellow',
-    'green',
-    'blue',
-    'purple',
-    'gray',
-  ];
-
   const handleCollapseAll = useCallback(() => {
     dndRef?.current?.collapseAll();
   }, [dndRef]);
@@ -772,7 +755,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
               openThumbnailPicker();
             },
             LAYER_COLORS,
-            COLOR_LABELS,
+            COLOR_LABELS: LAYER_COLOR_LABELS,
           })}
           anchor={contextMenu.anchor}
           onClose={closeMenu}
@@ -818,7 +801,7 @@ interface BuildLayerMenuItemsArgs {
   handleLockFromMenu: (locked: boolean) => void;
   handleVisibilityFromMenu: (visible: boolean) => void;
   handleSnapExclusionToggle: () => void;
-  handleSetLayerColor: (color: NonNullable<LayerColor> | null) => void;
+  handleSetLayerColor: (color: LayerColor) => void;
   handleSelectSameType: () => void;
   handleSelectSameLayerColor: () => void;
   handleSelectAllOfType: () => void;
@@ -837,8 +820,8 @@ interface BuildLayerMenuItemsArgs {
   onUseFrameAsFileThumbnail?: (nodeId: string) => void;
   /** Open the file thumbnail picker dialog. */
   onSetFileThumbnail?: () => void;
-  LAYER_COLORS: NonNullable<LayerColor>[];
-  COLOR_LABELS: Record<NonNullable<LayerColor>, string>;
+  LAYER_COLORS: readonly LayerColorName[];
+  COLOR_LABELS: Readonly<Record<LayerColorName, string>>;
 }
 
 function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] {

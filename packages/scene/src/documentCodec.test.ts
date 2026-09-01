@@ -42,6 +42,35 @@ describe('DocumentCodec', () => {
     });
   });
 
+  it('round-trips layer color tags and clears unknown persisted values', () => {
+    let doc = createDocument('Color tags', true);
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'tagged',
+        { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+        {
+          name: 'Tagged',
+          layerColor: 'blue',
+        },
+      ),
+    );
+
+    const serialized = JSON.parse(DocumentCodec.encode(doc)) as {
+      nodes: Record<string, Record<string, unknown>>;
+    };
+    expect(serialized.nodes.tagged?.layerColor).toBe('blue');
+
+    const taggedNode = serialized.nodes.tagged;
+    if (!taggedNode) return;
+    taggedNode.layerColor = 'violet';
+    const result = DocumentCodec.decode(JSON.stringify(serialized));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.nodes.tagged?.layerColor).toBeNull();
+  });
+
   it('decodes, migrates, and validates serialized documents', () => {
     const legacy = {
       id: 'doc-legacy',

@@ -43,6 +43,7 @@ import { type NodeId, normalizeImageFillData, type Page, type SceneNode } from '
 import {
   CURRENT_DOCUMENT_VERSION,
   migrateDocumentDetailed,
+  normalizeLayerColors,
   normalizeLegacyBackgroundRemoval,
   rehydrateEmbeddedAssetSrc,
   serializeDocument as serializeVersionedDocument,
@@ -604,6 +605,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
     }
   }
   doc = { ...doc, nodes: safeNodes };
+  doc = normalizeLayerColors(doc as unknown as Record<string, unknown>) as unknown as Document;
   doc = normalizeLegacyBackgroundRemoval(
     doc as unknown as Record<string, unknown>,
   ) as unknown as Document;

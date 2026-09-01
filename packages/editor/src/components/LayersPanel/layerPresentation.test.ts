@@ -94,7 +94,7 @@ describe('resolveLayerPresentation', () => {
 
 describe('Layers row presentation semantics', () => {
   it('describes color labels and all mask source forms', () => {
-    expect(layerColorLabel('blue')).toBe('blue layer label');
+    expect(layerColorLabel('blue')).toBe('Blue color tag');
     expect(maskTypeLabel({ type: 'alpha', visible: false, rasterMask: {} as never })).toBe(
       'raster alpha mask, disabled',
     );

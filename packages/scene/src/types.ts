@@ -35,6 +35,7 @@ import type {
 } from './colorManagement';
 import type { ExportPreset } from './export-types';
 import { normalizeImagePerspective } from './imagePerspective';
+import type { LayerColor } from './layerColor';
 import type { VariableModifier } from './modifiers';
 import type { TableModel } from './table';
 
@@ -60,11 +61,11 @@ export {
   validateIsometricGrid,
 } from './gridTypes';
 
+export type { LayerColor, LayerColorName } from './layerColor';
+
 export type { GradientInterpolationSpace, ManagedColor };
 
 export type NodeId = string;
-
-export type LayerColor = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'gray' | null;
 
 // ── Constraints types (Figma-style responsive positioning) ─────────────────
 
