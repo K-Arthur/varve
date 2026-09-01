@@ -184,9 +184,12 @@
   --radius-surface: 12px;
   --radius-card: 16px;
   --radius-full: var(--radius-pill);
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 16px;
+  /* Compatibility names resolve to the semantic scale so older components
+   * participate in the system while they are migrated at their owner. */
+  --radius-sm: var(--radius-control-compact);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-floating);
+  --radius-xl: var(--radius-card);
   --radius-xl: 28px;
   --radius-2xl: 40px;
   --radius-pill: 9999px;

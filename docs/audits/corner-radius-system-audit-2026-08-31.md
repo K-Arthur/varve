@@ -71,3 +71,20 @@ quick text editing, button and form controls, inspector, dialog, menu/popover,
 home/start screen, and marketing cards. The final pass repeats the inventory
 and records every remaining raw or pill value as expected, structural, semantic,
 or justified exception.
+
+## Implemented checkpoints
+
+- Added the semantic token layer and compatibility mappings in `@varve/ui`.
+- Added component-owned cascade rules for controls, menus, popovers, dialogs,
+  segmented controls, and toolbars.
+- Normalized the editor floating toolbar, quick text bar, selection quick bar,
+  and command/actions bar to the floating/control/surface hierarchy.
+- Migrated the marketing site’s shared buttons, cards, feature surfaces,
+  download surfaces, and representative page families to website aliases of
+  the shared scale.
+- Added a Storybook gallery for side-by-side light/dark geometry review.
+
+The broad remaining editor declarations are compatibility-token consumers or
+documented structural/pill exceptions; the next cleanup pass should inspect
+the residual raw values listed by the final search rather than replace them
+mechanically.

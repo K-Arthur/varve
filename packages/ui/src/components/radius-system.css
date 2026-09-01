@@ -37,6 +37,7 @@
 .varve-menu,
 .varve-menu__submenu,
 .varve-popover,
+.varve-toast,
 .varve-select__listbox {
   border-radius: var(--radius-surface);
 }
@@ -75,4 +76,82 @@
 .varve-view-mode-switcher,
 .varve-view-mode-switcher__btn {
   border-radius: var(--radius-pill);
+}
+
+/* Storybook gallery: a small visual fixture for checking the hierarchy in
+ * both themes without coupling production layout to the fixture. */
+.radius-gallery {
+  display: grid;
+  gap: 24px;
+  padding: 24px;
+  background: var(--color-surface-app);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+}
+
+.radius-gallery__section {
+  display: grid;
+  gap: 12px;
+  max-width: 720px;
+}
+
+.radius-gallery__section h2 {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+
+.radius-gallery__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.radius-gallery__row > .varve-input,
+.radius-gallery__row > .varve-select {
+  min-width: 160px;
+  flex: 1 1 160px;
+}
+
+.radius-gallery__surface {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-border-subtle);
+}
+
+.radius-gallery__surface--floating {
+  border-radius: var(--radius-floating);
+  background: var(--color-surface-raised);
+}
+
+.radius-gallery__surface--card {
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+}
+
+.radius-gallery__group {
+  display: inline-flex;
+  width: max-content;
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+}
+
+.radius-gallery__group > .varve-btn {
+  border-radius: var(--radius-none);
+}
+
+.radius-gallery__menu {
+  position: static;
+  width: max-content;
+}
+
+.radius-gallery__menu .varve-menu__item {
+  width: 180px;
+}
+
+.radius-gallery__dark {
+  min-height: 100vh;
+  background: var(--color-surface-app);
 }
