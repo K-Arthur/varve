@@ -169,7 +169,7 @@
 .effect-studio-comparison__label {
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--color-text-primary);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
@@ -372,7 +372,7 @@
 .effect-studio__recent button {
   background: transparent;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--color-text-muted);
   cursor: pointer;
   font: inherit;
@@ -450,7 +450,7 @@
 
 .effect-studio__applied-header > small {
   border: 1px solid var(--color-border-subtle);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: var(--font-size-2xs);
   padding: 2px var(--space-1);
   white-space: nowrap;
@@ -481,7 +481,7 @@
 .effect-studio__stack-order {
   align-items: center;
   background: var(--color-surface-selected);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--color-text-secondary);
   display: inline-flex;
   font-size: var(--font-size-2xs);

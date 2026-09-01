@@ -91,7 +91,7 @@
   width: 24px;
   height: 18px;
   background: var(--color-surface-app);
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-border-subtle);
   overflow: hidden;
   flex-shrink: 0;

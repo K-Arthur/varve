@@ -34,7 +34,7 @@
 
 .warp-section__item {
   border: 1px solid var(--color-border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--color-surface-default);
   padding: 6px 8px;
 }
@@ -70,7 +70,7 @@
 .warp-section__name:focus-visible {
   outline: 2px solid var(--color-border-focus);
   outline-offset: 1px;
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
 }
 
 .warp-section__item-tools {
@@ -83,7 +83,7 @@
 .warp-section__row button,
 .warp-section__danger button {
   border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   font: inherit;
@@ -116,7 +116,7 @@
   flex: 1;
   min-width: 120px;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   padding: 4px 8px;

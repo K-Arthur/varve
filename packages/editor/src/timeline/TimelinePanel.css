@@ -367,7 +367,7 @@
   width: 16px;
   height: 16px;
   border: none;
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   background: none;
   color: var(--color-text-muted);
   cursor: pointer;

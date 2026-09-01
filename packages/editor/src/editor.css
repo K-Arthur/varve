@@ -373,7 +373,7 @@ input[type="number"] {
   padding: var(--space-1) var(--space-3);
   background: var(--elevation-surface-overlay);
   border: var(--border-micro);
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius-pill);
   box-shadow: var(--elevation-shadow-overlay);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -1251,7 +1251,7 @@ input[type="number"] {
 .editor-status__score-badge {
   font-variant-numeric: tabular-nums;
   padding: 0 0.4em;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs, 0.75rem);
   font-weight: var(--font-weight-semibold, 600);
   cursor: pointer;
@@ -1371,7 +1371,7 @@ input[type="number"] {
   z-index: var(--z-dropdown);
   background: var(--color-surface-raised, #fff);
   border: 1px solid var(--color-border-strong, #ccc);
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-control);
   padding: 0.75em;
   box-shadow: var(--shadow-lg);
   font-size: var(--font-size-sm, 0.8125rem);
@@ -1380,7 +1380,7 @@ input[type="number"] {
 .insp-contrast-popover__fix-btn {
   margin-top: 0.5em;
   padding: 0.25em 0.75em;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-interactive-default, #14998f);
   background: var(--color-interactive-default, #14998f);
   color: var(--color-text-on-accent);
@@ -1438,7 +1438,7 @@ input[type="number"] {
   gap: var(--space-2, 8px);
   align-items: flex-start;
   padding: var(--space-2, 8px);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm, 0.8125rem);
 }
 .insp-panel__score-issue--error {
@@ -2164,7 +2164,7 @@ input[type="number"] {
   width: 100%;
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -2182,7 +2182,7 @@ input[type="number"] {
 .history-panel__action-btn {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
@@ -2204,7 +2204,7 @@ input[type="number"] {
   width: 100%;
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -2216,7 +2216,7 @@ input[type="number"] {
 .history-panel__form-actions button {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -2277,7 +2277,7 @@ input[type="number"] {
 .history-panel__marker {
   display: inline-block;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   font-size: 10px;
   font-weight: 500;
 }
@@ -2337,7 +2337,7 @@ input[type="number"] {
 .history-panel__branch-switch {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-interactive-default);
   font-size: 10px;
@@ -2390,7 +2390,7 @@ input[type="number"] {
 .history-panel__compare-btn {
   padding: 4px 10px;
   border: 1px solid var(--color-interactive-default);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   font-size: var(--font-size-xs);
@@ -2438,7 +2438,7 @@ input[type="number"] {
 }
 .history-panel__entity {
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   padding: 6px;
   background: var(--elevation-surface-sunken);
 }
@@ -2469,7 +2469,7 @@ input[type="number"] {
 .history-panel__entity-show {
   padding: 1px 6px;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-interactive-default);
   font-size: 10px;
@@ -2498,7 +2498,7 @@ input[type="number"] {
   font-weight: 600;
   text-transform: uppercase;
   padding: 0 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
 }
 .history-panel__change-badge--added {
   background: color-mix(in oklab, var(--color-feedback-success) 16%, transparent);
@@ -2573,7 +2573,7 @@ input[type="number"] {
 }
 .conflict-resolver__item {
   border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -2590,7 +2590,7 @@ input[type="number"] {
   font-weight: 600;
   text-transform: uppercase;
   padding: 2px 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
   color: var(--color-feedback-warning-strong);
 }
@@ -2607,7 +2607,7 @@ input[type="number"] {
   flex-direction: column;
   gap: 2px;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   padding: 6px;
   background: var(--elevation-surface-default);
   overflow: hidden;
@@ -2659,7 +2659,7 @@ input[type="number"] {
 .conflict-resolver__btn {
   padding: 6px 14px;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -4702,7 +4702,7 @@ dialog.varve-dialog--settings[open] {
 
 .timeline-panel__tracks::-webkit-scrollbar-thumb {
   background: var(--color-border-subtle);
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
 }
 
 .timeline-panel__tracks::-webkit-scrollbar-thumb:hover {
@@ -4712,7 +4712,7 @@ dialog.varve-dialog--settings[open] {
 /* ── Crash reporting (Phase 3/8/9) ───────────────────────── */
 .crash-dialog {
   border: var(--border-micro);
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   padding: 0;
@@ -4776,7 +4776,7 @@ dialog.varve-dialog--settings[open] {
   width: 100%;
   box-sizing: border-box;
   border: var(--border-micro);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   padding: 8px 10px;
@@ -4819,7 +4819,7 @@ dialog.varve-dialog--settings[open] {
 }
 .crash-dialog__btn {
   border: var(--border-micro);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   padding: 8px 14px;
@@ -4880,13 +4880,13 @@ dialog.varve-dialog--settings[open] {
 .crash-dialog__report-id code {
   background: var(--color-surface-sunken);
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   font-size: 0.8125rem;
   word-break: break-all;
 }
 .crash-dialog__copy {
   border: var(--border-micro);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   padding: 4px 10px;
   font: inherit;
@@ -4929,7 +4929,7 @@ dialog.varve-dialog--settings[open] {
 .crash-dialog__stack {
   background: var(--color-surface-sunken);
   border: var(--border-micro);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 10px 12px;
   font-size: 0.75rem;
   overflow-x: auto;
@@ -4966,7 +4966,7 @@ dialog.varve-dialog--settings[open] {
 .crash-dialog__tech-body {
   background: var(--color-surface-sunken);
   border: var(--border-micro);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 10px 12px;
   font-size: 0.75rem;
   overflow-x: auto;
@@ -4997,13 +4997,13 @@ dialog.varve-dialog--settings[open] {
   width: min(640px, 100%);
   background: var(--color-surface-raised);
   border: var(--border-micro);
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
   padding: 28px;
   box-shadow: 0 16px 48px rgb(0 0 0 / 0.25);
 }
 .safe-mode-screen__badge {
   display: inline-block;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 3px 10px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -5067,7 +5067,7 @@ dialog.varve-dialog--settings[open] {
 }
 .safe-mode-screen__btn {
   border: var(--border-micro);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 10px 16px;
   font: inherit;
   font-size: 0.875rem;
@@ -5115,7 +5115,7 @@ dialog.varve-dialog--settings[open] {
   max-height: 220px;
   overflow-y: auto;
   border: var(--border-micro);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .privacy-section__queue-item {
   display: flex;
@@ -5142,7 +5142,7 @@ dialog.varve-dialog--settings[open] {
 }
 .privacy-section__btn {
   border: var(--border-micro);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   padding: 5px 10px;
@@ -5295,7 +5295,7 @@ dialog.varve-dialog--settings[open] {
   height: 20px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--color-text-secondary, inherit);
   cursor: pointer;
@@ -5321,7 +5321,7 @@ dialog.varve-dialog--settings[open] {
   touch-action: none;
   cursor: ew-resize;
   background: var(--elevation-surface-sunken, rgba(128, 128, 128, 0.08));
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   outline: none;
 }
 
@@ -5332,7 +5332,7 @@ dialog.varve-dialog--settings[open] {
 .media-frame-strip__cell {
   position: absolute;
   top: 6px;
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   background: var(--color-border-strong, rgba(128, 128, 128, 0.4));
   overflow: hidden;
 }
@@ -5384,7 +5384,7 @@ dialog.varve-dialog--settings[open] {
 .layers-row__media-badge {
   margin-left: 6px;
   padding: 0 4px;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -5453,7 +5453,7 @@ dialog.varve-dialog--settings[open] {
   padding: 0;
   cursor: pointer;
   pointer-events: auto;
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
 }
 
 .constraint-pin-control__zone:focus-visible {
@@ -5542,14 +5542,14 @@ dialog.varve-dialog--settings[open] {
   display: block;
   width: 100%;
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
 }
 
 .interaction-trace__bar {
   display: block;
   height: 100%;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
 }
 
 .interaction-trace__bar--measured {
@@ -5593,7 +5593,7 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-xs);
   font-weight: 600;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in oklch, var(--color-feedback-success) 16%, transparent);
   color: var(--color-feedback-success-strong);
 }
@@ -5673,7 +5673,7 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-xs);
   font-weight: 600;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in oklch, var(--color-feedback-warning) 16%, transparent);
   color: var(--color-feedback-warning-strong);
 }
@@ -5878,7 +5878,7 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-xs);
   font-weight: 600;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in oklch, var(--color-feedback-info) 16%, transparent);
   color: var(--color-feedback-info-strong, var(--color-text-primary));
 }

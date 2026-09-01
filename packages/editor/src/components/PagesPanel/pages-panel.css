@@ -169,7 +169,7 @@
   font-weight: 500;
   color: var(--color-text-secondary);
   background: var(--color-surface-hover);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0 var(--space-1);
 }
 
@@ -283,7 +283,7 @@
   height: 10px;
   flex: 0 0 10px;
   border: 1px solid var(--color-interactive-default);
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-raised);
 }
 

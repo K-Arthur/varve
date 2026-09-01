@@ -1367,7 +1367,7 @@
 }
 .adj-editor__swatch {
   aspect-ratio: 1;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.35));
   cursor: pointer;
 }
@@ -1384,7 +1384,7 @@
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary, inherit);
   border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.35));
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   padding: 6px;
 }
 .adj-editor__palette-meta {

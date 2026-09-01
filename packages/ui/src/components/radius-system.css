@@ -28,25 +28,35 @@
 }
 
 .varve-input__field,
-.varve-select__search-input {
+.varve-input__field {
   border-radius: var(--radius-none);
 }
 
 /* Elevated surfaces sit one step above controls. */
 .varve-dialog,
+.varve-dialog--lg,
 .varve-menu,
+.varve-ctxmenu,
 .varve-menu__submenu,
 .varve-popover,
 .varve-toast,
-.varve-select__listbox {
+.varve-select__listbox,
+.varve-tooltip {
   border-radius: var(--radius-surface);
 }
 
 .varve-dialog__close,
-.varve-menu__item,
-.varve-select__option,
 .varve-search__clear {
   border-radius: var(--radius-control-compact);
+}
+
+/* Menu and select rows are part of their parent surface. Keeping their
+ * default corners square prevents a stack of independent bubbles; focus and
+ * highlight treatments can still add an inset outline without changing the
+ * component geometry. */
+.varve-menu__item,
+.varve-select__option {
+  border-radius: var(--radius-none);
 }
 
 /* One connected segmented control: the shell owns clipping and the members
@@ -68,6 +78,26 @@
 .varve-toolbar > .varve-btn,
 .varve-toolbar > .varve-iconbtn {
   border-radius: var(--radius-control-compact);
+}
+
+/* Other shared primitives use the same ownership rules even when they are
+ * rendered outside a toolbar. */
+.varve-checkbox__box,
+.varve-number-input,
+.varve-slider__input,
+.varve-slider__reset,
+.varve-select__search-input {
+  border-radius: var(--radius-control-compact);
+}
+
+.varve-slider__track,
+.varve-slider__fill,
+.varve-slider__thumb,
+.varve-native-range::-webkit-slider-runnable-track,
+.varve-native-range::-moz-range-track,
+.varve-native-range::-webkit-slider-thumb,
+.varve-native-range::-moz-range-thumb {
+  border-radius: var(--radius-pill);
 }
 
 /* Semantic pills remain explicit exceptions. */

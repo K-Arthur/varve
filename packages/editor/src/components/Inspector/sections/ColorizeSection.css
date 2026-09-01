@@ -64,14 +64,14 @@
 .colorize-section__progress-bar {
   height: 4px;
   background: var(--color-surface-raised);
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   overflow: hidden;
 }
 
 .colorize-section__progress-fill {
   height: 100%;
   background: var(--color-interactive-default);
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   transition: width 0.2s ease;
 }
 
@@ -105,7 +105,7 @@
   appearance: none;
   -webkit-appearance: none;
   background: var(--color-surface-raised);
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   outline: none;
   cursor: pointer;
 }

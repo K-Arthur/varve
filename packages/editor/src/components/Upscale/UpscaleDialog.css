@@ -135,7 +135,7 @@
   height: 18px;
   padding: 0;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-sunken);
   cursor: pointer;
 }

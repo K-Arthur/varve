@@ -124,7 +124,7 @@
 }
 .subject-card__confidence-bar {
   height: 3px;
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   background: var(--color-interactive-default);
   flex: 1;
   max-width: 60px;

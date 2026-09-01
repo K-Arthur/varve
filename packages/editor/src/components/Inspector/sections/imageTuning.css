@@ -44,7 +44,7 @@
   align-items: flex-start;
   background: var(--color-surface-raised, rgba(255, 255, 255, 0.025));
   border: 1px solid var(--color-border-subtle, #2d3339);
-  border-radius: var(--radius-sm, 3px);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   cursor: pointer;
   display: grid;
@@ -103,7 +103,7 @@
 .image-tuning__treatment {
   background: var(--color-surface-raised, rgba(255, 255, 255, 0.025));
   border: 1px solid var(--color-border-subtle, #2d3339);
-  border-radius: var(--radius-sm, 3px);
+  border-radius: var(--radius-control-compact);
   display: grid;
   gap: var(--space-2, 8px);
   margin: 0;
@@ -156,7 +156,7 @@
   appearance: none;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-sm, 3px);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted, #77808a);
   cursor: pointer;
   font: inherit;
