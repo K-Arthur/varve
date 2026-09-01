@@ -36,6 +36,8 @@ const SOURCE_BADGES: Record<string, string> = {
   system: 'S',
   bundled: 'B',
   google: 'W',
+  fontsource: 'F',
+  user: 'U',
 };
 
 type FontRow =

@@ -247,7 +247,8 @@ export function resolveFontsourceArtifact(
   const variable = request.variable ?? false;
   if (variable && !record.variable)
     throw new Error(`${record.familyName} has no variable artifact`);
-  const weight = request.weight ?? record.weights[0] ?? 400;
+  const weight =
+    request.weight ?? (record.weights.includes(400) ? 400 : (record.weights[0] ?? 400));
   if (!variable && !record.weights.includes(weight)) {
     throw new Error(`Weight ${weight} is unavailable for ${record.familyName}`);
   }

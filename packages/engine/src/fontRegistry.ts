@@ -1,10 +1,10 @@
 /**
  * FontRegistry — manages font sources, loading, caching, and fallback chains.
  *
- * Three font sources:
+ * Font sources:
  *   1. System fonts (browser `queryLocalFonts` API or hardcoded safe list)
  *   2. Bundled fonts (@fontsource CSS imports)
- *   3. Google Fonts (optional, via CSS @import or link injection)
+ *   3. User-installed Fontsource faces and legacy provider entries
  *
  * Variable font axes: entries can specify `variableAxes` for wght/wdth/slnt/opsz
  * axis values. `resolve()` includes `font-variation-settings` when axes are set.
@@ -19,7 +19,7 @@ export interface FontEntry {
   weight: number;
   style: 'normal' | 'italic';
   source: 'system' | 'bundled' | 'google' | 'fontsource' | 'user';
-  /** URL for Google Fonts CSS API or direct woff2 URL for bundled fonts. */
+  /** Optional source URL retained for legacy/provider metadata. */
   url?: string;
   /** Variable font axis values (e.g. { wght: 500, wdth: 75, slnt: 0, opsz: 14 }). */
   variableAxes?: Record<string, number>;
