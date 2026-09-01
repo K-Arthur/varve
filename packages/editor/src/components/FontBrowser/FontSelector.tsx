@@ -77,10 +77,20 @@ export function FontSelector({
   const { googleFonts, fontsource } = useOnlineFontSearch(query);
 
   const onlineProviders = useMemo(() => {
-    const providers = new Map<string, string>();
-    for (const result of googleFonts.results) providers.set(result.familyName, 'google-fonts');
+    const providers = new Map<string, { providerId: string; familyId: string }>();
+    for (const result of googleFonts.results) {
+      providers.set(result.familyName, {
+        providerId: 'google-fonts',
+        familyId: result.familyId,
+      });
+    }
     for (const result of fontsource.results) {
-      if (!providers.has(result.familyName)) providers.set(result.familyName, 'fontsource');
+      if (!providers.has(result.familyName)) {
+        providers.set(result.familyName, {
+          providerId: 'fontsource',
+          familyId: result.familyId,
+        });
+      }
     }
     return providers;
   }, [googleFonts.results, fontsource.results]);
@@ -197,8 +207,8 @@ export function FontSelector({
 
   const select = useCallback(
     (family: string) => {
-      const providerId = onlineProviders.get(family);
-      if (!providerId) {
+      const provider = onlineProviders.get(family);
+      if (!provider) {
         onChange(family);
         setQuery(family);
         setIsOpen(false);
@@ -211,7 +221,7 @@ export function FontSelector({
       // request leaves the previous face and editing session intact.
       setInstallError(null);
       setInstallingFamily(family);
-      void downloadAndApplyOnlineFont(family, providerId)
+      void downloadAndApplyOnlineFont(family, provider.providerId, provider.familyId)
         .then(() => {
           onChange(family);
           setQuery(family);

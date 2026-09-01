@@ -193,11 +193,12 @@ export function useOnlineFontSearch(query: string): {
 export async function downloadAndApplyOnlineFont(
   familyName: string,
   providerId: string,
+  familyId = familyName,
 ): Promise<void> {
   const provider = getProviderRegistry().get(providerId);
   if (!provider) throw new Error(`Provider "${providerId}" not found`);
 
-  const urls = await provider.getDownloadUrls(familyName, 'woff2');
+  const urls = await provider.getDownloadUrls(familyId, 'woff2');
   if (urls.length === 0) throw new Error(`No download URLs for "${familyName}"`);
 
   const dm = getDownloadManager();
