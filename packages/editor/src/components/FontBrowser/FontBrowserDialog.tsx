@@ -15,7 +15,7 @@ export interface FontBrowserDialogProps {
 export function FontBrowserDialog({ open, onClose }: FontBrowserDialogProps) {
   return (
     <Dialog open={open} onClose={onClose} title="Browse fonts">
-      <FontBrowser />
+      <FontBrowser showDownloadable />
     </Dialog>
   );
 }

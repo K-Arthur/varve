@@ -137,4 +137,30 @@ test.describe('Font selector', () => {
     const badgeCount = await varBadges.count().catch(() => 0);
     expect(badgeCount).toBeGreaterThanOrEqual(0);
   });
+
+  test('searches the shipped catalog without provider metadata requests', async ({ page }) => {
+    let providerRequests = 0;
+    page.on('request', (request) => {
+      if (/googleapis|fonts\.google|api\.fontsource\.org/.test(request.url())) {
+        providerRequests += 1;
+      }
+    });
+
+    await page.keyboard.press('t');
+    await dragOnCanvas(page, 200, 200, 400, 250);
+    const fontSelector = page.locator('.font-selector').first();
+    await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
+    const fontInput = fontSelector.locator('input');
+    await fontInput.fill('IBM Plex');
+
+    await expect(
+      page.locator('.font-selector__section-header', { hasText: 'Fontsource' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Install' }).first()).toBeVisible();
+    expect(providerRequests).toBe(0);
+    await page.screenshot({
+      path: test.info().outputPath('fontsource-catalog-search.png'),
+      fullPage: true,
+    });
+  });
 });

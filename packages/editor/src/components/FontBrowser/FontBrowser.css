@@ -117,6 +117,39 @@
   background: var(--color-surface-hover);
 }
 
+.font-browser__install-btn {
+  margin: var(--space-1) var(--space-2) var(--space-1) 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-raised);
+  color: var(--color-interactive-default);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.font-browser__install-btn:hover:not(:disabled) {
+  background: var(--color-interactive-hover);
+}
+
+.font-browser__install-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.font-browser__install-btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.font-browser__error {
+  padding: var(--space-2);
+  color: var(--color-status-danger);
+  font-size: var(--font-size-2xs);
+}
+
 /* ---------- Font preview ---------- */
 
 .font-browser__preview {

@@ -130,7 +130,7 @@ export function FontSelector({
         }
       }
       if (online.length > 0) {
-        result.push({ title: 'Online', families: online.sort(), isOnline: true });
+        result.push({ title: 'Fontsource', families: online.sort(), isOnline: true });
       }
     }
 

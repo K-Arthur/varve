@@ -67,7 +67,7 @@ const fontReplacementFaq = {
           For native Figma <code>.fig</code>, REST, or plugin-export JSON imports, Varve also treats fonts as document dependencies. It detects missing families in ordinary text, rich-text runs, and reusable text styles; ranks local candidates; and keeps the original family reference in the saved document manifest. You can continue editing locally without keeping Figma open.
         </p>
         <p>
-          The desktop app can optionally search supported online providers and install a selected face before applying it. The public browser demo remains local-first: it does not promise remote font downloads, so the same workflow is predictable offline and bundled fonts remain available.
+          The catalog ships with Varve, so font discovery works offline and does not require a Google Fonts key or runtime metadata request. On desktop, installing a result is an explicit action that retrieves one exact, version-pinned Fontsource artifact, stores it locally, and only then makes it available to the document. The browser demo can browse the catalog but does not download additional font files.
         </p>
       </section>
 
