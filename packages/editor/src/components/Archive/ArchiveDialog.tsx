@@ -8,7 +8,7 @@
  * SettingsDialog, and RecoveryDialog.
  */
 
-import { Dialog, Select, SwitchField } from '@varve/ui';
+import { Dialog, Select, Spinner, SwitchField } from '@varve/ui';
 import {
   type ChangeEvent,
   type DragEvent,
@@ -1274,7 +1274,7 @@ export function ArchiveDialog({
             ) : (
               <button
                 type="button"
-                className={`archive-dialog__btn archive-dialog__btn--primary${isCreating ? ' archive-dialog__btn--loading' : ''}`}
+                className="archive-dialog__btn archive-dialog__btn--primary"
                 disabled={!canCreate}
                 onClick={() => void handleCreate()}
               >
@@ -1305,14 +1305,16 @@ export function ArchiveDialog({
                 type="button"
                 className={`archive-dialog__btn archive-dialog__btn--danger${isApplyingRestore ? ' archive-dialog__btn--loading' : ''}`}
                 disabled={isApplyingRestore}
+                aria-busy={isApplyingRestore || undefined}
                 onClick={() => void handleConfirmRestore()}
               >
+                {isApplyingRestore && <Spinner size="sm" />}
                 {isApplyingRestore ? 'Applying…' : 'Apply Restore'}
               </button>
             ) : (
               <button
                 type="button"
-                className={`archive-dialog__btn archive-dialog__btn--primary${isRestoring ? ' archive-dialog__btn--loading' : ''}`}
+                className="archive-dialog__btn archive-dialog__btn--primary"
                 disabled={!canRestore}
                 onClick={() => void handleRestore()}
               >

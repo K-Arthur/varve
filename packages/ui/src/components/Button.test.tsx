@@ -35,7 +35,7 @@ describe('Button', () => {
   it('shows spinner and aria-busy when loading', () => {
     render(<Button loading>Processing</Button>);
     const btn = screen.getByRole('button');
-    expect(btn.querySelector('.inline-activity')).toBeTruthy();
+    expect(btn.querySelector('.varve-spinner')).toBeTruthy();
     expect(btn).toHaveAttribute('aria-busy', 'true');
   });
 
@@ -50,6 +50,18 @@ describe('Button', () => {
     const btn = screen.getByRole('button');
     expect(btn).toHaveAttribute('aria-disabled', 'true');
     expect(btn).not.toHaveAttribute('disabled');
+  });
+
+  it('prevents duplicate clicks while loading', async () => {
+    const onClick = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Button loading onClick={onClick}>
+        Save
+      </Button>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onClick).not.toHaveBeenCalled();
   });
 
   it('fires onClick on normal state', async () => {

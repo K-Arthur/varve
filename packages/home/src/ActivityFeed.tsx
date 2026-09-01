@@ -1,6 +1,6 @@
 import type { Platform } from '@varve/platform';
 import { formatRelativeTime } from '@varve/platform';
-import { Icon, InlineActivityIndicator, Tooltip } from '@varve/ui';
+import { Icon, LoadingLabel, Tooltip } from '@varve/ui';
 import { Fragment, useCallback, useEffect, useState } from 'react';
 
 export interface ActivityFeedProps {
@@ -142,8 +142,8 @@ export function ActivityFeed({
   if (loading) {
     return (
       <section className="activity-feed" aria-label="Activity feed">
-        <div className="activity-feed__loading" role="status">
-          <InlineActivityIndicator label="Loading activity" />
+        <div className="activity-feed__loading">
+          <LoadingLabel label="Loading activity" />
         </div>
       </section>
     );

@@ -1,0 +1,54 @@
+.varve-spinner {
+  display: inline-block;
+  flex: 0 0 auto;
+  inline-size: 1rem;
+  block-size: 1rem;
+  vertical-align: middle;
+  color: inherit;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: varve-spinner-rotate var(--loader-spin-duration, 800ms) linear infinite;
+}
+
+.varve-spinner--xs {
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+}
+
+.varve-spinner--sm {
+  inline-size: 1rem;
+  block-size: 1rem;
+}
+
+.varve-spinner--md {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+}
+
+.varve-spinner--lg {
+  inline-size: 2rem;
+  block-size: 2rem;
+}
+
+/* Loading is an active state, not a muted disabled state. Button keeps the
+ * DOM focusable while its callback guard prevents duplicate execution. */
+.varve-btn--loading[aria-disabled="true"] {
+  cursor: wait;
+  opacity: 1;
+}
+
+@keyframes varve-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .varve-spinner {
+    animation: none;
+    opacity: 0.85;
+  }
+}

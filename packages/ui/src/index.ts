@@ -13,6 +13,8 @@ import './components/select.css';
 import './components/sortable.css';
 
 export * from './components';
+export type { LoadingLabelProps } from './components/LoadingLabel';
+export { LoadingLabel } from './components/LoadingLabel';
 export type { MultiSelectProps } from './components/MultiSelect';
 export { MultiSelect } from './components/MultiSelect';
 export type { NativeSelectProps } from './components/NativeSelect';
@@ -35,5 +37,7 @@ export {
   useSortableItem,
   useSortableSensors,
 } from './components/Sortable';
+export type { SpinnerProps, SpinnerSize } from './components/Spinner';
+export { Spinner } from './components/Spinner';
 export * from './icons';
 export * from './tokens';

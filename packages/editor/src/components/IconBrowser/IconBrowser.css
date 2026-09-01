@@ -177,7 +177,7 @@
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 .icon-browser__filter {
@@ -335,13 +335,7 @@
   animation: icon-pulse 1.2s ease-in-out infinite;
 }
 .icon-card__spinner {
-  animation: icon-spin 0.9s linear infinite;
   color: var(--color-text-muted);
-}
-@keyframes icon-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 @keyframes icon-pulse {
   0%,

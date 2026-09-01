@@ -10,6 +10,7 @@ import {
 import type { SolidIconName } from '../icons/SolidIcon';
 import { SolidIcon } from '../icons/SolidIcon';
 import { FloatingPortal } from './FloatingPortal';
+import { LoadingLabel } from './LoadingLabel';
 import { useNestedOverlayRegistration } from './NestedOverlayContext';
 
 export type SelectStatus = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
@@ -484,8 +485,8 @@ export function Select({
             </div>
           )}
           {loading ? (
-            <div className="varve-select__state" role="status">
-              {loadingLabel}
+            <div className="varve-select__state">
+              <LoadingLabel label={loadingLabel} size="sm" />
             </div>
           ) : loadError ? (
             <div className="varve-select__state varve-select__state--error" role="alert">

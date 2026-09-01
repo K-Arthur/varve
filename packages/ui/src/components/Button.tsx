@@ -1,5 +1,5 @@
 import { type ButtonHTMLAttributes, forwardRef, useState } from 'react';
-import { InlineActivityIndicator } from './InlineActivityIndicator';
+import { Spinner } from './Spinner';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'pill' | 'pill-outline';
 export type ButtonSize = 'sm' | 'md' | 'lg';
@@ -8,6 +8,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
+  /** Accessible name while the action is pending (defaults to the button name). */
+  loadingLabel?: string;
   /** When true, disabled state uses aria-disabled (focusable) instead of HTML disabled. */
   softDisabled?: boolean;
   /** For danger variant: show a confirm toggle before firing onClick. */
@@ -19,12 +21,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     variant = 'primary',
     size = 'md',
     loading = false,
+    loadingLabel,
     disabled = false,
     softDisabled = false,
     confirmLabel,
     className = '',
     children,
     onClick,
+    'aria-label': ariaLabel,
     ...rest
   },
   ref,
@@ -62,10 +66,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={isHtmlDisabled || undefined}
       aria-disabled={isAriaDisabled || undefined}
       aria-busy={loading || undefined}
+      aria-label={loading && loadingLabel ? loadingLabel : ariaLabel}
       onClick={handleClick}
       {...rest}
     >
-      {loading && <InlineActivityIndicator size={16} />}
+      {loading && <Spinner size="sm" />}
       <span className="varve-btn__content">
         {confirming && confirmLabel ? (
           <>

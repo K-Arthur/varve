@@ -1,6 +1,6 @@
 import type { Platform, VersionEntry } from '@varve/platform';
 import { formatAbsoluteTime, formatRelativeTime } from '@varve/platform';
-import { AlertDialog, Button, Dialog, Icon, InlineActivityIndicator } from '@varve/ui';
+import { AlertDialog, Button, Dialog, Icon, LoadingLabel } from '@varve/ui';
 import { useCallback, useEffect, useId, useState } from 'react';
 
 export interface VersionHistoryProps {
@@ -194,8 +194,8 @@ export function VersionHistory({ fileId, platform, onRestore, onClose }: Version
         </div>
 
         {loading && (
-          <div className="version-history__loading" role="status">
-            <InlineActivityIndicator label="Loading version history" />
+          <div className="version-history__loading">
+            <LoadingLabel label="Loading version history" />
           </div>
         )}
 

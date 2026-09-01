@@ -1,6 +1,6 @@
 import type { Asset, AssetFolder, Platform } from '@varve/platform';
 import { searchAssets } from '@varve/platform';
-import { ContentSkeleton, Icon, type IconName, SearchField, Tooltip } from '@varve/ui';
+import { ContentSkeleton, Icon, type IconName, SearchField, Spinner, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSemanticAssetSearch } from './search/useSemanticAssetSearch';
 
@@ -174,12 +174,12 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
             </button>
           ) : semanticStatus.indexing && semanticStatus.indexedCount < semanticStatus.totalCount ? (
             <span>
-              <Icon name="Loader" label={undefined} size="0.875rem" />
+              <Spinner size="sm" />
               Indexing local assets · {semanticStatus.indexedCount} / {semanticStatus.totalCount}
             </span>
           ) : semanticBusy ? (
             <span>
-              <Icon name="Loader" label={undefined} size="0.875rem" />
+              <Spinner size="sm" />
               Searching…
             </span>
           ) : null}

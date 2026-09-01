@@ -9,7 +9,7 @@
 
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { IconSourceDescriptor } from '@varve/engine';
-import { Icon, SolidIcon, Tooltip } from '@varve/ui';
+import { Icon, SolidIcon, Spinner, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SafeSvg } from './SafeSvg';
 
@@ -300,7 +300,7 @@ function IconGridCard({
         {item.svg ? (
           <SafeSvg svg={item.svg} label={name} className="icon-card__svg" />
         ) : isAcquiring ? (
-          <Icon name="Loader" size={18} className="icon-card__spinner" aria-label="Loading" />
+          <Spinner size="sm" className="icon-card__spinner" />
         ) : item.loading ? (
           <div className="icon-card__skeleton" aria-hidden="true" />
         ) : (

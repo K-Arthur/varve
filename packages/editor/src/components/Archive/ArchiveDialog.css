@@ -551,6 +551,10 @@
 }
 
 .archive-dialog__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border: none;
   border-radius: var(--radius-md);
@@ -601,31 +605,8 @@
 }
 
 .archive-dialog__btn--loading {
-  position: relative;
-  color: transparent;
-}
-.archive-dialog__btn--loading::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--color-text-on-accent);
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: archive-dialog-spin 0.6s linear infinite;
-}
-
-@keyframes archive-dialog-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .archive-dialog__btn--loading::after {
-    animation: none;
-  }
+  opacity: 1;
+  cursor: wait;
 }
 
 /* ── Confirm overlay ──────────────────────────────────────────────── */
