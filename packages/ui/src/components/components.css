@@ -167,7 +167,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
+  gap: var(--space-icon-label);
   height: var(--space-6);
   min-height: 44px;
   min-width: 44px;
@@ -313,8 +313,8 @@
   z-index: auto;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
+  gap: var(--space-icon-label);
+  padding: var(--space-tooltip);
   background: var(--color-surface-overlay);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-subtle);
@@ -405,7 +405,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-4) var(--space-4) 0;
+  padding: var(--space-dialog) var(--space-dialog) 0;
   flex-shrink: 0;
 }
 .varve-dialog__title {
@@ -442,7 +442,7 @@
   outline-offset: 2px;
 }
 .varve-dialog__body {
-  padding: var(--space-4);
+  padding: var(--space-dialog);
   min-height: 0;
   overflow-y: auto;
 }
@@ -452,7 +452,7 @@
   justify-content: flex-end;
   gap: var(--space-2);
   flex-shrink: 0;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-control-group) var(--space-dialog);
   border-top: 1px solid var(--color-border-subtle);
   background: var(--color-surface-raised);
 }
@@ -466,7 +466,7 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
-  margin-top: var(--space-4);
+  margin-block-start: var(--space-control-group);
 }
 
 .varve-menu.varve-menu--portaled {
@@ -493,7 +493,7 @@
   position: absolute;
   z-index: var(--z-overlay);
   min-width: 12rem;
-  padding: var(--space-1) 0;
+  padding-block: var(--space-menu-item);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
@@ -504,7 +504,8 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: var(--space-1) var(--space-3);
+  padding-block: var(--space-menu-item);
+  padding-inline: var(--space-3);
   background: none;
   border: none;
   color: var(--color-text-primary);
@@ -545,7 +546,7 @@
   position: static;
   z-index: auto;
   min-width: 12rem;
-  padding: var(--space-1) 0;
+  padding-block: var(--space-menu-item);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
@@ -562,7 +563,7 @@
   top: 0;
   z-index: var(--z-overlay);
   min-width: 12rem;
-  padding: var(--space-1) 0;
+  padding-block: var(--space-menu-item);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
@@ -1123,7 +1124,7 @@
 .varve-panel__content {
   flex: 1;
   min-width: 0;
-  padding: var(--panel-padding);
+  padding: var(--space-panel);
   overflow: hidden;
 }
 .varve-panel__handle {
@@ -1801,7 +1802,7 @@
 .varve-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-toolbar-item);
   background: var(--elevation-surface-default);
 }
 
@@ -1985,7 +1986,7 @@
 .varve-input {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-label-control);
 }
 .varve-input__label {
   font-size: var(--font-size-sm);
@@ -2058,7 +2059,7 @@
 .varve-textarea {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-label-control);
 }
 .varve-textarea__label {
   font-size: var(--font-size-sm);

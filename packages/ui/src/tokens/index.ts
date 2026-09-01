@@ -8,4 +8,5 @@
 export * from './color';
 export * from './contrast';
 export * from './dtcg';
+export * from './spacing';
 export * from './themeRuntime';

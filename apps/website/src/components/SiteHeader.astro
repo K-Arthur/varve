@@ -324,11 +324,12 @@ const versionLabel = release.hasRelease && release.version
   .site-nav {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0.65rem 1.5rem;
+    padding-block: var(--space-3);
+    padding-inline: var(--space-page-inline);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: var(--space-control-group);
     position: relative;
     z-index: 2;
   }
@@ -337,7 +338,7 @@ const versionLabel = release.hasRelease && release.version
   .site-logo {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--space-icon-label);
     color: var(--text-primary);
     text-decoration: none;
     flex: 0 0 auto;
@@ -401,19 +402,19 @@ const versionLabel = release.hasRelease && release.version
   .nav-links {
     display: flex;
     list-style: none;
-    gap: 0.25rem;
+    gap: var(--space-toolbar-item);
     margin: 0 auto;
   }
 
   .nav-links a {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: var(--space-icon-label);
     color: var(--text-secondary);
     font-weight: 500;
     font-size: 0.9375rem;
     text-decoration: none;
-    padding: 0.45rem 0.85rem;
+    padding: var(--space-2) var(--space-3);
     border-radius: var(--website-radius-control-compact);
     position: relative;
     transition:
@@ -454,12 +455,12 @@ const versionLabel = release.hasRelease && release.version
   .nav-actions {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: var(--space-control-group);
     flex: 0 0 auto;
   }
 
   :global(.nav-download-cta) {
-    padding: 0.45rem 0.9rem;
+    padding: var(--space-2) var(--space-3);
     font-size: 0.875rem;
     border-radius: var(--website-radius-control);
     position: relative;
@@ -476,7 +477,7 @@ const versionLabel = release.hasRelease && release.version
   :global(.nav-try-cta) {
     display: inline-flex;
     align-items: center;
-    padding: 0.45rem 0.9rem;
+    padding: var(--space-2) var(--space-3);
     font-size: 0.875rem;
     font-weight: 600;
     border-radius: var(--website-radius-control);
@@ -499,7 +500,7 @@ const versionLabel = release.hasRelease && release.version
     background: none;
     border: none;
     cursor: pointer;
-    padding: 0.45rem;
+    padding: var(--space-2);
     color: var(--text-secondary);
     border-radius: var(--website-radius-control-compact);
     position: relative;
@@ -542,7 +543,7 @@ const versionLabel = release.hasRelease && release.version
     }
 
     .nav-actions {
-      gap: 0.4rem;
+      gap: var(--space-icon-label);
     }
 
     :global(.nav-download-cta .download-cta-beta) {
@@ -557,7 +558,8 @@ const versionLabel = release.hasRelease && release.version
     }
 
     .site-nav {
-      padding: 0.55rem 1rem;
+      padding-block: var(--space-2);
+      padding-inline: var(--space-page-inline);
     }
 
     /* Full-screen overlay */
@@ -634,14 +636,14 @@ const versionLabel = release.hasRelease && release.version
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 1rem 1.25rem;
+      padding: var(--space-4) var(--space-5);
       border-bottom: 1px solid var(--border-default);
     }
 
     .mobile-nav-logo {
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: var(--space-icon-label);
       color: var(--text-primary);
       text-decoration: none;
       font-family: var(--font-editorial);
@@ -669,7 +671,7 @@ const versionLabel = release.hasRelease && release.version
       background: none;
       border: none;
       cursor: pointer;
-      padding: 0.4rem;
+      padding: var(--space-2);
       color: var(--text-secondary);
       border-radius: var(--website-radius-control-compact);
       display: flex;
@@ -687,16 +689,16 @@ const versionLabel = release.hasRelease && release.version
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 0.75rem;
-      gap: 0.15rem;
+      padding: var(--space-3);
+      gap: var(--space-toolbar-item);
       overflow-y: auto;
     }
 
     .mobile-nav-link {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.85rem 1rem;
+      gap: var(--space-icon-label);
+      padding: var(--space-4) var(--space-5);
       color: var(--text-secondary);
       font-weight: 500;
       font-size: 1.05rem;
@@ -724,7 +726,7 @@ const versionLabel = release.hasRelease && release.version
     }
 
     .mobile-nav-footer {
-      padding: 1rem 1.25rem;
+      padding: var(--space-4) var(--space-5);
       border-top: 1px solid var(--border-default);
     }
 

@@ -192,7 +192,9 @@ const csp = [
 
     {/*
       Theme detection script (runs before paint).
-      One canonical state on <html data-theme="light|dark">.
+      One canonical state on <html data-theme-mode="system|light|dark"
+      data-theme="light|dark">. The mode records the user's preference while
+      the concrete theme is the palette consumed by CSS.
 
       Precedence:
         1. An explicit persisted choice (localStorage "varve-theme":
@@ -223,17 +225,35 @@ const csp = [
         function isExplicit(choice) {
           return choice === 'light' || choice === 'dark';
         }
+        function preference() {
+          var choice = readChoice();
+          return isExplicit(choice) ? choice : 'system';
+        }
         function systemTheme() {
           return prefersDark.matches ? 'dark' : 'light';
         }
         // Legacy "system" / "high-contrast" / invalid values never render as
         // themes; they fall back to the OS and migrate on the next click.
-        function resolve() {
-          var choice = readChoice();
-          return isExplicit(choice) ? choice : systemTheme();
+        function resolve(mode) {
+          return isExplicit(mode) ? mode : systemTheme();
         }
         function apply() {
-          root.setAttribute('data-theme', resolve());
+          var previousMode = root.getAttribute('data-theme-mode');
+          var previousTheme = root.getAttribute('data-theme');
+          var mode = preference();
+          var theme = resolve(mode);
+          root.setAttribute('data-theme-mode', mode);
+          root.setAttribute('data-theme', theme);
+          if (previousMode !== mode || previousTheme !== theme) {
+            window.dispatchEvent(new CustomEvent('varve:theme-change', {
+              detail: {
+                preference: mode,
+                resolvedTheme: theme,
+                previousPreference: previousMode,
+                previousResolvedTheme: previousTheme,
+              },
+            }));
+          }
         }
         window.__varveTheme = {
           read: readChoice,
@@ -242,15 +262,20 @@ const csp = [
               localStorage.setItem(KEY, isExplicit(value) ? value : systemTheme());
             } catch (e) {}
           },
-          resolve: resolve,
+          resolve: function () { return resolve(preference()); },
           apply: apply,
           state: function () {
-            var choice = readChoice();
-            return { theme: resolve(), explicit: isExplicit(choice) };
+            var mode = preference();
+            return { preference: mode, theme: resolve(mode), explicit: isExplicit(mode) };
           },
         };
         apply();
-        prefersDark.addEventListener('change', apply);
+        prefersDark.addEventListener('change', function () {
+          if (preference() === 'system') apply();
+        });
+        window.addEventListener('storage', function (event) {
+          if (event.key === KEY) apply();
+        });
       })();
     </script>
 
@@ -397,7 +422,7 @@ const csp = [
     transform: translateX(-50%);
     background: var(--accent-primary);
     color: var(--text-on-accent);
-    padding: 0.5rem 1rem;
+    padding: var(--space-2) var(--space-3);
     border-radius: var(--website-radius-control-compact);
     z-index: 9999;
     text-decoration: none;
@@ -409,19 +434,19 @@ const csp = [
   }
 
   .skip-link:focus {
-    top: 0.5rem;
+    inset-block-start: var(--space-2);
   }
 
   .website-analytics-consent {
     position: fixed;
-    right: 1rem;
-    bottom: 1rem;
+    inset-inline-end: var(--space-page-inline);
+    inset-block-end: var(--space-page-inline);
     z-index: 1000;
     display: flex;
     align-items: center;
-    gap: 1rem;
-    max-width: min(42rem, calc(100vw - 2rem));
-    padding: 1rem 1.1rem;
+    gap: var(--space-control-group);
+    max-width: min(42rem, calc(100vw - (2 * var(--space-page-inline))));
+    padding: var(--space-panel);
     border: 1px solid var(--border-default);
     border-radius: var(--website-radius-control);
     background: var(--surface-card);
@@ -435,7 +460,7 @@ const csp = [
 
   .website-analytics-consent p {
     max-width: 58ch;
-    margin-top: 0.35rem;
+    margin-block-start: var(--space-label-control);
     color: var(--text-secondary);
     line-height: 1.5;
   }
@@ -443,11 +468,11 @@ const csp = [
   .website-analytics-consent__actions {
     display: flex;
     flex-shrink: 0;
-    gap: 0.5rem;
+    gap: var(--space-icon-label);
   }
 
   .website-analytics-consent__actions button {
-    padding: 0.5rem 0.75rem;
+    padding: var(--space-2) var(--space-3);
     border: 1px solid var(--border-default);
     border-radius: var(--website-radius-control-compact);
     background: var(--surface-muted);
