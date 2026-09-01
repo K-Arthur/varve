@@ -23,6 +23,7 @@ import {
   setRowSizing,
   setZebra,
 } from '@varve/scene';
+import { Switch } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -158,8 +159,7 @@ export function TableSection({ node }: Props) {
         />
       </FieldRow>
       <FieldRow label="Zebra stripes">
-        <input
-          type="checkbox"
+        <Switch
           aria-label="Zebra stripes"
           checked={table.appearance.zebra}
           onChange={(e) => op((t) => setZebra(t, e.target.checked))}

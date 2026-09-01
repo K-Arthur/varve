@@ -17,7 +17,7 @@ import type { QualityMode } from '@varve/engine';
 import { listAllModels } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
-import { Button, Select } from '@varve/ui';
+import { Button, Select, Switch } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -467,24 +467,20 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
               <output htmlFor={`${hueId}-chroma`}>{Math.round(chromaStrength * 100)}%</output>
             </FieldRow>
             <div className="insp-field-group">
-              <label className="insp-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={skinProtection}
-                  disabled={isProcessing}
-                  onChange={(e) => setSkinProtection(e.target.checked)}
-                />
-                <span>Skin tone protection</span>
-              </label>
-              <label className="insp-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={neutralProtection}
-                  disabled={isProcessing}
-                  onChange={(e) => setNeutralProtection(e.target.checked)}
-                />
-                <span>Neutral region protection</span>
-              </label>
+              <Switch
+                className="insp-switch"
+                label="Protect skin tones"
+                checked={skinProtection}
+                disabled={isProcessing}
+                onChange={(e) => setSkinProtection(e.target.checked)}
+              />
+              <Switch
+                className="insp-switch"
+                label="Protect neutral regions"
+                checked={neutralProtection}
+                disabled={isProcessing}
+                onChange={(e) => setNeutralProtection(e.target.checked)}
+              />
             </div>
           </>
         )}

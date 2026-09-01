@@ -389,34 +389,29 @@ describe('BackgroundRemovalSection - Feather slider', () => {
   });
 });
 
-describe('BackgroundRemovalSection - Decontaminate checkbox', () => {
-  it('renders decontaminate checkbox checked by default', () => {
+describe('BackgroundRemovalSection - Decontaminate switch', () => {
+  it('renders decontaminate switch checked by default', () => {
     const node = makeImageNode();
     render(<BackgroundRemovalSection nodes={[node]} />);
-    const checkbox = screen.getByText('Reduce colour fringe')
-      .previousElementSibling as HTMLInputElement;
-    expect(checkbox).toBeTruthy();
-    expect(checkbox.checked).toBe(true);
+    expect(screen.getByRole('switch', { name: 'Reduce colour fringe' })).toBeChecked();
   });
 
   it('toggles decontaminate off', () => {
     const node = makeImageNode();
     render(<BackgroundRemovalSection nodes={[node]} />);
-    const checkbox = screen.getByText('Reduce colour fringe')
-      .previousElementSibling as HTMLInputElement;
-    fireEvent.click(checkbox);
-    expect(checkbox.checked).toBe(false);
+    const control = screen.getByRole('switch', { name: 'Reduce colour fringe' });
+    fireEvent.click(control);
+    expect(control).not.toBeChecked();
   });
 
   it('toggles decontaminate on after off', () => {
     const node = makeImageNode();
     render(<BackgroundRemovalSection nodes={[node]} />);
-    const checkbox = screen.getByText('Reduce colour fringe')
-      .previousElementSibling as HTMLInputElement;
-    fireEvent.click(checkbox);
-    expect(checkbox.checked).toBe(false);
-    fireEvent.click(checkbox);
-    expect(checkbox.checked).toBe(true);
+    const control = screen.getByRole('switch', { name: 'Reduce colour fringe' });
+    fireEvent.click(control);
+    expect(control).not.toBeChecked();
+    fireEvent.click(control);
+    expect(control).toBeChecked();
   });
 });
 

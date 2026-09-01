@@ -17,7 +17,7 @@ import {
 } from '@varve/engine';
 import type { SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
-import { Button, Select } from '@varve/ui';
+import { Button, Select, Switch } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { removeRasterMaskFromNode } from '../../../backgroundRemoval/commitRasterMask';
 import { isCapabilityRestricted } from '../../../capabilities/restrictions';
@@ -590,16 +590,13 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             for soft edges.
           </p>
 
-          <label className="insp-check" htmlFor={decontaminateId}>
-            <input
-              id={decontaminateId}
-              type="checkbox"
-              className="insp-checkbox"
-              checked={decontaminate}
-              onChange={(e) => setDecontaminate(e.target.checked)}
-            />
-            <span>Reduce colour fringe</span>
-          </label>
+          <Switch
+            id={decontaminateId}
+            label="Reduce colour fringe"
+            className="insp-switch"
+            checked={decontaminate}
+            onChange={(e) => setDecontaminate(e.target.checked)}
+          />
           <p className="insp-hint">
             Pulls background colour out of semi-transparent edge pixels after masking.
           </p>

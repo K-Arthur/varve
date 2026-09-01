@@ -12,7 +12,7 @@ import {
 } from '@varve/engine';
 import type { Effect, SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
-import { Button, Separator } from '@varve/ui';
+import { Button, Separator, Switch } from '@varve/ui';
 import { type MouseEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { commitRasterMask } from '../../../backgroundRemoval/commitRasterMask';
 import { useEditor, useViewport } from '../../../context';
@@ -753,15 +753,12 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
         {depthData && depthState === 'ready' && (
           <>
             <p className="insp-subsection__label">Depth Map Preview</p>
-            <label className="insp-check">
-              <input
-                type="checkbox"
-                className="insp-checkbox"
-                checked={previewDepth}
-                onChange={(event) => setPreviewDepth(event.target.checked)}
-              />
-              <span>Preview Depth (near to far)</span>
-            </label>
+            <Switch
+              className="insp-switch"
+              label="Preview depth (near to far)"
+              checked={previewDepth}
+              onChange={(event) => setPreviewDepth(event.target.checked)}
+            />
             {(previewDepth || pickFocus) && (
               <div className="insp-depth-heatmap">
                 <canvas
@@ -855,25 +852,19 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
               <output htmlFor={transitionRangeId}>{params.transitionRange}%</output>
             </FieldRow>
 
-            <label className="insp-check">
-              <input
-                type="checkbox"
-                className="insp-checkbox"
-                checked={params.invert}
-                onChange={(e) => setParams((p) => ({ ...p, invert: e.target.checked }))}
-              />
-              <span>Invert Depth</span>
-            </label>
+            <Switch
+              className="insp-switch"
+              label="Invert depth"
+              checked={params.invert}
+              onChange={(e) => setParams((p) => ({ ...p, invert: e.target.checked }))}
+            />
 
-            <label className="insp-check">
-              <input
-                type="checkbox"
-                className="insp-checkbox"
-                checked={livePreview}
-                onChange={(e) => setLivePreview(e.target.checked)}
-              />
-              <span>Live preview</span>
-            </label>
+            <Switch
+              className="insp-switch"
+              label="Live preview"
+              checked={livePreview}
+              onChange={(e) => setLivePreview(e.target.checked)}
+            />
 
             {livePreview && (
               <div className="insp-depth-preview">
@@ -948,15 +939,12 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
               />
               <output htmlFor={maskFeatherId}>{maskParams.feather}%</output>
             </FieldRow>
-            <label className="insp-check">
-              <input
-                type="checkbox"
-                className="insp-checkbox"
-                checked={maskParams.invert}
-                onChange={(e) => setMaskParams((p) => ({ ...p, invert: e.target.checked }))}
-              />
-              <span>Invert (select outside range)</span>
-            </label>
+            <Switch
+              className="insp-switch"
+              label="Select outside depth range"
+              checked={maskParams.invert}
+              onChange={(e) => setMaskParams((p) => ({ ...p, invert: e.target.checked }))}
+            />
             <div className="insp-actions">
               <Button type="button" variant="ghost" size="sm" onClick={handleCreateDepthMask}>
                 Create Depth Mask

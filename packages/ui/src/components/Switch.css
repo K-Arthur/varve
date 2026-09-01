@@ -3,7 +3,7 @@
   --switch-width: 2rem;
   --switch-height: 1.125rem;
   --switch-thumb-size: 0.875rem;
-  --switch-thumb-travel: 0.875rem;
+  --switch-thumb-travel: 0.75rem;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -17,7 +17,7 @@
   --switch-width: 2.25rem;
   --switch-height: 1.25rem;
   --switch-thumb-size: 1rem;
-  --switch-thumb-travel: 1rem;
+  --switch-thumb-travel: 0.875rem;
 }
 
 .varve-switch__input {
@@ -104,6 +104,12 @@
   min-block-size: 1rem;
   gap: var(--space-1);
   font-size: var(--font-size-2xs);
+}
+
+.varve-switch.insp-switch {
+  gap: var(--space-1);
+  min-block-size: 1.5rem;
+  font-size: var(--font-size-xs);
 }
 
 .varve-switch-field {

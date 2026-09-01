@@ -1,7 +1,7 @@
 import type { RasterTraceMode } from '@varve/engine';
 import type { LiveTraceParams, SceneNode } from '@varve/scene';
 import { isImageShape } from '@varve/scene';
-import { Button, Select, Separator } from '@varve/ui';
+import { Button, Select, Separator, Switch } from '@varve/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { isCapabilityRestricted } from '../../../capabilities/restrictions';
 import { useEditor } from '../../../context';
@@ -187,21 +187,18 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
         </div>
 
         <FieldRow label="Auto trace">
-          <label className="insp-field__control insp-field__control--inline">
-            <input
-              type="checkbox"
-              checked={liveTrace}
-              aria-label="Enable auto trace"
-              onChange={(event) => {
-                setLiveTrace(event.target.checked);
-                if (!event.target.checked) {
-                  ++requestIdRef.current;
-                  cancelImageProcessing();
-                  clearSelectedLiveTrace();
-                }
-              }}
-            />
-          </label>
+          <Switch
+            aria-label="Enable auto trace"
+            checked={liveTrace}
+            onChange={(event) => {
+              setLiveTrace(event.target.checked);
+              if (!event.target.checked) {
+                ++requestIdRef.current;
+                cancelImageProcessing();
+                clearSelectedLiveTrace();
+              }
+            }}
+          />
         </FieldRow>
 
         {liveTrace && (
@@ -351,14 +348,11 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
               />
             </FieldRow>
             <FieldRow label="Compound holes">
-              <label className="insp-field__control insp-field__control--inline">
-                <input
-                  type="checkbox"
-                  checked={compoundHoles}
-                  aria-label="Compound holes"
-                  onChange={(event) => setCompoundHoles(event.target.checked)}
-                />
-              </label>
+              <Switch
+                aria-label="Compound holes"
+                checked={compoundHoles}
+                onChange={(event) => setCompoundHoles(event.target.checked)}
+              />
             </FieldRow>
           </div>
         )}
