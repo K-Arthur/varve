@@ -111,6 +111,15 @@ test.describe('Layers Panel - APG Tree View', () => {
 
     await firstItem.click();
     await expect(firstItem).toHaveAttribute('aria-selected', 'true');
+    await page.mouse.move(0, 0);
+    const selectedBackground = await firstItem.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    );
+    await firstItem.hover();
+    const selectedHoverBackground = await firstItem.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    );
+    expect(selectedHoverBackground).not.toBe(selectedBackground);
     await page.getByTestId('layers-panel').screenshot({
       path: 'test-results/layers-colour-label-selected.png',
     });
@@ -125,6 +134,9 @@ test.describe('Layers Panel - APG Tree View', () => {
       await page.evaluate((nextTheme) => {
         document.documentElement.setAttribute('data-theme', nextTheme);
       }, theme);
+      // Clear the previous iteration's pointer position so the resting
+      // sample is not accidentally taken from the already-hovered row.
+      await page.mouse.move(0, 0);
       const taggedBackground = await firstItem.evaluate(
         (element) => getComputedStyle(element).backgroundColor,
       );
@@ -133,8 +145,16 @@ test.describe('Layers Panel - APG Tree View', () => {
         .nth(2)
         .evaluate((element) => getComputedStyle(element).backgroundColor);
       expect(taggedBackground).not.toBe(neutralBackground);
+      await firstItem.hover();
+      const taggedHoverBackground = await firstItem.evaluate(
+        (element) => getComputedStyle(element).backgroundColor,
+      );
+      expect(taggedHoverBackground, `${theme} tagged row hover`).not.toBe(taggedBackground);
       await page.getByTestId('layers-panel').screenshot({
         path: `test-results/layers-colour-label-${theme}.png`,
+      });
+      await page.getByTestId('layers-panel').screenshot({
+        path: `test-results/layers-colour-label-${theme}-hover.png`,
       });
     }
   });
