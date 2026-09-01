@@ -38,9 +38,12 @@
   opacity: 0.58;
 }
 
-/* A real focus ring always wins over decorative emphasis. */
+/* A real focus ring wins; the hidden animation keeps advancing so blur cannot replay it. */
 :where(.varve-shine-border):focus-visible::after,
-:where(.varve-shine-border):focus-within::after,
+:where(.varve-shine-border):focus-within::after {
+  opacity: 0;
+}
+
 :where(.varve-shine-border:disabled)::after,
 :where(.varve-shine-border[aria-disabled="true"])::after,
 :where(.varve-shine-border--disabled)::after {
