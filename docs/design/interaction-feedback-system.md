@@ -41,6 +41,13 @@ restrained surface changes for hover, compact persistent selection, a clear
 focus ring, and precise drop indicators. The website may use elevation and
 motion for cards, but retains the same state meaning and focus treatment.
 
+Workspace-specific controls follow the same contract. The workspace dock may
+use a mode accent for the active pill, but its foreground is paired against
+that mode accent per theme; in dark mode the mode accents use the light text
+ramp, and high contrast collapses to the single audited yellow/black pair.
+Motion/timeline controls expose their persistent toggles with `aria-pressed`
+and use checked/pressed surfaces rather than a hover tint as the only cue.
+
 ## Canonical state model
 
 Persistent semantics belong in ARIA or data attributes; classes are only a

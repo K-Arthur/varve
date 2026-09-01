@@ -59,12 +59,16 @@
 }
 
 .timeline-panel__create-btn:focus-visible,
-.timeline-panel__zoom-btn:focus-visible {
+.timeline-panel__zoom-btn:focus-visible,
+.timeline-panel__toggle-btn:focus-visible,
+.timeline-playback-btn:focus-visible,
+.timeline-track-row__mute-btn:focus-visible,
+.timeline-track-row__solo-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -2px;
+  outline-offset: 2px;
 }
 .timeline-panel__create-btn:hover {
-  background: var(--color-surface-overlay);
+  background: var(--color-interactive-hover-surface);
   border-color: var(--color-border-subtle);
 }
 
@@ -75,7 +79,8 @@
 }
 
 .timeline-panel__create-btn--primary:hover {
-  filter: brightness(1.05);
+  background: var(--color-interactive-hover);
+  border-color: var(--color-interactive-hover);
 }
 
 .timeline-panel__empty-tracks {
@@ -137,8 +142,13 @@
 }
 
 .timeline-panel__zoom-btn:hover:not(:disabled) {
-  background: var(--color-surface-default);
+  background: var(--color-interactive-hover-surface);
   border-color: var(--color-border-subtle);
+}
+
+.timeline-panel__zoom-btn:active:not(:disabled),
+.timeline-panel__create-btn:active:not(:disabled) {
+  background: var(--color-interactive-pressed-surface);
 }
 
 .timeline-panel__zoom-btn:disabled {
@@ -169,15 +179,19 @@
 }
 
 .timeline-panel__toggle-btn:hover {
-  background: var(--color-surface-default);
+  background: var(--color-interactive-hover-surface);
   border-color: var(--color-border-subtle);
   color: var(--color-text-primary);
 }
 
 .timeline-panel__toggle-btn--active {
-  background: var(--timeline-accent);
-  border-color: var(--timeline-accent);
-  color: var(--color-text-on-accent);
+  background: var(--color-interactive-checked-surface);
+  border-color: var(--color-interactive-selected-border);
+  color: var(--color-interactive-selected-foreground);
+}
+
+.timeline-panel__toggle-btn:active:not(:disabled) {
+  background: var(--color-interactive-pressed-surface);
 }
 
 /* ── Playback Controls ─────────────────────────────────────────────────────── */
@@ -215,7 +229,12 @@
 }
 
 .timeline-playback-btn:hover {
-  background: var(--color-surface-default);
+  background: var(--color-interactive-hover-surface);
+}
+
+.timeline-playback-btn:active:not(:disabled) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
 }
 
 .timeline-playback-btn:disabled {
@@ -224,7 +243,8 @@
 }
 
 .timeline-playback-btn--active {
-  color: var(--timeline-accent);
+  background: var(--color-interactive-checked-surface);
+  color: var(--color-interactive-selected-foreground);
 }
 
 .timeline-playback-sep {
@@ -391,17 +411,62 @@
 
 .timeline-track-row__mute-btn:hover,
 .timeline-track-row__solo-btn:hover {
-  background: var(--color-surface-default);
+  background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
 }
 
+.timeline-track-row__mute-btn:active:not(:disabled),
+.timeline-track-row__solo-btn:active:not(:disabled) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
+}
+
 .timeline-track-row__mute-btn--active {
-  color: var(--timeline-accent-secondary);
+  background: var(--color-interactive-checked-surface);
+  color: var(--color-interactive-selected-foreground);
 }
 
 .timeline-track-row__solo-btn--active {
-  color: var(--timeline-accent);
+  background: var(--color-interactive-checked-surface);
+  color: var(--color-interactive-selected-foreground);
   font-weight: 700;
+}
+
+/* Coarse pointers do not have a stable hover state. Persistent timeline
+ * toggles keep their checked treatment, while transient hover fills reset. */
+@media (hover: none), (pointer: coarse) {
+  .timeline-panel__create-btn:hover:not(:active):not(:disabled) {
+    background: var(--color-surface-raised);
+  }
+
+  .timeline-panel__create-btn--primary:hover:not(:active):not(:disabled) {
+    background: var(--timeline-accent);
+    border-color: var(--timeline-accent);
+  }
+
+  .timeline-panel__zoom-btn:hover:not(:active):not(:disabled) {
+    background: var(--color-surface-sunken);
+  }
+
+  .timeline-playback-btn:hover:not(:active):not(:disabled),
+  .timeline-track-row__mute-btn:hover:not(:active):not(:disabled),
+  .timeline-track-row__solo-btn:hover:not(:active):not(:disabled) {
+    background: transparent;
+  }
+
+  .timeline-panel__toggle-btn:hover:not(:active):not(.timeline-panel__toggle-btn--active),
+  .timeline-track-row__mute-btn:hover:not(:active):not(.timeline-track-row__mute-btn--active),
+  .timeline-track-row__solo-btn:hover:not(:active):not(.timeline-track-row__solo-btn--active) {
+    background: var(--color-surface-sunken);
+  }
+
+  .timeline-panel__toggle-btn--active:hover:not(:active),
+  .timeline-playback-btn--active:hover:not(:active),
+  .timeline-track-row__mute-btn--active:hover:not(:active),
+  .timeline-track-row__solo-btn--active:hover:not(:active) {
+    background: var(--color-interactive-checked-surface);
+    color: var(--color-interactive-selected-foreground);
+  }
 }
 
 .timeline-track-row__prop-name {

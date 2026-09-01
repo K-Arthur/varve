@@ -1638,8 +1638,19 @@ input[type="number"] {
   padding: 0 10px;
   border-radius: var(--radius-control-compact);
   background: var(--ws-mode-bg);
-  color: var(--color-text-on-accent);
+  color: var(--ws-mode-fg, var(--color-text-on-accent));
   box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.15);
+}
+
+/* Mode accents are intentionally darker than the shared accent in dark
+ * theme. Pair them with the light text ramp so every workspace label remains
+ * readable; the light and HC palettes retain their audited accent pairing. */
+[data-theme="dark"] .workspace-dock__item--active {
+  --ws-mode-fg: var(--color-text-primary);
+}
+
+[data-theme="dark"] .workspace-dock__item[data-mode="design"] {
+  --ws-mode-bg: oklch(0.53 0.08 189.77);
 }
 
 .workspace-dock__item--active:hover {
@@ -1680,7 +1691,7 @@ input[type="number"] {
 }
 
 .workspace-dock__item--active .workspace-dock__customized-dot {
-  background: var(--color-text-on-accent);
+  background: var(--ws-mode-fg, var(--color-text-on-accent));
 }
 
 /* ── Overflow divider ── */
@@ -1723,6 +1734,7 @@ input[type="number"] {
 
 /* ── HC override: all active tabs use the single HC accent ── */
 [data-theme="high-contrast"] .workspace-dock__item--active {
+  --ws-mode-fg: var(--color-text-on-accent);
   background: var(--color-interactive-default);
 }
 [data-theme="high-contrast"] .workspace-dock__item:hover {
