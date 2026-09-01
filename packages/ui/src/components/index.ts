@@ -144,6 +144,9 @@ export type {
   SeparatorWithContentProps,
 } from './Separator';
 export { AnimatedSeparator, Separator, SeparatorWithContent } from './Separator';
+/** @maturity beta — rare, state-driven decorative emphasis only. */
+export type { ShineBorderProps, ShineBorderTone, ShineBorderVariant } from './ShineBorder';
+export { ShineBorder } from './ShineBorder';
 export type { SliderProps } from './Slider';
 export { Slider } from './Slider';
 export type { StartupLoaderProps } from './StartupLoader';

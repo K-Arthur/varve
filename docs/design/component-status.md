@@ -1,6 +1,6 @@
 # Component Status — `@varve/ui` maturity tracker
 
-**Last updated:** 2026-07-27
+**Last updated:** 2026-08-31
 **See:** ADR-0011 (governance), `docs/design/design-principles.md`
 
 ## Maturity states
@@ -53,6 +53,7 @@
 | Panel | ✅ | ✅ | ✅ | Draggable resize, localStorage |
 | Toolbar | ✅ | — | — | APG roving tabindex |
 | EmptyState | ✅ | ✅ | ✅ | |
+| ShineBorder | 🔨 | ✅ | ✅ | Beta; rare state-driven decoration, not a default Card/Button treatment |
 
 ## Feedback / status
 
