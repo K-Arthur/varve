@@ -23,19 +23,10 @@ describe('SafeModeScreen', () => {
     expect(
       screen.getByRole('alertdialog', { name: 'Varve had trouble starting' }),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole('checkbox')).toHaveLength(7);
-    expect(
-      screen
-        .getAllByRole('checkbox')
-        .slice(0, 5)
-        .every((checkbox) => checkbox.checked),
-    ).toBe(true);
-    expect(
-      screen
-        .getAllByRole('checkbox')
-        .slice(5)
-        .every((checkbox) => !checkbox.checked),
-    ).toBe(true);
+    const checkboxes = screen.getAllByRole('checkbox') as HTMLInputElement[];
+    expect(checkboxes).toHaveLength(7);
+    expect(checkboxes.slice(0, 5).every((checkbox) => checkbox.checked)).toBe(true);
+    expect(checkboxes.slice(5).every((checkbox) => !checkbox.checked)).toBe(true);
 
     fireEvent.click(screen.getByRole('checkbox', { name: /disable gpu acceleration/i }));
     expect(onToggleOption).toHaveBeenCalledWith('disableGpu', false);
