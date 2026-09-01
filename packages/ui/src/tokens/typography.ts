@@ -86,6 +86,18 @@ export const TYPOGRAPHY_ROLES = {
     weight: 'var(--font-weight-bold)',
     family: 'var(--font-editorial)',
   },
+  'marketing-display': {
+    size: 'clamp(3rem, 6.5vw + 0.75rem, 6rem)',
+    lineHeight: '0.95',
+    weight: 'var(--font-weight-bold)',
+    family: 'var(--font-editorial)',
+  },
+  'marketing-feature': {
+    size: 'clamp(2rem, 3.5vw + 0.5rem, 3.25rem)',
+    lineHeight: '1.08',
+    weight: 'var(--font-weight-bold)',
+    family: 'var(--font-editorial)',
+  },
   'marketing-section': {
     size: 'clamp(1.75rem, 3vw + 0.5rem, 2.75rem)',
     lineHeight: '1.1',

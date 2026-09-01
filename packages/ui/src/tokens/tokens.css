@@ -237,6 +237,14 @@
   --type-marketing-hero-line-height: 1.08;
   --type-marketing-hero-weight: var(--font-weight-bold);
   --type-marketing-hero-family: var(--font-editorial);
+  --type-marketing-display-size: clamp(3rem, 6.5vw + 0.75rem, 6rem);
+  --type-marketing-display-line-height: 0.95;
+  --type-marketing-display-weight: var(--font-weight-bold);
+  --type-marketing-display-family: var(--font-editorial);
+  --type-marketing-feature-size: clamp(2rem, 3.5vw + 0.5rem, 3.25rem);
+  --type-marketing-feature-line-height: 1.08;
+  --type-marketing-feature-weight: var(--font-weight-bold);
+  --type-marketing-feature-family: var(--font-editorial);
   --type-marketing-section-size: clamp(1.75rem, 3vw + 0.5rem, 2.75rem);
   --type-marketing-section-line-height: 1.1;
   --type-marketing-section-weight: var(--font-weight-bold);
@@ -262,7 +270,6 @@
   --component-large-padding-inline: var(--space-4);
   --menu-item-min-height: 32px;
   --tab-min-height: 36px;
-  --toolbar-height: 40px;
   --touch-target-min: 44px;
   --resize-handle-visual: 2px;
   --resize-handle-hit: 12px;

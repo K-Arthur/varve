@@ -285,9 +285,7 @@
 /* Compact controls stay visually compact on desktop while retaining the
  * larger target required on coarse-pointer devices. */
 @media (pointer: coarse) {
-  .varve-btn--sm,
-  .varve-btn--pill,
-  .varve-btn--pill-outline {
+  .varve-btn {
     min-block-size: var(--touch-target-min);
     min-inline-size: var(--touch-target-min);
   }
@@ -441,8 +439,8 @@
   cursor: pointer;
   font-size: var(--font-size-xl);
   color: var(--color-text-secondary);
-  min-width: 44px;
-  min-height: 44px;
+  min-width: var(--touch-target-min);
+  min-height: var(--touch-target-min);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -612,8 +610,8 @@
   height: 1.25em;
   padding: 0 var(--space-1);
   margin-left: var(--space-3);
-  font-size: 0.7em;
-  font-weight: 600;
+  font-size: var(--type-interface-caption-size);
+  font-weight: var(--type-interface-control-weight);
   line-height: 1;
   border-radius: var(--radius-pill);
   background: var(--color-interactive-default);
@@ -761,14 +759,16 @@
 
 .varve-select__search-input {
   width: 100%;
-  height: var(--space-6);
-  padding: 0 var(--space-2);
+  min-block-size: var(--component-compact-height);
+  box-sizing: border-box;
+  padding: var(--space-1) var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  line-height: var(--type-interface-control-line-height);
   outline-offset: 1px;
 }
 
@@ -2393,6 +2393,11 @@
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
+  box-sizing: border-box;
+  padding: 0;
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  line-height: var(--type-interface-control-line-height);
   transition:
     background var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard);
@@ -2423,6 +2428,13 @@
   inline-size: var(--component-large-height);
 }
 @media (pointer: coarse) {
+  .varve-input__field,
+  .varve-search__input {
+    min-block-size: var(--touch-target-min);
+  }
+}
+
+@media (pointer: coarse) {
   .varve-toggle-btn--sm,
   .varve-toggle-btn--md,
   .varve-toggle-btn--lg {
@@ -2448,7 +2460,8 @@
   position: relative;
 }
 .varve-combobox__label {
-  font-size: var(--font-size-sm);
+  font-size: var(--type-interface-label-size);
+  line-height: var(--type-interface-label-line-height);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
 }
@@ -2458,14 +2471,16 @@
 }
 .varve-combobox__input {
   flex: 1;
-  height: var(--space-5);
-  padding: 0 var(--space-2);
+  min-block-size: var(--component-default-height);
+  box-sizing: border-box;
+  padding: var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--font-size-sm);
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  line-height: var(--type-interface-control-line-height);
   outline: none;
   transition: border-color var(--duration-quick) var(--ease-standard);
 }

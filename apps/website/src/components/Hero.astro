@@ -484,11 +484,11 @@ import { PRODUCT_STATUS } from '@varve/shared';
   }
 
   .hero-title {
-    font-family: var(--font-editorial);
-    font-size: clamp(3rem, 6.5vw + 0.75rem, 6rem);
-    font-weight: 700;
+    font-family: var(--type-marketing-display-family);
+    font-size: var(--type-marketing-display-size);
+    font-weight: var(--type-marketing-display-weight);
     font-variation-settings: 'opsz' 144;
-    line-height: 0.95;
+    line-height: var(--type-marketing-display-line-height);
     letter-spacing: -0.03em;
     margin-bottom: 1.75rem;
     color: var(--text-primary);
@@ -507,8 +507,8 @@ import { PRODUCT_STATUS } from '@varve/shared';
   }
 
   .hero-subtitle {
-    font-size: clamp(1.0625rem, 1.5vw + 0.5rem, 1.25rem);
-    line-height: 1.65;
+    font-size: var(--type-content-lead-size);
+    line-height: var(--type-content-lead-line-height);
     color: var(--text-secondary);
     margin: 0 auto 2.25rem;
     max-width: 58ch;

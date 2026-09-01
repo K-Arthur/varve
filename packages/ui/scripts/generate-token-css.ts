@@ -1,9 +1,9 @@
 /**
  * Generates packages/ui/src/tokens/tokens.css from the audited TS source.
  *
- * Single sources of truth: color.ts and spacing.ts (audited) → this script →
- * tokens.css. Run `tsx scripts/generate-token-css.ts` after either source
- * changes.
+ * Single sources of truth: color.ts, spacing.ts, sizing.ts, typography.ts,
+ * and iconTokens.ts (audited) → this script → tokens.css. Run
+ * `tsx scripts/generate-token-css.ts` after any source changes.
  *
  * Uses OKLCH color space — all color values emitted as `oklch(L C H)`.
  *

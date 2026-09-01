@@ -27,7 +27,6 @@ export const COMPONENT_SIZES = {
 export const COMPONENT_DIMENSIONS = {
   'menu-item-min-height': '32px',
   'tab-min-height': '36px',
-  'toolbar-height': '40px',
   'touch-target-min': '44px',
   'resize-handle-visual': '2px',
   'resize-handle-hit': '12px',
