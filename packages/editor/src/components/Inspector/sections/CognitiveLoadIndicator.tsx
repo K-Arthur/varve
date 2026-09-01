@@ -35,7 +35,7 @@ export function CognitiveLoadIndicator({ document, nodeId }: CognitiveLoadIndica
           style={{
             flex: 1,
             height: 6,
-            borderRadius: 3,
+            borderRadius: 'var(--radius-control-compact)',
             background: 'var(--color-surface-sunken)',
             overflow: 'hidden',
           }}
@@ -45,7 +45,7 @@ export function CognitiveLoadIndicator({ document, nodeId }: CognitiveLoadIndica
               width: `${Math.min(report.score, 100)}%`,
               height: '100%',
               background: LEVEL_COLORS[report.level] ?? 'var(--color-feedback-warning)',
-              borderRadius: 3,
+              borderRadius: 'var(--radius-control-compact)',
               transition: 'width 0.3s ease',
             }}
           />

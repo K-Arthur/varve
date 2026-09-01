@@ -133,7 +133,7 @@ function showOverlay(): void {
     justifyContent: 'center',
     background: 'color-mix(in oklch, var(--color-interactive-default, #3d9b8f) 12%, transparent)',
     border: '3px dashed var(--color-interactive-default, #3d9b8f)',
-    borderRadius: '12px',
+    borderRadius: 'var(--radius-floating)',
     zIndex: '99999',
     pointerEvents: 'none',
     fontSize: '15px',

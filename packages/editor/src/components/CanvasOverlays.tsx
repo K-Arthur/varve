@@ -553,7 +553,7 @@ export function CanvasOverlays({
             minWidth: 132,
             padding: 'var(--space-2)',
             border: '1px solid var(--color-border-accent)',
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: 'var(--radius-surface)',
             background: 'var(--elevation-surface-raised)',
             color: 'var(--color-text-primary)',
             boxShadow: 'var(--shadow-md)',
@@ -568,7 +568,7 @@ export function CanvasOverlays({
               style={{
                 width: 12,
                 height: 12,
-                borderRadius: 2,
+                borderRadius: 'var(--radius-control-compact)',
                 background: pixelProbe.hex,
                 border: '1px solid var(--color-border-subtle)',
               }}

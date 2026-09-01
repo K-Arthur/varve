@@ -59,7 +59,7 @@ export function PalettePreviewDialog({
   const swatchStyle: React.CSSProperties = {
     width: 28,
     height: 28,
-    borderRadius: 4,
+    borderRadius: 'var(--radius-control-compact)',
     border: '1px solid var(--color-border-subtle)',
     flexShrink: 0,
   };
@@ -81,7 +81,7 @@ export function PalettePreviewDialog({
             style={{
               padding: 'var(--space-2)',
               background: 'var(--color-feedback-danger)',
-              borderRadius: 4,
+              borderRadius: 'var(--radius-control-compact)',
               marginBottom: 'var(--space-2)',
             }}
           >
@@ -176,7 +176,7 @@ export function PalettePreviewDialog({
                   marginBottom: 'var(--space-2)',
                   padding: 'var(--space-1) var(--space-2)',
                   background: 'var(--color-feedback-warning)',
-                  borderRadius: 4,
+                  borderRadius: 'var(--radius-control-compact)',
                   fontSize: '0.85em',
                 }}
                 role="status"

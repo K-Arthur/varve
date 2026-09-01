@@ -456,7 +456,7 @@ const styles: Record<string, CSSProperties> = {
   reattachBtn: {
     padding: '3px 10px',
     border: '1px solid var(--color-border, #e0e0e0)',
-    borderRadius: 5,
+    borderRadius: 'var(--radius-control-compact)',
     background: 'var(--color-surface, #fff)',
     cursor: 'pointer',
     fontSize: 11,
@@ -464,7 +464,7 @@ const styles: Record<string, CSSProperties> = {
   undoBtn: {
     padding: '3px 8px',
     border: '1px solid var(--color-border, #e0e0e0)',
-    borderRadius: 5,
+    borderRadius: 'var(--radius-control-compact)',
     background: 'var(--color-surface, #fff)',
     cursor: 'pointer',
     fontSize: 11,

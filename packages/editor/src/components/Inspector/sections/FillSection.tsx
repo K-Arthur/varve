@@ -570,7 +570,7 @@ function FillRow({
             style={{
               fontSize: 11,
               padding: '2px 6px',
-              borderRadius: 4,
+              borderRadius: 'var(--radius-control-compact)',
               border:
                 '1px solid ' +
                 (bindingValid

@@ -74,7 +74,7 @@ export function TouchCandidateMenu({
           overflowY: 'auto',
           background: 'var(--elevation-surface-default)',
           border: '1px solid var(--color-border-subtle)',
-          borderRadius: 'var(--radius-md)',
+          borderRadius: 'var(--radius-surface)',
           boxShadow: 'var(--shadow-lg)',
           padding: 'var(--space-1)',
         }}
@@ -98,7 +98,7 @@ export function TouchCandidateMenu({
                 background: 'transparent',
                 color: 'var(--color-text-primary)',
                 cursor: 'pointer',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 'var(--radius-control-compact)',
                 fontSize: 'var(--font-size-xs)',
                 textAlign: 'left',
                 minHeight: 32,

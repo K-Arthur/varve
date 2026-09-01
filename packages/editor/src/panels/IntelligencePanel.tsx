@@ -2013,7 +2013,7 @@ function PromoteDialog({
               padding: 'var(--space-1) var(--space-2)',
               background: 'var(--color-surface-raised)',
               border: 'var(--border-micro)',
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'var(--radius-control-compact)',
               color: 'var(--color-text-primary)',
             }}
           />
@@ -2052,7 +2052,7 @@ function PromoteDialog({
                   padding: '2px var(--space-1)',
                   background: 'var(--color-surface-raised)',
                   border: 'var(--border-micro)',
-                  borderRadius: 'var(--radius-sm)',
+                  borderRadius: 'var(--radius-control-compact)',
                   color: 'var(--color-text-primary)',
                   fontSize: 'var(--font-size-xs)',
                 }}
@@ -2095,7 +2095,7 @@ function PromoteDialog({
                   padding: '2px var(--space-1)',
                   background: 'var(--color-surface-raised)',
                   border: 'var(--border-micro)',
-                  borderRadius: 'var(--radius-sm)',
+                  borderRadius: 'var(--radius-control-compact)',
                   color: 'var(--color-text-primary)',
                   fontSize: 'var(--font-size-xs)',
                 }}
@@ -2185,7 +2185,7 @@ function VariantCandidateCard({
                 padding: '2px var(--space-1)',
                 background: 'var(--color-surface-raised)',
                 border: 'var(--border-micro)',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 'var(--radius-control-compact)',
               }}
             >
               {m.name || m.nodeId.slice(0, 6)}

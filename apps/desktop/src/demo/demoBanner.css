@@ -38,7 +38,7 @@
 .varve-demo-banner__limits summary:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
 }
 
 .varve-demo-banner__limits ul {
@@ -52,7 +52,7 @@
   list-style: none;
   background: var(--color-surface-overlay);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-surface);
   box-shadow: var(--shadow-lg);
   display: grid;
   gap: var(--space-2);
@@ -69,7 +69,7 @@
   gap: 4px;
   margin-left: auto;
   padding: var(--space-1) var(--space-3);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--color-accent-primary);
   color: var(--color-text-on-accent);
   font-weight: 600;
@@ -93,7 +93,7 @@
   font-size: var(--font-size-sm);
   cursor: pointer;
   padding: var(--space-1) var(--space-2);
-  border-radius: 6px;
+  border-radius: var(--radius-control-compact);
 }
 
 .varve-demo-banner__dismiss:focus-visible {
@@ -143,7 +143,7 @@
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   padding: 2px var(--space-2);
-  border-radius: 6px;
+  border-radius: var(--radius-control-compact);
   cursor: pointer;
 }
 

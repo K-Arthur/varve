@@ -297,7 +297,7 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
               style={{
                 padding: '4px 12px',
                 background: 'var(--color-surface-raised)',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 'var(--radius-control-compact)',
                 boxShadow: 'var(--elevation-shadow-raised)',
                 fontSize: 'var(--font-size-sm)',
                 pointerEvents: 'none',
@@ -319,7 +319,7 @@ export function DnDShell({ children, editor, layersDndRef }: DnDShellProps) {
               style={{
                 padding: '4px 12px',
                 background: 'var(--color-surface-raised)',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 'var(--radius-control-compact)',
                 boxShadow: 'var(--elevation-shadow-raised)',
                 fontSize: 'var(--font-size-sm)',
                 pointerEvents: 'none',

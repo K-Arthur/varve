@@ -110,7 +110,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
             fontSize: 'var(--font-size-xs)',
             padding: 'var(--space-1) var(--space-2)',
             background: 'var(--color-surface-sunken)',
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: 'var(--radius-control-compact)',
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-1)',
@@ -128,7 +128,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
               fontSize: 'var(--font-size-xs)',
               padding: '2px 6px',
               border: '1px solid var(--color-border-subtle)',
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'var(--radius-control-compact)',
               background: 'var(--elevation-surface-default)',
               cursor: 'pointer',
             }}
