@@ -70,7 +70,9 @@
 
 .font-selector__dropdown {
   position: absolute;
-  top: 100%;
+  /* The floating text toolbar can sit against the viewport bottom. Open
+     upward so the catalog is never rendered below the canvas viewport. */
+  bottom: calc(100% + var(--space-1));
   left: 0;
   right: 0;
   z-index: var(--z-dropdown);
