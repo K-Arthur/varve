@@ -85,10 +85,9 @@
     transition: none;
   }
   /* The token layer collapses --duration-* to 0ms, but these surfaces use
-     literal durations (skeleton shimmer, asset spinner, import progress
-     width), so they animated regardless of the user's preference. */
+     literal durations (skeleton shimmer, import progress width), so they
+     animated regardless of the user's preference. */
   .file-card__skeleton,
-  .asset-browser__loading-spinner,
   .bulk-import__progress-fill {
     animation: none;
     transition: none;
