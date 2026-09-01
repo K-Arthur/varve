@@ -80,7 +80,10 @@ test.describe('front-facing adjustment and canvas controls', () => {
     await expect(page.getByTestId('pixel-probe-overlay')).toContainText('Pixel Info');
     await page.screenshot({ path: path.join(REVIEW_DIR, '04-pixel-info.png') });
 
-    const softProof = page.getByText('Soft Proof', { exact: true });
+    // Pixel Info owns the inspector while active. Return to Select so the
+    // document-wide Soft Proof disclosure is available in the Design tab.
+    await page.locator('[data-tool="select"]').click();
+    const softProof = page.getByRole('button', { name: 'Soft Proof', exact: true });
     await expect(softProof).toBeVisible();
     await softProof.click();
     await expect(page.getByRole('switch', { name: 'Simulate output condition' })).toBeVisible();

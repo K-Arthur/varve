@@ -19,9 +19,16 @@ async function importImages(page: import('@playwright/test').Page, names: string
 }
 
 async function openSimilarTab(page: import('@playwright/test').Page) {
-  await page.locator('#insp-tab-audit').click();
-  await page.getByRole('tab', { name: 'More' }).click();
-  await page.getByRole('menuitem', { name: 'similar' }).click();
+  const inspector = page.locator('.editor-inspector');
+  await inspector.getByRole('tab', { name: 'Design', exact: true }).click();
+  const insights = inspector.getByRole('button', { name: 'Insights' });
+  await expect(insights).toBeVisible({ timeout: 15000 });
+  if ((await insights.getAttribute('aria-expanded')) !== 'true') {
+    await insights.click();
+  }
+  const intelligence = page.locator('.intelligence-panel');
+  await intelligence.getByRole('tab', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: /similar$/i }).click();
   await expect(page.getByRole('button', { name: /Find similar/i }).first()).toBeVisible({
     timeout: 10000,
   });
@@ -131,9 +138,14 @@ test.describe('Find Similar workflow', () => {
       .click();
     await expect(page.locator('.similarity-result')).toHaveCount(2, { timeout: 15000 });
 
+    const similar = page.getByRole('radio', { name: 'Similar' });
     const nearDuplicates = page.getByRole('radio', { name: 'Near duplicates' });
-    await nearDuplicates.click();
-    await expect(nearDuplicates).toHaveAttribute('aria-pressed', 'true');
+    await expect(similar).toBeChecked();
+    await similar.press('ArrowRight');
+    await expect(nearDuplicates).toBeChecked();
+    await page.mouse.move(0, 0);
+    await page.getByText('Near duplicates', { exact: true }).click();
+    await expect(nearDuplicates).toBeChecked();
     await page
       .getByRole('button', { name: /Find similar/i })
       .first()
