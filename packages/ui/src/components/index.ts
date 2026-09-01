@@ -118,8 +118,14 @@ export type { PopoverProps } from './Popover';
 export { Popover } from './Popover';
 export type { PresetPickerProps, PresetTileProps } from './PresetPicker';
 export { PresetPicker, PresetTile } from './PresetPicker';
-export type { RadioGroupProps, RadioOption, RadioOptionProps, RadioProps } from './Radio';
-export { Radio, RadioCard, RadioGroup } from './Radio';
+export type {
+  RadioGroupItemProps,
+  RadioGroupProps,
+  RadioOption,
+  RadioOptionProps,
+  RadioProps,
+} from './Radio';
+export { Radio, RadioCard, RadioGroup, RadioGroupItem } from './Radio';
 export type { RegionLoaderProps } from './RegionLoader';
 export { RegionLoader } from './RegionLoader';
 export type { ScrollAreaOrientation, ScrollAreaProps, ScrollProgressProps } from './ScrollArea';
