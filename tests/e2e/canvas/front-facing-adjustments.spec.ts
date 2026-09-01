@@ -83,10 +83,10 @@ test.describe('front-facing adjustment and canvas controls', () => {
     const softProof = page.getByText('Soft Proof', { exact: true });
     await expect(softProof).toBeVisible();
     await softProof.click();
-    await expect(page.getByRole('checkbox', { name: /Soft proof disabled/i })).toBeVisible();
-    await expect(page.getByRole('checkbox', { name: 'Show out-of-gamut colors' })).toBeVisible();
-    await page.getByRole('checkbox', { name: /Soft proof disabled/i }).check();
-    await page.getByRole('checkbox', { name: 'Show out-of-gamut colors' }).check();
+    await expect(page.getByRole('switch', { name: 'Simulate output condition' })).toBeVisible();
+    await expect(page.getByRole('switch', { name: 'Show out-of-gamut colors' })).toBeVisible();
+    await page.getByRole('switch', { name: 'Simulate output condition' }).check();
+    await page.getByRole('switch', { name: 'Show out-of-gamut colors' }).check();
     await page.screenshot({ path: path.join(REVIEW_DIR, '05-soft-proof-gamut.png') });
   });
 

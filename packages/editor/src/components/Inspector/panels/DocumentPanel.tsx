@@ -18,7 +18,7 @@ import {
   managedColorToCss,
   resolveBlendEvaluationSpace,
 } from '@varve/shared';
-import { Select } from '@varve/ui';
+import { Select, Switch } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -275,15 +275,11 @@ export function DocumentPanel() {
           <div className="insp-field">
             <span className="insp-field__label">Preview</span>
             <div className="insp-field__control insp-field__control--inline">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={proofEnabled}
-                  onChange={(e) => setProofEnabled(e.target.checked)}
-                  aria-label={`Soft proof ${proofEnabled ? 'enabled' : 'disabled'}`}
-                />
-                Simulate output condition
-              </label>
+              <Switch
+                label="Simulate output condition"
+                checked={proofEnabled}
+                onChange={(e) => setProofEnabled(e.target.checked)}
+              />
             </div>
           </div>
           <div className="insp-field">
@@ -310,44 +306,35 @@ export function DocumentPanel() {
           <div className="insp-field">
             <span className="insp-field__label">Simulation</span>
             <div className="insp-field__control insp-field__control--inline">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={proofConfig.simulatePaperColor}
-                  onChange={(e) =>
-                    setProofConfig({ ...proofConfig, simulatePaperColor: e.target.checked })
-                  }
-                />
-                Paper color
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={proofConfig.simulateBlackInk}
-                  onChange={(e) =>
-                    setProofConfig({ ...proofConfig, simulateBlackInk: e.target.checked })
-                  }
-                />
-                Black ink
-              </label>
+              <Switch
+                label="Paper color"
+                checked={proofConfig.simulatePaperColor}
+                onChange={(e) =>
+                  setProofConfig({ ...proofConfig, simulatePaperColor: e.target.checked })
+                }
+              />
+              <Switch
+                label="Black ink"
+                checked={proofConfig.simulateBlackInk}
+                onChange={(e) =>
+                  setProofConfig({ ...proofConfig, simulateBlackInk: e.target.checked })
+                }
+              />
             </div>
           </div>
           <div className="insp-field">
             <span className="insp-field__label">Gamut warning</span>
             <div className="insp-field__control insp-field__control--inline">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={proofConfig.gamutWarning.enabled}
-                  onChange={(e) =>
-                    setProofConfig({
-                      ...proofConfig,
-                      gamutWarning: { ...proofConfig.gamutWarning, enabled: e.target.checked },
-                    })
-                  }
-                />
-                Show out-of-gamut colors
-              </label>
+              <Switch
+                label="Show out-of-gamut colors"
+                checked={proofConfig.gamutWarning.enabled}
+                onChange={(e) =>
+                  setProofConfig({
+                    ...proofConfig,
+                    gamutWarning: { ...proofConfig.gamutWarning, enabled: e.target.checked },
+                  })
+                }
+              />
             </div>
           </div>
           <p className="insp-panel__color-mode-note" role="note">
@@ -362,20 +349,16 @@ export function DocumentPanel() {
           <div className="insp-field">
             <span className="insp-field__label">Visible</span>
             <div className="insp-field__control insp-field__control--inline">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={state.documentGrid.visible}
-                  onChange={(e) => {
-                    setDocumentGrid({
-                      ...state.documentGrid,
-                      visible: e.target.checked,
-                    });
-                  }}
-                  aria-label={`Grid visibility ${state.documentGrid.visible ? 'enabled' : 'disabled'}`}
-                />
-                Show grid
-              </label>
+              <Switch
+                label="Show grid"
+                checked={state.documentGrid.visible}
+                onChange={(e) => {
+                  setDocumentGrid({
+                    ...state.documentGrid,
+                    visible: e.target.checked,
+                  });
+                }}
+              />
             </div>
           </div>
           <div className="insp-field">
@@ -527,17 +510,11 @@ export function DocumentPanel() {
           <div className="insp-field">
             <span className="insp-field__label">Snap to Pixels</span>
             <div className="insp-field__control insp-field__control--inline">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={state.pixelGridSnapEnabled}
-                  onChange={(e) => {
-                    setPixelGridSnapEnabled(e.target.checked);
-                  }}
-                  aria-label={`Snap to pixels ${state.pixelGridSnapEnabled ? 'enabled' : 'disabled'}`}
-                />
-                Snap to integer pixels
-              </label>
+              <Switch
+                label="Snap to integer pixels"
+                checked={state.pixelGridSnapEnabled}
+                onChange={(e) => setPixelGridSnapEnabled(e.target.checked)}
+              />
             </div>
           </div>
           <div className="insp-field">
@@ -679,29 +656,21 @@ function IsometricGridSection() {
         <div className="insp-field">
           <span className="insp-field__label">Visible</span>
           <div className="insp-field__control insp-field__control--inline">
-            <label>
-              <input
-                type="checkbox"
-                checked={grid.visible}
-                onChange={(e) => updateGrid({ visible: e.target.checked })}
-                aria-label={`Isometric grid visibility ${grid.visible ? 'enabled' : 'disabled'}`}
-              />
-              Show isometric grid
-            </label>
+            <Switch
+              label="Show isometric grid"
+              checked={grid.visible}
+              onChange={(e) => updateGrid({ visible: e.target.checked })}
+            />
           </div>
         </div>
         <div className="insp-field">
           <span className="insp-field__label">Snap Enabled</span>
           <div className="insp-field__control insp-field__control--inline">
-            <label>
-              <input
-                type="checkbox"
-                checked={grid.snapEnabled}
-                onChange={(e) => updateGrid({ snapEnabled: e.target.checked })}
-                aria-label={`Isometric snap ${grid.snapEnabled ? 'enabled' : 'disabled'}`}
-              />
-              Snap to isometric grid
-            </label>
+            <Switch
+              label="Snap to isometric grid"
+              checked={grid.snapEnabled}
+              onChange={(e) => updateGrid({ snapEnabled: e.target.checked })}
+            />
           </div>
         </div>
         <div className="insp-field">
@@ -753,22 +722,12 @@ function IsometricGridSection() {
                     <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>deg</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <label
-                      style={{
-                        fontSize: 'var(--font-size-2xs)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 3,
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={axis.visible}
-                        onChange={(e) => updateAxis(index, { visible: e.target.checked })}
-                        aria-label={`Axis ${index + 1} visibility`}
-                      />
-                      Visible
-                    </label>
+                    <Switch
+                      label="Visible"
+                      checked={axis.visible}
+                      onChange={(e) => updateAxis(index, { visible: e.target.checked })}
+                      className="insp-switch--axis"
+                    />
                     <InspectorColorPopover
                       label={`Axis ${index + 1} color`}
                       value={
