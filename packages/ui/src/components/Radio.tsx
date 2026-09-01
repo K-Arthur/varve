@@ -26,6 +26,75 @@ export interface RadioGroupProps<V extends string> {
   error?: string;
 }
 
+export interface RadioGroupItemProps<V extends string> extends RadioOption<V> {
+  id: string;
+  name: string;
+  checked: boolean;
+  required?: boolean;
+  onChange: () => void;
+  variant?: 'compact' | 'row' | 'card';
+}
+
+/** A native radio item used by RadioGroup and composable choice surfaces. */
+export function RadioGroupItem<V extends string>({
+  id,
+  name,
+  value,
+  label,
+  description,
+  icon,
+  meta,
+  checked,
+  required = false,
+  disabled = false,
+  variant = 'compact',
+  onChange,
+}: RadioGroupItemProps<V>) {
+  const optionLabelId = `${id}-label`;
+  const optionDescriptionId = description ? `${id}-description` : undefined;
+  return (
+    <label
+      htmlFor={id}
+      className={`varve-radio varve-radio--${variant}${checked ? ' varve-radio--checked' : ''}${
+        disabled ? ' varve-radio--disabled' : ''
+      }`}
+    >
+      <input
+        id={id}
+        type="radio"
+        name={name}
+        value={value}
+        checked={checked}
+        disabled={disabled}
+        required={required}
+        aria-labelledby={optionLabelId}
+        aria-describedby={optionDescriptionId}
+        onChange={onChange}
+        className="varve-radio__input"
+      />
+      <span className="varve-radio__dot" aria-hidden="true" />
+      <span className="varve-radio__content">
+        {icon && (
+          <span className="varve-radio__icon" aria-hidden="true">
+            {icon}
+          </span>
+        )}
+        <span className="varve-radio__text">
+          <span id={optionLabelId} className="varve-radio__label">
+            {label}
+          </span>
+          {description && (
+            <span id={optionDescriptionId} className="varve-radio__option-description">
+              {description}
+            </span>
+          )}
+        </span>
+        {meta && <span className="varve-radio__meta">{meta}</span>}
+      </span>
+    </label>
+  );
+}
+
 export function RadioGroup<V extends string>({
   label,
   id: providedId,
@@ -80,55 +149,19 @@ export function RadioGroup<V extends string>({
           {description}
         </p>
       )}
-      {options.map((opt, index) => {
-        const checked = opt.value === selectedValue;
-        const optionId = `${generatedId}-option-${index}`;
-        const optionLabelId = `${optionId}-label`;
-        const optionDescriptionId = opt.description ? `${optionId}-description` : undefined;
-        const optionDisabled = opt.disabled || disabled;
-        return (
-          <label
-            key={opt.value}
-            htmlFor={optionId}
-            className={`varve-radio${checked ? ' varve-radio--checked' : ''}${
-              optionDisabled ? ' varve-radio--disabled' : ''
-            }`}
-          >
-            <input
-              id={optionId}
-              type="radio"
-              name={groupName}
-              value={opt.value}
-              checked={checked}
-              disabled={optionDisabled}
-              required={required && index === firstEnabledIndex}
-              aria-labelledby={optionLabelId}
-              aria-describedby={optionDescriptionId}
-              onChange={() => handleChange(opt.value)}
-              className="varve-radio__input"
-            />
-            <span className="varve-radio__dot" aria-hidden="true" />
-            <span className="varve-radio__content">
-              {opt.icon && (
-                <span className="varve-radio__icon" aria-hidden="true">
-                  {opt.icon}
-                </span>
-              )}
-              <span className="varve-radio__text">
-                <span id={optionLabelId} className="varve-radio__label">
-                  {opt.label}
-                </span>
-                {opt.description && (
-                  <span id={optionDescriptionId} className="varve-radio__option-description">
-                    {opt.description}
-                  </span>
-                )}
-              </span>
-              {opt.meta && <span className="varve-radio__meta">{opt.meta}</span>}
-            </span>
-          </label>
-        );
-      })}
+      {options.map((opt, index) => (
+        <RadioGroupItem
+          key={opt.value}
+          id={`${generatedId}-option-${index}`}
+          name={groupName}
+          {...opt}
+          checked={opt.value === selectedValue}
+          disabled={disabled || opt.disabled}
+          required={required && index === firstEnabledIndex}
+          variant={variant}
+          onChange={() => handleChange(opt.value)}
+        />
+      ))}
       {error && (
         <p id={errorId} className="varve-radio-group__error" role="alert">
           {error}

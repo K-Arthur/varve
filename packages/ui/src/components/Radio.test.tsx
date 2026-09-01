@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { Radio, RadioCard, RadioGroup } from './Radio';
+import { Radio, RadioCard, RadioGroup, RadioGroupItem } from './Radio';
 
 describe('Radio', () => {
   it('renders with label', () => {
@@ -120,5 +120,25 @@ describe('RadioGroup', () => {
     const radio = screen.getByRole('radio');
     expect(radio).toHaveAttribute('id');
     expect(screen.getByLabelText('Fast')).toBe(radio);
+  });
+});
+
+describe('RadioGroupItem', () => {
+  it('renders a composable native radio with an accessible description', () => {
+    render(
+      <RadioGroupItem
+        id="item-a"
+        name="items"
+        value="a"
+        label="Alpha"
+        description="The first choice"
+        checked
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole('radio', { name: 'Alpha' })).toHaveAccessibleDescription(
+      'The first choice',
+    );
   });
 });
