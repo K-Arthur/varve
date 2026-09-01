@@ -1,3 +1,4 @@
+import { Switch } from '@varve/ui';
 import { useState } from 'react';
 import { useEditor } from '../../context';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
@@ -33,14 +34,12 @@ export function SpreadSettings() {
 
       {!collapsed && (
         <>
-          <label className="spread-settings__toggle">
-            <input
-              type="checkbox"
-              checked={config?.enabled ?? false}
-              onChange={(e) => setFacingPagesEnabled(e.target.checked)}
-            />
-            <span>Facing Pages</span>
-          </label>
+          <Switch
+            className="spread-settings__toggle"
+            label="Facing pages"
+            checked={config?.enabled ?? false}
+            onChange={(e) => setFacingPagesEnabled(e.target.checked)}
+          />
 
           {config?.enabled && (
             <div className="spread-settings__info">

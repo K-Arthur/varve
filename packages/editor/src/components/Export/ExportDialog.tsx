@@ -52,7 +52,7 @@ import {
   legacyScaleToCanonical,
   type PlatformKind,
 } from '@varve/scene/export';
-import { FocusTrap, Select } from '@varve/ui';
+import { FocusTrap, Select, SwitchField } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { estimateExportBytes } from '../../export/estimateSize';
 import { applyExportBatchPaths } from '../../exportBatchPaths';
@@ -1018,14 +1018,12 @@ export function ExportDialog({
 
             <section className="export-dialog__section" aria-label="Background">
               <h3 className="export-dialog__section-title">Background</h3>
-              <label className="export-dialog__checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={removeBgBeforeExport}
-                  onChange={(e) => setRemoveBgBeforeExport(e.target.checked)}
-                />
-                <span>Remove background before export</span>
-              </label>
+              <SwitchField
+                label="Remove background before export"
+                description="Preprocesses raster images before the export file is written."
+                checked={removeBgBeforeExport}
+                onChange={(e) => setRemoveBgBeforeExport(e.target.checked)}
+              />
               {removeBgBeforeExport && (
                 <div className="export-dialog__bg-method">
                   <label htmlFor="export-bg-method">Method</label>

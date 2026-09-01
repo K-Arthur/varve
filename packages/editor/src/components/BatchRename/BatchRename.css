@@ -124,10 +124,6 @@
   user-select: none;
 }
 
-.batch-rename-dialog__checkbox input[type="checkbox"] {
-  accent-color: var(--color-interactive-default);
-}
-
 .batch-rename-dialog__scope {
   display: flex;
   gap: var(--space-4);

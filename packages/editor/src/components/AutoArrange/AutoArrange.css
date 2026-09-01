@@ -81,10 +81,6 @@
   cursor: pointer;
 }
 
-.auto-arrange__checkbox {
-  accent-color: var(--color-interactive-default);
-}
-
 .auto-arrange__preview {
   padding: var(--space-2) 0;
   text-align: center;

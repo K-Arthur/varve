@@ -110,15 +110,15 @@ describe('InteractionSection', () => {
     });
   });
 
-  it('toggles enabled checkbox', async () => {
+  it('toggles enabled switch', async () => {
     const { doc } = buildInteractionDoc();
     const getCtx = renderInteractionSection(JSON.stringify(doc));
     getCtx().setSelection('btn1');
     await waitFor(() => expect(screen.getByLabelText('Enabled')).toBeTruthy());
 
-    const checkbox = screen.getByLabelText('Enabled') as HTMLInputElement;
-    expect(checkbox.checked).toBe(true);
-    fireEvent.click(checkbox);
+    const control = screen.getByRole('switch', { name: 'Enabled' }) as HTMLInputElement;
+    expect(control.checked).toBe(true);
+    fireEvent.click(control);
     await waitFor(() => {
       expect(getCtx().getNodeInteractions('btn1')[0]?.enabled).toBe(false);
     });

@@ -434,10 +434,10 @@ describe('ExportDialog - Remove background toggle', () => {
     })) as unknown as typeof canvasProto.getContext;
   });
 
-  it('renders remove background before export checkbox', async () => {
+  it('renders remove background before export switch', async () => {
     const { ExportDialog } = await import('../../../Export/ExportDialog');
     render(<ExportDialog isOpen={true} onClose={() => {}} nodes={[]} onExport={async () => {}} />);
-    expect(screen.getByText('Remove background before export')).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Remove background before export' })).toBeTruthy();
   }, 15000);
 
   it('does not call onApplyBackgroundRemoval when toggle is off', async () => {

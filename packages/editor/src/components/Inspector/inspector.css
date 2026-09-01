@@ -4506,6 +4506,11 @@
   font-size: var(--font-size-sm);
 }
 
+.email-panel__toggle {
+  color: var(--color-text-default);
+  font-size: var(--font-size-sm);
+}
+
 /* ── Email preflight ─────────────────────────────────────────────────────── */
 
 .email-preflight {

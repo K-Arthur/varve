@@ -133,10 +133,6 @@
   cursor: pointer;
 }
 
-.caf-dialog__checkbox input {
-  accent-color: var(--color-interactive-default);
-}
-
 .caf-dialog__progress {
   height: 6px;
   border-radius: var(--radius-pill);

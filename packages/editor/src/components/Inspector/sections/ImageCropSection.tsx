@@ -11,7 +11,7 @@
 import { decodeDetrOutput, getInferenceWorkerHost, getModelLoader } from '@varve/engine';
 import type { SceneNode, ShapeNode } from '@varve/scene';
 import { getImageFill, isImageShape } from '@varve/scene';
-import { Button, Icon, Tooltip } from '@varve/ui';
+import { Button, Icon, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useEditor } from '../../../context';
 import type { TrimToSubjectOptions } from '../../../imageCrop';
@@ -434,8 +434,8 @@ function ExpandControls({
           />
         </FieldRow>
         <FieldRow label="From Center">
-          <input
-            type="checkbox"
+          <Switch
+            label="Expand from center"
             checked={fromCenter}
             onChange={(e) => setFromCenter(e.target.checked)}
             aria-label="Expand from center"

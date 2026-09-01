@@ -121,6 +121,9 @@ describe('ArchiveDialog', () => {
     it('shows encryption toggle', () => {
       renderDialog();
       expect(screen.getByText('Encrypt archive with password')).toBeInTheDocument();
+      expect(
+        screen.getByRole('switch', { name: 'Encrypt archive with password' }),
+      ).toBeInTheDocument();
     });
 
     it('shows password fields when encryption is enabled', async () => {

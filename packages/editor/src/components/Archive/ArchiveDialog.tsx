@@ -8,7 +8,7 @@
  * SettingsDialog, and RecoveryDialog.
  */
 
-import { Dialog, Select } from '@varve/ui';
+import { Dialog, Select, SwitchField } from '@varve/ui';
 import {
   type ChangeEvent,
   type DragEvent,
@@ -666,20 +666,18 @@ export function ArchiveDialog({
       )}
 
       <section className="archive-dialog__section" aria-label="Encryption">
-        <label className="archive-dialog__encryption-toggle">
-          <input
-            type="checkbox"
-            checked={encryptionEnabled}
-            onChange={(e) => {
-              setEncryptionEnabled(e.target.checked);
-              if (!e.target.checked) {
-                setPassword('');
-                setConfirmPassword('');
-              }
-            }}
-          />
-          <span>Encrypt archive with password</span>
-        </label>
+        <SwitchField
+          label="Encrypt archive with password"
+          description="A password will be required to restore this archive."
+          checked={encryptionEnabled}
+          onChange={(e) => {
+            setEncryptionEnabled(e.target.checked);
+            if (!e.target.checked) {
+              setPassword('');
+              setConfirmPassword('');
+            }
+          }}
+        />
 
         {encryptionEnabled && (
           <div className="archive-dialog__password-section">
