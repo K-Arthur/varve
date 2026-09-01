@@ -466,11 +466,7 @@ export function FontBrowser({
             </details>
           )}
           {recommendations && (
-            <div
-              className="font-browser__recommendations"
-              role="region"
-              aria-label="Font recommendations"
-            >
+            <section className="font-browser__recommendations" aria-label="Font recommendations">
               {(
                 [
                   ['Similar', recommendations.similar],
@@ -497,7 +493,7 @@ export function FontBrowser({
                     </div>
                   ),
               )}
-            </div>
+            </section>
           )}
           <div className="font-browser__detail-meta">
             <span>
