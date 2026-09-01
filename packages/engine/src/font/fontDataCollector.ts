@@ -90,7 +90,7 @@ export async function collectFontData(
     try {
       const stored = await loadStoredFont(family);
       if (stored?.data) {
-        results.push({ family, data: stored.data });
+        results.push({ family, data: new Uint8Array(stored.data) });
         onProgress?.(family, 'storage');
         continue;
       }
@@ -128,8 +128,8 @@ export async function collectAllStoredFonts(): Promise<FontDataRecord[]> {
   try {
     const stored = await listStoredFonts();
     for (const record of stored) {
-      if (record.family && record.data) {
-        results.push({ family: record.family, data: record.data });
+      if (record.familyName && record.data) {
+        results.push({ family: record.familyName, data: new Uint8Array(record.data) });
       }
     }
   } catch {

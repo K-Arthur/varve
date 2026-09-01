@@ -18,7 +18,7 @@ export interface FontEntry {
   family: string;
   weight: number;
   style: 'normal' | 'italic';
-  source: 'system' | 'bundled' | 'google';
+  source: 'system' | 'bundled' | 'google' | 'fontsource' | 'user';
   /** URL for Google Fonts CSS API or direct woff2 URL for bundled fonts. */
   url?: string;
   /** Variable font axis values (e.g. { wght: 500, wdth: 75, slnt: 0, opsz: 14 }). */

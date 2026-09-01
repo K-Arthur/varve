@@ -102,6 +102,15 @@ export type {
 } from './fontResolver';
 // Missing font resolution
 export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
+export type { FontStorageMetadata, StoredFontRecord } from './fontStorage';
+export {
+  getStoredFont,
+  getStoredFontCount,
+  listStoredFonts,
+  loadStoredFont,
+  removeStoredFont,
+  storeFont,
+} from './fontStorage';
 // Tauri filesystem font storage adapter
 export type { FontStorageFsMeta } from './fontStorageFs';
 export {
@@ -112,6 +121,21 @@ export {
   removeFontFromFilesystem,
   storeFontOnFilesystem,
 } from './fontStorageFs';
+export type {
+  CatalogAxis,
+  CatalogLicense,
+  CatalogSearchOptions,
+  CatalogSearchResult,
+  FontArtifactDescriptor,
+  FontArtifactRequest,
+  FontsourceCatalogRecord,
+  FontsourceCatalogSnapshot,
+} from './fontsourceCatalog';
+export {
+  FontsourceCatalogStore,
+  getFontsourceCatalog,
+  resetFontsourceCatalog,
+} from './fontsourceCatalog';
 export type { FontUsage } from './fontUsageIndex';
 // Document font usage tracking
 export { FontUsageIndex, migrateLegacyFontRefs } from './fontUsageIndex';

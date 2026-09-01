@@ -160,7 +160,11 @@ export async function downloadAndApplyOnlineFont(
     );
   }
   const artifact = getFontsourceCatalog().resolve({ familyId, ...request });
-  const job = getDownloadManager().addJob(artifact.url, familyName, artifact.format);
+  const job = getDownloadManager().addJob(artifact.url, familyName, artifact.format, {
+    providerId: artifact.providerId,
+    familyId: artifact.familyId,
+    packageVersion: artifact.packageVersion,
+  });
   await new Promise<void>((resolve, reject) => {
     pendingDownloadWaiters.set(job.id, { resolve, reject, artifact });
   });

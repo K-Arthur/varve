@@ -67,7 +67,13 @@ export async function storeFontOnFilesystem(
 ): Promise<FontStorageFsMeta | null> {
   if (!isTauri()) {
     // Fall back to IndexedDB
-    await storeFont(family, data, { providerId: meta?.providerId, licenseName: meta?.licenseName });
+    await storeFont(family, data, {
+      providerId: meta?.providerId ?? 'legacy',
+      license: meta?.licenseName,
+      licenseUrl: meta?.licenseUrl,
+      attribution: meta?.attribution,
+      packageVersion: meta?.version,
+    });
     return null;
   }
 
@@ -95,12 +101,12 @@ export async function loadFontFromFilesystem(
     const stored = await loadStoredFont(family);
     if (!stored) return null;
     return {
-      data: stored.data,
+      data: new Uint8Array(stored.data),
       meta: {
-        family: stored.family,
-        storedAt: stored.storedAt,
-        providerId: stored.providerId,
-        licenseName: stored.licenseName,
+        family: stored.familyName,
+        storedAt: new Date(stored.storedAt).toISOString(),
+        providerId: stored.metadata.providerId,
+        licenseName: stored.metadata.license,
         fileSizeBytes: stored.data.byteLength,
         sha256: '',
       },
@@ -125,10 +131,10 @@ export async function listFilesystemFonts(): Promise<FontStorageFsMeta[]> {
   if (!isTauri()) {
     const stored = await listStoredFonts();
     return stored.map((s) => ({
-      family: s.family,
-      storedAt: s.storedAt,
-      providerId: s.providerId,
-      licenseName: s.licenseName,
+      family: s.familyName,
+      storedAt: new Date(s.storedAt).toISOString(),
+      providerId: s.metadata.providerId,
+      licenseName: s.metadata.license,
       fileSizeBytes: s.data.byteLength,
       sha256: '',
     }));

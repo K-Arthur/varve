@@ -58,7 +58,7 @@ The typography system spans TypeScript (browser/web) and Rust (native/Tauri) lay
 | Worker outlining | ✓ (Web Worker) | ✓ | ✓ (native thread) |
 | System font discovery | ✓ (queryLocalFonts) | — | ✓ (fontconfig/CoreText/DWrite) |
 | Downloaded font storage | ✓ (IndexedDB) | — | ✓ (filesystem + IDB) |
-| Provider search | ✓ (Google Fonts + Fontsource) | — | — |
+| Provider search | ✓ (shipped Fontsource catalog) | — | — |
 
 The editor's authoritative runtime family list is `FontRegistry`. `FontSelector`
 and `FontBrowser` subscribe to its revision, so a system-font discovery or a
@@ -120,9 +120,11 @@ export interface ShapingCapabilities {
 ## Font Storage
 
 ### IndexedDB (all environments)
-- Database: `varve-fonts`, object store: `fonts`
+- Database: `varve-font-storage-v2`, object store: `artifacts`
 - Records are addressed by canonical artifact/face identity; family names are
   display and lookup fields, not a safe uniqueness key
+- Previous `varve-font-storage`, `varve-fonts`, and `strata-fonts` records are
+  migrated on first access and receive a content hash.
 
 ### Filesystem (Tauri only)
 - Location: `$APPDATA/fonts/<sha256-prefix>/`
@@ -153,21 +155,21 @@ Rust export_pdf():
 - Cancellation via `AbortController`
 - Chunked results merged on completion
 
-## Online provider boundary
+## Font provider boundary
 
-Online provider search and installation is an explicit desktop capability. A
-provider result is not applied to a text node until its exact artifact has been
-downloaded, parsed, registered, and made ready. Failed searches preserve the
-successful result from another provider; failed installation preserves the
-previous family and editing session. The browser demo restricts
-`onlineFonts`, keeps its CSP local-first, and continues to expose bundled and
-local fonts.
+Font discovery is local-first. The application ships a validated Fontsource
+catalog snapshot and searches it synchronously without a network request. A
+catalog result is never applied to a text node until the user explicitly
+installs an exact, version-pinned artifact, which is downloaded, parsed,
+registered, persisted, and made ready. Failed installation preserves the
+previous family and editing session. The browser demo can browse the shipped
+catalog, but restricts additional downloads.
 
-Remote font requests must remain constrained to the configured provider API and
-immutable CDN origins. Provider metadata should resolve to version-pinned
-artifacts before the download manager accepts a job; redirects, MIME/signature,
-size, and face identity are validation concerns at that boundary, not merely UI
-concerns.
+The maintainer-only catalog generator reads the official Fontsource metadata
+API. Runtime code never calls the Google Fonts metadata API and does not need a
+Google API key. Runtime downloads are constrained to HTTPS Fontsource CDN
+artifacts with exact package versions; redirects, MIME/signature, size, and
+face identity are validation concerns at the download boundary.
 
 ## Remaining Limitations
 
