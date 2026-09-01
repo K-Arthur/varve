@@ -25,9 +25,13 @@ describe('FontSelector', () => {
     fireEvent.focus(inputs[0]!);
     await screen.findByRole('listbox', { name: 'Font families' });
     expect(document.getElementById(controls[0]!)).toHaveAttribute('role', 'listbox');
+    const firstOption = screen.getAllByRole('option')[0];
+    expect(firstOption?.id).toMatch(new RegExp(`^${controls[0]}-option-`));
     fireEvent.blur(inputs[0]!);
     fireEvent.focus(inputs[1]!);
     await screen.findAllByRole('listbox', { name: 'Font families' });
     expect(document.getElementById(controls[1]!)).toHaveAttribute('role', 'listbox');
+    const optionIds = screen.getAllByRole('option').map((option) => option.id);
+    expect(new Set(optionIds).size).toBe(optionIds.length);
   });
 });
