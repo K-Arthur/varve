@@ -10,17 +10,9 @@ import {
   TooltipProvider,
   VarveLogo,
 } from '@varve/ui';
-import {
-  getTheme,
-  getThemePreference,
-  normalizeThemePreference,
-  setThemePreference,
-  THEME_CHANGE_EVENT,
-  type ThemeChangeDetail,
-  type ThemePreference,
-} from '@varve/ui/tokens';
+import { getTheme, setTheme } from '@varve/ui/tokens';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getBackupService, useOptionalEditor } from '../../context';
+import { bumpThemeRevision, getBackupService, useOptionalEditor } from '../../context';
 import { PrivacyDiagnosticsSection } from '../../crash';
 import type { ThemeMode, UnitType } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
@@ -62,10 +54,10 @@ const UNIT_OPTIONS = [
 ];
 
 const THEME_OPTIONS = [
-  { value: 'system', label: 'System' },
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
   { value: 'high-contrast', label: 'High Contrast' },
+  { value: 'system', label: 'System' },
 ];
 
 const FONT_SIZE_OPTIONS = [
@@ -128,16 +120,25 @@ export function SettingsDialog({
 
   const handleThemeChange = useCallback(
     (theme: string) => {
-      const preference = normalizeThemePreference(theme);
-      updateSection('appearance', { theme: preference as ThemeMode });
-      setThemePreference(preference);
+      updateSection('appearance', { theme: theme as ThemeMode });
+      if (theme !== 'system') {
+        setTheme(theme as 'light' | 'dark' | 'high-contrast');
+        localStorage.setItem('varve-theme', theme);
+      } else {
+        // "System" = remove explicit data-theme so CSS @media (prefers-color-scheme) takes over
+        delete document.documentElement.dataset.theme;
+        localStorage.removeItem('varve-theme');
+      }
+      bumpThemeRevision();
     },
     [updateSection],
   );
 
   const handleReset = useCallback(() => {
     resetSettings();
-    setThemePreference('system');
+    setTheme('light');
+    localStorage.setItem('varve-theme', 'light');
+    bumpThemeRevision();
   }, [resetSettings]);
 
   return (
@@ -349,17 +350,8 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
 }
 
 function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) => void }) {
-  const { updateSection, updateSettings } = useSettings();
-  const [themePreference, setThemePreferenceState] = useState<ThemePreference>(getThemePreference);
+  const { settings, updateSection, updateSettings } = useSettings();
   const currentTheme = getTheme();
-
-  useEffect(() => {
-    const handleChange = (event: Event) => {
-      setThemePreferenceState((event as CustomEvent<ThemeChangeDetail>).detail.preference);
-    };
-    window.addEventListener(THEME_CHANGE_EVENT, handleChange);
-    return () => window.removeEventListener(THEME_CHANGE_EVENT, handleChange);
-  }, []);
 
   return (
     <div className="settings-section">
@@ -367,16 +359,17 @@ function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) =
       <FieldRow label="Theme">
         <Select
           options={THEME_OPTIONS}
-          value={themePreference}
+          value={settings.appearance.theme}
           onChange={onThemeChange}
           label="Theme"
         />
       </FieldRow>
-      <p className="settings-hint" aria-live="polite">
-        {themePreference === 'system'
-          ? `Following system appearance (currently ${currentTheme ?? 'light'}).`
-          : `Using ${currentTheme ?? themePreference}. Select “System” to follow OS appearance.`}
-      </p>
+      {settings.appearance.theme !== 'system' && (
+        <p className="settings-hint">
+          Current theme: {currentTheme ?? 'light'}. Select &ldquo;System&rdquo; to follow OS
+          preference.
+        </p>
+      )}
       <FieldRow label="UI font size">
         <Select
           options={FONT_SIZE_OPTIONS}

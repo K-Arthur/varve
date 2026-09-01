@@ -12,7 +12,6 @@ import '@fontsource-variable/fraunces/opsz.css';
 
 import { ErrorBoundary } from '@varve/editor';
 import { AuxiliaryRoot } from '@varve/editor/auxiliary';
-import { initializeThemeLifecycle } from '@varve/ui/tokens';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
@@ -27,10 +26,6 @@ import { dismissBootFallback } from './startup/revealMainWindow';
 const fontRuntime = globalThis as typeof globalThis & {
   __VARVE_FONT_CONFIG__?: { googleApiKey?: string };
 };
-
-// index.html establishes the same attributes before CSS/React; this installs
-// the long-lived OS and cross-window synchronization loop for this window.
-initializeThemeLifecycle();
 fontRuntime.__VARVE_FONT_CONFIG__ = {
   googleApiKey: (import.meta as ImportMeta & { env?: { VITE_GOOGLE_FONTS_API_KEY?: string } }).env
     ?.VITE_GOOGLE_FONTS_API_KEY,
@@ -63,6 +58,14 @@ async function bootstrap() {
   dismissBootFallback();
   if (typeof performance !== 'undefined' && performance.mark) {
     performance.mark('varve-boot-dismissed');
+  }
+
+  // Restore persisted theme before first paint so both home and editor surfaces
+  // start with the correct [data-theme] attribute rather than falling through to
+  // the OS prefers-color-scheme default.
+  const savedTheme = localStorage.getItem('varve-theme') ?? localStorage.getItem('strata-theme');
+  if (savedTheme === 'dark' || savedTheme === 'light' || savedTheme === 'high-contrast') {
+    document.documentElement.dataset.theme = savedTheme;
   }
 
   const root = document.getElementById('root');

@@ -750,15 +750,6 @@ export function getViewMenu(
 ): MenuItemDef[] {
   return [
     {
-      id: 'theme:system',
-      labelKey: 'menu.view.themeSystem',
-      kind: 'radio',
-      group: 'theme',
-      radioGroup: 'theme',
-      checked: () => deps?.getTheme?.() === 'system',
-      run: () => runAction('theme:system'),
-    },
-    {
       id: 'theme:light',
       labelKey: 'menu.view.themeLight',
       kind: 'radio',

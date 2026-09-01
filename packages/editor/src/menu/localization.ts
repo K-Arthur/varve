@@ -155,7 +155,6 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.canvasModeFull': 'Full Color',
   'menu.view.canvasModePreview': 'Preview',
   'menu.view.canvasModeOutline': 'Outline',
-  'menu.view.themeSystem': 'System',
   'menu.view.themeLight': 'Light',
   'menu.view.themeDark': 'Dark',
   'menu.view.themeHighContrast': 'High Contrast',

@@ -10,20 +10,14 @@ import {
   Tooltip,
   VarveLogo,
 } from '@varve/ui';
-import {
-  getThemePreference,
-  setThemePreference,
-  THEME_CHANGE_EVENT,
-  type ThemeChangeDetail,
-  type ThemePreference,
-} from '@varve/ui/tokens';
+import { getTheme, setTheme, type Theme } from '@varve/ui/tokens';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
 import { isCapabilityRestricted, isWorkspaceModeAllowed } from './capabilities/restrictions';
 import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/ArchiveDialog';
 import { OfflineBanner } from './components/OfflineBanner';
 import { WorkspaceTabs } from './components/WorkspaceTabs';
-import { useEditor } from './context';
+import { bumpThemeRevision, useEditor } from './context';
 import { computeCapabilities, getNudgeCapability, useNativeMenu } from './menu';
 import { useMenubarFocusEffects } from './menu/menubarFocus';
 import { handleMenubarKey } from './menu/menubarKeynav';
@@ -47,8 +41,7 @@ export interface MenuItem {
   items?: MenuItem[];
 }
 
-const THEMES: { id: ThemePreference; label: string }[] = [
-  { id: 'system', label: 'System' },
+const THEMES: { id: Theme; label: string }[] = [
   { id: 'light', label: 'Light' },
   { id: 'dark', label: 'Dark' },
   { id: 'high-contrast', label: 'High Contrast' },
@@ -1551,7 +1544,7 @@ function itemAriaChecked(
 ): boolean | undefined {
   if (item.action === 'toggleLogoPanel') return state.logoPanelVisible;
   if (item.action?.startsWith('theme:')) {
-    return getThemePreference() === item.action.slice(6);
+    return getTheme() === item.action.slice(6);
   }
   if (item.action === 'canvasModeOutline') return state.canvasMode === 'outline';
   if (item.action === 'canvasModePreview') return state.canvasMode === 'preview';
@@ -1785,7 +1778,7 @@ export function Menubar({
 
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
-  const [currentTheme, setCurrentTheme] = useState<ThemePreference>(getThemePreference);
+  const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
   const menuRef = useRef<HTMLDivElement>(null);
   const dropdownMenuRef = useRef<HTMLDivElement>(null);
   const submenuRef = useRef<HTMLDivElement>(null);
@@ -1816,11 +1809,22 @@ export function Menubar({
   const MENU_ITEM_SELECTOR = '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]';
 
   useEffect(() => {
-    const handleChange = (event: Event) => {
-      setCurrentTheme((event as CustomEvent<ThemeChangeDetail>).detail.preference);
-    };
-    window.addEventListener(THEME_CHANGE_EVENT, handleChange);
-    return () => window.removeEventListener(THEME_CHANGE_EVENT, handleChange);
+    const saved = (localStorage.getItem('varve-theme') ??
+      localStorage.getItem('strata-theme')) as Theme | null;
+    if (saved && saved !== getTheme()) {
+      setTheme(saved);
+      setCurrentTheme(saved);
+      bumpThemeRevision();
+    }
+    const observer = new MutationObserver(() => {
+      const current = getTheme();
+      if (current) setCurrentTheme(current);
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -2054,8 +2058,11 @@ export function Menubar({
           return;
         default:
           if (action.startsWith('theme:')) {
-            const theme = action.slice(6) as ThemePreference;
-            setThemePreference(theme);
+            const theme = action.slice(6) as Theme;
+            setTheme(theme);
+            setCurrentTheme(theme);
+            localStorage.setItem('varve-theme', theme);
+            bumpThemeRevision();
             return;
           }
           if (action.startsWith('applyMaster:')) {
@@ -2103,7 +2110,7 @@ export function Menubar({
     workspaceMode: state.workspaceMode,
     platformKind: platform?.kind,
     runAction: handleAction,
-    getTheme: getThemePreference,
+    getTheme: () => getTheme() ?? 'light',
   });
 
   const handleZoomInput = useCallback(
