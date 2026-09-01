@@ -119,6 +119,7 @@ const NON_COLOR = `
   --radius-floating: 12px;
   --radius-surface: 12px;
   --radius-card: 16px;
+  --radius-device: 40px;
   --radius-full: var(--radius-pill);
   /* Compatibility names resolve to the semantic scale so older components
    * participate in the system while they are migrated at their owner. */
@@ -126,7 +127,7 @@ const NON_COLOR = `
   --radius-md: var(--radius-control);
   --radius-lg: var(--radius-floating);
   --radius-xl: var(--radius-card);
-  --radius-2xl: 40px;
+  --radius-2xl: var(--radius-device);
   --radius-pill: 9999px;
 
   /* --- Elevation surfaces (100% opaque, hierarchical) --- */

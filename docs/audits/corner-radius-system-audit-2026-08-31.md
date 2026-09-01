@@ -88,3 +88,52 @@ The broad remaining editor declarations are compatibility-token consumers or
 documented structural/pill exceptions; the next cleanup pass should inspect
 the residual raw values listed by the final search rather than replace them
 mechanically.
+
+## Final cleanup and verification (2026-08-31)
+
+The repository-wide migration was completed for active application and
+marketing-site chrome. All callsites now use semantic tokens; the legacy
+`--radius-sm`, `--radius-md`, `--radius-lg`, `--radius-xl`, and `--radius-2xl`
+names remain only as compatibility aliases in the token definition. The
+prototype phone frame has an explicit `--radius-device` token rather than an
+unexplained generic `2xl` value.
+
+The final source audit (`pnpm audit:radius`) reports:
+
+| Pattern | Final count |
+| --- | ---: |
+| CSS `border-radius:` declarations | 1,124 |
+| inline `borderRadius:` declarations | 61 |
+| `rounded-*` utility occurrences | 0 |
+| legacy radius consumers outside token definitions | 0 |
+| intentional raw geometry exceptions | 6 |
+| declarations by area | editor 865, website 186, ui 127, desktop 7 |
+
+The six raw values are explicitly allowlisted and are not controls: four tiny
+rotated website markers/cursor handles, the inspector histogram bar’s
+top-only shape, and a page-navigation structural edge. Circles remain for
+true circular geometry such as switch thumbs, slider thumbs, indicators, and
+avatars; `--radius-pill` remains for badges, status chips, and switches.
+Document/object corner radii, canvas selection geometry, and artwork remain
+outside this UI-chrome audit.
+
+The audit is now executable through `pnpm audit:radius`, so future additions
+fail when they introduce a raw numeric radius or a legacy alias consumer.
+
+## Validation evidence
+
+- Shared UI focused tests: 21 tests passed across Button, Toolbar, and token
+  coverage.
+- Editor focused tests: 45 tests passed across floating toolbar, floating text
+  bar, and selection quick bar coverage.
+- `@varve/ui` and `@varve/website` typechecks passed.
+- Website production build and GitHub Pages build passed for all 66 pages.
+- Direct website Playwright geometry checks passed in light and dark themes;
+  screenshots were inspected for the home and download surfaces.
+- Existing website visual checks passed for homepage light/dark and product
+  showcase light. The download-dark full-page check hit its existing unstable
+  screenshot-height stitching guard; the captured page was inspected and had
+  coherent geometry, with no radius assertion failure.
+- The editor workspace-toolbar visual run captured a passing desktop frame.
+  Three additional cases were blocked by unrelated concurrent ToastProvider
+  module/startup failures in the shared worktree, not by radius assertions.

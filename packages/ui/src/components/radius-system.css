@@ -2,9 +2,9 @@
  * Varve corner-radius ownership layer.
  *
  * This file intentionally follows the legacy component sheet. It provides a
- * single semantic geometry contract while older --radius-* consumers migrate
- * incrementally. The component that paints a surface owns its radius; nested
- * content and connected controls do not invent another bubble.
+ * single semantic geometry contract for shared primitives. The component
+ * that paints a surface owns its radius; nested content and connected
+ * controls do not invent another bubble.
  */
 
 /* Core controls share one geometry family. Small controls are tighter, but

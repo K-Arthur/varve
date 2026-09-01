@@ -21,12 +21,14 @@ pixel value or a generic `rounded-*` utility.
 | `--radius-floating` | `12px` | floating/contextual toolbars and compact floating panels |
 | `--radius-surface` | `12px` | dialogs, menus, popovers, raised editor surfaces |
 | `--radius-card` | `16px` | home/start-screen and marketing content cards |
+| `--radius-device` | `40px` | phone/device-frame shells in prototype previews |
 | `--radius-pill` | `9999px` | badges, tags, switches, slider tracks/thumbs, true pills |
 
 The existing `--radius-sm`, `--radius-md`, `--radius-lg`, and `--radius-xl`
 names remain compatibility aliases for older package consumers. New UI code
 uses the semantic names. `--radius-2xl` remains reserved for oversized
-marketing art and is not an editor-control radius.
+marketing art and is retained as a compatibility alias for
+`--radius-device`; it is not an editor-control radius.
 
 ## Ownership rules
 

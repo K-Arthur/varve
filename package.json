@@ -36,6 +36,7 @@
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "audit:tokens": "pnpm --filter @varve/ui audit:tokens",
+    "audit:radius": "node scripts/quality/audit-radius.mjs",
     "audit:emoji": "node scripts/audit-emoji.mjs",
     "audit:docs": "node scripts/audit-docs.mjs",
     "audit:contacts": "node scripts/audit-contacts.mjs",
