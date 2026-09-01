@@ -982,8 +982,12 @@ export interface EditorContextValue {
   /** Show a visual toast notification (also announced via aria-live). */
   showToast: (opts: {
     message: string;
-    type?: 'info' | 'success' | 'warning' | 'error';
+    title?: string;
+    description?: string;
+    type?: 'default' | 'info' | 'success' | 'warning' | 'error' | 'loading';
     duration?: number;
+    id?: string;
+    dedupeKey?: string;
   }) => void;
 
   // Adjustment layers

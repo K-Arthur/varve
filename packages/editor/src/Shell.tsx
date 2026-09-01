@@ -1005,6 +1005,7 @@ function ToastBridge() {
   const { toast } = useToast();
   useEffect(() => {
     setToastHandler(toast);
+    return () => setToastHandler(null);
   }, [toast]);
   return null;
 }

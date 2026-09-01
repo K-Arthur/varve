@@ -14,13 +14,17 @@
 /** Module-level bridge injected by Shell to forward toasts to @varve/ui ToastProvider. */
 interface EditorToastOptions {
   message: string;
-  type?: 'info' | 'success' | 'warning' | 'error';
+  title?: string;
+  description?: string;
+  type?: 'default' | 'info' | 'success' | 'warning' | 'error' | 'loading';
   duration?: number;
+  id?: string;
+  dedupeKey?: string;
 }
 
 let toastHandler: ((opts: EditorToastOptions) => void) | null = null;
 
-export function setToastHandler(fn: (opts: EditorToastOptions) => void): void {
+export function setToastHandler(fn: ((opts: EditorToastOptions) => void) | null): void {
   toastHandler = fn;
 }
 
@@ -6627,8 +6631,10 @@ export function EditorProvider({
         announcerRef.current?.announceOperation(op, result);
       },
       showToast: (opts) => {
-        announcerRef.current?.announce(opts.message);
-        toastHandler?.(opts);
+        // The canonical Toast component owns its live region. Announcing here
+        // as well would make a screen reader hear every notification twice.
+        if (toastHandler) toastHandler(opts);
+        else announcerRef.current?.announce(opts.message);
       },
 
       reparentNode: (id, newParentId, toIndex) => {
