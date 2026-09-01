@@ -10,7 +10,7 @@
  * brush is worse than no preview.
  */
 import type { BrushPreset } from '@varve/scene';
-import { Button, Input, Switch } from '@varve/ui';
+import { Button, Input, NativeSelect, Switch } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { BrushPreviewCache, brushPreviewDataUrl } from '../../brush/brushPreview';
 import { DisclosureSection } from '../Inspector/controls/DisclosureSection';
@@ -271,19 +271,19 @@ function GrainSection({ draft, set }: SectionProps) {
           onChange={(e) => set('grainId', e.currentTarget.value || undefined)}
         />
       </div>
-      <div className="brush-editor__field">
-        <label htmlFor="brush-grain-anchor">Anchor</label>
-        <select
-          id="brush-grain-anchor"
-          value={draft.grainAnchor}
-          onChange={(e) => set('grainAnchor', e.currentTarget.value as BrushPreset['grainAnchor'])}
-        >
-          <option value="layer">Layer — fixed to the artwork</option>
-          <option value="canvas">Canvas — fixed to the document</option>
-          <option value="brush">Brush — travels with each dab</option>
-          <option value="stroke">Stroke — slides along the stroke</option>
-        </select>
-      </div>
+      <NativeSelect
+        className="brush-editor__field brush-editor__native-select"
+        id="brush-grain-anchor"
+        label="Anchor"
+        value={draft.grainAnchor}
+        onValueChange={(value) => set('grainAnchor', value as BrushPreset['grainAnchor'])}
+        options={[
+          { value: 'layer', label: 'Layer — fixed to the artwork' },
+          { value: 'canvas', label: 'Canvas — fixed to the document' },
+          { value: 'brush', label: 'Brush — travels with each dab' },
+          { value: 'stroke', label: 'Stroke — slides along the stroke' },
+        ]}
+      />
       <NumberField
         label="Scale"
         value={Math.round(draft.grainScale * 100)}

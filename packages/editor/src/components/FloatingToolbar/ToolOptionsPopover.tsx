@@ -1,5 +1,5 @@
 import type { AreaSelectionSettings, AreaSelectionStyle } from '@varve/engine';
-import { FloatingPortal, Icon, Switch } from '@varve/ui';
+import { FloatingPortal, Icon, NativeSelect, Switch } from '@varve/ui';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import './ToolOptionsPopover.css';
@@ -78,18 +78,17 @@ function AreaSelectionOptions({
           )}
         </div>
       </fieldset>
-      <label className="tool-options__field">
-        <span>Style</span>
-        <select
-          aria-label="Selection style"
-          value={settings.style}
-          onChange={(event) => onChange({ style: event.target.value as AreaSelectionStyle })}
-        >
-          <option value="normal">Normal</option>
-          <option value="fixed-ratio">Fixed ratio</option>
-          <option value="fixed-size">Fixed size</option>
-        </select>
-      </label>
+      <NativeSelect
+        className="tool-options__field tool-options__native-select"
+        label="Selection style"
+        value={settings.style}
+        onValueChange={(value) => onChange({ style: value as AreaSelectionStyle })}
+        options={[
+          { value: 'normal', label: 'Normal' },
+          { value: 'fixed-ratio', label: 'Fixed ratio' },
+          { value: 'fixed-size', label: 'Fixed size' },
+        ]}
+      />
       {settings.style === 'fixed-ratio' && (
         <label className="tool-options__field">
           <span>Ratio</span>

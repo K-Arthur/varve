@@ -88,7 +88,8 @@
 }
 
 .tool-options__field input,
-.tool-options__field select {
+.tool-options__field select,
+.tool-options__field .varve-native-select__control {
   inline-size: 7rem;
   min-block-size: 2rem;
   border: 1px solid var(--color-border-subtle);
@@ -96,6 +97,16 @@
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   padding-inline: var(--space-2);
+}
+
+.tool-options__native-select {
+  flex-direction: row;
+}
+
+.tool-options__native-select .varve-native-select__label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
 }
 
 .tool-options__field-row input {

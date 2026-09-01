@@ -48,7 +48,8 @@
 }
 
 .varve-select__listbox {
-  max-width: min(28rem, calc(100vw - 1rem));
+  width: 100%;
+  min-width: 0;
   box-sizing: border-box;
 }
 
@@ -246,7 +247,6 @@
 
 .varve-multi-select__listbox {
   width: 100%;
-  max-width: min(28rem, calc(100vw - 1rem));
   box-sizing: border-box;
   padding: var(--space-1) 0;
   overflow-y: auto;

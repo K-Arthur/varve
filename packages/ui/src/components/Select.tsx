@@ -26,7 +26,7 @@ export interface SelectOption {
   /** Semantic state only; do not use this to decorate ordinary options. */
   status?: SelectStatus;
   /** Recognition aid for object types or other semantically meaningful choices. */
-  icon?: SolidIconName;
+  icon?: string;
 }
 
 export interface SelectOptionGroup {
@@ -382,7 +382,9 @@ export function Select({
           if (!option.disabled) setHighlightedIdx(index);
         }}
       >
-        {option.icon && <SolidIcon name={option.icon} className="varve-select__option-icon" />}
+        {option.icon && (
+          <SolidIcon name={option.icon as SolidIconName} className="varve-select__option-icon" />
+        )}
         {option.status && (
           <span
             aria-hidden
@@ -426,7 +428,10 @@ export function Select({
         title={hasStaleValue ? `${staleValueLabel}: ${selectedValue}` : undefined}
       >
         {selectedOption?.icon && (
-          <SolidIcon name={selectedOption.icon} className="varve-select__value-icon" />
+          <SolidIcon
+            name={selectedOption.icon as SolidIconName}
+            className="varve-select__value-icon"
+          />
         )}
         {selectedOption?.status && (
           <span

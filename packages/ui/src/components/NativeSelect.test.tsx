@@ -47,4 +47,22 @@ describe('NativeSelect', () => {
     await user.selectOptions(select, 'svg');
     expect(onValueChange).toHaveBeenCalledWith('svg');
   });
+
+  it('generates unique ids for repeated labels', () => {
+    render(
+      <>
+        <NativeSelect label="Format" options={[{ value: 'png', label: 'PNG' }]} />
+        <NativeSelect label="Format" options={[{ value: 'svg', label: 'SVG' }]} />
+      </>,
+    );
+
+    const selects = screen.getAllByRole('combobox');
+    const first = selects[0];
+    const second = selects[1];
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+    expect(first).toHaveAttribute('id');
+    expect(second).toHaveAttribute('id');
+    expect(first?.id).not.toBe(second?.id);
+  });
 });

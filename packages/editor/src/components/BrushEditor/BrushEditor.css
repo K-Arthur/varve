@@ -75,6 +75,22 @@
   border-radius: var(--radius-sm);
 }
 
+.brush-editor__native-select {
+  flex: 1;
+  flex-direction: row;
+}
+
+.brush-editor__native-select .varve-native-select__control {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1);
+  color: var(--color-text-primary);
+  font: inherit;
+  background: var(--color-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-sm);
+}
+
 .brush-editor__checkbox {
   display: flex;
   gap: var(--space-2);

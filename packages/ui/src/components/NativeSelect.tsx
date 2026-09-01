@@ -1,4 +1,5 @@
 import type { ChangeEvent, SelectHTMLAttributes } from 'react';
+import { useId } from 'react';
 import type { SelectOption, SelectOptionGroup } from './Select';
 
 export interface NativeSelectProps
@@ -31,8 +32,8 @@ export function NativeSelect({
   disabled,
   ...selectProps
 }: NativeSelectProps) {
-  const controlId =
-    id ?? `varve-native-select-${label.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+  const generatedId = useId().replace(/:/g, '');
+  const controlId = id ?? `varve-native-select-${generatedId}`;
   const descriptionId = `${controlId}-description`;
   const errorId = `${controlId}-error`;
   const describedBy =

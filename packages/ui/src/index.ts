@@ -10,11 +10,29 @@ import './components/components.css';
 import './components/ColorPicker/color-picker.css';
 import './components/PresetPicker/preset-picker.css';
 import './components/select.css';
+import './components/sortable.css';
 
 export * from './components';
 export type { MultiSelectProps } from './components/MultiSelect';
 export { MultiSelect } from './components/MultiSelect';
 export type { NativeSelectProps } from './components/NativeSelect';
 export { NativeSelect } from './components/NativeSelect';
+export type {
+  SortableEndResult,
+  SortableItemHandleProps,
+  SortableItemProps,
+  SortableItemRenderProps,
+  SortableLayout,
+  SortableProps,
+} from './components/Sortable';
+export {
+  reorderSortableItems,
+  Sortable,
+  SortableItem,
+  SortableItemHandle,
+  SortableOverlay,
+  useSortableItem,
+  useSortableSensors,
+} from './components/Sortable';
 export * from './icons';
 export * from './tokens';
