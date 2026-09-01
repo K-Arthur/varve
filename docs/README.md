@@ -373,6 +373,7 @@ The following dated files were moved from `docs/architecture/` to
 | Doc | Purpose |
 |-----|---------|
 | `design/elevation-system.md` | Elevation/shadow system |
+| `design/interaction-feedback-system.md` | Canonical hover, focus, selection, highlight, and drag-feedback contract |
 | `design/visual-direction.md` | Visual direction & polish |
 | `design/design-principles.md` | Design principles |
 | `design/component-status.md` | Component implementation status |
