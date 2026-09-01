@@ -117,7 +117,7 @@ export function NumberField({
   const arrowTransaction = useRef<{ draftKey?: string; cleanup: () => void } | null>(null);
   const wheelTransaction = useRef<{
     draftKey?: string;
-    timer: ReturnType<typeof window.setTimeout>;
+    timer: number;
     cleanup: () => void;
   } | null>(null);
   const ctx = useContext(EditorCtx);

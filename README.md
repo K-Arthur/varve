@@ -202,6 +202,7 @@ Test and validate:
 
 ```bash
 pnpm verify:affected        # impact-aware validation (default inner loop)
+pnpm verify:push            # exact outgoing refs; reports CI deferrals
 just test-rust              # cargo test --workspace
 just test-js                # Vitest
 ```
@@ -211,9 +212,11 @@ for the full validation strategy.
 
 For GitHub Actions diagnosis and CachyOS local runner parity, see
 [docs/CI_CD_RESILIENCE.md](docs/CI_CD_RESILIENCE.md). The shortest pre-push
-checks are `pnpm verify:plan`, `pnpm verify:affected`, and
-`bash scripts/install-ci-tooling.sh --check`; use `just ci-debug RUN_ID=<id>`
-for a concise report from a failed remote run.
+checkpoint is `pnpm verify:push`; it validates the exact refs Git is about to
+send and reports heavyweight CI deferrals without running the full suite.
+Use `pnpm verify:plan` / `pnpm verify:affected` for current worktree changes,
+`bash scripts/install-ci-tooling.sh --check` for runner parity, and
+`just ci-debug RUN_ID=<id>` for a concise report from a failed remote run.
 
 ## Architecture
 

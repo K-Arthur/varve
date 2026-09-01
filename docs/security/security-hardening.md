@@ -175,7 +175,7 @@ secrets) lives in [trust-boundaries.md](trust-boundaries.md).
 | `build.yml`, `e2e-keyboard-nav.yml`, `model-validation.yml`, `quantize.yml`, `ci-smoke.yml` | none (`contents: read`) | Test/build only |
 | `ci-debug.yml` | `actions: read` | Reading run/job metadata for the failure report |
 | `website-deploy.yml` | `pages: write` + `id-token: write` **only on the deploy job** | Pages deployment; the test/build jobs stay read-only |
-| `visual-baselines.yml` | `contents: write` (manual dispatch only) | Commits refreshed PNG baselines to master |
+| `visual-baselines.yml` | `contents: read` (manual dispatch only) | Produces reviewed PNG candidates; a human commits approved baselines in a normal change |
 | `release.yml` | `draft`/`publish`: `contents: write`; `verify`: `id-token` + `attestations`; `release-publish` environment approval | Draft creation + gated publication; attestation of final bytes |
 
 Deliberately absent: `pull_request_target` triggers (none), `secrets: inherit`

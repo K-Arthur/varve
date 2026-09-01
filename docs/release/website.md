@@ -135,15 +135,15 @@ from elsewhere. This is the default committed state today.
 | Cloudflare Pages | Free | Genuine alternative: unlimited bandwidth, deploy previews, works with a private repo. Adds a second vendor and a second place credentials live. Switch if Pages bandwidth or repo visibility becomes a real constraint |
 | Anything else | — | No material advantage |
 
-**Deployment** is `.github/workflows/website-deploy.yml`: pushes touching
-`apps/website/**` or `scripts/release/**`, plus a `workflow_run` trigger
-fired by the Release workflow's `completed` event (the download page is
-rebuilt from the exact published assets), plus manual
-dispatch. The workflow runs the full quality gate (typecheck, unit tests,
-both-mode builds, axe/link e2e) before uploading, and smoke-checks the live
-URL after deploying (`scripts/website/smoke-pages.mjs`). With a custom domain
-later, set `SITE_URL` and `SITE_BASE: /` — no source change; see
-`custom-domain-runbook.md`.
+**Deployment** is `.github/workflows/website-deploy.yml`: website-source
+changes run the website quality corpus; a successful published Release sends a
+protected `repository_dispatch` containing the exact tag and SHA. That release
+path validates release data, builds the site, scans the artifact, deploys, and
+runs the bounded live smoke test without repeating the complete website
+functional/a11y/visual corpus. A guarded `workflow_run` fallback preserves the
+branch-protection architecture and applies the same published-state check.
+With a custom domain later, set `SITE_URL` and `SITE_BASE: /` — no source
+change; see `custom-domain-runbook.md`.
 
 GitHub Pages cannot set arbitrary security headers (`_headers` files are
 ignored there — the old `public/_headers` was removed). CSP is enforced via

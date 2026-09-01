@@ -23,6 +23,41 @@ import { buildUpdaterConfig } from './write-updater-config.mjs';
 // updater key exists, even an unsigned platform build must receive it or the
 // generated updater config makes `tauri build` fail after packaging the app.
 const releaseWorkflow = readFileSync('.github/workflows/release.yml', 'utf8');
+const websiteWorkflow = readFileSync('.github/workflows/website-deploy.yml', 'utf8');
+const visualWorkflow = readFileSync('.github/workflows/visual-baselines.yml', 'utf8');
+assert.match(releaseWorkflow, /varve-release-published/);
+assert.match(websiteWorkflow, /repository_dispatch:/);
+assert.match(visualWorkflow, /reviewed:/);
+assert.match(visualWorkflow, /update_snapshots:/);
+assert.match(visualWorkflow, /VARVE_REVIEWED/);
+assert.match(visualWorkflow, /VARVE_UPDATE_SNAPSHOTS/);
+assert.match(visualWorkflow, /Explicit reviewed update mode/);
+assert.match(visualWorkflow, /--update-snapshots/);
+assert.match(
+  visualWorkflow,
+  /if: always\(\)/,
+  'visual review artifacts must survive a comparison failure',
+);
+assert.match(websiteWorkflow, /needs\.release-data\.outputs\.published == 'true'/);
+assert.match(
+  websiteWorkflow,
+  /commits\/\$\{RELEASE_TAG\}[\s\S]*PUBLISHED_SHA[\s\S]*RELEASE_SHA/,
+  'publication dispatch must bind the tag to its exact commit SHA',
+);
+assert.match(
+  websiteWorkflow,
+  /fetch-website-release\.mjs --tag "\$\{RELEASE_TAG\}"/,
+  'release-data deployment must fetch the published tag, not an unrelated latest release',
+);
+assert.match(
+  websiteWorkflow,
+  /github\.event_name == 'workflow_run' && github\.event\.workflow_run\.conclusion == 'success'/,
+);
+assert.match(
+  websiteWorkflow,
+  /github\.event\.workflow_run\.event != 'workflow_dispatch'/,
+  'workflow_run fallback must not duplicate the explicit publication dispatch',
+);
 const signedUpdaterBuild = releaseWorkflow.match(
   /- name: Tauri build \(unsigned platforms with signed updater\)([\s\S]*?)(?=\n {6}- name:)/,
 )?.[1];
@@ -55,6 +90,7 @@ assert.doesNotMatch(manualUpdaterBuild, /TAURI_SIGNING_PRIVATE_KEY:/);
   mkdirSync(out, { recursive: true });
   const installer = 'Varve-0.1.0-windows-x86_64.exe';
   writeFileSync(join(out, installer), Buffer.from('installer bytes'));
+  writeFileSync(join(out, `${installer}.provenance.json`), '{"schema":1,"commitSha":"a"}\n');
   writeFileSync(join(out, 'installer-size-report-windows-x86_64.json'), '{"status":"pass"}\n');
   writeFileSync(
     join(staged, 'windows', 'release-manifest.json'),

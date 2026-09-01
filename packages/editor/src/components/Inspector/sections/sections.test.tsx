@@ -60,7 +60,7 @@ function boundOpacityDocument() {
     variableStore,
     nodes: {
       ...next.nodes,
-      [node.id]: { ...next.nodes[node.id], bindings: { opacity: { variableId: 'opacity' } } },
+      [node.id]: { ...boundNode, bindings: { opacity: { variableId: 'opacity' } } },
     },
   };
   return {

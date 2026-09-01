@@ -80,6 +80,7 @@ Validation is selected by impact, not by habit. From the repository root:
 ```bash
 pnpm verify:plan       # inspect the selected checks first
 pnpm verify:affected   # default Tiers 0–4 gate
+pnpm verify:push       # exact refs leaving this machine; CI deferrals are explicit
 ```
 
 Use the feature-specific checks selected by the plan. Typical examples are:
@@ -104,6 +105,13 @@ VARVE_FULL_GATE_REASON="explain the escalation" pnpm verify:full
 
 If a check fails, include the failure and the exact command in the pull
 request rather than silently omitting it.
+
+The normal push hook is bounded even for a large unpublished history. It
+validates the exact refs Git supplies, warns about dirty files that are not
+being pushed, and leaves browser/visual/native/full-corpus certification to
+the exact-SHA `CI / certification` check. For a large branch, open an
+integration PR and preserve all commits; a squash is not required for
+validation.
 
 ## Pull request quality bar
 

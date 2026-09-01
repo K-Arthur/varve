@@ -8,6 +8,12 @@ Every command below is marked **VERIFIED** (run on this machine, result recorded
 or **UNVERIFIED** (correct as far as configuration goes, but never executed here —
 usually because it needs hardware we do not have).
 
+> Current release process: use [release-candidate-runbook.md](release-candidate-runbook.md).
+> This document preserves command-level build evidence from 2026-08-04; its
+> historical full-suite examples are not a replacement for exact-SHA
+> integration/candidate certification and must not be repeated before every
+> packaging retry.
+
 ---
 
 ## 0. The one thing to know first — MEASURED
@@ -78,7 +84,7 @@ from Hugging Face (see `packages/engine/src/inference/modelCatalog.ts`).
 
 ---
 
-## 2. Quality gates — VERIFIED
+## 2. Historical quality-gate evidence — VERIFIED on 2026-08-04
 
 ```sh
 pnpm lint          # exit 0 (48 warnings, no errors)

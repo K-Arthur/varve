@@ -200,6 +200,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `adr/0228-page-export-selection.md` | Explicit page/range/spread export selection |
 | `adr/0229-master-operations-and-overrides.md` | Typed master assignments and sparse override lifecycle |
 | `adr/0230-merge-position-size-constraints-layout.md` | Merge Position & Size and Constraints into the canonical Layout section |
+| `adr/0231-layers-presentation-and-workflow-ownership.md` | Canonical Layers presentation and specialist workflow ownership |
 ## Architecture Docs (current state)
 
 | Doc | Purpose |
@@ -328,6 +329,7 @@ The following dated files were moved from `docs/architecture/` to
 | `release/platform-support-matrix.md` | Which OSes/architectures are supported vs claimed |
 | `release/production-build.md` | Verified production build commands |
 | `release/release-checklists.md` | Alpha/beta/RC/stable checklists + rollback runbooks |
+| `release/release-candidate-runbook.md` | Exact-SHA candidate certification, resumable packaging, and release-data deployment |
 | `release/ci-secrets.md` | Secret names, permissions, enrolment |
 | `release/update-strategy.md` | Updater status and future key management |
 | `release/website.md` | Website architecture and launch plan |
@@ -397,6 +399,7 @@ The following dated files were moved from `docs/architecture/` to
 | `quality/tauri-command-audit.md` | Tauri command surface audit |
 | `quality/editorprovider-surface.md` | EditorProvider surface |
 | `quality/validation-strategy.md` | **Canonical validation policy** — impact-aware planning, tiers, escalation rules |
+| `audits/validation-release-system-audit-2026-08-31.md` | Measured validation/CI/release baseline, root causes, and exact-SHA redesign evidence |
 | `quality/render-path-verification.md` | Render-path verification contract |
 | `quality/object-selection-parity.md` | Object Selection quality/parity methodology |
 | `quality/semantic-similarity-benchmark.md` | Semantic-similarity benchmark reproduction recipe (corpus + retrieval eval) |

@@ -23,7 +23,7 @@
     "test": "pnpm test:ci:tools && vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:ci:tools": "node scripts/ci-debug.test.mjs && node scripts/ci-health.test.mjs && node scripts/pin-github-actions.test.mjs && node scripts/validate-workflows.test.mjs && node scripts/release/release-pipeline.test.mjs && node scripts/release/collect-artifacts.test.mjs && node scripts/release/signing-policy.test.mjs && node scripts/release/report-installer-size.test.mjs && node scripts/install-git-hooks.test.mjs && node scripts/build-visual-diff-manifest.test.mjs && node scripts/secret-scan.test.mjs && node scripts/security/workflow-policy.test.mjs && node scripts/security/validate-client-env.test.mjs && node scripts/security/import-boundaries.test.mjs && node scripts/security/dependency-hardening.test.mjs && bash scripts/test-ci-shell-scripts.sh",
+    "test:ci:tools": "node scripts/ci-debug.test.mjs && node scripts/ci-health.test.mjs && node scripts/pin-github-actions.test.mjs && node scripts/validate-workflows.test.mjs && node scripts/quality/ci-plan.test.mjs && node scripts/quality/ci-run-lanes.test.mjs && node scripts/quality/aggregate-ci.test.mjs && node scripts/quality/validation-receipts.test.mjs && node scripts/quality/pre-push.test.mjs && node scripts/quality/push-plan.test.mjs && node scripts/quality/commit-checkpoint.test.mjs && node scripts/ci/failure-manifest.test.mjs && node scripts/release/certification.test.mjs && node scripts/release/resume.test.mjs && node scripts/release/write-artifact-provenance.test.mjs && node scripts/release/website-release-data-check.test.mjs && node scripts/release/release-pipeline.test.mjs && node scripts/release/collect-artifacts.test.mjs && node scripts/release/signing-policy.test.mjs && node scripts/release/report-installer-size.test.mjs && node scripts/install-git-hooks.test.mjs && node scripts/build-visual-diff-manifest.test.mjs && node scripts/secret-scan.test.mjs && node scripts/security/workflow-policy.test.mjs && node scripts/security/validate-client-env.test.mjs && node scripts/security/import-boundaries.test.mjs && node scripts/security/dependency-hardening.test.mjs && bash scripts/test-ci-shell-scripts.sh",
     "bench:canvas": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/replay.bench.ts",
     "bench:table": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/tableReplay.bench.ts",
     "bench:palette": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/paletteExtraction.bench.test.ts",
@@ -49,6 +49,8 @@
     "verify:triage": "node scripts/quality/verify.mjs triage",
     "verify:affected": "node scripts/quality/verify.mjs affected",
     "verify:full": "node scripts/quality/verify.mjs full",
+    "verify:commit": "node scripts/quality/commit-checkpoint.mjs",
+    "verify:push": "node scripts/quality/pre-push.mjs",
     "verify:lease": "node scripts/quality/heavy-lease.mjs",
     "e2e:visual": "playwright test --project=chromium-visual-1x --project=chromium-visual-2x",
     "e2e:all": "playwright test",
@@ -77,7 +79,11 @@
     "screenshots:website": "pnpm build:website && node scripts/screenshots/validate.mjs",
     "screenshots:update": "pnpm screenshots:product && pnpm screenshots:og && pnpm screenshots:workflow && pnpm screenshots:website -- --strict",
     "test:website": "vitest run apps/website/src/test",
-    "test:website:e2e": "pnpm build:website && pnpm build:website:pages && playwright test -c playwright.website.config.ts"
+    "test:website:e2e": "pnpm build:website && pnpm build:website:pages && playwright test -c playwright.website.config.ts",
+    "release:prepare": "node scripts/release/release.mjs prepare",
+    "release:status": "node scripts/release/release.mjs status",
+    "release:certify": "node scripts/release/release.mjs certify",
+    "release:resume": "node scripts/release/release.mjs resume"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

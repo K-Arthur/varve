@@ -37,7 +37,7 @@ function node(
     transform: [1, 0, 0, 1, x, 0],
     shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
     ...(binding ? { bindings: { x: binding } } : {}),
-  } as SceneNode;
+  } as unknown as SceneNode;
 }
 
 describe('deriveNumericBindingPresentation', () => {

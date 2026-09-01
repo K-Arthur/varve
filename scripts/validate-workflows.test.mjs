@@ -574,24 +574,62 @@ assert.deepEqual(
   const ci = fs.readFileSync('.github/workflows/ci.yml', 'utf-8');
   assert.match(
     ci,
-    /if: \$\{\{ needs\.changes\.outputs\.e2e == 'true' \|\| needs\.changes\.outputs\.visual == 'true' \}\}/,
-    'browser E2E must be selected by explicit browser-impact lanes, not generic full validation',
+    /if: \$\{\{ needs\.changes\.outputs\.e2e == 'true' \|\| needs\.changes\.outputs\.full == 'true' \}\}/,
+    'browser E2E must be selected by explicit browser-impact lanes or the deliberate full profile',
   );
   assert.match(
     ci,
-    /if: \$\{\{ needs\.changes\.outputs\.desktop == 'true' \}\}/,
-    'native desktop E2E must be selected by explicit desktop-impact lanes, not generic full validation',
+    /if: \$\{\{ needs\.changes\.outputs\.visual == 'true' \|\| needs\.changes\.outputs\.full == 'true' \}\}/,
+    'visual E2E must be selected by explicit visual-impact lanes or the deliberate full profile',
   );
   assert.match(
     ci,
-    /tests\/e2e\/\(canvas\|settings[\s\S]*shared\|helpers\|fixtures\)[\s\S]*playwright\\\.config\\\.ts/,
-    'browser infrastructure paths must select the browser lane',
+    /if: \$\{\{ needs\.changes\.outputs\.desktop == 'true' \|\| needs\.changes\.outputs\.full == 'true' \}\}/,
+    'native desktop E2E must be selected by explicit desktop-impact lanes or the deliberate full profile',
+  );
+  assert.match(
+    ci,
+    /scripts\/quality\/ci-plan\.mjs[\s\S]*--profile integration/,
+    'CI must use the canonical exact-SHA planner for browser-impact selection',
+  );
+  const policy = fs.readFileSync('scripts/quality/validation-policy.mjs', 'utf-8');
+  assert.match(
+    policy,
+    /tests\\\/e2e|tests\/e2e/,
+    'canonical policy must retain browser infrastructure impact semantics',
   );
   const release = fs.readFileSync('.github/workflows/release.yml', 'utf-8');
   assert.match(
     release,
     /squashfs-tools xdg-utils/,
     'Linux release bundlers must install xdg-utils for Tauri AppImage packaging',
+  );
+  const visual = fs.readFileSync('.github/workflows/visual-baselines.yml', 'utf-8');
+  assert.match(
+    visual,
+    /contents: read/,
+    'visual baseline workflow must not write repository contents',
+  );
+  assert.match(
+    visual,
+    /VARVE_REVIEWED/,
+    'visual updates require an explicit review acknowledgement',
+  );
+  assert.match(
+    visual,
+    /VARVE_UPDATE_SNAPSHOTS.*true[\s\S]*--update-snapshots/,
+    'snapshot updates require the explicit reviewed update mode',
+  );
+  assert.doesNotMatch(
+    visual,
+    /git\s+(?:commit|push)/,
+    'baseline workflow must not publish changes',
+  );
+  const candidate = fs.readFileSync('.github/workflows/release-candidate.yml', 'utf-8');
+  assert.match(
+    candidate,
+    /verify-certification\.mjs --integration-only[\s\S]*--policy-hash/,
+    'candidate certification must start from an exact-SHA integration certification',
   );
   for (const name of ['release.yml', 'website-deploy.yml', 'ci.yml', 'build.yml']) {
     const content = fs.readFileSync(`.github/workflows/${name}`, 'utf-8');
