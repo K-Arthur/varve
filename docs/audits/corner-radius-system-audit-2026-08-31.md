@@ -130,7 +130,7 @@ fail when they introduce a raw numeric radius or a legacy alias consumer.
 - Website production build and GitHub Pages build passed for all 66 pages.
 - Direct website Playwright geometry checks passed in light and dark themes;
   screenshots were inspected for the home and download surfaces.
-- The navbar’s compact Download and Try CTAs use the same 6px control radius
+- The navbar’s compact Download and Try CTAs use the same 8px control radius
   as every non-pill CTA; an exhaustive browser check passed across all 66
   generated website routes.
 - Existing website visual checks passed for homepage light/dark and product
@@ -140,3 +140,19 @@ fail when they introduce a raw numeric radius or a legacy alias consumer.
 - The editor workspace-toolbar visual run captured a passing desktop frame.
   Three additional cases were blocked by unrelated concurrent ToastProvider
   module/startup failures in the shared worktree, not by radius assertions.
+
+## Roundness tuning (2026-09-01)
+
+Following the completed migration, the shared semantic scale was increased
+slightly across every migrated application and marketing-site surface:
+
+| Token | Updated value |
+| --- | ---: |
+| `--radius-control-compact` | `6px` |
+| `--radius-control` | `8px` |
+| `--radius-floating` / `--radius-surface` | `14px` |
+| `--radius-card` | `18px` |
+
+`--radius-none`, `--radius-device`, and `--radius-pill` remain unchanged so
+structural edges, device frames, and intentionally pill-shaped elements retain
+their distinct geometry.

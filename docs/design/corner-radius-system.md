@@ -16,11 +16,11 @@ pixel value or a generic `rounded-*` utility.
 | Token | Value | Owner / use |
 | --- | ---: | --- |
 | `--radius-none` | `0` | edge-connected panels, internal group boundaries, precision overlays |
-| `--radius-control-compact` | `4px` | dense icon buttons, toolbar buttons, menu items, compact fields |
-| `--radius-control` | `6px` | Button, Input, Select, ordinary interactive controls |
-| `--radius-floating` | `12px` | floating/contextual toolbars and compact floating panels |
-| `--radius-surface` | `12px` | dialogs, menus, popovers, raised editor surfaces |
-| `--radius-card` | `16px` | home/start-screen and marketing content cards |
+| `--radius-control-compact` | `6px` | dense icon buttons, toolbar buttons, menu items, compact fields |
+| `--radius-control` | `8px` | Button, Input, Select, ordinary interactive controls |
+| `--radius-floating` | `14px` | floating/contextual toolbars and compact floating panels |
+| `--radius-surface` | `14px` | dialogs, menus, popovers, raised editor surfaces |
+| `--radius-card` | `18px` | home/start-screen and marketing content cards |
 | `--radius-device` | `40px` | phone/device-frame shells in prototype previews |
 | `--radius-pill` | `9999px` | badges, tags, switches, slider tracks/thumbs, true pills |
 

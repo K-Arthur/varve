@@ -47,9 +47,9 @@ test.describe('corner radius system', () => {
       });
 
       expect(homeGeometry).toEqual({
-        primaryButton: '6px',
-        navDownload: '6px',
-        navTry: '6px',
+        primaryButton: '8px',
+        navDownload: '8px',
+        navTry: '8px',
       });
 
       await page.screenshot({
@@ -73,8 +73,8 @@ test.describe('corner radius system', () => {
       });
 
       expect(downloadGeometry).toEqual({
-        card: '16px',
-        control: '6px',
+        card: '18px',
+        control: '8px',
         pill: '9999px',
       });
 
@@ -98,7 +98,7 @@ test.describe('corner radius system', () => {
           ...document.querySelectorAll<HTMLElement>('.nav-download-cta'),
         ];
         return controls
-          .filter((element) => getComputedStyle(element).borderRadius !== '6px')
+          .filter((element) => getComputedStyle(element).borderRadius !== '8px')
           .map((element) => ({
             className: element.className,
             radius: getComputedStyle(element).borderRadius,
