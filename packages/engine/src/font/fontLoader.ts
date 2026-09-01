@@ -154,13 +154,29 @@ export class FontLoader {
   async restoreFont(
     family: string,
     data: ArrayBuffer,
-    storageMetadata?: { weight?: number; style?: 'normal' | 'italic' },
+    storageMetadata?: {
+      providerId?: string;
+      weight?: number;
+      style?: 'normal' | 'italic';
+    },
   ): Promise<LoadResult> {
     const key = `${family}\u0000${storageMetadata?.weight ?? 'auto'}:${storageMetadata?.style ?? 'normal'}`;
     const existing = this.inFlight.get(key);
     if (existing) return existing;
 
-    const promise = this.loadFromArrayBufferPublic(family, data, 'local', 'user', storageMetadata);
+    const registrySource =
+      storageMetadata?.providerId === 'fontsource'
+        ? 'fontsource'
+        : storageMetadata?.providerId === 'google'
+          ? 'google'
+          : 'user';
+    const promise = this.loadFromArrayBufferPublic(
+      family,
+      data,
+      'local',
+      registrySource,
+      storageMetadata,
+    );
     this.inFlight.set(key, promise);
     try {
       return await promise;

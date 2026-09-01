@@ -100,7 +100,13 @@ function getDownloadManager(): FontDownloadManager {
               license: artifact.license.name,
               licenseUrl: artifact.license.url,
             });
-            const result = await new FontLoader(undefined).loadFont(job.metadata, job.data);
+            const result = await new FontLoader(undefined).loadFromArrayBufferPublic(
+              artifact.familyName,
+              job.data,
+              'network',
+              'fontsource',
+              { weight: artifact.weight, style: artifact.style },
+            );
             if (!result.success) throw new Error('The font was saved but could not be registered.');
             getFontsourceCatalog().setInstalled(artifact.familyId, true);
             waiter.resolve();

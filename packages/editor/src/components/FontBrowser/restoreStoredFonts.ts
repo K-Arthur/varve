@@ -13,7 +13,7 @@
  */
 
 import { getFontRegistry } from '@varve/engine';
-import { FontLoader } from '@varve/engine/font';
+import { FontLoader, getFontsourceCatalog } from '@varve/engine/font';
 import { listStoredFonts } from './fontStorage';
 
 export async function restoreStoredFonts(): Promise<{
@@ -32,8 +32,12 @@ export async function restoreStoredFonts(): Promise<{
   for (const record of records) {
     try {
       const result = await loader.restoreFont(record.familyName, record.data, record.metadata);
-      if (result.success) restored++;
-      else failed++;
+      if (result.success) {
+        restored++;
+        if (record.metadata.providerId === 'fontsource' && record.metadata.familyId) {
+          getFontsourceCatalog().setInstalled(record.metadata.familyId, true);
+        }
+      } else failed++;
     } catch {
       failed++;
     }
