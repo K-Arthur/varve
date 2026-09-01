@@ -126,7 +126,6 @@ const NON_COLOR = `
   --radius-md: var(--radius-control);
   --radius-lg: var(--radius-floating);
   --radius-xl: var(--radius-card);
-  --radius-xl: 28px;
   --radius-2xl: 40px;
   --radius-pill: 9999px;
 
