@@ -67,6 +67,7 @@
     "lint:css": "stylelint \"packages/ui/src/**/*.css\"",
     "lint:css:all": "stylelint \"**/*.css\"",
     "build:website": "pnpm --filter @varve/website build",
+    "fonts:catalog": "node --experimental-strip-types scripts/fonts/generate-fontsource-catalog.ts",
     "build:website:pages": "pnpm --filter @varve/website build:pages",
     "screenshots:product": "node scripts/screenshots/product.mjs",
     "screenshots:og": "node scripts/screenshots/og-image.mjs",
