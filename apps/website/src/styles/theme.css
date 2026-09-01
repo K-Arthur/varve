@@ -34,6 +34,16 @@
   --surface-selected: var(--color-accent-subtle);
   --surface-interactive: var(--color-interactive-default);
 
+  /* Shared Varve geometry. Marketing cards may be more generous than editor
+     controls, but controls and floating surfaces use the same application
+     scale through these aliases. */
+  --website-radius-control: var(--radius-control);
+  --website-radius-control-compact: var(--radius-control-compact);
+  --website-radius-floating: var(--radius-floating);
+  --website-radius-surface: var(--radius-surface);
+  --website-radius-card: var(--radius-card);
+  --website-radius-pill: var(--radius-pill);
+
   /* --- Status surfaces --- */
   --surface-info: oklch(0.955 0.022 248);
   --surface-warning: oklch(0.962 0.022 79.82);

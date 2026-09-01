@@ -1,0 +1,78 @@
+/*
+ * Varve corner-radius ownership layer.
+ *
+ * This file intentionally follows the legacy component sheet. It provides a
+ * single semantic geometry contract while older --radius-* consumers migrate
+ * incrementally. The component that paints a surface owns its radius; nested
+ * content and connected controls do not invent another bubble.
+ */
+
+/* Core controls share one geometry family. Small controls are tighter, but
+ * remain rounded squares rather than becoming circular by default. */
+.varve-btn {
+  border-radius: var(--radius-control);
+}
+
+.varve-btn--sm {
+  border-radius: var(--radius-control-compact);
+}
+
+.varve-iconbtn {
+  border-radius: var(--radius-control-compact);
+}
+
+.varve-input__wrapper,
+.varve-select__trigger,
+.varve-search__input {
+  border-radius: var(--radius-control);
+}
+
+.varve-input__field,
+.varve-select__search-input {
+  border-radius: var(--radius-none);
+}
+
+/* Elevated surfaces sit one step above controls. */
+.varve-dialog,
+.varve-menu,
+.varve-menu__submenu,
+.varve-popover,
+.varve-select__listbox {
+  border-radius: var(--radius-surface);
+}
+
+.varve-dialog__close,
+.varve-menu__item,
+.varve-select__option,
+.varve-search__clear {
+  border-radius: var(--radius-control-compact);
+}
+
+/* One connected segmented control: the shell owns clipping and the members
+ * stay square so internal boundaries do not read as separate cards. */
+.varve-segmented {
+  border-radius: var(--radius-control);
+}
+
+.varve-segmented__btn {
+  border-radius: var(--radius-none);
+}
+
+.varve-toolbar {
+  border-radius: var(--radius-floating);
+}
+
+/* A toolbar's own overflow policy belongs to its composition. This selector
+ * keeps the shared primitive from clipping focus rings or popovers. */
+.varve-toolbar > .varve-btn,
+.varve-toolbar > .varve-iconbtn {
+  border-radius: var(--radius-control-compact);
+}
+
+/* Semantic pills remain explicit exceptions. */
+.varve-btn--pill,
+.varve-btn--pill-outline,
+.varve-view-mode-switcher,
+.varve-view-mode-switcher__btn {
+  border-radius: var(--radius-pill);
+}

@@ -160,7 +160,7 @@
     color: var(--text-primary);
     background: var(--surface-card);
     border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
+    border-radius: var(--website-radius-control);
     padding: 0.5rem 0.75rem;
     font-family: inherit;
     font-size: 1rem;
@@ -210,7 +210,7 @@
     align-items: center;
     gap: 0.5rem;
     font-weight: 600;
-    border-radius: 0.5rem;
+    border-radius: var(--website-radius-control);
     transition:
       background-color var(--duration-fast) var(--ease-default),
       border-color var(--duration-fast) var(--ease-default),
@@ -235,7 +235,7 @@
     font-weight: 600;
     font-size: 0.9375rem;
     line-height: 1.4;
-    border-radius: 9999px;
+    border-radius: var(--website-radius-control);
     border: 1px solid transparent;
     cursor: pointer;
     text-decoration: none;
@@ -274,7 +274,7 @@
     font-weight: 600;
     font-size: 0.9375rem;
     line-height: 1.4;
-    border-radius: 9999px;
+    border-radius: var(--radius-control);
     border: 1px solid var(--border-strong);
     cursor: pointer;
     text-decoration: none;
@@ -357,7 +357,7 @@
   .bento-cell {
     background: var(--surface-card);
     border: 1px solid var(--border-default);
-    border-radius: var(--radius-md);
+    border-radius: var(--website-radius-card);
     padding: var(--space-6);
     grid-column: span var(--bento-span, 1);
     color: var(--text-secondary);

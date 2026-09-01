@@ -111,6 +111,15 @@ const NON_COLOR = `
   --separator-min-length: var(--space-4);
 
   /* --- Radius --- */
+  /* Semantic geometry API. Components should consume these names instead of
+   * choosing a raw radius or a generic scale value at each callsite. */
+  --radius-none: 0;
+  --radius-control-compact: 4px;
+  --radius-control: 6px;
+  --radius-floating: 12px;
+  --radius-surface: 12px;
+  --radius-card: 16px;
+  --radius-full: var(--radius-pill);
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 16px;
