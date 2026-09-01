@@ -118,7 +118,8 @@ Browser (`pnpm test:website:e2e` — Playwright, `playwright.website.config.ts`)
 - two static servers: legacy GitHub Pages mode (`/varve`, dist-pages) and
   production mode (`/`, dist) — the full suite runs in both;
 - computed-style contrast audit across 26 routes x 2 themes;
-- theme resolution, persistence, legacy migration, switcher `aria-pressed`
+- theme resolution, persistence, legacy migration, radio selector
+  `aria-checked`, roving focus, and Home/End movement
   and no-FOUC ordering; forced-colors emulation resolves surfaces to system
   colors;
 - hero/feature/card visibility regression tests (the reported defects);

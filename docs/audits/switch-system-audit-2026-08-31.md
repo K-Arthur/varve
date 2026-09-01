@@ -3,7 +3,8 @@
 Date: 2026-08-31
 
 Status: implemented in the switch-system commit series ending at
-`8907f50fc`.
+`8907f50fc`; documentation and website selector follow-up verified
+2026-08-31.
 
 ## Executive result
 
@@ -149,6 +150,13 @@ input and the shared checkbox input. This prevents old sizing/appearance rules
 from re-styling the visually hidden native controls.
 
 ## Validation coverage
+
+The final source search found 48 application `Switch` usages (13
+`SwitchField` rows), one production `role="switch"` implementation, and 35
+native checkbox inputs. The checkboxes are retained for multi-select, mixed,
+acknowledgement, or other checkbox semantics; the switch usages are all
+positive binary settings or dependent binary settings. No second production
+switch implementation was found.
 
 Focused checks completed during the migration:
 
