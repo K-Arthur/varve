@@ -1,6 +1,6 @@
 # Switch system
 
-**Status:** current production contract  
+**Status:** current production contract
 **Last updated:** 2026-08-31
 
 Varve uses a switch only for an immediate or persisted binary setting. The

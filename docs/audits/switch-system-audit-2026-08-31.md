@@ -3,8 +3,8 @@
 Date: 2026-08-31
 
 Status: implemented in the switch-system commit series ending at
-`8907f50fc`; documentation and website selector follow-up verified
-2026-08-31.
+`8907f50fc`; documentation, website selector, and responsive settings follow-up
+verified 2026-08-31.
 
 ## Executive result
 
@@ -160,9 +160,10 @@ switch implementation was found.
 
 Focused checks completed during the migration:
 
-- `packages/ui/src/components/Switch.test.tsx`: 10/10 passed, covering labels,
+- `packages/ui/src/components/Switch.test.tsx`: 11/11 passed, covering labels,
   ARIA state, click/keyboard interaction, disabled behavior, controlled and
-  uncontrolled usage, form reset, descriptions, and unique IDs.
+  uncontrolled usage, form reset, descriptions, disabled reasons, and unique
+  IDs.
 - Effect/gradient editor focused tests: 33/33 passed.
 - Inspector, colorize, background-removal, adaptive, archive, interaction,
   email, and spread focused tests passed in their respective migration slices.
@@ -176,7 +177,10 @@ Rendered browser checks completed for the affected controls:
 - `VARVE_E2E_PORT=1499 pnpm exec playwright test tests/e2e/canvas/asset-similarity.spec.ts --project=chromium --workers=1 --reporter=list`: 4/4 passed, including pointer and ArrowRight radio interaction.
 - `VARVE_E2E_PORT=1499 pnpm exec playwright test tests/e2e/canvas/front-facing-adjustments.spec.ts --project=chromium --workers=1 --grep "soft-proof" --reporter=list`: 1/1 passed, including pointer activation of both migrated switches.
 - `VARVE_E2E_PORT=1499 pnpm exec playwright test tests/e2e/inspector/blend-evaluation.spec.ts --project=chromium --workers=1 --reporter=list`: 1/1 passed.
-- `VARVE_WEBSITE_E2E_PORT=4431 VARVE_WEBSITE_E2E_PORT_ROOT=4432 pnpm exec playwright test -c playwright.website.config.ts apps/website/tests/e2e/theme.spec.ts --project=ghpages --project=custom-domain --reporter=list`: 60/60 passed, including both theme builds and arrow-key radio selection.
+- `VARVE_WEBSITE_E2E_PORT=4431 VARVE_WEBSITE_E2E_PORT_ROOT=4432 pnpm exec playwright test -c playwright.website.config.ts apps/website/tests/e2e/theme.spec.ts --project=ghpages --project=custom-domain --reporter=list`: 62/62 passed, including both theme builds and arrow/Home/End radio selection.
+
+- `VARVE_E2E_PORT=1499 pnpm exec playwright test tests/e2e/settings/settings-dialog.spec.ts --project=chromium --grep 'narrow width' --reporter=list`: 1/1 passed; all visible General switches remained inside the 820px dialog and the screenshot was inspected.
+- `VARVE_WEBSITE_E2E_PORT=4431 VARVE_WEBSITE_E2E_PORT_ROOT=4432 pnpm exec playwright test -c playwright.website.config.ts apps/website/tests/e2e/visual.spec.ts --project=ghpages --grep 'product' --reporter=list`: 3/3 passed after reviewing the updated light/dark marketing captures.
 
 The focused run also exercised the other front-facing adjustment tests: three
 additional cases passed. The table visual spec was left out of the final pass
@@ -208,6 +212,10 @@ The work was split into independently reviewable commits:
 10. `d8bfdcd06` rich-text switch migration and switch hover behavior.
 11. `3eeb85077` native switch hit-area correction.
 12. `8907f50fc` migrated-switch E2E coverage.
+13. `cc7063e91` switch design contract and audit documentation.
+14. `fe8fc95e1` disabled dependency explanation and switch stories.
+15. `1ba5223c5` website control semantics, theme keyboard navigation, and marketing copy.
+16. `2781b1a9e` narrow settings-dialog switch E2E coverage and visual baseline.
 
 The repository had pre-existing unrelated validation/release changes. The
 pre-commit hook also rejected the migration commits because its local `madge`
