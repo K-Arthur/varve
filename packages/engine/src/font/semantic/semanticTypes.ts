@@ -187,6 +187,7 @@ export interface FontSemanticQuery {
   excluded: SemanticConstraint[];
   numericRanges: NumericConstraint[];
   similarityTarget?: FontReference;
+  similarityRelation?: 'similar' | 'same-width' | 'less-formal';
   intendedRole?: string[];
   availability?: FontAvailabilityConstraint;
   strictness: 'strict' | 'balanced' | 'exploratory';

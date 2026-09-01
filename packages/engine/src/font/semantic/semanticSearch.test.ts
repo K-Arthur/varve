@@ -70,4 +70,16 @@ describe('font semantic ranking', () => {
     expect(result[0]?.record.familyId).toBe('inter');
     expect(result[0]?.reasons.some((reason) => reason.label === 'Exact family match')).toBe(true);
   });
+
+  it('treats similarity and same-width references as explicit local relations', () => {
+    const target = semanticRecordFromFontsource(
+      family({ familyId: 'target', familyName: 'Target' }),
+    );
+    const sibling = semanticRecordFromFontsource(
+      family({ familyId: 'sibling', familyName: 'Sibling' }),
+    );
+    const similar = searchFontSemanticRecords([target, sibling], 'similar to Target');
+    expect(similar.some((result) => result.record.familyId === 'target')).toBe(false);
+    expect(similar[0]?.reasons.some((reason) => reason.label === 'Similar to Target')).toBe(true);
+  });
 });

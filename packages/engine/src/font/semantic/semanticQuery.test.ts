@@ -35,6 +35,7 @@ describe('parseFontSemanticQuery', () => {
   it('keeps ambiguity visible and supports font references', () => {
     const query = parseFontSemanticQuery('similar to IBM Plex Sans but more modern');
     expect(query.similarityTarget?.familyName).toBe('IBM Plex Sans');
+    expect(query.similarityRelation).toBe('similar');
     expect(query.ambiguities.map((item) => item.term)).toContain('modern');
   });
 

@@ -134,18 +134,26 @@ export function parseFontSemanticQuery(input: string): FontSemanticQuery {
   const similarMatch = text.match(/\b(?:similar to|like)\s+(.+?)(?=\s+(?:with|for|but|and)\b|$)/i);
   if (similarMatch?.[1]) {
     const reference = parseReference(similarMatch[1]);
-    if (reference) query.similarityTarget = reference;
+    if (reference) {
+      query.similarityTarget = reference;
+      query.similarityRelation = 'similar';
+    }
   }
   const sameWidthMatch = text.match(/\bsame width as\s+(.+?)(?=\s+(?:with|for|but|and)\b|$)/i);
   if (sameWidthMatch?.[1]) {
     const reference = parseReference(sameWidthMatch[1]);
-    if (reference) query.similarityTarget = reference;
-    query.numericRanges.push({ field: 'average-width', raw: sameWidthMatch[0] });
+    if (reference) {
+      query.similarityTarget = reference;
+      query.similarityRelation = 'same-width';
+    }
   }
   const lessFormalMatch = text.match(/\bless formal than\s+(.+?)(?=\s+(?:with|for|but|and)\b|$)/i);
   if (lessFormalMatch?.[1]) {
     const reference = parseReference(lessFormalMatch[1]);
-    if (reference) query.similarityTarget = reference;
+    if (reference) {
+      query.similarityTarget = reference;
+      query.similarityRelation = 'less-formal';
+    }
     const formal = constraintForTag('tone.formal');
     if (formal) {
       query.excluded.push(formal);
@@ -238,6 +246,24 @@ export function parseFontSemanticQuery(input: string): FontSemanticQuery {
   for (const term of terms) {
     if (!tagIdForTerm(term) && !consumed.has(term) && term.length > 1) query.exactTerms.push(term);
   }
+  const stopwords = new Set([
+    'a',
+    'an',
+    'and',
+    'as',
+    'for',
+    'in',
+    'like',
+    'of',
+    'on',
+    'the',
+    'to',
+    'with',
+  ]);
+  const referenceTerms = new Set(query.similarityTarget?.normalizedName.split(' ') ?? []);
+  query.exactTerms = query.exactTerms.filter(
+    (term) => !stopwords.has(term) && !referenceTerms.has(term),
+  );
   if (query.exactTerms.length === 0 && lower && !query.similarityTarget)
     query.exactTerms.push(lower);
   query.intendedRole = [...new Set(query.intendedRole)];

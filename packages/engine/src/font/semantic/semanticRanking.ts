@@ -140,6 +140,48 @@ function numericMatches(
   return value >= min && value <= max ? 'satisfied' : 'unsatisfied';
 }
 
+function measuredSimilarity(
+  record: FontSemanticRecord,
+  target: FontSemanticRecord,
+): { score: number; reason?: FontSearchReason } {
+  const recordTags = recordAssignments(record);
+  const targetTags = recordAssignments(target);
+  const shared = [...recordTags].filter((tag) => targetTags.has(tag)).length;
+  const tagCount = Math.max(recordTags.size, targetTags.size, 1);
+  const featureKeys = ['xHeightRatio', 'capHeightRatio', 'widthRatio', 'strokeContrast'] as const;
+  const distances = featureKeys.flatMap((key) => {
+    const a = record.profile.visualFeatures[key];
+    const b = target.profile.visualFeatures[key];
+    return a === undefined || b === undefined ? [] : [Math.min(Math.abs(a - b), 1)];
+  });
+  const featureScore =
+    distances.length > 0
+      ? 1 - distances.reduce((sum, value) => sum + value, 0) / distances.length
+      : 0.25;
+  return {
+    score: (shared / tagCount) * 48 + featureScore * 36,
+    ...(shared > 0 || distances.length > 0
+      ? {
+          reason: {
+            kind: 'similarity',
+            label: `Similar to ${target.familyName}`,
+            provenance: 'local semantic profile',
+          },
+        }
+      : {}),
+  };
+}
+
+function sameWidthState(record: FontSemanticRecord, target: FontSemanticRecord): ConstraintState {
+  const value =
+    record.profile.visualFeatures.averageAdvance ?? record.profile.visualFeatures.widthRatio;
+  const targetValue =
+    target.profile.visualFeatures.averageAdvance ?? target.profile.visualFeatures.widthRatio;
+  if (value === undefined || targetValue === undefined) return 'unknown';
+  const scale = Math.max(Math.abs(targetValue), 1);
+  return Math.abs(value - targetValue) / scale <= 0.08 ? 'satisfied' : 'unsatisfied';
+}
+
 function constraintMatches(
   record: FontSemanticRecord,
   constraint: SemanticConstraint,
@@ -350,6 +392,46 @@ export function searchFontSemanticRecords(
       }
     }
     if (rejected) continue;
+    if (query.similarityTarget) {
+      const target = records.find(
+        (candidate) => normalize(candidate.familyName) === query.similarityTarget?.normalizedName,
+      );
+      if (!target) {
+        unknownRequired.push(`Reference ${query.similarityTarget.familyName}`);
+        if (strictness === 'strict') continue;
+        addReason(reasons, {
+          kind: 'unknown',
+          label: `Reference ${query.similarityTarget.familyName} not found locally`,
+          provenance: 'local semantic catalog',
+        });
+      } else if (target.familyId === record.familyId) {
+        continue;
+      } else if (query.similarityRelation === 'same-width') {
+        const state = sameWidthState(record, target);
+        if (state === 'unsatisfied') continue;
+        if (state === 'unknown') {
+          unknownRequired.push(`Same width as ${target.familyName}`);
+          if (strictness === 'strict') continue;
+          addReason(reasons, {
+            kind: 'unknown',
+            label: `Same width as ${target.familyName} not verified`,
+            provenance: 'measurement unavailable',
+          });
+        } else {
+          score += 44;
+          addReason(reasons, {
+            kind: 'visual-feature',
+            label: `Same width as ${target.familyName}`,
+            contribution: 44,
+            provenance: 'local font measurements',
+          });
+        }
+      } else if (query.similarityRelation === 'similar') {
+        const similarity = measuredSimilarity(record, target);
+        score += similarity.score;
+        if (similarity.reason) addReason(reasons, similarity.reason);
+      }
+    }
     for (const constraint of query.excluded) {
       if (constraintMatches(record, constraint) === 'satisfied')
         excludedMatches.push(constraint.label);
