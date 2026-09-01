@@ -55,18 +55,28 @@ const choices = [
    * active state. No competing controllers exist.
    */
   const groups = document.querySelectorAll<HTMLElement>('.theme-switcher');
-  const buttons = document.querySelectorAll<HTMLButtonElement>('.theme-option');
-
-  function refreshPressed() {
+  function refreshSelection() {
     const api = window.__varveTheme;
     if (!api) return;
     const state = api.state();
-    for (const button of buttons) {
-      const active = button.dataset.themeChoice === state.theme;
-      button.setAttribute('aria-checked', String(active));
-      button.tabIndex = active ? 0 : -1;
-      button.classList.toggle('active', active);
+    for (const group of groups) {
+      for (const button of group.querySelectorAll<HTMLButtonElement>('.theme-option')) {
+        const active = button.dataset.themeChoice === state.theme;
+        button.setAttribute('aria-checked', String(active));
+        button.tabIndex = active ? 0 : -1;
+        button.classList.toggle('active', active);
+      }
     }
+  }
+
+  function selectInGroup(groupButtons: HTMLButtonElement[], index: number) {
+    const button = groupButtons[index];
+    const api = window.__varveTheme;
+    if (!button || !api) return;
+    api.write(button.dataset.themeChoice ?? '');
+    api.apply();
+    refreshSelection();
+    button.focus();
   }
 
   for (const group of groups) {
@@ -80,21 +90,26 @@ const choices = [
         // into a persisted choice (write() migrates legacy values too).
         api.write(choice);
         api.apply();
-        refreshPressed();
+        refreshSelection();
       });
 
       button.addEventListener('keydown', (event) => {
-        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
         const index = groupButtons.indexOf(button);
-        const nextIndex = (index + (event.key === 'ArrowRight' ? 1 : -1) + groupButtons.length) % groupButtons.length;
-        groupButtons[nextIndex]?.focus();
-        groupButtons[nextIndex]?.click();
+        const nextIndex =
+          event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? groupButtons.length - 1
+              : (index + (event.key === 'ArrowRight' ? 1 : -1) + groupButtons.length) %
+                groupButtons.length;
+        selectInGroup(groupButtons, nextIndex);
       });
     }
   }
 
-  refreshPressed();
+  refreshSelection();
 </script>
 
 <style>

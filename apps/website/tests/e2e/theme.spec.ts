@@ -207,6 +207,24 @@ test.describe('theme switcher', () => {
       page.locator('.nav-actions .theme-option[data-theme-choice="dark"]'),
     ).toHaveAttribute('aria-checked', 'true');
   });
+
+  test('radio options support Home and End movement', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await freshPage(page);
+    const lightBtn = page.locator('.nav-actions .theme-option[data-theme-choice="light"]');
+    const darkBtn = page.locator('.nav-actions .theme-option[data-theme-choice="dark"]');
+
+    await darkBtn.focus();
+    await page.keyboard.press('Home');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(lightBtn).toBeFocused();
+    await expect(lightBtn).toHaveAttribute('aria-checked', 'true');
+
+    await page.keyboard.press('End');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(darkBtn).toBeFocused();
+    await expect(darkBtn).toHaveAttribute('aria-checked', 'true');
+  });
 });
 
 test.describe('forced-colors compatibility', () => {
