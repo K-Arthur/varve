@@ -17,7 +17,7 @@ import {
 } from '@varve/engine';
 import type { SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
-import { Button, Select, Switch } from '@varve/ui';
+import { Button, Select, ShineBorder, Switch } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { removeRasterMaskFromNode } from '../../../backgroundRemoval/commitRasterMask';
 import { isCapabilityRestricted } from '../../../capabilities/restrictions';
@@ -637,83 +637,89 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           </div>
 
           {previewSession && (
-            <section className="insp-nested-panel" aria-label="Background removal review">
-              <p className="insp-subsection__label">Review mask before applying</p>
-              <div
-                className="insp-mask-review"
-                style={{
-                  backgroundImage:
-                    'linear-gradient(45deg, var(--color-surface-sunken) 25%, transparent 25%), linear-gradient(-45deg, var(--color-surface-sunken) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--color-surface-sunken) 75%), linear-gradient(-45deg, transparent 75%, var(--color-surface-sunken) 75%)',
-                  backgroundSize: '16px 16px',
-                }}
-              >
-                <img
-                  src={imageShapeSrc(node)}
-                  alt="Isolated subject preview"
+            <ShineBorder variant="beam" tone="accent">
+              <section className="insp-nested-panel" aria-label="Background removal review">
+                <p className="insp-subsection__label">Review mask before applying</p>
+                <div
+                  className="insp-mask-review"
                   style={{
-                    display: 'block',
-                    width: '100%',
-                    maxHeight: 180,
-                    objectFit: 'contain',
-                    WebkitMaskImage: `url("${previewSession.maskDataUrl}")`,
-                    WebkitMaskSize: 'contain',
-                    WebkitMaskPosition: 'center',
-                    WebkitMaskRepeat: 'no-repeat',
-                    maskImage: `url("${previewSession.maskDataUrl}")`,
-                    maskSize: 'contain',
-                    maskPosition: 'center',
-                    maskRepeat: 'no-repeat',
+                    backgroundImage:
+                      'linear-gradient(45deg, var(--color-surface-sunken) 25%, transparent 25%), linear-gradient(-45deg, var(--color-surface-sunken) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--color-surface-sunken) 75%), linear-gradient(-45deg, transparent 75%, var(--color-surface-sunken) 75%)',
+                    backgroundSize: '16px 16px',
                   }}
-                />
-              </div>
-              <p className="insp-hint" role="status">
-                Requested {previewSession.requestedMethod}; generated {previewSession.actualMethod}
-                {previewSession.modelId ? ` with ${previewSession.modelId}` : ''}
-                {previewSession.modelPrecision
-                  ? ` (${previewSession.modelPrecision.toUpperCase()})`
-                  : ''}
-                {previewSession.executionProvider ? ` on ${previewSession.executionProvider}` : ''}.
-                {previewSession.precisionFallback && previewSession.precisionFallbackReason
-                  ? ` ${previewSession.precisionFallbackReason}`
-                  : ''}{' '}
-                Nothing has been added to the document yet.
-              </p>
-              <div className="insp-field">
-                <span className="insp-field__label">Mask confidence</span>
-                <div className="insp-field__control">
-                  <progress
-                    max={1}
-                    value={previewSession.confidence}
-                    aria-label="Mask confidence"
+                >
+                  <img
+                    src={imageShapeSrc(node)}
+                    alt="Isolated subject preview"
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      maxHeight: 180,
+                      objectFit: 'contain',
+                      WebkitMaskImage: `url("${previewSession.maskDataUrl}")`,
+                      WebkitMaskSize: 'contain',
+                      WebkitMaskPosition: 'center',
+                      WebkitMaskRepeat: 'no-repeat',
+                      maskImage: `url("${previewSession.maskDataUrl}")`,
+                      maskSize: 'contain',
+                      maskPosition: 'center',
+                      maskRepeat: 'no-repeat',
+                    }}
                   />
-                  <span>{Math.round(previewSession.confidence * 100)}%</span>
                 </div>
-              </div>
-              {previewSession.confidence < 0.55 && (
-                <p className="insp-hint insp-hint--warn" role="status">
-                  The subject boundary is uncertain. Cancel and choose AI Balanced, or apply then
-                  use Edit mask to correct it.
+                <p className="insp-hint" role="status">
+                  Requested {previewSession.requestedMethod}; generated{' '}
+                  {previewSession.actualMethod}
+                  {previewSession.modelId ? ` with ${previewSession.modelId}` : ''}
+                  {previewSession.modelPrecision
+                    ? ` (${previewSession.modelPrecision.toUpperCase()})`
+                    : ''}
+                  {previewSession.executionProvider
+                    ? ` on ${previewSession.executionProvider}`
+                    : ''}
+                  .
+                  {previewSession.precisionFallback && previewSession.precisionFallbackReason
+                    ? ` ${previewSession.precisionFallbackReason}`
+                    : ''}{' '}
+                  Nothing has been added to the document yet.
                 </p>
-              )}
-              <div className="insp-actions">
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={applyBackgroundRemovalPreview}
-                >
-                  Apply result
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={cancelBackgroundRemovalPreview}
-                >
-                  Cancel preview
-                </Button>
-              </div>
-            </section>
+                <div className="insp-field">
+                  <span className="insp-field__label">Mask confidence</span>
+                  <div className="insp-field__control">
+                    <progress
+                      max={1}
+                      value={previewSession.confidence}
+                      aria-label="Mask confidence"
+                    />
+                    <span>{Math.round(previewSession.confidence * 100)}%</span>
+                  </div>
+                </div>
+                {previewSession.confidence < 0.55 && (
+                  <p className="insp-hint insp-hint--warn" role="status">
+                    The subject boundary is uncertain. Cancel and choose AI Balanced, or apply then
+                    use Edit mask to correct it.
+                  </p>
+                )}
+                <div className="insp-actions">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={applyBackgroundRemovalPreview}
+                  >
+                    Apply result
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={cancelBackgroundRemovalPreview}
+                  >
+                    Cancel preview
+                  </Button>
+                </div>
+              </section>
+            </ShineBorder>
           )}
 
           {maskProvenance && (

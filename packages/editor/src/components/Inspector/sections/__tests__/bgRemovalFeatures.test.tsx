@@ -244,7 +244,11 @@ describe('BackgroundRemovalSection - Preview toggle', () => {
     );
 
     render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
-    expect(screen.getByLabelText('Background removal review')).toBeTruthy();
+    expect(screen.getByLabelText('Background removal review')).toHaveClass(
+      'varve-shine-border--beam',
+      'varve-shine-border--tone-accent',
+      'varve-shine-border--active',
+    );
     expect(screen.getByText(/requested ai-quality; generated ai-balanced on wasm/i)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Apply result' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel preview' }));

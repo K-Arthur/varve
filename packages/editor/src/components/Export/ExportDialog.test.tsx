@@ -270,6 +270,59 @@ describe('ExportDialog', () => {
     expect(capturedSignal?.aborted).toBe(true);
   });
 
+  it('does not redisplay an earlier successful report after a later export is cancelled', async () => {
+    let invocation = 0;
+    let resolveCancelledReport: (() => void) | undefined;
+    const onExport = vi.fn((batch: { jobs: Array<{ fileName: string; nodeId: string }> }) => {
+      invocation += 1;
+      const job = batch.jobs[0];
+      const report = {
+        startedAt: invocation,
+        completedAt: invocation + 1,
+        durationMs: 1,
+        totalJobs: 1,
+        successCount: 1,
+        failureCount: 0,
+        files: [
+          {
+            fileName: job?.fileName ?? 'Rectangle 1@2x.png',
+            format: 'png' as const,
+            nodeId: job?.nodeId ?? 'n1',
+            status: 'success' as const,
+            mimeType: 'image/png',
+            byteCount: 100,
+            durationMs: 5,
+            warnings: [],
+          },
+        ],
+      };
+      if (invocation === 1) return Promise.resolve(report);
+      return new Promise((resolve) => {
+        resolveCancelledReport = () => resolve(report);
+      });
+    });
+    render(
+      <ExportDialog isOpen={true} onClose={() => {}} nodes={[mockNode()]} onExport={onExport} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Export \(1\)/ }));
+    await waitFor(() => expect(screen.getByText('1 of 1 exported')).toBeInTheDocument());
+    expect(screen.getByRole('region', { name: 'Export results' })).toHaveClass(
+      'varve-shine-border--active',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Export \(1\)/ }));
+    await waitFor(() => expect(onExport).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole('button', { name: /Cancel/ }));
+
+    await waitFor(() => expect(screen.getByText('Export cancelled')).toBeInTheDocument());
+    expect(screen.queryByRole('region', { name: 'Export results' })).toBeNull();
+
+    resolveCancelledReport?.();
+    const cancelledResults = await screen.findByRole('region', { name: 'Export results' });
+    expect(cancelledResults).not.toHaveClass('varve-shine-border--active');
+  });
+
   it('runs package export as a separate action', async () => {
     const onPackageExport = vi.fn(async () => {});
     render(
@@ -563,5 +616,10 @@ describe('ExportDialog', () => {
     const retryBatch = (retryCall[0] as { jobs: unknown[] }).jobs;
     expect(retryBatch).toHaveLength(1);
     expect((firstBatch as { jobs: unknown[] }).jobs).toHaveLength(1);
+    await waitFor(() =>
+      expect(screen.getByRole('region', { name: 'Export results' })).toHaveClass(
+        'varve-shine-border--active',
+      ),
+    );
   });
 });
