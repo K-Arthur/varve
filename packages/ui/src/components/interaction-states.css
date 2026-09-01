@@ -101,6 +101,7 @@
 .varve-interaction-gallery__match {
   background: var(--color-highlight-search-match);
   border-radius: var(--radius-control-compact);
+  color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
   text-decoration: underline;
   text-decoration-thickness: 2px;
