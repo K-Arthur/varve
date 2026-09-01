@@ -130,6 +130,9 @@ fail when they introduce a raw numeric radius or a legacy alias consumer.
 - Website production build and GitHub Pages build passed for all 66 pages.
 - Direct website Playwright geometry checks passed in light and dark themes;
   screenshots were inspected for the home and download surfaces.
+- The navbar’s compact Download and Try CTAs use the same 6px control radius
+  as every non-pill CTA; an exhaustive browser check passed across all 66
+  generated website routes.
 - Existing website visual checks passed for homepage light/dark and product
   showcase light. The download-dark full-page check hit its existing unstable
   screenshot-height stitching guard; the captured page was inspected and had
