@@ -292,6 +292,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/workspace-navigation.md` | Workspace navigation behavior |
 | `architecture/filesystem-boundary.md` | Cross-platform directory, path, storage, and native filesystem boundary |
 | `architecture/website-theme-contrast.md` | Website theme and WCAG contrast architecture |
+| `architecture/theme-system.md` | Canonical application colour tokens, theme lifecycle, persistence, synchronization, and authored-colour boundary |
 | `architecture/multi-window-workspaces.md` | Detachable panels and native multi-monitor workspaces |
 | `architecture/multimodal-edit-plan.md` | Multimodal design edit plans and proposal boundary |
 | `architecture/halftone-system.md` | Halftone screening: canonical parameters, coordinates, tone mapping, export parity |

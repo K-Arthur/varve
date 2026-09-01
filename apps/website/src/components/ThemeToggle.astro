@@ -10,7 +10,8 @@
  *
  * State lives in the pre-paint inline script in Layout.astro
  * (window.__varveTheme); this component only renders the control and wires
- * clicks to that API. There is exactly one source of truth.
+ * clicks to that API. The root's data-theme-mode remains "system" until the
+ * first explicit click; data-theme always exposes the resolved palette.
  */
 const choices = [
   { value: 'light', label: 'Light theme', icon: 'sun' },
@@ -110,6 +111,7 @@ const choices = [
   }
 
   refreshSelection();
+  window.addEventListener('varve:theme-change', refreshSelection);
 </script>
 
 <style>

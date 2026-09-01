@@ -35,7 +35,7 @@ Those values must not be converted into application-chrome tokens.
   the shared CSS variables. The startup loader is intentionally brand-fixed
   dark and is documented as an identity surface rather than application
   chrome.
-- The token audit currently checks 120 foreground/background pairs across all
+- The token audit currently checks 135 foreground/background pairs across all
   three application themes. Website static and browser audits add route-level
   computed-style and visual coverage.
 

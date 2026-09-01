@@ -39,6 +39,7 @@ test.describe('theme resolution', () => {
       await expect
         .poll(() => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
         .toBe(t.theme);
+      await expect(page.locator('html')).toHaveAttribute('data-theme-mode', 'system');
     });
   }
 
@@ -50,6 +51,7 @@ test.describe('theme resolution', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await page.emulateMedia({ colorScheme: 'dark' });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-theme-mode', 'system');
   });
 
   test('no theme is ever set to a legacy or high-contrast value', async ({ page }) => {
@@ -60,6 +62,7 @@ test.describe('theme resolution', () => {
       await page.reload();
       const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
       expect(theme, `legacy value "${legacy}"`).toMatch(/^(light|dark)$/);
+      await expect(page.locator('html')).toHaveAttribute('data-theme-mode', 'system');
     }
   });
 
@@ -135,6 +138,7 @@ test.describe('theme switcher', () => {
     await freshPage(page);
     await page.locator('.nav-actions .theme-option[data-theme-choice="light"]').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(page.locator('html')).toHaveAttribute('data-theme-mode', 'light');
     const stored = await page.evaluate(() => localStorage.getItem('varve-theme'));
     expect(stored).toBe('light');
     const checked = await page
@@ -143,6 +147,23 @@ test.describe('theme switcher', () => {
     expect(checked).toBe('true');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(page.locator('html')).toHaveAttribute('data-theme-mode', 'light');
+  });
+
+  test('an explicit choice synchronizes another open tab', async ({ page, context }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await freshPage(page);
+    const sibling = await context.newPage();
+    await sibling.emulateMedia({ colorScheme: 'light' });
+    await sibling.goto('/');
+
+    await page.locator('.nav-actions .theme-option[data-theme-choice="dark"]').click();
+
+    await expect(sibling.locator('html')).toHaveAttribute('data-theme-mode', 'dark');
+    await expect(sibling.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(
+      sibling.locator('.nav-actions .theme-option[data-theme-choice="dark"]'),
+    ).toHaveAttribute('aria-checked', 'true');
   });
 
   test('persisted light overrides OS dark and vice versa', async ({ page }) => {
