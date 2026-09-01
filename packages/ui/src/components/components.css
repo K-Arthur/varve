@@ -149,6 +149,20 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
+  padding: 0;
+}
+.varve-iconbtn.varve-btn--sm {
+  min-block-size: var(--component-compact-height);
+  min-inline-size: var(--component-compact-height);
+}
+.varve-iconbtn.varve-btn--md {
+  min-block-size: var(--component-default-height);
+  min-inline-size: var(--component-default-height);
+}
+.varve-iconbtn.varve-btn--lg {
+  min-block-size: var(--component-large-height);
+  min-inline-size: var(--component-large-height);
 }
 
 /* Semantic renderer: keep SVGs aligned with text and prevent
@@ -168,19 +182,20 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-icon-label);
-  height: var(--space-6);
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-3);
+  min-block-size: var(--component-default-height);
+  min-inline-size: var(--component-default-height);
+  box-sizing: border-box;
+  padding: var(--space-2) var(--component-default-padding-inline);
   border: none;
   border-radius: var(--radius-control);
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  line-height: 1;
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  font-weight: var(--type-interface-control-weight);
+  line-height: var(--type-interface-control-line-height);
   cursor: pointer;
   outline-offset: 2px;
   position: relative;
+  white-space: normal;
   transition:
     background var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard),
@@ -224,12 +239,11 @@
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   border-radius: var(--radius-pill);
-  height: 32px;
-  min-height: 32px;
-  min-width: 32px;
-  padding: 0 var(--space-3);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+  min-block-size: var(--component-compact-height);
+  min-inline-size: var(--component-compact-height);
+  padding-inline: var(--component-compact-padding-inline);
+  font-size: var(--type-interface-caption-size);
+  font-weight: var(--type-interface-control-weight);
 }
 .varve-btn--pill:hover {
   background: var(--color-interactive-hover);
@@ -239,12 +253,11 @@
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-pill);
-  height: 32px;
-  min-height: 32px;
-  min-width: 32px;
-  padding: 0 var(--space-3);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+  min-block-size: var(--component-compact-height);
+  min-inline-size: var(--component-compact-height);
+  padding-inline: var(--component-compact-padding-inline);
+  font-size: var(--type-interface-caption-size);
+  font-weight: var(--type-interface-control-weight);
 }
 .varve-btn--pill-outline:hover {
   background: var(--color-surface-sunken);
@@ -252,17 +265,21 @@
   color: var(--color-interactive-default);
 }
 .varve-btn--sm {
-  height: 32px;
-  min-height: 32px;
-  min-width: 32px;
-  padding: 0 var(--space-2);
-  font-size: var(--font-size-xs);
+  min-block-size: var(--component-compact-height);
+  min-inline-size: var(--component-compact-height);
+  padding-inline: var(--component-compact-padding-inline);
+  font-size: var(--type-interface-caption-size);
+}
+.varve-btn--md {
+  min-block-size: var(--component-default-height);
+  min-inline-size: var(--component-default-height);
+  padding-inline: var(--component-default-padding-inline);
 }
 .varve-btn--lg {
-  height: 52px;
-  min-height: 52px;
-  padding: 0 var(--space-4);
-  font-size: var(--font-size-md);
+  min-block-size: var(--component-large-height);
+  min-inline-size: var(--component-large-height);
+  padding-inline: var(--component-large-padding-inline);
+  font-size: var(--type-interface-body-size);
 }
 
 /* Compact controls stay visually compact on desktop while retaining the
@@ -271,8 +288,8 @@
   .varve-btn--sm,
   .varve-btn--pill,
   .varve-btn--pill-outline {
-    min-height: 44px;
-    min-width: 44px;
+    min-block-size: var(--touch-target-min);
+    min-inline-size: var(--touch-target-min);
   }
 }
 
@@ -409,14 +426,13 @@
   flex-shrink: 0;
 }
 .varve-dialog__title {
-  font-family: var(--font-display);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-family: var(--type-interface-title-family);
+  font-size: var(--type-interface-title-size);
+  font-weight: var(--type-interface-title-weight);
+  line-height: var(--type-interface-title-line-height);
   margin: 0;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 /* H3 (2026-08-16): dialog close button must meet WCAG 2.5.5 target size. */
 .varve-dialog__close {
@@ -504,13 +520,16 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding-block: var(--space-menu-item);
+  min-block-size: var(--menu-item-min-height);
+  box-sizing: border-box;
+  padding-block: var(--space-1);
   padding-inline: var(--space-3);
   background: none;
   border: none;
   color: var(--color-text-primary);
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  line-height: var(--type-interface-control-line-height);
   cursor: pointer;
   text-align: left;
   white-space: nowrap;
@@ -616,14 +635,16 @@
 }
 .varve-search__input {
   width: 100%;
-  height: var(--space-6);
+  min-block-size: var(--component-compact-height);
+  box-sizing: border-box;
   padding: 0 var(--space-2) 0 var(--space-7);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
   color: var(--color-text-primary);
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  line-height: var(--type-interface-control-line-height);
   outline-offset: 2px;
 }
 .varve-search__input:focus-visible {
@@ -663,8 +684,9 @@
   position: relative;
   display: inline-flex;
   flex-direction: column;
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  line-height: var(--type-interface-control-line-height);
   width: 100%;
 }
 
@@ -1064,12 +1086,15 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
+  min-block-size: var(--tab-min-height);
+  box-sizing: border-box;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--color-text-secondary);
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  line-height: var(--type-interface-control-line-height);
   cursor: pointer;
   outline-offset: -2px;
   white-space: nowrap;
@@ -1804,6 +1829,7 @@
   align-items: center;
   gap: var(--space-toolbar-item);
   background: var(--elevation-surface-default);
+  min-block-size: var(--toolbar-height);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1989,7 +2015,8 @@
   gap: var(--space-label-control);
 }
 .varve-input__label {
-  font-size: var(--font-size-sm);
+  font-size: var(--type-interface-label-size);
+  line-height: var(--type-interface-label-line-height);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
 }
@@ -2026,14 +2053,16 @@
 }
 .varve-input__field {
   flex: 1;
-  height: var(--space-5);
-  padding: 0 var(--space-2);
+  min-block-size: var(--component-default-height);
+  box-sizing: border-box;
+  padding: var(--space-2);
   background: transparent;
   border: none;
   border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--font-size-sm);
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  line-height: var(--type-interface-control-line-height);
   outline: none;
 }
 .varve-input__field:focus-visible {
@@ -2041,10 +2070,14 @@
   outline-offset: 2px;
 }
 .varve-input--sm .varve-input__field {
-  height: var(--space-4);
+  min-block-size: var(--component-compact-height);
+  padding-block: var(--space-1);
+  font-size: var(--type-interface-caption-size);
 }
 .varve-input--lg .varve-input__field {
-  height: var(--space-6);
+  min-block-size: var(--component-large-height);
+  padding-block: var(--space-3);
+  font-size: var(--type-interface-body-size);
 }
 .varve-input__error {
   font-size: var(--font-size-xs);
@@ -2062,7 +2095,8 @@
   gap: var(--space-label-control);
 }
 .varve-textarea__label {
-  font-size: var(--font-size-sm);
+  font-size: var(--type-interface-label-size);
+  line-height: var(--type-interface-label-line-height);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
 }
@@ -2075,8 +2109,8 @@
   border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font: inherit;
-  font-size: var(--font-size-sm);
-  line-height: var(--font-line-normal);
+  font-size: var(--type-interface-control-size);
+  line-height: var(--type-interface-control-line-height);
   resize: vertical;
   outline: none;
   transition: border-color var(--duration-quick) var(--ease-standard);
@@ -2374,29 +2408,26 @@
   background: var(--color-accent-subtle);
 }
 .varve-toggle-btn--sm {
-  height: 24px;
-  min-height: 24px;
-  min-width: 24px;
-  width: 24px;
+  min-block-size: var(--component-compact-height);
+  min-inline-size: var(--component-compact-height);
+  inline-size: var(--component-compact-height);
 }
 .varve-toggle-btn--md {
-  height: 32px;
-  min-height: 32px;
-  min-width: 32px;
-  width: 32px;
+  min-block-size: var(--component-default-height);
+  min-inline-size: var(--component-default-height);
+  inline-size: var(--component-default-height);
 }
 .varve-toggle-btn--lg {
-  height: 36px;
-  min-height: 36px;
-  min-width: 36px;
-  width: 36px;
+  min-block-size: var(--component-large-height);
+  min-inline-size: var(--component-large-height);
+  inline-size: var(--component-large-height);
 }
 @media (pointer: coarse) {
   .varve-toggle-btn--sm,
   .varve-toggle-btn--md,
   .varve-toggle-btn--lg {
-    min-height: 44px;
-    min-width: 44px;
+    min-block-size: var(--touch-target-min);
+    min-inline-size: var(--touch-target-min);
   }
 }
 .varve-toggle-btn:focus-visible {

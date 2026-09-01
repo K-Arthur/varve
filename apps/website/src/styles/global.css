@@ -47,10 +47,11 @@
   }
 
   body {
-    font-family: var(--font-body);
+    font-family: var(--type-content-body-family);
+    font-size: var(--type-content-body-size);
     color: var(--text-primary);
     background: var(--surface-page);
-    line-height: 1.6;
+    line-height: var(--type-content-body-line-height);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -61,9 +62,9 @@
   h4,
   h5,
   h6 {
-    font-family: var(--font-display);
+    font-family: var(--font-interface);
     color: var(--text-primary);
-    line-height: 1.2;
+    line-height: var(--font-line-tight);
   }
 
   a {
@@ -122,8 +123,8 @@
     padding: var(--space-5);
     overflow-x: auto;
     font-family: var(--font-mono);
-    font-size: 0.875rem;
-    line-height: 1.7;
+    font-size: var(--type-interface-body-size);
+    line-height: var(--type-content-body-line-height);
     border: 1px solid var(--border-default);
   }
 
@@ -137,7 +138,7 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-body-size);
   }
 
   th,
@@ -163,7 +164,8 @@
     border-radius: var(--website-radius-control);
     padding: var(--space-2) var(--space-3);
     font-family: inherit;
-    font-size: 1rem;
+    /* Keep form text at the browser's 16px mobile zoom threshold. */
+    font-size: max(1rem, var(--type-interface-body-size));
   }
 
   input::placeholder,
@@ -507,19 +509,19 @@
   }
 
   .page-hero-title {
-    font-family: var(--font-editorial);
-    font-size: clamp(2rem, 4.5vw + 0.5rem, 3.5rem);
-    font-weight: 700;
+    font-family: var(--type-marketing-hero-family);
+    font-size: var(--type-marketing-hero-size);
+    font-weight: var(--type-marketing-hero-weight);
     font-variation-settings: "opsz" 144;
     letter-spacing: -0.025em;
-    line-height: 1.08;
+    line-height: var(--type-marketing-hero-line-height);
     color: var(--text-primary);
     margin-bottom: 0.75rem;
   }
 
   .page-hero-sub {
-    font-size: clamp(1rem, 1.5vw + 0.4rem, 1.2rem);
-    line-height: 1.65;
+    font-size: var(--type-marketing-lead-size);
+    line-height: var(--type-marketing-lead-line-height);
     color: var(--text-secondary);
     max-width: 56ch;
   }
@@ -539,19 +541,19 @@
   }
 
   .section-title {
-    font-family: var(--font-editorial);
-    font-size: clamp(1.75rem, 3vw + 0.5rem, 2.75rem);
-    font-weight: 700;
+    font-family: var(--type-marketing-section-family);
+    font-size: var(--type-marketing-section-size);
+    font-weight: var(--type-marketing-section-weight);
     font-variation-settings: "opsz" 144;
     letter-spacing: -0.025em;
-    line-height: 1.1;
+    line-height: var(--type-marketing-section-line-height);
     color: var(--text-primary);
     margin-bottom: 0.75rem;
   }
 
   .section-subtitle {
-    font-size: 1.0625rem;
-    line-height: 1.7;
+    font-size: var(--type-content-lead-size);
+    line-height: var(--type-content-lead-line-height);
     color: var(--text-secondary);
     max-width: 52ch;
   }

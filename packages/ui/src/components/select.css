@@ -6,7 +6,11 @@
 
 .varve-select__trigger {
   min-width: 0;
-  min-height: 2rem;
+  min-height: var(--component-default-height);
+  box-sizing: border-box;
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  line-height: var(--type-interface-control-line-height);
   overflow: hidden;
   text-align: start;
 }
@@ -69,7 +73,7 @@
 }
 
 .varve-select__option {
-  min-height: 2rem;
+  min-height: var(--menu-item-min-height);
   box-sizing: border-box;
   gap: var(--space-2);
 }
@@ -86,7 +90,7 @@
   overflow: hidden;
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
-  line-height: var(--line-height-tight);
+  line-height: var(--font-line-tight);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -263,7 +267,7 @@
 
 .varve-multi-select__search input {
   width: 100%;
-  min-height: 2rem;
+  min-height: var(--component-compact-height);
   box-sizing: border-box;
   padding: 0 var(--space-2);
   border: 1px solid var(--color-border-subtle);

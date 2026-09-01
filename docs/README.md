@@ -17,6 +17,8 @@ in [`architecture/image-enhancement-system.md`](architecture/image-enhancement-s
 and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchmark.md).
 The 2026-08-22 implementation evidence matrix is in
 [`audits/image-enhancement-implementation-2026-08-22.md`](audits/image-enhancement-implementation-2026-08-22.md).
+Current interface typography and component sizing contracts are documented in
+[`architecture/interface-sizing-system.md`](architecture/interface-sizing-system.md).
 
 | Doc | Purpose |
 |-----|---------|
