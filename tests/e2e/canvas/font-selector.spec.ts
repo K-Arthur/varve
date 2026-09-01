@@ -33,6 +33,15 @@ test.describe('Font selector', () => {
     // Verify the dropdown appears
     const dropdown = page.locator('.font-selector__dropdown');
     await expect(dropdown).toBeVisible({ timeout: 3000 });
+    const inputBox = await fontInput.boundingBox();
+    const dropdownBox = await dropdown.boundingBox();
+    expect(inputBox).not.toBeNull();
+    expect(dropdownBox).not.toBeNull();
+    expect(dropdownBox!.width).toBeLessThanOrEqual(inputBox!.width);
+    await page.screenshot({
+      path: test.info().outputPath('font-selector-open.png'),
+      fullPage: true,
+    });
 
     // Verify at least one font option is listed
     const options = dropdown.locator('.font-selector__option');

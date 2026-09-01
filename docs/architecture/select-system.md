@@ -90,7 +90,11 @@ need previews, metadata, favorites, loading/error states, or virtualization.
 Those stay in their feature browsers (`FontSelector`, `PresetPicker`, and
 similar) rather than making the compact `Select` API card-shaped. A searchable
 `Select` is appropriate for a moderately sized textual list; a browser owns
-large or rich data.
+large or rich data. `FontSelector` uses a TanStack virtual row window for its
+potentially large family catalog; `IconGrid` already uses the same strategy for
+icon libraries. Browsers with small bounded preset/effect result sets retain
+their existing list implementation until their measured data warrants
+windowing.
 
 ## Native controls and forms
 

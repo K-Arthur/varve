@@ -9,6 +9,7 @@
  * inline autocomplete. Arrow keys navigate, Enter selects, Escape closes.
  */
 
+import { useVirtualizer } from '@tanstack/react-virtual';
 import type { FontMetadata } from '@varve/engine';
 import { getFontRegistry } from '@varve/engine';
 import { Tooltip } from '@varve/ui';
@@ -29,6 +30,10 @@ const SOURCE_BADGES: Record<string, string> = {
   google: 'W',
 };
 
+type FontRow =
+  | { kind: 'section'; key: string; title: string; isOnline?: boolean }
+  | { kind: 'font'; key: string; family: string; index: number; isOnline?: boolean };
+
 function normalize(s: string): string {
   return s.toLowerCase().trim();
 }
@@ -43,7 +48,6 @@ export function FontSelector({
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const optionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState(value);
@@ -112,18 +116,56 @@ export function FontSelector({
   }, [filteredFamilies, recentFamilies, registry, query, googleFonts.results, fontsource.results]);
 
   const flatList = useMemo(() => sections.flatMap((s) => s.families), [sections]);
+  const rows = useMemo<FontRow[]>(() => {
+    let fontIndex = -1;
+    return sections.flatMap((section) => [
+      {
+        kind: 'section' as const,
+        key: `section-${section.title}`,
+        title: section.title,
+        isOnline: section.isOnline,
+      },
+      ...section.families.map((family) => {
+        fontIndex += 1;
+        return {
+          kind: 'font' as const,
+          key: `${section.title}-${family}`,
+          family,
+          index: fontIndex,
+          isOnline: section.isOnline,
+        };
+      }),
+    ]);
+  }, [sections]);
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: (index) => (rows[index]?.kind === 'section' ? 24 : 28),
+    getItemKey: (index) => rows[index]?.key ?? index,
+    overscan: 8,
+  });
+
+  const scrollToFontIndex = useCallback(
+    (index: number) => {
+      const rowIndex = rows.findIndex((row) => row.kind === 'font' && row.index === index);
+      if (rowIndex >= 0) virtualizer.scrollToIndex(rowIndex, { align: 'auto' });
+    },
+    [rows, virtualizer],
+  );
 
   const highlight = useCallback(
     (index: number) => {
       const clamped = Math.max(-1, Math.min(index, flatList.length - 1));
       setHighlightedIndex(clamped);
-      if (clamped >= 0) {
-        const el = optionRefs.current.get(clamped);
-        el?.scrollIntoView({ block: 'nearest' });
-      }
+      if (clamped >= 0 && isOpen) scrollToFontIndex(clamped);
     },
-    [flatList.length],
+    [flatList.length, isOpen, scrollToFontIndex],
   );
+
+  useEffect(() => {
+    if (isOpen && highlightedIndex >= 0) scrollToFontIndex(highlightedIndex);
+  }, [highlightedIndex, isOpen, scrollToFontIndex]);
 
   const select = useCallback(
     (family: string) => {
@@ -209,8 +251,6 @@ export function FontSelector({
     return SOURCE_BADGES[first.source] ?? '';
   };
 
-  let flatIndex = -1;
-
   return (
     <div className={className ? `font-selector ${className}` : 'font-selector'}>
       <label className="font-selector__label" htmlFor={inputId}>
@@ -252,64 +292,61 @@ export function FontSelector({
           role="listbox"
           aria-label="Font families"
         >
-          {sections.map((section) => (
-            <div key={section.title}>
-              <div className="font-selector__section-header" role="presentation">
-                {section.title}
-                {section.isOnline && (
-                  <span className="font-selector__section-note">Click to download</span>
-                )}
-              </div>
-              {section.families.map((family) => {
-                flatIndex++;
-                const idx = flatIndex;
-                const isHighlighted = idx === highlightedIndex;
-                const isSelected = normalize(family) === normalize(value);
-
-                if (section.isOnline) {
+          {flatList.length > 0 && (
+            <div
+              className="font-selector__virtual-content"
+              style={{ height: virtualizer.getTotalSize() }}
+            >
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const row = rows[virtualRow.index];
+                if (!row) return null;
+                const rowStyle = {
+                  position: 'absolute' as const,
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                };
+                if (row.kind === 'section') {
                   return (
                     <div
-                      key={`online-${family}`}
-                      ref={(el) => {
-                        if (el) optionRefs.current.set(idx, el);
-                      }}
-                      id={`font-selector-option-${idx}`}
-                      className={`font-selector__option${isSelected ? ' font-selector__option--selected' : ''}${isHighlighted ? ' font-selector__option--highlighted' : ''}`}
-                      role="option"
-                      tabIndex={-1}
-                      aria-selected={isSelected}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        select(family);
-                      }}
-                      onMouseEnter={() => highlight(idx)}
+                      key={virtualRow.key}
+                      ref={virtualizer.measureElement}
+                      data-index={virtualRow.index}
+                      className="font-selector__virtual-row"
+                      style={rowStyle}
                     >
-                      <span className="font-selector__option-name">{family}</span>
-                      <span className="font-selector__option-meta">
-                        <span className="font-selector__badge font-selector__badge--online">W</span>
-                      </span>
+                      <div className="font-selector__section-header" role="presentation">
+                        {row.title}
+                        {row.isOnline && (
+                          <span className="font-selector__section-note">Click to download</span>
+                        )}
+                      </div>
                     </div>
                   );
                 }
 
-                const badge = getSourceBadge(family);
-                const isVar = registry.isVariable(family);
-                const meta = getMeta(family);
+                const { family, index: idx } = row;
+                const isHighlighted = idx === highlightedIndex;
+                const isSelected = normalize(family) === normalize(value);
+                const badge = row.isOnline ? '' : getSourceBadge(family);
+                const isVar = !row.isOnline && registry.isVariable(family);
+                const meta = row.isOnline ? undefined : getMeta(family);
                 const colorTitle = meta?.paletteCount
                   ? `${(meta.colorFormats ?? []).join(', ')} · ${meta.paletteCount} palettes`
                   : (meta?.colorFormats ?? []).join(', ');
 
                 return (
                   <div
-                    key={`${section.title}-${family}`}
-                    ref={(el) => {
-                      if (el) optionRefs.current.set(idx, el);
-                    }}
+                    key={virtualRow.key}
+                    ref={virtualizer.measureElement}
+                    data-index={virtualRow.index}
                     id={`font-selector-option-${idx}`}
-                    className={`font-selector__option${isSelected ? ' font-selector__option--selected' : ''}${isHighlighted ? ' font-selector__option--highlighted' : ''}`}
+                    className={`font-selector__virtual-row font-selector__option${isSelected ? ' font-selector__option--selected' : ''}${isHighlighted ? ' font-selector__option--highlighted' : ''}`}
                     role="option"
                     tabIndex={-1}
                     aria-selected={isSelected}
+                    style={rowStyle}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       select(family);
@@ -318,35 +355,43 @@ export function FontSelector({
                   >
                     <span
                       className="font-selector__option-name"
-                      style={{ fontFamily: `"${family}", sans-serif` }}
+                      style={row.isOnline ? undefined : { fontFamily: `"${family}", sans-serif` }}
                     >
                       {family}
                     </span>
                     <span className="font-selector__option-meta">
-                      {badge && <span className="font-selector__badge">{badge}</span>}
-                      {isVar && (
-                        <span className="font-selector__badge font-selector__badge--var">w</span>
-                      )}
-                      {meta?.hasColorGlyphs && (
-                        <Tooltip label={colorTitle}>
-                          <span className="font-selector__badge font-selector__badge--color">
-                            C
-                          </span>
-                        </Tooltip>
-                      )}
-                      {meta?.embeddingRights === 'restricted' && (
-                        <Tooltip label={meta.license || 'Embedding restricted'}>
-                          <span className="font-selector__badge font-selector__badge--license">
-                            L
-                          </span>
-                        </Tooltip>
+                      {row.isOnline ? (
+                        <span className="font-selector__badge font-selector__badge--online">W</span>
+                      ) : (
+                        <>
+                          {badge && <span className="font-selector__badge">{badge}</span>}
+                          {isVar && (
+                            <span className="font-selector__badge font-selector__badge--var">
+                              w
+                            </span>
+                          )}
+                          {meta?.hasColorGlyphs && (
+                            <Tooltip label={colorTitle}>
+                              <span className="font-selector__badge font-selector__badge--color">
+                                C
+                              </span>
+                            </Tooltip>
+                          )}
+                          {meta?.embeddingRights === 'restricted' && (
+                            <Tooltip label={meta.license || 'Embedding restricted'}>
+                              <span className="font-selector__badge font-selector__badge--license">
+                                L
+                              </span>
+                            </Tooltip>
+                          )}
+                        </>
                       )}
                     </span>
                   </div>
                 );
               })}
             </div>
-          ))}
+          )}
           {googleFonts.loading && (
             <div className="font-selector__option font-selector__option--loading">
               Searching Google Fonts…

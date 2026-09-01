@@ -40,10 +40,12 @@ specialized panel is recorded in the scan so duplicate semantics are visible.
    controlled/uncontrolled handling, groups, descriptions, option icons/status
    metadata, disabled reasons, and a visible unavailable state for stale saved
    values.
-2. Search is opt-in and uses pre-normalized labels for predictable filtering.
-   The component does not pretend that a simple dropdown is a virtualized
-   asset browser; the existing font/preset/brush/model surfaces remain the
-   high-scale path.
+2. Search is opt-in and uses normalized labels/descriptions for predictable
+   filtering. The component does not pretend that a simple dropdown is a
+   virtualized asset browser; the existing font/preset/brush/model surfaces
+   remain the high-scale path. `FontSelector` now windows its section headers
+   and font rows with TanStack virtualization, while `IconGrid` retains its
+   existing virtualized grid.
 3. A shared `MultiSelect` now handles selection arrays, search, selected values
    outside the current filter, disabled options, maximum selection limits, and
    compact summaries.
@@ -90,6 +92,7 @@ diff thresholds:
 | Disabled/invalid | readable disabled reason, tokenized danger state, helper alignment |
 | Multi-select | count/chip summary, selected state under filtering, max-selection feedback |
 | Narrow panel/dialog | no parent expansion, collision flip/shift, focus restoration |
+| Font browser | virtual row count, keyboard reveal, preview/badge alignment, bounded scroll |
 | Light/dark/high contrast | semantic tokens and contrast, no feature-specific accent colors |
 | Reduced motion | immediate open/close with unchanged keyboard semantics |
 
@@ -105,6 +108,8 @@ The focused select checks completed as follows:
 | `pnpm exec vitest run --maxWorkers=1 packages/ui/src/components/Select.test.tsx` | 20/20 pass |
 | `pnpm exec vitest run --maxWorkers=1 packages/ui/src/components/MultiSelect.test.tsx packages/ui/src/components/NativeSelect.test.tsx` | 7/7 pass |
 | `pnpm --filter @varve/editor typecheck` | Pass |
+| `VARVE_E2E_PORT=1429 pnpm exec playwright test tests/e2e/canvas/font-selector.spec.ts --project=chromium --grep "opens dropdown" --reporter=list` | 1/1 pass after font virtualization, including geometry assertion and screenshot capture |
+| `test-results/run-269794-1429/.../font-selector-open.png` | Directly inspected; real editor font combobox, bounded dropdown, source badge, and failed-online status were readable and aligned |
 | `pnpm --filter @varve/ui exec storybook build --output-dir /tmp/varve-ui-storybook-select-2` | Pass; production gallery built successfully (Vite emitted only the existing large SolidIcon chunk warning) |
 | `/tmp/varve-select-grouped-open-2.png` and `/tmp/varve-multiselect-open-2.png` | Directly inspected in Chromium; grouped/status/description rendering, focus ring, portal width, and internal list scrolling were acceptable |
 | `/tmp/varve-select-narrow-2.png`, `/tmp/varve-select-stale-2.png`, `/tmp/varve-select-loading-2.png` | Directly inspected in Chromium; long-label truncation, stale-value signaling, loading state, and reduced-motion narrow-panel geometry were acceptable |

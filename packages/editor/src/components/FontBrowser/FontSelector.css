@@ -83,6 +83,15 @@
   margin-top: var(--space-1);
 }
 
+.font-selector__virtual-content {
+  position: relative;
+  width: 100%;
+}
+
+.font-selector__virtual-row {
+  box-sizing: border-box;
+}
+
 /* ---------- Section headers ---------- */
 
 .font-selector__section-header {
