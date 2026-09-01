@@ -73,6 +73,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           visible[visibleIndex] = {
             ...currentItem,
             ...normalized,
+            count: normalized.aggregate ? (currentItem.count ?? 1) + 1 : normalized.count,
             id: currentItem.id,
             updatedAt: now,
           };
@@ -86,7 +87,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           const queued = [...current.queue];
           const queuedItem = queued[queuedIndex]!;
           resultId = queuedItem.id;
-          queued[queuedIndex] = { ...queuedItem, ...normalized, id: queuedItem.id, updatedAt: now };
+          queued[queuedIndex] = {
+            ...queuedItem,
+            ...normalized,
+            count: normalized.aggregate ? (queuedItem.count ?? 1) + 1 : normalized.count,
+            id: queuedItem.id,
+            updatedAt: now,
+          };
           return { ...current, queue: queued };
         }
 

@@ -153,6 +153,29 @@ describe('Toast', () => {
     expect(screen.getAllByText('Rendering…')).toHaveLength(1);
   });
 
+  it('aggregates repeated events with the same key', async () => {
+    function AggregateTrigger() {
+      const { toast } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            toast.info({ message: 'Assets imported', dedupeKey: 'import', aggregate: true })
+          }
+        >
+          Import
+        </button>
+      );
+    }
+    renderWithProvider(<AggregateTrigger />);
+    const user = userEvent.setup();
+    const button = screen.getByText('Import');
+    await user.click(button);
+    await user.click(button);
+    await user.click(button);
+    expect(screen.getByText('Assets imported (3)')).toBeInTheDocument();
+  });
+
   it('runs an action and dismisses by default', async () => {
     let actionCount = 0;
     function ActionTrigger() {

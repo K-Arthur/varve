@@ -34,6 +34,8 @@ export interface ToastItem {
   dedupeKey?: string;
   /** Optional count for aggregated batch feedback. */
   count?: number;
+  /** Merge repeated events with the same dedupeKey into a count summary. */
+  aggregate?: boolean;
   /** Internal revision used to reset lifecycle timers after an update. */
   updatedAt?: number;
 }
@@ -52,6 +54,10 @@ function getVariant(toast: ToastItem): ToastVariant {
 function getDefaultDuration(variant: ToastVariant): number | undefined {
   switch (variant) {
     case 'loading':
+      // Direct loading calls receive a finite safety window. Long-running
+      // work belongs in a task surface; promise callers normally settle well
+      // before this watchdog expires.
+      return 120_000;
     case 'error':
       return undefined;
     case 'warning':
