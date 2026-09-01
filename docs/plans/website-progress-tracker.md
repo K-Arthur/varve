@@ -489,6 +489,25 @@
 
 ---
 
+## Shine Border placement decision (2026-08-31)
+
+The repository-wide Shine Border opportunity audit included the Astro site.
+No marketing placement was approved: the header, hero, Product Showcase,
+shared download/closing CTAs, download choices, and browser-demo callout already
+have sufficient hierarchy, and the treatment is interface feedback rather than
+a marketable product capability.
+
+`apps/website` therefore has no Shine Border component, selector, markup, copy,
+SEO claim, or promotional screenshot. The site continues to import the shared
+`@varve/ui` token sheet, which includes the unused `--duration-emphasis` and
+`--duration-emphasis-loop` declarations; having unused custom-property
+declarations creates no animation or runtime work. Website build and visual
+gates remain the regression check for that deliberate no-placement decision.
+See [`shine-border-system.md`](../architecture/shine-border-system.md) and the
+[`2026-08-31 opportunity audit`](../audits/shine-border-opportunity-audit-2026-08-31.md).
+
+---
+
 ## Context Recovery Notes
 
 **If context is lost, start here:**

@@ -15,9 +15,26 @@ approved: Shine Border is interface feedback, not a customer-facing product
 capability, and Varve's existing marketing hierarchy does not have an unmet
 need that the effect solves.
 
-This audit was completed before production implementation. The placements are
-still subject to direct before/after visual review; an implementation that does
-not improve hierarchy must be removed.
+This audit was completed before production implementation. Both approved
+placements were subsequently implemented and retained after direct before/after
+visual review. No rejected placement was added.
+
+## Final retention result
+
+The production count is **2/2 approved source integrations** and the expected
+ordinary-workflow maximum is one animated instance. No approved placement was
+removed after visual review.
+
+| Placement | Final lifecycle gate | Visual verdict | Result |
+| --- | --- | --- | --- |
+| Background-removal preview ready | A newly mounted `previewSession`; processing and failure have no decoration; Apply or Cancel unmounts the review | The narrow accent segment improves noticeability of the review actions without changing panel dimensions, doubling the structural border, or competing with the canvas; focus hides it | Retained |
+| All-success export results | Non-aborted report, `totalJobs > 0`, `failureCount === 0`, and `successCount === totalJobs`; open, new run, retry, failure, partial result, and cancellation clear the gate | The short success arc reinforces completion without washing out in light mode or glaring in dark mode; partial and cancelled results stay quiet | Retained |
+
+Direct review also found no radius mismatch, layout shift, pointer obstruction,
+or focus/selection ambiguity. Reduced motion uses a stationary 1 px edge;
+high-contrast modes use a stationary 2 px edge. The full durable contract and
+renderer validation record are in
+[`shine-border-system.md`](../architecture/shine-border-system.md).
 
 ## Audit scope
 
@@ -49,8 +66,8 @@ canvas proximity, ambiguity with focus/selection, and runtime cost.
 
 | Rank | Candidate | Evidence and frequency | Existing hierarchy / risk | Score | Decision |
 | --- | --- | --- | --- | ---: | --- |
-| 1 | All-success export result | `packages/editor/src/components/Export/ExportResultsList.tsx`; episodic completion of a high-value workflow | Summary and success icons are clear, but a brief completion cue reinforces the state without competing with canvas work; one modal instance | +8 | Implement one `success` beam cycle only when every file succeeded; never animate partial failure, cancellation, or retry |
-| 2 | Background-removal preview ready | `packages/editor/src/components/Inspector/sections/BackgroundRemovalSection.tsx`; temporary review state after processing | Apply/Cancel requires attention; inspector is canvas-adjacent, so continuous or pointer-reactive motion would distract | +7 | Implement one restrained accent cycle when a new preview session appears; static accent under reduced motion |
+| 1 | All-success export result | `packages/editor/src/components/Export/ExportResultsList.tsx`; episodic completion of a high-value workflow | Summary and success icons are clear, but a brief completion cue reinforces the state without competing with canvas work; one modal instance | +8 | Retained: one `success` beam cycle only when every file succeeded; never animate partial failure, cancellation, or retry |
+| 2 | Background-removal preview ready | `packages/editor/src/components/Inspector/sections/BackgroundRemovalSection.tsx`; temporary review state after processing | Apply/Cancel requires attention; inspector is canvas-adjacent, so continuous or pointer-reactive motion would distract | +7 | Retained: one restrained accent cycle when a new preview session appears; static accent under reduced motion |
 | 3 | First-document Home empty state | `packages/home/src/EmptyStates.tsx`; rare, temporary, and actionable | Centered illustration, explanatory copy, and primary CTA already provide strong hierarchy; the component also serves many unrelated empty states | +3 | Reject for production; no blanket empty-state treatment |
 | 4 | Update available action block | update state in `packages/editor/src/updates/UpdateContext.tsx`; rare and important | Status copy and primary action are already clear, and Settings must already be open | +2 | Defer; shine would not solve discovery |
 | 5 | Effect Studio/new-feature launcher | inspector and Effect Studio leaf components; potentially temporary | No release-owned newness metadata or persisted seen state proves that it should be promoted | 0 | Defer until an explicit labelled campaign exists |
@@ -123,7 +140,8 @@ hydration or duplicate colors/timings for this effect.
 
 ## Verification gates
 
-Before either production placement is retained:
+The current integrations were retained against these gates. The same gates
+remain mandatory before any production placement is added or moved:
 
 1. Capture the unchanged surface and the decorated surface at identical size.
 2. Inspect idle, mid-cycle, brightest, terminal/static, focus, light, dark,
@@ -142,7 +160,8 @@ Before either production placement is retained:
 ## Production ceiling
 
 The approved ceiling is two integration sites in source and one animated
-instance at a time. Adding another site requires a fresh semantic audit and
-before/after visual evidence; importing `ShineBorder` into `Shell.tsx`,
-`CanvasArea.tsx`, a repeated-row component, or a shared Card/Button default is
-not allowed.
+instance at a time. The current count is at that ceiling: background-removal
+review and all-success export results. Adding or replacing a site requires a
+fresh semantic audit and before/after visual evidence; importing `ShineBorder`
+into `Shell.tsx`, `CanvasArea.tsx`, a repeated-row component, or a shared
+Card/Button default is not allowed.
