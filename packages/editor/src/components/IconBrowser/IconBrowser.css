@@ -423,6 +423,9 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
+.icon-browser__load-more-status.varve-loading-label {
+  gap: var(--space-1);
+}
 
 /* Empty / error states ---------------------------------------------------- */
 

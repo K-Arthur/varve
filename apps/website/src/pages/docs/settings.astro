@@ -124,6 +124,28 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>Loading and Task Feedback</h2>
+        <p>
+          Varve keeps feedback proportional to the work. Short actions use a small
+          indeterminate indicator with a concise task label, while structured lists and
+          grids preserve their shape with skeleton placeholders. Downloads, imports,
+          exports, and other measurable operations show real progress and offer cancellation
+          where supported.
+        </p>
+        <ul>
+          <li><strong>Save and auto-save</strong> — Stay quiet during normal background work; a failure is surfaced with a clear recovery path.</li>
+          <li><strong>Model and asset downloads</strong> — Show actual progress rather than an endless spinner.</li>
+          <li><strong>Panel refreshes</strong> — Keep the existing content in place and use a contextual loading state instead of blocking the whole editor.</li>
+          <li><strong>Startup</strong> — The branded startup loader is separate from in-editor task feedback and exits when the home surface is ready.</li>
+        </ul>
+        <p>
+          These choices are especially important for Varve's local-first workflow: offline
+          editing should feel immediate, and optional network or on-device model work should
+          make its state and progress explicit.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Resetting Settings</h2>
         <p>
           If you need to start fresh, the settings dialog includes a "Reset to Defaults" button. This restores all settings to their factory defaults without affecting your documents.

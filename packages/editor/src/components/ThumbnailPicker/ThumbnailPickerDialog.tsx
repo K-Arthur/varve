@@ -12,7 +12,7 @@
  */
 
 import type { ThumbnailSourcePreference } from '@varve/platform';
-import { Button, Dialog, Icon } from '@varve/ui';
+import { Button, Dialog, Icon, LoadingLabel } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { persistProjectThumbnail, preferenceToSource } from '../../thumbnail/thumbnailManager';
@@ -146,10 +146,15 @@ export function ThumbnailPickerDialog({ open, onClose }: ThumbnailPickerDialogPr
   return (
     <Dialog open={open} onClose={handleClose} title="File Thumbnail" className="thumbnail-picker">
       <section className="thumbnail-picker__body" aria-label="Thumbnail picker controls">
-        <div className="thumbnail-picker__preview" role="img" aria-label="Thumbnail preview">
+        <div
+          className="thumbnail-picker__preview"
+          role="img"
+          aria-label="Thumbnail preview"
+          aria-busy={previewStatus === 'loading' || undefined}
+        >
           {previewStatus === 'loading' && (
-            <div className="thumbnail-picker__preview-loading" role="status">
-              Generating preview…
+            <div className="thumbnail-picker__preview-loading">
+              <LoadingLabel label="Generating preview…" />
             </div>
           )}
           {previewStatus === 'ready' && previewUrl && (
