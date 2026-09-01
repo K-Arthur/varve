@@ -93,7 +93,9 @@ editor's immutable update/history boundary and survives save/reload. Layers
 reparenting also preserves the existing world-space transform conversion and
 frame-layout application. Home file ordering belongs to the platform library;
 it is persisted by the platform adapter and refreshed after its async result,
-not presented as document undo.
+not presented as document undo. The first Home reorder seeds missing legacy
+ordering keys and switches the visible collection to ascending manual order;
+later moves update only the moved key.
 
 This boundary keeps transient drag state (`activeId`, `overId`, overlay and
 drop indicator) out of serialized documents and prevents one undo entry per

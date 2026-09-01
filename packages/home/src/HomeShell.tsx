@@ -11,7 +11,6 @@ import { createNewDocument, type NewDocumentRequest, serializeDocument } from '@
 import {
   BLANK_DOCUMENT_PRESET,
   ENCRYPTED_PROJECT_PLACEHOLDER,
-  generateKeyBetween,
   nextUntitledName,
   type Preset,
 } from '@varve/shared';
@@ -37,6 +36,7 @@ import { EmptyStates } from './EmptyStates';
 import { FileContextMenu, type FileMenuAction } from './FileContextMenu';
 import { FileGrid } from './FileGrid';
 import { FileList } from './FileList';
+import { planFileReorder } from './fileOrdering';
 import { HomeSearchPalette } from './HomeSearchPalette';
 import { HomeShortcutHelp } from './HomeShortcutHelp';
 import { HomeToolbar } from './HomeToolbar';
@@ -421,15 +421,16 @@ export function HomeShell({
   // immediately before overId's current position.
   const reorderFileNextTo = useCallback(
     (activeId: string, overId: string) => {
-      const remaining = filesByOrdering.filter((f) => f.id !== activeId);
-      const overIdx = remaining.findIndex((f) => f.id === overId);
-      if (overIdx === -1) return;
+      const writes = planFileReorder(filesByOrdering, activeId, overId);
+      if (!writes) return;
 
-      const prevKey = overIdx > 0 ? (remaining[overIdx - 1]?.ordering ?? null) : null;
-      const nextKey = remaining[overIdx]?.ordering ?? null;
-      const newKey = generateKeyBetween(prevKey, nextKey);
-
-      platform.reorderFile(activeId, newKey).then(() => view.refresh());
+      // A drag establishes the user's manual ordering mode. This makes the
+      // committed platform order visible even when Home started in Recent or
+      // another metadata sort.
+      view.setManualOrder();
+      void Promise.all(writes.map((write) => platform.reorderFile(write.id, write.ordering)))
+        .then(() => view.refresh())
+        .catch(() => view.refresh());
     },
     [filesByOrdering, platform, view],
   );

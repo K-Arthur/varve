@@ -54,6 +54,7 @@ export function useHomeView(platform: Platform): HomeView & {
   setSection: (s: SidebarSection) => void;
   setView: (v: ViewMode) => void;
   setSortKey: (k: SortKey) => void;
+  setManualOrder: () => void;
   toggleSortDir: () => void;
   setFilter: (f: Partial<FilterState>) => void;
   setRecentWorkspaceFilter: (f: RecentWorkspaceFilter) => void;
@@ -267,6 +268,12 @@ export function useHomeView(platform: Platform): HomeView & {
           ? { key, direction: (current.direction === 'asc' ? 'desc' : 'asc') as 'asc' | 'desc' }
           : { key, direction: 'desc' as 'asc' | 'desc' };
       persist({ ...viewStateRef.current, sort });
+    },
+    setManualOrder: () => {
+      persist({
+        ...viewStateRef.current,
+        sort: { key: 'ordering', direction: 'asc' },
+      });
     },
     toggleSortDir: () => {
       const sort = {
