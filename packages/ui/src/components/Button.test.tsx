@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Button } from './Button';
@@ -33,10 +33,17 @@ describe('Button', () => {
   });
 
   it('shows spinner and aria-busy when loading', () => {
-    render(<Button loading>Processing</Button>);
-    const btn = screen.getByRole('button');
-    expect(btn.querySelector('.varve-spinner')).toBeTruthy();
-    expect(btn).toHaveAttribute('aria-busy', 'true');
+    vi.useFakeTimers();
+    try {
+      render(<Button loading>Processing</Button>);
+      const btn = screen.getByRole('button');
+      expect(btn.querySelector('.varve-spinner')).toBeFalsy();
+      expect(btn).toHaveAttribute('aria-busy', 'true');
+      act(() => vi.advanceTimersByTime(150));
+      expect(btn.querySelector('.varve-spinner')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps children in DOM when loading (hidden visually)', () => {

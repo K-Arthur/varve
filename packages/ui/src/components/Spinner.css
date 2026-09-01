@@ -35,7 +35,7 @@
 
 /* Loading is an active state, not a muted disabled state. Button keeps the
  * DOM focusable while its callback guard prevents duplicate execution. */
-.varve-btn--loading[aria-disabled="true"] {
+.varve-btn[aria-busy="true"] {
   cursor: wait;
   opacity: 1;
 }

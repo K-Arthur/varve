@@ -1,5 +1,6 @@
 import { type ButtonHTMLAttributes, forwardRef, useState } from 'react';
 import { Spinner } from './Spinner';
+import { useDelayedLoading } from './useDelayedLoading';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'pill' | 'pill-outline';
 export type ButtonSize = 'sm' | 'md' | 'lg';
@@ -34,6 +35,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   ref,
 ) {
   const [confirming, setConfirming] = useState(false);
+  const showLoading = useDelayedLoading(loading);
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (disabled || softDisabled || loading) return;
@@ -52,7 +54,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     'varve-btn',
     `varve-btn--${variant}`,
     `varve-btn--${size}`,
-    loading ? 'varve-btn--loading' : '',
+    showLoading ? 'varve-btn--loading' : '',
     confirming ? 'varve-btn--confirming' : '',
     className,
   ]
@@ -70,7 +72,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       onClick={handleClick}
       {...rest}
     >
-      {loading && <Spinner size="sm" />}
+      {showLoading && <Spinner size="sm" />}
       <span className="varve-btn__content">
         {confirming && confirmLabel ? (
           <>

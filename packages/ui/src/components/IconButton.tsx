@@ -2,6 +2,7 @@ import { type ButtonHTMLAttributes, forwardRef } from 'react';
 import { Icon, type IconName, SolidIcon, type SolidIconName } from '../icons';
 import type { ButtonSize, ButtonVariant } from './Button';
 import { Spinner } from './Spinner';
+import { useDelayedLoading } from './useDelayedLoading';
 
 export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   icon: IconName | SolidIconName;
@@ -28,11 +29,14 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
     loading = false,
     loadingLabel,
     disabled = false,
+    'aria-label': ariaLabel,
     onClick,
     ...rest
   },
   ref,
 ) {
+  const showLoading = useDelayedLoading(loading);
+
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (disabled || loading) return;
     onClick?.(event);
@@ -43,14 +47,16 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       ref={ref}
       className={`varve-btn varve-btn--${variant} varve-btn--${size} varve-iconbtn`.trim()}
       aria-pressed={pressed ?? undefined}
-      aria-label={loading ? (loadingLabel ?? `${label}, loading`) : label}
+      aria-label={
+        loading ? (loadingLabel ?? `${ariaLabel ?? label}, loading`) : (ariaLabel ?? label)
+      }
       aria-busy={loading || undefined}
       aria-disabled={loading || undefined}
       disabled={!loading && disabled ? true : undefined}
       onClick={handleClick}
       {...rest}
     >
-      {loading ? (
+      {showLoading ? (
         <Spinner size="sm" />
       ) : solid ? (
         <SolidIcon name={icon as SolidIconName} size="1.15em" />
