@@ -376,6 +376,8 @@ export interface RenderContentDeps {
   displayDpr: number;
   imageCacheStamp: number;
   fontLoadStamp: number;
+  /** Text node painted by the DOM editor overlay instead of the canvas. */
+  editingTextNodeId?: string | null;
   precomputedStyles: ReturnType<typeof resolveAllStyles>;
   precomputedVariantCaches: ReturnType<typeof buildAllVariantCaches>;
   budgets: ReturnType<typeof getMemoryBudgets>;
@@ -416,6 +418,7 @@ export function renderContent(deps: RenderContentDeps): void {
     displayDpr,
     imageCacheStamp,
     fontLoadStamp,
+    editingTextNodeId,
     precomputedStyles,
     precomputedVariantCaches,
     budgets,
@@ -465,6 +468,7 @@ export function renderContent(deps: RenderContentDeps): void {
     getState: () => stateRef.current,
     imageCacheStamp,
     fontLoadStamp,
+    editingTextNodeId,
     cssW,
     cssH,
     dpr,
@@ -525,7 +529,7 @@ export function renderContent(deps: RenderContentDeps): void {
     // Present-only path: composite the worker bitmap, nothing else. Page
     // decorations are not part of the worker IR, so they repaint through
     // the paintUnderlays hook between the board fill and the bitmap.
-    if (frameDecision.kind === 'present') {
+    if (frameDecision.kind === 'present' && !editingTextNodeId) {
       const presented = tryPresentWorkerFrame({
         ctx,
         canvas,
@@ -656,7 +660,7 @@ export function renderContent(deps: RenderContentDeps): void {
       viewportW: VP_W,
       viewportH: VP_H,
     });
-    const dirty = frameDirty.dirty;
+    const dirty = frameDecision.editingTargetChanged ? { kind: 'full' as const } : frameDirty.dirty;
     const mergedDirty = recordMergedDirty(frameDirty.mergedDirty);
     dirtyRectRef.current = dirty.kind === 'full' ? null : frameDirty.dirtyScreenRect;
     if (frameDirty.fullFallback) nodeWork.fullFallback = true;
@@ -681,7 +685,8 @@ export function renderContent(deps: RenderContentDeps): void {
       profileCanUseWorker &&
       !documentHasPerspectiveImage(doc) &&
       sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&
-      !sceneNeedsStructuralCompositing(doc);
+      !sceneNeedsStructuralCompositing(doc) &&
+      !editingTextNodeId;
     // One shared surface-validity result per frame: the prune gate and the
     // paint gate must agree, or a pruned replay lands on a fully cleared
     // surface and erases every node outside the dirty region.
@@ -736,6 +741,7 @@ export function renderContent(deps: RenderContentDeps): void {
       const id = entry.nodeId;
       const raw = doc.nodes[id];
       if (!raw) continue;
+      if (editingTextNodeId && id === editingTextNodeId) continue;
       let n = getEffectiveNode(doc, id, variantCaches) ?? raw;
       if (!n.visible) continue;
       if (n.kind === 'group') continue;
@@ -1893,7 +1899,8 @@ export function renderContent(deps: RenderContentDeps): void {
       renderWorkerRef.current &&
       !workerFailedRef.current &&
       workerReady &&
-      profileCanUseWorker
+      profileCanUseWorker &&
+      !editingTextNodeId
     ) {
       const wb = workerBitmapRef.current;
       const cameraMatches =

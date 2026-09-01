@@ -62,10 +62,10 @@ import { sitePath } from '../../../lib/siteUrl';
         <ul>
           <li><strong>System fonts</strong> — Fonts installed on your operating system</li>
           <li><strong>Bundled fonts</strong> — Open-source fonts included with Varve via @fontsource packages</li>
-          <li><strong>Google Fonts</strong> — Load any Google Font by URL via <code>FontFace</code> API</li>
+          <li><strong>Optional online providers</strong> — On the desktop app, search and install supported Google Fonts or Fontsource faces when the provider capability is enabled</li>
         </ul>
         <p>
-          The font family selector shows available fonts with their CSS fallback chain. Missing fonts trigger a visible warning in the Typography section.
+          The font family selector shows available fonts with their CSS fallback chain. The public browser demo keeps font search local-first and does not make remote provider requests; bundled and local fonts remain available. Missing fonts trigger a visible warning in the Typography section.
         </p>
 
         <h3 id="missing-font-replacement">Missing-font replacement after import</h3>

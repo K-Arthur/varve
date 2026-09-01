@@ -90,6 +90,12 @@ describe('Tauri CSP configuration', () => {
       expect(connect).toContain('https://raw.githubusercontent.com');
     });
 
+    it('allows the Fontsource metadata and font delivery origins', () => {
+      const connect = prod!['connect-src'];
+      expect(connect).toContain('https://api.fontsource.org');
+      expect(connect).toContain('https://cdn.jsdelivr.net');
+    });
+
     it('restricts worker-src to self', () => {
       expect(prod!['worker-src']).toEqual(["'self'"]);
     });
@@ -141,6 +147,12 @@ describe('Tauri CSP configuration', () => {
 
     it('allows wasm-unsafe-eval for WASM in dev', () => {
       expect(dev!['script-src']).toContain("'wasm-unsafe-eval'");
+    });
+
+    it('allows Fontsource metadata and font delivery in dev', () => {
+      const connect = dev!['connect-src'];
+      expect(connect).toContain('https://api.fontsource.org');
+      expect(connect).toContain('https://cdn.jsdelivr.net');
     });
   });
 

@@ -60,6 +60,29 @@ The typography system spans TypeScript (browser/web) and Rust (native/Tauri) lay
 | Downloaded font storage | ✓ (IndexedDB) | — | ✓ (filesystem + IDB) |
 | Provider search | ✓ (Google Fonts + Fontsource) | — | — |
 
+The editor's authoritative runtime family list is `FontRegistry`. `FontSelector`
+and `FontBrowser` subscribe to its revision, so a system-font discovery or a
+completed installation updates every mounted consumer without requiring an
+editor remount. Registry entries are deduplicated by family, weight, style,
+source, URL, and registered variable-axis definitions; entries from different
+sources remain distinct.
+
+### Editing surface boundary
+
+Text editing uses a DOM `<textarea>` positioned with the same camera transform
+as the canvas. While it owns a text node, the content renderer excludes that
+node and disables worker-bitmap reuse. The redraw coordinator treats entering,
+retargeting, and leaving edit mode as a full authoritative redraw. This keeps
+the browser's native caret, IME, selection, and clipboard behavior responsive
+without painting a second copy of the glyphs underneath it. Blur commits only
+when focus leaves the editor/toolbar surface; moving focus to a formatting
+control is not an accidental commit.
+
+The scene remains canonical: the overlay writes through the editor update path,
+and the existing `packages/scene/src/textBounds.ts` / `packages/shared/src/textGeometry.ts`
+geometry is used for node-local bounds, wrapping, and overlay placement. The
+overlay is an interaction surface, not a second text model.
+
 ## Shaping Contract
 
 The native shaping contract (`crates/varve-print/src/shaper.rs`) provides:
@@ -98,7 +121,8 @@ export interface ShapingCapabilities {
 
 ### IndexedDB (all environments)
 - Database: `varve-fonts`, object store: `fonts`
-- Records keyed by family name (lowercased)
+- Records are addressed by canonical artifact/face identity; family names are
+  display and lookup fields, not a safe uniqueness key
 
 ### Filesystem (Tauri only)
 - Location: `$APPDATA/fonts/<sha256-prefix>/`
@@ -128,6 +152,22 @@ Rust export_pdf():
 - Progress events: `jobProgress`, `jobComplete`, `jobError`, `jobCancelled`
 - Cancellation via `AbortController`
 - Chunked results merged on completion
+
+## Online provider boundary
+
+Online provider search and installation is an explicit desktop capability. A
+provider result is not applied to a text node until its exact artifact has been
+downloaded, parsed, registered, and made ready. Failed searches preserve the
+successful result from another provider; failed installation preserves the
+previous family and editing session. The browser demo restricts
+`onlineFonts`, keeps its CSP local-first, and continues to expose bundled and
+local fonts.
+
+Remote font requests must remain constrained to the configured provider API and
+immutable CDN origins. Provider metadata should resolve to version-pinned
+artifacts before the download manager accepts a job; redirects, MIME/signature,
+size, and face identity are validation concerns at that boundary, not merely UI
+concerns.
 
 ## Remaining Limitations
 

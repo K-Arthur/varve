@@ -85,6 +85,8 @@ export interface FrameStateSnapshot {
   canvasMode: string;
   /** Show-original override — changes rendered content without touching doc. */
   showOriginalBgNodeId: string | null;
+  /** Text node currently owned by the DOM editing surface, if any. */
+  editingTextNodeId: string | null;
 }
 
 export type FrameBeginDecisionKind = 'skip' | 'present' | 'content';
@@ -103,6 +105,8 @@ export interface FrameBeginDecision {
   unsuppressedCause: string | null;
   /** True when the merged invalidation demands a full (non-partial) redraw. */
   requiresFullRedraw: boolean;
+  /** The DOM text surface appeared, changed target, or disappeared. */
+  editingTargetChanged: boolean;
 }
 
 export interface RedrawCoordinatorDiagnostics {
@@ -160,6 +164,7 @@ export function beginContentFrame(args: {
   };
   imageCacheStamp: number;
   fontLoadStamp: number;
+  editingTextNodeId?: string | null;
   cssW: number;
   cssH: number;
   dpr: number;
@@ -188,6 +193,7 @@ export function beginContentFrame(args: {
     mediaStamp: s.media.presentedStamp,
     canvasMode: s.canvasMode,
     showOriginalBgNodeId: s.showOriginalBgNodeId ?? null,
+    editingTextNodeId: args.editingTextNodeId ?? null,
   });
   const decision = args.coordinator.beginFrame(snapshot, args.hasPendingPresent);
   if (decision.kind === 'skip') {
@@ -231,6 +237,7 @@ export function createFrameSnapshot(args: {
   canvasMode: string;
   /** Show-original override — changes rendered content without touching doc. */
   showOriginalBgNodeId: string | null;
+  editingTextNodeId?: string | null;
 }): FrameStateSnapshot {
   return {
     doc: args.doc,
@@ -249,6 +256,7 @@ export function createFrameSnapshot(args: {
     mediaStamp: args.mediaStamp,
     canvasMode: args.canvasMode,
     showOriginalBgNodeId: args.showOriginalBgNodeId,
+    editingTextNodeId: args.editingTextNodeId ?? null,
   };
 }
 
@@ -326,6 +334,9 @@ export function createRedrawCoordinator(options: RedrawCoordinatorOptions = {}):
     // without any document change; without this reason the frame would be
     // suppressed and the toggle would do nothing visible.
     if (previous.showOriginalBgNodeId !== snapshot.showOriginalBgNodeId) {
+      reasons.push('scene-mutation');
+    }
+    if (previous.editingTextNodeId !== snapshot.editingTextNodeId) {
       reasons.push('scene-mutation');
     }
     return reasons;
@@ -411,6 +422,8 @@ export function createRedrawCoordinator(options: RedrawCoordinatorOptions = {}):
         explicit,
         unsuppressedCause,
         requiresFullRedraw: explicit.some((inv) => inv.requiresFullRedraw === true),
+        editingTargetChanged:
+          lastCompleted !== null && lastCompleted.editingTextNodeId !== snapshot.editingTextNodeId,
       };
       lastDecision = decision;
       return decision;

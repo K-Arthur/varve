@@ -323,7 +323,7 @@ export function FontSelector({
           aria-autocomplete="list"
           aria-controls={listboxId}
           aria-activedescendant={
-            highlightedIndex >= 0 ? `font-selector-option-${highlightedIndex}` : undefined
+            highlightedIndex >= 0 ? `${listboxId}-option-${highlightedIndex}` : undefined
           }
           autoComplete="off"
         />
@@ -392,7 +392,7 @@ export function FontSelector({
                     key={virtualRow.key}
                     ref={virtualizer.measureElement}
                     data-index={virtualRow.index}
-                    id={`font-selector-option-${idx}`}
+                    id={`${listboxId}-option-${idx}`}
                     className={`font-selector__virtual-row font-selector__option${isSelected ? ' font-selector__option--selected' : ''}${isHighlighted ? ' font-selector__option--highlighted' : ''}`}
                     role="option"
                     tabIndex={-1}
@@ -450,7 +450,7 @@ export function FontSelector({
           )}
           {googleFonts.error && (
             <div className="font-selector__option font-selector__option--error">
-              Google Fonts: {googleFonts.error}
+              {googleFonts.error}
             </div>
           )}
           {fontsource.loading && (
@@ -460,7 +460,7 @@ export function FontSelector({
           )}
           {fontsource.error && (
             <div className="font-selector__option font-selector__option--error">
-              Fontsource: {fontsource.error}
+              {fontsource.error}
             </div>
           )}
           {installingFamily && (
