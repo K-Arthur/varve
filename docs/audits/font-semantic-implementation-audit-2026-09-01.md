@@ -35,7 +35,8 @@ Passed:
 - `pnpm build:website:pages`
 - `pnpm exec playwright test tests/e2e/canvas/font-selector.spec.ts --project=chromium --reporter=list --grep "searches the installed|full browser"` — 2 passed
 - `pnpm exec playwright test -c playwright.website.config.ts --project=ghpages --reporter=list --grep "typography page light" --update-snapshots` — 1 passed; baseline committed at `apps/website/tests/e2e/visual.spec.ts-snapshots/typography-light-ghpages-linux.png`
-- `pnpm exec playwright test -c playwright.website.config.ts --project=ghpages --reporter=list --grep "typography page light|Font provider marketing copy"` — marketing assertions passed and the typography visual passed against the baseline
+- `pnpm exec playwright test -c playwright.website.config.ts --project=ghpages --reporter=list --grep "typography page light|Font provider marketing copy"` — both marketing assertions passed; the first visual invocation exited only because the new baseline did not yet exist
+- `pnpm exec playwright test -c playwright.website.config.ts --project=ghpages --reporter=list --grep "typography page light"` — 1 passed against the committed baseline after capture
 
 The full editor font-selector spec was also run once. Its first attempt
 exposed an over-specific test assumption about a particular machine font; the
