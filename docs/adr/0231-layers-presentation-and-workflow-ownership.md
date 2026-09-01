@@ -54,15 +54,30 @@ parameters.
 
 Layer color is an authoring label, not a type. Preserve the existing seven
 document colors and context/bulk commands, but render a label as a restrained
-row backdrop tint. Do not add a separate colored marker beside the name: the
-identity lane is already dense with hierarchy and type affordances. The tint
-is suppressed by forced-colors and the selected-row surface wins when a row is
-selected.
+row backdrop tint plus a full-height leading color rail. Do not add a separate
+colored marker or icon beside the name: the identity lane is already dense with
+hierarchy and type affordances. The tint is suppressed by forced-colors. A
+selected tagged row keeps its tag backdrop and rail while the selection outline
+and foreground remain the dominant interaction state.
 
 The type icon and leading type rail remain separate. Selected rows retain the
-selection surface, and the layer name remains the primary scan target. The
-color cue is therefore more discoverable than a dot without turning every row
-into a saturated status card.
+layer name remains the primary scan target. The color cue is therefore more
+discoverable than a dot without turning every row into a saturated status card.
+
+Tags are container-only metadata: a tagged group or frame does not make its
+descendants tagged. Child tags remain independent through grouping, reparenting,
+component operations, and page duplication. “Select same color” walks the
+currently visible Layers surface and its descendants, but does not cross the
+active page, design canvas, isolated subtree, or master-edit surface. It includes
+only visible and unlocked matching nodes; an untagged node is not a selectable
+“same tag” target.
+
+The persisted value is the canonical logical color name or `null` for untagged.
+The palette is shared by context actions, bulk controls, and filtering; its
+theme-specific appearance is resolved by UI tokens and is never scene paint.
+Assigning or clearing multiple tags is one document update and therefore one
+undoable history step. Component instances copy the master root tag when created,
+then retain an independent local tag.
 
 Selection itself uses a restrained theme-aware row tint, an inset boundary, and
 a stable leading rail. Its compact check-circle is retained only as a
