@@ -291,8 +291,11 @@
   }
 }
 
-.varve-btn:active:not(:disabled):not([aria-disabled="true"]) {
+.varve-btn:active:not(:disabled):not([aria-disabled="true"]):not(.varve-btn--danger) {
   background: var(--color-interactive-pressed-surface);
+}
+.varve-btn--danger:active:not(:disabled):not([aria-disabled="true"]) {
+  filter: brightness(0.88);
 }
 .varve-btn:disabled {
   cursor: default;
