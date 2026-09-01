@@ -58,7 +58,15 @@ export const Dark: Story = {
   ...Matrix,
   decorators: [
     (Story) => (
-      <div data-theme="dark">
+      <div
+        data-theme="dark"
+        style={{
+          background: 'var(--color-surface-base)',
+          color: 'var(--color-text-primary)',
+          minHeight: '100vh',
+          padding: '24px',
+        }}
+      >
         <Story />
       </div>
     ),
@@ -69,7 +77,15 @@ export const HighContrast: Story = {
   ...Matrix,
   decorators: [
     (Story) => (
-      <div data-theme="high-contrast">
+      <div
+        data-theme="high-contrast"
+        style={{
+          background: 'var(--color-surface-base)',
+          color: 'var(--color-text-primary)',
+          minHeight: '100vh',
+          padding: '24px',
+        }}
+      >
         <Story />
       </div>
     ),
