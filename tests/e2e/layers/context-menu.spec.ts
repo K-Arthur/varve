@@ -272,8 +272,9 @@ test.describe('Layers Panel - Context Menu', () => {
 
   test('select same color via context menu', async ({ page }) => {
     const firstItem = page.getByRole('treeitem').first();
+    const secondItem = page.getByRole('treeitem').nth(1);
     const count = await page.getByRole('treeitem').count();
-    test.skip(count < 1, 'Need at least 1 layer for select same color');
+    test.skip(count < 2, 'Need at least 2 layers for select same color');
 
     // First set a color tag on the first item
     await firstItem.click({ button: 'right' });
@@ -284,6 +285,14 @@ test.describe('Layers Panel - Context Menu', () => {
       await redBtn.click();
       await page.waitForTimeout(100);
 
+      // Give a second layer the same tag so this exercises the real selection
+      // path instead of passing when the command correctly no-ops for a
+      // uniquely tagged layer.
+      await secondItem.click({ button: 'right' });
+      await page.waitForTimeout(100);
+      await page.locator('.varve-ctxmenu').getByRole('menuitem', { name: /^Red$/i }).click();
+      await page.waitForTimeout(100);
+
       // Now right-click again and try "Select Same Color"
       await firstItem.click({ button: 'right' });
       await page.waitForTimeout(100);
@@ -291,10 +300,25 @@ test.describe('Layers Panel - Context Menu', () => {
       const selectSameColor = page
         .locator('.varve-ctxmenu')
         .getByRole('menuitem', { name: /^Select Same Color$/i });
-      if ((await selectSameColor.count()) > 0) {
-        await selectSameColor.click();
-        await page.waitForTimeout(200);
-      }
+      await expect(selectSameColor).toBeVisible();
+      await selectSameColor.click();
+      await expect
+        .poll(() =>
+          page
+            .getByRole('treeitem')
+            .evaluateAll(
+              (rows) => rows.filter((row) => row.getAttribute('aria-selected') === 'true').length,
+            ),
+        )
+        .toBeGreaterThanOrEqual(2);
+      const selectedTags = await page
+        .getByRole('treeitem')
+        .evaluateAll((rows) =>
+          rows
+            .filter((row) => row.getAttribute('aria-selected') === 'true')
+            .map((row) => row.getAttribute('data-layer-color')),
+        );
+      expect(selectedTags.every((tag) => tag === 'red')).toBe(true);
     }
   });
 });
