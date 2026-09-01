@@ -14,7 +14,6 @@
  * global shortcuts, dialogs. Panel-only windows stay lean.
  */
 
-import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorProvider } from '../context';
 import { PanelHostProvider } from '../workspace/PanelHostContext';
@@ -22,6 +21,7 @@ import '../workspace/bootstrap';
 import { type PanelTypeId, tryGetPanelDefinition } from '../workspace/panelRegistry';
 import { AuxiliarySessionProvider, useAuxiliarySession } from './AuxiliaryProvider';
 import { renderAuxiliaryPanel } from './panelContentRegistry';
+import './AuxiliaryShell.css';
 
 // ---------------------------------------------------------------------------
 // URL parameter parsing
@@ -143,7 +143,7 @@ function PanelHost({ panelTypeId }: { panelTypeId: string }) {
 
   if (content === null) {
     return (
-      <div role="alert" style={styles.unsupported}>
+      <div role="alert" className="auxiliary-shell__unsupported">
         <strong>{panelTypeId}</strong> is not supported in a panel window yet.
       </div>
     );
@@ -156,9 +156,9 @@ function PanelHost({ panelTypeId }: { panelTypeId: string }) {
       data-panel-type-id={panelTypeId}
       aria-labelledby={`auxiliary-panel-heading-${panelTypeId}`}
       tabIndex={-1}
-      style={styles.panelHost}
+      className="auxiliary-shell__panel-host"
     >
-      <h1 id={`auxiliary-panel-heading-${panelTypeId}`} style={styles.visuallyHidden}>
+      <h1 id={`auxiliary-panel-heading-${panelTypeId}`} className="auxiliary-shell__sr-only">
         {panelTypeId} panel
       </h1>
       {content}
@@ -188,9 +188,9 @@ function AuxiliaryTitleBar({
   onReattach: () => void;
 }) {
   return (
-    <div style={styles.titleBar}>
-      <span style={styles.titleIcon}>V</span>
-      <span style={styles.titleText}>
+    <div className="auxiliary-shell__title-bar">
+      <span className="auxiliary-shell__title-icon">V</span>
+      <span className="auxiliary-shell__title-text">
         {title}
         {documentName ? ` — ${documentName}` : ''}
       </span>
@@ -201,7 +201,7 @@ function AuxiliaryTitleBar({
         data-testid="aux-undo"
         aria-label="Undo (routes to the main window's undo stack)"
         title="Undo (Ctrl+Z)"
-        style={styles.undoBtn}
+        className="auxiliary-shell__button auxiliary-shell__button--history"
       >
         Undo
       </button>
@@ -212,7 +212,7 @@ function AuxiliaryTitleBar({
         data-testid="aux-redo"
         aria-label="Redo (routes to the main window's redo stack)"
         title="Redo (Ctrl+Shift+Z)"
-        style={styles.undoBtn}
+        className="auxiliary-shell__button auxiliary-shell__button--history"
       >
         Redo
       </button>
@@ -221,7 +221,7 @@ function AuxiliaryTitleBar({
         onClick={onReattach}
         data-testid="reattach-panel"
         aria-label={`Reattach ${title} to the main window`}
-        style={styles.reattachBtn}
+        className="auxiliary-shell__button"
       >
         Reattach
       </button>
@@ -235,8 +235,8 @@ function AuxiliaryTitleBar({
 
 function ConnectingState() {
   return (
-    <div style={styles.state}>
-      <div style={styles.stateIcon}>...</div>
+    <div className="auxiliary-shell__state">
+      <div className="auxiliary-shell__state-icon">...</div>
       <div>Connecting to editor session...</div>
     </div>
   );
@@ -244,10 +244,12 @@ function ConnectingState() {
 
 function EmptyState({ onReattach }: { onReattach: () => void }) {
   return (
-    <div style={styles.state}>
-      <h2 style={styles.stateTitle}>No panels</h2>
-      <p style={styles.stateBody}>Drag a panel here or detach one from the main window.</p>
-      <button type="button" onClick={onReattach} style={styles.reattachBtn}>
+    <div className="auxiliary-shell__state">
+      <h2 className="auxiliary-shell__state-title">No panels</h2>
+      <p className="auxiliary-shell__state-body">
+        Drag a panel here or detach one from the main window.
+      </p>
+      <button type="button" onClick={onReattach} className="auxiliary-shell__button">
         Reattach all
       </button>
     </div>
@@ -256,9 +258,9 @@ function EmptyState({ onReattach }: { onReattach: () => void }) {
 
 function InvalidRouteState() {
   return (
-    <main aria-label="Panel window unavailable" style={styles.state}>
-      <h1 style={styles.stateTitle}>Panel window unavailable</h1>
-      <p style={styles.stateBody}>
+    <main aria-label="Panel window unavailable" className="auxiliary-shell__state">
+      <h1 className="auxiliary-shell__state-title">Panel window unavailable</h1>
+      <p className="auxiliary-shell__state-body">
         This panel window does not have a valid editor-session route. Return to the main window and
         detach the panel again.
       </p>
@@ -343,7 +345,7 @@ function AuxiliaryShellInner({ info }: { info: AuxiliaryWindowInfo }) {
   }, [title]);
 
   return (
-    <div style={styles.shell}>
+    <div className="auxiliary-shell">
       <AuxiliaryTitleBar
         title={title}
         documentName={snapshot?.activeDocumentName ?? ''}
@@ -354,13 +356,13 @@ function AuxiliaryShellInner({ info }: { info: AuxiliaryWindowInfo }) {
         onReattach={reattach}
       />
 
-      <main aria-label={`${title} panel window`} style={styles.main}>
+      <main aria-label={`${title} panel window`} className="auxiliary-shell__main">
         {!connected || !snapshot ? (
           <ConnectingState />
         ) : panelTypeIds.length === 0 ? (
           <EmptyState onReattach={reattach} />
         ) : (
-          <div style={styles.content}>
+          <div className="auxiliary-shell__content">
             {editorMounted && (
               <EditorProvider
                 initialDocumentJson={snapshot.documentJson}
@@ -416,106 +418,3 @@ export function AuxiliaryRoot({ windowInfo: overrideInfo }: AuxiliaryRootProps =
     </AuxiliarySessionProvider>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Styles (inline — the auxiliary bundle does not load editor.css)
-// ---------------------------------------------------------------------------
-
-const styles: Record<string, CSSProperties> = {
-  shell: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100dvh',
-    width: '100dvw',
-    overflow: 'hidden',
-    fontFamily: 'var(--font-family, system-ui, sans-serif)',
-    fontSize: 'var(--font-size-sm, 13px)',
-    color: 'var(--color-text, #1a1a1a)',
-    background: 'var(--color-surface, #ffffff)',
-  },
-  titleBar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    height: 34,
-    padding: '0 12px',
-    background: 'var(--color-surface-elevated, #f5f5f5)',
-    borderBottom: '1px solid var(--color-border, #e0e0e0)',
-    userSelect: 'none',
-    flexShrink: 0,
-  },
-  titleIcon: { fontWeight: 700, color: 'var(--color-accent, #3d9b8f)' },
-  titleText: {
-    fontSize: 12,
-    opacity: 0.75,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    flex: 1,
-  },
-  reattachBtn: {
-    padding: '3px 10px',
-    border: '1px solid var(--color-border, #e0e0e0)',
-    borderRadius: 'var(--radius-control-compact)',
-    background: 'var(--color-surface, #fff)',
-    cursor: 'pointer',
-    fontSize: 11,
-  },
-  undoBtn: {
-    padding: '3px 8px',
-    border: '1px solid var(--color-border, #e0e0e0)',
-    borderRadius: 'var(--radius-control-compact)',
-    background: 'var(--color-surface, #fff)',
-    cursor: 'pointer',
-    fontSize: 11,
-    opacity: 0.9,
-  },
-  content: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
-  },
-  panelHost: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
-    minHeight: 0,
-  },
-  main: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
-    minHeight: 0,
-  },
-  state: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    opacity: 0.55,
-  },
-  stateIcon: { fontSize: 26 },
-  stateTitle: { fontSize: 15, fontWeight: 600, margin: 0 },
-  stateBody: { fontSize: 13, margin: 0, maxWidth: 300, textAlign: 'center' },
-  unsupported: {
-    padding: 24,
-    textAlign: 'center',
-    opacity: 0.6,
-  },
-  visuallyHidden: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    padding: 0,
-    margin: -1,
-    overflow: 'hidden',
-    clip: 'rect(0, 0, 0, 0)',
-    whiteSpace: 'nowrap',
-    border: 0,
-  },
-};
