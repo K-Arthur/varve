@@ -73,6 +73,19 @@ describe('GeneralSection canvas background', () => {
   });
 });
 
+describe('AppearanceSettingsTab', () => {
+  it('renders the theme and appearance controls from current settings', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+
+    expect(screen.getByRole('combobox', { name: 'Theme' })).toHaveTextContent('System');
+    expect(screen.getByLabelText('UI font size')).toBeTruthy();
+    expect(
+      screen.getByLabelText('Show all menu items (bypass workspace mode filtering)'),
+    ).toBeTruthy();
+  });
+});
+
 describe('ExportSettingsTab', () => {
   it('shows format selector', () => {
     renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);

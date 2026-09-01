@@ -349,7 +349,7 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
 }
 
 function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) => void }) {
-  const { updateSection, updateSettings } = useSettings();
+  const { settings, updateSection, updateSettings } = useSettings();
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>(getThemePreference);
   const currentTheme = getTheme();
 
