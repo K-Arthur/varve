@@ -160,6 +160,18 @@ describe('findSameLayerColorIds', () => {
     );
   });
 
+  it('keeps container tags independent from child tags', () => {
+    const { doc, rect1, rect2, frame1 } = setupDoc();
+    const nested = { ...doc.nodes[frame1]!, children: [rect2] };
+    let tagged = { ...doc, nodes: { ...doc.nodes, [frame1]: nested } };
+    tagged = withLayerColor(tagged, [frame1, rect1], 'red');
+    tagged = withLayerColor(tagged, [rect2], 'blue');
+
+    const scope = collectLayerColorScope(tagged);
+    expect(findSameLayerColorIds(tagged, [frame1], scope)).toEqual([frame1, rect1]);
+    expect(findSameLayerColorIds(tagged, [rect2], scope)).toEqual([]);
+  });
+
   it('returns empty array for an empty selection', () => {
     const { doc } = setupDoc();
     expect(findSameLayerColorIds(doc, [])).toEqual([]);
