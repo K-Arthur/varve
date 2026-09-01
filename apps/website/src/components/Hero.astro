@@ -262,7 +262,7 @@ import { PRODUCT_STATUS } from '@varve/shared';
 
     .hc-card {
       position: absolute;
-      border-radius: 6px;
+      border-radius: var(--website-radius-control);
       overflow: visible;
       pointer-events: auto;
       cursor: pointer;
@@ -297,7 +297,7 @@ import { PRODUCT_STATUS } from '@varve/shared';
       display: block;
       width: 100%;
       height: 100%;
-      border-radius: 6px;
+      border-radius: var(--website-radius-control);
       overflow: hidden;
     }
 
@@ -306,7 +306,7 @@ import { PRODUCT_STATUS } from '@varve/shared';
       position: absolute;
       inset: -3px;
       border: 2px solid var(--sel, var(--brand-teal));
-      border-radius: 8px;
+      border-radius: var(--website-radius-control);
       pointer-events: none;
     }
 
@@ -469,7 +469,7 @@ import { PRODUCT_STATUS } from '@varve/shared';
     text-transform: uppercase;
     color: var(--text-secondary);
     border: 1px solid var(--border-accent);
-    border-radius: 9999px;
+    border-radius: var(--website-radius-pill);
     padding: 0.4rem 1rem;
     margin-bottom: 2rem;
     background: color-mix(in oklab, var(--surface-card) 60%, transparent);
