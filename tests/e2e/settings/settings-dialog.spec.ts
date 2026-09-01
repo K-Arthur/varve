@@ -69,6 +69,37 @@ test.describe('Settings dialog', () => {
     await expect(content.locator('.settings-section')).toBeVisible();
   });
 
+  test('keeps switch fields labeled and inside the dialog at a narrow width', async ({ page }) => {
+    await navigateToEditor(page);
+    await page.setViewportSize({ width: 820, height: 720 });
+    await page.evaluate(() => {
+      const file = [...document.querySelectorAll('button')].find(
+        (element) => element.textContent?.trim() === 'File',
+      );
+      (file as HTMLElement | undefined)?.click();
+    });
+    await page.getByRole('menuitem', { name: /Settings/ }).click();
+
+    const settingsDialog = page.locator('dialog.varve-dialog--settings[open]');
+    const switches = settingsDialog.getByRole('switch');
+    const dialogBox = await settingsDialog.boundingBox();
+    expect(dialogBox).not.toBeNull();
+    await expect(switches).not.toHaveCount(0);
+    await expect(
+      settingsDialog.getByRole('switch', { name: 'Prefer WebGPU when available' }),
+    ).toHaveCount(1);
+    for (const switchElement of await switches.all()) {
+      const switchBox = await switchElement.boundingBox();
+      expect(switchBox).not.toBeNull();
+      expect(switchBox!.x + switchBox!.width).toBeLessThanOrEqual(
+        dialogBox!.x + dialogBox!.width,
+      );
+    }
+    await expect(settingsDialog).toHaveScreenshot('settings-dialog-switch-narrow.png', {
+      maxDiffPixels: 300,
+    });
+  });
+
   test('opens native-dialog dropdowns and applies settings immediately', async ({ page }) => {
     await navigateToEditor(page);
     await page.evaluate(() => {
