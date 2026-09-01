@@ -212,6 +212,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/text-pipeline.md` | Multilingual text rendering and layout |
 | `architecture/text-on-path.md` | Text-on-path data, rendering, editing, export, and fidelity limits |
 | `architecture/loading-system.md` | Loading experience system |
+| `architecture/shine-border-system.md` | Restrained decorative emphasis contract, semantic allowlist, fallbacks, and production ceiling |
 | `architecture/workspace-system.md` | Workspace mode contract, resolution, and persistence |
 | `architecture/overlay-system.md` | Shared floating geometry, owner-document, overlay-tree, dismissal, and focus contracts |
 | `architecture/lifecycle-system.md` | Quit/close/exit lifecycle and shutdown architecture |
@@ -481,6 +482,7 @@ records; check the current code before acting on their findings.
 | `audits/selection-validation-report-2026-08-23.md` | Selection-system delivery and validation record, including the UI wiring landed after the implementation plan's "pending" notes |
 | `audits/effects-surfaces-audit-2026-08-29.md` | Research-backed separation of Effect Studio, Image Tuning, Object Filters, and Adjustment Filters, including raster/vector behavior |
 | `audits/pages-master-layout-audit-2026-08-29.md` | Current page, parent/master, spread, frame, workspace, I/O, and validation capability audit |
+| `audits/shine-border-opportunity-audit-2026-08-31.md` | Repository-wide Shine Border candidate ranking, explicit rejects, and approved production ceiling |
 
 ## Website-specific (current state)
 
