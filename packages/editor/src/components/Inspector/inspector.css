@@ -2461,7 +2461,7 @@
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
 }
-.similarity-mode-picker__option:focus-visible,
+.similarity-mode-picker__option:focus-within,
 .similarity-result:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;

@@ -2504,6 +2504,26 @@ function SimilarTab() {
   const [searchMode, setSearchMode] = useState<SimilaritySearchMode>('semantic');
   const [scannedCount, setScannedCount] = useState(0);
   const usingTestEmbedder = Boolean(window.__varveSimilarityTest?.mockEmbed);
+  const searchModeOptions: readonly SimilaritySearchMode[] = ['semantic', 'near-duplicates'];
+
+  function handleSearchModeKeyDown(event: React.KeyboardEvent<HTMLInputElement>, index: number) {
+    let nextIndex: number | null = null;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      nextIndex = (index + 1) % searchModeOptions.length;
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      nextIndex = (index - 1 + searchModeOptions.length) % searchModeOptions.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = searchModeOptions.length - 1;
+    }
+    if (nextIndex === null) return;
+    event.preventDefault();
+    const nextMode = searchModeOptions[nextIndex];
+    if (!nextMode) return;
+    setSearchMode(nextMode);
+    document.getElementById(`similarity-mode-${nextMode}`)?.focus();
+  }
 
   const selectedNode =
     state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : null;
@@ -2843,30 +2863,32 @@ function SimilarTab() {
           role="radiogroup"
           aria-label="Similarity search type"
         >
-          <button
-            type="button"
-            aria-pressed={searchMode === 'semantic'}
-            className={
-              searchMode === 'semantic'
-                ? 'similarity-mode-picker__option is-active'
-                : 'similarity-mode-picker__option'
-            }
-            onClick={() => setSearchMode('semantic')}
-          >
-            Similar
-          </button>
-          <button
-            type="button"
-            aria-pressed={searchMode === 'near-duplicates'}
-            className={
-              searchMode === 'near-duplicates'
-                ? 'similarity-mode-picker__option is-active'
-                : 'similarity-mode-picker__option'
-            }
-            onClick={() => setSearchMode('near-duplicates')}
-          >
-            Near duplicates
-          </button>
+          {searchModeOptions.map((mode, index) => {
+            const selected = searchMode === mode;
+            return (
+              <label
+                key={mode}
+                className={
+                  selected
+                    ? 'similarity-mode-picker__option is-active'
+                    : 'similarity-mode-picker__option'
+                }
+              >
+                <input
+                  id={`similarity-mode-${mode}`}
+                  type="radio"
+                  name="similarity-search-type"
+                  value={mode}
+                  checked={selected}
+                  tabIndex={selected ? 0 : -1}
+                  onChange={() => setSearchMode(mode)}
+                  onKeyDown={(event) => handleSearchModeKeyDown(event, index)}
+                  className="varve-visually-hidden"
+                />
+                {mode === 'semantic' ? 'Similar' : 'Near duplicates'}
+              </label>
+            );
+          })}
         </div>
       )}
 

@@ -131,7 +131,7 @@ test.describe('Find Similar workflow', () => {
       .click();
     await expect(page.locator('.similarity-result')).toHaveCount(2, { timeout: 15000 });
 
-    const nearDuplicates = page.getByRole('button', { name: 'Near duplicates' });
+    const nearDuplicates = page.getByRole('radio', { name: 'Near duplicates' });
     await nearDuplicates.click();
     await expect(nearDuplicates).toHaveAttribute('aria-pressed', 'true');
     await page
