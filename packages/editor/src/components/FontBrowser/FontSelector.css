@@ -30,7 +30,7 @@
   padding: var(--space-1) var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-xs);
@@ -78,7 +78,7 @@
   overflow-y: auto;
   background: var(--color-surface-overlay);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
   margin-top: var(--space-1);
 }
@@ -164,7 +164,7 @@
   justify-content: center;
   width: 1.2em;
   height: 1.2em;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
@@ -189,8 +189,32 @@
 }
 
 .font-selector__badge--online {
+  width: auto;
+  height: auto;
+  padding: 2px 5px;
   color: var(--color-text-on-accent);
   background: var(--color-interactive-default);
+}
+
+.font-selector__install-button {
+  border: 1px solid var(--color-interactive-default);
+  border-radius: var(--radius-control-compact);
+  padding: 2px 7px;
+  color: var(--color-interactive-default);
+  background: var(--color-surface-raised);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.font-selector__install-button:hover:not(:disabled) {
+  color: var(--color-text-on-accent);
+  background: var(--color-interactive-default);
+}
+
+.font-selector__install-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .font-selector__section-note {

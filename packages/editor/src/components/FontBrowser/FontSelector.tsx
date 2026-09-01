@@ -95,6 +95,12 @@ export function FontSelector({
     return providers;
   }, [googleFonts.results, fontsource.results]);
 
+  const onlineDetails = useMemo(() => {
+    const details = new Map<string, (typeof fontsource.results)[number]>();
+    for (const result of fontsource.results) details.set(result.familyName, result);
+    return details;
+  }, [fontsource.results]);
+
   const recentFamilies = useMemo(() => {
     return allFamilies.filter((f) => registry.state(f) === 'loaded').slice(0, 5);
   }, [allFamilies, registry]);
@@ -205,14 +211,10 @@ export function FontSelector({
     if (isOpen && highlightedIndex >= 0) scrollToFontIndex(highlightedIndex);
   }, [highlightedIndex, isOpen, scrollToFontIndex]);
 
-  const select = useCallback(
+  const install = useCallback(
     (family: string) => {
       const provider = onlineProviders.get(family);
       if (!provider) {
-        onChange(family);
-        setQuery(family);
-        setIsOpen(false);
-        inputRef.current?.blur();
         return;
       }
 
@@ -234,6 +236,23 @@ export function FontSelector({
           );
         })
         .finally(() => setInstallingFamily(null));
+    },
+    [onChange, onlineProviders],
+  );
+
+  const select = useCallback(
+    (family: string) => {
+      // Discovery and installation are separate: an available catalog row
+      // never changes the document until its explicit Install action succeeds.
+      if (onlineProviders.has(family)) {
+        setQuery(family);
+        setIsOpen(true);
+        return;
+      }
+      onChange(family);
+      setQuery(family);
+      setIsOpen(false);
+      inputRef.current?.blur();
     },
     [onChange, onlineProviders],
   );
@@ -380,7 +399,7 @@ export function FontSelector({
                       <div className="font-selector__section-header" role="presentation">
                         {row.title}
                         {row.isOnline && (
-                          <span className="font-selector__section-note">Click to download</span>
+                          <span className="font-selector__section-note">Available to install</span>
                         )}
                       </div>
                     </div>
@@ -422,7 +441,28 @@ export function FontSelector({
                     </span>
                     <span className="font-selector__option-meta">
                       {row.isOnline ? (
-                        <span className="font-selector__badge font-selector__badge--online">W</span>
+                        <>
+                          <span className="font-selector__badge font-selector__badge--online">
+                            Fontsource
+                          </span>
+                          {onlineDetails.get(family)?.isVariable && (
+                            <span className="font-selector__badge font-selector__badge--var">
+                              Variable
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            className="font-selector__install-button"
+                            disabled={Boolean(installingFamily)}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              install(family);
+                            }}
+                          >
+                            Install
+                          </button>
+                        </>
                       ) : (
                         <>
                           {badge && <span className="font-selector__badge">{badge}</span>}
@@ -453,21 +493,6 @@ export function FontSelector({
               })}
             </div>
           )}
-          {googleFonts.loading && (
-            <div className="font-selector__option font-selector__option--loading">
-              Searching Google Fonts…
-            </div>
-          )}
-          {googleFonts.error && (
-            <div className="font-selector__option font-selector__option--error">
-              {googleFonts.error}
-            </div>
-          )}
-          {fontsource.loading && (
-            <div className="font-selector__option font-selector__option--loading">
-              Searching Fontsource…
-            </div>
-          )}
           {fontsource.error && (
             <div className="font-selector__option font-selector__option--error">
               {fontsource.error}
@@ -483,7 +508,7 @@ export function FontSelector({
               {installError}
             </div>
           )}
-          {flatList.length === 0 && !googleFonts.loading && !fontsource.loading && (
+          {flatList.length === 0 && !fontsource.loading && (
             <div className="font-selector__option font-selector__option--empty">No fonts match</div>
           )}
         </div>
