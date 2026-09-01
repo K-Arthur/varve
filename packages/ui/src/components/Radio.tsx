@@ -11,11 +11,13 @@ export interface RadioOption<V extends string> {
 
 export interface RadioGroupProps<V extends string> {
   label: string;
+  id?: string;
   value?: V;
   defaultValue?: V;
   options: readonly RadioOption<V>[];
   onChange?: (value: V) => void;
   name?: string;
+  required?: boolean;
   disabled?: boolean;
   orientation?: 'horizontal' | 'vertical';
   variant?: 'compact' | 'row' | 'card';
@@ -26,11 +28,13 @@ export interface RadioGroupProps<V extends string> {
 
 export function RadioGroup<V extends string>({
   label,
+  id: providedId,
   value,
   defaultValue,
   options,
   onChange = () => {},
   name,
+  required = false,
   disabled = false,
   orientation = 'vertical',
   variant = 'compact',
@@ -38,52 +42,69 @@ export function RadioGroup<V extends string>({
   description,
   error,
 }: RadioGroupProps<V>) {
-  const id = useId();
+  const generatedId = useId();
+  const id = providedId ?? generatedId;
+  const labelId = `${generatedId}-label`;
   const [uncontrolledValue, setUncontrolledValue] = useState<V | undefined>(defaultValue);
-  const selectedValue = value === undefined ? uncontrolledValue : value;
-  const helpId = description ? `${id}-description` : undefined;
-  const errorId = error ? `${id}-error` : undefined;
+  const isControlled = value !== undefined;
+  const selectedValue = isControlled ? value : uncontrolledValue;
+  const helpId = description ? `${generatedId}-description` : undefined;
+  const errorId = error ? `${generatedId}-error` : undefined;
   const describedBy = [helpId, errorId].filter(Boolean).join(' ') || undefined;
+  const groupName = name ?? `${generatedId}-options`;
+  const firstEnabledIndex = options.findIndex((opt) => !disabled && !opt.disabled);
+
+  const handleChange = (nextValue: V) => {
+    if (!isControlled) setUncontrolledValue(nextValue);
+    onChange(nextValue);
+  };
 
   return (
-    <div
+    <fieldset
+      id={id}
       className={`varve-radio-group varve-radio-group--${orientation} varve-radio-group--${variant}${
         columns ? ` varve-radio-group--columns-${columns}` : ''
       }${error ? ' varve-radio-group--invalid' : ''}`}
+      // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: native fieldset grouping is retained while the explicit role preserves the radio-group contract
       role="radiogroup"
-      aria-label={label}
+      aria-labelledby={labelId}
       aria-orientation={orientation === 'horizontal' ? 'horizontal' : 'vertical'}
       aria-describedby={describedBy}
+      aria-invalid={error ? true : undefined}
     >
-      <legend className="varve-radio-group__legend">{label}</legend>
+      <legend id={labelId} className="varve-radio-group__legend">
+        {label}
+      </legend>
       {description && (
         <p id={helpId} className="varve-radio-group__description">
           {description}
         </p>
       )}
-      {options.map((opt) => {
+      {options.map((opt, index) => {
         const checked = opt.value === selectedValue;
-        const optionId = `${id}-${opt.value}`;
+        const optionId = `${generatedId}-option-${index}`;
+        const optionLabelId = `${optionId}-label`;
+        const optionDescriptionId = opt.description ? `${optionId}-description` : undefined;
+        const optionDisabled = opt.disabled || disabled;
         return (
           <label
             key={opt.value}
             htmlFor={optionId}
             className={`varve-radio${checked ? ' varve-radio--checked' : ''}${
-              opt.disabled || disabled ? ' varve-radio--disabled' : ''
+              optionDisabled ? ' varve-radio--disabled' : ''
             }`}
           >
             <input
               id={optionId}
               type="radio"
-              name={name || id}
+              name={groupName}
               value={opt.value}
               checked={checked}
-              disabled={opt.disabled || disabled}
-              aria-invalid={error ? true : undefined}
-              onChange={() => {
-                setUncontrolledValue(opt.value);
-                onChange(opt.value);
-              }}
+              disabled={optionDisabled}
+              required={required && index === firstEnabledIndex}
+              aria-labelledby={optionLabelId}
+              aria-describedby={optionDescriptionId}
+              onChange={() => handleChange(opt.value)}
               className="varve-radio__input"
             />
             <span className="varve-radio__dot" aria-hidden="true" />
@@ -94,9 +115,13 @@ export function RadioGroup<V extends string>({
                 </span>
               )}
               <span className="varve-radio__text">
-                <span className="varve-radio__label">{opt.label}</span>
+                <span id={optionLabelId} className="varve-radio__label">
+                  {opt.label}
+                </span>
                 {opt.description && (
-                  <span className="varve-radio__option-description">{opt.description}</span>
+                  <span id={optionDescriptionId} className="varve-radio__option-description">
+                    {opt.description}
+                  </span>
                 )}
               </span>
               {opt.meta && <span className="varve-radio__meta">{opt.meta}</span>}
@@ -109,7 +134,7 @@ export function RadioGroup<V extends string>({
           {error}
         </p>
       )}
-    </div>
+    </fieldset>
   );
 }
 
@@ -131,15 +156,27 @@ export function RadioOption<V extends string>({
   meta,
   variant = 'compact',
   className = '',
+  'aria-labelledby': ariaLabelledBy,
+  'aria-describedby': ariaDescribedBy,
   ...inputProps
 }: RadioOptionProps<V>) {
   const id = useId();
+  const labelId = `${id}-label`;
+  const descriptionId = description ? `${id}-description` : undefined;
   return (
     <label
       className={`varve-radio varve-radio--${variant}${className ? ` ${className}` : ''}`}
       htmlFor={id}
     >
-      <input id={id} type="radio" value={value} className="varve-radio__input" {...inputProps} />
+      <input
+        id={id}
+        type="radio"
+        value={value}
+        className="varve-radio__input"
+        aria-labelledby={ariaLabelledBy ?? labelId}
+        aria-describedby={[ariaDescribedBy, descriptionId].filter(Boolean).join(' ') || undefined}
+        {...inputProps}
+      />
       <span className="varve-radio__dot" aria-hidden="true" />
       <span className="varve-radio__content">
         {icon && (
@@ -148,8 +185,14 @@ export function RadioOption<V extends string>({
           </span>
         )}
         <span className="varve-radio__text">
-          <span className="varve-radio__label">{label}</span>
-          {description && <span className="varve-radio__option-description">{description}</span>}
+          <span id={labelId} className="varve-radio__label">
+            {label}
+          </span>
+          {description && (
+            <span id={descriptionId} className="varve-radio__option-description">
+              {description}
+            </span>
+          )}
         </span>
         {meta && <span className="varve-radio__meta">{meta}</span>}
       </span>

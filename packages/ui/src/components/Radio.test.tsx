@@ -24,7 +24,9 @@ describe('RadioGroup', () => {
 
   it('renders radiogroup with label', () => {
     render(<RadioGroup label="Choose" value="a" options={options} onChange={() => {}} />);
-    expect(screen.getByRole('radiogroup')).toBeInTheDocument();
+    const group = screen.getByRole('radiogroup', { name: 'Choose' });
+    expect(group).toBeInTheDocument();
+    expect(group.tagName).toBe('FIELDSET');
   });
 
   it('checks the selected option', () => {
@@ -57,6 +59,45 @@ describe('RadioGroup', () => {
     expect(radios[0]).toBeChecked();
     await user.click(radios[2]!);
     expect(radios[2]).toBeChecked();
+  });
+
+  it('keeps controlled selection authoritative when the callback does not rerender', async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<RadioGroup label="Choose" value="a" options={options} onChange={onChange} />);
+
+    await user.click(screen.getByLabelText('Beta'));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Alpha')).toBeChecked();
+    expect(screen.getByLabelText('Beta')).not.toBeChecked();
+  });
+
+  it('associates option descriptions with their radio inputs', () => {
+    render(
+      <RadioGroup
+        label="Choose"
+        value="a"
+        options={[{ value: 'a', label: 'Alpha', description: 'The first choice' }]}
+      />,
+    );
+    expect(screen.getByRole('radio', { name: 'Alpha' })).toHaveAccessibleDescription(
+      'The first choice',
+    );
+  });
+
+  it('marks one enabled radio as required for form validation', () => {
+    render(
+      <RadioGroup
+        label="Choose"
+        defaultValue="b"
+        required
+        options={[{ value: 'a', label: 'Alpha', disabled: true }, ...options.slice(1)]}
+      />,
+    );
+    expect(screen.getByLabelText('Alpha')).not.toBeRequired();
+    expect(screen.getByLabelText('Beta')).toBeRequired();
+    expect(screen.getByLabelText('Gamma')).not.toBeRequired();
   });
 
   it('connects descriptions and errors to the group', () => {
