@@ -170,6 +170,9 @@
  */
 :where(.varve-shine-border):focus-visible::after,
 :where(.varve-shine-border):focus-within::after {
+  border-color: transparent;
+  background: none;
+  visibility: hidden;
   opacity: 0;
 }
 
@@ -177,5 +180,6 @@
 :where(.varve-shine-border[aria-disabled="true"])::after,
 :where(.varve-shine-border--disabled)::after {
   animation: none;
+  visibility: hidden;
   opacity: 0;
 }
