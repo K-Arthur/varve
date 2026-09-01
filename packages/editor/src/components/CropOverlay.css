@@ -39,14 +39,24 @@
 }
 
 .crop-toolbar__btn:hover {
-  background: var(--color-surface-sunken);
+  background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
 }
 
 .crop-toolbar__btn--active {
   border-color: var(--color-interactive-default);
-  background: var(--color-accent-subtle);
-  color: var(--color-text-primary);
+  background: var(--color-interactive-checked-surface);
+  color: var(--color-text-on-accent);
+}
+
+.crop-toolbar__btn:active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
+}
+
+.crop-toolbar__btn--active:hover {
+  background: var(--color-interactive-hover);
+  color: var(--color-text-on-accent);
 }
 
 .crop-toolbar__btn:focus-visible {
@@ -84,6 +94,14 @@
 @media (pointer: coarse) {
   .crop-toolbar__btn {
     min-height: 44px;
+  }
+  .crop-toolbar__btn:hover {
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+  .crop-toolbar__btn--active:hover {
+    background: var(--color-interactive-checked-surface);
+    color: var(--color-text-on-accent);
   }
 }
 
@@ -210,7 +228,12 @@
 }
 
 .crop-overlay__btn:hover {
-  background: var(--color-surface-sunken);
+  background: var(--color-interactive-hover-surface);
+}
+
+.crop-overlay__btn:active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
 }
 
 .crop-overlay__btn--ghost {
