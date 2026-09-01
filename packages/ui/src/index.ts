@@ -17,6 +17,7 @@ export type { MultiSelectProps } from './components/MultiSelect';
 export { MultiSelect } from './components/MultiSelect';
 export type { NativeSelectProps } from './components/NativeSelect';
 export { NativeSelect } from './components/NativeSelect';
+export type { SelectOptionGroup, SelectStatus } from './components/Select';
 export type {
   SortableEndResult,
   SortableItemHandleProps,
