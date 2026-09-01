@@ -102,6 +102,20 @@ describe('FontRegistry', () => {
     expect(reg.revision).not.toBe(initial);
   });
 
+  it('deduplicates repeated registrations without collapsing distinct sources', () => {
+    const reg = new FontRegistry([]);
+    const entry = {
+      family: 'Exact Face',
+      weight: 400,
+      style: 'normal' as const,
+      source: 'system' as const,
+    };
+    reg.register(entry);
+    reg.register(entry);
+    reg.register({ ...entry, source: 'bundled' });
+    expect(reg.getEntries('Exact Face')).toHaveLength(2);
+  });
+
   it('registers a font entry with url source', () => {
     const reg = new FontRegistry([]);
     reg.register({

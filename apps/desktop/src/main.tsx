@@ -23,6 +23,14 @@ import { installStaleAssetGuard } from './demo/staleAssetGuard';
 import { initCspDiagnostics } from './security/cspDiagnostics';
 import { dismissBootFallback } from './startup/revealMainWindow';
 
+const fontRuntime = globalThis as typeof globalThis & {
+  __VARVE_FONT_CONFIG__?: { googleApiKey?: string };
+};
+fontRuntime.__VARVE_FONT_CONFIG__ = {
+  googleApiKey: (import.meta as ImportMeta & { env?: { VITE_GOOGLE_FONTS_API_KEY?: string } }).env
+    ?.VITE_GOOGLE_FONTS_API_KEY,
+};
+
 if ((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV) {
   initCspDiagnostics();
 }

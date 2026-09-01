@@ -13,8 +13,16 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import type { FontMetadata } from '@varve/engine';
 import { getFontRegistry } from '@varve/engine';
 import { Tooltip } from '@varve/ui';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useOnlineFontSearch } from './useOnlineFontSearch';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import { downloadAndApplyOnlineFont, useOnlineFontSearch } from './useOnlineFontSearch';
 import './FontSelector.css';
 
 export interface FontSelectorProps {
@@ -46,16 +54,36 @@ export function FontSelector({
 }: FontSelectorProps) {
   const registry = useMemo(() => getFontRegistry(), []);
   const inputId = useId();
+  const listboxId = `${inputId}-listbox`;
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Font loading and system-font enumeration mutate the registry without
+  // changing the selected document. Subscribe to its revision so every
+  // mounted selector reflects newly-ready faces without a remount or an
+  // unrelated editor interaction.
+  const subscribe = useCallback((listener: () => void) => registry.subscribe(listener), [registry]);
+  const getRevision = useCallback(() => registry.revision, [registry]);
+  const registryRevision = useSyncExternalStore(subscribe, getRevision, getRevision);
 
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState(value);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [installingFamily, setInstallingFamily] = useState<string | null>(null);
+  const [installError, setInstallError] = useState<string | null>(null);
 
-  const allFamilies = useMemo(() => registry.families(), [registry]);
+  const allFamilies = useMemo(() => registry.families(), [registry, registryRevision]);
 
   const { googleFonts, fontsource } = useOnlineFontSearch(query);
+
+  const onlineProviders = useMemo(() => {
+    const providers = new Map<string, string>();
+    for (const result of googleFonts.results) providers.set(result.familyName, 'google-fonts');
+    for (const result of fontsource.results) {
+      if (!providers.has(result.familyName)) providers.set(result.familyName, 'fontsource');
+    }
+    return providers;
+  }, [googleFonts.results, fontsource.results]);
 
   const recentFamilies = useMemo(() => {
     return allFamilies.filter((f) => registry.state(f) === 'loaded').slice(0, 5);
@@ -169,12 +197,35 @@ export function FontSelector({
 
   const select = useCallback(
     (family: string) => {
-      onChange(family);
-      setQuery(family);
-      setIsOpen(false);
-      inputRef.current?.blur();
+      const providerId = onlineProviders.get(family);
+      if (!providerId) {
+        onChange(family);
+        setQuery(family);
+        setIsOpen(false);
+        inputRef.current?.blur();
+        return;
+      }
+
+      // Online results are not document fonts yet. Install and wait for the
+      // exact binary to parse/register before mutating the node, so a failed
+      // request leaves the previous face and editing session intact.
+      setInstallError(null);
+      setInstallingFamily(family);
+      void downloadAndApplyOnlineFont(family, providerId)
+        .then(() => {
+          onChange(family);
+          setQuery(family);
+          setIsOpen(false);
+          inputRef.current?.blur();
+        })
+        .catch((error: unknown) => {
+          setInstallError(
+            error instanceof Error ? error.message : 'This font could not be installed.',
+          );
+        })
+        .finally(() => setInstallingFamily(null));
     },
-    [onChange],
+    [onChange, onlineProviders],
   );
 
   const handleInputFocus = useCallback(() => {
@@ -270,7 +321,7 @@ export function FontSelector({
           role="combobox"
           aria-expanded={isOpen}
           aria-autocomplete="list"
-          aria-controls="font-selector-listbox"
+          aria-controls={listboxId}
           aria-activedescendant={
             highlightedIndex >= 0 ? `font-selector-option-${highlightedIndex}` : undefined
           }
@@ -287,7 +338,7 @@ export function FontSelector({
       {isOpen && (
         <div
           ref={listRef}
-          id="font-selector-listbox"
+          id={listboxId}
           className="font-selector__dropdown"
           role="listbox"
           aria-label="Font families"
@@ -410,6 +461,16 @@ export function FontSelector({
           {fontsource.error && (
             <div className="font-selector__option font-selector__option--error">
               Fontsource: {fontsource.error}
+            </div>
+          )}
+          {installingFamily && (
+            <div className="font-selector__option font-selector__option--loading" role="status">
+              Installing {installingFamily}…
+            </div>
+          )}
+          {installError && (
+            <div className="font-selector__option font-selector__option--error" role="alert">
+              {installError}
             </div>
           )}
           {flatList.length === 0 && !googleFonts.loading && !fontsource.loading && (

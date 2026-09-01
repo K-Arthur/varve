@@ -35,6 +35,16 @@ export interface FontEntry {
   axisDefinitions?: VariableAxisInfo[];
 }
 
+function fontEntryKey(entry: FontEntry): string {
+  const axes = Object.entries(entry.variableAxes ?? {})
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([tag, value]) => `${tag}=${value}`)
+    .join(',');
+  return [entry.family, entry.weight, entry.style, entry.source, entry.url ?? '', axes].join(
+    '\u0000',
+  );
+}
+
 export type FontLoadState = 'unknown' | 'loading' | 'loaded' | 'error';
 
 /** One face a document references: family plus the weight/style it uses. */
@@ -218,6 +228,7 @@ export class FontRegistry {
   /** Register a font entry (e.g., from system enumeration or Google Fonts API). */
   register(entry: FontEntry): void {
     const existing = this.entries.get(entry.family) ?? [];
+    if (existing.some((candidate) => fontEntryKey(candidate) === fontEntryKey(entry))) return;
     // Bundled variable families carry their fvar axes even when the caller
     // did not spell them out, so the inspector can offer them.
     const bundled = BUNDLED_VARIABLE_AXES[entry.family];

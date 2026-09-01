@@ -16,6 +16,7 @@ import {
   buildWorldToScreenAffine,
   computeFloatingOrigin,
   DEFAULT_ARTWORK_FONT_FAMILY,
+  managedColorToCss,
   multiplyAffine,
 } from '@varve/shared';
 import { useCallback, useEffect, useRef } from 'react';
@@ -63,6 +64,8 @@ export function TextEditOverlay({
   const composingRef = useRef(false);
   const pendingTextRef = useRef<string | null>(null);
   const updateTimerRef = useRef<number | null>(null);
+  const blurCommitFrameRef = useRef<number | null>(null);
+  const committedRef = useRef(false);
   const onUpdateTextRef = useRef(onUpdateText);
   onUpdateTextRef.current = onUpdateText;
   const ctx = useEditor();
@@ -130,16 +133,25 @@ export function TextEditOverlay({
     scheduleTextUpdate(ta.value);
   }, [scheduleTextUpdate]);
 
+  const commit = useCallback(
+    (finalText: string) => {
+      if (committedRef.current) return;
+      committedRef.current = true;
+      flushPendingText();
+      onCommit(finalText);
+    },
+    [flushPendingText, onCommit],
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        flushPendingText();
-        onCommit(textareaRef.current?.value ?? '');
+        commit(textareaRef.current?.value ?? '');
       }
       // Enter inserts newline for multi-line text
     },
-    [flushPendingText, onCommit],
+    [commit],
   );
 
   const handleCompositionStart = useCallback(() => {
@@ -156,17 +168,37 @@ export function TextEditOverlay({
   }, [flushPendingText]);
 
   const handleBlur = useCallback(() => {
-    if (!composingRef.current) {
-      const finalText = textareaRef.current?.value ?? '';
-      flushPendingText();
-      onCommit(finalText);
+    if (composingRef.current || committedRef.current) return;
+    if (blurCommitFrameRef.current !== null) {
+      cancelAnimationFrame(blurCommitFrameRef.current);
     }
-  }, [flushPendingText, onCommit]);
+    // The editor, floating toolbar, and its portaled menus form one logical
+    // focus surface. A textarea blur fires before a toolbar control receives
+    // focus, so committing synchronously here unmounts the very control the
+    // user is trying to use. Decide after the browser has completed focus
+    // transfer and retain the session for any Varve overlay.
+    blurCommitFrameRef.current = requestAnimationFrame(() => {
+      blurCommitFrameRef.current = null;
+      if (committedRef.current || composingRef.current) return;
+      const active = document.activeElement;
+      const insideEditingSurface =
+        active instanceof Element &&
+        Boolean(
+          active.closest(
+            '[data-text-edit-surface="true"],[data-varve-overlay="true"],.inspector-panel,.inspector',
+          ),
+        );
+      if (!insideEditingSurface) commit(textareaRef.current?.value ?? '');
+    });
+  }, [commit]);
 
   useEffect(() => {
     return () => {
       if (updateTimerRef.current !== null) {
         window.clearTimeout(updateTimerRef.current);
+      }
+      if (blurCommitFrameRef.current !== null) {
+        cancelAnimationFrame(blurCommitFrameRef.current);
       }
       updateTimerRef.current = null;
       pendingTextRef.current = null;
@@ -233,7 +265,10 @@ export function TextEditOverlay({
         resize: 'none',
         overflow: 'hidden',
         background: 'transparent',
-        color: 'transparent',
+        // The DOM editor is the immediate-feedback surface. Canvas replay is
+        // intentionally allowed to lag behind input; hiding the textarea's
+        // text made typing look frozen on large documents.
+        color: managedColorToCss(node.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }),
         caretColor: 'var(--color-interactive-default, #3b82f6)',
         whiteSpace: 'pre-wrap',
         wordWrap: 'break-word',
@@ -241,6 +276,7 @@ export function TextEditOverlay({
         transformOrigin: '0 0',
         zIndex: 1000,
       }}
+      data-text-edit-surface="true"
     />
   );
   return createPortal(editor, document.body);

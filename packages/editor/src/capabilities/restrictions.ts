@@ -27,7 +27,9 @@ export type RestrictedCapability =
   /** On-device inference: background removal, image upscaling, semantic search. */
   | 'inference'
   /** Print production output: PDF export, CMYK, bleed, colour-managed print. */
-  | 'printProduction';
+  /** Online font metadata and binary installation. */
+  | 'printProduction'
+  | 'onlineFonts';
 
 export interface CapabilityRestrictions {
   /** Capabilities this deployment does not offer. */
@@ -87,6 +89,8 @@ export const RESTRICTION_MESSAGES: Record<RestrictedCapability, string> = {
     'Background removal, upscaling, and visual search run on-device in the desktop app. They are not available in the browser demo.',
   printProduction:
     'PDF export, CMYK, bleed, and colour-managed print output are desktop-only. The browser has no print pipeline to hand them to.',
+  onlineFonts:
+    'Online font search and installation are unavailable in the browser demo. Bundled and local fonts remain available.',
 };
 
 /**
