@@ -390,6 +390,14 @@ describe('LayersRow clipping relationship', () => {
 });
 
 describe('LayersRow visual differentiation', () => {
+  it('exposes a semantic search-match cue on the matching row and name', () => {
+    const { container } = renderRow({ searchMatch: true });
+    const row = container.querySelector('[role="treeitem"]');
+
+    expect(row).toHaveAttribute('data-search-match', 'true');
+    expect(container.querySelector('.layers-row__name')).toHaveClass('layers-row__name--match');
+  });
+
   it('renders an assigned layer colour as a row backdrop cue without a marker shape', () => {
     const { container } = renderRow({
       node: makeNode('n1', 'Tagged artwork', 'shape', { layerColor: 'purple' }),

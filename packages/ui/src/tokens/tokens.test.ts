@@ -69,3 +69,42 @@ describe('tokens.css drift guard (OKLCH)', () => {
     }
   });
 });
+
+describe('interaction semantic roles', () => {
+  const roles = [
+    'interactive-hover-surface',
+    'interactive-pressed-surface',
+    'interactive-selected-surface',
+    'interactive-selected-surface-hover',
+    'interactive-selected-border',
+    'interactive-current-indicator',
+    'interactive-checked-surface',
+    'interactive-drop-target-surface',
+    'interactive-drop-target-border',
+    'interactive-drop-denied-surface',
+    'interactive-drop-denied-border',
+    'highlight-search-match',
+    'highlight-search-current',
+    'highlight-text-selection',
+    'highlight-text-selection-foreground',
+  ] as const;
+
+  it('defines every interaction role in every supported theme', () => {
+    for (const theme of ['light', 'dark', 'high-contrast'] as const) {
+      for (const role of roles) {
+        expect(SEMANTIC[theme][role], `${role} missing in ${theme}`).toBeDefined();
+      }
+    }
+  });
+
+  it('keeps temporary and persistent roles distinct', () => {
+    for (const theme of ['light', 'dark', 'high-contrast'] as const) {
+      expect(SEMANTIC[theme]['interactive-hover-surface']).not.toEqual(
+        SEMANTIC[theme]['interactive-selected-surface'],
+      );
+      expect(SEMANTIC[theme]['highlight-search-match']).not.toEqual(
+        SEMANTIC[theme]['highlight-search-current'],
+      );
+    }
+  });
+});
