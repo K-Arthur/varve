@@ -35,7 +35,7 @@
   gap: 6px;
   padding: 5px 10px;
   border: none;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-radius: var(--radius-control-compact) var(--radius-control-compact) 0 0;
   background: transparent;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);

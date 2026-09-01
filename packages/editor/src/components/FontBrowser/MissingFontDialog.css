@@ -24,7 +24,7 @@
   max-height: 78vh;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   box-shadow: 0 8px 24px oklch(0 0 0 / 0.2);
   overflow: hidden;
   outline: none;
@@ -49,7 +49,7 @@
   padding: var(--space-1) var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   cursor: pointer;
@@ -132,7 +132,7 @@
 .missing-font-dialog__item-status {
   display: inline-flex;
   padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-feedback-danger);
@@ -180,7 +180,7 @@
   padding: var(--space-1) var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-xs);
@@ -200,7 +200,7 @@
   padding: var(--space-1) var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-2xs);
@@ -245,7 +245,7 @@
 
 .missing-font-dialog__btn {
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font: inherit;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);

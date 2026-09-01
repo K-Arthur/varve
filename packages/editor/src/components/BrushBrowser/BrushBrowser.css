@@ -62,7 +62,7 @@
   flex-direction: column;
   background: var(--color-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
 }
 
 .brush-browser__tile.is-selected {
@@ -79,7 +79,7 @@
   text-align: start;
   background: none;
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   cursor: pointer;
 }
 
@@ -103,7 +103,7 @@
     4px -4px,
     -4px 0;
   background-size: 8px 8px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   block-size: 56px;
 }
 
@@ -157,7 +157,7 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 /* Tool options are portaled out of the toolbar. When the library is present,

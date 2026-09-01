@@ -39,7 +39,7 @@
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs);
   white-space: nowrap;
   max-width: 140px;
@@ -84,7 +84,7 @@
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0;
 }
 
@@ -105,7 +105,7 @@
   z-index: var(--z-popover);
   background: var(--elevation-surface-default);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   box-shadow: var(--shadow-lg);
   padding: var(--space-1);
   min-width: 160px;
@@ -123,7 +123,7 @@
   background: transparent;
   color: var(--color-text-primary);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs);
   text-align: left;
 }

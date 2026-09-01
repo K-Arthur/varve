@@ -29,7 +29,7 @@
 .email-code-editor__tool {
   padding: 2px var(--space-1);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   background: var(--color-surface-sunken);
   font: inherit;
@@ -55,7 +55,7 @@
   flex: 1 1 8rem;
   padding: 3px var(--space-1);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   background: var(--color-surface-default);
   font: inherit;
@@ -67,7 +67,7 @@
   min-height: 10rem;
   overflow: hidden;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-sunken);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);

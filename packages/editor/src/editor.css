@@ -41,7 +41,7 @@ html {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   cursor: pointer;
   font: inherit;
   font-size: var(--font-size-sm);
@@ -68,7 +68,7 @@ html {
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   border: 2px solid var(--color-interactive-focus-ring);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   text-decoration: none;
@@ -96,7 +96,7 @@ input[type="number"] {
 /* ── Recovery dialog ──────────────────────────────────── */
 .recovery-dialog {
   border: none;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   box-shadow: var(--elevation-shadow-overlay);
   background: var(--elevation-surface-overlay);
   color: var(--color-text-primary);
@@ -136,7 +136,7 @@ input[type="number"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 .recovery-dialog__close:hover {
   background: var(--color-surface-sunken);
@@ -195,7 +195,7 @@ input[type="number"] {
 }
 .recovery-dialog__btn {
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   border: 1px solid var(--color-border-subtle);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
@@ -276,7 +276,7 @@ input[type="number"] {
   color: inherit;
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   flex-shrink: 0;
 }
 .editor-offline-banner__close:hover {
@@ -401,7 +401,7 @@ input[type="number"] {
   color: var(--color-text-on-accent);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
 }
@@ -448,7 +448,7 @@ input[type="number"] {
 
 .editor-menubar__item {
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: default;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -483,7 +483,7 @@ input[type="number"] {
   padding: 0;
   background: none;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-default);
 }
@@ -521,7 +521,7 @@ input[type="number"] {
   padding: var(--space-1);
   background: var(--elevation-surface-overlay);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   box-shadow: var(--elevation-shadow-overlay);
   font-family: var(--font-body);
 }
@@ -541,7 +541,7 @@ input[type="number"] {
   width: 100%;
   padding: var(--space-1) var(--space-2);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: none;
   color: var(--color-text-primary);
   cursor: default;
@@ -613,7 +613,7 @@ input[type="number"] {
   padding: var(--space-1);
   background: var(--elevation-surface-overlay);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   box-shadow: var(--elevation-shadow-overlay);
   font-family: var(--font-body);
   z-index: auto;
@@ -722,7 +722,7 @@ input[type="number"] {
   min-width: 32px;
   min-height: 32px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: inherit;
   opacity: 0;
@@ -890,7 +890,7 @@ input[type="number"] {
   top: var(--space-2);
   right: var(--space-2);
   z-index: var(--z-dropdown);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
@@ -991,7 +991,7 @@ input[type="number"] {
   margin-bottom: var(--space-1);
   background: var(--color-surface-raised);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   padding: var(--space-2) var(--space-3);
 }
 .editor-inspector__group-title {
@@ -1030,7 +1030,7 @@ input[type="number"] {
   padding: 0 var(--space-2);
   background: none;
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   cursor: default;
@@ -1104,7 +1104,7 @@ input[type="number"] {
   padding: 2px var(--space-2);
   background: var(--elevation-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   margin-left: var(--space-1);
 }
 
@@ -1145,7 +1145,7 @@ input[type="number"] {
   height: 22px;
   padding: 0 var(--space-2);
   font-size: var(--font-size-xs);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   width: auto;
@@ -1158,7 +1158,7 @@ input[type="number"] {
 }
 .editor-status__unit-select:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .editor-status__toggle {
@@ -1170,7 +1170,7 @@ input[type="number"] {
   padding: 0 var(--space-1);
   background: none;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
   flex-shrink: 0;
@@ -1209,7 +1209,7 @@ input[type="number"] {
 .editor-status__zoom-chip .editor-status__toggle {
   width: var(--space-4);
   height: var(--space-4);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .editor-status__fit-btn {
@@ -1220,7 +1220,7 @@ input[type="number"] {
   font: inherit;
   font-size: var(--font-size-xs);
   padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   white-space: nowrap;
   transition:
     background var(--duration-quick) var(--ease-standard),
@@ -1319,7 +1319,7 @@ input[type="number"] {
 .editor-status__tip-chip-body:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .editor-status__tip-dismiss {
@@ -1332,7 +1332,7 @@ input[type="number"] {
   padding: 0;
   background: none;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
 }
@@ -1540,7 +1540,7 @@ input[type="number"] {
   background: oklch(from var(--color-surface-sunken) l c h / 0.6);
   border: 1px solid var(--color-border-subtle);
   /* Match the compact menubar controls rather than forming a second pill. */
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 4px 6px;
   box-sizing: border-box;
   height: 36px;
@@ -1636,7 +1636,7 @@ input[type="number"] {
   width: auto;
   height: 28px;
   padding: 0 10px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--ws-mode-bg);
   color: var(--color-text-on-accent);
   box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.15);
@@ -1798,7 +1798,7 @@ input[type="number"] {
   width: var(--space-8);
   background: var(--elevation-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-xs);
@@ -2773,7 +2773,7 @@ input[type="number"] {
   min-inline-size: 28px;
   min-block-size: 28px;
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-raised);
   color: var(--color-text-secondary);
   cursor: grab;
@@ -2809,7 +2809,7 @@ input[type="number"] {
 .panel-drag-handle .varve-tooltip-trigger:focus-visible {
   outline: 3px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 .panel-detach-btn[data-transferring="true"] {
   cursor: wait;
@@ -2915,7 +2915,7 @@ input[type="number"] {
   height: var(--space-5);
   padding: 0;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -3001,7 +3001,7 @@ dialog.varve-dialog--settings[open] {
   flex-shrink: 0;
   overflow-y: auto;
   background: var(--elevation-surface-sunken);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   padding: var(--space-2);
 }
 .settings-dialog__tab {
@@ -3010,7 +3010,7 @@ dialog.varve-dialog--settings[open] {
   min-height: 32px;
   padding: var(--space-1) var(--space-2);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--color-text-primary);
   font: inherit;
@@ -3031,7 +3031,7 @@ dialog.varve-dialog--settings[open] {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   border-left: 3px solid var(--color-interactive-default);
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
 }
 .settings-dialog__tab:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -3090,7 +3090,7 @@ dialog.varve-dialog--settings[open] {
   gap: var(--space-3);
   background: var(--elevation-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   padding: var(--space-3);
 }
 .settings-section__title {
@@ -3137,7 +3137,7 @@ dialog.varve-dialog--settings[open] {
   margin: var(--space-3) 0 0;
   padding: var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
@@ -3184,7 +3184,7 @@ dialog.varve-dialog--settings[open] {
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
 }
 .bg-models-list__info {
@@ -3213,7 +3213,7 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-primary);
   padding: var(--space-2) var(--space-3);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
   margin-bottom: var(--space-2);
 }
@@ -3249,7 +3249,7 @@ dialog.varve-dialog--settings[open] {
   height: var(--space-5);
   padding: 0 var(--space-2);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   font: inherit;
@@ -3280,7 +3280,7 @@ dialog.varve-dialog--settings[open] {
   height: var(--space-5);
   min-width: var(--space-5);
   min-height: var(--space-5);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   border: var(--border-micro);
   border-color: var(--color-border-strong);
   cursor: pointer;
@@ -3418,7 +3418,7 @@ dialog.varve-dialog--settings[open] {
   height: 1.5em;
   padding: 0 var(--space-1);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-raised);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
@@ -3449,7 +3449,7 @@ dialog.varve-dialog--settings[open] {
   justify-content: center;
   width: var(--space-11);
   height: var(--space-11);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   background: var(--color-surface-sunken);
   color: var(--color-text-secondary);
 }
@@ -3487,7 +3487,7 @@ dialog.varve-dialog--settings[open] {
   max-width: 160px;
   padding: var(--space-3);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   cursor: pointer;
@@ -3541,7 +3541,7 @@ dialog.varve-dialog--settings[open] {
 }
 .spotlight-overlay__highlight {
   position: absolute;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   box-shadow: 0 0 0 9999px var(--elevation-scrim, oklch(0 0 0 / 0.55));
   z-index: 1;
   pointer-events: none;
@@ -3556,7 +3556,7 @@ dialog.varve-dialog--settings[open] {
   padding: var(--space-3);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   box-shadow: var(--shadow-lg);
 }
 .spotlight-overlay__tooltip-header {
@@ -3646,7 +3646,7 @@ dialog.varve-dialog--settings[open] {
 .ai-panel__suggestion-btn {
   background: var(--elevation-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
@@ -3668,7 +3668,7 @@ dialog.varve-dialog--settings[open] {
   gap: var(--space-1);
   max-width: 85%;
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   font-size: var(--font-size-sm);
   line-height: var(--font-line-normal);
   white-space: pre-wrap;
@@ -3678,13 +3678,13 @@ dialog.varve-dialog--settings[open] {
   align-self: flex-end;
   background: var(--elevation-surface-raised);
   color: var(--color-text-primary);
-  border-bottom-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-control-compact);
 }
 .ai-panel__bubble--assistant {
   align-self: flex-start;
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
-  border-bottom-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-control-compact);
 }
 .ai-panel__bubble-content {
   white-space: pre-wrap;
@@ -3700,7 +3700,7 @@ dialog.varve-dialog--settings[open] {
   gap: 2px;
   background: none;
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   padding: 2px var(--space-1);
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
@@ -3760,7 +3760,7 @@ dialog.varve-dialog--settings[open] {
   padding: var(--space-2) var(--space-3);
   background: var(--color-feedback-danger);
   color: var(--color-text-on-accent);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   font-size: var(--font-size-sm);
 }
 .ai-panel__input-area {
@@ -3778,7 +3778,7 @@ dialog.varve-dialog--settings[open] {
   max-height: 120px;
   padding: var(--space-1) var(--space-2);
   border: var(--border-micro);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   font: inherit;
@@ -3799,7 +3799,7 @@ dialog.varve-dialog--settings[open] {
   width: var(--space-6);
   height: var(--space-6);
   border: none;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   cursor: pointer;
@@ -3890,7 +3890,7 @@ dialog.varve-dialog--settings[open] {
   pointer-events: none;
   user-select: none;
   background: var(--elevation-surface-overlay);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-2xs);
   color: var(--color-text-primary);
@@ -3942,7 +3942,7 @@ dialog.varve-dialog--settings[open] {
   display: flex;
   gap: var(--space-2);
   padding: var(--space-2);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   align-items: flex-start;
   background: var(--elevation-surface-default);
   border: var(--border-micro);
@@ -3960,7 +3960,7 @@ dialog.varve-dialog--settings[open] {
   justify-content: center;
   width: var(--space-6);
   height: var(--space-6);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-secondary);
   flex-shrink: 0;
@@ -3994,7 +3994,7 @@ dialog.varve-dialog--settings[open] {
   cursor: pointer;
   padding: 0;
   margin-top: var(--space-05);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition: color var(--duration-quick) var(--ease-default);
 }
 .plugin-list__item-perms:hover {
@@ -4054,7 +4054,7 @@ dialog.varve-dialog--settings[open] {
   width: var(--space-5);
   height: var(--space-5);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -4099,7 +4099,7 @@ dialog.varve-dialog--settings[open] {
   flex: 1;
   padding: var(--space-1) var(--space-2);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
   transition: border-color var(--duration-quick) var(--ease-default);
 }
@@ -4127,7 +4127,7 @@ dialog.varve-dialog--settings[open] {
 .plugin-marketplace__category-select {
   padding: var(--space-1) var(--space-2);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   font: inherit;
@@ -4152,7 +4152,7 @@ dialog.varve-dialog--settings[open] {
   gap: var(--space-2);
   padding: var(--space-3);
   border: var(--border-micro);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   background: var(--elevation-surface-default);
   transition:
     transform var(--duration-fast) var(--ease-spring),
@@ -4170,7 +4170,7 @@ dialog.varve-dialog--settings[open] {
   justify-content: center;
   width: var(--space-8);
   height: var(--space-8);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-raised);
   color: var(--color-text-secondary);
   border: var(--border-micro);
@@ -4207,7 +4207,7 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-interactive-default);
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition: color var(--duration-quick) var(--ease-default);
 }
 .plugin-marketplace__card-perms:hover {
@@ -4321,7 +4321,7 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font: inherit;
   font-size: var(--font-size-sm);
   transition: border-color var(--duration-quick) var(--ease-standard);
@@ -4400,7 +4400,7 @@ dialog.varve-dialog--settings[open] {
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition:
     background var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard);
@@ -4429,7 +4429,7 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font: inherit;
   font-size: var(--font-size-xs);
   cursor: pointer;
@@ -4453,7 +4453,7 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font: inherit;
   font-size: var(--font-size-xs);
   cursor: pointer;
@@ -4465,7 +4465,7 @@ dialog.varve-dialog--settings[open] {
   background: transparent;
   color: var(--color-interactive-default);
   border: 1px solid var(--color-interactive-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font: inherit;
   font-size: var(--font-size-xs);
   cursor: pointer;
@@ -4500,7 +4500,7 @@ dialog.varve-dialog--settings[open] {
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
 }
 
@@ -4531,7 +4531,7 @@ dialog.varve-dialog--settings[open] {
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .timeline-panel__toggle-btn:hover {
@@ -5217,7 +5217,7 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-primary);
   background: var(--color-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
 }
 .workspace-customize__search:focus-visible {
   outline: 2px solid var(--color-border-focus);
@@ -5482,7 +5482,7 @@ dialog.varve-dialog--settings[open] {
 .ref-image-picker__preview {
   width: 64px;
   height: 64px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   border: var(--border-micro);
   overflow: hidden;
   flex-shrink: 0;
@@ -5579,7 +5579,7 @@ dialog.varve-dialog--settings[open] {
 .model-manager__diagnostics {
   padding: 8px 12px;
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   margin-top: 12px;
 }
 
@@ -5613,7 +5613,7 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .insp-input:focus-visible {
@@ -5628,7 +5628,7 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-feedback-error-strong);
   background: color-mix(in oklch, var(--color-feedback-error) 12%, transparent);
   padding: 8px 12px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 /* ---------- UpscaleDialog ------------------------------------------------- */
@@ -5640,7 +5640,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .upscale-settings__ai-preview {
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   border: var(--border-micro);
   overflow: hidden;
 }
@@ -5652,7 +5652,7 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-feedback-warning-strong);
   background: color-mix(in oklch, var(--color-feedback-warning) 12%, transparent);
   padding: 6px 10px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 /* ---------- GradientMapEditor --------------------------------------------- */
@@ -5745,7 +5745,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .thumbnail-info-dialog__preview {
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   overflow: hidden;
   border: var(--border-micro);
 }
@@ -5764,7 +5764,7 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .thumbnail-info-dialog__error {
@@ -5893,7 +5893,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .insp-depth-canvas {
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   border: var(--border-micro);
   overflow: hidden;
 }

@@ -14,7 +14,7 @@
   align-items: center;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: grab;
   display: inline-flex;
@@ -42,7 +42,7 @@
 .varve-sortable-overlay {
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   box-shadow: var(--elevation-shadow-overlay);
   max-width: min(22rem, calc(100vw - 2rem));
   pointer-events: none;

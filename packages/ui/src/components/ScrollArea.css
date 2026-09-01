@@ -46,7 +46,7 @@
   min-width: 24px;
   background: var(--color-border-strong);
   border: 2px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background-clip: padding-box;
 }
 

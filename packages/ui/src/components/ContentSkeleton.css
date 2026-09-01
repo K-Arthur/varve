@@ -1,7 +1,7 @@
 .content-skeleton {
   --skeleton-bg: var(--skeleton-bg-color, var(--color-surface-raised));
   --skeleton-shimmer: var(--skeleton-shimmer-color, var(--color-surface-overlay));
-  --skeleton-radius: var(--radius-sm);
+  --skeleton-radius: var(--radius-control-compact);
   position: relative;
   overflow: hidden;
 }
@@ -78,7 +78,7 @@
 .content-skeleton__card-icon {
   width: var(--space-7);
   height: var(--space-7);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   overflow: hidden;
 }
 

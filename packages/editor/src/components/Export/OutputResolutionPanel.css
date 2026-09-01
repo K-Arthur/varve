@@ -3,7 +3,7 @@
   gap: var(--space-2);
   padding: var(--space-3);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
 }
 

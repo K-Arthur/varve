@@ -173,7 +173,7 @@
   min-width: 44px;
   padding: 0 var(--space-3);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -318,7 +318,7 @@
   background: var(--color-surface-overlay);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs);
   line-height: 1.4;
   box-shadow: var(--shadow-md);
@@ -370,7 +370,7 @@
 
 .varve-dialog {
   border: none;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   padding: 0;
@@ -431,7 +431,7 @@
   align-items: center;
   justify-content: center;
   line-height: 1;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 .varve-dialog__close:hover {
   background: var(--color-surface-sunken);
@@ -496,7 +496,7 @@
   padding: var(--space-1) 0;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   box-shadow: var(--shadow-lg);
 }
 .varve-menu__item {
@@ -548,7 +548,7 @@
   padding: var(--space-1) 0;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   box-shadow: var(--shadow-lg);
 }
 
@@ -565,7 +565,7 @@
   padding: var(--space-1) 0;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   box-shadow: var(--shadow-lg);
 }
 
@@ -619,7 +619,7 @@
   padding: 0 var(--space-2) 0 var(--space-7);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--color-text-primary);
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
@@ -640,7 +640,7 @@
   cursor: pointer;
   color: var(--color-text-muted);
   padding: var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   display: flex;
 }
 .varve-search__clear:hover {
@@ -677,7 +677,7 @@
   padding: 0 var(--space-3);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--color-text-primary);
   cursor: pointer;
   outline-offset: 2px;
@@ -725,7 +725,7 @@
   padding: var(--space-1) 0;
   background: var(--elevation-surface-raised);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   box-shadow: var(--elevation-shadow-overlay);
   overflow-y: auto;
 }
@@ -742,7 +742,7 @@
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
@@ -849,7 +849,7 @@
 .varve-popover {
   background: var(--color-surface-overlay);
   box-shadow: var(--shadow-lg);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--color-text-primary);
   padding: var(--space-3);
   min-width: 160px;
@@ -899,7 +899,7 @@
 .varve-segmented {
   display: inline-flex;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   overflow: hidden;
 }
 .varve-segmented__btn {
@@ -1003,7 +1003,7 @@
   height: 24px;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition:
     background var(--duration-quick) var(--ease-standard),
     border-color var(--duration-quick) var(--ease-standard);
@@ -1199,7 +1199,7 @@
   z-index: 1;
   inline-size: 2px;
   block-size: 20px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-border-subtle);
   opacity: 0;
   transition: opacity var(--duration-quick) var(--ease-standard);
@@ -1390,7 +1390,7 @@
   min-height: 32px;
   background: none;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
   font-size: var(--font-size-lg);
@@ -1473,7 +1473,7 @@
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-sm);
@@ -1535,7 +1535,7 @@
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-sm);
@@ -1650,7 +1650,7 @@
   padding: 0 var(--space-1);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-xs);
@@ -1685,7 +1685,7 @@
   padding: 0;
   background: transparent;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
   transition:
@@ -1871,7 +1871,7 @@
 }
 
 .bento-cell {
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   background: var(--elevation-surface-default);
   box-shadow: var(--elevation-shadow-raised);
   border: var(--border-micro);
@@ -1880,7 +1880,7 @@
 }
 
 .bento-cell--featured {
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   background: var(--elevation-surface-raised);
   box-shadow: var(--elevation-shadow-overlay);
   border: var(--border-micro-accent);
@@ -1963,7 +1963,7 @@
   height: 18px;
   padding: 0 var(--space-1);
   margin-left: var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-sunken);
   border: var(--border-micro);
   font-size: 10px;
@@ -1997,7 +1997,7 @@
   align-items: center;
   gap: var(--space-1);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
@@ -2029,7 +2029,7 @@
   padding: 0 var(--space-2);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-sm);
@@ -2071,7 +2071,7 @@
   padding: var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-sm);
@@ -2179,7 +2179,7 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   transition:
     background var(--duration-quick) var(--ease-standard),
     border-color var(--duration-quick) var(--ease-standard);
@@ -2354,7 +2354,7 @@
   justify-content: center;
   gap: var(--space-1);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -2430,7 +2430,7 @@
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-sm);
@@ -2464,7 +2464,7 @@
   overflow-y: auto;
   background: var(--color-surface-overlay);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   box-shadow: var(--elevation-shadow-raised);
   margin-top: var(--space-1);
 }

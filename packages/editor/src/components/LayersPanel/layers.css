@@ -43,7 +43,7 @@
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition:
     color var(--duration-quick) var(--ease-standard),
     background var(--duration-quick) var(--ease-standard);
@@ -91,7 +91,7 @@
   border: 1px solid var(--color-border-subtle);
   background: none;
   color: var(--color-text-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-xs);
   cursor: pointer;
@@ -110,7 +110,7 @@
   color: var(--accent);
   cursor: pointer;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: 0.75rem;
 }
 
@@ -127,7 +127,7 @@
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
 .layers-panel__filter:focus-within {
@@ -164,7 +164,7 @@
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   flex-shrink: 0;
 }
 
@@ -204,7 +204,7 @@
   align-items: center;
   gap: var(--density-rows-gap, var(--space-1));
   padding: var(--density-rows-padding, var(--space-1));
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: default;
   user-select: none;
   min-height: var(--density-rows-min-height, var(--space-6));
@@ -222,7 +222,7 @@
   top: 3px;
   bottom: 3px;
   width: 3px;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: 0 var(--radius-control-compact) var(--radius-control-compact) 0;
   pointer-events: none;
   transition: background var(--duration-quick) var(--ease-standard);
 }
@@ -413,7 +413,7 @@
   color: inherit;
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   opacity: 0.6;
 }
 
@@ -435,7 +435,7 @@
 .layers-row__thumbnail {
   width: var(--space-5);
   height: var(--space-5);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   object-fit: cover;
   flex-shrink: 0;
   border: var(--border-micro);
@@ -455,7 +455,7 @@
      that looks broken against the design system. */
   border: none;
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   transition:
     background var(--duration-quick) var(--ease-standard),
@@ -483,7 +483,7 @@
   height: var(--space-4);
   flex-shrink: 0;
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   opacity: 0;
   pointer-events: none;
@@ -594,7 +594,7 @@
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   padding: var(--space-05) var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   outline: none;
   min-width: 0;
   box-sizing: border-box;
@@ -654,7 +654,7 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   flex-shrink: 0;
 }
@@ -663,7 +663,7 @@
   font-size: var(--font-size-2xs);
   color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   flex-shrink: 0;
   font-weight: var(--font-weight-medium);
@@ -675,7 +675,7 @@
 
 .layers-row__sync-badge {
   font-size: var(--font-size-2xs);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   flex-shrink: 0;
   white-space: nowrap;
@@ -705,7 +705,7 @@
   font-size: var(--font-size-2xs);
   color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   flex-shrink: 0;
   white-space: nowrap;
@@ -716,7 +716,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   flex-shrink: 0;
   white-space: nowrap;
@@ -755,7 +755,7 @@
   font-size: var(--font-size-2xs);
   color: var(--color-feedback-success);
   background: color-mix(in oklab, var(--color-feedback-success) 16%, transparent);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   flex-shrink: 0;
   min-width: var(--space-3);
@@ -767,7 +767,7 @@
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   margin-left: auto;
   white-space: nowrap;
@@ -809,7 +809,7 @@
 
 .layers-row__object-filter-badge {
   background: color-mix(in oklab, var(--color-accent) 14%, transparent);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-accent);
   flex-shrink: 0;
   font-size: var(--font-size-2xs);
@@ -824,7 +824,7 @@
     var(--color-accent-secondary, var(--color-accent)) 14%,
     transparent
   );
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-accent-secondary, var(--color-accent));
   flex-shrink: 0;
   font-size: var(--font-size-2xs);
@@ -837,7 +837,7 @@
 .layers-row__mask-badge {
   align-items: center;
   border: 1px solid color-mix(in oklab, var(--color-feedback-info) 48%, transparent);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-feedback-info);
   display: inline-flex;
   flex-shrink: 0;
@@ -864,7 +864,7 @@
   align-items: center;
   background: color-mix(in oklab, var(--color-feedback-info) 12%, transparent);
   border: 1px solid color-mix(in oklab, var(--color-feedback-info) 36%, transparent);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-feedback-info);
   display: inline-flex;
   font-size: var(--font-size-2xs);
@@ -891,7 +891,7 @@
   color: inherit;
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   opacity: 0.25;
   transition: opacity var(--duration-quick) var(--ease-standard);
 }
@@ -979,7 +979,7 @@
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
 .layers-filter-bar__search-row:focus-within {
@@ -1018,7 +1018,7 @@
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 .layers-filter-bar__clear-search:hover {
   color: var(--color-text-primary);
@@ -1036,7 +1036,7 @@
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   flex-shrink: 0;
 }
 .layers-filter-bar__toggle-advanced:hover {
@@ -1049,7 +1049,7 @@
   color: var(--color-text-muted);
   background: none;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   cursor: pointer;
   white-space: nowrap;
@@ -1066,7 +1066,7 @@
   gap: var(--space-1);
   padding: var(--space-1) var(--space-1);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .layers-filter-bar__section {
@@ -1093,7 +1093,7 @@
   color: var(--color-text-secondary);
   background: var(--color-surface-app);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: var(--space-05) var(--space-1);
   cursor: pointer;
   transition:
@@ -1331,7 +1331,7 @@
 
 .layers-row--drop-into {
   background: var(--color-interactive-hover);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   outline: 2px solid var(--color-interactive-default);
   outline-offset: -2px;
 }
@@ -1346,7 +1346,7 @@
   z-index: 5;
   margin: 0 var(--space-2);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   box-shadow: inset 0 3px 0 -1px var(--color-interactive-default);
   background: color-mix(in srgb, var(--color-interactive-default) 22%, var(--color-surface-base));
   color: var(--color-text-primary);
@@ -1388,7 +1388,7 @@
 
 .layers-row__effect-stack-drop-hint {
   background: var(--color-interactive-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary-on-default, var(--color-text-primary));
   font-size: var(--font-size-2xs);
   font-weight: 600;
@@ -1419,7 +1419,7 @@
   transform: translateY(-50%);
   z-index: 3;
   padding: 2px var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-interactive-default);
   color: var(--color-text-primary-on-default, var(--color-text-primary));
   font-size: var(--font-size-xs);
@@ -1440,7 +1440,7 @@
 .layers-row__match {
   background: var(--color-feedback-warning);
   color: var(--color-text-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 /* ─── Presence indicators (collaboration) ──────────────────── */
@@ -1537,7 +1537,7 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition:
     color var(--duration-quick) var(--ease-standard),
     background var(--duration-quick) var(--ease-standard);

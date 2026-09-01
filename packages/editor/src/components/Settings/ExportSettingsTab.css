@@ -8,7 +8,7 @@
   padding: var(--space-1);
   background: var(--elevation-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   text-align: center;
@@ -22,7 +22,7 @@
   padding: var(--space-1) var(--space-2);
   background: var(--elevation-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   font-family: monospace;
@@ -39,7 +39,7 @@
 .export-settings__hints code {
   background: var(--elevation-surface-sunken);
   padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }

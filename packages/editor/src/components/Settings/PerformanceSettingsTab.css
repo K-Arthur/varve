@@ -12,7 +12,7 @@
   gap: var(--space-1);
   padding: var(--space-2);
   background: var(--elevation-surface-sunken);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
 }
 .performance-settings__stat-label {
   font-size: var(--font-size-xs);
@@ -74,12 +74,12 @@
   min-width: 12rem;
   height: 0.75rem;
   background: var(--elevation-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 .interaction-trace__bar {
   display: block;
   height: 100%;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-accent-primary);
 }
 /* Estimated spans are hatched as well as recoloured, so the distinction

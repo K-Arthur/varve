@@ -37,7 +37,7 @@
 }
 
 .varve-thumbnail--radius-md {
-  border-radius: var(--radius-md, 6px);
+  border-radius: var(--radius-control, 6px);
 }
 
 .varve-thumbnail__img {

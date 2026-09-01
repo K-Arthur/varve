@@ -31,6 +31,6 @@
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary-on-overlay);
   background: var(--cursor-color, var(--color-interactive-default));
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   white-space: nowrap;
 }

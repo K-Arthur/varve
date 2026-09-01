@@ -65,7 +65,7 @@
   align-items: flex-start;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   cursor: pointer;
   display: grid;
@@ -138,7 +138,7 @@
   align-items: center;
   background: transparent;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   cursor: pointer;
   display: inline-flex;
@@ -165,7 +165,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition: background-color 0.1s;
   min-height: var(--space-6);
 }
@@ -216,7 +216,7 @@
   padding: 2px;
   cursor: pointer;
   color: var(--color-text-secondary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   display: flex;
   align-items: center;
 }
@@ -246,7 +246,7 @@
   background: none;
   text-align: left;
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .adj-panel__item-select:focus-visible {
@@ -266,7 +266,7 @@
   padding: 2px;
   cursor: pointer;
   color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   display: flex;
   align-items: center;
   opacity: 0;
@@ -296,7 +296,7 @@
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
   border: 1px dashed var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: none;
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
@@ -316,7 +316,7 @@
   z-index: var(--z-dropdown);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   box-shadow: var(--shadow-lg);
   max-height: 260px;
   overflow-y: auto;
@@ -331,7 +331,7 @@
   padding: var(--space-1) var(--space-2);
   border: none;
   background: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   cursor: pointer;
@@ -373,7 +373,7 @@
 .adj-panel__effect-action {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   cursor: pointer;
@@ -521,7 +521,7 @@
   width: var(--space-10);
   padding: var(--space-1) var(--space-1);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-base);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -536,7 +536,7 @@
 .adj-editor__select {
   padding: var(--space-1) var(--space-1);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-base);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -569,7 +569,7 @@
 .adj-editor__curve-add {
   padding: var(--space-1) var(--space-2);
   border: 1px dashed var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: none;
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
@@ -685,7 +685,7 @@
   min-height: 92px;
   overflow: hidden;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
   color: var(--color-text-muted);
 }
@@ -797,7 +797,7 @@
   display: inline-flex;
   align-items: center;
   padding: var(--space-05) var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background-color: var(--color-accent-subtle);
   color: var(--color-interactive-default);
   font-size: var(--font-size-2xs);
@@ -812,7 +812,7 @@
   padding: 2px;
   cursor: pointer;
   color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   display: flex;
   align-items: center;
   margin-left: auto;
@@ -835,7 +835,7 @@
 .gm-editor__bar {
   position: relative;
   height: var(--space-6);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-border-subtle);
   cursor: pointer;
   outline: none;
@@ -902,7 +902,7 @@
   width: var(--space-10);
   padding: var(--space-1) var(--space-1);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-base);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -946,7 +946,7 @@
 .gm-editor__channel-bar {
   position: relative;
   height: var(--space-4);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-border-subtle);
   cursor: pointer;
 }
@@ -961,7 +961,7 @@
 .gm-editor__channel-delete {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-base);
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
@@ -988,7 +988,7 @@
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: 1px dashed var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-base);
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -1005,7 +1005,7 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-base);
 }
 
@@ -1022,7 +1022,7 @@
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-sm);
   width: 100%;
@@ -1055,7 +1055,7 @@
 
 .insp-overlay__content {
   background: var(--color-surface-raised);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   padding: var(--space-4);
   max-width: 400px;
   width: 90%;
@@ -1084,7 +1084,7 @@
 
 .insp-btn {
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-border-subtle);
   font-size: var(--font-size-sm);
   cursor: pointer;
@@ -1139,7 +1139,7 @@
 .gmp-section__compat {
   margin: 0;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-feedback-warning);
   border: 1px solid var(--color-feedback-warning);
   font-size: var(--font-size-xs);
@@ -1155,7 +1155,7 @@
 .gmp-section__error {
   margin: 0;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-feedback-danger);
   border: 1px solid var(--color-feedback-danger);
   font-size: var(--font-size-xs);
@@ -1204,7 +1204,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: pointer;
 }
 
@@ -1224,7 +1224,7 @@
 .gmp-item__swatch {
   width: var(--space-8);
   height: var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-border-subtle);
   flex: none;
 }
@@ -1241,7 +1241,7 @@
 .gmp-item__badge {
   flex: none;
   padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-2xs, 10px);
   background: var(--color-feedback-info);
   color: var(--color-text-secondary);
@@ -1281,7 +1281,7 @@
 
 .gmp-import__warnings {
   padding: var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-feedback-warning);
   border: 1px solid var(--color-feedback-warning);
 }
@@ -1318,7 +1318,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .gmp-import__item--selected {
@@ -1331,7 +1331,7 @@
 .gmp-import__swatch {
   width: var(--space-10);
   height: var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-border-subtle);
   flex: none;
 }
@@ -1347,7 +1347,7 @@
 .gmp-import__badge {
   flex: none;
   padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-2xs, 10px);
   background: var(--color-feedback-warning);
   border: 1px solid var(--color-feedback-warning);
