@@ -638,6 +638,26 @@
   overflow: hidden;
   position: relative;
 }
+.file-card__drag-handle {
+  position: absolute;
+  top: var(--space-1);
+  left: var(--space-1);
+  z-index: 2;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  background: color-mix(in oklch, var(--color-surface-app) 88%, transparent);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity var(--duration-quick) var(--ease-standard);
+}
+.file-card:hover .file-card__drag-handle,
+.file-card:focus-within .file-card__drag-handle,
+.file-card__drag-handle:focus-visible {
+  opacity: 1;
+}
+.file-card__drag-handle:focus-visible {
+  outline-offset: -2px;
+}
 .file-card__thumb-img {
   width: 100%;
   height: 100%;

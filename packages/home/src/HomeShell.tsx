@@ -1,4 +1,4 @@
-import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
 import {
   contentHash,
   detectFileKind,
@@ -21,6 +21,8 @@ import {
   Icon,
   type OverlayAnchor,
   pointAnchor,
+  Sortable,
+  SortableOverlay,
   Tooltip,
   viewportPoint,
 } from '@varve/ui';
@@ -400,9 +402,6 @@ export function HomeShell({
     trash: view.trashedFiles.length,
   };
 
-  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
-  const sensors = useSensors(pointerSensor);
-
   const filesByOrdering = useMemo(
     () =>
       [...view.files]
@@ -450,18 +449,6 @@ export function HomeShell({
       reorderFileNextTo(activeId, overId);
     },
     [reorderFileNextTo, actions],
-  );
-
-  const handleFileDragStart = useCallback((e: React.DragEvent, entry: FileEntry) => {
-    e.dataTransfer.setData('text/strata-file-id', entry.id);
-    e.dataTransfer.effectAllowed = 'move';
-  }, []);
-
-  const handleDropOnProject = useCallback(
-    (fileId: string, projectId: string) => {
-      actions.moveToProject(fileId, projectId);
-    },
-    [actions],
   );
 
   const handleFileContext = useCallback(
@@ -896,7 +883,6 @@ export function HomeShell({
                 onLoadThumbnail={thumbnails.load}
                 onOpen={onOpenFile}
                 onContext={handleFileContext}
-                onFileDragStart={handleFileDragStart}
                 selectedIds={selectedIds}
                 onSelect={handleSelect}
                 onToggleSelect={handleToggleSelect}
@@ -938,7 +924,15 @@ export function HomeShell({
   };
 
   return (
-    <DndContext sensors={sensors} collisionDetection={undefined} onDragEnd={handleDragEnd}>
+    <Sortable
+      items={view.visibleFiles.filter((file) => !file.trashedAt).map((file) => file.id)}
+      layout="grid"
+      onReorder={({ event }) => handleDragEnd(event)}
+      renderOverlay={(id) => {
+        const entry = view.visibleFiles.find((file) => file.id === String(id));
+        return entry ? <SortableOverlay>{entry.name}</SortableOverlay> : null;
+      }}
+    >
       <ConfirmDialogProvider />
       <PromptDialogProvider />
       <section
@@ -1049,7 +1043,6 @@ export function HomeShell({
               const proj = view.projects.find((p) => p.id === id);
               if (proj) platform.setProjectPinned(proj.id, !proj.pinned);
             }}
-            onDropOnProject={handleDropOnProject}
             onCreateProject={async () => {
               setNewProjectOpen(true);
             }}
@@ -1382,6 +1375,6 @@ export function HomeShell({
           onImportComplete={() => view.refresh()}
         />
       </section>
-    </DndContext>
+    </Sortable>
   );
 }
