@@ -90,13 +90,13 @@ describe('ExportSettingsTab', () => {
     expect(screen.getByLabelText('ICC profile')).toBeTruthy();
   });
 
-  it('opens export dropdowns in the dialog and persists a selection', () => {
+  it('opens export dropdowns in the dialog and persists a selection', async () => {
     renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
     fireEvent.click(screen.getByText('Export'));
 
     const format = screen.getByRole('combobox', { name: 'Default format' });
     fireEvent.click(format);
-    const svg = screen.getByRole('option', { name: 'SVG' });
+    const svg = await screen.findByRole('option', { name: 'SVG' });
     expect(svg.closest('dialog')).toBeTruthy();
     fireEvent.click(svg);
 

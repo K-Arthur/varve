@@ -12,7 +12,7 @@ describe('loadSettings', () => {
     const s = loadSettings();
     expect(s.export.defaultFormat).toBe('png');
     expect(s.export.defaultScale).toEqual({ type: 'factor', value: 2 });
-    expect(s.appearance.theme).toBe('light');
+    expect(s.appearance.theme).toBe('system');
     expect(s.startup.showBrandedLoader).toBe(true);
     expect(s.viewport.snapEnabled).toBe(true);
     expect(s.viewport.guidesVisible).toBe(true);
@@ -134,6 +134,11 @@ describe('loadSettings', () => {
     );
     expect(loadSettings().export.defaultColorProfile).toBe('srgb');
   });
+
+  it('sanitizes unknown persisted theme preferences to System', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ appearance: { theme: 'sepia' } }));
+    expect(loadSettings().appearance.theme).toBe('system');
+  });
 });
 
 describe('updateSettings', () => {
@@ -154,7 +159,7 @@ describe('updateSettings', () => {
     });
     expect(s.export.defaultFormat).toBe('webp');
     expect(s.export.defaultScale).toEqual({ type: 'factor', value: 2 });
-    expect(s.appearance.theme).toBe('light');
+    expect(s.appearance.theme).toBe('system');
   });
 });
 
