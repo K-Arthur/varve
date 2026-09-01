@@ -23,6 +23,7 @@ import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
+import { SegmentedControl } from '../controls/SegmentedControl';
 import { PagePrintSection } from '../sections/PagePrintSection';
 
 export function whiteForMode(mode: ColorMode): ManagedColor {
@@ -97,31 +98,24 @@ export function DocumentPanel() {
       <DisclosureSection title="Document Color" sectionId="document-color" defaultExpanded>
         <div className="insp-panel__color-mode">
           <span className="insp-panel__color-mode-label">Mode</span>
-          <div className="insp-panel__color-mode-buttons">
-            {(['rgb', 'cmyk', 'grayscale'] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                className={`insp-panel__color-mode-btn${documentColorMode === mode ? ' insp-panel__color-mode-btn--active' : ''}`}
-                onClick={() => {
-                  if (documentColorMode === mode) return;
-                  beginTransaction();
-                  // Assignment semantics: mode intent changes; stored color
-                  // values are NOT rewritten. Convert explicitly to rewrite.
-                  assignDocumentColorMode(mode);
-                  commitTransaction();
-                }}
-                aria-pressed={documentColorMode === mode}
-                title={
-                  documentColorMode === mode
-                    ? `Current mode: ${mode}`
-                    : `Assign ${mode} mode (keeps color values; converts at export)`
-                }
-              >
-                {mode === 'rgb' ? 'RGB' : mode === 'cmyk' ? 'CMYK' : 'Grayscale'}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="Document color mode"
+            value={documentColorMode}
+            options={[
+              { value: 'rgb', label: 'RGB' },
+              { value: 'cmyk', label: 'CMYK' },
+              { value: 'grayscale', label: 'Grayscale' },
+            ]}
+            className="insp-segmented--distribute"
+            onChange={(mode) => {
+              if (documentColorMode === mode) return;
+              beginTransaction();
+              // Assignment semantics: mode intent changes; stored color
+              // values are NOT rewritten. Convert explicitly to rewrite.
+              assignDocumentColorMode(mode);
+              commitTransaction();
+            }}
+          />
           <p className="insp-panel__color-mode-note" role="note">
             Assigning a mode changes document intent only — existing colors keep their values and
             are converted at export. Use Convert to rewrite document colors now.
@@ -129,36 +123,23 @@ export function DocumentPanel() {
         </div>
         <div className="insp-panel__color-mode">
           <span className="insp-panel__color-mode-label">Precision</span>
-          <div className="insp-panel__color-mode-buttons">
-            {(
-              [
-                { value: 'uint8', label: '8-bit' },
-                { value: 'uint16', label: '16-bit' },
-                { value: 'float16', label: '16f' },
-                { value: 'float32', label: '32f' },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`insp-panel__color-mode-btn${documentBitDepth === opt.value ? ' insp-panel__color-mode-btn--active' : ''}`}
-                onClick={() => {
-                  if (documentBitDepth === opt.value) return;
-                  beginTransaction();
-                  setDocumentBitDepth(opt.value);
-                  commitTransaction();
-                }}
-                aria-pressed={documentBitDepth === opt.value}
-                title={
-                  documentBitDepth === opt.value
-                    ? `Default precision: ${opt.label}`
-                    : `Author new colors at ${opt.label} precision (existing values unchanged)`
-                }
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="Document precision"
+            value={documentBitDepth}
+            options={[
+              { value: 'uint8', label: '8-bit' },
+              { value: 'uint16', label: '16-bit' },
+              { value: 'float16', label: '16f' },
+              { value: 'float32', label: '32f' },
+            ]}
+            className="insp-segmented--distribute"
+            onChange={(value) => {
+              if (documentBitDepth === value) return;
+              beginTransaction();
+              setDocumentBitDepth(value);
+              commitTransaction();
+            }}
+          />
           <p className="insp-panel__color-mode-note" role="note">
             Precision sets the storage depth for newly authored colors. Existing values are never
             rewritten by this setting. uint16/float colors keep their full channel range through
@@ -167,34 +148,21 @@ export function DocumentPanel() {
         </div>
         <div className="insp-panel__color-mode">
           <span className="insp-panel__color-mode-label">Working RGB</span>
-          <div className="insp-panel__color-mode-buttons">
-            {(
-              [
-                { value: 'srgb', label: 'sRGB' },
-                { value: 'linear', label: 'Linear' },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`insp-panel__color-mode-btn${workingSpace === opt.value ? ' insp-panel__color-mode-btn--active' : ''}`}
-                onClick={() => {
-                  if (workingSpace === opt.value) return;
-                  beginTransaction();
-                  setDocumentWorkingSpace(opt.value);
-                  commitTransaction();
-                }}
-                aria-pressed={workingSpace === opt.value}
-                title={
-                  workingSpace === opt.value
-                    ? `Working RGB: ${opt.label}`
-                    : `Use ${opt.label} working RGB`
-                }
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="Working RGB"
+            value={workingSpace}
+            options={[
+              { value: 'srgb', label: 'sRGB' },
+              { value: 'linear', label: 'Linear' },
+            ]}
+            className="insp-segmented--distribute"
+            onChange={(value) => {
+              if (workingSpace === value) return;
+              beginTransaction();
+              setDocumentWorkingSpace(value);
+              commitTransaction();
+            }}
+          />
           <p className="insp-panel__color-mode-note" role="note">
             Working RGB describes the document's authored encoding. It is separate from gradient
             interpolation and artistic blend evaluation.
@@ -202,34 +170,21 @@ export function DocumentPanel() {
         </div>
         <div className="insp-panel__color-mode">
           <span className="insp-panel__color-mode-label">Blend evaluation</span>
-          <div className="insp-panel__color-mode-buttons">
-            {(
-              [
-                { value: 'legacy-srgb', label: 'Legacy sRGB' },
-                { value: 'linear-srgb', label: 'Linear light' },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`insp-panel__color-mode-btn${blendEvaluationSpace === opt.value ? ' insp-panel__color-mode-btn--active' : ''}`}
-                onClick={() => {
-                  if (blendEvaluationSpace === opt.value) return;
-                  beginTransaction();
-                  setDocumentBlendEvaluationSpace(opt.value);
-                  commitTransaction();
-                }}
-                aria-pressed={blendEvaluationSpace === opt.value}
-                title={
-                  blendEvaluationSpace === opt.value
-                    ? `Blend evaluation: ${opt.label}`
-                    : `Evaluate supported artistic blend modes in ${opt.label}`
-                }
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="Blend evaluation space"
+            value={blendEvaluationSpace}
+            options={[
+              { value: 'legacy-srgb', label: 'Legacy sRGB' },
+              { value: 'linear-srgb', label: 'Linear light' },
+            ]}
+            className="insp-segmented--distribute"
+            onChange={(value) => {
+              if (blendEvaluationSpace === value) return;
+              beginTransaction();
+              setDocumentBlendEvaluationSpace(value);
+              commitTransaction();
+            }}
+          />
           <p className="insp-panel__color-mode-note" role="note">
             Controls the values received by separable artistic blend formulas. Alpha coverage and
             non-separable W3C modes keep their defined semantics.
@@ -237,33 +192,24 @@ export function DocumentPanel() {
         </div>
         <div className="insp-panel__color-mode">
           <span className="insp-panel__color-mode-label">Gradient default</span>
-          <div className="insp-panel__color-mode-buttons">
-            {(
-              [
-                { value: 'oklab', label: 'OKLab' },
-                { value: 'oklch', label: 'OKLCH' },
-                { value: 'linear-srgb', label: 'Linear RGB' },
-                { value: 'srgb', label: 'sRGB' },
-                { value: 'hsl', label: 'HSL' },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`insp-panel__color-mode-btn${gradientInterpolation === opt.value ? ' insp-panel__color-mode-btn--active' : ''}`}
-                onClick={() => {
-                  if (gradientInterpolation === opt.value) return;
-                  beginTransaction();
-                  setDocumentGradientInterpolation(opt.value);
-                  commitTransaction();
-                }}
-                aria-pressed={gradientInterpolation === opt.value}
-                title={`Use ${opt.label} for gradients set to Document default`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="Gradient interpolation default"
+            value={gradientInterpolation}
+            options={[
+              { value: 'oklab', label: 'OKLab' },
+              { value: 'oklch', label: 'OKLCH' },
+              { value: 'linear-srgb', label: 'Linear RGB' },
+              { value: 'srgb', label: 'sRGB' },
+              { value: 'hsl', label: 'HSL' },
+            ]}
+            className="insp-segmented--distribute"
+            onChange={(value) => {
+              if (gradientInterpolation === value) return;
+              beginTransaction();
+              setDocumentGradientInterpolation(value);
+              commitTransaction();
+            }}
+          />
           <p className="insp-panel__color-mode-note" role="note">
             New gradients inherit this default. An individual gradient can pin another interpolation
             space; legacy gradients with no metadata remain sRGB.

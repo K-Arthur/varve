@@ -18,12 +18,14 @@ const choices = [
 ] as const;
 ---
 
-<div class="theme-switcher" role="group" aria-label="Theme">
+<div class="theme-switcher" role="radiogroup" aria-label="Theme">
   {choices.map((choice) => (
     <button
       class="theme-option"
       data-theme-choice={choice.value}
-      aria-pressed="false"
+      aria-checked="false"
+      role="radio"
+      tabindex="0"
       title={choice.label}
       aria-label={choice.label}
       type="button"
@@ -49,9 +51,10 @@ const choices = [
    *
    * Runs as a deferred module after the DOM is parsed. Every interaction
    * goes through the shared API: write() persists, apply() sets
-   * html[data-theme], and the buttons mirror aria-pressed + a visible
+   * html[data-theme], and the buttons mirror aria-checked + a visible
    * active state. No competing controllers exist.
    */
+  const groups = document.querySelectorAll<HTMLElement>('.theme-switcher');
   const buttons = document.querySelectorAll<HTMLButtonElement>('.theme-option');
 
   function refreshPressed() {
@@ -60,22 +63,35 @@ const choices = [
     const state = api.state();
     for (const button of buttons) {
       const active = button.dataset.themeChoice === state.theme;
-      button.setAttribute('aria-pressed', String(active));
+      button.setAttribute('aria-checked', String(active));
+      button.tabIndex = active ? 0 : -1;
       button.classList.toggle('active', active);
     }
   }
 
-  for (const button of buttons) {
-    button.addEventListener('click', () => {
-      const choice = button.dataset.themeChoice ?? '';
-      const api = window.__varveTheme;
-      if (!api) return;
-      // The first explicit click converts the automatic OS-driven state
-      // into a persisted choice (write() migrates legacy values too).
-      api.write(choice);
-      api.apply();
-      refreshPressed();
-    });
+  for (const group of groups) {
+    const groupButtons = [...group.querySelectorAll<HTMLButtonElement>('.theme-option')];
+    for (const button of groupButtons) {
+      button.addEventListener('click', () => {
+        const choice = button.dataset.themeChoice ?? '';
+        const api = window.__varveTheme;
+        if (!api) return;
+        // The first explicit click converts the automatic OS-driven state
+        // into a persisted choice (write() migrates legacy values too).
+        api.write(choice);
+        api.apply();
+        refreshPressed();
+      });
+
+      button.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        const index = groupButtons.indexOf(button);
+        const nextIndex = (index + (event.key === 'ArrowRight' ? 1 : -1) + groupButtons.length) % groupButtons.length;
+        groupButtons[nextIndex]?.focus();
+        groupButtons[nextIndex]?.click();
+      });
+    }
   }
 
   refreshPressed();
@@ -120,7 +136,7 @@ const choices = [
   }
 
   /* The active choice gets a visible fill — not just an icon change. */
-  .theme-option[aria-pressed='true'] {
+  .theme-option[aria-checked='true'] {
     background: var(--surface-card);
     color: var(--text-primary);
     border-color: var(--border-strong);
@@ -132,7 +148,7 @@ const choices = [
       border-color: ButtonBorder;
     }
 
-    .theme-option[aria-pressed='true'] {
+    .theme-option[aria-checked='true'] {
       background: Highlight;
       color: HighlightText;
       border-color: Highlight;

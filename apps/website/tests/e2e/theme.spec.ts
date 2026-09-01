@@ -101,7 +101,7 @@ test.describe('theme resolution', () => {
 });
 
 test.describe('theme switcher', () => {
-  test('buttons reflect the current theme with aria-pressed and an active style', async ({
+  test('radio options reflect the current theme with aria-checked and an active style', async ({
     page,
   }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
@@ -111,16 +111,16 @@ test.describe('theme switcher', () => {
     // the visible desktop toggle so the assertion matches one control.
     const state = await page.evaluate(() => ({
       theme: document.documentElement.getAttribute('data-theme'),
-      pressed: [...document.querySelectorAll('.nav-actions .theme-option')].map((b) => ({
+      checked: [...document.querySelectorAll('.nav-actions .theme-option')].map((b) => ({
         choice: b.getAttribute('data-theme-choice'),
-        pressed: b.getAttribute('aria-pressed'),
+        checked: b.getAttribute('aria-checked'),
         active: b.classList.contains('active'),
       })),
     }));
     expect(state.theme).toBe('dark');
-    expect(state.pressed).toEqual([
-      { choice: 'light', pressed: 'false', active: false },
-      { choice: 'dark', pressed: 'true', active: true },
+    expect(state.checked).toEqual([
+      { choice: 'light', checked: 'false', active: false },
+      { choice: 'dark', checked: 'true', active: true },
     ]);
     // The active state must be visibly distinct (not icon-only).
     const dark = page.locator('.nav-actions .theme-option[data-theme-choice="dark"]');
@@ -137,10 +137,10 @@ test.describe('theme switcher', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     const stored = await page.evaluate(() => localStorage.getItem('varve-theme'));
     expect(stored).toBe('light');
-    const pressed = await page
+    const checked = await page
       .locator('.nav-actions .theme-option[data-theme-choice="light"]')
-      .getAttribute('aria-pressed');
-    expect(pressed).toBe('true');
+      .getAttribute('aria-checked');
+    expect(checked).toBe('true');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   });
@@ -194,6 +194,18 @@ test.describe('theme switcher', () => {
     await darkBtn.focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
+
+  test('radio options support arrow-key selection', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await freshPage(page);
+    const lightBtn = page.locator('.nav-actions .theme-option[data-theme-choice="light"]');
+    await lightBtn.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(
+      page.locator('.nav-actions .theme-option[data-theme-choice="dark"]'),
+    ).toHaveAttribute('aria-checked', 'true');
   });
 });
 
