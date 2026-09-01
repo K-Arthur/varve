@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { useState } from 'storybook/preview-api';
+import { useState } from 'react';
 import { Button } from './Button';
 import { ShineBorder } from './ShineBorder';
 
@@ -94,14 +94,20 @@ export const ThemeAndRadiusReference: Story = {
   render: () => (
     <div style={{ display: 'grid', gap: 20 }}>
       {[
-        { label: 'Light', theme: 'light', background: '#f7f8fa' },
-        { label: 'Dark', theme: 'dark', background: '#10151f' },
-        { label: 'High contrast', theme: 'high-contrast', background: '#000' },
-      ].map(({ label, theme, background }) => (
+        { label: 'Light', theme: 'light' },
+        { label: 'Dark', theme: 'dark' },
+        { label: 'High contrast', theme: 'high-contrast' },
+      ].map(({ label, theme }) => (
         <div
           key={theme}
           data-theme={theme}
-          style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 24, background }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            padding: 24,
+            background: 'var(--color-surface-app)',
+          }}
         >
           <ShineBorder variant="static">
             <div style={{ ...cardStyle, borderRadius: 'var(--radius-sm)' }}>{label} / small</div>

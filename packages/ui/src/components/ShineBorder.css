@@ -1,6 +1,7 @@
 /*
  * Shine Border is an emphasis layer, not a structural border. The host keeps
- * ownership of layout, radius, background, overflow, and focus treatment.
+ * ownership of external layout, radius, background, overflow, and focus
+ * treatment. Static hosts become containing blocks for the reserved ::after.
  */
 @property --varve-shine-angle {
   syntax: "<angle>";
@@ -38,19 +39,6 @@
   opacity: 0.58;
 }
 
-/* A real focus ring wins; the hidden animation keeps advancing so blur cannot replay it. */
-:where(.varve-shine-border):focus-visible::after,
-:where(.varve-shine-border):focus-within::after {
-  opacity: 0;
-}
-
-:where(.varve-shine-border:disabled)::after,
-:where(.varve-shine-border[aria-disabled="true"])::after,
-:where(.varve-shine-border--disabled)::after {
-  animation: none;
-  opacity: 0;
-}
-
 /*
  * The ordinary 1px token border above is the safe fallback. Engines with both
  * conic-gradient and mask composition replace it with the animated ring.
@@ -61,13 +49,15 @@
     border-color: transparent;
     background: var(--varve-shine-color);
     background-clip: border-box;
+    /* stylelint-disable property-no-vendor-prefix -- required by Safari/WebKitGTK. */
     -webkit-mask:
-      linear-gradient(#000 0 0) padding-box,
-      linear-gradient(#000 0 0);
+      linear-gradient(rgb(0 0 0) 0 0) padding-box,
+      linear-gradient(rgb(0 0 0) 0 0);
     -webkit-mask-composite: xor;
+    /* stylelint-enable property-no-vendor-prefix */
     mask:
-      linear-gradient(#000 0 0) padding-box,
-      linear-gradient(#000 0 0);
+      linear-gradient(rgb(0 0 0) 0 0) padding-box,
+      linear-gradient(rgb(0 0 0) 0 0);
     mask-composite: exclude;
   }
 
@@ -147,9 +137,23 @@
   animation: none;
   border: 2px solid var(--color-border-strong);
   background: none;
+  /* stylelint-disable-next-line property-no-vendor-prefix -- required by Safari/WebKitGTK. */
   -webkit-mask: none;
   mask: none;
   opacity: 1;
+}
+
+/* Match the token system's OS high-contrast mode when no app theme is explicit. */
+@media (prefers-contrast: more) {
+  :root:not([data-theme]) :where(.varve-shine-border--active)::after {
+    animation: none;
+    border: 2px solid var(--color-border-strong);
+    background: none;
+    /* stylelint-disable-next-line property-no-vendor-prefix -- required by Safari/WebKitGTK. */
+    -webkit-mask: none;
+    mask: none;
+    opacity: 1;
+  }
 }
 
 /* Forced-colour users retain the host's ordinary structural border and focus. */
@@ -157,4 +161,21 @@
   :where(.varve-shine-border)::after {
     content: none;
   }
+}
+
+/*
+ * Terminal interaction suppression follows every theme/motion override. A
+ * focus ring wins while the hidden timeline advances, so blur cannot replay a
+ * one-shot; disabled decoration is fully stopped.
+ */
+:where(.varve-shine-border):focus-visible::after,
+:where(.varve-shine-border):focus-within::after {
+  opacity: 0;
+}
+
+:where(.varve-shine-border:disabled)::after,
+:where(.varve-shine-border[aria-disabled="true"])::after,
+:where(.varve-shine-border--disabled)::after {
+  animation: none;
+  opacity: 0;
 }
