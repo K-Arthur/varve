@@ -15,7 +15,8 @@ drop changes document structure or ownership.
 - Pointer activation at 6 CSS pixels for ordinary collections;
 - keyboard pickup/move/drop/cancel through `KeyboardSensor` and
   `sortableKeyboardCoordinates`;
-- vertical, horizontal, or 2D grid sorting strategies;
+- vertical, horizontal, or 2D grid sorting strategies (vertical collections
+  use pointer-aware collision so a drop on a visible row is deterministic);
 - collection-level `onDragEnd` and `onDragCancel` callbacks;
 - stable-ID validation and same-item/no-target no-op behavior;
 - the shared overlay class and restrained pointer-events behavior.
@@ -32,7 +33,7 @@ visual cards.
 | --- | --- | --- | --- | --- |
 | Page navigator | `Sortable` | horizontal list | closest center | `reorderPagesCommand`, one document update |
 | Home file collection | `Sortable` + virtualized grid item | responsive 2D grid | closest corners | async platform ordering/project move |
-| Object Filters | `Sortable` + handle | vertical list | closest center | selected-node document update, one transaction |
+| Object Filters | `Sortable` + handle | vertical list | pointer within | selected-node document update, one transaction |
 | Layers | `DnDShell` + `useLayersDnD` | virtualized tree resolver | live pointer + virtualizer geometry | hierarchy-aware `reparentNode`, one transaction for a multi-move |
 
 The Layers adapter intentionally does not use `arrayMove`: `before`, `after`,
@@ -42,11 +43,18 @@ authority for indicator, auto-expand, announcement, and commit.
 
 ## Interaction contract
 
-Handles are quiet at rest, gain contrast on row hover/focus, and use a minimum
-36px effective hit target even when the icon is compact. They use
+Handles in ordinary collections are quiet at rest, gain contrast on row
+hover/focus, and use a minimum 36px effective hit target even when the icon is
+compact. They use
 `grab`/`grabbing` cursors and never overlap disclosure, visibility, lock,
 rename, menu, or scrollbar controls. Interactive controls stop activation at
 pointer-down; stopping only click is too late.
+
+Layers is deliberately the exception: it keeps the tree's compact row density
+and uses the existing compact `--space-5` handle in the first column. Its
+larger hit target
+would make a 40-row document unnecessarily tall; tree controls remain outside
+the handle and the specialized resolver owns its live pointer geometry.
 
 An ordinary collection uses:
 
@@ -67,9 +75,9 @@ and same-position drops leave the model unchanged and clear the overlay.
 
 Pointer sensors are appropriate for mouse, trackpad, and pen in ordinary
 collections. A dedicated handle uses `touch-action: none`; the surrounding
-scroll area remains scrollable. Layers keeps its existing 5px activation
-threshold and live-pointer auto-scroll implementation because it must compose
-with virtualization and canvas drops.
+scroll area remains scrollable. Layers keeps its existing 5 CSS pixel
+activation threshold and live-pointer auto-scroll implementation because it
+must compose with virtualization and canvas drops.
 
 The primitive only changes the active item and dnd-kit transforms during a
 drag. It does not serialize, persist, or update the document on hover. The

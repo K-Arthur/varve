@@ -74,11 +74,11 @@ zone is large and only a window of rows is mounted.
 
 | Implementation | Files | Finding |
 | --- | --- | --- |
-| Global editor DnD shell | `packages/editor/src/components/Shell/DnDShell.tsx` | One editor context for layers-to-canvas and effect-stack transfer; overlay styling was local to the shell |
-| Layers sortable rows | `LayersTree.tsx`, `SortableVirtualRow.tsx`, `useLayersDnD.ts` | Correctly specialized for virtualized hierarchy; row and handle both currently receive listeners |
-| Page sortable tabs | `PageNav.tsx` | Separate `DndContext`, pointer distance 8, whole tab draggable, no reusable overlay |
-| Home sortable cards | `HomeShell.tsx`, `FileGrid.tsx`, `FileCard.tsx` | Separate `DndContext`, pointer distance 8, virtualized grid; native file payload is also attached to the card |
-| Native filter reorder | `SmartFiltersSection.tsx` | HTML5 `dragstart`/`dragover`/`drop`, local drag state, transaction lifecycle; controls share the draggable row |
+| Global editor DnD shell | `packages/editor/src/components/Shell/DnDShell.tsx` | One editor context for layers-to-canvas and effect-stack transfer; ordinary collections use the shared UI primitive outside this specialized shell |
+| Layers sortable rows | `LayersTree.tsx`, `SortableVirtualRow.tsx`, `useLayersDnD.ts` | Correctly specialized for virtualized hierarchy; the compact dedicated handle receives listeners and row controls remain independent |
+| Page sortable tabs | `PageNav.tsx` | Shared horizontal sortable primitive, whole tab draggable, shared overlay and keyboard sensor |
+| Home sortable cards | `HomeShell.tsx`, `FileGrid.tsx`, `FileCard.tsx` | Shared responsive grid primitive with virtualized cards and a dedicated card handle; project targets remain droppable file-store moves |
+| Object Filter reorder | `SmartFiltersSection.tsx` | Shared vertical sortable primitive with a dedicated handle, pointer-aware destination, transaction lifecycle, and keyboard sensor |
 | Effect-stack transfer | `EffectStackTransferBadge.tsx` | `useDraggable`, intentionally not reorder; transfers a stack onto another layer |
 | Canvas/file/panel gestures | `CanvasArea.tsx`, tools, `ArchiveDialog.tsx`, `PanelWidthDragEdge.tsx`, controls | Not sortable: canvas movement, external file import, resizing, sliders, or editing gestures |
 
@@ -94,11 +94,9 @@ state mutation at the owning surface.
   document dirty and is undoable.
 - The Layers tree commits the preview target exactly once on drop. It does not
   write the authoritative document during pointer movement.
-- Object Filters are document-semantic and already bracket native drag with one
-  transaction, but a cancelled or failed HTML5 drop path is difficult to
-  reason about and has no keyboard sorting path. The migration keeps the same
-  `updateNode` owner and moves the transaction boundary to the sortable event
-  lifecycle.
+- Object Filters are document-semantic. The migration keeps the same
+  `updateNode` owner and one transaction, while replacing the native HTML5
+  path with a cancellable sortable lifecycle and keyboard alternative.
 - Home file order belongs to the platform file library rather than the scene
   document. Its persistence is asynchronous and currently has no editor-style
   undo stack; the migration must not pretend it is document history.
@@ -113,6 +111,9 @@ state mutation at the owning surface.
   with its real-pointer tests. Touch/pen behavior must not disable panel scroll.
 - Whole-item dragging is reserved for simple page tabs and visual file cards.
   Dense rows with controls use a dedicated handle.
+- Layers keeps its existing compact row density and its specialized 5 CSS pixel
+  activation/live-pointer resolver; it is not resized to match the ordinary
+  collection handle.
 - Every ordinary collection uses a visible insertion state, a restrained
   overlay, and a keyboard alternative where the collection owns document order.
 - `onDragCancel`, stale IDs, missing destinations, and same-position drops are
