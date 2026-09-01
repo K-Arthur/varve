@@ -386,7 +386,8 @@ export function FontBrowser({
       </div>
 
       <div className="font-browser__count">
-        {displayEntries.length} families{showDownloadable ? ' · local catalog' : ' · installed'}
+        {displayEntries.length} {displayEntries.length === 1 ? 'family' : 'families'}
+        {showDownloadable ? ' · local catalog' : ' · installed'}
       </div>
       {installError && (
         <div className="font-browser__error" role="alert">

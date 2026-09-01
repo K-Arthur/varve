@@ -83,6 +83,20 @@ const fontReplacementFaq = {
         </div>
       </section>
 
+      <section class="feature-section semantic-discovery">
+        <p class="feature-callout__eyebrow">Search by intent</p>
+        <h2>Describe the type you need</h2>
+        <p>
+          The local catalog understands design language as a set of reviewable signals. Try “friendly rounded sans for UI”, “editorial serif with Vietnamese”, or “similar to Inter”. Hard requirements stay hard; softer preferences improve ranking, and each result can explain which local fact or reviewed annotation contributed.
+        </p>
+        <div class="semantic-query-grid">
+          <div><code>friendly rounded sans for UI</code><span>construction + tone + use</span></div>
+          <div><code>editorial serif with Vietnamese</code><span>preferred role + hard coverage</span></div>
+          <div><code>similar to Inter</code><span>similarity lane, not a pairing claim</span></div>
+        </div>
+        <p class="semantic-discovery__note">Verified coverage and font-table facts are labeled separately from inferred or curated descriptors. Unknown metadata stays unknown.</p>
+      </section>
+
       <div class="feature-visual feature-visual--pair">
         <figure>
           <img
@@ -118,7 +132,8 @@ const fontReplacementFaq = {
           <li><strong>Unicode foundations:</strong> Explicit UTF-16, code-point, grapheme, shaping-cluster, and visual-caret mappings</li>
           <li><strong>BiDi foundations:</strong> UAX #9 embedding levels, per-line visual run ordering, mirrored punctuation, and cluster-safe caret geometry in the engine</li>
           <li><strong>Paragraph layout:</strong> Script/language itemization, word-level line breaking that never splits a grapheme, and RTL-safe wrapping</li>
-          <li><strong>Font system:</strong> Google Fonts loading, @fontsource bundled fonts, CSS fallback chains</li>
+          <li><strong>Font system:</strong> Offline semantic catalog, local-first search, @fontsource runtime loading, CSS fallback chains, and explicit version-pinned desktop installs</li>
+          <li><strong>Font discovery:</strong> Natural-language intent, coverage and feature constraints, personal tags, similarity, alternatives, pairings, and explainable result reasons</li>
           <li><strong>Missing-font replacement:</strong> Ranked local candidates, rich-text-aware Replace All, and manifest provenance across save/reopen</li>
           <li><strong>Typography inspector:</strong> Font family, weight, style, size, line height, letter spacing, alignment, OpenType features</li>
         </ul>
@@ -274,6 +289,48 @@ const fontReplacementFaq = {
     font-weight: 600;
   }
 
+  .semantic-discovery {
+    padding: 1.5rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-card);
+  }
+
+  .semantic-query-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1.25rem 0;
+  }
+
+  .semantic-query-grid > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.875rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-control-compact);
+    background: var(--surface-muted);
+  }
+
+  .semantic-query-grid code {
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+
+  .semantic-query-grid span,
+  .semantic-discovery__note {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  .semantic-discovery__note {
+    margin: 0 !important;
+  }
+
   .feature-faq h3 {
     margin-top: 1.5rem;
     color: var(--text-primary);
@@ -313,6 +370,10 @@ const fontReplacementFaq = {
 
   @media (max-width: 640px) {
     .feature-visual--pair {
+      grid-template-columns: 1fr;
+    }
+
+    .semantic-query-grid {
       grid-template-columns: 1fr;
     }
   }

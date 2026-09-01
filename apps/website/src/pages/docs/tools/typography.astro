@@ -62,10 +62,19 @@ import { sitePath } from '../../../lib/siteUrl';
         <ul>
           <li><strong>System fonts</strong> — Fonts installed on your operating system</li>
           <li><strong>Bundled fonts</strong> — Open-source fonts included with Varve via @fontsource packages</li>
-          <li><strong>Optional online providers</strong> — On the desktop app, search and install supported Google Fonts or Fontsource faces when the provider capability is enabled</li>
+          <li><strong>Shipped semantic catalog</strong> — Search family names, design language, coverage, features, availability, and personal tags offline</li>
+          <li><strong>Explicit desktop installs</strong> — When enabled, retrieve one exact, version-pinned Fontsource artifact after reviewing the result and its license metadata</li>
         </ul>
         <p>
-          The font family selector shows available fonts with their CSS fallback chain. The public browser demo keeps font search local-first and does not make remote provider requests; bundled and local fonts remain available. Missing fonts trigger a visible warning in the Typography section.
+          The compact font family selector shows installed fonts only and never starts a download. Open Browse fonts for semantic discovery, coverage and license inspection. The public browser demo keeps search local-first and does not make remote provider requests; desktop installation is a separate explicit action. Missing fonts trigger a visible warning in the Typography section.
+        </p>
+
+        <h3>Semantic discovery</h3>
+        <p>
+          Queries such as <code>friendly rounded sans for UI</code>, <code>editorial serif with Vietnamese</code>, and <code>similar to Inter</code> are parsed into explainable constraints and preferences. “With” coverage and feature requirements are hard; words such as “friendly” and “editorial” are ranking preferences unless the query is clarified. Results distinguish verified facts, measured metrics, curated observations, and unknown metadata. Similarity, alternatives, and pairings are separate recommendation lanes.
+        </p>
+        <p>
+          Personal tags are stored in a versioned local user layer and never overwrite provider facts. Legacy face-level <code>FontCatalogEntry.tags</code> are grouped by family during migration. Search remains available if local storage is unavailable or incomplete.
         </p>
 
         <h3 id="missing-font-replacement">Missing-font replacement after import</h3>

@@ -219,6 +219,7 @@ The 2026-08-22 implementation evidence matrix is in
 | `architecture/logo-system.md` | Logo workspace system |
 | `architecture/typography-platform.md` | Typography platform |
 | `architecture/font-provider-architecture.md` | Fontsource catalog, explicit installation, persistence, and provider boundaries |
+| `architecture/font-semantic-system.md` | Provider-independent font ontology, provenance, local query/ranking, migration, and model gate |
 | `architecture/font-text-geometry.md` | Font readiness, derived text layout, and interaction bounds |
 | `architecture/colour-management.md` | Colour management and ICC |
 | `architecture/security-csp.md` | Content Security Policy |
@@ -479,6 +480,7 @@ records; check the current code before acting on their findings.
 | `audits/figma-import-audit-2026-08-20.md` | Figma acquisition, semantic conversion, editor integration, fidelity matrix, and backlog |
 | `audits/email-current-state-audit-2026-08-20.md` | Email template system baseline audit (moved from `docs/email/`, 2026-08-22) |
 | `audits/font-replacement-audit-2026-08-20.md` | Missing-font detection, ranked replacement UX, rich-text coverage, manifest provenance, and validation |
+| `audits/font-semantic-implementation-audit-2026-09-01.md` | Evidence, benchmark, visual validation, model gate, and known gaps for semantic font discovery |
 | `audits/selection-system-audit-2026-08-23.md` | Pixel/node selection gap analysis preceding the selection-system work — see `architecture/selection-system.md` for current state |
 | `audits/selection-validation-report-2026-08-23.md` | Selection-system delivery and validation record, including the UI wiring landed after the implementation plan's "pending" notes |
 | `audits/effects-surfaces-audit-2026-08-29.md` | Research-backed separation of Effect Studio, Image Tuning, Object Filters, and Adjustment Filters, including raster/vector behavior |

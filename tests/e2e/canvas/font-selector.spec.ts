@@ -138,7 +138,9 @@ test.describe('Font selector', () => {
     expect(badgeCount).toBeGreaterThanOrEqual(0);
   });
 
-  test('searches the shipped catalog without provider metadata requests', async ({ page }) => {
+  test('searches the installed semantic catalog without provider metadata requests', async ({
+    page,
+  }) => {
     let providerRequests = 0;
     page.on('request', (request) => {
       if (/googleapis|fonts\.google|api\.fontsource\.org/.test(request.url())) {
@@ -151,15 +153,40 @@ test.describe('Font selector', () => {
     const fontSelector = page.locator('.font-selector').first();
     await fontSelector.waitFor({ state: 'visible', timeout: 5000 });
     const fontInput = fontSelector.locator('input');
-    await fontInput.fill('IBM Plex');
+    await fontInput.fill('Inter');
 
-    await expect(
-      page.locator('.font-selector__section-header', { hasText: 'Fontsource' }),
-    ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Install' }).first()).toBeVisible();
+    await expect(page.locator('.font-selector__option-name', { hasText: 'Inter' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Install' })).toHaveCount(0);
     expect(providerRequests).toBe(0);
     await page.screenshot({
       path: test.info().outputPath('fontsource-catalog-search.png'),
+      fullPage: true,
+    });
+  });
+
+  test('full browser interprets design-language queries and keeps installation explicit', async ({
+    page,
+  }) => {
+    await page.keyboard.press('t');
+    await dragOnCanvas(page, 200, 200, 400, 250);
+    await expect(page.getByRole('treeitem').first()).toContainText(/text/i, { timeout: 10000 });
+
+    await page.getByRole('button', { name: 'Browse fonts' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Browse fonts' });
+    await expect(dialog).toBeVisible();
+    const search = dialog.getByRole('searchbox', {
+      name: 'Search fonts by name or design language',
+    });
+    await search.fill('friendly rounded sans for UI');
+    await expect(dialog.getByRole('status', { name: 'Search interpretation' })).toContainText(
+      'Rounded',
+    );
+    await expect(dialog.getByText('Interpreted as')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /Install/ }).first()).toBeVisible();
+    await dialog.locator('.font-browser__select-btn').first().click();
+    await expect(dialog.getByText('Why this result')).toBeVisible();
+    await page.screenshot({
+      path: test.info().outputPath('font-browser-semantic-query.png'),
       fullPage: true,
     });
   });

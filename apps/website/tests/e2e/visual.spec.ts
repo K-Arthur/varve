@@ -219,6 +219,19 @@ test('features page dark', async ({ page }) => {
   });
 });
 
+test('typography page light', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+  await seedTheme(page, 'light');
+  await page.goto('/features/typography');
+  await waitForImages(page);
+  await expect(page.getByRole('heading', { name: 'Typography', exact: true })).toBeVisible();
+  await warmFullPage(page);
+  await expect(page).toHaveScreenshot('typography-light.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02,
+  });
+});
+
 test('404 page light', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await seedTheme(page, 'light');
