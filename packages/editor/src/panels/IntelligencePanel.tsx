@@ -61,7 +61,7 @@ import {
   runLinterScan,
   type SuppressionEntry,
 } from '@varve/scene';
-import { Icon, Menu, type MenuEntry, Tooltip } from '@varve/ui';
+import { Icon, Menu, type MenuEntry, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuditWorkerPool, type ScanProgress } from '../audit/auditWorker';
 import { useEditor } from '../context';
@@ -1352,14 +1352,12 @@ function NamingTab() {
         are identified by content (e.g. "Golden retriever") using a local AI model.
       </p>
 
-      <label className="intelligence-toggle">
-        <input
-          type="checkbox"
-          checked={onlyDefault}
-          onChange={(e) => setOnlyDefault(e.target.checked)}
-        />
-        <span>Default names only</span>
-      </label>
+      <Switch
+        className="intelligence-toggle"
+        label="Default names only"
+        checked={onlyDefault}
+        onChange={(e) => setOnlyDefault(e.target.checked)}
+      />
 
       <button
         type="button"

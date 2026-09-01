@@ -1,5 +1,5 @@
 import type { AreaSelectionSettings, AreaSelectionStyle } from '@varve/engine';
-import { FloatingPortal, Icon } from '@varve/ui';
+import { FloatingPortal, Icon, Switch } from '@varve/ui';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import './ToolOptionsPopover.css';
@@ -48,19 +48,34 @@ function AreaSelectionOptions({
       </div>
       <fieldset className="tool-options__operation">
         <legend className="tool-options__label">Operation</legend>
-        <div className="tool-options__segmented">
-          {(['replace', 'add', 'subtract', 'intersect'] as const).map((operation) => (
-            <button
-              key={operation}
-              type="button"
-              className={settings.operation === operation ? 'is-active' : ''}
-              aria-pressed={settings.operation === operation}
-              aria-label={`${operation} selection`}
-              onClick={() => onChange({ operation })}
-            >
-              {operation === 'replace' ? 'New' : operation[0]!.toUpperCase() + operation.slice(1)}
-            </button>
-          ))}
+        <div className="tool-options__segmented" role="radiogroup" aria-label="Operation">
+          {(['replace', 'add', 'subtract', 'intersect'] as const).map(
+            (operation, index, operations) => (
+              // biome-ignore lint/a11y/useSemanticElements: APG radiogroup uses buttons for the custom segmented control
+              <button
+                key={operation}
+                type="button"
+                className={settings.operation === operation ? 'is-active' : ''}
+                role="radio"
+                aria-checked={settings.operation === operation}
+                tabIndex={settings.operation === operation ? 0 : -1}
+                aria-label={`${operation} selection`}
+                onClick={() => onChange({ operation })}
+                onKeyDown={(event) => {
+                  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+                  event.preventDefault();
+                  const delta = event.key === 'ArrowRight' ? 1 : -1;
+                  const nextIndex = (index + delta + operations.length) % operations.length;
+                  onChange({ operation: operations[nextIndex] });
+                  const next =
+                    event.currentTarget.parentElement?.querySelectorAll('button')[nextIndex];
+                  next instanceof HTMLElement && next.focus();
+                }}
+              >
+                {operation === 'replace' ? 'New' : operation[0]!.toUpperCase() + operation.slice(1)}
+              </button>
+            ),
+          )}
         </div>
       </fieldset>
       <label className="tool-options__field">
@@ -125,24 +140,20 @@ function AreaSelectionOptions({
           onChange={(event) => onChange({ feather: numberValue(event.target.value) })}
         />
       </label>
-      <label className="tool-options__check">
-        <input
-          type="checkbox"
-          aria-label="Anti-alias selection edges"
-          checked={settings.antialias}
-          onChange={(event) => onChange({ antialias: event.target.checked })}
-        />
-        <span>Anti-alias edges</span>
-      </label>
-      <label className="tool-options__check">
-        <input
-          type="checkbox"
-          aria-label="Draw selection from center"
-          checked={settings.fromCenter}
-          onChange={(event) => onChange({ fromCenter: event.target.checked })}
-        />
-        <span>From center</span>
-      </label>
+      <Switch
+        className="tool-options__check"
+        label="Anti-alias edges"
+        aria-label="Anti-alias selection edges"
+        checked={settings.antialias}
+        onChange={(event) => onChange({ antialias: event.target.checked })}
+      />
+      <Switch
+        className="tool-options__check"
+        label="From center"
+        aria-label="Draw selection from center"
+        checked={settings.fromCenter}
+        onChange={(event) => onChange({ fromCenter: event.target.checked })}
+      />
       <p className="tool-options__hint">
         Shift adds, Alt subtracts, and Shift+Alt intersects for this gesture.
       </p>

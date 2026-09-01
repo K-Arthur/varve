@@ -435,7 +435,6 @@ function ExpandControls({
         </FieldRow>
         <FieldRow label="From Center">
           <Switch
-            label="Expand from center"
             checked={fromCenter}
             onChange={(e) => setFromCenter(e.target.checked)}
             aria-label="Expand from center"

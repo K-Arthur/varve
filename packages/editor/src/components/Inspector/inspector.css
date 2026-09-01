@@ -2637,10 +2637,6 @@
   color: var(--color-text-secondary);
   cursor: pointer;
 }
-.intelligence-toggle input[type="checkbox"] {
-  margin: 0;
-  accent-color: var(--color-interactive-default);
-}
 
 /* ---------- Action button ---------- */
 .intelligence-action-btn {
