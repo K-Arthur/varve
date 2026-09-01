@@ -4,7 +4,7 @@
  */
 
 import type { ExportFormat, RenderingIntent } from '@varve/scene';
-import { NumberInput, Select } from '@varve/ui';
+import { NumberInput, Select, SwitchField } from '@varve/ui';
 import { useState } from 'react';
 import { useSettings } from './SettingsContext';
 
@@ -166,16 +166,12 @@ export function ExportSettingsTab() {
         />
       </FieldRow>
 
-      <FieldRow label="Outline text">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.export.defaultOutlineText}
-            onChange={(e) => updateExport({ defaultOutlineText: e.target.checked })}
-          />
-          <span>Convert text to outlines on export</span>
-        </label>
-      </FieldRow>
+      <SwitchField
+        label="Convert text to outlines on export"
+        description="Default for new exports. Text remains editable in the document; outlining only changes the exported result."
+        checked={settings.export.defaultOutlineText}
+        onChange={(e) => updateExport({ defaultOutlineText: e.target.checked })}
+      />
 
       <FieldRow label="Filename template">
         <input

@@ -100,6 +100,12 @@
   user-select: none;
 }
 
+.varve-switch.insp-switch--axis {
+  min-block-size: 1rem;
+  gap: var(--space-1);
+  font-size: var(--font-size-2xs);
+}
+
 .varve-switch-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

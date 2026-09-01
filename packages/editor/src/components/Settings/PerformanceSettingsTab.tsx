@@ -3,7 +3,7 @@
  * and read-only diagnostics for support/bug-report use.
  */
 
-import { Button, Select } from '@varve/ui';
+import { Button, Select, SwitchField } from '@varve/ui';
 import { useState } from 'react';
 import { detectPlatformCapabilities, getCurrentTier } from '../../canvas/adaptiveProfile';
 import { enableDrawDiagnostics } from '../../canvas/drawDiagnostics';
@@ -120,20 +120,12 @@ export function PerformanceSettingsTab() {
       <div className="settings-divider" />
 
       <h3 className="settings-section__title">Diagnostics</h3>
-      <FieldRow label="Performance overlay">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.performance.showPerformanceDiagnostics}
-            onChange={(e) => updateShowDiagnostics(e.target.checked)}
-          />
-          <span>Show performance overlay</span>
-        </label>
-      </FieldRow>
-      <p className="settings-hint">
-        Displays live renderer timing, cache, and render-path information over the canvas. Off by
-        default; intended for diagnosing rendering or performance problems.
-      </p>
+      <SwitchField
+        label="Show performance overlay"
+        description="Displays live renderer timing, cache, and render-path information over the canvas. Off by default; intended for diagnosing rendering or performance problems."
+        checked={settings.performance.showPerformanceDiagnostics}
+        onChange={(e) => updateShowDiagnostics(e.target.checked)}
+      />
       <div className="performance-settings__stats">
         <div className="performance-settings__stat">
           <span className="performance-settings__stat-label">Adaptive quality tier</span>

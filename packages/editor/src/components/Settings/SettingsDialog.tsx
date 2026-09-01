@@ -5,6 +5,7 @@ import {
   NestedOverlayProvider,
   NumberInput,
   Select,
+  SwitchField,
   Tooltip,
   TooltipProvider,
   VarveLogo,
@@ -306,25 +307,12 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
       </FieldRow>
       <Divider />
       <h3 className="settings-section__title">Render performance</h3>
-      <FieldRow label="WebGPU compositor">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.render.preferWebGpu}
-            onChange={(e) => {
-              const next = e.target.checked;
-              updateSettingsCtx({ render: { preferWebGpu: next } });
-            }}
-          />
-          <span>Prefer WebGPU when available</span>
-        </label>
-      </FieldRow>
-      <p className="settings-hint">
-        Reload the document tab after changing. Uses an offscreen WebGPU surface and keeps the
-        content canvas on Canvas2D (so the editor never blanks). Falls back to Canvas2D on device
-        loss or unsupported primitives. Unavailable on Linux WebKitGTK. Status bar shows the active
-        backend.
-      </p>
+      <SwitchField
+        label="Prefer WebGPU when available"
+        description="Reload the document tab after changing. Uses an offscreen WebGPU surface and keeps the content canvas on Canvas2D (so the editor never blanks). Falls back to Canvas2D on device loss or unsupported primitives. Unavailable on Linux WebKitGTK. The status bar shows the active backend."
+        checked={settings.render.preferWebGpu}
+        onChange={(e) => updateSettingsCtx({ render: { preferWebGpu: e.target.checked } })}
+      />
       <Divider />
       <h3 className="settings-section__title">Onboarding</h3>
       <p className="settings-desc">
@@ -342,36 +330,21 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
       </Button>
       <Divider />
       <h3 className="settings-section__title">Learning & Help</h3>
-      <FieldRow label="Contextual tips">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.learning.showContextualTips}
-            onChange={(e) => updateSection('learning', { showContextualTips: e.target.checked })}
-          />
-          <span>Show contextual tips when using tools</span>
-        </label>
-      </FieldRow>
-      <FieldRow label="Shortcut hints">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.learning.showShortcutHints}
-            onChange={(e) => updateSection('learning', { showShortcutHints: e.target.checked })}
-          />
-          <span>Show keyboard shortcut hints</span>
-        </label>
-      </FieldRow>
-      <FieldRow label="Tutorial suggestions">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.learning.autoSuggestTutorials}
-            onChange={(e) => updateSection('learning', { autoSuggestTutorials: e.target.checked })}
-          />
-          <span>Automatically suggest tutorials for new workspaces</span>
-        </label>
-      </FieldRow>
+      <SwitchField
+        label="Show contextual tips when using tools"
+        checked={settings.learning.showContextualTips}
+        onChange={(e) => updateSection('learning', { showContextualTips: e.target.checked })}
+      />
+      <SwitchField
+        label="Show keyboard shortcut hints"
+        checked={settings.learning.showShortcutHints}
+        onChange={(e) => updateSection('learning', { showShortcutHints: e.target.checked })}
+      />
+      <SwitchField
+        label="Automatically suggest tutorials for new workspaces"
+        checked={settings.learning.autoSuggestTutorials}
+        onChange={(e) => updateSection('learning', { autoSuggestTutorials: e.target.checked })}
+      />
     </div>
   );
 }
@@ -405,19 +378,11 @@ function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) =
           label="UI font size"
         />
       </FieldRow>
-      <FieldRow label="Menu items">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.appearance.showAllMenuItems}
-            onChange={(e) => {
-              const next = e.target.checked;
-              updateSettings({ appearance: { showAllMenuItems: next } });
-            }}
-          />
-          <span>Show all menu items (bypass workspace mode filtering)</span>
-        </label>
-      </FieldRow>
+      <SwitchField
+        label="Show all menu items (bypass workspace mode filtering)"
+        checked={settings.appearance.showAllMenuItems}
+        onChange={(e) => updateSettings({ appearance: { showAllMenuItems: e.target.checked } })}
+      />
     </div>
   );
 }
@@ -498,26 +463,16 @@ function CollabSection() {
         />
       </FieldRow>
       <Divider />
-      <FieldRow label="Notifications">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.collab.notifyJoinLeave}
-            onChange={(e) => updateSection('collab', { notifyJoinLeave: e.target.checked })}
-          />
-          <span>Notify when collaborators join/leave</span>
-        </label>
-      </FieldRow>
-      <FieldRow label="Cursors">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.collab.showLiveCursors}
-            onChange={(e) => updateSection('collab', { showLiveCursors: e.target.checked })}
-          />
-          <span>Show live cursors</span>
-        </label>
-      </FieldRow>
+      <SwitchField
+        label="Notify when collaborators join/leave"
+        checked={settings.collab.notifyJoinLeave}
+        onChange={(e) => updateSection('collab', { notifyJoinLeave: e.target.checked })}
+      />
+      <SwitchField
+        label="Show live cursors"
+        checked={settings.collab.showLiveCursors}
+        onChange={(e) => updateSection('collab', { showLiveCursors: e.target.checked })}
+      />
     </div>
   );
 }
@@ -660,19 +615,13 @@ function UpdatesSection() {
           </label>
         ))}
       </fieldset>
-      <label className="settings-checkbox-row">
-        <input
-          type="checkbox"
-          checked={preferences.installOnQuit}
-          onChange={(event) => updates.setPreferences({ installOnQuit: event.target.checked })}
-          disabled={!canUseUpdater || preferences.consent !== 'download-automatically'}
-        />
-        <span>Install a verified update when I quit Varve</span>
-      </label>
-      <p className="settings-hint">
-        Installation still waits for the normal save/close workflow. Varve never discards unsaved
-        design work to apply an update.
-      </p>
+      <SwitchField
+        label="Install a verified update when I quit Varve"
+        description="Installation still waits for the normal save/close workflow. Varve never discards unsaved design work to apply an update."
+        checked={preferences.installOnQuit}
+        onChange={(event) => updates.setPreferences({ installOnQuit: event.target.checked })}
+        disabled={!canUseUpdater || preferences.consent !== 'download-automatically'}
+      />
       <Divider />
       <p className="settings-hint" role="status" aria-live="polite">
         Current status: {status}
