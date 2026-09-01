@@ -1,0 +1,114 @@
+/* Shared interaction-state fixture styles. Runtime components may use the
+ * same semantic attributes, but persistent state must come from ARIA/data
+ * state rather than this fixture's class names. */
+.varve-interaction-gallery {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 56rem;
+  color: var(--color-text-primary);
+  font-family: var(--type-interface-body-family);
+}
+
+.varve-interaction-gallery__section {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.varve-interaction-gallery__legend {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.varve-interaction-gallery__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.varve-interaction-gallery__sample {
+  min-block-size: var(--component-default-height);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+
+.varve-interaction-gallery__sample:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .varve-interaction-gallery__sample:hover:not([data-state="selected"]):not(
+    [data-state="checked"]
+  ):not([data-state="disabled"]):not([data-state="drop-target"]):not([data-state="drop-denied"]) {
+    background: var(--color-interactive-hover-surface);
+  }
+}
+
+.varve-interaction-gallery__sample[data-state="pressed"] {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
+}
+
+.varve-interaction-gallery__sample[data-state="selected"],
+.varve-interaction-gallery__sample[data-state="checked"] {
+  background: var(--color-interactive-selected-surface);
+  border-color: var(--color-interactive-selected-border);
+  color: var(--color-interactive-selected-foreground);
+}
+
+.varve-interaction-gallery__sample[data-state="current"] {
+  border-bottom: 3px solid var(--color-interactive-current-indicator);
+}
+
+.varve-interaction-gallery__sample[data-state="search-match"] {
+  background: var(--color-highlight-search-match);
+}
+
+.varve-interaction-gallery__sample[data-state="search-current"] {
+  background: var(--color-highlight-search-current);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.varve-interaction-gallery__sample[data-state="drop-target"] {
+  background: var(--color-interactive-drop-target-surface);
+  border: 2px dashed var(--color-interactive-drop-target-border);
+}
+
+.varve-interaction-gallery__sample[data-state="drop-denied"] {
+  background: var(--color-interactive-drop-denied-surface);
+  border: 2px dashed var(--color-interactive-drop-denied-border);
+}
+
+.varve-interaction-gallery__sample[data-state="disabled"] {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.varve-interaction-gallery__match {
+  background: var(--color-highlight-search-match);
+  border-radius: var(--radius-control-compact);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .varve-interaction-gallery__sample {
+    transition: none;
+  }
+}

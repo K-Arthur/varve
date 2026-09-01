@@ -5,6 +5,7 @@ import '@fontsource-variable/geist/index.css';
 import '@fontsource-variable/ibm-plex-sans/index.css';
 import '../src/components/components.css';
 import '../src/components/select.css';
+import '../src/components/interaction-states.css';
 
 const preview: Preview = {
   decorators: [
