@@ -90,10 +90,10 @@ describe('Tauri CSP configuration', () => {
       expect(connect).toContain('https://raw.githubusercontent.com');
     });
 
-    it('allows the Fontsource metadata and font delivery origins', () => {
+    it('allows only the Fontsource font delivery origin', () => {
       const connect = prod!['connect-src'];
-      expect(connect).toContain('https://api.fontsource.org');
       expect(connect).toContain('https://cdn.jsdelivr.net');
+      expect(connect).not.toContain('https://api.fontsource.org');
     });
 
     it('restricts worker-src to self', () => {
@@ -149,10 +149,10 @@ describe('Tauri CSP configuration', () => {
       expect(dev!['script-src']).toContain("'wasm-unsafe-eval'");
     });
 
-    it('allows Fontsource metadata and font delivery in dev', () => {
+    it('allows only Fontsource font delivery in dev', () => {
       const connect = dev!['connect-src'];
-      expect(connect).toContain('https://api.fontsource.org');
       expect(connect).toContain('https://cdn.jsdelivr.net');
+      expect(connect).not.toContain('https://api.fontsource.org');
     });
   });
 
