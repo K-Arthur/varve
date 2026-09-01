@@ -69,6 +69,8 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(function Switch(
       className={`varve-switch varve-switch--${size}${
         disabled ? ' varve-switch--disabled' : ''
       }${className ? ` ${className}` : ''}`}
+      data-state={renderedChecked ? 'checked' : 'unchecked'}
+      data-disabled={disabled || undefined}
       htmlFor={switchId}
     >
       {labelPosition === 'start' && label && <span className="varve-switch__label">{label}</span>}
@@ -107,6 +109,8 @@ export interface SwitchFieldProps
   > {
   label: ReactNode;
   description?: ReactNode;
+  /** Supporting copy for a disabled dependent setting. */
+  disabledReason?: ReactNode;
   className?: string;
   id?: string;
   'aria-describedby'?: string;
@@ -120,6 +124,7 @@ export interface SwitchFieldProps
 export function SwitchField({
   label,
   description,
+  disabledReason,
   className = '',
   id,
   ...switchProps
@@ -127,8 +132,10 @@ export function SwitchField({
   const generatedId = useId();
   const switchId = id ?? `${generatedId}-switch`;
   const descriptionId = description ? `${switchId}-description` : undefined;
+  const disabledReasonId = disabledReason ? `${switchId}-disabled-reason` : undefined;
   const callerDescribedBy = switchProps['aria-describedby'];
-  const describedBy = [callerDescribedBy, descriptionId].filter(Boolean).join(' ') || undefined;
+  const describedBy =
+    [callerDescribedBy, descriptionId, disabledReasonId].filter(Boolean).join(' ') || undefined;
 
   return (
     <div className={`varve-switch-field${className ? ` ${className}` : ''}`}>
@@ -139,6 +146,11 @@ export function SwitchField({
         {description && (
           <div className="varve-switch-field__description" id={descriptionId}>
             {description}
+          </div>
+        )}
+        {disabledReason && (
+          <div className="varve-switch-field__disabled-reason" id={disabledReasonId}>
+            {disabledReason}
           </div>
         )}
       </div>

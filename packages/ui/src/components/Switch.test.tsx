@@ -102,4 +102,25 @@ describe('SwitchField', () => {
     expect(screen.getByLabelText('First')).toBe(controls[0]);
     expect(screen.getByLabelText('Second')).toBe(controls[1]);
   });
+
+  it('describes disabled dependent settings without changing their stored value', () => {
+    render(
+      <SwitchField
+        label="High-quality preview"
+        description="Retains the selected preview quality."
+        disabledReason="Enable smart preview first."
+        checked
+        disabled
+      />,
+    );
+    const control = screen.getByRole('switch', { name: 'High-quality preview' });
+    const describedBy = control.getAttribute('aria-describedby')?.split(' ') ?? [];
+    expect(describedBy).toHaveLength(2);
+    expect(describedBy.map((id) => document.getElementById(id)?.textContent)).toEqual([
+      'Retains the selected preview quality.',
+      'Enable smart preview first.',
+    ]);
+    expect(control).toBeChecked();
+    expect(control.parentElement).toHaveAttribute('data-state', 'checked');
+  });
 });

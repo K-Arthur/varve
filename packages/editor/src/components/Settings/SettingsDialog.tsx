@@ -621,6 +621,13 @@ function UpdatesSection() {
         checked={preferences.installOnQuit}
         onChange={(event) => updates.setPreferences({ installOnQuit: event.target.checked })}
         disabled={!canUseUpdater || preferences.consent !== 'download-automatically'}
+        disabledReason={
+          !canUseUpdater
+            ? 'Automatic installation is unavailable in this build.'
+            : preferences.consent !== 'download-automatically'
+              ? 'Choose automatic downloads above to enable install-on-quit.'
+              : undefined
+        }
       />
       <Divider />
       <p className="settings-hint" role="status" aria-live="polite">

@@ -63,6 +63,10 @@
   transition: transform var(--duration-quick) var(--ease-standard);
 }
 
+.varve-switch:active:not(.varve-switch--disabled) .varve-switch__track {
+  background: var(--color-interactive-active);
+}
+
 .varve-switch:hover:not(.varve-switch--disabled) .varve-switch__track {
   border-color: var(--color-interactive-hover);
   background: var(--color-surface-hover);
@@ -149,6 +153,13 @@
   max-inline-size: 60ch;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
+  line-height: 1.35;
+}
+
+.varve-switch-field__disabled-reason {
+  max-inline-size: 60ch;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
   line-height: 1.35;
 }
 
