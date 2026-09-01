@@ -30,7 +30,7 @@
   gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
   background: var(--elevation-surface-raised);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   border: 1px solid var(--color-border-subtle);
   box-shadow: var(--shadow-lg);
   pointer-events: auto;
@@ -49,7 +49,7 @@
   height: 32px;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   cursor: pointer;
   flex: 0 0 auto;
@@ -93,7 +93,7 @@
   height: 32px;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
@@ -152,7 +152,7 @@
   margin-top: var(--space-1);
   padding: var(--space-2) var(--space-3);
   background: var(--elevation-surface-raised);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   border: 1px solid var(--color-border-subtle);
   box-shadow: var(--shadow-lg);
   pointer-events: auto;
@@ -173,7 +173,7 @@
 .floating-toolbar__drawing-slider:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 .floating-toolbar__colors {
   display: flex;
@@ -203,7 +203,7 @@
   height: 24px;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;

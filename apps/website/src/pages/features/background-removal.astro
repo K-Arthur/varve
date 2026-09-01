@@ -87,7 +87,7 @@ import StatusPill from '../../components/StatusPill.astro';
   .feature-page h1 { max-width: 760px; font-size: clamp(2.5rem, 6vw, 4.5rem); line-height: 1.02; font-family: var(--font-editorial); color: var(--text-primary); margin-bottom: 1.25rem; }
   .feature-intro { max-width: 700px; font-size: 1.25rem; line-height: 1.7; color: var(--text-secondary); margin-bottom: 3rem; }
   .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 4rem; }
-  .mode-card { min-height: 220px; padding: 1.5rem; border: 1px solid var(--border-default); border-radius: 0.75rem; background: var(--surface-card); }
+  .mode-card { min-height: 220px; padding: 1.5rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-card); background: var(--surface-card); }
   .mode-card--accent { border-color: var(--border-accent); background: var(--surface-accent-soft); }
   .mode-card__number { color: var(--text-tertiary); font: 0.75rem var(--font-mono); letter-spacing: 0.08em; }
   .mode-card h2 { margin: 2.5rem 0 0.75rem; color: var(--text-primary); }
@@ -98,6 +98,6 @@ import StatusPill from '../../components/StatusPill.astro';
   .feature-section p { color: var(--text-secondary); line-height: 1.8; }
   .feature-section--note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
   .feature-cta { display: flex; flex-wrap: wrap; gap: 0.75rem; border-top: 1px solid var(--border-default); padding-top: 2rem; }
-  .btn-secondary { display: inline-flex; align-items: center; padding: 0.7rem 1.1rem; border: 1px solid var(--border-default); border-radius: 0.5rem; color: var(--text-primary); text-decoration: none; }
+  .btn-secondary { display: inline-flex; align-items: center; padding: 0.7rem 1.1rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-control); color: var(--text-primary); text-decoration: none; }
   @media (max-width: 680px) { .mode-grid { grid-template-columns: 1fr; } .mode-card { min-height: auto; } .mode-card h2 { margin-top: 1.5rem; } }
 </style>

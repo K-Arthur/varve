@@ -156,7 +156,7 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
     width: 100%;
     height: auto;
     border: 1px solid var(--border-default);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     box-shadow: var(--elevation-shadow-raised);
   }
 
@@ -192,7 +192,7 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
   
   .limitations {
     background: var(--surface-muted);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     padding: 1.5rem;
   }
   
@@ -204,7 +204,7 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
   .status-badge {
     background: var(--surface-accent-soft);
     border: 1px solid var(--border-accent);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     padding: 1.5rem;
   }
   
@@ -218,7 +218,7 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
     background: var(--status-built);
     color: var(--text-on-status);
     padding: 0.25rem 0.75rem;
-    border-radius: 0.25rem;
+    border-radius: var(--website-radius-control-compact);
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;

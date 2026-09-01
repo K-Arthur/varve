@@ -7,7 +7,7 @@
   flex-direction: column;
   background: var(--elevation-surface-overlay);
   border: var(--border-micro);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-floating);
   box-shadow: var(--elevation-shadow-overlay);
   overflow: hidden;
   animation: quick-actions-fadein 0.12s var(--ease-standard);
@@ -38,7 +38,7 @@
   margin: var(--space-1) var(--space-1) 0;
   background: var(--elevation-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
 }
 
 .quick-actions-bar__input-wrap:focus-within {
@@ -72,7 +72,7 @@
   width: 24px;
   height: 24px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -108,7 +108,7 @@
   width: 100%;
   padding: var(--space-1) var(--space-2);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--color-text-primary);
   font: inherit;

@@ -8,7 +8,7 @@
   padding: var(--space-1);
   background: var(--elevation-surface-raised);
   border: var(--border-micro);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-floating);
   box-shadow: var(--elevation-shadow-raised);
   font-size: var(--font-size-sm);
   white-space: nowrap;
@@ -19,7 +19,7 @@
   font-size: var(--font-size-xs);
   padding: 2px 4px;
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   cursor: pointer;
@@ -48,7 +48,7 @@
   height: 26px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -78,7 +78,7 @@
   display: block;
   width: 20px;
   height: 20px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   border: var(--border-micro);
   cursor: pointer;
   padding: 0;
@@ -99,7 +99,7 @@
   font-size: var(--font-size-xs);
   padding: 2px 4px;
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   text-align: center;
