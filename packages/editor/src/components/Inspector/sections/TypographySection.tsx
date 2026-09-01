@@ -17,7 +17,7 @@
 import { getFontRegistry } from '@varve/engine';
 import type { SceneNode, TextNode } from '@varve/scene';
 import { resolveNodeFills, textNodeGeometry } from '@varve/scene';
-import { Select } from '@varve/ui';
+import { Select, Switch } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
@@ -325,17 +325,12 @@ export function TypographySection({ nodes }: TypographySectionProps) {
               )}
             </FieldRow>
             <FieldRow label="Rich Text">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={richTextEnabled}
+              <Switch
                 aria-label="Enable rich text editing"
-                className="insp-segmented__btn"
-                style={{ flex: '0 0 auto' }}
-                onClick={() => setRichTextEnabled((v) => !v)}
-              >
-                {richTextEnabled ? 'On' : 'Off'}
-              </button>
+                className="insp-switch"
+                checked={richTextEnabled}
+                onChange={(event) => setRichTextEnabled(event.target.checked)}
+              />
             </FieldRow>
           </>
         )}

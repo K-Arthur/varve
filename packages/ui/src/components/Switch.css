@@ -60,7 +60,7 @@
   transition: transform var(--duration-quick) var(--ease-standard);
 }
 
-.varve-switch__input:hover:not(:disabled) + .varve-switch__track {
+.varve-switch:hover:not(.varve-switch--disabled) .varve-switch__track {
   border-color: var(--color-interactive-hover);
   background: var(--color-surface-hover);
 }
@@ -72,6 +72,13 @@
 
 .varve-switch__input:checked + .varve-switch__track .varve-switch__thumb {
   transform: translateX(var(--switch-thumb-travel));
+}
+
+.varve-switch:hover:not(.varve-switch--disabled)
+  .varve-switch__input:checked
+  + .varve-switch__track {
+  border-color: var(--color-interactive-hover);
+  background: var(--color-interactive-hover);
 }
 
 .varve-switch__input:focus-visible + .varve-switch__track {
