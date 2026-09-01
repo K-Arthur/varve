@@ -4,6 +4,7 @@
   --switch-height: 1.125rem;
   --switch-thumb-size: 0.875rem;
   --switch-thumb-travel: 0.75rem;
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -22,14 +23,15 @@
 
 .varve-switch__input {
   position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
+  inset: 0;
+  z-index: 1;
+  inline-size: 100%;
+  block-size: 100%;
   padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  margin: 0;
+  opacity: 0;
   border: 0;
+  cursor: inherit;
 }
 
 .varve-switch__track {
@@ -44,6 +46,7 @@
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-pill);
   background: var(--color-surface-sunken);
+  pointer-events: none;
   transition:
     background var(--duration-quick) var(--ease-standard),
     border-color var(--duration-quick) var(--ease-standard);
