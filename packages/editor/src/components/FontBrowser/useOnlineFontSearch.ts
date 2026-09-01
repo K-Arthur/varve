@@ -8,7 +8,7 @@ import {
 } from '@varve/engine/font';
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
-import { storeFont } from './fontStorage';
+import { removeStoredFont, storeFont } from './fontStorage';
 
 export interface OnlineFontSearchResult {
   results: FontProviderResult[];
@@ -86,7 +86,7 @@ function getDownloadManager(): FontDownloadManager {
               throw new Error('The downloaded font did not contain usable font data.');
             }
             const artifact = waiter.artifact;
-            await storeFont(job.familyName, job.data, {
+            const stored = await storeFont(job.familyName, job.data, {
               providerId: artifact.providerId,
               familyId: artifact.familyId,
               packageVersion: artifact.packageVersion,
@@ -107,7 +107,10 @@ function getDownloadManager(): FontDownloadManager {
               'fontsource',
               { weight: artifact.weight, style: artifact.style },
             );
-            if (!result.success) throw new Error('The font was saved but could not be registered.');
+            if (!result.success) {
+              await removeStoredFont(stored.key);
+              throw new Error('The font could not be registered, so its saved copy was removed.');
+            }
             getFontsourceCatalog().setInstalled(artifact.familyId, true);
             waiter.resolve();
           } catch (error) {

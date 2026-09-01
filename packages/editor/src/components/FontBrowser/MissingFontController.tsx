@@ -9,17 +9,28 @@
 
 import { getFontRegistry } from '@varve/engine';
 import type { FontReplacement, MissingFontInfo, ResolverDocument } from '@varve/engine/font';
-import { attachFontManifestToDocument, FontCatalog, FontResolver } from '@varve/engine/font';
+import {
+  attachFontManifestToDocument,
+  FontCatalog,
+  FontResolver,
+  getFontsourceCatalog,
+} from '@varve/engine/font';
 import type { Document } from '@varve/scene';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { isCapabilityRestricted, RESTRICTION_MESSAGES } from '../../capabilities/restrictions';
 import { useEditor } from '../../context';
 
+import { FontBrowserDialog } from './FontBrowserDialog';
 import { MissingFontDialog } from './MissingFontDialog';
+import type { MissingFontRecoveryMatch } from './missingFontRecovery';
+import { findMissingFontRecoveryMatch } from './missingFontRecovery';
+import { downloadAndApplyOnlineFont } from './useOnlineFontSearch';
 
 export function MissingFontController() {
   const editor = useEditor();
   const [missingFonts, setMissingFonts] = useState<MissingFontInfo[]>([]);
   const [showDialog, setShowDialog] = useState(false);
+  const [browsingFont, setBrowsingFont] = useState<MissingFontInfo | null>(null);
   const [catalogRevision, setCatalogRevision] = useState(0);
   const dismissedKeyRef = useRef('');
   const catalogRef = useRef<FontCatalog | null>(null);
@@ -142,14 +153,63 @@ export function MissingFontController() {
     setShowDialog(false);
   };
 
+  const recoveryMatches = useMemo(() => {
+    const fontsource = getFontsourceCatalog();
+    return new Map(
+      missingFonts.flatMap((missing) => {
+        const match = findMissingFontRecoveryMatch(missing, fontsource);
+        return match ? ([[missing.familyName, match]] as const) : [];
+      }),
+    );
+  }, [missingFonts]);
+
+  const handleInstallFontsource = async (
+    missing: MissingFontInfo,
+    match: MissingFontRecoveryMatch,
+  ) => {
+    await downloadAndApplyOnlineFont(
+      match.artifact.familyName,
+      match.artifact.providerId,
+      match.artifact.familyId,
+      {
+        weight: match.artifact.weight,
+        style: match.artifact.style,
+        subset: match.artifact.subset,
+        variable: match.artifact.variable,
+      },
+    );
+    if (match.matchedByAlias) handleReplace(missing.familyName, match.artifact.familyName);
+  };
+
+  if (browsingFont) {
+    return (
+      <FontBrowserDialog
+        open
+        onClose={() => {
+          setBrowsingFont(null);
+          setShowDialog(true);
+        }}
+        onSelect={(family) => {
+          handleReplace(browsingFont.familyName, family);
+          setBrowsingFont(null);
+        }}
+      />
+    );
+  }
+
   if (!showDialog || missingFonts.length === 0) return null;
 
   return (
     <MissingFontDialog
       missingFonts={missingFonts}
-      catalog={catalogRef.current!}
+      recoveryMatches={recoveryMatches}
+      downloadRestrictionMessage={
+        isCapabilityRestricted('onlineFonts') ? RESTRICTION_MESSAGES.onlineFonts : undefined
+      }
       onReplace={handleReplace}
       onReplaceAll={handleReplaceAll}
+      onInstallFontsource={handleInstallFontsource}
+      onBrowseCatalog={setBrowsingFont}
       onDismiss={handleDismiss}
       onClose={handleDismiss}
     />
