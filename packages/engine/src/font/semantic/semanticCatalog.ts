@@ -1,5 +1,6 @@
 import type { FontEntry } from '../../fontRegistry';
 import { getFontRegistry } from '../../fontRegistry';
+import type { FontCatalogEntry } from '../fontCatalog';
 import type { ParsedFontMetadata } from '../fontIdentity';
 import { getFontsourceCatalog } from '../fontsourceCatalog';
 import {
@@ -448,4 +449,45 @@ export function resetFontSemanticCatalog(): void {
   for (const unsubscribe of unsubscribed) unsubscribe();
   unsubscribed = [];
   singleton = undefined;
+}
+
+export interface LegacyFontTagCatalog {
+  all(): readonly FontCatalogEntry[];
+}
+
+/**
+ * Copy legacy family tags into the persistent semantic user layer.
+ *
+ * The old catalog is face-scoped, so entries are intentionally grouped by
+ * family name. Unknown families are skipped and no legacy object is mutated.
+ */
+export function migrateLegacyFontCatalogTags(
+  legacyCatalog: LegacyFontTagCatalog,
+  target: FontSemanticCatalog = getFontSemanticCatalog(),
+): { migrated: number; skipped: number } {
+  const byFamily = new Map<string, Set<string>>();
+  for (const entry of legacyCatalog.all()) {
+    const family = normalize(entry.identity.familyName);
+    const tags = byFamily.get(family) ?? new Set<string>();
+    for (const tag of entry.tags) {
+      if (typeof tag === 'string' && tag.trim()) tags.add(tag.trim());
+    }
+    byFamily.set(family, tags);
+  }
+
+  let migrated = 0;
+  let skipped = 0;
+  for (const [family, tags] of byFamily) {
+    const record = target.findByFamilyName(family);
+    if (!record) {
+      skipped += 1;
+      continue;
+    }
+    const merged = [...new Set([...record.userTags, ...tags])];
+    if (merged.length !== record.userTags.length) {
+      target.setUserTags(record.familyId, merged, record.projectTags);
+      migrated += 1;
+    }
+  }
+  return { migrated, skipped };
 }

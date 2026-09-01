@@ -10,12 +10,13 @@ import { FontBrowser } from './FontBrowser';
 export interface FontBrowserDialogProps {
   open: boolean;
   onClose: () => void;
+  onSelect?: (family: string) => void;
 }
 
-export function FontBrowserDialog({ open, onClose }: FontBrowserDialogProps) {
+export function FontBrowserDialog({ open, onClose, onSelect }: FontBrowserDialogProps) {
   return (
     <Dialog open={open} onClose={onClose} title="Browse fonts">
-      <FontBrowser showDownloadable />
+      <FontBrowser showDownloadable onSelect={onSelect} />
     </Dialog>
   );
 }

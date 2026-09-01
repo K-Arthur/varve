@@ -142,6 +142,7 @@ export { FontUsageIndex, migrateLegacyFontRefs } from './fontUsageIndex';
 export {
   FontSemanticCatalog,
   getFontSemanticCatalog,
+  migrateLegacyFontCatalogTags,
   resetFontSemanticCatalog,
 } from './semantic/semanticCatalog';
 export {

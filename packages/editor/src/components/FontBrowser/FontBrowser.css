@@ -144,10 +144,232 @@
   opacity: 0.65;
 }
 
+.font-browser__entry--selected .font-browser__row {
+  border-left-color: var(--color-interactive-default);
+  background: var(--color-accent-subtle);
+}
+
+.font-browser__select-btn {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.font-browser__select-btn:focus-visible,
+.font-browser__expand-btn:focus-visible,
+.font-browser__face-row:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.font-browser__descriptors {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.font-browser__expand-placeholder {
+  width: 20px;
+  flex-shrink: 0;
+}
+
+/* ---------- Semantic interpretation / progressive filters ---------- */
+
+.font-browser__interpretation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+}
+
+.font-browser__interpretation-label {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.font-browser__chip,
+.font-browser__detail-tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 1px var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-sunken);
+  white-space: nowrap;
+}
+
+.font-browser__chip--required {
+  border-color: var(--color-interactive-default);
+  color: var(--color-text-primary);
+}
+
+.font-browser__chip--excluded {
+  text-decoration: line-through;
+}
+
+.font-browser__chip--ambiguous,
+.font-browser__ambiguity,
+.font-browser__badge--unknown {
+  color: var(--color-feedback-warning);
+}
+
+.font-browser__chip--excluded {
+  color: var(--color-text-muted);
+}
+
+.font-browser__semantic-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.font-browser__semantic-filter select {
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-primary);
+  background: var(--color-surface-sunken);
+  font: inherit;
+}
+
 .font-browser__error {
   padding: var(--space-2);
   color: var(--color-status-danger);
   font-size: var(--font-size-2xs);
+}
+
+.font-browser__details-header,
+.font-browser__detail-meta,
+.font-browser__detail-tags,
+.font-browser__tag-editor > div,
+.font-browser__why li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.font-browser__details-header {
+  justify-content: space-between;
+  padding: var(--space-2);
+  color: var(--color-text-primary);
+}
+
+.font-browser__details-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.font-browser__details-header span,
+.font-browser__detail-meta,
+.font-browser__why small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.font-browser__details-header .font-browser__install-btn {
+  margin: 0;
+}
+
+.font-browser__detail-tags {
+  flex-wrap: wrap;
+  padding: 0 var(--space-2) var(--space-1);
+}
+
+.font-browser__detail-tag--user {
+  color: var(--color-interactive-default);
+}
+
+.font-browser__detail-meta {
+  flex-wrap: wrap;
+  padding: 0 var(--space-2) var(--space-2);
+}
+
+.font-browser__why {
+  margin: 0 var(--space-2) var(--space-2);
+  border-top: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+}
+
+.font-browser__why summary {
+  padding: var(--space-1) 0;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.font-browser__why ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 0 var(--space-1) var(--space-3);
+}
+
+.font-browser__why li {
+  justify-content: space-between;
+}
+
+.font-browser__tag-editor {
+  padding: 0 var(--space-2) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.font-browser__tag-editor > div {
+  margin-top: var(--space-1);
+}
+
+.font-browser__tag-editor input {
+  min-width: 0;
+  flex: 1;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+}
+
+.font-browser__tag-editor button {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-interactive-default);
+  background: var(--color-surface-raised);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  cursor: pointer;
+}
+
+.font-browser__tag-editor button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 /* ---------- Font preview ---------- */

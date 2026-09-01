@@ -1,18 +1,21 @@
 /**
- * FontBrowser — dedicated font browser panel for the inspector sidebar.
+ * Full semantic font browser.
  *
- * Lists all registered font families with live preview, source filtering,
- * and search. Works directly with FontRegistry from @varve/engine for
- * font enumeration, load state, and variable-font detection.
- *
- * Research basis: Figma font menu, FontBase/FontBook catalog UX patterns.
+ * FontSemanticCatalog is the discovery source for this surface. FontRegistry
+ * remains the runtime face loader, so a downloadable result is still only a
+ * preview until the user explicitly installs it.
  */
 
-import { type FontMetadata, getFontRegistry } from '@varve/engine';
-import { type FontsourceCatalogRecord, getFontsourceCatalog } from '@varve/engine/font';
+import { getFontRegistry } from '@varve/engine';
+import {
+  type FontSearchResult,
+  type FontSemanticRecord,
+  getFontSemanticCatalog,
+  parseFontSemanticQuery,
+  tagLabel,
+} from '@varve/engine/font';
 import { Icon, SearchField, Tooltip } from '@varve/ui';
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { FontLicenseDetails } from './FontLicenseDetails';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { downloadAndApplyOnlineFont } from './useOnlineFontSearch';
 import './FontBrowser.css';
 
@@ -24,28 +27,27 @@ export interface FontBrowserProps {
 }
 
 type SourceFilter = 'all' | 'system' | 'bundled' | 'project' | 'recent' | 'favorites';
-
-interface FontDisplayEntry {
-  family: string;
-  source: 'system' | 'bundled' | 'google' | 'fontsource' | 'user';
-  familyId?: string;
-  installState?: 'available-to-download' | 'installed';
-  isVariable: boolean;
-  isFavorite: boolean;
-  recentlyUsedAt?: number;
-  hasColorGlyphs: boolean;
-  colorFormats: string[];
-  paletteCount?: number;
-  embeddingRights?: FontMetadata['embeddingRights'];
-  license?: string;
-  faces?: FontFaceEntry[];
-}
+type SemanticFilter =
+  | 'all'
+  | 'sans'
+  | 'serif'
+  | 'humanist'
+  | 'monospace'
+  | 'variable'
+  | 'cyrillic'
+  | 'vietnamese';
 
 interface FontFaceEntry {
   postScriptName: string;
   weight: number;
   style: string;
-  source: 'system' | 'bundled' | 'google' | 'fontsource' | 'user';
+  source: string;
+}
+
+interface FontDisplayEntry {
+  record: FontSemanticRecord;
+  result?: FontSearchResult;
+  faces: FontFaceEntry[];
 }
 
 const SOURCE_FILTERS: readonly { key: SourceFilter; label: string }[] = [
@@ -57,31 +59,77 @@ const SOURCE_FILTERS: readonly { key: SourceFilter; label: string }[] = [
   { key: 'favorites', label: 'Favorites' },
 ] as const;
 
-const SOURCE_BADGES: Record<string, string> = {
-  system: 'Sys',
-  bundled: 'Bun',
-  google: 'Web',
-  fontsource: 'Get',
-  user: 'You',
-};
+const SEMANTIC_FILTERS: readonly { key: SemanticFilter; label: string; query?: string }[] = [
+  { key: 'all', label: 'Semantic filter' },
+  { key: 'sans', label: 'Sans serif', query: 'sans' },
+  { key: 'serif', label: 'Serif', query: 'serif' },
+  { key: 'humanist', label: 'Humanist', query: 'humanist' },
+  { key: 'monospace', label: 'Monospace', query: 'monospace' },
+  { key: 'variable', label: 'Variable', query: 'variable' },
+  { key: 'cyrillic', label: 'Cyrillic', query: 'Cyrillic' },
+  { key: 'vietnamese', label: 'Vietnamese', query: 'Vietnamese' },
+] as const;
 
-function familyMatchesFilter(entry: FontDisplayEntry, filter: SourceFilter): boolean {
+function sourceMatches(record: FontSemanticRecord, filter: SourceFilter): boolean {
   switch (filter) {
     case 'all':
       return true;
     case 'system':
-      return entry.source === 'system';
+      return record.sourceKinds.includes('system');
     case 'bundled':
-      return entry.source === 'bundled';
+      return record.sourceKinds.includes('bundled');
     case 'project':
-      return false;
+      return record.sourceKinds.includes('project');
     case 'recent':
-      return !!entry.recentlyUsedAt;
+      return record.recentlyUsedAt !== undefined;
     case 'favorites':
-      return entry.isFavorite;
+      return record.isFavorite;
     default:
       return true;
   }
+}
+
+function sourceBadge(record: FontSemanticRecord): string {
+  if (record.sourceKinds.includes('system')) return 'Sys';
+  if (record.sourceKinds.includes('bundled')) return 'Bun';
+  if (record.sourceKinds.includes('user')) return 'You';
+  if (record.sourceKinds.includes('project')) return 'Pro';
+  return 'Get';
+}
+
+function descriptors(record: FontSemanticRecord): string[] {
+  return [
+    ...new Map(
+      record.profile.assignments
+        .filter(
+          (assignment) =>
+            !assignment.tagId.startsWith('source.') && !assignment.tagId.startsWith('coverage.'),
+        )
+        .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
+        .map((assignment) => [tagLabel(assignment.tagId), assignment]),
+    ).keys(),
+  ].slice(0, 3);
+}
+
+function facesFor(
+  record: FontSemanticRecord,
+  registry: ReturnType<typeof getFontRegistry>,
+): FontFaceEntry[] {
+  const registered = registry.getEntries(record.familyName).map((entry) => ({
+    postScriptName: `${record.familyName}-${entry.weight}-${entry.style}`,
+    weight: entry.weight,
+    style: entry.style,
+    source: entry.source,
+  }));
+  if (registered.length > 0) return registered;
+  return record.weights.slice(0, 12).flatMap((weight) =>
+    record.styles.map((style) => ({
+      postScriptName: `${record.familyName}-${weight}-${style}`,
+      weight,
+      style,
+      source: record.source,
+    })),
+  );
 }
 
 export function FontBrowser({
@@ -90,248 +138,245 @@ export function FontBrowser({
   showDownloadable = false,
   maxHeight = 400,
 }: FontBrowserProps) {
+  const semantic = useMemo(() => getFontSemanticCatalog(), []);
+  const registry = useMemo(() => getFontRegistry(), []);
+  const subscribe = useCallback((listener: () => void) => semantic.subscribe(listener), [semantic]);
+  const getRevision = useCallback(() => semantic.revision, [semantic]);
+  const semanticRevision = useSyncExternalStore(subscribe, getRevision, getRevision);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<SourceFilter>('all');
+  const [semanticFilter, setSemanticFilter] = useState<SemanticFilter>('all');
   const [selectedFamily, setSelectedFamily] = useState<string | undefined>(selectedFamilyProp);
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
   const [installingFamily, setInstallingFamily] = useState<string | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+  const [tagDraft, setTagDraft] = useState('');
 
-  const registry = useMemo(() => getFontRegistry(), []);
-  const subscribe = useCallback((listener: () => void) => registry.subscribe(listener), [registry]);
-  const getRevision = useCallback(() => registry.revision, [registry]);
-  const registryRevision = useSyncExternalStore(subscribe, getRevision, getRevision);
-  const fontsource = useMemo(() => getFontsourceCatalog(), []);
-  const subscribeCatalog = useCallback(
-    (listener: () => void) => fontsource.subscribe(listener),
-    [fontsource],
-  );
-  const getCatalogRevision = useCallback(() => fontsource.revision, [fontsource]);
-  const catalogRevision = useSyncExternalStore(
-    subscribeCatalog,
-    getCatalogRevision,
-    getCatalogRevision,
-  );
+  useEffect(() => setSelectedFamily(selectedFamilyProp), [selectedFamilyProp]);
 
+  const effectiveQuery = useMemo(() => {
+    const filterQuery = SEMANTIC_FILTERS.find((filter) => filter.key === semanticFilter)?.query;
+    return [searchQuery.trim(), filterQuery].filter(Boolean).join(' ');
+  }, [searchQuery, semanticFilter]);
+
+  const interpretation = useMemo(() => parseFontSemanticQuery(effectiveQuery), [effectiveQuery]);
+  const searchResults = useMemo(
+    () =>
+      semantic.search(interpretation, {
+        installedOnly: !showDownloadable,
+        limit: 80,
+        diversity: true,
+      }),
+    [interpretation, semantic, semanticRevision, showDownloadable],
+  );
   const displayEntries = useMemo<FontDisplayEntry[]>(() => {
-    const families = registry.families();
-    const results: FontDisplayEntry[] = [];
-    const seen = new Set<string>();
-    for (const family of families) {
-      if (seen.has(family)) continue;
-      seen.add(family);
-      const entries = registry.getEntries(family);
-      if (entries.length === 0) continue;
-      const firstEntry = entries[0];
-      if (!firstEntry) continue;
-      if (!showDownloadable && firstEntry.source === 'google') continue;
-      const meta = registry.getMetadata(family);
+    return searchResults
+      .filter((result) => showDownloadable || result.record.installed)
+      .filter((result) => sourceMatches(result.record, activeFilter))
+      .map((result) => ({
+        record: result.record,
+        result,
+        faces: facesFor(result.record, registry),
+      }))
+      .sort((a, b) => a.record.familyName.localeCompare(b.record.familyName));
+  }, [activeFilter, registry, searchResults, showDownloadable]);
 
-      // Build face entries for TTC/OTC collections
-      const faces: FontFaceEntry[] = entries.map((entry) => ({
-        postScriptName: `${family}-${entry.weight}-${entry.style}`,
-        weight: entry.weight,
-        style: entry.style,
-        source: entry.source,
-      }));
-
-      results.push({
-        family,
-        source: firstEntry.source,
-        isVariable: registry.isVariable(family),
-        isFavorite: false,
-        hasColorGlyphs: meta?.hasColorGlyphs ?? false,
-        colorFormats: meta?.colorFormats ?? [],
-        paletteCount: meta?.paletteCount,
-        embeddingRights: meta?.embeddingRights,
-        license: meta?.license,
-        faces: faces.length > 1 ? faces : undefined, // Only show faces if multiple
-      });
-    }
-    if (showDownloadable && searchQuery.trim().length >= 2) {
-      const downloadable = fontsource.search({ query: searchQuery, limit: 24 });
-      for (const item of downloadable) {
-        if (seen.has(item.familyName)) continue;
-        results.push(catalogEntryToDisplay(item));
-      }
-    }
-    return results;
-  }, [fontsource, catalogRevision, registry, registryRevision, searchQuery, showDownloadable]);
-
-  const filteredEntries = useMemo(() => {
-    let results = displayEntries;
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      results = results.filter((e) => e.family.toLowerCase().includes(q));
-    }
-
-    if (activeFilter !== 'all') {
-      results = results.filter((e) => familyMatchesFilter(e, activeFilter));
-    }
-
-    results.sort((a, b) => a.family.localeCompare(b.family));
-
-    return results;
-  }, [displayEntries, searchQuery, activeFilter]);
+  const selectedRecord = selectedFamily ? semantic.findByFamilyName(selectedFamily) : undefined;
+  const selectedResult = selectedRecord
+    ? searchResults.find((result) => result.record.familyId === selectedRecord.familyId)
+    : undefined;
 
   const handleSelect = useCallback(
-    (family: string) => {
-      setSelectedFamily(family);
-      onSelect?.(family);
+    (record: FontSemanticRecord) => {
+      setSelectedFamily(record.familyName);
+      semantic.markRecentlyUsed(record.familyId);
+      if (record.installed) onSelect?.(record.familyName);
     },
-    [onSelect],
+    [onSelect, semantic],
   );
 
-  const toggleExpand = useCallback((family: string) => {
-    setExpandedFamilies((prev) => {
-      const next = new Set(prev);
-      if (next.has(family)) {
-        next.delete(family);
-      } else {
-        next.add(family);
-      }
+  const toggleExpand = useCallback((familyId: string) => {
+    setExpandedFamilies((previous) => {
+      const next = new Set(previous);
+      if (next.has(familyId)) next.delete(familyId);
+      else next.add(familyId);
       return next;
     });
   }, []);
 
-  const installFamily = useCallback(async (entry: FontDisplayEntry) => {
-    if (!entry.familyId) return;
-    setInstallingFamily(entry.family);
-    setInstallError(null);
-    try {
-      await downloadAndApplyOnlineFont(entry.family, 'fontsource', entry.familyId);
-    } catch (error) {
-      setInstallError(error instanceof Error ? error.message : 'Font installation failed.');
-    } finally {
-      setInstallingFamily(null);
-    }
-  }, []);
+  const installFamily = useCallback(
+    async (record: FontSemanticRecord) => {
+      if (record.providerId !== 'fontsource' || record.installed) return;
+      setInstallingFamily(record.familyId);
+      setInstallError(null);
+      try {
+        await downloadAndApplyOnlineFont(record.familyName, 'fontsource', record.familyId);
+        semantic.notifyExternalChange();
+      } catch (error) {
+        setInstallError(error instanceof Error ? error.message : 'Font installation failed.');
+      } finally {
+        setInstallingFamily(null);
+      }
+    },
+    [semantic],
+  );
+
+  const addTag = useCallback(() => {
+    if (!selectedRecord || !tagDraft.trim()) return;
+    semantic.addUserTag(selectedRecord.familyId, tagDraft.trim());
+    setTagDraft('');
+  }, [selectedRecord, semantic, tagDraft]);
 
   return (
     <div className="font-browser" style={{ maxHeight }}>
       <SearchField
         value={searchQuery}
         onChange={setSearchQuery}
-        placeholder="Search fonts..."
-        aria-label="Search fonts"
-        resultCount={filteredEntries.length}
+        placeholder="Try “friendly rounded sans for UI”…"
+        aria-label="Search fonts by name or design language"
+        resultCount={displayEntries.length}
       />
 
+      {effectiveQuery && (
+        <div
+          className="font-browser__interpretation"
+          role="status"
+          aria-label="Search interpretation"
+        >
+          <span className="font-browser__interpretation-label">Interpreted as</span>
+          {interpretation.chips.slice(0, 6).map((chip) => (
+            <span
+              key={`${chip.kind}-${chip.label}`}
+              className={`font-browser__chip font-browser__chip--${chip.kind}`}
+            >
+              {chip.label}
+            </span>
+          ))}
+          {interpretation.ambiguities.length > 0 && (
+            <span className="font-browser__ambiguity">Some terms are ambiguous</span>
+          )}
+        </div>
+      )}
+
       <div className="font-browser__filters" role="tablist" aria-label="Font source filter">
-        {SOURCE_FILTERS.map((f) => (
+        {SOURCE_FILTERS.map((filter) => (
           <button
-            key={f.key}
+            key={filter.key}
             type="button"
             role="tab"
-            aria-selected={activeFilter === f.key}
-            className={`font-browser__filter-btn${activeFilter === f.key ? ' font-browser__filter-btn--active' : ''}`}
-            onClick={() => setActiveFilter(f.key)}
+            aria-selected={activeFilter === filter.key}
+            className={`font-browser__filter-btn${activeFilter === filter.key ? ' font-browser__filter-btn--active' : ''}`}
+            onClick={() => setActiveFilter(filter.key)}
           >
-            {f.label}
+            {filter.label}
           </button>
         ))}
       </div>
 
-      <div className="font-browser__list" ref={listRef}>
-        {filteredEntries.length === 0 && (
-          <div className="font-browser__empty">No fonts match your search</div>
+      <label className="font-browser__semantic-filter">
+        <span>Refine</span>
+        <select
+          value={semanticFilter}
+          onChange={(event) => setSemanticFilter(event.target.value as SemanticFilter)}
+          aria-label="Semantic font filter"
+        >
+          {SEMANTIC_FILTERS.map((filter) => (
+            <option key={filter.key} value={filter.key}>
+              {filter.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="font-browser__list">
+        {displayEntries.length === 0 && (
+          <div className="font-browser__empty">
+            <strong>No fonts match</strong>
+            <span>Try removing a hard requirement or search the installed catalog.</span>
+          </div>
         )}
-        {filteredEntries.map((entry) => {
-          const isSelected = selectedFamily === entry.family;
-          const isExpanded = expandedFamilies.has(entry.family);
-          const hasFaces = entry.faces && entry.faces.length > 1;
-          const sourceBadge = SOURCE_BADGES[entry.source] ?? '';
-
-          const colorTitle = entry.paletteCount
-            ? `${entry.colorFormats.join(', ')} · ${entry.paletteCount} palettes`
-            : entry.colorFormats.join(', ');
-          const licenseTitle = entry.license
-            ? entry.license
-            : `Embedding: ${entry.embeddingRights ?? 'unknown'}`;
-
+        {displayEntries.map(({ record, result, faces }) => {
+          const isSelected = selectedFamily === record.familyName;
+          const isExpanded = expandedFamilies.has(record.familyId);
+          const hasFaces = faces.length > 1;
+          const labels = descriptors(record);
           return (
-            <div key={entry.family} className="font-browser__entry">
-              <button
-                type="button"
-                className={`font-browser__row${isSelected ? ' font-browser__row--selected' : ''}`}
-                onClick={() => handleSelect(entry.family)}
-                aria-pressed={isSelected}
-              >
-                {hasFaces && (
+            <div
+              key={record.familyId}
+              className={`font-browser__entry${isSelected ? ' font-browser__entry--selected' : ''}`}
+            >
+              <div className="font-browser__row">
+                {hasFaces ? (
                   <button
                     type="button"
                     className="font-browser__expand-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleExpand(entry.family);
-                    }}
+                    onClick={() => toggleExpand(record.familyId)}
                     aria-expanded={isExpanded}
-                    aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${entry.family} faces`}
+                    aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${record.familyName} faces`}
                   >
-                    {isExpanded ? (
-                      <Icon name="ChevronDown" size={12} />
-                    ) : (
-                      <Icon name="ChevronRight" size={12} />
-                    )}
+                    <Icon name={isExpanded ? 'ChevronDown' : 'ChevronRight'} size={12} />
                   </button>
+                ) : (
+                  <span className="font-browser__expand-placeholder" aria-hidden="true" />
                 )}
-                <span
-                  className="font-browser__preview"
-                  style={{ fontFamily: `"${entry.family}", sans-serif` }}
+                <button
+                  type="button"
+                  className="font-browser__select-btn"
+                  onClick={() => handleSelect(record)}
+                  aria-pressed={isSelected}
                 >
-                  {entry.family}
-                </span>
+                  <span
+                    className="font-browser__preview"
+                    style={{ fontFamily: `"${record.familyName.replaceAll('"', '')}", sans-serif` }}
+                  >
+                    {record.familyName}
+                  </span>
+                  {labels.length > 0 && (
+                    <span className="font-browser__descriptors">{labels.join(' · ')}</span>
+                  )}
+                </button>
                 <span className="font-browser__meta">
-                  {sourceBadge && <span className="font-browser__badge">{sourceBadge}</span>}
-                  {entry.isVariable && (
-                    <span className="font-browser__badge font-browser__badge--var">w</span>
+                  <span className="font-browser__badge">{sourceBadge(record)}</span>
+                  {record.variable && (
+                    <span className="font-browser__badge font-browser__badge--var">Variable</span>
                   )}
-                  {entry.hasColorGlyphs && (
-                    <Tooltip label={colorTitle}>
-                      <span className="font-browser__badge font-browser__badge--color">C</span>
+                  {record.scripts.length > 1 && (
+                    <Tooltip label={`${record.scripts.length} writing systems in catalog metadata`}>
+                      <span className="font-browser__badge">{record.scripts.length} scripts</span>
                     </Tooltip>
                   )}
-                  {entry.embeddingRights === 'restricted' && (
-                    <Tooltip label={licenseTitle}>
-                      <span className="font-browser__badge font-browser__badge--license">L</span>
-                    </Tooltip>
-                  )}
-                  {hasFaces && (
-                    <span className="font-browser__badge font-browser__badge--faces">
-                      {entry.faces!.length}
+                  {result?.status === 'unknown' && (
+                    <span className="font-browser__badge font-browser__badge--unknown">
+                      Unverified
                     </span>
                   )}
                 </span>
-              </button>
-              {entry.source === 'fontsource' && entry.installState === 'available-to-download' && (
-                <button
-                  type="button"
-                  className="font-browser__install-btn"
-                  onClick={() => void installFamily(entry)}
-                  disabled={installingFamily === entry.family}
-                  aria-label={`Install ${entry.family}`}
-                >
-                  {installingFamily === entry.family ? 'Installing…' : 'Install'}
-                </button>
-              )}
+                {record.downloadable && !record.installed && (
+                  <button
+                    type="button"
+                    className="font-browser__install-btn"
+                    onClick={() => void installFamily(record)}
+                    disabled={installingFamily === record.familyId}
+                    aria-label={`Install ${record.familyName}`}
+                  >
+                    {installingFamily === record.familyId ? 'Installing…' : 'Install'}
+                  </button>
+                )}
+              </div>
               {isExpanded && hasFaces && (
                 <div className="font-browser__faces">
-                  {entry.faces!.map((face) => (
-                    <Tooltip label={`${face.postScriptName} — ${face.weight} ${face.style}`}>
-                      <button
-                        key={face.postScriptName}
-                        type="button"
-                        className="font-browser__face-row"
-                        onClick={() => handleSelect(entry.family)}
-                      >
-                        <span className="font-browser__face-name">{face.postScriptName}</span>
-                        <span className="font-browser__face-meta">
-                          {face.weight} {face.style}
-                        </span>
-                      </button>
-                    </Tooltip>
+                  {faces.map((face) => (
+                    <button
+                      key={face.postScriptName}
+                      type="button"
+                      className="font-browser__face-row"
+                      onClick={() => handleSelect(record)}
+                    >
+                      <span className="font-browser__face-name">{face.postScriptName}</span>
+                      <span className="font-browser__face-meta">
+                        {face.weight} {face.style}
+                      </span>
+                    </button>
                   ))}
                 </div>
               )}
@@ -340,34 +385,96 @@ export function FontBrowser({
         })}
       </div>
 
-      <div className="font-browser__count">{filteredEntries.length} fonts</div>
+      <div className="font-browser__count">
+        {displayEntries.length} families{showDownloadable ? ' · local catalog' : ' · installed'}
+      </div>
       {installError && (
         <div className="font-browser__error" role="alert">
           {installError}
         </div>
       )}
 
-      {selectedFamily && (
-        <div className="font-browser__details">
-          <FontLicenseDetails family={selectedFamily} />
-        </div>
+      {selectedRecord && (
+        <aside
+          className="font-browser__details"
+          aria-label={`${selectedRecord.familyName} details`}
+        >
+          <div className="font-browser__details-header">
+            <div>
+              <strong>{selectedRecord.familyName}</strong>
+              <span>{selectedRecord.installed ? 'Installed locally' : 'Available to install'}</span>
+            </div>
+            {selectedRecord.downloadable && !selectedRecord.installed && (
+              <button
+                type="button"
+                className="font-browser__install-btn"
+                onClick={() => void installFamily(selectedRecord)}
+                disabled={installingFamily === selectedRecord.familyId}
+              >
+                {installingFamily === selectedRecord.familyId ? 'Installing…' : 'Install'}
+              </button>
+            )}
+          </div>
+          <div className="font-browser__detail-tags">
+            {descriptors(selectedRecord).map((label) => (
+              <span key={label} className="font-browser__detail-tag">
+                {label}
+              </span>
+            ))}
+            {selectedRecord.userTags.map((tag) => (
+              <span
+                key={`user-${tag}`}
+                className="font-browser__detail-tag font-browser__detail-tag--user"
+              >
+                Your tag: {tag}
+              </span>
+            ))}
+          </div>
+          {selectedResult && (
+            <details open className="font-browser__why">
+              <summary>Why this result</summary>
+              <ul>
+                {selectedResult.reasons.slice(0, 5).map((reason) => (
+                  <li key={`${reason.kind}-${reason.label}`}>
+                    <span>{reason.label}</span>
+                    <small>{reason.provenance}</small>
+                  </li>
+                ))}
+                {selectedResult.unknownRequired.map((unknown) => (
+                  <li key={unknown}>
+                    <span>{unknown} not verified</span>
+                    <small>Metadata unavailable</small>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          <div className="font-browser__detail-meta">
+            <span>
+              {selectedRecord.weights.length} weights · {selectedRecord.styles.join(', ')}
+            </span>
+            {selectedRecord.scripts.length > 0 && (
+              <span>Coverage: {selectedRecord.scripts.join(', ')}</span>
+            )}
+            {selectedRecord.license && <span>{selectedRecord.license}</span>}
+          </div>
+          <div className="font-browser__tag-editor">
+            <label htmlFor="font-browser-user-tag">Personal tag</label>
+            <div>
+              <input
+                id="font-browser-user-tag"
+                value={tagDraft}
+                onChange={(event) => setTagDraft(event.target.value)}
+                maxLength={64}
+                placeholder="e.g. finance UI"
+              />
+              <button type="button" onClick={addTag} disabled={!tagDraft.trim()}>
+                Add
+              </button>
+            </div>
+          </div>
+        </aside>
       )}
     </div>
   );
-}
-
-function catalogEntryToDisplay(
-  item: FontsourceCatalogRecord & { installState: FontDisplayEntry['installState'] },
-): FontDisplayEntry {
-  return {
-    family: item.familyName,
-    familyId: item.familyId,
-    source: 'fontsource',
-    isVariable: item.variable,
-    isFavorite: false,
-    hasColorGlyphs: false,
-    colorFormats: [],
-    license: item.license.name,
-    installState: item.installState,
-  };
 }

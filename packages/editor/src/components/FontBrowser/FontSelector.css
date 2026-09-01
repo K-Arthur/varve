@@ -180,6 +180,13 @@
   font-weight: var(--font-weight-bold);
 }
 
+.font-selector__badge--label {
+  width: auto;
+  min-width: 1.2em;
+  padding: 0 2px;
+  color: var(--color-text-secondary);
+}
+
 .font-selector__badge--color {
   color: var(--color-text-on-accent);
   background: var(--color-accent-teal);

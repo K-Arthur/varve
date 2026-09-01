@@ -296,7 +296,14 @@ export function TypographySection({ nodes }: TypographySectionProps) {
 
   return (
     <DisclosureSection title="Typography" sectionId="typography">
-      <FontBrowserDialog open={fontBrowserOpen} onClose={() => setFontBrowserOpen(false)} />
+      <FontBrowserDialog
+        open={fontBrowserOpen}
+        onClose={() => setFontBrowserOpen(false)}
+        onSelect={(family) => {
+          batchUpdate((n) => ({ ...n, fontFamily: family || undefined }));
+          setFontBrowserOpen(false);
+        }}
+      />
       <div ref={bindingTriggerRef} className="insp-field-group">
         {textContent !== null && (
           <>
