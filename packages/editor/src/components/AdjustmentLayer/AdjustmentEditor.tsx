@@ -13,7 +13,7 @@ import {
 import type { Adjustment, Document, ManagedColor } from '@varve/scene';
 import { rgbFromTuple } from '@varve/scene';
 import { denormalizeChannel, managedColorToRgba, normalizeChannel } from '@varve/shared';
-import { Select } from '@varve/ui';
+import { Select, Switch } from '@varve/ui';
 import { ColorPicker } from '@varve/ui/components/ColorPicker';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { CurveEditor } from '../Inspector/controls/CurveEditor';
@@ -50,6 +50,30 @@ export interface AdjustmentEditorProps {
    * Used by Levels (HistogramWidget) and Curves (background display).
    */
   sourceHistogram?: import('@varve/engine').Histogram | null;
+}
+
+function BooleanRow({
+  label,
+  checked,
+  onChange,
+  ariaLabel,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  ariaLabel?: string;
+}) {
+  return (
+    <div className="adj-editor__row">
+      <Switch
+        className="adj-editor__checkbox-row"
+        label={label}
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        aria-label={ariaLabel ?? label}
+      />
+    </div>
+  );
 }
 
 export function AdjustmentEditor(props: AdjustmentEditorProps) {
@@ -789,17 +813,12 @@ function LegacyAdjustmentEditor({
           />
         </div>
 
-        <div className="adj-editor__row">
-          <span className="adj-editor__label">Linearize</span>
-          <input
-            type="checkbox"
-            checked={adj.linearize ?? false}
-            onChange={(e) =>
-              onChange({ linearize: e.target.checked } as unknown as Partial<Adjustment>)
-            }
-            aria-label="Linearize before applying"
-          />
-        </div>
+        <BooleanRow
+          label="Linearize"
+          checked={adj.linearize ?? false}
+          onChange={(value) => onChange({ linearize: value } as unknown as Partial<Adjustment>)}
+          ariaLabel="Linearize before applying"
+        />
       </div>
     );
   }
@@ -973,17 +992,12 @@ function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleSelect('colorRange')}
         />
       </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Relative</span>
-        <input
-          type="checkbox"
-          checked={adj.relative}
-          onChange={(e) =>
-            onChange({ relative: e.target.checked } as unknown as Partial<Adjustment>)
-          }
-          aria-label="Relative adjustment"
-        />
-      </div>
+      <BooleanRow
+        label="Relative"
+        checked={adj.relative}
+        onChange={(value) => onChange({ relative: value } as unknown as Partial<Adjustment>)}
+        ariaLabel="Relative adjustment"
+      />
       {(['cyan', 'magenta', 'yellow', 'black'] as const).map((channel) => (
         <div key={channel} className="adj-editor__slider-row">
           <div className="adj-editor__slider-label">
@@ -1031,17 +1045,11 @@ function ChannelMixerEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleSelect('outputChannel')}
         />
       </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Monochrome</span>
-        <input
-          type="checkbox"
-          checked={adj.monochrome}
-          onChange={(e) =>
-            onChange({ monochrome: e.target.checked } as unknown as Partial<Adjustment>)
-          }
-          aria-label="Monochrome"
-        />
-      </div>
+      <BooleanRow
+        label="Monochrome"
+        checked={adj.monochrome}
+        onChange={(value) => onChange({ monochrome: value } as unknown as Partial<Adjustment>)}
+      />
       <div className="adj-editor__row">
         <span className="adj-editor__label">Red %</span>
         <input
@@ -1279,20 +1287,12 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           }
         />
       </div>
-      <div className="adj-editor__row">
-        <label className="adj-editor__label" htmlFor="halftone-invert">
-          <input
-            id="halftone-invert"
-            type="checkbox"
-            checked={adj.invert ?? false}
-            onChange={(e) =>
-              onChange({ invert: e.target.checked } as unknown as Partial<Adjustment>)
-            }
-            aria-label="Invert halftone output"
-          />
-          Invert
-        </label>
-      </div>
+      <BooleanRow
+        label="Invert"
+        checked={adj.invert ?? false}
+        onChange={(value) => onChange({ invert: value } as unknown as Partial<Adjustment>)}
+        ariaLabel="Invert halftone output"
+      />
       {isMonoChannel && (
         <>
           <div className="adj-editor__row">
@@ -1520,17 +1520,13 @@ function PhotoFilterEditor({
         onInteractionStart={onEditStart}
         onInteractionEnd={onEditEnd}
       />
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Preserve Luminosity</span>
-        <input
-          type="checkbox"
-          checked={adj.preserveLuminosity}
-          onChange={(e) =>
-            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
-          }
-          aria-label="Preserve luminosity"
-        />
-      </div>
+      <BooleanRow
+        label="Preserve Luminosity"
+        checked={adj.preserveLuminosity}
+        onChange={(value) =>
+          onChange({ preserveLuminosity: value } as unknown as Partial<Adjustment>)
+        }
+      />
     </div>
   );
 }
@@ -1717,16 +1713,13 @@ function DuotoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
           onInteractionEnd={onEditEnd}
         />
       </div>
-      <label className="adj-editor__checkbox-row">
-        <input
-          type="checkbox"
-          checked={adj.preserveLuminosity}
-          onChange={(e) =>
-            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
-          }
-        />
-        <span>Preserve Luminosity</span>
-      </label>
+      <BooleanRow
+        label="Preserve Luminosity"
+        checked={adj.preserveLuminosity}
+        onChange={(value) =>
+          onChange({ preserveLuminosity: value } as unknown as Partial<Adjustment>)
+        }
+      />
       <div className="adj-editor__row">
         <span className="adj-editor__label">Interpolation</span>
         <Select
@@ -1795,28 +1788,22 @@ function BlackAndWhiteEditor({
           onChange={(value) => onChange({ brightness: value } as unknown as Partial<Adjustment>)}
         />
       </div>
-      <label className="adj-editor__checkbox-row">
-        <input
-          type="checkbox"
-          checked={adj.preserveLuminosity}
-          onChange={(e) =>
-            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
-          }
-        />
-        <span>Preserve Luminosity</span>
-      </label>
-      <label className="adj-editor__checkbox-row">
-        <input
-          type="checkbox"
-          checked={adj.tintColor !== undefined}
-          onChange={(event) =>
-            onChange({
-              tintColor: event.target.checked ? ([190, 170, 140, 255] as Color) : undefined,
-            } as unknown as Partial<Adjustment>)
-          }
-        />
-        <span>Tint</span>
-      </label>
+      <BooleanRow
+        label="Preserve Luminosity"
+        checked={adj.preserveLuminosity}
+        onChange={(value) =>
+          onChange({ preserveLuminosity: value } as unknown as Partial<Adjustment>)
+        }
+      />
+      <BooleanRow
+        label="Tint"
+        checked={adj.tintColor !== undefined}
+        onChange={(value) =>
+          onChange({
+            tintColor: value ? ([190, 170, 140, 255] as Color) : undefined,
+          } as unknown as Partial<Adjustment>)
+        }
+      />
       {adj.tintColor && (
         <ColorPicker
           value={colorToManaged(adj.tintColor)}
@@ -1986,17 +1973,13 @@ function TritoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
           }
         />
       </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Preserve Luminosity</span>
-        <input
-          type="checkbox"
-          checked={adj.preserveLuminosity}
-          onChange={(e) =>
-            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
-          }
-          aria-label="Preserve luminosity"
-        />
-      </div>
+      <BooleanRow
+        label="Preserve Luminosity"
+        checked={adj.preserveLuminosity}
+        onChange={(value) =>
+          onChange({ preserveLuminosity: value } as unknown as Partial<Adjustment>)
+        }
+      />
       <div className="adj-editor__row">
         <span className="adj-editor__label">Interpolation</span>
         <Select

@@ -661,10 +661,15 @@
   cursor: pointer;
 }
 
-.adj-editor__checkbox-row input {
+.adj-editor__checkbox-row input:not(.varve-switch__input) {
   accent-color: var(--color-interactive-default);
   width: var(--space-2);
   height: var(--space-2);
+}
+
+.gm-editor__switch {
+  min-block-size: 1.5rem;
+  font-size: var(--font-size-xs);
 }
 
 /* ── Threshold and Color Balance editors ─────────────────────────────── */

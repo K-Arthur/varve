@@ -10,7 +10,7 @@
  * brush is worse than no preview.
  */
 import type { BrushPreset } from '@varve/scene';
-import { Button, Input } from '@varve/ui';
+import { Button, Input, Switch } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { BrushPreviewCache, brushPreviewDataUrl } from '../../brush/brushPreview';
 import { DisclosureSection } from '../Inspector/controls/DisclosureSection';
@@ -302,22 +302,18 @@ function GrainSection({ draft, set }: SectionProps) {
         unit="%"
         onChange={(v) => set('grainContrast', v / 100)}
       />
-      <label className="brush-editor__checkbox">
-        <input
-          type="checkbox"
-          checked={draft.grainInvert}
-          onChange={(e) => set('grainInvert', e.currentTarget.checked)}
-        />
-        <span>Invert grain</span>
-      </label>
-      <label className="brush-editor__checkbox">
-        <input
-          type="checkbox"
-          checked={draft.grainFollowDirection}
-          onChange={(e) => set('grainFollowDirection', e.currentTarget.checked)}
-        />
-        <span>Rotate with stroke direction</span>
-      </label>
+      <Switch
+        className="brush-editor__checkbox"
+        label="Invert grain"
+        checked={draft.grainInvert}
+        onChange={(e) => set('grainInvert', e.currentTarget.checked)}
+      />
+      <Switch
+        className="brush-editor__checkbox"
+        label="Rotate with stroke direction"
+        checked={draft.grainFollowDirection}
+        onChange={(e) => set('grainFollowDirection', e.currentTarget.checked)}
+      />
     </DisclosureSection>
   );
 }
@@ -325,14 +321,12 @@ function GrainSection({ draft, set }: SectionProps) {
 function WetSection({ draft, set }: SectionProps) {
   return (
     <DisclosureSection title="Wet Media">
-      <label className="brush-editor__checkbox">
-        <input
-          type="checkbox"
-          checked={draft.wetEnabled}
-          onChange={(e) => set('wetEnabled', e.currentTarget.checked)}
-        />
-        <span>Wet paint</span>
-      </label>
+      <Switch
+        className="brush-editor__checkbox"
+        label="Wet paint"
+        checked={draft.wetEnabled}
+        onChange={(e) => set('wetEnabled', e.currentTarget.checked)}
+      />
       <NumberField
         label="Mixing"
         value={Math.round(draft.wetMixStrength * 100)}
@@ -353,15 +347,13 @@ function WetSection({ draft, set }: SectionProps) {
         disabled={!draft.wetEnabled}
         onChange={(v) => set('wetDryingRate', v / 100)}
       />
-      <label className="brush-editor__checkbox">
-        <input
-          type="checkbox"
-          checked={draft.wetEdge}
-          disabled={!draft.wetEnabled}
-          onChange={(e) => set('wetEdge', e.currentTarget.checked)}
-        />
-        <span>Wet edge</span>
-      </label>
+      <Switch
+        className="brush-editor__checkbox"
+        label="Wet edge"
+        checked={draft.wetEdge}
+        disabled={!draft.wetEnabled}
+        onChange={(e) => set('wetEdge', e.currentTarget.checked)}
+      />
     </DisclosureSection>
   );
 }

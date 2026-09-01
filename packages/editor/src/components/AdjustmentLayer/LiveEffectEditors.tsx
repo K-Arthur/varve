@@ -31,7 +31,7 @@ import {
 import type { Document } from '@varve/scene';
 import { swatchesToPalette } from '@varve/scene';
 import { paletteFileFormat, parsePaletteFile } from '@varve/shared';
-import { Select } from '@varve/ui';
+import { Select, Switch } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
 
@@ -125,16 +125,13 @@ function CheckboxRow({
 }) {
   return (
     <div className="adj-editor__row">
-      <label className="adj-editor__label" htmlFor={ariaLabel.replace(/\s+/g, '-')}>
-        <input
-          id={ariaLabel.replace(/\s+/g, '-')}
-          type="checkbox"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-          aria-label={ariaLabel}
-        />
-        {label}
-      </label>
+      <Switch
+        className="adj-editor__checkbox-row"
+        label={label}
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        aria-label={ariaLabel}
+      />
     </div>
   );
 }
