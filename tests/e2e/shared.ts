@@ -25,6 +25,13 @@ export async function navigateToEditor(page: Page, path = '/') {
     await page.evaluate(() => localStorage.removeItem('varve:safe-mode'));
     await page.reload({ timeout: 300000 });
   }
+  const continueNormalStartup = page.getByRole('button', {
+    name: /continue normal startup/i,
+  });
+  if (await continueNormalStartup.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await continueNormalStartup.click({ timeout: 5000 });
+    await page.waitForTimeout(1000);
+  }
   // Crash-recovery dialog (IndexedDB-backed): "Review my documents" only
   // dismisses the dialog, so clicking it is side-effect free.
   const recovery = page.locator('dialog[open]').filter({
