@@ -12,5 +12,9 @@ import './components/PresetPicker/preset-picker.css';
 import './components/select.css';
 
 export * from './components';
+export type { MultiSelectProps } from './components/MultiSelect';
+export { MultiSelect } from './components/MultiSelect';
+export type { NativeSelectProps } from './components/NativeSelect';
+export { NativeSelect } from './components/NativeSelect';
 export * from './icons';
 export * from './tokens';
