@@ -45,4 +45,17 @@ test.describe('Layers Panel - Color Tags', () => {
     await page.getByRole('button', { name: 'Clear all filters' }).click();
     await expect(filteredRows).toHaveCount(3);
   });
+
+  test('assignment is restored by undo and redo', async ({ page }) => {
+    const firstItem = page.getByRole('treeitem').first();
+
+    await setFirstTag(page, 'Red');
+    await expect(firstItem).toHaveAttribute('data-layer-color', 'red');
+
+    await page.keyboard.press('Control+z');
+    await expect(firstItem).not.toHaveAttribute('data-layer-color', 'red');
+
+    await page.keyboard.press('Control+Shift+z');
+    await expect(firstItem).toHaveAttribute('data-layer-color', 'red');
+  });
 });
