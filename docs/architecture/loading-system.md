@@ -131,8 +131,10 @@ When disabled, the app transitions directly to `home_ready` with no loader.
 
 ### 3. Button and IconButton activity
 - **Use:** Pass `loading` to a button or icon button when the action is pending.
-- **Behavior:** The shared controls set `aria-busy`, prevent duplicate activation, preserve
-  focus, and keep the control's layout stable while the spinner is visible.
+- **Behavior:** The shared controls set `aria-busy` immediately, prevent duplicate
+  activation, preserve focus, and keep the control's layout stable while the spinner is
+  visible. The visual spinner is delayed by 150ms so a fast response does not flash an
+  indicator; the operation itself is never delayed.
 - **Naming:** Provide `loadingLabel` when the pending action needs a more specific name;
   otherwise the existing action label remains the accessible name.
 - **Constraint:** Loading is not a disabled/error state. The active control stays focusable

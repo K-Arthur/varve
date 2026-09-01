@@ -52,8 +52,9 @@ callers outside the main package while new code uses the shared names.
 ## State and interaction findings
 
 - `Button` already guards its callback while loading and preserves its label in
-  the DOM, which keeps width stable. The shared spinner must remain decorative
-  inside that button and loading must remain keyboard-coherent.
+  the DOM, which keeps width stable. Busy semantics are immediate, while the
+  shared visual spinner waits 150ms so fast actions do not flicker. The spinner
+  remains decorative inside that button and loading remains keyboard-coherent.
 - `IconButton` had no loading contract. It now needs the same callback guard,
   `aria-busy`, and stable icon-sized spinner for refresh/acquire actions.
 - `RegionLoader` already debounces short requests. Its content should not be

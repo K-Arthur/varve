@@ -4,6 +4,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useRef } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { ToastItem } from './Toast';
 import { ToastProvider, useToast } from './ToastProvider';
@@ -81,7 +82,7 @@ describe('Toast', () => {
   it('max 3 visible toasts, queues excess', async () => {
     function UniqueToastTrigger() {
       const { toast } = useToast();
-      const countRef = { current: 0 };
+      const countRef = useRef(0);
       return (
         <button
           type="button"
@@ -103,6 +104,123 @@ describe('Toast', () => {
     // Only 3 visible at a time (queued toasts are not in DOM)
     const toasts = screen.getAllByText(/Toast \d/);
     expect(toasts).toHaveLength(3);
+    expect(screen.getByRole('button', { name: /show 2 more notifications/i })).toBeInTheDocument();
+  });
+
+  it('uses the shared loading spinner and updates a promise in place', async () => {
+    function PromiseTrigger() {
+      const { toast } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            void toast.promise(Promise.resolve(true), {
+              id: 'export:1',
+              loading: 'Exporting…',
+              success: 'PDF exported',
+              error: 'Export failed',
+            });
+          }}
+        >
+          Export
+        </button>
+      );
+    }
+    renderWithProvider(<PromiseTrigger />);
+    const user = userEvent.setup();
+    await user.click(screen.getByText('Export'));
+    await waitFor(() => expect(screen.getByText('PDF exported')).toBeInTheDocument());
+    expect(screen.queryByText('Exporting…')).not.toBeInTheDocument();
+  });
+
+  it('deduplicates an in-flight operation by stable key', async () => {
+    function DuplicateTrigger() {
+      const { toast } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() => toast.loading({ message: 'Rendering…', dedupeKey: 'render:1' })}
+        >
+          Render
+        </button>
+      );
+    }
+    renderWithProvider(<DuplicateTrigger />);
+    const user = userEvent.setup();
+    const button = screen.getByText('Render');
+    await user.click(button);
+    await user.click(button);
+    expect(screen.getAllByText('Rendering…')).toHaveLength(1);
+  });
+
+  it('runs an action and dismisses by default', async () => {
+    let actionCount = 0;
+    function ActionTrigger() {
+      const { toast } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            toast({
+              message: 'Layer deleted',
+              type: 'success',
+              action: {
+                label: 'Undo',
+                onClick: () => {
+                  actionCount += 1;
+                },
+              },
+            })
+          }
+        >
+          Delete
+        </button>
+      );
+    }
+    renderWithProvider(<ActionTrigger />);
+    const user = userEvent.setup();
+    await user.click(screen.getByText('Delete'));
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(actionCount).toBe(1);
+    await waitFor(() => expect(screen.queryByText('Layer deleted')).not.toBeInTheDocument());
+  });
+
+  it('dismisses all visible and queued notifications', async () => {
+    function BurstTrigger() {
+      const { toast } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            for (let i = 0; i < 5; i += 1) toast({ message: `Burst ${i}`, duration: undefined });
+          }}
+        >
+          Burst
+        </button>
+      );
+    }
+    function DismissAll() {
+      const { toast } = useToast();
+      return (
+        <button type="button" onClick={toast.dismissAll}>
+          Clear
+        </button>
+      );
+    }
+    renderWithProvider(
+      <>
+        <BurstTrigger />
+        <DismissAll />
+      </>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByText('Burst'));
+    expect(screen.getByText('Burst 0')).toBeInTheDocument();
+    await user.click(screen.getByText('Clear'));
+    expect(screen.queryByText('Burst 0')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /show .* more notifications/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('ToastProvider provides context for useToast()', () => {
