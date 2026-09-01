@@ -18,6 +18,7 @@ interface ListRecord {
   category: string;
   version: string;
   license: string;
+  type: string;
 }
 
 interface VersionResponse {
@@ -189,6 +190,10 @@ const families = list
     packageVersion: packageVersions[item.id],
     lastModified: item.lastModified,
     license: licenseFor(item.license),
+    sourceType:
+      item.type === 'google' || item.type === 'other' || item.type === 'icon'
+        ? item.type
+        : 'unknown',
   }))
   .sort((a, b) => a.familyId.localeCompare(b.familyId));
 

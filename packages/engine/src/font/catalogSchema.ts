@@ -46,6 +46,8 @@ export interface FontsourceCatalogRecord {
   packageVersion: string;
   lastModified: string;
   license: CatalogLicense;
+  /** Upstream origin when the provider exposes it; absent means unknown. */
+  sourceType?: 'google' | 'other' | 'icon' | 'unknown';
 }
 
 export interface FontsourceCatalogSnapshot {
@@ -380,6 +382,15 @@ export function validateFontsourceCatalogSnapshot(value: unknown): FontsourceCat
     assertStringArray(item.styles, `family ${index}.styles`);
     if (item.providerId !== FONTSOURCE_PROVIDER_ID || typeof item.variable !== 'boolean') {
       throw new Error(`Font catalog family ${index} has invalid provider or variable flag`);
+    }
+    if (
+      item.sourceType !== undefined &&
+      item.sourceType !== 'google' &&
+      item.sourceType !== 'other' &&
+      item.sourceType !== 'icon' &&
+      item.sourceType !== 'unknown'
+    ) {
+      throw new Error(`Font catalog family ${index} has invalid source type`);
     }
     if (
       item.packageVersion === 'latest' ||
