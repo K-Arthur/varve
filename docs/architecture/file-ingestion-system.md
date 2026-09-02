@@ -76,8 +76,10 @@ DOM `File`.
 
 Every asynchronous import reports progress or a useful terminal state. A
 partial batch may succeed, and the UI identifies the failed item and reason.
-Object URLs created for temporary previews are revoked by their owner; data
-URLs that are written into document state are intentionally retained.
+Home uses the canonical `ToastProvider` for one aggregate terminal summary;
+the queue or dialog remains the detailed, per-file recovery surface. Object
+URLs created for temporary previews are revoked by their owner; data URLs that
+are written into document state are intentionally retained.
 
 ## Accessibility and visual states
 

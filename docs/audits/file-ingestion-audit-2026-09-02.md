@@ -90,6 +90,13 @@ created duplicate assets. `FileDropZone` now claims external file events, and
 the regression is covered by a component test and
 `tests/e2e/home/file-ingestion.spec.ts`.
 
+Home now mounts the canonical `@varve/ui` `ToastProvider`. Asset-library and
+bulk-import flows emit one aggregate terminal notification while retaining
+their inline queue and per-file error details; the broad Home drop updates one
+loading notification in place. This is not a Sonner integration: the repository
+has no Sonner dependency, and adding a second toast store would violate the
+notification-system contract.
+
 The remaining native inputs are intentional specialized boundaries: File-menu
 Open and Import retain stable IDs and controller refs for document tabs,
 parser progress, and native path handling; CanvasArea retains world-space

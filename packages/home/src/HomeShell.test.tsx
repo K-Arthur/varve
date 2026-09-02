@@ -3,7 +3,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { createMemoryPlatform, makeFileEntry } from '@varve/platform';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { HomeShell } from './HomeShell';
+import { HomeShellRoot as HomeShell } from './HomeShellRoot';
 
 describe('HomeShell', () => {
   const originalNodeEnv = process.env.NODE_ENV;

@@ -26,6 +26,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export { ingestHomeFiles } from './homeFileDrop';
+export { useHomeImportNotifications } from './homeImportNotifications';
 
 export interface HomeView {
   state: HomeViewState;

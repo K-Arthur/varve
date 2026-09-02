@@ -14,12 +14,14 @@ import {
   Tooltip,
 } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { HomeImportOutcome } from './homeImportNotifications';
 import { useSemanticAssetSearch } from './search/useSemanticAssetSearch';
 
 export interface AssetBrowserProps {
   platform: Platform;
   workspaceId: string;
   onInsertAsset?: (asset: Asset) => void;
+  onImportComplete?: (outcome: HomeImportOutcome) => void;
 }
 
 const ASSET_KIND_ICONS: Record<string, IconName> = {
@@ -53,7 +55,12 @@ function createImportItem(file: File): AssetImportItem {
   };
 }
 
-export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrowserProps) {
+export function AssetBrowser({
+  platform,
+  workspaceId,
+  onInsertAsset,
+  onImportComplete,
+}: AssetBrowserProps) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [folders, setFolders] = useState<AssetFolder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -94,6 +101,8 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
   const processImportItems = useCallback(
     async (items: readonly AssetImportItem[]) => {
       setImporting(true);
+      let success = 0;
+      let failed = 0;
       for (const item of items) {
         updateImportItem(item.id, { status: 'processing', progress: 0, error: undefined });
         try {
@@ -106,18 +115,21 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
             item.file.type || 'application/octet-stream',
           );
           updateImportItem(item.id, { status: 'complete', progress: 100 });
+          success += 1;
         } catch (error) {
           updateImportItem(item.id, {
             status: 'failed',
             progress: 0,
             error: error instanceof Error ? error.message : String(error),
           });
+          failed += 1;
         }
       }
       setImporting(false);
       await loadData();
+      onImportComplete?.({ success, failed, total: items.length });
     },
-    [loadData, platform, updateImportItem, workspaceId],
+    [loadData, onImportComplete, platform, updateImportItem, workspaceId],
   );
 
   const handleFiles = useCallback(

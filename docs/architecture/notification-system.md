@@ -1,12 +1,12 @@
 # Notification system
 
-Status: implemented 2026-08-31
+Status: implemented 2026-09-02
 
 Varve has one transient-notification system: the `ToastProvider` and `Toast`
 primitives in `packages/ui`. The provider is mounted once inside each editor
-`Shell`, so a Tauri window owns its own notification state. The editor context
-forwards operation feedback through a bridge; it does not maintain a second
-toast store.
+`Shell` and Home shell, so a Tauri window owns its own notification state. The
+editor context forwards operation feedback through a bridge; Home uses the
+same provider directly and does not maintain a second toast store.
 
 ## Product rule
 
@@ -102,3 +102,12 @@ the current production example of an asynchronous toast lifecycle: it reports
 loading, updates in place on success, and updates in place on failure, with a
 stable file-scoped operation key.
 
+Home file acquisition follows the same boundary. Asset-library batches and
+bulk library imports keep determinate progress and per-file parser errors in
+their queue/dialog, then emit one aggregate success, partial-failure, or
+failure notification. The broad Home drop uses a single loading notification
+that updates in place when local ingestion finishes. Selection validation stays
+inline so one rejected file does not create a notification burst.
+
+There is no Sonner dependency in the repository. `ToastProvider` is the
+canonical notification implementation for both editor and Home surfaces.

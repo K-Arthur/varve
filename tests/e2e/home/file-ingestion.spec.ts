@@ -77,6 +77,9 @@ test('asset drop zone handles real drag states, processing, and completion', asy
   await expect(
     page.locator('.asset-browser__card-name').filter({ hasText: 'dropped-mark.svg' }).first(),
   ).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('.varve-toast')).toContainText(/assets added/i);
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: testInfo.outputPath('asset-import-toast.png'), fullPage: true });
 
   await page.evaluate(() => {
     localStorage.setItem('varve-theme', 'dark');

@@ -49,7 +49,7 @@ import { TemplatesGallery } from './TemplatesGallery';
 import { TrashSection } from './TrashSection';
 import { useFileActions } from './useFileActions';
 import { type HomeShortcutHandlers, useHomeShortcuts } from './useHomeShortcuts';
-import { ingestHomeFiles, useHomeView } from './useHomeView';
+import { ingestHomeFiles, useHomeImportNotifications, useHomeView } from './useHomeView';
 import { useThumbnailLoader } from './useThumbnailLoader';
 import { VersionHistory } from './VersionHistory';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -73,7 +73,11 @@ export interface HomeShellProps {
   onOpenSettings?: () => void;
 }
 
-export function HomeShell({
+export function HomeShell(props: HomeShellProps) {
+  return <HomeShellContent {...props} />;
+}
+
+function HomeShellContent({
   platform,
   onOpenFile,
   onLocateFile,
@@ -83,6 +87,7 @@ export function HomeShell({
   onOpenSettings,
 }: HomeShellProps) {
   const view = useHomeView(platform);
+  const { finishHomeDrop, notifyImportComplete, startHomeDrop } = useHomeImportNotifications();
   const readyFired = useRef(false);
   const wasActiveRef = useRef(active);
   // Must be performance.now() (nav-relative), not Date.now() (epoch) —
@@ -282,16 +287,26 @@ export function HomeShell({
       e.preventDefault();
       setIsDragOver(false);
       if (!e.dataTransfer.types.includes('Files')) return;
-      const failures = await ingestHomeFiles(
-        Array.from(e.dataTransfer.files),
-        platform,
-        view.activeWorkspaceId ?? 'personal',
-        onOpenFile,
-      );
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length === 0) return;
+      const toastId = startHomeDrop(files.length);
+      let failures: string[];
+      try {
+        failures = await ingestHomeFiles(
+          files,
+          platform,
+          view.activeWorkspaceId ?? 'personal',
+          onOpenFile,
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        failures = files.map((file) => `${file.name}: ${message}`);
+      }
+      finishHomeDrop(toastId, files.length, failures.length);
       if (failures.length > 0) setStorageError(failures.join(' '));
-      if (e.dataTransfer.files.length > 0) await view.refresh();
+      await view.refresh();
     },
-    [onOpenFile, platform, view],
+    [finishHomeDrop, onOpenFile, platform, startHomeDrop, view],
   );
 
   const dialogOpen = newFileOpen || contextAnchor !== null;
@@ -844,7 +859,11 @@ export function HomeShell({
         );
       case 'assets':
         return (
-          <AssetBrowser platform={platform} workspaceId={view.activeWorkspaceId ?? 'personal'} />
+          <AssetBrowser
+            platform={platform}
+            workspaceId={view.activeWorkspaceId ?? 'personal'}
+            onImportComplete={(outcome) => notifyImportComplete(outcome, 'asset')}
+          />
         );
       default: {
         return (
@@ -1354,7 +1373,10 @@ export function HomeShell({
           onClose={() => setImportOpen(false)}
           platform={platform}
           workspaceId={view.activeWorkspaceId ?? 'personal'}
-          onImportComplete={() => view.refresh()}
+          onImportComplete={(outcome) => {
+            void view.refresh();
+            notifyImportComplete(outcome, 'file');
+          }}
         />
       </section>
     </Sortable>
