@@ -244,3 +244,10 @@ was run explicitly; a clean pre-fix heavy-lane comparison is not available in
 this shared worktree. The remaining full-suite risk is therefore the 37
 repository-wide unit failures and the documented native/real-device gaps, not
 the repaired responsive or marketing flows.
+
+`VARVE_E2E_WORKERS=1 pnpm e2e:all` enumerated 3,415 browser tests and passed its
+first test, but was intentionally interrupted with exit 130 after confirming
+that the repository-wide matrix is a multi-hour exploratory run in this
+environment. It was not used as a pass/fail claim; the affected 66-test corpus
+and the focused responsive, drawing, website reflow, touch-target, and visual
+runs are the completed browser evidence for this change.
