@@ -3,7 +3,9 @@ import { expect, test } from '@playwright/test';
 /**
  * Opening the New Design dialog: the dialog opens on the New button's click
  * and its native <dialog> backdrop covers the button, so the shared force-
- * click pattern (see tests/e2e/shared.ts) is used for the trigger.
+ * click pattern (see tests/e2e/shared.ts) is used for the trigger. Start-mode
+ * choices use the shared RadioGroup's native radio role; the older card class
+ * was removed when the common choice primitive was introduced.
  */
 async function openNewDesign(page: import('@playwright/test').Page) {
   const btn = page.getByRole('button', { name: /^new$/i });
@@ -18,7 +20,7 @@ async function chooseStartMode(
   dialog: import('@playwright/test').Locator,
   label: string,
 ): Promise<void> {
-  await dialog.locator('label.new-design__start-card').filter({ hasText: label }).click();
+  await dialog.locator('label.varve-radio').filter({ hasText: label }).click();
 }
 
 test.describe('New Design dialog', () => {
