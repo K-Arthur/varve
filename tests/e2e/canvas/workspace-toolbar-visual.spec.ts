@@ -13,7 +13,7 @@ const WORKSPACES = [
 ] as const;
 
 async function switchWorkspace(page: import('@playwright/test').Page, label: string) {
-  const direct = page.locator(`.workspace-tabs__tab[aria-label="${label} workspace"]`);
+  const direct = page.locator(`.workspace-dock__item[aria-label="${label} workspace"]`);
   if (await direct.isVisible().catch(() => false)) {
     await direct.click();
   } else {
@@ -21,7 +21,7 @@ async function switchWorkspace(page: import('@playwright/test').Page, label: str
     await page.getByRole('menuitemradio', { name: label }).click();
   }
   await expect(
-    page.locator(`.workspace-tabs__tab[aria-label="${label} workspace"]`),
+    page.locator(`.workspace-dock__item[aria-label="${label} workspace"]`),
   ).toHaveAttribute('aria-checked', 'true');
 }
 

@@ -4,7 +4,7 @@ import { navigateToEditor } from '../shared';
 const VIEWPORT = { width: 1280, height: 800 };
 
 async function switchToPhotoWorkspace(page: import('@playwright/test').Page): Promise<void> {
-  const photo = page.locator('.workspace-tabs__tab[aria-label="Photo workspace"]');
+  const photo = page.locator('.workspace-dock__item[aria-label="Photo workspace"]');
   if (!(await photo.isVisible().catch(() => false))) {
     await page.getByRole('button', { name: 'More workspaces' }).click();
     await page.getByRole('menuitemradio', { name: 'Photo' }).click();

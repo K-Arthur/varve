@@ -141,7 +141,7 @@ export async function navigateToEditor(page: Page, path = '/') {
 
 /** Activate a workspace whether its responsive tab is visible or in More. */
 export async function switchWorkspace(page: Page, label: string) {
-  const tab = page.locator(`.workspace-tabs__tab[aria-label="${label} workspace"]`);
+  const tab = page.locator(`.workspace-dock__item[aria-label="${label} workspace"]`);
   if (await tab.isVisible({ timeout: 1000 }).catch(() => false)) {
     // Workspace switching updates the tab strip in the same React commit as
     // the mode change. Playwright's geometry-based click can therefore hold a
@@ -151,7 +151,7 @@ export async function switchWorkspace(page: Page, label: string) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         await page
-          .locator(`.workspace-tabs__tab[aria-label="${label} workspace"]`)
+          .locator(`.workspace-dock__item[aria-label="${label} workspace"]`)
           .evaluate((element) => (element as HTMLButtonElement).click());
         return;
       } catch {
