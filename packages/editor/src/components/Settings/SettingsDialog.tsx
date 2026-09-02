@@ -459,6 +459,7 @@ function CollabSection() {
           accept="image/*"
           actionLabel="Choose avatar image"
           inputLabel="Choose avatar image"
+          icon="Image"
           onFiles={([file]) => {
             if (!file) return;
             const reader = new FileReader();

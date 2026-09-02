@@ -197,7 +197,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
           label="Drop assets to add"
           description="Images, SVG, and fonts stay local"
           actionLabel={importing ? 'Importing…' : 'Import'}
-          icon="Upload"
+          icon="FileUp"
           accept={ASSET_ACCEPT}
           multiple
           maxFiles={MAX_ASSET_FILES}
