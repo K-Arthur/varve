@@ -517,11 +517,14 @@ input[type="number"] {
 }
 
 .editor-menubar__menu {
-  min-width: 12rem;
+  box-sizing: border-box;
+  width: var(--menu-default-width);
+  min-width: min(var(--menu-default-width), calc(100vw - (var(--menu-viewport-gutter) * 2)));
+  max-width: calc(100vw - (var(--menu-viewport-gutter) * 2));
   padding: var(--space-1);
   background: var(--elevation-surface-overlay);
   border: var(--border-micro);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-surface);
   box-shadow: var(--elevation-shadow-overlay);
   font-family: var(--font-body);
 }
@@ -535,11 +538,13 @@ input[type="number"] {
 }
 
 .editor-menubar__menu-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: var(--space-3);
   width: 100%;
-  padding: var(--space-1) var(--space-2);
+  min-block-size: var(--menu-item-min-height);
+  box-sizing: border-box;
+  padding: var(--space-1) var(--space-3);
   border: none;
   border-radius: var(--radius-control-compact);
   background: none;
@@ -552,11 +557,11 @@ input[type="number"] {
 }
 
 .editor-menubar__menu-item:hover {
-  background: var(--color-surface-hover);
+  background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
 }
 .editor-menubar__menu-item:focus-visible {
-  background: var(--color-surface-hover);
+  background: var(--color-interactive-selected-surface);
   color: var(--color-text-primary);
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
@@ -565,8 +570,8 @@ input[type="number"] {
 .editor-menubar__menu-item--active,
 .editor-menubar__menu-item--active:hover,
 .editor-menubar__menu-item--active:focus-visible {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
+  background: var(--color-interactive-selected-surface);
+  color: var(--color-interactive-selected-foreground);
 }
 
 .editor-menubar__menu-item:disabled {
@@ -575,23 +580,29 @@ input[type="number"] {
 }
 
 .editor-menubar__menu-label {
-  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .editor-menubar__menu-submenu-arrow {
-  font-size: 8px;
-  margin-left: var(--space-2);
+  grid-column: 2;
+  margin-inline: var(--space-2);
   color: var(--color-text-muted);
 }
 
 .editor-menubar__menu-item--active > .editor-menubar__menu-label,
 .editor-menubar__menu-item--active > .editor-menubar__menu-submenu-arrow {
-  color: var(--color-text-on-accent);
+  color: var(--color-interactive-selected-foreground);
 }
 
 .editor-menubar__menu-shortcut {
+  grid-column: 3;
+  min-width: 3.5rem;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+  text-align: right;
 }
 
 .editor-menubar__menu-item--active .editor-menubar__menu-shortcut {
@@ -609,11 +620,14 @@ input[type="number"] {
   position: static;
   left: auto;
   top: auto;
-  min-width: 12rem;
+  box-sizing: border-box;
+  width: var(--menu-default-width);
+  min-width: min(var(--menu-default-width), calc(100vw - (var(--menu-viewport-gutter) * 2)));
+  max-width: calc(100vw - (var(--menu-viewport-gutter) * 2));
   padding: var(--space-1);
   background: var(--elevation-surface-overlay);
   border: var(--border-micro);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-surface);
   box-shadow: var(--elevation-shadow-overlay);
   font-family: var(--font-body);
   z-index: auto;

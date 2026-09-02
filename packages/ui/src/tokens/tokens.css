@@ -285,6 +285,10 @@
   --component-large-icon-size: var(--icon-size-md);
   --component-large-padding-inline: var(--space-4);
   --menu-item-min-height: 32px;
+  --menu-compact-width: 12rem;
+  --menu-default-width: 15rem;
+  --menu-rich-width: 22rem;
+  --menu-viewport-gutter: var(--space-4);
   --tab-min-height: 36px;
   --touch-target-min: 44px;
   --resize-handle-visual: 2px;

@@ -26,6 +26,11 @@ export const COMPONENT_SIZES = {
 
 export const COMPONENT_DIMENSIONS = {
   'menu-item-min-height': '32px',
+  /** Semantic menu surface widths; FloatingPortal clamps them to the viewport. */
+  'menu-compact-width': '12rem',
+  'menu-default-width': '15rem',
+  'menu-rich-width': '22rem',
+  'menu-viewport-gutter': 'var(--space-4)',
   'tab-min-height': '36px',
   'touch-target-min': '44px',
   'resize-handle-visual': '2px',

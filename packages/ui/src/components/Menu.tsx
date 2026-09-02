@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Icon } from '../icons/Icon';
+import { Icon, type IconName } from '../icons/Icon';
 import {
   firstEnabledIndex,
   nextEnabledIndex,
@@ -22,7 +22,22 @@ import {
 // Types
 // ============================================================
 
-export interface MenuItem {
+export type MenuSize = 'compact' | 'default' | 'rich';
+
+interface MenuItemVisuals {
+  /** Optional leading icon. Icons are decorative when a visible label exists. */
+  icon?: IconName;
+  /** Optional second line, intended for chooser/rich menus only. */
+  description?: string;
+  /** Display-only shortcut text from the canonical shortcut registry. */
+  shortcut?: string;
+  /** APG key grammar for assistive technology, when a shortcut is present. */
+  ariaKeyshortcuts?: string;
+  /** Use restrained danger treatment for irreversible commands. */
+  destructive?: boolean;
+}
+
+export interface MenuItem extends MenuItemVisuals {
   id: string;
   label: string;
   onAction: () => void;
@@ -46,7 +61,13 @@ export interface MenuSeparator {
   separator: true;
 }
 
-export interface MenuItemCheckbox {
+export interface MenuLabel {
+  id: string;
+  label: string;
+  type: 'label';
+}
+
+export interface MenuItemCheckbox extends MenuItemVisuals {
   id: string;
   label: string;
   checked: boolean;
@@ -56,7 +77,7 @@ export interface MenuItemCheckbox {
   badge?: string;
 }
 
-export interface MenuItemRadio {
+export interface MenuItemRadio extends MenuItemVisuals {
   id: string;
   label: string;
   checked: boolean;
@@ -67,7 +88,7 @@ export interface MenuItemRadio {
   badge?: string;
 }
 
-export interface SubmenuItem {
+export interface SubmenuItem extends MenuItemVisuals {
   id: string;
   label: string;
   submenu: readonly MenuEntry[];
@@ -76,7 +97,13 @@ export interface SubmenuItem {
   badge?: string;
 }
 
-export type MenuEntry = MenuItem | MenuSeparator | MenuItemCheckbox | MenuItemRadio | SubmenuItem;
+export type MenuEntry =
+  | MenuItem
+  | MenuSeparator
+  | MenuLabel
+  | MenuItemCheckbox
+  | MenuItemRadio
+  | SubmenuItem;
 
 export interface MenuProps {
   items: readonly MenuEntry[];
@@ -85,6 +112,10 @@ export interface MenuProps {
   open: boolean;
   onClose: (reason?: OverlayCloseReason) => void;
   label: string;
+  /** Stable DOM id for MenuButton aria-controls wiring. */
+  id?: string;
+  /** Semantic width/density; avoid per-callsite pixel widths. */
+  size?: MenuSize;
   /** Optional legacy item cap. Normal menus rely on measured viewport sizing. */
   maxVisibleItems?: number;
 }
@@ -105,6 +136,10 @@ export interface ContextMenuProps {
   ownerDocument?: Document;
   onClose: (reason?: OverlayCloseReason) => void;
   label?: string;
+  /** Semantic width/density; avoid per-callsite pixel widths. */
+  size?: MenuSize;
+  /** Stable DOM id for diagnostics and test targeting. */
+  id?: string;
 }
 
 export interface MenuButtonProps {
@@ -124,6 +159,10 @@ function isSeparator(e: MenuEntry): e is MenuSeparator {
   return 'separator' in e && e.separator === true;
 }
 
+function isLabel(e: MenuEntry): e is MenuLabel {
+  return 'type' in e && e.type === 'label';
+}
+
 function isCheckbox(e: MenuEntry): e is MenuItemCheckbox {
   return 'type' in e && e.type === 'checkbox';
 }
@@ -141,8 +180,81 @@ function focusMenuTrigger(triggerRef: React.RefObject<HTMLElement | null> | unde
 }
 
 function itemLabel(entry: MenuEntry): string {
-  if (isSeparator(entry)) return '';
-  return (entry as MenuItem | MenuItemCheckbox | MenuItemRadio | SubmenuItem).label;
+  if (isSeparator(entry) || isLabel(entry)) return '';
+  return entry.label;
+}
+
+/** Remove orphaned separators and labels after state-dependent filtering. */
+function normalizeMenuEntries(items: readonly MenuEntry[]): MenuEntry[] {
+  const normalized: MenuEntry[] = [];
+  for (const entry of items) {
+    if (isSeparator(entry)) {
+      const previous = normalized.at(-1);
+      if (!previous || isSeparator(previous) || isLabel(previous)) continue;
+      normalized.push(entry);
+      continue;
+    }
+    if (isLabel(entry)) {
+      const previous = normalized.at(-1);
+      if (previous && isSeparator(previous)) normalized.pop();
+      if (normalized.at(-1) && isLabel(normalized.at(-1)!)) continue;
+      normalized.push(entry);
+      continue;
+    }
+    normalized.push(entry);
+  }
+  while (normalized.at(-1) && (isSeparator(normalized.at(-1)!) || isLabel(normalized.at(-1)!))) {
+    normalized.pop();
+  }
+  return normalized;
+}
+
+type MenuActionEntry = Exclude<MenuEntry, MenuSeparator | MenuLabel>;
+
+function itemClassName(entry: MenuActionEntry, isCurrent: boolean): string {
+  return [
+    'varve-menu__item',
+    isCurrent ? 'varve-menu__item--current' : '',
+    entry.destructive ? 'varve-menu__item--destructive' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function menuTrailing(entry: MenuActionEntry, extra?: React.ReactNode): React.ReactNode {
+  return (
+    <span className="varve-menu__trailing">
+      {entry.shortcut ? (
+        <span className="varve-menu__shortcut" aria-hidden="true">
+          {entry.shortcut}
+        </span>
+      ) : null}
+      {entry.badge ? <span className="varve-menu__badge">{entry.badge}</span> : null}
+      {extra}
+    </span>
+  );
+}
+
+function menuBody(
+  entry: MenuActionEntry,
+  indicator: React.ReactNode,
+  extra?: React.ReactNode,
+): React.ReactNode {
+  return (
+    <>
+      <span className="varve-menu__leading">
+        <span className="varve-menu__indicator">{indicator}</span>
+        {entry.icon ? <Icon name={entry.icon} size="var(--icon-size-sm)" /> : null}
+      </span>
+      <span className="varve-menu__item-content">
+        <span className="varve-menu__item-label">{entry.label}</span>
+        {entry.description ? (
+          <span className="varve-menu__item-description">{entry.description}</span>
+        ) : null}
+      </span>
+      {menuTrailing(entry, extra)}
+    </>
+  );
 }
 
 // ============================================================
@@ -181,6 +293,7 @@ interface MenuInternalProps {
   label: string;
   level: number;
   triggerRef?: React.RefObject<HTMLElement | null>;
+  id?: string;
   menuClassName: string;
   menuStyle?: React.CSSProperties;
   maxVisibleItems?: number;
@@ -218,6 +331,7 @@ function MenuInternal({
   label,
   level,
   triggerRef,
+  id,
   menuClassName,
   menuStyle,
   maxVisibleItems,
@@ -280,9 +394,10 @@ function MenuInternal({
     [closeAll, suppressFocusRestore],
   );
 
+  const normalizedItems = useMemo(() => normalizeMenuEntries(items), [items]);
   const flatItems = useMemo(
-    () => items.filter((i): i is Exclude<MenuEntry, MenuSeparator> => !isSeparator(i)),
-    [items],
+    () => normalizedItems.filter((i): i is MenuActionEntry => !isSeparator(i) && !isLabel(i)),
+    [normalizedItems],
   );
 
   const isItemDisabled = useCallback(
@@ -544,16 +659,29 @@ function MenuInternal({
 
   let focusableCounter = -1;
 
-  const isTruncatable = maxVisibleItems !== undefined && items.length > maxVisibleItems;
+  const isTruncatable = maxVisibleItems !== undefined && normalizedItems.length > maxVisibleItems;
   const shouldLimitItems = isTruncatable && !showAllItems;
-  const displayItems = shouldLimitItems ? items.slice(0, maxVisibleItems ?? items.length) : items;
+  const displayItems = shouldLimitItems
+    ? normalizedItems.slice(0, maxVisibleItems ?? normalizedItems.length)
+    : normalizedItems;
   const scrollStyle: React.CSSProperties = isTruncatable
-    ? { maxHeight: `${(maxVisibleItems ?? items.length) * 32}px`, overflowY: 'auto' }
+    ? {
+        maxHeight: `${(maxVisibleItems ?? normalizedItems.length) * 32}px`,
+        overflowY: 'auto',
+      }
     : {};
 
   const renderedItems = displayItems.map((entry) => {
     if (isSeparator(entry)) {
       return <hr key={entry.id} role="presentation" className="varve-menu__sep" />;
+    }
+
+    if (isLabel(entry)) {
+      return (
+        <div key={entry.id} role="presentation" className="varve-menu__label">
+          {entry.label}
+        </div>
+      );
     }
 
     focusableCounter++;
@@ -569,9 +697,10 @@ function MenuInternal({
           aria-checked={entry.checked}
           disabled={entry.disabled}
           aria-disabled={entry.disabled || undefined}
-          className="varve-menu__item"
+          className={itemClassName(entry, isCurrent)}
           tabIndex={isCurrent ? 0 : -1}
           data-focusable-idx={idx}
+          aria-keyshortcuts={entry.ariaKeyshortcuts}
           onClick={() => {
             if (!entry.disabled) entry.onToggle();
           }}
@@ -581,11 +710,7 @@ function MenuInternal({
             if (!entry.disabled) setFocusIdx(idx);
           }}
         >
-          <span className="varve-menu__indicator">
-            {entry.checked ? <Icon name="Check" size="0.85em" /> : ''}
-          </span>
-          <span>{entry.label}</span>
-          {entry.badge ? <span className="varve-menu__badge">{entry.badge}</span> : null}
+          {menuBody(entry, entry.checked ? <Icon name="Check" size="0.85em" /> : null)}
         </button>
       );
     }
@@ -599,9 +724,10 @@ function MenuInternal({
           aria-checked={entry.checked}
           disabled={entry.disabled}
           aria-disabled={entry.disabled || undefined}
-          className="varve-menu__item"
+          className={itemClassName(entry, isCurrent)}
           tabIndex={isCurrent ? 0 : -1}
           data-focusable-idx={idx}
+          aria-keyshortcuts={entry.ariaKeyshortcuts}
           onClick={() => {
             if (!entry.disabled) entry.onToggle();
           }}
@@ -611,33 +737,10 @@ function MenuInternal({
             if (!entry.disabled) setFocusIdx(idx);
           }}
         >
-          <span className="varve-menu__indicator">
-            {entry.checked ? (
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="6" />
-              </svg>
-            ) : (
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="6" />
-              </svg>
-            )}
-          </span>
-          <span>{entry.label}</span>
-          {entry.badge ? <span className="varve-menu__badge">{entry.badge}</span> : null}
+          {menuBody(
+            entry,
+            <span className={`varve-menu__radio${entry.checked ? ' is-checked' : ''}`} />,
+          )}
         </button>
       );
     }
@@ -661,9 +764,10 @@ function MenuInternal({
             aria-expanded={submenuOpen || undefined}
             disabled={entry.disabled}
             aria-disabled={entry.disabled || undefined}
-            className="varve-menu__item"
+            className={itemClassName(entry, isCurrent)}
             tabIndex={isCurrent ? 0 : -1}
             data-focusable-idx={idx}
+            aria-keyshortcuts={entry.ariaKeyshortcuts}
             onMouseEnter={() => {
               clearSubmenuClose();
               cancelParentClose?.();
@@ -682,9 +786,13 @@ function MenuInternal({
               }
             }}
           >
-            <span>{entry.label}</span>
-            {entry.badge ? <span className="varve-menu__badge">{entry.badge}</span> : null}
-            <span className="varve-menu__submenu-arrow">▸</span>
+            {menuBody(
+              entry,
+              null,
+              <span className="varve-menu__submenu-arrow" aria-hidden="true">
+                ›
+              </span>,
+            )}
           </button>
           {submenuOpen && open && (
             <FloatingPortal
@@ -712,7 +820,7 @@ function MenuInternal({
                 label={`${itemLabel(entry)} submenu`}
                 level={level + 1}
                 triggerRef={submenuAnchorRef}
-                menuClassName="varve-menu varve-menu--portaled"
+                menuClassName="varve-menu varve-menu--compact varve-menu--portaled"
                 topTabHandler={handleTopTab}
                 cancelParentClose={clearSubmenuClose}
                 focusRestoreSuppressionRef={suppressFocusRestore}
@@ -730,9 +838,10 @@ function MenuInternal({
         role="menuitem"
         disabled={entry.disabled}
         aria-disabled={entry.disabled || undefined}
-        className="varve-menu__item"
+        className={itemClassName(entry, isCurrent)}
         tabIndex={isCurrent ? 0 : -1}
         data-focusable-idx={idx}
+        aria-keyshortcuts={entry.ariaKeyshortcuts}
         onClick={() => {
           if (!entry.disabled) {
             activateAction(entry);
@@ -745,9 +854,11 @@ function MenuInternal({
           if (!entry.disabled) setFocusIdx(idx);
         }}
       >
-        <span>{entry.label}</span>
-        {entry.dialog && <span className="varve-menu__ellipsis">&hellip;</span>}
-        {entry.badge ? <span className="varve-menu__badge">{entry.badge}</span> : null}
+        {menuBody(
+          entry,
+          null,
+          entry.dialog ? <span className="varve-menu__ellipsis">&hellip;</span> : null,
+        )}
       </button>
     );
   });
@@ -761,8 +872,10 @@ function MenuInternal({
   return (
     <div
       ref={menuRef}
+      id={id}
       role="menu"
       aria-label={label}
+      aria-orientation="vertical"
       className={menuClassName}
       style={containerStyle}
       onKeyDown={handleKey}
@@ -787,10 +900,10 @@ function MenuInternal({
           }}
           onClick={() => {
             setShowAllItems(true);
-            setFocusIdx(maxVisibleItems ?? items.length);
+            setFocusIdx(maxVisibleItems ?? normalizedItems.length);
           }}
         >
-          <span>Show all ({items.length} items)</span>
+          <span>Show all ({normalizedItems.length} items)</span>
         </button>
       )}
     </div>
@@ -801,7 +914,16 @@ function MenuInternal({
 // Menu (public)
 // ============================================================
 
-export function Menu({ items, triggerRef, open, onClose, label, maxVisibleItems }: MenuProps) {
+export function Menu({
+  items,
+  triggerRef,
+  open,
+  onClose,
+  label,
+  id,
+  size = 'compact',
+  maxVisibleItems,
+}: MenuProps) {
   if (!open) return null;
 
   return (
@@ -821,7 +943,8 @@ export function Menu({ items, triggerRef, open, onClose, label, maxVisibleItems 
         label={label}
         level={0}
         triggerRef={triggerRef}
-        menuClassName="varve-menu varve-menu--portaled"
+        id={id}
+        menuClassName={`varve-menu varve-menu--${size} varve-menu--portaled`}
         maxVisibleItems={maxVisibleItems}
       />
     </FloatingPortal>
@@ -840,6 +963,8 @@ export function ContextMenu({
   ownerDocument,
   onClose,
   label = 'Context menu',
+  size = 'compact',
+  id,
 }: ContextMenuProps) {
   const resolvedAnchor = useMemo<OverlayAnchor | null>(() => {
     if (anchor) return anchor;
@@ -877,7 +1002,8 @@ export function ContextMenu({
         closeAll={onClose}
         label={label}
         level={0}
-        menuClassName="varve-ctxmenu varve-menu--portaled"
+        id={id}
+        menuClassName={`varve-menu varve-menu--${size} varve-ctxmenu varve-menu--portaled`}
       />
     </FloatingPortal>
   );

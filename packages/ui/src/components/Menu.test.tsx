@@ -11,6 +11,7 @@ import {
   type MenuEntry,
   type MenuItemCheckbox,
   type MenuItemRadio,
+  type MenuSize,
   type SubmenuItem,
 } from './Menu';
 
@@ -35,6 +36,26 @@ function TestMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
         trigger
       </button>
       <Menu items={items} triggerRef={ref} open={open} onClose={onClose} label="test" />
+    </>
+  );
+}
+
+function AnchoredMenu({ items, id, size }: { items: MenuEntry[]; id?: string; size?: MenuSize }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <button type="button" ref={ref}>
+        trigger
+      </button>
+      <Menu
+        items={items}
+        triggerRef={ref}
+        open
+        onClose={vi.fn()}
+        label="test"
+        id={id}
+        size={size}
+      />
     </>
   );
 }
@@ -222,6 +243,58 @@ describe('Menu', () => {
     expect(items[0]).toHaveAttribute('tabIndex', '0');
     await user.keyboard('{End}');
     expect(items[1]).toHaveAttribute('tabIndex', '0');
+  });
+
+  it('renders the shared semantic slots and shortcut metadata', () => {
+    render(
+      <AnchoredMenu
+        items={[
+          {
+            id: 'export',
+            label: 'Export',
+            icon: 'Download',
+            description: 'Save a copy',
+            shortcut: 'Ctrl+Alt+E',
+            ariaKeyshortcuts: 'Control+Alt+E',
+            destructive: true,
+            onAction: vi.fn(),
+          },
+        ]}
+        id="export-menu"
+        size="rich"
+      />,
+    );
+
+    const menu = screen.getByRole('menu', { hidden: true });
+    const item = screen.getByRole('menuitem', { hidden: true });
+    expect(menu).toHaveAttribute('id', 'export-menu');
+    expect(menu).toHaveAttribute('aria-orientation', 'vertical');
+    expect(menu).toHaveClass('varve-menu--rich');
+    expect(item).toHaveClass('varve-menu__item--destructive');
+    expect(item).toHaveAttribute('aria-keyshortcuts', 'Control+Alt+E');
+    expect(item.querySelector('.varve-menu__leading svg')).toBeTruthy();
+    expect(item.querySelector('.varve-menu__item-description')).toHaveTextContent('Save a copy');
+    expect(item.querySelector('.varve-menu__shortcut')).toHaveTextContent('Ctrl+Alt+E');
+  });
+
+  it('normalizes orphaned separators and adjacent labels', () => {
+    render(
+      <AnchoredMenu
+        items={[
+          { id: 'leading-separator', separator: true },
+          { id: 'format-label', type: 'label', label: 'Format' },
+          { id: 'duplicate-label', type: 'label', label: 'Ignored' },
+          { id: 'bold', label: 'Bold', onAction: vi.fn() },
+          { id: 'italic', label: 'Italic', onAction: vi.fn() },
+          { id: 'trailing-separator', separator: true },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByRole('menuitem', { hidden: true })).toHaveLength(2);
+    expect(document.body.querySelectorAll('.varve-menu__sep')).toHaveLength(0);
+    expect(document.body.querySelectorAll('.varve-menu > .varve-menu__label')).toHaveLength(1);
+    expect(screen.getByText('Format')).toBeInTheDocument();
   });
 });
 

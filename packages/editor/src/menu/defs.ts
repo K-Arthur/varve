@@ -160,6 +160,7 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
               labelKey: 'Clear Recent Files',
               kind: 'command',
               group: 'recent',
+              destructive: true,
               run: () => runAction('clearRecent'),
             },
           );
@@ -593,6 +594,7 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
       kind: 'command',
       group: 'selection',
       enabled: enabledWithSelection,
+      destructive: true,
       run: () => runAction('delete'),
     },
     {
@@ -979,6 +981,7 @@ export function getViewMenu(
       labelKey: 'menu.view.clearGuides',
       kind: 'command',
       group: 'guides',
+      destructive: true,
       run: () => runAction('clearGuides'),
     },
     {
@@ -1458,6 +1461,7 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
       labelKey: 'menu.object.removeMask',
       kind: 'command',
       group: 'maskOps',
+      destructive: true,
       workspaces: ['design', 'print', 'drawing', 'image'],
       enabled: (ctx) => {
         if (ctx.selection.hasMask) return true;
@@ -2251,6 +2255,7 @@ export function getCanvasContextMenuDefs(runAction: (id: string) => void): MenuI
       group: 'edit-op',
       contexts: ['canvas'],
       enabled: enabledWithSelection,
+      destructive: true,
       run: () => runAction('delete'),
     },
     {

@@ -13,7 +13,7 @@ test.describe('Menubar visual integrity', () => {
 
   test('hover-switching to View starts at the top and selected rows retain contrast', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await openMenu(page, 'Object');
     await page.getByRole('menubar').getByRole('menuitem', { name: 'View' }).hover();
     const menuLayer = page.locator('.editor-menubar__menu');
@@ -42,9 +42,10 @@ test.describe('Menubar visual integrity', () => {
       .withRules(['color-contrast'])
       .analyze();
     expect(results.violations).toHaveLength(0);
+    await menuLayer.screenshot({ path: testInfo.outputPath('editor-menu-view-light.png') });
   });
 
-  test('Object menu exposes its final command without clipping', async ({ page }) => {
+  test('Object menu exposes its final command without clipping', async ({ page }, testInfo) => {
     await openMenu(page, 'Object');
     const menuLayer = page.locator('.editor-menubar__menu');
     const menu = menuLayer.getByRole('menu', { name: 'Object' });
@@ -66,10 +67,13 @@ test.describe('Menubar visual integrity', () => {
     expect(geometry.scrollTop).toBeGreaterThan(0);
     const finalRect = await finalCommand.evaluate((element) => element.getBoundingClientRect());
     expect(finalRect.bottom).toBeLessThanOrEqual(1080);
+    await menuLayer.screenshot({ path: testInfo.outputPath('editor-menu-object-overflow.png') });
   });
 
   for (const theme of ['light', 'dark', 'high-contrast'] as const) {
-    test(`active menu rows pass contrast checks in the ${theme} theme`, async ({ page }) => {
+    test(`active menu rows pass contrast checks in the ${theme} theme`, async ({
+      page,
+    }, testInfo) => {
       await page.evaluate((nextTheme) => {
         document.documentElement.dataset.theme = nextTheme;
       }, theme);
@@ -80,6 +84,9 @@ test.describe('Menubar visual integrity', () => {
         .withRules(['color-contrast'])
         .analyze();
       expect(results.violations).toHaveLength(0);
+      await page.locator('.editor-menubar__menu').screenshot({
+        path: testInfo.outputPath(`editor-menu-view-${theme}.png`),
+      });
     });
   }
 });
