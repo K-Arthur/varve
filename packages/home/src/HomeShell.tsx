@@ -1373,6 +1373,7 @@ export function HomeShell({
           open={importOpen}
           onClose={() => setImportOpen(false)}
           platform={platform}
+          workspaceId={view.activeWorkspaceId ?? 'personal'}
           onImportComplete={() => view.refresh()}
         />
       </section>
