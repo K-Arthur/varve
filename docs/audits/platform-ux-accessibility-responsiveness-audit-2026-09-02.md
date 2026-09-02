@@ -1,7 +1,7 @@
 # Platform UX, Interaction, Accessibility, and Responsiveness Audit
 
 **Date:** 2026-09-02  
-**Status:** Phase 1 audit complete; prioritized editor and website fixes implemented and validated
+**Status:** Phase 1 audit complete; prioritized editor and website fixes implemented and validated; repository-wide pre-existing failures triaged
 **Baseline:** WCAG 2.2 AA. AAA is not required for this product.  
 **Minimum browser assumption:** the last two major versions of Chrome, Edge,
 Firefox, and Safari, including iOS Safari and Android Chrome.
@@ -149,3 +149,92 @@ Final validation record:
 Real-device and native screen-reader certification remain deferred because the
 required hardware and assistive technologies are unavailable in this Linux
 Chromium environment.
+
+## Pre-existing failure triage
+
+The investigation used one set of lenses applied by this investigation, not
+independent agents: test output, implementation inspection, specification and
+accessibility intent, architecture boundaries, and regression history. Git
+history and blame were available. No security- or billing-sensitive failure
+was found in the failing groups below.
+
+The pre-fix full-gate checkpoint was run with
+`VARVE_FULL_GATE_REASON='User-requested pre-existing failure triage baseline' pnpm verify:full`.
+It stopped before heavy lanes because the shared worktree already had three
+unrelated formatting errors in `ShineBorder.stories.tsx`,
+`typography-editing.spec.ts`, and `settings-dialog.spec.ts`; its chained E2E
+typecheck also returned exit 1 without diagnostics. The exact standalone
+`pnpm typecheck:e2e` command passed immediately afterward. Thus, there is no
+clean pre-fix full-unit baseline in this workspace; the gate result is retained
+as the reproducible pre-fix checkpoint rather than represented as a passing
+full suite.
+
+The post-fix full unit/CI command was:
+
+```text
+VARVE_TEST_WORKERS=1 pnpm test
+```
+
+CI-tool checks passed. The Vitest phase completed with **1,435 test files
+passed, 12 failed, 5 skipped; 17,040 tests passed, 37 failed, 8 skipped**.
+The 37 failures are grouped as follows:
+
+| Group | Result | Classification and confidence |
+|---|---:|---|
+| `PropertiesPanel.test.tsx` | 2 | Deterministic current-markup/assertion drift: isolated rerun passed 20 and failed 2; the test expects a `button` named `RGB` and a direct `checkbox` that the current metadata-driven inspector surface does not expose in that form. **Medium.** |
+| `editor.test.tsx` | 1 | Deterministic query ambiguity: the current DOM contains both the inspector region and the intentionally named `Inspector context: Canvas` region, while the test uses an unscoped `/inspector/i` query. **High.** |
+| `GradientEditor.test.tsx` | 1 | Current colour metadata/default handling needs feature-owner review; not changed in this audit. **Low.** |
+| `LayoutSection.test.tsx` | 4 | Auto-layout fixture/interaction mismatch; isolated root cause was not completed. **Low.** |
+| `AssetExportControls.test.tsx` | 10 | Export-panel test setup/semantics mismatch; deferred because it is outside the responsive/editor-toolbar blast radius. **Low.** |
+| `EffectsSection.test.tsx` | 2 | Effect-stack fixture/catalog mismatch; deferred to the effects owner. **Low.** |
+| `SelectionColorsSection.test.tsx` | 2 | Colour-picker interaction harness mismatch; deferred to the inspector owner. **Low.** |
+| `SmartFiltersSection.test.tsx` | 1 | Current option rendering/async menu semantics mismatch; deferred to the inspector owner. **Low.** |
+| `InspectorTabBar.test.tsx` | 1 | Overflow measurement/menu timing mismatch; deferred to the inspector owner. **Low.** |
+| `faceCropProtect.test.tsx` | 5 | **Confirmed test-fixture defect:** isolated rerun failed all five tests with `No "Switch" export is defined on the "@varve/ui" mock`, at `ImageCropSection.tsx:437`; the production component needs the mocked control. **High.** |
+| `FilterDropdown.test.tsx` | 7 | **Confirmed test-fixture/query defect:** isolated rerun failed 7/11 because the tests query `.filter-dropdown__section-*` content before opening the `Popover`; the implementation keeps that content closed until the Filters trigger is activated. **High.** |
+| `demoCapabilities.test.ts` | 1 | **Confirmed stale expectation:** isolated rerun received `['inference', 'onlineFonts', 'printProduction']`; `demoCapabilities.ts` intentionally restricts all three, while the test expects only two. **High.** |
+
+None of these failures was treated as flaky: no nondeterministic diagnosis was
+claimed, and representative groups reproduced in isolation. The unresolved
+groups are deferred by feature ownership and scope, not hidden with skips,
+looser tolerances, removed assertions, or mocks of the behavior under test.
+
+## Changes and regression evidence
+
+- `FloatingToolbar` now keeps tool options and touch multi-select controls in a
+  fixed action rail outside the horizontally clipped tool-group scroller. The
+  original failure was reproduced with the floating-ui `referenceHidden` data:
+  the clipped trigger was outside the scrollport, so its portal was correctly
+  hidden. The pencil stabilization E2E now passes, including the full five-test
+  drawing/focus spec. **High confidence.**
+- Responsive workspace E2E selectors now target the current dock semantics and
+  use radio semantics where the DOM exposes `role="radio"`/`aria-checked`.
+  The responsive editor boot helper waits for `.editor-shell`, which remains
+  present when drawers are intentionally collapsed at narrow widths.
+- The current email/workspace visual snapshots were regenerated only after the
+  current dock layout was confirmed in screenshots. The complete affected
+  editor/workspace corpus then passed **66/66 Chromium tests**, including all
+  **20/20** refreshed email/workspace visual cases. No screenshot tolerance or
+  assertion was loosened.
+- Marketing-site changes are covered by the current Astro unit/build and
+  browser evidence: `pnpm test:website` passed 169 tests; both static builds
+  produced 66 pages; the nine-width reflow check and coarse-pointer touch-target
+  check passed. The header discovery metadata, mobile breakpoint, touch targets,
+  page schema, comparison copy, and `/llms.txt` surface remain documented in
+  `docs/marketing/positioning-and-discovery.md` and `docs/release/website.md`.
+
+Test-weakening disclosure: **none**. Selector corrections preserve the tested
+behavior and make queries match the current accessible roles; visual baseline
+updates record intentional current UI output. No test was skipped, deleted, or
+made less tolerant.
+
+The post-fix full gate was also requested with
+`VARVE_FULL_GATE_REASON='User-requested pre-existing failure triage after fixes and visual validation' pnpm verify:full`.
+It completed the full formatting/lint, audit, architecture, and workspace
+typecheck stages, but again stopped at the chained E2E typecheck wrapper without
+diagnostics. The direct `pnpm typecheck:e2e` rerun passed. Because the gate did
+not reach its heavy browser/native/package lanes, the full Vitest result above
+was run explicitly; a clean pre-fix heavy-lane comparison is not available in
+this shared worktree. The remaining full-suite risk is therefore the 37
+repository-wide unit failures and the documented native/real-device gaps, not
+the repaired responsive or marketing flows.
