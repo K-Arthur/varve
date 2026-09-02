@@ -102,20 +102,20 @@ describe('SelectionColorsSection', () => {
     expect(screen.getByText('3')).toBeTruthy();
   });
 
-  it('opens the authoritative color picker from a focused swatch', () => {
+  it('opens the authoritative color picker from a focused swatch', async () => {
     const node = makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { fill: red });
     renderSection(withNodes([node]), ['shape']);
 
     fireEvent.click(screen.getByRole('button', { name: 'RGB #FF0000, Fill, 1 paint use' }));
-    expect(screen.getByRole('dialog', { name: /pick rgb #ff0000/i })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: /pick rgb #ff0000/i })).toBeTruthy();
   });
 
-  it('replaces the selected usage through the standard picker', () => {
+  it('replaces the selected usage through the standard picker', async () => {
     const node = makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { fill: red });
     renderEditableSection(withNodes([node]), ['shape']);
 
     fireEvent.click(screen.getByRole('button', { name: 'RGB #FF0000, Fill, 1 paint use' }));
-    const teal = screen.getByRole('option', { name: 'Teal 500' });
+    const teal = await screen.findByRole('option', { name: 'Teal 500' });
     fireEvent.pointerDown(teal);
     fireEvent.pointerUp(teal);
     fireEvent.click(teal);

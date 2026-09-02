@@ -77,8 +77,8 @@ describe('InspectorTabBar', () => {
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Design']);
 
     fireEvent.click(screen.getByRole('button', { name: /more inspector tabs/i }));
-    expect(screen.getByRole('menu', { name: 'More inspector tabs' })).toBeVisible();
-    expect(screen.getByRole('menuitem', { name: 'Audit' })).toBeVisible();
+    expect(await screen.findByRole('menu', { name: 'More inspector tabs' })).toBeVisible();
+    expect(await screen.findByRole('menuitem', { name: 'Audit' })).toBeVisible();
     expect(screen.queryByRole('tab', { name: 'Audit' })).toBeNull();
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Audit' }));

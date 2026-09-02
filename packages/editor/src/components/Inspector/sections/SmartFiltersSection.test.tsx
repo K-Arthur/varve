@@ -175,7 +175,7 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
     },
   );
 
-  it('keeps advanced photo-local filters available with an honest flat-fill hint', () => {
+  it('keeps advanced photo-local filters available with an honest flat-fill hint', async () => {
     render(<SmartFiltersSection nodes={[vectorNode()]} />);
 
     expect(
@@ -184,7 +184,9 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
     fireEvent.click(screen.getByRole('combobox', { name: 'Add Object Filter' }));
 
     for (const kind of ['microDetail', 'definition', 'atmosphere', 'dehaze'] as const) {
-      expect(screen.getByRole('option', { name: filterKindDisplayName(kind) })).toBeInTheDocument();
+      expect(
+        await screen.findByRole('option', { name: filterKindDisplayName(kind) }),
+      ).toBeInTheDocument();
     }
   });
 

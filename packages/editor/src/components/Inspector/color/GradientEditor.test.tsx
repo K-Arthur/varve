@@ -333,14 +333,14 @@ describe('gradient interpolation semantics', () => {
     expect(screen.getByRole('combobox', { name: 'Hue interpolation direction' })).toBeTruthy();
   });
 
-  it('treats missing metadata as historical sRGB and allows a concrete override', () => {
+  it('treats missing metadata as historical sRGB and allows a concrete override', async () => {
     const onChange = vi.fn();
     render(<GradientEditor gradient={makeGradient()} onChange={onChange} />);
     const select = screen.getByRole('combobox', { name: 'Gradient interpolation space' });
     expect(select).toHaveTextContent('sRGB');
 
     fireEvent.click(select);
-    fireEvent.click(screen.getByRole('option', { name: 'OKLab' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'OKLab' }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ interpolationSpace: 'oklab' }));
     expect(onChange.mock.calls[0]?.[0]).not.toHaveProperty('interpolationSource');
   });

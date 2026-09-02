@@ -163,12 +163,12 @@ describe('PropertiesPanel canvas settings', () => {
 
   it('renders real document colour settings without exposing storage-root node counts', async () => {
     renderPanel();
-    expect(await screen.findByRole('button', { name: 'RGB' })).toHaveAttribute(
-      'aria-pressed',
+    expect(await screen.findByRole('radio', { name: 'RGB' })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
-    expect(screen.getByRole('button', { name: 'CMYK' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Grayscale' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'CMYK' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Grayscale' })).toBeTruthy();
     expect(screen.queryByText(/nodes?/i)).toBeNull();
   });
 });
@@ -218,7 +218,7 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     expect(screen.getByRole('button', { name: 'Corner Radius' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Customize sections' }));
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Corner Radius' }));
+    fireEvent.click(screen.getByLabelText('Corner Radius'));
 
     expect(screen.queryByRole('button', { name: 'Corner Radius' })).toBeNull();
   });
