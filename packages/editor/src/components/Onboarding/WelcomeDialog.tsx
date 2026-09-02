@@ -54,7 +54,7 @@ export function WelcomeDialog({
         </div>
 
         <div className="welcome-dialog__actions">
-          <Button variant="primary" size="md" onClick={onStartTutorial ?? onStartTour}>
+          <Button variant="default" size="md" onClick={onStartTutorial ?? onStartTour}>
             Get started
           </Button>
         </div>

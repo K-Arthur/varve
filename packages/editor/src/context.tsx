@@ -4565,7 +4565,7 @@ export function EditorProvider({
               confirmDialog(
                 'Delete objects',
                 `Are you sure you want to delete ${sel.length} objects?`,
-                { confirmLabel: 'Delete', variant: 'danger' },
+                { confirmLabel: 'Delete', variant: 'destructive' },
               ),
             )
             .then((confirmed) => {

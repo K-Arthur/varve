@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { Button } from './Button';
 import { Toast } from './Toast';
 import { ToastProvider, useToast } from './ToastProvider';
 
@@ -45,53 +46,38 @@ function ToastDemo() {
   const { toast } = useToast();
   return (
     <div style={{ display: 'flex', gap: '8px', flexDirection: 'column', alignItems: 'flex-start' }}>
-      <button
-        type="button"
-        className="varve-btn varve-btn--primary"
-        onClick={() => toast({ message: 'Info toast', type: 'info' })}
-      >
-        Show Info
-      </button>
-      <button
-        type="button"
-        className="varve-btn varve-btn--secondary"
+      <Button onClick={() => toast({ message: 'Info toast', type: 'info' })}>Show Info</Button>
+      <Button
+        variant="secondary"
         onClick={() => toast({ message: 'Success toast', type: 'success' })}
       >
         Show Success
-      </button>
-      <button
-        type="button"
-        className="varve-btn varve-btn--ghost"
-        onClick={() => toast({ message: 'Warning toast', type: 'warning' })}
-      >
+      </Button>
+      <Button variant="ghost" onClick={() => toast({ message: 'Warning toast', type: 'warning' })}>
         Show Warning
-      </button>
-      <button
-        type="button"
-        className="varve-btn varve-btn--danger"
+      </Button>
+      <Button
+        variant="destructive"
         onClick={() => toast({ message: 'Error toast', type: 'error' })}
       >
         Show Error
-      </button>
-      <button
-        type="button"
-        className="varve-btn varve-btn--ghost"
+      </Button>
+      <Button
+        variant="ghost"
         onClick={() => toast.loading({ message: 'Preparing preview…', id: 'preview:fixture' })}
       >
         Show Loading
-      </button>
-      <button
-        type="button"
-        className="varve-btn varve-btn--ghost"
+      </Button>
+      <Button
+        variant="ghost"
         onClick={() =>
           toast.update('preview:fixture', { message: 'Preview ready', type: 'success' })
         }
       >
         Complete Loading
-      </button>
-      <button
-        type="button"
-        className="varve-btn varve-btn--secondary"
+      </Button>
+      <Button
+        variant="secondary"
         onClick={() =>
           toast({
             title: 'Layer deleted',
@@ -102,10 +88,9 @@ function ToastDemo() {
         }
       >
         Show Undo
-      </button>
-      <button
-        type="button"
-        className="varve-btn varve-btn--danger"
+      </Button>
+      <Button
+        variant="destructive"
         onClick={() =>
           toast.error({
             title: 'Export failed',
@@ -119,17 +104,16 @@ function ToastDemo() {
         }
       >
         Show Actions
-      </button>
-      <button
-        type="button"
-        className="varve-btn varve-btn--ghost"
+      </Button>
+      <Button
+        variant="ghost"
         onClick={() => {
           for (let i = 1; i <= 8; i += 1)
             toast.info({ message: `Imported asset ${i}`, dedupeKey: `asset:${i}` });
         }}
       >
         Burst 8
-      </button>
+      </Button>
     </div>
   );
 }

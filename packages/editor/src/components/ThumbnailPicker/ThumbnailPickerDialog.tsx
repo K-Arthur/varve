@@ -277,7 +277,7 @@ export function ThumbnailPickerDialog({ open, onClose }: ThumbnailPickerDialogPr
         <Button variant="ghost" size="sm" onClick={handleClose}>
           Cancel
         </Button>
-        <Button variant="primary" size="sm" onClick={() => void handleApply()}>
+        <Button variant="default" size="sm" onClick={() => void handleApply()}>
           Apply
         </Button>
       </div>

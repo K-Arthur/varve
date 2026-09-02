@@ -686,7 +686,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       <div className="insp-field-group">
         {modelState === 'idle' && !depthResource && (
           <div className="insp-actions">
-            <Button type="button" variant="primary" size="sm" onClick={handleDownloadModel}>
+            <Button type="button" variant="default" size="sm" onClick={handleDownloadModel}>
               Enable Depth Blur
             </Button>
             <p className="insp-hint">
@@ -724,7 +724,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
 
         {modelState === 'ready' && depthState === 'idle' && !depthResource && (
           <div className="insp-actions">
-            <Button type="button" variant="primary" size="sm" onClick={handleGenerateDepth}>
+            <Button type="button" variant="default" size="sm" onClick={handleGenerateDepth}>
               Generate Depth Map
             </Button>
             <p className="insp-hint">
@@ -877,7 +877,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
             )}
 
             <div className="insp-actions">
-              <Button type="button" variant="primary" size="sm" onClick={handleApply}>
+              <Button type="button" variant="default" size="sm" onClick={handleApply}>
                 Save Depth Blur
               </Button>
               {depthEffectId && (

@@ -13,12 +13,17 @@
   border-radius: var(--radius-control);
 }
 
-.varve-btn--sm {
+.varve-btn--xs,
+.varve-btn--sm,
+.varve-btn--icon-xs,
+.varve-btn--icon-sm,
+.varve-btn--toolbar {
   border-radius: var(--radius-control-compact);
 }
 
-.varve-iconbtn {
-  border-radius: var(--radius-control-compact);
+.varve-btn--md,
+.varve-btn--icon {
+  border-radius: var(--radius-control);
 }
 
 .varve-input__wrapper,
@@ -50,13 +55,12 @@
   border-radius: var(--radius-control-compact);
 }
 
-/* Menu and select rows are part of their parent surface. Keeping their
- * default corners square prevents a stack of independent bubbles; focus and
- * highlight treatments can still add an inset outline without changing the
- * component geometry. */
+/* Menu and select rows are part of their parent surface. A compact control
+ * radius keeps keyboard/hover states readable without making each row read
+ * as a separate card. */
 .varve-menu__item,
 .varve-select__option {
-  border-radius: var(--radius-none);
+  border-radius: var(--radius-control-compact);
 }
 
 /* One connected segmented control: the shell owns clipping and the members
@@ -100,9 +104,8 @@
   border-radius: var(--radius-pill);
 }
 
-/* Semantic pills remain explicit exceptions. */
-.varve-btn--pill,
-.varve-btn--pill-outline,
+/* Semantic pills remain explicit exceptions for badges and view switchers;
+ * ordinary action Buttons never receive pill geometry. */
 .varve-view-mode-switcher,
 .varve-view-mode-switcher__btn {
   border-radius: var(--radius-pill);

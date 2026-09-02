@@ -562,7 +562,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
             <div className="insp-actions">
               <Button
                 type="button"
-                variant="primary"
+                variant="default"
                 size="sm"
                 onClick={handleApply}
                 disabled={isProcessing}
@@ -615,7 +615,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
               </Button>
               <Button
                 type="button"
-                variant="primary"
+                variant="default"
                 size="sm"
                 disabled={!showPreview}
                 onClick={handleApply}

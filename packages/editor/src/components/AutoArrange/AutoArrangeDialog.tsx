@@ -204,7 +204,7 @@ export function AutoArrangeDialog({ open, onClose, selectionBounds }: AutoArrang
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleApply} disabled={selectedNodes.length === 0}>
+          <Button variant="default" onClick={handleApply} disabled={selectedNodes.length === 0}>
             Apply
           </Button>
         </div>

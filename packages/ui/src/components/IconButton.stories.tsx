@@ -6,8 +6,11 @@ const meta: Meta<typeof IconButton> = {
   component: IconButton,
   tags: ['autodocs', 'a11y'],
   argTypes: {
-    variant: { control: 'select', options: ['primary', 'secondary', 'ghost', 'danger'] },
-    size: { control: 'select', options: ['sm', 'md', 'lg'] },
+    variant: {
+      control: 'select',
+      options: ['default', 'secondary', 'outline', 'ghost', 'destructive', 'link', 'toolbar'],
+    },
+    size: { control: 'select', options: ['icon-xs', 'icon-sm', 'icon', 'icon-lg'] },
     pressed: { control: 'boolean' },
     disabled: { control: 'boolean' },
   },
@@ -21,7 +24,7 @@ export const Default: Story = {
 };
 
 export const Primary: Story = {
-  args: { icon: 'Plus', label: 'Add', variant: 'primary' },
+  args: { icon: 'Plus', label: 'Add', variant: 'default', size: 'icon' },
 };
 
 export const Secondary: Story = {
@@ -29,7 +32,7 @@ export const Secondary: Story = {
 };
 
 export const Danger: Story = {
-  args: { icon: 'Trash2', label: 'Delete', variant: 'danger' },
+  args: { icon: 'Trash2', label: 'Delete', variant: 'destructive', size: 'icon' },
 };
 
 export const Pressed: Story = {

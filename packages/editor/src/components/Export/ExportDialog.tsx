@@ -549,7 +549,7 @@ export function ExportDialog({
       const proceed = await confirmDialog(
         'Preflight errors found',
         `Preflight found ${blockingErrors.length} error${blockingErrors.length === 1 ? '' : 's'} that may make the exported file${blockingErrors.length === 1 ? '' : 's'} unusable (e.g. missing fonts, out-of-gamut colors). Export anyway?`,
-        { confirmLabel: 'Export anyway', variant: 'danger' },
+        { confirmLabel: 'Export anyway', variant: 'destructive' },
       );
       if (!proceed) return;
     }

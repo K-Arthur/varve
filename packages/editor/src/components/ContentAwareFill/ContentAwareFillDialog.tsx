@@ -505,7 +505,7 @@ export function ContentAwareFillDialog({
 
           {quality === 'ai' && !modelAvailable && status !== 'downloading' && (
             <div className="caf-dialog__section">
-              <Button type="button" variant="primary" size="sm" onClick={handleDownload}>
+              <Button type="button" variant="default" size="sm" onClick={handleDownload}>
                 Download AI Model (~208 MB)
               </Button>
               <p className="caf-dialog__hint">One-time download required. Stored locally.</p>
@@ -742,7 +742,7 @@ export function ContentAwareFillDialog({
           </Button>
           <Button
             type="button"
-            variant="primary"
+            variant="default"
             size="sm"
             disabled={!hasResult || isProcessing}
             loading={status === 'applying'}

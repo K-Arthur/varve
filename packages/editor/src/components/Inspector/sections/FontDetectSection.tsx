@@ -208,7 +208,7 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
           <div className="insp-actions">
             <Button
               type="button"
-              variant="primary"
+              variant="default"
               size="sm"
               onClick={handleDownload}
               aria-label="Download font classifier model (~64 MB)"

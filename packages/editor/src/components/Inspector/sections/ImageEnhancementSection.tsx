@@ -165,7 +165,7 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
           Denoise, restore, or enlarge the image with a bounded local workflow.
         </p>
         <div className="insp-actions">
-          <Button type="button" variant="primary" size="sm" onClick={() => openUpscaleDialog()}>
+          <Button type="button" variant="default" size="sm" onClick={() => openUpscaleDialog()}>
             Enhance image…
           </Button>
         </div>
@@ -364,7 +364,7 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
                 Retrace
               </Button>
             )}
-            <Button type="button" variant="primary" size="sm" onClick={handleFlatten}>
+            <Button type="button" variant="default" size="sm" onClick={handleFlatten}>
               Flatten
             </Button>
             {pending === 'trace' && (
@@ -377,7 +377,7 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
           <div className="insp-actions">
             <Button
               type="button"
-              variant="primary"
+              variant="default"
               size="sm"
               disabled={pending !== null}
               loading={pending === 'trace'}

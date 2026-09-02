@@ -517,7 +517,7 @@ export function HomeShell({
           const confirmed = await confirmDialog(
             'Permanently delete files',
             'Permanently delete these files? This cannot be undone.',
-            { confirmLabel: 'Delete permanently', variant: 'danger' },
+            { confirmLabel: 'Delete permanently', variant: 'destructive' },
           );
           if (confirmed) {
             for (const entry of selected) actions.purge(entry.id);

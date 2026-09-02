@@ -19,13 +19,23 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Click me' })).toBeInTheDocument();
   });
 
-  it('defaults to primary variant', () => {
-    render(<Button>Primary</Button>);
-    expect(screen.getByRole('button').className).toContain('varve-btn--primary');
+  it('defaults to the default action variant and non-submit type', () => {
+    render(<Button>Default</Button>);
+    const button = screen.getByRole('button');
+    expect(button.className).toContain('varve-btn--default');
+    expect(button).toHaveAttribute('type', 'button');
   });
 
   it('renders all variants', () => {
-    const variants = ['primary', 'secondary', 'ghost', 'danger'] as const;
+    const variants = [
+      'default',
+      'secondary',
+      'outline',
+      'ghost',
+      'destructive',
+      'link',
+      'toolbar',
+    ] as const;
     for (const variant of variants) {
       const { container } = render(<Button variant={variant}>{variant}</Button>);
       expect(container.querySelector(`.varve-btn--${variant}`)).toBeTruthy();
@@ -107,7 +117,7 @@ describe('Button', () => {
     const onClick = vi.fn();
     const user = userEvent.setup();
     render(
-      <Button variant="danger" confirmLabel="Delete?" onClick={onClick}>
+      <Button variant="destructive" confirmLabel="Delete?" onClick={onClick}>
         Delete
       </Button>,
     );

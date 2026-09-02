@@ -289,7 +289,7 @@ export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
           <div className="insp-actions">
             <Button
               type="button"
-              variant="primary"
+              variant="default"
               size="sm"
               onClick={handleDownload}
               aria-label="Download Blend Images model (~21.6 MB)"
@@ -336,7 +336,7 @@ export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
             <div className="insp-actions">
               <Button
                 type="button"
-                variant="primary"
+                variant="default"
                 size="sm"
                 onClick={handleApply}
                 disabled={isProcessing}

@@ -148,7 +148,7 @@ export function ShareDialog({ fileId, fileName, platform, open, onClose }: Share
               }))}
             />
             <Button
-              variant="primary"
+              variant="default"
               size="sm"
               loading={adding}
               disabled={!newEmail.trim()}

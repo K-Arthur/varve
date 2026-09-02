@@ -115,7 +115,7 @@ export function ColorizationModelsTab() {
                 )}
                 {!row.installed && row.acquisition.kind === 'remote' && (
                   <Button
-                    variant="primary"
+                    variant="default"
                     onClick={() => setDownloadModelId(row.id)}
                     aria-label={`Download ${row.name} model`}
                   >

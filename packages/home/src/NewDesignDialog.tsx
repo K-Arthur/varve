@@ -343,7 +343,7 @@ export function NewDesignDialog({
                   onChange={(e) => setSavingPresetName(e.target.value)}
                   aria-label="Preset name"
                 />
-                <Button variant="primary" size="sm" onClick={handleConfirmSaveCustomPreset}>
+                <Button variant="default" size="sm" onClick={handleConfirmSaveCustomPreset}>
                   Save
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setSavingPresetName(null)}>
@@ -357,7 +357,7 @@ export function NewDesignDialog({
               Cancel
             </Button>
             <Button
-              variant="primary"
+              variant="default"
               onClick={handleCreate}
               disabled={
                 creating || (startMode === 'frame' && frameSource === 'custom' && !customValid)

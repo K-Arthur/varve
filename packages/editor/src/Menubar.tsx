@@ -2450,7 +2450,7 @@ export function Menubar({
         description={missingFileDialog?.message ?? ''}
         confirmLabel="Remove from List"
         cancelLabel="Keep in List"
-        variant="danger"
+        variant="destructive"
       />
 
       <ArchiveDialog

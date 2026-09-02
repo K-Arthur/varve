@@ -156,11 +156,28 @@
   min-block-size: var(--component-compact-height);
   min-inline-size: var(--component-compact-height);
 }
+.varve-iconbtn.varve-btn--xs,
+.varve-iconbtn.varve-btn--icon-xs {
+  min-block-size: 28px;
+  min-inline-size: 28px;
+}
 .varve-iconbtn.varve-btn--md {
   min-block-size: var(--component-default-height);
   min-inline-size: var(--component-default-height);
 }
+.varve-iconbtn.varve-btn--icon-sm {
+  min-block-size: var(--component-compact-height);
+  min-inline-size: var(--component-compact-height);
+}
+.varve-iconbtn.varve-btn--icon {
+  min-block-size: var(--component-default-height);
+  min-inline-size: var(--component-default-height);
+}
 .varve-iconbtn.varve-btn--lg {
+  min-block-size: var(--component-large-height);
+  min-inline-size: var(--component-large-height);
+}
+.varve-iconbtn.varve-btn--icon-lg {
   min-block-size: var(--component-large-height);
   min-inline-size: var(--component-large-height);
 }
@@ -204,11 +221,11 @@
 .varve-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
 }
-.varve-btn--primary {
+.varve-btn--default {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
-.varve-btn--primary:hover {
+.varve-btn--default:hover {
   background: var(--color-interactive-hover);
 }
 .varve-btn--secondary {
@@ -219,6 +236,15 @@
 .varve-btn--secondary:hover {
   background: var(--color-surface-sunken);
 }
+.varve-btn--outline {
+  background: transparent;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+}
+.varve-btn--outline:hover {
+  background: var(--color-surface-sunken);
+  border-color: var(--color-border-strong);
+}
 .varve-btn--ghost {
   background: transparent;
   color: var(--color-text-secondary);
@@ -226,43 +252,44 @@
 .varve-btn--ghost:hover {
   background: var(--color-surface-sunken);
 }
-.varve-btn--danger {
+.varve-btn--toolbar {
+  min-block-size: var(--component-compact-height);
+  min-inline-size: var(--component-compact-height);
+  padding-inline: var(--component-compact-padding-inline);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--type-interface-caption-size);
+}
+.varve-btn--toolbar:hover {
+  background: var(--color-interactive-hover-surface);
+  color: var(--color-text-primary);
+}
+.varve-btn--link {
+  min-block-size: var(--component-compact-height);
+  min-inline-size: 0;
+  padding-inline: var(--space-1);
+  background: transparent;
+  color: var(--color-interactive-default);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.varve-btn--link:hover {
+  background: transparent;
+  color: var(--color-interactive-hover);
+}
+.varve-btn--destructive {
   background: var(--color-feedback-danger);
   color: var(--color-text-on-danger);
 }
-.varve-btn--danger:hover {
+.varve-btn--destructive:hover {
   background: var(--color-feedback-danger);
   filter: saturate(1.4);
 }
-/* ── Pill button variants (design system refresh) ── */
-.varve-btn--pill {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
-  border-radius: var(--radius-pill);
-  min-block-size: var(--component-compact-height);
-  min-inline-size: var(--component-compact-height);
-  padding-inline: var(--component-compact-padding-inline);
+.varve-btn--xs {
+  min-block-size: 28px;
+  min-inline-size: 28px;
+  padding-inline: var(--space-2);
   font-size: var(--type-interface-caption-size);
-  font-weight: var(--type-interface-control-weight);
-}
-.varve-btn--pill:hover {
-  background: var(--color-interactive-hover);
-}
-.varve-btn--pill-outline {
-  background: transparent;
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-pill);
-  min-block-size: var(--component-compact-height);
-  min-inline-size: var(--component-compact-height);
-  padding-inline: var(--component-compact-padding-inline);
-  font-size: var(--type-interface-caption-size);
-  font-weight: var(--type-interface-control-weight);
-}
-.varve-btn--pill-outline:hover {
-  background: var(--color-surface-sunken);
-  border-color: var(--color-interactive-default);
-  color: var(--color-interactive-default);
 }
 .varve-btn--sm {
   min-block-size: var(--component-compact-height);
@@ -281,6 +308,36 @@
   padding-inline: var(--component-large-padding-inline);
   font-size: var(--type-interface-body-size);
 }
+.varve-btn--icon-xs,
+.varve-btn--icon-sm,
+.varve-btn--icon,
+.varve-btn--icon-lg {
+  padding-inline: 0;
+}
+
+/* Icons inside Button content use the control's canonical optical size even
+ * when a caller passes an icon with a larger intrinsic viewBox. */
+.varve-btn__content > svg {
+  inline-size: var(--varve-btn-icon-size, var(--component-default-icon-size));
+  block-size: var(--varve-btn-icon-size, var(--component-default-icon-size));
+  flex: 0 0 auto;
+}
+.varve-btn--xs,
+.varve-btn--icon-xs {
+  --varve-btn-icon-size: var(--icon-size-xs);
+}
+.varve-btn--sm,
+.varve-btn--icon-sm {
+  --varve-btn-icon-size: var(--icon-size-sm);
+}
+.varve-btn--md,
+.varve-btn--icon {
+  --varve-btn-icon-size: var(--component-default-icon-size);
+}
+.varve-btn--lg,
+.varve-btn--icon-lg {
+  --varve-btn-icon-size: var(--component-large-icon-size);
+}
 
 /* Compact controls stay visually compact on desktop while retaining the
  * larger target required on coarse-pointer devices. */
@@ -291,20 +348,20 @@
   }
 }
 
-.varve-btn:active:not(:disabled):not([aria-disabled="true"]):not(.varve-btn--danger) {
+.varve-btn:active:not(:disabled):not([aria-disabled="true"]):not(.varve-btn--destructive) {
   background: var(--color-interactive-pressed-surface);
 }
-.varve-btn--danger:active:not(:disabled):not([aria-disabled="true"]) {
+.varve-btn--destructive:active:not(:disabled):not([aria-disabled="true"]) {
   filter: brightness(0.88);
 }
 .varve-btn:disabled {
   cursor: default;
-  opacity: 0.5;
+  opacity: 0.6;
   pointer-events: none;
 }
 .varve-btn[aria-disabled="true"] {
   cursor: default;
-  opacity: 0.5;
+  opacity: 0.6;
 }
 .varve-btn__content {
   display: inline-flex;
@@ -322,6 +379,63 @@
 }
 .varve-btn--confirming .varve-btn__label {
   text-decoration: line-through;
+}
+
+/* Connected action groups own the shared border. Members stay square at the
+ * internal seams, while focus remains visible without clipping. */
+.varve-btn-group {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+}
+.varve-btn-group--vertical {
+  flex-direction: column;
+}
+.varve-btn-group > .varve-btn {
+  border-radius: var(--radius-none);
+}
+.varve-btn-group--horizontal > .varve-btn:first-child {
+  border-start-start-radius: var(--radius-control-compact);
+  border-end-start-radius: var(--radius-control-compact);
+}
+.varve-btn-group--horizontal > .varve-btn:last-child {
+  border-start-end-radius: var(--radius-control-compact);
+  border-end-end-radius: var(--radius-control-compact);
+}
+.varve-btn-group--vertical > .varve-btn:first-child {
+  border-start-start-radius: var(--radius-control-compact);
+  border-start-end-radius: var(--radius-control-compact);
+}
+.varve-btn-group--vertical > .varve-btn:last-child {
+  border-end-start-radius: var(--radius-control-compact);
+  border-end-end-radius: var(--radius-control-compact);
+}
+.varve-btn-group > .varve-btn + .varve-btn {
+  margin-inline-start: -1px;
+}
+.varve-btn-group--vertical > .varve-btn + .varve-btn {
+  margin-inline-start: 0;
+  margin-block-start: -1px;
+}
+.varve-btn-group > .varve-btn:focus-visible {
+  z-index: 1;
+}
+
+.varve-button-gallery {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 760px;
+  padding: var(--space-4);
+  background: var(--color-surface-app);
+  color: var(--color-text-primary);
+}
+.varve-button-gallery__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .varve-tooltip {
@@ -509,17 +623,34 @@
 .varve-menu {
   position: absolute;
   z-index: var(--z-overlay);
-  min-width: 12rem;
+  box-sizing: border-box;
+  width: var(--menu-compact-width);
+  min-width: min(var(--menu-compact-width), calc(100vw - (var(--menu-viewport-gutter) * 2)));
+  max-width: calc(100vw - (var(--menu-viewport-gutter) * 2));
   padding-block: var(--space-menu-item);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control);
-  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--elevation-shadow-overlay);
+  color: var(--color-text-primary);
+}
+.varve-menu--default {
+  width: var(--menu-default-width);
+}
+.varve-menu--rich {
+  width: var(--menu-rich-width);
+}
+.varve-menu--rich .varve-menu__item {
+  min-block-size: 44px;
+  white-space: normal;
+}
+.varve-menu--rich .varve-menu__item-description {
+  display: block;
 }
 .varve-menu__item {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
   min-block-size: var(--menu-item-min-height);
   box-sizing: border-box;
@@ -534,6 +665,9 @@
   cursor: pointer;
   text-align: left;
   white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
 }
 .varve-menu__item:hover {
   background: var(--color-interactive-hover-surface);
@@ -545,18 +679,32 @@
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
+.varve-menu__item--current {
+  background: var(--color-interactive-selected-surface);
+  color: var(--color-interactive-selected-foreground);
+}
 .varve-menu__item[aria-checked="true"] {
-  background: var(--color-interactive-checked-surface);
-  color: var(--color-text-on-accent);
+  background: var(--color-interactive-selected-surface);
+  color: var(--color-interactive-selected-foreground);
 }
 .varve-menu__item[aria-checked="true"]:hover {
   background: var(--color-interactive-selected-surface-hover);
   color: var(--color-interactive-selected-foreground);
 }
+.varve-menu__item--destructive {
+  color: var(--color-feedback-danger);
+}
+.varve-menu__item--destructive:hover,
+.varve-menu__item--destructive:focus-visible,
+.varve-menu__item--destructive.varve-menu__item--current {
+  background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
+  color: var(--color-feedback-danger);
+}
 .varve-menu__item:disabled,
 .varve-menu__item[aria-disabled="true"] {
   color: var(--color-text-muted);
   cursor: default;
+  pointer-events: none;
 }
 .varve-menu__sep {
   height: var(--separator-thickness);
@@ -566,19 +714,12 @@
   pointer-events: none;
 }
 .varve-menu__ellipsis {
-  margin-left: var(--space-4);
   color: inherit;
 }
 
 .varve-ctxmenu {
   position: static;
   z-index: auto;
-  min-width: 12rem;
-  padding-block: var(--space-menu-item);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control);
-  box-shadow: var(--shadow-lg);
 }
 
 .varve-menu__item-wrapper {
@@ -590,27 +731,79 @@
   left: 100%;
   top: 0;
   z-index: var(--z-overlay);
-  min-width: 12rem;
-  padding-block: var(--space-menu-item);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control);
-  box-shadow: var(--shadow-lg);
+  min-width: var(--menu-compact-width);
 }
 
+.varve-menu__leading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 2.5rem;
+}
 .varve-menu__indicator {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.2em;
-  margin-right: var(--space-2);
+  min-width: 1.2em;
   text-align: center;
   font-size: var(--font-size-sm);
 }
+.varve-menu__radio {
+  display: block;
+  width: 0.65em;
+  height: 0.65em;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+.varve-menu__radio.is-checked {
+  background: currentColor;
+  box-shadow: inset 0 0 0 2px var(--color-surface-raised);
+}
+.varve-menu__item-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.varve-menu__item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.varve-menu__item-description {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--font-line-tight);
+  white-space: normal;
+}
+.varve-menu__trailing {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 2.5rem;
+  margin-left: var(--space-3);
+}
+.varve-menu__shortcut {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
 
 .varve-menu__submenu-arrow {
-  margin-left: var(--space-4);
-  color: inherit;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-md);
+  line-height: 1;
+}
+
+.varve-menu__label {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  line-height: var(--font-line-control);
+  text-transform: uppercase;
 }
 
 .varve-menu__badge {
@@ -627,6 +820,12 @@
   border-radius: var(--radius-pill);
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .varve-menu__item {
+    transition: none;
+  }
 }
 
 .varve-search {
@@ -1844,6 +2043,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .varve-btn,
+  .varve-btn__content > svg {
+    transition: none;
+  }
   .varve-toast {
     animation: none;
     opacity: 1;
@@ -2427,14 +2630,14 @@
 /* Coarse pointers do not have a stable hover state. Keep persistent state
  * styling, but do not leave a temporary hover tint behind after tapping. */
 @media (hover: none), (pointer: coarse) {
-  .varve-btn--primary:hover:not(:active):not(:disabled),
-  .varve-btn--pill:hover:not(:active):not(:disabled) {
+  .varve-btn--default:hover:not(:active):not(:disabled) {
     background: var(--color-interactive-default);
   }
 
   .varve-btn--secondary:hover:not(:active):not(:disabled),
+  .varve-btn--outline:hover:not(:active):not(:disabled),
   .varve-btn--ghost:hover:not(:active):not(:disabled),
-  .varve-btn--pill-outline:hover:not(:active):not(:disabled) {
+  .varve-btn--toolbar:hover:not(:active):not(:disabled) {
     background: transparent;
     color: var(--color-text-primary);
     border-color: var(--color-border-strong);

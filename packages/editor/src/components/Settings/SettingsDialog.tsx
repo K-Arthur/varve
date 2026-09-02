@@ -659,7 +659,7 @@ function UpdatesSection() {
         <>
           {state.update.notes && <p className="settings-release-notes">{state.update.notes}</p>}
           <div className="settings-dialog__footer">
-            <Button variant="primary" size="sm" onClick={() => void updates.download()}>
+            <Button variant="default" size="sm" onClick={() => void updates.download()}>
               Download {state.update.version}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => updates.defer()}>
@@ -692,7 +692,7 @@ function UpdatesSection() {
             Version {state.update.version} is downloaded and cryptographically verified. Varve will
             save or ask about unsaved documents before restarting.
           </p>
-          <Button variant="primary" size="sm" onClick={() => void updates.installAndRestart()}>
+          <Button variant="default" size="sm" onClick={() => void updates.installAndRestart()}>
             Install and Restart
           </Button>
         </div>

@@ -251,7 +251,7 @@ export function SpotlightOverlay({
                 Prev
               </Button>
             )}
-            <Button variant="primary" size="sm" onClick={onNext}>
+            <Button variant="default" size="sm" onClick={onNext}>
               {isLast ? 'Done' : 'Next'}
             </Button>
           </div>

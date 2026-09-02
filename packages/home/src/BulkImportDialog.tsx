@@ -261,7 +261,7 @@ export function BulkImportDialog({
                 Cancel
               </Button>
               <Button
-                variant="primary"
+                variant="default"
                 disabled={!hasFiles || queuedCount === 0}
                 onClick={handleImport}
               >
@@ -322,7 +322,7 @@ export function BulkImportDialog({
               ))}
             </div>
             <div className="bulk-import__footer">
-              <Button variant="primary" onClick={handleClose}>
+              <Button variant="default" onClick={handleClose}>
                 Done
               </Button>
             </div>

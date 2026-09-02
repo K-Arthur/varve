@@ -108,7 +108,7 @@ export function BrushEditor({ preset, onSave, onClose, makeId }: BrushEditorProp
           Save As
         </Button>
         <Button
-          variant="primary"
+          variant="default"
           onClick={() => {
             onSave(draft);
             setState(commitDraft);

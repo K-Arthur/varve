@@ -124,7 +124,7 @@ export function GradientMapPresetBrowser({
               `Delete preset "${displayName(context.preset)}"?`,
               {
                 confirmLabel: 'Delete',
-                variant: 'danger',
+                variant: 'destructive',
               },
             )
           )

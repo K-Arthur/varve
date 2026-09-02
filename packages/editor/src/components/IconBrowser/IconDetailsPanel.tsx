@@ -191,7 +191,7 @@ export function IconDetailsPanel({
         )}
 
         <div className="icon-details__actions">
-          <Button variant="primary" size="sm" onClick={onInsert} disabled={isAcquiring || !svg}>
+          <Button variant="default" size="sm" onClick={onInsert} disabled={isAcquiring || !svg}>
             {isAcquiring ? 'Loading…' : 'Insert'}
           </Button>
           <Button

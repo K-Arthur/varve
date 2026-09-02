@@ -488,7 +488,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             <div className="insp-actions">
               <Button
                 type="button"
-                variant="primary"
+                variant="default"
                 size="sm"
                 onClick={() => handleDownload()}
                 aria-label="Download AI model for background removal"
@@ -620,7 +620,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             ) : (
               <Button
                 type="button"
-                variant="primary"
+                variant="default"
                 size="sm"
                 onClick={() => void handleApply()}
                 aria-label={
@@ -703,7 +703,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 <div className="insp-actions">
                   <Button
                     type="button"
-                    variant="primary"
+                    variant="default"
                     size="sm"
                     onClick={applyBackgroundRemovalPreview}
                   >
@@ -850,7 +850,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               <output htmlFor="bg-refine-hardness">{Math.round(hardness * 100)}%</output>
             </FieldRow>
             <div className="insp-actions">
-              <Button type="button" variant="primary" size="sm" onClick={handleDoneMaskEditing}>
+              <Button type="button" variant="default" size="sm" onClick={handleDoneMaskEditing}>
                 Done
               </Button>
             </div>
@@ -889,7 +889,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               />
             </FieldRow>
             <div className="insp-actions">
-              <Button type="button" variant="primary" size="sm" onClick={handleApplyTrimap}>
+              <Button type="button" variant="default" size="sm" onClick={handleApplyTrimap}>
                 Apply trimap matting
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => setTool('select')}>

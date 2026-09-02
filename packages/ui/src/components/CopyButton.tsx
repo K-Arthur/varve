@@ -10,53 +10,121 @@
  * clipboard accessibility testing with NVDA/JAWS.
  */
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { Icon } from '../icons/Icon';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ButtonSize, ButtonVariant } from './Button';
+import { IconButton } from './IconButton';
 
 export interface CopyButtonProps {
   value: string;
   label: string;
   className?: string;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  disabled?: boolean;
 }
 
-export function CopyButton({ value, label, className }: CopyButtonProps) {
-  const [copied, setCopied] = useState(false);
+type CopyState = 'idle' | 'copied' | 'error';
+
+export function CopyButton({
+  value,
+  label,
+  className,
+  variant = 'ghost',
+  size = 'icon-sm',
+  disabled = false,
+}: CopyButtonProps) {
+  const [state, setState] = useState<CopyState>('idle');
+  const [copying, setCopying] = useState(false);
   const [announce, setAnnounce] = useState('');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const liveId = useId();
+  const operationRef = useRef(0);
+  const copyingRef = useRef(false);
+  const copyKey = `${value}\u0000${label}`;
+  const previousCopyKeyRef = useRef(copyKey);
 
   useEffect(() => {
     return () => {
       if (timerRef.current !== null) clearTimeout(timerRef.current);
+      operationRef.current += 1;
     };
   }, []);
 
+  // A prop change means an earlier clipboard completion no longer describes
+  // the current value. Invalidate it before resetting the visible state.
+  useEffect(() => {
+    if (previousCopyKeyRef.current === copyKey) return;
+    previousCopyKeyRef.current = copyKey;
+    operationRef.current += 1;
+    copyingRef.current = false;
+    setCopying(false);
+    setState('idle');
+    setAnnounce('');
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, [copyKey]);
+
   const copy = useCallback(async () => {
+    if (copyingRef.current || disabled) return;
+    copyingRef.current = true;
+    setCopying(true);
+    const operation = operationRef.current + 1;
+    operationRef.current = operation;
+
     try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
       await navigator.clipboard.writeText(value);
-      setCopied(true);
+      if (operationRef.current !== operation) return;
+      setState('copied');
       setAnnounce(`Copied ${label}`);
       if (timerRef.current !== null) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
-        setCopied(false);
+        if (operationRef.current !== operation) return;
+        setState('idle');
         setAnnounce('');
         timerRef.current = null;
       }, 2000);
     } catch {
+      if (operationRef.current !== operation) return;
+      setState('error');
       setAnnounce('Failed to copy to clipboard');
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        if (operationRef.current !== operation) return;
+        setState('idle');
+        setAnnounce('');
+        timerRef.current = null;
+      }, 3000);
+    } finally {
+      if (operationRef.current === operation) {
+        copyingRef.current = false;
+        setCopying(false);
+      }
     }
-  }, [value, label]);
+  }, [disabled, label, value]);
 
   return (
     <>
-      <button type="button" className={className} aria-label={`Copy ${label}`} onClick={copy}>
-        {copied ? (
-          <Icon name="Check" label={undefined} size="0.95em" />
-        ) : (
-          <Icon name="Copy" label={undefined} size="0.95em" />
-        )}
-      </button>
-      <span id={liveId} role="status" aria-live="polite" className="varve-visually-hidden">
+      <IconButton
+        icon={state === 'copied' ? 'Check' : 'Copy'}
+        label={`Copy ${label}`}
+        aria-label={
+          state === 'copied'
+            ? `Copied ${label}`
+            : state === 'error'
+              ? `Copy failed for ${label}`
+              : undefined
+        }
+        variant={variant}
+        size={size}
+        className={className}
+        disabled={disabled}
+        loading={copying}
+        loadingLabel={`Copying ${label}`}
+        onClick={() => void copy()}
+      />
+      <span role="status" aria-live="polite" className="varve-visually-hidden">
         {announce}
       </span>
     </>

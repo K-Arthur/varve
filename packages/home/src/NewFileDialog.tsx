@@ -370,7 +370,7 @@ export function NewFileDialog({
                 aria-label="Preset name"
                 autoFocus
               />
-              <Button variant="primary" size="sm" onClick={handleConfirmSaveCustomPreset}>
+              <Button variant="default" size="sm" onClick={handleConfirmSaveCustomPreset}>
                 Save
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setSavingPresetName(null)}>
@@ -383,7 +383,7 @@ export function NewFileDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleCreate} data-testid="create-file-button">
+          <Button variant="default" onClick={handleCreate} data-testid="create-file-button">
             Create
           </Button>
         </div>
