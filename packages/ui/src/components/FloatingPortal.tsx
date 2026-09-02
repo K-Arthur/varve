@@ -415,6 +415,14 @@ export function FloatingPortal({
             left: result.x,
             top: result.y,
             boxSizing: 'border-box',
+            // The size middleware writes collision constraints directly to
+            // the floating node before this position update resolves. Keep
+            // those values in React's controlled style object as well;
+            // otherwise React removes max-height/overflow on the next render
+            // and tall context menus can extend below the viewport.
+            maxWidth: floating.style.maxWidth || undefined,
+            maxHeight: floating.style.maxHeight || undefined,
+            overflowY: floating.style.overflowY || undefined,
             visibility: hiddenByReference ? 'hidden' : 'visible',
             pointerEvents: hiddenByReference ? 'none' : 'auto',
             zIndex,
