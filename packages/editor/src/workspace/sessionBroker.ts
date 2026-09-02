@@ -28,7 +28,12 @@ const MAX_DOCUMENT_JSON_LENGTH = 64 * 1024 * 1024;
 const MAX_SELECTION_ITEMS = 50_000;
 const MAX_TRANSFER_SNAPSHOT_BYTES = 64 * 1024;
 const MAX_DOCUMENT_REVISION = Number.MAX_SAFE_INTEGER - 1;
-const DEFAULT_HOST_READY_TIMEOUT_MS = 10_000;
+// An auxiliary route mounts a second editor-coupled React graph. Ten seconds
+// is routinely shorter than a cold Vite/WebKit transform on development and
+// lower-powered machines, which made a healthy popup roll back as if it had
+// crashed. Keep the existing bounded ceiling as the default; callers can
+// still request a shorter timeout for controlled environments.
+const DEFAULT_HOST_READY_TIMEOUT_MS = 30_000;
 const MIN_HOST_READY_TIMEOUT_MS = 250;
 const MAX_HOST_READY_TIMEOUT_MS = 30_000;
 
