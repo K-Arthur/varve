@@ -6,7 +6,7 @@ resource installation, preprocessing, and the one genuinely remote upload
 path. It is the inventory and semantic contract for the shared ingestion UI;
 it does not replace format-specific parser validation.
 
-## Findings
+## Findings at audit start
 
 Varve does not use `react-dropzone`, `FileUpload`, or `useDropzone`. The
 current system is a mix of native hidden inputs, bespoke HTML5 handlers, and
@@ -73,9 +73,33 @@ show metadata. Existing data URLs in image fills and reference images are
 intentional persisted/embedded values; generated object URLs elsewhere must be
 revoked by their owning component.
 
-## Planned implementation boundary
+## Implementation outcome
 
-The design-system layer will provide small composable primitives:
+The shared acquisition layer is now implemented in `@varve/ui` and
+`@varve/shared`, with focused migrations in Home and editor resource surfaces.
+The batch and asset-library flows now preserve order, allow partial success,
+show per-file status, and report early rejections. Native document JSON is
+validated before it is persisted; malformed input no longer creates a blank
+placeholder. Archive restore, icon packs, reference images, brushes, LUTs,
+palettes, token sources, and avatars retain their feature-owned parsers while
+using the shared browse/error contract where safe.
+
+The real-browser validation also found and fixed a cross-surface bug: a file
+drop in the Asset Browser bubbled into HomeShell's global drop handler and
+created duplicate assets. `FileDropZone` now claims external file events, and
+the regression is covered by a component test and
+`tests/e2e/home/file-ingestion.spec.ts`.
+
+The remaining native inputs are intentional specialized boundaries: File-menu
+Open and Import retain stable IDs and controller refs for document tabs,
+parser progress, and native path handling; CanvasArea retains world-space
+placement and frame targeting; image/pattern fills retain remount-safe change
+listeners and persist data URLs as scene content; the shortcut palette imports
+a JSON keymap into its own manager. None of these are generic upload surfaces.
+
+## Implemented architecture boundary
+
+The design-system layer provides small composable primitives:
 
 - `FilePickerButton` — labeled browse fallback and reset-safe file input;
 - `FileDropZone` — drag enter/leave/drop state, accepted/rejected/disabled
