@@ -222,6 +222,12 @@ looser tolerances, removed assertions, or mocks of the behavior under test.
   check passed. The header discovery metadata, mobile breakpoint, touch targets,
   page schema, comparison copy, and `/llms.txt` surface remain documented in
   `docs/marketing/positioning-and-discovery.md` and `docs/release/website.md`.
+- The existing marketing visual corpus remains **5/16 passing and 11/16
+  mismatched**. The failures are page-height/content drift (for example,
+  homepage light is 5,634px versus a 5,622px baseline; product light/dark are
+  5,569px versus 5,365px), so those snapshots were not silently regenerated.
+  A content-owner review is required before accepting that broader visual
+  change; the focused reflow and touch-target assertions remain green.
 
 Test-weakening disclosure: **none**. Selector corrections preserve the tested
 behavior and make queries match the current accessible roles; visual baseline
