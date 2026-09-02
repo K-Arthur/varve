@@ -6,6 +6,12 @@ domain, registered and DNS at Porkbun, hosted on GitHub Pages). The current
 published release is v0.2.1. See `custom-domain-runbook.md` for the DNS
 records, GitHub configuration and rollback.
 
+The current public-message and discovery contract is maintained separately in
+[`docs/marketing/positioning-and-discovery.md`](../marketing/positioning-and-discovery.md).
+Update that brief when a core product fact, audience priority, search intent,
+or public claim changes; keep this document focused on website architecture and
+release-data flow.
+
 ---
 
 ## 1. What already existed

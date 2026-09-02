@@ -28,6 +28,7 @@ Current interface typography and component sizing contracts are documented in
 | [development/contributing.md](development/contributing.md) | Current contribution status, ways to help now, project map, validation, and future PR workflow |
 | [CHANGELOG.md](../CHANGELOG.md) (root) | Release notes — source for `release-notes.mjs` |
 | [brand/github-repository-presence.md](brand/github-repository-presence.md) | Canonical GitHub metadata, social preview, and public-content maintenance |
+| [marketing/positioning-and-discovery.md](marketing/positioning-and-discovery.md) | Current positioning, audience/search intent, claim register, and SEO/GEO/AEO contract |
 
 ## Architecture Decision Records
 
