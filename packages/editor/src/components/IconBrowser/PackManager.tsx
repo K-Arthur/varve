@@ -314,7 +314,7 @@ export function IconPackManager({
             multiple
             actionLabel="Import SVG"
             inputLabel="Import SVG files"
-            icon="Upload"
+            icon="FileImage"
             onFiles={(files) => void importCustomSvgs(files)}
             onReject={(rejections) =>
               setNotice(
@@ -362,7 +362,7 @@ export function IconPackManager({
               offline use. Licences: Apache-2.0 and ISC.
             </p>
             <Button
-              variant={starterState === 'done' ? 'secondary' : 'primary'}
+              variant={starterState === 'done' ? 'secondary' : 'default'}
               size="sm"
               onClick={() => void installStarterPack()}
               disabled={starterState === 'installing'}

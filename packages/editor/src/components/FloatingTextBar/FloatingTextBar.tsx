@@ -42,7 +42,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
   }, [node, onUpdate]);
 
   const handleAlignChange = useCallback(
-    (v: 'left' | 'center' | 'right') => {
+    (v: 'left' | 'center' | 'right' | 'justify') => {
       onUpdate(node.id, { textAlign: v });
     },
     [node, onUpdate],
@@ -151,6 +151,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
             { value: 'left', label: 'Left', icon: 'TextAlignStart' },
             { value: 'center', label: 'Center', icon: 'TextAlignCenter' },
             { value: 'right', label: 'Right', icon: 'TextAlignEnd' },
+            { value: 'justify', label: 'Justify', icon: 'TextAlignJustify' },
           ]}
           onChange={handleAlignChange}
         />
