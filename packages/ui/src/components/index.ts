@@ -6,6 +6,8 @@
 
 export type { ButtonProps, ButtonSize, ButtonVariant } from './Button';
 export { Button } from './Button';
+export type { ButtonGroupProps } from './ButtonGroup';
+export { ButtonGroup } from './ButtonGroup';
 export type { CheckboxProps } from './Checkbox';
 export { Checkbox } from './Checkbox';
 export type {
@@ -40,6 +42,14 @@ export type { AlertDialogProps, DialogProps } from './Dialog';
 export { AlertDialog, Dialog } from './Dialog';
 export type { EmptyStateProps } from './EmptyState';
 export { EmptyState } from './EmptyState';
+export type { FileDropZoneProps } from './FileDropZone';
+export { FileDropZone } from './FileDropZone';
+export type { FileErrorProps } from './FileError';
+export { FileError } from './FileError';
+export type { FilePickerButtonProps } from './FilePickerButton';
+export { FilePickerButton } from './FilePickerButton';
+export type { FileQueueItem, FileQueueProps, FileQueueStatus } from './FileQueue';
+export { FileQueue } from './FileQueue';
 export type { FloatingPortalProps, FloatingPositionResult } from './FloatingPortal';
 export { FloatingPortal } from './FloatingPortal';
 export type { FocusTrapProps } from './FocusTrap';
@@ -57,8 +67,10 @@ export type {
   MenuItem,
   MenuItemCheckbox,
   MenuItemRadio,
+  MenuLabel,
   MenuProps,
   MenuSeparator,
+  MenuSize,
   SubmenuItem,
 } from './Menu';
 export { ContextMenu, Menu, MenuButton, useContextMenu } from './Menu';

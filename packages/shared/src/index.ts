@@ -324,6 +324,19 @@ export {
   METADATA_POLICY_KINDS,
   resolveMetadataFieldDecision,
 } from './exportContracts';
+export type {
+  FileRejection,
+  FileRejectionCode,
+  FileSelectionOptions,
+  FileSelectionResult,
+  IngestFileLike,
+} from './fileIngestion';
+export {
+  fileExtension,
+  fileMatchesAccept,
+  formatFileSize,
+  validateFileSelection,
+} from './fileIngestion';
 export type { PathPoint, SpatialTangents } from './interpolation';
 export {
   ensureVertexMatch,
