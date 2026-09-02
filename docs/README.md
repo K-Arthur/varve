@@ -217,6 +217,7 @@ Current interface typography and component sizing contracts are documented in
 | `architecture/text-on-path.md` | Text-on-path data, rendering, editing, export, and fidelity limits |
 | `architecture/loading-system.md` | Loading experience system |
 | `architecture/shine-border-system.md` | Restrained decorative emphasis contract, semantic allowlist, fallbacks, and production ceiling |
+| `architecture/button-action-system.md` | Semantic button taxonomy, canonical action variants, state behavior, and validation contract |
 | `architecture/workspace-system.md` | Workspace mode contract, resolution, and persistence |
 | `architecture/overlay-system.md` | Shared floating geometry, owner-document, overlay-tree, dismissal, and focus contracts |
 | `architecture/lifecycle-system.md` | Quit/close/exit lifecycle and shutdown architecture |

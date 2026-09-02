@@ -36,6 +36,15 @@ Website E2E covers axe-core, keyboard navigation, narrow-width overflow, and
 visual snapshots; mobile viewport runs are browser emulation and do not replace
 physical iOS/Android or screen-reader certification.
 
+## Button and CTA contract
+
+Shared Astro actions use `src/components/Button.astro` and the semantic
+`.btn-default`, `.btn-secondary`, `.btn-outline`, `.btn-ghost`, `.btn-link`,
+and `.btn-destructive` classes. The names mirror the product action contract
+documented in `docs/architecture/button-action-system.md`; `btn-pill` and
+`btn-pill-outline` are reserved for explicit marketing treatments. Buttons
+default to `type="button"`, and all action transitions honor reduced motion.
+
 ## Structure
 
 | Path | Purpose |

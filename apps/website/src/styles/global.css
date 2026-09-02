@@ -227,7 +227,7 @@
     color: inherit;
   }
 
-  .btn-primary {
+  .btn-default {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -249,19 +249,19 @@
       box-shadow var(--duration-fast) var(--ease-default);
   }
 
-  .btn-primary:visited {
+  .btn-default:visited {
     color: var(--text-on-accent);
   }
 
-  .btn-primary:hover,
-  .btn-primary:visited:hover {
+  .btn-default:hover,
+  .btn-default:visited:hover {
     background: var(--accent-primary-hover);
     color: var(--text-on-accent);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
   }
 
-  .btn-primary:active {
+  .btn-default:active {
     transform: translateY(0);
     box-shadow: none;
   }
@@ -297,6 +297,129 @@
     border-color: var(--border-interactive);
     color: var(--text-link);
     transform: translateY(-1px);
+  }
+
+  /* Canonical product-aligned variants. Pills below are intentionally kept as
+     marketing-only treatments for badges and campaign CTAs. */
+  .btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-icon-label);
+    padding: var(--space-3) var(--space-5);
+    background: transparent;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--website-radius-control);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .btn-outline:visited {
+    color: var(--text-primary);
+  }
+
+  .btn-outline:hover,
+  .btn-outline:visited:hover {
+    background: var(--surface-muted);
+    border-color: var(--border-interactive);
+    color: var(--text-link);
+  }
+
+  .btn-ghost {
+    padding: var(--space-2) var(--space-3);
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+  }
+
+  .btn-ghost:hover,
+  .btn-ghost:visited:hover {
+    background: var(--surface-muted);
+    color: var(--text-primary);
+  }
+
+  .btn-link {
+    padding: var(--space-1) 0;
+    background: transparent;
+    color: var(--text-link);
+    border: 0;
+    border-radius: 0;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .btn-link:hover,
+  .btn-link:visited:hover {
+    color: var(--text-link-hover);
+    transform: none;
+  }
+
+  .btn-destructive {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-icon-label);
+    padding: var(--space-3) var(--space-5);
+    background: var(--text-danger);
+    color: var(--text-on-accent);
+    font-weight: 600;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    border: 1px solid transparent;
+    border-radius: var(--website-radius-control);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .btn-destructive:visited {
+    color: var(--text-on-accent);
+  }
+
+  .btn-destructive:hover,
+  .btn-destructive:visited:hover {
+    background: var(--color-feedback-danger);
+    color: var(--text-on-accent);
+    transform: translateY(-1px);
+  }
+
+  .btn-xs,
+  .btn-sm,
+  .btn-md,
+  .btn-lg {
+    min-block-size: var(--component-default-height);
+  }
+
+  .btn-xs {
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-xs);
+  }
+
+  .btn-sm {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+  }
+
+  .btn-md {
+    padding: var(--space-3) var(--space-5);
+  }
+
+  .btn-lg {
+    min-block-size: var(--component-large-height);
+    padding: var(--space-3) var(--space-6);
+    font-size: var(--font-size-md);
+  }
+
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 
   .btn-pill {
@@ -354,6 +477,26 @@
     background: var(--surface-muted);
     border-color: var(--border-interactive);
     color: var(--text-link);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn,
+    .btn-default,
+    .btn-secondary,
+    .btn-outline,
+    .btn-ghost,
+    .btn-link,
+    .btn-destructive,
+    .btn-pill,
+    .btn-pill-outline {
+      transition: none;
+    }
+
+    .btn-default:hover,
+    .btn-secondary:hover,
+    .btn-destructive:hover {
+      transform: none;
+    }
   }
 
   /* Bento grid components */

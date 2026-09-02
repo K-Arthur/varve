@@ -40,7 +40,7 @@ test.describe('corner radius system', () => {
           return element ? getComputedStyle(element).borderRadius : null;
         };
         return {
-          primaryButton: read('.hero .btn-primary'),
+          primaryButton: read('.hero .btn-default'),
           navDownload: read('.nav-download-cta'),
           navTry: read('.nav-try-cta'),
         };
