@@ -147,6 +147,10 @@ Final validation record:
   playwright test apps/website/tests/e2e/visual.spec.ts
   --config=playwright.website.config.ts --project=ghpages --workers=1
   --reporter=list` passed the current 16-case corpus with no snapshot updates.
+- `pnpm test:website` passed all 169 website unit tests, and the current
+  navigation E2E passed all 10 Chromium cases, including grouped desktop
+  menus, mobile-menu focus return, base-path links, overflow, and skip-link
+  behavior.
 - The existing narrow-toolbar visual test did not reach its screenshot because
   its shared navigation helper waits for the Layers panel to be visible at
   640px, while the responsive shell intentionally keeps that drawer collapsed;
