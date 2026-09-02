@@ -5,7 +5,7 @@ import { sitePath } from '../../lib/siteUrl';
 
 <Layout
   title="Workspaces — Varve Docs"
-  description="Varve's eight task-focused workspaces: Design, Print, Draw, Photo, Motion, Logo, Codegen, and Email — one document, one history, one canvas."
+  description="Varve's eight task-focused workspaces, with detachable desktop panel windows — one document, one history, one canvas."
 >
   <div class="container-custom">
     <div class="docs-page">
@@ -75,6 +75,23 @@ import { sitePath } from '../../lib/siteUrl';
           <strong>Show All Panels</strong> (View menu) recovers an accidentally hidden layout.
           Reset returns the current mode to its built-in layout; Reset All asks before clearing
           every workspace's customizations.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Detached Panel Windows</h2>
+        <p>
+          Desktop builds can detach <strong>Layers, Inspector, Assets, Code,</strong>{' '}and{' '}
+          <strong>Logo</strong> into individual auxiliary windows. Use a panel's detach button,
+          header context menu, or supported header drag gesture. The panel remains connected to
+          the same document, selection, and undo history; its window also provides a reattach
+          command.
+        </p>
+        <p>
+          Detachment is transactional: the docked panel stays visible until the auxiliary host is
+          ready, and a failed or timed-out transfer rolls back to the primary window. Browser
+          builds use a popup when permitted by the browser; single-window browsers leave the panel
+          docked. Pages, Timeline, and History are not currently advertised as detachable.
         </p>
       </section>
 
