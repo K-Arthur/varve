@@ -71,6 +71,10 @@ export function prepareImageMaskMapper(
       x: image.x,
       y: image.y,
       scale: image.scale,
+      sourceCrop: image.crop,
+      rotation: image.rotation,
+      flipH: image.flipH,
+      flipV: image.flipV,
     });
   if (!placement) return null;
 

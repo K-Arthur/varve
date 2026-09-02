@@ -40,10 +40,12 @@ import type { MediaState } from '../state/media-state';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
+import type { ObjectSelectionSession } from './objectSelectionTypes';
 import type { SelectionMode, SelectionOrigin } from './selectionState';
 import type { TableEditState } from './tableEditState';
 
 export { createCopyEffectStackToNodes } from './effectStackTransfer';
+export type { ObjectSelectionSession } from './objectSelectionTypes';
 export * from './selectionState';
 export type { TableEditState } from './tableEditState';
 export type { MaskPreviewMode, ToolId };
@@ -159,24 +161,6 @@ export interface BackgroundRemovalPreviewSession {
   modelPrecision?: 'fp32' | 'int8';
   precisionFallback?: boolean;
   precisionFallbackReason?: string;
-}
-
-/** Transient Object Selection state. Never serialized or added to history. */
-export interface ObjectSelectionSession {
-  nodeId: NodeId;
-  width: number;
-  height: number;
-  candidates: Array<{
-    mask: Uint8Array;
-    confidence: number;
-  }>;
-  selectedCandidate: number;
-  points: Array<{ x: number; y: number; label: 0 | 1 }>;
-  box: { x1: number; y1: number; x2: number; y2: number } | null;
-  confidence: number;
-  status: 'previewing' | 'ready' | 'error';
-  modelId: string;
-  executionProvider?: string;
 }
 
 export type CanvasMode = 'full' | 'outline' | 'preview';
@@ -837,8 +821,11 @@ export interface EditorContextValue {
     target: string,
     binding: import('@varve/scene').PropertyBinding | null,
   ) => void;
-  /** Trim image bounds to the non-transparent alpha region of a background-removal mask. */
-  trimToSubject: (padding?: number) => Promise<void>;
+  /** Trim image bounds to visible content or explicit detected bounds. */
+  trimToSubject: (
+    padding?: number,
+    options?: import('../imageCrop').TrimToSubjectOptions,
+  ) => Promise<void>;
   /** Position the crop window to keep detected faces in frame. Returns true
    * when a face-aware crop was applied. */
   applyFaceAwareCrop: (options?: {

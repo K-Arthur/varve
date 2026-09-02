@@ -910,6 +910,7 @@ export function CanvasArea({
     accentColorRef,
     sunkenColorRef,
     draft,
+    objectSelectionSession: state.objectSelectionSession,
     areaSelection: state.areaSelection ?? null,
     dropTargetFrameId,
     maskDropTargetId,

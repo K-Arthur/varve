@@ -28,14 +28,30 @@ test.describe('Object Selection workflow', () => {
     });
 
     await inspector.getByRole('button', { name: 'Select Object' }).click();
-    await expect(page.getByRole('button', { name: 'Select Subject' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    await expect(
+      page.getByTestId('toolbar').getByRole('button', { name: 'Object Selection' }),
+    ).toHaveAttribute('aria-pressed', 'true');
 
     const canvas = page.getByTestId('editor-canvas');
     const bounds = await canvas.boundingBox();
     expect(bounds).not.toBeNull();
+
+    // Exercise the real pointer path before inference. The draft box must be
+    // visible immediately even on a clean install without SAM2 model files.
+    await page.mouse.move(bounds!.x + bounds!.width * 0.3, bounds!.y + bounds!.height * 0.3);
+    await page.mouse.down();
+    await page.mouse.move(bounds!.x + bounds!.width * 0.7, bounds!.y + bounds!.height * 0.7);
+    await page.mouse.up();
+    await expect(inspector.getByRole('button', { name: 'Clear prompts' })).toBeVisible();
+    await testInfo.attach('object-selection-draft-box', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+    await page
+      .locator('.editor-canvas')
+      .screenshot({ path: testInfo.outputPath('object-selection-draft-box.png') });
+    await inspector.getByRole('button', { name: 'Clear prompts' }).click();
+
     await page.mouse.click(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
 
     // A clean install has no model files yet. The interaction should surface

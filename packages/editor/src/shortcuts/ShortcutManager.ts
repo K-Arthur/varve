@@ -285,7 +285,7 @@ export const SHORTCUT_DEFS = {
   toolScale: { binding: { key: 's' }, label: 'Scale tool', category: 'Tools' },
   toolSlice: { binding: { key: 'k' }, label: 'Slice tool', category: 'Tools' },
   toolCloneStamp: { binding: { key: 'j' }, label: 'Clone Stamp tool', category: 'Tools' },
-  toolSam2Segment: { binding: { key: 'm' }, label: 'Select Subject tool', category: 'Tools' },
+  toolSam2Segment: { binding: { key: 'm' }, label: 'Object Selection tool', category: 'Tools' },
   toolPage: { binding: { key: 'q' }, label: 'Page tool', category: 'Tools' },
   linkTextFrames: {
     binding: { key: 'k', ctrl: true, shift: true },

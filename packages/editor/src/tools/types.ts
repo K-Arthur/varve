@@ -13,6 +13,7 @@
 import type { AreaSelection, AreaSelectionSettings, Engine, PathPoint } from '@varve/engine';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
 import type { Camera } from '@varve/shared';
+import type { ObjectSelectionSession } from '../context/objectSelectionTypes';
 import type { TableEditState } from '../context/tableEditState';
 import type { HitTestPolicyName } from '../hitTest/policyTypes';
 import type { NormalizedInputEvent } from './inputNormalizer';
@@ -336,6 +337,9 @@ export interface ToolContext {
   createRasterLayer: (width: number, height: number, parentId?: NodeId | null) => string | null;
 
   /** SAM2 interactive segmentation */
+  objectSelectionSession?: ObjectSelectionSession | null;
+  /** Patch transient editor state without creating a document/history entry. */
+  patchEditorState?: (patch: { objectSelectionSession?: ObjectSelectionSession | null }) => void;
   applySam2Segmentation?: (params: {
     nodeId: string;
     prompts: {
@@ -344,6 +348,7 @@ export interface ToolContext {
     };
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection' | 'layer';
+    candidateIndex?: number;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation?: () => void;
 }
