@@ -417,87 +417,91 @@ export function FloatingToolbar() {
     <>
       <div ref={rootRef} className="floating-toolbar" data-testid="toolbar">
         <TooltipProvider>
-          <Toolbar label="Drawing tools">
-            {state.tool === 'table' && (
-              <button
-                type="button"
-                className="floating-toolbar__btn floating-toolbar__btn--group-start"
-                aria-label="Table from data"
-                title="Create a table from pasted spreadsheet data"
-                data-tool="tableFromData"
-                onClick={() => openCreateTableFromDataDialog?.()}
-              >
-                <Icon name="FileSpreadsheet" size={16} />
-              </button>
-            )}
-            {collapsedGroups.length > 0 && (
-              <MoreToolsButton
-                expanded={isMoreToolsOpen}
-                onToggle={(element) =>
-                  setOpenMenu((prev) =>
-                    prev?.id === RESPONSIVE_MORE_ID
-                      ? null
-                      : { id: RESPONSIVE_MORE_ID, anchor: elementAnchor(element) },
-                  )
-                }
-              />
-            )}
-            {visibleGroups.map((group) =>
-              group.slots.map((slot) => (
-                <ToolbarSlotView
-                  key={slot.kind === 'tool' ? slot.toolId : slot.id}
-                  slot={slot}
-                  activeTool={state.tool as ToolId}
-                  canBoolean={canBoolean}
-                  onActivate={activate}
-                  onToggleMenu={(id, element) =>
+          <div className="floating-toolbar__row">
+            <Toolbar label="Drawing tools">
+              {state.tool === 'table' && (
+                <button
+                  type="button"
+                  className="floating-toolbar__btn floating-toolbar__btn--group-start"
+                  aria-label="Table from data"
+                  title="Create a table from pasted spreadsheet data"
+                  data-tool="tableFromData"
+                  onClick={() => openCreateTableFromDataDialog?.()}
+                >
+                  <Icon name="FileSpreadsheet" size={16} />
+                </button>
+              )}
+              {collapsedGroups.length > 0 && (
+                <MoreToolsButton
+                  expanded={isMoreToolsOpen}
+                  onToggle={(element) =>
                     setOpenMenu((prev) =>
-                      prev?.id === id ? null : { id, anchor: elementAnchor(element) },
+                      prev?.id === RESPONSIVE_MORE_ID
+                        ? null
+                        : { id: RESPONSIVE_MORE_ID, anchor: elementAnchor(element) },
                     )
                   }
                 />
-              )),
-            )}
-            <ToolOptionsPopover />
-            <Tooltip
-              label={
-                state.touchMultiSelect.active
-                  ? 'Multi-select active (tap to toggle)'
-                  : 'Touch multi-select'
-              }
-            >
-              <button
-                type="button"
-                className={`floating-toolbar__btn floating-toolbar__touch-multi${state.touchMultiSelect.active ? ` ${TOUCH_MULTISELECT_ACTIVE_CLASS}` : ''}`}
-                aria-pressed={state.touchMultiSelect.active}
-                aria-label={
+              )}
+              {visibleGroups.map((group) =>
+                group.slots.map((slot) => (
+                  <ToolbarSlotView
+                    key={slot.kind === 'tool' ? slot.toolId : slot.id}
+                    slot={slot}
+                    activeTool={state.tool as ToolId}
+                    canBoolean={canBoolean}
+                    onActivate={activate}
+                    onToggleMenu={(id, element) =>
+                      setOpenMenu((prev) =>
+                        prev?.id === id ? null : { id, anchor: elementAnchor(element) },
+                      )
+                    }
+                  />
+                )),
+              )}
+            </Toolbar>
+            <div className="floating-toolbar__actions">
+              <ToolOptionsPopover />
+              <Tooltip
+                label={
                   state.touchMultiSelect.active
-                    ? 'Disable touch multi-select'
-                    : 'Enable touch multi-select'
+                    ? 'Multi-select active (tap to toggle)'
+                    : 'Touch multi-select'
                 }
-                data-testid="touch-multiselect-toggle"
-                onClick={() => setTouchMultiSelect(!state.touchMultiSelect.active)}
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
+                <button
+                  type="button"
+                  className={`floating-toolbar__btn floating-toolbar__touch-multi${state.touchMultiSelect.active ? ` ${TOUCH_MULTISELECT_ACTIVE_CLASS}` : ''}`}
+                  aria-pressed={state.touchMultiSelect.active}
+                  aria-label={
+                    state.touchMultiSelect.active
+                      ? 'Disable touch multi-select'
+                      : 'Enable touch multi-select'
+                  }
+                  data-testid="touch-multiselect-toggle"
+                  onClick={() => setTouchMultiSelect(!state.touchMultiSelect.active)}
                 >
-                  <path d="M9 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                  <path d="M21 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                  <path d="M15 19a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                  <line x1="9" y1="5" x2="15" y2="19" />
-                  <line x1="21" y1="5" x2="15" y2="19" />
-                </svg>
-              </button>
-            </Tooltip>
-          </Toolbar>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M9 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    <path d="M21 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    <path d="M15 19a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    <line x1="9" y1="5" x2="15" y2="19" />
+                    <line x1="21" y1="5" x2="15" y2="19" />
+                  </svg>
+                </button>
+              </Tooltip>
+            </div>
+          </div>
         </TooltipProvider>
         {isDrawingMode && <DrawingToolbarControls />}
       </div>

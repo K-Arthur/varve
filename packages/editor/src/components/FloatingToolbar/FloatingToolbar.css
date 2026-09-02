@@ -41,6 +41,41 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* Keep the option and touch actions outside the scrollable tool row. When the
+ * canvas is narrowed by side panels, those actions must remain visible so a
+ * portal can never mistake their clipped trigger for a detached anchor. */
+.floating-toolbar__row {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-floating);
+  background: var(--elevation-surface-raised);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+}
+
+.floating-toolbar__row [role="toolbar"] {
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.floating-toolbar__actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-left: 1px solid var(--color-border-subtle);
+  background: var(--elevation-surface-raised);
+}
+
 .floating-toolbar__btn {
   display: flex;
   align-items: center;
