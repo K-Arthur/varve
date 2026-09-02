@@ -26,7 +26,7 @@ const cardStyle = {
   minWidth: '15rem',
   padding: 'var(--space-4)',
   border: '1px solid var(--color-border-subtle)',
-  borderRadius: 'var(--radius-lg)',
+  borderRadius: 'var(--radius-floating)',
   background: 'var(--color-surface-raised)',
   color: 'var(--color-text-primary)',
 } as const;
@@ -110,10 +110,14 @@ export const ThemeAndRadiusReference: Story = {
           }}
         >
           <ShineBorder variant="static">
-            <div style={{ ...cardStyle, borderRadius: 'var(--radius-sm)' }}>{label} / small</div>
+            <div style={{ ...cardStyle, borderRadius: 'var(--radius-control-compact)' }}>
+              {label} / small
+            </div>
           </ShineBorder>
           <ShineBorder variant="beam">
-            <div style={{ ...cardStyle, borderRadius: 'var(--radius-lg)' }}>{label} / large</div>
+            <div style={{ ...cardStyle, borderRadius: 'var(--radius-floating)' }}>
+              {label} / large
+            </div>
           </ShineBorder>
           <ShineBorder variant="subtle">
             <button
@@ -144,7 +148,7 @@ export const IdleStressReference: Story = {
                   style={{
                     padding: 12,
                     border: '1px solid var(--color-border-subtle)',
-                    borderRadius: 'var(--radius-md)',
+                    borderRadius: 'var(--radius-control)',
                     background: 'var(--color-surface-raised)',
                     color: 'var(--color-text-primary)',
                   }}

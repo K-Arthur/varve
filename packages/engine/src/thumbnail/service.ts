@@ -123,11 +123,6 @@ function nodeLocalBounds(node: SceneNode): { x: number; y: number; w: number; h:
         h: maxY - minY + tolerance * 2,
       };
     }
-    case 'text':
-      // Text bounds are computed by the engine's text layout; the thumbnail
-      // service cannot measure text without font data. Use a reasonable
-      // fallback based on the node's declared dimensions.
-      return null;
     default:
       return null;
   }
