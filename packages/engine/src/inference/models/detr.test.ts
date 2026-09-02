@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COCO_CLASSES, DETR_INPUT_SIZE, decodeDetrOutput } from './detr';
+import { COCO_CLASSES, DETR_INPUT_SIZE, decodeDetrOutput, rankDetrDetections } from './detr';
 
 const NUM_QUERIES = 100;
 const NUM_CLASSES = 92;
@@ -131,6 +131,51 @@ describe('detr', () => {
       for (let i = 1; i < results.length; i++) {
         expect(results[i - 1]!.confidence).toBeGreaterThanOrEqual(results[i]!.confidence);
       }
+    });
+  });
+
+  describe('rankDetrDetections', () => {
+    it('does not blindly choose confidence when a larger central subject is available', () => {
+      const ranked = rankDetrDetections(
+        [
+          {
+            label: 'car',
+            classId: 3,
+            confidence: 0.98,
+            box: { x: 0, y: 0, width: 100, height: 100 },
+          },
+          {
+            label: 'person',
+            classId: 1,
+            confidence: 0.86,
+            box: { x: 100, y: 50, width: 700, height: 700 },
+          },
+        ],
+        800,
+        800,
+      );
+      expect(ranked[0]?.label).toBe('person');
+    });
+
+    it('preserves input order for exactly tied scores', () => {
+      const detections = [
+        {
+          label: 'car',
+          classId: 3,
+          confidence: 0.8,
+          box: { x: 0, y: 0, width: 100, height: 100 },
+        },
+        {
+          label: 'truck',
+          classId: 7,
+          confidence: 0.8,
+          box: { x: 0, y: 0, width: 100, height: 100 },
+        },
+      ];
+      expect(rankDetrDetections(detections).map((detection) => detection.label)).toEqual([
+        'car',
+        'truck',
+      ]);
     });
   });
 });

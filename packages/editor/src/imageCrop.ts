@@ -17,6 +17,7 @@ import {
   computeImagePlacement,
   type FaceDetection,
   localToSourcePixel,
+  sourcePixelToLocal,
 } from '@varve/engine';
 import type {
   Document,
@@ -283,6 +284,83 @@ function nodeLocalToSourceCrop(
     w: maxX - minX,
     h: maxY - minY,
   };
+}
+
+/**
+ * Convert an object detector's source-pixel rectangle into the viewport
+ * coordinates expected by trimToSubject. This deliberately uses the same
+ * placement mapper as rendering, including crop, fill rotation, and flips.
+ * The returned coordinates are relative to the node's local bounds origin.
+ */
+export function sourceBoundsToViewportCrop(
+  doc: Document,
+  nodeId: NodeId,
+  sourceBounds: { x: number; y: number; width: number; height: number },
+): LocalCropRect | null {
+  const node = doc.nodes[nodeId];
+  if (node?.kind !== 'shape' || !isImageShape(node)) return null;
+  const fill = getImageFill(node as ShapeNode);
+  const localBounds = nodeLocalBounds(node, doc);
+  if (!fill?.image || !localBounds || localBounds.w <= 0 || localBounds.h <= 0) return null;
+
+  const sourceWidth = fill.image.imageWidth ?? localBounds.w;
+  const sourceHeight = fill.image.imageHeight ?? localBounds.h;
+  const placement = computeImagePlacement({
+    fit: fill.image.fit ?? 'fill',
+    sourceWidth,
+    sourceHeight,
+    bounds: localBounds,
+    x: fill.image.x,
+    y: fill.image.y,
+    scale: fill.image.scale,
+    sourceCrop: fill.image.crop,
+    rotation: fill.image.rotation,
+    flipH: fill.image.flipH,
+    flipV: fill.image.flipV,
+  });
+  if (!placement) return null;
+
+  const left = Math.max(placement.sourceRect.x, sourceBounds.x);
+  const top = Math.max(placement.sourceRect.y, sourceBounds.y);
+  const right = Math.min(
+    placement.sourceRect.x + placement.sourceRect.w,
+    sourceBounds.x + sourceBounds.width,
+  );
+  const bottom = Math.min(
+    placement.sourceRect.y + placement.sourceRect.h,
+    sourceBounds.y + sourceBounds.height,
+  );
+  if (!(right > left && bottom > top)) return null;
+
+  const epsilon = 1e-6;
+  const points = [
+    { x: left, y: top },
+    { x: Math.max(left, right - epsilon), y: top },
+    { x: Math.max(left, right - epsilon), y: Math.max(top, bottom - epsilon) },
+    { x: left, y: Math.max(top, bottom - epsilon) },
+  ]
+    .map((point) => sourcePixelToLocal(placement, point))
+    .filter((point): point is { x: number; y: number } => point !== null);
+  if (points.length === 0) return null;
+
+  const minX = Math.max(
+    0,
+    Math.min(localBounds.w, Math.min(...points.map((point) => point.x)) - localBounds.x),
+  );
+  const minY = Math.max(
+    0,
+    Math.min(localBounds.h, Math.min(...points.map((point) => point.y)) - localBounds.y),
+  );
+  const maxX = Math.max(
+    minX,
+    Math.min(localBounds.w, Math.max(...points.map((point) => point.x)) - localBounds.x),
+  );
+  const maxY = Math.max(
+    minY,
+    Math.min(localBounds.h, Math.max(...points.map((point) => point.y)) - localBounds.y),
+  );
+  if (!(maxX > minX && maxY > minY)) return null;
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
 /**

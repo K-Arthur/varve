@@ -12,10 +12,13 @@ class FakeWorker {
   onmessage: ((e: { data: unknown }) => void) | null = null;
   onerror: ((e: unknown) => void) | null = null;
   posted: unknown[] = [];
+  terminated = false;
   postMessage(msg: unknown) {
     this.posted.push(msg);
   }
-  terminate() {}
+  terminate() {
+    this.terminated = true;
+  }
   emit(data: unknown) {
     this.onmessage?.({ data });
   }
@@ -73,6 +76,35 @@ describe('InferenceWorkerHost message handling', () => {
     const requestId = requestIdOf(h.worker);
     h.worker.emit({ type: 'result', requestId, outputs: { out: 42 } });
     await expect(pending).resolves.toMatchObject({ outputs: { out: 42 } });
+    vi.unstubAllGlobals();
+  });
+
+  it('terminates the worker on timeout so a retry gets a clean worker', async () => {
+    vi.useFakeTimers();
+    const h = makeHost();
+    const pending = h.host.infer(
+      { type: 'infer', modelType: 'detr', modelPath: '/m.onnx', modelId: 'detr' } as never,
+      { timeoutMs: 10 },
+    );
+    const rejection = expect(pending).rejects.toThrow(/timed out/i);
+    const firstWorker = h.worker;
+    await vi.advanceTimersByTimeAsync(11);
+    await rejection;
+    expect(firstWorker.terminated).toBe(true);
+
+    const retry = h.host.infer(
+      { type: 'infer', modelType: 'detr', modelPath: '/m.onnx', modelId: 'detr' } as never,
+      { timeoutMs: 100 },
+    );
+    const secondWorker = h.worker;
+    expect(secondWorker).not.toBe(firstWorker);
+    secondWorker.emit({
+      type: 'result',
+      requestId: requestIdOf(secondWorker),
+      outputs: { retried: true },
+    });
+    await expect(retry).resolves.toMatchObject({ outputs: { retried: true } });
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 });

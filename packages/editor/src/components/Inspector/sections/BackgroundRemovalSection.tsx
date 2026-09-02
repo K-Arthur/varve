@@ -49,6 +49,21 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   return message.length > 180 ? `${message.slice(0, 180)}...` : message;
 }
 
+function normalizeObjectSelectionDownloadError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/checksum|integrity|corrupt/i.test(message)) {
+    return 'The Object Selection model failed its integrity check. Remove it from Settings > Offline Models and download it again.';
+  }
+  if (/network|fetch|http|download/i.test(message)) {
+    return 'The Object Selection model could not be downloaded. Check your connection and try again.';
+  }
+  if (/space|quota|storage|disk/i.test(message)) {
+    return 'There is not enough storage for the Object Selection model. Free space and try again.';
+  }
+  if (/cancel|abort/i.test(message)) return 'Object Selection model download cancelled.';
+  return 'The Object Selection model could not be installed. Try again from Settings > Offline Models.';
+}
+
 const METHOD_GUIDANCE: Record<
   RemovalMethod,
   { title: string; description: string; bestFor: string; tradeoff: string }
@@ -72,6 +87,8 @@ const METHOD_GUIDANCE: Record<
     tradeoff: 'Uses more memory and is slower than the other modes.',
   },
 };
+
+const OBJECT_SELECTION_MODEL_IDS = ['sam2-hiera-tiny-encoder', 'sam2-hiera-tiny-decoder'] as const;
 
 export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const {
@@ -131,6 +148,14 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const [modelState, setModelState] = useState<'unavailable' | 'downloading' | 'ready' | 'error'>(
     'unavailable',
   );
+  const [objectSelectionModelState, setObjectSelectionModelState] = useState<
+    'checking' | 'missing' | 'partial' | 'downloading' | 'ready' | 'error'
+  >('checking');
+  const [objectSelectionDownloadProgress, setObjectSelectionDownloadProgress] = useState<
+    number | null
+  >(null);
+  const [objectSelectionError, setObjectSelectionError] = useState<string | null>(null);
+  const objectSelectionDownloadAbortRef = useRef<AbortController | null>(null);
   const [aiAvailable, setAiAvailable] = useState(false);
   const [hasGpuAccel, setHasGpuAccel] = useState(false);
   const [wasmModelSafe, setWasmModelSafe] = useState(true);
@@ -175,6 +200,18 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     });
   }, [applySam2Segmentation, node, objectSelection]);
 
+  const retryObjectSelection = useCallback(() => {
+    if (!node || !objectSelection) return;
+    void applySam2Segmentation({
+      nodeId: node.id,
+      prompts: {
+        points: objectSelection.points,
+        box: objectSelection.box ?? undefined,
+      },
+      operation: 'preview',
+    });
+  }, [applySam2Segmentation, node, objectSelection]);
+
   const refreshModelStatus = useCallback(async () => {
     const loader = await getModelLoaderReady();
     setModelState(loader.getState());
@@ -187,6 +224,16 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     setEnhancedBalancedAvailable(await loader.isModelAvailable('isnet-general-use'));
   }, [method, requiredModelId]);
 
+  const refreshObjectSelectionModelStatus = useCallback(async () => {
+    const loader = await getModelLoaderReady();
+    const availability = await Promise.all(
+      OBJECT_SELECTION_MODEL_IDS.map((modelId) => loader.isModelAvailable(modelId)),
+    );
+    setObjectSelectionModelState(
+      availability.every(Boolean) ? 'ready' : availability.some(Boolean) ? 'partial' : 'missing',
+    );
+  }, []);
+
   useEffect(() => {
     if (!eligible) return;
     void refreshModelStatus();
@@ -198,6 +245,21 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     });
     return () => unsub?.();
   }, [refreshModelStatus, eligible]);
+
+  useEffect(() => {
+    if (!eligible) return;
+    void refreshObjectSelectionModelStatus();
+    let unsub: (() => void) | undefined;
+    void getModelLoaderReady().then((loader) => {
+      unsub = loader.subscribe(() => {
+        void refreshObjectSelectionModelStatus();
+      });
+    });
+    return () => {
+      unsub?.();
+      objectSelectionDownloadAbortRef.current?.abort();
+    };
+  }, [eligible, refreshObjectSelectionModelStatus]);
 
   useEffect(() => {
     getEnvironmentCapabilities().then((caps) => {
@@ -298,6 +360,55 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     setShowDownloadDialog(true);
   };
 
+  const installObjectSelectionModels = useCallback(async () => {
+    objectSelectionDownloadAbortRef.current?.abort();
+    const controller = new AbortController();
+    objectSelectionDownloadAbortRef.current = controller;
+    setObjectSelectionModelState('downloading');
+    setObjectSelectionError(null);
+    setObjectSelectionDownloadProgress(0);
+    try {
+      const loader = await getModelLoaderReady();
+      for (const [index, modelId] of OBJECT_SELECTION_MODEL_IDS.entries()) {
+        if (await loader.isModelAvailable(modelId)) {
+          setObjectSelectionDownloadProgress(
+            Math.round(((index + 1) / OBJECT_SELECTION_MODEL_IDS.length) * 100),
+          );
+          continue;
+        }
+        await loader.downloadModel(
+          modelId,
+          (loaded, total) => {
+            const partProgress = total > 0 ? loaded / total : 0;
+            setObjectSelectionDownloadProgress(
+              Math.round(((index + partProgress) / OBJECT_SELECTION_MODEL_IDS.length) * 100),
+            );
+          },
+          controller.signal,
+        );
+      }
+      setObjectSelectionDownloadProgress(100);
+      setObjectSelectionModelState('ready');
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setObjectSelectionModelState('error');
+        setObjectSelectionError(normalizeObjectSelectionDownloadError(error));
+      }
+    } finally {
+      if (objectSelectionDownloadAbortRef.current === controller) {
+        objectSelectionDownloadAbortRef.current = null;
+      }
+      if (!controller.signal.aborted) setObjectSelectionDownloadProgress(null);
+    }
+  }, []);
+
+  const cancelObjectSelectionModelDownload = useCallback(() => {
+    objectSelectionDownloadAbortRef.current?.abort();
+    objectSelectionDownloadAbortRef.current = null;
+    setObjectSelectionDownloadProgress(null);
+    void refreshObjectSelectionModelStatus();
+  }, [refreshObjectSelectionModelStatus]);
+
   const handleTogglePreview = () => {
     setShowOriginalBg(showingOriginal ? null : node.id);
     announce(
@@ -346,13 +457,73 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             <button type="button" className="insp-btn-sm" onClick={startObjectSelection}>
               {objectSelection ? 'Continue Object Selection' : 'Select Object'}
             </button>
+            <p className="insp-field__hint">
+              Uses the local SAM2 Tiny encoder and prompt decoder. Install once; no image leaves
+              this device. The first run may take longer while the sessions are prepared.
+            </p>
+            {objectSelectionModelState !== 'ready' &&
+              objectSelectionModelState !== 'downloading' && (
+                <div className="insp-actions">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void installObjectSelectionModels()}
+                    aria-label="Install Object Selection model"
+                  >
+                    {objectSelectionModelState === 'error' ||
+                    objectSelectionModelState === 'partial'
+                      ? 'Retry Object Selection model'
+                      : 'Install Object Selection model (~155 MB)'}
+                  </Button>
+                  {objectSelectionError && (
+                    <p className="insp-hint insp-hint--error" role="alert">
+                      {objectSelectionError}
+                    </p>
+                  )}
+                </div>
+              )}
+            {objectSelectionModelState === 'downloading' && (
+              <div className="insp-actions">
+                <span className="insp-field__hint" role="status" aria-live="polite">
+                  Installing Object Selection model… {objectSelectionDownloadProgress ?? 0}%
+                </span>
+                <button
+                  type="button"
+                  className="insp-btn-sm"
+                  onClick={cancelObjectSelectionModelDownload}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+            {objectSelectionModelState === 'ready' && (
+              <span className="insp-field__hint" role="status">
+                Object Selection model ready · local processing
+              </span>
+            )}
             {objectSelection && (
               <>
                 <span className="insp-field__hint" role="status" aria-live="polite">
-                  Preview ready · {Math.round(objectSelection.confidence * 100)}% model confidence ·{' '}
-                  {objectSelection.candidates.length} candidate mask
-                  {objectSelection.candidates.length === 1 ? '' : 's'}
+                  {objectSelection.slow
+                    ? 'Taking longer than expected… Cancel remains available.'
+                    : objectSelection.status === 'ready'
+                      ? `Preview ready · ${Math.round(objectSelection.confidence * 100)}% model confidence · ${objectSelection.candidates.length} candidate mask${objectSelection.candidates.length === 1 ? '' : 's'}`
+                      : objectSelection.status === 'error'
+                        ? 'Object selection failed — your prompts are still available.'
+                        : objectSelection.status === 'drawing'
+                          ? 'Drawing prompt…'
+                          : objectSelection.status === 'encoding'
+                            ? 'Encoding image…'
+                            : objectSelection.status === 'decoding'
+                              ? 'Calculating candidate masks…'
+                              : 'Preparing object selection…'}
                 </span>
+                {objectSelection.status === 'error' && objectSelection.error && (
+                  <p className="insp-field__hint insp-hint--error" role="alert">
+                    {objectSelection.error.message}
+                  </p>
+                )}
                 {objectSelection.candidates.length > 1 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
                     <button
@@ -390,8 +561,23 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                  <button type="button" className="insp-btn-sm" onClick={applyObjectSelectionMask}>
+                  <button
+                    type="button"
+                    className="insp-btn-sm"
+                    onClick={applyObjectSelectionMask}
+                    disabled={
+                      objectSelection.status !== 'ready' || objectSelection.candidates.length === 0
+                    }
+                  >
                     Apply as mask
+                  </button>
+                  {objectSelection.status === 'error' && (
+                    <button type="button" className="insp-btn-sm" onClick={retryObjectSelection}>
+                      Retry
+                    </button>
+                  )}
+                  <button type="button" className="insp-btn-sm" onClick={cancelSam2Segmentation}>
+                    Clear prompts
                   </button>
                   <button type="button" className="insp-btn-sm" onClick={cancelSam2Segmentation}>
                     Cancel
