@@ -96,8 +96,9 @@ positioning/render lifecycle rather than attributed to the Button primitive.
 
 The current worktree also contains unrelated concurrent menu, ingestion,
 inference, object-selection, and inspector changes. The affected gate reports
-formatter failures in those files, and the architecture audit reports a new
-`context/types.ts → tools/types.ts` cycle from that concurrent work. The first
-button checkpoint also inherited the already-indexed `AssetBrowser` ingestion
-files; subsequent checkpoints used path-only commits to keep later concurrent
-changes out of the button cleanup.
+formatter failures in those files on its earlier run; the latest run passed
+format/lint and stopped at the unrelated object-selection E2E assertion. The
+architecture audit reports a new `context/types.ts → tools/types.ts` cycle from
+that concurrent work. The first button checkpoint also inherited the
+already-indexed `AssetBrowser` ingestion files; subsequent checkpoints used
+path-only commits to keep later concurrent changes out of the button cleanup.
