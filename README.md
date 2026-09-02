@@ -235,7 +235,8 @@ Canvas2D / WebGPU
 ```
 
 The Rust engine computes a scene and emits a compact render IR; the webview
-replays it to Canvas2D or WebGPU. See
+replays it to Canvas2D or WebGPU. Start with the
+[architecture overview](docs/architecture/overview.md), then see
 [ADR-0001](docs/adr/0001-native-render-in-tauri-webview.md) for the
 rationale and [docs/architecture/render-pipeline.md](docs/architecture/render-pipeline.md)
 for the full pipeline. A bounded browser demo is hosted at

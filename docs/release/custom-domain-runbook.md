@@ -82,8 +82,8 @@ Notes:
   serves DNS.
 - **No MX/SPF/DKIM/DMARC records exist.** None are needed until an email
   provider is chosen (then MX + SPF + DKIM + DMARC would be added at Porkbun;
-  see section 5 of `docs/plans/website-operations-guide.md` if one is ever
-  configured — nothing current blocks `hello@` / `support@` /
+  see the website architecture and deployment notes in
+  `website.md` if one is ever configured — nothing current blocks `hello@` / `support@` /
   `security@` / `press@varve.studio` later).
 
 ## 2. GitHub Pages configuration

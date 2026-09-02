@@ -207,6 +207,7 @@ Current interface typography and component sizing contracts are documented in
 
 | Doc | Purpose |
 |-----|---------|
+| `architecture/overview.md` | Current repository topology, runtime boundaries, data flow, and change-routing guide |
 | `architecture/render-pipeline.md` | Canvas rendering pipeline |
 | `architecture/adaptive-render-residency.md` | Adaptive visibility, residency, raster representation, fidelity, and budget policy |
 | `architecture/wasm-backends.md` | WASM backend architecture |
@@ -461,7 +462,6 @@ The following dated files were moved from `docs/architecture/` to
 
 | Doc | Purpose |
 |-----|---------|
-| `plans/website-operations-guide.md` | **Operating guide:** how to add releases and platforms (keep current) |
 | `plans/website-progress-tracker.md` | Website implementation progress |
 | `plans/discovery-content-plan.md` | Discovery and content architecture plan — SEO, new pages, engineering articles |
 | `plans/social-surface-plan.md` | Social surface plan — brand collision research, account strategy, manual checklist |
