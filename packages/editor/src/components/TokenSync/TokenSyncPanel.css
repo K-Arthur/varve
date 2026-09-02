@@ -102,15 +102,6 @@
   align-items: center;
 }
 
-.token-sync-panel__file-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
 .token-sync-panel__preview {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);

@@ -13,8 +13,8 @@ import {
   importBrushPackage,
   serializeBrushPackage,
 } from '@varve/scene';
-import { Button } from '@varve/ui';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { Button, FilePickerButton } from '@varve/ui';
+import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { BrushEditor } from '../BrushEditor/BrushEditor';
 import { BrushBrowser, type BrushBrowserItem } from './BrushBrowser';
@@ -25,7 +25,6 @@ export function BrushLibraryPanel() {
   const library = useBrushLibrary(platform);
   const [editing, setEditing] = useState<BrushPreset | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const customItems = useMemo<BrushBrowserItem[]>(
     () =>
@@ -133,18 +132,20 @@ export function BrushLibraryPanel() {
         onEdit={(item) => setEditing(item.preset)}
         onDelete={library.deleteBrush}
         onExport={handleExport}
-        onImport={() => fileInputRef.current?.click()}
-      />
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".varvebrush,application/json"
-        hidden
-        onChange={(e) => {
-          const file = e.currentTarget.files?.[0];
-          e.currentTarget.value = '';
-          if (file) void handleImportFile(file);
-        }}
+        importControl={
+          <FilePickerButton
+            variant="ghost"
+            size="sm"
+            accept=".varvebrush,application/json"
+            actionLabel="Import brushes"
+            inputLabel="Import brush package"
+            icon="Upload"
+            onFiles={([file]) => {
+              if (file) void handleImportFile(file);
+            }}
+            onReject={(rejections) => setNotice(rejections[0]?.reason ?? 'Brush file rejected.')}
+          />
+        }
       />
       {notice ? (
         <p className="brush-library-panel__notice" role="status">

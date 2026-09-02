@@ -31,8 +31,8 @@ import {
 import type { Document } from '@varve/scene';
 import { swatchesToPalette } from '@varve/scene';
 import { paletteFileFormat, parsePaletteFile } from '@varve/shared';
-import { Select, Switch } from '@varve/ui';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { FilePickerButton, Select, Switch } from '@varve/ui';
+import { useCallback, useMemo, useState } from 'react';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
 
 export interface LiveEffectEditorProps {
@@ -245,7 +245,6 @@ function PaletteEditor({
   doc?: Document;
   allowSwatches: boolean;
 }) {
-  const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
 
@@ -266,39 +265,30 @@ function PaletteEditor({
     onChange(parsed);
   };
 
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
+  const handleFile = useCallback(
+    (file: File | undefined) => {
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const format = paletteFileFormat(file.name);
-          const isText = format === 'gpl';
-          const data = isText
-            ? typeof reader.result === 'string'
-              ? reader.result
-              : new TextDecoder().decode(reader.result as ArrayBuffer)
-            : (reader.result as ArrayBuffer);
-          const parsed = parsePaletteFile(file.name, data);
-          if (parsed.colors.length === 0) {
-            setStatus('No colors found in file');
-          } else {
-            onChange(
-              parsed.colors.map(
-                (c) => [clamp255(c[0]), clamp255(c[1]), clamp255(c[2])] as [number, number, number],
-              ),
-            );
-            setStatus(`Imported ${parsed.colors.length} colors (${format.toUpperCase()})`);
+      const format = paletteFileFormat(file.name);
+      void (format === 'gpl' ? file.text() : file.arrayBuffer())
+        .then((data) => {
+          try {
+            const parsed = parsePaletteFile(file.name, data);
+            if (parsed.colors.length === 0) {
+              setStatus('No colors found in file');
+            } else {
+              onChange(
+                parsed.colors.map(
+                  (c) =>
+                    [clamp255(c[0]), clamp255(c[1]), clamp255(c[2])] as [number, number, number],
+                ),
+              );
+              setStatus(`Imported ${parsed.colors.length} colors (${format.toUpperCase()})`);
+            }
+          } catch (err) {
+            setStatus(`Parse error: ${err instanceof Error ? err.message : String(err)}`);
           }
-        } catch (err) {
-          setStatus(`Parse error: ${err instanceof Error ? err.message : String(err)}`);
-        }
-        e.target.value = '';
-      };
-      reader.onerror = () => setStatus('Failed to read file');
-      if (file.name.toLowerCase().endsWith('.gpl')) reader.readAsText(file);
-      else reader.readAsArrayBuffer(file);
+        })
+        .catch(() => setStatus('Failed to read file'));
     },
     [onChange],
   );
@@ -319,21 +309,16 @@ function PaletteEditor({
 
   return (
     <div className="adj-lut-editor">
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".gpl,.act,.ase,.aco"
-        style={{ display: 'none' }}
-        onChange={handleFileChange}
-      />
       <div className="adj-panel__effect-actions" style={{ marginBottom: 6 }}>
-        <button
-          type="button"
-          className="adj-panel__effect-action"
-          onClick={() => fileRef.current?.click()}
-        >
-          Import palette (.gpl .act .ase .aco)
-        </button>
+        <FilePickerButton
+          variant="ghost"
+          size="sm"
+          accept=".gpl,.act,.ase,.aco"
+          actionLabel="Import palette (.gpl .act .ase .aco)"
+          inputLabel="Import palette file"
+          onFiles={([file]) => handleFile(file)}
+          onReject={(rejections) => setStatus(rejections[0]?.reason ?? 'Palette file rejected.')}
+        />
         {allowSwatches && (
           <button type="button" className="adj-panel__effect-action" onClick={importSwatches}>
             From document swatches
