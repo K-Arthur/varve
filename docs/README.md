@@ -491,6 +491,7 @@ records; check the current code before acting on their findings.
 | `audits/effects-surfaces-audit-2026-08-29.md` | Research-backed separation of Effect Studio, Image Tuning, Object Filters, and Adjustment Filters, including raster/vector behavior |
 | `audits/pages-master-layout-audit-2026-08-29.md` | Current page, parent/master, spread, frame, workspace, I/O, and validation capability audit |
 | `audits/shine-border-opportunity-audit-2026-08-31.md` | Repository-wide Shine Border candidate ranking, explicit rejects, and approved production ceiling |
+| `audits/platform-ux-accessibility-responsiveness-audit-2026-09-02.md` | WCAG 2.2 AA, keyboard, touch, responsive, and marketing-site audit with prioritized remediation |
 
 ## Website-specific (current state)
 
