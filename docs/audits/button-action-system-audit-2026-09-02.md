@@ -71,8 +71,30 @@ separate responsive layout and marketing-only pill treatment.
 
 ## Evidence record
 
-The implementation record is completed with the exact validation commands,
-affected-plan result, editor/home/UI test results, website build/E2E result,
-browser screenshots, direct screenshot inspection, and progressive commit IDs
-in the task handoff. Unrelated concurrent worktree changes are excluded from
-the implementation commits and reported separately.
+Implementation was delivered in three progressive commits:
+
+- `7eead2cd7` — shared UI primitives, state handling, and editor/home callsite
+  migration
+- `cc01142a0` — editor floating toolbar and quick text action controls
+- `cf8d924ae` — Astro marketing Button/CTA contract, callsites, and docs
+
+The focused unit checks passed for the shared UI primitives and editor action
+surfaces (68 tests across the committed slices). Website typecheck, production
+build, and Pages build passed. Browser checks passed for all four editor
+workspace-toolbar visual scenarios and the bundled-font selector workflow.
+Marketing screenshots were captured and directly inspected in light, dark,
+mobile, and open-Learn-menu states. The token audit passed all 153 pairs across
+light, dark, and high-contrast themes; emoji and docs audits are clean.
+
+One cross-surface typography workflow remains explicitly unresolved: after a
+real Bold interaction, the existing floating text overlay leaves its font
+input geometrically unstable and the 180-second Playwright action timeout
+fires. The independent font-selector workflow passes, so this was not hidden
+by changing the test to force a click. The issue is recorded for the overlay
+positioning/render lifecycle rather than attributed to the Button primitive.
+
+The current worktree also contains unrelated concurrent menu, ingestion,
+inference, object-selection, and inspector changes. The affected gate reports
+formatter failures in those files, and the architecture audit reports a new
+`context/types.ts → tools/types.ts` cycle from that concurrent work; neither
+was staged into the three implementation commits.
