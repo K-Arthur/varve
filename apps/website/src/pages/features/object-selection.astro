@@ -26,6 +26,16 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="feature-section">
+        <h2>Selection and trimming are different tools</h2>
+        <p>
+          Object Selection creates a pixel mask from your prompts. When you only need a tighter
+          image frame, Trim to Subject can suggest object bounds separately; it shows the detected
+          box for review before applying a non-destructive crop. The bounds workflow is not a
+          hidden mask and does not claim semantic recognition.
+        </p>
+      </section>
+
+      <section class="feature-section">
         <h2>Local by design</h2>
         <p>
           The optional segmentation model is downloaded explicitly, verified before use, and run on the device through Varve's worker-backed inference path. A model is not loaded at application startup, and image embeddings are kept in a bounded session cache rather than stored in your document.

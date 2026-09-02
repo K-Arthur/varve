@@ -97,6 +97,23 @@ on a warm server, check whether a parallel process is editing
 `packages/scene` or `packages/engine` — Vite invalidates and re-transforms
 those modules mid-run.
 
+### Object Selection or Trim to Subject appears stuck
+
+Object Selection publishes its point or draft box before model work starts. If
+the model is missing, open Settings > Offline Models and install the SAM2 Tiny
+encoder and prompt decoder; the download is explicit and remains local. The
+first selection can take longer while the ONNX sessions are created, but the
+Inspector should keep showing the current stage and a Cancel action.
+
+`Trim to Subject` is a separate, bounds-only detector workflow. It downloads
+the optional `detr-resnet-50` model on first use and shows detected boxes for
+review before changing the crop. It does not create a pixel mask. A timeout or
+worker failure terminates the affected inference worker so Retry starts cleanly;
+it must not be reported as a successful crop or as a cancellation. If a model
+download is partial or fails verification, remove it from Offline Models and
+retry the download. Use Object Selection when the goal is editable pixels
+rather than a tighter image frame.
+
 ### Mobile editor E2E waits for the desktop layers panel
 
 The desktop `.layers-panel` is intentionally hidden at mobile widths. Do not

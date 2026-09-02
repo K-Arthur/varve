@@ -30,6 +30,11 @@ import { sitePath } from '../../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>For a tighter frame</h2>
+        <p><strong>Trim to Subject</strong> is a separate Crop &amp; Bounds workflow. Its optional DETR model returns object rectangles only. Review the suggested bounds, choose a candidate when there is more than one, and apply them as a non-destructive crop. Use Object Selection when you need editable pixels or a mask.</p>
+      </section>
+
+      <section class="docs-section">
         <h2>Limitations</h2>
         <p>Object Selection is promptable segmentation, not semantic recognition. A click tells the model which region to segment; it does not guarantee that an arbitrary automatic result is the subject. Hair, fur, glass, smoke, shadows, and translucent edges may need brush or trimap refinement.</p>
       </section>

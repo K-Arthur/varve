@@ -27,6 +27,21 @@ Document Mask.rasterMask → RasterMaskAsset
 The editor does not import an ONNX session or a tensor type. Backend-specific
 preprocessing and execution-provider selection stay in `@varve/engine`.
 
+## Live session lifecycle
+
+`EditorState.objectSelectionSession` is the single transient owner for prompt
+geometry, candidate masks, and inference status. A tool press publishes a
+`draftPoint` or `draftBox` immediately; pointer-up promotes it to `points` or
+`box` and starts preview inference. The session then moves through
+`preparing` → `encoding` → `decoding` → `ready`, or to a retryable `error`.
+The overlay renders draft prompts even when no model frame exists, so a slow or
+unavailable model cannot make a valid user gesture appear to have been lost.
+
+Escape, Clear prompts, tool deactivation, selection changes, and document
+changes invalidate the generation and clear the transient preview. Apply and
+Enter commit the currently visible candidate directly; they do not rerun the
+decoder. A failed commit leaves the prompts and candidate available for retry.
+
 ## Interaction contract
 
 - A click creates one positive point.
@@ -37,11 +52,26 @@ preprocessing and execution-provider selection stay in `@varve/engine`.
   result.
 - The preview displays candidate confidence but does not describe it as a
   semantic understanding score.
+- Candidate cycling changes only the transient candidate pointer; it does not
+  modify the document until Apply.
 
 The current backend is promptable segmentation. It can answer “which pixels
 belong to the region indicated by these prompts”; that is not the same as
-semantic subject detection. Select Subject and Select Background remain
-separate product workflows until a measured proposal/ranking path is available.
+semantic subject detection. The legacy `sam2Segment` command id is retained
+for compatibility, while the visible workflow is named Object Selection.
+Automatic subject trimming remains a separate bounds proposal/ranking path.
+
+## Automatic trim boundary
+
+`Trim to Subject` is a separate bounds-only workflow. Its optional DETR path
+produces object rectangles in source-image pixels; it does not produce a mask
+and is never presented as equivalent to Object Selection. Detections are ranked
+using confidence plus visible area, centrality, and a small class prior, and
+multiple detections remain explicit choices in the Inspector. The selected
+rectangle is reviewed before it is mapped through the canonical image
+placement (fit, crop, offset, scale, rotation, and flips) and committed as a
+non-destructive crop. A failed or ambiguous detection never changes the
+document.
 
 ## Coordinates
 
