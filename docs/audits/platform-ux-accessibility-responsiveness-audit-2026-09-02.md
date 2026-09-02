@@ -1,7 +1,7 @@
 # Platform UX, Interaction, Accessibility, and Responsiveness Audit
 
 **Date:** 2026-09-02  
-**Status:** Phase 1 audit complete; critical/major implementation in progress  
+**Status:** Phase 1 audit complete; prioritized editor and website fixes implemented
 **Baseline:** WCAG 2.2 AA. AAA is not required for this product.  
 **Minimum browser assumption:** the last two major versions of Chrome, Edge,
 Firefox, and Safari, including iOS Safari and Android Chrome.
@@ -95,7 +95,28 @@ None found in the inspected scope.
 
 The initial impact plan was run with `pnpm verify:plan`. It selected the existing
 website/editor package closure and warned that the current pre-existing worktree
-changes affect 98% of repository test files. A first website run built the
-website and pages variants successfully but hit the already-used port 4321
-before tests started; the isolated rerun is part of the implementation gate.
+changes affect 98% of repository test files.
 
+Implementation checkpoints completed:
+
+- Responsive editor drawers now expose stable relationships, move focus into the
+  active panel, contain Tab/Shift+Tab, and restore focus on Escape or backdrop
+  close. The focused editor E2E spec passes at the responsive breakpoint.
+- Website and editor controls use 44px hit boxes for coarse or hybrid pointers;
+  the website retains compact fine-pointer styling.
+- The website header switches to its mobile navigation sheet through 960px so
+  intermediate tablet widths do not clip the persistent desktop navigation.
+- A Playwright reflow corpus covers 320, 375, 430, 480, 600, 768, 900, 1280,
+  and 1920px across the home, download, docs, features, and FAQ routes.
+
+Feature-specific validation completed so far:
+
+- `pnpm build:website && pnpm build:website:pages` — passed; 66 routes built
+  for each static output.
+- `VARVE_WEBSITE_E2E_PORT=4345 VARVE_WEBSITE_E2E_PORT_ROOT=4346 pnpm exec playwright test -c playwright.website.config.ts --project=ghpages apps/website/tests/e2e/reflow.spec.ts --reporter=list` — passed.
+- The responsive editor drawer E2E test and the coarse-pointer website target
+  E2E test passed in isolated Chromium runs.
+
+The remaining verification record will be extended with the final affected
+validation, axe, visual, audit, and architecture-check results before the
+platform pass is closed.

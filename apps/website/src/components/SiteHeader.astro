@@ -204,7 +204,7 @@ const versionLabel = release.hasRelease && release.version
 
   // Close on resize to desktop. Focus is returned to the toggle because the
   // panel (and whatever inside it had focus) becomes hidden at this breakpoint.
-  const desktopQuery = window.matchMedia('(min-width: 769px)');
+  const desktopQuery = window.matchMedia('(min-width: 961px)');
   desktopQuery.addEventListener('change', (e) => {
     if (e.matches && isOpen) {
       const focusWasInPanel = panel?.contains(document.activeElement) ?? false;
@@ -540,7 +540,10 @@ const versionLabel = release.hasRelease && release.version
     display: none;
   }
 
-  @media (max-width: 768px) {
+  /* The full navigation needs roughly 920px once touch-safe controls and
+     readable link spacing are included. Switch to the mobile sheet before
+     the tablet/intermediate range can clip the persistent header. */
+  @media (max-width: 960px) {
     .nav-links {
       display: none;
     }
@@ -750,7 +753,10 @@ const versionLabel = release.hasRelease && release.version
     }
   }
 
-  @media (max-width: 420px) {
+  /* At standard phone widths, the compact header CTA competes with two
+     44px theme choices and the menu control. The full mobile sheet retains
+     Download, so remove only this duplicate entry from the persistent row. */
+  @media (max-width: 480px) {
     :global(.nav-download-cta) {
       display: none;
     }

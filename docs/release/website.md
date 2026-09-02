@@ -259,6 +259,7 @@ as a separate test pass.
 - [x] Headings form a sensible outline; one `<h1>` per page (axe rule)
 - [x] Checksum `<details>` blocks are reachable and announced
 - [x] 320 px viewport has no horizontal scroll (structural visibility audit)
+- [x] Marketing routes reflow without page-level overflow at 320/375/430/480/600/768/900/1280/1920 px
 - [x] Prefers-reduced-motion respected (theme test + reduced-motion emulation)
 - [x] Touch-sized theme and mobile-menu targets use 44px boxes on coarse-pointer devices
 - [x] Marketing mobile menu keeps focus contained and restores focus on close
