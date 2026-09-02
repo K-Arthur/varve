@@ -139,7 +139,7 @@ export function BrushLibraryPanel() {
             accept=".varvebrush,application/json"
             actionLabel="Import brushes"
             inputLabel="Import brush package"
-            icon="PaintBrush"
+            icon="Paintbrush"
             onFiles={([file]) => {
               if (file) void handleImportFile(file);
             }}
