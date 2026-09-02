@@ -71,12 +71,13 @@ separate responsive layout and marketing-only pill treatment.
 
 ## Evidence record
 
-Implementation was delivered in three progressive commits:
+Implementation was delivered in four progressive commits:
 
 - `7eead2cd7` — shared UI primitives, state handling, and editor/home callsite
   migration
 - `cc01142a0` — editor floating toolbar and quick text action controls
 - `cf8d924ae` — Astro marketing Button/CTA contract, callsites, and docs
+- `f4443bf1e` — remaining editor variant/type migration cleanup
 
 The focused unit checks passed for the shared UI primitives and editor action
 surfaces (68 tests across the committed slices). Website typecheck, production
