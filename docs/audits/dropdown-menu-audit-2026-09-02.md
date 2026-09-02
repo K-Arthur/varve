@@ -75,7 +75,19 @@ and shortcut metadata without changing the role taxonomy.
 - The static website does not import React application primitives; its grouped
   navigation keeps an Astro-native accessible implementation.
 
-## 5. Documentation and design-system changes
+## 5.1 Label readability follow-up
+
+The first implementation review exposed a concrete width regression in the
+Home file context menu: its compact surface reserved empty leading and trailing
+lanes, leaving longer actions such as “Move earlier in order” visibly
+ellipsized. The shared renderer now reserves those lanes only when a menu entry
+needs them, while preserving alignment for mixed icon/shortcut menus. The Home
+file menu uses the semantic `default` width, and default/rich labels wrap under
+viewport pressure instead of being silently clipped. The specialized editor
+menubar now follows the same label policy when shortcuts or submenu arrows
+reduce its available text width.
+
+## 6. Documentation and design-system changes
 
 The canonical contract is documented in
 `docs/architecture/menu-system.md`, indexed from `docs/README.md`, and this
@@ -83,7 +95,7 @@ dated audit records the repository classification and decisions. Existing
 overlay documentation remains the source for geometry and lifecycle ownership;
 the menu document supplies the semantic and visual layer above it.
 
-## 6. Validation evidence
+## 7. Validation evidence
 
 The staged impact plan selected menu/UI/editor checks, E2E typechecking, the
 menu visual project, and the affected editor/UI closure; it did not escalate

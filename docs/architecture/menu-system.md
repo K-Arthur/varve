@@ -59,9 +59,16 @@ Each action entry may provide:
 
 The leading and trailing lanes have reserved space so icons, checkmarks,
 shortcuts, badges, submenu arrows, and dialog ellipses do not make sibling
-labels jump. Labels are presentation headings (`MenuLabel`), not focusable
-items. State-dependent lists are normalized to remove leading, trailing, and
-duplicate separators before they are painted.
+labels jump when those lanes are used. Empty lanes collapse for plain command
+menus so their labels receive the full semantic width; `default` and `rich`
+labels wrap rather than being visually ellipsized when viewport clamping makes
+their available width tight. Labels are presentation headings (`MenuLabel`),
+not focusable items. State-dependent lists are normalized to remove leading,
+trailing, and duplicate separators before they are painted.
+
+Use `compact` for genuinely short command/overflow menus and `default` for
+target-relative menus whose actions include ordinary descriptive labels. The
+Home file context menu is an example of the latter.
 
 ## Command metadata and shortcuts
 
@@ -96,7 +103,9 @@ The editor menubar keeps its specialized top-level focus and native-menu
 integration in `packages/editor/src/Menubar.tsx`. It shares this document’s
 geometry, radius, spacing, elevation, focus, and theme tokens. Its separate
 renderer is a deliberate boundary because a top-level menubar is a composite
-navigation widget, not a normal anchored action menu.
+navigation widget, not a normal anchored action menu. Its labels wrap when
+shortcuts reduce the available command-label width; they are not silently
+ellipsized.
 
 ## Repository application
 

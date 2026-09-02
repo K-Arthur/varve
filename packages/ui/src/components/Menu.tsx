@@ -243,7 +243,7 @@ function menuBody(
   return (
     <>
       <span className="varve-menu__leading">
-        <span className="varve-menu__indicator">{indicator}</span>
+        {indicator ? <span className="varve-menu__indicator">{indicator}</span> : null}
         {entry.icon ? <Icon name={entry.icon} size="var(--icon-size-sm)" /> : null}
       </span>
       <span className="varve-menu__item-content">
@@ -398,6 +398,16 @@ function MenuInternal({
   const flatItems = useMemo(
     () => normalizedItems.filter((i): i is MenuActionEntry => !isSeparator(i) && !isLabel(i)),
     [normalizedItems],
+  );
+  const hasLeadingLane = flatItems.some(
+    (entry) => isCheckbox(entry) || isRadio(entry) || Boolean(entry.icon),
+  );
+  const hasTrailingLane = flatItems.some(
+    (entry) =>
+      isSubmenuItem(entry) ||
+      Boolean(entry.shortcut) ||
+      Boolean(entry.badge) ||
+      Boolean('dialog' in entry && entry.dialog),
   );
 
   const isItemDisabled = useCallback(
@@ -876,7 +886,13 @@ function MenuInternal({
       role="menu"
       aria-label={label}
       aria-orientation="vertical"
-      className={menuClassName}
+      className={[
+        menuClassName,
+        hasLeadingLane ? 'varve-menu--has-leading' : '',
+        hasTrailingLane ? 'varve-menu--has-trailing' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={containerStyle}
       onKeyDown={handleKey}
       onPointerEnter={() => {

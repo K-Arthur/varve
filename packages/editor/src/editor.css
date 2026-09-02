@@ -581,9 +581,10 @@ input[type="number"] {
 
 .editor-menubar__menu-label {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .editor-menubar__menu-submenu-arrow {

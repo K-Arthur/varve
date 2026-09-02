@@ -1,5 +1,10 @@
 import { HomeShell } from '@varve/home';
 import { createMemoryPlatform, makeFileEntry, makeProject, uuid } from '@varve/platform';
+import '@fontsource-variable/geist/index.css';
+import '@fontsource-variable/ibm-plex-sans/index.css';
+import '@varve/ui/tokens.css';
+import '@varve/home/home.css';
+import './global.css';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 

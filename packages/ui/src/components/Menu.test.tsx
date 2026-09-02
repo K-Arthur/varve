@@ -277,6 +277,32 @@ describe('Menu', () => {
     expect(item.querySelector('.varve-menu__shortcut')).toHaveTextContent('Ctrl+Alt+E');
   });
 
+  it('collapses unused icon and trailing lanes for plain command menus', () => {
+    render(
+      <AnchoredMenu
+        items={[{ id: 'open', label: 'Open a very long command label', onAction: vi.fn() }]}
+      />,
+    );
+
+    const menu = screen.getByRole('menu', { hidden: true });
+    expect(menu).not.toHaveClass('varve-menu--has-leading');
+    expect(menu).not.toHaveClass('varve-menu--has-trailing');
+  });
+
+  it('keeps semantic lanes aligned when an item needs them', () => {
+    render(
+      <AnchoredMenu
+        items={[
+          { id: 'open', label: 'Open', onAction: vi.fn(), shortcut: 'Ctrl+O' },
+          { id: 'delete', label: 'Delete', onAction: vi.fn(), dialog: true },
+        ]}
+      />,
+    );
+
+    const menu = screen.getByRole('menu', { hidden: true });
+    expect(menu).toHaveClass('varve-menu--has-trailing');
+  });
+
   it('normalizes orphaned separators and adjacent labels', () => {
     render(
       <AnchoredMenu

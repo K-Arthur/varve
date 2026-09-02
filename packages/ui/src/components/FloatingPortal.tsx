@@ -422,7 +422,7 @@ export function FloatingPortal({
             // and tall context menus can extend below the viewport.
             maxWidth: floating.style.maxWidth || undefined,
             maxHeight: floating.style.maxHeight || undefined,
-            overflowY: floating.style.overflowY || undefined,
+            overflowY: (floating.style.overflowY || undefined) as CSSProperties['overflowY'],
             visibility: hiddenByReference ? 'hidden' : 'visible',
             pointerEvents: hiddenByReference ? 'none' : 'auto',
             zIndex,

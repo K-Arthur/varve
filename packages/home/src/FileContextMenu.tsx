@@ -161,6 +161,7 @@ export function FileContextMenu({
       position={position}
       onClose={onClose}
       label={`File actions for ${file.name}`}
+      size="default"
     />
   );
 }
