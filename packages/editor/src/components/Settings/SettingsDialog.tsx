@@ -2,6 +2,7 @@ import { managedColorToCss, PRODUCT_STATUS, VARVE_URLS } from '@varve/shared';
 import {
   Button,
   Dialog,
+  FilePickerButton,
   NestedOverlayProvider,
   NumberInput,
   Select,
@@ -452,21 +453,20 @@ function CollabSection() {
         />
       </FieldRow>
       <FieldRow label="Avatar">
-        <input
-          type="file"
+        <FilePickerButton
+          variant="secondary"
+          size="sm"
           accept="image/*"
-          className="settings-file-input"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              const reader = new FileReader();
-              reader.onload = () => {
-                updateSection('collab', { avatar: reader.result as string });
-              };
-              reader.readAsDataURL(file);
-            }
+          actionLabel="Choose avatar image"
+          inputLabel="Choose avatar image"
+          onFiles={([file]) => {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+              updateSection('collab', { avatar: reader.result as string });
+            };
+            reader.readAsDataURL(file);
           }}
-          aria-label="Choose avatar image"
         />
       </FieldRow>
       <Divider />

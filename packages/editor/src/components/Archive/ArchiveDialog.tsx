@@ -8,16 +8,8 @@
  * SettingsDialog, and RecoveryDialog.
  */
 
-import { Dialog, Select, Spinner, SwitchField } from '@varve/ui';
-import {
-  type ChangeEvent,
-  type DragEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { Dialog, FileDropZone, Icon, Select, Spinner, SwitchField } from '@varve/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ArchiveBuildResult,
   ArchiveConflict,
@@ -233,8 +225,6 @@ export function ArchiveDialog({
   // Refs
   const createAbortRef = useRef<AbortController | null>(null);
   const restoreAbortRef = useRef<AbortController | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const dropZoneRef = useRef<HTMLButtonElement>(null);
 
   // Password strength
   const passwordStrength = useMemo(() => {
@@ -430,44 +420,6 @@ export function ArchiveDialog({
       setRestoreError(`Failed to read archive: ${msg}`);
     }
   }, []);
-
-  const handleFileDrop = useCallback(
-    (e: DragEvent<HTMLButtonElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dropZoneRef.current?.classList.remove('archive-dialog__drop-zone--active');
-
-      const file = e.dataTransfer.files[0];
-      if (file) {
-        void handleFileSelect(file);
-      }
-    },
-    [handleFileSelect],
-  );
-
-  const handleFileDragOver = useCallback((e: DragEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dropZoneRef.current?.classList.add('archive-dialog__drop-zone--active');
-  }, []);
-
-  const handleFileDragLeave = useCallback((e: DragEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dropZoneRef.current?.classList.remove('archive-dialog__drop-zone--active');
-  }, []);
-
-  const handleFileInputChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        void handleFileSelect(file);
-      }
-      // Reset input so same file can be re-selected
-      e.target.value = '';
-    },
-    [handleFileSelect],
-  );
 
   const handleRemoveFile = useCallback(() => {
     setRestoreFile(null);
@@ -890,36 +842,23 @@ export function ArchiveDialog({
         <h3 className="archive-dialog__section-title">Select archive file</h3>
 
         {!restoreFile ? (
-          <button
-            type="button"
-            ref={dropZoneRef as React.RefObject<HTMLButtonElement>}
+          <FileDropZone
             className="archive-dialog__drop-zone"
-            aria-label="Drop an archive file here or click to browse"
-            onDrop={handleFileDrop}
-            onDragOver={handleFileDragOver}
-            onDragLeave={handleFileDragLeave}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <span className="archive-dialog__drop-icon" aria-hidden="true">
-              &#128194;
-            </span>
-            <span className="archive-dialog__drop-text">Drop archive here or click to browse</span>
-            <span className="archive-dialog__drop-hint">
-              Supports .zip and .varve-archive.zip files (legacy .strata-archive.zip also supported)
-            </span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="archive-dialog__drop-input"
-              accept=".zip,.varve-archive.zip,.strata-archive.zip"
-              onChange={handleFileInputChange}
-              aria-hidden="true"
-              tabIndex={-1}
-            />
-          </button>
+            label="Drop an archive to restore"
+            description="ZIP archives created by Varve, including legacy archive files."
+            actionLabel="Choose archive"
+            icon="Archive"
+            accept=".zip,.varve-archive.zip,.strata-archive.zip"
+            maxFiles={1}
+            onFiles={(files) => {
+              const file = files[0];
+              if (file) return handleFileSelect(file);
+            }}
+            onReject={(rejections) => setRestoreError(rejections[0]?.reason ?? 'Archive rejected.')}
+          />
         ) : (
           <div className="archive-dialog__file-name">
-            <span aria-hidden="true">&#128196;</span>
+            <Icon name="Archive" label={undefined} />
             <span>{restoreFile.name}</span>
             <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-xs)' }}>
               ({formatBytes(restoreFile.size)})
@@ -931,7 +870,7 @@ export function ArchiveDialog({
                 aria-label="Remove file"
                 onClick={handleRemoveFile}
               >
-                &#10005;
+                <Icon name="X" label={undefined} />
               </button>
             )}
           </div>
