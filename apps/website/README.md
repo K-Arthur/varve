@@ -6,7 +6,7 @@ documentation, downloads, and community.
 ## Architecture
 
 - **Framework**: Astro 7 with static output (`astro build`)
-- **Content**: `src/pages/` (64 pages), `src/components/`, `src/data/`
+- **Content**: `src/pages/` (69 routes), `src/components/`, `src/data/`
 - **Deployment**: GitHub Pages via `.github/workflows/website-deploy.yml`
 - **Testing**: Vitest unit tests (`src/test/`), Playwright E2E (`tests/e2e/`)
 
@@ -34,7 +34,7 @@ pnpm test:website:e2e       # Playwright E2E (build first)
 
 | Path | Purpose |
 |------|---------|
-| `src/pages/` | Astro page components (64 pages) |
+| `src/pages/` | Astro page components (69 routes, including generated sitemap/robots/security endpoints) |
 | `src/components/` | Shared Astro components (header, footer, CTA) |
 | `src/data/` | Release manifest, structured data |
 | `src/test/` | Vitest unit tests |
@@ -45,5 +45,20 @@ pnpm test:website:e2e       # Playwright E2E (build first)
 ## Key docs
 
 - `docs/release/website.md` — website architecture and launch plan
-- `docs/plans/website-operations-guide.md` — how to add releases and platforms
+- `docs/release/website.md` — website architecture, release-data flow, and deployment
 - `docs/release/` — release engineering (the website publishes release data)
+
+## Release data and public claims
+
+`src/data/release-manifest.json` and `public/updates/{stable,beta}.json` are
+generated release snapshots. Do not hand-edit them. To refresh the local
+fallback from a published GitHub release, run:
+
+```bash
+node scripts/release/fetch-website-release.mjs --repo K-Arthur/varve --tag v0.2.1
+```
+
+The deployment workflow performs the same fetch after verifying that the
+release is published and that its manifest, checksums, and SBOMs agree. The
+download page must never be updated with guessed version, size, checksum, or
+signing data.

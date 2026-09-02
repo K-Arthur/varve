@@ -496,7 +496,7 @@ records; check the current code before acting on their findings.
 
 | Area | Location | Purpose |
 |------|----------|---------|
-| Source code | `apps/website/` | Astro 7 static site (64 pages) |
+| Source code | `apps/website/` | Astro 7 static site (69 routes) |
 | Release manifest | `apps/website/src/data/release-manifest.json` | Download data for the release pages |
 | Deployment workflow | `.github/workflows/website-deploy.yml` | GitHub Pages auto-deploy |
 | Website build | `pnpm --filter @varve/website build` | Build command (astro check + astro build) |

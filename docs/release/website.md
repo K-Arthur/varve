@@ -1,13 +1,16 @@
 # Varve — Website Architecture and Launch Plan
 
-**Date:** 2026-08-04 (updated 2026-08-12)
-**Status:** implemented, deployed and live at **https://varve.studio** (custom domain, registered and DNS at Porkbun, hosted on GitHub Pages). See `custom-domain-runbook.md` for the DNS records, GitHub configuration and rollback.
+**Last verified:** 2026-09-02
+**Status:** implemented and deployed at **https://varve.studio** (custom
+domain, registered and DNS at Porkbun, hosted on GitHub Pages). The current
+published release is v0.2.1. See `custom-domain-runbook.md` for the DNS
+records, GitHub configuration and rollback.
 
 ---
 
 ## 1. What already existed
 
-A complete Astro 7 site under `apps/website` — 42 pages covering product,
+A complete Astro 7 site under `apps/website` — 69 routes covering product,
 features, docs, support, licensing, privacy and security. Reusing it was the
 right call; almost none of it needed rewriting.
 
@@ -42,7 +45,7 @@ apps/website/
     │   ├── sitemap.xml.ts           generated from site + base + page files
     │   ├── robots.txt.ts            generated from site + base (sitemap URL)
     │   ├── 404.astro
-    │   └── … 40 more
+    │   └── … remaining routes
     └── test/                        guards manifest honesty + URL rules
 ```
 
@@ -67,12 +70,13 @@ release.yml  →  dist/release/release-manifest.json + SHA256SUMS.txt + SBOMs
                         │      • any failure FAILS the deployment
                         │      ▼
                         └─ offline path (rehearsal/local)
-                             update-website-manifest.mjs --tag v0.1.0
+                             fetch-website-release.mjs --tag v0.2.1
                               │
                               ▼
-    apps/website/src/data/release-manifest.json      (written at build time;
-                                                       committed fallback is the
-                                                       honest no-release state)
+    apps/website/src/data/release-manifest.json      (generated snapshot;
+                                                       refreshed from the latest
+                                                       published release for CI
+                                                       and local fallback builds)
                         │
                         ▼
     download.astro  →  cards, sizes, checksums, per-platform install steps
@@ -121,9 +125,11 @@ assets 404, and `fetch-website-release.mjs` only considers published releases.
 This is the "publish update metadata last" invariant in action: a client can
 never see version X advertised before X's assets and signatures exist.
 
-`hasRelease: false` is a first-class rendered state: before the first tag, the
-page says there is nothing to download and warns against Varve-branded builds
-from elsewhere. This is the default committed state today.
+`hasRelease: false` is a first-class rendered state for a new repository before
+the first published tag. The current committed snapshot is v0.2.1 and was
+generated from the published release; it remains available for local builds
+when GitHub is not queried. The deployment workflow refreshes it from the
+published release before building the public site.
 
 ---
 
@@ -255,7 +261,7 @@ Target WCAG 2.2 AA — enforced by the CI website e2e gate.
 - [x] Real screenshots added (2026-08-09)
 - [x] Accessibility pass (§6)
 - [x] Mobile layout checked at 320/375/768 px (e2e)
-- [x] Download page verified against a **real** release manifest (v0.1.0, published 2026-08-09)
+- [x] Download page verified against a **real** release manifest (v0.2.1, published 2026-08-25)
 - [x] Every checksum on the page matches the published artifact
 - [x] Privacy, licence and security pages re-read for accuracy
 - [x] Post-deployment smoke check wired into the workflow (`scripts/website/smoke-pages.mjs`)

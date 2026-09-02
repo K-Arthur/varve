@@ -1,8 +1,8 @@
 # Varve — Platform & Architecture Support Matrix
 
-**Date:** 2026-08-24
-**Applies to:** the current release line (v0.2.1 published 2026-08-24;
-v0.1.1 published 2026-08-12; v0.1.0 published 2026-08-09)
+**Last verified:** 2026-09-02
+**Applies to:** the current release line (v0.2.1 published 2026-08-25;
+v0.2.0 published 2026-08-21; v0.1.2 published 2026-08-16)
 
 The guiding rule: **do not advertise a platform we have not run the application on.**
 A successful `cargo build` is not evidence that an application works. Every "Supported" claim
@@ -26,11 +26,11 @@ below is backed by an actual launch on real hardware; everything else is labelle
 | OS | Arch | Build | Package | Signing | Tested | Min OS | Tier | Confidence |
 |---|---|---|---|---|---|---|---|---|
 | **Linux** (Arch/CachyOS) | x86-64 | ✅ built + launched | `.deb` (host WebKitGTK) | unsigned | ✅ dev machine | glibc 2.35+ | **1** | High |
-| **Linux** (Debian/Ubuntu) | x86-64 | ✅ built locally | `.deb` 49.8 MB (v0.2.0) | unsigned | ⬜ VM needed (container install-test ✅) | Ubuntu 22.04 | **2** | Medium |
-| **Linux** (Fedora/RHEL) | x86-64 | ✅ built locally | `.rpm` 49.8 MB (v0.2.0) | unsigned | ⬜ VM needed (container install-test ✅) | Fedora 38 | **2** | Low |
-| **Linux** | ARM64 | ✅ v0.2.0: built + container install-tested + AppImage headless launch on native `ubuntu-22.04-arm` | AppImage, `.deb`, `.rpm` | checksums + SBOM | ⚠️ native-runner install tests + headless AppImage launch verified (2026-08-21); long-term hardware testing pending | glibc 2.35+ | **2** | Medium |
+| **Linux** (Debian/Ubuntu) | x86-64 | ✅ built in CI | `.deb` 49.9 MB (v0.2.1) | unsigned | ⬜ VM needed (container install-test ✅) | Ubuntu 22.04 | **2** | Medium |
+| **Linux** (Fedora/RHEL) | x86-64 | ✅ built in CI | `.rpm` 49.9 MB (v0.2.1) | unsigned | ⬜ VM needed (container install-test ✅) | Fedora 38 | **2** | Low |
+| **Linux** | ARM64 | ✅ v0.2.1: built + container install-tested + AppImage headless launch on native `ubuntu-22.04-arm` | AppImage, `.deb`, `.rpm` | checksums + SBOM | ⚠️ native-runner install tests + headless AppImage launch verified (2026-08-25); long-term hardware testing pending | glibc 2.35+ | **2** | Medium |
 | **Windows 10/11** | x86-64 | ✅ built in CI (`windows-latest`, NSIS) | `.exe` | unsigned | ⚠️ runner smoke passed 2026-08-09 and 2026-08-21 (install/launch/uninstall); no long-term hardware testing | Win 10 1809 | **3** | Low |
-| **Windows** | ARM64 | ✅ v0.2.0: built + runner smoke passed on native `windows-11-arm` | native ARM64 app in NSIS distribution | unsigned until signing gate passes | ⚠️ runner smoke passed 2026-08-21 (install/launch); long-term hardware testing pending | Windows 10 1809 | **2** | Medium |
+| **Windows** | ARM64 | ✅ v0.2.1: built + runner smoke passed on native `windows-11-arm` | native ARM64 app in NSIS distribution | unsigned until signing gate passes | ⚠️ runner smoke passed 2026-08-25 (install/launch); long-term hardware testing pending | Windows 10 1809 | **2** | Medium |
 | **macOS** | ARM64 | ✅ built in CI (`macos-latest`, `aarch64-apple-darwin` DMG) | `.dmg` | unsigned, unnotarised | ⚠️ runner smoke passed 2026-08-09 (mount/launch/unmount); no long-term hardware testing | macOS 13 | **3** | Low |
 | **macOS** | x86-64 | ❌ not built (dependency EOL — ONNX Runtime upstream discontinued macOS Intel binaries; see `docs/plans/macos-intel-feasibility.md`) | — | — | ❌ | — | **Not supported** | — |
 
@@ -64,15 +64,15 @@ a stale pre-fix artifact).
 
 ## 3. Linux — detail
 
-### ARM64 release path — evidence gained, Tier 2 as of v0.2.0
+### ARM64 release path — evidence gained, Tier 2 as of v0.2.1
 
 Linux ARM64 now has a dedicated native `ubuntu-22.04-arm` release matrix entry.
 That is required because Tauri's current AppImage toolchain does not support
-cross-compiling ARM AppImages. The v0.2.0 release gate verified: bundle
+cross-compiling ARM AppImages. The v0.2.1 release gate verified: bundle
 build, `.deb` and `.rpm` install tests in clean containers, and a headless
 AppImage launch smoke (WebKit web-process liveness, no EGL failures) — all
 on native ARM runner hardware. Windows ARM64 likewise passed a native
-`windows-11-arm` runner smoke in v0.2.0. Remaining gaps: native ONNX
+`windows-11-arm` runner smoke in v0.2.1. Remaining gaps: native ONNX
 inference on ARM64 is not explicitly tested in CI, and neither target has
 received long-term or human-operated GUI testing.
 
