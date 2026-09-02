@@ -97,6 +97,8 @@ Passed during this audit:
 - `pnpm test:website`
 - `pnpm build:website`
 - `pnpm exec vitest run --maxWorkers=1 packages/engine/src/upscaleGoldenParity.test.ts`
+- `pnpm typecheck:e2e` (rerun directly after the full-gate wrapper stopped at
+  this step; passed)
 - Commit checkpoints, including staged formatting, health, secret, contacts,
   docs, and import-boundary checks.
 
@@ -108,10 +110,13 @@ must not proceed with them in the public asset tree.
 
 `pnpm verify:plan` was run against the shared worktree. It selected a broad
 affected closure because other concurrent editor, UI, and E2E changes were
-already present. The full repository gate, full Vitest/Cargo suites, browser
-E2E matrix, native GUI matrix, packaging, signing, and benchmark lanes were not
-run; they are unrelated to these documentation/comment-only changes and remain
-appropriate for their own integration or release checkpoints.
+already present, and escalated to the full gate. The full gate ran formatting,
+linting, architecture checks, audits, and all workspace package typechecks, but
+its chained E2E typecheck step returned exit 1 without diagnostics. The exact
+`pnpm typecheck:e2e` command was then rerun and passed. The gate therefore did
+not reach the full Vitest/Cargo suites, browser E2E matrix, native GUI matrix,
+packaging, signing, or benchmark lanes; those remain appropriate for their own
+integration or release checkpoints.
 
 ## Deferred debt and risk register
 
