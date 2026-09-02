@@ -151,6 +151,10 @@ Final validation record:
   navigation E2E passed all 10 Chromium cases, including grouped desktop
   menus, mobile-menu focus return, base-path links, overflow, and skip-link
   behavior.
+- Following the homepage content update, four homepage baselines were
+  refreshed after reviewing the desktop and mobile actual/diff captures. A
+  clean post-commit no-update run with
+  `VARVE_WEBSITE_E2E_PORT=4355`/`4356` passed all 16 visual cases.
 - The existing narrow-toolbar visual test did not reach its screenshot because
   its shared navigation helper waits for the Layers panel to be visible at
   640px, while the responsive shell intentionally keeps that drawer collapsed;
@@ -243,12 +247,12 @@ investigation.
   page schema, comparison copy, and `/llms.txt` surface remain documented in
   `docs/marketing/positioning-and-discovery.md` and `docs/release/website.md`.
 - The marketing visual corpus was reviewed and refreshed for the current
-  website output: stale `ghpages` baselines were regenerated in two bounded
-  updates as the grouped desktop navigation landed, after inspecting
-  representative expected/actual/diff images. The exact 16-test visual matrix
-  then passed with no-update verification against the latest rebuilt site;
-  unchanged baselines were left untouched. No screenshot tolerance or
-  assertion was loosened.
+  website output: stale `ghpages` baselines were regenerated in three bounded
+  updates as grouped navigation, marketing action styling, and homepage
+  content landed, after inspecting representative expected/actual/diff images.
+  The exact 16-test visual matrix then passed with no-update verification
+  against the latest rebuilt site; unchanged baselines were left untouched. No
+  screenshot tolerance or assertion was loosened.
 
 Test-weakening disclosure: **none**. Selector corrections preserve the tested
 behavior and make queries match the current accessible roles; visual baseline
