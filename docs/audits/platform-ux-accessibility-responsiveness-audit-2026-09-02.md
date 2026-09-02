@@ -136,6 +136,10 @@ Final validation record:
 - Website coarse-pointer target test passed in isolated Chromium emulation.
 - Editor responsive drawer focus E2E and desktop workspace-toolbar screenshot
   validation passed in Chromium.
+- The existing narrow-toolbar visual test did not reach its screenshot because
+  its shared navigation helper waits for the Layers panel to be visible at
+  640px, while the responsive shell intentionally keeps that drawer collapsed;
+  the dedicated responsive inspector viewport test passed.
 - The existing website visual snapshot suite ran 16 tests: 5 passed and 11
   mismatched existing snapshots. The mismatches include page-height/content
   drift outside this audit's header breakpoint scope; snapshots were not
