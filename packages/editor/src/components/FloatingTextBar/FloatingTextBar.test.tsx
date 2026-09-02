@@ -100,11 +100,13 @@ describe('FloatingTextBar', () => {
     expect(size.value).toBe('16');
   });
 
-  it('renders align buttons', () => {
+  it('renders align buttons', async () => {
     render(<FloatingTextBar {...defaultProps()} />);
-    expect(screen.getByLabelText('Align left')).toBeInTheDocument();
-    expect(screen.getByLabelText('Align center')).toBeInTheDocument();
-    expect(screen.getByLabelText('Align right')).toBeInTheDocument();
+    await settledToolbar();
+    expect(await screen.findByRole('radiogroup', { name: 'Text alignment' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Left' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Center' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Right' })).toBeInTheDocument();
   });
 
   it('renders list toggle', () => {
@@ -138,12 +140,13 @@ describe('FloatingTextBar', () => {
     expect(screen.getByLabelText('List')).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('shows correct align active state', () => {
+  it('shows correct align active state', async () => {
     render(
       <FloatingTextBar {...defaultProps({ node: { ...BASE_TEXT_NODE, textAlign: 'center' } })} />,
     );
-    expect(screen.getByLabelText('Align center')).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByLabelText('Align left')).toHaveAttribute('aria-pressed', 'false');
+    await settledToolbar();
+    expect(await screen.findByRole('radio', { name: 'Center' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Left' })).not.toBeChecked();
   });
 
   it('calls onUpdate with bold weight on bold click', () => {
@@ -200,10 +203,11 @@ describe('FloatingTextBar', () => {
     expect(onUpdate).toHaveBeenCalledWith('text-1', { listStyle: 'none' });
   });
 
-  it('calls onUpdate with align value on align click', () => {
+  it('calls onUpdate with align value on align click', async () => {
     const onUpdate = vi.fn();
     render(<FloatingTextBar {...defaultProps({ onUpdate })} />);
-    fireEvent.click(screen.getByLabelText('Align center'));
+    await settledToolbar();
+    fireEvent.click(await screen.findByRole('radio', { name: 'Center' }));
     expect(onUpdate).toHaveBeenCalledWith('text-1', { textAlign: 'center' });
   });
 

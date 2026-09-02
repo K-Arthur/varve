@@ -3,10 +3,11 @@ import { DEFAULT_ARTWORK_FONT_FAMILY, managedColorToRgba } from '@varve/shared';
 import {
   ColorPicker,
   FloatingPortal,
-  Icon,
   Popover,
   pointAnchor,
+  SegmentedControl,
   Select,
+  ToggleButton,
   viewportPoint,
 } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
@@ -106,25 +107,23 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
           onChange={(v) => handleFontWeightChange(v)}
         />
 
-        <button
-          type="button"
+        <ToggleButton
+          size="sm"
+          icon="Bold"
+          pressed={isBold}
+          onPressedChange={handleBoldToggle}
+          label="Bold"
           className={`floating-text-bar__btn${isBold ? ' floating-text-bar__btn--active' : ''}`}
-          onClick={handleBoldToggle}
-          aria-label="Bold"
-          aria-pressed={isBold}
-        >
-          <Icon name="Bold" size={16} />
-        </button>
+        />
 
-        <button
-          type="button"
+        <ToggleButton
+          size="sm"
+          icon="Italic"
+          pressed={isItalic}
+          onPressedChange={handleItalicToggle}
+          label="Italic"
           className={`floating-text-bar__btn${isItalic ? ' floating-text-bar__btn--active' : ''}`}
-          onClick={handleItalicToggle}
-          aria-label="Italic"
-          aria-pressed={isItalic}
-        >
-          <Icon name="Italic" size={16} />
-        </button>
+        />
 
         <div className="floating-text-bar__separator" />
 
@@ -145,39 +144,27 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 
         <div className="floating-text-bar__separator" />
 
-        {(['left', 'center', 'right'] as const).map((align) => (
-          <button
-            key={align}
-            type="button"
-            className={`floating-text-bar__btn${textAlign === align ? ' floating-text-bar__btn--active' : ''}`}
-            onClick={() => handleAlignChange(align)}
-            aria-label={`Align ${align}`}
-            aria-pressed={textAlign === align}
-          >
-            <Icon
-              name={
-                align === 'left'
-                  ? 'TextAlignStart'
-                  : align === 'center'
-                    ? 'TextAlignCenter'
-                    : 'TextAlignEnd'
-              }
-              size={16}
-            />
-          </button>
-        ))}
+        <SegmentedControl
+          label="Text alignment"
+          value={textAlign}
+          options={[
+            { value: 'left', label: 'Left', icon: 'TextAlignStart' },
+            { value: 'center', label: 'Center', icon: 'TextAlignCenter' },
+            { value: 'right', label: 'Right', icon: 'TextAlignEnd' },
+          ]}
+          onChange={handleAlignChange}
+        />
 
         <div className="floating-text-bar__separator" />
 
-        <button
-          type="button"
+        <ToggleButton
+          size="sm"
+          icon="List"
+          pressed={isList}
+          onPressedChange={handleListToggle}
+          label="List"
           className={`floating-text-bar__btn${isList ? ' floating-text-bar__btn--active' : ''}`}
-          onClick={handleListToggle}
-          aria-label="List"
-          aria-pressed={isList}
-        >
-          <Icon name="List" size={16} />
-        </button>
+        />
 
         <div className="floating-text-bar__separator" />
 

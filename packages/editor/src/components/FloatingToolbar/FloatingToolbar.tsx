@@ -2,10 +2,13 @@ import type { BooleanOpKind } from '@varve/scene';
 import { rgbToHex } from '@varve/shared';
 import type { IconName, MenuEntry } from '@varve/ui';
 import {
+  Button,
   ContextMenu,
   elementAnchor,
   Icon,
+  IconButton,
   type OverlayAnchor,
+  ToggleButton,
   Toolbar,
   Tooltip,
   TooltipProvider,
@@ -55,16 +58,15 @@ function ToolButton({ id, groupStart }: ToolButtonProps) {
   const shortcut = toolShortcutLabel(id);
   return (
     <Tooltip label={label} shortcut={shortcut}>
-      <button
-        type="button"
+      <ToggleButton
+        size="sm"
+        icon={iconName(id)}
+        label={label}
+        pressed={state.tool === id}
+        onPressedChange={() => setTool(id)}
         className={`floating-toolbar__btn${state.tool === id ? ' floating-toolbar__btn--active' : ''}${groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
-        aria-pressed={state.tool === id}
-        aria-label={label}
         data-tool={id}
-        onClick={() => setTool(id)}
-      >
-        <Icon name={iconName(id)} size={16} />
-      </button>
+      />
     </Tooltip>
   );
 }
@@ -94,39 +96,51 @@ function FlyoutButton({
   onToggleMenu,
 }: FlyoutButtonProps) {
   const disabled = disabledReason !== undefined;
+  const primaryButton =
+    slot.id === ACTION_FLYOUT_ID ? (
+      <Button
+        variant="toolbar"
+        size="icon-sm"
+        className={`floating-toolbar__btn${slot.groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
+        aria-label={toolLabel(current)}
+        data-tool={current}
+        disabled={disabled}
+        aria-disabled={disabled || undefined}
+        onClick={() => onActivate(current)}
+      >
+        <Icon name={iconName(current)} size={16} />
+      </Button>
+    ) : (
+      <ToggleButton
+        size="sm"
+        icon={iconName(current)}
+        label={toolLabel(current)}
+        pressed={pressed}
+        disabled={disabled}
+        aria-disabled={disabled || undefined}
+        onPressedChange={() => onActivate(current)}
+        className={`floating-toolbar__btn${pressed ? ' floating-toolbar__btn--active' : ''}${slot.groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
+        data-tool={current}
+      />
+    );
   return (
     <>
       <Tooltip
         label={disabled ? disabledReason : toolLabel(current)}
         disabledReason={disabledReason}
       >
-        <button
-          type="button"
-          className={`floating-toolbar__btn${pressed ? ' floating-toolbar__btn--active' : ''}${slot.groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
-          aria-pressed={pressed}
-          aria-label={toolLabel(current)}
-          data-tool={current}
-          aria-disabled={disabled || undefined}
-          onClick={() => {
-            if (!disabled) onActivate(current);
-          }}
-        >
-          <Icon name={iconName(current)} size={16} />
-        </button>
+        {primaryButton}
       </Tooltip>
       <Tooltip label={`${slot.label} menu`} disabledReason={disabledReason}>
-        <button
-          type="button"
+        <IconButton
+          variant="toolbar"
+          size="icon-xs"
+          icon="ChevronDown"
+          label={`${slot.label} menu`}
           className="floating-toolbar__chevron"
-          aria-label={`${slot.label} menu`}
           disabled={disabled}
-          onClick={(e) => {
-            if (disabled) return;
-            onToggleMenu(e.currentTarget);
-          }}
-        >
-          <Icon name="ChevronDown" size={12} />
-        </button>
+          onClick={(e) => onToggleMenu(e.currentTarget)}
+        />
       </Tooltip>
     </>
   );
@@ -219,17 +233,17 @@ interface MoreToolsButtonProps {
 function MoreToolsButton({ expanded, onToggle }: MoreToolsButtonProps) {
   return (
     <Tooltip label="More tools">
-      <button
-        type="button"
+      <IconButton
+        variant="toolbar"
+        size="icon-sm"
+        icon="Ellipsis"
+        label="More tools"
         className="floating-toolbar__btn floating-toolbar__more"
-        aria-label="More tools"
         aria-haspopup="menu"
         aria-expanded={expanded}
         data-testid="toolbar-more-tools"
         onClick={(event) => onToggle(event.currentTarget)}
-      >
-        <Icon name="Ellipsis" size={16} />
-      </button>
+      />
     </Tooltip>
   );
 }
@@ -303,14 +317,14 @@ function DrawingToolbarControls() {
           />
         </label>
         <Tooltip label="Swap colors">
-          <button
-            type="button"
+          <IconButton
+            variant="toolbar"
+            size="icon-xs"
+            icon="ArrowDownUp"
+            label="Swap colors"
             className="floating-toolbar__color-swap"
             onClick={swapColors}
-            aria-label="Swap colors"
-          >
-            <Icon name="ArrowDownUp" size={12} />
-          </button>
+          />
         </Tooltip>
         <label className="floating-toolbar__color-swatch">
           <input
@@ -420,8 +434,9 @@ export function FloatingToolbar() {
           <div className="floating-toolbar__row">
             <Toolbar label="Drawing tools">
               {state.tool === 'table' && (
-                <button
-                  type="button"
+                <Button
+                  variant="toolbar"
+                  size="icon-sm"
                   className="floating-toolbar__btn floating-toolbar__btn--group-start"
                   aria-label="Table from data"
                   title="Create a table from pasted spreadsheet data"
@@ -429,7 +444,7 @@ export function FloatingToolbar() {
                   onClick={() => openCreateTableFromDataDialog?.()}
                 >
                   <Icon name="FileSpreadsheet" size={16} />
-                </button>
+                </Button>
               )}
               {collapsedGroups.length > 0 && (
                 <MoreToolsButton
@@ -469,17 +484,17 @@ export function FloatingToolbar() {
                     : 'Touch multi-select'
                 }
               >
-                <button
-                  type="button"
-                  className={`floating-toolbar__btn floating-toolbar__touch-multi${state.touchMultiSelect.active ? ` ${TOUCH_MULTISELECT_ACTIVE_CLASS}` : ''}`}
-                  aria-pressed={state.touchMultiSelect.active}
-                  aria-label={
+                <ToggleButton
+                  size="sm"
+                  pressed={state.touchMultiSelect.active}
+                  onPressedChange={setTouchMultiSelect}
+                  label={
                     state.touchMultiSelect.active
                       ? 'Disable touch multi-select'
                       : 'Enable touch multi-select'
                   }
+                  className={`floating-toolbar__btn floating-toolbar__touch-multi${state.touchMultiSelect.active ? ` ${TOUCH_MULTISELECT_ACTIVE_CLASS}` : ''}`}
                   data-testid="touch-multiselect-toggle"
-                  onClick={() => setTouchMultiSelect(!state.touchMultiSelect.active)}
                 >
                   <svg
                     width="16"
@@ -498,7 +513,7 @@ export function FloatingToolbar() {
                     <line x1="9" y1="5" x2="15" y2="19" />
                     <line x1="21" y1="5" x2="15" y2="19" />
                   </svg>
-                </button>
+                </ToggleButton>
               </Tooltip>
             </div>
           </div>

@@ -47,6 +47,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     onClick,
     onBlur,
     'aria-label': ariaLabel,
+    'aria-disabled': ariaDisabled,
     ...rest
   },
   ref,
@@ -96,7 +97,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       className={classes}
       type={type}
       disabled={isHtmlDisabled || undefined}
-      aria-disabled={isAriaDisabled || undefined}
+      aria-disabled={ariaDisabled ?? (isAriaDisabled || undefined)}
       aria-busy={loading || undefined}
       aria-label={loading && loadingLabel ? loadingLabel : ariaLabel}
       onClick={handleClick}

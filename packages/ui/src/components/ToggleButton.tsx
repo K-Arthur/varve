@@ -1,9 +1,10 @@
-import { type ButtonHTMLAttributes, forwardRef } from 'react';
+import { type ButtonHTMLAttributes, forwardRef, type ReactNode } from 'react';
 import type { IconName } from '../icons';
 import { Icon } from '../icons/Icon';
 
 export interface ToggleButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
+  children?: ReactNode;
   pressed: boolean;
   onPressedChange: (pressed: boolean) => void;
   icon?: IconName;
@@ -12,7 +13,17 @@ export interface ToggleButtonProps
 }
 
 export const ToggleButton = forwardRef<HTMLButtonElement, ToggleButtonProps>(function ToggleButton(
-  { pressed, onPressedChange, icon, label, size = 'md', className = '', disabled, ...rest },
+  {
+    pressed,
+    onPressedChange,
+    icon,
+    label,
+    size = 'md',
+    className = '',
+    disabled,
+    children,
+    ...rest
+  },
   ref,
 ) {
   const classes = [
@@ -24,6 +35,7 @@ export const ToggleButton = forwardRef<HTMLButtonElement, ToggleButtonProps>(fun
   ]
     .filter(Boolean)
     .join(' ');
+  const iconSize = size === 'sm' ? 16 : size === 'lg' ? 20 : 18;
 
   return (
     <button
@@ -36,7 +48,8 @@ export const ToggleButton = forwardRef<HTMLButtonElement, ToggleButtonProps>(fun
       onClick={() => onPressedChange(!pressed)}
       {...rest}
     >
-      {icon && <Icon name={icon} size={size} />}
+      {icon && <Icon name={icon} size={iconSize} />}
+      {children}
     </button>
   );
 });

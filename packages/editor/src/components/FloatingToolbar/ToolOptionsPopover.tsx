@@ -1,5 +1,5 @@
 import type { AreaSelectionSettings, AreaSelectionStyle } from '@varve/engine';
-import { FloatingPortal, Icon, NativeSelect, Switch } from '@varve/ui';
+import { FloatingPortal, NativeSelect, Switch, ToggleButton } from '@varve/ui';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import './ToolOptionsPopover.css';
@@ -215,17 +215,17 @@ export function ToolOptionsPopover() {
 
   return (
     <div className="tool-options">
-      <button
+      <ToggleButton
         ref={triggerRef}
-        type="button"
+        size="sm"
+        icon="SlidersHorizontal"
+        label="Tool options"
+        pressed={open}
+        onPressedChange={setOpen}
         className={`floating-toolbar__btn${open ? ' floating-toolbar__btn--active' : ''}`}
-        aria-label="Tool options"
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <Icon name="SlidersHorizontal" size={16} />
-      </button>
+      />
       <FloatingPortal
         anchorRef={triggerRef}
         open={open}
