@@ -1,7 +1,6 @@
 import type { DragEndEvent } from '@dnd-kit/core';
 import {
   contentHash,
-  detectFileKind,
   type FileEntry,
   type Platform,
   type SavedSearch,
@@ -50,7 +49,7 @@ import { TemplatesGallery } from './TemplatesGallery';
 import { TrashSection } from './TrashSection';
 import { useFileActions } from './useFileActions';
 import { type HomeShortcutHandlers, useHomeShortcuts } from './useHomeShortcuts';
-import { useHomeView } from './useHomeView';
+import { ingestHomeFiles, useHomeView } from './useHomeView';
 import { useThumbnailLoader } from './useThumbnailLoader';
 import { VersionHistory } from './VersionHistory';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -255,6 +254,7 @@ export function HomeShell({
   }, [platform]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
     setIsDragOver(true);
@@ -281,37 +281,17 @@ export function HomeShell({
     async (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragOver(false);
-      const files = Array.from(e.dataTransfer.files);
-      if (files.length === 0) return;
-
-      for (const file of files) {
-        const name = file.name.replace(/\.[^.]+$/, '');
-        const kind = detectFileKind(file.name);
-        if (kind === 'unknown') continue;
-
-        const text = await file.text();
-        const id = crypto.randomUUID();
-        const now = Date.now();
-        const entry: FileEntry = {
-          id,
-          name,
-          kind,
-          projectId: null,
-          createdAt: now,
-          updatedAt: now,
-          openedAt: now,
-          size: text.length,
-          pinned: false,
-          trashedAt: null,
-          ordering: '',
-          contentHash: '',
-        };
-        await platform.upsertFile(entry, text);
-        if (files.length === 1) onOpenFile(entry);
-      }
-      view.refresh();
+      if (!e.dataTransfer.types.includes('Files')) return;
+      const failures = await ingestHomeFiles(
+        Array.from(e.dataTransfer.files),
+        platform,
+        view.activeWorkspaceId ?? 'personal',
+        onOpenFile,
+      );
+      if (failures.length > 0) setStorageError(failures.join(' '));
+      if (e.dataTransfer.files.length > 0) await view.refresh();
     },
-    [platform, onOpenFile, view],
+    [onOpenFile, platform, view],
   );
 
   const dialogOpen = newFileOpen || contextAnchor !== null;

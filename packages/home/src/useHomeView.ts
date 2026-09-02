@@ -25,6 +25,8 @@ import {
 } from '@varve/platform';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+export { ingestHomeFiles } from './homeFileDrop';
+
 export interface HomeView {
   state: HomeViewState;
   files: FileEntry[];
