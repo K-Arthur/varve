@@ -21,6 +21,7 @@ import {
   pointAnchor,
   Sortable,
   SortableOverlay,
+  ToastProvider,
   Tooltip,
   viewportPoint,
 } from '@varve/ui';
@@ -74,7 +75,11 @@ export interface HomeShellProps {
 }
 
 export function HomeShell(props: HomeShellProps) {
-  return <HomeShellContent {...props} />;
+  return (
+    <ToastProvider>
+      <HomeShellContent {...props} />
+    </ToastProvider>
+  );
 }
 
 function HomeShellContent({

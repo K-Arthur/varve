@@ -17,7 +17,7 @@ export type { FolderViewProps } from './FolderView';
 export { FolderView } from './FolderView';
 export { HomeSearchPalette } from './HomeSearchPalette';
 export type { HomeShellProps } from './HomeShell';
-export { HomeShellRoot as HomeShell } from './HomeShellRoot';
+export { HomeShell } from './HomeShell';
 export { HomeShortcutHelp } from './HomeShortcutHelp';
 export type { HomeToolbarProps } from './HomeToolbar';
 export { HomeToolbar } from './HomeToolbar';

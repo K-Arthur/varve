@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { Platform } from '@varve/platform';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { HomeShellRoot as HomeShell } from './HomeShellRoot';
+import { HomeShell } from './HomeShell';
 
 function createMockPlatform(): Platform {
   return {
