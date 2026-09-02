@@ -19,10 +19,14 @@ describe('demo capabilities', () => {
     expect(restrictions.workspaceModes).toBeNull();
   });
 
-  it('withholds inference and print production in the demo', () => {
+  it('withholds inference, online fonts, and print production in the demo', () => {
     applyDemoCapabilities(config(true));
     const restrictions = getCapabilityRestrictions();
-    expect([...restrictions.restricted].sort()).toEqual(['inference', 'printProduction']);
+    expect([...restrictions.restricted].sort()).toEqual([
+      'inference',
+      'onlineFonts',
+      'printProduction',
+    ]);
   });
 
   it('exposes only the three primary workspaces', () => {
