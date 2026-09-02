@@ -5,7 +5,7 @@ import type { Page } from '@playwright/test';
  * Shared across all E2E specs — fix one place, not 15.
  *
  * Sequence:
- *   / → [New] → dialog → [Create] → wait for .layers-panel → dismiss welcome
+ *   / → [New] → dialog → [Create] → wait for the editor shell → dismiss welcome
  */
 export async function navigateToEditor(page: Page, path = '/') {
   // Generous timeouts: under heavy concurrent dev-server load (many watched
@@ -70,9 +70,12 @@ export async function navigateToEditor(page: Page, path = '/') {
     await createInDialog.waitFor({ timeout: 45000 });
   }
   await createInDialog.click({ timeout: 15000 });
-  const layersPanel = page.locator('.layers-panel');
+  // Side panels are responsive drawers and are intentionally hidden by
+  // default below the editor breakpoint. Wait for the shell rather than a
+  // desktop-only panel so narrow canvas specs can reach their own assertions.
+  const editorShell = page.locator('.editor-shell');
   try {
-    await layersPanel.waitFor({ timeout: 30000 });
+    await editorShell.waitFor({ state: 'visible', timeout: 30000 });
   } catch (error) {
     // Web storage can swap from the in-memory boot platform to IndexedDB
     // between creation and the open callback. If that narrow race leaves the
@@ -83,7 +86,7 @@ export async function navigateToEditor(page: Page, path = '/') {
       throw error;
     }
     await createdFile.click({ timeout: 10000 });
-    await layersPanel.waitFor({ timeout: 30000 });
+    await editorShell.waitFor({ state: 'visible', timeout: 30000 });
   }
 
   // Startup state can restore more than one modal (for example Settings over
