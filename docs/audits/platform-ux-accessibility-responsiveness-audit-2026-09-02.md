@@ -1,7 +1,7 @@
 # Platform UX, Interaction, Accessibility, and Responsiveness Audit
 
 **Date:** 2026-09-02  
-**Status:** Phase 1 audit complete; prioritized editor and website fixes implemented
+**Status:** Phase 1 audit complete; prioritized editor and website fixes implemented and validated
 **Baseline:** WCAG 2.2 AA. AAA is not required for this product.  
 **Minimum browser assumption:** the last two major versions of Chrome, Edge,
 Firefox, and Safari, including iOS Safari and Android Chrome.
@@ -117,6 +117,31 @@ Feature-specific validation completed so far:
 - The responsive editor drawer E2E test and the coarse-pointer website target
   E2E test passed in isolated Chromium runs.
 
-The remaining verification record will be extended with the final affected
-validation, axe, visual, audit, and architecture-check results before the
-platform pass is closed.
+Final validation record:
+
+- `pnpm verify:plan` — passed; no full-suite escalation. The current worktree's
+  unrelated edits select a broad JS closure, so the planner warns that 98% of
+  repository test files are affected.
+- `pnpm verify:affected` — blocked at touched-file formatting by the existing
+  user-owned `packages/ui/src/components/ShineBorder.stories.tsx` formatting
+  error; no audit-scope file was implicated.
+- `pnpm audit:docs` and `pnpm audit:emoji` — passed.
+- `pnpm audit:tokens` — passed all 153 pairs across the three themes.
+- `node scripts/audit-architecture.mjs --ci` — completed with 15 cycles,
+  below the baseline ceiling of 17, 53 unstable modules below the ceiling of
+  55, no layer violations, and the known Shell/Menubar/context hub warnings.
+- Website axe: all 28 light/dark route checks passed.
+- Website reflow: all five representative routes passed at the nine-width
+  corpus from 320px through 1920px.
+- Website coarse-pointer target test passed in isolated Chromium emulation.
+- Editor responsive drawer focus E2E and desktop workspace-toolbar screenshot
+  validation passed in Chromium.
+- The existing website visual snapshot suite ran 16 tests: 5 passed and 11
+  mismatched existing snapshots. The mismatches include page-height/content
+  drift outside this audit's header breakpoint scope; snapshots were not
+  overwritten. The targeted responsive screenshots and layout assertions above
+  are the new audit evidence.
+
+Real-device and native screen-reader certification remain deferred because the
+required hardware and assistive technologies are unavailable in this Linux
+Chromium environment.
