@@ -104,6 +104,25 @@ export interface OpenFileRequest {
   seq: number;
 }
 
+const RESPONSIVE_DRAWER_FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
+
+function getResponsiveDrawerFocusable(container: HTMLElement): HTMLElement[] {
+  const ownerWindow = container.ownerDocument.defaultView;
+  return Array.from(container.querySelectorAll<HTMLElement>(RESPONSIVE_DRAWER_FOCUSABLE)).filter(
+    (element) => {
+      let current: Element | null = element;
+      while (current && current !== container.parentElement) {
+        const style = ownerWindow?.getComputedStyle(current);
+        if (style?.display === 'none' || style?.visibility === 'hidden') return false;
+        current = current.parentElement;
+      }
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    },
+  );
+}
+
 export interface ShellProps {
   onBackToHome?: () => void;
   documentJson?: string;
@@ -416,17 +435,56 @@ function ShellInner({
     window.requestAnimationFrame(() => trigger?.focus());
   }, [editor, inspectorVisible, layersVisible, libraryPanelVisible]);
 
-  // Responsive panel drawers (<=899px) close with Escape and return focus to
-  // the trigger that opened them, so keyboard and switch users do not lose
-  // their place behind a mobile drawer.
+  // Responsive panel drawers (<=899px) are modal surfaces: focus enters the
+  // opened drawer, Tab stays inside it, and Escape/backdrop close returns focus
+  // to the trigger. The panels remain ordinary complementary regions on
+  // desktop, so this scope is enabled only at the drawer breakpoint.
   useEffect(() => {
     if (!layersVisible && !inspectorVisible && !libraryPanelVisible) return;
+    if (!window.matchMedia('(max-width: 899px)').matches) return;
+
+    const trigger = responsivePanelTriggerRef.current;
+    const panelId = trigger?.getAttribute('aria-controls');
+    const panel = panelId ? document.getElementById(panelId) : null;
+    if (!panel) return;
+
+    const focusTimer = window.requestAnimationFrame(() => {
+      const first = getResponsiveDrawerFocusable(panel);
+      if (first[0]) {
+        first[0].focus({ preventScroll: true });
+        return;
+      }
+      panel.setAttribute('tabindex', '-1');
+      panel.focus({ preventScroll: true });
+    });
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      closeResponsivePanels();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeResponsivePanels();
+        return;
+      }
+      if (e.key !== 'Tab' || !panel.contains(document.activeElement)) return;
+      const focusable = getResponsiveDrawerFocusable(panel);
+      if (focusable.length === 0) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus({ preventScroll: true });
+      }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Capture Escape before a nested tree/listbox consumes it, and capture
+    // Tab before the browser advances focus outside the drawer.
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.cancelAnimationFrame(focusTimer);
+      window.removeEventListener('keydown', onKey, true);
+      if (panel.getAttribute('tabindex') === '-1') panel.removeAttribute('tabindex');
+    };
   }, [closeResponsivePanels, inspectorVisible, layersVisible, libraryPanelVisible]);
 
   const gridStyle: React.CSSProperties = { ...shellStyle };
@@ -564,6 +622,8 @@ function ShellInner({
             data-testid="layers-panel"
             id="editor-layers-panel"
             data-visible={layersVisible || undefined}
+            role={layersVisible ? 'dialog' : undefined}
+            aria-label={layersVisible ? 'Layers' : undefined}
             data-collapsed={!leftPanelVisible || undefined}
             {...(!leftPanelVisible ? { inert: true } : {})}
           >
@@ -588,6 +648,8 @@ function ShellInner({
             data-panel="inspector"
             id="editor-inspector-panel"
             data-visible={inspectorVisible || undefined}
+            role={inspectorVisible ? 'dialog' : undefined}
+            aria-label={inspectorVisible ? 'Inspector' : undefined}
             data-collapsed={!rightPanelVisible || undefined}
             {...(!rightPanelVisible ? { inert: true } : {})}
           >
@@ -603,7 +665,15 @@ function ShellInner({
           // data-visible drives the <=899px drawer transform. Without it the
           // panel stayed translated fully off-screen, so Resources could be
           // "open" in state and never reachable on a narrow viewport.
-          <div className="editor__library-panel" data-panel="library" data-visible>
+          <div
+            className="editor__library-panel"
+            data-panel="library"
+            data-visible
+            id="editor-library-panel"
+            role="dialog"
+            aria-label="Resources"
+            aria-modal="true"
+          >
             <ResourcesPanel
               doc={editor.state.document}
               onInstallLibrary={editor.installLibrary}
@@ -754,6 +824,7 @@ function ShellInner({
             <button
               type="button"
               className="editor__fab editor__fab--layers"
+              aria-controls="editor-layers-panel"
               onClick={(event) => {
                 responsivePanelTriggerRef.current = event.currentTarget;
                 setLayersVisible((v) => !v);
@@ -767,6 +838,7 @@ function ShellInner({
             <button
               type="button"
               className="editor__fab editor__fab--inspector"
+              aria-controls="editor-inspector-panel"
               onClick={(event) => {
                 responsivePanelTriggerRef.current = event.currentTarget;
                 setInspectorVisible((v) => !v);
@@ -780,6 +852,7 @@ function ShellInner({
             <button
               type="button"
               className="editor__fab editor__fab--library"
+              aria-controls="editor-library-panel"
               onClick={(event) => {
                 responsivePanelTriggerRef.current = event.currentTarget;
                 editor.toggleLibraryPanel();

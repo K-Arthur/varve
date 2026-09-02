@@ -152,6 +152,15 @@ const choices = [
     outline-offset: 2px;
   }
 
+  /* Preserve the compact desktop control, but give touch and hybrid devices
+     the 44px target recommended by Apple HIG and Material. */
+  @media (pointer: coarse), (any-pointer: coarse) {
+    .theme-option {
+      width: var(--touch-target-min);
+      height: var(--touch-target-min);
+    }
+  }
+
   /* The active choice gets a visible fill — not just an icon change. */
   .theme-option[aria-checked='true'] {
     background: var(--surface-card);

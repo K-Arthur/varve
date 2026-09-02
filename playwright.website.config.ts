@@ -48,15 +48,27 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         baseURL: `http://127.0.0.1:${GH_PAGES_PORT}/varve`,
       },
+      testIgnore: /touch-targets\.spec\.ts/,
     },
     {
       name: 'custom-domain',
       testMatch: /.*\.spec\.ts/,
       // Rendering is base-path independent; the visual baselines run once.
-      testIgnore: /visual\.spec\.ts/,
+      testIgnore: /(visual|touch-targets)\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         baseURL: `http://127.0.0.1:${CUSTOM_PORT}/`,
+      },
+    },
+    {
+      name: 'touch',
+      testMatch: /touch-targets\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+        isMobile: true,
+        baseURL: `http://127.0.0.1:${GH_PAGES_PORT}/varve`,
       },
     },
   ],

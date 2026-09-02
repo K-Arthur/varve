@@ -30,6 +30,12 @@ pnpm test:website           # Vitest unit tests
 pnpm test:website:e2e       # Playwright E2E (build first)
 ```
 
+The platform accessibility/responsiveness audit is tracked in
+`docs/audits/platform-ux-accessibility-responsiveness-audit-2026-09-02.md`.
+Website E2E covers axe-core, keyboard navigation, narrow-width overflow, and
+visual snapshots; mobile viewport runs are browser emulation and do not replace
+physical iOS/Android or screen-reader certification.
+
 ## Structure
 
 | Path | Purpose |

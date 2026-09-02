@@ -236,6 +236,12 @@ The repo already runs axe-core through Playwright. The route-wide
 computed-style contrast audit (`apps/website/tests/e2e/visibility.spec.ts`)
 and the axe suite cover the site in both deployment modes:
 
+The broader platform audit and its honest environment limits are recorded in
+[`platform-ux-accessibility-responsiveness-audit-2026-09-02.md`](../../docs/audits/platform-ux-accessibility-responsiveness-audit-2026-09-02.md).
+The implementation baseline is WCAG 2.2 AA; the website assumes the last two
+major browser versions and treats physical-device/screen-reader certification
+as a separate test pass.
+
 - [x] Keyboard-only path through the download flow, including the platform tabs
       (arrow-key tablist navigation, Home/End, focus management)
 - [x] Platform tabs expose `role="tablist"`/`role="tab"`/`aria-selected`/`aria-controls`
@@ -248,6 +254,8 @@ and the axe suite cover the site in both deployment modes:
 - [x] Checksum `<details>` blocks are reachable and announced
 - [x] 320 px viewport has no horizontal scroll (structural visibility audit)
 - [x] Prefers-reduced-motion respected (theme test + reduced-motion emulation)
+- [x] Touch-sized theme and mobile-menu targets use 44px boxes on coarse-pointer devices
+- [x] Marketing mobile menu keeps focus contained and restores focus on close
 
 Target WCAG 2.2 AA — enforced by the CI website e2e gate.
 

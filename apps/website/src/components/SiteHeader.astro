@@ -516,6 +516,13 @@ const versionLabel = release.hasRelease && release.version
     background: var(--surface-muted);
   }
 
+  @media (pointer: coarse), (any-pointer: coarse) {
+    .mobile-menu-toggle {
+      width: var(--touch-target-min);
+      height: var(--touch-target-min);
+    }
+  }
+
   .menu-icon-close {
     display: none;
   }
@@ -677,6 +684,13 @@ const versionLabel = release.hasRelease && release.version
       display: flex;
       align-items: center;
       justify-content: center;
+    }
+
+    @media (pointer: coarse), (any-pointer: coarse) {
+      .mobile-menu-close {
+        min-inline-size: var(--touch-target-min);
+        min-block-size: var(--touch-target-min);
+      }
     }
 
     .mobile-menu-close:hover,

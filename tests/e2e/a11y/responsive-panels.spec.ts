@@ -25,6 +25,19 @@ test.describe('responsive panel drawers', () => {
       await button.click();
       await expect(button).toHaveAttribute('aria-expanded', 'true');
       await expect(panel).toHaveAttribute('data-visible', 'true');
+      await expect(button).toHaveAttribute('aria-controls');
+      await expect(panel).toHaveAttribute('role', 'dialog');
+
+      const focusable = panel.locator(
+        'a[href]:visible, button:not([disabled]):visible, input:not([disabled]):visible, textarea:not([disabled]):visible, select:not([disabled]):visible, [tabindex]:not([tabindex="-1"]):not([disabled]):visible',
+      );
+      await expect(focusable.first()).toBeFocused();
+      await focusable.last().focus();
+      await page.keyboard.press('Tab');
+      await expect(focusable.first()).toBeFocused();
+      await focusable.first().focus();
+      await page.keyboard.press('Shift+Tab');
+      await expect(focusable.last()).toBeFocused();
 
       await page.keyboard.press('Escape');
       await expect(button).toHaveAttribute('aria-expanded', 'false');

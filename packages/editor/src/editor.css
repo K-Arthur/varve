@@ -2060,6 +2060,27 @@ input[type="number"] {
   right: calc(var(--space-3) + 52px);
 }
 
+/* Touchscreen laptops and tablets need the same comfortable target policy as
+ * shared UI controls. Keep the icon and visual rhythm compact; only the
+ * control box grows when the primary pointer is coarse. */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .editor__fab {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+  }
+
+  .workspace-dock__bar {
+    height: auto;
+    min-height: calc(var(--touch-target-min) + 8px);
+  }
+
+  .workspace-dock__item,
+  .workspace-dock__more {
+    min-inline-size: var(--touch-target-min);
+    min-block-size: var(--touch-target-min);
+  }
+}
+
 /* ── Container queries for panels ── */
 .editor__layers-panel {
   container-type: inline-size;
