@@ -137,7 +137,7 @@ const routePath = basePrefix && Astro.url.pathname.startsWith(basePrefix)
   : Astro.url.pathname;
 const routeSegments = routePath.split('/').filter(Boolean);
 
-if (!noindex && routeSegments.length > 0) {
+if (!noindex) {
   sitewideStructuredData.push({
     '@context': 'https://schema.org',
     '@type': 'WebPage',
@@ -149,16 +149,18 @@ if (!noindex && routeSegments.length > 0) {
     isPartOf: { '@id': `${siteOriginOf()}#website` },
   });
 
-  sitewideStructuredData.push({
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: routeSegments.map((segment, index) => ({
-      '@type': 'ListItem',
-      position: index + 1,
-      name: segmentLabel(segment),
-      item: siteUrl(`/${routeSegments.slice(0, index + 1).join('/')}`),
-    })),
-  });
+  if (routeSegments.length > 0) {
+    sitewideStructuredData.push({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: routeSegments.map((segment, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: segmentLabel(segment),
+        item: siteUrl(`/${routeSegments.slice(0, index + 1).join('/')}`),
+      })),
+    });
+  }
 }
 
 // Empty unless deliberately configured at build time. The default build makes
