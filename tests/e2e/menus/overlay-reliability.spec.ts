@@ -180,6 +180,12 @@ test.describe('Overlay geometry and event reliability', () => {
     const selectRect = await selectItem.boundingBox();
     expect(selectRect).not.toBeNull();
     await selectItem.hover();
+    // Opening the submenu focuses the hovered parent item. A tall, scrollable
+    // context menu may scroll that item into its visible viewport, so measure
+    // the anchor after the real interaction rather than comparing against the
+    // pre-scroll rectangle.
+    const selectRectAfterHover = await selectItem.boundingBox();
+    expect(selectRectAfterHover).not.toBeNull();
     const selectSubmenuLayer = page.locator(
       '[data-overlay-kind="submenu"][data-overlay-state="visible"]',
     );
@@ -188,12 +194,12 @@ test.describe('Overlay geometry and event reliability', () => {
     assertInsideViewport(selectSubmenuRect, viewport);
     assertVerticalOverlap(
       {
-        left: selectRect!.x,
-        top: selectRect!.y,
-        right: selectRect!.x + selectRect!.width,
-        bottom: selectRect!.y + selectRect!.height,
-        width: selectRect!.width,
-        height: selectRect!.height,
+        left: selectRectAfterHover!.x,
+        top: selectRectAfterHover!.y,
+        right: selectRectAfterHover!.x + selectRectAfterHover!.width,
+        bottom: selectRectAfterHover!.y + selectRectAfterHover!.height,
+        width: selectRectAfterHover!.width,
+        height: selectRectAfterHover!.height,
       },
       selectSubmenuRect,
     );
