@@ -45,6 +45,18 @@ describe('file ingestion selection rules', () => {
     expect(result.rejected[0]?.file.name).toBe('c.svg');
   });
 
+  it('limits a single-file selection even when a drop supplies several files', () => {
+    const result = validateFileSelection(
+      [file('first.png', 1, 'image/png'), file('second.png', 1, 'image/png')],
+      { accept: 'image/*', multiple: false },
+    );
+
+    expect(result.accepted.map((item) => item.name)).toEqual(['first.png']);
+    expect(result.rejected).toMatchObject([
+      { file: { name: 'second.png' }, code: 'too-many-files' },
+    ]);
+  });
+
   it('does not silently deduplicate same-named files', () => {
     const result = validateFileSelection([file('copy.png', 10), file('copy.png', 11)], {
       accept: '.png',

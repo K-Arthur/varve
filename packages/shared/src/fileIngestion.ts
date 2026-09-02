@@ -84,8 +84,10 @@ export function validateFileSelection<T extends IngestFileLike>(
   const accepted: T[] = [];
   const rejected: FileRejection<T>[] = [];
   const minSize = Math.max(0, options.minSize ?? 1);
-  const maxFiles =
+  const requestedMaxFiles =
     options.maxFiles !== undefined ? Math.max(0, Math.floor(options.maxFiles)) : null;
+  const maxFiles =
+    requestedMaxFiles !== null ? requestedMaxFiles : options.multiple === false ? 1 : null;
 
   for (const file of files) {
     if (maxFiles !== null && accepted.length >= maxFiles) {
