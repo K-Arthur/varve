@@ -141,6 +141,12 @@ Final validation record:
   by the repository's existing skip set and no failures.
 - `VARVE_WEBSITE_E2E_PORT=4333 VARVE_WEBSITE_E2E_PORT_ROOT=4334 pnpm exec playwright test apps/website/tests/e2e/visual.spec.ts --config=playwright.website.config.ts --project=ghpages --workers=1 --update-snapshots --reporter=list` — regenerated the 11 stale website baselines; all 16 visual cases passed in update mode.
 - `VARVE_WEBSITE_E2E_PORT=4335 VARVE_WEBSITE_E2E_PORT_ROOT=4336 pnpm exec playwright test apps/website/tests/e2e/visual.spec.ts --config=playwright.website.config.ts --project=ghpages --workers=1 --reporter=list` — no-update verification passed all 16 website visual cases.
+- After the later grouped-navigation and marketing-style changes, `pnpm
+  build:website` and `pnpm build:website:pages` again built all 66 pages, and
+  `VARVE_WEBSITE_E2E_PORT=4343 VARVE_WEBSITE_E2E_PORT_ROOT=4344 pnpm exec
+  playwright test apps/website/tests/e2e/visual.spec.ts
+  --config=playwright.website.config.ts --project=ghpages --workers=1
+  --reporter=list` passed the current 16-case corpus with no snapshot updates.
 - The existing narrow-toolbar visual test did not reach its screenshot because
   its shared navigation helper waits for the Layers panel to be visible at
   640px, while the responsive shell intentionally keeps that drawer collapsed;
@@ -233,11 +239,12 @@ investigation.
   page schema, comparison copy, and `/llms.txt` surface remain documented in
   `docs/marketing/positioning-and-discovery.md` and `docs/release/website.md`.
 - The marketing visual corpus was reviewed and refreshed for the current
-  website output: 11 stale `ghpages` baselines were regenerated after
-  inspecting representative expected/actual/diff images. The exact 16-test
-  visual matrix then passed twice, including the no-update verification run;
-  the five already-matching baselines were left unchanged. No screenshot
-  tolerance or assertion was loosened.
+  website output: stale `ghpages` baselines were regenerated in two bounded
+  updates as the grouped desktop navigation landed, after inspecting
+  representative expected/actual/diff images. The exact 16-test visual matrix
+  then passed with no-update verification against the latest rebuilt site;
+  unchanged baselines were left untouched. No screenshot tolerance or
+  assertion was loosened.
 
 Test-weakening disclosure: **none**. Selector corrections preserve the tested
 behavior and make queries match the current accessible roles; visual baseline
