@@ -427,7 +427,7 @@ git log --oneline -3
 | Home/Workspace System | `docs/plans/archived/projects-home-workspace-completed.md` |
 | Packaging (0.11) | `docs/plans/archived/session-04-packaging.md` (historical; current release pipeline lives in `docs/release/` and `scripts/release/`) |
 | Loading Experience System | `docs/architecture/loading-system.md`, `docs/audits/loading-experience-audit-2026-07-08.md` |
-| Marketing Website | `apps/website/` - Astro 7 static site, 64 pages, GitHub Pages deploy. See `docs/plans/website-progress-tracker.md` |
+| Marketing Website | `apps/website/` - Astro 7 static site, 69 routes, GitHub Pages deploy. See `docs/release/website.md` |
 | CI/CD pipeline memory (local, gitignored) | `GITHUB_PIPELINE_MEMORY.md` — session-survivable tracker for billing blocks, run classifications, and tooling state |
 
 ## Application Icon (cross-platform)
