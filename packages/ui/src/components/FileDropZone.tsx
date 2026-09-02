@@ -87,7 +87,9 @@ export function FileDropZone({
 
   const handleDragEnter = useCallback(
     (event: DragEvent<HTMLFieldSetElement>) => {
-      if (disabled || busy || !event.dataTransfer.types.includes('Files')) return;
+      if (!event.dataTransfer.types.includes('Files')) return;
+      event.stopPropagation();
+      if (disabled || busy) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = 'copy';
       dragDepthRef.current += 1;
@@ -98,7 +100,9 @@ export function FileDropZone({
 
   const handleDragOver = useCallback(
     (event: DragEvent<HTMLFieldSetElement>) => {
-      if (disabled || busy || !event.dataTransfer.types.includes('Files')) return;
+      if (!event.dataTransfer.types.includes('Files')) return;
+      event.stopPropagation();
+      if (disabled || busy) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = 'copy';
     },
@@ -107,6 +111,8 @@ export function FileDropZone({
 
   const handleDragLeave = useCallback(
     (event: DragEvent<HTMLFieldSetElement>) => {
+      if (!event.dataTransfer.types.includes('Files')) return;
+      event.stopPropagation();
       if (disabled || busy) return;
       event.preventDefault();
       dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
@@ -117,6 +123,8 @@ export function FileDropZone({
 
   const handleDrop = useCallback(
     (event: DragEvent<HTMLFieldSetElement>) => {
+      if (!event.dataTransfer.types.includes('Files')) return;
+      event.stopPropagation();
       if (disabled || busy) return;
       event.preventDefault();
       dragDepthRef.current = 0;

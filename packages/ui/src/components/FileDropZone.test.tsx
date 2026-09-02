@@ -67,6 +67,22 @@ describe('FileDropZone', () => {
     await waitFor(() => expect(onFiles).toHaveBeenCalledTimes(1));
   });
 
+  it('claims external drops so a parent surface cannot ingest them twice', () => {
+    const parentDrop = vi.fn();
+    const onFiles = vi.fn();
+    const { container } = render(
+      // biome-ignore lint/a11y/noStaticElementInteractions: test-only parent drop observer
+      <div role="presentation" onDrop={parentDrop}>
+        <FileDropZone label="Drop files to import" onFiles={onFiles} />
+      </div>,
+    );
+    const zone = container.querySelector('.file-drop-zone')!;
+    fireEvent.drop(zone, { dataTransfer: transfer([new File(['x'], 'one.txt')]) });
+
+    expect(onFiles).toHaveBeenCalledWith([expect.objectContaining({ name: 'one.txt' })]);
+    expect(parentDrop).not.toHaveBeenCalled();
+  });
+
   it('shows disabled state and does not accept a drop', () => {
     const onFiles = vi.fn();
     const { container } = render(
