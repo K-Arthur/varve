@@ -12,7 +12,7 @@
  *     disclaimer section for the same point made to readers.
  */
 import Layout from '../layouts/Layout.astro';
-import { sitePath, siteUrl } from '../lib/siteUrl';
+import { sitePath } from '../lib/siteUrl';
 import ClosingCTA from '../components/ClosingCTA.astro';
 
 const faqs = [
@@ -52,22 +52,12 @@ const faqSchema = {
   })),
 };
 
-const pageSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'WebPage',
-  '@id': `${siteUrl('/compare')}#webpage`,
-  url: siteUrl('/compare'),
-  name: 'Compare Varve to other design tools',
-  description:
-    'How Varve differs from Figma, Adobe Illustrator, Affinity, Sketch, Inkscape, and Penpot on pricing, platform, license, and collaboration.',
-  inLanguage: 'en',
-};
 ---
 
 <Layout
   title="Compare Varve to Other Design Tools"
   description="How Varve compares to Figma, Illustrator, Affinity, Sketch, Inkscape, and Penpot on pricing, platform, license, and collaboration — compared honestly."
-  structuredData={[pageSchema, faqSchema]}
+  structuredData={faqSchema}
 >
   <div class="container-custom">
     <div class="compare-page">

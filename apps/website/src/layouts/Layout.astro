@@ -140,6 +140,17 @@ const routeSegments = routePath.split('/').filter(Boolean);
 if (!noindex && routeSegments.length > 0) {
   sitewideStructuredData.push({
     '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': `${canonicalUrl}#webpage`,
+    url: canonicalUrl,
+    name: pageTitle,
+    description,
+    inLanguage: 'en',
+    isPartOf: { '@id': `${siteOriginOf()}#website` },
+  });
+
+  sitewideStructuredData.push({
+    '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: routeSegments.map((segment, index) => ({
       '@type': 'ListItem',
@@ -179,6 +190,12 @@ const csp = [
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href={sitePath('/favicon.svg')} />
     <link rel="icon" type="image/png" sizes="32x32" href={sitePath('/favicon-32x32.png')} />
+    <link
+      rel="alternate"
+      type="text/plain"
+      title="Varve project summary for language models"
+      href={sitePath('/llms.txt')}
+    />
     <meta name="generator" content={Astro.generator} />
     {noindex ? (
       <meta name="robots" content="noindex, nofollow" />
@@ -329,6 +346,7 @@ const csp = [
     */}
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:alt" content="Varve — local-first design suite for vector, layout, typography, motion, prototyping, and print" />
     <meta property="og:locale" content="en_US" />
 
