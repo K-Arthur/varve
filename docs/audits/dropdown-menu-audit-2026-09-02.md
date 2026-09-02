@@ -85,8 +85,32 @@ the menu document supplies the semantic and visual layer above it.
 
 ## 6. Validation evidence
 
-The final report for this change records the exact affected plan, focused unit
-tests, website tests, Playwright menu/visual runs, screenshot paths, direct
-image inspection, and the required audits. A visual result is not considered
-verified from a green assertion alone: captured menu states are inspected for
-clipping, alignment, contrast, submenu placement, and unexpected chrome.
+The staged impact plan selected menu/UI/editor checks, E2E typechecking, the
+menu visual project, and the affected editor/UI closure; it did not escalate
+to the full repository gate. The focused results were:
+
+- `Menu.test.tsx` plus the renderer tests: 42 tests passed;
+- menu snapshots plus command-integrity tests: 55 tests passed and 36
+  snapshots were regenerated;
+- `FloatingPortal.test.tsx`, `Menu.test.tsx`, and renderer tests: 49 tests
+  passed;
+- editor menubar visual integrity: 5 Chromium tests passed in light, dark,
+  and high-contrast themes;
+- overlay reliability: 1 Chromium test passed after fixing collision-style
+  preservation and measuring a parent anchor after focus scrolling;
+- website typecheck, Astro build, and Pages build passed (66 pages);
+- focused website navigation E2E passed in both GitHub Pages and custom-domain
+  projects (4 tests), including keyboard opening, roving menu focus, Escape
+  restore, active state, and group switching.
+
+Fresh screenshots were directly inspected at the Playwright output paths under
+`test-results/run-51748-1451/` and the website navigation output paths under
+`test-results/navigation-desktop-grouped-*/`. They show no clipping, aligned
+shortcut columns, stable submenu placement, readable descriptions, and valid
+light/dark/high-contrast treatment. The first broad affected run was blocked
+by unrelated in-progress worktree errors in `useSam2Segmentation`,
+`HomeShell`, and `context/types.ts`; the scoped commit checkpoints remained
+green. The architecture audit also reported the concurrent
+`context/types.ts → tools/types.ts` cycle, while the menu changes introduced
+no boundary or health-budget violation. Full Vitest, Cargo, native GUI, and
+release gates were intentionally not run.
