@@ -10,6 +10,7 @@ import { closeImageBitmapMap, reconcileImageBitmapMap } from './collectImageBitm
 import { applyProofToIr } from './proofing';
 import { shouldTransferRenderedFrame } from './renderWorkerGuards';
 import { applyWorkerCamera } from './workerCamera';
+import { adoptFontFaces } from './workerFonts';
 import type { WorkerCommand, WorkerRenderTiming, WorkerResponse } from './workerHost';
 
 // The worker is the primary display path; the raster LOD pyramid (ADR-0214)
@@ -36,6 +37,17 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
   const receivedAt = timingEnabled || msg.type === 'clockPing' ? performance.now() : 0;
   if (msg.type === 'setRasterLod') {
     setRasterPyramidEnabled(msg.enabled);
+    return;
+  }
+  if (msg.type === 'fonts') {
+    // This realm's FontFaceSet starts empty — the document's @font-face rules
+    // do not cross the worker boundary. Until these are loaded, any text this
+    // worker draws in a bundled family is silently substituted, so the host
+    // keeps such frames on the main thread until it hears the echo below.
+    const key = msg.key;
+    void adoptFontFaces(msg.faces).then(() => {
+      post({ type: 'fontsAdopted', key });
+    });
     return;
   }
   if (msg.type === 'clockPing') {

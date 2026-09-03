@@ -469,9 +469,22 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const bounds = nodeWorldBounds(state.document, id, parentIndex);
       if (bounds) otherBounds.push(bounds);
     }
-    snapOptionsRef.current = { zoom: state.zoom, otherBounds };
+    snapOptionsRef.current = {
+      zoom: state.zoom,
+      otherBounds,
+      grid: state.snapEnabled && state.documentGrid?.snapEnabled ? state.documentGrid : undefined,
+      pixelGridSnap: state.snapEnabled && state.pixelGridSnapEnabled,
+    };
     return snapOptionsRef.current;
-  }, [state.document, state.selection, state.zoom, parentIndex]);
+  }, [
+    state.document,
+    state.selection,
+    state.zoom,
+    state.snapEnabled,
+    state.documentGrid,
+    state.pixelGridSnapEnabled,
+    parentIndex,
+  ]);
 
   const releaseSnapOptions = useCallback(() => {
     snapOptionsRef.current = null;
@@ -493,7 +506,12 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       const engine = new TransformEngine(state.document, state.selection, {
         bakeOnCommit: true,
-        snapBox: (b) => snapSelectionBox(b, buildSnapOptions()),
+        snapBox: (b, context) =>
+          snapSelectionBox(b, {
+            ...buildSnapOptions(),
+            resizeHandle: context?.operation === 'resize' ? context.handle : undefined,
+            resizeCentered: context?.centered,
+          }),
       });
       beginTransaction();
 

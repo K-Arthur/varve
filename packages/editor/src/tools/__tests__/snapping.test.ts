@@ -4,6 +4,7 @@ import {
   filterSnapTargets,
   pageSnapTargets,
   snapPosition,
+  snapSelectionBox,
   snapSize,
   snapTargetSearchRect,
 } from '../snapping';
@@ -211,6 +212,125 @@ describe('snapSize', () => {
     expect(result.guide).toBeDefined();
     expect(result.guide?.type).toBe('size-match');
     expect(result.guide?.label).toBe('200px');
+  });
+});
+
+describe('snapSelectionBox', () => {
+  it('keeps the opposite edge fixed when an east resize snaps to an object edge', () => {
+    const result = snapSelectionBox(
+      { cx: 233.5, cy: 160, w: 147, h: 80, rotation: 0 },
+      { otherBounds: [box(310, 120, 100, 80)], resizeHandle: 'e' },
+    );
+
+    expect(result.cx - result.w / 2).toBe(160);
+    expect(result.cx + result.w / 2).toBe(310);
+    expect(result.w).toBe(150);
+  });
+
+  it('keeps the opposite edge fixed when a west resize snaps to an object edge', () => {
+    const result = snapSelectionBox(
+      { cx: 236.5, cy: 160, w: 147, h: 80, rotation: 0 },
+      { otherBounds: [box(160, 120, 100, 80)], resizeHandle: 'w' },
+    );
+
+    expect(result.cx - result.w / 2).toBe(160);
+    expect(result.cx + result.w / 2).toBe(310);
+    expect(result.w).toBe(150);
+  });
+
+  it('keeps the centre fixed when a centred resize snaps the moving east edge', () => {
+    const result = snapSelectionBox(
+      { cx: 233.5, cy: 160, w: 147, h: 80, rotation: 0 },
+      {
+        otherBounds: [box(310, 120, 100, 80)],
+        resizeHandle: 'e',
+        resizeCentered: true,
+      },
+    );
+
+    expect(result.cx).toBe(233.5);
+    expect(result.cx + result.w / 2).toBe(310);
+    expect(result.w).toBe(153);
+  });
+
+  it('combines independent X and Y edge snaps for a corner resize', () => {
+    const result = snapSelectionBox(
+      { cx: 233.5, cy: 158.5, w: 147, h: 77, rotation: 0 },
+      {
+        otherBounds: [box(310, 600, 100, 100), box(600, 200, 100, 100)],
+        resizeHandle: 'se',
+      },
+    );
+
+    expect(result.cx - result.w / 2).toBe(160);
+    expect(result.cy - result.h / 2).toBe(120);
+    expect(result.cx + result.w / 2).toBe(310);
+    expect(result.cy + result.h / 2).toBe(200);
+  });
+
+  it('gives document-grid snapping priority without moving the fixed resize edge', () => {
+    const result = snapSelectionBox(
+      { cx: 233.25, cy: 160, w: 146.5, h: 80, rotation: 0 },
+      {
+        otherBounds: [box(305, 600, 100, 100)],
+        grid: 10,
+        resizeHandle: 'e',
+      },
+    );
+
+    expect(result.cx - result.w / 2).toBe(160);
+    expect(result.cx + result.w / 2).toBe(310);
+  });
+
+  it('snaps the moving resize edge to whole pixels without rounding its fixed edge', () => {
+    const result = snapSelectionBox(
+      { cx: 233.3, cy: 160, w: 146.6, h: 80, rotation: 0 },
+      { pixelGridSnap: true, resizeHandle: 'e' },
+    );
+
+    expect(result.cx - result.w / 2).toBeCloseTo(160, 12);
+    expect(result.cx + result.w / 2).toBe(307);
+  });
+
+  it('snaps the moving resize edge to a layout-grid line without moving its opposite edge', () => {
+    const result = snapSelectionBox(
+      { cx: 239, cy: 160, w: 158, h: 80, rotation: 0 },
+      { layoutGridStep: 20, resizeHandle: 'e' },
+    );
+
+    expect(result.cx - result.w / 2).toBe(160);
+    expect(result.cx + result.w / 2).toBe(320);
+  });
+
+  it('snaps an axis-aligned bounding-box edge to the matching object edge', () => {
+    const result = snapSelectionBox(
+      { cx: 53, cy: 250, w: 100, h: 60, rotation: 0 },
+      { otherBounds: [box(0, 0, 100, 100)] },
+    );
+
+    expect(result.cx).toBe(50);
+    expect(result.cy).toBe(250);
+  });
+
+  it('combines independent horizontal and vertical object-edge winners', () => {
+    const result = snapSelectionBox(
+      { cx: 53, cy: 54, w: 100, h: 100, rotation: 0 },
+      {
+        otherBounds: [box(0, 500, 100, 100), box(500, 0, 100, 100)],
+      },
+    );
+
+    expect(result.cx).toBe(50);
+    expect(result.cy).toBe(50);
+  });
+
+  it('uses only the centre anchor for a rotated box', () => {
+    const result = snapSelectionBox(
+      { cx: 53, cy: 250, w: 100, h: 60, rotation: Math.PI / 4 },
+      { otherBounds: [box(0, 0, 100, 100)] },
+    );
+
+    expect(result.cx).toBe(50);
   });
 });
 
