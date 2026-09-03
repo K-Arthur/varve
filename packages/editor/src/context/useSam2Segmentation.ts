@@ -10,6 +10,7 @@ import type { Document, NodeId } from '@varve/scene';
 import { useCallback, useEffect, useRef } from 'react';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
+import { setCollapsed } from '../components/Inspector/sectionState';
 import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import type { EditorState, ObjectSelectionSession } from './types';
 
@@ -231,7 +232,18 @@ export function useSam2Segmentation(
             return updated;
           });
           if (committed) {
-            writeTransientSession(null, { maskPreviewMode: 'none' });
+            // The committed confidence and method are rendered in the
+            // Background Removal disclosure. Reveal it when Object Selection
+            // applies a mask so the result is immediately reviewable from
+            // every entry point (toolbar, inspector, or keyboard).
+            writeTransientSession(null, {
+              maskPreviewMode: 'none',
+              sectionVisibility: setCollapsed(
+                stateRef.current.sectionVisibility,
+                'background-removal',
+                false,
+              ),
+            });
             announcerRef.current?.announce(
               `Selection applied as a mask (${Math.round(candidate.confidence * 100)}% confidence)`,
             );
@@ -408,7 +420,7 @@ export function useSam2Segmentation(
         markFailure({
           code: 'model_not_installed',
           message:
-            'Object selection needs a one-time model download. Install it from Settings > AI Models, then try again.',
+            'Object selection needs a one-time model download. Install it from Settings > Offline Models, then try again.',
           retryable: true,
         });
         return null;
@@ -803,7 +815,7 @@ function mapSegmentationFailure(raw: string): {
     return {
       code: 'model_not_installed',
       message:
-        'The object-selection model is missing. Install it from Settings, AI Models, then try again.',
+        'The object-selection model is missing. Install it from Settings, Offline Models, then try again.',
       retryable: true,
     };
   }

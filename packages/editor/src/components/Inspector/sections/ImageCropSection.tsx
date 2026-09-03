@@ -455,10 +455,10 @@ function mapDetectionFailure(error: unknown): string {
     return 'Object detection took too long to respond. Try again; the model can reuse its loaded session.';
   }
   if (/worker|runtime|onnx/i.test(raw)) {
-    return 'The object-detection engine could not start. Check AI Models in Settings and try again.';
+    return 'The object-detection engine could not start. Check Offline Models in Settings and try again.';
   }
   if (/not downloaded|missing model/i.test(raw)) {
-    return 'The object-detection model is not installed. Download it from Settings > AI Models, then try again.';
+    return 'The object-detection model is not installed. Download it from Settings > Offline Models, then try again.';
   }
   return 'Object detection could not complete. Try again or use a selection mask instead.';
 }

@@ -5,7 +5,7 @@ import { expect, test } from '@playwright/test';
 const BENCH_DIR = process.env.VARVE_BGREMOVAL_BENCH_DIR;
 const METHODS = ['quick', 'ai-balanced', 'ai-quality'] as const;
 const CASES = [
-  { id: 'cat', image: 'cat.jpg' },
+  { id: 'coastal-landscape', image: 'cat.jpg' },
   { id: 'human', image: 'human.jpg', mask: 'human-mask.png' },
   { id: 'car', image: 'car.jpg', mask: 'car-mask.png' },
   { id: 'object', image: 'object.jpg', mask: 'object-mask.png' },

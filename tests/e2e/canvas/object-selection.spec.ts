@@ -57,9 +57,9 @@ test.describe('Object Selection workflow', () => {
     // A clean install has no model files yet. The interaction should surface
     // the explicit download requirement without throwing or corrupting the
     // canvas; model-backed preview coverage belongs to the release corpus.
-    await expect(page.getByText(/one-time download|download.*AI model/i).first()).toBeVisible({
-      timeout: 15000,
-    });
+    await expect(page.getByText(/one-time model download|download.*AI model/i).first()).toBeVisible(
+      { timeout: 15000 },
+    );
     await expect(canvas).toBeVisible();
     await testInfo.attach('object-selection-editor-after', {
       body: await canvas.screenshot(),

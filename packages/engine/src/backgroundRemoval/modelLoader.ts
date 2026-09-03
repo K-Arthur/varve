@@ -1,3 +1,4 @@
+import { repairSam2EncoderGraph } from '../inference/models/sam2GraphRepair';
 import { getUpscaleModel } from '../upscaleModels';
 import { fetchWithTimeout } from './fetchWithTimeout';
 import { getManifestEntry, verifyModelChecksum } from './modelManifest';
@@ -764,17 +765,31 @@ class ModelLoader {
       }
 
       const totalBytes = downloadChunks.reduce((sum, chunk) => sum + chunk.length, 0);
-      const bytes = new Uint8Array(totalBytes);
+      let bytes = new Uint8Array(totalBytes);
       let offset = 0;
       for (const chunk of downloadChunks) {
         bytes.set(chunk, offset);
         offset += chunk.length;
       }
-      const buffer = bytes.buffer;
-      const checksum = manifestEntry?.sha256 ?? null;
-      if (!(await verifyModelChecksum(buffer, checksum))) {
+      const upstreamBuffer = bytes.buffer;
+      const expectedUpstream = manifestEntry?.upstreamChecksum ?? manifestEntry?.sha256 ?? null;
+      if (!(await verifyModelChecksum(upstreamBuffer, expectedUpstream))) {
         await deletePartialDownload(modelId);
         throw new Error(`Model ${modelId} failed SHA-256 verification`);
+      }
+
+      if (manifestEntry?.repair === 'sam2-empty-value-info') {
+        const repairedBytes = repairSam2EncoderGraph(bytes);
+        const installedBytes = new Uint8Array(repairedBytes.length);
+        installedBytes.set(repairedBytes);
+        if (
+          manifestEntry.sha256 &&
+          !(await verifyModelChecksum(installedBytes.buffer, manifestEntry.sha256))
+        ) {
+          await deletePartialDownload(modelId);
+          throw new Error(`Model ${modelId} failed repaired SHA-256 verification`);
+        }
+        bytes = installedBytes;
       }
 
       const blob = new Blob([bytes], { type: 'application/octet-stream' });
