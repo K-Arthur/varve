@@ -165,6 +165,43 @@ describe('canonicalizeDocument', () => {
     expect(text).not.toContain('"canvasWidth"');
     expect(text).toContain('"dpi":null');
   });
+
+  it('serializes compound path contours in authored order', () => {
+    const doc = {
+      ...richDocument(),
+      nodes: {
+        ...richDocument().nodes,
+        compound: makeShapeNode('compound', {
+          kind: 'path',
+          points: [
+            { x: 0, y: 0, handleIn: null, handleOut: null },
+            { x: 10, y: 0, handleIn: null, handleOut: null },
+            { x: 10, y: 10, handleIn: null, handleOut: null },
+          ],
+          contours: [
+            [
+              { x: 0, y: 0, handleIn: null, handleOut: null },
+              { x: 10, y: 0, handleIn: null, handleOut: null },
+              { x: 10, y: 10, handleIn: null, handleOut: null },
+            ],
+            [
+              { x: 2, y: 2, handleIn: null, handleOut: null },
+              { x: 4, y: 2, handleIn: null, handleOut: null },
+              { x: 4, y: 4, handleIn: null, handleOut: null },
+            ],
+          ],
+          closed: true,
+          tolerance: 1,
+          holes: [],
+          fillRule: 'evenodd',
+        }),
+      },
+      rootChildren: [...richDocument().rootChildren, 'compound'],
+    } as Document;
+    const text = canonicalizeDocument(doc);
+    expect(text).toContain('"contours"');
+    expect(text.indexOf('"contours"')).toBeLessThan(text.indexOf('"holes"'));
+  });
 });
 
 describe('canonicalHash', () => {

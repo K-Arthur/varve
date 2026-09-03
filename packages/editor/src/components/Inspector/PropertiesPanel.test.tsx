@@ -168,6 +168,76 @@ describe('PropertiesPanel canvas settings', () => {
 });
 
 describe('PropertiesPanel section gating for a real single selection', () => {
+  it('exposes live Boolean Pathfinder operation, operand isolation, and expansion controls', async () => {
+    const { addChild, createDocument, createLiveBooleanDoc, makeShapeNode } = await import(
+      '@varve/scene'
+    );
+    let doc = createDocument('pathfinder-test');
+    const first = makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }, { name: 'First' });
+    const second = makeShapeNode(
+      'b',
+      { kind: 'rect', x: 25, y: 25, w: 50, h: 50 },
+      { name: 'Second' },
+    );
+    const third = makeShapeNode(
+      'c',
+      { kind: 'rect', x: 100, y: 0, w: 25, h: 25 },
+      { name: 'Third' },
+    );
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, first);
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, second);
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, third);
+    const live = createLiveBooleanDoc(doc, ['a', 'b'], 'union');
+    expect(live).not.toBeNull();
+    if (!live) return;
+    const liveDoc = live;
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Selector() {
+      ctx = useEditor();
+      React.useEffect(() => {
+        ctx?.setSelection(liveDoc.nodeId);
+      }, []);
+      return null;
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(liveDoc.doc)}>
+        <Selector />
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.state.selection).toEqual([liveDoc.nodeId]));
+    expect(screen.getByRole('button', { name: 'Pathfinder' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Boolean operation' })).toHaveValue('union');
+    expect(screen.getByRole('button', { name: /Edit operand 1/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Edit operand 2/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Edit Boolean operands' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Expand Boolean' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add operand Third' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add operand Third' }));
+    await waitFor(() =>
+      expect(ctx?.state.document.nodes[liveDoc.nodeId]).toMatchObject({
+        children: ['a', 'b', 'c'],
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Remove operand Third' }));
+    await waitFor(() =>
+      expect(ctx?.state.document.nodes[liveDoc.nodeId]).toMatchObject({ children: ['a', 'b'] }),
+    );
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Boolean operation' }), {
+      target: { value: 'subtract' },
+    });
+    await waitFor(() =>
+      expect(ctx?.state.document.nodes[liveDoc.nodeId]).toMatchObject({
+        boolean: { operation: 'subtract' },
+      }),
+    );
+  });
+
   it('makes selection workflows read-only when any selected node is locked', async () => {
     await renderPanelWithSelectedRect(true);
 

@@ -43,6 +43,7 @@ export function gradientFill(
   stops: GradientStop[],
   opts: {
     rotation?: number;
+    transform?: GradientFill['transform'];
     interpolationSpace?: GradientFill['interpolationSpace'];
     hueInterpolation?: GradientFill['hueInterpolation'];
     tilingMode?: GradientFill['tilingMode'];
@@ -55,6 +56,7 @@ export function gradientFill(
     type,
     stops,
     ...(opts.rotation !== undefined ? { rotation: opts.rotation } : {}),
+    ...(opts.transform !== undefined ? { transform: opts.transform } : {}),
     // New gradients inherit the document setting. A missing interpolationSpace
     // without this marker remains the legacy-sRGB representation for old files.
     ...(opts.interpolationSpace !== undefined

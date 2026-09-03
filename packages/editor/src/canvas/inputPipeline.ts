@@ -37,7 +37,11 @@ import { shouldIgnoreShortcutTarget } from '../shortcuts/ShortcutManager';
 import type { ToolContext, ToolManager } from '../tools';
 import { computeEdgeVelocity } from '../tools/autoPan';
 import { interactionSession } from '../tools/InteractionContext';
-import { type NormalizedInputEvent, normalizeInputEvent } from '../tools/inputNormalizer';
+import {
+  collectSourceEvents,
+  type NormalizedInputEvent,
+  normalizeInputEvent,
+} from '../tools/inputNormalizer';
 import {
   decayRateFromFrameRetention,
   frameDisplacementToVelocity,
@@ -113,7 +117,10 @@ export interface UseCanvasInputsResult {
 
 /** Hover hit testing is informational and must never tax an active drag. */
 export function shouldResolveHover(tool: string, buttons: number): boolean {
-  return buttons === 0 && (tool === 'select' || tool === 'inspect');
+  // Knife joins select/inspect: it is the one drawing tool whose outcome
+  // depends on which object is under the pointer, so it needs the hover hit to
+  // show what it is about to cut and whether that object can be cut at all.
+  return buttons === 0 && (tool === 'select' || tool === 'inspect' || tool === 'knife');
 }
 
 /**
@@ -316,7 +323,7 @@ export function useCanvasInputs({
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as PointerEvent;
-      const ctx = buildToolCtx(ne);
+      const ctx = buildToolCtx(ne, collectSourceEvents(ne, true));
       if (e.buttons !== 0) activeDragPointer.current = snapshotHeldPointer(ne);
 
       if (e.pointerType === 'touch' && touchPointers.current.has(e.pointerId)) {

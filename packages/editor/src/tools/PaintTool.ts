@@ -15,18 +15,31 @@
  * and synchronous paths cannot drift apart in brush semantics.
  */
 import type { AreaSelection } from '@varve/engine';
-import type { BrushDab, BrushPreset, RasterLayerNode, WetPaintManager } from '@varve/scene';
+import type {
+  BrushDab,
+  BrushPreset,
+  RasterLayerNode,
+  StrokeEngineState,
+  WetPaintManager,
+} from '@varve/scene';
 import {
+  appendStrokePoints,
+  beginStroke,
+  cloneStrokeEngineState,
   compositeDabOnNode,
   defaultBrushPreset,
   eraseDabOnNode,
   maskValueFromColor,
-  strokePoint,
 } from '@varve/scene';
 import { BrushWorkerHost, type StrokeBatchEvent } from '../render/brushWorkerHost';
 import { getPaintProfiler } from '../render/paintProfiler';
 import { BaseTool } from './BaseTool';
-import { collectSourceEvents } from './inputNormalizer';
+import {
+  collectSourceEvents,
+  inputToStrokePoint,
+  type NormalizedInputEvent,
+  normalizeInputEvent,
+} from './inputNormalizer';
 import {
   beginMaskPaintSession,
   commitMaskPaintSession,
@@ -35,7 +48,6 @@ import {
   paintMaskDab,
 } from './maskPaintSession';
 import { resolvePaintTarget } from './paintTarget';
-import { normalizePressure, normalizeTilt } from './pointerDynamics';
 import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
 import { selectionCoverageForDab } from './selectionCoverage';
 import { resolveSymmetryTransforms, type SymmetrySettings, transformStrokePoint } from './symmetry';
@@ -89,6 +101,11 @@ interface PaintStrokeSession {
   /** Mask coverage the brush paints towards, from the foreground luminance. */
   maskValue: number;
   branches: SymmetryBranch[];
+  /**
+   * Main-thread mirrors of confirmed branch state. They exist solely to fork
+   * a predicted overlay and never composite pixels or touch history.
+   */
+  previewStates: Map<string, StrokeEngineState>;
   /** True when this stroke created its own raster layer. */
   ownsLayer: boolean;
   transactionOpen: boolean;
@@ -309,6 +326,7 @@ export class PaintTool extends BaseTool {
       // conceals. An eraser on a mask reveals, mirroring its meaning on pixels.
       maskValue: this.eraserMode ? 1 : maskValueFromColor(ctx.foregroundColor),
       branches,
+      previewStates: new Map(),
       ownsLayer: this.lastOwnedLayer,
       transactionOpen: true,
       dirty: null,
@@ -321,21 +339,17 @@ export class PaintTool extends BaseTool {
     for (const branch of branches) {
       // Seed from the branch identity, not the clock: every mirrored copy gets
       // its own jitter stream, and replaying a stroke reproduces it exactly.
-      host.beginStroke(
+      const seed = hashSeed(`${branch.strokeId}#${generation}`);
+      host.beginStroke(branch.strokeId, generation, preset, seed);
+      session.previewStates.set(
         branch.strokeId,
-        generation,
-        preset,
-        hashSeed(`${branch.strokeId}#${generation}`),
+        beginStroke(branch.strokeId, generation, preset, seed),
       );
     }
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     const local = rasterLocalPoint(ctx, rasterNodeId, world);
-    const sp = strokePoint(local.x, local.y, {
-      pressure: normalizePressure(e.pressure, ctx.pointerType),
-      tilt: normalizeTilt(e.tiltX, e.tiltY),
-      time: e.timeStamp,
-    });
+    const sp = inputToStrokePoint(normalizeInputEvent(e), local);
     this.lastSamplePoint = sp;
     this.dispatch(session, [sp]);
 
@@ -357,16 +371,11 @@ export class PaintTool extends BaseTool {
       if (ev.isPredicted) continue;
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
       const local = rasterLocalPoint(ctx, session.rasterNodeId, world);
-      const sp = this.makeSample(
-        local,
-        normalizePressure(ev.pressure, ctx.pointerType),
-        ev.time,
-        normalizeTilt(ev.tiltX, ev.tiltY),
-      );
+      const sp = this.makeSample(local, ev);
       if (sp) batch.push(sp);
     }
     if (batch.length > 0) this.dispatch(session, batch);
-    this.updatePreview(ctx);
+    this.updatePreview(ctx, this.predictedDabs(session, events, ctx));
   }
 
   override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
@@ -380,12 +389,7 @@ export class PaintTool extends BaseTool {
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     const local = rasterLocalPoint(ctx, session.rasterNodeId, world);
-    const sp = this.makeSample(
-      local,
-      normalizePressure(e.pressure, ctx.pointerType),
-      e.timeStamp,
-      normalizeTilt(e.tiltX, e.tiltY),
-    );
+    const sp = this.makeSample(local, normalizeInputEvent(e));
     if (sp) this.dispatch(session, [sp]);
 
     super.onPointerUp(e, ctx);
@@ -441,36 +445,73 @@ export class PaintTool extends BaseTool {
     for (const branch of session.branches) {
       const mapped = points.map((p) => transformStrokePoint(p, branch.transform));
       host.appendPoints(branch.strokeId, session.generation, mapped);
+      const previewState = session.previewStates.get(branch.strokeId);
+      if (previewState) appendStrokePoints(previewState, mapped);
     }
+  }
+
+  /**
+   * Generate a replaceable predicted continuation from a clone of confirmed
+   * engine state. Neither the authoritative worker state nor this tool's
+   * confirmed sample cursor is advanced by this method.
+   */
+  private predictedDabs(
+    session: PaintStrokeSession,
+    events: readonly NormalizedInputEvent[],
+    ctx: ToolContext,
+  ): BrushDab[] {
+    const predicted = events.filter((event) => event.isPredicted);
+    if (predicted.length === 0 || this.eraserMode) return [];
+
+    const points: import('@varve/scene').StrokePoint[] = [];
+    let previous = this.lastSamplePoint;
+    for (const input of predicted) {
+      const world = ctx.canvasToWorld(input.clientX, input.clientY);
+      const local = rasterLocalPoint(ctx, session.rasterNodeId, world);
+      const time = previous ? Math.max(previous.time, input.time) : input.time;
+      const point = inputToStrokePoint({ ...input, time }, local, previous ?? undefined);
+      points.push(point);
+      previous = point;
+    }
+    if (points.length === 0) return [];
+
+    const dabs: BrushDab[] = [];
+    for (const branch of session.branches) {
+      const confirmed = session.previewStates.get(branch.strokeId);
+      if (!confirmed) continue;
+      const continuation = cloneStrokeEngineState(confirmed);
+      const mapped = points.map((point) => transformStrokePoint(point, branch.transform));
+      dabs.push(...appendStrokePoints(continuation, mapped, { final: true }).dabs);
+    }
+    return dabs;
   }
 
   private makeSample(
     local: { x: number; y: number },
-    pressure: number,
-    time: number | undefined,
-    tilt: number,
+    input: NormalizedInputEvent,
   ): import('@varve/scene').StrokePoint | null {
     const last = this.lastSamplePoint;
-    const t = time ?? nowMs();
     if (!last) {
-      const sp = strokePoint(local.x, local.y, { pressure, tilt, time: t });
+      const sp = inputToStrokePoint(input, local);
       this.lastSamplePoint = sp;
       return sp;
     }
-    const dx = local.x - last.x;
-    const dy = local.y - last.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    // Sub-0.25px moves carry no geometric information but do flood the queue.
-    if (dist < 0.25) return null;
-    const dt = t - last.time;
-    const speed = dt > 0 ? (dist / dt) * 1000 : 0;
-    const sp = strokePoint(local.x, local.y, {
-      pressure,
-      tilt,
-      direction: Math.atan2(dy, dx),
-      speed,
-      time: t,
-    });
+    // Reordered packets and an auto-pan continuation can carry an earlier
+    // timestamp. Keep the stream monotonic without inventing a speed spike.
+    const time = Math.max(last.time, input.time);
+    if (
+      time === last.time &&
+      local.x === last.x &&
+      local.y === last.y &&
+      input.pressure === last.pressure
+    ) {
+      return null;
+    }
+    // Retain even zero-distance samples: their pressure, tilt and timestamp
+    // form the correct endpoint for dynamics interpolation on the next
+    // non-zero segment. Discarding sub-pixel samples was the first avoidable
+    // loss of continuous stylus state in the authoritative path.
+    const sp = inputToStrokePoint({ ...input, time }, local, last);
     this.lastSamplePoint = sp;
     return sp;
   }
@@ -599,7 +640,17 @@ export class PaintTool extends BaseTool {
     return this.lastStrokeBounds;
   }
 
-  private updatePreview(ctx: ToolContext): void {
+  private updatePreview(ctx: ToolContext, predictedDabs: readonly BrushDab[] = []): void {
+    const session = this.session;
+    if (session && predictedDabs.length > 0) {
+      ctx.setDraft({
+        kind: 'predicted-stroke',
+        dabs: predictedDabs,
+        color: session.color,
+        transform: ctx.getWorldTransform?.(session.rasterNodeId) ?? [1, 0, 0, 1, 0, 0],
+      });
+      return;
+    }
     const radius = this.preset.radius;
     ctx.setDraft({
       kind: 'ellipse',

@@ -295,6 +295,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'line', groupStart: true },
         { toolId: 'arrow' },
         { toolId: 'pen', groupStart: true },
+        { toolId: 'knife' },
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
         { toolId: 'table' },
@@ -391,6 +392,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'line', groupStart: true },
         { toolId: 'arrow' },
         { toolId: 'pen', groupStart: true },
+        { toolId: 'knife' },
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
         { toolId: 'table' },
@@ -486,6 +488,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'eraser' },
         { toolId: 'smudge' },
         { toolId: 'pen', groupStart: true },
+        { toolId: 'knife' },
         { toolId: 'pencil' },
         { toolId: 'line' },
         { toolId: 'arrow' },
@@ -504,7 +507,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         {
           id: 'pixel-selection',
           label: 'Pixel selection',
-          tools: ['marquee', 'ellipseMarquee', 'pixelLasso', 'selectionPaint'],
+          tools: ['marquee', 'ellipseMarquee', 'pixelLasso', 'magicWand', 'selectionPaint'],
         },
         {
           id: 'retouch',
@@ -609,7 +612,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         {
           id: 'pixel-selection',
           label: 'Pixel selection',
-          tools: ['marquee', 'ellipseMarquee', 'pixelLasso', 'selectionPaint'],
+          tools: ['marquee', 'ellipseMarquee', 'pixelLasso', 'magicWand', 'selectionPaint'],
         },
         {
           id: 'retouch',
@@ -789,6 +792,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'hand' },
         { toolId: 'zoom' },
         { toolId: 'pen', groupStart: true },
+        { toolId: 'knife' },
         { toolId: 'pencil' },
         { toolId: 'nodeEdit' },
         { toolId: 'text', groupStart: true },

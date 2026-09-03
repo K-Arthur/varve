@@ -19,11 +19,19 @@
 import type { Document, NodeId } from '@varve/scene';
 import {
   getParent,
+  isLiveBooleanNode,
   nodeWorldBounds as sceneNodeWorldBounds,
   nodeWorldTransform as sceneNodeWorldTransform,
 } from '@varve/scene';
-import type { Affine, Point, Rect } from '@varve/shared';
-import { applyAffine, multiplyAffine, tryInvertAffine } from '@varve/shared';
+import type { Affine, Camera, Point, Rect, Viewport } from '@varve/shared';
+import {
+  applyAffine,
+  computeFloatingOrigin,
+  multiplyAffine,
+  tryInvertAffine,
+  worldToScreen,
+} from '@varve/shared';
+import { placedLiveBooleanBounds, resolvePlacedLiveBoolean } from './liveBooleanGeometry';
 import type { PagePlacementMap } from './pagePlacement';
 import { buildPagePlacementMap, pagePlacementForNode } from './pagePlacement';
 
@@ -137,6 +145,35 @@ export function nodeWorldTransform(
 }
 
 /**
+ * Project a world-space AABB into a conservative screen-space AABB.
+ *
+ * World bounds already include node and ancestor transforms, but they do not
+ * include the camera. Projecting all four corners is required for rotated
+ * views; scaling `w`/`h` and projecting only the origin silently places text
+ * editing controls away from the rendered frame.
+ */
+export function worldRectToScreenAabb(worldRect: Rect, camera: Camera, viewport: Viewport): Rect {
+  const origin = computeFloatingOrigin(camera, viewport);
+  const corners: Point[] = [
+    [worldRect.x, worldRect.y],
+    [worldRect.x + worldRect.w, worldRect.y],
+    [worldRect.x, worldRect.y + worldRect.h],
+    [worldRect.x + worldRect.w, worldRect.y + worldRect.h],
+  ];
+  const projected = corners.map(([x, y]) => worldToScreen(camera, x, y, viewport, origin));
+  const xs = projected.map(([x]) => x);
+  const ys = projected.map(([, y]) => y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return {
+    x,
+    y,
+    w: Math.max(...xs) - x,
+    h: Math.max(...ys) - y,
+  };
+}
+
+/**
  * Placed-world group bounds: union of children's placed-world bounds
  * (groups have no own geometry). Implemented here rather than delegated to
  * the scene so the union includes each child's placement.
@@ -175,6 +212,15 @@ export function nodeWorldBounds(
   parentIndex?: Map<NodeId, NodeId>,
 ): Rect | null {
   const node = doc.nodes[id];
+  if (node && isLiveBooleanNode(node)) {
+    const resolved = resolvePlacedLiveBoolean(
+      doc,
+      id,
+      nodeWorldTransform(doc, id, parentIndex),
+      parentIndex,
+    );
+    return resolved ? placedLiveBooleanBounds(resolved) : null;
+  }
   const bounds = sceneNodeWorldBounds(doc, id, parentIndex);
   if (!bounds) return null;
 

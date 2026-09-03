@@ -27,7 +27,7 @@
  *   emitted and the conversion is skipped.
  */
 
-import { cmykToRgb, labToRgb, lchToRgb, rgbToCmyk } from '@varve/shared';
+import { denormalizeChannel, labToRgb, lchToRgb, normalizeChannel } from '@varve/shared';
 import {
   type BitDepth,
   type BlendEvaluationSpace,
@@ -39,11 +39,14 @@ import {
   type WorkingSpace,
 } from './colorManagement';
 import type { Document } from './document';
+import type { TableModel } from './table';
 import type {
   Effect,
   Fill,
+  GradientFill,
   GradientInterpolationSpace,
   GradientStop,
+  RichText,
   SceneNode,
   Stroke,
 } from './types';
@@ -70,28 +73,115 @@ export interface ColorConversionReport {
   warnings: string[];
 }
 
-function luminance(r: number, g: number, b: number): number {
-  return Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+type NormalizedRgb = { r: number; g: number; b: number; a: number };
+
+function colorBitDepth(color: ManagedColor): BitDepth {
+  return 'bitDepth' in color ? (color.bitDepth ?? 'uint8') : 'uint8';
 }
 
-/** Analytical RGB<->CMYK (0-255 scale) — single source: @varve/shared. */
-function rgbToCmykChannels(
-  r: number,
-  g: number,
-  b: number,
-): { c: number; m: number; y: number; k: number } {
-  const [c, m, y, k] = rgbToCmyk(r, g, b);
-  return { c, m, y, k };
+function rgbToCmykNormalized(rgb: NormalizedRgb): { c: number; m: number; y: number; k: number } {
+  const k = 1 - Math.max(rgb.r, rgb.g, rgb.b);
+  if (k >= 1) return { c: 0, m: 0, y: 0, k: 1 };
+  const denominator = 1 - k;
+  return {
+    c: (1 - rgb.r - k) / denominator,
+    m: (1 - rgb.g - k) / denominator,
+    y: (1 - rgb.b - k) / denominator,
+    k,
+  };
 }
 
-function cmykToRgbChannels(
-  c: number,
-  m: number,
-  y: number,
-  k: number,
-): { r: number; g: number; b: number } {
-  const [r, g, b] = cmykToRgb(c, m, y, k);
-  return { r, g, b };
+function cmykToRgbNormalized(c: number, m: number, y: number, k: number): NormalizedRgb {
+  return { r: (1 - c) * (1 - k), g: (1 - m) * (1 - k), b: (1 - y) * (1 - k), a: 1 };
+}
+
+function luminanceNormalized(rgb: NormalizedRgb): number {
+  return 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
+}
+
+/**
+ * Resolve any analytical process colour into normalized encoded sRGB. This
+ * path is deliberately profile-free and therefore only used for the clearly
+ * labelled analytical fallback; ICC conversions take the provider path.
+ */
+function normalizedRgbFromColor(color: ManagedColor): NormalizedRgb | null {
+  const bitDepth = colorBitDepth(color);
+  switch (color.space) {
+    case 'rgb':
+      return {
+        r: normalizeChannel(color.r, bitDepth),
+        g: normalizeChannel(color.g, bitDepth),
+        b: normalizeChannel(color.b, bitDepth),
+        a: normalizeChannel(color.a, bitDepth),
+      };
+    case 'cmyk': {
+      const rgb = cmykToRgbNormalized(
+        normalizeChannel(color.c, bitDepth),
+        normalizeChannel(color.m, bitDepth),
+        normalizeChannel(color.y, bitDepth),
+        normalizeChannel(color.k, bitDepth),
+      );
+      return { ...rgb, a: normalizeChannel(color.a, bitDepth) };
+    }
+    case 'gray': {
+      const v = normalizeChannel(color.v, bitDepth);
+      return { r: v, g: v, b: v, a: normalizeChannel(color.a, bitDepth) };
+    }
+    case 'lab': {
+      const [r, g, b] = labToRgb(color.l, color.av, color.b);
+      return { r: r / 255, g: g / 255, b: b / 255, a: normalizeChannel(color.a, bitDepth) };
+    }
+    case 'lch': {
+      const [r, g, b] = lchToRgb(color.l, color.c, color.h);
+      return { r: r / 255, g: g / 255, b: b / 255, a: normalizeChannel(color.a, bitDepth) };
+    }
+    case 'spot':
+    case 'registration':
+    case 'unresolved':
+      return null;
+  }
+}
+
+function makeRgbColor(rgb: NormalizedRgb, config: ColorConfig): ManagedColor {
+  const bitDepth = config.bitDepth;
+  return {
+    space: 'rgb',
+    bitDepth,
+    r: denormalizeChannel(rgb.r, bitDepth),
+    g: denormalizeChannel(rgb.g, bitDepth),
+    b: denormalizeChannel(rgb.b, bitDepth),
+    a: denormalizeChannel(rgb.a, bitDepth),
+    profile: config.rgbProfile.id,
+    ...(config.rgbProfile.fingerprint ? { profileFingerprint: config.rgbProfile.fingerprint } : {}),
+  };
+}
+
+function makeCmykColor(rgb: NormalizedRgb, config: ColorConfig): ManagedColor {
+  const bitDepth = config.bitDepth;
+  const cmyk = rgbToCmykNormalized(rgb);
+  return {
+    space: 'cmyk',
+    bitDepth,
+    c: denormalizeChannel(cmyk.c, bitDepth),
+    m: denormalizeChannel(cmyk.m, bitDepth),
+    y: denormalizeChannel(cmyk.y, bitDepth),
+    k: denormalizeChannel(cmyk.k, bitDepth),
+    a: denormalizeChannel(rgb.a, bitDepth),
+    profile: config.cmykProfile.id,
+    ...(config.cmykProfile.fingerprint
+      ? { profileFingerprint: config.cmykProfile.fingerprint }
+      : {}),
+  };
+}
+
+function makeGrayColor(rgb: NormalizedRgb, bitDepth: BitDepth): ManagedColor {
+  const v = luminanceNormalized(rgb);
+  return {
+    space: 'gray',
+    bitDepth,
+    v: denormalizeChannel(v, bitDepth),
+    a: denormalizeChannel(rgb.a, bitDepth),
+  };
 }
 
 /**
@@ -101,6 +191,7 @@ function cmykToRgbChannels(
 function convertColorAnalytical(
   color: ManagedColor,
   newMode: ColorMode,
+  destinationConfig: ColorConfig,
   report: ColorConversionReport,
 ): ManagedColor {
   if (color.space === 'spot') {
@@ -112,85 +203,19 @@ function convertColorAnalytical(
     return color;
   }
 
-  // Lab/LCH reduce to sRGB first so every mode conversion has one entry point.
-  if (color.space === 'lab' || color.space === 'lch') {
-    return convertColorAnalytical(rgbFromLabOrLch(color), newMode, report);
-  }
+  if (newMode === 'rgb' && color.space === 'rgb') return color;
+  if (newMode === 'cmyk' && color.space === 'cmyk') return color;
+  if (newMode === 'grayscale' && color.space === 'gray') return color;
 
-  if (newMode === 'rgb') {
-    if (color.space === 'rgb') return color;
-    if (color.space === 'cmyk') {
-      const { r, g, b } = cmykToRgbChannels(color.c, color.m, color.y, color.k);
-      report.converted++;
-      return withProfile({ space: 'rgb', r, g, b, a: color.a }, color);
-    }
-    if (color.space === 'gray') {
-      const v = color.v;
-      report.converted++;
-      return withProfile({ space: 'rgb', r: v, g: v, b: v, a: color.a }, color);
-    }
+  const rgb = normalizedRgbFromColor(color);
+  if (!rgb) {
+    report.unsupported++;
+    return color;
   }
-  if (newMode === 'cmyk') {
-    if (color.space === 'cmyk') return color;
-    if (color.space === 'rgb') {
-      const { c, m, y, k } = rgbToCmykChannels(color.r, color.g, color.b);
-      report.converted++;
-      return withProfile({ space: 'cmyk', c, m, y, k, a: color.a }, color);
-    }
-    if (color.space === 'gray') {
-      const k = Math.round((1 - color.v / 255) * 255);
-      report.converted++;
-      return withProfile({ space: 'cmyk', c: 0, m: 0, y: 0, k, a: color.a }, color);
-    }
-  }
-  if (newMode === 'grayscale') {
-    if (color.space === 'gray') return color;
-    if (color.space === 'rgb') {
-      const v = luminance(color.r, color.g, color.b);
-      report.converted++;
-      return withProfile({ space: 'gray', v, a: color.a }, color);
-    }
-    if (color.space === 'cmyk') {
-      const { c, m, y, k } = color;
-      const r = Math.round(255 * (1 - c / 255) * (1 - k / 255));
-      const g = Math.round(255 * (1 - m / 255) * (1 - k / 255));
-      const b = Math.round(255 * (1 - y / 255) * (1 - k / 255));
-      const v = luminance(r, g, b);
-      report.converted++;
-      return withProfile({ space: 'gray', v, a: color.a }, color);
-    }
-  }
-  return color;
-}
-
-/** Lab/LCH → rgb ManagedColor via the canonical shared conversion. */
-function rgbFromLabOrLch(color: ManagedColor): ManagedColor {
-  let rgb: [number, number, number];
-  if (color.space === 'lab') {
-    rgb = labToRgb(color.l, color.av, color.b);
-  } else if (color.space === 'lch') {
-    rgb = lchToRgb(color.l, color.c, color.h);
-  } else {
-    throw new Error(`expected lab or lch, got ${color.space}`);
-  }
-  const profile = 'profile' in color ? color.profile : undefined;
-  const profileFingerprint = 'profileFingerprint' in color ? color.profileFingerprint : undefined;
-  return {
-    space: 'rgb',
-    r: rgb[0],
-    g: rgb[1],
-    b: rgb[2],
-    a: color.a,
-    profile,
-    profileFingerprint,
-  };
-}
-
-function withProfile<T extends { a: number }>(result: T, source: ManagedColor): T {
-  if ('profile' in source && source.profile) {
-    return { ...result, profile: source.profile } as T;
-  }
-  return result;
+  report.converted++;
+  if (newMode === 'rgb') return makeRgbColor(rgb, destinationConfig);
+  if (newMode === 'cmyk') return makeCmykColor(rgb, destinationConfig);
+  return makeGrayColor(rgb, destinationConfig.bitDepth);
 }
 
 function updateColorConfig(config: ColorConfig | undefined, newMode: ColorMode): ColorConfig {
@@ -198,6 +223,116 @@ function updateColorConfig(config: ColorConfig | undefined, newMode: ColorMode):
   // Preserve bitDepth and workingSpace — mode change is not a precision or
   // blending change.
   return { ...config, mode: newMode };
+}
+
+function convertGradient(
+  gradient: GradientFill,
+  newMode: ColorMode,
+  convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor,
+): GradientFill {
+  return {
+    ...gradient,
+    stops: gradient.stops.map((stop: GradientStop) => ({
+      ...stop,
+      color: convertColor(stop.color, newMode),
+    })),
+  };
+}
+
+function convertFill(
+  fill: Fill,
+  newMode: ColorMode,
+  convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor,
+): Fill {
+  return {
+    ...fill,
+    ...(fill.color ? { color: convertColor(fill.color, newMode) } : {}),
+    ...(fill.gradient ? { gradient: convertGradient(fill.gradient, newMode, convertColor) } : {}),
+  };
+}
+
+function convertEffects(
+  effects: Effect[],
+  newMode: ColorMode,
+  convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor,
+): Effect[] {
+  return effects.map((effect) => {
+    if (effect.type === 'glassMaterial') {
+      return {
+        ...effect,
+        tint: convertColor(effect.tint, newMode),
+        edgeHighlightColor: convertColor(effect.edgeHighlightColor, newMode),
+      };
+    }
+    if ('color' in effect && effect.color) {
+      return { ...effect, color: convertColor(effect.color, newMode) } as Effect;
+    }
+    return effect;
+  });
+}
+
+function convertRichText(
+  richText: RichText,
+  newMode: ColorMode,
+  convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor,
+): RichText {
+  return {
+    ...richText,
+    paragraphs: richText.paragraphs.map((paragraph) => ({
+      ...paragraph,
+      ...(paragraph.format?.columnRuleColor
+        ? {
+            format: {
+              ...paragraph.format,
+              columnRuleColor: convertColor(paragraph.format.columnRuleColor, newMode),
+            },
+          }
+        : {}),
+      runs: paragraph.runs.map((run) =>
+        run.format?.color
+          ? { ...run, format: { ...run.format, color: convertColor(run.format.color, newMode) } }
+          : run,
+      ),
+    })),
+  };
+}
+
+function convertTable(
+  table: TableModel,
+  newMode: ColorMode,
+  convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor,
+): TableModel {
+  const cells = Object.fromEntries(
+    Object.entries(table.cells).map(([id, cell]) => [
+      id,
+      cell.style
+        ? {
+            ...cell,
+            style: {
+              ...cell.style,
+              ...(cell.style.fill ? { fill: convertColor(cell.style.fill, newMode) } : {}),
+              ...(cell.style.borderColor
+                ? { borderColor: convertColor(cell.style.borderColor, newMode) }
+                : {}),
+            },
+          }
+        : cell,
+    ]),
+  );
+  return {
+    ...table,
+    appearance: {
+      ...table.appearance,
+      headerFill: convertColor(table.appearance.headerFill, newMode),
+      bodyFill: convertColor(table.appearance.bodyFill, newMode),
+      alternateFill: convertColor(table.appearance.alternateFill, newMode),
+      borderColor: convertColor(table.appearance.borderColor, newMode),
+      dividerColor: convertColor(table.appearance.dividerColor, newMode),
+      headerText: convertColor(table.appearance.headerText, newMode),
+      bodyText: convertColor(table.appearance.bodyText, newMode),
+    },
+    cells,
+  };
 }
 
 function walkAndConvert(
@@ -213,6 +348,7 @@ function walkAndConvert(
       strokes: updated.strokes.map((s: Stroke) => ({
         ...s,
         color: convertColor(s.color, newMode),
+        ...(s.gradient ? { gradient: convertGradient(s.gradient, newMode, convertColor) } : {}),
       })),
     } as SceneNode;
   }
@@ -220,32 +356,41 @@ function walkAndConvert(
   if ('effects' in updated && updated.effects) {
     updated = {
       ...updated,
-      effects: updated.effects.map((e: Effect) => {
-        if ('color' in e && e.color) {
-          return { ...e, color: convertColor(e.color as ManagedColor, newMode) } as Effect;
-        }
-        return e;
-      }),
+      effects: convertEffects(updated.effects, newMode, convertColor),
     } as SceneNode;
   }
 
   if ('fills' in updated && updated.fills) {
     updated = {
       ...updated,
-      fills: updated.fills.map((f: Fill) => ({
-        ...f,
-        color: f.color ? convertColor(f.color, newMode) : f.color,
-        gradient: f.gradient
-          ? {
-              ...f.gradient,
-              stops: f.gradient.stops.map((gs: GradientStop) => ({
-                ...gs,
-                color: convertColor(gs.color, newMode),
-              })),
-            }
-          : f.gradient,
-      })),
+      fills: updated.fills.map((f: Fill) => convertFill(f, newMode, convertColor)),
     } as SceneNode;
+  }
+
+  if (updated.kind === 'text' && updated.richText) {
+    updated = { ...updated, richText: convertRichText(updated.richText, newMode, convertColor) };
+  }
+
+  if (updated.kind === 'text' && updated.adaptiveContrast) {
+    updated = {
+      ...updated,
+      adaptiveContrast: {
+        ...updated.adaptiveContrast,
+        ...(updated.adaptiveContrast.lightColor
+          ? { lightColor: convertColor(updated.adaptiveContrast.lightColor, newMode) }
+          : {}),
+        ...(updated.adaptiveContrast.darkColor
+          ? { darkColor: convertColor(updated.adaptiveContrast.darkColor, newMode) }
+          : {}),
+        ...(updated.adaptiveContrast.resolvedColor
+          ? { resolvedColor: convertColor(updated.adaptiveContrast.resolvedColor, newMode) }
+          : {}),
+      },
+    };
+  }
+
+  if (updated.kind === 'table') {
+    updated = { ...updated, table: convertTable(updated.table, newMode, convertColor) };
   }
 
   return updated;
@@ -295,20 +440,87 @@ export function convertDocumentColors(
     return { doc, report };
   }
 
+  const destinationConfig = updateColorConfig(doc.colorConfig, newMode);
+
   const convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor =
     algorithm === 'icc'
       ? (c, mode) => options.iccConverter!(c, mode) ?? c
-      : (c, mode) => convertColorAnalytical(c, mode, report);
+      : (c, mode) => convertColorAnalytical(c, mode, destinationConfig, report);
 
   const nodes: Record<string, SceneNode> = {};
   for (const [id, node] of Object.entries(doc.nodes)) {
     nodes[id] = walkAndConvert(node, newMode, convertColor);
   }
 
+  const paints = doc.paints
+    ? Object.fromEntries(
+        Object.entries(doc.paints).map(([id, paint]) => [
+          id,
+          { ...paint, fill: convertFill(paint.fill, newMode, convertColor) },
+        ]),
+      )
+    : doc.paints;
+
+  const styles = doc.styles
+    ? Object.fromEntries(
+        Object.entries(doc.styles).map(([id, style]) => {
+          if (style.type === 'color') {
+            return [id, { ...style, fill: convertFill(style.fill, newMode, convertColor) }];
+          }
+          if (style.type === 'effect') {
+            return [
+              id,
+              { ...style, effects: convertEffects(style.effects, newMode, convertColor) },
+            ];
+          }
+          return [id, style];
+        }),
+      )
+    : doc.styles;
+
+  const stories = doc.stories
+    ? Object.fromEntries(
+        Object.entries(doc.stories).map(([id, story]) => [
+          id,
+          { ...story, content: convertRichText(story.content, newMode, convertColor) },
+        ]),
+      )
+    : doc.stories;
+
   let swatches = doc.swatches;
   if (swatches) {
     swatches = swatches.map((s) => ({ ...s, color: convertColor(s.color, newMode) }));
   }
+
+  const logoProject = doc.logoProject?.palette
+    ? {
+        ...doc.logoProject,
+        palette: {
+          ...doc.logoProject.palette,
+          colors: doc.logoProject.palette.colors.map((entry) => ({
+            ...entry,
+            color: convertColor(entry.color, newMode),
+          })),
+        },
+      }
+    : doc.logoProject;
+
+  const layerStates = doc.layerStates?.map((state) => ({
+    ...state,
+    captured: {
+      ...state.captured,
+      appearance: state.captured.appearance
+        ? Object.fromEntries(
+            Object.entries(state.captured.appearance).map(([id, snapshot]) => [
+              id,
+              snapshot.fill
+                ? { ...snapshot, fill: convertColor(snapshot.fill, newMode) }
+                : snapshot,
+            ]),
+          )
+        : state.captured.appearance,
+    },
+  }));
 
   let canvasBackground = doc.canvasBackground;
   if (canvasBackground && canvasBackground.space !== 'spot') {
@@ -325,9 +537,14 @@ export function convertDocumentColors(
     doc: {
       ...doc,
       nodes,
+      paints,
+      styles,
+      stories,
+      logoProject,
+      layerStates,
       swatches,
       canvasBackground,
-      colorConfig: updateColorConfig(doc.colorConfig, newMode),
+      colorConfig: destinationConfig,
     },
     report,
   };

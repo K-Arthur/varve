@@ -72,6 +72,7 @@ import {
 import {
   endFrameTiming,
   getAverageFrameTime,
+  getFrameBudgetSummary,
   getOverBudgetCount,
   initFrameBudget,
   startFrameTiming,
@@ -116,6 +117,7 @@ export {
   endFrameTiming,
   getAdaptiveCacheLimits,
   getAverageFrameTime,
+  getFrameBudgetSummary,
   getInteractionTraceCount,
   getMemoryBudgets,
   getOverBudgetCount,
@@ -372,6 +374,7 @@ function augmentPerfDiagnosticsHandle(): void {
     frameBudget: {
       averageMs: () => getAverageFrameTime(),
       overBudgetCount: () => getOverBudgetCount(),
+      summary: () => getFrameBudgetSummary(),
     },
     capabilities: () => detectPlatformCapabilities(),
     // Which backend is actually drawing, and which gate decided it. Composed

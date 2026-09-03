@@ -32,6 +32,30 @@ describe('primitiveBounds', () => {
     });
   });
 
+  it('uses canonical compound contours when the legacy holes alias is absent', () => {
+    expect(
+      primitiveBounds({
+        kind: 'path',
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        contours: [
+          [
+            { x: 10, y: 20, handleIn: null, handleOut: null },
+            { x: 30, y: 20, handleIn: null, handleOut: null },
+            { x: 30, y: 40, handleIn: null, handleOut: null },
+          ],
+          [
+            { x: -20, y: -10, handleIn: null, handleOut: null },
+            { x: -5, y: -10, handleIn: null, handleOut: null },
+            { x: -5, y: 0, handleIn: null, handleOut: null },
+          ],
+        ],
+        closed: true,
+        tolerance: 1,
+        fillRule: 'evenodd',
+      }),
+    ).toEqual({ x: -20, y: -10, w: 50, h: 50 });
+  });
+
   it('ignores non-finite path coordinates and handles', () => {
     const bounds = primitiveBounds({
       kind: 'path',

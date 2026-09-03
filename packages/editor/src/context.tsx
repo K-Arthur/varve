@@ -123,7 +123,6 @@ import {
   addGuide as addGuideDoc,
   addInteraction as addInteractionDoc,
   addLayerState as addLayerStateDoc,
-  addMask as addMaskDoc,
   addNode,
   addSMInput,
   addSMState,
@@ -181,6 +180,7 @@ import {
   duplicateSelectionSet as duplicateSelectionSetDoc,
   duplicateSMState,
   type ExportPreset,
+  expandLiveBooleanDoc,
   type FacingPagesConfig,
   type Fill,
   fillSlot as fillSlotDoc,
@@ -202,12 +202,14 @@ import {
   groupNodes as groupNodesDoc,
   type ImageFillData,
   type InstanceStatus,
+  insertFlattenedCopy,
   installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
   isAdjustmentEligible,
   isClippingMaskGroup,
   isContainer,
   isImageShape,
+  isLiveBooleanNode,
   isPageOnLeftSide as isPageOnLeftSideDoc,
   type LiveTraceParams,
   linkFrame as linkFrameDoc,
@@ -405,13 +407,20 @@ import {
 } from './context/providerComposition';
 import { isReducedMotion } from './context/reducedMotionManager';
 import {
+  addMaskForSelection,
   alignSelectionInDocument,
   alignSelectionWithObbInDocument,
+  applyKnifeCutOutcome,
   commonAlignmentContainerBounds,
+  createLiveBooleanForSelection,
   distributeSelectionInDocument,
+  makeDrawingFrameNode,
   resizeSceneNode,
+  runKnifeCut,
+  runOwnedTransaction,
   shapeForTool,
 } from './context/sceneNodeGeometry';
+// The geometry module also owns the knife command used by the editor actions.
 import type {
   EditorContextValue as CanonicalEditorContextValue,
   CanvasMode,
@@ -429,11 +438,14 @@ import type {
   ToolId,
 } from './context/types';
 import {
+  commitFloatingRasterIfCurrent,
   createCopyEffectStackToNodes,
   createDefaultDocumentGridSettings,
   DEFAULT_SELECTION_ORIGIN,
+  mergeMagicWandSettings,
   newSessionId,
   nextSelectionPrimary,
+  runCompoundOperation,
   EditorCtx as StableEditorCtx,
 } from './context/types';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
@@ -460,7 +472,7 @@ import {
   getCanvasViewport,
 } from './context/viewportOps';
 import { applyDropPosition } from './dropUtils';
-import type { FlattenOptions } from './flatten/types';
+import { createFlattenOptions } from './flatten/types';
 import { readGuidesFromClipboard, writeGuidesToClipboard } from './guideClipboard';
 import { HitTestEngine } from './hitTest';
 import { useSelectionHistory } from './hooks/useSelectionHistory';
@@ -509,6 +521,7 @@ import {
   type TransformCache,
 } from './scene/transformCache';
 import {
+  isNodeEffectivelyLocked,
   nodeLocalBounds,
   nodeWorldBounds,
   nodeWorldTransform,
@@ -1422,9 +1435,9 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   openVectorizeDialog: (prefill?: { replaceGroupId: string } | null) => void;
   /** Close the Image Trace dialog. */
   closeVectorizeDialog: () => void;
-  /** Flatten/rasterize/merge the current selection (unified flatten system). */
-  flattenSelected: (mode: import('./flatten/types').FlattenMode, scale?: number) => void;
-  rasterizeSelected: (scale?: number) => void;
+  rasterizeSelected: (
+    scaleOrOptions?: number | import('./flatten/rasterizeOptions').RasterizeSelectionOptions,
+  ) => void;
   mergeSelected: () => void;
   /** Convert the selected text node to vector path outlines. */
   convertTextToOutlines: () => void;
@@ -2469,6 +2482,13 @@ export function EditorProvider({
         feather: 0,
         antialias: true,
       },
+      magicWandSettings: {
+        tolerance: 8,
+        edgeFeather: 0,
+        mode: 'contiguous',
+        operation: 'replace',
+      },
+      floatingRaster: null,
       selectionOrigin: 'api' as const,
       selectionRevision: 0,
       document: doc,
@@ -2819,6 +2839,8 @@ export function EditorProvider({
   /** F6: transaction state for single-undo scrubbing. */
   const inTransactionRef = useRef(false);
   const transactionModeRef = useRef<'edit' | 'preview'>('edit');
+  const txDepthRef = useRef(0);
+  const txLabelRef = useRef('Edit');
   const txSnapshotRef = useRef<Document | null>(null);
   const txSelRef = useRef<NodeId[] | null>(null);
   const txBaseDocumentRevisionRef = useRef<number | null>(null);
@@ -3025,6 +3047,10 @@ export function EditorProvider({
       const isPreviewTransaction =
         inTransactionRef.current && transactionModeRef.current === 'preview';
       if (!inTransactionRef.current) {
+        process.env.NODE_ENV !== 'production' &&
+          console.warn(
+            '[history] updateDoc called outside transaction — this mutation bypasses persistent history capture',
+          );
         undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
         undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
         undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
@@ -3134,7 +3160,12 @@ export function EditorProvider({
   // F6: transaction API — begin/commit/abort for single-undo scrubbing
   // P5: Wired to @varve/collab transaction hooks for Yjs integration
   const beginTransaction = useCallback((mode: 'edit' | 'preview' = 'edit') => {
+    if (inTransactionRef.current) {
+      txDepthRef.current += 1;
+      return;
+    }
     inTransactionRef.current = true;
+    txDepthRef.current = 1;
     transactionModeRef.current = mode;
     // Gesture callbacks can be retained by portaled controls across a
     // document render. Read the synchronous ref so a transaction always
@@ -3147,6 +3178,12 @@ export function EditorProvider({
   }, []);
 
   const commitTransaction = useCallback(() => {
+    if (!inTransactionRef.current) return;
+    if (txDepthRef.current > 1) {
+      txDepthRef.current -= 1;
+      return;
+    }
+    txDepthRef.current = 0;
     // Queue finalization behind any document updater scheduled by the same
     // pointer event. Ending the transaction synchronously lets that updater
     // observe `inTransaction=false` and push the already-transformed document
@@ -3155,6 +3192,7 @@ export function EditorProvider({
       if (inTransactionRef.current) {
         const transactionMode = transactionModeRef.current;
         inTransactionRef.current = false;
+        const transactionLabel = txLabelRef.current;
         // Only record an undo entry if the transaction actually changed the
         // document. The document is updated immutably (structural sharing), so
         // a transaction that mutated nothing leaves the reference identical to
@@ -3170,7 +3208,7 @@ export function EditorProvider({
         if (changed) {
           undoStackRef.current = [...undoStackRef.current.slice(-49), txSnapshotRef.current!];
           undoSelStackRef.current = [...undoSelStackRef.current.slice(-49), txSelRef.current ?? []];
-          undoLabelsRef.current = [...undoLabelsRef.current.slice(-49), 'Edit'];
+          undoLabelsRef.current = [...undoLabelsRef.current.slice(-49), transactionLabel];
           redoStackRef.current = [];
           redoSelStackRef.current = [];
           redoLabelsRef.current = [];
@@ -3181,7 +3219,7 @@ export function EditorProvider({
           const persistentNow = persistentHistoryRef.current;
           if (before && persistentNow?.attached) {
             historySkipRef.current = true;
-            persistentNow.capture(before, current.document, 'Edit', 'modify');
+            persistentNow.capture(before, current.document, transactionLabel, 'modify');
           }
           if (transactionMode === 'preview' && onMutationRef.current) {
             lastMutatedDocRef.current = {
@@ -3195,6 +3233,7 @@ export function EditorProvider({
         txSelRef.current = null;
         txBaseDocumentRevisionRef.current = null;
         transactionModeRef.current = 'edit';
+        txLabelRef.current = 'Edit';
         getTransactionHooks().onCommitTransaction();
         if (transactionMode === 'preview' && changed) {
           return {
@@ -3218,6 +3257,7 @@ export function EditorProvider({
   const abortTransaction = useCallback(() => {
     if (inTransactionRef.current) {
       inTransactionRef.current = false;
+      txDepthRef.current = 0;
       if (txSnapshotRef.current !== null) {
         patch({ document: txSnapshotRef.current, selection: txSelRef.current ?? [] });
       }
@@ -3225,9 +3265,27 @@ export function EditorProvider({
       txSelRef.current = null;
       txBaseDocumentRevisionRef.current = null;
       transactionModeRef.current = 'edit';
+      txLabelRef.current = 'Edit';
       getTransactionHooks().onAbortTransaction();
     }
   }, [patch]);
+
+  /** Run related mutations as one user-visible history step without overwriting an outer label. */
+  const groupCompoundOperation = useCallback(
+    (label: string, action: () => void) =>
+      runCompoundOperation(
+        label,
+        action,
+        () => !inTransactionRef.current,
+        beginTransaction,
+        (nextLabel) => {
+          txLabelRef.current = nextLabel;
+        },
+        commitTransaction,
+        abortTransaction,
+      ),
+    [abortTransaction, beginTransaction, commitTransaction],
+  );
 
   // Typography: Text chain operations
   const createTextChain = useCallback(
@@ -3944,111 +4002,89 @@ export function EditorProvider({
 
       // F4 + frame tool fix: create typed nodes with auto-names, select atomically
       createShapeAt: (world, size, parentId, pathPoints, pathClosed) => {
-        setState((s) => {
-          // Read the tool from the ref (synchronously current) instead of the
-          // state closure, which may be stale due to React 18 automatic batching.
-          const activeTool = toolRef.current;
-          // Prevent shape creation for non-drawing tools
-          const nonDrawingTools: ToolId[] = [
-            'select',
-            'hand',
-            'zoom',
-            'scale',
-            'nodeEdit',
-            'image',
-            'eyedropper',
-            'inspect',
-            'booleanUnion',
-            'booleanSubtract',
-            'booleanIntersect',
-            'booleanExclude',
-            'cloneStamp',
-            'healBrush',
-            'spotHeal',
-            'patch',
-            'refineMask',
-            'trimapEdit',
-            'crop',
-            'paint',
-            'eraser',
-            'selectionPaint',
-          ];
-          if (nonDrawingTools.includes(activeTool)) {
-            throw new Error(`createShapeAt called for non-drawing tool: ${activeTool}`);
-          }
+        // Wrap in a transaction so persistent history captures the edit.
+        // Guard against nested calls (e.g. PenTool already begins a transaction).
+        runOwnedTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          setState((s) => {
+            // Read the tool from the ref (synchronously current) instead of the
+            // state closure, which may be stale due to React 18 automatic batching.
+            const activeTool = toolRef.current;
+            // Prevent shape creation for non-drawing tools
+            const nonDrawingTools: ToolId[] = [
+              'select',
+              'hand',
+              'zoom',
+              'scale',
+              'nodeEdit',
+              'image',
+              'eyedropper',
+              'inspect',
+              'booleanUnion',
+              'booleanSubtract',
+              'booleanIntersect',
+              'booleanExclude',
+              'cloneStamp',
+              'healBrush',
+              'spotHeal',
+              'patch',
+              'refineMask',
+              'trimapEdit',
+              'crop',
+              'paint',
+              'eraser',
+              'selectionPaint',
+            ];
+            if (nonDrawingTools.includes(activeTool)) {
+              throw new Error(`createShapeAt called for non-drawing tool: ${activeTool}`);
+            }
 
-          undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-          undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
-          redoStackRef.current = [];
-          redoLabelsRef.current = [];
+            const { id, doc: d2 } = nextNodeId(s.document);
+            const transform: Affine = [1, 0, 0, 1, world.x, world.y];
 
-          const { id, doc: d2 } = nextNodeId(s.document);
-          const transform: Affine = [1, 0, 0, 1, world.x, world.y];
-
-          let node: SceneNode;
-          let isFrame = false;
-          if (activeTool === 'table') {
-            // ADR-0016: a native table with a data-backed model, header row,
-            // and fraction-filled columns sized to the dragged rect.
-            const w = Math.max(80, size?.w ?? 480);
-            const h = Math.max(60, size?.h ?? 240);
-            node = makeTableNode(id, {
-              name: 'Table',
-              transform,
-              rows: 4,
-              columns: 4,
-              headerRows: 1,
-              w,
-              h,
-              columnSizing: { kind: 'fraction', value: 1 },
-            });
-          } else if (activeTool === 'frame' || activeTool === 'slice') {
-            node = makeFrameNode(id, {
-              name: 'Node',
-              transform,
-              fill: { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
-              children: [],
-              w: size?.w ?? 375,
-              h: size?.h ?? 812,
-            });
-            isFrame = true;
-          } else if (pathPoints && pathPoints.length > 0) {
-            // Path tools pass world-space anchors; store node-local relative to origin.
-            const localPoints = pathPoints.map((p) => ({
-              ...p,
-              x: p.x - world.x,
-              y: p.y - world.y,
-            }));
-            const shape: Shape = {
-              kind: 'path',
-              points: localPoints,
-              closed: pathClosed ?? false,
-              tolerance: 3,
-            };
-            node = makeShapeNode(id, shape, { name: 'Node', transform });
-          } else {
-            const shape: Shape = size
-              ? buildShapeWithSize(activeTool, size)
-              : shapeForTool(activeTool);
-            const strokeOpts =
-              activeTool === 'arrow'
-                ? {
-                    strokes: [
-                      {
-                        color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
-                        weight: 2,
-                        align: 'center' as const,
-                        dashPattern: [],
-                        dashOffset: 0,
-                        cap: 'round' as const,
-                        join: 'miter' as const,
-                        miterLimit: 4,
-                        visible: true,
-                        arrowEnd: 'arrow' as const,
-                      },
-                    ],
-                  }
-                : activeTool === 'line'
+            let node: SceneNode;
+            let isFrame = false;
+            if (activeTool === 'table') {
+              // ADR-0016: a native table with a data-backed model, header row,
+              // and fraction-filled columns sized to the dragged rect.
+              const w = Math.max(80, size?.w ?? 480);
+              const h = Math.max(60, size?.h ?? 240);
+              node = makeTableNode(id, {
+                name: 'Table',
+                transform,
+                rows: 4,
+                columns: 4,
+                headerRows: 1,
+                w,
+                h,
+                columnSizing: { kind: 'fraction', value: 1 },
+              });
+            } else if (activeTool === 'frame' || activeTool === 'slice') {
+              const exportRegion = activeTool === 'slice';
+              node = makeDrawingFrameNode(id, transform, size, exportRegion);
+              // Frame capture-on-draw must not run for a region: adopting the
+              // artwork it is drawn over is the frame behaviour it exists to
+              // stop.
+              isFrame = !exportRegion;
+            } else if (pathPoints && pathPoints.length > 0) {
+              // Path tools pass world-space anchors; store node-local relative to origin.
+              const localPoints = pathPoints.map((p) => ({
+                ...p,
+                x: p.x - world.x,
+                y: p.y - world.y,
+              }));
+              const shape: Shape = {
+                kind: 'path',
+                points: localPoints,
+                closed: pathClosed ?? false,
+                tolerance: 3,
+              };
+              node = makeShapeNode(id, shape, { name: 'Node', transform });
+            } else {
+              const shape: Shape = size
+                ? buildShapeWithSize(activeTool, size)
+                : shapeForTool(activeTool);
+              const strokeOpts =
+                activeTool === 'arrow'
                   ? {
                       strokes: [
                         {
@@ -4061,160 +4097,186 @@ export function EditorProvider({
                           join: 'miter' as const,
                           miterLimit: 4,
                           visible: true,
+                          arrowEnd: 'arrow' as const,
                         },
                       ],
                     }
-                  : {};
-            node = makeShapeNode(id, shape, { name: 'Node', transform, ...strokeOpts });
-          }
+                  : activeTool === 'line'
+                    ? {
+                        strokes: [
+                          {
+                            color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+                            weight: 2,
+                            align: 'center' as const,
+                            dashPattern: [],
+                            dashOffset: 0,
+                            cap: 'round' as const,
+                            join: 'miter' as const,
+                            miterLimit: 4,
+                            visible: true,
+                          },
+                        ],
+                      }
+                    : {};
+              node = makeShapeNode(id, shape, { name: 'Node', transform, ...strokeOpts });
+            }
 
-          const effectiveParentId =
-            parentId ??
-            findContainingFrameInDoc(d2, world, null, {
-              designCanvasId:
-                s.workspaceMode === 'print' ? null : (d2.activeDesignCanvasId ?? null),
-            });
-          let newDoc: Document;
-          if (effectiveParentId) {
-            // Convert world→local: the node's transform must be in the
-            // parent's coordinate space so that composing parent · child
-            // yields the original world position. Without this, a shape
-            // placed inside a translated frame jumps by the frame's offset.
-            const localPos = worldToParent(d2, effectiveParentId, [world.x, world.y]) ?? [
-              world.x,
-              world.y,
-            ];
-            const localTransform: Affine = [1, 0, 0, 1, localPos[0], localPos[1]];
-            node = {
-              ...node,
-              transform: localTransform,
-              constraints: defaultConstraints(),
-            } as SceneNode;
-            // Path geometry under a transformed parent: anchors were rebased
-            // by translation only above, which is correct for identity
-            // parents but drifts by the parent's linear part (rotation/
-            // scale). Remap through the full inverse so the composed
-            // parent·node·point reproduces the drawn world path. Handles are
-            // vectors and are handled by pathPointsWorldToLocal.
-            if (
-              pathPoints &&
-              pathPoints.length > 0 &&
-              node.kind === 'shape' &&
-              node.shape.kind === 'path'
-            ) {
-              const parentWorld = nodeWorldTransform(d2, effectiveParentId);
-              const absoluteLocal = pathPointsWorldToLocal(pathPoints, parentWorld);
-              const localPoints = absoluteLocal.map((p) => ({
-                ...p,
-                x: p.x - localPos[0],
-                y: p.y - localPos[1],
-              }));
+            const effectiveParentId =
+              parentId ??
+              findContainingFrameInDoc(d2, world, null, {
+                designCanvasId:
+                  s.workspaceMode === 'print' ? null : (d2.activeDesignCanvasId ?? null),
+              });
+            let newDoc: Document;
+            if (effectiveParentId) {
+              // Convert world→local: the node's transform must be in the
+              // parent's coordinate space so that composing parent · child
+              // yields the original world position. Without this, a shape
+              // placed inside a translated frame jumps by the frame's offset.
+              const localPos = worldToParent(d2, effectiveParentId, [world.x, world.y]) ?? [
+                world.x,
+                world.y,
+              ];
+              const localTransform: Affine = [1, 0, 0, 1, localPos[0], localPos[1]];
               node = {
                 ...node,
-                shape: { ...node.shape, points: localPoints },
+                transform: localTransform,
+                constraints: defaultConstraints(),
               } as SceneNode;
-            }
-            newDoc = addChild(d2, effectiveParentId, node);
-            newDoc = applyFrameLayout(newDoc, effectiveParentId);
-          } else {
-            // No containing frame: add to the active workspace surface. Design
-            // workspace uses the active Design Canvas; Print uses its page.
-            const activePage =
-              s.workspaceMode === 'print'
-                ? d2.pages?.find((p) => p.id === d2.activePageId)
-                : undefined;
-            const contentRootId = activeWorkspaceContentRoot(d2, s.workspaceMode);
-            if (contentRootId && d2.nodes[contentRootId]) {
-              const local = activePage ? pageContentPoint(d2, activePage.id, world) : world;
-              newDoc = addChild(d2, contentRootId, {
-                ...node,
-                transform: [1, 0, 0, 1, local.x, local.y],
-              } as SceneNode);
+              // Path geometry under a transformed parent: anchors were rebased
+              // by translation only above, which is correct for identity
+              // parents but drifts by the parent's linear part (rotation/
+              // scale). Remap through the full inverse so the composed
+              // parent·node·point reproduces the drawn world path. Handles are
+              // vectors and are handled by pathPointsWorldToLocal.
+              if (
+                pathPoints &&
+                pathPoints.length > 0 &&
+                node.kind === 'shape' &&
+                node.shape.kind === 'path'
+              ) {
+                const parentWorld = nodeWorldTransform(d2, effectiveParentId);
+                const absoluteLocal = pathPointsWorldToLocal(pathPoints, parentWorld);
+                const localPoints = absoluteLocal.map((p) => ({
+                  ...p,
+                  x: p.x - localPos[0],
+                  y: p.y - localPos[1],
+                }));
+                node = {
+                  ...node,
+                  shape: { ...node.shape, points: localPoints },
+                } as SceneNode;
+              }
+              newDoc = addChild(d2, effectiveParentId, node);
+              newDoc = applyFrameLayout(newDoc, effectiveParentId);
             } else {
-              newDoc = addNode(d2, node);
+              // No containing frame: add to the active workspace surface. Design
+              // workspace uses the active Design Canvas; Print uses its page.
+              const activePage =
+                s.workspaceMode === 'print'
+                  ? d2.pages?.find((p) => p.id === d2.activePageId)
+                  : undefined;
+              const contentRootId = activeWorkspaceContentRoot(d2, s.workspaceMode);
+              if (contentRootId && d2.nodes[contentRootId]) {
+                const local = activePage ? pageContentPoint(d2, activePage.id, world) : world;
+                newDoc = addChild(d2, contentRootId, {
+                  ...node,
+                  transform: [1, 0, 0, 1, local.x, local.y],
+                } as SceneNode);
+              } else {
+                newDoc = addNode(d2, node);
+              }
             }
-          }
 
-          // Frame capture-on-draw: if we just created a frame, capture any
-          // fully-contained sibling nodes into it
-          if (isFrame) {
-            const frameNode = newDoc.nodes[id] as import('@varve/scene').FrameNode;
-            // Compute true world-space AABB via nodeWorldTransform + transformRect
-            // instead of using axis-aligned local dims at world click position.
-            // This correctly handles rotated/scaled parent frames where the
-            // frame's local w/h differ from its world-space AABB.
-            const frameWorld = nodeWorldTransform(newDoc, id);
-            const frameBounds = transformRect(frameWorld, {
-              x: 0,
-              y: 0,
-              w: frameNode.w,
-              h: frameNode.h,
-            });
-            const parentIndex = buildParentIndexMap(newDoc);
+            // Frame capture-on-draw: if we just created a frame, capture any
+            // fully-contained sibling nodes into it
+            if (isFrame) {
+              const frameNode = newDoc.nodes[id] as import('@varve/scene').FrameNode;
+              // Compute true world-space AABB via nodeWorldTransform + transformRect
+              // instead of using axis-aligned local dims at world click position.
+              // This correctly handles rotated/scaled parent frames where the
+              // frame's local w/h differ from its world-space AABB.
+              const frameWorld = nodeWorldTransform(newDoc, id);
+              const frameBounds = transformRect(frameWorld, {
+                x: 0,
+                y: 0,
+                w: frameNode.w,
+                h: frameNode.h,
+              });
+              const parentIndex = buildParentIndexMap(newDoc);
 
-            // Find siblings (nodes with same parent as the new frame)
-            const frameParent = parentIndex.get(id) ?? null;
-            const siblings: NodeId[] = [];
-            if (frameParent) {
-              for (const [nodeId, parentId] of parentIndex.entries()) {
-                if (parentId === frameParent && nodeId !== id) {
-                  siblings.push(nodeId);
+              // Find siblings (nodes with same parent as the new frame)
+              const frameParent = parentIndex.get(id) ?? null;
+              const siblings: NodeId[] = [];
+              if (frameParent) {
+                for (const [nodeId, parentId] of parentIndex.entries()) {
+                  if (parentId === frameParent && nodeId !== id) {
+                    siblings.push(nodeId);
+                  }
+                }
+              } else {
+                for (const nodeId of newDoc.rootChildren) {
+                  if (nodeId !== id) siblings.push(nodeId);
                 }
               }
-            } else {
-              for (const nodeId of newDoc.rootChildren) {
-                if (nodeId !== id) siblings.push(nodeId);
-              }
-            }
 
-            // Capture the siblings the new frame meaningfully covers.
-            for (const siblingId of siblings) {
-              const siblingBounds = nodeWorldBounds(newDoc, siblingId, parentIndex);
-              if (!siblingBounds) continue;
+              // Capture the siblings the new frame meaningfully covers.
+              for (const siblingId of siblings) {
+                const siblingBounds = nodeWorldBounds(newDoc, siblingId, parentIndex);
+                if (!siblingBounds) continue;
 
-              if (shouldCaptureFrameSibling(frameBounds, siblingBounds)) {
-                // Reparent sibling into the new frame with transform preservation
-                const siblingNode = newDoc.nodes[siblingId];
-                if (siblingNode && !siblingNode.locked) {
-                  const frameWorld = nodeWorldTransform(newDoc, id);
-                  const frameInv = invertAffine(frameWorld);
-                  const siblingWorld = nodeWorldTransform(newDoc, siblingId);
-                  const newLocal = multiplyAffine(frameInv, siblingWorld);
-                  newDoc = reparentNodeDoc(newDoc, siblingId, id, -1, newLocal);
+                if (shouldCaptureFrameSibling(frameBounds, siblingBounds)) {
+                  // Reparent sibling into the new frame with transform preservation
+                  const siblingNode = newDoc.nodes[siblingId];
+                  if (siblingNode && !siblingNode.locked) {
+                    const frameWorld = nodeWorldTransform(newDoc, id);
+                    const frameInv = invertAffine(frameWorld);
+                    const siblingWorld = nodeWorldTransform(newDoc, siblingId);
+                    const newLocal = multiplyAffine(frameInv, siblingWorld);
+                    newDoc = reparentNodeDoc(newDoc, siblingId, id, -1, newLocal);
+                  }
                 }
               }
             }
-          }
 
-          // Apply context-aware auto-name now that the node is in the document
-          // and any frame children have been captured.
-          const finalName = autoName(newDoc, newDoc.nodes[id]!);
-          if (finalName !== newDoc.nodes[id]!.name) {
-            newDoc = {
-              ...newDoc,
-              nodes: {
-                ...newDoc.nodes,
-                [id]: { ...newDoc.nodes[id]!, name: finalName } as SceneNode,
-              },
+            // Apply context-aware auto-name now that the node is in the document
+            // and any frame children have been captured.
+            const finalName = autoName(newDoc, newDoc.nodes[id]!);
+            if (finalName !== newDoc.nodes[id]!.name) {
+              newDoc = {
+                ...newDoc,
+                nodes: {
+                  ...newDoc.nodes,
+                  [id]: { ...newDoc.nodes[id]!, name: finalName } as SceneNode,
+                },
+              };
+            }
+
+            const keepDrawTool = activeTool === 'pen' || activeTool === 'pencil';
+            return {
+              ...s,
+              document: newDoc,
+              selection: [id],
+              tool: keepDrawTool ? activeTool : ('select' as ToolId),
+              dirty: true,
+              sessions: s.sessions.map((sess) =>
+                sess.id === s.activeId ? { ...sess, dirty: true } : sess,
+              ),
             };
-          }
-
-          const keepDrawTool = activeTool === 'pen' || activeTool === 'pencil';
-          return {
-            ...s,
-            document: newDoc,
-            selection: [id],
-            tool: keepDrawTool ? activeTool : ('select' as ToolId),
-            dirty: true,
-            canUndo: true,
-            canRedo: false,
-            undoLabel: 'Edit',
-            redoLabel: 'Redo',
-            sessions: s.sessions.map((sess) =>
-              sess.id === s.activeId ? { ...sess, dirty: true } : sess,
-            ),
-          };
+          });
         });
+      },
+
+      sliceWithKnife: (line) => {
+        const outcome = runKnifeCut(line, stateRef.current);
+        applyKnifeCutOutcome(
+          outcome,
+          beginTransaction,
+          updateDoc,
+          commitTransaction,
+          patch,
+          (message) => announcerRef.current?.announce(message),
+        );
       },
 
       createTextNodeAt: (world, size, parentId, text = '') => {
@@ -4662,66 +4724,57 @@ export function EditorProvider({
           return [newId, d, idMap];
         }
 
-        setState((s) => {
-          // Push undo snapshot only when not inside a transaction.
-          // When inside a transaction (e.g. alt-drag), the transaction handles
-          // undo on commitTransaction. Pushing here would inject a spurious
-          // undo entry mid-transaction (Fix C1).
-          if (!inTransactionRef.current) {
-            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
-            redoStackRef.current = [];
-            redoSelStackRef.current = [];
-          }
+        runOwnedTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          setState((s) => {
+            let d = s.document;
+            const newIds: string[] = [];
+            for (const id of sel) {
+              const [newId, d2] = cloneNodeDeep(id, d, { x: offsetX, y: offsetY });
+              d = d2;
 
-          let d = s.document;
-          const newIds: string[] = [];
-          for (const id of sel) {
-            const [newId, d2] = cloneNodeDeep(id, d, { x: offsetX, y: offsetY });
-            d = d2;
-
-            // Add to same parent. For paged docs, "root" (parentId === null)
-            // means the node sits under the active page's contentRoot — not
-            // doc.rootChildren, which holds page group IDs.
-            const parentId = getParentFast(s.document, id, parentCacheRef.current);
-            if (parentId === null) {
-              const contentRootId = activeWorkspaceContentRoot(d, s.workspaceMode);
-              if (contentRootId && d.nodes[contentRootId]) {
-                const cr = d.nodes[contentRootId] as ContainerNode;
-                const crChildren = cr.children ?? [];
-                d = {
-                  ...d,
-                  nodes: {
-                    ...d.nodes,
-                    [contentRootId]: { ...cr, children: [...crChildren, newId] } as SceneNode,
-                  },
-                };
+              // Add to same parent. For paged docs, "root" (parentId === null)
+              // means the node sits under the active page's contentRoot — not
+              // doc.rootChildren, which holds page group IDs.
+              const parentId = getParentFast(s.document, id, parentCacheRef.current);
+              if (parentId === null) {
+                const contentRootId = activeWorkspaceContentRoot(d, s.workspaceMode);
+                if (contentRootId && d.nodes[contentRootId]) {
+                  const cr = d.nodes[contentRootId] as ContainerNode;
+                  const crChildren = cr.children ?? [];
+                  d = {
+                    ...d,
+                    nodes: {
+                      ...d.nodes,
+                      [contentRootId]: { ...cr, children: [...crChildren, newId] } as SceneNode,
+                    },
+                  };
+                } else {
+                  d = { ...d, rootChildren: [...d.rootChildren, newId] };
+                }
               } else {
-                d = { ...d, rootChildren: [...d.rootChildren, newId] };
+                const parent = d.nodes[parentId];
+                if (parent && 'children' in parent) {
+                  d = {
+                    ...d,
+                    nodes: {
+                      ...d.nodes,
+                      [parentId]: { ...parent, children: [...(parent.children || []), newId] },
+                    },
+                  };
+                }
               }
-            } else {
-              const parent = d.nodes[parentId];
-              if (parent && 'children' in parent) {
-                d = {
-                  ...d,
-                  nodes: {
-                    ...d.nodes,
-                    [parentId]: { ...parent, children: [...(parent.children || []), newId] },
-                  },
-                };
-              }
+              newIds.push(newId);
             }
-            newIds.push(newId);
-          }
-          return {
-            ...s,
-            document: d,
-            selection: newIds,
-            dirty: true,
-            sessions: s.sessions.map((sess) =>
-              sess.id === s.activeId ? { ...sess, dirty: true } : sess,
-            ),
-          };
+            return {
+              ...s,
+              document: d,
+              selection: newIds,
+              dirty: true,
+              sessions: s.sessions.map((sess) =>
+                sess.id === s.activeId ? { ...sess, dirty: true } : sess,
+              ),
+            };
+          });
         });
       },
 
@@ -5814,6 +5867,7 @@ export function EditorProvider({
       beginTransaction,
       commitTransaction,
       abortTransaction,
+      groupCompoundOperation,
 
       // Text chain operations
       createTextChain,
@@ -6616,7 +6670,11 @@ export function EditorProvider({
       reparentNode: (id, newParentId, toIndex) => {
         updateDoc((doc) => {
           const node = doc.nodes[id];
-          if (!node) return doc;
+          // Lock inherits down the hierarchy, so a locked ancestor makes this
+          // node unmovable too. The Layers panel refuses such a drag before
+          // release, but this is the authoritative guard — every other caller
+          // (keyboard reorder, arrange commands, drag-to-canvas) relies on it.
+          if (!node || isNodeEffectivelyLocked(doc, id)) return doc;
           const oldParentId = getParentFast(doc, id, parentCacheRef.current);
           // A null newParentId means "move to the active workspace surface."
           // Resolve it to the Design Canvas or publishing Page root instead of
@@ -6667,17 +6725,13 @@ export function EditorProvider({
       groupSelected: () => {
         const sel = state.selection;
         if (sel.length < 2) return;
-        setState((s) => {
-          if (!inTransactionRef.current) {
-            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
-            redoStackRef.current = [];
-            redoSelStackRef.current = [];
-          }
-          const { id: gId, doc: d2 } = nextNodeId(s.document);
-          const group = makeGroupNode(gId, { name: 'Group' });
-          const newDoc = groupNodesDoc(d2, sel, group);
-          return { ...s, document: newDoc, selection: [gId], dirty: true };
+        runOwnedTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          setState((s) => {
+            const { id: gId, doc: d2 } = nextNodeId(s.document);
+            const group = makeGroupNode(gId, { name: 'Group' });
+            const newDoc = groupNodesDoc(d2, sel, group);
+            return { ...s, document: newDoc, selection: [gId], dirty: true };
+          });
         });
       },
 
@@ -6685,18 +6739,20 @@ export function EditorProvider({
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
-        setState((s) => {
-          const node = s.document.nodes[id];
-          if (node?.kind !== 'group') return s;
-          const childIds = [...node.children];
-          if (!inTransactionRef.current) {
-            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
-            redoStackRef.current = [];
-            redoSelStackRef.current = [];
-          }
-          const newDoc = ungroupNodeDoc(s.document, id);
-          return { ...s, document: newDoc, selection: childIds, dirty: true };
+        runOwnedTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          setState((s) => {
+            const node = s.document.nodes[id];
+            if (node?.kind !== 'group') return s;
+            if (isLiveBooleanNode(node)) {
+              const expanded = expandLiveBooleanDoc(s.document, id);
+              return expanded
+                ? { ...s, document: expanded.doc, selection: [expanded.nodeId], dirty: true }
+                : s;
+            }
+            const childIds = [...node.children];
+            const newDoc = ungroupNodeDoc(s.document, id);
+            return { ...s, document: newDoc, selection: childIds, dirty: true };
+          });
         });
       },
 
@@ -6704,23 +6760,7 @@ export function EditorProvider({
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
-        updateDoc((doc) => {
-          const container = doc.nodes[id];
-          if (!container || (container.kind !== 'adjustment' && !('children' in container))) {
-            return doc;
-          }
-          const children = 'children' in container ? container.children : [];
-          // Structural containers use a direct child by default. Adjustment
-          // layers have no children, so their spatial mask must be supplied by
-          // an explicit source (the inspector's target picker does this).
-          const maskSource =
-            sourceNodeId ??
-            (container.kind === 'adjustment'
-              ? sel.find((selectedId) => selectedId !== id && doc.nodes[selectedId])
-              : children.find((childId) => doc.nodes[childId] !== undefined));
-          if (!maskSource || !doc.nodes[maskSource]) return doc;
-          return addMaskDoc(doc, id, maskSource, type);
-        });
+        updateDoc((doc) => addMaskForSelection(doc, id, sel, type, sourceNodeId));
       },
 
       removeMaskFromSelected: () => {
@@ -6978,6 +7018,48 @@ export function EditorProvider({
         });
       },
 
+      setMagicWandSettings: (patch) => {
+        setState((s) => ({
+          ...s,
+          magicWandSettings: mergeMagicWandSettings(s.magicWandSettings, patch),
+        }));
+      },
+
+      setFloatingRaster: (floating) => {
+        patch({ floatingRaster: floating });
+      },
+      updateFloatingTransform: (matrix) => {
+        const floating = stateRef.current.floatingRaster;
+        floating && patch({ floatingRaster: { ...floating, transform: matrix } });
+      },
+      commitFloatingRaster: () => {
+        const snapshot = stateRef.current;
+        const floating = snapshot.floatingRaster;
+        void import('./floatingRaster/commitFloatingImage').then(
+          async ({ commitFloatingImage }) => {
+            await commitFloatingRasterIfCurrent(
+              snapshot.document,
+              floating,
+              commitFloatingImage,
+              () =>
+                stateRef.current.document === snapshot.document &&
+                stateRef.current.floatingRaster === floating,
+              () => patch({ floatingRaster: null }),
+              (result) => {
+                beginTransaction();
+                updateDoc(() => result.document);
+                patch({ floatingRaster: null, areaSelection: result.transformedSelection });
+                commitTransaction();
+                announcerRef.current?.announce('Pixel transform applied');
+              },
+            );
+          },
+        );
+      },
+      cancelFloatingRaster: () => {
+        patch({ floatingRaster: null });
+      },
+
       setWarpEdit: (target) => {
         setState((s) => {
           const next = target ? { nodeId: target.nodeId, modifierId: target.modifierId } : null;
@@ -7049,33 +7131,33 @@ export function EditorProvider({
         if (!id) return;
         updateDoc((doc) => detachInstanceDoc(doc, id));
       },
-
-      flattenSelected: (mode, scale) => {
+      flattenSelected: (mode, scaleOrOptions) => {
         const sel = state.selection;
         if (sel.length === 0) {
           announcerRef.current?.announce('Select layers to flatten');
           return;
         }
-        const opts: FlattenOptions = {
-          mode,
-          scale: scale ?? 1,
-          background: 'transparent',
-          textPolicy: 'rasterize',
-        };
+        const rasterizeOptions =
+          mode === 'rasterize' && typeof scaleOrOptions === 'object' ? scaleOrOptions : undefined;
+        const opts = createFlattenOptions(mode, scaleOrOptions);
         import('./flatten/renderSubtree').then(({ flattenNodes }) => {
           flattenNodes(state.document, sel, opts)
             .then((result) => {
-              const replacementId = `flat-${Date.now()}`;
               updateDoc((doc) => {
-                let d = replaceNodesWithFlattened(doc, sel, {
-                  nodeId: replacementId,
+                const replacement = nextNodeId(doc);
+                const replacementSpec = {
+                  nodeId: replacement.id,
                   bounds: result.sourceBounds,
                   dataUrl: result.dataUrl,
                   assetId: result.assetId,
                   placement: result.placement,
                   cssWidth: result.cssWidth,
                   cssHeight: result.cssHeight,
-                });
+                };
+                let d =
+                  rasterizeOptions?.keepOriginal === true
+                    ? insertFlattenedCopy(replacement.doc, sel, replacementSpec)
+                    : replaceNodesWithFlattened(replacement.doc, sel, replacementSpec);
                 d = findOrCreateEmbeddedAsset(d, {
                   dataUrl: result.dataUrl,
                   mimeType: 'image/png',
@@ -7100,8 +7182,8 @@ export function EditorProvider({
         });
       },
 
-      rasterizeSelected: (scale) => {
-        value.flattenSelected('rasterize', scale);
+      rasterizeSelected: (scaleOrOptions) => {
+        value.flattenSelected('rasterize', scaleOrOptions);
       },
 
       mergeSelected: () => {
@@ -7703,173 +7785,174 @@ export function EditorProvider({
 
         if (!varveData && importResults.length === 0) return;
 
-        setState((s) => {
-          undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-          undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
-          redoStackRef.current = [];
-          redoLabelsRef.current = [];
-          let doc = s.document;
-          const newIds: NodeId[] = [];
-          const resourceImports: ImportedResourceSet[] = [];
+        runOwnedTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          setState((s) => {
+            let doc = s.document;
+            const newIds: NodeId[] = [];
+            const resourceImports: ImportedResourceSet[] = [];
 
-          // Paste target: the deepest selected unlocked/visible frame or
-          // group receives pasted content. Pasting converts the source
-          // world pose into that parent's local space instead of
-          // reinterpreting local coordinates in the destination frame.
-          const targetFrameId: NodeId | null =
-            s.selection
-              .map((id) => s.document.nodes[id])
-              .find(
-                (n): n is import('@varve/scene').FrameNode =>
-                  n !== undefined &&
-                  !n.locked &&
-                  n.visible !== false &&
-                  (n.kind === 'frame' || n.kind === 'group'),
-              )?.id ?? null;
+            // Paste target: the deepest selected unlocked/visible frame or
+            // group receives pasted content. Pasting converts the source
+            // world pose into that parent's local space instead of
+            // reinterpreting local coordinates in the destination frame.
+            const targetFrameId: NodeId | null =
+              s.selection
+                .map((id) => s.document.nodes[id])
+                .find(
+                  (n): n is import('@varve/scene').FrameNode =>
+                    n !== undefined &&
+                    !n.locked &&
+                    n.visible !== false &&
+                    (n.kind === 'frame' || n.kind === 'group'),
+                )?.id ?? null;
 
-          if (varveData) {
-            const tempNodes: Record<string, SceneNode> = {};
-            for (const node of varveData.nodes) {
-              tempNodes[node.id] = node;
-            }
-            const tempDoc: Document = {
-              ...doc,
-              nodes: tempNodes,
-              ...(varveData.rasterMaskAssets
-                ? { rasterMaskAssets: varveData.rasterMaskAssets }
-                : {}),
-              ...(varveData.assets ? { assets: varveData.assets } : {}),
-              ...(varveData.iconAssets ? { iconAssets: varveData.iconAssets } : {}),
-            };
-            // copySelected()/cutSelected() serialize each selected node plus
-            // its full descendant subtree (gatherSubtreeNodes), so a node
-            // referenced as another copied node's child is a descendant, not
-            // an independent paste target — only the roots of the original
-            // selection should become new top-level pastes.
-            const childIds = new Set<NodeId>();
-            for (const node of varveData.nodes) {
-              if (isContainer(node)) {
-                for (const childId of node.children) childIds.add(childId);
+            if (varveData) {
+              const tempNodes: Record<string, SceneNode> = {};
+              for (const node of varveData.nodes) {
+                tempNodes[node.id] = node;
+              }
+              const tempDoc: Document = {
+                ...doc,
+                nodes: tempNodes,
+                ...(varveData.rasterMaskAssets
+                  ? { rasterMaskAssets: varveData.rasterMaskAssets }
+                  : {}),
+                ...(varveData.assets ? { assets: varveData.assets } : {}),
+                ...(varveData.iconAssets ? { iconAssets: varveData.iconAssets } : {}),
+              };
+              // copySelected()/cutSelected() serialize each selected node plus
+              // its full descendant subtree (gatherSubtreeNodes), so a node
+              // referenced as another copied node's child is a descendant, not
+              // an independent paste target — only the roots of the original
+              // selection should become new top-level pastes.
+              const childIds = new Set<NodeId>();
+              for (const node of varveData.nodes) {
+                if (isContainer(node)) {
+                  for (const childId of node.children) childIds.add(childId);
+                }
+              }
+              const worldAnchor = varveData.worldAnchor ?? {};
+              for (const node of varveData.nodes) {
+                if (childIds.has(node.id)) continue;
+                // insertImportedSubtree deep-clones from tempDoc (handling
+                // containers and leaves alike), merges every cloned descendant
+                // into doc.nodes, and hooks only the subtree root into the
+                // active page's contentRoot (or doc.rootChildren for flat
+                // documents) — the same page-scoping every other insertion
+                // path (importNode, drag-and-drop) already relies on.
+                const inserted = insertImportedSubtree(
+                  doc,
+                  tempDoc,
+                  node.id,
+                  (n) => n,
+                  s.workspaceMode,
+                );
+                if (!inserted) continue;
+                doc = inserted.doc;
+                resourceImports.push({ sourceDoc: tempDoc, idMap: inserted.idMap });
+                // World-pose preservation: the copy records each root's
+                // placed-world transform; rebase it into the destination
+                // frame's local space (or use it directly at the document
+                // top level). Without an anchor (legacy clipboard payloads)
+                // the source local coordinates are kept verbatim.
+                const anchor = worldAnchor[node.id];
+                if (anchor) {
+                  if (targetFrameId && doc.nodes[targetFrameId]) {
+                    const parentWorld = nodeWorldTransform(doc, targetFrameId);
+                    const local = rebaseWorldTransformToParent(parentWorld, anchor);
+                    if (local) {
+                      const parent = doc.nodes[targetFrameId] as ContainerNode;
+                      doc = reparentNodeDoc(
+                        doc,
+                        inserted.rootId,
+                        targetFrameId,
+                        parent?.children?.length ?? 0,
+                        local,
+                      );
+                    }
+                  } else {
+                    const root = doc.nodes[inserted.rootId];
+                    if (root) {
+                      doc = {
+                        ...doc,
+                        nodes: { ...doc.nodes, [inserted.rootId]: { ...root, transform: anchor } },
+                      };
+                    }
+                  }
+                }
+                newIds.push(inserted.rootId);
               }
             }
-            const worldAnchor = varveData.worldAnchor ?? {};
-            for (const node of varveData.nodes) {
-              if (childIds.has(node.id)) continue;
-              // insertImportedSubtree deep-clones from tempDoc (handling
-              // containers and leaves alike), merges every cloned descendant
-              // into doc.nodes, and hooks only the subtree root into the
-              // active page's contentRoot (or doc.rootChildren for flat
-              // documents) — the same page-scoping every other insertion
-              // path (importNode, drag-and-drop) already relies on.
-              const inserted = insertImportedSubtree(
-                doc,
-                tempDoc,
-                node.id,
-                (n) => n,
-                s.workspaceMode,
-              );
-              if (!inserted) continue;
-              doc = inserted.doc;
-              resourceImports.push({ sourceDoc: tempDoc, idMap: inserted.idMap });
-              // World-pose preservation: the copy records each root's
-              // placed-world transform; rebase it into the destination
-              // frame's local space (or use it directly at the document
-              // top level). Without an anchor (legacy clipboard payloads)
-              // the source local coordinates are kept verbatim.
-              const anchor = worldAnchor[node.id];
-              if (anchor) {
+
+            // Place pasted (non-native, e.g. clipboard image) content at the
+            // center of the current viewport, not wherever the importer's
+            // document happened to put it — mirrors the world-center placement
+            // used for dropped files (CanvasArea.tsx handleDrop) and new frame
+            // presets, via the same editorScreenToWorld/applyDropPosition path.
+            const pasteCanvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+            const pasteVp: Viewport = pasteCanvasEl
+              ? { width: pasteCanvasEl.clientWidth, height: pasteCanvasEl.clientHeight }
+              : { width: window.innerWidth, height: window.innerHeight - 120 };
+            const pasteCamState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
+            const pasteCenter = editorScreenToWorld(
+              pasteCamState,
+              pasteVp.width / 2,
+              pasteVp.height / 2,
+              pasteVp,
+            );
+            let pasteIndex = 0;
+            for (const result of importResults) {
+              for (const id of result.nodeIds) {
+                const offset = pasteIndex * 40;
+                const inserted = insertImportedSubtree(
+                  doc,
+                  result.document,
+                  id,
+                  (node) =>
+                    applyDropPosition(node, {
+                      x: pasteCenter[0] + offset,
+                      y: pasteCenter[1] + offset,
+                    }),
+                  s.workspaceMode,
+                );
+                if (!inserted) continue;
+                doc = inserted.doc;
+                resourceImports.push({ sourceDoc: result.document, idMap: inserted.idMap });
+                // Paste into the selected frame: rebase the viewport-centred
+                // placement into the frame's local space so the imported
+                // content lands at the intended world point INSIDE the frame.
                 if (targetFrameId && doc.nodes[targetFrameId]) {
-                  const parentWorld = nodeWorldTransform(doc, targetFrameId);
-                  const local = rebaseWorldTransformToParent(parentWorld, anchor);
-                  if (local) {
-                    const parent = doc.nodes[targetFrameId] as ContainerNode;
-                    doc = reparentNodeDoc(
-                      doc,
-                      inserted.rootId,
-                      targetFrameId,
-                      parent?.children?.length ?? 0,
-                      local,
-                    );
-                  }
-                } else {
                   const root = doc.nodes[inserted.rootId];
                   if (root) {
-                    doc = {
-                      ...doc,
-                      nodes: { ...doc.nodes, [inserted.rootId]: { ...root, transform: anchor } },
-                    };
-                  }
-                }
-              }
-              newIds.push(inserted.rootId);
-            }
-          }
-
-          // Place pasted (non-native, e.g. clipboard image) content at the
-          // center of the current viewport, not wherever the importer's
-          // document happened to put it — mirrors the world-center placement
-          // used for dropped files (CanvasArea.tsx handleDrop) and new frame
-          // presets, via the same editorScreenToWorld/applyDropPosition path.
-          const pasteCanvasEl = document.querySelector<HTMLElement>('.editor-canvas');
-          const pasteVp: Viewport = pasteCanvasEl
-            ? { width: pasteCanvasEl.clientWidth, height: pasteCanvasEl.clientHeight }
-            : { width: window.innerWidth, height: window.innerHeight - 120 };
-          const pasteCamState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
-          const pasteCenter = editorScreenToWorld(
-            pasteCamState,
-            pasteVp.width / 2,
-            pasteVp.height / 2,
-            pasteVp,
-          );
-          let pasteIndex = 0;
-          for (const result of importResults) {
-            for (const id of result.nodeIds) {
-              const offset = pasteIndex * 40;
-              const inserted = insertImportedSubtree(
-                doc,
-                result.document,
-                id,
-                (node) =>
-                  applyDropPosition(node, {
-                    x: pasteCenter[0] + offset,
-                    y: pasteCenter[1] + offset,
-                  }),
-                s.workspaceMode,
-              );
-              if (!inserted) continue;
-              doc = inserted.doc;
-              resourceImports.push({ sourceDoc: result.document, idMap: inserted.idMap });
-              // Paste into the selected frame: rebase the viewport-centred
-              // placement into the frame's local space so the imported
-              // content lands at the intended world point INSIDE the frame.
-              if (targetFrameId && doc.nodes[targetFrameId]) {
-                const root = doc.nodes[inserted.rootId];
-                if (root) {
-                  const parentWorld = nodeWorldTransform(doc, targetFrameId);
-                  const local = rebaseWorldTransformToParent(parentWorld, root.transform as Affine);
-                  if (local) {
-                    const parent = doc.nodes[targetFrameId] as ContainerNode;
-                    doc = reparentNodeDoc(
-                      doc,
-                      inserted.rootId,
-                      targetFrameId,
-                      parent?.children?.length ?? 0,
-                      local,
+                    const parentWorld = nodeWorldTransform(doc, targetFrameId);
+                    const local = rebaseWorldTransformToParent(
+                      parentWorld,
+                      root.transform as Affine,
                     );
+                    if (local) {
+                      const parent = doc.nodes[targetFrameId] as ContainerNode;
+                      doc = reparentNodeDoc(
+                        doc,
+                        inserted.rootId,
+                        targetFrameId,
+                        parent?.children?.length ?? 0,
+                        local,
+                      );
+                    }
                   }
                 }
+                newIds.push(inserted.rootId);
+                pasteIndex += 1;
               }
-              newIds.push(inserted.rootId);
-              pasteIndex += 1;
             }
-          }
 
-          if (newIds.length === 0) return s;
-          return {
-            ...s,
-            document: mergeImportedResources(doc, resourceImports),
-            selection: newIds,
-          };
+            if (newIds.length === 0) return s;
+            return {
+              ...s,
+              document: mergeImportedResources(doc, resourceImports),
+              selection: newIds,
+            };
+          });
         });
 
         const totalCount = (varveData?.nodes.length ?? 0) + importResults.length;
@@ -8755,29 +8838,25 @@ export function EditorProvider({
       booleanOp: (op) => {
         const sel = state.selection;
         if (sel.length < 2) return;
+        if (!createLiveBooleanForSelection(state.document, sel, op)) {
+          announcerRef.current?.announce(
+            'Boolean operations need at least two closed, unlocked vector shapes.',
+          );
+          return;
+        }
         setState((s) => {
-          const shapeNodes = sel
-            .map((id) => s.document.nodes[id])
-            .filter((n): n is import('@varve/scene').ShapeNode => n?.kind === 'shape');
-          if (shapeNodes.length < 2) return s;
+          // Pathfinder commands create a live group. The original shapes stay
+          // editable in Layers; Ungroup explicitly expands the current
+          // derived Boolean into one destructive compound path.
+          const created = createLiveBooleanForSelection(s.document, sel, op);
+          if (!created) return s;
           if (!inTransactionRef.current) {
             undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
             undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
             redoStackRef.current = [];
             redoSelStackRef.current = [];
           }
-          // Boolean operands are clipped in WORLD space so selections
-          // spanning artboards/groups/pasteboard clip correctly; the result
-          // is then re-anchored at the first operand's home (parent + z) in
-          // that parent's local coordinates.
-          const anchorNode = shapeNodes[0]!;
-          const anchor = booleanAnchorForNode(s.document, anchorNode.id);
-          const worldNodes = shapeNodesInWorldSpace(s.document, shapeNodes);
-          const result = doBooleanOp(op, worldNodes);
-          let d = s.document;
-          for (const id of sel) d = removeNode(d, id);
-          const placed = placeBooleanResult(d, result, anchor);
-          return { ...s, document: placed.doc, selection: [placed.nodeId], dirty: true };
+          return { ...s, document: created.doc, selection: [created.nodeId], dirty: true };
         });
       },
 
@@ -9944,6 +10023,7 @@ export function EditorProvider({
       beginTransaction,
       commitTransaction,
       abortTransaction,
+      groupCompoundOperation,
       createTextChain,
       deleteTextChain,
       appendFrameToChain,
@@ -10023,6 +10103,7 @@ export function EditorProvider({
       beginTransaction: value.beginTransaction,
       commitTransaction: value.commitTransaction,
       abortTransaction: value.abortTransaction,
+      groupCompoundOperation: value.groupCompoundOperation,
       createTextChain: value.createTextChain,
       linkSelectedTextFrames: value.linkSelectedTextFrames,
       unlinkSelectedTextFrames: value.unlinkSelectedTextFrames,

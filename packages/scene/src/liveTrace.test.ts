@@ -160,8 +160,9 @@ describe('liveTrace operations', () => {
     expect(result.nodes[nodeId]).toBeDefined();
     expect((result.nodes[nodeId] as ShapeNode).liveTrace).toBeDefined();
 
-    // Find the new derived node
-    const derivedIds = Object.keys(result.nodes).filter((id) => id.startsWith('derived_'));
+    // Find the new derived node (any node that was not in the original doc)
+    const originalIds = new Set(Object.keys(resolved.nodes));
+    const derivedIds = Object.keys(result.nodes).filter((id) => !originalIds.has(id));
     expect(derivedIds.length).toBeGreaterThanOrEqual(1);
 
     const derivedNode = result.nodes[derivedIds[0]!] as ShapeNode;
@@ -180,7 +181,8 @@ describe('liveTrace operations', () => {
     const { doc, nodeId } = setup();
     const result = bakeLiveTraceToRaster(doc, nodeId, 'data:image/png;base64,AA', { w: 10, h: 10 });
     // No derived nodes added
-    const derivedIds = Object.keys(result.nodes).filter((id) => id.startsWith('derived_'));
+    const originalIds = new Set(Object.keys(doc.nodes));
+    const derivedIds = Object.keys(result.nodes).filter((id) => !originalIds.has(id));
     expect(derivedIds.length).toBe(0);
   });
 });

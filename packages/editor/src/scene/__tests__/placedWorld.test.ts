@@ -9,6 +9,7 @@ import {
   addNode,
   addPage,
   createDocument,
+  createLiveBooleanDoc,
   makeShapeNode,
   nextNodeId,
 } from '@varve/scene';
@@ -60,6 +61,28 @@ describe('placed world transforms (ADR-0123)', () => {
     const child2 = (doc.nodes[page2.contentRoot] as { children: string[] }).children[0]!;
     const bounds = nodeWorldBounds(doc, child2);
     expect(bounds).toEqual({ x: 510, y: 310, w: 50, h: 50 });
+  });
+
+  it('uses the visible Boolean result rather than raw operand bounds', () => {
+    let doc = placedDoc();
+    const page2 = doc.pages![1]!;
+    const { id: cutterId, doc: withId } = nextNodeId(doc);
+    doc = addChild(
+      withId,
+      page2.contentRoot,
+      makeShapeNode(cutterId, { kind: 'rect', x: 20, y: 20, w: 20, h: 20 }),
+    );
+    const baseId = (doc.nodes[page2.contentRoot] as { children: string[] }).children[0]!;
+    const created = createLiveBooleanDoc(doc, [baseId, cutterId], 'intersect');
+    expect(created).not.toBeNull();
+    if (!created) return;
+
+    expect(nodeWorldBounds(created.doc, created.nodeId)).toEqual({
+      x: 520,
+      y: 320,
+      w: 20,
+      h: 20,
+    });
   });
 
   it('leaves pasteboard items at scene coordinates', () => {

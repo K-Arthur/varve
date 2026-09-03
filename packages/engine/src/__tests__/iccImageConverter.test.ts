@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { analyticalRgbToCmyk, convertToCmykIcc } from '../adjustment/colorConversion';
 import {
   collectImageSrcsFromFills,
   invalidateIccCache,
@@ -39,6 +40,23 @@ describe('iccImageConverter', () => {
       const result = scaleDimensions(5000, 5000, 1024);
       expect(result).toEqual({ width: 1024, height: 1024 });
     });
+  });
+
+  describe('analyticalRgbToCmyk', () => {
+    it('emits canonical subtractive channels for RGB primaries', () => {
+      expect(analyticalRgbToCmyk(255, 0, 0)).toEqual([0, 255, 255, 0]);
+      expect(analyticalRgbToCmyk(0, 255, 0)).toEqual([255, 0, 255, 0]);
+      expect(analyticalRgbToCmyk(0, 0, 255)).toEqual([255, 255, 0, 0]);
+    });
+
+    it('uses a full key plate for black without dividing by zero', () => {
+      expect(analyticalRgbToCmyk(0, 0, 0)).toEqual([0, 0, 0, 255]);
+    });
+  });
+
+  it('keeps the analytical fallback in canonical CMYKA channel order', async () => {
+    const result = await convertToCmykIcc(new Uint8Array([255, 0, 0, 77]), 1, 1, 'Fogra39');
+    expect(Array.from(result)).toEqual([0, 255, 255, 77]);
   });
 
   describe('collectImageSrcsFromFills', () => {

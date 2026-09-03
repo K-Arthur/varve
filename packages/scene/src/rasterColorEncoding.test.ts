@@ -77,6 +77,17 @@ describe('validateRasterColorEncoding', () => {
       }),
     ).toContain('diagnostics');
   });
+
+  it('rejects malformed profile fingerprints', () => {
+    expect(
+      validateRasterColorEncoding('a', {
+        model: 'rgb',
+        provenance: 'embedded-icc',
+        profileId: 'icc-p3',
+        profileFingerprint: 'not-a-sha256',
+      }),
+    ).toContain('profileFingerprint');
+  });
 });
 
 describe('validateDocumentAsset with colour metadata', () => {
@@ -129,6 +140,7 @@ describe('IccProfileEntry enrichment', () => {
       renderingIntent: 1,
     };
     expect(validateIccProfileEntry(enriched)).toBeNull();
+    expect(enriched.fingerprint).toMatch(/^[a-f0-9]{64}$/);
     expect(validateIccProfileEntry({ ...enriched, renderingIntent: 7 })).toContain(
       'renderingIntent',
     );

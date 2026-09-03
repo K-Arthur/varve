@@ -1,5 +1,18 @@
 import type { Shape } from '@varve/engine';
-import type { SceneNode } from '@varve/scene';
+import {
+  addMask,
+  type BooleanOpKind,
+  createLiveBooleanDoc,
+  type Document,
+  defaultVectorMaskForNode,
+  type FrameNode,
+  isBooleanOperand,
+  type MaskType,
+  makeFrameNode,
+  type SceneNode,
+} from '@varve/scene';
+import type { Affine } from '@varve/shared';
+import type { KnifeCutOutcome, KnifeSelectionPatch } from './knifeCommand';
 import type { ToolId } from './types';
 
 export type { AlignmentReference } from '../scene/selectionArrangement';
@@ -9,6 +22,129 @@ export {
   commonAlignmentContainerBounds,
   distributeSelectionInDocument,
 } from '../scene/selectionArrangement';
+export type { KnifeCutOutcome, KnifeCutState, KnifeSelectionPatch } from './knifeCommand';
+export { runKnifeCut } from './knifeCommand';
+export type { KnifeLine, KnifeSkip, KnifeSkipReason, KnifeSliceResult } from './knifeSlice';
+
+/** Run a synchronous editor mutation as one transaction when no outer gesture owns it. */
+export function runOwnedTransaction(
+  transactionRef: { current: boolean },
+  begin: () => void,
+  commit: () => void,
+  action: () => void,
+): void {
+  const ownsTransaction = !transactionRef.current;
+  if (ownsTransaction) begin();
+  action();
+  if (ownsTransaction) commit();
+}
+
+/** Build the frame-tool node, including the canonical export-region preset. */
+export function makeDrawingFrameNode(
+  id: string,
+  transform: Affine,
+  size: { w?: number; h?: number } | undefined,
+  exportRegion: boolean,
+): SceneNode {
+  const node = makeFrameNode(id, {
+    name: exportRegion ? 'Export Region' : 'Node',
+    frameRole: exportRegion ? 'exportRegion' : 'frame',
+    transform,
+    fill: exportRegion
+      ? { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 }
+      : { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
+    children: [],
+    w: size?.w ?? 375,
+    h: size?.h ?? 812,
+    clipContent: exportRegion ? false : undefined,
+  });
+  if (!exportRegion) return node;
+  return {
+    ...node,
+    presets: [
+      {
+        id: `${id}-export-1x`,
+        format: 'png' as const,
+        scale: { type: 'factor' as const, value: 1 },
+        suffix: '',
+        enabled: true,
+      },
+    ],
+  } as FrameNode;
+}
+
+/** Resolve a selection into the live Boolean document operation, or reject it. */
+export function createLiveBooleanForSelection(
+  document: Document,
+  selection: string[],
+  operation: BooleanOpKind,
+): ReturnType<typeof createLiveBooleanDoc> | null {
+  const operands = selection
+    .map((id) => document.nodes[id])
+    .filter(
+      (node): node is Extract<SceneNode, { kind: 'shape' | 'group' }> =>
+        node !== undefined && isBooleanOperand(node),
+    );
+  if (operands.length < 2 || operands.length !== selection.length) return null;
+  return createLiveBooleanDoc(
+    document,
+    operands.map((operand) => operand.id),
+    operation,
+  );
+}
+
+/** Resolve the default source and apply a mask to the selected target. */
+export function addMaskForSelection(
+  document: import('@varve/scene').Document,
+  id: string,
+  selection: string[],
+  type: MaskType,
+  sourceNodeId?: string,
+): import('@varve/scene').Document {
+  const container = document.nodes[id];
+  if (!container) return document;
+
+  const leafVectorMask = defaultVectorMaskForNode(container, document);
+  if (leafVectorMask) return addMask(document, id, undefined, type, { vectorMask: leafVectorMask });
+
+  if (container.kind !== 'adjustment' && !('children' in container)) return document;
+  const children = 'children' in container ? container.children : [];
+  const maskSource =
+    sourceNodeId ??
+    (container.kind === 'adjustment'
+      ? selection.find((selectedId) => selectedId !== id && document.nodes[selectedId])
+      : children.find((childId) => document.nodes[childId] !== undefined));
+  if (!maskSource || !document.nodes[maskSource]) return document;
+  return addMask(document, id, maskSource, type);
+}
+
+/** Commit a knife result atomically and publish its selection/announcement. */
+export function applyKnifeCutOutcome(
+  outcome: KnifeCutOutcome,
+  begin: () => void,
+  updateDocument: (
+    updater: (document: import('@varve/scene').Document) => import('@varve/scene').Document,
+  ) => void,
+  commit: () => void,
+  applyPatch: (patch: KnifeSelectionPatch) => void,
+  announce: (message: string) => void,
+): void {
+  if (outcome.document) {
+    begin();
+    updateDocument(() => outcome.document as import('@varve/scene').Document);
+    commit();
+    outcome.patch && applyPatch(outcome.patch);
+  }
+  announce(outcome.announcement);
+}
+
+export {
+  knifeRejectionFor,
+  knifeSkipMessage,
+  sliceDocumentWithKnife,
+  splitPolygonByKnifeLine,
+  splitPolylineByKnifeLine,
+} from './knifeSlice';
 
 // F4: default shape geometry per tool.
 // Research basis: Figma/Illustrator default sizes for shape tools.
@@ -47,6 +183,7 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'frame':
     case 'slice':
       return { kind: 'rect', x: 0, y: 0, w: 200, h: 160 };
+    case 'knife':
     case 'select':
     case 'hand':
     case 'zoom':
@@ -86,6 +223,9 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'warp':
     case 'selectionPaint':
     case 'pixelProbe':
+    case 'magicWand':
+    case 'floatingTransform':
+    case 'selectionBoundary':
     case 'page':
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {

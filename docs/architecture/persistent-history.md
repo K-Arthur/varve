@@ -30,6 +30,59 @@ the planned milestones.
 
 Tracker: `docs/plans/persistent-history-progress.md`.
 
+## Deterministic vector and raster replay (2026-08-28)
+
+Undo/redo is an exact replay contract, not a request to re-run the tool that
+originally produced an edit. A fractional Bézier handle, a raster tile, and a
+sub-pixel transform must arrive back at the same canonical document hash after
+any undo/redo or reload cycle.
+
+- Human-facing review and merge keep the semantic diff's normal epsilon
+  policy. History capture uses `epsilonPolicy: 'exact'`; a canonical hash
+  difference is never discarded as an imperceptible edit.
+- A raster transaction is represented by a structural
+  `document.transaction-capture` plus, when tiles change, a
+  `document.raster-delta`. The delta carries before/after content hashes and
+  tile versions, while immutable pixel bytes live in the content-addressed
+  `RasterTileStore` (memory in tests, IndexedDB in browsers).
+- Tile bytes are stored before their operation is appended. The editor replays
+  the structural capture and tile delta against the pre-transaction document
+  and compares the resulting canonical hash with the intended target before
+  moving a revision head. A failed check cannot create a reachable revision.
+- Capture cloning preserves `Map`, `Uint8Array`, and `Uint8ClampedArray`
+  values. This matters when a vector-only edit follows raster paint: replaying
+  the vector change must not turn existing pixels into numeric-object data.
+- Snapshots use `DocumentCodec` rather than JSON cloning, so raster tile Maps
+  and typed pixels are rehydrated exactly. Each new raster snapshot also
+  records an external content-hash manifest and stores those blobs before the
+  snapshot becomes visible. Replay verifies the external blobs, while the
+  codec remains a portable fallback. Legacy JSON snapshots containing raster
+  tiles fail closed instead of pretending to restore a lossless state.
+
+The redo path is an ordered stack of undone revision ids. Repeated undo then
+redo therefore restores every traversed revision. A new capture, checkout,
+branch switch, or merge clears that path; the abandoned revisions remain in
+the DAG and can still be materialized as a named divergence branch.
+
+### Transaction boundary rules
+
+`EditorProvider` flattens nested transactions: only the outermost commit
+creates an undo step and invokes persistent capture. `groupCompoundOperation`
+provides a named boundary for actions that perform several internal mutations.
+Shape creation, duplicate, group/ungroup, and paste enter this boundary rather
+than manually manipulating the in-memory stacks. Text input is a 500 ms typing
+burst (composition is atomic); focused NumberField wheel updates use a 200 ms
+idle window.
+
+### Retention and recovery
+
+The tile store can contain harmless orphan blobs if a process fails after tile
+writes and before `commitRevision`. `sweepUnreachableRasterTiles` traces every
+immutable revision operation and snapshot manifest, including unbranched
+divergence that can later be materialized, and deletes only blobs with no such
+reference. Sweeping is deliberately serialized with capture: a blob written
+before its revision is committed must not be mistaken for an orphan.
+
 ## `@varve/history` — diff, merge, undo (M7 core, M9 core, M10, M11)
 
 - `diff.ts` — semantic document diff (ADR-0028). Entity/property-level

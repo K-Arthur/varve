@@ -133,13 +133,7 @@ fn detect_runtime() -> (&'static str, &'static str, &'static str, &'static str, 
     // pointless: the next launch re-translocates the original (old) bundle
     // from its real location, silently undoing the update.
     if is_translocated(&executable) {
-        return (
-            "darwin",
-            "dmg-app",
-            "manual-only",
-            "translocated",
-            false,
-        );
+        return ("darwin", "dmg-app", "manual-only", "translocated", false);
     }
     let app_bundle = executable
         .ancestors()

@@ -12,6 +12,10 @@ import { linearSrgbToOklab, srgbToLinear } from '@varve/shared';
 export interface RasterTracePoint {
   x: number;
   y: number;
+  /** Cubic handle offset from this anchor in source-pixel coordinates. */
+  handleIn?: [number, number];
+  /** Cubic handle offset from this anchor in source-pixel coordinates. */
+  handleOut?: [number, number];
 }
 
 export interface RasterTraceFill {
@@ -32,6 +36,11 @@ export interface RasterTracePath {
   fill?: RasterTraceFill;
   /** Stroke width in source pixels for centerline mode (open paths). */
   strokeWidth?: number;
+  /**
+   * True when a provider already fitted cubic handles. Insertion must retain
+   * those curves rather than fitting the same contour a second time.
+   */
+  curveFitted?: boolean;
 }
 
 export type RasterTraceMode = 'monochrome' | 'grayscale' | 'color' | 'pixel-art';
@@ -51,7 +60,7 @@ export interface RasterTraceOptions {
   maxColors?: number;
   /** Interior angle threshold for sharp corners (degrees, 90-180). Default 135. */
   cornerAngle?: number;
-  /** Maximum Bezier fitting error in pixels (0.1-10). Default 1.0. */
+  /** Maximum Bezier fitting error in source pixels (0.01-10). Default 1.0. */
   maxError?: number;
   /** Stage progress (0-1); only providers that can report it call this. */
   onProgress?: (stage: string, progress: number) => void;

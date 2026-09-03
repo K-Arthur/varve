@@ -19,11 +19,9 @@
  */
 
 import {
-  convertEncodedRgb,
-  isAnalyticRgbWorkingSpace,
+  createAnalyticRgbColorTransform,
   isConvertibleRgbEncoding,
   type RasterColorEncoding,
-  type RgbWorkingSpaceRef,
 } from '@varve/shared';
 import {
   float32ToHalfFloat,
@@ -55,6 +53,33 @@ export const DEFAULT_TILE_HEIGHT = 256;
 /** Per-tile pixel budget guard for large-raster conversions. */
 export const MAX_CONVERSION_PIXELS_PER_JOB = 100 * 1024 * 1024; // 100 MP
 
+/** Compiled transforms are immutable; keep a small bounded cache for hot
+ * repeated conversions (vector previews, tiled raster effects, and export). */
+const ANALYTIC_TRANSFORM_CACHE_MAX = 64;
+const analyticTransformCache = new Map<string, RasterColorTransform>();
+
+function analyticTransformKey(source: RasterColorEncoding, target: RasterColorEncoding): string {
+  return [
+    source.model,
+    source.primaries,
+    source.transfer,
+    target.model,
+    target.primaries,
+    target.transfer,
+  ].join(':');
+}
+
+function cacheAnalyticTransform(
+  key: string,
+  transform: RasterColorTransform,
+): RasterColorTransform {
+  if (analyticTransformCache.size >= ANALYTIC_TRANSFORM_CACHE_MAX) {
+    analyticTransformCache.delete(analyticTransformCache.keys().next().value as string);
+  }
+  analyticTransformCache.set(key, transform);
+  return transform;
+}
+
 /**
  * Identity transform: same encoding in and out (no pixel work).
  */
@@ -79,46 +104,39 @@ export function createAnalyticRgbTransform(
   target: RasterColorEncoding,
 ): RasterColorTransform | null {
   if (!isConvertibleRgbEncoding(source) || !isConvertibleRgbEncoding(target)) return null;
-  const sourceSpace: RgbWorkingSpaceRef = {
+  const cacheKey = analyticTransformKey(source, target);
+  const cached = analyticTransformCache.get(cacheKey);
+  if (cached) return cached;
+  const sourceSpace = {
     primaries: source.primaries,
     transfer: source.transfer,
-  };
-  const targetSpace: RgbWorkingSpaceRef = {
+  } as const;
+  const targetSpace = {
     primaries: target.primaries,
     transfer: target.transfer,
-  };
-  if (!isAnalyticRgbWorkingSpace(sourceSpace) || !isAnalyticRgbWorkingSpace(targetSpace)) {
-    return null;
-  }
+  } as const;
+  const colourTransform = createAnalyticRgbColorTransform({
+    source: sourceSpace,
+    destination: targetSpace,
+  });
+  if (!colourTransform) return null;
   if (source.primaries === target.primaries && source.transfer === target.transfer) {
-    return identityTransform(target);
+    return cacheAnalyticTransform(cacheKey, identityTransform(target));
   }
 
-  return {
+  const transform: RasterColorTransform = {
     sourceEncoding: source,
     targetEncoding: target,
     supports: (format: PixelBufferFormat) =>
       format === 'rgba8' || format === 'rgba16' || format === 'rgba16f' || format === 'rgba32f',
     convertImageData: (pixels: ImageData, signal?: AbortSignal) =>
-      convertImageDataInPlace(
-        pixels,
-        (rgb) => convertEncodedRgb(sourceSpace, targetSpace, rgb),
-        signal,
-      ),
+      convertImageDataInPlace(pixels, (rgb) => colourTransform.convertColor(rgb), signal),
     convertFloat32: (pixels: Float32Array, signal?: AbortSignal) =>
-      convertFloat32InPlace(
-        pixels,
-        (rgb) => convertEncodedRgb(sourceSpace, targetSpace, rgb),
-        signal,
-      ),
+      convertFloat32InPlace(pixels, (rgb) => colourTransform.convertColor(rgb), signal),
     convertPixelBuffer: (buffer: PixelBuffer, signal?: AbortSignal) =>
-      convertPixelBufferInPlace(
-        buffer,
-        (rgb) => convertEncodedRgb(sourceSpace, targetSpace, rgb),
-        target,
-        signal,
-      ),
+      convertPixelBufferInPlace(buffer, (rgb) => colourTransform.convertColor(rgb), target, signal),
   };
+  return cacheAnalyticTransform(cacheKey, transform);
 }
 
 /** Build a descriptor for a transform result. */
@@ -197,6 +215,9 @@ async function convertPixelBufferInPlace(
 ): Promise<void> {
   const { descriptor, data } = buffer;
   const { width, height, format, alphaMode } = descriptor;
+  if (format.startsWith('cmyka')) {
+    throw new TypeError('RGB transform cannot process CMYKA pixels; use a CMYK ICC transform');
+  }
   const expectedChannels = width * height * 4;
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
     throw new RangeError('pixel buffer dimensions must be positive safe integers');

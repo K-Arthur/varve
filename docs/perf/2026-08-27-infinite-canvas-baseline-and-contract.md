@@ -80,6 +80,42 @@ They are used to compare camera work at a fixed visible count without allocating
 large raster pixels. `extreme-zoom` now covers 0.01, 0.02, 0.05, 0.1, 0.25,
 0.5, 1, 2, 4, 8, 16, 32, and 64×, including far-world and rotated views.
 
+## Implemented residency/refinement seam
+
+Image-fill replay now selects a source bucket from the fill's transformed
+device-space long edge (including rotation and skew), not from the whole
+viewport. Interactive frames use a 1.25× margin and an 8K ceiling; settled
+frames use a 1.5× margin and can promote to 16K only when the proportional
+RGBA decode remains inside the active image-cache byte budget. Export and
+print retain their explicit full-source path.
+
+When a sharper bucket is not ready, `ImageCache` retains the closest live
+proxy and starts the requested decode. A latest-wins 180 ms quiet-period timer
+then requests a normal `asset-ready` canvas frame after the interaction closes;
+the existing image-cache subscription requests another frame when that decode
+finishes. The Canvas2D compositor fallback receives the same policy, so flat
+and structural replay paths converge rather than using different quality rules.
+
+The bounded decode path currently applies to inline/blob sources, which can be
+resized safely through `createImageBitmap`; remote sources intentionally retain
+the established full-image loader until a CORS-safe tiled decoder is added. The
+raster-layer pyramid remains the tiled LOD path for raster-layer primitives.
+
+## Implemented frame-work accounting
+
+`frameBudget.ts` now retains a bounded timing window for each declared work
+class rather than treating every frame as a single 100%-interval deadline.
+Its `window.__varvePerf.frameBudget.summary()` report exposes the display
+interval, class budgets, averages, p50/p95/p99, sample counts, and
+class-relative overruns. The main canvas records active camera interactions as
+`interaction`; settled and worker-presented frames are `authoritative`.
+Background callers can report `background` explicitly, and the shared
+latest-wins scheduler continues to defer that lane until interaction settles.
+At runtime, the scheduler derives the same windows from the reported display
+refresh interval: canvas/UI admission is limited to the interaction window,
+and background work begins only when a separate background slice remains
+inside the authoritative window.
+
 ## Measurement protocol
 
 For each cold and warm corpus run, collect the existing `?perf=1`

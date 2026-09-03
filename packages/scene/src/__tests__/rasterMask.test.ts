@@ -144,7 +144,7 @@ describe('native raster masks', () => {
     expect(resolveMask(next.nodes[imageId]!)).toEqual(next.nodes[imageId]?.mask);
   });
 
-  it('only attaches raster masks to image-filled shapes with a resolved asset', () => {
+  it('only attaches source-pixel raster masks to image-filled shapes', () => {
     const shape = makeShapeNode('shape-1', { kind: 'rect', x: 0, y: 0, w: 64, h: 32 });
     const doc = addNode(createDocument('No image', true), shape);
     expect(addRasterMaskAsset(doc, shape.id, makeRasterAsset('mask-1'))).toBe(doc);
@@ -169,6 +169,44 @@ describe('native raster masks', () => {
       },
     };
     expect(validateMaskSource(dangling, dangling.nodes[imageId]!.mask!)).toMatch(/missing/i);
+  });
+
+  it('attaches a node-local raster mask to editable vector content', () => {
+    const vector = makeShapeNode('vector-1', { kind: 'ellipse', cx: 40, cy: 30, rx: 40, ry: 30 });
+    const doc = addNode(createDocument('Vector pixel mask', true), vector);
+
+    const next = addRasterMaskAsset(doc, vector.id, makeRasterAsset('vector-mask'), undefined, {
+      coordinateSpace: 'node-local-pixels',
+    });
+
+    expect(next).not.toBe(doc);
+    expect(next.nodes[vector.id]?.mask).toEqual({
+      type: 'alpha',
+      visible: true,
+      rasterMask: {
+        assetId: 'vector-mask',
+        coordinateSpace: 'node-local-pixels',
+        sourceIdentity: {
+          kind: 'source-metadata',
+          locator: `node-local:${vector.id}`,
+          revision: 1,
+        },
+      },
+    });
+    expect(resolveMask(next.nodes[vector.id]!)).toEqual(next.nodes[vector.id]?.mask);
+    expect(next.rasterMaskAssets?.['vector-mask']).toBeDefined();
+    expect(resolveRasterMaskAsset(next, next.nodes[vector.id]!)).toEqual(
+      next.rasterMaskAssets?.['vector-mask'],
+    );
+
+    const reopened = DocumentCodec.decode(JSON.stringify(next));
+    expect(reopened.ok, reopened.ok ? '' : reopened.error).toBe(true);
+    if (reopened.ok) {
+      expect(reopened.document.nodes[vector.id]?.mask?.rasterMask).toMatchObject({
+        assetId: 'vector-mask',
+        coordinateSpace: 'node-local-pixels',
+      });
+    }
   });
 
   it('uses effective paintRefs consistently for raster mask eligibility and identity', () => {
@@ -541,9 +579,14 @@ describe('native raster masks', () => {
       rasterMask: { assetId: 'mask-1' },
     });
     expect(setMaskSourceNode(attached, imageId, imageId)).toBe(attached);
-    expect(
-      setMaskVectorPath(attached, imageId, [{ x: 0, y: 0, handleIn: null, handleOut: null }], true),
-    ).toBe(attached);
+    // setMaskVectorPath now applies to image shapes (they are visual leaf nodes)
+    const withVector = setMaskVectorPath(
+      attached,
+      imageId,
+      [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+      true,
+    );
+    expect(withVector.nodes[imageId]?.mask?.vectorMask).toBeDefined();
     expect(setMaskVisible(attached, imageId, true)).toBe(attached);
   });
 

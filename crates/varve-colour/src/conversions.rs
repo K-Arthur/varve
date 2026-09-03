@@ -273,29 +273,66 @@ pub fn rgb_to_cmyk_icc(
     )
 }
 
-/// Convert an `EngineColor` (from varve-core) to RGBA bytes.
+/// Convert an `EngineColor` (from varve-core) to display RGBA bytes.
 ///
-/// This is the single entry point for colour emission in the print pipeline.
-/// - RGB: straight pass-through (f64 channels truncated to u8).
-/// - CMYK: inverse naive formula → RGB.
-/// - Gray: neutral R=G=B.
-/// - Spot: use process fallback CMYK → RGB, or black if no fallback.
+/// This is an explicit lossy display adapter used by legacy PDF/CSS emission;
+/// it is not an authoritative color conversion API. Channel values are first
+/// normalized according to their declared bit depth, then converted to the
+/// sRGB display boundary. Known Display-P3 RGB values are transformed through
+/// XYZ before the final clamp; unknown profiles are left unchanged because
+/// this compatibility function cannot return an unresolved error.
 pub fn engine_color_rgba(color: &varve_core::EngineColor) -> (u8, u8, u8, u8) {
     match color {
-        varve_core::EngineColor::Rgb { r, g, b, a, .. } => (*r as u8, *g as u8, *b as u8, *a as u8),
-        varve_core::EngineColor::Cmyk { c, m, y, k, a, .. } => {
-            let rc = 1.0 - (c / 255.0);
-            let rm = 1.0 - (m / 255.0);
-            let ry = 1.0 - (y / 255.0);
-            let rk = 1.0 - (k / 255.0);
+        varve_core::EngineColor::Rgb {
+            r,
+            g,
+            b,
+            a,
+            bit_depth,
+            profile,
+        } => {
+            let rgb = rgb_to_srgb_display(
+                [
+                    channel_to_unit(*r, bit_depth.as_deref()),
+                    channel_to_unit(*g, bit_depth.as_deref()),
+                    channel_to_unit(*b, bit_depth.as_deref()),
+                ],
+                profile.as_deref(),
+            );
             (
-                (255.0 * rc * rk) as u8,
-                (255.0 * rm * rk) as u8,
-                (255.0 * ry * rk) as u8,
-                *a as u8,
+                unit_to_u8(rgb[0]),
+                unit_to_u8(rgb[1]),
+                unit_to_u8(rgb[2]),
+                alpha_to_u8(*a, bit_depth.as_deref()),
             )
         }
-        varve_core::EngineColor::Gray { v, a, .. } => (*v as u8, *v as u8, *v as u8, *a as u8),
+        varve_core::EngineColor::Cmyk {
+            c,
+            m,
+            y,
+            k,
+            a,
+            bit_depth,
+            ..
+        } => {
+            let channel_depth = bit_depth.as_deref();
+            let rc = 1.0 - channel_to_unit(*c, channel_depth);
+            let rm = 1.0 - channel_to_unit(*m, channel_depth);
+            let ry = 1.0 - channel_to_unit(*y, channel_depth);
+            let rk = 1.0 - channel_to_unit(*k, channel_depth);
+            (
+                unit_to_u8(rc * rk),
+                unit_to_u8(rm * rk),
+                unit_to_u8(ry * rk),
+                alpha_to_u8(*a, channel_depth),
+            )
+        }
+        varve_core::EngineColor::Gray {
+            v, a, bit_depth, ..
+        } => {
+            let value = unit_to_u8(channel_to_unit(*v, bit_depth.as_deref()));
+            (value, value, value, alpha_to_u8(*a, bit_depth.as_deref()))
+        }
         varve_core::EngineColor::Spot {
             process_fallback,
             tint,
@@ -303,20 +340,88 @@ pub fn engine_color_rgba(color: &varve_core::EngineColor) -> (u8, u8, u8, u8) {
             ..
         } => {
             if let Some(fb) = process_fallback {
-                let rc = 1.0 - (fb.c / 255.0);
-                let rm = 1.0 - (fb.m / 255.0);
-                let ry = 1.0 - (fb.y / 255.0);
-                let rk = 1.0 - (fb.k / 255.0);
+                let rc = 1.0 - channel_to_unit(fb.c, None);
+                let rm = 1.0 - channel_to_unit(fb.m, None);
+                let ry = 1.0 - channel_to_unit(fb.y, None);
+                let rk = 1.0 - channel_to_unit(fb.k, None);
                 (
-                    (255.0 * rc * rk) as u8,
-                    (255.0 * rm * rk) as u8,
-                    (255.0 * ry * rk) as u8,
-                    ((*a * tint / 100.0) as u8),
+                    unit_to_u8(rc * rk),
+                    unit_to_u8(rm * rk),
+                    unit_to_u8(ry * rk),
+                    unit_to_u8(channel_to_unit(*a, None) * (*tint / 100.0)),
                 )
             } else {
-                (0, 0, 0, *a as u8)
+                (0, 0, 0, unit_to_u8(channel_to_unit(*a, None)))
             }
         }
+    }
+}
+
+fn channel_to_unit(value: f64, bit_depth: Option<&str>) -> f64 {
+    match bit_depth {
+        Some("uint16") => value / 65_535.0,
+        Some("float16") | Some("float32") => value,
+        _ => value / 255.0,
+    }
+}
+
+fn alpha_to_u8(value: f64, bit_depth: Option<&str>) -> u8 {
+    match bit_depth {
+        Some("uint16") | Some("float16") | Some("float32") => {
+            unit_to_u8(channel_to_unit(value, bit_depth))
+        }
+        // Preserve the historical uint8 adapter's truncation for legacy
+        // alpha values; changing it would alter existing PDF/CSS output.
+        _ => value.clamp(0.0, 255.0) as u8,
+    }
+}
+
+fn unit_to_u8(value: f64) -> u8 {
+    (value.clamp(0.0, 1.0) * 255.0).round() as u8
+}
+
+/// Convert known Display-P3 encoded channels to the sRGB display encoding.
+/// Other profiles are handled by the compatibility boundary until an ICC
+/// provider is available here.
+fn rgb_to_srgb_display(rgb: [f64; 3], profile: Option<&str>) -> [f64; 3] {
+    if !matches!(profile, Some("display-p3")) {
+        return rgb;
+    }
+
+    let linear = [
+        srgb_to_linear_unit(rgb[0]),
+        srgb_to_linear_unit(rgb[1]),
+        srgb_to_linear_unit(rgb[2]),
+    ];
+    let x = 0.4865709486 * linear[0] + 0.2656676932 * linear[1] + 0.1982172852 * linear[2];
+    let y = 0.2289745641 * linear[0] + 0.6917385218 * linear[1] + 0.0792869141 * linear[2];
+    let z = 0.0451133819 * linear[1] + 1.0439443689 * linear[2];
+    let srgb_linear = [
+        3.2409699419 * x - 1.5373831776 * y - 0.4986107603 * z,
+        -0.9692436363 * x + 1.8759675015 * y + 0.0415550574 * z,
+        0.0556300797 * x - 0.2039769589 * y + 1.0569715142 * z,
+    ];
+    [
+        linear_to_srgb_unit(srgb_linear[0]),
+        linear_to_srgb_unit(srgb_linear[1]),
+        linear_to_srgb_unit(srgb_linear[2]),
+    ]
+}
+
+fn srgb_to_linear_unit(value: f64) -> f64 {
+    if value <= 0.04045 {
+        value / 12.92
+    } else {
+        ((value + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+fn linear_to_srgb_unit(value: f64) -> f64 {
+    let value = value.max(0.0);
+    if value <= 0.0031308 {
+        value * 12.92
+    } else {
+        1.055 * value.powf(1.0 / 2.4) - 0.055
     }
 }
 
@@ -658,11 +763,68 @@ mod tests {
     }
 
     #[test]
+    fn engine_color_rgb_respects_uint16_precision() {
+        let color = varve_core::EngineColor::Rgb {
+            r: 32_768.0,
+            g: 16_384.0,
+            b: 65_535.0,
+            a: 32_768.0,
+            bit_depth: Some("uint16".into()),
+            profile: None,
+        };
+        assert_eq!(engine_color_rgba(&color), (128, 64, 255, 128));
+    }
+
+    #[test]
+    fn engine_color_rgb_respects_float32_precision() {
+        let color = varve_core::EngineColor::Rgb {
+            r: 0.25,
+            g: 0.5,
+            b: 0.75,
+            a: 0.5,
+            bit_depth: Some("float32".into()),
+            profile: None,
+        };
+        assert_eq!(engine_color_rgba(&color), (64, 128, 191, 128));
+    }
+
+    #[test]
+    fn engine_color_rgb_converts_display_p3_at_display_boundary() {
+        let color = varve_core::EngineColor::Rgb {
+            r: 0.43313,
+            g: 0.50108,
+            b: 0.3795,
+            a: 1.0,
+            bit_depth: Some("float32".into()),
+            profile: Some("display-p3".into()),
+        };
+        let (r, g, b, a) = engine_color_rgba(&color);
+        assert_eq!(a, 255);
+        assert!((r as i16 - 106).unsigned_abs() <= 2);
+        assert!((g as i16 - 128).unsigned_abs() <= 2);
+        assert!((b as i16 - 94).unsigned_abs() <= 2);
+    }
+
+    #[test]
     fn engine_color_cmyk_to_rgb() {
         let (r, g, b, _a) = engine_color_rgba(&make_cmyk(0.0, 255.0, 255.0, 0.0, 255.0));
         // Magenta + Yellow = Red in CMY, so: R=255, G=0, B=0
         assert_eq!((r, b), (255, 0), "red channel, blue channel");
         assert!(g < 50, "green should be low, got {g}");
+    }
+
+    #[test]
+    fn engine_color_cmyk_respects_float32_precision() {
+        let color = varve_core::EngineColor::Cmyk {
+            c: 0.0,
+            m: 1.0,
+            y: 1.0,
+            k: 0.0,
+            a: 1.0,
+            bit_depth: Some("float32".into()),
+            profile: None,
+        };
+        assert_eq!(engine_color_rgba(&color), (255, 0, 0, 255));
     }
 
     #[test]

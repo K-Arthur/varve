@@ -34,9 +34,18 @@ import {
 } from '@varve/engine';
 import { isRasterPyramidEnabled, setRasterPyramidEnabled } from '@varve/engine/rasterPyramid';
 import type { Document, Effect, ManagedColor, Mask, NodeId } from '@varve/scene';
-import { activeSmartFilters, nodeEffectPadding, resolveAdjustmentScope } from '@varve/scene';
+import {
+  activeSmartFilters,
+  isLiveBooleanNode,
+  nodeEffectPadding,
+  resolveAdjustmentScope,
+} from '@varve/scene';
 import { managedColorToRgba, tryInvertAffine } from '@varve/shared';
-import { applyAdjustmentSpatialMask } from '../canvas/maskReplay';
+import {
+  applyAdjustmentSpatialMask,
+  replayLeafMask,
+  requiresLeafMaskReplay,
+} from '../canvas/maskReplay';
 import { nodeWorldTransform } from '../scene/world';
 import { alphaBounds } from './surfaceBounds';
 import {
@@ -368,6 +377,14 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
     const node = input.document.nodes[nodeId];
     if (!node || node.visible === false) return;
     const item = itemById.get(nodeId);
+
+    // `flattenSceneToEngine` resolves live Boolean groups to one render item
+    // under the group's id. Structural replay must make the same substitution
+    // instead of painting its editable source children individually.
+    if (isLiveBooleanNode(node)) {
+      if (item) replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
+      return;
+    }
 
     const mask: Mask | null = 'mask' in node && node.mask?.visible ? node.mask : null;
     const maskSourceId =
@@ -1111,7 +1128,23 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       return;
     }
 
-    if (item) replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
+    if (item) {
+      // Leaf nodes with masks: render to offscreen, apply mask, composite back.
+      if (mask && requiresLeafMaskReplay(mask)) {
+        replayLeafMask(target as unknown as CanvasRenderingContext2D, {
+          node,
+          mask,
+          irItem: item,
+          doc: input.document,
+          baseTransform: target.getTransform(),
+          paintContent: (ctx) =>
+            replayIr(ctx as unknown as ReplayTarget, [item], undefined, resolveEffectMask),
+          getWorldTransform: (nodeId) => nodeWorldTransform(input.document, nodeId),
+        });
+      } else {
+        replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
+      }
+    }
   };
 
   for (const rootId of input.rootIds) replayNode(rootId, context);

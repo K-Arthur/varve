@@ -14,7 +14,7 @@
  * `aria-describedby` error and does NOT commit.
  */
 import { evaluate } from '@varve/scene';
-import { useCallback, useContext, useId, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
 import { EditorCtx } from '../../../context/types';
 
 export interface NumberFieldProps {
@@ -87,6 +87,10 @@ export function NumberField({
   const [dirty, setDirty] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const scrub = useRef<{ startX: number; startValue: number; active: boolean } | null>(null);
+  const wheelCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wheelTransactionOpenRef = useRef(false);
+  const wheelValueRef = useRef(value);
+  wheelValueRef.current = value;
 
   const clamp = useCallback((v: number) => Math.min(max, Math.max(min, v)), [min, max]);
 
@@ -110,6 +114,21 @@ export function NumberField({
 
   // Access editor context for setBindingField
   const ctx = useContext(EditorCtx);
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+
+  const finishWheelTransaction = useCallback(() => {
+    if (wheelCommitTimerRef.current !== null) {
+      clearTimeout(wheelCommitTimerRef.current);
+      wheelCommitTimerRef.current = null;
+    }
+    if (wheelTransactionOpenRef.current) {
+      wheelTransactionOpenRef.current = false;
+      ctxRef.current?.commitTransaction();
+    }
+  }, []);
+
+  useEffect(() => finishWheelTransaction, [finishWheelTransaction]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -225,11 +244,22 @@ export function NumberField({
 
   const onWheel = useCallback(
     (e: React.WheelEvent<HTMLInputElement>) => {
-      if (document.activeElement !== e.currentTarget) return;
+      if (document.activeElement !== e.currentTarget || e.deltaY === 0) return;
+      e.preventDefault();
       const dir = e.deltaY < 0 ? 1 : -1;
-      onChange(clamp(value + dir * step));
+      const next = clamp(wheelValueRef.current + dir * step);
+      wheelValueRef.current = next;
+      if (ctx && !wheelTransactionOpenRef.current) {
+        ctx.beginTransaction();
+        wheelTransactionOpenRef.current = true;
+      }
+      if (wheelCommitTimerRef.current !== null) clearTimeout(wheelCommitTimerRef.current);
+      if (ctx) {
+        wheelCommitTimerRef.current = setTimeout(finishWheelTransaction, 200);
+      }
+      onChange(next);
     },
-    [clamp, onChange, step, value],
+    [clamp, ctx, finishWheelTransaction, onChange, step],
   );
 
   const ariaNow = mixed ? undefined : Math.round(value * 100) / 100;
@@ -272,6 +302,7 @@ export function NumberField({
           onKeyDown={handleKeyDown}
           onFocus={() => fieldName && ctx?.setFocusedField(fieldName)}
           onBlur={() => {
+            finishWheelTransaction();
             if (dirty !== null) commit(dirty);
             if (fieldName && ctx?.setFocusedField) ctx.setFocusedField(null);
           }}

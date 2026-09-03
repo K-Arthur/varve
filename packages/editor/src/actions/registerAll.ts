@@ -463,6 +463,20 @@ export function registerEditorActions(
     'edit',
     handlers.selectFromImageColorRange ?? (() => {}),
   );
+  // Both transforms read the current area selection. Re-register on every
+  // editor-state update rather than preserving the boot-time closure, which
+  // has no pixel selection and would quietly make the menu commands inert.
+  for (const [id, label, handler] of [
+    ['transformSelectedPixels', 'Transform Selected Pixels', handlers.transformSelectedPixels],
+    [
+      'transformSelectionBoundary',
+      'Transform Selection Boundary',
+      handlers.transformSelectionBoundary,
+    ],
+  ] as const) {
+    r.remove(id);
+    r.register({ id, label, category: 'edit' }, handler ?? (() => {}));
+  }
   reg('mergeSelected', 'Merge Selected', 'object', handlers.mergeSelected ?? (() => {}));
   // Master page operations
   reg('createMaster', 'Create Master', 'object', handlers.createMaster ?? (() => {}));

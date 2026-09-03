@@ -5,6 +5,7 @@
 
 import { exportNodeToSvg } from '@varve/codegen';
 import {
+  applyRasterizationTransform,
   awaitExportsReady,
   collectFontData,
   convertExportImageData,
@@ -214,8 +215,8 @@ export async function exportNodeAsRaster(
   const bbox = exportWorldBounds(node, doc, flattened.ids, ir);
 
   let scale = opts.scale;
-  const requestedW = Math.max(Math.ceil(bbox.w * scale), 1);
-  const requestedH = Math.max(Math.ceil(bbox.h * scale), 1);
+  const requestedW = Math.max(Math.round(bbox.w * scale), 1);
+  const requestedH = Math.max(Math.round(bbox.h * scale), 1);
   const fitted = fitRasterDimensions(requestedW, requestedH);
   const w = fitted.width;
   const h = fitted.height;
@@ -236,8 +237,23 @@ export async function exportNodeAsRaster(
     ctx.fillRect(0, 0, w, h);
   }
 
-  ctx.scale(scale, scale);
-  ctx.translate(-bbox.x, -bbox.y);
+  if (bbox.w > 0 && bbox.h > 0) {
+    applyRasterizationTransform(
+      ctx,
+      {
+        x: bbox.x,
+        y: bbox.y,
+        width: bbox.w,
+        height: bbox.h,
+      },
+      { width: w, height: h },
+    );
+  } else {
+    // A valid empty/degenerate selection still exports a 1x1 surface. The
+    // strict raster transform rejects a zero source extent, so preserve the
+    // legacy document-space translation for this compatibility case.
+    ctx.setTransform(scale, 0, 0, scale, -bbox.x * scale, -bbox.y * scale);
+  }
 
   replayStructuredScene(ctx, {
     document: doc,

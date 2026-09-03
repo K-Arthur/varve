@@ -10,6 +10,45 @@ import { describe, expect, it } from 'vitest';
 import { insertTraceGroup, replaceTraceGroup } from './imageOperations';
 
 describe('trace hole handling', () => {
+  it('retains and scales provider-fitted cubic handles exactly once', () => {
+    let doc = createDocument('Images', true);
+    const image = makeImageShapeNode('img-curves', {
+      name: 'Curves',
+      w: 20,
+      h: 20,
+      src: 'data:image/png;base64,AAAA',
+    });
+    doc = { ...doc, nodes: { ...doc.nodes, [image.id]: image }, rootChildren: [image.id] };
+
+    const result = insertTraceGroup(doc, image.id, {
+      width: 10,
+      height: 10,
+      paths: [
+        {
+          closed: true,
+          curveFitted: true,
+          points: [
+            { x: 1, y: 1, handleIn: [-1, 0], handleOut: [1, 2] },
+            { x: 9, y: 1 },
+            { x: 9, y: 9 },
+            { x: 1, y: 9 },
+          ],
+        },
+      ],
+    });
+    const group = result.doc.nodes[result.nodeId];
+    const childId = group?.kind === 'group' ? group.children[0] : undefined;
+    const child = childId ? result.doc.nodes[childId] : undefined;
+    expect(child?.kind).toBe('shape');
+    if (child?.kind !== 'shape' || child.shape.kind !== 'path') return;
+    expect(child.shape.points[0]).toEqual({
+      x: 2,
+      y: 2,
+      handleIn: [-2, 0],
+      handleOut: [2, 4],
+    });
+  });
+
   it('inserts compound paths with evenodd holes', () => {
     let doc = createDocument('Images', true);
     const image = makeImageShapeNode('img1', {
@@ -93,6 +132,38 @@ describe('trace hole handling', () => {
 });
 
 describe('centerline stroke output', () => {
+  it('scales source-pixel stroke width with the inserted trace geometry', () => {
+    let doc = createDocument('Images', true);
+    const image = makeImageShapeNode('img-scale-stroke', {
+      name: 'Scaled sketch',
+      w: 20,
+      h: 20,
+      src: 'data:image/png;base64,AAAA',
+    });
+    doc = { ...doc, nodes: { ...doc.nodes, [image.id]: image }, rootChildren: [image.id] };
+
+    const result = insertTraceGroup(doc, image.id, {
+      width: 10,
+      height: 10,
+      centerlineWidth: 3,
+      paths: [
+        {
+          closed: false,
+          strokeWidth: 3,
+          points: [
+            { x: 1, y: 5 },
+            { x: 9, y: 5 },
+          ],
+        },
+      ],
+    });
+    const group = result.doc.nodes[result.nodeId];
+    const childId = group?.kind === 'group' ? group.children[0] : undefined;
+    const child = childId ? result.doc.nodes[childId] : undefined;
+    if (child?.kind !== 'shape') return;
+    expect(child.strokes[0]?.weight).toBe(6);
+  });
+
   it('inserts open centerline paths as stroked nodes with no fill', () => {
     let doc = createDocument('Images', true);
     const image = makeImageShapeNode('img2', {

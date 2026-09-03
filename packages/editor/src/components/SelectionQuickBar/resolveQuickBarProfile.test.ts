@@ -186,6 +186,23 @@ describe('resolveQuickBarProfile', () => {
     expect(profile!.actions.map((a) => a.id)).not.toContain('booleanUnion');
   });
 
+  it('omits Boolean actions when a selection includes an open centreline path', () => {
+    let doc = createDocument('test', true);
+    const filled = makeShapeNode('filled', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    const open = makeShapeNode('open', openPath);
+    doc = {
+      ...doc,
+      nodes: { ...doc.nodes, [filled.id]: filled, [open.id]: open },
+      rootChildren: [filled.id, open.id],
+    };
+
+    const profile = resolveQuickBarProfile(
+      baseInput({ document: doc, selection: [filled.id, open.id] }),
+    );
+    expect(profile?.kind).toBe('multi');
+    expect(profile!.actions.map((action) => action.id)).not.toContain('booleanUnion');
+  });
+
   it('returns null during nodeEdit tool', () => {
     let doc = createDocument('test', true);
     const path = makeShapeNode('p1', openPath);

@@ -7,6 +7,7 @@ export {
   computeFlattenBounds,
   effectPadding,
   findCommonAncestor,
+  insertFlattenedCopy,
   mergeNodes,
   nodeEffectPadding,
   replaceNodesWithFlattened,

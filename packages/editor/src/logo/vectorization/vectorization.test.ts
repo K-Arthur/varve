@@ -12,6 +12,7 @@ import {
   prepareImageData,
   threshold,
 } from './prepareSource';
+import { scaleSourcePixelTraceOptions } from './preview';
 import { traceDiagnostics, VectorizationSession } from './session';
 import {
   applyPreset,
@@ -150,6 +151,42 @@ describe('source preparation', () => {
     const first = prepareImageData(input, prep);
     const second = prepareImageData(input, prep);
     expect(first.data).toEqual(second.data);
+  });
+});
+
+describe('trace resolution conversion', () => {
+  it('keeps source-pixel cleanup and fitting semantics when tracing a downsampled raster', () => {
+    const options = scaleSourcePixelTraceOptions(
+      {
+        threshold: 128,
+        minArea: 64,
+        simplifyTolerance: 2,
+        maxError: 1,
+        centerlineWidth: 4,
+        centerlinePrune: 8,
+        cornerAngle: 135,
+      },
+      { width: 8000, height: 4000 },
+      { width: 2000, height: 1000 },
+    );
+
+    expect(options.threshold).toBe(128);
+    expect(options.cornerAngle).toBe(135);
+    expect(options.minArea).toBe(4);
+    expect(options.simplifyTolerance).toBe(0.5);
+    expect(options.maxError).toBe(0.25);
+    expect(options.centerlineWidth).toBe(1);
+    expect(options.centerlinePrune).toBe(2);
+  });
+
+  it('uses the conservative axis after independently rounded downsampling', () => {
+    const options = scaleSourcePixelTraceOptions(
+      { simplifyTolerance: 1, maxError: 1 },
+      { width: 3000, height: 2000 },
+      { width: 1000, height: 666 },
+    );
+    expect(options.simplifyTolerance).toBeCloseTo(0.333, 6);
+    expect(options.maxError).toBeCloseTo(0.333, 6);
   });
 });
 

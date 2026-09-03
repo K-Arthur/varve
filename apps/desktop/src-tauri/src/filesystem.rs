@@ -135,7 +135,12 @@ impl AppDirectories {
 }
 
 fn resolve(result: Result<PathBuf, tauri::Error>, label: &str) -> Result<PathBuf, FsError> {
-    result.map_err(|error| FsError::new(FsErrorKind::InvalidPath, format!("resolve {label}: {error}")))
+    result.map_err(|error| {
+        FsError::new(
+            FsErrorKind::InvalidPath,
+            format!("resolve {label}: {error}"),
+        )
+    })
 }
 
 /// Storage keys are generated identifiers, not paths.  Keeping this check at
@@ -143,7 +148,10 @@ fn resolve(result: Result<PathBuf, tauri::Error>, label: &str) -> Result<PathBuf
 /// arbitrary filesystem operation.
 pub fn validate_storage_key(value: &str) -> Result<(), FsError> {
     if value.is_empty() || value.len() > 160 || value == "." || value == ".." {
-        return Err(FsError::new(FsErrorKind::InvalidFilename, "invalid storage key"));
+        return Err(FsError::new(
+            FsErrorKind::InvalidFilename,
+            "invalid storage key",
+        ));
     }
     if value.contains('/')
         || value.contains('\\')
@@ -153,7 +161,10 @@ pub fn validate_storage_key(value: &str) -> Result<(), FsError> {
             .any(|character| matches!(character, '<' | '>' | ':' | '"' | '|' | '?' | '*'))
         || value.chars().any(|character| character.is_control())
     {
-        return Err(FsError::new(FsErrorKind::TraversalBlocked, "storage key is not a filename"));
+        return Err(FsError::new(
+            FsErrorKind::TraversalBlocked,
+            "storage key is not a filename",
+        ));
     }
     Ok(())
 }
@@ -279,7 +290,10 @@ mod tests {
     fn generated_names_handle_windows_reserved_names_and_suffixes() {
         assert_eq!(generated_filename("CON", "json"), "_CON.json");
         assert_eq!(generated_filename("name. ", ".varve"), "name.varve");
-        assert_eq!(generated_filename("design:final", "png"), "design_final.png");
+        assert_eq!(
+            generated_filename("design:final", "png"),
+            "design_final.png"
+        );
         assert_eq!(generated_filename("设计 🎨", "varve"), "设计 🎨.varve");
     }
 
@@ -308,7 +322,10 @@ mod tests {
             r"\\?\C:\path\file",
             "file:///etc/passwd",
         ] {
-            assert!(validate_portable_relative_path(value).is_err(), "accepted {value:?}");
+            assert!(
+                validate_portable_relative_path(value).is_err(),
+                "accepted {value:?}"
+            );
         }
         assert!(validate_portable_relative_path("assets/%2e%2e/file.png").is_ok());
         assert!(validate_portable_relative_path("assets/设计/file.png").is_ok());

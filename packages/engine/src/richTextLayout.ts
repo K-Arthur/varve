@@ -26,6 +26,7 @@ export interface RichTextLayoutDefaults {
   fontStyle: 'normal' | 'italic';
   letterSpacing: number;
   tracking: number;
+  lineHeight?: number;
   direction?: 'ltr' | 'rtl' | 'auto';
   language?: string;
 }
@@ -33,6 +34,7 @@ export interface RichTextLayoutDefaults {
 export interface RichTextLayoutOptions {
   maxWidth: number;
   lineHeight: number;
+  paragraphSpacing?: number;
   sourceRevision?: string;
   fontRevision?: string;
   language?: string;
@@ -86,6 +88,9 @@ function shapeParagraph(
       const format = span?.run.format ?? {};
       const text = paragraph.text.slice(cursor, end);
       if (text.length > 0) {
+        const lineHeight =
+          (format.lineHeight ?? defaults.lineHeight ?? 1.4) *
+          (format.fontSize ?? defaults.fontSize);
         const runs = shapeRun({
           text,
           fontFamily: format.fontFamily ?? defaults.fontFamily,
@@ -100,7 +105,12 @@ function shapeParagraph(
         });
         for (const run of runs) {
           shaped.push(
-            cloneRunWithOffset(run, cursor, scriptCodeToTag(scripted.script), scripted.level),
+            cloneRunWithOffset(
+              { ...run, lineHeight },
+              cursor,
+              scriptCodeToTag(scripted.script),
+              scripted.level,
+            ),
           );
         }
       }
@@ -145,6 +155,7 @@ export function layoutRichTextSnapshot(
     paragraphs,
     maxWidth: options.maxWidth,
     lineHeight: options.lineHeight,
+    paragraphSpacing: options.paragraphSpacing,
     sourceRevision: options.sourceRevision,
     fontRevision: options.fontRevision,
     language: options.language ?? defaults.language,

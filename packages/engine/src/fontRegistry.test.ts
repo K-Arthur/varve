@@ -175,6 +175,23 @@ describe('FontRegistry', () => {
     expect(reg.state('TestFont')).toBe('loaded');
   });
 
+  it('reports loading while a family load is in flight', async () => {
+    const reg = new FontRegistry([]);
+    reg.register({ family: 'PendingFont', weight: 400, style: 'normal', source: 'system' });
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(reg as any, 'doLoad').mockImplementation(() => pending);
+
+    const loading = reg.load('PendingFont');
+    expect(reg.state('PendingFont')).toBe('loading');
+
+    release();
+    await loading;
+    expect(reg.state('PendingFont')).toBe('loaded');
+  });
+
   it('state returns error after failed load', async () => {
     const reg = new FontRegistry([]);
     reg.register({ family: 'BadFont', weight: 400, style: 'normal', source: 'system' });

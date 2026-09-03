@@ -168,8 +168,14 @@ export interface RasterMaskData {
    * - `container-local-pixels`: mask pixels map 1:1 to the frame's local
    *   units (0..w, 0..h), stretched with the container transform — the
    *   brush-painted layer-mask form for FrameNodes.
+   * - `node-local-pixels`: mask pixels map 1:1 to a visual leaf node's local
+   *   paint bounds (brush-painted layer masks).
    */
-  coordinateSpace: 'source-image-pixels' | 'legacy-preview-pixels' | 'container-local-pixels';
+  coordinateSpace:
+    | 'source-image-pixels'
+    | 'legacy-preview-pixels'
+    | 'container-local-pixels'
+    | 'node-local-pixels';
   sourceIdentity: RasterMaskSourceIdentity;
   editRevision?: number;
   staleReason?: 'source-replaced' | 'source-changed' | 'legacy-preview-resolution';
@@ -608,8 +614,10 @@ export interface IccProfileEntry {
   /** Base64-encoded profile bytes (the canonical payload). */
   profileBase64: string;
   byteLength: number;
-  /** Content hash of `profileBase64` (sync, non-cryptographic). */
+  /** Legacy sync content hash of `profileBase64`, retained for old document ids. */
   hash: string;
+  /** SHA-256 fingerprint of the canonical profile payload. */
+  fingerprint?: string;
   /** ASCII `desc` tag, when present and printable. */
   description?: string;
   /** ICC profile class signature (e.g. 'mntr' display class). */
@@ -1397,6 +1405,18 @@ export interface GroupNode extends NodeBase {
    * content hash for staleness checks.
    */
   traceMetadata?: TraceMetadata;
+  /**
+   * Non-destructive Pathfinder state. The group's direct children are the
+   * ordered operands; renderer/export resolvers derive the visible compound
+   * geometry from them and never serialize a copied result as authority.
+   */
+  boolean?: LiveBooleanState;
+}
+
+/** A live Boolean group evaluates its direct children in this operation. */
+export interface LiveBooleanState {
+  schemaVersion: 1;
+  operation: 'union' | 'subtract' | 'intersect' | 'exclude';
 }
 
 /**
@@ -1423,6 +1443,8 @@ export interface TraceMetadata {
   maxColors: number;
   compoundHoles: boolean;
   cornerAngle: number;
+  /** Maximum Bezier fitting error in pixels (0.1–10). Default 1.0. */
+  maxError?: number;
   centerlineWidth: number;
   centerlinePrune: number;
   /** Which engine produced the result (native Rust / TS worker / WASM). */
@@ -1758,6 +1780,13 @@ export type ContainerNode = GroupNode | FrameNode;
 /** True if the node is a container (has a children array). */
 export function isContainer(node: SceneNode): node is ContainerNode {
   return node.kind === 'frame' || node.kind === 'group';
+}
+
+/** True when a group is a non-destructive Boolean container. */
+export function isLiveBooleanNode(
+  node: SceneNode,
+): node is GroupNode & { boolean: LiveBooleanState } {
+  return node.kind === 'group' && node.boolean !== undefined;
 }
 
 /**

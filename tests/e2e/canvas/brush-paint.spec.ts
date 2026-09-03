@@ -162,6 +162,35 @@ test.describe('Brush / Paint tool — drawing and persistence', () => {
       .not.toBe(0);
   });
 
+  test('a dense real-pointer burst commits one visible brush stroke', async ({ page }) => {
+    const contentCanvas = page.locator('canvas.editor-canvas__content-layer');
+    await contentCanvas.waitFor({ state: 'attached', timeout: 10000 });
+    const before = await contentCanvas.screenshot();
+    const box = await contentCanvas.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) return;
+
+    await page.keyboard.press('b');
+    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.55);
+    await page.mouse.down();
+    // More samples than a display frame normally presents: this drives the
+    // real PointerEvent path rather than asserting only a synthetic dab list.
+    for (let index = 1; index <= 48; index++) {
+      const progress = index / 48;
+      await page.mouse.move(
+        box.x + box.width * (0.2 + progress * 0.55),
+        box.y + box.height * (0.55 + Math.sin(progress * Math.PI * 2) * 0.04),
+      );
+    }
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => Buffer.compare(before, await contentCanvas.screenshot()), {
+        timeout: 10000,
+      })
+      .not.toBe(0);
+  });
+
   test('rapid short strokes produce at least one layer', async ({ page }) => {
     await page.keyboard.press('b');
     await page.waitForTimeout(200);

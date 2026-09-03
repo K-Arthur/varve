@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Document } from '../document';
 import type { ShapeNode } from '../types';
 import type { FlattenReplacement } from './flattenOps';
-import { mergeNodes, replaceNodesWithFlattened } from './flattenOps';
+import { insertFlattenedCopy, mergeNodes, replaceNodesWithFlattened } from './flattenOps';
 
 function makeShape(id: string, x: number, y: number, w: number, h: number): ShapeNode {
   return {
@@ -164,5 +164,31 @@ describe('mergeNodes', () => {
     expect(result.nodes.s2).toBeUndefined();
     expect(result.nodes.merged).toBeDefined();
     expect(result.nodes.merged!.name).toBe('Merged');
+  });
+});
+
+describe('insertFlattenedCopy', () => {
+  it('keeps the source nodes hidden and inserts the copy at their paint position', () => {
+    const s1 = makeShape('s1', 0, 0, 50, 50);
+    const s2 = makeShape('s2', 100, 0, 50, 50);
+    const s3 = makeShape('s3', 200, 0, 50, 50);
+    const doc = makeDoc([s1, s2, s3]);
+
+    const result = insertFlattenedCopy(doc, ['s2'], makeReplacement('r1'));
+
+    expect(result.rootChildren).toEqual(['s1', 'r1', 's2', 's3']);
+    expect(result.nodes.s2?.visible).toBe(false);
+    expect(result.nodes.s1?.visible).toBe(true);
+    expect(result.nodes.r1?.name).toBe('Rasterized Copy');
+  });
+
+  it('does not mutate the source document', () => {
+    const source = makeShape('s1', 0, 0, 50, 50);
+    const doc = makeDoc([source]);
+
+    insertFlattenedCopy(doc, ['s1'], makeReplacement('r1'));
+
+    expect(doc.nodes.s1?.visible).toBe(true);
+    expect(doc.rootChildren).toEqual(['s1']);
   });
 });

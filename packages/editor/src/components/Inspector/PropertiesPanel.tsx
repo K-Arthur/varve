@@ -35,6 +35,7 @@ import { AdjustmentLayerAccessSection } from './sections/AdjustmentLayerAccessSe
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AnimationSection } from './sections/AnimationSection';
 import { AppearanceSection } from './sections/AppearanceSection';
+import { BooleanSection } from './sections/BooleanSection';
 import { ComponentSection } from './sections/ComponentSection';
 import { ConstraintSection } from './sections/ConstraintSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
@@ -603,6 +604,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
         </p>
       </header>
       <AlignDistributeBar />
+      {node.kind === 'group' && <BooleanSection node={node} />}
       {sectionEntries.map((entry) => (
         <div key={entry.id}>{entry.el}</div>
       ))}

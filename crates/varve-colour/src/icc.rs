@@ -116,7 +116,12 @@ impl IccEngine {
             .ok_or_else(|| format!("ICC profile not loaded: {name}"))
     }
 
-    fn profile_for_print(&self, _cmyk_profile_name: &str) -> Result<&Profile<'static>, String> {
+    fn profile_for_print(&self, cmyk_profile_name: &str) -> Result<&Profile<'static>, String> {
+        if profiles::PrintProfile::parse(cmyk_profile_name).is_none() {
+            return Err(format!(
+                "unknown CMYK profile '{cmyk_profile_name}'; expected Fogra39, GRACoL2006, or SWOP Coated"
+            ));
+        }
         self.get("default_cmyk")
     }
 
@@ -302,6 +307,26 @@ mod tests {
             let result = eng.srgb_to_cmyk("Fogra39", 64, 128, 192, *intent, false);
             assert!(result.is_ok(), "intent {intent:?}");
         }
+    }
+
+    #[test]
+    fn print_profile_names_are_case_insensitive_but_unknown_names_fail() {
+        let mut eng = IccEngine::new();
+        eng.load_all_for_print().unwrap();
+        assert!(eng
+            .srgb_to_cmyk("fogra39", 255, 0, 0, StrataIntent::Perceptual, false)
+            .is_ok());
+        let error = eng
+            .srgb_to_cmyk(
+                "made-up-profile",
+                255,
+                0,
+                0,
+                StrataIntent::Perceptual,
+                false,
+            )
+            .expect_err("unknown output profiles must not silently use the default");
+        assert!(error.contains("unknown CMYK profile"));
     }
 
     #[test]

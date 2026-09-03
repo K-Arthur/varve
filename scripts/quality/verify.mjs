@@ -93,7 +93,15 @@ function runE2ePaths(paths) {
   if (e2eMaxFailures) args.push('--max-failures', e2eMaxFailures);
   // CachyOS local validation installs Chromium only. Browser farms can opt
   // into the complete matrix with VARVE_E2E_PROJECTS=chromium,firefox,webkit.
-  const projects = (process.env.VARVE_E2E_PROJECTS ?? 'chromium')
+  // Replay visual specs are intentionally excluded from the default Chromium
+  // project; they own the dedicated 1x/2x/3x visual projects instead. The
+  // affected planner can select an individual replay spec, so route that
+  // direct-file lane the same way as the aggregate e2e:visual lane. An
+  // explicit project override remains authoritative for CI/browser farms.
+  const defaultProjects = paths.some((path) => path.startsWith('tests/e2e/visual/'))
+    ? 'chromium-visual-1x,chromium-visual-2x,chromium-visual-3x'
+    : 'chromium';
+  const projects = (process.env.VARVE_E2E_PROJECTS ?? defaultProjects)
     .split(',')
     .map((project) => project.trim())
     .filter(Boolean);

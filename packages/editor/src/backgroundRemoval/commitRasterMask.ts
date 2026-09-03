@@ -37,9 +37,10 @@ export interface RasterMaskCommitFields {
   /**
    * Pixel coordinate space of the committed mask. Defaults to
    * `source-image-pixels` (image shapes). Frames use
-   * `container-local-pixels` (brush-painted layer masks).
+   * `container-local-pixels` (brush-painted frame masks). Visual leaves use
+   * `node-local-pixels` (brush-painted layer masks).
    */
-  coordinateSpace?: 'source-image-pixels' | 'container-local-pixels';
+  coordinateSpace?: 'source-image-pixels' | 'container-local-pixels' | 'node-local-pixels';
 }
 
 function dataUrlByteLength(dataUrl: string): number {

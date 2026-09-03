@@ -222,7 +222,10 @@ export function areaSelectionFromColorRange(
               : 0;
         amount *= alpha;
       }
-      if (distance <= reach) near[py * planeW + px] = 1;
+      // Hidden RGB must not bridge a contiguous selection through fully
+      // transparent pixels. Semi-transparent source pixels retain their
+      // proportional coverage and may remain connected.
+      if (alpha > 0 && distance <= reach) near[py * planeW + px] = 1;
       coverage[py * planeW + px] = encodeCoverage(amount, options);
     }
   }
