@@ -52,7 +52,7 @@ the real backend plugs in through the worker-backed SAM2 adapter.
 Before a release can claim Object Selection quality, run the corpus against
 the pinned SAM2-Hiera-Tiny model on a machine with the model installed:
 
-1. Install the model (Settings → AI Models → Object Selection) — the pinned
+1. Install the model (Settings → Offline Models → Object Selection) — the pinned
    artifact is the *repaired* encoder (see "Graph repair" below).
 2. Serve the app from a server that sends COOP/COEP headers, or use a
    browser that reports `navigator.deviceMemory`; otherwise the conservative
@@ -82,6 +82,37 @@ served with COOP/COEP (crossOriginIsolated).
 The full interactive loop is verified: preview overlay renders, candidate
 cycling wraps, Apply commits one undoable document mask (provenance row with
 confidence), Undo removes it, Redo restores it.
+
+## Frontend installation and real-model integration run (2026-09-03)
+
+Environment: CachyOS, 22 GiB RAM, headless Chromium, ort-web 1.27.0, WASM
+execution provider, COOP/COEP server (`crossOriginIsolated`). A clean
+persistent Chromium profile exercised the Settings → Offline Models install
+route. The editor-facing loader fetched the upstream SAM2 encoder, verified
+its upstream SHA-256, removed the two metadata-only empty `value_info` entries,
+verified the repaired SHA-256, and stored the repaired encoder plus decoder in
+the shared IndexedDB model store.
+
+The final gate used the portrait fixture rather than the legacy `cat.jpg` path:
+the checked-in bytes at that path are a coastal landscape, so a centre-point
+prompt selects sky/sea and is not a meaningful object-selection test. The gate
+also cycles all candidates back to the initial candidate before applying, so a
+lower-confidence alternate mask is not mistaken for a model failure.
+
+| path | measured |
+| --- | --- |
+| Cold: install-backed model load + encode + first prompt | 22 s to preview |
+| Warm prompt (embedding cache hit, same image) | 2 s |
+| Candidate masks per prompt | 3 |
+| Initial candidate confidence | 88% |
+| Applied candidate confidence | 88% |
+
+`tests/e2e/canvas/object-selection-real-model.spec.ts` passed with the real
+model and verified candidate wrapping, visible applied provenance, undo/redo,
+and warm-cache inference. The persistent canvas screenshots were inspected:
+the preview covers the prompted person and the applied frame shows the person
+cut out against the editor background. This validates the frontend install and
+integration path; the corpus-wide quality table remains a release gate.
 
 ## Graph repair
 

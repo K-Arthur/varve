@@ -47,6 +47,27 @@ candidate boxes, then applies a non-destructive crop only after review. A
 future DETR → SAM2 → alpha-bounds pipeline requires the parity and low-spec
 benchmark evidence described in the architecture and quality docs.
 
+## Follow-up real-model validation — 2026-09-03
+
+The missing model-install evidence from the baseline was closed with a clean
+Chromium profile. The real-model E2E exercised Settings → Offline Models,
+installed the SAM2 encoder and decoder through the editor-facing loader, and
+then ran the actual browser encoder/decoder pipeline. The installer verifies
+the upstream encoder checksum, applies the reproducible graph repair, verifies
+the repaired checksum, and stores the repaired artifact in the shared model
+store.
+
+The first draft used `cat.jpg`, but direct visual inspection showed that the
+checked-in bytes are a coastal landscape, not a cat. Its centre point therefore
+prompted sky/sea. The gate now uses the verified portrait fixture. It also
+cycles through all candidates back to the initial 88% candidate before Apply;
+the previously observed 23% partial-face frame was an intentionally selected
+alternate candidate, not a failed inference.
+
+Final real-model run: cold preview 22 seconds, warm preview 2 seconds, three
+candidate masks, 88% applied confidence, visible provenance, and successful
+undo/redo. Persistent preview and applied canvas screenshots were inspected.
+
 ## Validation evidence
 
 Passed:
@@ -77,8 +98,9 @@ Visual evidence:
 
 Not run or environment-limited:
 
-- Real SAM2/DETR model smoke and latency/memory table: model files were not
-  installed in this workspace. Use the opt-in parity job before release.
+- Real DETR model smoke and the corpus-wide SAM2 quality/latency/memory table:
+  the frontend SAM2 installation/integration smoke is now recorded above, but
+  the broader opt-in parity job remains required before release.
 - Tauri/WebKitGTK visual run: the browser E2E validates the shared editor
   surface; the installed WebKitGTK version was recorded above, but no desktop
   window run was available in this validation pass.

@@ -102,12 +102,14 @@ selection-specific representation.
 ## Model lifecycle and privacy
 
 Models load lazily when the feature is used. Downloads require explicit user
-action, use HTTPS and checksums, and stay in the shared model manager. The
-native startup path migrates valid legacy files from pre-rename app-data model
-directories into `dev.varve.desktop/models` without deleting or replacing the
-old files. Embeddings are memory-bounded session data and
-are never written into Varve documents. Images are not uploaded by this
-workflow.
+action, use HTTPS and checksums, and stay in the shared IndexedDB model store
+in browser builds. The editor-facing loader and the core `DownloadManager`
+accept the same stored-record formats; both can verify an upstream checksum
+and apply the pinned SAM2 graph repair before the artifact becomes available.
+The native startup path migrates valid legacy files from pre-rename app-data
+model directories into `dev.varve.desktop/models` without deleting or replacing
+the old files. Embeddings are memory-bounded session data and are never
+written into Varve documents. Images are not uploaded by this workflow.
 
 ## Runtime decision status
 
@@ -128,5 +130,7 @@ the release-gate procedure) for the required benchmark matrix.
 - The current SAM2 graph is promptable, not a semantic subject detector.
 - Hair, fur, glass, smoke, and other fractional-transparency cases need the
   existing matting/refinement tools and visual review.
-- A fresh model download and real-model parity run remain release validation
-  gates; no claim of “instant” or “pixel-perfect” selection is made.
+- A fresh model download and frontend integration run is recorded in the
+  quality methodology, while the corpus-wide real-model parity run remains a
+  release validation gate; no claim of “instant” or “pixel-perfect” selection
+  is made.
