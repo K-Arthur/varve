@@ -1,3 +1,5 @@
+import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
+
 /**
  * Font provisioning for the render worker.
  *
@@ -131,12 +133,21 @@ export function fontFaceSetKey(faces: readonly WorkerFontFace[]): string {
  * Used by the worker. A face that fails to load is skipped rather than
  * failing the batch: one unreachable payload must not cost the document every
  * other family.
+ *
+ * Returns the families that are genuinely usable here, so the caller can gate
+ * per family rather than on the batch as a whole. A family is only reported
+ * once every face declared for it loaded — a document setting text in the
+ * bold weight of a family whose bold payload failed would otherwise be
+ * cleared for a realm that can only synthesise it.
  */
-export async function adoptFontFaces(faces: readonly WorkerFontFace[]): Promise<void> {
+export async function adoptFontFaces(faces: readonly WorkerFontFace[]): Promise<string[]> {
   const set = (globalThis as { fonts?: FontFaceSet }).fonts;
-  if (!set || typeof FontFace === 'undefined') return;
+  if (!set || typeof FontFace === 'undefined') return [];
+  const failed = new Set<string>();
+  const seen = new Set<string>();
   await Promise.all(
     faces.map(async (face) => {
+      seen.add(face.family);
       try {
         const descriptors: FontFaceDescriptors = {};
         if (face.weight) descriptors.weight = face.weight;
@@ -146,12 +157,14 @@ export async function adoptFontFaces(faces: readonly WorkerFontFace[]): Promise<
         const loaded = await new FontFace(face.family, face.source, descriptors).load();
         set.add(loaded);
       } catch {
-        // Unreachable or undecodable payload — the family stays on fallback in
-        // this realm, which the readiness key cannot express per-family. The
-        // batch still completes so the rest of the document is correct.
+        // Unreachable or undecodable payload. The family stays on fallback in
+        // this realm, so it is withheld from the adopted set and text using it
+        // keeps rendering on the main thread.
+        failed.add(face.family);
       }
     }),
   );
+  return [...seen].filter((family) => !failed.has(family));
 }
 
 /**
@@ -161,24 +174,65 @@ export async function adoptFontFaces(faces: readonly WorkerFontFace[]): Promise<
  * the worker back. A document whose text uses system families renders
  * identically either way and keeps the worker fast path.
  */
+interface WorkerTextFormat {
+  fontFamily?: string;
+}
+
+interface WorkerTextRun {
+  text?: string;
+  format?: WorkerTextFormat;
+}
+
+interface WorkerTextContent {
+  paragraphs?: Array<{ runs?: WorkerTextRun[] }>;
+}
+
+interface WorkerTextStyle {
+  type?: string;
+  fontFamily?: string;
+}
+
+interface WorkerTextNode {
+  kind: string;
+  fontFamily?: string;
+  styleId?: string;
+  richText?: WorkerTextContent;
+  storyBinding?: { storyId: string };
+}
+
+interface WorkerDocument {
+  nodes: Record<string, WorkerTextNode>;
+  styles?: Record<string, WorkerTextStyle>;
+  stories?: Record<string, { content?: WorkerTextContent }>;
+}
+
+function richTextNeedsWorkerFont(
+  content: WorkerTextContent | undefined,
+  fallbackFamily: string,
+  declaredFamilies: ReadonlySet<string>,
+): boolean {
+  for (const paragraph of content?.paragraphs ?? []) {
+    for (const run of paragraph.runs ?? []) {
+      if (declaredFamilies.has(run.format?.fontFamily ?? fallbackFamily)) return true;
+    }
+  }
+  return false;
+}
+
 export function documentNeedsWorkerFonts(
-  doc: { nodes: Record<string, { kind: string; fontFamily?: string; richText?: unknown }> },
+  doc: WorkerDocument,
   declaredFamilies: ReadonlySet<string>,
 ): boolean {
   if (declaredFamilies.size === 0) return false;
   for (const node of Object.values(doc.nodes)) {
     if (node.kind !== 'text') continue;
-    if (node.fontFamily && declaredFamilies.has(node.fontFamily)) return true;
-    const paragraphs = (
-      node.richText as
-        | { paragraphs?: Array<{ runs: Array<{ format?: { fontFamily?: string } }> }> }
-        | undefined
-    )?.paragraphs;
-    for (const paragraph of paragraphs ?? []) {
-      for (const run of paragraph.runs) {
-        if (run.format?.fontFamily && declaredFamilies.has(run.format.fontFamily)) return true;
-      }
-    }
+    const style = node.styleId ? doc.styles?.[node.styleId] : undefined;
+    const baseFamily = node.fontFamily ?? style?.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
+    if (declaredFamilies.has(baseFamily)) return true;
+    if (richTextNeedsWorkerFont(node.richText, baseFamily, declaredFamilies)) return true;
+
+    const story = node.storyBinding ? doc.stories?.[node.storyBinding.storyId] : undefined;
+    if (richTextNeedsWorkerFont(story?.content, baseFamily, declaredFamilies)) return true;
   }
   return false;
 }

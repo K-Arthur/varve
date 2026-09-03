@@ -199,6 +199,41 @@ describe('createEngine (stub)', () => {
     }
   });
 
+  it('preserves compound path holes and fill rule in the IR primitive', async () => {
+    const ring = (x: number, y: number, size: number) => [
+      { x, y, handleIn: null, handleOut: null },
+      { x: x + size, y, handleIn: null, handleOut: null },
+      { x: x + size, y: y + size, handleIn: null, handleOut: null },
+      { x, y: y + size, handleIn: null, handleOut: null },
+    ];
+    const ir = await (await createEngine('stub')).buildIr({
+      nodes: [
+        {
+          id: 'donut',
+          name: 'donut',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: {
+            kind: 'path',
+            points: ring(0, 0, 100),
+            contours: [ring(0, 0, 100), ring(25, 25, 50)],
+            holes: [ring(25, 25, 50)],
+            fillRule: 'evenodd',
+            closed: true,
+            tolerance: 1,
+          },
+          fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
+        },
+      ],
+    });
+    const primitive = ir[0]?.primitive;
+    expect(primitive?.kind).toBe('path');
+    if (primitive?.kind === 'path') {
+      expect(primitive.holes).toHaveLength(1);
+      expect(primitive.contours).toHaveLength(2);
+      expect(primitive.fillRule).toBe('evenodd');
+    }
+  });
+
   it('buildIr maps text node to text primitive', async () => {
     const eng = await createEngine();
     const ir = await eng.buildIr({
@@ -332,6 +367,67 @@ describe('createEngine (stub)', () => {
       expect(primitive.w).toBe(240);
       expect(primitive.h).toBe(120);
       expect(primitive.textMode).toBe('area');
+    }
+  });
+
+  it('uses text resizing to keep direct engine text geometry and painting aligned', async () => {
+    const eng = await createEngine('stub');
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'auto-height-text',
+          name: 'Auto height text',
+          kind: 'text',
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          text: 'A sentence that must wrap inside the text frame.',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal',
+          textMode: 'point',
+          textResizing: 'autoHeight',
+          w: 80,
+          h: 24,
+        },
+      ],
+    });
+    const primitive = ir[0]?.primitive;
+    expect(primitive?.kind).toBe('text');
+    if (primitive?.kind === 'text') {
+      expect(primitive.textMode).toBe('area');
+      expect(primitive.w).toBe(80);
+      expect(primitive.h).toBeGreaterThan(24);
+    }
+  });
+
+  it('includes paragraph spacing and text case in direct text geometry', async () => {
+    const eng = await createEngine('stub');
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'spaced-text',
+          name: 'Spaced text',
+          kind: 'text',
+          transform: [1, 0, 0, 1, 0, 0],
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          text: 'a\nb',
+          fontSize: 16,
+          fontFamily: 'Inter',
+          fontWeight: 400,
+          fontStyle: 'normal',
+          lineHeight: 1.4,
+          paragraphSpacing: 12,
+          textCase: 'uppercase',
+        },
+      ],
+    });
+    const primitive = ir[0]?.primitive;
+    expect(primitive?.kind).toBe('text');
+    if (primitive?.kind === 'text') {
+      expect(primitive.h).toBeCloseTo(16 * 1.4 * 2 + 12);
+      expect(primitive.textCase).toBe('uppercase');
+      expect(primitive.paragraphSpacing).toBe(12);
     }
   });
 

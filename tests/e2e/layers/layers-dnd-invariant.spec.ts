@@ -457,6 +457,11 @@ test.describe('Layers DnD — virtualized tree', () => {
 
     const rows = await readRows(page);
     const source = rows[0]!;
+    // seedManyLayers grows the tree with Ctrl+A / Ctrl+D, which leaves the
+    // whole tree selected — and dragging a selected row carries the entire
+    // selection. Narrow it to one row so this exercises a single-node move.
+    await page.locator(`[role="treeitem"][data-node-id="${source.id}"]`).click();
+    await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(1);
     await beginDrag(page, source.id);
 
     const treeBox = await tree.boundingBox();
@@ -469,24 +474,70 @@ test.describe('Layers DnD — virtualized tree', () => {
       .toBeGreaterThan(50);
 
     // The indicator must track the rows sliding beneath the still cursor.
-    const indicator = await readIndicator(page);
-    expect(indicator).not.toBeNull();
+    expect(await readIndicator(page)).not.toBeNull();
     await page
       .getByTestId('layers-panel')
       .screenshot({ path: 'test-results/layers-invariant-autoscroll.png' });
 
-    // Whatever it is pointing at now is what must receive the layer.
-    const finalPreview = await readIndicator(page);
-    await page.mouse.up();
+    // Leave the edge band so scrolling stops, and wait for it to settle. The
+    // target is re-resolved every frame while auto-scroll runs — by design,
+    // since the rows move under a stationary cursor — so reading a preview
+    // mid-scroll and releasing a moment later compares two different frames.
+    await page.mouse.move(treeBox.x + treeBox.width / 2, treeBox.y + treeBox.height / 2);
+    // Let the pointer move be processed and the rAF loop notice it has left
+    // the band before sampling, otherwise the first two reads can match while
+    // the list is still moving.
     await page.waitForTimeout(300);
+    await expect
+      .poll(
+        async () => {
+          const a = await tree.evaluate((el) => el.scrollTop);
+          await page.waitForTimeout(150);
+          const b = await tree.evaluate((el) => el.scrollTop);
+          await page.waitForTimeout(150);
+          const c = await tree.evaluate((el) => el.scrollTop);
+          return a === b && b === c;
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true);
 
-    if (finalPreview?.nodeId) {
-      const after = await readRows(page);
-      const si = after.findIndex((r) => r.id === source.id);
-      const ti = after.findIndex((r) => r.id === finalPreview.nodeId);
-      expect(si).toBeGreaterThanOrEqual(0);
-      expect(ti).toBeGreaterThanOrEqual(0);
-      expect(Math.abs(si - ti)).toBe(1);
-    }
+    // Aim at a point well inside the viewport rather than picking a row by
+    // index: after scrolling, `readRows` also returns overscan rows that are
+    // mounted but clipped out of view, and the resolver correctly refuses a
+    // pointer that is outside the tree.
+    const aimY = treeBox.y + treeBox.height * 0.6;
+    await page.mouse.move(treeBox.x + treeBox.width / 2, aimY, { steps: 4 });
+    await page.mouse.move(treeBox.x + treeBox.width / 2, aimY);
+
+    // Whatever the panel is now pointing at is what must receive the layer —
+    // and it has to be a row auto-scroll brought into view, not the one the
+    // drag started from.
+    const finalPreview = await readIndicator(page);
+    expect(finalPreview, 'an indicator after auto-scroll settles').not.toBeNull();
+    const targetId = finalPreview?.nodeId;
+    expect(targetId).toBeTruthy();
+    expect(targetId).not.toBe(source.id);
+    const zone = finalPreview?.zone;
+    await page.mouse.up();
+
+    // Compare `aria-posinset`, not positions within `readRows`. That helper
+    // reports the mounted window, and in a virtualized tree a row can drop out
+    // of it — posinset is the row's index in the whole list, so it stays
+    // meaningful however the panel has scrolled.
+    const posOf = async (id: string): Promise<number | null> => {
+      const row = page.locator(`[role="treeitem"][data-node-id="${id}"]`);
+      await row.scrollIntoViewIfNeeded().catch(() => undefined);
+      const v = await row.getAttribute('aria-posinset').catch(() => null);
+      return v == null ? null : Number(v);
+    };
+
+    await expect
+      .poll(async () => {
+        const sp = await posOf(source.id);
+        const tp = await posOf(targetId!);
+        return sp != null && tp != null ? sp - tp : null;
+      })
+      .toBe(zone === 'before' ? -1 : 1);
   });
 });

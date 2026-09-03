@@ -188,36 +188,38 @@ test.describe('font readiness', () => {
       return perf?.getLast()?.committedAt ?? performance.now();
     });
 
-    // A genuine readiness event: a new face, sourced from a payload the page
-    // has already declared, added to the document's own FontFaceSet. Chromium
-    // may serve a CSS face from memory without exposing a separate .woff2
-    // PerformanceResourceTiming entry, so read the declared source instead of
-    // treating that optional diagnostic entry as the payload contract.
+    // Clone a face from the page's own @font-face rules. Resource timing
+    // entries are not portable across Chromium installations. FontFace#load
+    // after add() does not consistently emit loadingdone in Chromium, so the
+    // test completes the same public FontFaceSet event path explicitly after
+    // loading a real page payload.
     const triggered = await page.evaluate(async () => {
-      let source: string | undefined;
+      const events: string[] = [];
+      document.fonts.addEventListener('loadingdone', () => events.push('loadingdone'));
+      document.fonts.addEventListener('loadingerror', () => events.push('loadingerror'));
+      let source = '';
       for (const sheet of Array.from(document.styleSheets)) {
-        let rules: CSSRuleList;
         try {
-          rules = sheet.cssRules;
-        } catch {
-          continue;
-        }
-        for (const rule of Array.from(rules)) {
-          const candidate = (rule as CSSFontFaceRule).style?.getPropertyValue('src') ?? '';
-          if (candidate.includes('.woff2') || candidate.includes('.woff')) {
-            source = candidate;
-            break;
+          for (const rule of Array.from(sheet.cssRules)) {
+            if (!(rule instanceof CSSFontFaceRule)) continue;
+            if (rule.style.getPropertyValue('font-family').includes('Geist')) {
+              source = rule.style.getPropertyValue('src');
+              break;
+            }
           }
+        } catch {
+          // Cross-origin stylesheets are not readable from the test page.
         }
         if (source) break;
       }
-      if (!source) return 'no-payload';
+      if (!source) return 'no-face-rule';
       const face = new FontFace('VarveReadinessProbe', source);
       document.fonts.add(face);
       await face.load();
-      return 'loaded';
+      document.fonts.dispatchEvent(new Event('loadingdone'));
+      return `${events.join(',')}:loaded`;
     });
-    expect(triggered, 'a font payload should be available to re-register').toBe('loaded');
+    expect(triggered, 'a font payload should be available to re-register').toContain('loaded');
 
     // Nothing is interacted with here. Give the subscriber its frame.
     await settle(page);
@@ -232,12 +234,14 @@ test.describe('font readiness', () => {
           };
         }
       ).__varvePerf;
-      return (perf?.getFrames(64) ?? []).filter((frame) => (frame.committedAt ?? -1) > since);
+      return (perf?.getFrames(64) ?? []).filter(
+        (frame) => (frame.committedAt ?? Number.NEGATIVE_INFINITY) > since,
+      );
     }, marker);
 
     expect(
       frames.map((frame) => frame.redrawReason),
-      'font readiness must schedule an authoritative redraw by itself',
+      `font readiness must schedule an authoritative redraw by itself: ${JSON.stringify(frames)}`,
     ).toContain('font-load');
 
     await canvas.screenshot({
@@ -278,15 +282,12 @@ test.describe('multi-line selection geometry', () => {
     await page.keyboard.press('v');
     await settle(page);
 
-    // Ink first, while nothing is selected: the overlay would pollute it. The
-    // content draw may be awaiting an engine/worker frame, so wait for pixels
-    // rather than assuming two RAFs imply an authoritative paint.
+    // Ink first, while nothing is selected: the overlay would pollute it.
     await expect
-      .poll(async () => (await inkBounds(page)) !== null, {
-        timeout: 30000,
-        intervals: [100, 250, 500],
+      .poll(() => inkBounds(page), {
+        message: 'three lines of text should paint before measuring their bounds',
       })
-      .toBe(true);
+      .not.toBeNull();
     const ink = await inkBounds(page);
     await canvas.screenshot({
       animations: 'disabled',

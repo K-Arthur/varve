@@ -329,52 +329,19 @@ fn shape_path_operators(node: &SceneNode, page_height: f64) -> Vec<u8> {
             let y1 = page_height - to[1] - y_off;
             format!("{x0:.2} {y0:.2} m\n{x1:.2} {y1:.2} l\n").into_bytes()
         }
-        Shape::Path { points, closed, .. } => {
+        Shape::Path {
+            points,
+            closed,
+            holes,
+            ..
+        } => {
             if points.is_empty() {
                 return Vec::new();
             }
             let mut buf = Vec::new();
-            for (i, pt) in points.iter().enumerate() {
-                let px = pt.x + x_off;
-                let py = page_height - pt.y - y_off;
-                if i == 0 {
-                    buf.extend(format!("{px:.2} {py:.2} m\n").as_bytes());
-                } else {
-                    let prev = &points[i - 1];
-                    let prev_px = prev.x + x_off;
-                    let prev_py = page_height - prev.y - y_off;
-                    if prev.handle_out.is_some() || pt.handle_in.is_some() {
-                        let cp1x = if let Some(ho) = prev.handle_out {
-                            prev_px + ho[0]
-                        } else {
-                            prev_px
-                        };
-                        let cp1y = if let Some(ho) = prev.handle_out {
-                            prev_py - ho[1]
-                        } else {
-                            prev_py
-                        };
-                        let cp2x = if let Some(hi) = pt.handle_in {
-                            px + hi[0]
-                        } else {
-                            px
-                        };
-                        let cp2y = if let Some(hi) = pt.handle_in {
-                            py - hi[1]
-                        } else {
-                            py
-                        };
-                        buf.extend(
-                            format!("{cp1x:.2} {cp1y:.2} {cp2x:.2} {cp2y:.2} {px:.2} {py:.2} c\n")
-                                .as_bytes(),
-                        );
-                    } else {
-                        buf.extend(format!("{px:.2} {py:.2} l\n").as_bytes());
-                    }
-                }
-            }
-            if *closed {
-                buf.extend_from_slice(b"h\n");
+            append_path_ring(&mut buf, points, *closed, page_height, x_off, y_off);
+            for hole in holes {
+                append_path_ring(&mut buf, hole, true, page_height, x_off, y_off);
             }
             buf
         }
@@ -386,6 +353,82 @@ fn shape_path_operators(node: &SceneNode, page_height: f64) -> Vec<u8> {
             let py = page_height - y - h - y_off;
             format!("{px:.2} {py:.2} {w:.2} {h:.2} re\n").into_bytes()
         }
+    }
+}
+
+/// Append one local-space path contour to a PDF path stream.
+///
+/// Holes are emitted as independent subpaths so the caller can select the
+/// appropriate nonzero/even-odd fill rule. Handles are converted to PDF's
+/// Y-up control-point coordinates alongside their endpoints.
+fn append_path_ring(
+    buf: &mut Vec<u8>,
+    points: &[varve_core::PathPoint],
+    closed: bool,
+    page_height: f64,
+    x_off: f64,
+    y_off: f64,
+) {
+    if points.is_empty() {
+        return;
+    }
+    for (i, pt) in points.iter().enumerate() {
+        let px = pt.x + x_off;
+        let py = page_height - pt.y - y_off;
+        if i == 0 {
+            buf.extend(format!("{px:.2} {py:.2} m\n").as_bytes());
+        } else {
+            let prev = &points[i - 1];
+            let prev_px = prev.x + x_off;
+            let prev_py = page_height - prev.y - y_off;
+            if prev.handle_out.is_some() || pt.handle_in.is_some() {
+                let cp1x = prev
+                    .handle_out
+                    .map_or(prev_px, |handle| prev_px + handle[0]);
+                let cp1y = prev
+                    .handle_out
+                    .map_or(prev_py, |handle| prev_py - handle[1]);
+                let cp2x = pt.handle_in.map_or(px, |handle| px + handle[0]);
+                let cp2y = pt.handle_in.map_or(py, |handle| py - handle[1]);
+                buf.extend(
+                    format!("{cp1x:.2} {cp1y:.2} {cp2x:.2} {cp2y:.2} {px:.2} {py:.2} c\n")
+                        .as_bytes(),
+                );
+            } else {
+                buf.extend(format!("{px:.2} {py:.2} l\n").as_bytes());
+            }
+        }
+    }
+    if closed {
+        buf.extend_from_slice(b"h\n");
+    }
+}
+
+fn path_uses_even_odd_fill(node: &SceneNode) -> bool {
+    match &node.shape {
+        Shape::Path {
+            holes, fill_rule, ..
+        } => fill_rule
+            .as_deref()
+            .map(|rule| rule.eq_ignore_ascii_case("evenodd"))
+            .unwrap_or(!holes.is_empty()),
+        _ => false,
+    }
+}
+
+fn path_fill_operator(node: &SceneNode) -> &'static [u8] {
+    if path_uses_even_odd_fill(node) {
+        b"f*\n"
+    } else {
+        b"f\n"
+    }
+}
+
+fn path_clip_operator(node: &SceneNode) -> &'static [u8] {
+    if path_uses_even_odd_fill(node) {
+        b"W* n\n"
+    } else {
+        b"W n\n"
     }
 }
 
@@ -593,6 +636,37 @@ fn apply_pdf_affine(matrix: [f64; 6], x: f64, y: f64) -> (f64, f64) {
 
 fn node_affine(node: &SceneNode) -> [f64; 6] {
     node.transform.as_coeffs()
+}
+
+/// Return the canonical unit-fill → page-space matrix used by PDF shadings.
+///
+/// Explicit gradient transforms are authoritative. Legacy rotation-only
+/// gradients are materialized against the pre-transform local bounds so a
+/// native export cannot silently reset them to a new bounding-box default.
+fn gradient_page_affine(
+    node: &SceneNode,
+    page_height: f64,
+    transform: Option<[f64; 6]>,
+    rotation: f64,
+) -> [f64; 6] {
+    let local = transform.unwrap_or_else(|| {
+        let (x, y, w, h) = shape_local_bounds(node);
+        let radius = (w * w + h * h).sqrt() / 2.0;
+        let cx = x + w / 2.0;
+        let cy = y + h / 2.0;
+        let radians = rotation.to_radians();
+        let (sin, cos) = radians.sin_cos();
+        [
+            2.0 * radius * cos,
+            2.0 * radius * sin,
+            -2.0 * radius * sin,
+            2.0 * radius * cos,
+            cx - radius * cos + radius * sin,
+            cy - radius * sin - radius * cos,
+        ]
+    });
+    let page_flip = [1.0, 0.0, 0.0, -1.0, 0.0, page_height];
+    multiply_pdf_affine(page_flip, multiply_pdf_affine(node_affine(node), local))
 }
 
 fn image_content_affine(
@@ -950,7 +1024,8 @@ struct GradientShadingDef {
     stops: Vec<GradientStop>,
     use_cmyk: bool,
     profile: Option<PrintProfile>,
-    rotation: f64,
+    /// Canonical unit-fill → PDF page-space matrix.
+    matrix: [f64; 6],
 }
 
 /// Tracks gradient shading definitions during render. Collects gradient
@@ -975,7 +1050,7 @@ impl ShadingRegistry {
         stops: &[GradientStop],
         use_cmyk: bool,
         profile: Option<PrintProfile>,
-        rotation: f64,
+        matrix: [f64; 6],
     ) -> String {
         let name = format!("Sh{}", self.next_id);
         self.next_id += 1;
@@ -986,7 +1061,7 @@ impl ShadingRegistry {
                 stops: stops.to_vec(),
                 use_cmyk,
                 profile,
-                rotation,
+                matrix,
             },
         ));
         name
@@ -998,7 +1073,7 @@ impl ShadingRegistry {
         stops: &[GradientStop],
         use_cmyk: bool,
         profile: Option<PrintProfile>,
-        rotation: f64,
+        matrix: [f64; 6],
     ) -> String {
         let name = format!("Sh{}", self.next_id);
         self.next_id += 1;
@@ -1009,7 +1084,7 @@ impl ShadingRegistry {
                 stops: stops.to_vec(),
                 use_cmyk,
                 profile,
-                rotation,
+                matrix,
             },
         ));
         name
@@ -1027,21 +1102,19 @@ impl ShadingRegistry {
             };
             match def.kind {
                 ShadingKind::Linear => {
-                    // Apply rotation around center (0.5, 0.5) to the Coords.
-                    // Default unrotated: [0, 0, 1, 0] (horizontal).
-                    let rot_rad = def.rotation * (std::f64::consts::PI / 180.0);
-                    let (cos, sin) = (rot_rad.cos() as f32, rot_rad.sin() as f32);
-                    let x1 = 0.5 - cos * 0.5;
-                    let y1 = 0.5 - sin * 0.5;
-                    let x2 = 0.5 + cos * 0.5;
-                    let y2 = 0.5 + sin * 0.5;
+                    // Type 2 axial gradients accept page-space endpoints.
+                    // Transforming both endpoints preserves translation,
+                    // scale, reflection and skew instead of retaining only an
+                    // angle.
+                    let (x1, y1) = apply_pdf_affine(def.matrix, 0.0, 0.5);
+                    let (x2, y2) = apply_pdf_affine(def.matrix, 1.0, 0.5);
                     let shading_dict = dictionary! {
                         "ShadingType" => 2i64,
                         "ColorSpace" => color_space,
                         "Domain" => vec![Object::Real(0.0), Object::Real(1.0)],
                         "Coords" => vec![
-                            Object::Real(x1), Object::Real(y1),
-                            Object::Real(x2), Object::Real(y2),
+                            Object::Real(x1 as f32), Object::Real(y1 as f32),
+                            Object::Real(x2 as f32), Object::Real(y2 as f32),
                         ],
                         "Function" => Object::Reference(func_id),
                         "Extend" => vec![Object::Boolean(true), Object::Boolean(true)],
@@ -1052,9 +1125,11 @@ impl ShadingRegistry {
                     resources.push((name.clone(), shading_id));
                 }
                 ShadingKind::Radial => {
-                    // Type 3 (Radial) shading: start circle at center with r=0,
-                    // end circle at center with r=0.707 (half the diagonal of
-                    // the unit square used by the clipping path).
+                    // Type 3's canonical circles are mapped through the full
+                    // page-space matrix. PDF consumers that honour the
+                    // shading matrix retain elliptical/skewed radial fields;
+                    // targets without that capability are rasterized by the
+                    // compositor before reaching this writer.
                     let shading_dict = dictionary! {
                         "ShadingType" => 3i64,
                         "ColorSpace" => color_space,
@@ -1063,6 +1138,7 @@ impl ShadingRegistry {
                             Object::Real(0.5), Object::Real(0.5), Object::Real(0.0),
                             Object::Real(0.5), Object::Real(0.5), Object::Real(std::f64::consts::FRAC_1_SQRT_2 as f32),
                         ],
+                        "Matrix" => def.matrix.iter().map(|value| Object::Real(*value as f32)).collect::<Vec<_>>(),
                         "Function" => Object::Reference(func_id),
                         "Extend" => vec![Object::Boolean(true), Object::Boolean(true)],
                     };
@@ -1278,7 +1354,7 @@ fn render_fills(
                                     );
                                 } else {
                                     buf.extend(&path_ops);
-                                    buf.extend_from_slice(b"W n\n");
+                                    buf.extend_from_slice(path_clip_operator(node));
                                 }
 
                                 // Try to resolve image from manifest by source URL
@@ -1577,7 +1653,7 @@ fn render_fills(
                         // Non-rectangular shapes: clip to the shape path first
                         if !matches!(node.shape, Shape::Rect(_)) {
                             buf.extend(&path_ops);
-                            buf.extend_from_slice(b"W n\n");
+                            buf.extend_from_slice(path_clip_operator(node));
                         }
 
                         // Try to resolve tile from manifest
@@ -1614,7 +1690,7 @@ fn render_fills(
                                             shape_pdf_bounds(node, page_height);
                                         buf.extend_from_slice(b"q\n");
                                         buf.extend(&path_ops);
-                                        buf.extend_from_slice(b"W n\n");
+                                        buf.extend_from_slice(path_clip_operator(node));
 
                                         // Tile the image across shape bounds
                                         let x_step = tile_w + *spacing;
@@ -1723,7 +1799,7 @@ fn render_fills(
                         buf.extend(color_str.as_bytes());
                         buf.extend(b"\n");
                         buf.extend(&path_ops);
-                        buf.extend_from_slice(b"f\n");
+                        buf.extend_from_slice(path_fill_operator(node));
                         if fill_opacity(fill) < 1.0 {
                             buf.extend(format!("% opacity={:.3}\n", fill_opacity(fill)).as_bytes());
                         }
@@ -1733,20 +1809,23 @@ fn render_fills(
                         gradient_type,
                         stops,
                         rotation,
+                        transform,
                         ..
                     } => {
                         buf.extend_from_slice(b"q\n");
                         let use_shading = stops.len() >= 2;
                         if use_shading {
                             if let Some(registry) = shading_registry.as_mut() {
+                                let matrix =
+                                    gradient_page_affine(node, page_height, *transform, *rotation);
                                 let shading_name = match gradient_type.as_str() {
                                     "radial" => registry
-                                        .add_radial_gradient(stops, use_cmyk, profile, *rotation),
+                                        .add_radial_gradient(stops, use_cmyk, profile, matrix),
                                     _ => registry
-                                        .add_linear_gradient(stops, use_cmyk, profile, *rotation),
+                                        .add_linear_gradient(stops, use_cmyk, profile, matrix),
                                 };
                                 buf.extend(&path_ops);
-                                buf.extend_from_slice(b"W n\n");
+                                buf.extend_from_slice(path_clip_operator(node));
                                 buf.extend(format!("/{shading_name} sh\n").as_bytes());
                             } else {
                                 let color_str =
@@ -1754,14 +1833,14 @@ fn render_fills(
                                 buf.extend(color_str.as_bytes());
                                 buf.extend(b"\n");
                                 buf.extend(&path_ops);
-                                buf.extend_from_slice(b"f\n");
+                                buf.extend_from_slice(path_fill_operator(node));
                             }
                         } else {
                             let color_str = fill_to_color_string(fill, use_cmyk, profile, lossy);
                             buf.extend(color_str.as_bytes());
                             buf.extend(b"\n");
                             buf.extend(&path_ops);
-                            buf.extend_from_slice(b"f\n");
+                            buf.extend_from_slice(path_fill_operator(node));
                         }
                         if fill_opacity(fill) < 1.0 {
                             buf.extend(format!("% opacity={:.3}\n", fill_opacity(fill)).as_bytes());
@@ -1783,7 +1862,7 @@ fn render_fills(
     }
     buf.extend(b"\n");
     buf.extend(&path_ops);
-    buf.extend_from_slice(b"f\n");
+    buf.extend_from_slice(path_fill_operator(node));
     if node.opacity < 1.0 {
         buf.extend(format!("% opacity={:.3}\n", node.opacity).as_bytes());
     }
@@ -1911,7 +1990,7 @@ fn render_effects(
                 buf.extend(b"\n");
 
                 buf.extend(&path_ops);
-                buf.extend_from_slice(b"f\n");
+                buf.extend_from_slice(path_fill_operator(node));
 
                 if *opacity < 1.0 {
                     buf.extend(format!("% opacity={:.3}\n", opacity).as_bytes());
@@ -3783,6 +3862,55 @@ mod tests {
     }
 
     #[test]
+    fn path_ops_compound_path_emits_hole_subpath() {
+        let ring = |x: f64, y: f64, size: f64| {
+            vec![
+                varve_core::PathPoint {
+                    x,
+                    y,
+                    handle_in: None,
+                    handle_out: None,
+                },
+                varve_core::PathPoint {
+                    x: x + size,
+                    y,
+                    handle_in: None,
+                    handle_out: None,
+                },
+                varve_core::PathPoint {
+                    x: x + size,
+                    y: y + size,
+                    handle_in: None,
+                    handle_out: None,
+                },
+                varve_core::PathPoint {
+                    x,
+                    y: y + size,
+                    handle_in: None,
+                    handle_out: None,
+                },
+            ]
+        };
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.shape = Shape::Path {
+            points: ring(0.0, 0.0, 100.0),
+            closed: true,
+            tolerance: 1.0,
+            holes: vec![ring(25.0, 25.0, 50.0)],
+            fill_rule: Some("evenodd".into()),
+        };
+
+        let op_bytes = shape_path_operators(&node, 100.0);
+        let ops = String::from_utf8_lossy(&op_bytes);
+        assert_eq!(ops.matches(" m\n").count(), 2, "outer and hole subpaths");
+        assert_eq!(ops.matches("h\n").count(), 2, "both contours close");
+
+        let fill = render_fills(&node, 100.0, false, None, None, None, None, false);
+        let fill = String::from_utf8_lossy(&fill);
+        assert!(fill.contains("f*\n"), "even-odd compound paths use f*");
+    }
+
+    #[test]
     fn path_ops_empty_path() {
         let node = SceneNode {
             id: varve_core::NodeId(1),
@@ -3899,6 +4027,65 @@ mod tests {
             registry.definitions.len(),
             1,
             "should have one gradient definition"
+        );
+    }
+
+    #[test]
+    fn render_fills_gradient_preserves_explicit_affine_in_page_space() {
+        let mut node = rect_node(1, 10.0, 20.0, 100.0, 80.0);
+        node.fills = Some(vec![FillIR::Gradient {
+            gradient_type: "linear".into(),
+            stops: vec![
+                GradientStop {
+                    position: 0.0,
+                    color: EngineColor::Rgb {
+                        r: 255.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 255.0,
+                        bit_depth: None,
+                        profile: None,
+                    },
+                    midpoint: None,
+                },
+                GradientStop {
+                    position: 1.0,
+                    color: EngineColor::Rgb {
+                        r: 0.0,
+                        g: 0.0,
+                        b: 255.0,
+                        a: 255.0,
+                        bit_depth: None,
+                        profile: None,
+                    },
+                    midpoint: None,
+                },
+            ],
+            rotation: 0.0,
+            interpolation_space: None,
+            hue_interpolation: None,
+            transform: Some([40.0, 10.0, -5.0, 30.0, 12.0, 8.0]),
+            tiling_mode: None,
+            opacity: 1.0,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+        }]);
+        let mut registry = ShadingRegistry::new();
+        let _ = render_fills(
+            &node,
+            200.0,
+            false,
+            None,
+            None,
+            None,
+            Some(&mut registry),
+            false,
+        );
+        assert_eq!(registry.definitions.len(), 1);
+        assert_eq!(
+            registry.definitions[0].1.matrix,
+            [40.0, -10.0, -5.0, -30.0, 22.0, 172.0],
+            "node/page transforms must be composed with the authored fill matrix"
         );
     }
 

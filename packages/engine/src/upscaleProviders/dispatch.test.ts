@@ -141,6 +141,7 @@ describe('mapNativePathsToTraceResult', () => {
     ]);
     expect(result.paths).toHaveLength(1);
     expect(result.paths[0]?.bounds).toEqual({ x: 0, y: 0, w: 4, h: 4 });
+    expect(result.paths[0]?.curveFitted).toBe(true);
     expect(result.omittedHoles).toBe(0);
   });
 });

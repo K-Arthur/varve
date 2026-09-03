@@ -23,6 +23,7 @@ import type { RasterAsset } from '@varve/codegen';
 import {
   adjustmentsToFilters,
   anyRequiresRasterExport,
+  applyRasterizationTransform,
   createEngine,
   createRasterSurface,
   type Engine,
@@ -58,6 +59,10 @@ export interface FlattenCapability {
   nativeShapeKinds: ReadonlySet<string>;
   /** Gradient types the target supports (e.g. 'linear'). */
   nativeGradientTypes: ReadonlySet<string>;
+  /** Whether gradient paint servers may be attached directly to strokes. */
+  supportsGradientStrokes: boolean;
+  /** Whether the target preserves more than one visible stroke per shape. */
+  supportsMultipleStrokes: boolean;
   /** Whether the target supports text nodes with font fallback. */
   supportsText: boolean;
   /** Whether the target supports groups/frames with clipping. */
@@ -166,8 +171,8 @@ const PDF_NATIVE_SHAPES = new Set([
   'path',
 ]);
 
-/** SVG natively supports only linear gradients. */
-const SVG_NATIVE_GRADIENTS = new Set(['linear']);
+/** SVG natively supports affine linear and radial paint servers. */
+const SVG_NATIVE_GRADIENTS = new Set(['linear', 'radial']);
 
 /** PDF natively supports linear gradients (Shading Type 2). */
 const PDF_NATIVE_GRADIENTS = new Set(['linear']);
@@ -216,6 +221,8 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
   svg: {
     nativeShapeKinds: SVG_NATIVE_SHAPES,
     nativeGradientTypes: SVG_NATIVE_GRADIENTS,
+    supportsGradientStrokes: true,
+    supportsMultipleStrokes: false,
     supportsText: true,
     supportsGroups: true,
     supportsImages: true,
@@ -232,6 +239,8 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
   pdf: {
     nativeShapeKinds: PDF_NATIVE_SHAPES,
     nativeGradientTypes: PDF_NATIVE_GRADIENTS,
+    supportsGradientStrokes: false,
+    supportsMultipleStrokes: true,
     supportsText: true, // native PDF text via strata-print (WinAnsi + subset + outline fallback)
     supportsGroups: true,
     supportsImages: true,
@@ -248,6 +257,8 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
   raster: {
     nativeShapeKinds: RASTER_NATIVE_SHAPES,
     nativeGradientTypes: RASTER_NATIVE_GRADIENTS,
+    supportsGradientStrokes: true,
+    supportsMultipleStrokes: true,
     supportsText: true,
     supportsGroups: true,
     supportsImages: true,
@@ -304,11 +315,19 @@ function collectNodeFills(node: SceneNode): Fill[] {
  * Check whether a node's non-linear gradient fills need flattening for SVG.
  */
 function hasNonLinearGradients(node: SceneNode, cap: FlattenCapability): boolean {
-  if (cap.nativeGradientTypes.size >= 4) return false; // supports all
   const fills = collectNodeFills(node);
   for (const fill of fills) {
     if (fill.type === 'gradient' && fill.gradient) {
       if (!cap.nativeGradientTypes.has(fill.gradient.type)) return true;
+    }
+  }
+  if (node.kind === 'shape') {
+    for (const stroke of node.strokes) {
+      if (stroke.visible && stroke.gradient) {
+        if (!cap.supportsGradientStrokes || !cap.nativeGradientTypes.has(stroke.gradient.type)) {
+          return true;
+        }
+      }
     }
   }
   return false;
@@ -408,6 +427,10 @@ export function assessNodeCapability(
   if (node.kind === 'shape') {
     const shape = (node as ShapeNode).shape;
     if (!cap.nativeShapeKinds.has(shape.kind)) return false;
+    if (!cap.supportsMultipleStrokes) {
+      const visibleStrokes = node.strokes.filter((stroke) => stroke.visible);
+      if (visibleStrokes.length > 1) return false;
+    }
   }
 
   // Text nodes
@@ -957,11 +980,23 @@ async function renderBoundaryToSurface(
 
   const ctx = surface.context as CanvasRenderingContext2D;
   ctx.save();
-  ctx.scale(exportScale, exportScale);
-  // The surface is padded by the effect expansion; anchor the content at
-  // the expansion offset so the source bounds land at their true position
-  // inside the padded image.
-  ctx.translate(-bounds.x + (expansion?.left ?? 0), -bounds.y + (expansion?.top ?? 0));
+  // The raster surface is the final crop boundary. Resolve independent X/Y
+  // scales from its rounded backing-store dimensions so effect expansion and
+  // source bounds map to every output edge exactly.
+  const left = expansion?.left ?? 0;
+  const top = expansion?.top ?? 0;
+  const right = expansion?.right ?? 0;
+  const bottom = expansion?.bottom ?? 0;
+  applyRasterizationTransform(
+    ctx,
+    {
+      x: bounds.x - left,
+      y: bounds.y - top,
+      width: bounds.w + left + right,
+      height: bounds.h + top + bottom,
+    },
+    { width: surface.canvas.width, height: surface.canvas.height },
+  );
   replayStructuredScene(ctx, {
     document: doc,
     rootIds: [boundaryNodeId],
@@ -1086,7 +1121,15 @@ async function rasterizeBoundaries(
     // gradients, images, masks, blend modes, and adjustment compositing
     // match the live document exactly. Content is anchored at the expansion
     // offset inside the padded surface.
-    await renderBoundaryToSurface(surface, node.id, doc, eng, exportScale, bounds, expansion);
+    await renderBoundaryToSurface(
+      surface,
+      node.id,
+      doc,
+      eng,
+      exportScale,
+      { ...bounds, w: cssWidth, h: cssHeight },
+      expansion,
+    );
 
     let dataUrl: string;
     try {

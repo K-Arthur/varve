@@ -903,6 +903,7 @@ export function CanvasArea({
     sunkenColorRef,
     draft,
     areaSelection: state.areaSelection ?? null,
+    floatingRaster: state.floatingRaster ?? null,
     dropTargetFrameId,
     maskDropTargetId,
   });

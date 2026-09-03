@@ -1,9 +1,10 @@
 /**
  * Tests for image fill modes (fit, fill, stretch, tile) in replay.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getImageCache, resetImageCache } from './imageCache';
 import { computeImagePlacement, localToSourcePixel } from './imagePlacement';
+import { projectedLongEdgeForTransform } from './mockup/warpReplay';
 import { replayIr } from './replay';
 import type { FillIR, RenderItem } from './types';
 
@@ -92,6 +93,7 @@ function makeRecorder(): {
       strokeStyle: '',
       globalAlpha: 1,
       globalCompositeOperation: 'source-over',
+      getTransform: () => ({ a: 2, b: 0, c: 0, d: 2, e: 0, f: 0 }),
       get filter() {
         return filter;
       },
@@ -175,6 +177,51 @@ afterEach(() => {
 });
 
 describe('image fill modes', () => {
+  it('computes a conservative source footprint for scaled and skewed fills', () => {
+    expect(projectedLongEdgeForTransform(400, 200, { a: 2, b: 0, c: 0, d: 2 })).toBe(800);
+    expect(projectedLongEdgeForTransform(400, 200, { a: 2, b: 0, c: 1, d: 2 })).toBeGreaterThan(
+      800,
+    );
+  });
+
+  it('draws the closest resident proxy while requesting a sharper representation', () => {
+    const source = 'data:image/png;base64,progressive-source';
+    const cache = getImageCache();
+    const resident = mockBitmap('resident-512', 512, 256);
+    cache.setLoaded(cache.atSizeKey(source, 512), resident);
+    const loadAtSize = vi.spyOn(cache, 'loadAtSize').mockResolvedValue(resident);
+    const { target, calls } = makeRecorder();
+
+    replayIr(
+      target,
+      [
+        rectItem(
+          400,
+          200,
+          imageFill({
+            type: 'image',
+            src: source,
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+            imageWidth: 4000,
+            imageHeight: 2000,
+          }),
+        ),
+      ],
+      undefined,
+      undefined,
+      {
+        intent: 'settled-preview',
+        resolveMaxSourceDim: () => 2048,
+      },
+    );
+
+    expect(loadAtSize).toHaveBeenCalledWith(source, 2048, { width: 4000, height: 2000 });
+    expect(calls.some((call) => call.includes('resident-512'))).toBe(true);
+  });
+
   it('uses an interactive proxy while keeping authoritative source dimensions', () => {
     const source = 'data:image/png;base64,adaptive-source';
     const cache = getImageCache();

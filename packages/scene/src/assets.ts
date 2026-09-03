@@ -10,6 +10,8 @@
  *
  * See docs/audits/smart-object-feasibility-audit.md for the decision record.
  */
+
+import { sha256Utf8 } from './sha256';
 import type { DocumentAsset } from './types';
 
 interface AssetDoc {
@@ -316,6 +318,13 @@ export function validateRasterColorEncoding(
     return `Document asset ${assetId} colorEncoding.profileId must be a string`;
   }
   if (
+    encoding.profileFingerprint !== undefined &&
+    (typeof encoding.profileFingerprint !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(encoding.profileFingerprint))
+  ) {
+    return `Document asset ${assetId} colorEncoding.profileFingerprint must be a SHA-256 hex digest`;
+  }
+  if (
     encoding.diagnostics !== undefined &&
     (!Array.isArray(encoding.diagnostics) ||
       encoding.diagnostics.some((d) => typeof d !== 'string'))
@@ -404,15 +413,30 @@ export function upsertIccProfile<T extends IccProfileDoc>(
   description?: string,
 ): { document: T; profileId: string } {
   const hash = hashProfilePayload(profileBase64);
-  const id = `icc-${hash}`;
+  const fingerprint = sha256Utf8(profileBase64);
+  let id = `icc-${hash}`;
   const existing = doc.iccProfiles?.[id];
-  if (existing) return { document: doc, profileId: id };
+  if (existing?.profileBase64 === profileBase64) {
+    if (existing.fingerprint === fingerprint) return { document: doc, profileId: id };
+    return {
+      document: {
+        ...doc,
+        iccProfiles: { ...doc.iccProfiles, [id]: { ...existing, fingerprint } },
+      },
+      profileId: id,
+    };
+  }
+  // The legacy FNV id is kept for compact backward-compatible documents.
+  // A collision must not silently reuse unrelated profile bytes, so new
+  // colliding payloads get a deterministic SHA-256 suffix.
+  if (existing) id = `icc-${hash}-${fingerprint.slice(0, 16)}`;
   const byteLength = Math.max(0, Math.floor((profileBase64.length * 3) / 4));
   const entry: import('./types').IccProfileEntry = {
     id,
     profileBase64,
     byteLength,
     hash,
+    fingerprint,
     ...(description ? { description } : {}),
   };
   return {
@@ -453,6 +477,9 @@ export function validateIccProfileEntry(entry: import('./types').IccProfileEntry
   }
   if (typeof entry.hash !== 'string' || entry.hash.length === 0) {
     return `ICC profile ${entry.id} must have a hash`;
+  }
+  if (entry.fingerprint !== undefined && !/^[a-f0-9]{64}$/.test(entry.fingerprint)) {
+    return `ICC profile ${entry.id} fingerprint must be a SHA-256 hex digest`;
   }
   if (entry.profileClass !== undefined && typeof entry.profileClass !== 'string') {
     return `ICC profile ${entry.id} profileClass must be a string`;

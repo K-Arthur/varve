@@ -10,8 +10,7 @@
  * stored on the source image node so it survives save/load and undo.
  */
 import type { Affine } from '@varve/engine';
-import type { Document } from './document';
-import { getById, removeNode } from './document';
+import { type Document, getById, nextNodeId, removeNode } from './document';
 import type { LiveTraceParams, LiveTraceState, NodeId } from './types';
 import { defaultLiveTraceParams, migrateLiveTraceParams } from './types';
 
@@ -182,7 +181,8 @@ export function bakeLiveTraceToRaster(
   if (!shape?.liveTrace) return doc;
 
   // Generate a unique id for the derived node
-  const derivedId = `derived_${nodeId}_${Date.now()}`;
+  const allocation = nextNodeId(doc);
+  const derivedId = allocation.id;
 
   const derivedNode: import('./types').ShapeNode = {
     id: derivedId,
@@ -219,7 +219,7 @@ export function bakeLiveTraceToRaster(
   };
 
   return {
-    ...doc,
-    nodes: { ...doc.nodes, [derivedId]: derivedNode },
+    ...allocation.doc,
+    nodes: { ...allocation.doc.nodes, [derivedId]: derivedNode },
   };
 }

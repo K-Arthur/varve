@@ -11,6 +11,7 @@
  * 5. report exactly what was preserved and discarded
  */
 import { verifySegmentChecksum } from './log';
+import type { RasterTileStore } from './rasterTileStore';
 import { replayAndVerify } from './replay';
 import type { HistoryStore } from './store';
 import type { IntegrityIssue, LogPosition, RevisionRecord, TailRecoveryReport } from './types';
@@ -22,7 +23,7 @@ import type { IntegrityIssue, LogPosition, RevisionRecord, TailRecoveryReport } 
 export async function recoverTail(
   store: HistoryStore,
   documentId: string,
-  opts: { applyTruncation?: boolean } = {},
+  opts: { applyTruncation?: boolean; rasterTileStore?: RasterTileStore } = {},
 ): Promise<TailRecoveryReport> {
   const segments = await store.listSegments(documentId);
   const report: TailRecoveryReport = {
@@ -71,7 +72,12 @@ export async function recoverTail(
     const cached = verification.get(revision.revisionId);
     if (cached !== undefined) return cached;
     try {
-      const result = await replayAndVerify(store, documentId, revision.revisionId);
+      const result = await replayAndVerify(
+        store,
+        documentId,
+        revision.revisionId,
+        opts.rasterTileStore,
+      );
       verification.set(revision.revisionId, result.verified);
       if (!result.verified) {
         report.warnings.push(`revision ${revision.revisionId}: hash mismatch during recovery scan`);
@@ -232,6 +238,7 @@ async function findNearestVerifiedBranchRevision(
 export async function validateHistory(
   store: HistoryStore,
   documentId: string,
+  opts: { rasterTileStore?: RasterTileStore } = {},
 ): Promise<IntegrityIssue[]> {
   const issues: IntegrityIssue[] = [];
 
@@ -305,7 +312,12 @@ export async function validateHistory(
   for (const revision of revisions) {
     if (!reachable.has(revision.revisionId)) continue;
     try {
-      const result = await replayAndVerify(store, documentId, revision.revisionId);
+      const result = await replayAndVerify(
+        store,
+        documentId,
+        revision.revisionId,
+        opts.rasterTileStore,
+      );
       if (!result.verified) {
         issues.push({
           severity: 'error',

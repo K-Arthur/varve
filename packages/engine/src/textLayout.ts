@@ -209,7 +209,7 @@ export function layoutRichText(
         const trackingWidth = (runTracking * fontSize * Math.max(word.length - 1, 0)) / 1000;
         const wordWidth = measureRunWidth(word, font, fontSize) + trackingWidth;
 
-        if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
+        if (maxWidth > 0 && currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
           if (lineCount >= maxLines - 1) {
             overset = true;
             break;

@@ -10,6 +10,7 @@
 
 import type { Document } from '@varve/scene';
 import { canonicalHistoryHash } from '@varve/scene';
+import type { RasterTileStore } from './rasterTileStore';
 import { createSnapshot } from './snapshots';
 import { type HistoryStore, mintHistoryId } from './store';
 import type {
@@ -111,7 +112,12 @@ export function validateRevisionShape(
 export async function createGenesisRevision(
   store: HistoryStore,
   document: Document,
-  opts: { documentId: string; author: RevisionAuthor; branchName?: string },
+  opts: {
+    documentId: string;
+    author: RevisionAuthor;
+    branchName?: string;
+    rasterTileStore?: RasterTileStore;
+  },
 ): Promise<{ genesis: RevisionRecord; branch: BranchRef }> {
   const revision = buildRevision({
     document,
@@ -125,6 +131,7 @@ export async function createGenesisRevision(
   const snapshot = await createSnapshot(store, document, {
     documentId: opts.documentId,
     revisionId: revision.revisionId,
+    rasterTileStore: opts.rasterTileStore,
   });
   const snapshotted = { ...revision, snapshotId: snapshot.canonicalHash };
   const branch: BranchRef = {

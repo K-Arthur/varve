@@ -439,6 +439,20 @@ export {
   isKnownAdjustmentKind,
   makeAdjustment,
 } from './filters';
+export type {
+  CommitResult,
+  FloatingInterpolation,
+  FloatingRasterSelection,
+  LiftPixelsOptions,
+  PixelRect,
+} from './floatingRasterSelection';
+export {
+  commitFloatingSelection,
+  floatingTransformBounds,
+  floatingTransformedSelection,
+  liftSelectedPixels,
+  sampleFloatingAt,
+} from './floatingRasterSelection';
 export * from './font';
 export type {
   ConfidenceCategory,
@@ -949,6 +963,7 @@ export { GRADIENT_MAP_PRESETS, TRITONE_PRESETS } from './presets';
 export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
 export type {
+  CmykaPixelBufferFormat,
   ExportColorSpaceChoice,
   PixelBuffer,
   PixelBufferData,
@@ -957,6 +972,7 @@ export type {
   RasterColorTransform,
   RasterExportColorPolicy,
   RasterIccHeaderInfo,
+  RgbaPixelBufferFormat,
 } from './rasterColor';
 export {
   BYTES_PER_PIXEL,
@@ -973,10 +989,13 @@ export {
   halfFloatToFloat32,
   identityTransform,
   insertJpegIccProfile,
+  isCmykaPixelBufferFormat,
+  isRgbaPixelBufferFormat,
   isWebp,
   isWithinPixelBudget,
   parseIccHeader,
   pixelBufferBytes,
+  pixelBufferChannelCount,
   pixelFormatLabel,
   premultiplyRgba32f,
   profileDescriptionFor,
@@ -1011,6 +1030,13 @@ export type {
   RasterTraceResult,
 } from './rasterTrace';
 export { quantizeExactPalette, quantizePalette, traceRasterToPaths } from './rasterTrace';
+export type {
+  RasterizationTransform,
+  RasterSourceBounds,
+  RasterTargetDimensions,
+  RasterTransformContext,
+} from './rasterTransform';
+export { applyRasterizationTransform, sourceBoundsToRasterTransform } from './rasterTransform';
 export type { EffectMaskResolver, ReplayColorOptions, ReplayTarget } from './replay';
 export { primitiveBounds, renderAlphaMask, replayIr, resetGradientCacheForTest } from './replay';
 export type {

@@ -70,6 +70,33 @@ function cacheKey(url: string, variant?: ImageCacheColorVariant): string {
   return `${url}\u0000varve-color=${encodeURIComponent(variant.colorKey)}`;
 }
 
+/**
+ * Blob for a source the cache is about to resize.
+ *
+ * `data:` URLs are decoded in memory rather than fetched. `fetch()` on a
+ * data URL is a *connect* operation to the CSP, and a policy that sensibly
+ * allows `img-src data:` will still refuse it — the `/try` demo ships
+ * exactly that combination (`connect-src 'self' blob:`), so every embedded
+ * image large enough to need an at-size representation failed there while
+ * working in dev. Decoding is also strictly cheaper: the bytes are already
+ * in the string.
+ */
+async function blobForResize(url: string): Promise<Blob> {
+  if (!url.startsWith('data:')) return (await fetch(url)).blob();
+  const comma = url.indexOf(',');
+  if (comma < 0) throw new Error('Malformed data URL');
+  const header = url.slice(5, comma);
+  const payload = url.slice(comma + 1);
+  const mime = header.split(';')[0] || 'application/octet-stream';
+  if (!/;base64$|;base64;/.test(header)) {
+    return new Blob([decodeURIComponent(payload)], { type: mime });
+  }
+  const binary = atob(payload);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
 export class ImageCache {
   private cache = new Map<string, ImageCacheEntry>();
   private pending = new Map<string, Promise<CachedImage>>();
@@ -528,6 +555,60 @@ export class ImageCache {
   }
 
   /**
+   * Return the best live decoded proxy for a source while a more suitable
+   * bucket is loading. Prefer the smallest representation at or above the
+   * request; otherwise retain the sharpest lower-resolution proxy. This
+   * makes proxy promotion progressive instead of briefly falling back to a
+   * placeholder or an unbounded full decode.
+   */
+  getClosestImageAtSize(
+    url: string,
+    maxDim: number,
+    variant?: ImageCacheColorVariant,
+  ): CachedImage | null {
+    const exact = this.getImageAtSize(url, maxDim, variant);
+    if (exact) return exact;
+
+    const prefix = `${url}@`;
+    const colorSuffix = variant?.colorKey
+      ? `\u0000varve-color=${encodeURIComponent(variant.colorKey)}`
+      : '';
+    let smallestAtOrAbove: { dimension: number; image: CachedImage } | null = null;
+    let largestBelow: { dimension: number; image: CachedImage } | null = null;
+
+    for (const [key, entry] of this.cache) {
+      if (!key.startsWith(prefix)) continue;
+      if (colorSuffix) {
+        if (!key.endsWith(colorSuffix)) continue;
+      } else if (key.includes('\u0000varve-color=')) {
+        continue;
+      }
+      if (entry.state !== 'loaded' || !entry.image) continue;
+      if (this.isBitmap(entry.image) && (entry.image as { closed?: boolean }).closed === true) {
+        continue;
+      }
+
+      const sizeText = colorSuffix
+        ? key.slice(prefix.length, -colorSuffix.length)
+        : key.slice(prefix.length);
+      const dimension = Number(sizeText);
+      if (!Number.isInteger(dimension) || dimension <= 0) continue;
+
+      if (dimension >= maxDim) {
+        if (!smallestAtOrAbove || dimension < smallestAtOrAbove.dimension) {
+          smallestAtOrAbove = { dimension, image: entry.image };
+        }
+      } else if (!largestBelow || dimension > largestBelow.dimension) {
+        largestBelow = { dimension, image: entry.image };
+      }
+    }
+
+    const chosen = smallestAtOrAbove ?? largestBelow;
+    if (chosen) this.touch(this.atSizeKey(url, chosen.dimension, variant));
+    return chosen?.image ?? null;
+  }
+
+  /**
    * Decode (or await the decode of) the at-size representation of an inline
    * source: the encoded bytes are decoded directly to an ImageBitmap capped
    * at `maxDim` px on the long edge, so a multi-hundred-megapixel photo
@@ -646,14 +727,14 @@ export class ImageCache {
         // lookup path stays uniform.
         return this.load(url, variant);
       }
-      const blob = await (await fetch(url)).blob();
+      const blob = await blobForResize(url);
       return createImageBitmap(blob, {
         resizeWidth: Math.max(1, Math.round(source.width * scale)),
         resizeHeight: Math.max(1, Math.round(source.height * scale)),
         resizeQuality: 'high',
       });
     }
-    const blob = await (await fetch(url)).blob();
+    const blob = await blobForResize(url);
     return createImageBitmap(blob, {
       resizeWidth: maxDim,
       resizeQuality: 'high',

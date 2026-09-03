@@ -46,6 +46,22 @@ async function openDemo(page: Page) {
   }
 
   await page.getByRole('tree', { name: /layers/i }).waitFor({ state: 'visible', timeout: 240_000 });
+
+  // The demo notice sits above the editor and carries a usage-measurement
+  // prompt that resolves asynchronously. Both change the page's height, which
+  // moves every row between measuring a bounding box and driving the pointer
+  // to it. Settle them before any geometry is read.
+  const usagePrompt = page.getByRole('button', { name: /^no thanks$/i });
+  if (await usagePrompt.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await usagePrompt.click({ timeout: 10_000 }).catch(() => undefined);
+  }
+  const dismiss = page.getByRole('button', { name: /dismiss demo notice/i });
+  if (await dismiss.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await dismiss.click({ timeout: 10_000 }).catch(() => undefined);
+    await dismiss.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => undefined);
+  }
+  // Let the resulting reflow land before anything measures a row.
+  await page.waitForTimeout(500);
 }
 
 async function readRows(page: Page) {
@@ -94,8 +110,18 @@ test.describe('Layers DnD — browser demo', () => {
     const level = before[0]!.level;
     const sameLevel = before.filter((r) => r.level === level);
     test.skip(sameLevel.length < 2, 'demo document has no sibling pair to reorder');
-    const source = sameLevel[sameLevel.length - 1]!;
     const target = sameLevel[0]!;
+    const treeBox = await page.getByRole('tree', { name: /layers/i }).boundingBox();
+    if (!treeBox) throw new Error('layers tree geometry unavailable');
+    const visibleSiblings: typeof sameLevel = [];
+    for (const row of sameLevel.slice(1)) {
+      const box = await page.locator(`[role="treeitem"][data-node-id="${row.id}"]`).boundingBox();
+      if (box && box.y >= treeBox.y && box.y + box.height <= treeBox.y + treeBox.height) {
+        visibleSiblings.push(row);
+      }
+    }
+    const source = visibleSiblings[visibleSiblings.length - 1];
+    if (!source) throw new Error('no same-level source row is visible');
 
     const srcBox = await page
       .locator(`[role="treeitem"][data-node-id="${source.id}"]`)

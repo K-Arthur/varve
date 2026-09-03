@@ -25,13 +25,12 @@ import { computeTableLayout, isImageShape, resolveMask } from '@varve/scene';
 import {
   applyAffine,
   DEFAULT_ARTWORK_FONT_FAMILY,
-  expandGradientStops,
-  managedColorToRgba,
   multiplyAffine,
   rotateDeg,
   textWrap,
   tryInvertAffine,
 } from '@varve/shared';
+import { resolveLiveBooleanForExport } from './liveBooleanExport';
 import {
   adjustmentStackTargetGaps,
   affineToSvg,
@@ -43,6 +42,7 @@ import {
   shapeVerticesToPoints,
   svgCompositing,
 } from './shared';
+import { collectGradientDefs, strokeAttrs, strokePaintToSvg } from './svgPaintFeatures';
 import type { TargetGap } from './types';
 import { exportShapeOf, unbakeableWarpKind } from './warpBake';
 
@@ -376,6 +376,10 @@ function nodeSvgBounds(
   parentTransform: Affine = [1, 0, 0, 1, 0, 0],
 ): SvgBounds | null {
   const worldTransform = multiplyAffine(parentTransform, nodeEffectiveTransform(node));
+  if (node.kind === 'group' && node.boolean) {
+    const resolved = resolveLiveBooleanForExport(node, doc);
+    return resolved ? nodeSvgBounds(resolved, doc, parentTransform) : null;
+  }
   if (node.kind === 'group' || node.kind === 'frame') {
     return mergeBounds(
       getChildren(doc, node)
@@ -426,100 +430,6 @@ function nodeSvgBounds(
     }
   }
   return transformedBounds(points, worldTransform);
-}
-
-/**
- * Collect SVG gradient definition elements from a node's fills.
- * Returns an array of raw SVG element strings suitable for inclusion
- * in a <defs> block. Returns empty array when no gradient defs needed.
- */
-function collectGradientDefs(
-  node: SceneNode,
-  nodeId: string,
-  doc: SceneDocument,
-  _preserveColorSpace: boolean,
-): string[] {
-  const defs: string[] = [];
-  const fills = node.fills ?? [];
-  fills.forEach((fill, i) => {
-    if (fill.type !== 'gradient' || !fill.gradient) return;
-    const gradId = `grad-${nodeId}-${i}`;
-    const rot = (fill.gradient.rotation ?? 0) * (Math.PI / 180);
-    const cx = 50;
-    const cy = 50;
-    const gradType = fill.gradient.type;
-    const space =
-      fill.gradient.interpolationSource === 'document'
-        ? (doc.colorConfig?.defaultGradientInterpolation ?? 'oklab')
-        : (fill.gradient.interpolationSpace ?? 'srgb');
-    const hue = fill.gradient.hueInterpolation ?? 'shorter';
-
-    // SVG <linearGradient>/<radialGradient> natively interpolates stops only in
-    // sRGB or (via `color-interpolation="linearRGB"`) linear sRGB. For any
-    // other space (OKLab/OKLCH/HSL) the stop list is baked into a denser sRGB
-    // ramp so the exported file matches the Varve canvas, which samples the
-    // same canonical engine. This is the documented "bake" fallback from the
-    // blend-space export policy: SVG cannot express these spaces natively.
-    let stopElements: string;
-    let colorInterpAttr = '';
-    let fidelityComment: string | undefined;
-    if (space === 'linear-srgb') {
-      colorInterpAttr = ' color-interpolation="linearRGB"';
-      stopElements = fill.gradient.stops
-        .map(
-          (s) =>
-            `      <stop offset="${(s.position * 100).toFixed(1)}%" stop-color="${rgba(s.color)}" />`,
-        )
-        .join('\n');
-    } else if (space === 'srgb') {
-      stopElements = fill.gradient.stops
-        .map(
-          (s) =>
-            `      <stop offset="${(s.position * 100).toFixed(1)}%" stop-color="${rgba(s.color)}" />`,
-        )
-        .join('\n');
-    } else {
-      const baked = expandGradientStops(
-        fill.gradient.stops.map((s) => ({
-          position: s.position,
-          color: (() => {
-            const [r, g, b, a] = managedColorToRgba(s.color);
-            return { space: 'rgb' as const, r, g, b, a };
-          })(),
-          midpoint: s.midpoint,
-        })),
-        space,
-        16,
-        { hueInterpolation: hue },
-      );
-      stopElements = baked
-        .map(
-          (s) =>
-            `      <stop offset="${(s.position * 100).toFixed(1)}%" stop-color="${rgba(s.color)}" />`,
-        )
-        .join('\n');
-      fidelityComment = `<!-- gradient interpolated in "${space}" — baked to sRGB stops (SVG has no native ${space} gradient) -->`;
-    }
-
-    if (gradType === 'linear') {
-      const x1 = cx - Math.cos(rot) * cx;
-      const y1 = cy - Math.sin(rot) * cy;
-      const x2 = cx + Math.cos(rot) * cx;
-      const y2 = cy + Math.sin(rot) * cy;
-      defs.push(
-        `    <linearGradient id="${gradId}" x1="${x1.toFixed(1)}%" y1="${y1.toFixed(1)}%" x2="${x2.toFixed(1)}%" y2="${y2.toFixed(1)}%"${colorInterpAttr}>\n${stopElements}\n    </linearGradient>`,
-      );
-    } else if (gradType === 'radial') {
-      const halfDiag = Math.sqrt(cx * cx + cy * cy);
-      defs.push(
-        `    <radialGradient id="${gradId}" cx="${cx}%" cy="${cy}%" r="${halfDiag}%"${rot !== 0 ? ` gradientTransform="rotate(${((fill.gradient.rotation ?? 0) * -1).toFixed(1)})"` : ''}${colorInterpAttr}>\n${stopElements}\n    </radialGradient>`,
-      );
-    }
-    if (fidelityComment) defs.push(fidelityComment);
-    // Angular/conic and diamond gradients have no SVG equivalent;
-    // they're handled by raster fallback from the compositor.
-  });
-  return defs;
 }
 
 /** P2: Generate SVG <defs> for gradient fills, returns {defs, fillRef}. */
@@ -1006,7 +916,12 @@ function arrowheadSvgPath(
   }
 }
 
-function lineArrowheadSvgTags(node: SceneNode, indent: string, withTransform: string): string[] {
+function lineArrowheadSvgTags(
+  node: SceneNode,
+  nodeId: string,
+  indent: string,
+  withTransform: string,
+): string[] {
   if (node.kind !== 'shape') return [];
   const s = node.shape;
   if (s.kind !== 'line' && s.kind !== 'arrow') return [];
@@ -1014,7 +929,7 @@ function lineArrowheadSvgTags(node: SceneNode, indent: string, withTransform: st
   if (strokes.length === 0) return [];
   const stroke = strokes[0]!;
   const weight = stroke.weight || 1;
-  const strokeColor = stroke.color ? rgba(stroke.color) : 'black';
+  const strokeColor = strokePaintToSvg(node, nodeId) || 'black';
   const headSize = s.kind === 'arrow' ? Math.max(s.arrowheadSize, weight * 3) : weight * 3;
   const arrowStart = stroke.arrowStart ?? (s.kind === 'arrow' ? 'none' : 'none');
   const arrowEnd = stroke.arrowEnd ?? (s.kind === 'arrow' ? 'arrow' : 'none');
@@ -1066,6 +981,19 @@ function nodeToSvgTag(
   rasterAssets?: Record<string, import('./types').RasterAsset>,
 ): string {
   const indent = '  '.repeat(depth);
+  if (node.kind === 'group' && node.boolean) {
+    const resolved = resolveLiveBooleanForExport(node, doc);
+    if (resolved) {
+      return nodeToSvgTag(
+        resolved,
+        doc,
+        depth,
+        resolved.transform,
+        preserveColorSpace,
+        rasterAssets,
+      );
+    }
+  }
   // Fold the node's separate `rotation` field (transform · rotate) so the
   // emitted transform matches the canvas renderer. Callers pass the node's
   // local transform; the rotation field lives on the node itself.
@@ -1147,21 +1075,24 @@ ${shapeInner}`
       let shapeInner: string;
       switch (s.kind) {
         case 'rect':
-          shapeInner = `${indent}<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${fillAttr}"${withTransform}${compositingSuffix} />`;
+          shapeInner = `${indent}<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${fillAttr}"${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
           break;
         case 'ellipse':
-          shapeInner = `${indent}<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" fill="${fillAttr}"${withTransform}${compositingSuffix} />`;
+          shapeInner = `${indent}<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" fill="${fillAttr}"${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
           break;
         case 'circle':
-          shapeInner = `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fillAttr}"${withTransform}${compositingSuffix} />`;
+          shapeInner = `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fillAttr}"${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
           break;
         case 'line':
         case 'arrow': {
           const stroke = node.strokes?.[0];
           const sw = stroke?.weight ?? s.tolerance * 2;
-          const strokeColor = stroke?.color ? rgba(stroke.color) : fillAttr;
-          const lineTag = `${indent}<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="${strokeColor}" stroke-width="${sw}" stroke-linecap="${stroke?.cap ?? 'round'}"${withTransform} />`;
-          const headTags = lineArrowheadSvgTags(node, indent, withTransform);
+          const strokeColor = stroke ? strokePaintToSvg(node, node.id) : fillAttr;
+          const lineAttrs = stroke
+            ? strokeAttrs(node, node.id, sw, strokeColor)
+            : ` stroke="${strokeColor}" stroke-width="${sw}" stroke-linecap="round"`;
+          const lineTag = `${indent}<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}"${lineAttrs}${withTransform} />`;
+          const headTags = lineArrowheadSvgTags(node, node.id, indent, withTransform);
           shapeInner =
             headTags.length > 0
               ? `${indent}<g${compositingSuffix}>\n${lineTag}\n${headTags.join('\n')}\n${indent}</g>`
@@ -1170,7 +1101,7 @@ ${shapeInner}`
         }
         case 'polygon':
         case 'star':
-          shapeInner = `${indent}<polygon points="${shapeVerticesToPoints(node)}" fill="${fillAttr}"${withTransform}${compositingSuffix} />`;
+          shapeInner = `${indent}<polygon points="${shapeVerticesToPoints(node)}" fill="${fillAttr}"${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
           break;
         case 'path': {
           // Holes are emitted as extra subpaths, so the fill rule has to ride
@@ -1178,7 +1109,7 @@ ${shapeInner}`
           // emitter in index.ts.
           const fillRule = s.fillRule ?? (s.holes && s.holes.length > 0 ? 'evenodd' : undefined);
           const fillRuleAttr = fillRule ? ` fill-rule="${fillRule}"` : '';
-          shapeInner = `${indent}<path d="${pathToData(s)}" fill="${fillAttr}"${fillRuleAttr}${withTransform}${compositingSuffix} />`;
+          shapeInner = `${indent}<path d="${pathToData(s)}" fill="${fillAttr}"${fillRuleAttr}${strokeAttrs(node, node.id)}${withTransform}${compositingSuffix} />`;
           break;
         }
         default:
@@ -1422,23 +1353,24 @@ export function exportNodeToSvg(
   opts?: SvgExportOptions,
 ): string {
   const rasterAssets = opts?.rasterAssets;
-  const bounds = nodeSvgBounds(node, doc);
+  const exportRoot = resolveLiveBooleanForExport(node, doc) ?? node;
+  const bounds = nodeSvgBounds(exportRoot, doc);
   const pos = {
-    x: bounds?.minX ?? node.transform[4] ?? 0,
-    y: bounds?.minY ?? node.transform[5] ?? 0,
+    x: bounds?.minX ?? exportRoot.transform[4] ?? 0,
+    y: bounds?.minY ?? exportRoot.transform[5] ?? 0,
     w: opts?.viewBoxWidth ?? Math.max(1, (bounds?.maxX ?? 200) - (bounds?.minX ?? 0)),
     h: opts?.viewBoxHeight ?? Math.max(1, (bounds?.maxY ?? 160) - (bounds?.minY ?? 0)),
   };
-  const maskDefs = collectSubtreeMaskDefs(doc, node);
-  const pathTextDefs = collectSubtreePathTextDefs(doc, node);
-  const gradDefs = collectGradientDefs(node, node.id, doc, opts?.preserveColorSpace ?? false);
+  const maskDefs = collectSubtreeMaskDefs(doc, exportRoot);
+  const pathTextDefs = collectSubtreePathTextDefs(doc, exportRoot);
+  const gradDefs = collectGradientDefs(exportRoot, exportRoot.id, doc);
   const allDefs = [...maskDefs, ...pathTextDefs, ...gradDefs];
   const defsSection = allDefs.length > 0 ? `  <defs>\n${allDefs.join('\n')}\n  </defs>\n` : '';
   const inner = nodeToSvgTag(
-    node,
+    exportRoot,
     doc,
     2,
-    node.transform,
+    exportRoot.transform,
     opts?.preserveColorSpace ?? false,
     rasterAssets,
   );
@@ -1532,6 +1464,42 @@ export function svgTargetGaps(
         ? 'Rasterized at export resolution — gradient preserved as pixel-accurate image'
         : 'Flatten to a raster bitmap for correct export, or use a linear/radial gradient',
     });
+  }
+
+  if (node.kind === 'shape') {
+    const visibleStrokes = node.strokes.filter((stroke) => stroke.visible);
+    if (visibleStrokes.length > 1) {
+      const flattened = flattenedNodes?.has(node.id);
+      gaps.push({
+        nodeId: node.id,
+        nodeName: node.name,
+        feature: 'multiple visible strokes',
+        severity: flattened ? 'info' : 'warning',
+        fallback: flattened
+          ? 'Rasterized at export resolution — all stroke layers preserved'
+          : 'Rasterize this shape for exact SVG output; SVG emission keeps one stroke per shape',
+      });
+    }
+    const nonLinearGradientStroke = node.strokes.find(
+      (stroke) =>
+        stroke.visible &&
+        stroke.gradient &&
+        stroke.gradient.type !== 'linear' &&
+        stroke.gradient.type !== 'radial',
+    );
+    if (nonLinearGradientStroke?.gradient) {
+      const gradType = nonLinearGradientStroke.gradient.type;
+      const flattened = flattenedNodes?.has(node.id);
+      gaps.push({
+        nodeId: node.id,
+        nodeName: node.name,
+        feature: `${gradType} gradient stroke`,
+        severity: flattened ? 'info' : 'warning',
+        fallback: flattened
+          ? 'Rasterized at export resolution — gradient stroke preserved as pixel-accurate image'
+          : 'Flatten to a raster bitmap for correct export, or use a linear/radial gradient stroke',
+      });
+    }
   }
 
   if (fills.some((f) => f.type === 'pattern')) {

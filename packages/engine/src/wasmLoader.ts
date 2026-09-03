@@ -116,6 +116,15 @@ export interface WasmTraceModule {
     minPixels: number,
     foreground?: string,
   ): string;
+  trace_contours_json_opts?(
+    pixels: Uint8Array,
+    width: number,
+    height: number,
+    threshold: number,
+    minPixels: number,
+    foreground: string | undefined,
+    optionsJson: string,
+  ): string;
   wasm_trace_version(): string;
 }
 
@@ -144,6 +153,15 @@ export async function tryLoadTraceWasm(): Promise<WasmTraceModule | null> {
             height: number,
             threshold: number,
             minPixels: number,
+          ) => string;
+          trace_contours_json_opts?: (
+            pixels: Uint8Array,
+            width: number,
+            height: number,
+            threshold: number,
+            minPixels: number,
+            foreground: string | undefined,
+            optionsJson: string,
           ) => string;
           wasm_trace_version: () => string;
         };

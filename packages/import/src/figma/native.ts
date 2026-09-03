@@ -122,6 +122,15 @@ function gradientHandles(transform: unknown): FigmaPaint['gradientHandlePosition
   ];
 }
 
+function gradientTransform(transform: unknown): FigmaPaint['gradientTransform'] | undefined {
+  const matrix = asRecord(transform);
+  const values = [matrix.m00, matrix.m10, matrix.m01, matrix.m11, matrix.m02, matrix.m12];
+  if (!values.every((value) => typeof value === 'number' && Number.isFinite(value))) {
+    return undefined;
+  }
+  return values as unknown as FigmaPaint['gradientTransform'];
+}
+
 function paint(
   value: unknown,
   imageRef: (value: unknown) => string | undefined,
@@ -142,6 +151,7 @@ function paint(
     color: color(raw.color),
     gradientStops: stops.length > 0 ? stops : undefined,
     gradientHandlePositions: gradientHandles(raw.transform),
+    gradientTransform: gradientTransform(raw.transform),
     imageRef:
       imageRef(raw.imageRef ?? raw.imageHash ?? image.hash) ??
       stringValue(raw.imageRef) ??

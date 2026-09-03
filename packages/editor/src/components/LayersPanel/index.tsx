@@ -9,11 +9,13 @@ import {
   applyEffectStackPayload,
   type ContainerNode,
   canReceiveEffectStack,
+  canReceiveLayerMask,
   createEffectStackPayload,
   documentHasSolo,
   type EffectStackKind,
   type EffectStackPayload,
   isContainer,
+  isVisualMaskTarget,
   type LayerColor,
   type NodeId,
   type SceneNode,
@@ -543,9 +545,11 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
 
   const contextMenuIsContainer =
     contextMenu != null && contextMenuNode != null && isContainer(contextMenuNode);
+  const contextMenuIsVisualLeaf = contextMenuNode != null && isVisualMaskTarget(contextMenuNode);
 
   const contextMenuHasMask =
-    contextMenuIsContainer && (contextMenuNode as { mask?: unknown }).mask != null;
+    (contextMenuIsContainer || contextMenuIsVisualLeaf) &&
+    (contextMenuNode as { mask?: unknown }).mask != null;
   const canPasteEffectStack =
     contextMenu != null &&
     contextMenuNode != null &&
@@ -1071,36 +1075,50 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
   }
 
   // Masking submenu
-  const hasMaskOps = contextMenuIsContainer || contextMenuHasMask;
+  const contextMenuIsVisualLeaf = contextMenuNode != null && isVisualMaskTarget(contextMenuNode);
+  const hasMaskOps =
+    (contextMenuNode != null && canReceiveLayerMask(contextMenuNode)) || contextMenuHasMask;
   if (hasMaskOps) {
     const maskEntries: MenuEntry[] = [];
-    if (contextMenuIsContainer && !contextMenuHasMask) {
-      maskEntries.push(
-        {
-          id: 'mask-alpha',
-          label: 'Add Alpha Mask',
+    if ((contextMenuIsContainer || contextMenuIsVisualLeaf) && !contextMenuHasMask) {
+      if (contextMenuIsVisualLeaf) {
+        // Leaf nodes get a vector mask (no child-node sources)
+        maskEntries.push({
+          id: 'mask-vector',
+          label: 'Add Vector Mask',
           onAction: () => {
             addMaskToSelected('alpha');
             closeMenu();
           },
-        },
-        {
-          id: 'mask-clip',
-          label: 'Add Clip Mask',
-          onAction: () => {
-            addMaskToSelected('clip');
-            closeMenu();
+        });
+      } else {
+        maskEntries.push(
+          {
+            id: 'mask-alpha',
+            label: 'Add Alpha Mask',
+            onAction: () => {
+              addMaskToSelected('alpha');
+              closeMenu();
+            },
           },
-        },
-        {
-          id: 'mask-luminance',
-          label: 'Add Luminance Mask',
-          onAction: () => {
-            addMaskToSelected('luminance');
-            closeMenu();
+          {
+            id: 'mask-clip',
+            label: 'Add Clip Mask',
+            onAction: () => {
+              addMaskToSelected('clip');
+              closeMenu();
+            },
           },
-        },
-      );
+          {
+            id: 'mask-luminance',
+            label: 'Add Luminance Mask',
+            onAction: () => {
+              addMaskToSelected('luminance');
+              closeMenu();
+            },
+          },
+        );
+      }
     }
     if (contextMenuHasMask) {
       if (maskEntries.length > 0) maskEntries.push({ id: 'mask-sep', separator: true });

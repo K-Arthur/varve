@@ -27,6 +27,7 @@ const ImageCropSection = lazy(() =>
 
 const BRUSH_TOOLS = new Set<ToolId>(['paint', 'eraser', 'pencil', 'smudge']);
 const MARQUEE_TOOLS = new Set<ToolId>(['marquee', 'ellipseMarquee', 'pixelLasso']);
+const MAGIC_WAND_TOOLS = new Set<ToolId>(['magicWand']);
 
 function AreaSelectionOptions({
   tool,
@@ -150,19 +151,103 @@ function AreaSelectionOptions({
   );
 }
 
+function MagicWandOptions({
+  settings,
+  onChange,
+}: {
+  settings: import('../../tools/magicWandSettings').MagicWandSettings;
+  onChange: (patch: Partial<import('../../tools/magicWandSettings').MagicWandSettings>) => void;
+}) {
+  return (
+    <div className="tool-options__selection" data-testid="magicwand-options">
+      <div className="tool-options__heading">Magic Wand</div>
+      <fieldset className="tool-options__operation">
+        <legend className="tool-options__label">Operation</legend>
+        <div className="tool-options__segmented">
+          {(['replace', 'add', 'subtract', 'intersect'] as const).map((op) => (
+            <button
+              key={op}
+              type="button"
+              className={settings.operation === op ? 'is-active' : ''}
+              aria-pressed={settings.operation === op}
+              aria-label={`${op} selection`}
+              onClick={() => onChange({ operation: op })}
+            >
+              {op.charAt(0).toUpperCase() + op.slice(1)}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <label className="tool-options__field">
+        <span className="tool-options__label">Tolerance</span>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={settings.tolerance}
+          onChange={(e) => onChange({ tolerance: Number(e.target.value) })}
+          aria-label="Colour tolerance"
+        />
+        <span className="tool-options__value">{settings.tolerance}</span>
+      </label>
+      <label className="tool-options__field">
+        <span className="tool-options__label">Feather</span>
+        <input
+          type="range"
+          min={0}
+          max={50}
+          value={settings.edgeFeather}
+          onChange={(e) => onChange({ edgeFeather: Number(e.target.value) })}
+          aria-label="Colour range feather"
+        />
+        <span className="tool-options__value">{settings.edgeFeather}</span>
+      </label>
+      <fieldset className="tool-options__operation">
+        <legend className="tool-options__label">Mode</legend>
+        <div className="tool-options__segmented">
+          <button
+            type="button"
+            className={settings.mode === 'contiguous' ? 'is-active' : ''}
+            aria-pressed={settings.mode === 'contiguous'}
+            onClick={() => onChange({ mode: 'contiguous' })}
+          >
+            Contiguous
+          </button>
+          <button
+            type="button"
+            className={settings.mode === 'global' ? 'is-active' : ''}
+            aria-pressed={settings.mode === 'global'}
+            onClick={() => onChange({ mode: 'global' })}
+          >
+            Global
+          </button>
+        </div>
+      </fieldset>
+      <p className="tool-options__hint">
+        Click on an image to select similar colours. Shift adds, Alt subtracts.
+      </p>
+    </div>
+  );
+}
+
 export function ToolOptionsPopover() {
-  const { state, selectedNodes, setAreaSelectionSettings } = useEditor();
+  const { state, selectedNodes, setAreaSelectionSettings, setMagicWandSettings } = useEditor();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const supportsOptions =
     BRUSH_TOOLS.has(state.tool) ||
     MARQUEE_TOOLS.has(state.tool) ||
+    MAGIC_WAND_TOOLS.has(state.tool) ||
     state.tool === 'frame' ||
     state.tool === 'crop';
 
   useEffect(() => {
-    setOpen(BRUSH_TOOLS.has(state.tool) || MARQUEE_TOOLS.has(state.tool));
+    setOpen(
+      BRUSH_TOOLS.has(state.tool) ||
+        MARQUEE_TOOLS.has(state.tool) ||
+        MAGIC_WAND_TOOLS.has(state.tool),
+    );
   }, [state.tool]);
 
   useEffect(() => {
@@ -264,6 +349,12 @@ export function ToolOptionsPopover() {
             )}
             {state.tool === 'frame' && (
               <FramePresetsSection mode="create" sectionId="frame-presets" />
+            )}
+            {MAGIC_WAND_TOOLS.has(state.tool) && (
+              <MagicWandOptions
+                settings={state.magicWandSettings}
+                onChange={setMagicWandSettings}
+              />
             )}
             {state.tool === 'crop' && (
               <ImageCropSection nodes={selectedNodes()} sectionId="image-crop" />

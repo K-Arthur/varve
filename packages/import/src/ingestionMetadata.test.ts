@@ -112,6 +112,8 @@ describe('raster ingestion metadata wiring', () => {
     const entry = profileId ? result.document.iccProfiles?.[profileId] : undefined;
     expect(entry).toBeDefined();
     expect(entry?.byteLength).toBe(profile.length);
+    expect(entry?.fingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(asset?.metadata?.colorEncoding?.profileFingerprint).toBe(entry?.fingerprint);
     // Base64 round-trips back to the exact profile bytes.
     const decoded = Uint8Array.from(atob(entry!.profileBase64), (c) => c.charCodeAt(0));
     expect(Array.from(decoded)).toEqual(Array.from(profile));

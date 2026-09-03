@@ -61,11 +61,37 @@ export {
 } from './merge';
 export { findBranchMergeBase, findMergeBase } from './mergeBase';
 export {
+  applyRasterDelta,
+  captureRasterTileDeltas,
+  RASTER_DELTA_OPERATION,
+  type RasterDeltaCapture,
+  type RasterDeltaPayload,
+  type RasterNodeDelta,
+  type RasterTileDelta,
+  rasterDeltaHashes,
+  validateRasterDeltaPayload,
+} from './rasterDelta';
+export {
+  collectReachableRasterTileHashes,
+  type RasterTileGcReport,
+  type RasterTileReachability,
+  sweepUnreachableRasterTiles,
+} from './rasterRetention';
+export {
+  createRasterTileStore,
+  hashTilePixels,
+  IndexedDbRasterTileStore,
+  MemoryRasterTileStore,
+  type RasterTileEntry,
+  type RasterTileStore,
+} from './rasterTileStore';
+export {
   recoverTail,
   validateHistory,
 } from './recovery';
 export {
   applyStoredOperations,
+  applyStoredOperationsAsync,
   findReplayBase,
   hashOf,
   loadDocumentAt,
@@ -95,14 +121,17 @@ export {
   validateRevisionShape,
 } from './revisions';
 export {
+  captureSnapshotRasterTiles,
   createSnapshot,
   DEFAULT_SNAPSHOT_POLICY,
   type SnapshotPolicy,
+  type SnapshotRasterTile,
   type SnapshotRecord,
   SnapshotScheduler,
   type SnapshotStats,
   shouldSnapshot,
   snapshotToDocument,
+  snapshotToDocumentAsync,
 } from './snapshots';
 export {
   commitRevision,

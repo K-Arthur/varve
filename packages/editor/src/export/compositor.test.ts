@@ -391,7 +391,7 @@ describe('assessNodeCapability', () => {
       expect(assessNodeCapability(node, doc, 'svg')).toBe(true);
     });
 
-    it('SVG rejects radial gradients', () => {
+    it('SVG supports affine radial gradients', () => {
       const node = makeShapeNode(
         's1',
         { kind: 'rect' },
@@ -408,7 +408,46 @@ describe('assessNodeCapability', () => {
         },
       );
       const doc = makeDoc({ s1: node });
-      expect(assessNodeCapability(node, doc, 'svg')).toBe(false);
+      expect(assessNodeCapability(node, doc, 'svg')).toBe(true);
+    });
+
+    it('SVG rasterizes shapes with multiple visible strokes', () => {
+      const node = makeShapeNode(
+        'multi-stroke',
+        { kind: 'rect' },
+        {
+          strokes: [
+            { color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 }, weight: 2, visible: true },
+            { color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 }, weight: 6, visible: true },
+          ] as any,
+        },
+      );
+      expect(assessNodeCapability(node, makeDoc({ [node.id]: node }), 'svg')).toBe(false);
+    });
+
+    it('PDF rasterizes radial gradients while retaining affine linear gradients natively', () => {
+      const radial = makeShapeNode('pdf-radial', { kind: 'rect' });
+      (radial as unknown as Record<string, unknown>).fills = [
+        {
+          type: 'gradient',
+          visible: true,
+          gradient: { type: 'radial', transform: [120, 0, 0, 40, 12, 8], stops: [] },
+          opacity: 1,
+          blendMode: 'normal',
+        },
+      ];
+      const linear = makeShapeNode('pdf-linear', { kind: 'rect' });
+      (linear as unknown as Record<string, unknown>).fills = [
+        {
+          type: 'gradient',
+          visible: true,
+          gradient: { type: 'linear', transform: [120, 20, -10, 60, 12, 8], stops: [] },
+          opacity: 1,
+          blendMode: 'normal',
+        },
+      ];
+      expect(assessNodeCapability(radial, makeDoc({ [radial.id]: radial }), 'pdf')).toBe(false);
+      expect(assessNodeCapability(linear, makeDoc({ [linear.id]: linear }), 'pdf')).toBe(true);
     });
 
     it('SVG rejects angular gradients', () => {
@@ -449,6 +488,47 @@ describe('assessNodeCapability', () => {
       );
       const doc = makeDoc({ s1: node });
       expect(assessNodeCapability(node, doc, 'svg')).toBe(false);
+    });
+
+    it('keeps linear gradient strokes native in SVG and rasterizes them for PDF', () => {
+      const strokeGradient = {
+        type: 'gradient' as const,
+        gradient: {
+          type: 'linear' as const,
+          stops: [
+            { position: 0, color: { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 } },
+          ],
+          transform: [120, 30, -20, 60, 4, 8] as const,
+        },
+        opacity: 1,
+        blendMode: 'normal' as const,
+        visible: true,
+      };
+      const node = makeShapeNode(
+        'stroke-gradient',
+        { kind: 'rect' },
+        {
+          strokes: [
+            {
+              color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+              weight: 4,
+              align: 'center',
+              dashPattern: [],
+              dashOffset: 0,
+              cap: 'round',
+              join: 'miter',
+              miterLimit: 4,
+              visible: true,
+              gradient: strokeGradient.gradient,
+            },
+          ],
+        },
+      );
+      const doc = makeDoc({ [node.id]: node });
+      expect(assessNodeCapability(node, doc, 'svg')).toBe(true);
+      expect(assessNodeCapability(node, doc, 'raster')).toBe(true);
+      expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
     });
   });
 
@@ -976,9 +1056,9 @@ describe('capability table completeness', () => {
     }
   });
 
-  it('SVG only supports linear gradients', () => {
+  it('SVG supports affine linear and radial gradients', () => {
     expect(CAPABILITY.svg.nativeGradientTypes.has('linear')).toBe(true);
-    expect(CAPABILITY.svg.nativeGradientTypes.has('radial')).toBe(false);
+    expect(CAPABILITY.svg.nativeGradientTypes.has('radial')).toBe(true);
     expect(CAPABILITY.svg.nativeGradientTypes.has('angular')).toBe(false);
     expect(CAPABILITY.svg.nativeGradientTypes.has('diamond')).toBe(false);
   });

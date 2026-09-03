@@ -199,7 +199,12 @@ export function diffDocuments(
   return {
     baseHash,
     targetHash,
-    changed: ctx.changes.length > 0,
+    // Review diffs may intentionally suppress sub-epsilon numeric changes.
+    // Exact replay capture may not: a canonical hash difference is itself
+    // authoritative evidence that a history step is required (notably for
+    // binary-backed collections such as raster tile Maps).
+    changed:
+      ctx.changes.length > 0 || (ctx.options.epsilonPolicy === 'exact' && baseHash !== targetHash),
     changes: ctx.changes,
     summary: summarize(ctx.changes),
   };

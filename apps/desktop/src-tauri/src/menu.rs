@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tauri::menu::{
-    MenuBuilder, MenuItemBuilder, MenuItemKind, SubmenuBuilder,
-};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, MenuItemKind, SubmenuBuilder};
 use tauri::{AppHandle, Wry};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,10 +76,7 @@ pub struct MenuStatePatch {
 
 /// Build the full native menu tree from a spec, set it on the app, and wire
 /// up event forwarding to the webview.
-pub fn build_and_set_menu(
-    app: &AppHandle<Wry>,
-    spec: &NativeMenuSpec,
-) -> Result<(), String> {
+pub fn build_and_set_menu(app: &AppHandle<Wry>, spec: &NativeMenuSpec) -> Result<(), String> {
     let mut builder = MenuBuilder::new(app);
 
     for sub_spec in &spec.submenus {
@@ -128,8 +123,7 @@ fn add_items_to_submenu<'m>(
                 enabled,
                 checked,
             } => {
-                let mut item_builder =
-                    tauri::menu::CheckMenuItemBuilder::with_id(id, label);
+                let mut item_builder = tauri::menu::CheckMenuItemBuilder::with_id(id, label);
                 if let Some(accel) = accelerator {
                     item_builder = item_builder.accelerator(accel);
                 }
@@ -151,28 +145,26 @@ fn add_items_to_submenu<'m>(
                 let submenu = sub_builder.build().map_err(|e| e.to_string())?;
                 b.item(&submenu)
             }
-            NativeMenuItemSpec::Predefined { item_type, .. } => {
-                match item_type.as_str() {
-                    "about" => b.about(None),
-                    "quit" => b.quit(),
-                    "hide" => b.hide(),
-                    "hide_others" => b.hide_others(),
-                    "show_all" => b.show_all(),
-                    "services" => b.services(),
-                    "undo" => b.undo(),
-                    "redo" => b.redo(),
-                    "cut" => b.cut(),
-                    "copy" => b.copy(),
-                    "paste" => b.paste(),
-                    "select_all" => b.select_all(),
-                    "minimize" => b.minimize(),
-                    "maximize" => b.maximize(),
-                    "close_window" => b.close_window(),
-                    "fullscreen" => b.fullscreen(),
-                    "bring_all_to_front" => b.bring_all_to_front(),
-                    _ => b.separator(),
-                }
-            }
+            NativeMenuItemSpec::Predefined { item_type, .. } => match item_type.as_str() {
+                "about" => b.about(None),
+                "quit" => b.quit(),
+                "hide" => b.hide(),
+                "hide_others" => b.hide_others(),
+                "show_all" => b.show_all(),
+                "services" => b.services(),
+                "undo" => b.undo(),
+                "redo" => b.redo(),
+                "cut" => b.cut(),
+                "copy" => b.copy(),
+                "paste" => b.paste(),
+                "select_all" => b.select_all(),
+                "minimize" => b.minimize(),
+                "maximize" => b.maximize(),
+                "close_window" => b.close_window(),
+                "fullscreen" => b.fullscreen(),
+                "bring_all_to_front" => b.bring_all_to_front(),
+                _ => b.separator(),
+            },
         };
     }
     Ok(b)
@@ -244,10 +236,7 @@ pub fn apply_menu_state_patches(
 }
 
 #[tauri::command]
-pub fn build_native_menu(
-    app: AppHandle<Wry>,
-    spec: NativeMenuSpec,
-) -> Result<(), String> {
+pub fn build_native_menu(app: AppHandle<Wry>, spec: NativeMenuSpec) -> Result<(), String> {
     build_and_set_menu(&app, &spec)?;
     Ok(())
 }

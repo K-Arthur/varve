@@ -39,6 +39,8 @@ export interface VectorizationSettings {
   maxColors: number;
   compoundHoles: boolean;
   cornerAngle: number;
+  /** Maximum Bezier fitting error in pixels (0.1–10). Controls curve fidelity. */
+  maxError: number;
   foreground: 'dark' | 'light';
   alphaThreshold: number;
   centerlineWidth: number;
@@ -64,6 +66,7 @@ export const DEFAULT_VECTORIZATION_SETTINGS: VectorizationSettings = {
   maxColors: 8,
   compoundHoles: true,
   cornerAngle: 135,
+  maxError: 1.0,
   foreground: 'dark',
   alphaThreshold: 1,
   centerlineWidth: 2,
@@ -94,6 +97,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxColors: 8,
       compoundHoles: true,
       cornerAngle: 135,
+      maxError: 1.0,
       foreground: 'dark',
       alphaThreshold: 1,
       centerlineWidth: 2,
@@ -123,6 +127,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxColors: 8,
       compoundHoles: true,
       cornerAngle: 120,
+      maxError: 1.0,
       foreground: 'dark',
       alphaThreshold: 4,
       centerlineWidth: 2,
@@ -152,6 +157,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxColors: 8,
       compoundHoles: true,
       cornerAngle: 160,
+      maxError: 1.0,
       foreground: 'dark',
       alphaThreshold: 1,
       centerlineWidth: 2,
@@ -181,6 +187,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxColors: 8,
       compoundHoles: true,
       cornerAngle: 135,
+      maxError: 1.0,
       foreground: 'dark',
       alphaThreshold: 1,
       centerlineWidth: 2,
@@ -210,6 +217,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxColors: 8,
       compoundHoles: true,
       cornerAngle: 140,
+      maxError: 0.8,
       foreground: 'dark',
       alphaThreshold: 1,
       centerlineWidth: 1,
@@ -239,6 +247,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxColors: 12,
       compoundHoles: true,
       cornerAngle: 110,
+      maxError: 1.5,
       foreground: 'dark',
       alphaThreshold: 2,
       centerlineWidth: 2,
@@ -268,6 +277,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxColors: 8,
       compoundHoles: true,
       cornerAngle: 130,
+      maxError: 1.0,
       foreground: 'dark',
       alphaThreshold: 2,
       centerlineWidth: 2,
@@ -297,6 +307,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxColors: 8,
       compoundHoles: true,
       cornerAngle: 150,
+      maxError: 1.5,
       foreground: 'dark',
       alphaThreshold: 1,
       centerlineWidth: 2,
@@ -326,6 +337,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxColors: 16,
       compoundHoles: true,
       cornerAngle: 135,
+      maxError: 1.0,
       foreground: 'dark',
       alphaThreshold: 1,
       centerlineWidth: 2,
@@ -362,6 +374,8 @@ export function validateVectorizationSettings(s: VectorizationSettings): Vectori
     warnings.push('Simplification tolerance must be 0-10.');
   if (s.maxPaths < 1 || s.maxPaths > 20000) warnings.push('Max paths must be 1-20000.');
   if (s.maxColors < 2 || s.maxColors > 32) warnings.push('Color count must be 2-32.');
+  if (s.cornerAngle < 90 || s.cornerAngle > 180) warnings.push('Corner angle must be 90-180.');
+  if (s.maxError < 0.1 || s.maxError > 10) warnings.push('Curve tolerance must be 0.1-10.');
   if (s.prep.contrast < 0.2 || s.prep.contrast > 3) warnings.push('Contrast must be 0.2-3.');
   if (s.prep.brightness < -100 || s.prep.brightness > 100)
     warnings.push('Brightness must be -100 to 100.');
@@ -383,6 +397,7 @@ export function toTraceOptions(s: VectorizationSettings): RasterTraceOptions {
     maxColors: s.maxColors,
     compoundHoles: s.compoundHoles,
     cornerAngle: s.cornerAngle,
+    maxError: s.maxError,
     centerlineWidth: s.centerlineWidth,
     centerlinePrune: s.centerlinePrune,
   };

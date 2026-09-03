@@ -15,6 +15,7 @@ import { getActionRegistry } from './actions/ActionRegistry';
 import { isCapabilityRestricted, isWorkspaceModeAllowed } from './capabilities/restrictions';
 import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/ArchiveDialog';
 import { OfflineBanner } from './components/OfflineBanner';
+import { RasterizeDialog } from './components/Rasterize/RasterizeDialog';
 import { WorkspaceTabs } from './components/WorkspaceTabs';
 import { bumpThemeRevision, useEditor } from './context';
 import { computeCapabilities, getNudgeCapability, useNativeMenu } from './menu';
@@ -649,6 +650,17 @@ function buildMenus(
           ariaKeyshortcut: ks('selectionHistoryForward'),
           action: 'selectionHistoryForward',
           disabled: !hasSelection,
+        },
+        { label: '---' },
+        {
+          label: 'Pixel Selection',
+          items: [
+            { label: 'Transform Pixels', action: 'transformSelectedPixels' },
+            {
+              label: 'Transform Selection Boundary',
+              action: 'transformSelectionBoundary',
+            },
+          ],
         },
       ],
     },
@@ -1675,8 +1687,21 @@ export function Menubar({
     undo,
     redo,
     setZoom,
+    clearAllGuides,
+    startPresentation,
+    addMaskToSelected,
+    removeMaskFromSelected,
+    toggleMask,
+    invertMask,
+    flattenSelected,
+    rasterizeSelected,
+    mergeSelected,
     assignMasterToPage,
+    createMaster,
+    toggleFacingPages,
+    toggleDistractionFreeMode,
     recordAction,
+    createAdjustmentLayer,
     showArchiveDialog,
     setShowArchiveDialog,
     platform,
@@ -1791,6 +1816,7 @@ export function Menubar({
     message: string;
     entryId: string;
   } | null>(null);
+  const [rasterizeDialogOpen, setRasterizeDialogOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const nameButtonRef = useRef<HTMLButtonElement>(null);
   const typeaheadRef = useRef('');
@@ -1887,6 +1913,14 @@ export function Menubar({
     restoreNameFocusRef.current = true;
     setEditingName(false);
   }, []);
+
+  const handleRasterize = useCallback(
+    (options: import('./flatten/rasterizeOptions').RasterizeSelectionOptions) => {
+      setRasterizeDialogOpen(false);
+      rasterizeSelected(options);
+    },
+    [rasterizeSelected],
+  );
 
   const commitName = useCallback(() => {
     restoreNameFocusRef.current = true;
@@ -2045,6 +2079,67 @@ export function Menubar({
         case 'installDesktopApp':
           safeOpenInstallPage();
           return;
+        case 'addAlphaMask':
+          addMaskToSelected('alpha');
+          return;
+        case 'addClipMask':
+          addMaskToSelected('clip');
+          return;
+        case 'addLuminanceMask':
+          addMaskToSelected('luminance');
+          return;
+        case 'removeMask':
+          removeMaskFromSelected();
+          return;
+        case 'toggleMask':
+          toggleMask();
+          return;
+        case 'invertMask':
+          invertMask();
+          return;
+        case 'flattenSelection':
+          flattenSelected('flatten', 1);
+          return;
+        case 'rasterizeSelection':
+          setRasterizeDialogOpen(true);
+          return;
+        case 'mergeSelected':
+          mergeSelected();
+          return;
+        case 'clearGuides':
+          clearAllGuides();
+          return;
+        case 'present':
+          startPresentation();
+          return;
+        case 'toggleFacingPages':
+          toggleFacingPages();
+          return;
+        case 'toggleDistractionFree':
+          toggleDistractionFreeMode();
+          return;
+        case 'newAdjustmentLayer':
+          createAdjustmentLayer();
+          return;
+        case 'createMaster':
+          createMaster('Master', 1920, 1080);
+          return;
+        case 'applyMaster': {
+          const activeId = state.document.activePageId;
+          if (activeId) {
+            const masterEntries = state.document.masters ? Object.keys(state.document.masters) : [];
+            const first = masterEntries.find((id) => id !== activeId);
+            if (first) assignMasterToPage(activeId, first);
+          }
+          return;
+        }
+        case 'detachMaster': {
+          const activeId = state.document.activePageId;
+          if (activeId) {
+            assignMasterToPage(activeId, null);
+          }
+          return;
+        }
         default:
           if (action.startsWith('theme:')) {
             const theme = action.slice(6) as Theme;
@@ -2088,6 +2183,9 @@ export function Menubar({
       setShowArchiveDialog,
       assignMasterToPage,
       recordAction,
+      createAdjustmentLayer,
+      rasterizeSelected,
+      setRasterizeDialogOpen,
       openRecentFile,
       clearRecent,
     ],
@@ -2213,6 +2311,7 @@ export function Menubar({
             <FloatingPortal
               anchorRef={openMenuAnchorRef}
               open
+              insideRefs={[submenuRef]}
               onClose={() => {
                 setOpenMenu(null);
                 setOpenSubmenu(null);
@@ -2420,6 +2519,13 @@ export function Menubar({
         confirmLabel="Remove from List"
         cancelLabel="Keep in List"
         variant="danger"
+      />
+
+      <RasterizeDialog
+        open={rasterizeDialogOpen}
+        selectionCount={state.selection.length}
+        onClose={() => setRasterizeDialogOpen(false)}
+        onRasterize={handleRasterize}
       />
 
       <ArchiveDialog

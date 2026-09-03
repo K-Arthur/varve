@@ -140,7 +140,15 @@ export class FontRegistry {
   /** Set while a coalesced notification is pending (see `_scheduleNotify`). */
   private _notifyScheduled = false;
   /** The browser FontFaceSet is also a font source (not all faces are loaded by this registry). */
-  private readonly handleFontSetChange = (): void => {
+  private readonly handleFontSetChange = (event: Event): void => {
+    const eventFaces = (event as Event & { fontfaces?: Iterable<{ family?: string }> }).fontfaces;
+    if (eventFaces) {
+      const state: FontLoadState = event.type === 'loadingerror' ? 'error' : 'loaded';
+      for (const face of eventFaces) {
+        const family = face.family?.replace(/^['"]|['"]$/g, '');
+        if (family) this.loadState.set(family, state);
+      }
+    }
     this._notify();
   };
 
@@ -350,6 +358,7 @@ export class FontRegistry {
     if (this.loaded.has(family)) return;
     if (this.pending.has(family)) return this.pending.get(family);
 
+    this.loadState.set(family, 'loading');
     const promise = this.doLoad(family);
     this.pending.set(family, promise);
     try {
@@ -392,14 +401,23 @@ export class FontRegistry {
       if (!unique.has(key)) unique.set(key, face);
     }
     if (unique.size === 0) return;
+    for (const face of unique.values()) {
+      if (this.state(face.family) !== 'loaded') this.loadState.set(face.family, 'loading');
+    }
     await Promise.all(
       [...unique.values()].map(async (face) => {
         const descriptor = `${face.style ?? 'normal'} ${face.weight ?? 400} 16px "${face.family.replaceAll('"', '\\"')}"`;
         try {
-          await document.fonts.load(descriptor, 'BESbswy');
+          const loadedFaces = await document.fonts.load(descriptor, 'BESbswy');
+          const ready =
+            loadedFaces.length > 0 ||
+            (typeof document.fonts.check === 'function' &&
+              document.fonts.check(descriptor, 'BESbswy'));
+          this.loadState.set(face.family, ready ? 'loaded' : 'error');
         } catch {
           // A face the browser cannot produce is a resolution result, not a
           // reason to abandon the rest of the document's fonts.
+          this.loadState.set(face.family, 'error');
         }
       }),
     );

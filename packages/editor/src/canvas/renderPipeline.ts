@@ -51,6 +51,7 @@ import {
   worldToScreen,
 } from '@varve/shared';
 import type { EditorContextValue, EditorState } from '../context';
+import { isEditorInteractionActive } from '../performance/editorFrameRuntime';
 import { applyPropertyPath } from '../propertyPath';
 import {
   getAdaptiveResidencyManager,
@@ -66,6 +67,7 @@ import {
   workerBitmapDelta,
 } from '../render/canvasRenderAdapter';
 import { admitWorkerImagePayload, workerSourceCapFor } from '../render/collectImageBitmaps';
+import { scheduleSettledImageRefinement } from '../render/imageRefinement';
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
 import { pathShapeInTextSpace } from '../render/pathTextGeometry';
 import {
@@ -111,7 +113,12 @@ import {
 import { computeFrameDirtyRegion } from './dirtyRegionMerge';
 import { expandReplayList } from './dirtyReplay';
 import type { EngineNodeMemo } from './engineNodeMemo';
-import { applyAdjustmentSpatialMask, replayMaskedContainer } from './maskReplay';
+import {
+  applyAdjustmentSpatialMask,
+  replayLeafMask,
+  replayMaskedContainer,
+  requiresLeafMaskReplay,
+} from './maskReplay';
 import { openFullRedraw, openMultiRectPartialClip, openUnionPartialClip } from './partialPaint';
 import {
   beginContentFrame,
@@ -140,18 +147,17 @@ let _showOriginalBgNodeId: string | null = null;
 /**
  * Whether the worker can be trusted with this document's text.
  *
- * True when the document has no text in a declared web family, or when the
- * worker has echoed back the face set it was given. A document whose text uses
- * only system families renders identically in either realm and keeps the
- * worker fast path.
+ * The question is per family, not per batch: a document that uses only
+ * families the worker has actually loaded keeps the fast path even while some
+ * other declared family is still arriving or has failed there. Text in a
+ * family the worker cannot draw stays on the main thread.
  */
 function workerHasFontsForDocument(
-  host: { fontsReady: boolean; declaredFontFamilies: ReadonlySet<string> } | null,
+  host: { unavailableFontFamilies: ReadonlySet<string> } | null,
   doc: Document,
 ): boolean {
   if (!host) return false;
-  if (host.fontsReady) return true;
-  return !documentNeedsWorkerFonts(doc, host.declaredFontFamilies);
+  return !documentNeedsWorkerFonts(doc, host.unavailableFontFamilies);
 }
 
 export function toEngineNode(node: SceneNode, doc: Document): EngineNode {
@@ -996,16 +1002,41 @@ export function renderContent(deps: RenderContentDeps): void {
       buildIrMs = performance.now() - t0c;
     }
     const needsStructural = sceneNeedsStructuralCompositing(doc);
+    const cameraMoving = isEditorInteractionActive();
+    const imageIntent: 'interactive' | 'settled-preview' = cameraMoving
+      ? 'interactive'
+      : 'settled-preview';
     const imageRepresentation = selectRasterRepresentation({
       viewportWidth: VP_W,
       viewportHeight: VP_H,
       devicePixelRatio: dpr,
       zoom: s.zoom,
-      intent: 'interactive',
+      cameraMoving,
+      intent: imageIntent,
     });
     const replayImagePolicy = {
-      intent: 'interactive' as const,
-      maxSourceDim: imageRepresentation.maxSourceDim,
+      intent: imageIntent,
+      resolveMaxSourceDim: ({
+        projectedLongEdge,
+        sourceWidth,
+        sourceHeight,
+      }: {
+        projectedLongEdge: number;
+        sourceWidth?: number;
+        sourceHeight?: number;
+      }) =>
+        selectRasterRepresentation({
+          viewportWidth: VP_W,
+          viewportHeight: VP_H,
+          devicePixelRatio: dpr,
+          zoom: s.zoom,
+          projectedLongEdge,
+          sourceWidth,
+          sourceHeight,
+          maxDecodedBytes: budgets.imageCacheBytes,
+          cameraMoving,
+          intent: imageIntent,
+        }).maxSourceDim,
     };
     const replayColorOptions = {
       blendEvaluationSpace: resolveBlendEvaluationSpace(doc.colorConfig ?? {}),
@@ -1051,6 +1082,12 @@ export function renderContent(deps: RenderContentDeps): void {
           reuseProbability: 0.5,
         });
       }
+    }
+
+    if (cameraMoving && observedImageSources.size > 0) {
+      scheduleSettledImageRefinement(canvas, isEditorInteractionActive, () => {
+        requestContentDrawRef.current?.('image-settled-refinement', 'asset-ready');
+      });
     }
 
     if (s.canvasMode === 'outline') {
@@ -1154,10 +1191,11 @@ export function renderContent(deps: RenderContentDeps): void {
     const paintLeafItem = (item: IrItem, targetCtx: CanvasRenderingContext2D): void => {
       // Structural replay has an active Canvas2D save/clip stack. A compositor
       // backend may render a leaf into another surface and blit it back, which
-      // cannot inherit that clip. Direct replay also lets the image policy use
-      // a viewport-sized proxy without changing export/print paths.
+      // cannot inherit that clip. The compositor forwards image policy to its
+      // Canvas2D fallback, keeping proxy selection footprint-aware on both
+      // structural and flat scenes.
       if (targetCtx === ctxNN && compositorRef.current && !needsStructural) {
-        compositorRef.current.drawVectorItems([item], replayColorOptions);
+        compositorRef.current.drawVectorItems([item], replayColorOptions, replayImagePolicy);
       } else {
         replayIr(
           targetCtx as unknown as ReplayTarget,
@@ -1807,7 +1845,25 @@ export function renderContent(deps: RenderContentDeps): void {
         targetCtx.drawImage(backdrop, 0, 0, backdrop.width, backdrop.height, bx, by, bw, bh);
         targetCtx.restore();
       } else {
-        if (item) paintLeafItem(item, targetCtx);
+        if (item) {
+          // Leaf nodes with masks: render the content to an offscreen surface,
+          // apply the mask, and composite back. Vector masks, raster masks, and
+          // live mattes are all supported on leaf nodes (shapes, text, raster
+          // layers). Container masks are handled above via replayMaskedContainer.
+          if (mask && requiresLeafMaskReplay(mask)) {
+            replayLeafMask(targetCtx, {
+              node: n,
+              mask,
+              irItem: item,
+              doc,
+              baseTransform: targetCtx.getTransform(),
+              paintContent: (ctx) => paintLeafItem(item, ctx),
+              getWorldTransform: (nodeId) => getCachedWorldTransform(cache, doc, nodeId),
+            });
+          } else {
+            paintLeafItem(item, targetCtx);
+          }
+        }
       }
     }
 
@@ -2015,15 +2071,15 @@ export function renderContent(deps: RenderContentDeps): void {
             // 9d47771b fixed for the main-thread path, on the worker path.
             surfaceIsAuthoritative = false;
           } else {
-            compositorRef.current?.drawVectorItems(ir);
+            compositorRef.current?.drawVectorItems(ir, replayColorOptions, replayImagePolicy);
           }
         }
         ctxNN.restore();
       } else {
-        compositorRef.current?.drawVectorItems(ir);
+        compositorRef.current?.drawVectorItems(ir, replayColorOptions, replayImagePolicy);
       }
     } else {
-      compositorRef.current?.drawVectorItems(ir);
+      compositorRef.current?.drawVectorItems(ir, replayColorOptions, replayImagePolicy);
     }
 
     // Record replay time: from the first replay call to just before cleanup
@@ -2033,7 +2089,11 @@ export function renderContent(deps: RenderContentDeps): void {
       ctx.restore();
       dirtyClipOpen = false;
     }
-    const budget = endFrameTiming(frameStart);
+    const budget = endFrameTiming(
+      frameStart,
+      undefined,
+      cameraMoving ? 'interaction' : 'authoritative',
+    );
     frameBackend?.endFrame();
     compositorFrameOpen = false;
     // Recompute both limits on every tier so recovery restores the user's
@@ -2111,6 +2171,8 @@ export function renderContent(deps: RenderContentDeps): void {
       engineNodeHits: engineMemo.hits - engineMemoHitsAtStart,
       setupMs,
       preLoopMs,
+      frameWorkClass: budget.workClass,
+      frameWorkBudgetMs: budget.budgetMs,
       totalMs: budget.elapsedMs,
       renderPath: needsStructural
         ? 'structural'

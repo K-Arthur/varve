@@ -17,8 +17,14 @@
 
 import type { RasterAlphaMode, RasterColorEncoding } from '@varve/shared';
 
+/** Four-channel RGB(A) storage formats. */
+export type RgbaPixelBufferFormat = 'rgba8' | 'rgba16' | 'rgba16f' | 'rgba32f';
+
+/** Five-channel CMYK(A) storage formats, interleaved as C, M, Y, K, A. */
+export type CmykaPixelBufferFormat = 'cmyka8' | 'cmyka16' | 'cmyka16f' | 'cmyka32f';
+
 /** Channel layout + precision of a pixel buffer. */
-export type PixelBufferFormat = 'rgba8' | 'rgba16' | 'rgba16f' | 'rgba32f';
+export type PixelBufferFormat = RgbaPixelBufferFormat | CmykaPixelBufferFormat;
 
 export type PixelBufferData = Uint8Array | Uint16Array | Float32Array;
 
@@ -37,13 +43,34 @@ export interface PixelBufferDescriptor {
   alphaMode: RasterAlphaMode;
 }
 
-/** Bytes per pixel per format (RGBA = 4 channels). */
+/** Bytes per pixel per format. CMYK always includes an explicit alpha channel. */
 export const BYTES_PER_PIXEL: Record<PixelBufferFormat, number> = {
   rgba8: 4,
   rgba16: 8,
   rgba16f: 8,
   rgba32f: 16,
+  cmyka8: 5,
+  cmyka16: 10,
+  cmyka16f: 10,
+  cmyka32f: 20,
 };
+
+/** Number of stored channels per pixel. Never infer CMYK from an RGBA tuple. */
+export function pixelBufferChannelCount(format: PixelBufferFormat): 4 | 5 {
+  return format.startsWith('cmyka') ? 5 : 4;
+}
+
+export function isCmykaPixelBufferFormat(
+  format: PixelBufferFormat,
+): format is CmykaPixelBufferFormat {
+  return format.startsWith('cmyka');
+}
+
+export function isRgbaPixelBufferFormat(
+  format: PixelBufferFormat,
+): format is RgbaPixelBufferFormat {
+  return !isCmykaPixelBufferFormat(format);
+}
 
 /** Byte size of an entire buffer of the given format. */
 export function pixelBufferBytes(w: number, h: number, format: PixelBufferFormat): number {
@@ -59,6 +86,7 @@ export function allocatePixelBuffer(
   budgetBytes = DEFAULT_PIXEL_BUFFER_BUDGET_BYTES,
 ): PixelBuffer {
   const { width, height, format } = descriptor;
+  assertPixelBufferEncodingLayout(descriptor);
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
     throw new RangeError('pixel buffer dimensions must be positive safe integers');
   }
@@ -71,11 +99,11 @@ export function allocatePixelBuffer(
   if (bytes > budgetBytes) {
     throw new RangeError(`pixel buffer requires ${bytes} bytes, budget is ${budgetBytes}`);
   }
-  const channels = width * height * 4;
+  const channels = width * height * pixelBufferChannelCount(format);
   const data: PixelBufferData =
-    format === 'rgba8'
+    format === 'rgba8' || format === 'cmyka8'
       ? new Uint8Array(channels)
-      : format === 'rgba16' || format === 'rgba16f'
+      : format === 'rgba16' || format === 'rgba16f' || format === 'cmyka16' || format === 'cmyka16f'
         ? new Uint16Array(channels)
         : new Float32Array(channels);
   return { descriptor, data };
@@ -95,6 +123,9 @@ export function convertPixelBufferFormat(
   budgetBytes = DEFAULT_PIXEL_BUFFER_BUDGET_BYTES,
 ): PixelBuffer {
   assertPixelBufferData(source);
+  if (pixelBufferChannelCount(source.descriptor.format) !== pixelBufferChannelCount(targetFormat)) {
+    throw new TypeError('pixel-buffer format conversion cannot change the channel model');
+  }
   const target = allocatePixelBuffer({ ...source.descriptor, format: targetFormat }, budgetBytes);
   for (let i = 0; i < source.data.length; i += 1) {
     writeFormatChannel(
@@ -108,16 +139,38 @@ export function convertPixelBufferFormat(
 }
 
 function assertPixelBufferData(buffer: PixelBuffer): void {
-  const expected = buffer.descriptor.width * buffer.descriptor.height * 4;
+  assertPixelBufferEncodingLayout(buffer.descriptor);
+  const expected =
+    buffer.descriptor.width *
+    buffer.descriptor.height *
+    pixelBufferChannelCount(buffer.descriptor.format);
   if (buffer.data.length !== expected) {
     throw new RangeError(`pixel buffer data length must be ${expected}`);
   }
   const { format } = buffer.descriptor;
   const valid =
-    (format === 'rgba8' && buffer.data instanceof Uint8Array) ||
-    ((format === 'rgba16' || format === 'rgba16f') && buffer.data instanceof Uint16Array) ||
-    (format === 'rgba32f' && buffer.data instanceof Float32Array);
+    ((format === 'rgba8' || format === 'cmyka8') && buffer.data instanceof Uint8Array) ||
+    ((format === 'rgba16' ||
+      format === 'rgba16f' ||
+      format === 'cmyka16' ||
+      format === 'cmyka16f') &&
+      buffer.data instanceof Uint16Array) ||
+    ((format === 'rgba32f' || format === 'cmyka32f') && buffer.data instanceof Float32Array);
   if (!valid) throw new TypeError(`pixel buffer data does not match ${format}`);
+}
+
+/**
+ * Make the CMYK representation honest: four-channel RGBA storage cannot be
+ * labelled CMYK, and five-channel CMYKA storage cannot be relabelled RGB.
+ */
+function assertPixelBufferEncodingLayout(descriptor: PixelBufferDescriptor): void {
+  const cmyka = isCmykaPixelBufferFormat(descriptor.format);
+  if (descriptor.colorEncoding.model === 'cmyk' && !cmyka) {
+    throw new TypeError('CMYK pixel buffers require an explicit CMYKA format');
+  }
+  if (descriptor.colorEncoding.model !== 'cmyk' && cmyka) {
+    throw new TypeError('CMYKA pixel buffers require a CMYK color encoding');
+  }
 }
 
 function readFormatChannel(
@@ -125,9 +178,10 @@ function readFormatChannel(
   format: PixelBufferFormat,
   index: number,
 ): number {
-  if (format === 'rgba8') return (data as Uint8Array)[index]! / 255;
-  if (format === 'rgba16') return (data as Uint16Array)[index]! / 65535;
-  if (format === 'rgba16f') return halfFloatToFloat32((data as Uint16Array)[index]!);
+  if (format === 'rgba8' || format === 'cmyka8') return (data as Uint8Array)[index]! / 255;
+  if (format === 'rgba16' || format === 'cmyka16') return (data as Uint16Array)[index]! / 65535;
+  if (format === 'rgba16f' || format === 'cmyka16f')
+    return halfFloatToFloat32((data as Uint16Array)[index]!);
   return (data as Float32Array)[index]!;
 }
 
@@ -137,11 +191,11 @@ function writeFormatChannel(
   index: number,
   value: number,
 ): void {
-  if (format === 'rgba8') {
+  if (format === 'rgba8' || format === 'cmyka8') {
     (data as Uint8Array)[index] = value <= 0 ? 0 : value >= 1 ? 255 : Math.round(value * 255);
-  } else if (format === 'rgba16') {
+  } else if (format === 'rgba16' || format === 'cmyka16') {
     (data as Uint16Array)[index] = value <= 0 ? 0 : value >= 1 ? 65535 : Math.round(value * 65535);
-  } else if (format === 'rgba16f') {
+  } else if (format === 'rgba16f' || format === 'cmyka16f') {
     (data as Uint16Array)[index] = float32ToHalfFloat(value);
   } else {
     (data as Float32Array)[index] = value;
@@ -159,6 +213,14 @@ export function pixelFormatLabel(format: PixelBufferFormat): string {
       return 'half-float RGBA';
     case 'rgba32f':
       return 'float32 RGBA';
+    case 'cmyka8':
+      return '8-bit CMYKA';
+    case 'cmyka16':
+      return '16-bit CMYKA';
+    case 'cmyka16f':
+      return 'half-float CMYKA';
+    case 'cmyka32f':
+      return 'float32 CMYKA';
   }
 }
 

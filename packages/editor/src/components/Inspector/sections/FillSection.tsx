@@ -28,6 +28,7 @@ import {
   createEmbeddedAsset,
   gradientFill,
   imageFill,
+  nodeLocalBounds,
   patternFill,
   resolveBoundTokenColor,
   resolveNodeFills,
@@ -464,6 +465,8 @@ function FillRow({
   const representativeGradient =
     fill?.gradient ?? (nodes[0] ? resolveNodeFills(nodes[0])[index]?.gradient : undefined);
   const allGradients = !isMixed(typeRaw) && typeRaw === 'gradient';
+  const gradientBounds =
+    nodes.length === 1 && nodes[0] ? nodeLocalBounds(nodes[0], editor.state.document) : undefined;
 
   const visible = isMixed(visibleRaw) ? true : visibleRaw;
   const swatchBg = fillSwatchBg(fill);
@@ -701,6 +704,7 @@ function FillRow({
           documentGradientInterpolation={documentGradientInterpolation}
           mixedInterpolationSpace={gradientInterpMixed}
           mixedHue={gradientHueMixed}
+          gradientBounds={gradientBounds ?? undefined}
         />
       )}
 

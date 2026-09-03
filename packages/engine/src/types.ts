@@ -152,6 +152,8 @@ export interface Stroke {
   join: StrokeJoin;
   miterLimit: number;
   visible: boolean;
+  /** Optional spatial gradient; takes precedence over `color` when present. */
+  gradient?: EngineGradientFill;
   /** Arrowhead at the start of a line/arrow/path. */
   arrowStart?: ArrowheadStyle;
   /** Arrowhead at the end of a line/arrow/path. */
@@ -325,7 +327,9 @@ export type Shape =
       points: PathPoint[];
       closed: boolean;
       tolerance: number;
-      /** Additional closed hole rings (evenodd fill). Optional for back-compat. */
+      /** Canonical compound-path rings in authored order (outer first). */
+      contours?: PathPoint[][];
+      /** Additional closed rings (legacy alias for contours[1..]). */
       holes?: PathPoint[][];
       fillRule?: 'nonzero' | 'evenodd';
     }
@@ -384,6 +388,8 @@ export interface SceneNode {
   openTypeFeatures?: OpenTypeFeatureMap;
   /** Text mode. */
   textMode?: TextMode;
+  /** Resizing contract used to resolve the render mode when the node is built directly. */
+  textResizing?: 'autoWidth' | 'autoHeight' | 'fixed';
   /** Path text settings. */
   pathTextSettings?: PathTextSettings;
   /** Text direction: 'ltr', 'rtl', or 'auto' (auto-detect). */
@@ -570,6 +576,9 @@ export type Primitive =
       points: PathPoint[];
       closed: boolean;
       tolerance: number;
+      /** Canonical compound-path rings in authored order (outer first). */
+      contours?: PathPoint[][];
+      /** Additional closed rings (legacy alias for contours[1..]). */
       holes?: PathPoint[][];
       fillRule?: 'nonzero' | 'evenodd';
     }
@@ -805,6 +814,8 @@ export interface ShapedRun {
   ascent: number;
   /** Maximum descent below baseline. */
   descent: number;
+  /** Preferred line-box height in px for rich-text runs, when specified. */
+  lineHeight?: number;
 }
 
 /**
