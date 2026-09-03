@@ -180,22 +180,39 @@ test.describe('font readiness', () => {
     });
 
     const marker = await page.evaluate(() => {
-      const perf = (window as { __varvePerf?: { getLast: () => { frameIndex: number } | null } })
-        .__varvePerf;
-      return perf?.getLast()?.frameIndex ?? -1;
+      const perf = (
+        window as {
+          __varvePerf?: { getLast: () => { committedAt?: number } | null };
+        }
+      ).__varvePerf;
+      return perf?.getLast()?.committedAt ?? performance.now();
     });
 
     // A genuine readiness event: a new face, sourced from a payload the page
-    // has already fetched, added to the document's own FontFaceSet.
+    // has already declared, added to the document's own FontFaceSet. Chromium
+    // may serve a CSS face from memory without exposing a separate .woff2
+    // PerformanceResourceTiming entry, so read the declared source instead of
+    // treating that optional diagnostic entry as the payload contract.
     const triggered = await page.evaluate(async () => {
-      // Dev-server URLs carry version queries, so match on the extension
-      // anywhere in the name rather than at the end.
-      const source = performance
-        .getEntriesByType('resource')
-        .map((entry) => entry.name)
-        .find((name) => name.includes('.woff2') || name.includes('.woff'));
+      let source: string | undefined;
+      for (const sheet of Array.from(document.styleSheets)) {
+        let rules: CSSRuleList;
+        try {
+          rules = sheet.cssRules;
+        } catch {
+          continue;
+        }
+        for (const rule of Array.from(rules)) {
+          const candidate = (rule as CSSFontFaceRule).style?.getPropertyValue('src') ?? '';
+          if (candidate.includes('.woff2') || candidate.includes('.woff')) {
+            source = candidate;
+            break;
+          }
+        }
+        if (source) break;
+      }
       if (!source) return 'no-payload';
-      const face = new FontFace('VarveReadinessProbe', `url(${source})`);
+      const face = new FontFace('VarveReadinessProbe', source);
       document.fonts.add(face);
       await face.load();
       return 'loaded';
@@ -211,11 +228,11 @@ test.describe('font readiness', () => {
       const perf = (
         window as {
           __varvePerf?: {
-            getFrames: (n: number) => Array<{ frameIndex: number; redrawReason?: string }>;
+            getFrames: (n: number) => Array<{ committedAt?: number; redrawReason?: string }>;
           };
         }
       ).__varvePerf;
-      return (perf?.getFrames(64) ?? []).filter((frame) => frame.frameIndex > since);
+      return (perf?.getFrames(64) ?? []).filter((frame) => (frame.committedAt ?? -1) > since);
     }, marker);
 
     expect(
@@ -261,7 +278,15 @@ test.describe('multi-line selection geometry', () => {
     await page.keyboard.press('v');
     await settle(page);
 
-    // Ink first, while nothing is selected: the overlay would pollute it.
+    // Ink first, while nothing is selected: the overlay would pollute it. The
+    // content draw may be awaiting an engine/worker frame, so wait for pixels
+    // rather than assuming two RAFs imply an authoritative paint.
+    await expect
+      .poll(async () => (await inkBounds(page)) !== null, {
+        timeout: 30000,
+        intervals: [100, 250, 500],
+      })
+      .toBe(true);
     const ink = await inkBounds(page);
     await canvas.screenshot({
       animations: 'disabled',

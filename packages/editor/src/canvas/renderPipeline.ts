@@ -74,11 +74,11 @@ import {
   perspectiveSurfaceCache,
 } from '../render/perspectiveImage';
 import { alphaBounds } from '../render/surfaceBounds';
-import { documentNeedsWorkerFonts } from '../render/workerFonts';
 import {
   documentTreatmentSpaceForCapture,
   pixelToDocumentFromCapture,
 } from '../render/treatmentSpace';
+import { documentNeedsWorkerFonts } from '../render/workerFonts';
 import { type MasterOffset, offsetWorldBounds, offsetWorldTransform } from '../scene/masterOffsets';
 import {
   getWorldBounds as getCachedWorldBounds,
