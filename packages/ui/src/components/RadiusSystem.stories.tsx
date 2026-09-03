@@ -21,7 +21,7 @@ function Gallery() {
       <section className="radius-gallery__section">
         <h2>Controls</h2>
         <div className="radius-gallery__row">
-          <Button variant="primary">Primary</Button>
+          <Button variant="default">Primary</Button>
           <Button variant="secondary">Secondary</Button>
           <Button variant="ghost">Ghost</Button>
           <IconButton icon="Settings" label="Settings" />

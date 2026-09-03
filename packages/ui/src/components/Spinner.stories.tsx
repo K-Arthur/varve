@@ -51,7 +51,7 @@ export const ActionStates: Story = {
         <Button loading={loading} loadingLabel="Saving document">
           Save
         </Button>
-        <Button variant="danger" loading={loading} loadingLabel="Deleting document">
+        <Button variant="destructive" loading={loading} loadingLabel="Deleting document">
           Delete
         </Button>
         <IconButton icon="RefreshCw" label="Refresh assets" loading={loading} />

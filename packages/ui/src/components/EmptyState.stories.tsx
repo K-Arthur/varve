@@ -33,7 +33,7 @@ export const Default: Story = {
     illustration: <DefaultIllustration />,
     headline: 'No layers yet',
     description: 'Add a frame, shape, or text to get started.',
-    actions: <Button variant="primary">Add Frame</Button>,
+    actions: <Button variant="default">Add Frame</Button>,
   },
 };
 

@@ -76,7 +76,7 @@ export const ReferenceGallery: Story = {
       </section>
       <section aria-label="Button variants" style={{ display: 'flex', gap: 16 }}>
         <ShineBorder variant="subtle">
-          <Button variant="primary">Hover reference</Button>
+          <Button variant="default">Hover reference</Button>
         </ShineBorder>
         <ShineBorder variant="beam">
           <Button variant="secondary">One-shot reference</Button>

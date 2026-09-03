@@ -246,6 +246,7 @@ Current interface typography and component sizing contracts are documented in
 | `architecture/coordinate-system.md` | Coordinate-space contract: spaces, storage, composition, reparenting, migration (ADR-0219) |
 | `architecture/transform-system.md` | Canonical transform-session, geometry-baking, snapping, alignment, and precision contract |
 | `architecture/asset-search-system.md` | Asset Browser retrieval lanes, vector identity, model/runtime gate, and degradation contract |
+| `architecture/file-ingestion-system.md` | Local file acquisition primitives, action vocabulary, parser ownership, and browser/desktop boundaries |
 | `architecture/sortable-system.md` | Shared sortable primitives, collection policy, and specialized tree boundaries |
 | `architecture/background-removal-system.md` | Background-removal system contract and local-first workflow |
 | `architecture/blend-evaluation-policy.md` | Blend evaluation policy and compositing operations |
@@ -491,6 +492,7 @@ records; check the current code before acting on their findings.
 | `audits/font-semantic-implementation-audit-2026-09-01.md` | Evidence, benchmark, visual validation, model gate, and known gaps for semantic font discovery |
 | `audits/selection-system-audit-2026-08-23.md` | Pixel/node selection gap analysis preceding the selection-system work — see `architecture/selection-system.md` for current state |
 | `audits/selection-validation-report-2026-08-23.md` | Selection-system delivery and validation record, including the UI wiring landed after the implementation plan's "pending" notes |
+| `audits/object-selection-repair-validation-2026-09-02.md` | Object Selection prompt/overlay, inference recovery, automatic bounds trim, and marketing validation record |
 | `audits/effects-surfaces-audit-2026-08-29.md` | Research-backed separation of Effect Studio, Image Tuning, Object Filters, and Adjustment Filters, including raster/vector behavior |
 | `audits/pages-master-layout-audit-2026-08-29.md` | Current page, parent/master, spread, frame, workspace, I/O, and validation capability audit |
 | `audits/shine-border-opportunity-audit-2026-08-31.md` | Repository-wide Shine Border candidate ranking, explicit rejects, and approved production ceiling |
