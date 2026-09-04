@@ -230,31 +230,53 @@ function loadCrates() {
 }
 
 function matchesGlob(path, glob) {
-  // simple glob: **/ prefix/suffix, * within segments
-  const seg = glob.split('/');
-  const pseg = path.split('/');
-  const escapedGlob = glob.replaceAll('\\', '\\\\');
-  if (seg.some((s) => s === '**')) {
-    // anchor on first non-** segment
-    const i = seg.findIndex((s) => s !== '**');
-    if (i === -1) return true;
-    const needle = seg.slice(i).filter((s) => s !== '**');
-    if (needle.some((s) => s.includes('*'))) {
-      // fall back to regex for wildcard segments
-      const re = new RegExp(
-        escapedGlob
-          .replace(/\./g, '\\.')
-          .replace(/\*\*\//g, '(?:.*/)?')
-          .replace(/\*/g, '[^/]*'),
-      );
-      return re.test(path);
+  // Segment-aware glob: `*` stays within one path segment, while `**` spans
+  // zero or more segments. Keeping matching out of RegExp also ensures that
+  // path/config data can never become executable regular-expression syntax.
+  const patternSegments = glob.split('/');
+  const pathSegments = path.split('/');
+
+  function matchSegment(value, pattern) {
+    let valueIndex = 0;
+    let patternIndex = 0;
+    let starIndex = -1;
+    let starValueIndex = 0;
+    while (valueIndex < value.length) {
+      if (patternIndex < pattern.length && pattern[patternIndex] === value[valueIndex]) {
+        patternIndex += 1;
+        valueIndex += 1;
+      } else if (patternIndex < pattern.length && pattern[patternIndex] === '*') {
+        starIndex = patternIndex;
+        starValueIndex = valueIndex;
+        patternIndex += 1;
+      } else if (starIndex !== -1) {
+        patternIndex = starIndex + 1;
+        starValueIndex += 1;
+        valueIndex = starValueIndex;
+      } else {
+        return false;
+      }
     }
-    return pseg.join('/').endsWith(needle.join('/')) || pseg.join('/').includes(needle.join('/'));
+    while (patternIndex < pattern.length && pattern[patternIndex] === '*') patternIndex += 1;
+    return patternIndex === pattern.length;
   }
-  const re = new RegExp(
-    `^${escapedGlob.replace(/\./g, '\\.').replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*')}$`,
-  );
-  return re.test(path);
+
+  function matchSegments(patternIndex, pathIndex) {
+    if (patternIndex === patternSegments.length) return pathIndex === pathSegments.length;
+    if (patternSegments[patternIndex] === '**') {
+      return (
+        matchSegments(patternIndex + 1, pathIndex) ||
+        (pathIndex < pathSegments.length && matchSegments(patternIndex, pathIndex + 1))
+      );
+    }
+    return (
+      pathIndex < pathSegments.length &&
+      matchSegment(pathSegments[pathIndex], patternSegments[patternIndex]) &&
+      matchSegments(patternIndex + 1, pathIndex + 1)
+    );
+  }
+
+  return matchSegments(0, 0);
 }
 
 // ── classification ─────────────────────────────────────────────────────────

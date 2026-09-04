@@ -111,6 +111,11 @@ const CHANGE_TYPES = new Set<CapturedChangeType>([
   'reordered',
   'text',
 ]);
+const FORBIDDEN_PROPERTY_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function isSafePropertyKey(key: string): boolean {
+  return !FORBIDDEN_PROPERTY_KEYS.has(key);
+}
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
@@ -185,6 +190,7 @@ function validateChanges(changes: unknown): string | null {
       return 'change requires entityId';
     }
     if (c.entityId.length > MAX_ENTITY_ID_LENGTH) return 'entityId too long';
+    if (!isSafePropertyKey(c.entityId)) return 'prototype-chain entityId is forbidden';
     if (typeof c.entityType !== 'string' || c.entityType.length === 0) {
       return 'change requires entityType';
     }
@@ -233,12 +239,16 @@ function applyChanges(document: Document, changes: CapturedChange[]): Document {
     switch (change.changeType) {
       case 'added': {
         if (!MAP_BACKED.has(change.entityType) || !change.propertyPath) continue;
+        if (!isSafePropertyKey(change.entityId)) continue;
         const container = resolveRecord(next, change.propertyPath, true);
-        if (container !== undefined) container[change.entityId] = cloneCaptureValue(change.after);
+        if (container !== undefined) {
+          setOwnProperty(container, change.entityId, cloneCaptureValue(change.after));
+        }
         continue;
       }
       case 'removed': {
         if (!MAP_BACKED.has(change.entityType) || !change.propertyPath) continue;
+        if (!isSafePropertyKey(change.entityId)) continue;
         const container = resolveRecord(next, change.propertyPath);
         if (container !== undefined) delete container[change.entityId];
         continue;
@@ -349,12 +359,8 @@ function setAtPath(root: Record<string, unknown>, path: string, value: unknown):
 
 /** Assign a validated path segment without invoking a prototype setter. */
 function setOwnProperty(record: Record<string, unknown>, key: string, value: unknown): void {
-  Object.defineProperty(record, key, {
-    configurable: true,
-    enumerable: true,
-    value,
-    writable: true,
-  });
+  if (!isSafePropertyKey(key)) return;
+  record[key] = value;
 }
 
 /** A capture path can address either an entity-id array item or a numeric tuple item. */

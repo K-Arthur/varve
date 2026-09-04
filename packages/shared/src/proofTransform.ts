@@ -70,9 +70,21 @@ export function proofConfigKey(config: ProofTransformConfig): string {
   ].join(':');
 }
 
+/**
+ * Wrap registered callbacks behind a fixed method name. The profile id is
+ * runtime data, so callers must never dispatch it as a property/method name.
+ */
+class RegisteredProofConverter {
+  constructor(private readonly callback: ProfileProofConverter | ProfileProofConverterNormalized) {}
+
+  apply(rgba: [number, number, number, number]): [number, number, number, number] | null {
+    return this.callback(rgba);
+  }
+}
+
 /** Runtime-registered ICC/analytical proof converters, keyed by profile id. */
-const profileConverters = new Map<string, ProfileProofConverter>();
-const normalizedProfileConverters = new Map<string, ProfileProofConverterNormalized>();
+const profileConverters = new Map<string, RegisteredProofConverter>();
+const normalizedProfileConverters = new Map<string, RegisteredProofConverter>();
 
 /**
  * Register a runtime proof converter (desktop bridge or WASM). Cleared by
@@ -82,7 +94,7 @@ export function registerProfileProofConverter(
   profileId: string,
   converter: ProfileProofConverter,
 ): void {
-  profileConverters.set(profileId, converter);
+  profileConverters.set(profileId, new RegisteredProofConverter(converter));
 }
 
 /** Register a proof converter that consumes/returns normalized float channels. */
@@ -90,7 +102,7 @@ export function registerProfileProofConverterNormalized(
   profileId: string,
   converter: ProfileProofConverterNormalized,
 ): void {
-  normalizedProfileConverters.set(profileId, converter);
+  normalizedProfileConverters.set(profileId, new RegisteredProofConverter(converter));
 }
 
 /** Remove every runtime proof converter (document closed). */
@@ -108,10 +120,10 @@ const normalizedTransformCache = new Map<string, [number, number, number, number
 const TRANSFORM_CACHE_MAX = 4096;
 
 function invokeConverter(
-  converter: ProfileProofConverter | ProfileProofConverterNormalized | undefined,
+  converter: RegisteredProofConverter | undefined,
   rgba: [number, number, number, number],
 ): [number, number, number, number] | null {
-  return converter ? converter(rgba) : null;
+  return converter?.apply(rgba) ?? null;
 }
 
 function cacheGet(key: string): [number, number, number, number] | undefined {
