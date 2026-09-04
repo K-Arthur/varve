@@ -144,13 +144,7 @@ function runLane(lane, plan, options = {}) {
     let status = 0;
     const started = Date.now();
     for (const group of chunk(biomeFiles, 80)) {
-      const args = [
-        'biome',
-        command,
-        ...(command === 'format' ? ['--check'] : []),
-        ...group,
-        '--no-errors-on-unmatched',
-      ];
+      const args = ['biome', command, ...group, '--no-errors-on-unmatched'];
       status = executeCommand(args, {
         ...options,
         timeoutMs: PUSH_LANE_TIMEOUT_MS[lane] ?? PUSH_LANE_TIMEOUT_MS.default,

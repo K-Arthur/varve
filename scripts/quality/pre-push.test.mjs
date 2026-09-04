@@ -49,4 +49,20 @@ assert.deepEqual(failedLane.command, [
   'tests/unit/failing.test.ts',
 ]);
 
+const formatCommands = [];
+const formatLane = runLane(
+  'format:changed',
+  { union: { paths: ['scripts/quality/pre-push.test.mjs'] } },
+  {
+    executeCommand: (args) => {
+      formatCommands.push(args);
+      return 0;
+    },
+  },
+);
+assert.equal(formatLane.status, 0, 'format lane should invoke Biome successfully');
+assert.deepEqual(formatCommands, [
+  ['biome', 'format', 'scripts/quality/pre-push.test.mjs', '--no-errors-on-unmatched'],
+]);
+
 console.log('pre-push adapter tests passed');
