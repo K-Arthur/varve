@@ -592,6 +592,12 @@ assert.deepEqual(
     /scripts\/quality\/ci-plan\.mjs[\s\S]*--profile integration/,
     'CI must use the canonical exact-SHA planner for browser-impact selection',
   );
+  const onnxStage = ci.indexOf('node scripts/fetch-onnxruntime.mjs');
+  const rustCoverage = ci.indexOf('node scripts/audit-rust-coverage.mjs --ci');
+  assert.ok(
+    onnxStage >= 0 && onnxStage < rustCoverage,
+    'Rust coverage must stage the optional ONNX Runtime before Tauri build metadata is evaluated',
+  );
   const policy = fs.readFileSync('scripts/quality/validation-policy.mjs', 'utf-8');
   assert.match(
     policy,

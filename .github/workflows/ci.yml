@@ -178,6 +178,9 @@ jobs:
         uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
         with:
           tool: cargo-llvm-cov
+      - name: Stage ONNX Runtime for desktop coverage
+        if: runner.os == 'Linux' && needs.changes.outputs.full == 'true'
+        run: node scripts/fetch-onnxruntime.mjs
       - name: Rust coverage (ratchet floor)
         if: runner.os == 'Linux' && needs.changes.outputs.full == 'true'
         run: node scripts/audit-rust-coverage.mjs --ci
