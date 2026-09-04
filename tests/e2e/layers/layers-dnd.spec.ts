@@ -10,6 +10,7 @@ test.describe('Layers Panel - Drag & Drop', () => {
   });
 
   test('layers tree renders with sortable rows', async ({ page }) => {
+    await seedLayers(page, 1);
     const tree = page.getByRole('tree', { name: /layers/i });
     await expect(tree).toBeVisible();
     const items = page.getByRole('treeitem');
@@ -18,6 +19,7 @@ test.describe('Layers Panel - Drag & Drop', () => {
   });
 
   test('drag handle is present on tree rows', async ({ page }) => {
+    await seedLayers(page, 1);
     const items = page.getByRole('treeitem');
     const count = await items.count();
     if (count >= 1) {
@@ -67,11 +69,12 @@ test.describe('Layers Panel - Drag & Drop', () => {
     const before = await rows.allTextContents();
     const source = rows.nth(2);
     const target = rows.nth(0);
+    const sourceHandle = source.locator('.layers-row__drag-handle');
     const sourceId = await source.getAttribute('data-node-id');
     const targetId = await target.getAttribute('data-node-id');
     expect(sourceId).toBeTruthy();
     expect(targetId).toBeTruthy();
-    const sourceBox = await source.boundingBox();
+    const sourceBox = await sourceHandle.boundingBox();
     const targetBox = await target.boundingBox();
     if (!sourceBox || !targetBox) throw new Error('layer row geometry unavailable');
 

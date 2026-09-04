@@ -271,9 +271,7 @@ test.describe('Layers Panel — real drag & drop', () => {
     await row.click();
     await page.keyboard.press('F2');
     const renameInput = row.locator('input[aria-label^="Rename "]');
-    await expect(renameInput).toBeVisible();
-    await renameInput.fill('Should Not Rename');
-    await renameInput.press('Enter');
+    await expect(renameInput).toHaveCount(0);
     await expect(row.locator('.layers-row__name')).toHaveText(originalName);
 
     await row.click();

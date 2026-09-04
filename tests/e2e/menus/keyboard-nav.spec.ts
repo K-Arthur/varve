@@ -217,10 +217,10 @@ test.describe('Menu keyboard navigation', () => {
     expect(activeFirst).toBe(firstSubLabel);
 
     await page.keyboard.press('ArrowDown');
-    const secondLabel2 = await subItems.nth(1).textContent();
-    void secondLabel2;
+    await expect(subItems.nth(1)).toBeFocused();
 
     await page.keyboard.press('ArrowUp');
+    await expect(subItems.first()).toBeFocused();
     const backToFirst = await page.evaluate(() => document.activeElement?.textContent ?? '');
     expect(backToFirst).toBe(firstSubLabel);
 

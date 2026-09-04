@@ -37,7 +37,7 @@ interface UseTreeKeyboardNavigationArgs {
     currentIdx: number,
     length: number,
   ) => number | null;
-  handleRename: (id: NodeId, name: string) => void;
+  startRename: (id: NodeId) => void;
   reparentNode: (id: NodeId, parentId: NodeId | null, toIndex: number) => void;
   announce: (message: string) => void;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
@@ -61,7 +61,7 @@ export function useTreeKeyboardNavigation({
   jumpToEnd,
   selectAll,
   handleTypeAhead,
-  handleRename,
+  startRename,
   reparentNode,
   announce,
   virtualizer,
@@ -217,7 +217,7 @@ export function useTreeKeyboardNavigation({
       if (e.key === 'F2') {
         e.preventDefault();
         if (focusedNode) {
-          handleRename(focusedNode.id, focusedNode.name);
+          startRename(focusedNode.id);
         }
         return;
       }
@@ -292,7 +292,7 @@ export function useTreeKeyboardNavigation({
       jumpToEnd,
       selectAll,
       handleTypeAhead,
-      handleRename,
+      startRename,
       reparentNode,
       announce,
       virtualizer,

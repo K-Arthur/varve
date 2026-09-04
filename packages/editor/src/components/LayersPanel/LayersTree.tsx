@@ -53,6 +53,7 @@ import {
   isDescendantFast,
   type ParentIndexCache,
 } from '../../scene/parentIndexCache';
+import { isNodeEffectivelyLocked } from '../../scene/world';
 import { resolvePrimarySelectionId } from '../../selection/selectionContext';
 import { loadSettings } from '../../settings';
 import type { LayerDropTarget } from './layerDropResolver';
@@ -713,9 +714,13 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     [anchorIdx, entries, toggleSelection, setAnchorIdx, revealSelection],
   );
 
-  const handleRenameStart = useCallback((id: NodeId) => {
-    setRenamingId(id);
-  }, []);
+  const handleRenameStart = useCallback(
+    (id: NodeId) => {
+      if (!state.document.nodes[id] || isNodeEffectivelyLocked(state.document, id)) return;
+      setRenamingId(id);
+    },
+    [state.document],
+  );
 
   const handleRename = useCallback(
     (id: NodeId, name: string) => {
@@ -820,7 +825,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     jumpToEnd,
     selectAll,
     handleTypeAhead,
-    handleRename,
+    startRename: handleRenameStart,
     reparentNode,
     announce,
     virtualizer,
@@ -895,7 +900,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       dropIndicator,
       collapseAll: handleCollapseAll,
       collapseOthers: handleCollapseOthers,
-      startRename: setRenamingId,
+      startRename: handleRenameStart,
       expandAncestors: (nodeId: NodeId) => {
         setExpanded((prev) => {
           const next = new Set(prev);
@@ -928,7 +933,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       dropIndicator,
       handleCollapseAll,
       handleCollapseOthers,
-      setRenamingId,
+      handleRenameStart,
       state.document,
       entries,
       virtualizer,

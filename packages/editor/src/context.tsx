@@ -4593,9 +4593,13 @@ export function EditorProvider({
       removeSelected: (selectionOverride) => {
         const sel = selectionOverride ?? state.selection;
         if (sel.length === 0) return;
+        const removable = sel.filter(
+          (id) => state.document.nodes[id] && !isNodeEffectivelyLocked(state.document, id),
+        );
+        if (removable.length === 0) return;
         const doRemove = () => {
           const parentIds = new Set(
-            sel
+            removable
               .map((id) => getParentFast(state.document, id, parentCacheRef.current))
               .filter((pid): pid is string => Boolean(pid)),
           );
@@ -4604,7 +4608,7 @@ export function EditorProvider({
             // Before removing paths, detach any texts that reference them
             // so those texts don't silently become invisible. This is done
             // in the same transaction so undo restores everything together.
-            const removing = new Set(sel);
+            const removing = new Set(removable);
             for (const node of Object.values(d.nodes)) {
               if (
                 node.kind === 'text' &&
@@ -4615,18 +4619,18 @@ export function EditorProvider({
                 d = { ...d, nodes: { ...d.nodes, [node.id]: { ...rest, textMode: 'point' } } };
               }
             }
-            for (const id of sel) d = removeNode(d, id);
+            for (const id of removable) d = removeNode(d, id);
             for (const pid of parentIds) d = applyFrameLayout(d, pid);
             return d;
           });
-          patch({ selection: [] });
+          patch({ selection: state.selection.filter((id) => !removable.includes(id)) });
         };
-        if (sel.length > 5) {
+        if (removable.length > 5) {
           import('./components/PromptDialog')
             .then(({ confirmDialog }) =>
               confirmDialog(
                 'Delete objects',
-                `Are you sure you want to delete ${sel.length} objects?`,
+                `Are you sure you want to delete ${removable.length} objects?`,
                 { confirmLabel: 'Delete', variant: 'destructive' },
               ),
             )
@@ -4640,12 +4644,14 @@ export function EditorProvider({
 
       renameSelected: (name) => {
         const sel = state.selection[0];
-        if (!sel) return;
+        if (!sel || isNodeEffectivelyLocked(state.document, sel)) return;
         updateDoc((doc) => renameNode(doc, sel, name));
       },
 
       renameNodeById: (id, name) => {
-        updateDoc((doc) => (doc.nodes[id] ? renameNode(doc, id, name) : doc));
+        updateDoc((doc) =>
+          doc.nodes[id] && !isNodeEffectivelyLocked(doc, id) ? renameNode(doc, id, name) : doc,
+        );
       },
 
       moveNode: (id, toIndex) => {
