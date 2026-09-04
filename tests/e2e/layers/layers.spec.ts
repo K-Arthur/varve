@@ -112,10 +112,12 @@ test.describe('Layers Panel - APG Tree View', () => {
     await firstItem.click();
     await expect(firstItem).toHaveAttribute('aria-selected', 'true');
     await page.mouse.move(0, 0);
+    await page.waitForTimeout(250);
     const selectedBackground = await firstItem.evaluate(
       (element) => getComputedStyle(element).backgroundColor,
     );
     await firstItem.hover();
+    await page.waitForTimeout(250);
     const selectedHoverBackground = await firstItem.evaluate(
       (element) => getComputedStyle(element).backgroundColor,
     );

@@ -178,7 +178,7 @@ test.describe('Zoom camera stability', () => {
     await page.keyboard.press('f');
     await dragOnCanvas(page, 100, 100, 260, 260);
 
-    const frameRow = page.getByRole('treeitem').filter({ hasText: /frame/i }).first();
+    const frameRow = page.locator('[role="treeitem"][data-layer-type="frame"]').first();
     // The child is a small rect; the auto-namer may label it "Icon
     // placeholder" instead of "Rectangle N".
     const childRow = page
@@ -191,11 +191,14 @@ test.describe('Zoom camera stability', () => {
 
     // Frames clip by default. Disable clipping through the mounted Inspector;
     // this is the state that makes off-frame descendants valid visible content.
-    const layoutDisclosure = page.getByRole('button', { name: /^layout$/i });
+    const layoutDisclosure = page
+      .getByRole('region', { name: 'Inspector' })
+      .getByRole('button', { name: 'Layout', exact: true })
+      .first();
     if ((await layoutDisclosure.getAttribute('aria-expanded')) !== 'true') {
       await layoutDisclosure.click();
     }
-    const clipContent = page.getByRole('checkbox', { name: /^clip content$/i });
+    const clipContent = page.getByRole('switch', { name: /^clip content$/i });
     await expect(clipContent).toBeChecked();
     await clipContent.uncheck();
     await expect(clipContent).not.toBeChecked();

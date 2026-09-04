@@ -8,11 +8,14 @@
 import type { Document } from '@varve/scene';
 import {
   addChild,
+  addNode,
   applyOperation,
   canonicalHash,
   canonicalHistoryHash,
   createDocument,
+  createEmbeddedAsset,
   createVariableStore,
+  imageFill,
   makeShapeNode,
   makeTableNode,
   moveNode,
@@ -176,6 +179,57 @@ describe('capture round-trip', () => {
       columnSizing: { kind: 'fraction', value: 1 },
     });
     const after = addChild(allocated.doc, page!.contentRoot, table);
+    expectRoundTrip(before, after);
+  });
+
+  it('replays a document asset added alongside an image fill', () => {
+    const before = addNode(
+      createDocument('capture-image', { flat: true }),
+      makeShapeNode('n1_aaaa', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+    );
+    const dataUrl = 'data:image/png;base64,aGVsbG8=';
+    const asset = createEmbeddedAsset({
+      dataUrl,
+      mimeType: 'image/png',
+      naturalWidth: 1,
+      naturalHeight: 1,
+    });
+    const node = before.nodes.n1_aaaa;
+    if (!node) throw new Error('fixture node missing');
+    const after: Document = {
+      ...before,
+      assets: { [asset.id]: asset },
+      nodes: {
+        ...before.nodes,
+        [node.id]: {
+          ...node,
+          fills: [
+            {
+              ...imageFill(dataUrl, {
+                assetId: asset.id,
+                imageWidth: 1,
+                imageHeight: 1,
+              }),
+              color: node.fill,
+            },
+          ],
+        },
+      },
+    };
+
+    expectRoundTrip(before, after);
+  });
+
+  it('materializes an optional asset map when the legacy document stores it as undefined', () => {
+    const before: Document = { ...baseDoc(), assets: undefined };
+    const asset = createEmbeddedAsset({
+      dataUrl: 'data:image/png;base64,aGVsbG8=',
+      mimeType: 'image/png',
+      naturalWidth: 1,
+      naturalHeight: 1,
+    });
+    const after: Document = { ...before, assets: { [asset.id]: asset } };
+
     expectRoundTrip(before, after);
   });
 });

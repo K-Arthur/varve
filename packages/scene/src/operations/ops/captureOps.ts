@@ -293,7 +293,11 @@ function resolveRecord(
       current = found;
     } else {
       const record = current as Record<string, unknown>;
-      if (!Object.hasOwn(record, segment)) {
+      if (
+        !Object.hasOwn(record, segment) ||
+        record[segment] === undefined ||
+        record[segment] === null
+      ) {
         if (!createMissing) return undefined;
         setOwnProperty(record, segment, {});
       }

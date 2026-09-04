@@ -140,6 +140,31 @@ export async function navigateToEditor(page: Page, path = '/') {
     }
     await page.waitForTimeout(50);
   }
+
+  // The shell mounts before CanvasArea and LayersPanel have completed their
+  // first render. On a loaded CI runner, actions issued immediately after
+  // `.editor-shell` becomes visible can be lost: drawing silently creates no
+  // layer, while menu focus is still owned by the startup portal. Wait for
+  // both interaction surfaces and a non-zero canvas before handing control to
+  // the spec. This remains attached-state safe for responsive layouts, where
+  // the layers panel may be collapsed but remains mounted.
+  await page.locator('canvas.editor-canvas__content-layer').waitFor({
+    state: 'visible',
+    timeout: 60000,
+  });
+  await page.locator('.layers-panel').waitFor({ state: 'attached', timeout: 60000 });
+  await page.waitForFunction(
+    () => {
+      const canvas = document.querySelector(
+        'canvas.editor-canvas__content-layer',
+      ) as HTMLCanvasElement | null;
+      const layers = document.querySelector('.layers-panel');
+      return canvas != null && canvas.clientWidth > 0 && canvas.clientHeight > 0 && layers != null;
+    },
+    undefined,
+    { timeout: 60000 },
+  );
+  await page.waitForTimeout(250);
 }
 
 /** Activate a workspace whether its responsive tab is visible or in More. */
