@@ -254,7 +254,12 @@ jobs:
   pipeline-validate:
     name: Pipeline validation (workflow + SHA pins)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # This gate installs the workspace and runs the exact-SHA preflight plus
+    # all CI tooling/security checks. Hosted pnpm bootstrap can occasionally
+    # consume several minutes before the gate itself starts; leave enough
+    # budget for validation rather than converting a slow setup into a
+    # cancelled certification.
+    timeout-minutes: 20
     needs: changes
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
