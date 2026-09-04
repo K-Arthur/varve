@@ -510,6 +510,12 @@ input[type="number"] {
 .editor-menubar__side {
   display: flex;
   align-items: center;
+  /* Keep the semantic menubar's hit area aligned with the full chrome track.
+     The outer bar can be taller than the grid row at responsive token
+     breakpoints; centering this flex item otherwise makes role="menubar"
+     appear to start several pixels below the document even though its
+     containing bar starts at y=0. */
+  align-self: stretch;
   gap: var(--space-1);
   flex: 1 1 0;
   min-width: 0;
