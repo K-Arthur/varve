@@ -9,6 +9,17 @@ const stagedFiles = [
   'tests/e2e/canvas/toolbar.spec.ts',
 ];
 
+function withoutCiEnvironment(callback) {
+  const previous = process.env.CI;
+  delete process.env.CI;
+  try {
+    return callback();
+  } finally {
+    if (previous === undefined) delete process.env.CI;
+    else process.env.CI = previous;
+  }
+}
+
 const selection = selectCommitCommands(stagedFiles);
 const lanes = selection.commands.map((entry) => entry.lane);
 assert.ok(lanes.includes('format-lint:staged'));
@@ -23,22 +34,26 @@ for (const entry of selection.commands.filter((item) => item.argv.includes('vite
 }
 
 const executed = [];
-const passed = runCommitCheckpoint({
-  stagedFiles,
-  executeCommand: (argv) => {
-    executed.push(argv);
-    return 0;
-  },
-  dryRun: true,
-});
+const passed = withoutCiEnvironment(() =>
+  runCommitCheckpoint({
+    stagedFiles,
+    executeCommand: (argv) => {
+      executed.push(argv);
+      return 0;
+    },
+    dryRun: true,
+  }),
+);
 assert.equal(passed, 0);
 assert.ok(executed.some((argv) => argv.some((part) => part.endsWith('Radio.test.tsx'))));
 
-const failed = runCommitCheckpoint({
-  stagedFiles: ['packages/ui/src/components/Radio.tsx'],
-  executeCommand: (argv) => (argv.includes('biome') ? 1 : 0),
-  dryRun: false,
-});
+const failed = withoutCiEnvironment(() =>
+  runCommitCheckpoint({
+    stagedFiles: ['packages/ui/src/components/Radio.tsx'],
+    executeCommand: (argv) => (argv.includes('biome') ? 1 : 0),
+    dryRun: false,
+  }),
+);
 assert.equal(failed, 1);
 
 console.log('commit-checkpoint.test.mjs: all assertions passed');
