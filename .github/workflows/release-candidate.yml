@@ -49,7 +49,7 @@ jobs:
           EXPECTED_SHA: ${{ inputs.sha }}
         run: |
           set -euo pipefail
-          ACTUAL_SHA="$(git rev-parse --verify HEAD^{commit})"
+          ACTUAL_SHA="$(git rev-parse --verify 'HEAD^{commit}')"
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
           git merge-base --is-ancestor "$ACTUAL_SHA" origin/master
           node scripts/quality/ci-plan.mjs --base "$ACTUAL_SHA" --head "$ACTUAL_SHA" \

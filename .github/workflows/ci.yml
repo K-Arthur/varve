@@ -65,7 +65,7 @@ jobs:
           EVENT_BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          HEAD="$(git rev-parse --verify HEAD^{commit})"
+          HEAD="$(git rev-parse --verify 'HEAD^{commit}')"
           if [[ "$EVENT_NAME" == "schedule" || "$EVENT_NAME" == "workflow_dispatch" ]]; then
             # Scheduled/manual runs are deliberate certification runs. The
             # canonical planner still writes the plan, but force-full makes
