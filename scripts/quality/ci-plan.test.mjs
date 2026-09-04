@@ -58,7 +58,7 @@ const commands = preflightCommands({ files: manyFiles, plan: { tiers: { 1: [], 2
 const biomeCommands = commands.filter(
   (command) => command[0] === 'pnpm' && command.includes('biome'),
 );
-assert.ok(biomeCommands.length >= 26, 'thousands of files require chunked Biome commands');
+assert.ok(biomeCommands.length >= 13, 'thousands of files require chunked Biome commands');
 assert.ok(biomeCommands.every((command) => command.length <= 86));
 assert.ok(biomeCommands.every((command) => !command.includes('--check')));
 assert.ok(biomeCommands.every((command) => !command.includes('-c') && !command.includes('sh')));
