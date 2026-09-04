@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildCiPlan, validateCiPlan } from './ci-plan.mjs';
 import { preflightCommands } from './ci-preflight.mjs';
+import { laneArgv } from './validation-lanes.mjs';
 import { CI_CATEGORIES, promisedLanesForCategories } from './validation-policy.mjs';
 
 const head = readFileSync('.git/HEAD', 'utf8').trim();
@@ -59,7 +60,13 @@ const biomeCommands = commands.filter(
 );
 assert.ok(biomeCommands.length >= 26, 'thousands of files require chunked Biome commands');
 assert.ok(biomeCommands.every((command) => command.length <= 86));
+assert.ok(biomeCommands.every((command) => !command.includes('--check')));
 assert.ok(biomeCommands.every((command) => !command.includes('-c') && !command.includes('sh')));
+assert.deepEqual(laneArgv('format:changed', { files: ['package.json'] }), [
+  'biome',
+  'format',
+  'package.json',
+]);
 const unusualRoot = mkdtempSync(join(tmpdir(), 'varve-preflight-paths-'));
 try {
   writeFileSync(join(unusualRoot, 'path with spaces-[odd].ts'), 'export {}\n');

@@ -39,15 +39,7 @@ export function preflightCommands(plan, { root = ROOT } = {}) {
   );
   const commands = [];
   for (const group of chunks(files, 80)) {
-    commands.push([
-      'pnpm',
-      'exec',
-      'biome',
-      'format',
-      '--check',
-      '--no-errors-on-unmatched',
-      ...group,
-    ]);
+    commands.push(['pnpm', 'exec', 'biome', 'format', '--no-errors-on-unmatched', ...group]);
     commands.push(['pnpm', 'exec', 'biome', 'check', '--no-errors-on-unmatched', ...group]);
   }
 

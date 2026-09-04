@@ -140,7 +140,7 @@ export function laneArgv(lane, { files = [], pkgDir } = {}) {
   if (lane === 'release-version') return ['node', 'scripts/release/version.mjs', 'verify'];
   if (lane === 'product-truth') return ['node', 'scripts/release/verify-product-truth.mjs'];
   if (lane === 'typecheck:e2e') return ['pnpm', 'typecheck:e2e'];
-  if (lane === 'format:changed') return ['biome', 'format', '--check', ...files];
+  if (lane === 'format:changed') return ['biome', 'format', ...files];
   if (lane === 'lint:changed') return ['biome', 'check', ...files];
   if (lane.startsWith('js-unit:file:')) {
     return ['pnpm', 'exec', 'vitest', 'run', lane.slice('js-unit:file:'.length)];
