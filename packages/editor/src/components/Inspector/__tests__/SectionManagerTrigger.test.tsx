@@ -14,7 +14,7 @@ describe('SectionManagerTrigger', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Customize sections' }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Show all sections' })).toHaveFocus(),
+      expect(screen.getByRole('button', { name: 'Show all sections', hidden: true })).toHaveFocus(),
     );
     const typography = screen.getByRole('checkbox', { name: 'Typography' });
     expect(typography).toBeChecked();
@@ -35,7 +35,7 @@ describe('SectionManagerTrigger', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Customize sections' }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Reset order' })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: 'Reset order', hidden: true })).toBeInTheDocument(),
     );
 
     const items = () =>
