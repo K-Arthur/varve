@@ -52,7 +52,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Checkout's default ref is the immutable event SHA. Keeping the
+          # checkout on that ref avoids routing a source ref through a job
+          # output, which CodeQL correctly treats as an unsafe checkout input
+          # in scheduled/manual runs. The generated plan records and validates
+          # the exact commit that this checkout resolves to.
           fetch-depth: 0
       - id: lanes
         env:
@@ -143,8 +147,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.changes.outputs.commit_sha }}
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
@@ -206,7 +208,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
@@ -254,8 +255,6 @@ jobs:
     needs: changes
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.changes.outputs.commit_sha }}
       # The workflow security policy audit parses YAML structurally (js-yaml,
       # a devDependency), so this job now installs once. The install is small
       # and cached; the job stays cheap.
@@ -357,8 +356,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.changes.outputs.commit_sha }}
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -402,8 +399,6 @@ jobs:
       VARVE_PRIVATE_TEST_CANARY: VARVE_PRIVATE_TEST_CANARY_DO_NOT_SHIP
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.changes.outputs.commit_sha }}
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -470,8 +465,6 @@ jobs:
         shard: ${{ fromJSON(needs.changes.outputs.e2e_shards) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.changes.outputs.commit_sha }}
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -536,8 +529,6 @@ jobs:
     if: ${{ needs.changes.outputs.visual == 'true' || needs.changes.outputs.full == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.changes.outputs.commit_sha }}
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -623,8 +614,6 @@ jobs:
             xvfb: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.changes.outputs.commit_sha }}
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -688,8 +677,6 @@ jobs:
     if: ${{ needs.changes.outputs.bench == 'true' || needs.changes.outputs.full == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.changes.outputs.commit_sha }}
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -719,8 +706,6 @@ jobs:
     if: ${{ needs.changes.outputs.models == 'true' || needs.changes.outputs.full == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.changes.outputs.commit_sha }}
       - name: Validate model manifest and checksums
         run: node scripts/models/validate-manifest.mjs
 
@@ -748,7 +733,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ needs.changes.outputs.commit_sha }}
           fetch-depth: 1
       - name: Download canonical plan
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c

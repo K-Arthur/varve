@@ -451,6 +451,15 @@ function testRealWorkflowsPass() {
   );
 }
 
+function testCiCheckoutsDoNotUseJobOutputRefs() {
+  const text = readFileSync(join(WF_DIR, 'ci.yml'), 'utf8');
+  assert.doesNotMatch(
+    text,
+    /ref:\s+\$\{\{\s*needs\.changes\.outputs\.commit_sha\s*\}\}/,
+    'CI checkouts must use the immutable event SHA, not a job output ref',
+  );
+}
+
 function testPrCommentWriteScope() {
   const safe = `name: CI Debug Report
 on:
@@ -535,7 +544,8 @@ testSigningStepFlagOutsideReleaseRejected();
 testMisIndentedTopLevelKeyRejected();
 testCompliantReleaseFixtureClean();
 testRealWorkflowsPass();
+testCiCheckoutsDoNotUseJobOutputRefs();
 testPrCommentWriteScope();
 testWorkflowRunCheckoutTrustBoundary();
 
-console.log('workflow-policy tests passed (30 scenarios).');
+console.log('workflow-policy tests passed (31 scenarios).');
