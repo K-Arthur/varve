@@ -97,17 +97,20 @@ export function withDocumentExt(name: string): string {
  * second extension onto an already-extended name.
  */
 export function normalizeSaveFileName(name: string): string {
-  const cleaned = name
+  const withoutPathSeparators = name
+    .split('')
+    .map((c) => (c === '\\' || c === '/' || c === ':' ? ' ' : c))
+    .join('');
+  const normalized = withoutPathSeparators
     .split('')
     .filter((c) => {
       const code = c.charCodeAt(0);
       return code >= 0x20 && code !== 0x7f;
     })
     .join('')
-    .replace(/[\\/:]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ');
-  const base = cleaned && cleaned !== '.' && cleaned !== '..' ? cleaned : 'Untitled';
+  const base = normalized && normalized !== '.' && normalized !== '..' ? normalized : 'Untitled';
   return withDocumentExt(base);
 }
 

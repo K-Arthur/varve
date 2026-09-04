@@ -107,6 +107,13 @@ const normalizedTransformCache = new Map<string, [number, number, number, number
 /** Bounded cache for deterministic proof transforms. */
 const TRANSFORM_CACHE_MAX = 4096;
 
+function invokeConverter(
+  converter: ProfileProofConverter | ProfileProofConverterNormalized | undefined,
+  rgba: [number, number, number, number],
+): [number, number, number, number] | null {
+  return converter ? converter(rgba) : null;
+}
+
 function cacheGet(key: string): [number, number, number, number] | undefined {
   return transformCache.get(key);
 }
@@ -142,7 +149,7 @@ export function applyProofToRgba(
   const cached = cacheGet(cacheKey);
   if (cached) return { kind: 'icc', rgba: cached };
 
-  const converted = converter(rgba);
+  const converted = invokeConverter(converter, rgba);
   if (!converted) {
     return { kind: 'unavailable', rgba };
   }
@@ -165,7 +172,7 @@ export function applyProofToNormalized(
   const cacheKey = `${proofConfigKey(config)}:${rgba[0]},${rgba[1]},${rgba[2]},${rgba[3]}`;
   const cached = normalizedTransformCache.get(cacheKey);
   if (cached) return { kind: 'icc', rgba: cached };
-  const converted = converter(rgba);
+  const converted = invokeConverter(converter, rgba);
   if (!converted) return { kind: 'unavailable', rgba };
   normalizedCacheSet(cacheKey, converted);
   return { kind: 'icc', rgba: converted };
@@ -185,7 +192,7 @@ export function isColorOutOfProofGamut(
 ): boolean | null {
   const converter = profileConverters.get(config.profileId);
   if (!converter) return null;
-  const converted = converter(rgba);
+  const converted = invokeConverter(converter, rgba);
   if (!converted) return null;
   const tolerance = 1.5;
   return (

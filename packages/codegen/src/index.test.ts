@@ -284,7 +284,11 @@ describe('exportDocumentToSvgAdvanced', () => {
     );
 
     const svg = exportDocumentToSvgAdvanced(doc, {});
-    const groups = svg.match(/<g[^>]*>/g) ?? [];
+    const groups = svg
+      .split('<g')
+      .slice(1)
+      .map((group) => `<g${group.slice(0, group.indexOf('>') + 1)}`)
+      .filter((tag) => tag.endsWith('>'));
 
     expect(groups.some((tag) => tag.includes('isolation: isolate;'))).toBe(true);
     expect(groups.some((tag) => !tag.includes('style='))).toBe(true);

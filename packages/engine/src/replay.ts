@@ -3007,8 +3007,19 @@ function measureTextAdvance(target: ReplayTarget, char: string): number {
 }
 
 function parseFontSize(font: string): number {
-  const match = /(\d+(?:\.\d+)?)px/.exec(font);
-  return match?.[1] ? Number.parseFloat(match[1]) : 16;
+  const pxIndex = font.indexOf('px');
+  if (pxIndex < 1) return 16;
+  let start = pxIndex - 1;
+  while (start >= 0) {
+    const code = font.charCodeAt(start);
+    if ((code >= 0x30 && code <= 0x39) || code === 0x2e) {
+      start--;
+      continue;
+    }
+    break;
+  }
+  const parsed = Number.parseFloat(font.slice(start + 1, pxIndex));
+  return Number.isFinite(parsed) ? parsed : 16;
 }
 
 /** Paint a closed/open path fill (supports optional hole rings via evenodd). */

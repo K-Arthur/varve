@@ -784,8 +784,56 @@ export function parseSingleElement(xml: string): ParsedElement | null {
   return result?.el ?? null;
 }
 
+const IGNORED_TEXT_TAGS = new Set(['foreignobject', 'script', 'style']);
+
 function extractText(xml: string): string {
-  return xml.replace(/<[^>]*>/g, '').trim();
+  const text: string[] = [];
+  const lowerXml = xml.toLowerCase();
+  let pos = 0;
+
+  while (pos < xml.length) {
+    const nextTag = xml.indexOf('<', pos);
+    if (nextTag < 0) {
+      text.push(xml.slice(pos));
+      break;
+    }
+    if (nextTag > pos) text.push(xml.slice(pos, nextTag));
+
+    if (xml.startsWith('<!--', nextTag)) {
+      const commentEnd = xml.indexOf('-->', nextTag + 4);
+      pos = commentEnd < 0 ? xml.length : commentEnd + 3;
+      continue;
+    }
+
+    const info = nextTagInfo(xml, nextTag);
+    if (!info) {
+      const tagEnd = xml.indexOf('>', nextTag + 1);
+      pos = tagEnd < 0 ? xml.length : tagEnd + 1;
+      continue;
+    }
+
+    const tagName = info.tag.toLowerCase();
+    if (info.type === 'open' && IGNORED_TEXT_TAGS.has(tagName)) {
+      const closeMarker = `</${tagName}`;
+      let closeStart = lowerXml.indexOf(closeMarker, info.contentStart);
+      while (closeStart >= 0) {
+        const afterName = closeStart + closeMarker.length;
+        const boundary = lowerXml[afterName];
+        if (boundary === '>' || boundary === ' ' || boundary === '\t' || boundary === '\n') {
+          const closeEnd = xml.indexOf('>', afterName);
+          pos = closeEnd < 0 ? xml.length : closeEnd + 1;
+          break;
+        }
+        closeStart = lowerXml.indexOf(closeMarker, afterName);
+      }
+      if (closeStart < 0) pos = xml.length;
+      continue;
+    }
+
+    pos = info.contentStart;
+  }
+
+  return text.join('').trim();
 }
 
 export function parseAttrs(attrStr: string): Record<string, string> {

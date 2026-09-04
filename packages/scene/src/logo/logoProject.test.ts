@@ -3,6 +3,7 @@
  * brief updates, normalization, artboard creation, and duplication.
  */
 import { describe, expect, it } from 'vitest';
+import { createDesignCanvas } from '../designCanvas';
 import type { Document } from '../document';
 import { createDocument } from '../document';
 import {
@@ -183,6 +184,20 @@ describe('artboards', () => {
     expect(doc.rootChildren).toContain(artboardId);
     // Logo artboards default to a transparent fill.
     expect(frame.fill).toEqual({ space: 'rgb', r: 255, g: 255, b: 255, a: 0 });
+  });
+
+  it('places a logo artboard inside the active design canvas', () => {
+    const canvasDoc = createDesignCanvas(baseDoc(), { activate: true });
+    const { doc, artboardId } = createLogoArtboard(canvasDoc, {
+      name: 'Canvas Mark',
+      width: 512,
+      height: 512,
+    });
+    const canvasRootId = doc.designCanvases?.[0]?.contentRoot;
+    const canvasRoot = canvasRootId ? doc.nodes[canvasRootId] : undefined;
+
+    expect(canvasRoot && 'children' in canvasRoot ? canvasRoot.children : []).toContain(artboardId);
+    expect(doc.rootChildren).not.toContain(artboardId);
   });
 });
 

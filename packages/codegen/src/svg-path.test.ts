@@ -131,8 +131,14 @@ describe('SVG path export', () => {
     expect(svg).toContain('viewBox="40 30 250 10"');
 
     const documentSvg = exportDocumentToSvg(doc);
-    const viewBox = documentSvg.match(/viewBox="[^ ]+ [^ ]+ ([^ ]+) ([^"]+)"/);
+    const viewBoxAttribute = 'viewBox="';
+    const viewBoxStart = documentSvg.indexOf(viewBoxAttribute);
+    const viewBoxEnd = documentSvg.indexOf('"', viewBoxStart + viewBoxAttribute.length);
+    const viewBoxParts = documentSvg
+      .slice(viewBoxStart + viewBoxAttribute.length, viewBoxEnd)
+      .split(' ')
+      .map(Number);
     expect(computeDocumentBounds(doc).w).toBeGreaterThanOrEqual(250);
-    expect(Number(viewBox?.[1])).toBeGreaterThanOrEqual(250);
+    expect(viewBoxParts[2]).toBeGreaterThanOrEqual(250);
   });
 });

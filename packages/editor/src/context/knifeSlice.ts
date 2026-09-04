@@ -787,9 +787,15 @@ function collectCandidates(doc: Document, roots: readonly NodeId[]): Candidate[]
  * accreting suffixes into "Rectangle 1 copy copy 2".
  */
 function nextPieceName(taken: Set<string>, base: string): string {
-  const match = /^(.*?)(\d+)$/.exec(base);
-  const stem = (match ? match[1] : `${base} `) ?? `${base} `;
-  let index = match ? Number(match[2]) + 1 : 2;
+  let suffixStart = base.length;
+  while (suffixStart > 0) {
+    const code = base.charCodeAt(suffixStart - 1);
+    if (code < 0x30 || code > 0x39) break;
+    suffixStart--;
+  }
+  const hasNumericSuffix = suffixStart < base.length;
+  const stem = hasNumericSuffix ? base.slice(0, suffixStart) : `${base} `;
+  let index = hasNumericSuffix ? Number(base.slice(suffixStart)) + 1 : 2;
   let candidate = `${stem}${index}`;
   while (taken.has(candidate)) {
     index++;

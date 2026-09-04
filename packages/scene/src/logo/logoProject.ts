@@ -20,9 +20,10 @@
  */
 
 import { deepCloneSubtree } from '../clone';
+import { designCanvasContentRoot } from '../designCanvas';
 import type { Document } from '../document';
 import { addGuide, resolveGuidePageId } from '../document';
-import { addNode } from '../document-nodes';
+import { addChild, addNode } from '../document-nodes';
 import { cryptoId } from '../document-utils';
 import { nodeLocalBounds } from '../nodeBounds';
 import type {
@@ -424,7 +425,11 @@ function addLogoFrame(
     input.x ?? 0,
     input.y ?? 0,
   );
-  const d2 = addNode(d1, frame);
+  // New design documents scope editable artwork to the active canvas's
+  // transparent content root. Keep the legacy root-level placement for flat
+  // and page documents so existing import/export semantics remain unchanged.
+  const canvasRoot = designCanvasContentRoot(d1);
+  const d2 = canvasRoot ? addChild(d1, canvasRoot, frame) : addNode(d1, frame);
   return { id, doc: d2 };
 }
 

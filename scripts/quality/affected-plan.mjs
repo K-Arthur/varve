@@ -233,6 +233,7 @@ function matchesGlob(path, glob) {
   // simple glob: **/ prefix/suffix, * within segments
   const seg = glob.split('/');
   const pseg = path.split('/');
+  const escapedGlob = glob.replaceAll('\\', '\\\\');
   if (seg.some((s) => s === '**')) {
     // anchor on first non-** segment
     const i = seg.findIndex((s) => s !== '**');
@@ -241,7 +242,7 @@ function matchesGlob(path, glob) {
     if (needle.some((s) => s.includes('*'))) {
       // fall back to regex for wildcard segments
       const re = new RegExp(
-        glob
+        escapedGlob
           .replace(/\./g, '\\.')
           .replace(/\*\*\//g, '(?:.*/)?')
           .replace(/\*/g, '[^/]*'),
@@ -251,7 +252,7 @@ function matchesGlob(path, glob) {
     return pseg.join('/').endsWith(needle.join('/')) || pseg.join('/').includes(needle.join('/'));
   }
   const re = new RegExp(
-    `^${glob.replace(/\./g, '\\.').replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*')}$`,
+    `^${escapedGlob.replace(/\./g, '\\.').replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*')}$`,
   );
   return re.test(path);
 }

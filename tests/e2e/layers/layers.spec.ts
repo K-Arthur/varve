@@ -84,9 +84,9 @@ test.describe('Layers Panel - APG Tree View', () => {
     const items = page.getByRole('treeitem');
     const initialCount = await items.count();
     if (initialCount > 1) {
-      const firstName = await items.first().getAttribute('aria-label');
+      const firstName = await items.first().locator('.layers-row__name').textContent();
       if (firstName) {
-        await filter.fill(firstName);
+        await filter.fill(firstName.trim());
         await page.waitForTimeout(200);
         const afterCount = await items.count();
         expect(afterCount).toBeLessThanOrEqual(initialCount);

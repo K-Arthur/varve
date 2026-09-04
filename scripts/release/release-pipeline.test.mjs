@@ -25,6 +25,11 @@ import { buildUpdaterConfig } from './write-updater-config.mjs';
 const releaseWorkflow = readFileSync('.github/workflows/release.yml', 'utf8');
 const websiteWorkflow = readFileSync('.github/workflows/website-deploy.yml', 'utf8');
 const visualWorkflow = readFileSync('.github/workflows/visual-baselines.yml', 'utf8');
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 assert.match(releaseWorkflow, /varve-release-published/);
 assert.match(websiteWorkflow, /repository_dispatch:/);
 assert.match(visualWorkflow, /reviewed:/);
@@ -578,7 +583,7 @@ assert.throws(
   // gate with a stale hardcoded expectation.
   assert.match(
     runVersion(['verify', `v${current}`]),
-    new RegExp(`All version manifests agree on ${current.replace(/\./g, '\\.')}\\.`),
+    new RegExp(`All version manifests agree on ${escapeRegExp(current)}\\.`),
     'verify current version passes',
   );
   assert.throws(() => runVersion(['verify', 'v9.9.9']), undefined, 'verify wrong tag fails');
@@ -606,7 +611,7 @@ assert.throws(
   assert.equal(snap1, snap2, 'snapshot is deterministic for the same HEAD');
   assert.match(
     snap1,
-    new RegExp(`^${current.replace(/\./g, '\\.')}-dev\\.(?:[0-9a-f]{7,}|local)$`),
+    new RegExp(`^${escapeRegExp(current)}-dev\\.(?:[0-9a-f]{7,}|local)$`),
     'snapshot format',
   );
   assert.equal(runVersion(['get']), current, 'snapshot never writes manifests');

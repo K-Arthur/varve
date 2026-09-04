@@ -283,9 +283,9 @@ function resolveRecord(
       current = found;
     } else {
       const record = current as Record<string, unknown>;
-      if (record[segment] === undefined) {
+      if (!Object.hasOwn(record, segment)) {
         if (!createMissing) return undefined;
-        record[segment] = {};
+        setOwnProperty(record, segment, {});
       }
       current = record[segment];
     }
@@ -316,7 +316,7 @@ function setAtPath(root: Record<string, unknown>, path: string, value: unknown):
     } else if (typeof current === 'object' && current !== null) {
       const record = current as Record<string, unknown>;
       if (record[segment] === undefined || record[segment] === null) {
-        record[segment] = {};
+        setOwnProperty(record, segment, {});
       }
       current = record[segment];
     } else {
@@ -339,9 +339,22 @@ function setAtPath(root: Record<string, unknown>, path: string, value: unknown):
     (current as unknown[])[index] = value;
   } else {
     const record = current as Record<string, unknown>;
-    if (value === undefined) delete record[last];
-    else record[last] = value;
+    if (value === undefined) {
+      if (Object.hasOwn(record, last)) delete record[last];
+    } else {
+      setOwnProperty(record, last, value);
+    }
   }
+}
+
+/** Assign a validated path segment without invoking a prototype setter. */
+function setOwnProperty(record: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(record, key, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
 }
 
 /** A capture path can address either an entity-id array item or a numeric tuple item. */
