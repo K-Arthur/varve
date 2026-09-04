@@ -4,6 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { parseArgs, runLane } from './pre-push.mjs';
+import { PUSH_LANE_TIMEOUT_MS } from './validation-policy.mjs';
 
 const since = parseArgs(['--since', 'origin/master', '--dry-run']);
 assert.equal(since.since, 'origin/master');
@@ -64,5 +65,10 @@ assert.equal(formatLane.status, 0, 'format lane should invoke Biome successfully
 assert.deepEqual(formatCommands, [
   ['biome', 'format', 'scripts/quality/pre-push.test.mjs', '--no-errors-on-unmatched'],
 ]);
+
+assert.ok(
+  PUSH_LANE_TIMEOUT_MS['js-unit:@varve/editor'] >= 12 * 60 * 1000,
+  'the editor package push check must allow its measured affected-suite runtime to finish',
+);
 
 console.log('pre-push adapter tests passed');

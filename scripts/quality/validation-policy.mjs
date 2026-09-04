@@ -184,6 +184,10 @@ export const PUSH_LANE_TIMEOUT_MS = Object.freeze({
   'security-policy': 2 * 60 * 1000,
   'release-version': 2 * 60 * 1000,
   'product-truth': 2 * 60 * 1000,
+  // The editor package owns the bulk of the UI suite (649 files on the
+  // integration branch). Its affected push check can legitimately exceed
+  // the generic five-minute ceiling on the primary Linux dev environment.
+  'js-unit:@varve/editor': 15 * 60 * 1000,
   models: 3 * 60 * 1000,
 });
 
