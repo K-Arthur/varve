@@ -168,7 +168,21 @@ test('footer dark', async ({ page }) => {
   const footer = page.locator('.site-footer');
   await expect(footer).toBeVisible();
   await footer.scrollIntoViewIfNeeded();
-  await expect(footer).toHaveScreenshot('footer-dark.png', {
+  // The responsive footer has a fractional CSS height. Locator screenshots
+  // round that height differently across Chromium environments (948px here,
+  // 949px on CI), so anchor a fixed-size clip to the footer's document box.
+  const footerClip = await footer.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: Math.floor(rect.left + window.scrollX),
+      y: Math.floor(rect.top + window.scrollY),
+      width: Math.ceil(rect.width),
+      height: 948,
+    };
+  });
+  await expect(page).toHaveScreenshot('footer-dark.png', {
+    fullPage: true,
+    clip: footerClip,
     maxDiffPixelRatio: 0.02,
   });
 });
