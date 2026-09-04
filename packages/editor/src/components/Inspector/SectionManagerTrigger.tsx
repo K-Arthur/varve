@@ -7,7 +7,7 @@
  * Research basis: Figma layer panel options, VS Code panel header menus.
  */
 import { FloatingPortal, Icon } from '@varve/ui';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { FEATURE_OWNERSHIP, type InspectorSurface } from './featureOwnership';
 import {
@@ -31,6 +31,9 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const firstActionRef = useCallback((control: HTMLButtonElement | null) => {
+    control?.focus();
+  }, []);
   const surfaceIds = new Set<SectionId>(
     Object.entries(FEATURE_OWNERSHIP)
       .filter(([, ownership]) => ownership.surface === surface)
@@ -128,6 +131,7 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
         >
           <div className="insp-section-manager__actions">
             <button
+              ref={firstActionRef}
               type="button"
               className="insp-section-manager__action"
               onClick={() => {
