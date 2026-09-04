@@ -66,8 +66,8 @@ function installWorkerStub() {
 function seedModelStore() {
   return `
     (() => {
-      const put = () => {
-        const request = indexedDB.open('varve-model-store', 2);
+      const put = () => new Promise((resolve, reject) => {
+        const request = indexedDB.open('varve-model-store', 3);
         request.onupgradeneeded = () => {
           if (!request.result.objectStoreNames.contains('models')) {
             request.result.createObjectStore('models');
@@ -76,16 +76,24 @@ function seedModelStore() {
             request.result.createObjectStore('partials');
           }
         };
+        request.onerror = () => reject(request.error ?? new Error('Failed to seed model store'));
         request.onsuccess = () => {
           const db = request.result;
           const tx = db.transaction('models', 'readwrite');
           // modelStore stores raw Blobs keyed by model id.
           tx.objectStore('models').put(new Blob([new Uint8Array([1])]), '${DEPTH_MODEL_ID}');
-          tx.oncomplete = () => db.close();
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onerror = () => {
+            db.close();
+            reject(tx.error ?? new Error('Failed to write seeded model'));
+          };
         };
       };
       window.__varveSeedDepthModel = put;
-      put();
+      void put();
     })();
   `;
 }
@@ -98,7 +106,9 @@ function seedModelStore() {
 async function navigateWithSeededModel(page: import('@playwright/test').Page) {
   await navigateToEditor(page);
   await page.evaluate(() => {
-    (window as unknown as { __varveSeedDepthModel?: () => void }).__varveSeedDepthModel?.();
+    return (
+      window as unknown as { __varveSeedDepthModel?: () => Promise<void> }
+    ).__varveSeedDepthModel?.();
   });
   await page.reload({ timeout: 120000 });
   await page.getByRole('button', { name: /^new$/i }).waitFor({ state: 'visible', timeout: 60000 });
