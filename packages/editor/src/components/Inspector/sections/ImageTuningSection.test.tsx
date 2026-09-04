@@ -139,7 +139,7 @@ describe('ImageTuningSection', () => {
       'aria-valuetext',
       'Mixed values',
     );
-    expect(screen.getByRole('spinbutton', { name: /fine texture/i })).toHaveValue('—');
+    expect(screen.getByRole('spinbutton', { name: /fine texture/i })).toHaveValue('Mixed');
     expect(screen.getAllByText('Mixed').length).toBeGreaterThan(0);
   });
 

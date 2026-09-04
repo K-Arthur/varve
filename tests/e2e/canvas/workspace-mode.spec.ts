@@ -11,7 +11,7 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
   });
 
   test('design mode is default with all panels', async ({ page }) => {
-    const designBtn = page.locator('.workspace-tabs__tab[aria-label="Design workspace"]');
+    const designBtn = page.locator('.workspace-dock__item[aria-label="Design workspace"]');
     await expect(designBtn).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('[data-panel="layers"]')).toBeVisible();
     await expect(page.locator('[data-panel="inspector"]')).toBeVisible();
@@ -24,9 +24,9 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
   });
 
   test('print mode via toolbar button', async ({ page }) => {
-    await page.locator('.workspace-tabs__tab[aria-label="Print workspace"]').click();
+    await page.locator('.workspace-dock__item[aria-label="Print workspace"]').click();
     await expect(
-      page.locator('.workspace-tabs__tab[aria-label="Print workspace"]'),
+      page.locator('.workspace-dock__item[aria-label="Print workspace"]'),
     ).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('[data-panel="layers"]')).toBeVisible();
     await expect(page.locator('[data-panel="inspector"]')).toBeVisible();
@@ -37,18 +37,17 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
   });
 
   test('drawing mode hides page nav and shows brush controls', async ({ page }) => {
-    await page.locator('.workspace-tabs__tab[aria-label="Draw workspace"]').click();
-    await expect(page.locator('.workspace-tabs__tab[aria-label="Draw workspace"]')).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
+    await page.locator('.workspace-dock__item[aria-label="Draw workspace"]').click();
+    await expect(
+      page.locator('.workspace-dock__item[aria-label="Draw workspace"]'),
+    ).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('.page-nav-container')).not.toBeVisible();
     await expect(page.locator('.floating-toolbar__drawing')).toBeVisible();
     await expect(page.locator('.floating-toolbar__colors')).toBeVisible();
   });
 
   test('print mode hides paint/retouch tools', async ({ page }) => {
-    await page.locator('.workspace-tabs__tab[aria-label="Print workspace"]').click();
+    await page.locator('.workspace-dock__item[aria-label="Print workspace"]').click();
     await expect(page.locator('[data-tool="paint"]')).not.toBeVisible();
     await expect(page.locator('[data-tool="eraser"]')).not.toBeVisible();
     await expect(page.locator('[data-tool="cloneStamp"]')).not.toBeVisible();
@@ -67,11 +66,11 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
     await page.mouse.up();
     await page.keyboard.press('v');
 
-    await page.locator('.workspace-tabs__tab[aria-label="Print workspace"]').click();
+    await page.locator('.workspace-dock__item[aria-label="Print workspace"]').click();
     await expect(page.getByRole('treeitem').first()).toBeVisible();
-    await page.locator('.workspace-tabs__tab[aria-label="Draw workspace"]').click();
+    await page.locator('.workspace-dock__item[aria-label="Draw workspace"]').click();
     await expect(page.getByRole('treeitem').first()).toBeVisible();
-    await page.locator('.workspace-tabs__tab[aria-label="Design workspace"]').click();
+    await page.locator('.workspace-dock__item[aria-label="Design workspace"]').click();
     await expect(page.getByRole('treeitem').first()).toBeVisible();
   });
 
@@ -88,13 +87,13 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
     await zoomInput.fill('200');
     await zoomInput.press('Enter');
     await expect(zoomInput).toHaveValue('200');
-    await page.locator('.workspace-tabs__tab[aria-label="Print workspace"]').click();
+    await page.locator('.workspace-dock__item[aria-label="Print workspace"]').click();
     await expect(zoomInput).toHaveValue('200');
   });
 
   test('ARIA radiogroup and radio roles', async ({ page }) => {
     await expect(page.locator('[role="radiogroup"][aria-label="Workspace"]')).toBeVisible();
-    const radios = page.locator('.workspace-tabs__tab[role="radio"]');
+    const radios = page.locator('.workspace-dock__item[role="radio"]');
     await expect(radios).toHaveCount(8);
     await expect(radios.nth(0)).toHaveAttribute('aria-checked', 'true');
     await expect(radios.nth(1)).toHaveAttribute('aria-checked', 'false');
@@ -111,9 +110,9 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
   }) => {
     // Grouped with undo/redo/zoom at the trailing edge of the menubar, not
     // crowding the centered document-name field.
-    const switcher = page.locator('.editor-menubar__controls .workspace-tabs');
+    const switcher = page.locator('.editor-menubar__controls .workspace-dock');
     await expect(switcher).toBeVisible();
-    await expect(page.locator('.editor-menubar__center .workspace-tabs')).toHaveCount(0);
+    await expect(page.locator('.editor-menubar__center .workspace-dock')).toHaveCount(0);
     // Icon + label per mode.
     const radios = switcher.locator('[role="radio"]');
     await expect(radios.first().locator('svg')).toBeVisible();
@@ -123,7 +122,7 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
   test('narrow window does not break layout', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 600 });
     await page.waitForTimeout(500);
-    await expect(page.locator('.workspace-tabs')).toBeVisible();
+    await expect(page.locator('.workspace-dock')).toBeVisible();
     await expect(page.locator('[data-testid="toolbar"]')).toBeVisible();
     await expect(page.locator('.editor-status')).toBeVisible();
 

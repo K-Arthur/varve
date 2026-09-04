@@ -113,8 +113,11 @@ export async function convertTextOutline(
 
     callbacks.onResult(result.document);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error during text outlining';
-    callbacks.onError(msg);
+    // Keep implementation details and backend/browser messages out of the
+    // toast. The conversion boundary is the right place to preserve a useful
+    // product message while diagnostics remain available in devtools.
+    console.error('[Varve] text outline conversion failed', err);
+    callbacks.onError('Could not convert text to outlines. Check that the font is available.');
   }
 }
 

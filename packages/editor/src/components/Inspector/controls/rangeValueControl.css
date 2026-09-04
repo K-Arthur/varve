@@ -30,7 +30,7 @@
 .range-value-control__number .insp-num__input {
   background: var(--color-surface-sunken);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   box-sizing: border-box;
   color: var(--color-text-primary);
   font: inherit;

@@ -57,8 +57,12 @@ export function createDefaultSectionState(): SectionVisibilityState {
   return state;
 }
 
-/** Section state schema version for migration. */
-export const SECTION_STATE_VERSION = 1;
+/**
+ * Section state schema version for migration.
+ * v2: Merged 'constraints' into 'position-size' (ADR-0230). Stale id is
+ *     silently dropped from persisted state.
+ */
+export const SECTION_STATE_VERSION = 2;
 
 /** Persisted shape including version for safe migration. */
 export interface PersistedSectionState {
@@ -87,7 +91,9 @@ const LEGACY_SLUG_MAP: Record<string, SectionId> = {
   'position-&-size': 'position-size',
   'corner-radius': 'corner-radius',
   layout: 'layout',
-  constraints: 'constraints',
+  // 'constraints' slug from legacy sessionStorage maps to the merged section.
+  // migrateSectionState drops the retired id, so this is a no-op safety net.
+  constraints: 'position-size',
   appearance: 'appearance',
   mask: 'mask',
   fills: 'fills',
@@ -148,6 +154,9 @@ export function migrateLegacyDisclosureState(
   }
 }
 
+/** IDs retired by ADRs that must be silently dropped during migration. */
+const RETIRED_IDS = new Set(['constraints']);
+
 /** Migrate persisted state from older versions. Unknown IDs are ignored. */
 export function migrateSectionState(
   raw: Record<string, unknown> | undefined | null,
@@ -167,6 +176,8 @@ export function migrateSectionState(
 
   const result = { ...defaults };
   for (const [key, value] of Object.entries(sections)) {
+    // Drop retired section IDs (e.g. 'constraints' merged into 'position-size').
+    if (RETIRED_IDS.has(key)) continue;
     if (key in result && typeof value === 'object' && value !== null) {
       const v = value as Record<string, unknown>;
       const subsections = v.subsections as Record<string, unknown> | undefined;
@@ -452,7 +463,7 @@ export function getHiddenSectionIds(state: SectionVisibilityState): SectionId[] 
 /** Get section IDs sorted by their effective order. */
 export function getOrderedSectionIds(
   state: SectionVisibilityState,
-  sectionIds?: SectionId[],
+  sectionIds?: readonly SectionId[],
 ): SectionId[] {
   const ids = sectionIds ?? getAllSectionIds();
   return [...ids].sort((a, b) => {
@@ -467,15 +478,16 @@ export function moveSectionBefore(
   state: SectionVisibilityState,
   sectionId: SectionId,
   targetId: SectionId,
+  sectionIds?: readonly SectionId[],
 ): SectionVisibilityState {
   if (sectionId === targetId) return state;
-  const ordered = getOrderedSectionIds(state);
+  const ordered = getOrderedSectionIds(state, sectionIds);
   const fromIdx = ordered.indexOf(sectionId);
-  const toIdx = ordered.indexOf(targetId);
-  if (fromIdx === -1 || toIdx === -1) return state;
-  const reordered = [...ordered];
-  reordered.splice(fromIdx, 1);
-  reordered.splice(toIdx, 0, sectionId);
+  if (fromIdx === -1 || ordered.indexOf(targetId) === -1) return state;
+  const reordered = ordered.filter((id) => id !== sectionId);
+  const targetIdx = reordered.indexOf(targetId);
+  if (targetIdx === -1) return state;
+  reordered.splice(targetIdx, 0, sectionId);
   return assignStableOrders(state, reordered);
 }
 
@@ -484,16 +496,16 @@ export function moveSectionAfter(
   state: SectionVisibilityState,
   sectionId: SectionId,
   targetId: SectionId,
+  sectionIds?: readonly SectionId[],
 ): SectionVisibilityState {
   if (sectionId === targetId) return state;
-  const ordered = getOrderedSectionIds(state);
+  const ordered = getOrderedSectionIds(state, sectionIds);
   const fromIdx = ordered.indexOf(sectionId);
-  let toIdx = ordered.indexOf(targetId);
-  if (fromIdx === -1 || toIdx === -1) return state;
-  if (fromIdx < toIdx) toIdx += 1;
-  const reordered = [...ordered];
-  reordered.splice(fromIdx, 1);
-  reordered.splice(toIdx, 0, sectionId);
+  if (fromIdx === -1 || ordered.indexOf(targetId) === -1) return state;
+  const reordered = ordered.filter((id) => id !== sectionId);
+  const targetIdx = reordered.indexOf(targetId);
+  if (targetIdx === -1) return state;
+  reordered.splice(targetIdx + 1, 0, sectionId);
   return assignStableOrders(state, reordered);
 }
 
@@ -501,34 +513,37 @@ export function moveSectionAfter(
 export function moveSectionUp(
   state: SectionVisibilityState,
   sectionId: SectionId,
+  sectionIds?: readonly SectionId[],
 ): SectionVisibilityState {
-  const ordered = getOrderedSectionIds(state);
+  const ordered = getOrderedSectionIds(state, sectionIds);
   const idx = ordered.indexOf(sectionId);
   if (idx <= 0) return state;
   const prev = ordered[idx - 1]!;
   if (prev === undefined) return state;
-  return moveSectionBefore(state, sectionId, prev);
+  return moveSectionBefore(state, sectionId, prev, sectionIds);
 }
 
 /** Move a section down one position. */
 export function moveSectionDown(
   state: SectionVisibilityState,
   sectionId: SectionId,
+  sectionIds?: readonly SectionId[],
 ): SectionVisibilityState {
-  const ordered = getOrderedSectionIds(state);
+  const ordered = getOrderedSectionIds(state, sectionIds);
   const idx = ordered.indexOf(sectionId);
   if (idx === -1 || idx >= ordered.length - 1) return state;
   const next = ordered[idx + 1]!;
   if (next === undefined) return state;
-  return moveSectionAfter(state, sectionId, next);
+  return moveSectionAfter(state, sectionId, next, sectionIds);
 }
 
 /** Move a section to the start of the list. */
 export function moveSectionToStart(
   state: SectionVisibilityState,
   sectionId: SectionId,
+  sectionIds?: readonly SectionId[],
 ): SectionVisibilityState {
-  const ordered = getOrderedSectionIds(state);
+  const ordered = getOrderedSectionIds(state, sectionIds);
   if (ordered[0] === sectionId) return state;
   const reordered = [sectionId, ...ordered.filter((id) => id !== sectionId)];
   return assignStableOrders(state, reordered);
@@ -538,8 +553,9 @@ export function moveSectionToStart(
 export function moveSectionToEnd(
   state: SectionVisibilityState,
   sectionId: SectionId,
+  sectionIds?: readonly SectionId[],
 ): SectionVisibilityState {
-  const ordered = getOrderedSectionIds(state);
+  const ordered = getOrderedSectionIds(state, sectionIds);
   if (ordered[ordered.length - 1] === sectionId) return state;
   const reordered = [...ordered.filter((id) => id !== sectionId), sectionId];
   return assignStableOrders(state, reordered);

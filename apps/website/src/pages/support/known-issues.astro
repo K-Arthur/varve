@@ -199,7 +199,7 @@ const categories = [...new Set(issues.map((i) => i.category))];
   .issue-card {
     background: var(--surface-card);
     border: 1px solid var(--border-default);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     padding: 1.25rem 1.5rem;
     position: relative;
     transition: border-color var(--duration-fast) var(--ease-default);

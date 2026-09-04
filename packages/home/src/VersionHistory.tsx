@@ -1,6 +1,6 @@
 import type { Platform, VersionEntry } from '@varve/platform';
 import { formatAbsoluteTime, formatRelativeTime } from '@varve/platform';
-import { AlertDialog, Button, Dialog, Icon, InlineActivityIndicator } from '@varve/ui';
+import { AlertDialog, Button, Dialog, Icon, LoadingLabel } from '@varve/ui';
 import { useCallback, useEffect, useId, useState } from 'react';
 
 export interface VersionHistoryProps {
@@ -104,7 +104,7 @@ function NamingForm({ version, onName, onCancel }: NamingFormProps) {
           onKeyDown={handleKeyDown}
           className="version-history__naming-input"
         />
-        <Button variant="primary" size="sm" type="submit" disabled={!value.trim()}>
+        <Button variant="default" size="sm" type="submit" disabled={!value.trim()}>
           Save
         </Button>
         <Button variant="ghost" size="sm" type="button" onClick={onCancel}>
@@ -187,15 +187,15 @@ export function VersionHistory({ fileId, platform, onRestore, onClose }: Version
     <>
       <Dialog open title="Version History" onClose={onClose} className="version-history">
         <div className="version-history__header">
-          <Button variant="primary" size="sm" loading={saving} onClick={handleSaveVersion}>
+          <Button variant="default" size="sm" loading={saving} onClick={handleSaveVersion}>
             <Icon name="Save" label={undefined} />
             Save to Version History
           </Button>
         </div>
 
         {loading && (
-          <div className="version-history__loading" role="status">
-            <InlineActivityIndicator label="Loading version history" />
+          <div className="version-history__loading">
+            <LoadingLabel label="Loading version history" />
           </div>
         )}
 
@@ -269,7 +269,7 @@ export function VersionHistory({ fileId, platform, onRestore, onClose }: Version
                         )}
                         <div className="version-history__version-actions">
                           <Button
-                            variant="primary"
+                            variant="default"
                             size="sm"
                             onClick={() => setRevertVersionId(version.id)}
                           >
@@ -339,7 +339,7 @@ export function VersionHistory({ fileId, platform, onRestore, onClose }: Version
           description="This will replace your current document with the selected version. You can undo this later by restoring another version."
           confirmLabel="Restore"
           cancelLabel="Cancel"
-          variant="danger"
+          variant="destructive"
         />
       )}
     </>

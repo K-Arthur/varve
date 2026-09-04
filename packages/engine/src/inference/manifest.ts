@@ -8,6 +8,7 @@
  */
 import type {
   ModelAcquisition,
+  ModelComponentEntry,
   ModelManifestEntry,
   ModelPrecision,
   ModelUnavailableReason,
@@ -30,6 +31,12 @@ export interface RawManifestEntry {
   sourceSha256?: string;
   source?: string;
   sourceLicense?: string;
+  /** SHA-256 of the upstream artifact before an optional repair transform. */
+  upstreamChecksum?: string;
+  /** Optional post-download transform required before the model is usable. */
+  repair?: 'sam2-empty-value-info';
+  multiComponent?: boolean;
+  components?: ModelComponentEntry[];
   notes?: string;
 }
 
@@ -146,6 +153,8 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
     remoteUrl: raw.remoteUrl ?? '',
     ...(raw.remoteDataUrl ? { remoteDataUrl: raw.remoteDataUrl } : {}),
     checksum: raw.sha256 ?? '',
+    ...(raw.upstreamChecksum ? { upstreamChecksum: raw.upstreamChecksum } : {}),
+    ...(raw.repair ? { repair: raw.repair } : {}),
     bundled: isBundled,
     inputSpec: null,
     quality: modelQuality(raw.id),
@@ -158,6 +167,8 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
     ...(raw.sourceLicense ? { sourceLicense: raw.sourceLicense } : {}),
     ...(category ? { category } : {}),
     ...(raw.localPath ? { localPath: raw.localPath } : {}),
+    ...(raw.multiComponent ? { multiComponent: true } : {}),
+    ...(raw.components ? { components: raw.components } : {}),
     acquisition: deriveAcquisition(raw),
   };
 

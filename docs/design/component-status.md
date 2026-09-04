@@ -1,6 +1,6 @@
 # Component Status — `@varve/ui` maturity tracker
 
-**Last updated:** 2026-07-27
+**Last updated:** 2026-08-31
 **See:** ADR-0011 (governance), `docs/design/design-principles.md`
 
 ## Maturity states
@@ -20,18 +20,18 @@
 | Button | ✅ | ✅ | ✅ | 6 variants × 3 sizes |
 | IconButton | ✅ | — | — | Wraps Button |
 | Checkbox | ✅ | — | — | Includes indeterminate |
-| Radio | 🧪 | — | — | Not yet extracted to @varve/ui |
-| Switch | 🧪 | — | — | Not yet extracted |
-| ToggleButton | 🧪 | — | — | Not yet extracted |
-| Input (text) | 🧪 | — | — | NumberInput exists; generic Input does not |
-| TextArea | 🧪 | — | — | Not yet extracted |
+| Radio | 🧪 | ✅ | ✅ | Native radio groups and roving choice surfaces |
+| Switch | 🧪 | ✅ | ✅ | `Switch` + `SwitchField`; see switch-system.md |
+| ToggleButton | 🧪 | ✅ | ✅ | Toolbar/action toggle semantics |
+| Input (text) | 🧪 | ✅ | ✅ | |
+| TextArea | 🧪 | ✅ | — | |
 | NumberInput | ✅ | — | ✅ | Scrubbable |
 | SearchField | ✅ | — | ✅ | With highlight match |
 | Select | ✅ | ✅ | ✅ | APG combobox pattern |
 | Combobox | 🧪 | — | — | Not yet extracted |
 | Slider | ✅ | — | ✅ | APG slider pattern |
 | Tabs | ✅ | — | ✅ | APG tabs + roving tabindex |
-| SegmentedControl | ✅ | — | — | APG radiogroup |
+| SegmentedControl | ✅ | ✅ | — | APG radiogroup |
 | ViewModeSwitcher | ✅ | — | — | |
 
 ## Overlays & feedback
@@ -53,6 +53,7 @@
 | Panel | ✅ | ✅ | ✅ | Draggable resize, localStorage |
 | Toolbar | ✅ | — | — | APG roving tabindex |
 | EmptyState | ✅ | ✅ | ✅ | |
+| ShineBorder | 🔨 | ✅ | ✅ | Beta; rare state-driven decoration, not a default Card/Button treatment |
 
 ## Feedback / status
 
@@ -79,11 +80,6 @@
 These exist only as inline implementations in `packages/editor`. They should be
 extracted to `@varve/ui` as `beta` components:
 
-- Radio group
-- Switch / toggle
-- Toggle button
-- Generic text Input
-- TextArea
 - Combobox (distinct from Select — free-text entry with suggestions)
 - Tree / TreeGrid
 - VirtualList (for large layer/component lists)

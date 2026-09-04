@@ -146,7 +146,7 @@ export function LogoPreviewDialog() {
           </div>
         )}
         <div className="logo-preview__footer">
-          <Button variant="primary" onClick={close} aria-label="Close logo preview">
+          <Button variant="default" onClick={close} aria-label="Close logo preview">
             Close
           </Button>
         </div>

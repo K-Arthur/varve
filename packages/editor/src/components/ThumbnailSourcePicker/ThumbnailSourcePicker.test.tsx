@@ -78,11 +78,8 @@ describe('ThumbnailSourcePicker', () => {
       />,
     );
 
-    const autoBtn = screen.getByText('Automatic').closest('button');
-    if (autoBtn) {
-      fireEvent.click(autoBtn);
-      expect(onPreferenceChange).toHaveBeenCalledWith({ type: 'automatic' });
-    }
+    fireEvent.click(screen.getByRole('radio', { name: 'Automatic' }));
+    expect(onPreferenceChange).toHaveBeenCalledWith({ type: 'automatic' });
   });
 
   it('renders in compact mode', () => {

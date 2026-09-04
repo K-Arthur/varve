@@ -44,8 +44,9 @@ planner requires a final full gate, exposing downstream compile failures
 before that expensive checkpoint. Classify and repair each failure, and run its affected
 compiler check, exact spec, and direct unit checks after each repair. Changes
 under `tests/e2e/` automatically select `pnpm typecheck:e2e` before
-Playwright. When the candidate is frozen, run `pnpm verify:affected` once
-and then the required release `pnpm verify:full` gate. Shared E2E
+Playwright. For a release candidate, freeze one exact `master` SHA and run
+`release-candidate.yml` in triage/final mode; keep already-green lanes when a
+targeted rerun is sufficient. Shared E2E
 infrastructure (`tests/e2e/shared.ts`,
 `tests/e2e/helpers/**`, and fixtures), runner configuration, renderer, and
 other integration surfaces deliberately retain broad validation scope.
@@ -306,6 +307,7 @@ cleanup tooling, codemods).
 - `pnpm verify:plan` — print the impact-aware validation plan for current changes (dry run; never skips silently — it explains what it selects and why)
 - `pnpm verify:quick` — Tier 0 + Tier 1: format/lint on touched files + directly related tests
 - `pnpm verify:affected` — Tiers 0–4, dependency-aware affected validation. **Default inner loop — use this instead of `pnpm test`.**
+- `pnpm verify:push` — exact outgoing-ref bounded push checkpoint; reports CI deferrals and never invokes the full suite automatically
 - `pnpm verify:full` — explicit full repository gate (Tier 5). Requires `VARVE_FULL_GATE_REASON` or `VARVE_FULL_GATE=1`
 - `just check-plan` / `just check-quick` / `just check-affected` — just wrappers for the verify commands
 - `just gate-full` — human-facing full gate (requires `VARVE_FULL_GATE_REASON`)
@@ -321,6 +323,10 @@ cleanup tooling, codemods).
 - `pnpm e2e:visual` — visual regression projects only
 - `pnpm e2e:all` — full Playwright suite
 - Environment overrides: `VARVE_TEST_WORKERS` (vitest), `VARVE_E2E_WORKERS` (playwright), `VARVE_HEAVY_TASK_PARALLELISM=0` (opt out of heavy-task lease), `VARVE_E2E_PORT` (isolated dev-server port)
+
+Release lifecycle: `pnpm release:prepare <version>`, `pnpm release:status`,
+`pnpm release:certify`, and `pnpm release:resume`. These helpers never create
+tags, publish releases, change GitHub settings, or deploy production.
 
 ### CI/CD Commands
 - `just install-ci-tooling` — install GitHub CLI, act, and Docker for local CI/CD
@@ -421,7 +427,7 @@ git log --oneline -3
 | Home/Workspace System | `docs/plans/archived/projects-home-workspace-completed.md` |
 | Packaging (0.11) | `docs/plans/archived/session-04-packaging.md` (historical; current release pipeline lives in `docs/release/` and `scripts/release/`) |
 | Loading Experience System | `docs/architecture/loading-system.md`, `docs/audits/loading-experience-audit-2026-07-08.md` |
-| Marketing Website | `apps/website/` - Astro 7 static site, 64 pages, GitHub Pages deploy. See `docs/plans/website-progress-tracker.md` |
+| Marketing Website | `apps/website/` - Astro 7 static site, 69 routes, GitHub Pages deploy. See `docs/release/website.md` |
 | CI/CD pipeline memory (local, gitignored) | `GITHUB_PIPELINE_MEMORY.md` — session-survivable tracker for billing blocks, run classifications, and tooling state |
 
 ## Application Icon (cross-platform)
@@ -666,9 +672,15 @@ Rules that must not be violated:
 - GitHub Secrets never enter client artifacts; if a value must reach the
   artifact, it is public configuration by definition.
 
-## Quality gates (Cascade Review) — every task must pass
-TDD-first → tests green → token audit → zero emoji → axe-core zero violations
-→ input-method audit → reduced-motion → 3-OS build → native backend on desktop.
+## Quality gates — selected by impact and profile
+
+Every task starts with `pnpm verify:plan` and runs the affected checks required
+by that plan. The commit and push checkpoints remain bounded. Browser visual,
+native multi-OS, benchmark, model-quality, packaging, and release checks belong
+to the selected integration/candidate profile; they are not an automatic
+requirement for every localized edit. A full local gate requires an explicit
+`VARVE_FULL_GATE_REASON` and is never a substitute for exact-SHA remote
+certification.
 
 ## Multi-agent coordination
 
@@ -677,7 +689,7 @@ TDD-first → tests green → token audit → zero emoji → axe-core zero viola
 | Different crates/packages | Safe in parallel |
 | Same package, different files | Safe in parallel if independent |
 | Same file | **Must be sequential** — use `git worktree add` |
-| Hub files intersect | After parallel agents, coordinator runs `just gate` |
+| Hub files intersect | After parallel agents, coordinator runs `pnpm verify:plan` and `pnpm verify:affected`; use an explicitly justified full gate only when the plan escalates |
 
 **Heavy tasks (full vitest, Playwright, cargo workspace, desktop/WASM
 builds) acquire a cross-worktree lease** before starting
@@ -685,7 +697,9 @@ builds) acquire a cross-worktree lease** before starting
 the machine. Opt out deliberately with `VARVE_HEAVY_TASK_PARALLELISM=0`.
 
 **Worktree protocol:** `git worktree add .worktrees/<feature> -b <feature>`, work, commit,
-merge sequentially. Verify with `just gate` after each merge.
+merge sequentially. Verify each merge with `pnpm verify:plan` followed by
+`pnpm verify:affected`; use `pnpm verify:push` for the exact refs leaving the
+machine, and reserve `pnpm verify:full` for explicit escalations.
 
 ## Hard rules
 - No emoji anywhere. SVG icons via Lucide `<Icon>` or Phosphor `<SolidIcon>` only.

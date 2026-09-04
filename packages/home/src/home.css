@@ -85,10 +85,9 @@
     transition: none;
   }
   /* The token layer collapses --duration-* to 0ms, but these surfaces use
-     literal durations (skeleton shimmer, asset spinner, import progress
-     width), so they animated regardless of the user's preference. */
+     literal durations (skeleton shimmer, import progress width), so they
+     animated regardless of the user's preference. */
   .file-card__skeleton,
-  .asset-browser__loading-spinner,
   .bulk-import__progress-fill {
     animation: none;
     transition: none;
@@ -638,6 +637,26 @@
   overflow: hidden;
   position: relative;
 }
+.file-card__drag-handle {
+  position: absolute;
+  top: var(--space-1);
+  left: var(--space-1);
+  z-index: 2;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  background: color-mix(in oklch, var(--color-surface-app) 88%, transparent);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity var(--duration-quick) var(--ease-standard);
+}
+.file-card:hover .file-card__drag-handle,
+.file-card:focus-within .file-card__drag-handle,
+.file-card__drag-handle:focus-visible {
+  opacity: 1;
+}
+.file-card__drag-handle:focus-visible {
+  outline-offset: -2px;
+}
 .file-card__thumb-img {
   width: 100%;
   height: 100%;
@@ -893,64 +912,6 @@
   margin: 0;
   padding: 0;
   border: none;
-}
-.new-design__start-legend {
-  padding: 0;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-2);
-}
-.new-design__start-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: var(--space-2);
-}
-.new-design__start-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: var(--space-3);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  text-align: left;
-  color: var(--color-text-primary);
-  font: inherit;
-  transition:
-    border-color var(--duration-quick) var(--ease-standard),
-    background var(--duration-quick) var(--ease-standard);
-}
-.new-design__start-card-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-.new-design__start-card:hover {
-  border-color: var(--color-border-strong);
-}
-.new-design__start-card--active {
-  border-color: var(--color-interactive-focus-ring);
-  background: var(--color-accent-subtle);
-}
-.new-design__start-card:focus-within {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
-}
-.new-design__start-card-title {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-.new-design__start-card-hint {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
 }
 .new-design__body-section {
   display: flex;
@@ -2091,6 +2052,17 @@
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-surface-raised);
 }
+.asset-browser__import-zone {
+  flex: 0 1 23rem;
+  border-color: var(--color-border-subtle);
+  background: var(--color-surface-sunken);
+}
+.asset-browser__import-zone .file-drop-zone__description {
+  display: none;
+}
+.asset-browser__import-queue {
+  margin: var(--space-3);
+}
 .asset-browser__search {
   display: flex;
   align-items: center;
@@ -2144,33 +2116,6 @@
 }
 .asset-browser__search-clear:hover {
   background: var(--color-surface-sunken);
-}
-.asset-browser__import-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
-  border: none;
-  border-radius: var(--radius-md);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: opacity var(--duration-quick) var(--ease-standard);
-}
-.asset-browser__import-btn:hover {
-  opacity: 0.9;
-}
-.asset-browser__import-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.asset-browser__import-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
 }
 .asset-browser__semantic-status {
   display: flex;
@@ -2296,19 +2241,6 @@
   padding: var(--space-8);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
-}
-.asset-browser__loading-spinner {
-  width: 24px;
-  height: 24px;
-  border: 2px solid var(--color-border-subtle);
-  border-top-color: var(--color-interactive-default);
-  border-radius: 50%;
-  animation: asset-spin 0.8s linear infinite;
-}
-@keyframes asset-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 .asset-browser__empty {
   display: flex;

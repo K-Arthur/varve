@@ -48,7 +48,7 @@ function group(doc: Document, name: string, opts?: Partial<GroupNode>) {
 describe('deepCloneSubtree', () => {
   it('clones a leaf shape node', () => {
     let doc = createDocument();
-    const a = shape(doc, 'Rect 1');
+    const a = shape(doc, 'Rect 1', { layerColor: 'purple' });
     doc = a.doc;
     doc = addNode(doc, a.node);
 
@@ -61,19 +61,20 @@ describe('deepCloneSubtree', () => {
     expect(cloned.id).toBe(result.rootId);
     expect(cloned.name).toBe('Rect 1');
     expect(cloned.kind).toBe('shape');
+    expect(cloned.layerColor).toBe('purple');
     expect(cloned.id).not.toBe(a.id);
     expect(result.idMap.get(a.id)).toBe(result.rootId);
   });
 
   it('clones a group with children', () => {
     let doc = createDocument();
-    const a = shape(doc, 'Child A');
+    const a = shape(doc, 'Child A', { layerColor: 'orange' });
     doc = a.doc;
     const b = shape(doc, 'Child B');
     doc = b.doc;
     doc = addNode(doc, a.node);
     doc = addNode(doc, b.node);
-    const g = group(doc, 'Group 1', { children: [a.id, b.id] });
+    const g = group(doc, 'Group 1', { children: [a.id, b.id], layerColor: 'red' });
     doc = g.doc;
     doc = addNode(doc, g.node);
 
@@ -93,6 +94,8 @@ describe('deepCloneSubtree', () => {
     expect(child1).toBeDefined();
     expect(child0?.name).toBe('Child A');
     expect(child1?.name).toBe('Child B');
+    expect(clonedGroup.layerColor).toBe('red');
+    expect(child0?.layerColor).toBe('orange');
 
     expect(result.idMap.get(a.id)).toBe(clonedGroup.children[0]);
     expect(result.idMap.get(b.id)).toBe(clonedGroup.children[1]);

@@ -2,14 +2,7 @@ import { useDroppable } from '@dnd-kit/core';
 import type { SavedSearch } from '@varve/platform';
 import type { SolidIconName } from '@varve/ui';
 import { SearchField, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
-import {
-  type DragEvent,
-  type KeyboardEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 export interface SidebarEntry {
   id: string;
@@ -24,8 +17,6 @@ export interface SidebarNavProps {
   activeId: string | null;
   onSelect: (id: string) => void;
   onPin?: (id: string) => void;
-  /** Called when a file is dropped on a project entry. */
-  onDropOnProject?: (fileId: string, projectId: string) => void;
   /** Called to create a new project. */
   onCreateProject?: () => void;
   /** Saved searches to display below the main navigation. */
@@ -80,9 +71,6 @@ function SidebarProjectRow({
   onSelect,
   setFocusIdx: _setFocusIdx,
   onPin,
-  onDropOnProject,
-  dropTargetId,
-  setDropTargetId,
 }: {
   entry: SidebarEntry;
   isActive: boolean;
@@ -91,43 +79,17 @@ function SidebarProjectRow({
   onSelect: (id: string) => void;
   setFocusIdx: (i: number) => void;
   onPin?: (id: string) => void;
-  onDropOnProject?: (fileId: string, projectId: string) => void;
-  dropTargetId: string | null;
-  setDropTargetId: (id: string | null) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: entry.id,
     data: { type: 'project' },
   });
-  const isDropTarget = dropTargetId === entry.id || isOver;
-
-  const handleDragOver = (e: DragEvent) => {
-    if (onDropOnProject) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      setDropTargetId(entry.id);
-    }
-  };
-
-  const handleDragLeave = () => {
-    if (dropTargetId === entry.id) setDropTargetId(null);
-  };
-
-  const handleDrop = (e: DragEvent) => {
-    e.preventDefault();
-    setDropTargetId(null);
-    if (!onDropOnProject) return;
-    const fileId = e.dataTransfer.getData('text/strata-file-id');
-    if (fileId) onDropOnProject(fileId, entry.id);
-  };
+  const isDropTarget = isOver;
 
   return (
     <div
       ref={setNodeRef}
       className={`sidebar-item-row ${isDropTarget ? 'sidebar-item-row--drop-target' : ''}`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
       tabIndex={-1}
     >
       <button
@@ -172,7 +134,6 @@ export function SidebarNav({
   activeId,
   onSelect,
   onPin,
-  onDropOnProject,
   onCreateProject,
   savedSearches,
   activeSavedSearchId,
@@ -183,7 +144,6 @@ export function SidebarNav({
   searchResultCount,
 }: SidebarNavProps) {
   const [focusIdx, setFocusIdx] = useState(0);
-  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const navRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLElement | null)[]>([]);
@@ -267,9 +227,6 @@ export function SidebarNav({
             onSelect={onSelect}
             setFocusIdx={setFocusIdx}
             onPin={onPin}
-            onDropOnProject={onDropOnProject}
-            dropTargetId={dropTargetId}
-            setDropTargetId={setDropTargetId}
           />
         </div>
       );

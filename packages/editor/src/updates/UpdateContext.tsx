@@ -309,7 +309,7 @@ export function UpdateCoordinatorProvider({
             <Button variant="secondary" onClick={() => finishConsent('manual')}>
               Not now
             </Button>
-            <Button variant="primary" onClick={() => finishConsent('notify')}>
+            <Button variant="default" onClick={() => finishConsent('notify')}>
               Automatically check for updates
             </Button>
           </div>

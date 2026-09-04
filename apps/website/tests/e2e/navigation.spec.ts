@@ -78,9 +78,45 @@ test('active navigation state marks the current section', async ({ page }) => {
   await page.goto('/docs');
   const current = page.locator('.nav-links a[aria-current="page"]');
   await expect(current).toHaveCount(1);
-  await expect(current).toHaveText('Docs');
+  await expect(current.locator('.nav-menu-item-label, .nav-link-text')).toHaveText('Docs');
   await page.goto('/');
   await expect(page.locator('.nav-links a[aria-current="page"]')).toHaveCount(0);
+});
+
+test('desktop grouped navigation exposes keyboard-safe Learn and Support menus', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/docs');
+
+  const learnTrigger = page.locator('[aria-controls="learn-menu"]');
+  const learnMenu = page.locator('#learn-menu');
+  await expect(learnTrigger).toHaveAttribute('aria-expanded', 'false');
+  await learnTrigger.click();
+  await expect(learnTrigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(learnMenu).toBeVisible();
+  await expect(learnMenu.getByRole('menuitem')).toHaveCount(4);
+  await expect(learnMenu.getByRole('menuitem', { name: 'Docs' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+
+  await page.screenshot({ path: testInfo.outputPath('website-nav-learn-open.png') });
+
+  await page.keyboard.press('Escape');
+  await expect(learnMenu).toBeHidden();
+  await expect(learnTrigger).toBeFocused();
+
+  await learnTrigger.press('ArrowDown');
+  await expect(learnMenu.getByRole('menuitem').first()).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(learnMenu.getByRole('menuitem').nth(1)).toBeFocused();
+  await page.keyboard.press('Escape');
+
+  const supportTrigger = page.locator('[aria-controls="support-menu"]');
+  await supportTrigger.click();
+  await expect(page.locator('#support-menu')).toBeVisible();
+  await expect(page.locator('#learn-menu')).toBeHidden();
 });
 
 test('platform selector: tablist semantics and arrow-key navigation', async ({ page, baseURL }) => {

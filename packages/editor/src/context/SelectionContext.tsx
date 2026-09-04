@@ -3,6 +3,10 @@ import { resolveNodeFills } from '@varve/scene';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import {
+  collectLayerColorScope,
+  findSameLayerColorIds,
+} from '../components/LayersPanel/layerBulkOperations';
+import {
   DEFAULT_SELECTION_ORIGIN,
   type EditorState,
   nextSelectionPrimary,
@@ -140,24 +144,23 @@ export function SelectionProvider({ children, state, setState }: SelectionProvid
 
   const selectAllWithSameLayerColor = useCallback(() => {
     setState((s) => {
-      const firstId = s.selection[0];
-      if (!firstId) return s;
-      const first = s.document.nodes[firstId] as SceneNode | undefined;
-      if (!first) return s;
-      const color = first.layerColor;
-      if (!color) return s;
-      const candidates: NodeId[] = [];
-      for (const [id, node] of Object.entries(s.document.nodes)) {
-        if (
-          node &&
-          (node as SceneNode).layerColor === color &&
-          !(node as SceneNode).locked &&
-          (node as SceneNode).visible !== false
-        ) {
-          candidates.push(id);
-        }
-      }
-      return { ...s, selection: candidates };
+      const ids = findSameLayerColorIds(
+        s.document,
+        s.selection,
+        collectLayerColorScope(s.document, {
+          designCanvasId: s.workspaceMode === 'print' ? undefined : s.document.activeDesignCanvasId,
+          isolatedNodeId: s.isolatedNodeId,
+          masterEditId: s.masterEditId,
+        }),
+      );
+      if (ids.length === 0) return s;
+      return {
+        ...s,
+        selection: ids,
+        primaryId: ids[0]!,
+        focusedNodeId: ids[0]!,
+        selectionRevision: s.selectionRevision + 1,
+      };
     });
   }, [setState]);
 

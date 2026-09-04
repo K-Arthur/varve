@@ -41,7 +41,7 @@ html {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   cursor: pointer;
   font: inherit;
   font-size: var(--font-size-sm);
@@ -68,7 +68,7 @@ html {
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   border: 2px solid var(--color-interactive-focus-ring);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   text-decoration: none;
@@ -96,7 +96,7 @@ input[type="number"] {
 /* ── Recovery dialog ──────────────────────────────────── */
 .recovery-dialog {
   border: none;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   box-shadow: var(--elevation-shadow-overlay);
   background: var(--elevation-surface-overlay);
   color: var(--color-text-primary);
@@ -136,7 +136,7 @@ input[type="number"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 .recovery-dialog__close:hover {
   background: var(--color-surface-sunken);
@@ -195,7 +195,7 @@ input[type="number"] {
 }
 .recovery-dialog__btn {
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   border: 1px solid var(--color-border-subtle);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
@@ -276,7 +276,7 @@ input[type="number"] {
   color: inherit;
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   flex-shrink: 0;
 }
 .editor-offline-banner__close:hover {
@@ -373,7 +373,7 @@ input[type="number"] {
   padding: var(--space-1) var(--space-3);
   background: var(--elevation-surface-overlay);
   border: var(--border-micro);
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius-pill);
   box-shadow: var(--elevation-shadow-overlay);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -401,7 +401,7 @@ input[type="number"] {
   color: var(--color-text-on-accent);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
 }
@@ -412,6 +412,12 @@ input[type="number"] {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  /* The workspace dock is 36px tall including its padding. Give the
+     menubar a real track with breathing room instead of compressing the
+     dock or letting its contents enlarge the flex row unpredictably. */
+  min-height: calc(var(--topbar-height) + var(--space-2));
+  height: 100%;
+  box-sizing: border-box;
   padding: 0 var(--space-2);
   background: var(--elevation-surface-default);
   border-bottom: var(--border-micro);
@@ -442,7 +448,7 @@ input[type="number"] {
 
 .editor-menubar__item {
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: default;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -477,7 +483,7 @@ input[type="number"] {
   padding: 0;
   background: none;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-default);
 }
@@ -511,29 +517,36 @@ input[type="number"] {
 }
 
 .editor-menubar__menu {
-  min-width: 12rem;
+  box-sizing: border-box;
+  width: var(--menu-default-width);
+  min-width: min(var(--menu-default-width), calc(100vw - (var(--menu-viewport-gutter) * 2)));
+  max-width: calc(100vw - (var(--menu-viewport-gutter) * 2));
   padding: var(--space-1);
   background: var(--elevation-surface-overlay);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-surface);
   box-shadow: var(--elevation-shadow-overlay);
   font-family: var(--font-body);
 }
 
 .editor-menubar__menu-sep {
+  height: var(--separator-thickness);
   margin: var(--space-1) 0;
-  border: none;
-  border-top: var(--border-micro);
+  border: 0;
+  background: var(--color-separator-subtle);
+  pointer-events: none;
 }
 
 .editor-menubar__menu-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: var(--space-3);
   width: 100%;
-  padding: var(--space-1) var(--space-2);
+  min-block-size: var(--menu-item-min-height);
+  box-sizing: border-box;
+  padding: var(--space-1) var(--space-3);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: none;
   color: var(--color-text-primary);
   cursor: default;
@@ -544,11 +557,11 @@ input[type="number"] {
 }
 
 .editor-menubar__menu-item:hover {
-  background: var(--color-surface-hover);
+  background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
 }
 .editor-menubar__menu-item:focus-visible {
-  background: var(--color-surface-hover);
+  background: var(--color-interactive-selected-surface);
   color: var(--color-text-primary);
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
@@ -557,8 +570,8 @@ input[type="number"] {
 .editor-menubar__menu-item--active,
 .editor-menubar__menu-item--active:hover,
 .editor-menubar__menu-item--active:focus-visible {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
+  background: var(--color-interactive-selected-surface);
+  color: var(--color-interactive-selected-foreground);
 }
 
 .editor-menubar__menu-item:disabled {
@@ -567,23 +580,30 @@ input[type="number"] {
 }
 
 .editor-menubar__menu-label {
-  flex: 1;
+  min-width: 0;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .editor-menubar__menu-submenu-arrow {
-  font-size: 8px;
-  margin-left: var(--space-2);
+  grid-column: 2;
+  margin-inline: var(--space-2);
   color: var(--color-text-muted);
 }
 
 .editor-menubar__menu-item--active > .editor-menubar__menu-label,
 .editor-menubar__menu-item--active > .editor-menubar__menu-submenu-arrow {
-  color: var(--color-text-on-accent);
+  color: var(--color-interactive-selected-foreground);
 }
 
 .editor-menubar__menu-shortcut {
+  grid-column: 3;
+  min-width: 3.5rem;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+  text-align: right;
 }
 
 .editor-menubar__menu-item--active .editor-menubar__menu-shortcut {
@@ -596,17 +616,22 @@ input[type="number"] {
 }
 
 .editor-menubar__submenu {
-  position: absolute;
-  left: 100%;
-  top: -4px;
-  min-width: 12rem;
+  /* FloatingPortal owns the fixed geometry. Keeping the menu in normal flow
+   * lets Floating UI measure its intrinsic width/height before paint. */
+  position: static;
+  left: auto;
+  top: auto;
+  box-sizing: border-box;
+  width: var(--menu-default-width);
+  min-width: min(var(--menu-default-width), calc(100vw - (var(--menu-viewport-gutter) * 2)));
+  max-width: calc(100vw - (var(--menu-viewport-gutter) * 2));
   padding: var(--space-1);
   background: var(--elevation-surface-overlay);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-surface);
   box-shadow: var(--elevation-shadow-overlay);
   font-family: var(--font-body);
-  z-index: var(--z-dropdown);
+  z-index: auto;
 }
 
 .editor-menubar__doc-name-text {
@@ -712,7 +737,7 @@ input[type="number"] {
   min-width: 32px;
   min-height: 32px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: inherit;
   opacity: 0;
@@ -742,7 +767,7 @@ input[type="number"] {
   opacity: 1;
 }
 /* Touch devices have no hover to reveal the close button (WCAG 2.5.8). */
-@media (any-hover: none) {
+@media (hover: none), (pointer: coarse) {
   .editor-tabs__close {
     opacity: 1;
   }
@@ -880,7 +905,7 @@ input[type="number"] {
   top: var(--space-2);
   right: var(--space-2);
   z-index: var(--z-dropdown);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
@@ -981,7 +1006,7 @@ input[type="number"] {
   margin-bottom: var(--space-1);
   background: var(--color-surface-raised);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   padding: var(--space-2) var(--space-3);
 }
 .editor-inspector__group-title {
@@ -1020,7 +1045,7 @@ input[type="number"] {
   padding: 0 var(--space-2);
   background: none;
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   cursor: default;
@@ -1094,7 +1119,7 @@ input[type="number"] {
   padding: 2px var(--space-2);
   background: var(--elevation-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   margin-left: var(--space-1);
 }
 
@@ -1135,7 +1160,7 @@ input[type="number"] {
   height: 22px;
   padding: 0 var(--space-2);
   font-size: var(--font-size-xs);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   width: auto;
@@ -1148,7 +1173,7 @@ input[type="number"] {
 }
 .editor-status__unit-select:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .editor-status__toggle {
@@ -1160,7 +1185,7 @@ input[type="number"] {
   padding: 0 var(--space-1);
   background: none;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
   flex-shrink: 0;
@@ -1199,7 +1224,7 @@ input[type="number"] {
 .editor-status__zoom-chip .editor-status__toggle {
   width: var(--space-4);
   height: var(--space-4);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .editor-status__fit-btn {
@@ -1210,7 +1235,7 @@ input[type="number"] {
   font: inherit;
   font-size: var(--font-size-xs);
   padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   white-space: nowrap;
   transition:
     background var(--duration-quick) var(--ease-standard),
@@ -1241,7 +1266,7 @@ input[type="number"] {
 .editor-status__score-badge {
   font-variant-numeric: tabular-nums;
   padding: 0 0.4em;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs, 0.75rem);
   font-weight: var(--font-weight-semibold, 600);
   cursor: pointer;
@@ -1309,7 +1334,7 @@ input[type="number"] {
 .editor-status__tip-chip-body:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .editor-status__tip-dismiss {
@@ -1322,7 +1347,7 @@ input[type="number"] {
   padding: 0;
   background: none;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
 }
@@ -1361,7 +1386,7 @@ input[type="number"] {
   z-index: var(--z-dropdown);
   background: var(--color-surface-raised, #fff);
   border: 1px solid var(--color-border-strong, #ccc);
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-control);
   padding: 0.75em;
   box-shadow: var(--shadow-lg);
   font-size: var(--font-size-sm, 0.8125rem);
@@ -1370,7 +1395,7 @@ input[type="number"] {
 .insp-contrast-popover__fix-btn {
   margin-top: 0.5em;
   padding: 0.25em 0.75em;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-interactive-default, #14998f);
   background: var(--color-interactive-default, #14998f);
   color: var(--color-text-on-accent);
@@ -1428,7 +1453,7 @@ input[type="number"] {
   gap: var(--space-2, 8px);
   align-items: flex-start;
   padding: var(--space-2, 8px);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm, 0.8125rem);
 }
 .insp-panel__score-issue--error {
@@ -1492,51 +1517,16 @@ input[type="number"] {
  * always visible. The wrapper is flex:1 so it claims the space between the
  * menus and the undo/redo/zoom controls — stable width that the layout
  * math measures against (never the content-sized strip). */
-/* ── Workspace mode color palette ──
- * Each mode gets a unique accent hue from the existing ramp system.
- * Light theme uses mid-dark steps (adequate contrast on light surfaces);
- * Dark theme uses mid-light steps (adequate on dark surfaces).
- * High-contrast overrides the active background to the single HC accent
- * (all modes look the same there — colour differentiation is not a WCAG
- * requirement, and the HC accent already passes all UI contrast pairs).
+/*
+ * ── Workspace dock ──
  *
- * Inactive tabs: icon tinted with --ws-mode-icon (visible on sunken bg).
- * Active tab:    pill background with --ws-mode-bg, icon + label in white.
- */
-.workspace-tabs {
-  display: flex;
-  align-items: center;
-  /* flex-basis 0: the wrapper's width is decided by the flex layout (space
-     before undo/redo/zoom), never by its own tab content. */
-  flex: 1 1 0;
-  min-width: 0;
-  justify-content: flex-end;
-}
-
-.workspace-tabs__strip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  padding: 4px;
-  min-width: 0;
-  overflow: hidden;
-  /* Recessed tray: inner top highlight + bottom shadow create inset depth.
-     No outer shadow — overflow:hidden clips it, causing visual bleed. */
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 0.08),
-    inset 0 -1px 2px oklch(0 0 0 / 0.1);
-}
-
-/* ── Workspace mode palette ──
- * A mode's accent hue is reserved for the ACTIVE tab's pill background only.
- * Unselected tabs are monochrome: the icon is a theme-aware neutral (light in
- * dark mode, dark in light mode) so the strip reads as a calm, single-accent
- * control that lights up only the selected mode.
+ * Dock-style workspace switcher with mouse-proximity magnification.
+ * Inspired by the macOS Dock: icons spring-scale toward the cursor
+ * as the pointer moves across the strip. The active mode expands into
+ * an accent-colored pill with its label; inactive modes remain as
+ * compact circular icons.
  *
- * Hue map (minimum 25° between any pair), active-pill only:
+ * Mode accent palette (active pill only):
  *   design   = Teal    (190°)
  *   drawing  = Green   (148°)
  *   image    = Violet  (300°)
@@ -1545,69 +1535,150 @@ input[type="number"] {
  *   codegen  = Rose    (15°)
  *   logo     = Lemon   (95°)
  *
- * High-contrast: all active tabs use the single HC accent (green). */
+ * High-contrast: all active tabs use the single HC accent (green).
+ */
+.workspace-dock {
+  display: flex;
+  align-items: center;
+  /* flex-basis 0: the wrapper's width is decided by the flex layout (space
+     before undo/redo/zoom), never by its own dock content. */
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: flex-end;
+}
 
-.workspace-tabs__tab {
+.workspace-dock__bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  /* Glassmorphism container: subtle translucency + backdrop blur. */
+  background: oklch(from var(--color-surface-sunken) l c h / 0.6);
+  border: 1px solid var(--color-border-subtle);
+  /* Match the compact menubar controls rather than forming a second pill. */
+  border-radius: var(--radius-control-compact);
+  padding: 4px 6px;
+  box-sizing: border-box;
+  height: 36px;
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: visible;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 1px 3px oklch(0 0 0 / 0.06),
+    inset 0 1px 0 oklch(1 0 0 / 0.05);
+}
+
+/* ── Dock item (inactive icon circle) ── */
+.workspace-dock__item {
   --ws-mode-bg: var(--color-interactive-default);
   --ws-mode-icon: var(--color-text-secondary);
   --ws-mode-hover: var(--color-surface-hover);
-}
 
-.workspace-tabs__tab[data-mode="design"] {
-  --ws-mode-bg: oklch(0.5449 0.0866 189.77);
-}
-.workspace-tabs__tab[data-mode="drawing"] {
-  --ws-mode-bg: oklch(0.5052 0.1304 148.06);
-}
-.workspace-tabs__tab[data-mode="image"] {
-  --ws-mode-bg: oklch(0.5129 0.1428 294.74);
-}
-.workspace-tabs__tab[data-mode="print"] {
-  --ws-mode-bg: oklch(0.5063 0.1332 255.23);
-}
-.workspace-tabs__tab[data-mode="motion"] {
-  --ws-mode-bg: oklch(0.52 0.15 45);
-}
-.workspace-tabs__tab[data-mode="codegen"] {
-  --ws-mode-bg: oklch(0.52 0.15 15);
-}
-.workspace-tabs__tab[data-mode="logo"] {
-  --ws-mode-bg: oklch(0.48 0.14 95);
-}
-
-.workspace-tabs__tab {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
-  height: 1.75rem;
-  /* Inactive: icon-only pill — symmetric square for clean rounded look */
-  width: 1.75rem;
+  /* Fixed hit target — magnification transforms the icon, never this button. */
+  height: 28px;
+  width: 28px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   background: none;
   color: var(--ws-mode-icon);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
+  will-change: auto;
   transition:
     background var(--duration-fast) var(--ease-default),
     color var(--duration-fast) var(--ease-default),
-    width var(--duration-normal) var(--ease-default),
-    padding var(--duration-normal) var(--ease-default),
-    transform var(--duration-fast) var(--ease-default),
-    box-shadow var(--duration-fast) var(--ease-default);
+    border-radius var(--duration-normal) var(--ease-default);
 }
 
-.workspace-tabs__label {
+/* ── Per-mode accent (active pill background) ── */
+.workspace-dock__item[data-mode="design"] {
+  --ws-mode-bg: oklch(0.5449 0.0866 189.77);
+}
+.workspace-dock__item[data-mode="drawing"] {
+  --ws-mode-bg: oklch(0.5052 0.1304 148.06);
+}
+.workspace-dock__item[data-mode="image"] {
+  --ws-mode-bg: oklch(0.5129 0.1428 294.74);
+}
+.workspace-dock__item[data-mode="print"] {
+  --ws-mode-bg: oklch(0.5063 0.1332 255.23);
+}
+.workspace-dock__item[data-mode="motion"] {
+  --ws-mode-bg: oklch(0.52 0.15 45);
+}
+.workspace-dock__item[data-mode="codegen"] {
+  --ws-mode-bg: oklch(0.52 0.15 15);
+}
+.workspace-dock__item[data-mode="logo"] {
+  --ws-mode-bg: oklch(0.48 0.14 95);
+}
+
+/* ── Icon wrapper — targeted by the magnification RAF loop ── */
+.workspace-dock__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  pointer-events: none;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+}
+
+.workspace-dock__icon svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+  shape-rendering: geometricPrecision;
+}
+
+.workspace-dock__item:hover {
+  color: var(--ws-mode-icon);
+  background: var(--ws-mode-hover);
+}
+
+/* ── Active pill — expands to fit label ── */
+.workspace-dock__item--active {
+  width: auto;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-control-compact);
+  background: var(--ws-mode-bg);
+  color: var(--ws-mode-fg, var(--color-text-on-accent));
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.15);
+}
+
+/* Mode accents are intentionally darker than the shared accent in dark
+ * theme. Pair them with the light text ramp so every workspace label remains
+ * readable; the light and HC palettes retain their audited accent pairing. */
+[data-theme="dark"] .workspace-dock__item--active {
+  --ws-mode-fg: var(--color-text-primary);
+}
+
+[data-theme="dark"] .workspace-dock__item[data-mode="design"] {
+  --ws-mode-bg: oklch(0.53 0.08 189.77);
+}
+
+.workspace-dock__item--active:hover {
+  background: var(--ws-mode-bg);
+  color: var(--ws-mode-fg, var(--color-text-on-accent));
+  filter: brightness(0.9);
+}
+
+/* ── Label (collapsed by default, expanded when active) ── */
+.workspace-dock__label {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 6.5rem;
-  /* Collapsed by default (icon-only inactive tabs). The active state
-     expands the tab and the label becomes visible via width auto. */
   width: 0;
   opacity: 0;
   transition:
@@ -1615,36 +1686,19 @@ input[type="number"] {
     opacity var(--duration-fast) var(--ease-default);
 }
 
-.workspace-tabs__tab:hover {
-  color: var(--ws-mode-icon);
-  background: var(--ws-mode-hover);
-}
-
-.workspace-tabs__tab--active {
-  width: auto;
-  padding: 0 10px;
-  background: var(--ws-mode-bg);
-  color: var(--color-text-on-accent);
-  /* Subtle inner highlight for raised feel — no outer shadow or transform
-     to avoid exceeding the strip bounds. */
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.15);
-}
-
-.workspace-tabs__tab--active:hover {
-  filter: brightness(0.9);
-}
-
-.workspace-tabs__tab--active .workspace-tabs__label {
+.workspace-dock__item--active .workspace-dock__label {
   width: auto;
   opacity: 1;
 }
 
-.workspace-tabs__tab:focus-visible {
+/* ── Focus ring ── */
+.workspace-dock__item:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
-.workspace-tabs__customized-dot {
+/* ── Customization dot ── */
+.workspace-dock__customized-dot {
   width: 4px;
   height: 4px;
   border-radius: 50%;
@@ -1653,25 +1707,28 @@ input[type="number"] {
   transition: background var(--duration-fast) var(--ease-default);
 }
 
-.workspace-tabs__tab--active .workspace-tabs__customized-dot {
-  background: var(--color-text-on-accent);
+.workspace-dock__item--active .workspace-dock__customized-dot {
+  background: var(--ws-mode-fg, var(--color-text-on-accent));
 }
 
-.workspace-tabs__divider {
+/* ── Overflow divider ── */
+.workspace-dock__divider {
   width: 1px;
   height: 1rem;
   background: var(--color-border-subtle);
   flex-shrink: 0;
+  margin: 0 2px;
 }
 
-.workspace-tabs__more {
+/* ── Overflow "More" button ── */
+.workspace-dock__more {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 28px;
+  height: 28px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   background: none;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -1681,23 +1738,34 @@ input[type="number"] {
     color var(--duration-fast) var(--ease-default);
 }
 
-.workspace-tabs__more:hover,
-.workspace-tabs__more--open {
+.workspace-dock__more:hover,
+.workspace-dock__more--open {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
 }
 
-.workspace-tabs__more:focus-visible {
+.workspace-dock__more:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
 /* ── HC override: all active tabs use the single HC accent ── */
-[data-theme="high-contrast"] .workspace-tabs__tab--active {
+[data-theme="high-contrast"] .workspace-dock__item--active {
+  --ws-mode-fg: var(--color-text-on-accent);
   background: var(--color-interactive-default);
 }
-[data-theme="high-contrast"] .workspace-tabs__tab:hover {
+[data-theme="high-contrast"] .workspace-dock__item:hover:not(.workspace-dock__item--active) {
   background: color-mix(in oklch, var(--color-interactive-default) 80%, oklch(1 0 0));
+}
+
+/* ── Reduced motion: disable magnification width/height transitions ── */
+@media (prefers-reduced-motion: reduce) {
+  .workspace-dock__item {
+    transition:
+      background var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default);
+    will-change: auto;
+  }
 }
 
 /* ── Docs name in menubar ── */
@@ -1759,7 +1827,7 @@ input[type="number"] {
   width: var(--space-8);
   background: var(--elevation-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-xs);
@@ -1978,14 +2046,14 @@ input[type="number"] {
     gap: 0;
     overflow: hidden;
   }
-  .editor-menubar__controls .workspace-tabs {
+  .editor-menubar__controls .workspace-dock {
     justify-content: flex-start;
   }
-  .editor-menubar .workspace-tabs__tab--active {
-    width: 1.75rem;
+  .editor-menubar .workspace-dock__item--active {
+    width: 28px;
     padding-inline: 0;
   }
-  .editor-menubar .workspace-tabs__tab--active .workspace-tabs__label {
+  .editor-menubar .workspace-dock__item--active .workspace-dock__label {
     width: 0;
     opacity: 0;
   }
@@ -2005,6 +2073,27 @@ input[type="number"] {
 }
 .editor__fab--library {
   right: calc(var(--space-3) + 52px);
+}
+
+/* Touchscreen laptops and tablets need the same comfortable target policy as
+ * shared UI controls. Keep the icon and visual rhythm compact; only the
+ * control box grows when the primary pointer is coarse. */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .editor__fab {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+  }
+
+  .workspace-dock__bar {
+    height: auto;
+    min-height: calc(var(--touch-target-min) + 8px);
+  }
+
+  .workspace-dock__item,
+  .workspace-dock__more {
+    min-inline-size: var(--touch-target-min);
+    min-block-size: var(--touch-target-min);
+  }
 }
 
 /* ── Container queries for panels ── */
@@ -2125,7 +2214,7 @@ input[type="number"] {
   width: 100%;
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -2143,7 +2232,7 @@ input[type="number"] {
 .history-panel__action-btn {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
@@ -2165,7 +2254,7 @@ input[type="number"] {
   width: 100%;
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -2177,7 +2266,7 @@ input[type="number"] {
 .history-panel__form-actions button {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -2238,7 +2327,7 @@ input[type="number"] {
 .history-panel__marker {
   display: inline-block;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   font-size: 10px;
   font-weight: 500;
 }
@@ -2298,7 +2387,7 @@ input[type="number"] {
 .history-panel__branch-switch {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-interactive-default);
   font-size: 10px;
@@ -2351,7 +2440,7 @@ input[type="number"] {
 .history-panel__compare-btn {
   padding: 4px 10px;
   border: 1px solid var(--color-interactive-default);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   font-size: var(--font-size-xs);
@@ -2399,7 +2488,7 @@ input[type="number"] {
 }
 .history-panel__entity {
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   padding: 6px;
   background: var(--elevation-surface-sunken);
 }
@@ -2430,7 +2519,7 @@ input[type="number"] {
 .history-panel__entity-show {
   padding: 1px 6px;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-interactive-default);
   font-size: 10px;
@@ -2459,7 +2548,7 @@ input[type="number"] {
   font-weight: 600;
   text-transform: uppercase;
   padding: 0 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
 }
 .history-panel__change-badge--added {
   background: color-mix(in oklab, var(--color-feedback-success) 16%, transparent);
@@ -2534,7 +2623,7 @@ input[type="number"] {
 }
 .conflict-resolver__item {
   border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -2551,7 +2640,7 @@ input[type="number"] {
   font-weight: 600;
   text-transform: uppercase;
   padding: 2px 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
   color: var(--color-feedback-warning-strong);
 }
@@ -2568,7 +2657,7 @@ input[type="number"] {
   flex-direction: column;
   gap: 2px;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   padding: 6px;
   background: var(--elevation-surface-default);
   overflow: hidden;
@@ -2620,7 +2709,7 @@ input[type="number"] {
 .conflict-resolver__btn {
   padding: 6px 14px;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -2705,40 +2794,14 @@ input[type="number"] {
 
 /* ── Panel resize handles (APG window splitter) ── */
 .panel-resize {
+  /* Positioning is local to the shell; affordance comes from ResizableHandle. */
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: var(--space-2);
-  cursor: col-resize;
-  z-index: var(--z-raised);
-  background: transparent;
-  touch-action: none;
 }
 .panel-resize--right {
   right: -4px;
 }
 .panel-resize--left {
   left: -4px;
-}
-/* Visible affordance: a 2px accent line on hover / drag / focus. */
-.panel-resize::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 3px;
-  width: 2px;
-  background: transparent;
-  transition: background var(--duration-quick) var(--ease-standard);
-}
-.panel-resize:hover::after,
-.panel-resize--active::after,
-.panel-resize:focus-visible::after {
-  background: var(--color-interactive-default);
-}
-.panel-resize:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -2px;
 }
 /* Overlay mode (small screens): panels are fixed drawers — no resizing. */
 @media (max-width: 899px) {
@@ -2760,7 +2823,7 @@ input[type="number"] {
   min-inline-size: 28px;
   min-block-size: 28px;
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-raised);
   color: var(--color-text-secondary);
   cursor: grab;
@@ -2796,7 +2859,7 @@ input[type="number"] {
 .panel-drag-handle .varve-tooltip-trigger:focus-visible {
   outline: 3px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 .panel-detach-btn[data-transferring="true"] {
   cursor: wait;
@@ -2902,7 +2965,7 @@ input[type="number"] {
   height: var(--space-5);
   padding: 0;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -2978,7 +3041,7 @@ dialog.varve-dialog--settings[open] {
   display: flex;
   flex: 1;
   min-height: 0;
-  gap: var(--space-4);
+  gap: var(--space-control-group);
 }
 .settings-dialog__nav {
   display: flex;
@@ -2988,16 +3051,16 @@ dialog.varve-dialog--settings[open] {
   flex-shrink: 0;
   overflow-y: auto;
   background: var(--elevation-surface-sunken);
-  border-radius: var(--radius-lg);
-  padding: var(--space-2);
+  border-radius: var(--radius-floating);
+  padding: var(--space-panel-compact);
 }
 .settings-dialog__tab {
   display: block;
   width: 100%;
   min-height: 32px;
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-menu-item) var(--space-3);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--color-text-primary);
   font: inherit;
@@ -3018,7 +3081,7 @@ dialog.varve-dialog--settings[open] {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   border-left: 3px solid var(--color-interactive-default);
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
 }
 .settings-dialog__tab:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -3074,11 +3137,11 @@ dialog.varve-dialog--settings[open] {
 .settings-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-control-group);
   background: var(--elevation-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  padding: var(--space-panel);
 }
 .settings-section__title {
   margin: 0;
@@ -3101,7 +3164,7 @@ dialog.varve-dialog--settings[open] {
 .settings-fieldset {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-control);
   border: 0;
   margin: 0;
   padding: 0;
@@ -3124,7 +3187,7 @@ dialog.varve-dialog--settings[open] {
   margin: var(--space-3) 0 0;
   padding: var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
@@ -3171,7 +3234,7 @@ dialog.varve-dialog--settings[open] {
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
 }
 .bg-models-list__info {
@@ -3200,7 +3263,7 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-primary);
   padding: var(--space-2) var(--space-3);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
   margin-bottom: var(--space-2);
 }
@@ -3236,7 +3299,7 @@ dialog.varve-dialog--settings[open] {
   height: var(--space-5);
   padding: 0 var(--space-2);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   font: inherit;
@@ -3267,7 +3330,7 @@ dialog.varve-dialog--settings[open] {
   height: var(--space-5);
   min-width: var(--space-5);
   min-height: var(--space-5);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   border: var(--border-micro);
   border-color: var(--color-border-strong);
   cursor: pointer;
@@ -3405,7 +3468,7 @@ dialog.varve-dialog--settings[open] {
   height: 1.5em;
   padding: 0 var(--space-1);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-raised);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
@@ -3436,7 +3499,7 @@ dialog.varve-dialog--settings[open] {
   justify-content: center;
   width: var(--space-11);
   height: var(--space-11);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   background: var(--color-surface-sunken);
   color: var(--color-text-secondary);
 }
@@ -3474,7 +3537,7 @@ dialog.varve-dialog--settings[open] {
   max-width: 160px;
   padding: var(--space-3);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   cursor: pointer;
@@ -3528,7 +3591,7 @@ dialog.varve-dialog--settings[open] {
 }
 .spotlight-overlay__highlight {
   position: absolute;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   box-shadow: 0 0 0 9999px var(--elevation-scrim, oklch(0 0 0 / 0.55));
   z-index: 1;
   pointer-events: none;
@@ -3543,7 +3606,7 @@ dialog.varve-dialog--settings[open] {
   padding: var(--space-3);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   box-shadow: var(--shadow-lg);
 }
 .spotlight-overlay__tooltip-header {
@@ -3633,7 +3696,7 @@ dialog.varve-dialog--settings[open] {
 .ai-panel__suggestion-btn {
   background: var(--elevation-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
@@ -3655,7 +3718,7 @@ dialog.varve-dialog--settings[open] {
   gap: var(--space-1);
   max-width: 85%;
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   font-size: var(--font-size-sm);
   line-height: var(--font-line-normal);
   white-space: pre-wrap;
@@ -3665,13 +3728,13 @@ dialog.varve-dialog--settings[open] {
   align-self: flex-end;
   background: var(--elevation-surface-raised);
   color: var(--color-text-primary);
-  border-bottom-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-control-compact);
 }
 .ai-panel__bubble--assistant {
   align-self: flex-start;
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
-  border-bottom-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-control-compact);
 }
 .ai-panel__bubble-content {
   white-space: pre-wrap;
@@ -3687,7 +3750,7 @@ dialog.varve-dialog--settings[open] {
   gap: 2px;
   background: none;
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   padding: 2px var(--space-1);
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
@@ -3747,7 +3810,7 @@ dialog.varve-dialog--settings[open] {
   padding: var(--space-2) var(--space-3);
   background: var(--color-feedback-danger);
   color: var(--color-text-on-accent);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   font-size: var(--font-size-sm);
 }
 .ai-panel__input-area {
@@ -3765,7 +3828,7 @@ dialog.varve-dialog--settings[open] {
   max-height: 120px;
   padding: var(--space-1) var(--space-2);
   border: var(--border-micro);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   font: inherit;
@@ -3786,7 +3849,7 @@ dialog.varve-dialog--settings[open] {
   width: var(--space-6);
   height: var(--space-6);
   border: none;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   cursor: pointer;
@@ -3877,7 +3940,7 @@ dialog.varve-dialog--settings[open] {
   pointer-events: none;
   user-select: none;
   background: var(--elevation-surface-overlay);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-2xs);
   color: var(--color-text-primary);
@@ -3929,7 +3992,7 @@ dialog.varve-dialog--settings[open] {
   display: flex;
   gap: var(--space-2);
   padding: var(--space-2);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   align-items: flex-start;
   background: var(--elevation-surface-default);
   border: var(--border-micro);
@@ -3947,7 +4010,7 @@ dialog.varve-dialog--settings[open] {
   justify-content: center;
   width: var(--space-6);
   height: var(--space-6);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-secondary);
   flex-shrink: 0;
@@ -3981,7 +4044,7 @@ dialog.varve-dialog--settings[open] {
   cursor: pointer;
   padding: 0;
   margin-top: var(--space-05);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition: color var(--duration-quick) var(--ease-default);
 }
 .plugin-list__item-perms:hover {
@@ -4041,7 +4104,7 @@ dialog.varve-dialog--settings[open] {
   width: var(--space-5);
   height: var(--space-5);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -4086,7 +4149,7 @@ dialog.varve-dialog--settings[open] {
   flex: 1;
   padding: var(--space-1) var(--space-2);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
   transition: border-color var(--duration-quick) var(--ease-default);
 }
@@ -4114,7 +4177,7 @@ dialog.varve-dialog--settings[open] {
 .plugin-marketplace__category-select {
   padding: var(--space-1) var(--space-2);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   font: inherit;
@@ -4139,7 +4202,7 @@ dialog.varve-dialog--settings[open] {
   gap: var(--space-2);
   padding: var(--space-3);
   border: var(--border-micro);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   background: var(--elevation-surface-default);
   transition:
     transform var(--duration-fast) var(--ease-spring),
@@ -4157,7 +4220,7 @@ dialog.varve-dialog--settings[open] {
   justify-content: center;
   width: var(--space-8);
   height: var(--space-8);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-raised);
   color: var(--color-text-secondary);
   border: var(--border-micro);
@@ -4194,7 +4257,7 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-interactive-default);
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition: color var(--duration-quick) var(--ease-default);
 }
 .plugin-marketplace__card-perms:hover {
@@ -4308,7 +4371,7 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font: inherit;
   font-size: var(--font-size-sm);
   transition: border-color var(--duration-quick) var(--ease-standard);
@@ -4340,8 +4403,8 @@ dialog.varve-dialog--settings[open] {
 
 /* ── Timeline playback button active state ─────────────── */
 .timeline-playback-btn--active {
-  color: var(--color-interactive-default);
-  background: var(--color-interactive-hover);
+  color: var(--color-interactive-selected-foreground);
+  background: var(--color-interactive-checked-surface);
 }
 
 /* ── Timeline panel enhanced ───────────────────────────── */
@@ -4387,14 +4450,14 @@ dialog.varve-dialog--settings[open] {
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition:
     background var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard);
 }
 
 .timeline-playback-btn:hover {
-  background: var(--color-interactive-hover);
+  background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
 }
 
@@ -4416,7 +4479,7 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font: inherit;
   font-size: var(--font-size-xs);
   cursor: pointer;
@@ -4440,7 +4503,7 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font: inherit;
   font-size: var(--font-size-xs);
   cursor: pointer;
@@ -4449,10 +4512,10 @@ dialog.varve-dialog--settings[open] {
 .timeline-panel__create-btn {
   height: 24px;
   padding: 0 var(--space-2);
-  background: transparent;
-  color: var(--color-interactive-default);
-  border: 1px solid var(--color-interactive-default);
-  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
   font: inherit;
   font-size: var(--font-size-xs);
   cursor: pointer;
@@ -4461,13 +4524,22 @@ dialog.varve-dialog--settings[open] {
 }
 
 .timeline-panel__create-btn:hover {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
+  background: var(--color-interactive-hover-surface);
+  color: var(--color-text-primary);
 }
 
 .timeline-panel__create-btn--primary {
   padding: var(--space-2) var(--space-3);
   margin-top: var(--space-2);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  border-color: var(--color-interactive-default);
+}
+
+.timeline-panel__create-btn--primary:hover {
+  background: var(--color-interactive-hover);
+  border-color: var(--color-interactive-hover);
+  color: var(--color-text-on-accent);
 }
 
 .timeline-panel__zoom-controls {
@@ -4483,16 +4555,16 @@ dialog.varve-dialog--settings[open] {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
 }
 
 .timeline-panel__zoom-btn:hover {
-  background: var(--color-interactive-hover);
+  background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
 }
 
@@ -4514,20 +4586,22 @@ dialog.varve-dialog--settings[open] {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-sunken);
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .timeline-panel__toggle-btn:hover {
-  background: var(--color-interactive-hover);
+  background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
 }
 
 .timeline-panel__toggle-btn--active {
-  color: var(--color-interactive-default);
+  background: var(--color-interactive-checked-surface);
+  border-color: var(--color-interactive-selected-border);
+  color: var(--color-interactive-selected-foreground);
 }
 
 .timeline-panel__empty {
@@ -4552,11 +4626,12 @@ dialog.varve-dialog--settings[open] {
 }
 
 .timeline-track-row:hover {
-  background: var(--color-interactive-hover);
+  background: var(--color-interactive-hover-surface);
 }
 
 .timeline-track-row--selected {
-  background: var(--color-accent-subtle);
+  background: var(--color-interactive-selected-surface);
+  box-shadow: inset 2px 0 0 var(--color-interactive-selected-border);
 }
 
 .timeline-track-row--muted {
@@ -4689,7 +4764,7 @@ dialog.varve-dialog--settings[open] {
 
 .timeline-panel__tracks::-webkit-scrollbar-thumb {
   background: var(--color-border-subtle);
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
 }
 
 .timeline-panel__tracks::-webkit-scrollbar-thumb:hover {
@@ -4699,7 +4774,7 @@ dialog.varve-dialog--settings[open] {
 /* ── Crash reporting (Phase 3/8/9) ───────────────────────── */
 .crash-dialog {
   border: var(--border-micro);
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   padding: 0;
@@ -4763,7 +4838,7 @@ dialog.varve-dialog--settings[open] {
   width: 100%;
   box-sizing: border-box;
   border: var(--border-micro);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   padding: 8px 10px;
@@ -4806,7 +4881,7 @@ dialog.varve-dialog--settings[open] {
 }
 .crash-dialog__btn {
   border: var(--border-micro);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   padding: 8px 14px;
@@ -4867,13 +4942,13 @@ dialog.varve-dialog--settings[open] {
 .crash-dialog__report-id code {
   background: var(--color-surface-sunken);
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   font-size: 0.8125rem;
   word-break: break-all;
 }
 .crash-dialog__copy {
   border: var(--border-micro);
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
   padding: 4px 10px;
   font: inherit;
@@ -4916,7 +4991,7 @@ dialog.varve-dialog--settings[open] {
 .crash-dialog__stack {
   background: var(--color-surface-sunken);
   border: var(--border-micro);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 10px 12px;
   font-size: 0.75rem;
   overflow-x: auto;
@@ -4953,7 +5028,7 @@ dialog.varve-dialog--settings[open] {
 .crash-dialog__tech-body {
   background: var(--color-surface-sunken);
   border: var(--border-micro);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 10px 12px;
   font-size: 0.75rem;
   overflow-x: auto;
@@ -4984,13 +5059,13 @@ dialog.varve-dialog--settings[open] {
   width: min(640px, 100%);
   background: var(--color-surface-raised);
   border: var(--border-micro);
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
   padding: 28px;
   box-shadow: 0 16px 48px rgb(0 0 0 / 0.25);
 }
 .safe-mode-screen__badge {
   display: inline-block;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 3px 10px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -5033,6 +5108,10 @@ dialog.varve-dialog--settings[open] {
   margin-top: 4px;
   accent-color: var(--color-interactive-default);
 }
+.safe-mode-screen__option input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
 .safe-mode-screen__option-text {
   display: flex;
   flex-direction: column;
@@ -5054,7 +5133,7 @@ dialog.varve-dialog--settings[open] {
 }
 .safe-mode-screen__btn {
   border: var(--border-micro);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 10px 16px;
   font: inherit;
   font-size: 0.875rem;
@@ -5062,9 +5141,17 @@ dialog.varve-dialog--settings[open] {
   min-height: 40px;
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
 }
 .safe-mode-screen__btn:hover {
-  background: var(--color-surface-hover);
+  background: var(--color-interactive-hover-surface);
+}
+.safe-mode-screen__btn:active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
 }
 .safe-mode-screen__btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -5074,11 +5161,50 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
+.safe-mode-screen__btn--primary:hover {
+  background: var(--color-interactive-hover);
+}
+.safe-mode-screen__btn--primary:active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
+}
+.safe-mode-screen__btn:disabled,
+.safe-mode-screen__btn[aria-disabled="true"] {
+  cursor: not-allowed;
+}
 .safe-mode-screen__note {
   margin: 0;
   font-size: 0.8125rem;
   color: var(--color-text-muted);
   line-height: var(--font-line-normal);
+}
+
+@media (hover: none), (pointer: coarse) {
+  .safe-mode-screen__btn {
+    min-height: var(--touch-target-min);
+  }
+  .safe-mode-screen__btn:hover {
+    background: var(--elevation-surface-default);
+  }
+  .safe-mode-screen__btn--primary:hover {
+    background: var(--color-interactive-default);
+  }
+}
+
+@media (forced-colors: active) {
+  .safe-mode-screen__btn {
+    forced-color-adjust: none;
+    background: ButtonFace;
+    color: ButtonText;
+  }
+  .safe-mode-screen__btn--primary {
+    background: Highlight;
+    color: HighlightText;
+  }
+  .safe-mode-screen__btn:focus-visible,
+  .safe-mode-screen__option input:focus-visible {
+    outline-color: Highlight;
+  }
 }
 
 /* ── Privacy & Diagnostics settings section ──────────────── */
@@ -5102,7 +5228,7 @@ dialog.varve-dialog--settings[open] {
   max-height: 220px;
   overflow-y: auto;
   border: var(--border-micro);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .privacy-section__queue-item {
   display: flex;
@@ -5129,7 +5255,7 @@ dialog.varve-dialog--settings[open] {
 }
 .privacy-section__btn {
   border: var(--border-micro);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   padding: 5px 10px;
@@ -5204,7 +5330,7 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-primary);
   background: var(--color-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
 }
 .workspace-customize__search:focus-visible {
   outline: 2px solid var(--color-border-focus);
@@ -5282,7 +5408,7 @@ dialog.varve-dialog--settings[open] {
   height: 20px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--color-text-secondary, inherit);
   cursor: pointer;
@@ -5308,7 +5434,7 @@ dialog.varve-dialog--settings[open] {
   touch-action: none;
   cursor: ew-resize;
   background: var(--elevation-surface-sunken, rgba(128, 128, 128, 0.08));
-  border-radius: 4px;
+  border-radius: var(--radius-control-compact);
   outline: none;
 }
 
@@ -5319,7 +5445,7 @@ dialog.varve-dialog--settings[open] {
 .media-frame-strip__cell {
   position: absolute;
   top: 6px;
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   background: var(--color-border-strong, rgba(128, 128, 128, 0.4));
   overflow: hidden;
 }
@@ -5371,7 +5497,7 @@ dialog.varve-dialog--settings[open] {
 .layers-row__media-badge {
   margin-left: 6px;
   padding: 0 4px;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -5440,7 +5566,7 @@ dialog.varve-dialog--settings[open] {
   padding: 0;
   cursor: pointer;
   pointer-events: auto;
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
 }
 
 .constraint-pin-control__zone:focus-visible {
@@ -5469,7 +5595,7 @@ dialog.varve-dialog--settings[open] {
 .ref-image-picker__preview {
   width: 64px;
   height: 64px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   border: var(--border-micro);
   overflow: hidden;
   flex-shrink: 0;
@@ -5529,14 +5655,14 @@ dialog.varve-dialog--settings[open] {
   display: block;
   width: 100%;
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
 }
 
 .interaction-trace__bar {
   display: block;
   height: 100%;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
 }
 
 .interaction-trace__bar--measured {
@@ -5566,7 +5692,7 @@ dialog.varve-dialog--settings[open] {
 .model-manager__diagnostics {
   padding: 8px 12px;
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   margin-top: 12px;
 }
 
@@ -5580,7 +5706,7 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-xs);
   font-weight: 600;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in oklch, var(--color-feedback-success) 16%, transparent);
   color: var(--color-feedback-success-strong);
 }
@@ -5600,7 +5726,7 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .insp-input:focus-visible {
@@ -5612,10 +5738,10 @@ dialog.varve-dialog--settings[open] {
 
 .archive-dialog__strength-breach {
   font-size: var(--font-size-sm);
-  color: var(--color-feedback-error-strong);
-  background: color-mix(in oklch, var(--color-feedback-error) 12%, transparent);
+  color: var(--color-feedback-danger);
+  background: color-mix(in oklch, var(--color-feedback-danger) 12%, transparent);
   padding: 8px 12px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 /* ---------- UpscaleDialog ------------------------------------------------- */
@@ -5627,7 +5753,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .upscale-settings__ai-preview {
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   border: var(--border-micro);
   overflow: hidden;
 }
@@ -5639,15 +5765,15 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-feedback-warning-strong);
   background: color-mix(in oklch, var(--color-feedback-warning) 12%, transparent);
   padding: 6px 10px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 /* ---------- GradientMapEditor --------------------------------------------- */
 
 .gm-editor__opacity {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
 }
 
 /* ---------- GradientImportDialog ------------------------------------------ */
@@ -5660,7 +5786,7 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-xs);
   font-weight: 600;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in oklch, var(--color-feedback-warning) 16%, transparent);
   color: var(--color-feedback-warning-strong);
 }
@@ -5732,7 +5858,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .thumbnail-info-dialog__preview {
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   overflow: hidden;
   border: var(--border-micro);
 }
@@ -5751,12 +5877,12 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .thumbnail-info-dialog__error {
   font-size: var(--font-size-sm);
-  color: var(--color-feedback-error-strong);
+  color: var(--color-feedback-danger);
 }
 
 .thumbnail-info-dialog__footer {
@@ -5815,7 +5941,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .restore-browser__item-status--corrupted {
-  color: var(--color-feedback-error-strong);
+  color: var(--color-feedback-danger);
 }
 
 /* ---------- BatchBgRemoveDialog ------------------------------------------- */
@@ -5865,7 +5991,7 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-xs);
   font-weight: 600;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in oklch, var(--color-feedback-info) 16%, transparent);
   color: var(--color-feedback-info-strong, var(--color-text-primary));
 }
@@ -5880,7 +6006,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .insp-depth-canvas {
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   border: var(--border-micro);
   overflow: hidden;
 }

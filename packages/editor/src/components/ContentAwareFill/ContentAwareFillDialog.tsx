@@ -7,7 +7,7 @@ import {
   runContentAwareFillPipeline,
 } from '@varve/engine';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
-import { Button } from '@varve/ui';
+import { Button, Switch } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { insertDerivedImageShape } from '../../imageOperations';
@@ -505,7 +505,7 @@ export function ContentAwareFillDialog({
 
           {quality === 'ai' && !modelAvailable && status !== 'downloading' && (
             <div className="caf-dialog__section">
-              <Button type="button" variant="primary" size="sm" onClick={handleDownload}>
+              <Button type="button" variant="default" size="sm" onClick={handleDownload}>
                 Download AI Model (~208 MB)
               </Button>
               <p className="caf-dialog__hint">One-time download required. Stored locally.</p>
@@ -552,14 +552,12 @@ export function ContentAwareFillDialog({
 
           {!hasResult && (
             <div className="caf-dialog__section">
-              <label className="caf-dialog__checkbox">
-                <input
-                  type="checkbox"
-                  checked={maskVisible}
-                  onChange={(e) => setMaskVisible(e.target.checked)}
-                />
-                <span>Show mask overlay</span>
-              </label>
+              <Switch
+                className="caf-dialog__checkbox"
+                label="Show mask overlay"
+                checked={maskVisible}
+                onChange={(e) => setMaskVisible(e.target.checked)}
+              />
             </div>
           )}
 
@@ -744,7 +742,7 @@ export function ContentAwareFillDialog({
           </Button>
           <Button
             type="button"
-            variant="primary"
+            variant="default"
             size="sm"
             disabled={!hasResult || isProcessing}
             loading={status === 'applying'}

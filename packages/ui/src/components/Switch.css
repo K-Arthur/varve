@@ -1,0 +1,175 @@
+/* Compact Varve switch primitive and settings-row composition. */
+.varve-switch {
+  --switch-width: 2rem;
+  --switch-height: 1.125rem;
+  --switch-thumb-size: 0.875rem;
+  --switch-thumb-travel: 0.75rem;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: 1.5rem;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.varve-switch--default {
+  --switch-width: 2.25rem;
+  --switch-height: 1.25rem;
+  --switch-thumb-size: 1rem;
+  --switch-thumb-travel: 0.875rem;
+}
+
+.varve-switch__input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  inline-size: 100%;
+  block-size: 100%;
+  padding: 0;
+  margin: 0;
+  opacity: 0;
+  border: 0;
+  cursor: inherit;
+}
+
+.varve-switch__track {
+  position: relative;
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 var(--switch-width);
+  align-items: center;
+  inline-size: var(--switch-width);
+  block-size: var(--switch-height);
+  padding: 2px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  pointer-events: none;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard);
+}
+
+.varve-switch__thumb {
+  inline-size: var(--switch-thumb-size);
+  block-size: var(--switch-thumb-size);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgb(0 0 0 / 18%));
+  transform: translateX(0);
+  transition: transform var(--duration-quick) var(--ease-standard);
+}
+
+.varve-switch:active:not(.varve-switch--disabled) .varve-switch__track {
+  background: var(--color-interactive-active);
+}
+
+.varve-switch:hover:not(.varve-switch--disabled) .varve-switch__track {
+  border-color: var(--color-interactive-hover);
+  background: var(--color-surface-hover);
+}
+
+.varve-switch__input:checked + .varve-switch__track {
+  border-color: var(--color-interactive-default);
+  background: var(--color-interactive-default);
+}
+
+.varve-switch__input:checked + .varve-switch__track .varve-switch__thumb {
+  transform: translateX(var(--switch-thumb-travel));
+}
+
+.varve-switch:hover:not(.varve-switch--disabled)
+  .varve-switch__input:checked
+  + .varve-switch__track {
+  border-color: var(--color-interactive-hover);
+  background: var(--color-interactive-hover);
+}
+
+.varve-switch__input:focus-visible + .varve-switch__track {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.varve-switch__input:disabled + .varve-switch__track {
+  border-color: var(--color-interactive-disabled);
+  background: var(--color-surface-sunken);
+  cursor: default;
+  opacity: 0.7;
+}
+
+.varve-switch__input:disabled:checked + .varve-switch__track {
+  background: var(--color-interactive-disabled);
+}
+
+.varve-switch--disabled {
+  color: var(--color-text-disabled);
+  cursor: default;
+}
+
+.varve-switch__label {
+  min-inline-size: 0;
+  user-select: none;
+}
+
+.varve-switch.insp-switch--axis {
+  min-block-size: 1rem;
+  gap: var(--space-1);
+  font-size: var(--font-size-2xs);
+}
+
+.varve-switch.insp-switch {
+  gap: var(--space-1);
+  min-block-size: 1.5rem;
+  font-size: var(--font-size-xs);
+}
+
+.varve-switch-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  padding-block: var(--space-2);
+}
+
+.varve-switch-field__content {
+  display: grid;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.varve-switch-field__label {
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.varve-switch-field__description {
+  max-inline-size: 60ch;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+}
+
+.varve-switch-field__disabled-reason {
+  max-inline-size: 60ch;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.35;
+}
+
+.varve-switch-field__control {
+  justify-self: end;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .varve-switch__track,
+  .varve-switch__thumb {
+    transition: none;
+  }
+}

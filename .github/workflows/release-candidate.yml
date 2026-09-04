@@ -1,0 +1,480 @@
+name: Release Candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Exact master commit SHA to certify
+        required: true
+        type: string
+      mode:
+        description: Triage collects bounded failures; final is the release gate
+        required: true
+        default: final
+        type: choice
+        options: [triage, final]
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
+# A candidate is frozen. A repair gets a new SHA and a new candidate; an
+# in-flight candidate is never silently cancelled by a later dispatch.
+concurrency:
+  group: release-candidate-${{ inputs.sha }}
+  cancel-in-progress: false
+
+env:
+  PNPM_VERSION: '11.9.0'
+  NODE_VERSION: '26'
+
+jobs:
+  changes:
+    name: Candidate plan (exact SHA)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      commit_sha: ${{ steps.plan.outputs.commit_sha }}
+      policy_hash: ${{ steps.plan.outputs.policy_hash }}
+      full: ${{ steps.plan.outputs.full }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: plan
+        env:
+          EXPECTED_SHA: ${{ inputs.sha }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse --verify HEAD^{commit})"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          git merge-base --is-ancestor "$ACTUAL_SHA" origin/master
+          node scripts/quality/ci-plan.mjs --base "$ACTUAL_SHA" --head "$ACTUAL_SHA" \
+            --force-full --profile candidate --output ci-plan.json --github-output "$GITHUB_OUTPUT"
+      - name: Verify prior exact-SHA integration certification
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/release/verify-certification.mjs --integration-only \
+          --sha "${{ steps.plan.outputs.commit_sha }}" --repo "${GITHUB_REPOSITORY}" \
+          --policy-hash "${{ steps.plan.outputs.policy_hash }}"
+      - name: Upload exact candidate plan
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-candidate-plan-${{ inputs.sha }}
+          path: ci-plan.json
+          retention-days: 90
+
+  attribution-check:
+    name: Candidate commit metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs: changes
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan candidate history policy
+        env:
+          VARVE_HISTORY_BASE: origin/master
+          VARVE_HISTORY_HEAD: HEAD
+        run: node scripts/quality/history-policy.mjs --metadata --secrets
+
+  pipeline-validate:
+    name: Candidate preflight policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: changes
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Validate workflows and action pins
+        run: |
+          node scripts/validate-workflows.mjs
+          node scripts/pin-github-actions.mjs --check
+          node scripts/release/version.mjs verify
+          node scripts/release/linux-package-metadata.test.mjs
+          node scripts/release/verify-product-truth.mjs
+          node scripts/secret-scan.mjs
+          node scripts/security/workflow-policy.mjs
+      - name: CI tooling regression suite
+        run: pnpm test:ci:tools
+      - name: Validation policy regression tests
+        run: pnpm exec vitest run tests/unit/validationPolicy.test.ts --maxWorkers=1
+
+  js:
+    name: Candidate JS and unit certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    needs: [changes, pipeline-validate]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+  rust:
+    name: Candidate Rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    needs: [changes, pipeline-validate]
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.97.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace --all-targets
+
+  wasm:
+    name: Candidate WASM
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [changes, pipeline-validate]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - name: Install just
+        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
+        with:
+          tool: just@1.54.0
+      - name: WASM check
+        run: just wasm-check
+      - name: Install wasm-pack
+        run: |
+          set -euo pipefail
+          if ! command -v wasm-pack >/dev/null 2>&1; then
+            curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+              https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
+          fi
+          wasm-pack --version
+      - name: Build WASM (base + SIMD + colour)
+        run: just wasm-build-all
+      - name: Upload candidate WASM artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-candidate-wasm-${{ inputs.sha }}
+          path: apps/desktop/public/wasm/
+
+  website-e2e:
+    name: Candidate website functional and accessibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [changes, pipeline-validate]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:website
+      - run: pnpm build:website
+      - run: pnpm build:website:pages
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Website E2E (candidate)
+        run: |
+          if [[ '${{ inputs.mode }}' == 'triage' ]]; then
+            pnpm exec playwright test -c playwright.website.config.ts --max-failures=5
+          else
+            pnpm exec playwright test -c playwright.website.config.ts
+          fi
+        env:
+          VARVE_VALIDATION_PROFILE: candidate
+      - name: Upload website diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-candidate-website-${{ inputs.sha }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+
+  e2e:
+    name: Candidate browser E2E ${{ matrix.shard }}/8
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    needs: [changes, pipeline-validate, rust, wasm]
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Download candidate WASM artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: varve-candidate-wasm-${{ inputs.sha }}
+          path: apps/desktop/public/wasm/
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Browser E2E (candidate)
+        run: |
+          if [[ '${{ inputs.mode }}' == 'triage' ]]; then
+            pnpm exec playwright test --project=chromium --shard=${{ matrix.shard }}/8 --max-failures=5
+          else
+            pnpm exec playwright test --project=chromium --shard=${{ matrix.shard }}/8
+          fi
+      - name: Upload browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-candidate-e2e-${{ inputs.sha }}-${{ matrix.shard }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+
+  e2e-visual:
+    name: Candidate visual regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    needs: [changes, pipeline-validate, rust, wasm]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Download candidate WASM artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: varve-candidate-wasm-${{ inputs.sha }}
+          path: apps/desktop/public/wasm/
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Visual E2E (candidate)
+        run: |
+          if [[ '${{ inputs.mode }}' == 'triage' ]]; then
+            pnpm exec playwright test --project=chromium-visual-1x --project=chromium-visual-2x --max-failures=5
+          else
+            pnpm e2e:visual
+          fi
+      - name: Upload visual diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-candidate-visual-${{ inputs.sha }}
+          path: |
+            playwright-report/
+            test-results/
+            visual-diff-report/
+          if-no-files-found: ignore
+
+  desktop-e2e:
+    name: Candidate native desktop (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    needs: [changes, pipeline-validate, rust, wasm]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux, os: ubuntu-latest }
+          - { name: macos, os: macos-latest }
+          - { name: windows, os: windows-latest }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - name: Download candidate WASM artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: varve-candidate-wasm-${{ inputs.sha }}
+          path: apps/desktop/public/wasm/
+      - name: Native desktop smoke
+        run: pnpm test:desktop:native
+
+  models:
+    name: Candidate model policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [changes, pipeline-validate]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          persist-credentials: false
+      - run: node scripts/models/validate-manifest.mjs
+
+  bench:
+    name: Candidate benchmark corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [changes, pipeline-validate]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Candidate benchmark corpus
+        run: pnpm bench
+      - name: Upload benchmark diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-candidate-bench-${{ inputs.sha }}
+          path: |
+            reports/
+            test-results/
+          if-no-files-found: ignore
+
+  certification:
+    name: Release Candidate / certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ always() }}
+    needs: [changes, attribution-check, pipeline-validate, rust, wasm, js, website-e2e, e2e, e2e-visual, desktop-e2e, bench, models]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: varve-candidate-plan-${{ inputs.sha }}
+          path: candidate-plan
+      - name: Aggregate frozen candidate evidence
+        id: aggregate
+        if: always()
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$NEEDS_JSON" > ci-needs.json
+          node scripts/quality/aggregate-ci.mjs --needs ci-needs.json \
+            --plan candidate-plan/ci-plan.json --output ci-certification.json
+      - name: Write exact-SHA candidate evidence
+        id: evidence
+        if: always()
+        run: node scripts/release/write-candidate-evidence.mjs \
+          --plan candidate-plan/ci-plan.json --aggregate ci-certification.json \
+          --output candidate-certification.json
+      - name: Upload immutable candidate evidence
+        id: upload-evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-release-candidate-${{ needs.changes.outputs.commit_sha }}-${{ needs.changes.outputs.policy_hash }}
+          path: |
+            candidate-certification.json
+            ci-certification.json
+          retention-days: 90
+      - name: Publish exact-SHA candidate check
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_SHA: ${{ needs.changes.outputs.commit_sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          CONCLUSION=failure
+          if [[ "${{ steps.aggregate.outcome }}" == "success" && "${{ steps.evidence.outcome }}" == "success" && "${{ steps.upload-evidence.outcome }}" == "success" ]]; then CONCLUSION=success; fi
+          gh api --method POST "repos/${REPOSITORY}/check-runs" \
+            -f name='Release Candidate / certification' \
+            -f head_sha="${CANDIDATE_SHA}" \
+            -f status=completed \
+            -f conclusion="${CONCLUSION}" \
+            -f 'output[title]=Frozen exact-SHA candidate' \
+            -f "output[summary]=${CONCLUSION}: ${CANDIDATE_SHA}"
+      - name: Fail candidate certification when any required evidence failed
+        if: >-
+          always() &&
+          (steps.aggregate.outcome != 'success' ||
+           steps.evidence.outcome != 'success' ||
+           steps.upload-evidence.outcome != 'success')
+        run: exit 1

@@ -71,9 +71,13 @@ import { sitePath } from '../lib/siteUrl';
   .learn-card {
     background: var(--surface-card);
     border: 1px solid var(--border-default);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     padding: 2rem;
-    transition: all var(--duration-fast) var(--ease-default);
+    transition:
+      background-color var(--duration-fast) var(--ease-default),
+      border-color var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default),
+      transform var(--duration-fast) var(--ease-default);
     text-decoration: none;
     display: block;
   }
@@ -97,7 +101,7 @@ import { sitePath } from '../lib/siteUrl';
   
   .learn-status {
     background: var(--surface-muted);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     padding: 1.5rem;
   }
   

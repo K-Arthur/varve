@@ -16,7 +16,6 @@ import type {
   InstanceStatus,
   NodeId,
   SceneNode,
-  ShapeNode,
 } from '@varve/scene';
 import {
   activeSmartFilters,
@@ -24,16 +23,20 @@ import {
   documentHasSolo,
   isAnimatedMediaNode,
   isContainer,
-  isExportRegion,
   isImageShape,
   nodeHasStyle,
 } from '@varve/scene';
-import type { SolidIconName } from '@varve/ui';
-import { SOLID_CHROME_ICONS, SOLID_TOOL_ICONS, SolidIcon, Tooltip } from '@varve/ui';
+import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { autoName } from '../../intelligence/autoNamer';
 import { isNodeEffectivelyLocked } from '../../scene/world';
+import { summarizeAdjustmentStack } from './adjustmentStackSummary';
 import { EffectStackTransferBadge } from './EffectStackTransferBadge';
+import {
+  layerAccessibleDescription,
+  maskTypeLabel,
+  resolveLayerPresentation,
+} from './layerPresentation';
 import type { PresenceData } from './PresenceIndicator';
 import { PresenceIndicator } from './PresenceIndicator';
 import { useThumbnail } from './useThumbnail';
@@ -100,51 +103,18 @@ export interface LayersRowProps {
     kind: EffectStackKind,
     mode?: EffectStackTransferMode,
   ) => void;
+  /** Open the selected layer's matching editor in the Inspector. */
+  onOpenEffectStack?: (id: NodeId, kind: EffectStackKind) => void;
+  /** Open an adjustment layer's stack editor in the Inspector. */
+  onOpenAdjustment?: (id: NodeId) => void;
   /** Stack drag currently hovering this row, if any. */
   effectStackDrop?: {
     sourceId: NodeId;
     kind: EffectStackKind;
     mode: EffectStackTransferMode;
   };
-}
-
-const NODE_ICONS: Record<string, SolidIconName> = {
-  frame: SOLID_TOOL_ICONS.frame,
-  group: SOLID_TOOL_ICONS.group,
-  text: SOLID_TOOL_ICONS.text,
-  rect: SOLID_TOOL_ICONS.rect,
-  ellipse: SOLID_TOOL_ICONS.ellipse,
-  circle: SOLID_TOOL_ICONS.ellipse,
-  line: SOLID_TOOL_ICONS.line,
-  polygon: SOLID_TOOL_ICONS.polygon,
-  star: SOLID_TOOL_ICONS.star,
-  component: SOLID_TOOL_ICONS.component,
-  image: SOLID_TOOL_ICONS.image,
-  arrow: SOLID_TOOL_ICONS.arrow,
-  path: 'Pen',
-  adjustment: SOLID_TOOL_ICONS.adjustment,
-};
-
-function nodeTypeIcon(n: SceneNode): SolidIconName {
-  if (n.kind === 'shape') {
-    if (isImageShape(n)) return NODE_ICONS.image ?? SOLID_TOOL_ICONS.rect;
-    return NODE_ICONS[(n as ShapeNode).shape.kind] ?? SOLID_TOOL_ICONS.rect;
-  }
-  // An Export Region is a frame structurally, but showing it with the frame
-  // icon is what let the old Slice output pass for an ordinary container.
-  if (isExportRegion(n)) return SOLID_TOOL_ICONS.slice;
-  return NODE_ICONS[n.kind] ?? SOLID_TOOL_ICONS.rect;
-}
-
-function resolveLayerType(node: SceneNode): string {
-  if (
-    node.kind === 'frame' &&
-    'componentId' in node &&
-    (node as { componentId?: string }).componentId != null
-  ) {
-    return 'component';
-  }
-  return node.kind;
+  /** True when the current layer filter matches this row by name. */
+  searchMatch?: boolean;
 }
 
 export const LayersRow = memo(function LayersRow({
@@ -187,7 +157,10 @@ export const LayersRow = memo(function LayersRow({
   maskRole,
   selectedIds,
   onCopyEffectStack,
+  onOpenEffectStack,
+  onOpenAdjustment,
   effectStackDrop,
+  searchMatch = false,
 }: LayersRowProps) {
   const [editValue, setEditValue] = useState(node.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -195,13 +168,14 @@ export const LayersRow = memo(function LayersRow({
   const isFrame = node.kind === 'frame';
   const isGroup = node.kind === 'group';
   const isContainerNode = isContainer(node);
-  const typeIcon = nodeTypeIcon(node);
+  const layerPresentation = resolveLayerPresentation(node, doc);
+  const typeIcon = layerPresentation.icon;
   const thumbnailDataUrl = useThumbnail(node, docId);
   // Only show a preview chip for real image content — solid-fill frame
   // thumbnails read as unexplained coloured squares next to the type icon.
   const showThumbnail = isImageShape(node) && thumbnailDataUrl != null;
-  const isInstance =
-    isFrame && 'componentId' in node && (node as { componentId?: string }).componentId != null;
+  const isInstance = layerPresentation.category === 'instance';
+  const maskLabel = maskTypeLabel(node.mask);
   const isEffectivelyLocked = doc ? isNodeEffectivelyLocked(doc, node.id) : node.locked;
   const canReceiveDroppedStack =
     effectStackDrop != null &&
@@ -245,12 +219,24 @@ export const LayersRow = memo(function LayersRow({
   // the enabled count through the canonical resolver so the badge can never
   // disagree with what sceneToEngine actually draws.
   const enabledObjectFilterCount = objectFilterCount > 0 ? activeSmartFilters(node).length : 0;
+  const objectFilterSummary =
+    objectFilterCount > 0 ? summarizeAdjustmentStack(node.smartFilters ?? []) : null;
+  const adjustmentSummary =
+    node.kind === 'adjustment'
+      ? summarizeAdjustmentStack((node as AdjustmentNode).adjustments ?? [])
+      : null;
+  const accessibleDescription = layerAccessibleDescription(node, layerPresentation, {
+    maskRole,
+    detail: adjustmentSummary?.tooltip,
+  });
+  const adjustmentBadgeText =
+    adjustmentSummary && adjustmentSummary.totalCount > 0
+      ? `${adjustmentSummary.activeCount}/${adjustmentSummary.totalCount}`
+      : node.kind === 'adjustment'
+        ? (node as AdjustmentNode).adjustmentType
+        : null;
 
-  /**
-   * Keep a control's own gesture out of dnd-kit's hands. The row is draggable
-   * from anywhere (Figma/Illustrator convention) which means its pointerdown
-   * listener sits above every button, toggle and checkbox inside it.
-   */
+  /** Keep control gestures out of dnd-kit's hands. */
   const stopDragActivation = useCallback((e: React.PointerEvent) => {
     e.stopPropagation();
   }, []);
@@ -356,26 +342,30 @@ export const LayersRow = memo(function LayersRow({
       <div
         role="treeitem"
         data-node-id={node.id}
-        data-layer-type={resolveLayerType(node)}
+        data-layer-type={layerPresentation.dataType}
+        data-layer-category={layerPresentation.category}
+        data-layer-subtype={layerPresentation.subtype}
+        data-layer-color={node.layerColor ?? undefined}
+        data-search-match={searchMatch || undefined}
         aria-selected={selected}
         aria-expanded={container ? expanded : undefined}
         aria-level={depth + 1}
         aria-setsize={siblingCount ?? totalRows}
         aria-posinset={siblingIndex ?? idx + 1}
+        aria-label={!editing ? accessibleDescription : undefined}
         className={rowClass}
         tabIndex={focused ? 0 : -1}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
-        style={{
-          paddingLeft: `calc(var(--space-2) + ${depth} * var(--space-3))`,
-          ...style,
-        }}
-        // Draggable from anywhere on the row (Figma/Illustrator/Photoshop
-        // convention), not just the small grip handle — but not while renaming,
-        // so dragging to select text in the rename input isn't hijacked as a
-        // reorder/reparent gesture. dragAttributes (ARIA role/description)
-        // stays scoped to the labeled handle button below for a11y.
-        {...(!editing ? dragListeners : undefined)}
+        style={
+          {
+            paddingLeft: `calc(var(--space-2) + ${depth} * var(--space-3))`,
+            '--layers-row-color': node.layerColor
+              ? `var(--color-layer-tag-${node.layerColor})`
+              : undefined,
+            ...style,
+          } as React.CSSProperties
+        }
       >
         {/* Drag handle */}
         <button
@@ -389,14 +379,15 @@ export const LayersRow = memo(function LayersRow({
           <SolidIcon name={SOLID_CHROME_ICONS.gripVertical} size="0.75em" />
         </button>
 
-        {/* Selection checkbox — visual and touch-friendly multi-select affordance */}
+        {/* Pointer/touch selection affordance. The treeitem's aria-selected and
+            keyboard Space are the accessible selection model; this control is
+            intentionally visual-only so assistive technology does not hear a
+            second, competing selection state. */}
         <label
           className={`layers-row__selection-checkbox ${selected ? 'layers-row__selection-checkbox--selected' : ''}`}
           tabIndex={-1}
           onPointerDown={stopDragActivation}
-          aria-label={
-            selected ? `Remove ${node.name} from selection` : `Add ${node.name} to selection`
-          }
+          aria-hidden="true"
         >
           <input
             type="checkbox"
@@ -408,7 +399,7 @@ export const LayersRow = memo(function LayersRow({
             hidden
           />
           <SolidIcon
-            name={selected ? SOLID_CHROME_ICONS.checkSquare : SOLID_CHROME_ICONS.square}
+            name={selected ? SOLID_CHROME_ICONS.checkCircle : SOLID_CHROME_ICONS.square}
             size="0.75em"
           />
         </label>
@@ -443,16 +434,6 @@ export const LayersRow = memo(function LayersRow({
           <span className="layers-row__disclosure-spacer" />
         )}
 
-        {/* Color tag indicator (8px dot) */}
-        {node.layerColor && (
-          <span
-            className={`layers-row__color-tag layers-row__color-tag--${node.layerColor}`}
-            data-layer-color={node.layerColor}
-            role="img"
-            aria-label={`Color: ${node.layerColor}`}
-          />
-        )}
-
         {/* Thumbnail preview (frames and images) */}
         {showThumbnail && (
           <img src={thumbnailDataUrl!} alt="" aria-hidden className="layers-row__thumbnail" />
@@ -463,7 +444,7 @@ export const LayersRow = memo(function LayersRow({
           type="button"
           className="layers-row__icon-area"
           onDoubleClick={handleIconDoubleClick}
-          aria-label={`Zoom to ${node.name}`}
+          aria-label={`Zoom to ${node.name} (${layerPresentation.label})`}
           tabIndex={-1}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -482,26 +463,48 @@ export const LayersRow = memo(function LayersRow({
         </button>
 
         {/* Name or rename input */}
-        {editing ? (
-          <input
-            ref={inputRef}
-            id={`layers-row-rename-${node.id}`}
-            name={`layers-row-rename-${node.id}`}
-            className="layers-row__name-input"
-            value={editValue}
-            placeholder={ghostName ?? ''}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={handleRenameKeyDown}
-            aria-label={`Rename ${node.name}`}
-          />
-        ) : (
-          <Tooltip label={node.name} truncationOnly>
-            <span className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}`}>
-              {node.name}
-            </span>
-          </Tooltip>
-        )}
+        <span className="layers-row__label">
+          {editing ? (
+            <input
+              ref={inputRef}
+              id={`layers-row-rename-${node.id}`}
+              name={`layers-row-rename-${node.id}`}
+              className="layers-row__name-input"
+              value={editValue}
+              placeholder={ghostName ?? ''}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={handleRenameKeyDown}
+              aria-label={`Rename ${node.name}`}
+            />
+          ) : (
+            <Tooltip label={node.name} truncationOnly>
+              <span
+                className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}${searchMatch ? ' layers-row__name--match' : ''}`}
+              >
+                {node.name}
+              </span>
+            </Tooltip>
+          )}
+
+          {!editing && adjustmentSummary && (
+            <Tooltip label={adjustmentSummary.tooltip}>
+              <button
+                type="button"
+                className={`layers-row__adjustment-summary${adjustmentSummary.totalCount === 0 ? ' layers-row__adjustment-summary--empty' : ''}`}
+                aria-label={adjustmentSummary.tooltip}
+                data-adjustment-summary
+                onPointerDown={stopDragActivation}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenAdjustment?.(node.id);
+                }}
+              >
+                {adjustmentSummary.label}
+              </button>
+            </Tooltip>
+          )}
+        </span>
 
         {/* Animated-media badge (subtle, rows without animation unchanged) */}
         {!editing && doc && isAnimatedMediaNode(node, doc) && (
@@ -559,8 +562,16 @@ export const LayersRow = memo(function LayersRow({
 
         {/* Adjustment type badge */}
         {node.kind === 'adjustment' && !editing && (
-          <span className="layers-row__adjustment-badge">
-            {(node as AdjustmentNode).adjustmentType}
+          <span
+            className="layers-row__adjustment-badge"
+            role="img"
+            aria-label={
+              adjustmentSummary && adjustmentSummary.totalCount > 0
+                ? `${adjustmentSummary.activeCount} of ${adjustmentSummary.totalCount} adjustments active`
+                : `Legacy adjustment type: ${(node as AdjustmentNode).adjustmentType}`
+            }
+          >
+            {adjustmentBadgeText}
           </span>
         )}
         {/* Adjustment scope badge */}
@@ -603,21 +614,19 @@ export const LayersRow = memo(function LayersRow({
           <span className="layers-row__keyframe-badge">{keyframeCount}</span>
         )}
 
-        {/* Mask indicator badge */}
-        {(node as { mask?: { type?: string; visible?: boolean } }).mask?.visible && !editing && (
-          <span
-            className={`layers-row__mask-badge ${
-              (node as { mask?: { type?: string } }).mask?.type === 'alpha'
-                ? 'layers-row__mask-badge--alpha'
-                : (node as { mask?: { type?: string } }).mask?.type === 'luminance'
-                  ? 'layers-row__mask-badge--luminance'
-                  : 'layers-row__mask-badge--clip'
-            }`}
-            role="img"
-            aria-label={`${(node as { mask?: { type?: string } }).mask?.type ?? 'clip'} mask`}
-          >
-            {(node as { mask?: { type?: string } }).mask?.type ?? 'clip'}
-          </span>
+        {/* Mask indicator badge — inactive masks remain visible so the row
+            explains the document structure instead of disappearing when the
+            mask is toggled off. */}
+        {maskLabel && !editing && (
+          <Tooltip label={maskLabel}>
+            <span
+              className={`layers-row__mask-badge layers-row__mask-badge--${node.mask?.type ?? 'clip'}${node.mask?.visible === false ? ' layers-row__mask-badge--disabled' : ''}`}
+              role="img"
+              aria-label={maskLabel}
+            >
+              {node.mask?.type === 'clip' ? 'clip mask' : `${node.mask?.type} mask`}
+            </span>
+          </Tooltip>
         )}
 
         {maskRole && !editing && (
@@ -644,6 +653,9 @@ export const LayersRow = memo(function LayersRow({
             kind="layer-effects"
             count={node.effects.length}
             onCopyToSelected={() => onCopyEffectStack?.(node.id, 'layer-effects')}
+            onOpen={
+              onOpenEffectStack ? () => onOpenEffectStack(node.id, 'layer-effects') : undefined
+            }
           >
             {node.effects.length}fx
           </EffectStackTransferBadge>
@@ -658,12 +670,15 @@ export const LayersRow = memo(function LayersRow({
             sourceName={node.name}
             kind="object-filters"
             count={objectFilterCount}
-            statusLabel={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled`}
+            statusLabel={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled on ${node.name}: ${objectFilterSummary?.tooltip ?? ''}`}
             onCopyToSelected={() => onCopyEffectStack?.(node.id, 'object-filters')}
+            onOpen={
+              onOpenEffectStack ? () => onOpenEffectStack(node.id, 'object-filters') : undefined
+            }
           >
-            {enabledObjectFilterCount === objectFilterCount
-              ? `${objectFilterCount} filter${objectFilterCount === 1 ? '' : 's'}`
-              : `${enabledObjectFilterCount}/${objectFilterCount} filters`}
+            {objectFilterSummary?.label}
+            {enabledObjectFilterCount !== objectFilterCount &&
+              ` · ${enabledObjectFilterCount}/${objectFilterCount}`}
           </EffectStackTransferBadge>
         )}
 

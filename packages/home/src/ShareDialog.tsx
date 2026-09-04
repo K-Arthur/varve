@@ -1,5 +1,5 @@
 import type { Permission, Platform } from '@varve/platform';
-import { Button, Dialog, InlineActivityIndicator, Select } from '@varve/ui';
+import { Button, Dialog, LoadingLabel, Select } from '@varve/ui';
 import { useCallback, useEffect, useId, useState } from 'react';
 
 export interface ShareDialogProps {
@@ -95,7 +95,7 @@ export function ShareDialog({ fileId, fileName, platform, open, onClose }: Share
           <h3 className="share-dialog__section-title">People with access</h3>
           {loading ? (
             <div className="share-dialog__loading">
-              <InlineActivityIndicator label="Loading permissions" />
+              <LoadingLabel label="Loading permissions" />
             </div>
           ) : permissions.length === 0 ? (
             <p className="share-dialog__empty">No one else has access yet.</p>
@@ -148,7 +148,7 @@ export function ShareDialog({ fileId, fileName, platform, open, onClose }: Share
               }))}
             />
             <Button
-              variant="primary"
+              variant="default"
               size="sm"
               loading={adding}
               disabled={!newEmail.trim()}

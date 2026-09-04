@@ -28,7 +28,7 @@ export const Default: Story = {
               border: '1px solid var(--color-border-subtle)',
               padding: 16,
               marginTop: 8,
-              borderRadius: 6,
+              borderRadius: 'var(--radius-control)',
             }}
           >
             <FocusTrap active onClose={() => setOpen(false)}>

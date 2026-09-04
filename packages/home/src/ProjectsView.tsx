@@ -154,7 +154,7 @@ export function ProjectsView({
                 await confirmDialog(
                   'Delete project',
                   `Delete project "${project.name}"? Files will become unfiled.`,
-                  { confirmLabel: 'Delete', variant: 'danger' },
+                  { confirmLabel: 'Delete', variant: 'destructive' },
                 )
               ) {
                 onDelete(project.id);

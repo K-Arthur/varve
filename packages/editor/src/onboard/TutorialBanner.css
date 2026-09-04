@@ -79,7 +79,7 @@
   font-size: var(--font-size-xs);
   padding: var(--space-1) var(--space-2);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -104,7 +104,7 @@
   background: transparent;
   cursor: pointer;
   color: var(--color-text-muted);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   transition:
     background var(--duration-quick) var(--ease-default),
     color var(--duration-quick) var(--ease-default);

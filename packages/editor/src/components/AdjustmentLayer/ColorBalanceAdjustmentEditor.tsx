@@ -1,4 +1,5 @@
 import type { Adjustment, ColorBalanceAdjustment, ColorBalanceTriplet } from '@varve/scene';
+import { Switch } from '@varve/ui';
 import { useState } from 'react';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
 
@@ -86,14 +87,12 @@ export function ColorBalanceAdjustmentEditor({
         ))}
       </div>
 
-      <label className="adj-editor__checkbox-row">
-        <input
-          type="checkbox"
-          checked={adjustment.preserveLuminosity}
-          onChange={(event) => onChange({ preserveLuminosity: event.target.checked })}
-        />
-        Preserve luminosity
-      </label>
+      <Switch
+        className="adj-editor__checkbox-row"
+        label="Preserve luminosity"
+        checked={adjustment.preserveLuminosity}
+        onChange={(event) => onChange({ preserveLuminosity: event.target.checked })}
+      />
 
       <div className="color-balance-editor__actions">
         <button type="button" className="adj-panel__effect-action" onClick={resetCurrent}>

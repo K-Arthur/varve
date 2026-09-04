@@ -880,3 +880,221 @@ describe('halftone through the compositor (canvas preview + export parity path)'
     expect(countDark(inverted)).not.toBe(countDark(normal));
   });
 });
+
+describe('Threshold compositor dispatch', () => {
+  function fakeCtx(data: ImageData) {
+    return {
+      getImageData: () => data,
+      putImageData: (d: ImageData) => {
+        data.data.set(d.data);
+      },
+    } as unknown as CanvasRenderingContext2D;
+  }
+
+  it('threshold at 128 converts mid-gray to black', () => {
+    const img = new ImageData(new Uint8ClampedArray([127, 127, 127, 255]), 1, 1);
+    const ctx = fakeCtx(img);
+    applySoftwareFilter(
+      ctx,
+      { kind: 'threshold', level: 128, opacity: 1, blendMode: 'normal' },
+      1,
+      1,
+    );
+    const result = ctx.getImageData(0, 0, 1, 1);
+    expect(result.data[0]).toBe(0);
+  });
+
+  it('threshold at 128 converts 128 to white (inclusive boundary)', () => {
+    const img = new ImageData(new Uint8ClampedArray([128, 128, 128, 255]), 1, 1);
+    const ctx = fakeCtx(img);
+    applySoftwareFilter(
+      ctx,
+      { kind: 'threshold', level: 128, opacity: 1, blendMode: 'normal' },
+      1,
+      1,
+    );
+    const result = ctx.getImageData(0, 0, 1, 1);
+    expect(result.data[0]).toBe(255);
+  });
+
+  it('threshold with luminance mode average-rgb', () => {
+    const img = new ImageData(new Uint8ClampedArray([255, 0, 0, 255]), 1, 1);
+    const ctx = fakeCtx(img);
+    applySoftwareFilter(
+      ctx,
+      {
+        kind: 'threshold',
+        level: 80,
+        luminanceMode: 'average-rgb',
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      1,
+      1,
+    );
+    const result = ctx.getImageData(0, 0, 1, 1);
+    // average-rgb of (255,0,0) = 85, which is > 80, so white
+    expect(result.data[0]).toBe(255);
+  });
+
+  it('threshold preserves alpha on transparent pixel', () => {
+    const img = new ImageData(new Uint8ClampedArray([100, 100, 100, 0]), 1, 1);
+    const ctx = fakeCtx(img);
+    applySoftwareFilter(
+      ctx,
+      { kind: 'threshold', level: 50, opacity: 1, blendMode: 'normal' },
+      1,
+      1,
+    );
+    const result = ctx.getImageData(0, 0, 1, 1);
+    expect(result.data[3]).toBe(0);
+  });
+});
+
+describe('Gradient Map compositor dispatch', () => {
+  function fakeCtx(data: ImageData) {
+    return {
+      getImageData: () => data,
+      putImageData: (d: ImageData) => {
+        data.data.set(d.data);
+      },
+    } as unknown as CanvasRenderingContext2D;
+  }
+
+  it('black-to-white gradient on gray ramp produces near-identity', () => {
+    const w = 16;
+    const pixels = new Uint8ClampedArray(w * 4);
+    for (let i = 0; i < w; i++) {
+      const v = Math.round((i / (w - 1)) * 255);
+      pixels[i * 4] = v;
+      pixels[i * 4 + 1] = v;
+      pixels[i * 4 + 2] = v;
+      pixels[i * 4 + 3] = 255;
+    }
+    const img = new ImageData(pixels, w, 1);
+    const ctx = fakeCtx(img);
+    applySoftwareFilter(
+      ctx,
+      {
+        kind: 'gradientMap',
+        stops: [
+          { position: 0, color: [0, 0, 0, 255] as const },
+          { position: 1, color: [255, 255, 255, 255] as const },
+        ],
+        dither: false,
+        preserveLuminosity: false,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      w,
+      1,
+    );
+    const result = ctx.getImageData(0, 0, w, 1);
+    for (let i = 0; i < w; i++) {
+      const expected = Math.round((i / (w - 1)) * 255);
+      const actual = result.data[i * 4]!;
+      expect(Math.abs(actual - expected)).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('gradient map preserves alpha', () => {
+    const img = new ImageData(new Uint8ClampedArray([128, 128, 128, 128]), 1, 1);
+    const ctx = fakeCtx(img);
+    applySoftwareFilter(
+      ctx,
+      {
+        kind: 'gradientMap',
+        stops: [
+          { position: 0, color: [255, 0, 0, 255] as const },
+          { position: 1, color: [0, 0, 255, 255] as const },
+        ],
+        dither: false,
+        preserveLuminosity: false,
+        preserveSourceAlpha: true,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      1,
+      1,
+    );
+    const result = ctx.getImageData(0, 0, 1, 1);
+    expect(result.data[3]).toBe(128);
+  });
+});
+
+describe('Color Balance compositor dispatch', () => {
+  function fakeCtx(data: ImageData) {
+    return {
+      getImageData: () => data,
+      putImageData: (d: ImageData) => {
+        data.data.set(d.data);
+      },
+    } as unknown as CanvasRenderingContext2D;
+  }
+
+  it('identity parameters leave image unchanged', () => {
+    const img = new ImageData(new Uint8ClampedArray([100, 150, 200, 255]), 1, 1);
+    const ctx = fakeCtx(img);
+    applySoftwareFilter(
+      ctx,
+      {
+        kind: 'colorBalance',
+        shadows: { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
+        midtones: { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
+        highlights: { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
+        preserveLuminosity: true,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      1,
+      1,
+    );
+    const result = ctx.getImageData(0, 0, 1, 1);
+    expect(result.data[0]).toBe(100);
+    expect(result.data[1]).toBe(150);
+    expect(result.data[2]).toBe(200);
+    expect(result.data[3]).toBe(255);
+  });
+
+  it('red shift in midtones increases red channel', () => {
+    const img = new ImageData(new Uint8ClampedArray([128, 128, 128, 255]), 1, 1);
+    const ctx = fakeCtx(img);
+    applySoftwareFilter(
+      ctx,
+      {
+        kind: 'colorBalance',
+        shadows: { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
+        midtones: { cyanRed: 80, magentaGreen: 0, yellowBlue: 0 },
+        highlights: { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
+        preserveLuminosity: false,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      1,
+      1,
+    );
+    const result = ctx.getImageData(0, 0, 1, 1);
+    expect(result.data[0]).toBeGreaterThan(128);
+  });
+
+  it('color balance preserves alpha', () => {
+    const img = new ImageData(new Uint8ClampedArray([128, 128, 128, 64]), 1, 1);
+    const ctx = fakeCtx(img);
+    applySoftwareFilter(
+      ctx,
+      {
+        kind: 'colorBalance',
+        shadows: { cyanRed: 50, magentaGreen: 0, yellowBlue: 0 },
+        midtones: { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
+        highlights: { cyanRed: 0, magentaGreen: 0, yellowBlue: 0 },
+        preserveLuminosity: true,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      1,
+      1,
+    );
+    const result = ctx.getImageData(0, 0, 1, 1);
+    expect(result.data[3]).toBe(64);
+  });
+});

@@ -30,24 +30,68 @@ All workflows live in `.github/workflows/` and share the following hardening rul
 - **Install `just` via `taiki-e/install-action`** (`tool: just@1.54.0`) before any `just` recipe runs — GitHub-hosted runners do not ship `just`.
 - **Add `rustup target add`** steps for macOS and Windows so `tauri build` can compile on the default `macos-latest` (Apple Silicon) and `windows-latest` runners.
 - **Declare explicit least-privilege `permissions:` blocks** (top-level and per job). Workflows that run the API-backed failure extractor grant only `actions: read` in addition to `contents: read`; `website-deploy.yml` uses `pages: write` + `id-token: write` for GitHub Pages; `release.yml` scopes `contents: write` to the draft/publish jobs only. v4 `upload-artifact`/`download-artifact` need no `actions:` scope. Ordinary PR jobs do not receive write permissions; the trusted `ci-debug.yml` workflow-run job is the sole PR-comment writer.
-- **Add `if: failure()` debug steps** to long-running workflows (`build.yml`, `ci-smoke.yml`, `e2e-keyboard-nav.yml` run `scripts/ci-debug.mjs` and upload a `ci-debug-report.md` artifact). The separate `ci-debug.yml` workflow covers the remaining pipelines via `workflow_run` (see the table below), checks out only the trusted default branch, and posts PR comments from that trusted checkout. The smoke workflow also runs the simulated extractor scenario, so report generation is tested before it is needed.
+- **Use `if: always()` diagnostics where timeouts/cancellations matter** in long-running workflows. The separate `ci-debug.yml` workflow covers the remaining pipelines via `workflow_run` (see the table below), checks out only the trusted default branch, and posts PR comments from that trusted checkout. A machine-readable failure manifest classifies the first useful error without turning infrastructure failures into product failures.
 
 | Workflow | Trigger | Notes |
 |---|---|---|
 | `build.yml` | push, PR, manual | WASM + tauri build. On PRs the matrix collapses to Linux only and builds with `--no-bundle` (no packages are produced); full 3-OS build runs on push/manual. |
-| `ci.yml` | push, PR, manual, weekly (Mon 02:00) | Rust, JS, website E2E, Playwright E2E matrix, desktop-e2e, plus `pipeline-validate` guard job. |
-| `release.yml` | tag, manual | Draft-then-approve release pipeline (replaced `publish.yml`); checksums, SBOM, artifact verification. |
-| `website-deploy.yml` | push touching `apps/website/**`, `scripts/release/**`, `package.json`, `pnpm-lock.yaml`, or the workflow file; `workflow_run` on Release `completed`; manual | Astro build to GitHub Pages at `https://varve.studio`. |
+| `ci.yml` | push, PR, manual, weekly (Mon 02:00) | Staged plan/preflight → compile/unit → selected integration lanes → stable `CI / certification`; exact checked-out SHA throughout. |
+| `release-candidate.yml` | manual | Frozen exact-SHA candidate matrix with triage/final modes and immutable policy-bound evidence. |
+| `release.yml` | tag, manual | Exact-SHA certification preflight, then draft-then-approve packaging; checksums, SBOM, provenance, artifact verification. |
+| `website-deploy.yml` | push touching website sources/data/workflow; protected `repository_dispatch` after human release publication; guarded `workflow_run` fallback; manual | Full source certification on website changes; a published release performs release-data validation plus build/deploy, not the complete website corpus again. |
 | `ci-debug.yml` | `workflow_run` after a tracked workflow fails or times out, including Visual Baselines | Generates a consolidated debug report; its trusted `post-pr-comment` job updates one PR comment when the failed run came from a PR. |
 | `model-validation.yml` | push/PR on model paths, weekly (Mon 08:00), manual | Manifest v3 + contract verification, ONNX graph inspection. |
 | `quantize.yml` | push/PR on model paths, weekly (Mon 06:00), manual | Manifest v3 verification, quality validation, full quantization. |
 | `e2e-keyboard-nav.yml` | push/PR on menu/shortcut paths, weekly, manual | Menu + canvas keyboard-nav E2E; the full 3-OS x 3-browser matrix runs on schedule/dispatch only, collapsed to 2 jobs on push/PR. |
 | `ci-smoke.yml` | manual only | Single cheap ubuntu job (format-check + typecheck + lint + test + audits + workflow/pin validation) — the health probe after any infra block lifts. |
-| `visual-baselines.yml` | manual only | Regenerates and commits the website visual-test baselines on runner infrastructure (ubuntu-latest). |
+| `visual-baselines.yml` | manual only | Compares visual baselines by default; snapshot updates require explicit reviewed inputs and produce an artifact for a reviewed commit. |
 
-## Pipeline validation guard (new)
+## Staged CI and stable certification
 
-Every `ci.yml` run includes the `pipeline-validate` job, which:
+`ci.yml` uses one exact-SHA `ci-plan.json` generated before dependency-heavy
+jobs. `pipeline-validate` downloads that plan and runs changed-file format,
+lint, and selected typechecks before the compile/unit/integration graph. A
+global-impact plan selects every category rather than relying on a separate
+shell regex.
+
+The job graph is intentionally separated:
+
+1. Stage A: plan, workflow/action/security policy, secret scan, version and
+   changed-file preflight.
+2. Stage B: selected JavaScript/Rust/WASM compile and unit checks.
+3. Stage C: selected website, browser, native smoke, and serialization/
+   integration checks.
+4. Stage D: candidate/scheduled/full extended matrix.
+
+Release publication is deliberately separate from release completion. The
+Release workflow keeps the draft private until an explicit human publish, then
+sends `varve-release-published` with the exact tag and SHA through
+`repository_dispatch`. The website release-data job verifies that the GitHub
+release is no longer a draft before it can build or deploy. The
+`workflow_run` path remains as a protected fallback, but it applies the same
+published-state check. A draft can therefore never appear as a published
+download, and a release-only data update does not repeat the website source
+functional/a11y/visual corpus.
+
+`CI / certification` always runs after every possible required job. It accepts
+only `success` or a category that the exact plan deliberately did not select;
+`failure`, `cancelled`, `timed_out`, missing jobs, and selected skips fail the
+check. The check name is stable and is the required-check candidate for
+`master`.
+
+To activate that contract, an administrator should open Settings → Rules →
+Rulesets, select the `master` branch, require pull requests, and add the exact
+check name `CI / certification` under required status checks. Keep force-push
+and deletion disabled for `master` and `v*` release tags. After saving, open a
+test PR and inspect the ruleset evaluation/API response to confirm the stable
+check—not a dynamic matrix job—is the required check. This repository session
+had no authenticated ruleset access, so those remote settings remain a human
+administrator action.
+
+## Pipeline validation guard
+
+Every `ci.yml` run includes the `pipeline-validate` job, which first consumes
+the exact plan/preflight and then runs:
 
 1. `node scripts/validate-workflows.mjs` — YAML structure + real-parser syntax check.
 2. `node scripts/pin-github-actions.mjs --check` — no mutable action refs.
@@ -105,6 +149,16 @@ options reduce output for large logs, for example:
 ```bash
 node scripts/ci-debug.mjs --run-id <RUN_ID> --context 3 --max-hits 5
 ```
+
+Every debug report can also write `ci-failure-manifest.json` through
+`scripts/ci/failure-manifest.mjs`. The manifest records the exact SHA, workflow
+and run, profile, failed job/step, test IDs, first useful error, category,
+artifacts, local reproduction command, retry suitability, and known-failure
+status. Categories include product defect, test/stale assertion,
+visual-review-required, timeout/resource, setup/dependency, runner/billing,
+and cancellation. A temporary entry in `ci-known-failures.json` must contain
+an exact test ID, issue/reference, owner, platforms, creation/expiry dates,
+and an expected signature; a changed signature or expired entry blocks.
 
 Dependency caches are disposable acceleration only: a missing or corrupt cache
 must never block a build. Node jobs cache the pnpm store using the committed
@@ -197,7 +251,10 @@ just ci-health ARGS="--runs 20"       # runs show STUCK / INFRA (runner-unavaila
    ```
    (lists runs queued > 30 min, then reruns each; `gh run rerun <id> --failed`
    works for concluded runs with real failures.)
-4. If no run was ever queued, validate locally first: `just gate` + `just act-dry`.
+4. If no run was ever queued, validate locally first with the bounded checks:
+   `pnpm verify:plan`, `pnpm verify:affected`, and (before an outbound push)
+   `pnpm verify:push --since origin/master`; use `just act-dry` for workflow
+   graph sanity. Run the full gate only with an explicit reason.
 5. Trigger the cheap single-job smoke workflow to confirm the pipeline is
    healthy before the full 3-OS matrix burns minutes again:
    ```bash
@@ -316,8 +373,13 @@ The hooks are **tracked in `.githooks/`** and activated by
 `core.hooksPath=.githooks`, which `pnpm install` sets through the `prepare`
 script (`scripts/install-git-hooks.mjs`). Nothing is copied into `.git/hooks`.
 
-- `pre-commit` — runs `biome check --staged`, `pnpm audit:emoji`, `audit-health`, workflow validation, and — when workflow files are staged — the SHA pin `--check` and `--verify` gates.
-- `pre-push` — runs the affected-first validation (`pnpm verify:affected`), or the full gate with `VARVE_FULL_GATE=1`.
+- `pre-commit` — invokes the tested `pnpm verify:commit` driver, which runs
+  staged format/lint, cheap policy audits, direct staged unit tests, and E2E
+  typechecking when needed. It never starts browser, visual, native,
+  benchmark, release, or full-corpus suites.
+- `pre-push` — runs the exact-ref bounded checkpoint (`pnpm verify:push`); it
+  never invokes the complete repository gate automatically. Remote-only lanes
+  are printed and remain enforced by `CI / certification`.
 - `commit-msg` — rejects AI tool attribution trailers.
 
 Both gating hooks bail out in CI. To skip them manually, use
@@ -349,13 +411,32 @@ does not actually read now fails the suite instead of failing silently.
 
 ## Failure-prevention checklist
 
-Before pushing, run:
+Before pushing, run the bounded checkpoint:
 
 ```bash
-just gate
+pnpm verify:push
 ```
 
-This runs `format-check`, `lint`, `test`, and `gates` (token/emoji audits). If this passes, the CI matrix is highly likely to pass.
+For impact that selects deferred lanes, the command reports exactly what CI
+must certify. For a large unpublished history, push an integration branch and
+open a PR; preserving all commits is supported and does not require a squash.
+Use `pnpm verify:full` only as an explicitly requested local diagnostic or
+candidate checkpoint, never as an automatic hook fallback.
+
+## Concurrency, triage, and targeted reruns
+
+- PR validation may cancel an obsolete commit because only the newest PR SHA
+  is useful feedback.
+- `master` certification does not cancel itself; release-candidate and release
+  packaging groups never silently cancel a frozen candidate or in-flight
+  release.
+- Candidate `triage` mode uses bounded Playwright failures to discover a small
+  set; `final` mode runs the promised matrix. Repair and rerun the affected
+  lane, then certify the new SHA. Do not create an empty commit to restart a
+  runner/setup failure.
+- Release platform artifacts carry exact-SHA/policy/platform sidecars. The
+  resumable collector refuses missing, modified, out-of-tree, or mismatched
+  artifacts and writes final checksums only after all required targets exist.
 
 For a quick syntax/dependency check against the actual GitHub Actions runner image:
 
@@ -531,7 +612,9 @@ Fix: resolve the payment at https://github.com/settings/billing, then re-run
 the workflow. While blocked, validate everything locally:
 
 ```bash
-just gate            # full Cascade Review gate, no GitHub minutes
+pnpm verify:plan
+pnpm verify:affected
+pnpm verify:push --since origin/master
 just act-dry .github/workflows/ci.yml   # job graph + YAML sanity
 ```
 

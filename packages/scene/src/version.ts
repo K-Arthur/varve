@@ -1,6 +1,7 @@
 // COMPLEXITY: 214 cyclo — see docs/plans/architecture-health-remediation-2026-07-26.md
 import { createEmbeddedAsset, mimeTypeFromDataUrl } from './assets';
 import { textColorMigration } from './colorMigration';
+import { normalizeLayerColor } from './layerColor';
 import { migrateV214ToV215 } from './modifiersMigration';
 import { serializeTiles } from './rasterLayer';
 import { migrateV212ToV213 } from './version-migrations';
@@ -957,11 +958,47 @@ export function stampVersion<T extends { formatVersion?: string }>(
   return { ...doc, formatVersion: CURRENT_DOCUMENT_VERSION };
 }
 
+/**
+ * Keep layer tags document-safe at every version boundary. Valid tags and
+ * omitted legacy fields are preserved; unknown future values degrade to the
+ * untagged state instead of reaching UI or renderer code.
+ */
+export function normalizeLayerColors(raw: Record<string, unknown>): Record<string, unknown> {
+  if (!raw.nodes || typeof raw.nodes !== 'object' || Array.isArray(raw.nodes)) return raw;
+
+  let changed = false;
+  const nodes: Record<string, unknown> = {};
+  for (const [id, value] of Object.entries(raw.nodes as Record<string, unknown>)) {
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      Array.isArray(value) ||
+      !Object.hasOwn(value, 'layerColor')
+    ) {
+      nodes[id] = value;
+      continue;
+    }
+
+    const node = value as Record<string, unknown>;
+    const normalized = normalizeLayerColor(node.layerColor);
+    if (normalized !== node.layerColor) {
+      nodes[id] = { ...node, layerColor: normalized };
+      changed = true;
+    } else {
+      nodes[id] = value;
+    }
+  }
+
+  return changed ? { ...raw, nodes } : raw;
+}
+
 export function serializeDocument(doc: Record<string, unknown> | unknown): string {
   const target = doc as Record<string, unknown>;
   return JSON.stringify(
     stripEmbeddedAssetPayloads(
-      stampVersion(normalizeLegacyBackgroundRemoval(serializeRasterTiles(target))),
+      stampVersion(
+        normalizeLegacyBackgroundRemoval(serializeRasterTiles(normalizeLayerColors(target))),
+      ),
     ),
   );
 }
@@ -1217,7 +1254,7 @@ export function migrateDocument(raw: unknown): Record<string, unknown> | null {
     result.formatVersion = CURRENT_DOCUMENT_VERSION;
   }
 
-  return rehydrateEmbeddedAssetSrc(result);
+  return rehydrateEmbeddedAssetSrc(normalizeLayerColors(result));
 }
 
 export function migrateDocumentDetailed(raw: unknown): MigrationResult | null {
@@ -1247,7 +1284,7 @@ export function migrateDocumentDetailed(raw: unknown): MigrationResult | null {
   }
 
   return {
-    document: rehydrateEmbeddedAssetSrc(result),
+    document: rehydrateEmbeddedAssetSrc(normalizeLayerColors(result)),
     fromVersion,
     toVersion: result.formatVersion as string,
     migrated,

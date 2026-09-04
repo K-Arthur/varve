@@ -2,16 +2,26 @@ import { managedColorToCss, PRODUCT_STATUS, VARVE_URLS } from '@varve/shared';
 import {
   Button,
   Dialog,
+  FilePickerButton,
   NestedOverlayProvider,
   NumberInput,
   Select,
+  SwitchField,
   Tooltip,
   TooltipProvider,
   VarveLogo,
 } from '@varve/ui';
-import { getTheme, setTheme } from '@varve/ui/tokens';
+import {
+  getTheme,
+  getThemePreference,
+  normalizeThemePreference,
+  setThemePreference,
+  THEME_CHANGE_EVENT,
+  type ThemeChangeDetail,
+  type ThemePreference,
+} from '@varve/ui/tokens';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { bumpThemeRevision, getBackupService, useOptionalEditor } from '../../context';
+import { getBackupService, useOptionalEditor } from '../../context';
 import { PrivacyDiagnosticsSection } from '../../crash';
 import type { ThemeMode, UnitType } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
@@ -53,10 +63,10 @@ const UNIT_OPTIONS = [
 ];
 
 const THEME_OPTIONS = [
+  { value: 'system', label: 'System' },
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
   { value: 'high-contrast', label: 'High Contrast' },
-  { value: 'system', label: 'System' },
 ];
 
 const FONT_SIZE_OPTIONS = [
@@ -119,25 +129,16 @@ export function SettingsDialog({
 
   const handleThemeChange = useCallback(
     (theme: string) => {
-      updateSection('appearance', { theme: theme as ThemeMode });
-      if (theme !== 'system') {
-        setTheme(theme as 'light' | 'dark' | 'high-contrast');
-        localStorage.setItem('varve-theme', theme);
-      } else {
-        // "System" = remove explicit data-theme so CSS @media (prefers-color-scheme) takes over
-        delete document.documentElement.dataset.theme;
-        localStorage.removeItem('varve-theme');
-      }
-      bumpThemeRevision();
+      const preference = normalizeThemePreference(theme);
+      updateSection('appearance', { theme: preference as ThemeMode });
+      setThemePreference(preference);
     },
     [updateSection],
   );
 
   const handleReset = useCallback(() => {
     resetSettings();
-    setTheme('light');
-    localStorage.setItem('varve-theme', 'light');
-    bumpThemeRevision();
+    setThemePreference('system');
   }, [resetSettings]);
 
   return (
@@ -306,25 +307,12 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
       </FieldRow>
       <Divider />
       <h3 className="settings-section__title">Render performance</h3>
-      <FieldRow label="WebGPU compositor">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.render.preferWebGpu}
-            onChange={(e) => {
-              const next = e.target.checked;
-              updateSettingsCtx({ render: { preferWebGpu: next } });
-            }}
-          />
-          <span>Prefer WebGPU when available</span>
-        </label>
-      </FieldRow>
-      <p className="settings-hint">
-        Reload the document tab after changing. Uses an offscreen WebGPU surface and keeps the
-        content canvas on Canvas2D (so the editor never blanks). Falls back to Canvas2D on device
-        loss or unsupported primitives. Unavailable on Linux WebKitGTK. Status bar shows the active
-        backend.
-      </p>
+      <SwitchField
+        label="Prefer WebGPU when available"
+        description="Reload the document tab after changing. Uses an offscreen WebGPU surface and keeps the content canvas on Canvas2D (so the editor never blanks). Falls back to Canvas2D on device loss or unsupported primitives. Unavailable on Linux WebKitGTK. The status bar shows the active backend."
+        checked={settings.render.preferWebGpu}
+        onChange={(e) => updateSettingsCtx({ render: { preferWebGpu: e.target.checked } })}
+      />
       <Divider />
       <h3 className="settings-section__title">Onboarding</h3>
       <p className="settings-desc">
@@ -342,43 +330,37 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
       </Button>
       <Divider />
       <h3 className="settings-section__title">Learning & Help</h3>
-      <FieldRow label="Contextual tips">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.learning.showContextualTips}
-            onChange={(e) => updateSection('learning', { showContextualTips: e.target.checked })}
-          />
-          <span>Show contextual tips when using tools</span>
-        </label>
-      </FieldRow>
-      <FieldRow label="Shortcut hints">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.learning.showShortcutHints}
-            onChange={(e) => updateSection('learning', { showShortcutHints: e.target.checked })}
-          />
-          <span>Show keyboard shortcut hints</span>
-        </label>
-      </FieldRow>
-      <FieldRow label="Tutorial suggestions">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.learning.autoSuggestTutorials}
-            onChange={(e) => updateSection('learning', { autoSuggestTutorials: e.target.checked })}
-          />
-          <span>Automatically suggest tutorials for new workspaces</span>
-        </label>
-      </FieldRow>
+      <SwitchField
+        label="Show contextual tips when using tools"
+        checked={settings.learning.showContextualTips}
+        onChange={(e) => updateSection('learning', { showContextualTips: e.target.checked })}
+      />
+      <SwitchField
+        label="Show keyboard shortcut hints"
+        checked={settings.learning.showShortcutHints}
+        onChange={(e) => updateSection('learning', { showShortcutHints: e.target.checked })}
+      />
+      <SwitchField
+        label="Automatically suggest tutorials for new workspaces"
+        checked={settings.learning.autoSuggestTutorials}
+        onChange={(e) => updateSection('learning', { autoSuggestTutorials: e.target.checked })}
+      />
     </div>
   );
 }
 
 function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) => void }) {
   const { settings, updateSection, updateSettings } = useSettings();
+  const [themePreference, setThemePreferenceState] = useState<ThemePreference>(getThemePreference);
   const currentTheme = getTheme();
+
+  useEffect(() => {
+    const handleChange = (event: Event) => {
+      setThemePreferenceState((event as CustomEvent<ThemeChangeDetail>).detail.preference);
+    };
+    window.addEventListener(THEME_CHANGE_EVENT, handleChange);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, handleChange);
+  }, []);
 
   return (
     <div className="settings-section">
@@ -386,17 +368,16 @@ function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) =
       <FieldRow label="Theme">
         <Select
           options={THEME_OPTIONS}
-          value={settings.appearance.theme}
+          value={themePreference}
           onChange={onThemeChange}
           label="Theme"
         />
       </FieldRow>
-      {settings.appearance.theme !== 'system' && (
-        <p className="settings-hint">
-          Current theme: {currentTheme ?? 'light'}. Select &ldquo;System&rdquo; to follow OS
-          preference.
-        </p>
-      )}
+      <p className="settings-hint" aria-live="polite">
+        {themePreference === 'system'
+          ? `Following system appearance (currently ${currentTheme ?? 'light'}).`
+          : `Using ${currentTheme ?? themePreference}. Select “System” to follow OS appearance.`}
+      </p>
       <FieldRow label="UI font size">
         <Select
           options={FONT_SIZE_OPTIONS}
@@ -405,19 +386,11 @@ function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) =
           label="UI font size"
         />
       </FieldRow>
-      <FieldRow label="Menu items">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.appearance.showAllMenuItems}
-            onChange={(e) => {
-              const next = e.target.checked;
-              updateSettings({ appearance: { showAllMenuItems: next } });
-            }}
-          />
-          <span>Show all menu items (bypass workspace mode filtering)</span>
-        </label>
-      </FieldRow>
+      <SwitchField
+        label="Show all menu items (bypass workspace mode filtering)"
+        checked={settings.appearance.showAllMenuItems}
+        onChange={(e) => updateSettings({ appearance: { showAllMenuItems: e.target.checked } })}
+      />
     </div>
   );
 }
@@ -480,44 +453,34 @@ function CollabSection() {
         />
       </FieldRow>
       <FieldRow label="Avatar">
-        <input
-          type="file"
+        <FilePickerButton
+          variant="secondary"
+          size="sm"
           accept="image/*"
-          className="settings-file-input"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              const reader = new FileReader();
-              reader.onload = () => {
-                updateSection('collab', { avatar: reader.result as string });
-              };
-              reader.readAsDataURL(file);
-            }
+          actionLabel="Choose avatar image"
+          inputLabel="Choose avatar image"
+          icon="Image"
+          onFiles={([file]) => {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+              updateSection('collab', { avatar: reader.result as string });
+            };
+            reader.readAsDataURL(file);
           }}
-          aria-label="Choose avatar image"
         />
       </FieldRow>
       <Divider />
-      <FieldRow label="Notifications">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.collab.notifyJoinLeave}
-            onChange={(e) => updateSection('collab', { notifyJoinLeave: e.target.checked })}
-          />
-          <span>Notify when collaborators join/leave</span>
-        </label>
-      </FieldRow>
-      <FieldRow label="Cursors">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.collab.showLiveCursors}
-            onChange={(e) => updateSection('collab', { showLiveCursors: e.target.checked })}
-          />
-          <span>Show live cursors</span>
-        </label>
-      </FieldRow>
+      <SwitchField
+        label="Notify when collaborators join/leave"
+        checked={settings.collab.notifyJoinLeave}
+        onChange={(e) => updateSection('collab', { notifyJoinLeave: e.target.checked })}
+      />
+      <SwitchField
+        label="Show live cursors"
+        checked={settings.collab.showLiveCursors}
+        onChange={(e) => updateSection('collab', { showLiveCursors: e.target.checked })}
+      />
     </div>
   );
 }
@@ -660,19 +623,20 @@ function UpdatesSection() {
           </label>
         ))}
       </fieldset>
-      <label className="settings-checkbox-row">
-        <input
-          type="checkbox"
-          checked={preferences.installOnQuit}
-          onChange={(event) => updates.setPreferences({ installOnQuit: event.target.checked })}
-          disabled={!canUseUpdater || preferences.consent !== 'download-automatically'}
-        />
-        <span>Install a verified update when I quit Varve</span>
-      </label>
-      <p className="settings-hint">
-        Installation still waits for the normal save/close workflow. Varve never discards unsaved
-        design work to apply an update.
-      </p>
+      <SwitchField
+        label="Install a verified update when I quit Varve"
+        description="Installation still waits for the normal save/close workflow. Varve never discards unsaved design work to apply an update."
+        checked={preferences.installOnQuit}
+        onChange={(event) => updates.setPreferences({ installOnQuit: event.target.checked })}
+        disabled={!canUseUpdater || preferences.consent !== 'download-automatically'}
+        disabledReason={
+          !canUseUpdater
+            ? 'Automatic installation is unavailable in this build.'
+            : preferences.consent !== 'download-automatically'
+              ? 'Choose automatic downloads above to enable install-on-quit.'
+              : undefined
+        }
+      />
       <Divider />
       <p className="settings-hint" role="status" aria-live="polite">
         Current status: {status}
@@ -696,7 +660,7 @@ function UpdatesSection() {
         <>
           {state.update.notes && <p className="settings-release-notes">{state.update.notes}</p>}
           <div className="settings-dialog__footer">
-            <Button variant="primary" size="sm" onClick={() => void updates.download()}>
+            <Button variant="default" size="sm" onClick={() => void updates.download()}>
               Download {state.update.version}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => updates.defer()}>
@@ -729,7 +693,7 @@ function UpdatesSection() {
             Version {state.update.version} is downloaded and cryptographically verified. Varve will
             save or ask about unsaved documents before restarting.
           </p>
-          <Button variant="primary" size="sm" onClick={() => void updates.installAndRestart()}>
+          <Button variant="default" size="sm" onClick={() => void updates.installAndRestart()}>
             Install and Restart
           </Button>
         </div>

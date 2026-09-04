@@ -77,7 +77,10 @@ describe('FontDownloadManager', () => {
 
   beforeEach(() => {
     events = makeEvents();
-    manager = new FontDownloadManager({ maxConcurrent: 3, validateIntegrity: false }, events);
+    manager = new FontDownloadManager(
+      { maxConcurrent: 3, validateIntegrity: false, allowedHosts: ['example.com'] },
+      events,
+    );
   });
 
   afterEach(() => {
@@ -162,7 +165,10 @@ describe('FontDownloadManager', () => {
       }),
     );
 
-    const mgr = new FontDownloadManager({ maxConcurrent: 2 }, events);
+    const mgr = new FontDownloadManager(
+      { maxConcurrent: 2, allowedHosts: ['example.com'] },
+      events,
+    );
     mgr.addJob('https://example.com/a.ttf', 'A');
     mgr.addJob('https://example.com/b.woff2', 'B');
     mgr.addJob('https://example.com/c.otf', 'C');
@@ -175,7 +181,10 @@ describe('FontDownloadManager', () => {
   });
 
   it('validateFont rejects oversized files', async () => {
-    const mgr = new FontDownloadManager({ maxFileSize: 100, validateIntegrity: false }, events);
+    const mgr = new FontDownloadManager(
+      { maxFileSize: 100, validateIntegrity: false, allowedHosts: ['example.com'] },
+      events,
+    );
     const hugeBuffer = new ArrayBuffer(1000);
 
     await expect(mgr.validateFont(hugeBuffer, 'ttf')).rejects.toThrow('too large');
@@ -191,7 +200,7 @@ describe('FontDownloadManager', () => {
     view[3] = 0x46; // F
 
     const mgr = new FontDownloadManager(
-      { allowedFormats: ['ttf', 'otf', 'woff', 'woff2'] },
+      { allowedFormats: ['ttf', 'otf', 'woff', 'woff2'], allowedHosts: ['example.com'] },
       events,
     );
 
@@ -292,7 +301,10 @@ describe('FontDownloadManager', () => {
     // Force the job to process
     manager.cancelAll();
 
-    const mgr = new FontDownloadManager({ maxConcurrent: 1, validateIntegrity: false }, events);
+    const mgr = new FontDownloadManager(
+      { maxConcurrent: 1, validateIntegrity: false, allowedHosts: ['example.com'] },
+      events,
+    );
     const freshJob = mgr.addJob('https://example.com/missing.ttf', 'Missing');
 
     await expect(mgr.downloadFile(freshJob)).rejects.toThrow('404');

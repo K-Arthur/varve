@@ -6,6 +6,8 @@
 
 export type { ButtonProps, ButtonSize, ButtonVariant } from './Button';
 export { Button } from './Button';
+export type { ButtonGroupProps } from './ButtonGroup';
+export { ButtonGroup } from './ButtonGroup';
 export type { CheckboxProps } from './Checkbox';
 export { Checkbox } from './Checkbox';
 export type {
@@ -40,7 +42,15 @@ export type { AlertDialogProps, DialogProps } from './Dialog';
 export { AlertDialog, Dialog } from './Dialog';
 export type { EmptyStateProps } from './EmptyState';
 export { EmptyState } from './EmptyState';
-export type { FloatingPortalProps } from './FloatingPortal';
+export type { FileDropZoneProps } from './FileDropZone';
+export { FileDropZone } from './FileDropZone';
+export type { FileErrorProps } from './FileError';
+export { FileError } from './FileError';
+export type { FilePickerButtonProps } from './FilePickerButton';
+export { FilePickerButton } from './FilePickerButton';
+export type { FileQueueItem, FileQueueProps, FileQueueStatus } from './FileQueue';
+export { FileQueue } from './FileQueue';
+export type { FloatingPortalProps, FloatingPositionResult } from './FloatingPortal';
 export { FloatingPortal } from './FloatingPortal';
 export type { FocusTrapProps } from './FocusTrap';
 export { FocusTrap } from './FocusTrap';
@@ -57,8 +67,10 @@ export type {
   MenuItem,
   MenuItemCheckbox,
   MenuItemRadio,
+  MenuLabel,
   MenuProps,
   MenuSeparator,
+  MenuSize,
   SubmenuItem,
 } from './Menu';
 export { ContextMenu, Menu, MenuButton, useContextMenu } from './Menu';
@@ -69,36 +81,101 @@ export {
 } from './NestedOverlayContext';
 export type { NumberInputProps } from './NumberInput';
 export { NumberInput } from './NumberInput';
+export type {
+  OverlayCloseReason,
+  OverlayKind,
+  OverlayRegistrationInput,
+  OverlaySnapshot,
+  OverlayTraceEvent,
+} from './OverlayRegistry';
+export {
+  closeAllOverlays,
+  closeOverlayTree,
+  getOverlaySnapshot,
+  getOverlayTrace,
+  installOverlayDebugBridge,
+  registerOverlay,
+  setOverlayDebugEnabled,
+  traceOverlayEvent,
+} from './OverlayRegistry';
+export type {
+  CanvasWorldPoint,
+  ElementAnchor,
+  OverlayAnchor,
+  PagePoint,
+  PointAnchor,
+  RangeAnchor,
+  SafeViewportRect,
+  ScreenPoint,
+  ViewportPoint,
+} from './overlayGeometry';
+export {
+  canvasWorldPoint,
+  elementAnchor,
+  ownerDocumentForAnchor,
+  pagePoint,
+  pageToViewport,
+  pointAnchor,
+  portalRootForAnchor,
+  rangeAnchor,
+  safeViewportRect,
+  screenPoint,
+  viewportPoint,
+  virtualPointReference,
+  virtualRangeReference,
+} from './overlayGeometry';
 export type { PanelProps } from './Panel';
 export { Panel } from './Panel';
 export type { PopoverProps } from './Popover';
 export { Popover } from './Popover';
 export type { PresetPickerProps, PresetTileProps } from './PresetPicker';
 export { PresetPicker, PresetTile } from './PresetPicker';
-export type { RadioGroupProps, RadioOption, RadioProps } from './Radio';
-export { Radio, RadioGroup } from './Radio';
+export type {
+  RadioGroupItemProps,
+  RadioGroupProps,
+  RadioOption,
+  RadioOptionProps,
+  RadioProps,
+} from './Radio';
+export { Radio, RadioCard, RadioGroup, RadioGroupItem } from './Radio';
 export type { RegionLoaderProps } from './RegionLoader';
 export { RegionLoader } from './RegionLoader';
+export type { ResizableHandleProps } from './ResizableHandle';
+export { ResizableHandle } from './ResizableHandle';
+export type { ScrollAreaOrientation, ScrollAreaProps, ScrollProgressProps } from './ScrollArea';
+export { ScrollArea, ScrollProgress } from './ScrollArea';
 export type { SearchFieldProps } from './SearchField';
 export { HighlightMatch, SearchField } from './SearchField';
 export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
 export { SegmentedControl } from './SegmentedControl';
 export type { SelectOption, SelectProps } from './Select';
 export { Select } from './Select';
+export type {
+  AnimatedSeparatorProps,
+  SeparatorProps,
+  SeparatorTone,
+  SeparatorVariant,
+  SeparatorWithContentProps,
+} from './Separator';
+export { AnimatedSeparator, Separator, SeparatorWithContent } from './Separator';
+/** @maturity beta — rare, state-driven decorative emphasis only. */
+export type { ShineBorderProps, ShineBorderTone, ShineBorderVariant } from './ShineBorder';
+export { ShineBorder } from './ShineBorder';
 export type { SliderProps } from './Slider';
 export { Slider } from './Slider';
 export type { StartupLoaderProps } from './StartupLoader';
 export { StartupLoader } from './StartupLoader';
-export type { SwitchProps } from './Switch';
-export { Switch } from './Switch';
+export type { SwitchFieldProps, SwitchProps } from './Switch';
+export { Switch, SwitchField } from './Switch';
 export type { Tab, TabsProps } from './Tabs';
 export { Tabs } from './Tabs';
 export type { TextAreaProps } from './TextArea';
 export { TextArea } from './TextArea';
 export type { ThumbnailProps } from './Thumbnail';
 export { Thumbnail } from './Thumbnail';
-export type { ToastItem, ToastProps } from './Toast';
+export type { ToastAction, ToastInput, ToastItem, ToastProps, ToastVariant } from './Toast';
 export { Toast } from './Toast';
+export type { ToastApi, ToastPromiseOptions } from './ToastProvider';
 export { ToastProvider, useToast } from './ToastProvider';
 export type { ToggleButtonProps } from './ToggleButton';
 export { ToggleButton } from './ToggleButton';

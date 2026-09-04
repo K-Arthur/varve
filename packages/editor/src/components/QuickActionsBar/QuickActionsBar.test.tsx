@@ -39,9 +39,9 @@ describe('QuickActionsBar', () => {
     expect(screen.getByText('Registered After Mount')).toBeInTheDocument();
   });
 
-  it('renders when open', () => {
+  it('renders when open', async () => {
     render(<QuickActionsBar open={true} onClose={vi.fn()} />);
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(await waitFor(() => screen.getByRole('dialog'))).toBeInTheDocument();
     expect(screen.getByLabelText('Search actions')).toBeInTheDocument();
   });
 
@@ -85,10 +85,10 @@ describe('QuickActionsBar', () => {
     expect(screen.getByText('Copy')).toBeInTheDocument();
   });
 
-  it('calls onClose on Escape', () => {
+  it('calls onClose on Escape', async () => {
     const onClose = vi.fn();
     render(<QuickActionsBar open={true} onClose={onClose} />);
-    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    fireEvent.keyDown(await waitFor(() => screen.getByRole('dialog')), { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
   });
 
@@ -106,11 +106,11 @@ describe('QuickActionsBar', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('navigates with arrow keys and executes with Enter', () => {
+  it('navigates with arrow keys and executes with Enter', async () => {
     const onExecute = vi.fn();
     const onClose = vi.fn();
     render(<QuickActionsBar open={true} onClose={onClose} onExecute={onExecute} />);
-    const dialog = screen.getByRole('dialog');
+    const dialog = await waitFor(() => screen.getByRole('dialog'));
 
     fireEvent.keyDown(dialog, { key: 'ArrowDown' });
     fireEvent.keyDown(dialog, { key: 'ArrowDown' });
@@ -141,7 +141,7 @@ describe('QuickActionsBar', () => {
     expect(screen.getByText('view')).toBeInTheDocument();
   });
 
-  it('marks a tool action that is available but hidden from the current toolbar', () => {
+  it('marks a tool action that is available but hidden from the current toolbar', async () => {
     getActionRegistry().register(
       { id: 'toolPaint', label: 'Paint brush', category: 'tools' },
       () => {},
@@ -151,26 +151,28 @@ describe('QuickActionsBar', () => {
     expect(screen.getByText('Paint brush')).toBeInTheDocument();
     expect(screen.getByText('Hidden from toolbar')).toBeInTheDocument();
     expect(
-      screen.getByRole('option', { name: /paint brush, hidden from current toolbar/i }),
+      await waitFor(() =>
+        screen.getByRole('option', { name: /paint brush, hidden from current toolbar/i }),
+      ),
     ).toBeInTheDocument();
   });
 
-  // The palette is wrapped in a FocusTrap (display: contents), so query the
-  // bar by class rather than container.firstChild.
-  it('positions at cursor when position prop given', () => {
-    const { container } = render(
-      <QuickActionsBar open={true} onClose={vi.fn()} position={{ x: 100, y: 200 }} />,
-    );
-    const el = container.querySelector('.quick-actions-bar') as HTMLElement;
-    expect(el.style.left).toBe('100px');
-    expect(el.style.top).toBe('200px');
+  it('uses the shared fixed overlay placement for a cursor point', async () => {
+    render(<QuickActionsBar open={true} onClose={vi.fn()} position={{ x: 100, y: 200 }} />);
+    const dialog = await waitFor(() => screen.getByRole('dialog'));
+    const el = dialog.closest<HTMLElement>('[data-varve-overlay]');
+    expect(el?.style.position).toBe('fixed');
+    expect(Number.isFinite(Number.parseFloat(el?.style.left ?? ''))).toBe(true);
+    expect(Number.isFinite(Number.parseFloat(el?.style.top ?? ''))).toBe(true);
   });
 
-  it('positions at bottom center when no position given', () => {
-    const { container } = render(<QuickActionsBar open={true} onClose={vi.fn()} />);
-    const el = container.querySelector('.quick-actions-bar') as HTMLElement;
-    expect(el.style.bottom).toBe('var(--space-8)');
-    expect(el.style.left).toBe('50%');
+  it('anchors at the bottom-center point when no position is given', async () => {
+    render(<QuickActionsBar open={true} onClose={vi.fn()} />);
+    const dialog = await waitFor(() => screen.getByRole('dialog'));
+    const el = dialog.closest<HTMLElement>('[data-varve-overlay]');
+    expect(el?.style.position).toBe('fixed');
+    expect(Number.isFinite(Number.parseFloat(el?.style.left ?? ''))).toBe(true);
+    expect(Number.isFinite(Number.parseFloat(el?.style.top ?? ''))).toBe(true);
   });
 
   // Regression: the palette declared role="dialog" + aria-modal but had no

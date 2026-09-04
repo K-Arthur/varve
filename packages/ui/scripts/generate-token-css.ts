@@ -1,8 +1,9 @@
 /**
  * Generates packages/ui/src/tokens/tokens.css from the audited TS source.
  *
- * Single source of truth: color.ts (audited) → this script → tokens.css.
- * Run: `tsx scripts/generate-token-css.ts` (re-run when color.ts changes).
+ * Single sources of truth: color.ts, spacing.ts, sizing.ts, typography.ts,
+ * and iconTokens.ts (audited) → this script → tokens.css. Run
+ * `tsx scripts/generate-token-css.ts` after any source changes.
  *
  * Uses OKLCH color space — all color values emitted as `oklch(L C H)`.
  *
@@ -17,6 +18,10 @@
 import { writeFileSync } from 'node:fs';
 import { SEMANTIC, type THEMES } from '../src/tokens/color';
 import { oklchToCss } from '../src/tokens/contrast';
+import { ICON_CSS_CUSTOM_PROPERTIES } from '../src/tokens/iconTokens';
+import { COMPONENT_DIMENSIONS, COMPONENT_SIZES } from '../src/tokens/sizing';
+import { SPACING_LAYOUT, SPACING_PRIMITIVES, SPACING_SEMANTIC } from '../src/tokens/spacing';
+import { FONT_LINE_HEIGHTS, FONT_SIZES, TYPOGRAPHY_ROLES } from '../src/tokens/typography';
 
 const kebab = (s: string) => s.replace(/_/g, '-');
 
@@ -27,6 +32,59 @@ function colorBlock(theme: string): string {
   );
   return lines.join('\n');
 }
+
+const spacingBlock = `
+  /* --- Interface spacing: generated from src/tokens/spacing.ts --- */
+${Object.entries(SPACING_PRIMITIVES)
+  .map(([token, value]) => `  --space-${token}: ${value};`)
+  .join('\n')}
+  /* Semantic roles keep ownership legible across editor and website surfaces. */
+${Object.entries(SPACING_SEMANTIC)
+  .map(([token, value]) => `  --space-${token}: ${value};`)
+  .join('\n')}
+  /* Compatibility aliases for existing shell geometry. */
+${Object.entries(SPACING_LAYOUT)
+  .map(([token, value]) => `  --${token}: ${value};`)
+  .join('\n')}
+  /* --- Separator recipes --- */
+  --separator-thickness: 1px;
+  --separator-content-gap: var(--space-3);
+  --separator-inset: var(--space-4);
+  --separator-min-length: var(--space-4);
+`;
+
+const sizingBlock = `
+  /* --- Component sizing: generated from src/tokens/sizing.ts --- */
+${Object.entries(COMPONENT_SIZES)
+  .map(
+    ([size, values]) =>
+      `  --component-${size}-height: ${values.controlHeight};\n  --component-${size}-icon-size: ${values.iconSize};\n  --component-${size}-padding-inline: ${values.paddingInline};`,
+  )
+  .join('\n')}
+${Object.entries(COMPONENT_DIMENSIONS)
+  .map(([token, value]) => `  --${token}: ${value};`)
+  .join('\n')}
+${Object.entries(ICON_CSS_CUSTOM_PROPERTIES)
+  .map(([token, value]) => `  ${token}: ${value};`)
+  .join('\n')}
+`;
+
+const typographyBlock = `
+  /* --- Semantic typography: generated from src/tokens/typography.ts --- */
+${Object.entries(FONT_LINE_HEIGHTS)
+  .map(([token, value]) => `  --font-line-${token}: ${value};`)
+  .join('\n')}
+${Object.entries(FONT_SIZES)
+  .map(([token, value]) => `  --font-size-${token}: ${value};`)
+  .join('\n')}
+  --font-interface: var(--font-display);
+${Object.entries(TYPOGRAPHY_ROLES)
+  .map(
+    ([role, values]) =>
+      `  --type-${role}-size: ${values.size};\n  --type-${role}-line-height: ${values.lineHeight};\n  --type-${role}-weight: ${values.weight};\n  --type-${role}-family: ${values.family};`,
+  )
+  .join('\n')}
+`;
 
 const NON_COLOR = `
   /* --- Typography --- */
@@ -58,58 +116,30 @@ const NON_COLOR = `
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
-  --font-line-tight: 1.15;
-  --font-line-normal: 1.5;
-  --font-line-relaxed: 1.65;
   --tracking-tight: -0.025em;
   --tracking-base: 0;
   --tracking-wide: 0.05em;
-  /* Fluid modular scale (clamp). */
-  --font-size-2xs: clamp(0.60rem, 0.58rem + 0.08vw, 0.68rem);
-  --font-size-xs: clamp(0.72rem, 0.70rem + 0.10vw, 0.78rem);
-  --font-size-sm: clamp(0.83rem, 0.80rem + 0.15vw, 0.92rem);
-  --font-size-md: clamp(0.95rem, 0.91rem + 0.20vw, 1.06rem);
-  --font-size-lg: clamp(1.08rem, 1.02rem + 0.30vw, 1.25rem);
-  --font-size-xl: clamp(1.25rem, 1.15rem + 0.50vw, 1.55rem);
-  --font-size-2xl: clamp(1.50rem, 1.35rem + 0.75vw, 2.00rem);
-  --font-size-3xl: clamp(1.85rem, 1.60rem + 1.25vw, 2.65rem);
-
-  /* --- Spacing (4-pt grid, fluid) --- */
-  --space-0: 0;
-  --space-05: clamp(0.08rem, 0.07rem + 0.03vw, 0.10rem);
-  --space-1: clamp(0.15rem, 0.14rem + 0.05vw, 0.20rem);
-  --space-2: clamp(0.30rem, 0.28rem + 0.10vw, 0.40rem);
-  --space-3: clamp(0.50rem, 0.47rem + 0.15vw, 0.65rem);
-  --space-4: clamp(0.70rem, 0.66rem + 0.20vw, 0.90rem);
-  --space-5: clamp(1.00rem, 0.94rem + 0.30vw, 1.30rem);
-  --space-6: clamp(1.40rem, 1.31rem + 0.45vw, 1.85rem);
-  --space-7: clamp(2.00rem, 1.87rem + 0.65vw, 2.65rem);
-  --space-8: clamp(2.80rem, 2.60rem + 1.00vw, 3.80rem);
-  --space-9: clamp(3.60rem, 3.30rem + 1.50vw, 5.00rem);
-  --space-10: clamp(4.50rem, 4.00rem + 2.00vw, 6.50rem);
-  --space-11: clamp(5.60rem, 5.00rem + 2.50vw, 8.00rem);
-  --space-12: clamp(7.00rem, 6.00rem + 3.00vw, 10.00rem);
-  --space-13: clamp(8.50rem, 7.50rem + 3.50vw, 12.00rem);
-  --space-14: clamp(10.00rem, 9.00rem + 4.00vw, 14.00rem);
-  --space-15: clamp(12.00rem, 10.50rem + 5.00vw, 16.00rem);
-  --space-16: clamp(14.00rem, 12.00rem + 6.00vw, 18.50rem);
-  --space-20: clamp(17.00rem, 15.00rem + 7.00vw, 22.00rem);
-  --space-24: clamp(21.00rem, 18.00rem + 9.00vw, 27.00rem);
-  --space-32: clamp(28.00rem, 24.00rem + 12.00vw, 36.00rem);
-  /* Component aliases. */
-  --panel-padding: clamp(0.70rem, 0.66rem + 0.20vw, 0.90rem);
-  --toolbar-height: clamp(2.5rem, 2.4rem + 0.5vw, 3rem);
-  --topbar-height: clamp(2rem, 1.95rem + 0.25vw, 2.25rem);
-  --statusbar-height: clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem);
-  --sidebar-width: clamp(14rem, 12rem + 8vw, 18rem);
-  --inspector-width: clamp(15rem, 13rem + 8vw, 20rem);
+${typographyBlock}
+${sizingBlock}
 
   /* --- Radius --- */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 16px;
-  --radius-xl: 28px;
-  --radius-2xl: 40px;
+  /* Semantic geometry API. Components should consume these names instead of
+   * choosing a raw radius or a generic scale value at each callsite. */
+  --radius-none: 0;
+  --radius-control-compact: 6px;
+  --radius-control: 8px;
+  --radius-floating: 14px;
+  --radius-surface: 14px;
+  --radius-card: 18px;
+  --radius-device: 40px;
+  --radius-full: var(--radius-pill);
+  /* Compatibility names resolve to the semantic scale so older components
+   * participate in the system while they are migrated at their owner. */
+  --radius-sm: var(--radius-control-compact);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-floating);
+  --radius-xl: var(--radius-card);
+  --radius-2xl: var(--radius-device);
   --radius-pill: 9999px;
 
   /* --- Elevation surfaces (100% opaque, hierarchical) --- */
@@ -147,6 +177,8 @@ const NON_COLOR = `
   --duration-base: 250ms;
   --duration-slow: 400ms;
   --duration-slower: 600ms;
+  --duration-emphasis: 1600ms;
+  --duration-emphasis-loop: 4800ms;
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -230,25 +262,29 @@ const SURFACE_ALIASES = `
 `;
 
 const css = `/* AUTO-GENERATED by packages/ui/scripts/generate-token-css.ts.
- * Do not edit by hand — edit color.ts + this script, then re-run.
- * Varve design tokens (Strata plan §6). Source of truth: src/tokens/color.ts.
+ * Do not edit by hand — edit color.ts, spacing.ts, or this script, then re-run.
+ * Varve design tokens. Sources of truth: src/tokens/color.ts, spacing.ts,
+ * sizing.ts, typography.ts, and iconTokens.ts.
  * Colors emitted as OKLCH (perceptually uniform color space).
  */
 
 :root {
 ${colorBlock('light')}
+${spacingBlock}
 ${NON_COLOR}
 ${SURFACE_ALIASES}
 }
 
 [data-theme="dark"] {
 ${colorBlock('dark')}
+${spacingBlock}
 ${DARK_ELEVATION}
 ${SURFACE_ALIASES}
 }
 
 [data-theme="high-contrast"] {
 ${colorBlock('high-contrast')}
+${spacingBlock}
 ${HC_ELEVATION}
 ${SURFACE_ALIASES}
 }
@@ -257,6 +293,7 @@ ${SURFACE_ALIASES}
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
 ${colorBlock('dark')}
+${spacingBlock}
 ${DARK_ELEVATION}
 ${SURFACE_ALIASES}
   }
@@ -268,6 +305,7 @@ ${SURFACE_ALIASES}
 @media (prefers-contrast: more) {
   :root:not([data-theme]) {
 ${colorBlock('high-contrast')}
+${spacingBlock}
 ${HC_ELEVATION}
 ${SURFACE_ALIASES}
   }
@@ -344,6 +382,8 @@ ${SURFACE_ALIASES}
     --duration-base: 0ms;
     --duration-slow: 0ms;
     --duration-slower: 0ms;
+    --duration-emphasis: 0ms;
+    --duration-emphasis-loop: 0ms;
   }
 }
 `;

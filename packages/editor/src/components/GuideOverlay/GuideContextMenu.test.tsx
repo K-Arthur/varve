@@ -56,18 +56,21 @@ describe('GuideContextMenu', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('renders a separator between Lock/Unlock and Delete', () => {
+  it('renders a separator between Lock/Unlock and Delete', async () => {
     render(<GuideContextMenu {...defaultProps} />);
-    // ContextMenu portals to document.body — scope the query to the menu itself.
-    const menu = screen.getByRole('menu');
+    // ContextMenu is measured before it becomes visible; wait for the
+    // accessible surface rather than querying the hidden first frame.
+    const menu = await screen.findByRole('menu', { name: 'Guide context menu' });
     const separators = menu.querySelectorAll('hr.varve-menu__sep');
     expect(separators.length).toBe(1);
   });
 
-  it('fires onClose when Escape is pressed', () => {
+  it('fires onClose when Escape is pressed', async () => {
     const onClose = vi.fn();
     render(<GuideContextMenu {...defaultProps} onClose={onClose} />);
-    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    fireEvent.keyDown(await screen.findByRole('menu', { name: 'Guide context menu' }), {
+      key: 'Escape',
+    });
     expect(onClose).toHaveBeenCalledOnce();
   });
 });

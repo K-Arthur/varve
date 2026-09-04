@@ -71,7 +71,7 @@ describe('AdjustmentPanel', () => {
     await waitFor(() => screen.getByText('Adjustment Layer'));
 
     fireEvent.click(screen.getByRole('button', { name: /add adjustment/i }));
-    expect(screen.getByRole('menuitem', { name: 'Halftone' })).toBeInTheDocument();
+    expect(await screen.findByRole('menuitem', { name: 'Halftone' })).toBeInTheDocument();
   });
 
   it('adds the non-first adjustment selected with a real pointer interaction', async () => {
@@ -187,7 +187,7 @@ describe('AdjustmentPanel', () => {
     await waitFor(() => screen.getByText('Adjustment Layer'));
 
     fireEvent.click(screen.getByRole('button', { name: /add adjustment/i }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Halftone' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Halftone' }));
 
     await waitFor(() => {
       expect(screen.getByLabelText('Screening method')).toBeInTheDocument();
@@ -204,7 +204,7 @@ describe('AdjustmentPanel', () => {
     fireEvent.click(screen.getByText('Create adjustment layer'));
     await waitFor(() => screen.getByText('Adjustment Layer'));
     fireEvent.click(screen.getByRole('button', { name: /add adjustment/i }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Halftone' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Halftone' }));
 
     const freqSlider = await waitFor(() =>
       screen.getByLabelText('Screen frequency in lines per inch'),
@@ -221,7 +221,7 @@ describe('AdjustmentPanel', () => {
     fireEvent.click(screen.getByText('Create adjustment layer'));
     await waitFor(() => screen.getByText('Adjustment Layer'));
     fireEvent.click(screen.getByRole('button', { name: /add adjustment/i }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Halftone' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Halftone' }));
     await waitFor(() => screen.getByLabelText('Screening method'));
 
     fireEvent.click(screen.getByRole('button', { name: /remove halftone/i }));

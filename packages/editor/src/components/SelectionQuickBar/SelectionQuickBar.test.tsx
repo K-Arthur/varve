@@ -2,7 +2,7 @@
  * SelectionQuickBar — floating icon+label actions for sparse selection kinds.
  */
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { QuickBarProfile } from './resolveQuickBarProfile';
 import { SelectionQuickBar } from './SelectionQuickBar';
@@ -69,7 +69,7 @@ describe('SelectionQuickBar', () => {
     expect(screen.getByRole('button', { name: /remove background/i })).toBeDisabled();
   });
 
-  it('opens More menu and fires more action', () => {
+  it('opens More menu and fires more action', async () => {
     const onAction = vi.fn();
     render(
       <SelectionQuickBar
@@ -80,7 +80,8 @@ describe('SelectionQuickBar', () => {
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: /^more$/i }));
-    fireEvent.click(screen.getByRole('menuitem', { name: /cycle fit/i }));
+    const menu = await screen.findByRole('menu', { name: 'More actions' });
+    fireEvent.click(within(menu).getByRole('menuitem', { name: /cycle fit/i }));
     expect(onAction).toHaveBeenCalledWith('fitCycle');
   });
 

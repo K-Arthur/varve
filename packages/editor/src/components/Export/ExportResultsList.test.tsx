@@ -46,11 +46,26 @@ describe('ExportResultsList', () => {
     expect(screen.getByText('rect.png')).toBeTruthy();
     expect(screen.getByText('bad.png')).toBeTruthy();
     expect(screen.getByText('Engine not ready')).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Export results' })).not.toHaveClass(
+      'varve-shine-border--active',
+    );
   });
 
   it('shows size and duration metadata for successful files', () => {
     render(<ExportResultsList files={[makeFile()]} />);
     expect(screen.getByText(/image\/png \u00b7 50.0KB \u00b7 120ms/i)).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Export results' })).toHaveClass(
+      'varve-shine-border--beam',
+      'varve-shine-border--tone-success',
+      'varve-shine-border--active',
+    );
+  });
+
+  it('does not emphasize an all-success-looking report when its owning job was cancelled', () => {
+    render(<ExportResultsList files={[makeFile()]} successEmphasisActive={false} />);
+    expect(screen.getByRole('region', { name: 'Export results' })).not.toHaveClass(
+      'varve-shine-border--active',
+    );
   });
 
   it('renders a retry action only when failures exist and a callback is provided', () => {

@@ -120,6 +120,7 @@ vi.mock('@floating-ui/dom', () => ({
   shift: vi.fn(),
   offset: vi.fn(),
   size: vi.fn(),
+  hide: vi.fn(),
 }));
 
 vi.mock('../../../BackgroundRemoval/ModelDownloadDialog', () => ({
@@ -250,7 +251,11 @@ describe('BackgroundRemovalSection - Preview toggle', () => {
     );
 
     render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
-    expect(screen.getByLabelText('Background removal review')).toBeTruthy();
+    expect(screen.getByLabelText('Background removal review')).toHaveClass(
+      'varve-shine-border--beam',
+      'varve-shine-border--tone-accent',
+      'varve-shine-border--active',
+    );
     expect(screen.getByText(/requested ai-quality; generated ai-balanced on wasm/i)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Apply result' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel preview' }));
@@ -395,34 +400,29 @@ describe('BackgroundRemovalSection - Feather slider', () => {
   });
 });
 
-describe('BackgroundRemovalSection - Decontaminate checkbox', () => {
-  it('renders decontaminate checkbox checked by default', () => {
+describe('BackgroundRemovalSection - Decontaminate switch', () => {
+  it('renders decontaminate switch checked by default', () => {
     const node = makeImageNode();
     render(<BackgroundRemovalSection nodes={[node]} />);
-    const checkbox = screen.getByText('Reduce colour fringe')
-      .previousElementSibling as HTMLInputElement;
-    expect(checkbox).toBeTruthy();
-    expect(checkbox.checked).toBe(true);
+    expect(screen.getByRole('switch', { name: 'Reduce colour fringe' })).toBeChecked();
   });
 
   it('toggles decontaminate off', () => {
     const node = makeImageNode();
     render(<BackgroundRemovalSection nodes={[node]} />);
-    const checkbox = screen.getByText('Reduce colour fringe')
-      .previousElementSibling as HTMLInputElement;
-    fireEvent.click(checkbox);
-    expect(checkbox.checked).toBe(false);
+    const control = screen.getByRole('switch', { name: 'Reduce colour fringe' });
+    fireEvent.click(control);
+    expect(control).not.toBeChecked();
   });
 
   it('toggles decontaminate on after off', () => {
     const node = makeImageNode();
     render(<BackgroundRemovalSection nodes={[node]} />);
-    const checkbox = screen.getByText('Reduce colour fringe')
-      .previousElementSibling as HTMLInputElement;
-    fireEvent.click(checkbox);
-    expect(checkbox.checked).toBe(false);
-    fireEvent.click(checkbox);
-    expect(checkbox.checked).toBe(true);
+    const control = screen.getByRole('switch', { name: 'Reduce colour fringe' });
+    fireEvent.click(control);
+    expect(control).not.toBeChecked();
+    fireEvent.click(control);
+    expect(control).toBeChecked();
   });
 });
 
@@ -445,10 +445,10 @@ describe('ExportDialog - Remove background toggle', () => {
     })) as unknown as typeof canvasProto.getContext;
   });
 
-  it('renders remove background before export checkbox', async () => {
+  it('renders remove background before export switch', async () => {
     const { ExportDialog } = await import('../../../Export/ExportDialog');
     render(<ExportDialog isOpen={true} onClose={() => {}} nodes={[]} onExport={async () => {}} />);
-    expect(screen.getByText('Remove background before export')).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Remove background before export' })).toBeTruthy();
   }, 15000);
 
   it('does not call onApplyBackgroundRemoval when toggle is off', async () => {
@@ -507,7 +507,7 @@ describe('ExportDialog - Remove background toggle', () => {
     );
     fireEvent.click(screen.getByText('Remove background before export'));
     fireEvent.click(screen.getByLabelText('Background removal method for export'));
-    fireEvent.click(screen.getByRole('option', { name: /balanced/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /balanced/i }));
     await vi.waitFor(() => {
       expect(screen.getByRole('button', { name: /download ai model/i })).toBeTruthy();
     });
@@ -541,7 +541,7 @@ describe('ExportDialog - Remove background toggle', () => {
     );
     fireEvent.click(screen.getByText('Remove background before export'));
     fireEvent.click(screen.getByLabelText('Background removal method for export'));
-    fireEvent.click(screen.getByRole('option', { name: /balanced/i }));
+    fireEvent.click(await screen.findByRole('option', { name: /balanced/i }));
     await vi.waitFor(() => {
       expect(screen.queryByRole('button', { name: /download ai model/i })).toBeNull();
     });

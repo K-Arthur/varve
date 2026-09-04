@@ -26,7 +26,7 @@ export const Default: Story = {
               background: 'var(--elevation-surface-default)',
               border: '1px solid var(--color-border-subtle)',
               padding: 16,
-              borderRadius: 6,
+              borderRadius: 'var(--radius-floating)',
               minWidth: 200,
             }}
           >
@@ -58,7 +58,7 @@ export const MatchAnchorWidth: Story = {
               background: 'var(--elevation-surface-default)',
               border: '1px solid var(--color-border-subtle)',
               padding: 16,
-              borderRadius: 6,
+              borderRadius: 'var(--radius-floating)',
             }}
           >
             <p>This has the same width as the trigger.</p>

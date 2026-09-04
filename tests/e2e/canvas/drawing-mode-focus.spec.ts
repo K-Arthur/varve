@@ -45,10 +45,10 @@ test.describe('Drawing Mode — distraction-free canvas & pencil stabilization',
     await expect(page.getByRole('menuitem', { name: /Distraction-Free Mode/i })).toBeVisible();
   });
 
-  test('pencil tool shows a Stabilization control in the inspector, distinct from the paint brush controls', async ({
+  test('pencil tool shows stabilization in tool options, distinct from paint brush controls', async ({
     page,
   }) => {
-    await page.locator('.workspace-tabs__tab[aria-label="Draw workspace"]').click();
+    await page.locator('.workspace-dock__item[aria-label="Draw workspace"]').click();
 
     await page.keyboard.press('Shift+p');
     await expect(page.getByLabel(/^Stabilization/)).toBeVisible();

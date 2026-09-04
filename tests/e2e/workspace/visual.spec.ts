@@ -64,7 +64,7 @@ for (const theme of THEMES) {
 
       test('workspace tabs', async ({ page }) => {
         await navigateToEditor(page, theme);
-        const tabs = page.locator('.workspace-tabs');
+        const tabs = page.locator('.workspace-dock');
         if (await tabs.isVisible({ timeout: 3000 }).catch(() => false)) {
           await expect(tabs).toHaveScreenshot(`workspace-tabs-${theme}.png`, {
             maxDiffPixels: 200,

@@ -1,14 +1,14 @@
 /**
  * @varve/platform — Tauri 2 desktop Platform implementation.
  *
- * Persists to the native SQLite store (crates/strata-sync) over Tauri IPC, and
+ * Persists to the native SQLite store (crates/varve-sync) over Tauri IPC, and
  * uses the official `tauri-plugin-dialog` + `tauri-plugin-opener` for native
  * file pickers and "reveal in file manager". Thumbnails are kept in an
  * in-memory LRU for this phase (cheap to regenerate from the persisted
  * document JSON); durable thumbnail caching is a follow-up.
  *
  * Research basis:
- *  - Strata ADR-0001 (native engine on desktop, no WASM ceiling) — persistence
+ *  - Varve ADR-0001 (native engine on desktop, no WASM ceiling) — persistence
  *    likewise belongs to the native process, not the webview.
  *  - Tauri 2 plugin model: `window.__TAURI__.core.invoke('plugin:dialog|open')`
  *    works with `withGlobalTauri: true` without bundling the JS plugin.

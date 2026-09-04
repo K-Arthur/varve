@@ -1,12 +1,19 @@
 # Varve — Production Build Commands
 
-**Date:** 2026-08-04
+**Evidence date:** 2026-08-04 (CachyOS build measurements)
+**Current release line:** v0.2.1 (published 2026-08-25)
 **Verified on:** CachyOS Linux (kernel 7.1.5, Wayland), Node v26.4.0, pnpm 11.9.0,
 rustc 1.97.1, tauri-cli 2.11.3, webkit2gtk-4.1 2.52.5, **glibc 2.44**
 
 Every command below is marked **VERIFIED** (run on this machine, result recorded)
 or **UNVERIFIED** (correct as far as configuration goes, but never executed here —
 usually because it needs hardware we do not have).
+
+> Current release process: use [release-candidate-runbook.md](release-candidate-runbook.md).
+> This document preserves command-level build evidence from 2026-08-04; its
+> historical full-suite examples are not a replacement for exact-SHA
+> integration/candidate certification and must not be repeated before every
+> packaging retry.
 
 ---
 
@@ -59,26 +66,23 @@ Result: exit 0, "Already up to date", no lockfile drift.
 `node_modules`) and `fetch-onnxruntime.mjs` (downloads ~25 MB of ONNX Runtime
 from GitHub, pinned to 1.27.1 and checksum-verified **before** extraction).
 
-For a genuinely cold checkout, the bundled AI model weights must also be
-fetched — they are stored in Git LFS and `git clone` does not fetch LFS
-content by default:
+For a genuinely cold checkout, verify that the bundled AI model weights are
+present before building. Bundled weights are committed directly; this
+repository no longer uses Git LFS for models:
 
 ```sh
-git lfs install --local
-git lfs pull
 node scripts/release/check-bundled-assets.mjs   # fails loudly if you skipped it
 ```
 
-Every CI checkout (ci.yml and release.yml) uses `lfs: true`, so the release
-pipeline fetches the LFS-tracked model weights automatically. Four models
-are bundled (`u2netp`, `u2netp-int8`, `realesr-general-x4v3`,
-`realesr-general-x4v3-int8`); `font-classify.onnx` remains LFS-tracked under
-`models-source/` but is **not** bundled — the app downloads it at runtime
-from Hugging Face (see `packages/engine/src/inference/modelCatalog.ts`).
+The current manifest declares five bundled models (`u2netp`, `u2netp-int8`,
+`yunet-face-detect`, `realesr-general-x4v3`, and
+`realesr-general-x4v3-int8`). Other models, including `font-classify.onnx`,
+are not bundled and are downloaded on demand when a feature requests them (see
+`packages/engine/src/inference/modelCatalog.ts`).
 
 ---
 
-## 2. Quality gates — VERIFIED
+## 2. Historical quality-gate evidence — VERIFIED on 2026-08-04
 
 ```sh
 pnpm lint          # exit 0 (48 warnings, no errors)
@@ -244,7 +248,7 @@ The honest way to get a first result for either is to run
 
 ## 6b. Versioning between releases: push gate + dev snapshot builds
 
-Releases are versioned by tag (`v0.1.0` stable, `v0.1.0-alpha.1` prerelease;
+Releases are versioned by tag (`vX.Y.Z` stable, `vX.Y.Z-alpha.1` prerelease;
 channel policy — latest published STABLE, else latest published PRERELEASE —
 lives in `fetch-website-release.mjs`). Between releases, the
 committed version is the last released one, and three things keep that from
@@ -377,7 +381,7 @@ Nothing here contacts GitHub or publishes anything.
 ## 11. Website — VERIFIED
 
 ```sh
-pnpm --filter @varve/website build      # exit 0, 42 pages, 0 errors
+pnpm --filter @varve/website build      # exit 0, 69 routes, 0 errors
 
 # with a custom domain later:
 SITE_URL=https://example.com SITE_BASE=/ pnpm --filter @varve/website build
@@ -386,6 +390,6 @@ SITE_URL=https://example.com SITE_BASE=/ pnpm --filter @varve/website build
 After a release, point the download page at it:
 
 ```sh
-node scripts/release/update-website-manifest.mjs \
-  --manifest dist/release/release-manifest.json --tag v0.1.0
+node scripts/release/fetch-website-release.mjs \
+  --repo K-Arthur/varve --tag vX.Y.Z
 ```

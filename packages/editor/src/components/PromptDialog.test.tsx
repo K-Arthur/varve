@@ -52,7 +52,7 @@ describe('ConfirmDialog', () => {
 
     confirmDialog('Delete item?', 'This action cannot be undone.', {
       confirmLabel: 'Delete',
-      variant: 'danger',
+      variant: 'destructive',
     });
 
     const dialog = await screen.findByRole('alertdialog');

@@ -41,10 +41,12 @@ import type { MotionState } from '../state/motion-state';
 import type { MagicWandSettings } from '../tools/magicWandSettings';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
+import type { ObjectSelectionSession } from './objectSelectionTypes';
 import type { SelectionMode, SelectionOrigin } from './selectionState';
 import type { TableEditState } from './tableEditState';
 
 export { createCopyEffectStackToNodes } from './effectStackTransfer';
+export type { ObjectSelectionSession } from './objectSelectionTypes';
 export * from './selectionState';
 export type { TableEditState } from './tableEditState';
 export type { MaskPreviewMode, ToolId };
@@ -216,24 +218,6 @@ export interface BackgroundRemovalPreviewSession {
   modelPrecision?: 'fp32' | 'int8';
   precisionFallback?: boolean;
   precisionFallbackReason?: string;
-}
-
-/** Transient Object Selection state. Never serialized or added to history. */
-export interface ObjectSelectionSession {
-  nodeId: NodeId;
-  width: number;
-  height: number;
-  candidates: Array<{
-    mask: Uint8Array;
-    confidence: number;
-  }>;
-  selectedCandidate: number;
-  points: Array<{ x: number; y: number; label: 0 | 1 }>;
-  box: { x1: number; y1: number; x2: number; y2: number } | null;
-  confidence: number;
-  status: 'previewing' | 'ready' | 'error';
-  modelId: string;
-  executionProvider?: string;
 }
 
 export type CanvasMode = 'full' | 'outline' | 'preview';
@@ -446,6 +430,12 @@ export interface EditorState {
    * rather than living in the per-selection Properties inspector.
    */
   stateMachinePanelVisible: boolean;
+  /**
+   * Variables/tokens dialog (document-scoped design-system management).
+   * Opt-in like the state-machine panel: reachable from the command palette
+   * rather than occupying permanent panel space.
+   */
+  variablesPanelVisible: boolean;
   /** Which property track is currently shown in the graph editor (nodeId.property). */
   selectedGraphProperty: string | null;
   /**
@@ -696,8 +686,14 @@ export interface EditorContextValue {
   restoreDefaultCollapsed: () => void;
   hideOptionalSections: () => void;
   // Section ordering
-  moveSectionUp: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
-  moveSectionDown: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
+  moveSectionUp: (
+    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
+    withinSectionIds?: readonly import('../components/Inspector/sectionRegistry').SectionId[],
+  ) => void;
+  moveSectionDown: (
+    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
+    withinSectionIds?: readonly import('../components/Inspector/sectionRegistry').SectionId[],
+  ) => void;
   moveSectionToStart: (
     sectionId: import('../components/Inspector/sectionRegistry').SectionId,
   ) => void;
@@ -786,7 +782,7 @@ export interface EditorContextValue {
     { nodeId: NodeId; node: SceneNode; parentId: NodeId | null; depth: number }
   >;
   setDraft: (draft: DraftShape | null) => void;
-  removeSelected: () => void;
+  removeSelected: (selection?: NodeId[]) => void;
   renameSelected: (name: string) => void;
   /**
    * Rename a specific node. `renameSelected` targets `selection[0]`, which is
@@ -891,8 +887,11 @@ export interface EditorContextValue {
     target: string,
     binding: import('@varve/scene').PropertyBinding | null,
   ) => void;
-  /** Trim image bounds to the non-transparent alpha region of a background-removal mask. */
-  trimToSubject: (padding?: number) => Promise<void>;
+  /** Trim image bounds to visible content or explicit detected bounds. */
+  trimToSubject: (
+    padding?: number,
+    options?: import('../imageCrop').TrimToSubjectOptions,
+  ) => Promise<void>;
   /** Position the crop window to keep detected faces in frame. Returns true
    * when a face-aware crop was applied. */
   applyFaceAwareCrop: (options?: {
@@ -1043,8 +1042,12 @@ export interface EditorContextValue {
   /** Show a visual toast notification (also announced via aria-live). */
   showToast: (opts: {
     message: string;
-    type?: 'info' | 'success' | 'warning' | 'error';
+    title?: string;
+    description?: string;
+    type?: 'default' | 'info' | 'success' | 'warning' | 'error' | 'loading';
     duration?: number;
+    id?: string;
+    dedupeKey?: string;
   }) => void;
 
   // Adjustment layers

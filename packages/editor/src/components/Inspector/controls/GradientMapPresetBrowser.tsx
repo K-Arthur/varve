@@ -5,7 +5,15 @@
  */
 import type { GradientPreset } from '@varve/scene';
 import { displayName } from '@varve/scene';
-import { ContextMenu, IconButton, SearchField, ToggleButton } from '@varve/ui';
+import {
+  ContextMenu,
+  IconButton,
+  type OverlayAnchor,
+  pointAnchor,
+  SearchField,
+  ToggleButton,
+  viewportPoint,
+} from '@varve/ui';
 import { type KeyboardEvent, useMemo, useRef, useState } from 'react';
 import { gradientPresetToCss } from '../../../gradientPresets/thumbnail';
 import { useRovingTabIndex } from '../../../hooks';
@@ -44,7 +52,7 @@ export function GradientMapPresetBrowser({
 }: GradientPresetBrowserProps) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<Category>('all');
-  const [context, setContext] = useState<{ x: number; y: number; preset: GradientPreset } | null>(
+  const [context, setContext] = useState<{ anchor: OverlayAnchor; preset: GradientPreset } | null>(
     null,
   );
   const listRef = useRef<HTMLDivElement>(null);
@@ -116,7 +124,7 @@ export function GradientMapPresetBrowser({
               `Delete preset "${displayName(context.preset)}"?`,
               {
                 confirmLabel: 'Delete',
-                variant: 'danger',
+                variant: 'destructive',
               },
             )
           )
@@ -198,7 +206,15 @@ export function GradientMapPresetBrowser({
               }}
               onContextMenu={(e) => {
                 e.preventDefault();
-                setContext({ x: e.clientX, y: e.clientY, preset });
+                const contextElement = e.currentTarget as HTMLElement;
+                setContext({
+                  anchor: pointAnchor(
+                    viewportPoint(e.clientX, e.clientY),
+                    contextElement.ownerDocument,
+                    contextElement,
+                  ),
+                  preset,
+                });
               }}
             >
               <span
@@ -239,7 +255,7 @@ export function GradientMapPresetBrowser({
       </div>
       <ContextMenu
         items={contextItems}
-        position={context ? { x: context.x, y: context.y } : null}
+        anchor={context?.anchor}
         onClose={() => setContext(null)}
         label="Gradient preset actions"
       />

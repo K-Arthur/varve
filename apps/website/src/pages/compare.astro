@@ -12,13 +12,13 @@
  *     disclaimer section for the same point made to readers.
  */
 import Layout from '../layouts/Layout.astro';
-import { sitePath, siteUrl } from '../lib/siteUrl';
+import { sitePath } from '../lib/siteUrl';
 import ClosingCTA from '../components/ClosingCTA.astro';
 
 const faqs = [
   {
     q: 'Can I use Varve without an account or internet?',
-    a: 'Yes. Varve requires no account, no cloud sync, and no internet connection for core editing. Optional network features — model downloads, font search, update checks — are each explicit and user-controlled. Documents are local files on your disk.',
+    a: 'Yes. Varve requires no account, no cloud sync, and no internet connection for core editing. Optional network features — model downloads, additional font downloads, and update checks — are each explicit and user-controlled. Documents are local files on your disk.',
   },
   {
     q: 'Is Varve a Figma alternative?',
@@ -52,22 +52,12 @@ const faqSchema = {
   })),
 };
 
-const pageSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'WebPage',
-  '@id': `${siteUrl('/compare')}#webpage`,
-  url: siteUrl('/compare'),
-  name: 'Compare Varve to other design tools',
-  description:
-    'How Varve differs from Figma, Adobe Illustrator, Affinity, Sketch, Inkscape, and Penpot on pricing, platform, license, and collaboration.',
-  inLanguage: 'en',
-};
 ---
 
 <Layout
   title="Compare Varve to Other Design Tools"
   description="How Varve compares to Figma, Illustrator, Affinity, Sketch, Inkscape, and Penpot on pricing, platform, license, and collaboration — compared honestly."
-  structuredData={[pageSchema, faqSchema]}
+  structuredData={faqSchema}
 >
   <div class="container-custom">
     <div class="compare-page">
@@ -293,7 +283,7 @@ const pageSchema = {
 
   .spec-table {
     border: 1px solid var(--border-default);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     overflow: hidden;
   }
 
@@ -334,7 +324,7 @@ const pageSchema = {
   .from-card {
     background: var(--surface-card);
     border: 1px solid var(--border-default);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     padding: 1.5rem;
   }
 
@@ -391,7 +381,7 @@ const pageSchema = {
   .compare-table-wrap {
     margin-bottom: 1rem;
     border: 1px solid var(--border-default);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }

@@ -10,7 +10,8 @@
  *
  * State lives in the pre-paint inline script in Layout.astro
  * (window.__varveTheme); this component only renders the control and wires
- * clicks to that API. There is exactly one source of truth.
+ * clicks to that API. The root's data-theme-mode remains "system" until the
+ * first explicit click; data-theme always exposes the resolved palette.
  */
 const choices = [
   { value: 'light', label: 'Light theme', icon: 'sun' },
@@ -18,12 +19,14 @@ const choices = [
 ] as const;
 ---
 
-<div class="theme-switcher" role="group" aria-label="Theme">
+<div class="theme-switcher" role="radiogroup" aria-label="Theme">
   {choices.map((choice) => (
     <button
       class="theme-option"
       data-theme-choice={choice.value}
-      aria-pressed="false"
+      aria-checked="false"
+      role="radio"
+      tabindex="0"
       title={choice.label}
       aria-label={choice.label}
       type="button"
@@ -49,36 +52,66 @@ const choices = [
    *
    * Runs as a deferred module after the DOM is parsed. Every interaction
    * goes through the shared API: write() persists, apply() sets
-   * html[data-theme], and the buttons mirror aria-pressed + a visible
+   * html[data-theme], and the buttons mirror aria-checked + a visible
    * active state. No competing controllers exist.
    */
-  const buttons = document.querySelectorAll<HTMLButtonElement>('.theme-option');
-
-  function refreshPressed() {
+  const groups = document.querySelectorAll<HTMLElement>('.theme-switcher');
+  function refreshSelection() {
     const api = window.__varveTheme;
     if (!api) return;
     const state = api.state();
-    for (const button of buttons) {
-      const active = button.dataset.themeChoice === state.theme;
-      button.setAttribute('aria-pressed', String(active));
-      button.classList.toggle('active', active);
+    for (const group of groups) {
+      for (const button of group.querySelectorAll<HTMLButtonElement>('.theme-option')) {
+        const active = button.dataset.themeChoice === state.theme;
+        button.setAttribute('aria-checked', String(active));
+        button.tabIndex = active ? 0 : -1;
+        button.classList.toggle('active', active);
+      }
     }
   }
 
-  for (const button of buttons) {
-    button.addEventListener('click', () => {
-      const choice = button.dataset.themeChoice ?? '';
-      const api = window.__varveTheme;
-      if (!api) return;
-      // The first explicit click converts the automatic OS-driven state
-      // into a persisted choice (write() migrates legacy values too).
-      api.write(choice);
-      api.apply();
-      refreshPressed();
-    });
+  function selectInGroup(groupButtons: HTMLButtonElement[], index: number) {
+    const button = groupButtons[index];
+    const api = window.__varveTheme;
+    if (!button || !api) return;
+    api.write(button.dataset.themeChoice ?? '');
+    api.apply();
+    refreshSelection();
+    button.focus();
   }
 
-  refreshPressed();
+  for (const group of groups) {
+    const groupButtons = [...group.querySelectorAll<HTMLButtonElement>('.theme-option')];
+    for (const button of groupButtons) {
+      button.addEventListener('click', () => {
+        const choice = button.dataset.themeChoice ?? '';
+        const api = window.__varveTheme;
+        if (!api) return;
+        // The first explicit click converts the automatic OS-driven state
+        // into a persisted choice (write() migrates legacy values too).
+        api.write(choice);
+        api.apply();
+        refreshSelection();
+      });
+
+      button.addEventListener('keydown', (event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const index = groupButtons.indexOf(button);
+        const nextIndex =
+          event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? groupButtons.length - 1
+              : (index + (event.key === 'ArrowRight' ? 1 : -1) + groupButtons.length) %
+                groupButtons.length;
+        selectInGroup(groupButtons, nextIndex);
+      });
+    }
+  }
+
+  refreshSelection();
+  window.addEventListener('varve:theme-change', refreshSelection);
 </script>
 
 <style>
@@ -89,7 +122,7 @@ const choices = [
     padding: 0.125rem;
     background: var(--surface-muted);
     border: 1px solid var(--border-default);
-    border-radius: 9999px;
+    border-radius: var(--website-radius-pill);
   }
 
   .theme-option {
@@ -101,7 +134,7 @@ const choices = [
     padding: 0;
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 9999px;
+    border-radius: var(--website-radius-pill);
     cursor: pointer;
     color: var(--text-secondary);
     transition:
@@ -119,8 +152,17 @@ const choices = [
     outline-offset: 2px;
   }
 
+  /* Preserve the compact desktop control, but give touch and hybrid devices
+     the 44px target recommended by Apple HIG and Material. */
+  @media (pointer: coarse), (any-pointer: coarse) {
+    .theme-option {
+      width: var(--touch-target-min);
+      height: var(--touch-target-min);
+    }
+  }
+
   /* The active choice gets a visible fill — not just an icon change. */
-  .theme-option[aria-pressed='true'] {
+  .theme-option[aria-checked='true'] {
     background: var(--surface-card);
     color: var(--text-primary);
     border-color: var(--border-strong);
@@ -132,7 +174,7 @@ const choices = [
       border-color: ButtonBorder;
     }
 
-    .theme-option[aria-pressed='true'] {
+    .theme-option[aria-checked='true'] {
       background: Highlight;
       color: HighlightText;
       border-color: Highlight;

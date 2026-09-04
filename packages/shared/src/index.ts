@@ -337,6 +337,19 @@ export {
   resolveMetadataFieldDecision,
 } from './exportContracts';
 export type {
+  FileRejection,
+  FileRejectionCode,
+  FileSelectionOptions,
+  FileSelectionResult,
+  IngestFileLike,
+} from './fileIngestion';
+export {
+  fileExtension,
+  fileMatchesAccept,
+  formatFileSize,
+  validateFileSelection,
+} from './fileIngestion';
+export type {
   GradientGeometrySource,
   LinearGradientHandles,
   RadialGradientHandles,

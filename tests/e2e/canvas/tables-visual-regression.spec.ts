@@ -54,7 +54,7 @@ test.describe('Table visual regression', () => {
     await insertTable(page, 400, 240);
 
     // Enable zebra stripes
-    const zebraToggle = page.getByRole('checkbox', { name: /zebra/i });
+    const zebraToggle = page.getByRole('switch', { name: /zebra/i });
     if (await zebraToggle.isVisible()) {
       await zebraToggle.check();
     }
@@ -266,7 +266,7 @@ test.describe('Table visual regression', () => {
     }
 
     // Enable zebra stripes
-    const zebraToggle = page.getByRole('checkbox', { name: /zebra/i });
+    const zebraToggle = page.getByRole('switch', { name: /zebra/i });
     if (await zebraToggle.isVisible()) {
       await zebraToggle.check();
     }

@@ -73,28 +73,37 @@ export function ThumbnailSourcePicker({
   const isAutomatic = currentPref.type === 'automatic';
 
   return (
-    <div className="thumbnail-source-picker" role="menu" aria-label="Thumbnail source options">
-      <div className="thumbnail-source-picker__header">
+    <fieldset className="thumbnail-source-picker">
+      <legend className="thumbnail-source-picker__header">
         <Icon name="Image" label={undefined} size="1em" />
         <span>Project Thumbnail</span>
-      </div>
+      </legend>
 
       <div className="thumbnail-source-picker__body">
-        {/* Source type selector */}
+        {/* Source type selector. Native radios preserve the picker semantics
+         * while the surrounding fieldset supplies the group name. */}
         <div className="thumbnail-source-picker__sources">
-          <button
-            type="button"
+          <label
             className={`thumbnail-source-picker__option${isAutomatic ? ' thumbnail-source-picker__option--active' : ''}`}
-            role="menuitemradio"
-            aria-checked={isAutomatic}
-            onClick={() => handleSelect({ type: 'automatic' })}
           >
+            <input
+              className="thumbnail-source-picker__radio"
+              type="radio"
+              name={`thumbnail-source-${file.id}`}
+              checked={isAutomatic}
+              readOnly
+              aria-label="Automatic"
+              // A native radio does not emit change when the already selected
+              // option is clicked; click is the stable activation event for
+              // both pointer and keyboard input.
+              onClick={() => handleSelect({ type: 'automatic' })}
+            />
             <Icon name="Image" label={undefined} size="0.85em" />
-            <div className="thumbnail-source-picker__option-text">
+            <span className="thumbnail-source-picker__option-text">
               <span className="thumbnail-source-picker__option-label">Automatic</span>
               <span className="thumbnail-source-picker__option-desc">Document overview</span>
-            </div>
-          </button>
+            </span>
+          </label>
         </div>
 
         {/* Actions */}
@@ -123,6 +132,6 @@ export function ThumbnailSourcePicker({
           Generating thumbnail…
         </div>
       )}
-    </div>
+    </fieldset>
   );
 }

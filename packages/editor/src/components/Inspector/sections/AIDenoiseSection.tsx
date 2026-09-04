@@ -352,7 +352,7 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
           <div className="insp-actions">
             <Button
               type="button"
-              variant="primary"
+              variant="default"
               size="sm"
               disabled={denoise.status === 'downloading'}
               loading={denoise.status === 'downloading'}
@@ -402,7 +402,7 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
             <div className="insp-actions">
               <Button
                 type="button"
-                variant="primary"
+                variant="default"
                 size="sm"
                 onClick={handleApply}
                 disabled={isProcessing}
@@ -455,7 +455,7 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
               </Button>
               <Button
                 type="button"
-                variant="primary"
+                variant="default"
                 size="sm"
                 disabled={needsDownload || denoise.modelDownloading || !showPreview}
                 onClick={handleApply}

@@ -11,6 +11,7 @@
 
 import type { ExportFormat, ExportScale, RenderingIntent } from '@varve/scene';
 import type { AnalyticsConsentState } from '@varve/shared';
+import { normalizeThemePreference, type ThemePreference } from '@varve/ui/tokens';
 import {
   createDefaultSectionState,
   migrateLegacyDisclosureState,
@@ -18,7 +19,7 @@ import {
   type SectionVisibilityState,
 } from './components/Inspector/sectionState';
 
-export type ThemeMode = 'light' | 'dark' | 'high-contrast' | 'system';
+export type ThemeMode = ThemePreference;
 export type UnitType = 'px' | 'pt' | 'cm' | 'mm' | 'in';
 export type FontSizeUI = 'small' | 'medium' | 'large';
 
@@ -199,7 +200,7 @@ export const DEFAULT_EXPORT_SETTINGS: ExportSettingsStore = {
 };
 
 export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettingsStore = {
-  theme: 'light',
+  theme: 'system',
   reduceMotion: false,
   showAllMenuItems: false,
   showShortcutTips: true,
@@ -374,7 +375,7 @@ export function loadSettings(): EditorSettings {
         const app = uiParsed.appearance as Record<string, unknown> | undefined;
         if (app) {
           if (typeof app.theme === 'string')
-            result.appearance.theme = app.theme as AppearanceSettingsStore['theme'];
+            result.appearance.theme = normalizeThemePreference(app.theme);
           if (typeof app.fontSizeUI === 'string')
             result.appearance.fontSizeUI = app.fontSizeUI as AppearanceSettingsStore['fontSizeUI'];
         }
@@ -429,10 +430,15 @@ export function loadSettings(): EditorSettings {
         parsed.general as Partial<GeneralSettingsStore>,
       ),
       export: exportSettings,
-      appearance: mergePartial(
-        DEFAULT_APPEARANCE_SETTINGS,
-        parsed.appearance as Partial<AppearanceSettingsStore>,
-      ),
+      appearance: {
+        ...mergePartial(
+          DEFAULT_APPEARANCE_SETTINGS,
+          parsed.appearance as Partial<AppearanceSettingsStore>,
+        ),
+        theme: normalizeThemePreference(
+          (parsed.appearance as Partial<AppearanceSettingsStore> | undefined)?.theme,
+        ),
+      },
       panel: mergePartial(DEFAULT_PANEL_SETTINGS, parsed.panel as Partial<PanelSettingsStore>),
       render: mergePartial(DEFAULT_RENDER_SETTINGS, parsed.render as Partial<RenderSettingsStore>),
       startup: mergePartial(

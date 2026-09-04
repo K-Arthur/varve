@@ -10,6 +10,7 @@
  * Research basis: Figma / Affinity multi-select inspector behaviour.
  */
 import type { SceneNode } from '@varve/scene';
+import { classifySelectionProperty, samePropertyValue } from '../propertyState';
 
 export type SelectionKind = 'empty' | 'single' | 'multi';
 
@@ -43,30 +44,13 @@ export type MaybeMixed<T> = T | typeof MIXED;
  * prop and to gate batch edits.
  */
 export function commonValue<T>(nodes: SceneNode[], accessor: (n: SceneNode) => T): MaybeMixed<T> {
-  if (nodes.length === 0) return MIXED;
-  const first = accessor(nodes[0] as SceneNode);
-  for (let i = 1; i < nodes.length; i++) {
-    const v = accessor(nodes[i] as SceneNode);
-    if (!sameValue(v, first)) return MIXED;
-  }
-  return first;
-}
-
-function sameValue<T>(a: T, b: T): boolean {
-  if (Array.isArray(a) && Array.isArray(b)) {
-    return a.length === b.length && a.every((x, i) => x === (b as unknown[])[i]);
-  }
-  if (a instanceof Object && b instanceof Object) {
-    const ka = Object.keys(a as object);
-    const kb = Object.keys(b as object);
-    return (
-      ka.length === kb.length &&
-      ka.every((k) =>
-        sameValue((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]),
-      )
-    );
-  }
-  return a === b;
+  const state = classifySelectionProperty(nodes.map(accessor), { equals: samePropertyValue });
+  if (state.kind === 'common') return state.value;
+  // Preserve this legacy helper's return shape for callers that use undefined
+  // as a meaningful “not configured” value. New controls should consume the
+  // explicit `unset` state from classifySelectionProperty instead.
+  if (state.kind === 'unset') return undefined as T;
+  return MIXED;
 }
 
 /** True when the value is the MIXED sentinel. Narrows the type for callers. */

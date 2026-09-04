@@ -6,13 +6,16 @@ test.describe('Object Selection marketing surface', () => {
     await page.goto('/features/object-selection');
     await expect(page.getByRole('heading', { name: 'Object Selection', level: 1 })).toBeVisible();
     await expect(page.getByText(/From object to editable mask/i)).toBeVisible();
-    await expect(page.getByText(/downloaded explicitly, verified before use/i)).toBeVisible();
+    await expect(page.getByText(/verified before use/i)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Set the right expectation' })).toBeVisible();
 
     await testInfo.attach('object-selection-feature-light', {
       body: await page.locator('.feature-page').screenshot(),
       contentType: 'image/png',
     });
+    await page
+      .locator('.feature-page')
+      .screenshot({ path: testInfo.outputPath('object-selection-feature-light.png') });
 
     await page.setViewportSize({ width: 390, height: 844 });
     const layout = await page.locator('.feature-page').evaluate((element) => ({

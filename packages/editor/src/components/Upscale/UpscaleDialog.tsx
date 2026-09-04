@@ -1322,7 +1322,7 @@ export function UpscaleDialog({
             </Button>
             <Button
               type="button"
-              variant="primary"
+              variant="default"
               size="sm"
               disabled={
                 processing ||

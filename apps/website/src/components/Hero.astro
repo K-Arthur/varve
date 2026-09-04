@@ -262,7 +262,7 @@ import { PRODUCT_STATUS } from '@varve/shared';
 
     .hc-card {
       position: absolute;
-      border-radius: 6px;
+      border-radius: var(--website-radius-control);
       overflow: visible;
       pointer-events: auto;
       cursor: pointer;
@@ -297,7 +297,7 @@ import { PRODUCT_STATUS } from '@varve/shared';
       display: block;
       width: 100%;
       height: 100%;
-      border-radius: 6px;
+      border-radius: var(--website-radius-control);
       overflow: hidden;
     }
 
@@ -306,7 +306,7 @@ import { PRODUCT_STATUS } from '@varve/shared';
       position: absolute;
       inset: -3px;
       border: 2px solid var(--sel, var(--brand-teal));
-      border-radius: 8px;
+      border-radius: var(--website-radius-control);
       pointer-events: none;
     }
 
@@ -469,7 +469,7 @@ import { PRODUCT_STATUS } from '@varve/shared';
     text-transform: uppercase;
     color: var(--text-secondary);
     border: 1px solid var(--border-accent);
-    border-radius: 9999px;
+    border-radius: var(--website-radius-pill);
     padding: 0.4rem 1rem;
     margin-bottom: 2rem;
     background: color-mix(in oklab, var(--surface-card) 60%, transparent);
@@ -484,11 +484,11 @@ import { PRODUCT_STATUS } from '@varve/shared';
   }
 
   .hero-title {
-    font-family: var(--font-editorial);
-    font-size: clamp(3rem, 6.5vw + 0.75rem, 6rem);
-    font-weight: 700;
+    font-family: var(--type-marketing-display-family);
+    font-size: var(--type-marketing-display-size);
+    font-weight: var(--type-marketing-display-weight);
     font-variation-settings: 'opsz' 144;
-    line-height: 0.95;
+    line-height: var(--type-marketing-display-line-height);
     letter-spacing: -0.03em;
     margin-bottom: 1.75rem;
     color: var(--text-primary);
@@ -507,8 +507,8 @@ import { PRODUCT_STATUS } from '@varve/shared';
   }
 
   .hero-subtitle {
-    font-size: clamp(1.0625rem, 1.5vw + 0.5rem, 1.25rem);
-    line-height: 1.65;
+    font-size: var(--type-content-lead-size);
+    line-height: var(--type-content-lead-line-height);
     color: var(--text-secondary);
     margin: 0 auto 2.25rem;
     max-width: 58ch;

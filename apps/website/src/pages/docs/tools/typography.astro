@@ -62,10 +62,19 @@ import { sitePath } from '../../../lib/siteUrl';
         <ul>
           <li><strong>System fonts</strong> — Fonts installed on your operating system</li>
           <li><strong>Bundled fonts</strong> — Open-source fonts included with Varve via @fontsource packages</li>
-          <li><strong>Google Fonts</strong> — Load any Google Font by URL via <code>FontFace</code> API</li>
+          <li><strong>Shipped semantic catalog</strong> — Search family names, design language, coverage, features, availability, and personal tags offline</li>
+          <li><strong>Explicit desktop installs</strong> — When enabled, retrieve one exact, version-pinned Fontsource artifact after reviewing the result and its license metadata</li>
         </ul>
         <p>
-          The font family selector shows available fonts with their CSS fallback chain. Missing fonts trigger a visible warning in the Typography section.
+          The compact font family selector shows installed fonts only and never starts a download. Open Browse fonts for semantic discovery, coverage and license inspection. The public browser demo keeps search local-first and does not make remote provider requests; desktop installation is a separate explicit action. Missing fonts open a recovery dialog that uses the same shipped catalog and install boundary.
+        </p>
+
+        <h3>Semantic discovery</h3>
+        <p>
+          Queries such as <code>friendly rounded sans for UI</code>, <code>editorial serif with Vietnamese</code>, and <code>similar to Inter</code> are parsed into explainable constraints and preferences. “With” coverage and feature requirements are hard; words such as “friendly” and “editorial” are ranking preferences unless the query is clarified. Results distinguish verified facts, measured metrics, curated observations, and unknown metadata. Similarity, alternatives, and pairings are separate recommendation lanes.
+        </p>
+        <p>
+          Personal tags are stored in a versioned local user layer and never overwrite provider facts. Legacy face-level <code>FontCatalogEntry.tags</code> are grouped by family during migration. Search remains available if local storage is unavailable or incomplete.
         </p>
 
         <h3 id="missing-font-replacement">Missing-font replacement after import</h3>
@@ -74,6 +83,8 @@ import { sitePath } from '../../../lib/siteUrl';
         </p>
         <ol>
           <li><strong>Review the source:</strong> See the original family, affected text count, and candidate match quality.</li>
+          <li><strong>Recover the requested face:</strong> When the shipped catalog has an exact identity, review its resolved weight, style, and license, then explicitly install the version-pinned artifact.</li>
+          <li><strong>Browse alternatives:</strong> Open the full semantic font browser when there is no exact catalog match or the design calls for a different direction.</li>
           <li><strong>Choose a local candidate:</strong> Select an installed or bundled font that fits the design and script.</li>
           <li><strong>Apply once:</strong> Replace All updates matching nodes, rich-text runs, and shared styles in one undoable transaction.</li>
           <li><strong>Keep provenance:</strong> The original family and substitute remain recorded in the document font manifest for save/reopen diagnostics.</li>
@@ -268,7 +279,7 @@ import { sitePath } from '../../../lib/siteUrl';
   .docs-section code:not(.code-block) {
     background: var(--surface-muted);
     padding: 0.125rem 0.375rem;
-    border-radius: 0.25rem;
+    border-radius: var(--website-radius-control-compact);
     font-family: monospace;
     font-size: 0.875rem;
   }

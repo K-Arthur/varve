@@ -4,7 +4,7 @@
 
 import type { ActionKind, TransitionConfig, TriggerKind } from '@varve/prototype';
 import type { DocumentInteraction } from '@varve/scene';
-import { Button, Icon, Select } from '@varve/ui';
+import { Button, Icon, Select, Switch } from '@varve/ui';
 import { useEffect, useRef } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -115,15 +115,12 @@ export function InteractionSection() {
                     aria-label="Interaction name"
                     onChange={(e) => patchInteraction(ix, { name: e.target.value })}
                   />
-                  <label className="insp-interaction-row__enabled">
-                    <input
-                      type="checkbox"
-                      className="insp-checkbox"
-                      checked={ix.enabled}
-                      onChange={(e) => patchInteraction(ix, { enabled: e.target.checked })}
-                    />
-                    <span>Enabled</span>
-                  </label>
+                  <Switch
+                    className="insp-interaction-row__enabled"
+                    label="Enabled"
+                    checked={ix.enabled}
+                    onChange={(e) => patchInteraction(ix, { enabled: e.target.checked })}
+                  />
                   <button
                     type="button"
                     className="insp-interaction-row__remove"

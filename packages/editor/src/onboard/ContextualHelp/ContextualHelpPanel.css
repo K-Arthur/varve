@@ -47,7 +47,7 @@
   width: 24px;
   height: 24px;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -83,7 +83,7 @@
   flex: 1;
   border: none;
   background: var(--elevation-surface-sunken);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   padding: var(--space-1) var(--space-2);
   color: var(--color-text-primary);
   font: inherit;
@@ -122,7 +122,7 @@
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--color-text-primary);
   font: inherit;
@@ -211,7 +211,7 @@
 .contextual-help-panel__related-link {
   padding: var(--space-1) var(--space-2);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-sunken);
   color: var(--color-interactive-default);
   font: inherit;
@@ -279,7 +279,7 @@
   width: 100%;
   padding: var(--space-1) var(--space-2);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--color-text-primary);
   font: inherit;

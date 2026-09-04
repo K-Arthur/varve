@@ -3,8 +3,8 @@
  * (head). The bundled ThemeToggle script wires the switcher to it.
  *
  * The site exposes exactly two themes (light/dark). state() reports the
- * resolved theme plus whether it came from an explicit persisted choice —
- * first-time visitors follow the OS until they click.
+ * preference, resolved theme, and whether it came from an explicit persisted
+ * choice — first-time visitors follow the OS until they click.
  */
 interface VarveThemeApi {
   read: () => string | null;
@@ -15,7 +15,11 @@ interface VarveThemeApi {
   resolve: () => string;
   /** Re-apply the resolved theme to <html data-theme>. */
   apply: () => void;
-  state: () => { theme: 'light' | 'dark'; explicit: boolean };
+  state: () => {
+    preference: 'system' | 'light' | 'dark';
+    theme: 'light' | 'dark';
+    explicit: boolean;
+  };
 }
 
 interface Window {

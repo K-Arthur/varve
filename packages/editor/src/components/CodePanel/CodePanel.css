@@ -106,7 +106,7 @@
 .code-panel__preview-sizes {
   display: inline-flex;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   overflow: hidden;
   margin-bottom: var(--space-2);
   align-self: flex-start;
@@ -162,7 +162,7 @@
   padding: var(--space-1) var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--color-text-primary);
   font-family: var(--font-body);
   font-size: var(--font-size-xs);
@@ -210,7 +210,7 @@
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   padding: var(--space-2);
   margin: 0;
   font-family: var(--font-mono);
@@ -337,7 +337,7 @@
   gap: var(--space-2);
   padding: var(--space-2);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   margin-bottom: var(--space-2);
 }
 
@@ -379,7 +379,7 @@
   display: flex;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   margin-bottom: 2px;
 }
 
@@ -434,7 +434,7 @@
   gap: 3px;
   padding: 0 var(--space-1);
   background: var(--elevation-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   text-transform: capitalize;
@@ -467,7 +467,7 @@
   margin-top: 2px;
   padding: 0 var(--space-1);
   background: var(--color-interactive-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs);
   color: var(--color-text-on-accent);
 }
@@ -476,7 +476,7 @@
 .code-panel__readiness-card {
   padding: var(--space-2);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   border: var(--border-micro);
 }
 
@@ -507,7 +507,7 @@
 .code-panel__format-card {
   padding: var(--space-2);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   border: var(--border-micro);
 }
 
@@ -536,7 +536,7 @@
   min-width: 1.2em;
   height: 1.2em;
   padding: 0 3px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-family: var(--font-mono);
   font-size: 0.85em;
   font-weight: var(--font-weight-semibold);

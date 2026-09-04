@@ -121,6 +121,9 @@ describe('ArchiveDialog', () => {
     it('shows encryption toggle', () => {
       renderDialog();
       expect(screen.getByText('Encrypt archive with password')).toBeInTheDocument();
+      expect(
+        screen.getByRole('switch', { name: 'Encrypt archive with password' }),
+      ).toBeInTheDocument();
     });
 
     it('shows password fields when encryption is enabled', async () => {
@@ -193,7 +196,9 @@ describe('ArchiveDialog', () => {
       const user = userEvent.setup();
       renderDialog();
       await user.click(screen.getByRole('tab', { name: /restore archive/i }));
-      expect(screen.getByText(/drop archive here/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole('group', { name: /drop an archive to restore/i }),
+      ).toBeInTheDocument();
     });
 
     it('shows restore preview with archive details after file selection', async () => {
@@ -201,10 +206,7 @@ describe('ArchiveDialog', () => {
       renderDialog();
       await user.click(screen.getByRole('tab', { name: /restore archive/i }));
 
-      // The drop zone contains a hidden <input type="file"> inside
-      const fileInput = screen
-        .getByLabelText(/drop an archive/i)
-        .querySelector('input[type="file"]');
+      const fileInput = screen.getByLabelText('Choose archive');
       expect(fileInput).toBeInTheDocument();
       const file = new File(['test'], 'test.zip', { type: 'application/zip' });
       await user.upload(fileInput! as HTMLElement, file);
@@ -223,9 +225,7 @@ describe('ArchiveDialog', () => {
       renderDialog();
       await user.click(screen.getByRole('tab', { name: /restore archive/i }));
 
-      const fileInput = screen
-        .getByLabelText(/drop an archive/i)
-        .querySelector('input[type="file"]');
+      const fileInput = screen.getByLabelText('Choose archive');
       const file = new File(['test'], 'test.zip', { type: 'application/zip' });
       await user.upload(fileInput! as HTMLElement, file);
 
@@ -261,9 +261,7 @@ describe('ArchiveDialog', () => {
       renderDialog();
       await user.click(screen.getByRole('tab', { name: /restore archive/i }));
 
-      const fileInput = screen
-        .getByLabelText(/drop an archive/i)
-        .querySelector('input[type="file"]');
+      const fileInput = screen.getByLabelText('Choose archive');
       const file = new File(['bad'], 'bad.zip', { type: 'application/zip' });
       await user.upload(fileInput! as HTMLElement, file);
 

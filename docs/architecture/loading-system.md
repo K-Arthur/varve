@@ -2,6 +2,11 @@
 
 This document establishes the official patterns for loading and perceived performance in Varve.
 
+The current implementation audit is recorded in
+[`docs/audits/loading-system-audit-2026-08-31.md`](../audits/loading-system-audit-2026-08-31.md).
+That audit is the migration checklist for existing surfaces; this document is the
+durable component and state contract.
+
 ## The Principle
 > **Loading UI should communicate unavoidable latency, not advertise architectural inefficiency.**
 
@@ -10,7 +15,7 @@ This document establishes the official patterns for loading and perceived perfor
 | Category | Duration | Pattern | Varve Implementation |
 | --- | --- | --- | --- |
 | **A. Near-Instant** | < 1s | No loader | Immediate transition / Optimistic UI |
-| **B. Brief Activity** | 1s – 3s | Indeterminate | `InlineActivityIndicator` / `RegionLoader` (debounced 300ms) |
+| **B. Brief Activity** | 1s – 3s | Indeterminate | `Spinner`, `LoadingLabel`, or `RegionLoader` (debounced 300ms) |
 | **C. Structured Data** | 1s – 5s | Skeleton | `ContentSkeleton` (matches final layout) |
 | **D. Long Task** | 3s – 10s | Determinate | `DeterminateProgress` (with actual data) |
 | **E. Background Task** | > 10s | Non-blocking | Status bar / Toast / Activity center |
@@ -112,22 +117,43 @@ When disabled, the app transitions directly to `home_ready` with no loader.
 - **Props:** `error`, `onRetry`, `ready`, `simplified`, `onExited`, `exitDuration`.
 - **Graceful degradation:** `simplified` prop hides chromatic-aberration layers. Set automatically when `checkStartupCapabilities().shouldSimplify` is true (reduced-motion OR GPU score < 0.4).
 
-### 2. InlineActivityIndicator
-- **Use:** Buttons, row-level refreshes, small panel updates.
-- **Visual:** 16px/20px spinner.
-- **Constraint:** Replace text only if button is icon-only; otherwise append to text.
+### 2. Spinner and LoadingLabel
+- **Use:** `Spinner` is the visual primitive for a known indeterminate operation. Use
+  `LoadingLabel` when concise task text should be visible and announced.
+- **Visual:** `xs` (12px), `sm` (16px), `md` (24px), or `lg` (32px). Use the smallest
+  size that establishes the loading hierarchy.
+- **Semantics:** A labelled standalone `Spinner` exposes an accessible name. A
+  `LoadingLabel` owns one polite, atomic status region and keeps its spinner decorative.
+- **Motion:** CSS/SVG only, `currentColor`, no timers, injected styles, or Motion
+  dependency. Reduced-motion mode renders a static arc.
+- **Compatibility:** `InlineActivityIndicator` remains as a size-compatible wrapper for
+  existing consumers; new code should choose `Spinner` or `LoadingLabel` directly.
 
-### 3. RegionLoader
+### 3. Button and IconButton activity
+- **Use:** Pass `loading` to a button or icon button when the action is pending.
+- **Behavior:** The shared controls set `aria-busy` immediately, prevent duplicate
+  activation, preserve focus, and keep the control's layout stable while the spinner is
+  visible. The visual spinner is delayed by 150ms so a fast response does not flash an
+  indicator; the operation itself is never delayed.
+- **Naming:** Provide `loadingLabel` when the pending action needs a more specific name;
+  otherwise the existing action label remains the accessible name.
+- **Constraint:** Loading is not a disabled/error state. The active control stays focusable
+  while repeat activation is guarded.
+
+### 4. RegionLoader
 - **Use:** Panel-level loading (e.g. Layers, Assets, model status).
 - **Behavior:** Debounce appearance by 300ms to avoid flicker.
-- **A11y:** `aria-busy="true"`.
+- **A11y:** `aria-busy="true"` on the region; the delayed `LoadingLabel` announces the
+  operation only when it survives the debounce.
+- **Constraint:** Keep the existing content visible but subdued while the region loads;
+  do not add blur filters or block unrelated application areas.
 
-### 4. DeterminateProgress
+### 5. DeterminateProgress
 - **Use:** Export, Import, Model Download.
 - **Requirement:** Must show real percentage/count; include "Cancel" if applicable.
 - **Avoid:** Fake progress bars.
 
-### 5. ContentSkeleton
+### 6. ContentSkeleton
 - **Use:** Placeholder shimmer for structured content (file grids, asset lists, sidebars).
 - **Variants:** `list` (rows), `grid` (matrix of cells), `card` (icon+title+desc), `inline` (text-sized).
 - **A11y:** `role="status"` with `aria-label`.
@@ -149,12 +175,20 @@ These are read once at mount and used to adjust the loader visual complexity.
 - **Fake Delays:** Never add artificial timers to "show off" animations.
 - **Blocking Overlays:** Do not block the whole app for a panel-local operation.
 - **Infinite Spinners:** Always have a timeout or explicit failure state.
-- **Ad-hoc loading text:** Use `InlineActivityIndicator`, `ContentSkeleton`, or `RegionLoader` instead of bare "Loading..." text.
+- **Ad-hoc loading text:** Use `LoadingLabel` for concise visible activity, `Spinner` when
+  surrounding copy already names the operation, `ContentSkeleton` for structured content,
+  or `RegionLoader` for a panel-scoped transition. Never leave a bare "Loading..." state
+  without an appropriate visual and semantic contract.
+- **Wrong progress model:** Do not use an indeterminate spinner for measurable downloads,
+  imports, exports, or indexing. Those surfaces must expose real progress and cancellation
+  where cancellation is supported.
+- **Stale activity:** Clear the spinner on success, failure, cancellation, and empty states;
+  pair failures with an actionable message or retry path.
 
 ## Design Tokens
 
 ### Motion
-- `--loader-spin-duration`: 0.8s (linear)
+- `--loader-spin-duration`: 0.8s (linear; shared `Spinner` fallback)
 - `--loader-fade-in`: 0.2s (ease-out)
 - `--loader-debounce`: 300ms
 - `--skeleton-shimmer-duration`: 1.5s (ease-in-out)

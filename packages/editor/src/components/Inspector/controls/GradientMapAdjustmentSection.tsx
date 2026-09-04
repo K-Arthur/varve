@@ -120,7 +120,7 @@ export function GradientMapAdjustmentSection({
           !(await confirmDialog(
             'Delete referenced preset',
             `${name} is used in this document. Delete it anyway? The document keeps its own embedded copy.`,
-            { confirmLabel: 'Delete', variant: 'danger' },
+            { confirmLabel: 'Delete', variant: 'destructive' },
           ))
         ) {
           return;

@@ -17,7 +17,7 @@ export function TrashSection({ files, onRestore, onPurge, onRefresh }: TrashSect
       await confirmDialog(
         'Empty trash',
         `Permanently delete all ${files.length} trashed files? This cannot be undone.`,
-        { confirmLabel: 'Delete permanently', variant: 'danger' },
+        { confirmLabel: 'Delete permanently', variant: 'destructive' },
       )
     ) {
       Promise.all(files.map((f) => onPurge(f.id))).then(onRefresh);
@@ -29,7 +29,7 @@ export function TrashSection({ files, onRestore, onPurge, onRefresh }: TrashSect
       <div className="trash-header">
         <h2 className="trash-header__title">Trash</h2>
         {files.length > 0 && (
-          <Button variant="danger" size="sm" onClick={handlePurgeAll}>
+          <Button variant="destructive" size="sm" onClick={handlePurgeAll}>
             <Icon name="Trash2" label={undefined} size="0.85em" />
             Empty Trash
           </Button>
@@ -49,14 +49,14 @@ export function TrashSection({ files, onRestore, onPurge, onRefresh }: TrashSect
                 Restore
               </Button>
               <Button
-                variant="danger"
+                variant="destructive"
                 size="sm"
                 onClick={async () => {
                   if (
                     await confirmDialog(
                       'Delete permanently',
                       `Permanently delete "${file.name}"? This cannot be undone.`,
-                      { confirmLabel: 'Delete', variant: 'danger' },
+                      { confirmLabel: 'Delete', variant: 'destructive' },
                     )
                   ) {
                     onPurge(file.id);

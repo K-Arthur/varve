@@ -19,11 +19,23 @@ import type { InspectorTab, IntelligenceTab } from '../../context/types';
 import { docVariableStore } from '../../docVariableStore';
 import { usePanelLocalState } from '../../workspace/panelLocalState';
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
-import { getDefaultInspectorTab, getVisibleInspectorTabs } from '../../workspace/workspaceTypes';
+import {
+  getDefaultInspectorTab,
+  getInspectorTabDefinition,
+  getVisibleInspectorTabConfigs,
+  type InspectorTabConfig,
+  TAB_GROUP_ORDER,
+} from '../../workspace/workspaceTypes';
 import { LayerStatesSection } from '../LayersPanel/LayerStatesSection';
 import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
+import { DisclosureSection } from './controls/DisclosureSection';
+import { InspectorContextHeader } from './InspectorContextHeader';
+import { InspectorTabBar } from './InspectorTabBar';
+import { deriveInspectorContext, type InspectorContext } from './inspectorContext';
+import { VariablesPanelDialog } from './panels/VariablesPanelDialog';
+import { describeSelectionRestrictions, type SelectionRestrictionNotice } from './restrictionState';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
 import { SelectionSourcesPanel } from './SelectionSourcesPanel';
 import {
@@ -37,7 +49,6 @@ import { AnimationSection } from './sections/AnimationSection';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { BooleanSection } from './sections/BooleanSection';
 import { ComponentSection } from './sections/ComponentSection';
-import { ConstraintSection } from './sections/ConstraintSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { FillSection } from './sections/FillSection';
 import { IconSection } from './sections/IconSection';
@@ -84,47 +95,47 @@ const EmailPanel = lazy(() =>
 
 type ExportSubTab = 'format' | 'code';
 
-const FALLBACK_TAB_LABELS: Record<InspectorTab, string> = {
-  properties: 'Properties',
-  appearance: 'Appearance',
-  adjustments: 'Adjustments',
-  prototype: 'Prototype',
-  export: 'Export',
-  audit: 'Audit',
-  fonts: 'Fonts',
-  email: 'Email',
-};
-
-const TAB_ORDER: InspectorTab[] = [
-  'properties',
-  'appearance',
-  'adjustments',
-  'prototype',
-  'export',
-  'audit',
-  'fonts',
-  'email',
-];
-
 export function PropertiesPanel() {
-  const { selectedNodes, state, platform } = useEditor();
+  const { selectedNodes, state, platform, toggleVariablesPanel } = useEditor();
   const { addPreset, updatePreset, removePreset, setShowExportDialog } = useEditor();
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
   const selNodes = selectedNodes();
   const summary = summarize(selNodes);
-  const hasLockedSelection = selNodes.some((node) => node.locked);
-  const hasHiddenSelection = selNodes.some((node) => node.visible === false);
+  const inspectorContext = useMemo(() => deriveInspectorContext(state), [state]);
+  const restrictionNotice = useMemo(
+    () =>
+      describeSelectionRestrictions(
+        inspectorContext.restrictions,
+        state.document,
+        inspectorContext.selectedNodeIds.length,
+      ),
+    [inspectorContext.restrictions, inspectorContext.selectedNodeIds.length, state.document],
+  );
   const configuredTabs = useMemo(
-    () => getVisibleInspectorTabs(state.workspaceMode, effectiveConfig) as InspectorTab[],
+    () => getVisibleInspectorTabConfigs(state.workspaceMode, effectiveConfig),
     [state.workspaceMode, effectiveConfig],
   );
   const [requestedTab, setRequestedTab] = useState<InspectorTab | null>(null);
-  const visibleTabs = useMemo(() => {
+  const visibleTabConfigs = useMemo((): InspectorTabConfig[] => {
     const tabs = [...configuredTabs];
     const isImageSelected = selNodes.length > 0 && selNodes.every(isImageShape);
     const isAdjustmentSelected = selNodes.length === 1 && selNodes[0]?.kind === 'adjustment';
     const isSingleNodeSelected = selNodes.length === 1;
-    const isTextSelected = selNodes.length === 1 && selNodes[0]?.kind === 'text';
+
+    const addContextualTab = (id: InspectorTab) => {
+      if (tabs.some((tabConfig) => tabConfig.id === id)) return;
+      const definition = getInspectorTabDefinition(id, effectiveConfig);
+      if (!definition) return;
+      const targetGroupIndex = TAB_GROUP_ORDER.indexOf(definition.group ?? 'workflow');
+      // Contextual tabs inherit their canonical group. Insert at the start of
+      // that group so an image-only Adjustments tab appears before Prototype,
+      // rather than jumping to the end after merged tabs are removed.
+      const firstLaterGroup = tabs.findIndex(
+        (tab) => TAB_GROUP_ORDER.indexOf(tab.group ?? 'workflow') >= targetGroupIndex,
+      );
+      const insertionIndex = firstLaterGroup >= 0 ? firstLaterGroup : tabs.length;
+      tabs.splice(insertionIndex, 0, { ...definition, visible: true });
+    };
 
     // Show Adjustments tab for any image-only selection: the image-editing
     // actions the selection quick bar offers in every workspace (Remove
@@ -132,36 +143,46 @@ export function PropertiesPanel() {
     // outside the Photo workspace made those actions unreachable — the review
     // region could never render and the bg-removal E2E suite went red.
     if (isAdjustmentSelected || isImageSelected) {
-      if (!tabs.includes('adjustments')) tabs.push('adjustments');
+      addContextualTab('adjustments');
     }
 
     // Prototype interactions may target any single scene node. Frames are the
     // screens, but child layers are real hit areas in the presenter.
-    if (tabs.includes('prototype')) {
+    if (tabs.some((tabConfig) => tabConfig.id === 'prototype')) {
       if (!isSingleNodeSelected && !state.prototypeMode) {
-        tabs.splice(tabs.indexOf('prototype'), 1);
+        const index = tabs.findIndex((tabConfig) => tabConfig.id === 'prototype');
+        if (index >= 0) tabs.splice(index, 1);
       }
     }
 
-    // Fonts tab: only when a text node is selected
-    if (tabs.includes('fonts')) {
-      if (!isTextSelected) {
-        tabs.splice(tabs.indexOf('fonts'), 1);
-      }
+    // Fonts tab is merged away: font discovery lives in the Browse-fonts
+    // dialog inside the Typography section. The legacy tab block remains for
+    // the openFontsPanel deep link.
+    if (requestedTab !== 'fonts') {
+      const index = tabs.findIndex((tabConfig) => tabConfig.id === 'fonts');
+      if (index >= 0) tabs.splice(index, 1);
+    }
+
+    // Appearance and Audit tabs are merged into the Design (properties) tab.
+    // Hide them from the tab bar — their content renders inline below.
+    for (const merged of ['appearance', 'audit'] as const) {
+      if (requestedTab === merged) continue;
+      const idx = tabs.findIndex((tabConfig) => tabConfig.id === merged);
+      if (idx >= 0) tabs.splice(idx, 1);
     }
 
     // Audit and Export tabs: always available but show a hint when nothing is selected
-    if (requestedTab && !tabs.includes(requestedTab)) tabs.push(requestedTab);
-    return tabs.sort((a, b) => TAB_ORDER.indexOf(a) - TAB_ORDER.indexOf(b));
-  }, [configuredTabs, requestedTab, selNodes, state.workspaceMode, state.prototypeMode]);
+    if (requestedTab && !tabs.some((tabConfig) => tabConfig.id === requestedTab)) {
+      addContextualTab(requestedTab);
+    }
+    return tabs;
+  }, [configuredTabs, effectiveConfig, requestedTab, selNodes, state.prototypeMode]);
 
   const [tab, setTab] = usePanelLocalState<InspectorTab>(
     'inspector',
     'activeTab',
     () => getDefaultInspectorTab(state.workspaceMode, effectiveConfig) as InspectorTab,
   );
-  const tabRefs = useRef(new Map<InspectorTab, HTMLButtonElement>());
-
   const [intelRequest, setIntelRequest] = useState<{ subTab?: IntelligenceTab; seq: number }>({
     seq: 0,
   });
@@ -216,76 +237,54 @@ export function PropertiesPanel() {
   }, []);
 
   useEffect(() => {
-    if (!visibleTabs.includes(tab)) {
+    if (!visibleTabConfigs.some((tabConfig) => tabConfig.id === tab)) {
       setTab(getDefaultInspectorTab(state.workspaceMode, effectiveConfig) as InspectorTab);
     }
-  }, [state.workspaceMode, effectiveConfig, tab, visibleTabs]);
+  }, [state.workspaceMode, effectiveConfig, tab, visibleTabConfigs]);
+
+  // Auto-switch to Adjustments tab when an adjustment layer is selected
+  // and the current tab is Properties (which shows nothing useful for adjustments).
+  const isAdjustmentOnly =
+    selNodes.length === 1 &&
+    selNodes[0]?.kind === 'adjustment' &&
+    visibleTabConfigs.some((tabConfig) => tabConfig.id === 'adjustments');
+  useEffect(() => {
+    if (isAdjustmentOnly && tab === 'properties') {
+      setTab('adjustments');
+    }
+  }, [isAdjustmentOnly, tab]);
 
   useEffect(() => {
     if (state.tool === 'inspect') setExportSubTab('code');
   }, [state.tool]);
 
-  const activateTab = (nextTab: InspectorTab, moveFocus = false) => {
-    if (configuredTabs.includes(nextTab)) setRequestedTab(null);
-    setTab(nextTab);
-    if (moveFocus) {
-      tabRefs.current.get(nextTab)?.focus();
-    }
-  };
-
-  const handleTabKeyDown = (event: React.KeyboardEvent, index: number) => {
-    const allTabs = visibleTabs;
-    if (allTabs.length === 0) return;
-    let next: InspectorTab | undefined;
-    if (event.key === 'ArrowRight') {
-      next = allTabs[(index + 1) % allTabs.length];
-    } else if (event.key === 'ArrowLeft') {
-      next = allTabs[(index - 1 + allTabs.length) % allTabs.length];
-    } else if (event.key === 'Home') {
-      next = allTabs[0];
-    } else if (event.key === 'End') {
-      next = allTabs[allTabs.length - 1];
-    }
-    if (next) {
-      event.preventDefault();
-      activateTab(next, true);
-    }
+  const activateTab = (nextTab: InspectorTabConfig['id']) => {
+    if (configuredTabs.some((tabConfig) => tabConfig.id === nextTab)) setRequestedTab(null);
+    setTab(nextTab as InspectorTab);
   };
 
   return (
-    <section className="editor-inspector" data-panel-root="inspector" aria-label="Inspector">
+    <section
+      className="editor-inspector"
+      data-panel-root="inspector"
+      data-inspector-context={inspectorContext.scope}
+      aria-label="Inspector"
+    >
+      <VariablesPanelDialog open={state.variablesPanelVisible} onClose={toggleVariablesPanel} />
       <PanelDragHandle
         panelTypeId="inspector"
         panelInstanceId="inspector-primary"
         currentWindowId="main"
         title="Inspector"
       >
-        <div className="insp-panel__tabs-row">
-          <div className="insp-panel__tabs" role="tablist" aria-label="Inspector tabs">
-            {visibleTabs.map((t) => (
-              <button
-                type="button"
-                key={t}
-                ref={(element) => {
-                  if (element) tabRefs.current.set(t, element);
-                  else tabRefs.current.delete(t);
-                }}
-                id={`insp-tab-${t}`}
-                role="tab"
-                className="insp-panel__tab"
-                aria-selected={tab === t}
-                aria-controls={`insp-tabpanel-${t}`}
-                tabIndex={tab === t ? 0 : -1}
-                onClick={() => activateTab(t)}
-                onKeyDown={(e) => handleTabKeyDown(e, visibleTabs.indexOf(t))}
-              >
-                {FALLBACK_TAB_LABELS[t]}
-              </button>
-            ))}
-          </div>
-          <PanelDetachButton />
-        </div>
+        <InspectorTabBar
+          tabs={visibleTabConfigs}
+          activeTab={tab}
+          onActivate={activateTab}
+          onDetach={<PanelDetachButton />}
+        />
       </PanelDragHandle>
+      <InspectorContextHeader context={inspectorContext} />
 
       {tab === 'properties' && (
         <div
@@ -298,31 +297,56 @@ export function PropertiesPanel() {
             <SectionManagerTrigger />
           </div>
           <SelectionSourcesPanel />
-          <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
-            {summary.kind === 'empty' && <EmptySelectionState />}
+          <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'properties'}>
+            {summary.kind === 'empty' && <EmptySelectionState context={inspectorContext} />}
             {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
             {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
           </SelectionLockGuard>
+          {/* Merged from the Appearance and Audit tabs. Both panels are lazy,
+              so they must render inside a Suspense boundary — at HEAD they
+              only ever mounted inside LazyTabPanel. Hidden on empty selection:
+              the DocumentPanel above is the empty-selection surface. */}
+          <Suspense fallback={null}>
+            {summary.kind !== 'empty' && (
+              <SelectionLockGuard restriction={restrictionNotice}>
+                <AppearancePanel />
+              </SelectionLockGuard>
+            )}
+            {/* Merged from the Audit tab. Unlike the appearance surfaces,
+                intelligence is a document-level analysis reachable with no
+                selection (audit page/document menu actions), so it renders
+                regardless of selection, collapsed by default. Deep-link
+                requests (openAuditPanel) still reach IntelligencePanel
+                through the request prop. */}
+            <SelectionLockGuard restriction={restrictionNotice}>
+              <DisclosureSection title="Insights" defaultExpanded={false}>
+                <AuditPanel request={intelRequest} />
+              </DisclosureSection>
+            </SelectionLockGuard>
+          </Suspense>
         </div>
       )}
 
+      {/* Legacy appearance tab — content is merged into the Design tab; this
+          block remains so stored preferences and deep links that request the
+          appearance tab still render correctly. */}
       {tab === 'appearance' && (
-        <LazyTabPanel tab={tab}>
-          <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
+        <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
+          <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'appearance'}>
             <AppearancePanel />
           </SelectionLockGuard>
         </LazyTabPanel>
       )}
       {tab === 'adjustments' && (
-        <LazyTabPanel tab={tab}>
-          <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
+        <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
+          <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'adjustments'}>
             <AdjustmentsPanel />
           </SelectionLockGuard>
         </LazyTabPanel>
       )}
       {tab === 'prototype' && (
-        <LazyTabPanel tab={tab}>
-          <SelectionLockGuard locked={hasLockedSelection} hidden={hasHiddenSelection}>
+        <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
+          <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'prototype'}>
             <PrototypePanel />
           </SelectionLockGuard>
         </LazyTabPanel>
@@ -399,17 +423,17 @@ export function PropertiesPanel() {
         </div>
       )}
       {tab === 'audit' && (
-        <LazyTabPanel tab={tab}>
+        <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
           <AuditPanel request={intelRequest} />
         </LazyTabPanel>
       )}
       {tab === 'fonts' && (
-        <LazyTabPanel tab={tab}>
+        <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
           <FontBrowserPanel onSelect={() => {}} />
         </LazyTabPanel>
       )}
       {tab === 'email' && (
-        <LazyTabPanel tab={tab}>
+        <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
           <EmailPanel />
         </LazyTabPanel>
       )}
@@ -417,7 +441,16 @@ export function PropertiesPanel() {
   );
 }
 
-function LazyTabPanel({ tab, children }: { tab: InspectorTab; children: React.ReactNode }) {
+function LazyTabPanel({
+  tab,
+  label,
+  children,
+}: {
+  tab: InspectorTab;
+  label?: string;
+  children: React.ReactNode;
+}) {
+  const tabLabel = label ?? tab;
   return (
     <div
       className="insp-panel"
@@ -428,7 +461,7 @@ function LazyTabPanel({ tab, children }: { tab: InspectorTab; children: React.Re
       <Suspense
         fallback={
           <p className="insp-panel__empty-hint" role="status">
-            Loading {FALLBACK_TAB_LABELS[tab].toLowerCase()}…
+            Loading {tabLabel.toLowerCase()}…
           </p>
         }
       >
@@ -439,29 +472,36 @@ function LazyTabPanel({ tab, children }: { tab: InspectorTab; children: React.Re
 }
 
 function SelectionLockGuard({
-  locked,
-  hidden,
+  restriction,
+  showNotice = false,
   children,
 }: {
-  locked: boolean;
-  hidden: boolean;
+  restriction: SelectionRestrictionNotice;
+  showNotice?: boolean;
   children: React.ReactNode;
 }) {
+  const lockMessage = restriction.hasPartialLock
+    ? `${restriction.lockedCount} of ${restriction.totalCount} selected layers are locked. Inspector editing is disabled until all selected layers are unlocked.`
+    : `Selection is locked${restriction.lockSourceLabel ? ` by ${restriction.lockSourceLabel}` : ''}. Unlock it in Layers to edit these controls.`;
+  const hiddenMessage = restriction.hasPartialHidden
+    ? `${restriction.hiddenCount} of ${restriction.totalCount} selected layers are hidden${restriction.visibilitySourceLabel ? ` by ${restriction.visibilitySourceLabel}` : ''}. Changes apply, but canvas feedback is unavailable until they are shown.`
+    : `Selection is hidden${restriction.visibilitySourceLabel ? ` by ${restriction.visibilitySourceLabel}` : ''}. Changes apply, but canvas feedback is unavailable until it is shown.`;
   return (
     <>
-      {locked && (
-        <p className="insp-panel__empty-hint" role="status">
-          Selection is locked. Unlock it in Layers to edit these controls.
+      {showNotice && restriction.locked && (
+        <p className="insp-panel__restriction" role="status" aria-live="polite">
+          {lockMessage}
         </p>
       )}
-      {!locked && hidden && (
-        <p className="insp-panel__empty-hint" role="status">
-          Selection is hidden. Changes apply, but canvas feedback is unavailable until it is shown.
+      {showNotice && restriction.hidden && (
+        <p className="insp-panel__restriction" role="status" aria-live="polite">
+          {hiddenMessage}
         </p>
       )}
       <div
-        aria-disabled={locked || undefined}
-        {...(locked ? ({ inert: true } as Record<string, unknown>) : {})}
+        aria-disabled={restriction.locked || undefined}
+        data-inspector-restriction={restriction.locked ? 'locked' : undefined}
+        {...(restriction.locked ? ({ inert: true } as Record<string, unknown>) : {})}
       >
         {children}
       </div>
@@ -469,7 +509,15 @@ function SelectionLockGuard({
   );
 }
 
-function EmptySelectionState() {
+function EmptySelectionState({ context }: { context: InspectorContext }) {
+  const showsDocumentSettings =
+    context.scope === 'document' || context.scope === 'canvas' || context.scope === 'page';
+  const scopeDescription =
+    context.scope === 'tool'
+      ? `Inspecting ${context.target.label}. Tool controls stay with the active tool. Select a layer to return to object properties.`
+      : context.scope === 'pixel-selection'
+        ? `Inspecting ${context.target.label}. Select a layer to return to object properties.`
+        : `Inspecting ${context.target.label} settings. Select a layer to edit its properties.`;
   return (
     <div className="insp-panel__empty">
       <EmptyState
@@ -498,17 +546,25 @@ function EmptySelectionState() {
           </svg>
         }
         headline="No selection"
-        description="Select a layer to edit its properties"
+        description={scopeDescription}
       />
-      <Suspense
-        fallback={
-          <p className="insp-panel__empty-hint" role="status">
-            Loading document settings…
-          </p>
-        }
-      >
-        <DocumentPanel />
-      </Suspense>
+      {showsDocumentSettings ? (
+        <Suspense
+          fallback={
+            <p className="insp-panel__empty-hint" role="status">
+              Loading document settings…
+            </p>
+          }
+        >
+          <DocumentPanel />
+        </Suspense>
+      ) : (
+        <p className="insp-panel__empty-hint" role="status">
+          {context.scope === 'tool'
+            ? 'Open the active tool controls to adjust its options.'
+            : 'Choose a layer or return to the originating workflow to continue.'}
+        </p>
+      )}
     </div>
   );
 }
@@ -567,7 +623,6 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       add('mockups', <MockupsSection node={node as import('@varve/scene').FrameNode} />);
     }
     add('position-size', <PositionSizeSection nodes={nodes} />);
-    add('constraints', <ConstraintSection nodes={nodes} />);
     if (!isFrame) add('layout-child', <LayoutChildSection nodes={nodes} />);
     if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} />);
     if (isFrame) add('layout', <LayoutSection node={node as import('@varve/scene').FrameNode} />);

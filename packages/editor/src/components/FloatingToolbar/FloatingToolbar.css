@@ -30,7 +30,7 @@
   gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
   background: var(--elevation-surface-raised);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   border: 1px solid var(--color-border-subtle);
   box-shadow: var(--shadow-lg);
   pointer-events: auto;
@@ -41,6 +41,41 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* Keep the option and touch actions outside the scrollable tool row. When the
+ * canvas is narrowed by side panels, those actions must remain visible so a
+ * portal can never mistake their clipped trigger for a detached anchor. */
+.floating-toolbar__row {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-floating);
+  background: var(--elevation-surface-raised);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+}
+
+.floating-toolbar__row [role="toolbar"] {
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.floating-toolbar__actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-left: 1px solid var(--color-border-subtle);
+  background: var(--elevation-surface-raised);
+}
+
 .floating-toolbar__btn {
   display: flex;
   align-items: center;
@@ -49,15 +84,24 @@
   height: 32px;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   cursor: pointer;
   flex: 0 0 auto;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 .floating-toolbar__btn:hover {
-  background: var(--color-surface-sunken);
+  background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
+}
+.floating-toolbar__btn:active:not(:disabled):not([aria-disabled="true"]):not(
+  .floating-toolbar__btn--active
+) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
 }
 .floating-toolbar__btn:focus-visible,
 .floating-toolbar__chevron:focus-visible {
@@ -66,11 +110,16 @@
 }
 
 .floating-toolbar__btn--active {
-  background: var(--color-interactive-default);
+  background: var(--color-interactive-checked-surface);
   color: var(--color-text-on-accent);
 }
 .floating-toolbar__btn--active:hover {
   background: var(--color-interactive-hover);
+  color: var(--color-text-on-accent);
+}
+.floating-toolbar__btn--active:active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
 }
 
 .floating-toolbar__btn:disabled,
@@ -93,12 +142,15 @@
   height: 32px;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
   margin-right: var(--space-1);
   flex: 0 0 auto;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 /* L2 (2026-08-10): at <=640px the 19-tool row is wider than the viewport
@@ -118,7 +170,12 @@
 }
 
 .floating-toolbar__chevron:hover {
+  background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
+}
+.floating-toolbar__chevron:active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
 }
 
 [data-theme="high-contrast"] .floating-toolbar [role="toolbar"] {
@@ -133,15 +190,17 @@
 }
 
 .floating-toolbar__touch-multi:hover {
-  color: var(--color-interactive-hover);
+  background: var(--color-interactive-hover-surface);
+  color: var(--color-text-primary);
 }
 
 .floating-toolbar__touch-multi--active {
-  color: var(--color-accent-on-subtle);
-  background: var(--color-accent-subtle);
+  color: var(--color-text-on-accent);
+  background: var(--color-interactive-checked-surface);
 }
 .floating-toolbar__touch-multi--active:hover {
-  background: var(--color-surface-hover);
+  background: var(--color-interactive-hover);
+  color: var(--color-text-on-accent);
 }
 
 /* ─── Drawing mode controls (brush size / opacity / colors) ─── */
@@ -152,7 +211,7 @@
   margin-top: var(--space-1);
   padding: var(--space-2) var(--space-3);
   background: var(--elevation-surface-raised);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   border: 1px solid var(--color-border-subtle);
   box-shadow: var(--shadow-lg);
   pointer-events: auto;
@@ -173,7 +232,7 @@
 .floating-toolbar__drawing-slider:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 .floating-toolbar__colors {
   display: flex;
@@ -203,16 +262,62 @@
   height: 24px;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 .floating-toolbar__color-swap:hover {
   color: var(--color-text-primary);
-  background: var(--color-surface-sunken);
+  background: var(--color-interactive-hover-surface);
+}
+.floating-toolbar__color-swap:active:not(:disabled):not([aria-disabled="true"]) {
+  color: var(--color-text-on-accent);
+  background: var(--color-interactive-pressed-surface);
 }
 .floating-toolbar__color-swap:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .floating-toolbar__btn {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+  }
+  .floating-toolbar__btn:hover {
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+  .floating-toolbar__btn--active:hover {
+    background: var(--color-interactive-checked-surface);
+    color: var(--color-text-on-accent);
+  }
+  .floating-toolbar__chevron {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+  }
+  .floating-toolbar__chevron:hover {
+    background: transparent;
+    color: var(--color-text-muted);
+  }
+  .floating-toolbar__touch-multi:hover {
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+  .floating-toolbar__touch-multi--active:hover {
+    background: var(--color-interactive-checked-surface);
+    color: var(--color-text-on-accent);
+  }
+  .floating-toolbar__color-swap {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+  }
+  .floating-toolbar__color-swap:hover {
+    background: transparent;
+    color: var(--color-text-muted);
+  }
 }

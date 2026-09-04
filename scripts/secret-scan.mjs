@@ -57,6 +57,7 @@
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 
@@ -246,7 +247,7 @@ function isBinaryPath(path) {
   return BINARY_EXT.has(ext);
 }
 
-function shouldSkip(path) {
+export function shouldSkip(path) {
   if (isBinaryPath(path)) return true;
   if (ALLOWLISTED_PATHS.has(path)) return true;
   for (const re of SKIP_PATH) {
@@ -260,7 +261,7 @@ function redact(match) {
   return `${match.slice(0, 4)}<redacted>${match.slice(-4)}`;
 }
 
-function scanText(text, path, findings) {
+export function scanText(text, path, findings) {
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
@@ -441,4 +442,8 @@ function main() {
   }
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
+
+export { BINARY_EXT, isBinaryPath, MAX_TEXT_BYTES, RULES };

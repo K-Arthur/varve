@@ -286,7 +286,7 @@ export const SHORTCUT_DEFS = {
   toolSlice: { binding: { key: 'k' }, label: 'Export Region tool', category: 'Tools' },
   toolKnife: { binding: { key: 'n' }, label: 'Knife tool', category: 'Tools' },
   toolCloneStamp: { binding: { key: 'j' }, label: 'Clone Stamp tool', category: 'Tools' },
-  toolSam2Segment: { binding: { key: 'm' }, label: 'Select Subject tool', category: 'Tools' },
+  toolSam2Segment: { binding: { key: 'm' }, label: 'Object Selection tool', category: 'Tools' },
   toolMagicWand: {
     binding: { key: 'w', shift: true },
     label: 'Magic Wand tool',

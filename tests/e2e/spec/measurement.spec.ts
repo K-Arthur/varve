@@ -67,8 +67,8 @@ test.describe('Spec Panel Measurement', () => {
     await getCanvas(page).click({ position: { x: 200, y: 200 }, force: true });
     await page.waitForTimeout(300);
 
-    // The unified Inspector exposes the same geometry through Position & Size.
-    const layoutSection = page.getByRole('button', { name: 'Position & Size' });
+    // The unified Inspector exposes the same geometry through Layout (ADR-0230).
+    const layoutSection = page.getByRole('button', { name: 'Layout' });
     await expect(layoutSection).toBeVisible({ timeout: 5000 });
     await expect(page.getByLabel('W (px)')).toBeVisible();
     await expect(page.getByLabel('H (px)')).toBeVisible();

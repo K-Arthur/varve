@@ -105,3 +105,17 @@ describe('FileCard rename', () => {
     expect(onStartRename).toHaveBeenCalledWith('f1');
   });
 });
+
+describe('FileCard sorting affordance', () => {
+  it('keeps the card body clickable while exposing a dedicated sortable handle', () => {
+    const entry = makeEntry({ id: 'f2', name: 'Sortable card' });
+    renderCard({ entry, onToggleFavorite: vi.fn() });
+
+    const card = screen.getByRole('gridcell');
+    expect(card).not.toHaveAttribute('draggable');
+    expect(
+      screen.getByRole('button', { name: 'Drag Sortable card to reorder' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add to Favorites' })).toBeInTheDocument();
+  });
+});

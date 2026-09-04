@@ -4,6 +4,11 @@
  * Shows two axis selectors (horizontal, vertical) for children of frames.
  * Only renders when a node with a valid frame parent is selected.
  *
+ * As of ADR-0230 the constraint controls are embedded inside
+ * PositionSizeSection's "Layout" disclosure. This module exports two things:
+ * - ConstraintControls: the headless controls (no DisclosureSection wrapper)
+ * - ConstraintSection: the legacy standalone wrapper (kept for unit-test compat)
+ *
  * Research basis: Figma Constraints dropdown, APG Combobox pattern.
  */
 import type { ConstraintAxis, Constraints, SceneNode } from '@varve/scene';
@@ -34,7 +39,11 @@ interface ConstraintSectionProps {
   nodes: SceneNode[];
 }
 
-export function ConstraintSection({ nodes }: ConstraintSectionProps) {
+/**
+ * Headless constraint controls — no DisclosureSection wrapper.
+ * Used by PositionSizeSection inside the merged "Layout" disclosure (ADR-0230).
+ */
+export function ConstraintControls({ nodes }: ConstraintSectionProps) {
   const { state, setSelectedConstraint } = useEditor();
   const doc = state.document;
 
@@ -92,45 +101,55 @@ export function ConstraintSection({ nodes }: ConstraintSectionProps) {
   if (!hasFrameParent) return null;
 
   return (
-    <DisclosureSection title="Constraints" sectionId="constraints">
-      <div className="insp-field-group">
-        <div className="insp-field">
-          <span className="insp-field__label">Horizontal</span>
-          <div className="insp-field__control">
-            <Select
-              label="Horizontal constraint"
-              options={HORIZONTAL_OPTIONS}
-              value={mixed ? '' : (currentConstraint?.horizontal ?? 'min')}
-              onChange={handleHorizontalChange}
-            />
-          </div>
-        </div>
-        <div className="insp-field">
-          <span className="insp-field__label">Vertical</span>
-          <div className="insp-field__control">
-            <Select
-              label="Vertical constraint"
-              options={VERTICAL_OPTIONS}
-              value={mixed ? '' : (currentConstraint?.vertical ?? 'min')}
-              onChange={handleVerticalChange}
-            />
-          </div>
-        </div>
-        <div className="insp-field">
-          <span className="insp-field__label">Visual editor</span>
-          <div className="insp-field__control insp-constraint__editor-wrap">
-            {currentConstraint ? (
-              <ConstraintPinControl
-                horizontal={currentConstraint.horizontal}
-                vertical={currentConstraint.vertical}
-                onChange={handleVisualEditorChange}
-              />
-            ) : (
-              <span className="insp-field__mixed">Mixed</span>
-            )}
-          </div>
+    <div className="insp-field-group">
+      <div className="insp-field">
+        <span className="insp-field__label">Horizontal</span>
+        <div className="insp-field__control">
+          <Select
+            label="Horizontal constraint"
+            options={HORIZONTAL_OPTIONS}
+            value={mixed ? '' : (currentConstraint?.horizontal ?? 'min')}
+            onChange={handleHorizontalChange}
+          />
         </div>
       </div>
+      <div className="insp-field">
+        <span className="insp-field__label">Vertical</span>
+        <div className="insp-field__control">
+          <Select
+            label="Vertical constraint"
+            options={VERTICAL_OPTIONS}
+            value={mixed ? '' : (currentConstraint?.vertical ?? 'min')}
+            onChange={handleVerticalChange}
+          />
+        </div>
+      </div>
+      <div className="insp-field">
+        <span className="insp-field__label">Visual editor</span>
+        <div className="insp-field__control insp-constraint__editor-wrap">
+          {currentConstraint ? (
+            <ConstraintPinControl
+              horizontal={currentConstraint.horizontal}
+              vertical={currentConstraint.vertical}
+              onChange={handleVisualEditorChange}
+            />
+          ) : (
+            <span className="insp-field__mixed">Mixed</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Legacy standalone wrapper — kept for unit-test backward compatibility.
+ * In the merged Inspector, constraint controls render inside PositionSizeSection.
+ */
+export function ConstraintSection({ nodes }: ConstraintSectionProps) {
+  return (
+    <DisclosureSection title="Constraints" sectionId="position-size">
+      <ConstraintControls nodes={nodes} />
     </DisclosureSection>
   );
 }

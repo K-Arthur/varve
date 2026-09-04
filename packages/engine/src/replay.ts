@@ -60,7 +60,7 @@ import {
   createGradientStyle,
   paintTiledGradientFill,
 } from './replayGradient';
-import type { ReplayGradient, ReplayPattern, ReplayTarget } from './replayTypes';
+import type { ReplayTarget } from './replayTypes';
 import { layoutRichTextSnapshot } from './richTextLayout';
 import {
   itemNeedsAlphaShadow,

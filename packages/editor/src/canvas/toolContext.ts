@@ -451,6 +451,8 @@ export function buildToolContext(
     },
     applySam2Segmentation: (params) => e.applySam2Segmentation(params),
     cancelSam2Segmentation: () => e.cancelSam2Segmentation(),
+    objectSelectionSession: s.objectSelectionSession,
+    patchEditorState: (partial) => e.patch(partial),
     commitRasterMask: (nodeId, dataUrl, width, height, coordinateSpace) => {
       import('../backgroundRemoval/commitRasterMask').then(({ commitRasterMask }) => {
         e.updateDoc((doc) =>

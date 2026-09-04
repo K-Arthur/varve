@@ -7,6 +7,7 @@ import {
   useId,
   useRef,
 } from 'react';
+import { Button } from './Button';
 import { useNestedOverlayRef } from './NestedOverlayContext';
 
 // A consumer opts out of the internal dismissal behavior by calling
@@ -180,7 +181,7 @@ export interface AlertDialogProps {
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  variant?: 'danger' | 'primary';
+  variant?: 'destructive' | 'default';
 }
 
 export function AlertDialog({
@@ -191,7 +192,7 @@ export function AlertDialog({
   description,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
-  variant = 'primary',
+  variant = 'default',
 }: AlertDialogProps) {
   const descriptionId = useId();
   return (
@@ -213,12 +214,11 @@ export function AlertDialog({
         {description}
       </p>
       <div className="varve-dialog__actions">
-        <button type="button" className="varve-btn varve-btn--ghost" onClick={onClose}>
+        <Button variant="ghost" onClick={onClose}>
           {cancelLabel}
-        </button>
-        <button
-          type="button"
-          className={`varve-btn varve-btn--${variant}`}
+        </Button>
+        <Button
+          variant={variant}
           onClick={() => {
             try {
               onConfirm();
@@ -228,7 +228,7 @@ export function AlertDialog({
           }}
         >
           {confirmLabel}
-        </button>
+        </Button>
       </div>
     </Dialog>
   );

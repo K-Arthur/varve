@@ -28,7 +28,7 @@
   color: var(--color-text-muted);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: pointer;
 }
 
@@ -61,7 +61,7 @@
   color: var(--color-text-primary);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: pointer;
   text-align: left;
 }
@@ -90,7 +90,7 @@
   color: var(--color-text-primary);
   background: var(--elevation-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .selection-sets__actions {
@@ -115,7 +115,7 @@
   color: var(--color-text-muted);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: pointer;
 }
 

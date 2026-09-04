@@ -1,5 +1,11 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Locator, type TestInfo, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
+
+async function attachShineVisual(testInfo: TestInfo, locator: Locator, name: string) {
+  const screenshotPath = testInfo.outputPath(`${name}.png`);
+  await locator.screenshot({ path: screenshotPath, animations: 'allow' });
+  await testInfo.attach(name, { path: screenshotPath, contentType: 'image/png' });
+}
 
 /**
  * Export workspace — batch dialog surfaces (Strata export rebuild, M9).
@@ -94,7 +100,7 @@ test.describe('Export workspace — batch dialog surfaces', () => {
     await expect(dialog.locator('.batch-job-row__dims').first()).toContainText('300 PPI');
   });
 
-  test('batch export reports per-file results', async ({ page }) => {
+  test('batch export reports per-file results', async ({ page }, testInfo) => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
@@ -103,9 +109,55 @@ test.describe('Export workspace — batch dialog surfaces', () => {
     await openAdvancedExport(page);
 
     await page.getByRole('button', { name: /^Export \(/i }).click();
-    await expect(page.getByRole('region', { name: 'Export results' })).toBeVisible({
+    const results = page.getByRole('region', { name: 'Export results' });
+    await expect(results).toBeVisible({
       timeout: 20000,
     });
+    await expect(results).toHaveClass(/varve-shine-border--beam/);
+    await expect(results).toHaveClass(/varve-shine-border--tone-success/);
+    await expect(results).toHaveClass(/varve-shine-border--active/);
+    const resultsBoxBefore = await results.boundingBox();
+    const resultsSizeBefore = {
+      width: resultsBoxBefore?.width,
+      height: resultsBoxBefore?.height,
+    };
+    await results.evaluate((element) => element.classList.remove('varve-shine-border--active'));
+    await attachShineVisual(testInfo, results, 'export-results-before-shine');
+    await results.evaluate((element) => {
+      element.classList.add('varve-shine-border--active');
+      getComputedStyle(element, '::after').animationName;
+    });
+    await expect
+      .poll(() => results.evaluate((element) => element.getAnimations({ subtree: true }).length))
+      .toBe(1);
+    await results.evaluate((element) => {
+      const animation = element.getAnimations({ subtree: true })[0];
+      if (!animation) throw new Error('Expected the export success shine animation');
+      animation.pause();
+      animation.currentTime = 288;
+    });
+    await attachShineVisual(testInfo, results, 'export-results-shine-brightest');
+    const shineState = await results.evaluate((element) => {
+      const animation = element.getAnimations({ subtree: true })[0];
+      if (!animation) return null;
+      animation.currentTime = 800;
+      const decoration = getComputedStyle(element, '::after');
+      return {
+        animationName: decoration.animationName,
+        iterationCount: decoration.animationIterationCount,
+        pointerEvents: decoration.pointerEvents,
+      };
+    });
+    expect(shineState).toEqual({
+      animationName: 'varve-shine-border-once',
+      iterationCount: '1',
+      pointerEvents: 'none',
+    });
+    await attachShineVisual(testInfo, results, 'export-results-success-shine');
+    const resultsBoxAfter = await results.boundingBox();
+    expect({ width: resultsBoxAfter?.width, height: resultsBoxAfter?.height }).toEqual(
+      resultsSizeBefore,
+    );
     await expect(page.getByText(/\d of \d exported/i)).toBeVisible();
   });
 });

@@ -47,6 +47,22 @@ const figmaImportFaq = {
       </p>
 
       <section class="docs-section">
+        <h2>Open, import, place, and install</h2>
+        <p>
+          Varve uses precise actions for local files. <strong>Open</strong> makes a Varve document the active document. <strong>Import</strong> converts artwork into the active document. <strong>Place</strong> positions an image or reference on the canvas. <strong>Install</strong> adds a reusable resource such as an icon pack or brush. These core actions read local files; they do not require an account or a file upload.
+        </p>
+        <ul>
+          <li><strong>Desktop:</strong> native file dialogs and operating-system drops preserve the path boundary where a path is needed.</li>
+          <li><strong>Browser:</strong> file pickers and canvas drops use browser file APIs and keep the working copy in local browser storage.</li>
+          <li><strong>Drag and drop:</strong> empty, oversized, unsupported, or over-limit selections are reported before format-specific parsing.</li>
+          <li><strong>Batch selection:</strong> files stay in selection order, duplicate names are allowed, and one failed file does not discard successful files.</li>
+        </ul>
+        <p>
+          “Upload” is reserved for an explicit, consented remote service such as diagnostic reporting. It is not the mechanism used by core document or artwork import.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Native Format: .varve</h2>
         <p>
           The Varve native file format (<code>.varve</code>) is a JSON-based document that stores the complete design state. Each file contains:
@@ -259,7 +275,7 @@ const figmaImportFaq = {
   .docs-section code:not(.code-block) {
     background: var(--surface-muted);
     padding: 0.125rem 0.375rem;
-    border-radius: 0.25rem;
+    border-radius: var(--website-radius-control-compact);
     font-family: monospace;
     font-size: 0.875rem;
   }

@@ -1,10 +1,12 @@
 # Varve — Update and Release Channel Strategy
 
-**Date:** 2026-08-03
-**Current state:** the repository audit found no updater configured before the
-2026-08-13 implementation. The implementation is being introduced behind the
-consent, package-authority, release-signing, and acceptance-test gates recorded
-in [the update-system audit](../architecture/update-system-audit-2026-08-13.md).
+**Decision record date:** 2026-08-03
+**Current state:** updater infrastructure is implemented behind the consent,
+package-authority, release-signing, and acceptance-test gates recorded in [the
+update-system audit](../architecture/update-system-audit-2026-08-13.md). The
+current published beta remains an explicitly unsigned/manual-download release
+for platform installers; updater availability is independently derived from
+the published feed and build mode.
 
 ---
 
@@ -167,8 +169,8 @@ Channels derive from the tag shape, which `release.yml` already implements:
 
 | Channel | Tag | Prerelease | Audience |
 |---|---|---|---|
-| `stable` | `v0.2.1` | no | Everyone |
-| `beta` | `v0.2.0-beta.1` | yes | Opt-in testers |
+| `stable` | `vX.Y.Z` | no | Everyone |
+| `beta` | `vX.Y.Z-beta.1` | yes | Opt-in testers |
 | `nightly` | not tagged | n/a | Built on demand; never auto-updated |
 
 **Channels must never cross.** The rule that prevents it: a client on channel X

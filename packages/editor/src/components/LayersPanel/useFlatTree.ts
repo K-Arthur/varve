@@ -28,6 +28,12 @@ export interface FlatEntry {
   node: SceneNode;
   depth: number;
   parentId: NodeId | null;
+  /**
+   * Whether this node's children are present in the current projection.
+   * Search and attribute filters temporarily reveal matching descendants
+   * without changing the user's persisted expansion set.
+   */
+  childrenVisible?: boolean;
   /** 1-based position among the rendered logical siblings. */
   siblingIndex?: number;
   /** Number of rendered logical siblings for this row. */
@@ -208,6 +214,9 @@ function propsAffectFilter(
       const currM = 'mask' in curr ? ((curr as { mask?: unknown }).mask ?? null) : null;
       if ((prevM != null) !== (currM != null)) return true;
     }
+    if (filterSpec.attributes.layerColor !== undefined && prev.layerColor !== curr.layerColor) {
+      return true;
+    }
     if (filterSpec.search && prev.name !== curr.name) return true;
   }
 
@@ -281,6 +290,7 @@ export function flattenTree(
       const isMasked = hasMask(node);
       if (isMasked !== attr.isMasked) return false;
     }
+    if (attr.layerColor !== undefined && node.layerColor !== attr.layerColor) return false;
 
     if (spec.blendModes.length > 0) {
       if (!spec.blendModes.includes(node.blendMode!)) return false;
@@ -301,10 +311,17 @@ export function flattenTree(
       if (!nid) continue;
       const node = doc.nodes[nid];
       if (!node) continue;
-      if (parentId && !expanded.has(parentId)) continue;
+      // A filtered view is a temporary projection, not a mutation of the
+      // user's expansion state. Walk collapsed branches so a matching
+      // descendant can be revealed with its ancestry; the unfiltered tree
+      // retains ordinary disclosure semantics.
+      if (parentId && !expanded.has(parentId) && !filtering) continue;
 
-      const hasChildren = isContainer(node) && node.children.length > 0 && expanded.has(nid);
+      const hasChildren =
+        isContainer(node) && node.children.length > 0 && (expanded.has(nid) || filtering);
       const childEntries = hasChildren ? walk(nid, node.children, depth + 1) : [];
+      const childrenVisible =
+        isContainer(node) && (expanded.has(nid) || (filtering && childEntries.length > 0));
 
       // The isolation-mode root is pinned: it's the anchor/breadcrumb target
       // for the whole view, so it stays visible even when it doesn't itself
@@ -323,10 +340,10 @@ export function flattenTree(
       const hasMatchingChildren = childEntries.length > 0;
 
       if (!filtering) {
-        entries.push({ node, depth, parentId });
+        entries.push({ node, depth, parentId, childrenVisible });
         entries.push(...childEntries);
       } else if (nodeMatches || hasMatchingChildren) {
-        entries.push({ node, depth, parentId });
+        entries.push({ node, depth, parentId, childrenVisible });
         entries.push(...childEntries);
       }
     }

@@ -32,7 +32,7 @@
 .archive-dialog__tab:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 /* ── Sections ─────────────────────────────────────────────────────── */
@@ -71,7 +71,7 @@
   padding: var(--space-3);
   background: var(--color-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-sm);
@@ -122,7 +122,7 @@
   padding: var(--space-2);
   background: var(--color-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   cursor: pointer;
@@ -159,7 +159,7 @@
   padding: var(--space-3);
   background: var(--color-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
 }
 
 .archive-dialog__password-row {
@@ -185,7 +185,7 @@
   padding: var(--space-1) var(--space-2);
   background: var(--color-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-sm);
@@ -206,7 +206,7 @@
   padding: 0;
   background: none;
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
   flex-shrink: 0;
@@ -233,13 +233,13 @@
   flex: 1;
   height: 4px;
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius-pill);
   overflow: hidden;
 }
 
 .archive-dialog__strength-fill {
   height: 100%;
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius-pill);
   transition:
     width var(--duration-fast) var(--ease-default),
     background var(--duration-fast) var(--ease-default);
@@ -283,20 +283,6 @@
 
 /* ── Encryption toggle ────────────────────────────────────────────── */
 
-.archive-dialog__encryption-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  cursor: pointer;
-}
-
-.archive-dialog__encryption-toggle input[type="checkbox"] {
-  accent-color: var(--color-interactive-default);
-}
-
 /* ── Destination display ──────────────────────────────────────────── */
 
 .archive-dialog__destination {
@@ -306,7 +292,7 @@
   padding: var(--space-2) var(--space-3);
   background: var(--color-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
@@ -319,7 +305,7 @@
   padding: var(--space-3);
   background: var(--color-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
 }
 
 .archive-dialog__progress-phase {
@@ -332,14 +318,14 @@
 .archive-dialog__progress-bar {
   height: 6px;
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius-pill);
   overflow: hidden;
 }
 
 .archive-dialog__progress-fill {
   height: 100%;
   background: var(--color-interactive-default);
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius-pill);
   transition: width var(--duration-base) var(--ease-out);
 }
 
@@ -359,7 +345,7 @@
   margin-top: var(--space-3);
   background: color-mix(in oklch, var(--color-feedback-danger) 10%, var(--color-surface-default));
   border: 1px solid color-mix(in oklch, var(--color-feedback-danger) 30%, transparent);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
@@ -381,7 +367,7 @@
   padding: var(--space-3);
   background: var(--color-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
 }
 
 .archive-dialog__preview-title {
@@ -420,7 +406,7 @@
   align-items: center;
   padding: 2px var(--space-2);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
@@ -429,7 +415,7 @@
   margin-top: var(--space-2);
   padding: var(--space-2);
   background: color-mix(in oklch, var(--color-feedback-warning) 10%, var(--color-surface-default));
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
@@ -441,7 +427,7 @@
   padding: var(--space-3);
   background: color-mix(in oklch, var(--color-feedback-warning) 8%, var(--color-surface-default));
   border: 1px solid color-mix(in oklch, var(--color-feedback-warning) 25%, transparent);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
 }
 
 .archive-dialog__conflicts-title {
@@ -465,7 +451,7 @@
   color: var(--color-text-secondary);
   padding: var(--space-1) var(--space-2);
   background: var(--color-surface-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .archive-dialog__conflict-category {
@@ -489,7 +475,7 @@
   gap: var(--space-2);
   padding: var(--space-6) var(--space-4);
   border: 2px dashed var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   text-align: center;
@@ -534,7 +520,7 @@
   padding: var(--space-2) var(--space-3);
   background: var(--color-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
@@ -546,7 +532,7 @@
   border: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 .archive-dialog__file-remove:hover {
   background: var(--color-surface-sunken);
@@ -565,9 +551,13 @@
 }
 
 .archive-dialog__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   font: inherit;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -615,31 +605,8 @@
 }
 
 .archive-dialog__btn--loading {
-  position: relative;
-  color: transparent;
-}
-.archive-dialog__btn--loading::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--color-text-on-accent);
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: archive-dialog-spin 0.6s linear infinite;
-}
-
-@keyframes archive-dialog-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .archive-dialog__btn--loading::after {
-    animation: none;
-  }
+  opacity: 1;
+  cursor: wait;
 }
 
 /* ── Confirm overlay ──────────────────────────────────────────────── */
@@ -687,7 +654,7 @@
   margin-bottom: var(--space-3);
   background: color-mix(in oklch, var(--color-feedback-warning) 10%, var(--color-surface-default));
   border: 1px solid color-mix(in oklch, var(--color-feedback-warning) 30%, transparent);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }

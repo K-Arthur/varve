@@ -682,7 +682,11 @@ export type {
 } from './inference/inferenceWorker';
 export { DD_COLOR_INPUT_SIZE, decodeDdColorOutput } from './inference/models/ddcolor';
 export { decodeDepthOutput, depthToMask } from './inference/models/depth';
-export { decodeDetrOutput } from './inference/models/detr';
+export {
+  type DetrDetection,
+  decodeDetrOutput,
+  rankDetrDetections,
+} from './inference/models/detr';
 export { decodeEfficientNetOutput } from './inference/models/efficientnet';
 export {
   decodeFontClassifyOutput,

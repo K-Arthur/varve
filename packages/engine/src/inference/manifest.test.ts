@@ -76,6 +76,36 @@ describe('loadModelCatalog', () => {
     expect(catalog!.length).toBe(4);
   });
 
+  it('preserves composite-model repair metadata for download clients', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ...MANIFEST_BODY,
+        models: [
+          {
+            id: 'sam2-hiera-tiny-encoder',
+            filename: 'sam2_hiera_tiny.encoder.onnx',
+            localPath: '/models/sam2_hiera_tiny.encoder.onnx',
+            sha256: 'repaired-checksum',
+            upstreamChecksum: 'upstream-checksum',
+            repair: 'sam2-empty-value-info',
+            bundled: false,
+            remoteUrl: 'https://example.com/sam2.encoder.onnx',
+          },
+        ],
+      }),
+    });
+
+    const catalog = await loadModelCatalog();
+    const encoder = catalog?.[0];
+    expect(encoder).toMatchObject({
+      id: 'sam2-hiera-tiny-encoder',
+      checksum: 'repaired-checksum',
+      upstreamChecksum: 'upstream-checksum',
+      repair: 'sam2-empty-value-info',
+    });
+  });
+
   it('assigns categories correctly', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

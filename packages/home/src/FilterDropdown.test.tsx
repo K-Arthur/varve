@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { FileKind } from '@varve/platform';
 import { describe, expect, it, vi } from 'vitest';
 import { FilterDropdown } from './FilterDropdown';
@@ -17,6 +17,18 @@ describe('FilterDropdown', () => {
     onDateToChange: vi.fn(),
     onClear: vi.fn(),
   };
+
+  async function openFilters() {
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+    const filterDialog = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>('.filter-dropdown');
+      if (!element) {
+        throw new Error('Filter popover did not open');
+      }
+      return element;
+    });
+    return within(filterDialog);
+  }
 
   it('renders filter trigger button', () => {
     const { container } = render(<FilterDropdown {...defaultProps} />);
@@ -46,68 +58,63 @@ describe('FilterDropdown', () => {
     expect(badge).toBeFalsy();
   });
 
-  it('renders kind checkboxes', () => {
-    const { container } = render(<FilterDropdown {...defaultProps} />);
-    const kindSection = container.querySelector('.filter-dropdown__section-kinds');
+  it('renders kind checkboxes', async () => {
+    render(<FilterDropdown {...defaultProps} />);
+    const filters = await openFilters();
+    const kindSection = filters.getByText('File type').parentElement;
     expect(kindSection).toBeTruthy();
     const labels = kindSection?.querySelectorAll('.filter-dropdown__checkbox-label');
     expect(labels?.length).toBe(5); // strata, figma, illustrator, image, unknown
   });
 
-  it('calls onKindsChange when kind checkbox toggled', () => {
+  it('calls onKindsChange when kind checkbox toggled', async () => {
     const onKindsChange = vi.fn();
-    const { container } = render(
-      <FilterDropdown {...defaultProps} onKindsChange={onKindsChange} />,
-    );
-    const checkboxes = container.querySelectorAll<HTMLInputElement>(
-      '.filter-dropdown__section-kinds input[type="checkbox"]',
-    );
+    render(<FilterDropdown {...defaultProps} onKindsChange={onKindsChange} />);
+    const filters = await openFilters();
+    const kindSection = filters.getByText('File type').parentElement;
+    expect(kindSection).toBeTruthy();
+    const checkboxes = kindSection!.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
     expect(checkboxes.length).toBeGreaterThan(0);
     fireEvent.click(checkboxes[1]!);
     expect(onKindsChange).toHaveBeenCalledWith(['figma']);
   });
 
-  it('calls onPinnedOnlyChange when pinned toggle clicked', () => {
+  it('calls onPinnedOnlyChange when pinned toggle clicked', async () => {
     const onPinnedOnlyChange = vi.fn();
-    const { container } = render(
-      <FilterDropdown {...defaultProps} onPinnedOnlyChange={onPinnedOnlyChange} />,
-    );
-    const toggle = container.querySelector('.filter-dropdown__pinned-toggle input');
-    expect(toggle).toBeTruthy();
-    fireEvent.click(toggle!);
+    render(<FilterDropdown {...defaultProps} onPinnedOnlyChange={onPinnedOnlyChange} />);
+    const filters = await openFilters();
+    const toggle = filters.getByLabelText('Pinned only');
+    fireEvent.click(toggle);
     expect(onPinnedOnlyChange).toHaveBeenCalledWith(true);
   });
 
-  it('calls onClear when clear button clicked', () => {
+  it('calls onClear when clear button clicked', async () => {
     const onClear = vi.fn();
-    const { container } = render(
-      <FilterDropdown {...defaultProps} kinds={['image']} onClear={onClear} />,
-    );
-    const clearBtn = container.querySelector('.filter-dropdown__clear');
-    expect(clearBtn).toBeTruthy();
-    fireEvent.click(clearBtn!);
+    render(<FilterDropdown {...defaultProps} kinds={['image']} onClear={onClear} />);
+    const filters = await openFilters();
+    const clearButton = filters.getByText('Clear all').closest('button');
+    expect(clearButton).toBeTruthy();
+    fireEvent.click(clearButton!);
     expect(onClear).toHaveBeenCalledTimes(1);
   });
 
-  it('renders date from/tp inputs', () => {
-    const { container } = render(<FilterDropdown {...defaultProps} />);
-    const dateSection = container.querySelector('.filter-dropdown__section-date');
-    expect(dateSection).toBeTruthy();
+  it('renders date from/to inputs', async () => {
+    render(<FilterDropdown {...defaultProps} />);
+    const filters = await openFilters();
+    expect(filters.getByText('Date modified')).toBeTruthy();
+    expect(filters.getByLabelText('From')).toHaveAttribute('type', 'date');
+    expect(filters.getByLabelText('To')).toHaveAttribute('type', 'date');
   });
 
-  it('shows pinned toggle unchecked by default', () => {
-    const { container } = render(<FilterDropdown {...defaultProps} />);
-    const toggle = container.querySelector<HTMLInputElement>(
-      '.filter-dropdown__pinned-toggle input',
-    );
-    expect(toggle?.checked).toBe(false);
+  it('shows pinned toggle unchecked by default', async () => {
+    render(<FilterDropdown {...defaultProps} />);
+    const filters = await openFilters();
+    expect(filters.getByLabelText('Pinned only')).not.toBeChecked();
   });
 
-  it('shows pinned toggle checked when pinnedOnly is true', () => {
-    const { container } = render(<FilterDropdown {...defaultProps} pinnedOnly={true} />);
-    const toggle = container.querySelector<HTMLInputElement>(
-      '.filter-dropdown__pinned-toggle input',
-    );
-    expect(toggle?.checked).toBe(true);
+  it('shows pinned toggle checked when pinnedOnly is true', async () => {
+    render(<FilterDropdown {...defaultProps} pinnedOnly={true} />);
+    const filters = await openFilters();
+    expect(filters.getByLabelText('Pinned only')).toBeChecked();
   });
 });

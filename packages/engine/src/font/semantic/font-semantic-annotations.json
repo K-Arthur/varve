@@ -1,0 +1,301 @@
+[
+  {
+    "familyId": "inter",
+    "assignments": [
+      {
+        "tagId": "classification.sans.neo-grotesque",
+        "confidence": 0.88,
+        "note": "Reviewed default Latin specimen."
+      },
+      { "tagId": "tone.neutral", "confidence": 0.78, "note": "Reviewed default Latin specimen." },
+      { "tagId": "use.ui", "confidence": 0.86, "note": "Reviewed interface-size specimen." },
+      {
+        "tagId": "use.dense-data-ui",
+        "confidence": 0.76,
+        "note": "Reviewed numerals and compact UI specimen."
+      }
+    ],
+    "visualFeatures": { "xHeightRatio": 0.545, "widthRatio": 1, "spacingDensity": 0.52 }
+  },
+  {
+    "familyId": "ibm-plex-sans",
+    "assignments": [
+      {
+        "tagId": "classification.sans.humanist",
+        "confidence": 0.9,
+        "note": "Reviewed default Latin and Cyrillic specimens."
+      },
+      {
+        "tagId": "tone.technical",
+        "confidence": 0.84,
+        "note": "Reviewed numerals and interface specimen."
+      },
+      { "tagId": "use.ui", "confidence": 0.82, "note": "Reviewed interface-size specimen." },
+      {
+        "tagId": "use.technical-documentation",
+        "confidence": 0.8,
+        "note": "Reviewed text-size specimen."
+      },
+      {
+        "tagId": "use.multilingual",
+        "confidence": 0.78,
+        "note": "Provider subsets include Latin, Cyrillic, Greek, and Vietnamese."
+      }
+    ],
+    "visualFeatures": { "xHeightRatio": 0.52, "widthRatio": 0.96, "spacingDensity": 0.5 }
+  },
+  {
+    "familyId": "source-sans-3",
+    "assignments": [
+      {
+        "tagId": "classification.sans.humanist",
+        "confidence": 0.88,
+        "note": "Reviewed default Latin specimen."
+      },
+      { "tagId": "tone.neutral", "confidence": 0.76, "note": "Reviewed text-size specimen." },
+      { "tagId": "tone.editorial", "confidence": 0.7, "note": "Reviewed text hierarchy specimen." },
+      { "tagId": "use.body", "confidence": 0.82, "note": "Reviewed long-form specimen." },
+      { "tagId": "use.ui", "confidence": 0.72, "note": "Reviewed interface-size specimen." }
+    ],
+    "visualFeatures": { "xHeightRatio": 0.52, "widthRatio": 0.98, "spacingDensity": 0.48 }
+  },
+  {
+    "familyId": "roboto",
+    "assignments": [
+      {
+        "tagId": "classification.sans.neo-grotesque",
+        "confidence": 0.84,
+        "note": "Reviewed default Latin specimen."
+      },
+      { "tagId": "tone.neutral", "confidence": 0.75, "note": "Reviewed default Latin specimen." },
+      { "tagId": "use.ui", "confidence": 0.86, "note": "Reviewed interface-size specimen." },
+      {
+        "tagId": "use.multilingual",
+        "confidence": 0.8,
+        "note": "Provider subsets include Latin, Cyrillic, Greek, and Vietnamese."
+      }
+    ],
+    "visualFeatures": { "xHeightRatio": 0.528, "widthRatio": 0.97, "spacingDensity": 0.5 }
+  },
+  {
+    "familyId": "nunito",
+    "assignments": [
+      {
+        "tagId": "classification.sans.rounded",
+        "confidence": 0.9,
+        "note": "Reviewed rounded terminals in Latin specimen."
+      },
+      {
+        "tagId": "morphology.rounded",
+        "confidence": 0.9,
+        "note": "Reviewed bowls and terminals in Latin specimen."
+      },
+      { "tagId": "tone.friendly", "confidence": 0.82, "note": "Reviewed type hierarchy specimen." },
+      { "tagId": "use.ui", "confidence": 0.78, "note": "Reviewed interface-size specimen." },
+      {
+        "tagId": "use.mobile-ui",
+        "confidence": 0.76,
+        "note": "Reviewed compact interface specimen."
+      }
+    ],
+    "visualFeatures": {
+      "xHeightRatio": 0.535,
+      "widthRatio": 1.01,
+      "roundness": 0.82,
+      "spacingDensity": 0.51
+    }
+  },
+  {
+    "familyId": "lexend",
+    "assignments": [
+      {
+        "tagId": "classification.sans.humanist",
+        "confidence": 0.78,
+        "note": "Reviewed Latin specimen; this is a construction label, not an accessibility claim."
+      },
+      { "tagId": "tone.friendly", "confidence": 0.72, "note": "Reviewed type hierarchy specimen." },
+      { "tagId": "use.ui", "confidence": 0.74, "note": "Reviewed interface-size specimen." },
+      { "tagId": "use.body", "confidence": 0.7, "note": "Reviewed text-size specimen." }
+    ],
+    "visualFeatures": { "xHeightRatio": 0.55, "widthRatio": 1.02, "spacingDensity": 0.56 }
+  },
+  {
+    "familyId": "space-grotesk",
+    "assignments": [
+      {
+        "tagId": "classification.sans.grotesque",
+        "confidence": 0.86,
+        "note": "Reviewed Latin specimen."
+      },
+      {
+        "tagId": "tone.technical",
+        "confidence": 0.78,
+        "note": "Reviewed display and numeral specimen."
+      },
+      { "tagId": "tone.contemporary", "confidence": 0.74, "note": "Reviewed display specimen." },
+      { "tagId": "use.display", "confidence": 0.7, "note": "Reviewed heading specimen." },
+      { "tagId": "use.ui", "confidence": 0.68, "note": "Reviewed interface-size specimen." }
+    ],
+    "visualFeatures": { "xHeightRatio": 0.54, "widthRatio": 0.99, "spacingDensity": 0.55 }
+  },
+  {
+    "familyId": "fira-code",
+    "assignments": [
+      {
+        "tagId": "classification.monospace",
+        "confidence": 0.98,
+        "note": "Provider category and fixed-width specimen agree."
+      },
+      { "tagId": "tone.technical", "confidence": 0.9, "note": "Reviewed code specimen." },
+      { "tagId": "use.code", "confidence": 0.98, "note": "Reviewed code specimen." },
+      { "tagId": "use.dense-data-ui", "confidence": 0.78, "note": "Reviewed aligned numerals." },
+      {
+        "tagId": "use.multilingual",
+        "confidence": 0.74,
+        "note": "Provider subsets include Latin, Cyrillic, and Greek."
+      }
+    ],
+    "visualFeatures": { "xHeightRatio": 0.53, "widthRatio": 1, "spacingDensity": 0.72 }
+  },
+  {
+    "familyId": "playfair-display",
+    "assignments": [
+      {
+        "tagId": "classification.serif.didone",
+        "confidence": 0.9,
+        "note": "Reviewed high-contrast Latin display specimen."
+      },
+      {
+        "tagId": "morphology.high-contrast",
+        "confidence": 0.92,
+        "note": "Reviewed stroke contrast in display specimen."
+      },
+      { "tagId": "tone.elegant", "confidence": 0.82, "note": "Reviewed heading specimen." },
+      {
+        "tagId": "tone.editorial",
+        "confidence": 0.82,
+        "note": "Reviewed editorial hierarchy specimen."
+      },
+      {
+        "tagId": "use.editorial-headline",
+        "confidence": 0.92,
+        "note": "Reviewed heading specimen."
+      }
+    ],
+    "visualFeatures": {
+      "xHeightRatio": 0.45,
+      "widthRatio": 0.96,
+      "strokeContrast": 0.86,
+      "spacingDensity": 0.43
+    }
+  },
+  {
+    "familyId": "lora",
+    "assignments": [
+      {
+        "tagId": "classification.serif.old-style",
+        "confidence": 0.82,
+        "note": "Reviewed text-size Latin and Cyrillic specimens."
+      },
+      { "tagId": "tone.warm", "confidence": 0.78, "note": "Reviewed text hierarchy specimen." },
+      {
+        "tagId": "tone.editorial",
+        "confidence": 0.78,
+        "note": "Reviewed editorial hierarchy specimen."
+      },
+      { "tagId": "use.body", "confidence": 0.84, "note": "Reviewed long-form specimen." },
+      {
+        "tagId": "use.editorial-headline",
+        "confidence": 0.72,
+        "note": "Reviewed heading specimen."
+      }
+    ],
+    "visualFeatures": {
+      "xHeightRatio": 0.47,
+      "widthRatio": 0.98,
+      "strokeContrast": 0.56,
+      "spacingDensity": 0.47
+    }
+  },
+  {
+    "familyId": "merriweather",
+    "assignments": [
+      {
+        "tagId": "classification.serif",
+        "confidence": 0.84,
+        "note": "Provider category and text specimen agree."
+      },
+      { "tagId": "tone.warm", "confidence": 0.74, "note": "Reviewed text hierarchy specimen." },
+      { "tagId": "use.body", "confidence": 0.9, "note": "Reviewed long-form specimen." },
+      {
+        "tagId": "use.multilingual",
+        "confidence": 0.78,
+        "note": "Provider subsets include Latin, Cyrillic, and Vietnamese."
+      }
+    ],
+    "visualFeatures": {
+      "xHeightRatio": 0.51,
+      "widthRatio": 0.99,
+      "strokeContrast": 0.52,
+      "spacingDensity": 0.49
+    }
+  },
+  {
+    "familyId": "atkinson-hyperlegible",
+    "assignments": [
+      {
+        "tagId": "classification.sans.humanist",
+        "confidence": 0.8,
+        "note": "Reviewed Latin specimen."
+      },
+      {
+        "tagId": "morphology.aperture.open",
+        "confidence": 0.76,
+        "note": "Open apertures observed in tested Latin glyphs."
+      },
+      { "tagId": "use.ui", "confidence": 0.72, "note": "Reviewed interface-size specimen." },
+      { "tagId": "use.body", "confidence": 0.72, "note": "Reviewed text-size specimen." }
+    ],
+    "visualFeatures": {
+      "xHeightRatio": 0.54,
+      "widthRatio": 1.02,
+      "apertureOpenness": 0.78,
+      "spacingDensity": 0.57
+    }
+  },
+  {
+    "familyId": "noto-sans-arabic",
+    "assignments": [
+      {
+        "tagId": "classification.sans.humanist",
+        "confidence": 0.7,
+        "note": "Reviewed Arabic and Latin specimens separately."
+      },
+      { "tagId": "use.body", "confidence": 0.74, "note": "Reviewed Arabic text-size specimen." },
+      {
+        "tagId": "use.multilingual",
+        "confidence": 0.7,
+        "note": "Provider includes Arabic and Latin subsets."
+      }
+    ],
+    "visualFeatures": { "widthRatio": 0.98, "spacingDensity": 0.52 }
+  },
+  {
+    "familyId": "abril-fatface",
+    "assignments": [
+      {
+        "tagId": "classification.display",
+        "confidence": 0.9,
+        "note": "Provider category and display specimen agree."
+      },
+      {
+        "tagId": "morphology.high-contrast",
+        "confidence": 0.86,
+        "note": "Reviewed display specimen."
+      },
+      { "tagId": "tone.expressive", "confidence": 0.8, "note": "Reviewed display specimen." },
+      { "tagId": "use.display", "confidence": 0.92, "note": "Reviewed heading specimen." }
+    ],
+    "visualFeatures": { "widthRatio": 0.98, "strokeContrast": 0.84, "spacingDensity": 0.38 }
+  }
+]

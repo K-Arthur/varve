@@ -17,7 +17,7 @@ type Story = StoryObj<typeof Popover>;
 export const Default: Story = {
   args: {
     placement: 'bottom',
-    children: <Button variant="primary">Open Popover</Button>,
+    children: <Button variant="default">Open Popover</Button>,
     popover: (
       <div style={{ padding: '8px', minWidth: '160px' }}>
         <p style={{ margin: '0 0 8px', fontSize: '14px' }}>Popover content here.</p>
@@ -44,7 +44,7 @@ export const TopPlacement: Story = {
 export const Dark: Story = {
   args: {
     placement: 'bottom',
-    children: <Button variant="primary">Dark Popover</Button>,
+    children: <Button variant="default">Dark Popover</Button>,
     popover: (
       <div style={{ padding: '8px', minWidth: '160px' }}>
         <p style={{ margin: '0' }}>Dark theme popover.</p>

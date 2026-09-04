@@ -145,6 +145,49 @@ describe('worldPointToImageMaskPixel', () => {
     expectMapsThrough([2.5, 0, 0, 0.25, -30, 90]);
   });
 
+  it('maps through image crop, rotation, and flip properties', () => {
+    let doc = createDocument('coords', true);
+    const image = {
+      ...makeImageNode([1, 0, 0, 1, 0, 0]),
+      fills: [
+        {
+          ...imageFill('asset', { fit: 'fill' }),
+          image: {
+            ...imageFill('asset', { fit: 'fill' }).image!,
+            crop: { x: 500, y: 400, w: 2000, h: 1000 },
+            rotation: 90,
+            flipH: true,
+            flipV: true,
+          },
+        },
+      ],
+    };
+    doc = addNode(doc, image);
+    const placement = computeImagePlacement({
+      fit: 'fill',
+      sourceWidth: 4000,
+      sourceHeight: 3000,
+      bounds: { x: 20, y: 30, w: 800, h: 800 },
+      sourceCrop: { x: 500, y: 400, w: 2000, h: 1000 },
+      rotation: 90,
+      flipH: true,
+      flipV: true,
+    });
+    if (!placement) throw new Error('expected placement');
+    const local = sourcePixelToLocal(placement, { x: 1500, y: 900 });
+    if (!local) throw new Error('expected visible source pixel');
+    const world = { x: local.x, y: local.y };
+    const mapped = worldPointToImageMaskPixel({
+      document: doc,
+      node: doc.nodes.image!,
+      sourceWidth: 4000,
+      sourceHeight: 3000,
+      worldPoint: world,
+    });
+    expect(mapped?.x).toBeCloseTo(1500, 6);
+    expect(mapped?.y).toBeCloseTo(900, 6);
+  });
+
   it.each([
     ['horizontal', [-1, 0, 0, 1, 900, 0] as const],
     ['vertical', [1, 0, 0, -1, 0, 900] as const],

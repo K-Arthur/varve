@@ -39,6 +39,7 @@ test.describe('theme resolution', () => {
       await expect
         .poll(() => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
         .toBe(t.theme);
+      await expect(page.locator('html')).toHaveAttribute('data-theme-mode', 'system');
     });
   }
 
@@ -50,6 +51,7 @@ test.describe('theme resolution', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await page.emulateMedia({ colorScheme: 'dark' });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-theme-mode', 'system');
   });
 
   test('no theme is ever set to a legacy or high-contrast value', async ({ page }) => {
@@ -60,6 +62,7 @@ test.describe('theme resolution', () => {
       await page.reload();
       const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
       expect(theme, `legacy value "${legacy}"`).toMatch(/^(light|dark)$/);
+      await expect(page.locator('html')).toHaveAttribute('data-theme-mode', 'system');
     }
   });
 
@@ -101,7 +104,7 @@ test.describe('theme resolution', () => {
 });
 
 test.describe('theme switcher', () => {
-  test('buttons reflect the current theme with aria-pressed and an active style', async ({
+  test('radio options reflect the current theme with aria-checked and an active style', async ({
     page,
   }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
@@ -111,16 +114,16 @@ test.describe('theme switcher', () => {
     // the visible desktop toggle so the assertion matches one control.
     const state = await page.evaluate(() => ({
       theme: document.documentElement.getAttribute('data-theme'),
-      pressed: [...document.querySelectorAll('.nav-actions .theme-option')].map((b) => ({
+      checked: [...document.querySelectorAll('.nav-actions .theme-option')].map((b) => ({
         choice: b.getAttribute('data-theme-choice'),
-        pressed: b.getAttribute('aria-pressed'),
+        checked: b.getAttribute('aria-checked'),
         active: b.classList.contains('active'),
       })),
     }));
     expect(state.theme).toBe('dark');
-    expect(state.pressed).toEqual([
-      { choice: 'light', pressed: 'false', active: false },
-      { choice: 'dark', pressed: 'true', active: true },
+    expect(state.checked).toEqual([
+      { choice: 'light', checked: 'false', active: false },
+      { choice: 'dark', checked: 'true', active: true },
     ]);
     // The active state must be visibly distinct (not icon-only).
     const dark = page.locator('.nav-actions .theme-option[data-theme-choice="dark"]');
@@ -135,14 +138,32 @@ test.describe('theme switcher', () => {
     await freshPage(page);
     await page.locator('.nav-actions .theme-option[data-theme-choice="light"]').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(page.locator('html')).toHaveAttribute('data-theme-mode', 'light');
     const stored = await page.evaluate(() => localStorage.getItem('varve-theme'));
     expect(stored).toBe('light');
-    const pressed = await page
+    const checked = await page
       .locator('.nav-actions .theme-option[data-theme-choice="light"]')
-      .getAttribute('aria-pressed');
-    expect(pressed).toBe('true');
+      .getAttribute('aria-checked');
+    expect(checked).toBe('true');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(page.locator('html')).toHaveAttribute('data-theme-mode', 'light');
+  });
+
+  test('an explicit choice synchronizes another open tab', async ({ page, context }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await freshPage(page);
+    const sibling = await context.newPage();
+    await sibling.emulateMedia({ colorScheme: 'light' });
+    await sibling.goto('/');
+
+    await page.locator('.nav-actions .theme-option[data-theme-choice="dark"]').click();
+
+    await expect(sibling.locator('html')).toHaveAttribute('data-theme-mode', 'dark');
+    await expect(sibling.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(
+      sibling.locator('.nav-actions .theme-option[data-theme-choice="dark"]'),
+    ).toHaveAttribute('aria-checked', 'true');
   });
 
   test('persisted light overrides OS dark and vice versa', async ({ page }) => {
@@ -194,6 +215,36 @@ test.describe('theme switcher', () => {
     await darkBtn.focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
+
+  test('radio options support arrow-key selection', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await freshPage(page);
+    const lightBtn = page.locator('.nav-actions .theme-option[data-theme-choice="light"]');
+    await lightBtn.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(
+      page.locator('.nav-actions .theme-option[data-theme-choice="dark"]'),
+    ).toHaveAttribute('aria-checked', 'true');
+  });
+
+  test('radio options support Home and End movement', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await freshPage(page);
+    const lightBtn = page.locator('.nav-actions .theme-option[data-theme-choice="light"]');
+    const darkBtn = page.locator('.nav-actions .theme-option[data-theme-choice="dark"]');
+
+    await darkBtn.focus();
+    await page.keyboard.press('Home');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(lightBtn).toBeFocused();
+    await expect(lightBtn).toHaveAttribute('aria-checked', 'true');
+
+    await page.keyboard.press('End');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(darkBtn).toBeFocused();
+    await expect(darkBtn).toHaveAttribute('aria-checked', 'true');
   });
 });
 

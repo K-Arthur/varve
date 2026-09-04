@@ -1,6 +1,6 @@
 /**
  * SelectionQuickBar — same chrome grammar as FloatingToolbar:
- * raised surface, radius-lg, 32px controls, sunken hover, accent active.
+ * raised surface, floating radius, 32px controls, sunken hover, accent active.
  * Primary actions use horizontal icon+label (Canva densisty, Strata tokens).
  */
 
@@ -20,7 +20,7 @@
   gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
   background: var(--elevation-surface-raised);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   border: 1px solid var(--color-border-subtle);
   box-shadow: var(--shadow-lg);
   pointer-events: auto;
@@ -42,7 +42,7 @@
   padding: 0 var(--space-1);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   cursor: pointer;
   flex-shrink: 0;
@@ -135,7 +135,7 @@
   padding: 0 var(--space-2);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
   font-family: inherit;
@@ -158,7 +158,7 @@
   padding: var(--space-1);
   background: var(--elevation-surface-overlay);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-surface);
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
@@ -175,7 +175,7 @@
   padding: var(--space-2) var(--space-3);
   min-height: 32px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--color-text-primary);
   font-family: inherit;

@@ -17,10 +17,11 @@
 import { getFontRegistry } from '@varve/engine';
 import type { SceneNode, TextNode } from '@varve/scene';
 import { resolveNodeFills, textNodeGeometry } from '@varve/scene';
-import { Select } from '@varve/ui';
+import { Select, Switch } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
+import { FontBrowserDialog } from '../../FontBrowser/FontBrowserDialog';
 import { FontSelector } from '../../FontBrowser/FontSelector';
 import { GlyphTypographySection } from '../../Typography/GlyphTypographySection';
 import { BindingMenu } from '../controls/BindingMenu';
@@ -207,6 +208,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   } = editor;
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
   const [richTextEnabled, setRichTextEnabled] = useState(false);
+  const [fontBrowserOpen, setFontBrowserOpen] = useState(false);
 
   const textNodes = useMemo(() => nodes.filter((n): n is TextNode => n.kind === 'text'), [nodes]);
 
@@ -294,6 +296,14 @@ export function TypographySection({ nodes }: TypographySectionProps) {
 
   return (
     <DisclosureSection title="Typography" sectionId="typography">
+      <FontBrowserDialog
+        open={fontBrowserOpen}
+        onClose={() => setFontBrowserOpen(false)}
+        onSelect={(family) => {
+          batchUpdate((n) => ({ ...n, fontFamily: family || undefined }));
+          setFontBrowserOpen(false);
+        }}
+      />
       <div ref={bindingTriggerRef} className="insp-field-group">
         {textContent !== null && (
           <>
@@ -322,17 +332,12 @@ export function TypographySection({ nodes }: TypographySectionProps) {
               )}
             </FieldRow>
             <FieldRow label="Rich Text">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={richTextEnabled}
+              <Switch
                 aria-label="Enable rich text editing"
-                className="insp-segmented__btn"
-                style={{ flex: '0 0 auto' }}
-                onClick={() => setRichTextEnabled((v) => !v)}
-              >
-                {richTextEnabled ? 'On' : 'Off'}
-              </button>
+                className="insp-switch"
+                checked={richTextEnabled}
+                onChange={(event) => setRichTextEnabled(event.target.checked)}
+              />
             </FieldRow>
           </>
         )}
@@ -341,6 +346,15 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             value={isMixed(familyRaw) ? '' : familyRaw}
             onChange={(v) => batchUpdate((n) => ({ ...n, fontFamily: v || undefined }))}
           />
+          <button
+            type="button"
+            className="typography__browse-fonts"
+            onClick={() => setFontBrowserOpen(true)}
+            aria-label="Browse fonts"
+            title="Browse fonts"
+          >
+            …
+          </button>
         </FieldRow>
         <FieldRow label="Weight">
           <Select

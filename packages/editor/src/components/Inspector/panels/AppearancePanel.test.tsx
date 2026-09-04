@@ -27,7 +27,7 @@ function appearanceDocument() {
 }
 
 describe('AppearancePanel', () => {
-  it('keeps Appearance as a compact Studio launch point rather than mounting the gallery', async () => {
+  it('hosts the focused appearance surfaces without duplicating the Studio launch point', async () => {
     render(
       <EditorProvider initialDocumentJson={JSON.stringify(appearanceDocument())}>
         <SelectRect />
@@ -35,11 +35,13 @@ describe('AppearancePanel', () => {
       </EditorProvider>,
     );
 
+    // The Studio launch point lives in the registry AppearanceSection; the
+    // merged panel must not render a second launcher in the Design tab.
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Creative treatments' })).toBeInTheDocument(),
+      expect(screen.getByRole('button', { name: 'Object Filters' })).toBeInTheDocument(),
     );
-
-    expect(screen.getByRole('button', { name: 'Open Studio' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Creative treatments' })).toBeNull();
+    expect(screen.queryByTestId('open-effect-studio')).toBeNull();
     expect(document.querySelector('[data-effect-studio]')).toBeNull();
     expect(screen.queryByRole('searchbox', { name: 'Search treatments' })).toBeNull();
   });

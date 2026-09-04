@@ -86,7 +86,7 @@ test.describe('Responsive workspace navigation', () => {
       await expect(menu).toBeVisible();
       // Every hidden workspace is reachable from the overflow menu.
       const hidden = await page.evaluate(() => {
-        const strip = document.querySelector('.workspace-tabs__strip');
+        const strip = document.querySelector('.workspace-dock__bar');
         const visible = new Set(
           Array.from(strip?.querySelectorAll('[role="radio"]') ?? []).map((r) =>
             r.getAttribute('aria-label'),

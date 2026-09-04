@@ -31,32 +31,40 @@
   gap: var(--space-1);
 }
 
-.layers-panel__auto-reveal-btn {
+/* Unified header icon button — one size, one transition, one focus ring. */
+.layers-panel__header-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: var(--space-5);
+  height: var(--space-5);
   border: none;
-  background: transparent;
+  background: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: var(--radius-sm);
   padding: 0;
-  transition: color 0.15s;
+  border-radius: var(--radius-control-compact);
+  transition:
+    color var(--duration-quick) var(--ease-standard),
+    background var(--duration-quick) var(--ease-standard);
 }
 
-.layers-panel__auto-reveal-btn:hover {
+.layers-panel__header-btn:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-hover);
 }
 
-.layers-panel__auto-reveal-btn--active {
+.layers-panel__header-btn--active {
   color: var(--color-interactive-default);
 }
 
-.layers-panel__auto-reveal-btn--active:hover {
+.layers-panel__header-btn--active:hover {
   color: var(--color-interactive-hover);
+}
+
+.layers-panel__header-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 
 .layers-panel__isolation-breadcrumb {
@@ -83,35 +91,13 @@
   border: 1px solid var(--color-border-subtle);
   background: none;
   color: var(--color-text-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-xs);
   cursor: pointer;
 }
 
 .layers-panel__isolation-breadcrumb button:hover {
-  background: var(--color-surface-hover);
-}
-
-.layers-panel__collapse-all-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
-  border: none;
-  background: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0;
-  border-radius: var(--radius-sm);
-  transition:
-    color var(--duration-quick) var(--ease-standard),
-    background var(--duration-quick) var(--ease-standard);
-}
-
-.layers-panel__collapse-all-btn:hover {
-  color: var(--color-text-primary);
   background: var(--color-surface-hover);
 }
 
@@ -124,17 +110,12 @@
   color: var(--accent);
   cursor: pointer;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: 0.75rem;
 }
 
 .layers-panel__solo-exit-btn:hover {
   background: color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
-.layers-panel__collapse-all-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
 }
 
 /* ─── Filter — compact search field ──────────────────────────── */
@@ -146,7 +127,7 @@
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
 .layers-panel__filter:focus-within {
@@ -183,7 +164,7 @@
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   flex-shrink: 0;
 }
 
@@ -223,7 +204,7 @@
   align-items: center;
   gap: var(--density-rows-gap, var(--space-1));
   padding: var(--density-rows-padding, var(--space-1));
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: default;
   user-select: none;
   min-height: var(--density-rows-min-height, var(--space-6));
@@ -241,52 +222,147 @@
   top: 3px;
   bottom: 3px;
   width: 3px;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: 0 var(--radius-control-compact) var(--radius-control-compact) 0;
   pointer-events: none;
   transition: background var(--duration-quick) var(--ease-standard);
 }
 
 /* Resting row uses the flat tree surface — type is communicated via the
- * accent bar + Lucide type icon, not a full-row coloured wash (which read as
- * unexplained "squares" behind icons). */
+ * accent bar + Lucide type icon. Layer tags add a deliberate, low-noise row
+ * backdrop below so the metadata is scannable without another icon. */
 .layers-row[data-layer-type] {
   background: var(--color-tree-row);
 }
 
+/* A user-assigned layer label is a document-organizing cue, not a second
+ * type system. Use the row backdrop as the marker so it is discoverable
+ * without adding another shape to an already dense identity lane. The
+ * selected-row surface still wins below. */
+.layers-row[data-layer-color] {
+  background: color-mix(in oklab, var(--layers-row-color) 30%, var(--color-tree-row));
+}
+
+.layers-row[data-layer-color]:hover:not(.layers-row--selected) {
+  background: color-mix(
+    in oklab,
+    var(--layers-row-color) 38%,
+    var(--color-interactive-hover-surface)
+  );
+}
+
+[data-theme="high-contrast"] .layers-row[data-layer-color] {
+  background: color-mix(in oklab, var(--layers-row-color) 44%, var(--color-tree-row));
+}
+
+[data-theme="high-contrast"] .layers-row[data-layer-color]:hover:not(.layers-row--selected) {
+  background: color-mix(
+    in oklab,
+    var(--layers-row-color) 52%,
+    var(--color-interactive-hover-surface)
+  );
+}
+
 /* Selected state must win over type-coded wash. */
 .layers-row--selected[data-layer-type] {
-  background: var(--color-tree-row-selected);
-  color: var(--color-text-on-accent);
+  background: var(--color-interactive-selected-surface);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px var(--color-interactive-selected-border);
 }
 .layers-row--selected[data-layer-type]:hover {
-  background: var(--color-tree-row-selected);
+  background: var(--color-interactive-selected-surface-hover);
+}
+
+/* Category colour is carried by the icon as well as the leading rail, so a
+ * row remains identifiable when its name is truncated or its label is unset.
+ * Selected rows keep the high-contrast selection foreground. */
+:where(.layers-row:not(.layers-row--selected)[data-layer-category="frame"] .layers-row__icon-area) {
+  color: var(--color-layer-accent-frame);
+}
+:where(.layers-row:not(.layers-row--selected)[data-layer-category="group"] .layers-row__icon-area) {
+  color: var(--color-layer-accent-group);
+}
+:where(
+  .layers-row:not(.layers-row--selected)[data-layer-category="component"] .layers-row__icon-area,
+  .layers-row:not(.layers-row--selected)[data-layer-category="instance"] .layers-row__icon-area
+) {
+  color: var(--color-layer-accent-component);
+}
+:where(.layers-row:not(.layers-row--selected)[data-layer-category="text"] .layers-row__icon-area) {
+  color: var(--color-layer-accent-text);
+}
+:where(
+  .layers-row:not(.layers-row--selected)[data-layer-category="vector"] .layers-row__icon-area
+) {
+  color: var(--color-layer-accent-shape);
+}
+:where(
+  .layers-row:not(.layers-row--selected)[data-layer-category="raster"] .layers-row__icon-area
+) {
+  color: var(--color-layer-accent-image);
+}
+:where(
+  .layers-row:not(.layers-row--selected)[data-layer-category="adjustment"] .layers-row__icon-area
+) {
+  color: var(--color-layer-accent-adjustment);
 }
 
 /* Accent bar colors per type */
-.layers-row[data-layer-type="frame"]::before {
+.layers-row[data-layer-type="frame"]::before,
+.layers-row[data-layer-category="frame"]::before {
   background: var(--color-layer-accent-frame);
 }
-.layers-row[data-layer-type="group"]::before {
+.layers-row[data-layer-type="group"]::before,
+.layers-row[data-layer-category="group"]::before {
   background: var(--color-layer-accent-group);
 }
-.layers-row[data-layer-type="text"]::before {
+.layers-row[data-layer-type="text"]::before,
+.layers-row[data-layer-category="text"]::before {
   background: var(--color-layer-accent-text);
 }
-.layers-row[data-layer-type="shape"]::before {
+.layers-row[data-layer-type="shape"]::before,
+.layers-row[data-layer-category="vector"]::before {
   background: var(--color-layer-accent-shape);
 }
-.layers-row[data-layer-type="component"]::before {
+.layers-row[data-layer-type="component"]::before,
+.layers-row[data-layer-category="component"]::before,
+.layers-row[data-layer-category="instance"]::before {
   background: var(--color-layer-accent-component);
 }
-.layers-row[data-layer-type="image"]::before {
+.layers-row[data-layer-type="image"]::before,
+.layers-row[data-layer-category="raster"]::before {
   background: var(--color-layer-accent-image);
 }
-.layers-row[data-layer-type="adjustment"]::before {
+.layers-row[data-layer-type="adjustment"]::before,
+.layers-row[data-layer-category="adjustment"]::before {
   background: var(--color-layer-accent-adjustment);
 }
 
+/* A tag owns the rail when present. The wider, full-height rail remains
+ * visible in resting and selected states, so selection cannot hide the tag. */
+.layers-row[data-layer-color]::before {
+  background: var(--layers-row-color);
+  bottom: 0;
+  top: 0;
+  width: 6px;
+}
+
+/* Selection is a state of the row, not a second type label. Its rail and
+ * inset boundary remain stable while the type icon keeps its category shape. */
+.layers-row.layers-row--selected::before {
+  background: var(--color-interactive-default);
+  bottom: 0;
+  top: 0;
+  width: 4px;
+}
+
+.layers-row.layers-row--selected[data-layer-color]::before {
+  background: var(--layers-row-color);
+  width: 6px;
+}
+
 /* High-contrast: add text label so image type remains distinguishable */
-[data-theme="high-contrast"] .layers-row[data-layer-type="image"]::after {
+[data-theme="high-contrast"] .layers-row[data-layer-type="image"]::after,
+[data-theme="high-contrast"] .layers-row[data-layer-category="raster"]::after {
   content: "IMG";
   position: absolute;
   right: var(--space-2);
@@ -298,16 +374,33 @@
 }
 
 .layers-row:hover {
-  background: var(--color-tree-row-hover);
+  background: var(--color-interactive-hover-surface);
 }
 
 .layers-row--selected {
-  background: var(--color-tree-row-selected);
-  color: var(--color-text-on-accent);
+  background: var(--color-interactive-selected-surface);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px var(--color-interactive-selected-border);
 }
 
 .layers-row--selected:hover {
-  background: var(--color-tree-row-selected);
+  background: var(--color-interactive-selected-surface-hover);
+}
+
+.layers-row--selected[data-layer-color] {
+  background: color-mix(
+    in oklab,
+    var(--layers-row-color) 38%,
+    var(--color-interactive-selected-surface)
+  );
+}
+
+.layers-row--selected[data-layer-color]:hover {
+  background: color-mix(
+    in oklab,
+    var(--layers-row-color) 46%,
+    var(--color-interactive-selected-surface-hover)
+  );
 }
 
 .layers-row--focused {
@@ -344,7 +437,7 @@
   color: inherit;
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   opacity: 0.6;
 }
 
@@ -362,42 +455,11 @@
   flex-shrink: 0;
 }
 
-/* ─── Color tag dot ─────────────────────────────────────────── */
-.layers-row__color-tag {
-  width: var(--space-2);
-  height: var(--space-2);
-  border-radius: 50%;
-  flex-shrink: 0;
-  pointer-events: none;
-}
-
-.layers-row__color-tag--red {
-  background: var(--color-layer-tag-red);
-}
-.layers-row__color-tag--orange {
-  background: var(--color-layer-tag-orange);
-}
-.layers-row__color-tag--yellow {
-  background: var(--color-layer-tag-yellow);
-}
-.layers-row__color-tag--green {
-  background: var(--color-layer-tag-green);
-}
-.layers-row__color-tag--blue {
-  background: var(--color-layer-tag-blue);
-}
-.layers-row__color-tag--purple {
-  background: var(--color-layer-tag-purple);
-}
-.layers-row__color-tag--gray {
-  background: var(--color-layer-tag-gray);
-}
-
 /* ─── Thumbnail preview ─────────────────────────────────────── */
 .layers-row__thumbnail {
   width: var(--space-5);
   height: var(--space-5);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   object-fit: cover;
   flex-shrink: 0;
   border: var(--border-micro);
@@ -417,7 +479,7 @@
      that looks broken against the design system. */
   border: none;
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   transition:
     background var(--duration-quick) var(--ease-standard),
@@ -428,8 +490,8 @@
   color: var(--color-text-primary);
 }
 .layers-row--selected .layers-row__icon-area {
-  background: color-mix(in oklch, var(--color-text-on-accent) 14%, transparent);
-  color: var(--color-text-on-accent);
+  background: color-mix(in oklch, var(--color-interactive-default) 12%, transparent);
+  color: var(--color-interactive-default);
 }
 .layers-row__icon-area:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -445,26 +507,30 @@
   height: var(--space-4);
   flex-shrink: 0;
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
-  opacity: 0.55;
+  opacity: 0;
+  pointer-events: none;
   transition:
     opacity var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard);
 }
-.layers-row:hover .layers-row__selection-checkbox,
-.layers-row:focus-within .layers-row__selection-checkbox {
-  opacity: 1;
-  color: var(--color-text-primary);
-}
 .layers-row__selection-checkbox--selected {
   opacity: 1;
+  pointer-events: auto;
   color: var(--color-interactive-default);
 }
 .layers-row--selected .layers-row__selection-checkbox,
 .layers-row--selected .layers-row__selection-checkbox--selected {
   opacity: 1;
-  color: var(--color-text-on-accent);
+  pointer-events: auto;
+  color: var(--color-interactive-default);
+}
+
+.layers-row:hover .layers-row__selection-checkbox,
+.layers-row:focus-within .layers-row__selection-checkbox {
+  color: var(--color-text-primary);
+  pointer-events: auto;
 }
 
 /* ─── Type icon ─────────────────────────────────────────────── */
@@ -475,14 +541,20 @@
 }
 
 .layers-row--selected .layers-row__type-icon {
-  color: var(--color-text-on-accent);
+  color: var(--color-interactive-default);
 }
 
 [data-theme="high-contrast"] .layers-row {
   outline: 1px solid transparent;
 }
 [data-theme="high-contrast"] .layers-row--selected {
+  background: var(--color-tree-row-selected);
+  color: var(--color-text-on-accent);
+  box-shadow: none;
   outline-color: var(--color-border-subtle);
+}
+[data-theme="high-contrast"] .layers-row--selected:hover {
+  background: var(--color-tree-row-selected);
 }
 [data-theme="high-contrast"] .layers-row__type-icon {
   opacity: 1;
@@ -495,6 +567,9 @@
 }
 [data-theme="high-contrast"] .layers-row--selected .layers-row__icon-area {
   background: var(--color-surface-raised);
+  color: var(--color-text-on-accent);
+}
+[data-theme="high-contrast"] .layers-row--selected .layers-row__type-icon {
   color: var(--color-text-on-accent);
 }
 /* HC: checkbox always visible; use explicit border for contrast */
@@ -511,13 +586,24 @@
 }
 
 /* ─── Name ──────────────────────────────────────────────────── */
-.layers-row__name {
+.layers-row__label {
+  display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  overflow: hidden;
+  line-height: 1.2;
+}
+
+.layers-row__name {
+  display: block;
+  max-width: 100%;
   font-size: var(--font-size-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 80px;
+  min-width: 0;
 }
 
 .layers-row__name--instance {
@@ -526,15 +612,16 @@
 }
 
 .layers-row__name-input {
-  flex: 1;
+  align-self: stretch;
   border: 1px solid var(--color-interactive-focus-ring);
   background: var(--color-surface-app);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   padding: var(--space-05) var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   outline: none;
   min-width: 0;
+  box-sizing: border-box;
 }
 
 .layers-row__name-input::placeholder {
@@ -546,12 +633,52 @@
   outline-offset: -2px;
 }
 
+/* Derived stack identity: the persisted layer name stays user-editable while
+ * this second line reflects the ordered adjustments currently on the layer. */
+.layers-row__adjustment-summary {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layers-row__adjustment-summary:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.layers-row__adjustment-summary:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.layers-row__adjustment-summary--empty {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.layers-row--selected .layers-row__adjustment-summary {
+  color: var(--color-text-secondary);
+}
+
+[data-theme="high-contrast"] .layers-row--selected .layers-row__adjustment-summary {
+  color: var(--color-text-on-accent);
+}
+
 /* ─── Instance badge ────────────────────────────────────────── */
 .layers-row__instance-badge {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   flex-shrink: 0;
 }
@@ -560,7 +687,7 @@
   font-size: var(--font-size-2xs);
   color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   flex-shrink: 0;
   font-weight: var(--font-weight-medium);
@@ -572,7 +699,7 @@
 
 .layers-row__sync-badge {
   font-size: var(--font-size-2xs);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   flex-shrink: 0;
   white-space: nowrap;
@@ -602,7 +729,7 @@
   font-size: var(--font-size-2xs);
   color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   flex-shrink: 0;
   white-space: nowrap;
@@ -613,7 +740,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   flex-shrink: 0;
   white-space: nowrap;
@@ -652,7 +779,7 @@
   font-size: var(--font-size-2xs);
   color: var(--color-feedback-success);
   background: color-mix(in oklab, var(--color-feedback-success) 16%, transparent);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   flex-shrink: 0;
   min-width: var(--space-3);
@@ -664,7 +791,7 @@
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   margin-left: auto;
   white-space: nowrap;
@@ -706,7 +833,7 @@
 
 .layers-row__object-filter-badge {
   background: color-mix(in oklab, var(--color-accent) 14%, transparent);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-accent);
   flex-shrink: 0;
   font-size: var(--font-size-2xs);
@@ -721,7 +848,7 @@
     var(--color-accent-secondary, var(--color-accent)) 14%,
     transparent
   );
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-accent-secondary, var(--color-accent));
   flex-shrink: 0;
   font-size: var(--font-size-2xs);
@@ -729,15 +856,50 @@
   white-space: nowrap;
 }
 
-.layers-row__mask-role {
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
-  white-space: nowrap;
+/* Mask state is structural information. Give it a stable pill and connector
+ * treatment so it cannot disappear into the row's incidental metadata. */
+.layers-row__mask-badge {
+  align-items: center;
+  border: 1px solid color-mix(in oklab, var(--color-feedback-info) 48%, transparent);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-feedback-info);
+  display: inline-flex;
   flex-shrink: 0;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  padding: 0 var(--space-1);
+  white-space: nowrap;
+}
+
+.layers-row__mask-badge--alpha,
+.layers-row__mask-badge--luminance {
+  color: var(--color-layer-accent-component);
+  border-color: color-mix(in oklab, var(--color-layer-accent-component) 48%, transparent);
+}
+
+.layers-row__mask-badge--disabled {
+  color: var(--color-text-muted);
+  border-style: dashed;
+  text-decoration: line-through;
+}
+
+.layers-row__mask-role {
+  align-items: center;
+  background: color-mix(in oklab, var(--color-feedback-info) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-feedback-info) 36%, transparent);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-feedback-info);
+  display: inline-flex;
+  font-size: var(--font-size-2xs);
+  line-height: 1.25;
+  padding: 0 var(--space-1);
 }
 
 .layers-row__mask-role--source {
-  font-weight: 600;
+  background: color-mix(in oklab, var(--color-layer-accent-adjustment) 14%, transparent);
+  border-color: color-mix(in oklab, var(--color-layer-accent-adjustment) 42%, transparent);
+  color: var(--color-layer-accent-adjustment);
 }
 
 /* ─── Toggles ───────────────────────────────────────────────── */
@@ -753,7 +915,7 @@
   color: inherit;
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   opacity: 0.25;
   transition: opacity var(--duration-quick) var(--ease-standard);
 }
@@ -788,7 +950,33 @@
 }
 
 .layers-row__toggle--solo-off {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.layers-row:hover .layers-row__toggle--solo-off,
+.layers-row:focus-within .layers-row__toggle--solo-off {
   opacity: 0.25;
+  pointer-events: auto;
+}
+
+/* Pointer and touch routes remain available without requiring hover. */
+@media (hover: none), (pointer: coarse) {
+  .layers-row__selection-checkbox,
+  .layers-row__toggle--solo-off {
+    opacity: 0.55;
+    pointer-events: auto;
+  }
+}
+
+/* Forced-colors/high-contrast must not let a user label reduce text contrast.
+ * The type/label data attribute and accessible name remain available, while
+ * the system row surface and type rail provide the non-colour fallback. */
+@media (forced-colors: active) {
+  .layers-row[data-layer-color],
+  [data-theme="high-contrast"] .layers-row[data-layer-color] {
+    background: var(--color-tree-row);
+  }
 }
 
 /* Mixed visibility/lock state — dash icon for multi-selection with mixed values */
@@ -815,7 +1003,7 @@
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
 .layers-filter-bar__search-row:focus-within {
@@ -854,7 +1042,7 @@
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 .layers-filter-bar__clear-search:hover {
   color: var(--color-text-primary);
@@ -872,7 +1060,7 @@
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   flex-shrink: 0;
 }
 .layers-filter-bar__toggle-advanced:hover {
@@ -885,7 +1073,7 @@
   color: var(--color-text-muted);
   background: none;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
   cursor: pointer;
   white-space: nowrap;
@@ -902,7 +1090,7 @@
   gap: var(--space-1);
   padding: var(--space-1) var(--space-1);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .layers-filter-bar__section {
@@ -929,7 +1117,7 @@
   color: var(--color-text-secondary);
   background: var(--color-surface-app);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: var(--space-05) var(--space-1);
   cursor: pointer;
   transition:
@@ -967,15 +1155,110 @@
   padding: 0 var(--space-1);
 }
 
-/* ─── VariablePanel wrapper ───────────────────────── */
-.layers-panel__variables {
-  margin-top: var(--space-3);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--color-border-subtle);
-  flex: 0 1 auto;
-  min-height: var(--space-10);
-  max-height: 220px;
-  overflow-y: auto;
+.layer-color-tag-picker {
+  align-items: center;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+.layer-color-tag-picker__button {
+  align-items: center;
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  box-sizing: content-box;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: var(--space-2);
+  justify-content: center;
+  padding: var(--space-1);
+  transition:
+    border-color var(--duration-quick) var(--ease-standard),
+    transform var(--duration-quick) var(--ease-standard);
+  width: var(--space-2);
+}
+
+.layer-color-tag-picker__button:hover {
+  border-color: var(--color-border-strong);
+  transform: scale(1.15);
+}
+
+.layer-color-tag-picker__button:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.layer-color-tag-picker__button[aria-pressed="true"],
+.layer-color-tag-picker__button--selected {
+  border-color: var(--color-text-primary);
+  box-shadow: 0 0 0 1px var(--color-surface-app);
+}
+
+.layer-color-tag-picker__button--red {
+  background: var(--color-layer-tag-red);
+}
+.layer-color-tag-picker__button--orange {
+  background: var(--color-layer-tag-orange);
+}
+.layer-color-tag-picker__button--yellow {
+  background: var(--color-layer-tag-yellow);
+}
+.layer-color-tag-picker__button--green {
+  background: var(--color-layer-tag-green);
+}
+.layer-color-tag-picker__button--blue {
+  background: var(--color-layer-tag-blue);
+}
+.layer-color-tag-picker__button--purple {
+  background: var(--color-layer-tag-purple);
+}
+.layer-color-tag-picker__button--gray {
+  background: var(--color-layer-tag-gray);
+}
+
+.layer-color-tag-picker__button--none,
+.layer-color-tag-picker__button--clear {
+  background: transparent;
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-muted);
+}
+
+.layer-color-tag-picker__button--none {
+  font-size: var(--font-size-xs);
+  line-height: 1;
+}
+
+.layer-color-tag-picker__button--none:hover,
+.layer-color-tag-picker__button--clear:hover {
+  color: var(--color-text-primary);
+}
+
+.layer-color-tag-picker__mixed {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+
+.layers-filter-bar__clear-tag {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: var(--font-size-2xs);
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.layers-filter-bar__clear-tag:hover {
+  color: var(--color-text-primary);
 }
 
 /* ─── Empty state ────────────────────────────────────────────── */
@@ -991,8 +1274,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-4);
-  height: 100%;
+  width: var(--space-5);
+  min-width: var(--space-5);
+  min-height: var(--space-5);
+  height: var(--space-5);
   flex-shrink: 0;
   cursor: grab;
   opacity: 0;
@@ -1006,7 +1291,7 @@
 }
 
 /* Touch devices have no hover to reveal the drag handle (WCAG 2.5.8). */
-@media (any-hover: none) {
+@media (hover: none), (pointer: coarse) {
   .layers-row__drag-handle {
     opacity: 1;
   }
@@ -1030,7 +1315,7 @@
   left: var(--space-2);
   right: var(--space-2);
   height: 3px;
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   background: var(--color-interactive-default);
   pointer-events: none;
   z-index: 3;
@@ -1069,9 +1354,9 @@
 }
 
 .layers-row--drop-into {
-  background: var(--color-interactive-hover);
-  border-radius: var(--radius-sm);
-  outline: 2px solid var(--color-interactive-default);
+  background: var(--color-interactive-drop-target-surface);
+  border-radius: var(--radius-control-compact);
+  outline: 2px solid var(--color-interactive-drop-target-border);
   outline-offset: -2px;
 }
 
@@ -1085,7 +1370,7 @@
   z-index: 5;
   margin: 0 var(--space-2);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   box-shadow: inset 0 3px 0 -1px var(--color-interactive-default);
   background: color-mix(in srgb, var(--color-interactive-default) 22%, var(--color-surface-base));
   color: var(--color-text-primary);
@@ -1095,39 +1380,39 @@
 }
 
 .layers-panel__drop-root--invalid {
-  border-top-color: var(--color-feedback-error);
-  background: color-mix(in srgb, var(--color-feedback-error) 16%, transparent);
+  border-top-color: var(--color-interactive-drop-denied-border);
+  background: var(--color-interactive-drop-denied-surface);
 }
 
 .layers-row--drop-invalid {
-  background: color-mix(in srgb, var(--color-feedback-error) 16%, transparent);
-  outline: 2px solid var(--color-feedback-error);
+  background: var(--color-interactive-drop-denied-surface);
+  outline: 2px solid var(--color-interactive-drop-denied-border);
   outline-offset: -2px;
 }
 
 .layers-row--drop-invalid::after,
 .layers-row--drop-invalid::before {
-  background: var(--color-feedback-error);
-  border-color: var(--color-feedback-error);
+  background: var(--color-interactive-drop-denied-border);
+  border-color: var(--color-interactive-drop-denied-border);
 }
 
 /* Appearance-stack drops use the row itself as a target but never change its
    measured height, so virtualized hit testing stays stable while hovering. */
 .layers-row--effect-stack-drop {
-  background: color-mix(in srgb, var(--color-interactive-default) 18%, var(--color-tree-row));
-  outline: 2px solid var(--color-interactive-default);
+  background: var(--color-interactive-drop-target-surface);
+  outline: 2px solid var(--color-interactive-drop-target-border);
   outline-offset: -2px;
 }
 
 .layers-row--effect-stack-drop-invalid {
-  background: color-mix(in srgb, var(--color-feedback-error) 14%, var(--color-tree-row));
-  outline: 2px solid var(--color-feedback-error);
+  background: var(--color-interactive-drop-denied-surface);
+  outline: 2px solid var(--color-interactive-drop-denied-border);
   outline-offset: -2px;
 }
 
 .layers-row__effect-stack-drop-hint {
   background: var(--color-interactive-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary-on-default, var(--color-text-primary));
   font-size: var(--font-size-2xs);
   font-weight: 600;
@@ -1145,7 +1430,7 @@
 }
 
 .layers-row--effect-stack-drop-invalid .layers-row__effect-stack-drop-hint {
-  background: var(--color-feedback-error);
+  background: var(--color-interactive-drop-denied-border);
 }
 
 /* Clip-into drop preview: the target row is a clipping mask source, so the
@@ -1158,7 +1443,7 @@
   transform: translateY(-50%);
   z-index: 3;
   padding: 2px var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-interactive-default);
   color: var(--color-text-primary-on-default, var(--color-text-primary));
   font-size: var(--font-size-xs);
@@ -1177,9 +1462,44 @@
 
 /* ─── Match highlight for search ────────────────────────────── */
 .layers-row__match {
-  background: var(--color-feedback-warning);
+  background: var(--color-highlight-search-match);
   color: var(--color-text-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
+}
+
+.layers-row__name--match {
+  background: var(--color-highlight-search-match);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-control-compact);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding-inline: 2px;
+}
+
+/* A tap must not leave a temporary row-hover tint behind. Persistent selected,
+ * document-color, and drop states remain authoritative on coarse pointers. */
+@media (hover: none), (pointer: coarse) {
+  .layers-row:hover:not(.layers-row--selected):not(.layers-row--drop-into):not(
+    .layers-row--drop-invalid
+  ):not(.layers-row--effect-stack-drop):not(.layers-row--effect-stack-drop-invalid) {
+    background: var(--color-tree-row);
+  }
+
+  .layers-row[data-layer-color]:hover:not(.layers-row--selected) {
+    background: color-mix(in oklab, var(--layers-row-color) 30%, var(--color-tree-row));
+  }
+
+  .layers-row--selected:hover {
+    background: var(--color-interactive-selected-surface);
+  }
+
+  .layers-row--selected[data-layer-color]:hover {
+    background: color-mix(
+      in oklab,
+      var(--layers-row-color) 38%,
+      var(--color-interactive-selected-surface)
+    );
+  }
 }
 
 /* ─── Presence indicators (collaboration) ──────────────────── */
@@ -1276,7 +1596,7 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   padding: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition:
     color var(--duration-quick) var(--ease-standard),
     background var(--duration-quick) var(--ease-standard);
@@ -1293,67 +1613,8 @@
   background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
 }
 
-.layers-bulk-bar__color-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-05);
+.layers-bulk-bar .layer-color-tag-picker {
   border-left: 1px solid var(--color-border-subtle);
   border-right: 1px solid var(--color-border-subtle);
-}
-
-.layers-bulk-bar__color-btn {
-  width: var(--space-2);
-  height: var(--space-2);
-  border-radius: 50%;
-  border: 1px solid transparent;
-  cursor: pointer;
-  /* Padding expands hit area to ≥ 24px (WCAG 2.5.8) */
-  padding: var(--space-1);
-  box-sizing: content-box;
-  flex-shrink: 0;
-  transition:
-    border-color var(--duration-quick) var(--ease-standard),
-    transform var(--duration-quick) var(--ease-standard);
-}
-
-.layers-bulk-bar__color-btn:hover {
-  border-color: var(--color-border-strong);
-  transform: scale(1.3);
-}
-
-.layers-bulk-bar__color-btn--red {
-  background: var(--color-layer-tag-red);
-}
-.layers-bulk-bar__color-btn--orange {
-  background: var(--color-layer-tag-orange);
-}
-.layers-bulk-bar__color-btn--yellow {
-  background: var(--color-layer-tag-yellow);
-}
-.layers-bulk-bar__color-btn--green {
-  background: var(--color-layer-tag-green);
-}
-.layers-bulk-bar__color-btn--blue {
-  background: var(--color-layer-tag-blue);
-}
-.layers-bulk-bar__color-btn--purple {
-  background: var(--color-layer-tag-purple);
-}
-.layers-bulk-bar__color-btn--gray {
-  background: var(--color-layer-tag-gray);
-}
-
-/* Clear colour button — transparent with border, distinct from coloured dots */
-.layers-bulk-bar__color-btn--clear {
-  background: transparent;
-  border-color: var(--color-border-subtle);
-  color: var(--color-text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.layers-bulk-bar__color-btn--clear:hover {
-  border-color: var(--color-border-strong);
-  color: var(--color-text-primary);
+  padding: 0 var(--space-05);
 }

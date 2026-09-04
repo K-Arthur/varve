@@ -793,6 +793,14 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   }
 };
 
+// Readiness means the worker module and message loop are alive. Model session
+// creation remains lazy and is reported by the correlated infer result/error;
+// callers must never wait for a model-backed “ready” event before surfacing a
+// failure.
+if (typeof self.postMessage === 'function') {
+  self.postMessage({ type: 'ready' } satisfies WorkerReady);
+}
+
 export function __resetSessionCache(): void {
   sessionCache.clear();
   preferredOnnxProviders = null;

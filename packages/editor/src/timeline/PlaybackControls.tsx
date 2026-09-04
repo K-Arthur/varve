@@ -112,6 +112,7 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
         className={`timeline-playback-btn ${loop ? 'timeline-playback-btn--active' : ''}`}
         onClick={onToggleLoop}
         aria-label={loop ? 'Disable loop' : 'Enable loop'}
+        aria-pressed={loop}
       >
         <Icon name="Repeat" size={14} />
       </button>

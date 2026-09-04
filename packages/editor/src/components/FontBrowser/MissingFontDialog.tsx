@@ -7,16 +7,21 @@
  *
  * Research basis: Figma missing font dialog, InDesign missing font replacement.
  */
-import type { FontCatalog, FontSubstitute, MissingFontInfo } from '@varve/engine/font';
+import type { FontSubstitute, MissingFontInfo } from '@varve/engine/font';
 import { Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { MissingFontRecoveryMatch } from './missingFontRecovery';
+import { fontFaceLabel } from './missingFontRecovery';
 import './MissingFontDialog.css';
 
 export interface MissingFontDialogProps {
   missingFonts: MissingFontInfo[];
-  catalog: FontCatalog;
+  recoveryMatches: ReadonlyMap<string, MissingFontRecoveryMatch>;
+  downloadRestrictionMessage?: string;
   onReplace: (original: string, replacement: string) => void;
   onReplaceAll: (map: Map<string, string>) => void;
+  onInstallFontsource: (missing: MissingFontInfo, match: MissingFontRecoveryMatch) => Promise<void>;
+  onBrowseCatalog: (missing: MissingFontInfo) => void;
   onDismiss: () => void;
   onClose: () => void;
 }
@@ -26,27 +31,46 @@ function bestSubstitute(substitutes: FontSubstitute[]): FontSubstitute | undefin
   return substitutes.reduce((best, cur) => (cur.confidence > best.confidence ? cur : best));
 }
 
+function initialSelections(
+  missingFonts: readonly MissingFontInfo[],
+  previous?: ReadonlyMap<string, string>,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const missing of missingFonts) {
+    const prior = previous?.get(missing.familyName);
+    if (prior && missing.substitutes.some((candidate) => candidate.familyName === prior)) {
+      map.set(missing.familyName, prior);
+      continue;
+    }
+    const best = bestSubstitute(missing.substitutes);
+    if (best) map.set(missing.familyName, best.familyName);
+  }
+  return map;
+}
+
 export function MissingFontDialog({
   missingFonts,
-  catalog: _catalog,
+  recoveryMatches,
+  downloadRestrictionMessage,
   onReplace,
   onReplaceAll,
+  onInstallFontsource,
+  onBrowseCatalog,
   onDismiss,
   onClose: _onClose,
 }: MissingFontDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
 
-  const [selections, setSelections] = useState<Map<string, string>>(() => {
-    const map = new Map<string, string>();
-    for (const mf of missingFonts) {
-      const best = bestSubstitute(mf.substitutes);
-      if (best) {
-        map.set(mf.familyName, best.familyName);
-      }
-    }
-    return map;
-  });
+  const [selections, setSelections] = useState<Map<string, string>>(() =>
+    initialSelections(missingFonts),
+  );
+  const [installingFamily, setInstallingFamily] = useState<string | null>(null);
+  const [installError, setInstallError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelections((previous) => initialSelections(missingFonts, previous));
+  }, [missingFonts]);
 
   useEffect(() => {
     previousFocus.current = document.activeElement as HTMLElement;
@@ -105,13 +129,31 @@ export function MissingFontDialog({
   const handleSelectionChange = useCallback((family: string, replacement: string) => {
     setSelections((prev) => {
       const next = new Map(prev);
-      next.set(family, replacement);
+      if (replacement) next.set(family, replacement);
+      else next.delete(family);
       return next;
     });
   }, []);
 
+  const handleInstall = useCallback(
+    async (missing: MissingFontInfo, match: MissingFontRecoveryMatch) => {
+      setInstallingFamily(missing.familyName);
+      setInstallError(null);
+      try {
+        await onInstallFontsource(missing, match);
+      } catch (error) {
+        setInstallError(
+          error instanceof Error ? error.message : 'The matching font could not be installed.',
+        );
+      } finally {
+        setInstallingFamily(null);
+      }
+    },
+    [onInstallFontsource],
+  );
+
   const allResolved = useMemo(() => {
-    return missingFonts.every((mf) => selections.has(mf.familyName));
+    return missingFonts.every((mf) => Boolean(selections.get(mf.familyName)));
   }, [missingFonts, selections]);
 
   const statusLabels: Record<string, string> = {
@@ -148,15 +190,18 @@ export function MissingFontDialog({
         </div>
 
         <p id="missing-font-dialog-description" className="missing-font-dialog__description">
-          Varve found font families that are not available on this device. Choose a replacement and
-          it will be applied to every matching text node, including rich-text runs and shared text
-          styles. The original family is retained in the document font manifest.
+          Varve found font families that are not available on this device. Install an exact
+          Fontsource match when one is available, or choose a local replacement. Replacements apply
+          to matching text nodes, rich-text runs, and shared text styles; the original family stays
+          in the document font manifest.
         </p>
 
         <div className="missing-font-dialog__list">
           {missingFonts.map((mf) => {
             const substitute = selections.get(mf.familyName);
             const hasSubstitutes = mf.substitutes.length > 0;
+            const recoveryMatch = recoveryMatches.get(mf.familyName);
+            const installing = installingFamily === mf.familyName;
 
             return (
               <div key={mf.familyName} className="missing-font-dialog__item">
@@ -183,18 +228,63 @@ export function MissingFontDialog({
                   </span>
                 </div>
 
-                <div className="missing-font-dialog__item-substitute">
-                  <label
-                    className="missing-font-dialog__substitute-label"
-                    htmlFor={`substitute-${mf.familyName}`}
+                <div className="missing-font-dialog__recovery">
+                  <div className="missing-font-dialog__recovery-copy">
+                    {recoveryMatch ? (
+                      <>
+                        <strong>
+                          {recoveryMatch.matchedByAlias
+                            ? `Catalog match: ${recoveryMatch.record.familyName}`
+                            : 'Exact family available from Fontsource'}
+                        </strong>
+                        <span>
+                          {fontFaceLabel(recoveryMatch)} · {recoveryMatch.record.license.name}
+                          {!recoveryMatch.exactFace ? ' · closest available face' : ''}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <strong>No exact Fontsource family match</strong>
+                        <span>Browse the local catalog for a reviewed alternative.</span>
+                      </>
+                    )}
+                  </div>
+                  {recoveryMatch && (
+                    <button
+                      type="button"
+                      className="missing-font-dialog__install-btn"
+                      onClick={() => void handleInstall(mf, recoveryMatch)}
+                      disabled={installingFamily !== null || Boolean(downloadRestrictionMessage)}
+                      aria-label={`Install ${recoveryMatch.record.familyName} ${fontFaceLabel(recoveryMatch)}`}
+                    >
+                      {installing
+                        ? 'Installing…'
+                        : recoveryMatch.exactFace
+                          ? 'Install exact face'
+                          : 'Install closest face'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="missing-font-dialog__browse-btn"
+                    onClick={() => onBrowseCatalog(mf)}
+                    disabled={installingFamily !== null}
                   >
-                    Replace with:
-                  </label>
+                    Browse fonts
+                  </button>
+                </div>
+
+                {recoveryMatch && downloadRestrictionMessage && (
+                  <p className="missing-font-dialog__restriction">{downloadRestrictionMessage}</p>
+                )}
+
+                <div className="missing-font-dialog__item-substitute">
+                  <span className="missing-font-dialog__substitute-label">Replace with:</span>
                   <Select
                     label={`Substitute for ${mf.familyName}`}
                     value={substitute ?? ''}
                     options={[
-                      { value: '', label: 'Use system default' },
+                      { value: '', label: 'Choose a replacement' },
                       ...mf.substitutes.map((sub) => ({
                         value: sub.familyName,
                         label: `${sub.familyName} (${sub.matchQuality})`,
@@ -207,7 +297,7 @@ export function MissingFontDialog({
                     type="button"
                     className="missing-font-dialog__apply-btn"
                     onClick={() => handleApply(mf.familyName)}
-                    disabled={!substitute}
+                    disabled={!substitute || installingFamily !== null}
                   >
                     Apply
                   </button>
@@ -216,6 +306,12 @@ export function MissingFontDialog({
             );
           })}
         </div>
+
+        {installError && (
+          <p className="missing-font-dialog__install-error" role="alert">
+            {installError}
+          </p>
+        )}
 
         <p id="missing-font-dialog-warning" className="missing-font-dialog__warning">
           Text layout may change after replacement. Review wrapping and export before delivery.
@@ -233,7 +329,7 @@ export function MissingFontDialog({
             type="button"
             className="missing-font-dialog__btn missing-font-dialog__btn--primary"
             onClick={handleReplaceAll}
-            disabled={!allResolved}
+            disabled={!allResolved || installingFamily !== null}
           >
             Replace All
           </button>

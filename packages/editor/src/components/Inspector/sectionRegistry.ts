@@ -28,7 +28,6 @@ export type SectionId =
   | 'corner-radius'
   | 'layout'
   | 'layout-child'
-  | 'constraints'
   | 'appearance'
   | 'mask'
   | 'selection-colors'
@@ -248,7 +247,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   // -- Geometry group --
   {
     id: 'position-size',
-    title: 'Position & Size',
+    title: 'Layout',
     defaultExpanded: true,
     canHide: false,
     essential: true,
@@ -293,16 +292,9 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     category: 'geometry',
     isAvailable: (ctx) => hasNodes(ctx) && !isFrameNode(ctx.selectedNodes),
   },
-  {
-    id: 'constraints',
-    title: 'Constraints',
-    defaultExpanded: true,
-    canHide: true,
-    essential: false,
-    order: 115,
-    category: 'geometry',
-    isAvailable: (ctx) => hasNodes(ctx),
-  },
+  // 'constraints' was merged into 'position-size' (ADR-0230). The id is
+  // deliberately absent from the SectionId union and SECTION_DEFINITIONS.
+  // Stale persisted state is silently dropped by migrateSectionState.
 
   // -- Appearance group --
   {
@@ -318,7 +310,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'mask',
     title: 'Mask',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 210,
@@ -328,7 +320,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'selection-colors',
     title: 'Selection Colors',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 215,
@@ -348,7 +340,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'paint-library',
     title: 'Paint Library',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 230,
@@ -368,7 +360,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'effects',
     title: 'Layer Effects',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 250,
@@ -378,7 +370,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'smart-filters',
     title: 'Object Filters',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 245,
@@ -388,7 +380,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'adjustment-layer-access',
     title: 'Adjustment Layer',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 246,
@@ -400,7 +392,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'warp',
     title: 'Warp',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 255,
@@ -551,7 +543,12 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 275,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    // While the crop tool is active the tool-options popover owns this
+    // surface (featureOwnership: 'tool-options', same convention as
+    // brush-settings/frame-presets); the Inspector hosts it for
+    // selection-based access under every other tool.
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.activeTool !== 'crop',
   },
   {
     id: 'ai-tools-hint',
@@ -570,7 +567,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'layer-states',
     title: 'Layer States',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 305,
@@ -920,6 +917,40 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
 const SECTION_MAP = new Map<SectionId, SectionDefinition>(
   SECTION_DEFINITIONS.map((def) => [def.id, def]),
 );
+const SECTION_DEFINITION_INDEX = new Map<SectionId, number>(
+  SECTION_DEFINITIONS.map((def, index) => [def.id, index]),
+);
+
+/** Compare sections by explicit order, then by their declaration index. */
+export function compareSectionDefinitions(a: SectionDefinition, b: SectionDefinition): number {
+  const orderDelta = a.order - b.order;
+  if (orderDelta !== 0) return orderDelta;
+  return (
+    (SECTION_DEFINITION_INDEX.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+    (SECTION_DEFINITION_INDEX.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+  );
+}
+
+const ORDERED_SECTION_DEFINITIONS = [...SECTION_DEFINITIONS].sort(compareSectionDefinitions);
+
+/** Return referential-integrity errors for the canonical section registry. */
+export function getSectionRegistryIntegrityIssues(): string[] {
+  const issues: string[] = [];
+  const seenIds = new Set<string>();
+  for (const definition of SECTION_DEFINITIONS) {
+    if (seenIds.has(definition.id)) issues.push(`duplicate section id: ${definition.id}`);
+    seenIds.add(definition.id);
+    if (!definition.title.trim()) issues.push(`empty section title: ${definition.id}`);
+    if (!Number.isFinite(definition.order)) issues.push(`invalid section order: ${definition.id}`);
+    if (typeof definition.isAvailable !== 'function') {
+      issues.push(`missing availability predicate: ${definition.id}`);
+    }
+    if (definition.essential && definition.canHide) {
+      issues.push(`essential section is hideable: ${definition.id}`);
+    }
+  }
+  return issues;
+}
 
 /** Get a section definition by ID. Returns undefined for unknown IDs (safe migration). */
 export function getSectionDefinition(id: SectionId): SectionDefinition | undefined {
@@ -928,7 +959,7 @@ export function getSectionDefinition(id: SectionId): SectionDefinition | undefin
 
 /** Get all section definitions, sorted by order. */
 export function getAllSections(): readonly SectionDefinition[] {
-  return SECTION_DEFINITIONS;
+  return ORDERED_SECTION_DEFINITIONS;
 }
 
 /** Get sections available for the current context, sorted by order. */
@@ -941,9 +972,7 @@ export function getAvailableSections(ctx: SectionAvailabilityContext): SectionDe
     const adjustment = getSectionDefinition('adjustment');
     return adjustment ? [adjustment] : [];
   }
-  return SECTION_DEFINITIONS.filter((def) => def.isAvailable(ctx)).sort(
-    (a, b) => a.order - b.order,
-  );
+  return SECTION_DEFINITIONS.filter((def) => def.isAvailable(ctx)).sort(compareSectionDefinitions);
 }
 
 /** Get all hideable section IDs. */
@@ -953,13 +982,13 @@ export function getHideableSectionIds(): SectionId[] {
 
 /** Get all section IDs. */
 export function getAllSectionIds(): SectionId[] {
-  return SECTION_DEFINITIONS.map((def) => def.id);
+  return ORDERED_SECTION_DEFINITIONS.map((def) => def.id);
 }
 
 /** Section IDs grouped by category. */
 export function getSectionsByCategory(): Map<SectionCategory, SectionDefinition[]> {
   const grouped = new Map<SectionCategory, SectionDefinition[]>();
-  for (const def of SECTION_DEFINITIONS) {
+  for (const def of ORDERED_SECTION_DEFINITIONS) {
     const list = grouped.get(def.category) ?? [];
     list.push(def);
     grouped.set(def.category, list);

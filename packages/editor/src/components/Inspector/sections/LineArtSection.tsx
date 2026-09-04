@@ -250,7 +250,7 @@ export function LineArtSection({ nodes }: { nodes: SceneNode[] }) {
           <div className="insp-actions">
             <Button
               type="button"
-              variant="primary"
+              variant="default"
               size="sm"
               onClick={handleDownload}
               aria-label="Download line art model (~17 MB)"
@@ -306,7 +306,7 @@ export function LineArtSection({ nodes }: { nodes: SceneNode[] }) {
             <div className="insp-actions">
               <Button
                 type="button"
-                variant="primary"
+                variant="default"
                 size="sm"
                 onClick={handleApply}
                 disabled={isProcessing}

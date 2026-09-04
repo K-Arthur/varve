@@ -8,7 +8,7 @@
 .mockups-section__warning {
   margin: 0;
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-feedback-danger, var(--surface-muted));
   color: var(--danger, var(--text-primary));
   font-size: var(--font-size-sm);
@@ -50,7 +50,7 @@
 .mockups-section__fit {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--font-size-xs);

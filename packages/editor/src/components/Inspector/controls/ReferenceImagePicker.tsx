@@ -13,8 +13,9 @@
  * WCAG 2.2 AA compliant: keyboard accessible, focus visible,
  * screen reader labels, reduced motion support.
  */
-import { Button, Select, Tooltip } from '@varve/ui';
-import { useCallback, useRef, useState } from 'react';
+import type { FileRejection } from '@varve/shared';
+import { Button, FileError, FilePickerButton, Select, Tooltip } from '@varve/ui';
+import { useCallback, useState } from 'react';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,42 +68,39 @@ export function ReferenceImagePicker({
   disabled = false,
   documentImages = [],
 }: ReferenceImagePickerProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   // Handle file import
   const handleFileImport = useCallback(
     async (file: File) => {
-      if (!file.type.startsWith('image/')) return;
+      if (!file.type.startsWith('image/') && !/\.(png|jpe?g|webp|gif|svg)$/i.test(file.name)) {
+        setFileError('Choose an image file such as PNG, JPEG, WebP, GIF, or SVG.');
+        return;
+      }
 
-      const dataUrl = await readFileAsDataUrl(file);
-      const dims = await getImageDimensions(dataUrl);
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        const dims = await getImageDimensions(dataUrl);
 
-      const ref: ReferenceImageState = {
-        id: `ref-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: file.name,
-        src: dataUrl,
-        width: dims.width,
-        height: dims.height,
-        type: 'embedded',
-        accessible: true,
-        sizeBytes: file.size,
-      };
+        const ref: ReferenceImageState = {
+          id: `ref-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: file.name,
+          src: dataUrl,
+          width: dims.width,
+          height: dims.height,
+          type: 'embedded',
+          accessible: true,
+          sizeBytes: file.size,
+        };
 
-      onChange(ref);
+        setFileError(null);
+        onChange(ref);
+      } catch {
+        setFileError('The image could not be read. Choose a different local file.');
+      }
     },
     [onChange],
-  );
-
-  // Handle file input change
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) handleFileImport(file);
-      // Reset input so same file can be re-selected
-      e.target.value = '';
-    },
-    [handleFileImport],
   );
 
   // Handle drag-and-drop
@@ -218,16 +216,20 @@ export function ReferenceImagePicker({
             </span>
           </div>
           <div className="ref-image-picker__actions">
-            <Button
-              type="button"
+            <FilePickerButton
               variant="ghost"
               size="sm"
+              accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
+              actionLabel="Replace"
+              inputLabel="Replace reference image"
               disabled={disabled}
-              onClick={() => fileInputRef.current?.click()}
-              aria-label="Replace reference image"
-            >
-              Replace
-            </Button>
+              onFiles={([file]) => {
+                if (file) void handleFileImport(file);
+              }}
+              onReject={(rejections: FileRejection<File>[]) =>
+                setFileError(rejections[0]?.reason ?? 'The image was rejected.')
+              }
+            />
             <Button
               type="button"
               variant="ghost"
@@ -248,16 +250,20 @@ export function ReferenceImagePicker({
             Drop an image here, paste from clipboard, or select from document
           </p>
           <div className="ref-image-picker__import-actions">
-            <Button
-              type="button"
+            <FilePickerButton
               variant="secondary"
               size="sm"
+              accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
+              actionLabel="Import File"
+              inputLabel="Import reference image from file"
               disabled={disabled}
-              onClick={() => fileInputRef.current?.click()}
-              aria-label="Import reference image from file"
-            >
-              Import File
-            </Button>
+              onFiles={([file]) => {
+                if (file) void handleFileImport(file);
+              }}
+              onReject={(rejections: FileRejection<File>[]) =>
+                setFileError(rejections[0]?.reason ?? 'The image was rejected.')
+              }
+            />
             <Button
               type="button"
               variant="ghost"
@@ -286,16 +292,7 @@ export function ReferenceImagePicker({
           )}
         </div>
       )}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        style={{ display: 'none' }}
-        onChange={handleFileChange}
-        aria-hidden="true"
-        tabIndex={-1}
-      />
+      {fileError && <FileError message={fileError} compact />}
     </section>
   );
 }
