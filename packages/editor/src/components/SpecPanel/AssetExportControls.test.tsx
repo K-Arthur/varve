@@ -51,7 +51,7 @@ describe('AssetExportControls', () => {
     expect(screen.getByRole('button', { name: 'SVG' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('shows the advisor reason in an accessible tooltip on focus', () => {
+  it('shows the advisor reason in an accessible tooltip on focus', async () => {
     // Tooltip.tsx uses aria-describedby + a portaled role="tooltip" element,
     // not a native `title` attribute (which it actively warns against, since
     // native tooltips can't be styled, positioned, or read reliably by all
@@ -69,7 +69,7 @@ describe('AssetExportControls', () => {
     const infoButton = screen.getByLabelText(/why/i);
     fireEvent.focus(infoButton);
 
-    const tooltip = screen.getByRole('tooltip');
+    const tooltip = await screen.findByRole('tooltip');
     expect(tooltip).toHaveTextContent('Vector path exports losslessly as SVG');
     expect(infoButton).toHaveAttribute('aria-describedby', tooltip.id);
   });
@@ -190,7 +190,7 @@ describe('AssetExportControls', () => {
       expect(screen.getByText(/No saved configurations yet/)).toBeInTheDocument();
     });
 
-    it('adds a preset seeded from the current format and scale', () => {
+    it('adds a preset seeded from the current format and scale', async () => {
       const doc = createDocument('Export', true);
       const onAddPreset = vi.fn();
       render(
@@ -203,7 +203,7 @@ describe('AssetExportControls', () => {
       fireEvent.click(screen.getByRole('button', { name: 'PNG' }));
       fireEvent.click(screen.getByRole('button', { name: '2x' }));
       fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
-      fireEvent.click(screen.getByRole('option', { name: 'PNG' }));
+      fireEvent.click(await screen.findByRole('option', { name: 'PNG' }));
       fireEvent.click(screen.getByRole('button', { name: 'Add configuration' }));
 
       expect(onAddPreset).toHaveBeenCalledOnce();
@@ -219,7 +219,7 @@ describe('AssetExportControls', () => {
       expect(preset.enabled).toBe(true);
     });
 
-    it('offers print and code formats, and never offers unsupported AVIF', () => {
+    it('offers print and code formats, and never offers unsupported AVIF', async () => {
       const doc = createDocument('Export', true);
       render(
         <AssetExportControls
@@ -231,6 +231,7 @@ describe('AssetExportControls', () => {
       );
 
       fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
+      await screen.findByRole('option', { name: 'PDF/X-1a' });
       const options = screen.getAllByRole('option').map((o) => o.textContent);
 
       // Print formats reachable from the inspector (the regression that
@@ -246,7 +247,7 @@ describe('AssetExportControls', () => {
       expect(options.join(' ')).not.toMatch(/AVIF/i);
     });
 
-    it('disables desktop-only print formats on web with an explanation', () => {
+    it('disables desktop-only print formats on web with an explanation', async () => {
       const doc = createDocument('Export', true);
       render(
         <AssetExportControls
@@ -257,14 +258,12 @@ describe('AssetExportControls', () => {
       );
 
       fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
-      const pdfx4 = screen
-        .getAllByRole('option')
-        .find((o) => o.textContent?.includes('PDF/X-4')) as HTMLElement;
+      const pdfx4 = await screen.findByRole('option', { name: /PDF\/X-4/ });
       expect(pdfx4).toHaveTextContent(/desktop only/i);
       expect(pdfx4).toHaveAttribute('aria-disabled', 'true');
     });
 
-    it('adds a print preset with the selected PDF/X standard on desktop', () => {
+    it('adds a print preset with the selected PDF/X standard on desktop', async () => {
       const doc = createDocument('Export', true);
       const onAddPreset = vi.fn();
       render(
@@ -277,7 +276,7 @@ describe('AssetExportControls', () => {
       );
 
       fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
-      fireEvent.click(screen.getByRole('option', { name: 'PDF/X-4' }));
+      fireEvent.click(await screen.findByRole('option', { name: 'PDF/X-4' }));
       fireEvent.click(screen.getByRole('button', { name: 'Add configuration' }));
 
       const preset = onAddPreset.mock.calls[0]?.[0] as {
@@ -291,7 +290,7 @@ describe('AssetExportControls', () => {
       expect(preset.suffix).toBe('');
     });
 
-    it('applies a built-in catalog preset', () => {
+    it('applies a built-in catalog preset', async () => {
       const doc = createDocument('Export', true);
       const onAddPreset = vi.fn();
       render(
@@ -303,7 +302,7 @@ describe('AssetExportControls', () => {
       );
 
       fireEvent.click(screen.getByRole('combobox', { name: /Add from preset/i }));
-      fireEvent.click(screen.getByRole('option', { name: 'PNG 2\u00d7 \u00b7 web' }));
+      fireEvent.click(await screen.findByRole('option', { name: 'PNG 2\u00d7 \u00b7 web' }));
 
       expect(onAddPreset).toHaveBeenCalledOnce();
       expect(onAddPreset.mock.calls[0]?.[0]).toMatchObject({
@@ -314,7 +313,7 @@ describe('AssetExportControls', () => {
       });
     });
 
-    it('preserves built-in raster settings instead of reducing a preset to format and scale', () => {
+    it('preserves built-in raster settings instead of reducing a preset to format and scale', async () => {
       const doc = createDocument('Export', true);
       const onAddPreset = vi.fn();
       const node = makeShapeNode(
@@ -331,7 +330,7 @@ describe('AssetExportControls', () => {
       );
 
       fireEvent.click(screen.getByRole('combobox', { name: /Add from preset/i }));
-      fireEvent.click(screen.getByRole('option', { name: 'JPEG high quality · web' }));
+      fireEvent.click(await screen.findByRole('option', { name: 'JPEG high quality · web' }));
 
       expect(onAddPreset).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -345,7 +344,7 @@ describe('AssetExportControls', () => {
       );
     });
 
-    it('applies a bundle as several export settings at once', () => {
+    it('applies a bundle as several export settings at once', async () => {
       const doc = createDocument('Export', true);
       const onAddPreset = vi.fn();
       render(
@@ -357,7 +356,7 @@ describe('AssetExportControls', () => {
       );
 
       fireEvent.click(screen.getByRole('combobox', { name: /Add from preset/i }));
-      fireEvent.click(screen.getByRole('option', { name: /Web asset set/ }));
+      fireEvent.click(await screen.findByRole('option', { name: /Web asset set/ }));
 
       // SVG + PNG 1x + PNG 2x — the point of the catalog: one click, real
       // multi-output, not a renamed default.
@@ -368,7 +367,7 @@ describe('AssetExportControls', () => {
       expect(new Set(ids).size).toBe(3);
     });
 
-    it('omits catalog presets whose format is unavailable on this platform', () => {
+    it('omits catalog presets whose format is unavailable on this platform', async () => {
       const doc = createDocument('Export', true);
       render(
         <AssetExportControls
@@ -379,6 +378,7 @@ describe('AssetExportControls', () => {
       );
 
       fireEvent.click(screen.getByRole('combobox', { name: /Add from preset/i }));
+      await screen.findByRole('option', { name: /^PNG 1/ });
       const labels = screen.getAllByRole('option').map((o) => o.textContent ?? '');
       // Web platform: press presets are not encodable, so they are not offered.
       expect(labels.some((l) => /PDF\/X-4/.test(l))).toBe(false);
@@ -405,7 +405,7 @@ describe('AssetExportControls', () => {
       );
     });
 
-    it('adds a PDF preset using the legacy pdf-screen format', () => {
+    it('adds a PDF preset using the legacy pdf-screen format', async () => {
       const doc = createDocument('Export', true);
       const onAddPreset = vi.fn();
       render(
@@ -417,7 +417,7 @@ describe('AssetExportControls', () => {
         />,
       );
       fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
-      fireEvent.click(screen.getByRole('option', { name: 'PDF (screen)' }));
+      fireEvent.click(await screen.findByRole('option', { name: 'PDF (screen)' }));
       fireEvent.click(screen.getByRole('button', { name: 'Add configuration' }));
 
       const preset = onAddPreset.mock.calls[0]?.[0] as { format: string };

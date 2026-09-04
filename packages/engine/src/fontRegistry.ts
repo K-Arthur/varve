@@ -1,10 +1,10 @@
 /**
  * FontRegistry — manages font sources, loading, caching, and fallback chains.
  *
- * Three font sources:
+ * Font sources:
  *   1. System fonts (browser `queryLocalFonts` API or hardcoded safe list)
  *   2. Bundled fonts (@fontsource CSS imports)
- *   3. Google Fonts (optional, via CSS @import or link injection)
+ *   3. User-installed Fontsource faces and legacy provider entries
  *
  * Variable font axes: entries can specify `variableAxes` for wght/wdth/slnt/opsz
  * axis values. `resolve()` includes `font-variation-settings` when axes are set.
@@ -18,8 +18,8 @@ export interface FontEntry {
   family: string;
   weight: number;
   style: 'normal' | 'italic';
-  source: 'system' | 'bundled' | 'google';
-  /** URL for Google Fonts CSS API or direct woff2 URL for bundled fonts. */
+  source: 'system' | 'bundled' | 'google' | 'fontsource' | 'user';
+  /** Optional source URL retained for legacy/provider metadata. */
   url?: string;
   /** Variable font axis values (e.g. { wght: 500, wdth: 75, slnt: 0, opsz: 14 }). */
   variableAxes?: Record<string, number>;
@@ -33,6 +33,16 @@ export interface FontEntry {
    * at wght 700, Fraunces defaults opsz to 9 rather than 14).
    */
   axisDefinitions?: VariableAxisInfo[];
+}
+
+function fontEntryKey(entry: FontEntry): string {
+  const axes = Object.entries(entry.variableAxes ?? {})
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([tag, value]) => `${tag}=${value}`)
+    .join(',');
+  return [entry.family, entry.weight, entry.style, entry.source, entry.url ?? '', axes].join(
+    '\u0000',
+  );
 }
 
 export type FontLoadState = 'unknown' | 'loading' | 'loaded' | 'error';
@@ -226,6 +236,7 @@ export class FontRegistry {
   /** Register a font entry (e.g., from system enumeration or Google Fonts API). */
   register(entry: FontEntry): void {
     const existing = this.entries.get(entry.family) ?? [];
+    if (existing.some((candidate) => fontEntryKey(candidate) === fontEntryKey(entry))) return;
     // Bundled variable families carry their fvar axes even when the caller
     // did not spell them out, so the inspector can offer them.
     const bundled = BUNDLED_VARIABLE_AXES[entry.family];

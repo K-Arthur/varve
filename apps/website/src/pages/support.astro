@@ -46,7 +46,7 @@ import { CONTACTS } from '@varve/shared';
         <section class="support-section">
           <h2>Report a Bug</h2>
           <p>Help improve Varve by reporting issues with detailed information</p>
-          <a href={sitePath('/support/report-issue')} class="btn-primary">Report an Issue</a>
+          <a href={sitePath('/support/report-issue')} class="btn-default">Report an Issue</a>
         </section>
 
         <section class="support-section">
@@ -120,7 +120,7 @@ import { CONTACTS } from '@varve/shared';
   
   .support-note {
     background: var(--surface-muted);
-    border-radius: 0.375rem;
+    border-radius: var(--website-radius-control-compact);
     padding: 0.75rem 1rem;
     font-size: 0.875rem;
     color: var(--text-secondary);
@@ -130,7 +130,7 @@ import { CONTACTS } from '@varve/shared';
   .support-cta {
     background: var(--surface-card);
     border: 1px solid var(--border-default);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     padding: 2rem;
     text-align: center;
   }

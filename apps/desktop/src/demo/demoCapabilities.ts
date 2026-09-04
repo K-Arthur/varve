@@ -31,7 +31,7 @@ export const DEMO_WORKSPACE_MODES = ['design', 'drawing', 'image'] as const;
 export function applyDemoCapabilities(config: DemoConfig): void {
   if (!config.active) return;
   setCapabilityRestrictions({
-    restricted: new Set(['inference', 'printProduction'] as const),
+    restricted: new Set(['inference', 'printProduction', 'onlineFonts'] as const),
     workspaceModes: [...DEMO_WORKSPACE_MODES],
     upgradeUrl: config.downloadUrl,
   });

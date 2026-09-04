@@ -66,7 +66,7 @@ test.describe('Table and modifier visual verification', () => {
       await headerRowsInput.press('Enter');
     }
 
-    const zebraToggle = page.getByRole('checkbox', { name: /zebra/i });
+    const zebraToggle = page.getByRole('switch', { name: /zebra/i });
     if (await zebraToggle.isVisible()) {
       await zebraToggle.check();
     }

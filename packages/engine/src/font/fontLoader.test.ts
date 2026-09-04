@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FontRegistry } from '../fontRegistry';
 import type { ParsedFontMetadata } from './fontIdentity';
 import { detectSystemFonts, FontLoader, loadSystemFontsViaLocal } from './fontLoader';
 
@@ -95,6 +96,22 @@ describe('FontLoader', () => {
     expect(result.family).toBe('MyFont');
     expect(result.loadedFrom).toBe('network');
     expect(addCalls).toContain('MyFont');
+  });
+
+  it('restores persisted Fontsource faces with provider and face identity intact', async () => {
+    const registry = new FontRegistry([]);
+    const loader = new FontLoader(undefined, registry);
+
+    const result = await loader.restoreFont('Provider Font', new ArrayBuffer(100), {
+      providerId: 'fontsource',
+      weight: 700,
+      style: 'italic',
+    });
+
+    expect(result.success).toBe(true);
+    expect(registry.getEntries('Provider Font')).toEqual([
+      expect.objectContaining({ source: 'fontsource', weight: 700, style: 'italic' }),
+    ]);
   });
 
   it('loadFontFromUrl calls fetch and creates FontFace', async () => {

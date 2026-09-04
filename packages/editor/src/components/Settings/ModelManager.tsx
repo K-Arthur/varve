@@ -481,7 +481,7 @@ export function ModelManager() {
 
                     {!row.entry.bundled && !isReady && !isDownloading && canDownload && (
                       <Button
-                        variant="primary"
+                        variant="default"
                         onClick={() => void handleDownload(row.entry.id)}
                         disabled={busyId === row.entry.id}
                         aria-label={`Download ${row.entry.name} (${formatSize(row.entry.sizeBytes)})`}

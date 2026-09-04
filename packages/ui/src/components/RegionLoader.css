@@ -18,9 +18,11 @@
   animation: strata-fade-in var(--loader-fade-in, 0.2s) ease-out;
 }
 
-.region-loader__text {
-  font-size: var(--font-size-xs);
+.region-loader .varve-loading-label {
+  flex-direction: column;
+  gap: var(--space-3);
   color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
 }
 
@@ -33,5 +35,4 @@
 .region-loader__content--loading {
   opacity: 0.4;
   pointer-events: none;
-  filter: blur(1px);
 }

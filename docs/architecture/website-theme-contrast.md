@@ -58,12 +58,17 @@ follow the OS until their first explicit click.
 
 `Layout.astro` ships an inline, pre-paint script (positioned before any
 stylesheet in the built HTML) that sets one canonical state,
-`<html data-theme="light|dark">`:
+`<html data-theme-mode="system|light|dark" data-theme="light|dark">`.
+`data-theme-mode` records the preference and `data-theme` records the concrete
+palette consumed by CSS:
 
 - an explicit persisted choice (`localStorage["varve-theme"]` in
   `{"light","dark"}`) wins;
 - otherwise the OS preference drives, tracked with a `matchMedia` change
   listener so a first-time visitor follows a mid-session OS switch;
+- theme changes in another same-origin tab are reconciled through the storage
+  event, then announced through `varve:theme-change` so every visible selector
+  refreshes without reloading;
 - the first explicit click converts the automatic state into a persisted
   choice (that click is the only write to storage);
 - legacy values (`"system"`, `"high-contrast"`, anything invalid) resolve to
@@ -118,7 +123,8 @@ Browser (`pnpm test:website:e2e` — Playwright, `playwright.website.config.ts`)
 - two static servers: legacy GitHub Pages mode (`/varve`, dist-pages) and
   production mode (`/`, dist) — the full suite runs in both;
 - computed-style contrast audit across 26 routes x 2 themes;
-- theme resolution, persistence, legacy migration, switcher `aria-pressed`
+- theme resolution, persistence, legacy migration, radio selector
+  `aria-checked`, roving focus, and Home/End movement
   and no-FOUC ordering; forced-colors emulation resolves surfaces to system
   colors;
 - hero/feature/card visibility regression tests (the reported defects);

@@ -118,6 +118,26 @@ function contrast(fg: string, bg: string, map: VarMap): number {
 /* ------------------------------------------------------------------ */
 
 const REQUIRED_TOKENS = [
+  // Spacing roles shared with the application
+  '--space-page-inline',
+  '--space-page-block',
+  '--space-panel',
+  '--space-panel-compact',
+  '--space-dialog',
+  '--space-card',
+  '--space-toolbar',
+  '--space-toolbar-item',
+  '--space-control',
+  '--space-control-group',
+  '--space-form-field',
+  '--space-label-control',
+  '--space-icon-label',
+  '--space-list-row',
+  '--space-menu-item',
+  '--space-table-cell',
+  '--space-popover',
+  '--space-tooltip',
+  '--space-empty-state',
   // Surfaces
   '--surface-page',
   '--surface-sunken',

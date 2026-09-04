@@ -6,7 +6,7 @@
  * should a user look for it?". Keeping those concerns separate prevents the
  * Properties surface from becoming the fallback home for every new feature.
  */
-import { getSectionDefinition, type SectionId } from './sectionRegistry';
+import { compareSectionDefinitions, getSectionDefinition, type SectionId } from './sectionRegistry';
 
 export type InspectorSurface =
   | 'properties'
@@ -113,14 +113,7 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Per-axis child sizing and flow/absolute position controls.',
   },
-  constraints: {
-    surface: 'properties',
-    scope: 'mixed-selection',
-    frequency: 'frequent',
-    complexity: 'compact',
-    status: 'functional',
-    rationale: 'Selection-specific responsive behavior.',
-  },
+  // 'constraints' was merged into 'position-size' (ADR-0230).
   appearance: {
     surface: 'properties',
     scope: 'mixed-selection',
@@ -524,7 +517,7 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     complexity: 'moderate',
     status: 'functional',
     rationale:
-      'Capture, apply, rename, and delete saved layer states from the selection. Layer states are a nondestructive focus workflow in the Layers panel.',
+      'Capture, apply, rename, and delete saved layer states from the selection. The Inspector owns this selection/state workflow; Layers remains focused on hierarchy navigation and offers contextual entry points only.',
   },
 };
 
@@ -532,9 +525,10 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
 export function getFeaturesForSurface(surface: InspectorSurface): SectionId[] {
   return (Object.keys(FEATURE_OWNERSHIP) as SectionId[])
     .filter((id) => FEATURE_OWNERSHIP[id].surface === surface)
-    .sort(
-      (a, b) =>
-        (getSectionDefinition(a)?.order ?? Number.MAX_SAFE_INTEGER) -
-        (getSectionDefinition(b)?.order ?? Number.MAX_SAFE_INTEGER),
-    );
+    .sort((a, b) => {
+      const definitionA = getSectionDefinition(a);
+      const definitionB = getSectionDefinition(b);
+      if (!definitionA || !definitionB) return 0;
+      return compareSectionDefinitions(definitionA, definitionB);
+    });
 }

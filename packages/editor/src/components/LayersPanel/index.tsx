@@ -1,6 +1,8 @@
 /**
- * LayersPanel — container for the layers tree, search/filter, context menu,
- * and embedded VariablePanel.
+ * LayersPanel — the authoritative layer hierarchy, search/filter, context
+ * menu, and structure navigation surface. Saved Layer States are owned by
+ * the Inspector's selection/state workflow rather than being rendered as a
+ * second list below this tree.
  *
  * Research basis: W3C APG Tree View, Menu pattern (for context menu).
  */
@@ -16,17 +18,24 @@ import {
   type EffectStackPayload,
   isContainer,
   isVisualMaskTarget,
+  LAYER_COLOR_LABELS,
+  LAYER_COLORS,
   type LayerColor,
+  type LayerColorName,
   type NodeId,
   type SceneNode,
 } from '@varve/scene';
 import {
   ContextMenu,
+  elementAnchor,
   type MenuEntry,
+  type OverlayAnchor,
+  pointAnchor,
   SOLID_CHROME_ICONS,
   SolidIcon,
   Tooltip,
   TooltipProvider,
+  viewportPoint,
 } from '@varve/ui';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -53,10 +62,7 @@ import { computeActiveSurfaceLayerCount, countActiveSurfaceNodesMatching } from 
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTypes';
 import './layers.css';
-import { VariablePanel } from '../../VariablePanel';
-import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
-import { TokenSyncPanel } from '../TokenSync/TokenSyncPanel';
-import { LayerStatesSection } from './LayerStatesSection';
+import type { LayerColorPickerValue } from './LayerColorTagPicker';
 import { SelectionSetsSection } from './SelectionSetsSection';
 
 interface EffectStackClipboard {
@@ -123,9 +129,11 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   );
   const anySolo = useMemo(() => documentHasSolo(state.document), [state.document]);
   const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
+    anchor: OverlayAnchor;
     id: NodeId;
+    /** Selection captured when the menu opened; actions must not use a stale
+     * selection while the row's context-menu selection settles. */
+    selection: NodeId[];
   } | null>(null);
   const [effectStackClipboard, setEffectStackClipboard] = useState<EffectStackClipboard | null>(
     null,
@@ -153,6 +161,12 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       designCanvasId,
     );
   }, [state.document, filterSpec, totalCount, designCanvasId]);
+  const selectedLayerColor = useMemo<LayerColorPickerValue>(() => {
+    if (state.selection.length < 2) return undefined;
+    const colors = state.selection.map((id) => state.document.nodes[id]?.layerColor ?? null);
+    const first = colors[0];
+    return colors.every((color) => color === first) ? first : 'mixed';
+  }, [state.document.nodes, state.selection]);
 
   // Outside click and Escape handled by shared ContextMenu component.
   // This effect remains for stale-context-menu cleanup on unmount.
@@ -163,10 +177,21 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, id: NodeId) => {
       e.preventDefault();
+      e.stopPropagation();
+      const selection = state.selection.includes(id) ? [...state.selection] : [id];
       if (!state.selection.includes(id)) {
         setSelection(id);
       }
-      setContextMenu({ x: e.clientX, y: e.clientY, id });
+      const contextElement = e.currentTarget as HTMLElement;
+      setContextMenu({
+        anchor: pointAnchor(
+          viewportPoint(e.clientX, e.clientY),
+          contextElement.ownerDocument,
+          contextElement,
+        ),
+        id,
+        selection,
+      });
     },
     [state.selection, setSelection],
   );
@@ -174,20 +199,31 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   // Keyboard-triggered context menu (Shift+F10 / Menu key on the focused
   // row): position the menu at the row instead of a pointer location.
   const handleContextMenuKeyboard = useCallback(
-    (id: NodeId) => {
+    (id: NodeId, focusedRow?: HTMLElement) => {
+      const selection = state.selection.includes(id) ? [...state.selection] : [id];
       if (!state.selection.includes(id)) {
         setSelection(id);
       }
-      const rowEl = document.querySelector<HTMLElement>(`[data-node-id="${id}"]`);
-      const rect = rowEl?.getBoundingClientRect();
+      const rowEl = focusedRow;
+      if (!rowEl?.isConnected) return;
+      rowEl.scrollIntoView({ block: 'nearest' });
       setContextMenu({
-        x: rect ? rect.left + 16 : 320,
-        y: rect ? rect.top + 16 : 160,
+        anchor: elementAnchor(rowEl),
         id,
+        selection,
       });
     },
     [state.selection, setSelection],
   );
+
+  // A context menu snapshots its target, but it must not outlive the target
+  // itself. The shared overlay also guards DOM anchors; this state guard keeps
+  // command construction from exposing actions for a deleted scene node.
+  useEffect(() => {
+    if (contextMenu && !state.document.nodes[contextMenu.id]) {
+      setContextMenu(null);
+    }
+  }, [contextMenu, state.document]);
 
   const closeMenu = useCallback(() => setContextMenu(null), []);
 
@@ -199,28 +235,32 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   }, [contextMenu, dndRef, closeMenu]);
 
   const handleDeleteFromMenu = useCallback(() => {
-    if (state.selection.length > 0) removeSelected();
+    const selection = contextMenu?.selection ?? state.selection;
+    if (selection.length > 0) removeSelected(selection);
     closeMenu();
-  }, [state.selection, removeSelected, closeMenu]);
+  }, [contextMenu?.selection, state.selection, removeSelected, closeMenu]);
 
   const handleLockFromMenu = useCallback(
     (locked: boolean) => {
-      for (const id of state.selection) setNodeLocked(id, locked);
+      const selection = contextMenu?.selection ?? state.selection;
+      for (const id of selection) setNodeLocked(id, locked);
       closeMenu();
     },
-    [state.selection, setNodeLocked, closeMenu],
+    [contextMenu?.selection, state.selection, setNodeLocked, closeMenu],
   );
 
   const handleVisibilityFromMenu = useCallback(
     (visible: boolean) => {
-      for (const id of state.selection) setNodeVisible(id, visible);
+      const selection = contextMenu?.selection ?? state.selection;
+      for (const id of selection) setNodeVisible(id, visible);
       closeMenu();
     },
-    [state.selection, setNodeVisible, closeMenu],
+    [contextMenu?.selection, state.selection, setNodeVisible, closeMenu],
   );
 
   const handleSnapExclusionToggle = useCallback(() => {
-    for (const id of state.selection) {
+    const selection = contextMenu?.selection ?? state.selection;
+    for (const id of selection) {
       const node = state.document.nodes[id];
       if (node) {
         const current = node.snapExcluded === true;
@@ -231,10 +271,11 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       }
     }
     closeMenu();
-  }, [state.selection, state.document.nodes, updateNode, closeMenu]);
+  }, [contextMenu?.selection, state.selection, state.document.nodes, updateNode, closeMenu]);
 
   const handleMoveToFront = useCallback(() => {
-    for (const id of state.selection) {
+    const selection = contextMenu?.selection ?? state.selection;
+    for (const id of selection) {
       const parentId = getParentFast(state.document, id, parentCacheRef.current);
       const siblings = parentId
         ? ((state.document.nodes[parentId] as ContainerNode | undefined)?.children ??
@@ -244,16 +285,17 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       announce('Moved to front');
     }
     closeMenu();
-  }, [state.selection, state.document, reparentNode, announce, closeMenu]);
+  }, [contextMenu?.selection, state.selection, state.document, reparentNode, announce, closeMenu]);
 
   const handleMoveToBack = useCallback(() => {
-    for (const id of state.selection) {
+    const selection = contextMenu?.selection ?? state.selection;
+    for (const id of selection) {
       const parentId = getParentFast(state.document, id, parentCacheRef.current);
       reparentNode(id, parentId, 0);
       announce('Moved to back');
     }
     closeMenu();
-  }, [state.selection, state.document, reparentNode, announce, closeMenu]);
+  }, [contextMenu?.selection, state.selection, state.document, reparentNode, announce, closeMenu]);
 
   const handleGroup = useCallback(() => {
     groupSelected();
@@ -428,10 +470,10 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
 
   const handleSetLayerColor = useCallback(
     (color: LayerColor) => {
-      bulkSetLayerColor(state.selection, color);
+      bulkSetLayerColor(contextMenu?.selection ?? state.selection, color);
       closeMenu();
     },
-    [state.selection, bulkSetLayerColor, closeMenu],
+    [contextMenu?.selection, state.selection, bulkSetLayerColor, closeMenu],
   );
 
   const handleBulkLockAll = useCallback(() => {
@@ -488,26 +530,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     closeMenu();
   }, [contextMenu, setNodeSolo, state.document.nodes, closeMenu]);
 
-  const COLOR_LABELS: Record<NonNullable<LayerColor>, string> = {
-    red: 'Red',
-    orange: 'Orange',
-    yellow: 'Yellow',
-    green: 'Green',
-    blue: 'Blue',
-    purple: 'Purple',
-    gray: 'Gray',
-  };
-
-  const LAYER_COLORS: NonNullable<LayerColor>[] = [
-    'red',
-    'orange',
-    'yellow',
-    'green',
-    'blue',
-    'purple',
-    'gray',
-  ];
-
   const handleCollapseAll = useCallback(() => {
     dndRef?.current?.collapseAll();
   }, [dndRef]);
@@ -526,12 +548,13 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     closeMenu();
   }, [state.selection, revealSelection, closeMenu]);
 
-  const canGroup = state.selection.length >= 2;
-  const firstSelId = state.selection[0];
+  const contextSelection = contextMenu?.selection ?? state.selection;
+  const canGroup = contextSelection.length >= 2;
+  const firstSelId = contextSelection[0];
   const firstSel = firstSelId ? state.document.nodes[firstSelId] : undefined;
-  const isGroupSelected = state.selection.length === 1 && firstSel?.kind === 'group';
+  const isGroupSelected = contextSelection.length === 1 && firstSel?.kind === 'group';
   const isInstanceSelected =
-    state.selection.length === 1 &&
+    contextSelection.length === 1 &&
     firstSel?.kind === 'frame' &&
     !!('componentId' in firstSel && (firstSel as { componentId?: string }).componentId);
 
@@ -573,7 +596,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     const next = updateSettings({ layers: patch });
     setLayerSettings(next.layers);
   }, []);
-  const [iconBrowserOpen, setIconBrowserOpen] = useState(false);
 
   return (
     <div className="editor-layers layers-panel" data-panel-root="layers">
@@ -596,7 +618,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
               >
                 <button
                   type="button"
-                  className={`layers-panel__auto-reveal-btn ${layerSettings.autoReveal ? 'layers-panel__auto-reveal-btn--active' : ''}`}
+                  className={`layers-panel__header-btn ${layerSettings.autoReveal ? 'layers-panel__header-btn--active' : ''}`}
                   onClick={() => updateLayerSettings({ autoReveal: !layerSettings.autoReveal })}
                   aria-label={`Auto-reveal canvas selection in Layers panel: ${layerSettings.autoReveal ? 'enabled' : 'disabled'}`}
                   aria-pressed={layerSettings.autoReveal}
@@ -604,43 +626,14 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
                   <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
                 </button>
               </Tooltip>
-              <Tooltip
-                label={
-                  layerSettings.marqueeContainment
-                    ? 'Marquee selects only fully-contained objects'
-                    : 'Marquee selects any intersecting object'
-                }
-              >
-                <button
-                  type="button"
-                  className={`layers-panel__auto-reveal-btn ${layerSettings.marqueeContainment ? 'layers-panel__auto-reveal-btn--active' : ''}`}
-                  onClick={() =>
-                    updateLayerSettings({ marqueeContainment: !layerSettings.marqueeContainment })
-                  }
-                  aria-label={`Marquee containment: ${layerSettings.marqueeContainment ? 'enabled' : 'disabled'}`}
-                  aria-pressed={layerSettings.marqueeContainment}
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.crosshair} size="0.85em" />
-                </button>
-              </Tooltip>
               <Tooltip label="Collapse all layers">
                 <button
                   type="button"
-                  className="layers-panel__collapse-all-btn"
+                  className="layers-panel__header-btn"
                   onClick={handleCollapseAll}
                   aria-label="Collapse all layers"
                 >
                   <SolidIcon name={SOLID_CHROME_ICONS.collapseAll} size="0.85em" />
-                </button>
-              </Tooltip>
-              <Tooltip label="Insert icon">
-                <button
-                  type="button"
-                  className="layers-panel__collapse-all-btn"
-                  onClick={() => setIconBrowserOpen(true)}
-                  aria-label="Insert icon from library"
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.image} size="0.85em" />
                 </button>
               </Tooltip>
               {anySolo && (
@@ -661,8 +654,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
           </TooltipProvider>
         </div>
       </PanelDragHandle>
-
-      <IconBrowserDialog open={iconBrowserOpen} onClose={() => setIconBrowserOpen(false)} />
 
       {isolatedNode && (
         <div className="layers-panel__isolation-breadcrumb" role="status">
@@ -696,6 +687,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       {state.selection.length >= 2 && !isFiltering(filterSpec) && (
         <LayerBulkBar
           selectedCount={state.selection.length}
+          selectedColor={selectedLayerColor}
           onGroup={handleGroup}
           onLockAll={handleBulkLockAll}
           onUnlockAll={handleBulkUnlockAll}
@@ -719,7 +711,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             isInstanceSelected,
             isComponentMasterSelected,
             canIsolateContextMenuNode,
-            selection: state.selection,
+            selection: contextSelection,
             documentNodes: state.document.nodes,
             handleRenameFromMenu,
             handleDeleteFromMenu,
@@ -775,22 +767,15 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
               openThumbnailPicker();
             },
             LAYER_COLORS,
-            COLOR_LABELS,
+            COLOR_LABELS: LAYER_COLOR_LABELS,
           })}
-          position={contextMenu}
+          anchor={contextMenu.anchor}
           onClose={closeMenu}
           label="Layer context menu"
         />
       )}
 
-      <div className="layers-panel__variables">
-        <VariablePanel />
-        <TokenSyncPanel />
-      </div>
-
       <SelectionSetsSection />
-
-      <LayerStatesSection />
     </div>
   );
 }
@@ -828,7 +813,7 @@ interface BuildLayerMenuItemsArgs {
   handleLockFromMenu: (locked: boolean) => void;
   handleVisibilityFromMenu: (visible: boolean) => void;
   handleSnapExclusionToggle: () => void;
-  handleSetLayerColor: (color: NonNullable<LayerColor> | null) => void;
+  handleSetLayerColor: (color: LayerColor) => void;
   handleSelectSameType: () => void;
   handleSelectSameLayerColor: () => void;
   handleSelectAllOfType: () => void;
@@ -847,8 +832,8 @@ interface BuildLayerMenuItemsArgs {
   onUseFrameAsFileThumbnail?: (nodeId: string) => void;
   /** Open the file thumbnail picker dialog. */
   onSetFileThumbnail?: () => void;
-  LAYER_COLORS: NonNullable<LayerColor>[];
-  COLOR_LABELS: Record<NonNullable<LayerColor>, string>;
+  LAYER_COLORS: readonly LayerColorName[];
+  COLOR_LABELS: Readonly<Record<LayerColorName, string>>;
 }
 
 function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] {

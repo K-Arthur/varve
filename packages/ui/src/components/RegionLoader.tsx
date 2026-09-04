@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { InlineActivityIndicator } from './InlineActivityIndicator';
+import { LoadingLabel } from './LoadingLabel';
 import './RegionLoader.css';
 
 export interface RegionLoaderProps {
@@ -20,7 +20,7 @@ export interface RegionLoaderProps {
  * Debounces appearance to avoid flicker on fast loads.
  */
 export function RegionLoader({
-  label = 'Loading section...',
+  label = 'Loading section…',
   loading = false,
   children,
   className = '',
@@ -42,11 +42,10 @@ export function RegionLoader({
   }, [loading, delay]);
 
   return (
-    <div className={`region-loader-container ${className}`} aria-busy={loading}>
+    <div className={`region-loader-container ${className}`} aria-busy={loading || undefined}>
       {shouldShow && loading && (
-        <div className="region-loader" role="status">
-          <InlineActivityIndicator size={24} label={label} />
-          {label && <span className="region-loader__text">{label}</span>}
+        <div className="region-loader">
+          <LoadingLabel label={label} size="md" />
         </div>
       )}
       <div

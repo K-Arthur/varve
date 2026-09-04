@@ -353,7 +353,7 @@ export const TOOL_REGISTRY = [
   },
   {
     id: 'sam2Segment',
-    label: 'Select Subject',
+    label: 'Object Selection',
     icon: 'Scan',
     category: 'ai',
     kind: 'tool',

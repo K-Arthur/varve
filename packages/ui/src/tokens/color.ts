@@ -178,12 +178,32 @@ export type SemanticToken =
   | 'text-on-danger'
   | 'border-subtle'
   | 'border-strong'
+  | 'separator-subtle'
+  | 'separator-default'
+  | 'separator-strong'
+  | 'separator-accent'
   | 'border-focus'
   | 'interactive-default'
   | 'interactive-hover'
+  | 'interactive-hover-surface'
   | 'interactive-active'
+  | 'interactive-pressed-surface'
+  | 'interactive-selected-surface'
+  | 'interactive-selected-surface-hover'
+  | 'interactive-selected-border'
+  | 'interactive-selected-foreground'
+  | 'interactive-current-indicator'
+  | 'interactive-checked-surface'
+  | 'interactive-drop-target-surface'
+  | 'interactive-drop-target-border'
+  | 'interactive-drop-denied-surface'
+  | 'interactive-drop-denied-border'
   | 'interactive-disabled'
   | 'interactive-focus-ring'
+  | 'highlight-search-match'
+  | 'highlight-search-current'
+  | 'highlight-text-selection'
+  | 'highlight-text-selection-foreground'
   | 'feedback-success'
   | 'feedback-warning'
   | 'feedback-danger'
@@ -280,12 +300,32 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'text-on-danger': N(1),
     'border-subtle': N(4),
     'border-strong': N(7),
+    'separator-subtle': N(4),
+    'separator-default': N(4),
+    'separator-strong': N(7),
+    'separator-accent': T(9),
     'border-focus': T(8),
     'interactive-default': T(9),
     'interactive-hover': T(10),
+    'interactive-hover-surface': N(3),
     'interactive-active': T(11),
+    'interactive-pressed-surface': T(11),
+    'interactive-selected-surface': T(2),
+    'interactive-selected-surface-hover': ok(0.9, 0.04, 187),
+    'interactive-selected-border': T(9),
+    'interactive-selected-foreground': N(12),
+    'interactive-current-indicator': T(9),
+    'interactive-checked-surface': T(9),
+    'interactive-drop-target-surface': T(2),
+    'interactive-drop-target-border': T(9),
+    'interactive-drop-denied-surface': ok(0.93, 0.04, 23),
+    'interactive-drop-denied-border': DANGER,
     'interactive-disabled': N(3),
     'interactive-focus-ring': T(8),
+    'highlight-search-match': A(3),
+    'highlight-search-current': A(5),
+    'highlight-text-selection': T(2),
+    'highlight-text-selection-foreground': N(12),
     'feedback-success': SUCCESS,
     'feedback-warning': WARNING,
     'feedback-danger': DANGER,
@@ -363,12 +403,32 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'text-on-danger': N(1),
     'border-subtle': N(10),
     'border-strong': N(7),
+    'separator-subtle': N(10),
+    'separator-default': N(10),
+    'separator-strong': N(7),
+    'separator-accent': T(5),
     'border-focus': T(5),
     'interactive-default': T(5),
     'interactive-hover': T(4),
+    'interactive-hover-surface': N(11),
     'interactive-active': T(3),
+    'interactive-pressed-surface': T(3),
+    'interactive-selected-surface': T(11),
+    'interactive-selected-surface-hover': T(10),
+    'interactive-selected-border': T(5),
+    'interactive-selected-foreground': N(2),
+    'interactive-current-indicator': T(5),
+    'interactive-checked-surface': T(5),
+    'interactive-drop-target-surface': T(11),
+    'interactive-drop-target-border': T(5),
+    'interactive-drop-denied-surface': ok(0.28, 0.05, 23),
+    'interactive-drop-denied-border': DANGER,
     'interactive-disabled': N(10),
     'interactive-focus-ring': T(5),
+    'highlight-search-match': A(10),
+    'highlight-search-current': ok(0.45, 0.08, 80),
+    'highlight-text-selection': T(11),
+    'highlight-text-selection-foreground': N(2),
     'feedback-success': SUCCESS,
     'feedback-warning': WARNING,
     'feedback-danger': DANGER,
@@ -445,12 +505,32 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'text-on-danger': ok(0.0, 0.0, 0),
     'border-subtle': ok(1.0, 0.0, 0),
     'border-strong': ok(1.0, 0.0, 0),
+    'separator-subtle': ok(0.55, 0.0, 0),
+    'separator-default': ok(1.0, 0.0, 0),
+    'separator-strong': ok(1.0, 0.0, 0),
+    'separator-accent': ok(0.9519, 0.2924, 111.62),
     'border-focus': ok(0.9519, 0.2924, 111.62),
     'interactive-default': ok(0.9519, 0.2924, 111.62),
     'interactive-hover': ok(0.9519, 0.2924, 111.62),
+    'interactive-hover-surface': ok(0.18, 0.0, 0),
     'interactive-active': ok(0.9043, 0.233, 108.27),
+    'interactive-pressed-surface': ok(0.9043, 0.233, 108.27),
+    'interactive-selected-surface': ok(0.9519, 0.2924, 111.62),
+    'interactive-selected-surface-hover': ok(1.0, 0.0, 0),
+    'interactive-selected-border': ok(0.9519, 0.2924, 111.62),
+    'interactive-selected-foreground': ok(0.0, 0.0, 0),
+    'interactive-current-indicator': ok(0.9519, 0.2924, 111.62),
+    'interactive-checked-surface': ok(0.9519, 0.2924, 111.62),
+    'interactive-drop-target-surface': ok(0.18, 0.0, 0),
+    'interactive-drop-target-border': ok(0.9519, 0.2924, 111.62),
+    'interactive-drop-denied-surface': ok(0.2, 0.0, 0),
+    'interactive-drop-denied-border': ok(0.6559, 0.1934, 27.47),
     'interactive-disabled': ok(0.3901, 0.0, 0),
     'interactive-focus-ring': ok(0.9519, 0.2924, 111.62),
+    'highlight-search-match': ok(0.18, 0.0, 0),
+    'highlight-search-current': ok(0.36, 0.0, 0),
+    'highlight-text-selection': ok(0.9519, 0.2924, 111.62),
+    'highlight-text-selection-foreground': ok(0.0, 0.0, 0),
     'feedback-success': ok(0.8649, 0.2979, 142.49),
     'feedback-warning': ok(0.8446, 0.1616, 82.25),
     'feedback-danger': ok(0.6559, 0.1934, 27.47),
@@ -563,6 +643,42 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
     name: 'text-on-accent on interactive-default',
     fg: 'text-on-accent',
     bg: 'interactive-default',
+    grade: 'AA',
+  },
+  {
+    name: 'text-primary on interactive-hover-surface',
+    fg: 'text-primary',
+    bg: 'interactive-hover-surface',
+    grade: 'AA',
+  },
+  {
+    name: 'interactive-selected-foreground on selected surface',
+    fg: 'interactive-selected-foreground',
+    bg: 'interactive-selected-surface',
+    grade: 'AA',
+  },
+  {
+    name: 'text-on-accent on pressed surface',
+    fg: 'text-on-accent',
+    bg: 'interactive-pressed-surface',
+    grade: 'AA',
+  },
+  {
+    name: 'text-primary on search match',
+    fg: 'text-primary',
+    bg: 'highlight-search-match',
+    grade: 'AA',
+  },
+  {
+    name: 'text-primary on current search match',
+    fg: 'text-primary',
+    bg: 'highlight-search-current',
+    grade: 'AA',
+  },
+  {
+    name: 'selection foreground on text selection',
+    fg: 'highlight-text-selection-foreground',
+    bg: 'highlight-text-selection',
     grade: 'AA',
   },
   {

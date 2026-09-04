@@ -9,7 +9,7 @@
 import type { BleedConfig, PageLayoutSettings, SafeAreaConfig, SlugConfig } from '@varve/scene';
 import { resolvePageLayout, resolvePagePrintGeometry, updateBleedEdge } from '@varve/scene';
 import { BUILTIN_PRESET_GROUPS, physicalToPx, pxToPhysical } from '@varve/shared';
-import { Select } from '@varve/ui';
+import { Select, Switch } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { setPageLayoutCommand } from '../../../pageCommands';
@@ -363,19 +363,17 @@ export function PagePrintSection() {
           onChange={handleBleed}
         />
         <h4 className="page-print__sub">Safe area</h4>
-        <label className="page-print__toggle">
-          <input
-            type="checkbox"
-            checked={geometry.safeArea.enabled}
-            onChange={(e) => {
-              if (pageId) {
-                const current = page?.safeArea ?? geometry.safeArea;
-                setPageSafeArea(pageId, { ...current, enabled: e.target.checked });
-              }
-            }}
-          />
-          Show safe area
-        </label>
+        <Switch
+          className="page-print__toggle"
+          label="Show safe area"
+          checked={geometry.safeArea.enabled}
+          onChange={(e) => {
+            if (pageId) {
+              const current = page?.safeArea ?? geometry.safeArea;
+              setPageSafeArea(pageId, { ...current, enabled: e.target.checked });
+            }
+          }}
+        />
         <EdgeFields
           label="Safe area"
           values={safeAreaValues}
@@ -384,19 +382,17 @@ export function PagePrintSection() {
           onChange={handleSafeArea}
         />
         <h4 className="page-print__sub">Slug</h4>
-        <label className="page-print__toggle">
-          <input
-            type="checkbox"
-            checked={geometry.slug.enabled}
-            onChange={(e) => {
-              if (pageId) {
-                const current = page?.slug ?? geometry.slug;
-                setPageSlug(pageId, { ...current, enabled: e.target.checked });
-              }
-            }}
-          />
-          Show slug
-        </label>
+        <Switch
+          className="page-print__toggle"
+          label="Show slug"
+          checked={geometry.slug.enabled}
+          onChange={(e) => {
+            if (pageId) {
+              const current = page?.slug ?? geometry.slug;
+              setPageSlug(pageId, { ...current, enabled: e.target.checked });
+            }
+          }}
+        />
         <EdgeFields
           label="Slug"
           values={slugValues}

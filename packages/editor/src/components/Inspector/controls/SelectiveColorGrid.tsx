@@ -124,7 +124,7 @@ export function SelectiveColorGrid({ value, onChange }: SelectiveColorGridProps)
                 gap: 'var(--space-1)',
                 padding: 'var(--space-1)',
                 background: 'var(--color-surface-sunken)',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 'var(--radius-control-compact)',
                 border: '1px solid var(--color-border-subtle)',
               }}
             >
@@ -133,7 +133,7 @@ export function SelectiveColorGrid({ value, onChange }: SelectiveColorGridProps)
                   style={{
                     width: 12,
                     height: 12,
-                    borderRadius: '2px',
+                    borderRadius: 'var(--radius-control-compact)',
                     background: t.color,
                     flexShrink: 0,
                     border: '1px solid var(--color-border-subtle)',

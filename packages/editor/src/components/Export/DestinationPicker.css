@@ -18,7 +18,7 @@
   padding: var(--space-1) var(--space-2);
   background: var(--elevation-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   cursor: pointer;
@@ -37,7 +37,7 @@
   padding: var(--space-1) var(--space-2);
   background: var(--elevation-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   font-family: monospace;
@@ -54,7 +54,7 @@
 .destination-picker__hints code {
   background: var(--elevation-surface-sunken);
   padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs);
 }
 .destination-picker__rules {
@@ -65,7 +65,7 @@
   padding: var(--space-1) var(--space-2);
   background: var(--elevation-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
   cursor: pointer;
@@ -85,7 +85,7 @@
   margin-top: var(--space-2);
   padding: var(--space-2);
   background: var(--elevation-surface-sunken);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   font-size: var(--font-size-xs);
 }
 .destination-picker__preview-label {

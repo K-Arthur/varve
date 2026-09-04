@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { type ReactNode, useEffect } from 'react';
 import { useState } from 'storybook/preview-api';
 import { Select } from './Select';
 
@@ -20,6 +21,24 @@ const meta: Meta<typeof Select> = {
 
 export default meta;
 type Story = StoryObj<typeof Select>;
+
+function ThemeFrame({ theme, children }: { theme: 'dark' | 'high-contrast'; children: ReactNode }) {
+  useEffect(() => {
+    const root = document.documentElement;
+    const previousTheme = root.getAttribute('data-theme');
+    root.setAttribute('data-theme', theme);
+    return () => {
+      if (previousTheme) root.setAttribute('data-theme', previousTheme);
+      else root.removeAttribute('data-theme');
+    };
+  }, [theme]);
+
+  return (
+    <div style={{ background: 'var(--color-surface-app)', padding: '24px', minHeight: '100px' }}>
+      {children}
+    </div>
+  );
+}
 
 export const Basic: Story = {
   render: () => {
@@ -86,6 +105,83 @@ export const Searchable: Story = {
   },
 };
 
+export const GroupedRichOptions: Story = {
+  render: () => {
+    const [value, setValue] = useState('native');
+    return (
+      <Select
+        label="Rendering provider"
+        value={value}
+        onValueChange={setValue}
+        groups={[
+          {
+            label: 'Local',
+            options: [
+              {
+                value: 'native',
+                label: 'Native renderer',
+                description: 'Fast and available offline',
+                icon: 'Gear',
+                status: 'success',
+              },
+              {
+                value: 'webgpu',
+                label: 'WebGPU renderer',
+                description: 'Requires compatible hardware',
+                disabled: true,
+                disabledReason: 'WebGPU is unavailable in this session',
+              },
+            ],
+          },
+          {
+            label: 'Compatibility',
+            options: [{ value: 'canvas', label: 'Canvas 2D fallback', status: 'info' }],
+          },
+        ]}
+      />
+    );
+  },
+};
+
+export const HelperAndStaleValue: Story = {
+  args: {
+    label: 'ICC profile',
+    value: 'removed-profile',
+    options: [{ value: 'srgb', label: 'sRGB IEC61966-2.1' }],
+    onChange: () => {},
+    description: 'The saved profile is no longer installed.',
+  },
+};
+
+export const Loading: Story = {
+  args: {
+    label: 'Model',
+    value: '',
+    options: [],
+    onChange: () => {},
+    loading: true,
+  },
+};
+
+export const NarrowInspector: Story = {
+  render: () => {
+    const [value, setValue] = useState('long');
+    return (
+      <div style={{ width: '180px' }}>
+        <Select
+          label="Long profile name"
+          value={value}
+          onValueChange={setValue}
+          options={[
+            { value: 'long', label: 'A profile with a long localized name' },
+            { value: 'short', label: 'sRGB' },
+          ]}
+        />
+      </div>
+    );
+  },
+};
+
 export const Dark: Story = {
   render: () => {
     const [value, setValue] = useState('option-1');
@@ -97,9 +193,33 @@ export const Dark: Story = {
   },
   decorators: [
     (Story) => (
-      <div data-theme="dark" style={{ background: '#10151f', padding: '24px', minHeight: '100px' }}>
+      <ThemeFrame theme="dark">
         <Story />
-      </div>
+      </ThemeFrame>
+    ),
+  ],
+};
+
+export const HighContrast: Story = {
+  render: () => {
+    const [value, setValue] = useState('option-1');
+    return (
+      <Select
+        options={[
+          { value: 'option-1', label: 'Option 1' },
+          { value: 'option-2', label: 'Option 2', disabled: true, disabledReason: 'Not available' },
+        ]}
+        value={value}
+        onValueChange={setValue}
+        label="High contrast select"
+      />
+    );
+  },
+  decorators: [
+    (Story) => (
+      <ThemeFrame theme="high-contrast">
+        <Story />
+      </ThemeFrame>
     ),
   ],
 };

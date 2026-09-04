@@ -106,7 +106,7 @@ export function EmptyStates({ section, query, onAction }: EmptyStatesProps) {
       headline={headline}
       description={copy.description}
       actions={
-        <Button variant="primary" onClick={onAction}>
+        <Button variant="default" onClick={onAction}>
           <SemanticIcon
             name={section === 'trash' || section === 'templates' ? 'Back' : 'Add'}
             size="sm"

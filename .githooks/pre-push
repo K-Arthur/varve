@@ -1,43 +1,22 @@
 #!/bin/sh
-# Varve pre-push hook.
-# Tracked in .githooks and activated by `core.hooksPath=.githooks`, which
-# scripts/install-git-hooks.mjs sets during `pnpm install` (prepare).
-# Do not copy this into .git/hooks: Git ignores that directory entirely
-# while core.hooksPath is set, which is how this gate was once silently
-# disabled.
+# Varve pre-push hook.  Git supplies the remote name/URL as hook arguments
+# and the exact ref update stream on stdin; the Node driver consumes both.
+# Keep policy, Git parsing, receipts, and command execution out of this shell
+# so the same implementation works in Git Bash, macOS, Linux, and CI tests.
+# Deliberate emergency overrides use VARVE_PUSH_OVERRIDE_REASON and are
+# recorded by the Node driver; they are not a normal workflow.
 
-set -e
-
-# Do not run inside CI.
 if [ -n "$CI" ]; then
   exit 0
 fi
 
-# Affected-first validation (see docs/quality/validation-strategy.md):
-# the default push gate runs the impact-aware verification, not the full
-# suite. Explicitly opt into the full gate with VARVE_FULL_GATE=1 or by
-# running `just gate-full` before pushing.
-if [ -n "$VARVE_FULL_GATE" ]; then
-  echo "Running full pre-push gate (VARVE_FULL_GATE set)..."
-  just gate-full
-else
-  echo "Running affected pre-push validation (pnpm verify:affected)..."
-  echo "For the full gate instead: VARVE_FULL_GATE=1 git push"
-  pnpm verify:affected
-fi
+pnpm verify:push --pre-push "$@"
+status=$?
 
-# Informational pipeline health check. Never blocks the push — it warns when
-# remote CI cannot run (GitHub billing block / runner outage / Actions
-# incident) so the developer knows a red run is infra, not code.
-if node scripts/ci-health.mjs --quiet; then
-  :
-else
-  echo "(ci-health check unavailable — skipping pipeline health warning)"
-fi
+# Pipeline health is informational only.  Preserve the validation status from
+# the driver and never turn a GitHub outage into a local product failure.
+node scripts/ci-health.mjs --quiet || echo "(ci-health unavailable; push result unchanged)"
+node scripts/ci-health.mjs --status --quiet || \
+  node scripts/ci-health.mjs --status || echo "(GitHub incident check unavailable; push result unchanged)"
 
-# GitHub Actions incident warning (e.g. "major_outage" — jobs queue forever
-# then die with "not acquired by Runner"). Pushing into an outage produces
-# zero signal, so surface it before the push. Still never blocks.
-if ! node scripts/ci-health.mjs --status --quiet; then
-  node scripts/ci-health.mjs --status || echo "(could not check githubstatus.com — skipping incident warning)"
-fi
+exit "$status"

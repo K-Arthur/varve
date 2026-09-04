@@ -21,6 +21,7 @@ export { HomeShell } from './HomeShell';
 export { HomeShortcutHelp } from './HomeShortcutHelp';
 export type { HomeToolbarProps } from './HomeToolbar';
 export { HomeToolbar } from './HomeToolbar';
+export type { HomeImportKind, HomeImportOutcome } from './homeImportNotifications';
 export type { NewDesignDialogProps } from './NewDesignDialog';
 export { NewDesignDialog } from './NewDesignDialog';
 export { ProjectsView } from './ProjectsView';

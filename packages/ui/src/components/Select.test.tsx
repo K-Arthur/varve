@@ -3,7 +3,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Select, type SelectOption } from './Select';
 
 afterEach(cleanup);
@@ -249,5 +249,126 @@ describe('Select — searchable', () => {
     const options = screen.getAllByRole('option');
     expect(options.length).toBe(1);
     expect(options[0]).toHaveTextContent('Option 11');
+  });
+
+  it('supports uncontrolled default values and prefers onValueChange', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const onValueChange = vi.fn();
+    render(
+      <Select
+        label="Fruit"
+        defaultValue="apple"
+        options={fruitOptions}
+        onChange={onChange}
+        onValueChange={onValueChange}
+      />,
+    );
+
+    const trigger = screen.getByRole('combobox');
+    expect(trigger).toHaveAttribute('type', 'button');
+    expect(trigger).toHaveTextContent('Apple');
+    await user.click(trigger);
+    await user.click(screen.getByRole('option', { name: 'Cherry' }));
+
+    expect(onValueChange).toHaveBeenCalledWith('cherry');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(trigger).toHaveTextContent('Cherry');
+  });
+
+  it('renders labelled groups and rich option metadata', async () => {
+    const user = userEvent.setup();
+    render(
+      <Select
+        label="Provider"
+        groups={[
+          {
+            label: 'Local',
+            options: [
+              {
+                value: 'native',
+                label: 'Native runtime',
+                description: 'Fast local processing',
+                icon: 'Gear',
+                status: 'success',
+              },
+              {
+                value: 'missing',
+                label: 'Unavailable runtime',
+                disabled: true,
+                disabledReason: 'Requires an installed model',
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole('combobox'));
+    expect(screen.getByText('Local')).toBeInTheDocument();
+    expect(screen.getByText('Fast local processing')).toBeInTheDocument();
+    expect(screen.getByText('Requires an installed model')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Unavailable runtime/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(document.querySelector('.varve-select__status--success')).toBeInTheDocument();
+  });
+
+  it('retains a stale value without silently selecting a replacement', async () => {
+    const user = userEvent.setup();
+    render(
+      <Select
+        label="Profile"
+        value="removed-profile"
+        options={[{ value: 'current', label: 'Current profile' }]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const trigger = screen.getByRole('combobox');
+    expect(trigger).toHaveTextContent('Unavailable selection');
+    expect(trigger).toHaveAttribute('aria-describedby');
+    expect(
+      screen
+        .getAllByText('Unavailable selection')
+        .some((element) => element.classList.contains('varve-select__stale')),
+    ).toBe(true);
+    await user.click(trigger);
+    await user.click(screen.getByRole('option', { name: 'Current profile' }));
+    expect(trigger).toHaveTextContent('Unavailable selection');
+  });
+
+  it('exposes helper text and asynchronous load states', async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    const { rerender } = render(
+      <Select
+        label="Model"
+        options={[]}
+        value=""
+        onChange={vi.fn()}
+        description="Choose a local inference model."
+        loading
+      />,
+    );
+    const trigger = screen.getByRole('combobox');
+    expect(trigger.getAttribute('aria-describedby')).toBeTruthy();
+    await user.click(trigger);
+    expect(screen.getByText('Loading options…')).toBeInTheDocument();
+
+    rerender(
+      <Select
+        label="Model"
+        options={[]}
+        value=""
+        onChange={vi.fn()}
+        loadError="Model catalogue unavailable"
+        onRetry={onRetry}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('Model catalogue unavailable');
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetry).toHaveBeenCalledOnce();
   });
 });

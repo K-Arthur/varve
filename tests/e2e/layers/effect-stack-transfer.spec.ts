@@ -12,7 +12,7 @@ type EffectStackKind = 'layer-effects' | 'object-filters';
 
 async function openObjectFilters(page: Page, row: Locator): Promise<void> {
   await row.click();
-  await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
+  await page.getByRole('tab', { name: 'Design', exact: true }).click();
   const disclosure = page.getByRole('button', { name: 'Object Filters', exact: true });
   await expect(disclosure).toBeVisible();
   if ((await disclosure.getAttribute('aria-expanded')) !== 'true') {

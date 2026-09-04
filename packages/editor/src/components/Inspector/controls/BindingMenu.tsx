@@ -67,14 +67,6 @@ export function BindingMenu({
     }
   }, [ctx, targetField, onClose]);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
-
   const handleSelect = useCallback(
     (varId: string) => {
       onBind(varId, expression || undefined);
@@ -108,6 +100,9 @@ export function BindingMenu({
       onClose={onClose}
       placement="bottom-start"
       maxHeight={320}
+      kind="combobox-popup"
+      dismissOnEscape
+      className="varve-floating-layer"
     >
       <div className="binding-menu" role="dialog" onKeyDown={handleListKey}>
         <input

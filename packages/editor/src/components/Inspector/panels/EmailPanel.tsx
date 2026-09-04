@@ -15,7 +15,7 @@ import {
   type EmailSemanticKind,
   type EmailTrackingParams,
 } from '@varve/scene';
-import { Button, CopyButton, Input, Select, TextArea } from '@varve/ui';
+import { Button, CopyButton, Input, Select, Switch, TextArea } from '@varve/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { createBufferedExportArchive, saveExportBytes } from '../../../exportSaveAdapter';
@@ -365,14 +365,12 @@ export function EmailPanel() {
                 })
               }
             />
-            <label className="varve-checkbox">
-              <input
-                type="checkbox"
-                checked={semantic.hideOnMobile ?? false}
-                onChange={(event) => updateSemantic({ hideOnMobile: event.target.checked })}
-              />{' '}
-              Hide on mobile
-            </label>
+            <Switch
+              className="email-panel__toggle"
+              label="Hide on mobile"
+              checked={semantic.hideOnMobile ?? false}
+              onChange={(event) => updateSemantic({ hideOnMobile: event.target.checked })}
+            />
             <EmailNodeCompatibility ir={compilation?.ir ?? null} nodeId={node.id} />
             <NodeLinkEditor nodeId={node.id} />
             {node.kind === 'text' && <TextRangeLinkEditor nodeId={node.id} text={node.text} />}
@@ -393,21 +391,21 @@ export function EmailPanel() {
             <div className="email-panel__button-row">
               <Button
                 size="sm"
-                variant={previewMode === 'preview' ? 'primary' : 'secondary'}
+                variant={previewMode === 'preview' ? 'default' : 'secondary'}
                 onClick={() => setPreviewMode('preview')}
               >
                 Preview
               </Button>
               <Button
                 size="sm"
-                variant={previewMode === 'code' ? 'primary' : 'secondary'}
+                variant={previewMode === 'code' ? 'default' : 'secondary'}
                 onClick={() => setPreviewMode('code')}
               >
                 Code
               </Button>
               <Button
                 size="sm"
-                variant={previewMode === 'plain-text' ? 'primary' : 'secondary'}
+                variant={previewMode === 'plain-text' ? 'default' : 'secondary'}
                 onClick={() => setPreviewMode('plain-text')}
               >
                 Plain text
@@ -420,28 +418,26 @@ export function EmailPanel() {
               <legend className="varve-visually-hidden">Preview viewport</legend>
               <Button
                 size="sm"
-                variant={previewViewport === 'desktop' ? 'primary' : 'secondary'}
+                variant={previewViewport === 'desktop' ? 'default' : 'secondary'}
                 onClick={() => setPreviewViewport('desktop')}
               >
                 Desktop
               </Button>
               <Button
                 size="sm"
-                variant={previewViewport === 'mobile' ? 'primary' : 'secondary'}
+                variant={previewViewport === 'mobile' ? 'default' : 'secondary'}
                 onClick={() => setPreviewViewport('mobile')}
               >
                 Mobile
               </Button>
             </fieldset>
           )}
-          <label className="varve-checkbox">
-            <input
-              type="checkbox"
-              checked={showSamples}
-              onChange={(event) => setShowSamples(event.target.checked)}
-            />{' '}
-            Preview sample values
-          </label>
+          <Switch
+            className="email-panel__toggle"
+            label="Preview sample values"
+            checked={showSamples}
+            onChange={(event) => setShowSamples(event.target.checked)}
+          />
           {output && previewMode === 'preview' && (
             <div
               className={`email-panel__preview-frame email-panel__preview-frame--${previewViewport}`}

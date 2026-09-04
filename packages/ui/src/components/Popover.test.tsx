@@ -1,12 +1,10 @@
 /** @vitest-environment jsdom */
 
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Popover } from './Popover';
 
-afterEach(() => {
-  document.body.innerHTML = '';
-});
+afterEach(cleanup);
 
 vi.mock('@floating-ui/dom', () => ({
   computePosition: vi.fn(() =>
@@ -20,6 +18,8 @@ vi.mock('@floating-ui/dom', () => ({
   flip: vi.fn(),
   shift: vi.fn(),
   offset: vi.fn(),
+  hide: vi.fn(),
+  size: vi.fn(),
   arrow: vi.fn(),
 }));
 

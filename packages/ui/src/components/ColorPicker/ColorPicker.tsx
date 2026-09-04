@@ -730,14 +730,35 @@ export function ColorPicker({
       onPointerUpCapture={handleRootPointerUp}
       onPointerCancelCapture={handleRootPointerUp}
     >
-      <ColorSpaceSelector active={space} onChange={handleSpaceChange} />
+      <div className="color-picker__format-bar">
+        <ColorSpaceSelector active={space} onChange={handleSpaceChange} />
+      </div>
 
       {showAreaAndSliders && (
         <>
-          <ColorArea hue={hue} saturation={sat} value={val} onChange={handleAreaChange} />
+          <div className="color-picker__area-frame">
+            <ColorArea hue={hue} saturation={sat} value={val} onChange={handleAreaChange} />
+          </div>
 
+          <div className="color-picker__control-row">
+            <EyeDropperButton onPick={handleEyeDropper} />
+            <div className="color-picker__sliders">
+              <ColorSlider channel="hue" value={hue} onChange={handleHueChange} />
+              <ColorSlider
+                channel="alpha"
+                value={alphaVal}
+                baseColor={overlayColor}
+                onChange={handleAlphaChange}
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {space === 'spot' && (
+        <div className="color-picker__control-row">
+          <EyeDropperButton onPick={handleEyeDropper} />
           <div className="color-picker__sliders">
-            <ColorSlider channel="hue" value={hue} onChange={handleHueChange} />
             <ColorSlider
               channel="alpha"
               value={alphaVal}
@@ -745,17 +766,6 @@ export function ColorPicker({
               onChange={handleAlphaChange}
             />
           </div>
-        </>
-      )}
-
-      {space === 'spot' && (
-        <div className="color-picker__sliders">
-          <ColorSlider
-            channel="alpha"
-            value={alphaVal}
-            baseColor={overlayColor}
-            onChange={handleAlphaChange}
-          />
         </div>
       )}
 
@@ -845,7 +855,6 @@ export function ColorPicker({
             Out of proof gamut
           </span>
         )}
-        <EyeDropperButton onPick={handleEyeDropper} />
       </div>
 
       {bitDepth && onBitDepthChange && (
@@ -883,13 +892,16 @@ export function ColorPicker({
 
       {space === 'lab' && (
         <>
-          <div className="color-picker__sliders">
-            <ColorSlider
-              channel="alpha"
-              value={alphaVal}
-              baseColor={overlayColor}
-              onChange={handleAlphaChange}
-            />
+          <div className="color-picker__control-row">
+            <EyeDropperButton onPick={handleEyeDropper} />
+            <div className="color-picker__sliders">
+              <ColorSlider
+                channel="alpha"
+                value={alphaVal}
+                baseColor={overlayColor}
+                onChange={handleAlphaChange}
+              />
+            </div>
           </div>
           <LabColorFields
             value={draftLab}
@@ -901,18 +913,21 @@ export function ColorPicker({
 
       {space === 'lch' && (
         <>
-          <div className="color-picker__sliders">
-            <ColorSlider
-              channel="hue"
-              value={draftLch.h}
-              onChange={(h) => handleLchChange({ ...draftLch, h })}
-            />
-            <ColorSlider
-              channel="alpha"
-              value={alphaVal}
-              baseColor={overlayColor}
-              onChange={handleAlphaChange}
-            />
+          <div className="color-picker__control-row">
+            <EyeDropperButton onPick={handleEyeDropper} />
+            <div className="color-picker__sliders">
+              <ColorSlider
+                channel="hue"
+                value={draftLch.h}
+                onChange={(h) => handleLchChange({ ...draftLch, h })}
+              />
+              <ColorSlider
+                channel="alpha"
+                value={alphaVal}
+                baseColor={overlayColor}
+                onChange={handleAlphaChange}
+              />
+            </div>
           </div>
           <LchColorFields
             value={draftLch}

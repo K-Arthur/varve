@@ -106,7 +106,7 @@ test.describe('Combined table + variable modifier workflow', () => {
     });
 
     // Step 8: Toggle zebra stripes
-    const zebraToggle = page.getByRole('checkbox', { name: /zebra/i });
+    const zebraToggle = page.getByRole('switch', { name: /zebra/i });
     if (await zebraToggle.isVisible()) {
       await zebraToggle.check();
     }
@@ -241,7 +241,7 @@ test.describe('Combined table + variable modifier workflow', () => {
     });
 
     // Step 3: Enable zebra stripes
-    const zebraToggle = page.getByRole('checkbox', { name: /zebra/i });
+    const zebraToggle = page.getByRole('switch', { name: /zebra/i });
     if (await zebraToggle.isVisible()) {
       await zebraToggle.check();
     }

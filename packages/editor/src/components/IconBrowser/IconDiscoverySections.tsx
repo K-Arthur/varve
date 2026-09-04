@@ -10,7 +10,7 @@ import {
   type IconPackInfo,
   isBrandPack,
 } from '@varve/engine';
-import { Icon, SolidIcon } from '@varve/ui';
+import { Icon, LoadingLabel, SolidIcon } from '@varve/ui';
 import type { RecentIconEntry } from './recents';
 import { SafeSvg } from './SafeSvg';
 
@@ -121,7 +121,13 @@ export function IconDiscoverySections({
       <section className="icon-discovery__section">
         <div className="icon-discovery__heading-row">
           <h4 className="icon-discovery__heading">Browse packs</h4>
-          {packsLoading && <span className="icon-discovery__loading">Loading…</span>}
+          {packsLoading && (
+            <LoadingLabel
+              label="Loading icon packs…"
+              size="xs"
+              className="icon-discovery__loading"
+            />
+          )}
         </div>
         <div className="icon-discovery__pack-list">
           {catalogue.map((pack) => (

@@ -138,7 +138,7 @@ describe('EffectsSection — glass material tint swatch', () => {
     fireEvent.click(screen.getByRole('button', { name: /glass tint/i }));
     await screen.findByRole('dialog', { name: /pick glass tint/i });
 
-    const teal = screen.getByRole('option', { name: /teal 500/i });
+    const teal = await screen.findByRole('option', { name: /teal 500/i });
     fireEvent.click(teal);
 
     expect(beginTransaction).toHaveBeenCalled();
@@ -191,7 +191,7 @@ describe('EffectsSection — glass material tint swatch', () => {
     expect(swatch).toHaveStyle({ background: 'rgba(200,220,255,0.24)' });
   });
 
-  it('authors a live scene-node effect mask through the inspector', () => {
+  it('authors a live scene-node effect mask through the inspector', async () => {
     const target = nodeWithShadow('n1');
     const source = nodeWithShadow('source');
     const document = {
@@ -211,7 +211,7 @@ describe('EffectsSection — glass material tint swatch', () => {
     render(<EffectsSection nodes={[target]} />);
     fireEvent.click(screen.getByRole('button', { name: /expand dropshadow parameters/i }));
     fireEvent.click(screen.getByRole('combobox', { name: 'Effect mask source' }));
-    fireEvent.click(screen.getByRole('option', { name: 'Rect' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Rect' }));
 
     expect(updateDoc).toHaveBeenCalledWith(expect.any(Function));
     const next = updateDoc.mock.calls[0]![0](document);
@@ -429,10 +429,10 @@ describe('EffectsSection — effect type dropdown', () => {
     });
   });
 
-  it('includes glitch in new effect type options', () => {
+  it('includes glitch in new effect type options', async () => {
     render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
     openDropdown();
-    const options = screen.getAllByRole('option');
+    const options = await screen.findAllByRole('option');
     const labels = options.map((o) => o.textContent);
     expect(labels).toContain('Glitch');
   });

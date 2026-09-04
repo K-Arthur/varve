@@ -20,7 +20,7 @@ import { sitePath } from '../lib/siteUrl';
 import release from '../data/release-manifest.json';
 
 interface Props {
-  variant?: 'primary' | 'secondary';
+  variant?: 'default' | 'secondary' | 'outline' | 'ghost' | 'link';
   size?: 'compact' | 'large';
   /** Extra class names for layout context (e.g. hero-specific margins). */
   class?: string;
@@ -31,7 +31,7 @@ interface Props {
 }
 
 const {
-  variant = 'primary',
+  variant = 'default',
   size = 'large',
   class: className,
   beta = false,
@@ -122,7 +122,7 @@ const fallbackLabel = label ?? (hasRelease ? 'Download Varve' : 'See the beta st
     letter-spacing: 0.08em;
     text-transform: uppercase;
     padding: 0.15em 0.55em;
-    border-radius: 9999px;
+    border-radius: var(--website-radius-pill);
     border: 1px solid currentColor;
     opacity: 0.9;
   }

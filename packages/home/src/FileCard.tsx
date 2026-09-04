@@ -1,8 +1,14 @@
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import type { FileEntry } from '@varve/platform';
 import { fileKindLabel, formatRelativeTime } from '@varve/platform';
-import { SemanticIcon, Thumbnail, Tooltip } from '@varve/ui';
+import {
+  SemanticIcon,
+  SOLID_CHROME_ICONS,
+  SolidIcon,
+  SortableItemHandle,
+  Thumbnail,
+  Tooltip,
+  useSortableItem,
+} from '@varve/ui';
 import {
   forwardRef,
   type HTMLAttributes,
@@ -20,7 +26,6 @@ export interface FileCardProps extends HTMLAttributes<HTMLDivElement> {
   selected: boolean;
   onOpen: (entry: FileEntry) => void;
   onContext: (e: React.MouseEvent, entry: FileEntry) => void;
-  onFileDragStart?: (e: React.DragEvent, entry: FileEntry) => void;
   onClick?: (e: React.MouseEvent) => void;
   onRename?: (id: string, newName: string) => void;
   isRenaming?: boolean;
@@ -38,7 +43,6 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
     selected,
     onOpen,
     onContext,
-    onFileDragStart,
     onClick,
     onRename,
     isRenaming = false,
@@ -53,23 +57,21 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
 ) {
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [renameValue, setRenameValue] = useState(entry.name);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: entry.id,
-  });
+  const sortable = useSortableItem({ id: entry.id, data: { type: 'file', fileId: entry.id } });
   const dndStyle: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
+    transform: sortable.renderProps.transform,
+    transition: sortable.renderProps.transition,
+    opacity: sortable.isDragging ? 0.5 : 1,
   };
   const mergedStyle = { ...styleProp, ...dndStyle };
 
   const mergedRef = useCallback(
     (node: HTMLDivElement | null) => {
-      setNodeRef(node);
+      sortable.setNodeRef(node);
       if (typeof ref === 'function') ref(node);
       else if (ref) ref.current = node;
     },
-    [ref, setNodeRef],
+    [ref, sortable.setNodeRef],
   );
 
   useEffect(() => {
@@ -133,21 +135,24 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
       ref={mergedRef}
       aria-label={`${entry.name}, ${fileKindLabel(entry.kind)}, ${formatRelativeTime(entry.updatedAt)}${isMissing ? ', file missing' : ''}`}
       aria-selected={selected}
-      draggable
       className={`file-card bento-cell ${selected ? 'file-card--selected' : ''} ${isMissing ? 'file-card--missing' : ''} ${className}`.trim()}
       style={mergedStyle}
       onClick={onClick}
       onDoubleClick={() => onOpen(entry)}
       onContextMenu={(e) => onContext(e, entry)}
-      onDragStart={(e) => onFileDragStart?.(e, entry)}
-      {...attributes}
       tabIndex={0}
       role="gridcell"
-      {...listeners}
       onKeyDown={handleKey}
       {...rest}
     >
       <div className="file-card__thumb">
+        <SortableItemHandle
+          sortable={sortable.renderProps}
+          className="file-card__drag-handle"
+          aria-label={`Drag ${entry.name} to reorder`}
+        >
+          <SolidIcon name={SOLID_CHROME_ICONS.gripVertical} size="0.75em" />
+        </SortableItemHandle>
         <Thumbnail
           src={thumbnail}
           alt={entry.name}

@@ -43,7 +43,7 @@ describe('LayoutSection per-node Width/Height sizing controls', () => {
     await waitFor(() => expect(getCtx().state.selection).toHaveLength(1));
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Layout mode' }));
-    fireEvent.click(screen.getByRole('option', { name: 'Flex' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Flex' }));
     await waitFor(() => {
       const id = getCtx().state.selection[0] as string;
       expect(getCtx().state.document.nodes[id]?.kind).toBe('frame');
@@ -63,7 +63,7 @@ describe('LayoutSection per-node Width/Height sizing controls', () => {
     await waitFor(() => expect(getCtx().state.selection).toHaveLength(1));
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Width sizing mode' }));
-    fireEvent.click(screen.getByRole('option', { name: 'Hug contents' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Hug contents' }));
 
     await waitFor(() => {
       const id = getCtx().state.selection[0] as string;
@@ -79,7 +79,7 @@ describe('LayoutSection per-node Width/Height sizing controls', () => {
     await waitFor(() => expect(getCtx().state.selection).toHaveLength(1));
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Height sizing mode' }));
-    fireEvent.click(screen.getByRole('option', { name: 'Fill container' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Fill container' }));
 
     await waitFor(() => {
       const id = getCtx().state.selection[0] as string;
@@ -95,14 +95,14 @@ describe('LayoutSection per-node Width/Height sizing controls', () => {
     await waitFor(() => expect(getCtx().state.selection).toHaveLength(1));
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Width sizing mode' }));
-    fireEvent.click(screen.getByRole('option', { name: 'Hug contents' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Hug contents' }));
     await waitFor(() => {
       const id = getCtx().state.selection[0] as string;
       expect(getCtx().state.document.nodes[id]?.layoutSizingWidth).toBe('hug');
     });
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Height sizing mode' }));
-    fireEvent.click(screen.getByRole('option', { name: 'Fill container' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Fill container' }));
 
     await waitFor(() => {
       const id = getCtx().state.selection[0] as string;

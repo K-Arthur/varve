@@ -67,7 +67,7 @@ export const PageToolOverlay = memo(function PageToolOverlay({
           width: w,
           height: h,
           border: `${Math.max(1, 1.5 / zoom)}px solid var(--color-accent-primary)`,
-          borderRadius: 2,
+          borderRadius: 'var(--radius-control-compact)',
           boxShadow: '0 0 0 1px rgba(0,0,0,0.08)',
         }}
       />
@@ -80,7 +80,7 @@ export const PageToolOverlay = memo(function PageToolOverlay({
             top: c.y - half,
             width: HANDLE_SIZE,
             height: HANDLE_SIZE,
-            borderRadius: 2,
+            borderRadius: 'var(--radius-control-compact)',
             background: 'var(--color-accent-primary)',
             border: '1px solid var(--color-surface-raised)',
             boxShadow: '0 1px 3px rgba(0,0,0,0.3)',

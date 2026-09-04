@@ -20,15 +20,17 @@ on:
       - 'scripts/website/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
-  # A completed release run redeploys the site so the download page is rebuilt
-  # from the exact published assets (see scripts/release/fetch-website-release
-  # .mjs — drafts never appear). workflow_run is used instead of
-  # `release: published` because a release event runs under the TAG ref, which
-  # the github-pages environment's branch protection rejects; workflow_run
-  # events run on the default branch, so the deploy passes the protection.
+  # A human-published release dispatches a repository event so the download
+  # page is rebuilt from the exact published assets (see
+  # scripts/release/fetch-website-release.mjs — drafts never appear).
+  # workflow_run remains as a protected-default-branch fallback, but its
+  # release-data job verifies that a published release exists before building;
+  # a draft-producing run therefore cannot deploy.
   workflow_run:
     workflows: ['Release']
     types: [completed]
+  repository_dispatch:
+    types: [varve-release-published]
   workflow_dispatch:
 
 permissions:
@@ -48,14 +50,15 @@ env:
   ANALYTICS_DOMAIN: 'varve.studio'
 
 jobs:
-  # ── 1. Quality gates: typecheck, unit tests, a11y scans, dual-mode builds ──
+  # ── 1. Website-source certification (source changes only) ────────────────
   test:
     name: Website quality gates
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # A failed Release is already diagnosed by ci-debug.yml; do not spend
-    # another full website test run on a workflow_run that cannot deploy.
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    # A release publication does not change website source. Its release-data
+    # path is checked separately below, so do not repeat the complete website
+    # functional/a11y/visual corpus for every successful Release run.
+    if: github.event_name != 'workflow_run' && github.event_name != 'repository_dispatch'
     env:
       # Trust-boundary canary: present on the build steps, then asserted
       # absent from the artifacts (docs/security/trust-boundaries.md
@@ -122,14 +125,78 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # ── 2. Release-driven build + upload ────────────────────────────────────────
+  # ── 2. Release-data validation (release publication only) ─────────────────
+  release-data:
+    name: Release-data validation
+    outputs:
+      published: ${{ steps.release-state.outputs.published }}
+      tag: ${{ steps.release-state.outputs.tag }}
+      published_sha: ${{ steps.release-state.outputs.published_sha }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event != 'workflow_dispatch') ||
+      github.event_name == 'repository_dispatch'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Verify the release is actually published
+        id: release-state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.tag || github.event.workflow_run.head_branch }}
+          RELEASE_SHA: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha || '' }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "No published release tag was supplied; this was not a publication event."
+            exit 0
+          fi
+          RELEASE_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}")"
+          if [[ "$(jq -r '.draft' <<<"${RELEASE_JSON}")" != "false" ]]; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "Release ${RELEASE_TAG} is still a draft; Pages deployment is not started."
+            exit 0
+          fi
+          PUBLISHED_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}" --jq '.sha')"
+          if [[ -n "${RELEASE_SHA}" && "${PUBLISHED_SHA}" != "${RELEASE_SHA}" ]]; then
+            echo "::error::Publication payload SHA ${RELEASE_SHA} does not match ${RELEASE_TAG} at ${PUBLISHED_SHA}."
+            exit 1
+          fi
+          echo "published=true" >> "$GITHUB_OUTPUT"
+          echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "published_sha=${PUBLISHED_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Release ${RELEASE_TAG} is published; release-data deployment may proceed."
+
+      # This validates the committed no-release/published-release shape. The
+      # build job subsequently fetches and verifies the exact published GitHub
+      # release before replacing this data; drafts never become download cards.
+      - name: Validate committed release-data state
+        if: steps.release-state.outputs.published == 'true'
+        run: node scripts/release/website-release-data-check.mjs
+
+  # ── 3. Build + upload ──────────────────────────────────────────────────────
   build:
     name: Build and upload Pages artifact
-    needs: test
+    needs: [test, release-data]
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    # On workflow_run only act when the Release run actually succeeded.
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    # On normal source changes, test must pass and release-data is deliberately
+    # skipped. On a verified release publication, only the small release-data
+    # job must pass; the website source suite has already been certified.
+    if: >-
+      always() &&
+      (((github.event_name == 'workflow_run' || github.event_name == 'repository_dispatch') &&
+        needs.release-data.result == 'success' &&
+        needs.release-data.outputs.published == 'true') ||
+       (github.event_name != 'workflow_run' && github.event_name != 'repository_dispatch' &&
+        needs.test.result == 'success'))
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -178,7 +245,14 @@ jobs:
       - name: Fetch release data from GitHub
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/release/fetch-website-release.mjs
+          RELEASE_TAG: ${{ needs.release-data.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${RELEASE_TAG}" ]]; then
+            node scripts/release/fetch-website-release.mjs --tag "${RELEASE_TAG}"
+          else
+            node scripts/release/fetch-website-release.mjs
+          fi
 
       - name: Build website
         run: pnpm --filter @varve/website build
@@ -210,7 +284,7 @@ jobs:
         with:
           path: apps/website/dist
 
-  # ── 3. Deploy + post-deployment smoke check ─────────────────────────────────
+  # ── 4. Deploy + post-deployment smoke check ───────────────────────────────
   deploy:
     environment:
       name: github-pages

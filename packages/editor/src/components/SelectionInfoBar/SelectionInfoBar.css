@@ -84,7 +84,7 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition: background-color 0.15s ease;
   white-space: nowrap;
   overflow: hidden;

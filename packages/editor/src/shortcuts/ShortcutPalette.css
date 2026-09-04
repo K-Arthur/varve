@@ -21,7 +21,7 @@
   overflow: hidden;
   background: var(--elevation-surface-overlay);
   border: var(--border-micro);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   box-shadow: var(--elevation-shadow-overlay);
 }
 
@@ -57,7 +57,7 @@
   height: 28px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: none;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -69,7 +69,7 @@
   color: var(--color-text-primary);
 }
 
-.shortcut-palette__toast,
+.shortcut-palette__feedback,
 .shortcut-palette__remap-hint {
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-xs);
@@ -152,7 +152,7 @@
   color: var(--color-text-muted);
   background: var(--elevation-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   white-space: nowrap;
 }
 
@@ -161,7 +161,7 @@
   color: var(--color-text-muted);
   background: var(--elevation-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   padding: 2px var(--space-1);
   font-family: var(--font-mono);
   white-space: nowrap;

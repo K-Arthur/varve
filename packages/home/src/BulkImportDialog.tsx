@@ -1,288 +1,232 @@
 import type { FileEntry, FileKind, Platform } from '@varve/platform';
 import { contentHash, DRAFTS_ID, detectFileKind, stripExtension, uuid } from '@varve/platform';
-import { serializeDocument as serializeDoc } from '@varve/scene';
-import { Button, Dialog, Icon } from '@varve/ui';
-import { useCallback, useRef, useState } from 'react';
+import type { FileRejection } from '@varve/shared';
+import { Button, Dialog, FileDropZone, FileError, FileQueue, type FileQueueItem } from '@varve/ui';
+import { useCallback, useState } from 'react';
 
-interface QueuedFile {
-  id: string;
-  name: string;
+interface QueuedFile extends FileQueueItem<File> {
   kind: FileKind;
-  size: number;
-  /** Raw file content for native-format documents (.varve/.strata) — kept
-   *  verbatim so imports preserve the original document instead of a
-   *  blank placeholder. */
-  text?: string;
-  status: 'queued' | 'importing' | 'done' | 'error';
-  error?: string;
 }
 
 export interface BulkImportDialogProps {
   open: boolean;
   onClose: () => void;
   platform: Platform;
+  workspaceId: string;
   onImportComplete: (results: { success: number; failed: number; total: number }) => void;
 }
 
 type ImportStage = 'select' | 'importing' | 'results';
 
+const IMPORT_ACCEPT = 'image/*,.svg,.ttf,.otf,.woff,.woff2,.varve,.strata';
+const MAX_IMPORT_FILES = 50;
+const MAX_IMPORT_SIZE = 128 * 1024 * 1024;
+
+function createQueuedFile(file: File): QueuedFile {
+  return {
+    id: uuid(),
+    file,
+    kind: detectFileKind(file.name),
+    status: 'queued',
+  };
+}
+
+function isNativeDocument(file: File): boolean {
+  return /\.(varve|strata)$/i.test(file.name);
+}
+
+function isAsset(file: File): boolean {
+  return detectFileKind(file.name) === 'image' || /\.(ttf|otf|woff|woff2)$/i.test(file.name);
+}
+
+async function importQueuedFile(file: QueuedFile, platform: Platform, workspaceId: string) {
+  if (isNativeDocument(file.file)) {
+    const text = await file.file.text();
+    let parsed: { name?: unknown };
+    try {
+      parsed = JSON.parse(text) as { name?: unknown };
+    } catch {
+      throw new Error('This Varve document is not valid JSON.');
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error('This Varve document has an invalid structure.');
+    }
+
+    const now = Date.now();
+    const displayName =
+      typeof parsed.name === 'string' && parsed.name.trim()
+        ? parsed.name.trim()
+        : stripExtension(file.file.name);
+    const entry: FileEntry = {
+      id: file.id,
+      name: displayName,
+      kind: 'strata',
+      filePath: undefined,
+      projectId: DRAFTS_ID,
+      createdAt: now,
+      updatedAt: now,
+      openedAt: now,
+      size: file.file.size,
+      pinned: false,
+      trashedAt: null,
+      ordering: '',
+      contentHash: contentHash(file.file.name),
+    };
+    await platform.upsertFile(entry, text);
+    return;
+  }
+
+  if (isAsset(file.file)) {
+    const bytes = new Uint8Array(await file.file.arrayBuffer());
+    await platform.importAsset(
+      workspaceId,
+      file.file.name,
+      bytes,
+      file.file.type || 'application/octet-stream',
+    );
+    return;
+  }
+
+  throw new Error('This format must be imported from the editor canvas.');
+}
+
 export function BulkImportDialog({
   open,
   onClose,
   platform,
+  workspaceId,
   onImportComplete,
 }: BulkImportDialogProps) {
   const [stage, setStage] = useState<ImportStage>('select');
   const [files, setFiles] = useState<QueuedFile[]>([]);
+  const [selectionErrors, setSelectionErrors] = useState<FileRejection<File>[]>([]);
   const [progress, setProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const dropRef = useRef<HTMLDivElement>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
 
-  const addFiles = useCallback((fileList: FileList | File[]) => {
-    const newFiles: QueuedFile[] = Array.from(fileList)
-      .filter((f) => {
-        const ext = f.name.split('.').pop()?.toLowerCase();
-        return [
-          'varve',
-          'strata',
-          'fig',
-          'svg',
-          'png',
-          'jpg',
-          'jpeg',
-          'webp',
-          'gif',
-          'pdf',
-          'ai',
-          'eps',
-          'psd',
-        ].includes(ext ?? '');
-      })
-      .map((f) => ({
-        id: uuid(),
-        name: f.name,
-        kind: detectFileKind(f.name),
-        size: f.size,
-        status: 'queued' as const,
-        // Read native documents eagerly so a later import failure can
-        // never silently replace them with a blank placeholder.
-        ...(detectFileKind(f.name) === 'strata' ? { text: '' } : {}),
-      }))
-      .map((q) => {
-        if (q.kind !== 'strata') return q;
-        const file = Array.from(fileList).find((f) => f.name === q.name);
-        if (!file) return q;
-        void file
-          .text()
-          .then((text) => {
-            setFiles((prev) => prev.map((pf) => (pf.id === q.id ? { ...pf, text } : pf)));
-          })
-          .catch(() => undefined);
-        return q;
-      });
-    setFiles((prev) => [...prev, ...newFiles]);
+  const addFiles = useCallback((selected: File[]) => {
+    setFiles((previous) => [...previous, ...selected.map(createQueuedFile)]);
   }, []);
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragOver(false);
-      if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
-    },
-    [addFiles],
-  );
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
+  const handleReject = useCallback((rejections: FileRejection<File>[]) => {
+    setSelectionErrors(rejections);
   }, []);
 
-  const handleDragLeave = useCallback(() => setIsDragOver(false), []);
-
-  const handlePick = useCallback(() => fileInputRef.current?.click(), []);
-
-  const handleFileInput = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files) addFiles(e.target.files);
-      e.target.value = '';
-    },
-    [addFiles],
-  );
+  const updateFile = useCallback((id: string, patch: Partial<QueuedFile>) => {
+    setFiles((previous) => previous.map((file) => (file.id === id ? { ...file, ...patch } : file)));
+  }, []);
 
   const removeFile = useCallback((id: string) => {
-    setFiles((prev) => prev.filter((f) => f.id !== id));
+    setFiles((previous) => previous.filter((file) => file.id !== id));
   }, []);
 
   const handleImport = useCallback(async () => {
+    const batch = files.filter((file) => file.status === 'queued');
     setStage('importing');
     let success = 0;
     let failed = 0;
 
-    for (let i = 0; i < files.length; i++) {
-      const f = files[i]!;
-      setFiles((prev) =>
-        prev.map((pf) => (pf.id === f.id ? { ...pf, status: 'importing' as const } : pf)),
-      );
-      setProgress(i);
-
+    for (let index = 0; index < batch.length; index += 1) {
+      const file = batch[index]!;
+      updateFile(file.id, { status: 'processing', progress: 0, error: undefined });
+      setProgress(index);
       try {
-        const now = Date.now();
-        // Native documents carry their real display name inside the JSON;
-        // use it so imports keep the author's naming (filename may differ).
-        let displayName = stripExtension(f.name);
-        if (f.kind === 'strata' && f.text) {
-          try {
-            const parsed = JSON.parse(f.text) as { name?: unknown };
-            if (typeof parsed.name === 'string' && parsed.name.trim()) {
-              displayName = parsed.name;
-            }
-          } catch {
-            // Malformed native document — keep the filename-derived name.
-          }
-        }
-        const entry: FileEntry = {
-          id: f.id,
-          name: displayName,
-          kind: f.kind,
-          filePath: undefined,
-          projectId: DRAFTS_ID,
-          createdAt: now,
-          updatedAt: now,
-          openedAt: now,
-          size: f.size,
-          pinned: false,
-          trashedAt: null,
-          ordering: '',
-          contentHash: contentHash(f.name),
-        };
-        // Native-format documents keep their original content; other kinds
-        // fall back to a blank placeholder (their real import is a later
-        // parse/convert step).
-        const json =
-          f.kind === 'strata' && f.text
-            ? f.text
-            : serializeDoc({
-                id: f.id,
-                name: stripExtension(f.name),
-                rootChildren: [],
-                nodes: {},
-                components: {},
-                nextId: 1,
-              });
-        await platform.upsertFile(entry, json);
-        setFiles((prev) =>
-          prev.map((pf) => (pf.id === f.id ? { ...pf, status: 'done' as const } : pf)),
-        );
-        success++;
-      } catch (err) {
-        setFiles((prev) =>
-          prev.map((pf) =>
-            pf.id === f.id ? { ...pf, status: 'error' as const, error: String(err) } : pf,
-          ),
-        );
-        failed++;
+        await importQueuedFile(file, platform, workspaceId);
+        updateFile(file.id, { status: 'complete', progress: 100 });
+        success += 1;
+      } catch (error) {
+        updateFile(file.id, {
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        });
+        failed += 1;
       }
     }
 
-    setProgress(files.length);
+    setProgress(batch.length);
     setStage('results');
-    onImportComplete({ success, failed, total: files.length });
-  }, [files, platform, onImportComplete]);
+    onImportComplete({ success, failed, total: batch.length });
+  }, [files, onImportComplete, platform, updateFile, workspaceId]);
 
   const handleClose = useCallback(() => {
     setStage('select');
     setFiles([]);
+    setSelectionErrors([]);
     setProgress(0);
     onClose();
   }, [onClose]);
 
   const hasFiles = files.length > 0;
-  const queuedCount = files.filter((f) => f.status === 'queued').length;
-  const doneCount = files.filter((f) => f.status === 'done').length;
-  const failedCount = files.filter((f) => f.status === 'error').length;
+  const queuedCount = files.filter((file) => file.status === 'queued').length;
+  const doneCount = files.filter((file) => file.status === 'complete').length;
+  const failedCount = files.filter((file) => file.status === 'failed').length;
 
   return (
-    <Dialog open={open} onClose={handleClose} title="Import files">
+    <Dialog open={open} onClose={handleClose} title="Add files to library">
       <div className="bulk-import">
         {stage === 'select' && (
           <>
-            <div
-              ref={dropRef}
-              className={`bulk-import__dropzone ${isDragOver ? 'bulk-import__dropzone--active' : ''}`}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              role="application"
-              tabIndex={-1}
-            >
-              <Icon name="Upload" label={undefined} className="bulk-import__dropzone-icon" />
-              <p className="bulk-import__dropzone-text">Drag files here or click to browse</p>
-              <p className="bulk-import__dropzone-hint">Varve, SVG, PNG, JPG, PDF, AI, EPS, PSD</p>
-              <Button variant="secondary" onClick={handlePick}>
-                Choose files
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".varve,.strata,.fig,.svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,.eps,.psd"
-                style={{ display: 'none' }}
-                onChange={handleFileInput}
-              />
-            </div>
+            <FileDropZone
+              label="Drop files to add to your library"
+              description="Varve documents are kept as documents; images, SVG, and fonts become local assets."
+              actionLabel="Choose files"
+              accept={IMPORT_ACCEPT}
+              multiple
+              maxFiles={MAX_IMPORT_FILES}
+              maxSize={MAX_IMPORT_SIZE}
+              onFiles={addFiles}
+              onReject={handleReject}
+            />
 
-            {hasFiles && (
-              <div className="bulk-import__queue">
-                <span className="bulk-import__queue-label">
-                  {files.length} file{files.length !== 1 ? 's' : ''} selected
-                </span>
-                <div className="bulk-import__queue-list">
-                  {files.map((f) => (
-                    <div key={f.id} className="bulk-import__queue-item">
-                      <span className="bulk-import__queue-name">{f.name}</span>
-                      <span className="bulk-import__queue-kind">{f.kind}</span>
-                      <button
-                        type="button"
-                        className="bulk-import__queue-remove"
-                        onClick={() => removeFile(f.id)}
-                        aria-label={`Remove ${f.name}`}
-                      >
-                        <Icon name="X" label={undefined} size="0.85em" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {selectionErrors.length > 0 && (
+              <FileError
+                title="Some files were not added"
+                message={selectionErrors
+                  .map((rejection) => `${rejection.file.name}: ${rejection.reason}`)
+                  .join(' ')}
+                compact
+              />
             )}
+
+            <FileQueue
+              className="bulk-import__queue"
+              items={files}
+              label="Files selected for library"
+              onRemove={removeFile}
+            />
 
             <div className="bulk-import__footer">
               <Button variant="ghost" onClick={handleClose}>
                 Cancel
               </Button>
               <Button
-                variant="primary"
+                variant="default"
                 disabled={!hasFiles || queuedCount === 0}
-                onClick={handleImport}
+                onClick={() => void handleImport()}
               >
-                Import {hasFiles ? `(${files.length})` : ''}
+                Add to library {hasFiles ? `(${files.length})` : ''}
               </Button>
             </div>
           </>
         )}
 
         {stage === 'importing' && (
-          <div className="bulk-import__progress">
-            <div className="bulk-import__progress-bar">
+          <div className="bulk-import__progress" aria-live="polite">
+            <div
+              className="bulk-import__progress-bar"
+              role="progressbar"
+              aria-valuenow={progress}
+              aria-valuemin={0}
+              aria-valuemax={files.length}
+            >
               <div
                 className="bulk-import__progress-fill"
                 style={{ width: `${files.length > 0 ? (progress / files.length) * 100 : 0}%` }}
               />
             </div>
             <p className="bulk-import__progress-text">
-              Importing file {progress + 1} of {files.length}
+              Adding file {Math.min(progress + 1, files.length)} of {files.length}
             </p>
-            <p className="bulk-import__progress-file">{files[progress]?.name}</p>
+            <p className="bulk-import__progress-file">{files[progress]?.file.name}</p>
+            <FileQueue items={files} label="Library import progress" />
           </div>
         )}
 
@@ -290,7 +234,7 @@ export function BulkImportDialog({
           <div className="bulk-import__results">
             <div className="bulk-import__results-summary">
               <span className="bulk-import__results-count">
-                <span className="bulk-import__results-success">{doneCount} imported</span>
+                <span className="bulk-import__results-success">{doneCount} added</span>
                 {failedCount > 0 && (
                   <>
                     <span className="bulk-import__results-sep">, </span>
@@ -299,30 +243,9 @@ export function BulkImportDialog({
                 )}
               </span>
             </div>
-            <div className="bulk-import__results-list">
-              {files.map((f) => (
-                <div
-                  key={f.id}
-                  className={`bulk-import__result-item bulk-import__result-item--${f.status}`}
-                >
-                  <Icon
-                    name={
-                      f.status === 'done'
-                        ? 'CircleCheck'
-                        : f.status === 'error'
-                          ? 'CircleAlert'
-                          : 'Clock'
-                    }
-                    label={undefined}
-                    size="0.85em"
-                  />
-                  <span className="bulk-import__result-name">{f.name}</span>
-                  {f.error && <span className="bulk-import__result-error">{f.error}</span>}
-                </div>
-              ))}
-            </div>
+            <FileQueue items={files} label="Library import results" />
             <div className="bulk-import__footer">
-              <Button variant="primary" onClick={handleClose}>
+              <Button variant="default" onClick={handleClose}>
                 Done
               </Button>
             </div>

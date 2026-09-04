@@ -72,6 +72,58 @@ describe('TextEditOverlay', () => {
     const ta = screen.getByRole('textbox');
     expect(ta).toBeTruthy();
     expect((ta as HTMLTextAreaElement).value).toBe('Hello');
+    expect((ta as HTMLTextAreaElement).style.color).not.toBe('transparent');
+    expect(ta.getAttribute('data-text-edit-surface')).toBe('true');
+  });
+
+  it('keeps the edit session alive when focus moves to a portaled toolbar', async () => {
+    const onCommit = vi.fn();
+    render(
+      <EditorProvider>
+        <TextEditOverlay
+          node={makeNode('Hello')}
+          zoom={1}
+          pan={{ x: 0, y: 0 }}
+          canvasElement={document.createElement('canvas')}
+          onCommit={onCommit}
+          onUpdateText={() => {}}
+        />
+      </EditorProvider>,
+    );
+    const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
+    const toolbar = document.createElement('button');
+    toolbar.type = 'button';
+    toolbar.setAttribute('data-varve-overlay', 'true');
+    document.body.appendChild(toolbar);
+    toolbar.focus();
+    fireEvent.blur(ta);
+    await act(async () => {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    });
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('commits after focus leaves the editing surface', async () => {
+    const onCommit = vi.fn();
+    render(
+      <EditorProvider>
+        <TextEditOverlay
+          node={makeNode('Hello')}
+          zoom={1}
+          pan={{ x: 0, y: 0 }}
+          canvasElement={document.createElement('canvas')}
+          onCommit={onCommit}
+          onUpdateText={() => {}}
+        />
+      </EditorProvider>,
+    );
+    const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
+    ta.focus();
+    ta.blur();
+    await act(async () => {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    });
+    expect(onCommit).toHaveBeenCalledWith('Hello');
   });
 
   it('reports grapheme-aware selection range on select', () => {

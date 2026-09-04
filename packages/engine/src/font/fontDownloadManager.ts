@@ -38,6 +38,15 @@ export interface DownloadJob {
   data?: ArrayBuffer;
   createdAt: number;
   completedAt?: number;
+  /** Provider identity used to validate the transport and persisted artifact. */
+  expectation?: FontDownloadExpectation;
+}
+
+export interface FontDownloadExpectation {
+  providerId?: string;
+  familyId?: string;
+  packageVersion?: string;
+  sha256?: string;
 }
 
 export interface DownloadManagerConfig {
@@ -49,6 +58,8 @@ export interface DownloadManagerConfig {
   allowedFormats?: FontFormat[];
   /** Whether to validate font integrity after download (default true). */
   validateIntegrity?: boolean;
+  /** HTTPS host allowlist. Defaults to the Fontsource CDN host. */
+  allowedHosts?: readonly string[];
 }
 
 export interface DownloadManagerEvents {
@@ -90,6 +101,7 @@ export class FontDownloadManager {
       maxFileSize: config?.maxFileSize ?? 10 * 1024 * 1024,
       allowedFormats: config?.allowedFormats ?? ['ttf', 'otf', 'woff', 'woff2'],
       validateIntegrity: config?.validateIntegrity ?? true,
+      allowedHosts: config?.allowedHosts ?? ['cdn.jsdelivr.net'],
     };
     this.events = events ?? {};
   }
@@ -97,7 +109,13 @@ export class FontDownloadManager {
   // ── Public API ─────────────────────────────────────────────────────────
 
   /** Add a download job to the queue. Returns the created job. */
-  addJob(url: string, familyName: string, format?: FontFormat): DownloadJob {
+  addJob(
+    url: string,
+    familyName: string,
+    format?: FontFormat,
+    expectation?: FontDownloadExpectation,
+  ): DownloadJob {
+    this.validateDownloadUrl(url);
     const job: DownloadJob = {
       id: generateId(),
       url,
@@ -108,6 +126,7 @@ export class FontDownloadManager {
       bytesLoaded: 0,
       totalBytes: 0,
       createdAt: Date.now(),
+      expectation,
     };
 
     this.jobs.set(job.id, job);
@@ -254,8 +273,9 @@ export class FontDownloadManager {
       const metadata = await this.validateFont(data, job.format);
 
       // Integrity check
-      if (this.config.validateIntegrity) {
-        this.verifyIntegrity(data);
+      if (this.config.validateIntegrity && job.expectation?.sha256) {
+        const valid = await this.verifyIntegrityAsync(data, job.expectation.sha256);
+        if (!valid) throw new Error('Font integrity check failed');
       }
 
       // Success
@@ -282,23 +302,43 @@ export class FontDownloadManager {
 
   /** Fetch a font file with progress tracking and abort support. */
   async downloadFile(job: DownloadJob): Promise<ArrayBuffer> {
+    this.validateDownloadUrl(job.url);
     const controller = new AbortController();
     this.abortControllers.set(job.id, controller);
 
     try {
-      const response = await fetch(job.url, { signal: controller.signal });
+      const response = await fetch(job.url, { signal: controller.signal, redirect: 'error' });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const contentLength = Number(response.headers.get('content-length') || 0);
+      if (contentLength > this.config.maxFileSize) {
+        throw new Error(
+          `Font file too large: ${contentLength} bytes (max ${this.config.maxFileSize})`,
+        );
+      }
+      const contentType = response.headers.get('content-type')?.split(';', 1)[0]?.trim();
+      if (
+        contentType &&
+        !contentType.startsWith('font/') &&
+        contentType !== 'application/octet-stream' &&
+        contentType !== 'application/font-woff'
+      ) {
+        throw new Error(`Unexpected font content type: ${contentType}`);
+      }
       job.totalBytes = contentLength || 0;
 
       const reader = response.body?.getReader();
       if (!reader) {
         // No streaming support — fall back to arrayBuffer()
         const buffer = await response.arrayBuffer();
+        if (buffer.byteLength > this.config.maxFileSize) {
+          throw new Error(
+            `Font file too large: ${buffer.byteLength} bytes (max ${this.config.maxFileSize})`,
+          );
+        }
         job.bytesLoaded = buffer.byteLength;
         job.progress = 100;
         this.events.onJobProgress?.(job);
@@ -315,6 +355,12 @@ export class FontDownloadManager {
 
         chunks.push(value);
         received += value.byteLength;
+        if (received > this.config.maxFileSize) {
+          await reader.cancel();
+          throw new Error(
+            `Font file too large: ${received} bytes (max ${this.config.maxFileSize})`,
+          );
+        }
         job.bytesLoaded = received;
         job.progress = job.totalBytes > 0 ? Math.round((received / job.totalBytes) * 100) : 0;
         this.events.onJobProgress?.(job);
@@ -392,5 +438,23 @@ export class FontDownloadManager {
       .join('');
 
     return hashHex === expectedHash;
+  }
+
+  private validateDownloadUrl(url: string): void {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new Error('Font download URL is invalid');
+    }
+    if (parsed.protocol !== 'https:') {
+      throw new Error('Font downloads require HTTPS');
+    }
+    if (!this.config.allowedHosts.includes(parsed.hostname)) {
+      throw new Error(`Font download host is not allowlisted: ${parsed.hostname}`);
+    }
+    if (parsed.href.includes('@latest')) {
+      throw new Error('Font downloads require an exact package version');
+    }
   }
 }

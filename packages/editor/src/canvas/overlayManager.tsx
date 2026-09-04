@@ -54,6 +54,7 @@ export interface UseOverlayDrawOptions {
   accentColorRef: MutableRefObject<string>;
   sunkenColorRef: MutableRefObject<string>;
   draft: unknown | null;
+  objectSelectionSession: EditorState['objectSelectionSession'];
   areaSelection: AreaSelection | null | undefined;
   floatingRaster: FloatingRasterSelection | null | undefined;
   dropTargetFrameId: NodeId | null;
@@ -306,7 +307,8 @@ function drawObjectSelectionPrompts(
 ): void {
   ctx.save();
   ctx.lineWidth = 2 / zoom;
-  for (const point of session.points) {
+  const points = session.draftPoint ? [...session.points, session.draftPoint] : session.points;
+  for (const point of points) {
     const positive = point.label === 1;
     ctx.fillStyle = positive ? 'rgba(32,160,255,0.95)' : 'rgba(236,72,153,0.95)';
     ctx.strokeStyle = 'rgba(255,255,255,0.95)';
@@ -320,15 +322,24 @@ function drawObjectSelectionPrompts(
     ctx.textBaseline = 'middle';
     ctx.fillText(positive ? '+' : '−', point.x, point.y);
   }
-  if (session.box) {
-    const x = Math.min(session.box.x1, session.box.x2);
-    const y = Math.min(session.box.y1, session.box.y2);
-    const w = Math.abs(session.box.x2 - session.box.x1);
-    const h = Math.abs(session.box.y2 - session.box.y1);
-    ctx.strokeStyle = 'rgba(32,160,255,0.95)';
-    ctx.setLineDash([6 / zoom, 4 / zoom]);
+  const box = session.draftBox ?? session.box;
+  if (box) {
+    const x = Math.min(box.x1, box.x2);
+    const y = Math.min(box.y1, box.y2);
+    const w = Math.abs(box.x2 - box.x1);
+    const h = Math.abs(box.y2 - box.y1);
+    // A dark under-stroke remains visible over both light imagery and the
+    // selection preview. Draft boxes are dashed; committed boxes are solid.
+    ctx.strokeStyle = 'rgba(7, 17, 27, 0.9)';
+    ctx.lineWidth = 4 / zoom;
+    ctx.setLineDash(session.draftBox ? [7 / zoom, 5 / zoom] : []);
+    ctx.strokeRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(32,160,255,0.98)';
+    ctx.lineWidth = 2 / zoom;
+    ctx.setLineDash(session.draftBox ? [7 / zoom, 5 / zoom] : []);
     ctx.strokeRect(x, y, w, h);
   }
+  ctx.setLineDash([]);
   ctx.restore();
 }
 
@@ -339,6 +350,7 @@ export function useOverlayDraw({
   displayDpr,
   accentColorRef,
   draft,
+  objectSelectionSession,
   areaSelection,
   floatingRaster,
   dropTargetFrameId,
@@ -898,6 +910,7 @@ export function useOverlayDraw({
     displayDpr,
     accentColorRef,
     draft,
+    objectSelectionSession,
     areaSelection,
     floatingRaster,
     dropTargetFrameId,

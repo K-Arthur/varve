@@ -215,7 +215,7 @@ export function DetectTextSection({ nodes }: { nodes: SceneNode[] }) {
           <div className="insp-actions">
             <Button
               type="button"
-              variant="primary"
+              variant="default"
               size="sm"
               onClick={handleDownload}
               aria-label="Download text detection model (~4.5 MB)"

@@ -28,7 +28,7 @@ the application requires:
 | `style-src` | `'self' 'unsafe-inline'` | Bundled CSS, React inline styles |
 | `img-src` | `'self' data: blob: https:` | Local icons, canvas previews, user images |
 | `font-src` | `'self' data:` | Bundled woff2 fonts |
-| `connect-src` | `'self' ipc: … github.com huggingface.co` | Tauri IPC, model downloads |
+| `connect-src` | `'self' ipc: … github.com huggingface.co cdn.jsdelivr.net` | Tauri IPC, model downloads, explicit Fontsource downloads |
 | `worker-src` | `'self'` | Web Workers (all same-origin) |
 | `media-src` | `'self' blob: data:` | Video export blobs |
 | `object-src` | `'none'` | No plugins |
@@ -49,7 +49,7 @@ WebSocket. This entry does NOT appear in the production policy.
 | `https://github.com` | rembg model releases | Allowlisted; user-initiated download |
 | `https://huggingface.co` | ML model downloads | Allowlisted; user-initiated download |
 | `https://raw.githubusercontent.com` | OCR dictionary files | Allowlisted; required for OCR text decoding |
-| `https://www.googleapis.com` | Google Fonts API (dormant) | **Dormant code** — `GoogleFontsProvider` is exported but never instantiated. Remove this origin when the provider is deleted or made opt-in. |
+| `https://cdn.jsdelivr.net` | Version-pinned Fontsource font artifacts | **User-initiated only**; exact HTTPS CDN host enforced by the download manager. |
 
 ### `'wasm-unsafe-eval'` justification
 

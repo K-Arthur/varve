@@ -9,7 +9,7 @@
   padding: var(--space-3);
   background: var(--elevation-surface-raised);
   border: var(--border-micro);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-card);
   box-shadow: var(--elevation-shadow-raised);
   width: 240px;
   font-size: var(--font-size-sm);
@@ -77,7 +77,7 @@
   gap: var(--space-2);
   min-height: 28px;
   padding: var(--space-1) var(--space-1);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   transition: background var(--duration-quick) var(--ease-default);
 }
 .onboarding-checklist__item:hover {
@@ -116,7 +116,7 @@
   padding: var(--space-1) 0;
   flex: 1;
   min-width: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition:
     color var(--duration-fast) var(--ease-default),
     background var(--duration-fast) var(--ease-default);
@@ -150,7 +150,7 @@
   font-size: var(--font-size-xs);
   cursor: pointer;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   transition:
     color var(--duration-fast) var(--ease-default),
     background var(--duration-fast) var(--ease-default);

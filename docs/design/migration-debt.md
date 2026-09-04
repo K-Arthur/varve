@@ -1,6 +1,6 @@
 # Migration Debt — design system adoption tracker
 
-**Last updated:** 2026-07-27
+**Last updated:** 2026-08-31
 **See:** ADR-0011 (governance), `docs/design/component-status.md`
 
 Tracks surfaces not yet migrated to canonical `@varve/ui` primitives and tokens.
@@ -34,12 +34,12 @@ Each entry has: current state, target state, blocker, and status.
 
 | Surface | Current | Target | Status |
 |---|---|---|---|
-| Inspector fields | Mixed inline + NumberInput | Canonical Input, Select, Slider, Switch | Partially migrated |
+| Inspector fields | Mixed inline + NumberInput | Canonical Input, Select, Slider, Switch | Switch migration complete 2026-08-31; other field debt remains |
 | Font browser | Inline select-like | Combobox | Not started |
 | Batch rename dialog | Inline | Dialog + Input | Not started |
 | Timeline track headers | Inline | Tabs + Toolbar | Not started |
-| Settings dialog | Dialog + Select + NumberInput | Canonical (mostly done) | Mostly migrated |
-| Export dialog | Dialog + Select + Slider | Canonical (mostly done) | Mostly migrated |
+| Settings dialog | Dialog + Select + NumberInput + SwitchField | Canonical | Switch migration complete 2026-08-31 |
+| Export dialog | Dialog + Select + Slider + SwitchField | Canonical | Switch migration complete 2026-08-31 |
 | Layers panel | Inline tree | Tree primitive | Not started (Tree not built) |
 
 ### Hardcoded values remaining (known)
@@ -59,7 +59,7 @@ Each entry has: current state, target state, blocker, and status.
 Components missing stories (20 of 30):
 
 Checkbox, IconButton, Menu, Slider, Tabs, NumberInput, SearchField,
-SegmentedControl, ViewModeSwitcher, ContentSkeleton, CopyButton,
+ViewModeSwitcher, ContentSkeleton, CopyButton,
 DeterminateProgress, InlineActivityIndicator, RegionLoader, StartupLoader,
 Toolbar, FocusTrap, FloatingPortal, AlertDialog (shares Dialog stories).
 

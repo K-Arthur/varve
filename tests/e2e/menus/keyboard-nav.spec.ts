@@ -393,7 +393,7 @@ test.describe('Menu keyboard navigation', () => {
     await expect(menubar).toHaveAttribute('aria-label', 'Application');
 
     const fileItem = menubar.locator('[role="menuitem"]', { hasText: 'File' });
-    await expect(fileItem).toHaveAttribute('aria-haspopup', 'true');
+    await expect(fileItem).toHaveAttribute('aria-haspopup', 'menu');
 
     await fileItem.click();
     await expect(fileItem).toHaveAttribute('aria-expanded', 'true');

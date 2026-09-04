@@ -36,7 +36,7 @@
   width: 100%;
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-default);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
@@ -45,7 +45,7 @@
   margin: var(--space-4) 0;
   padding: var(--space-3);
   background: var(--color-surface-raised);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
 }
 .backup-settings__status h4 {
   margin: 0 0 var(--space-2);
@@ -69,7 +69,7 @@
 .backup-settings__button {
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-default);
   color: var(--color-text-primary);
   cursor: pointer;
@@ -117,7 +117,7 @@
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-default);
   cursor: pointer;
   text-align: left;
@@ -149,7 +149,7 @@
 .restore-browser__details {
   padding: var(--space-3);
   background: var(--color-surface-raised);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   margin-bottom: var(--space-3);
 }
 .restore-browser__details h4 {
@@ -194,7 +194,7 @@
 .restore-browser__button {
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-default);
   color: var(--color-text-primary);
   cursor: pointer;

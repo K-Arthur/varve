@@ -127,7 +127,7 @@ export function CreateTableFromDataDialog() {
           className="varve-dialog"
           style={{
             background: 'var(--color-surface-raised, #fff)',
-            borderRadius: 10,
+            borderRadius: 'var(--radius-surface)',
             padding: 16,
             width: 560,
             maxWidth: '92vw',
@@ -221,7 +221,7 @@ export function CreateTableFromDataDialog() {
               style={{
                 overflow: 'auto',
                 border: '1px solid var(--color-border-subtle, #cdd3de)',
-                borderRadius: 6,
+                borderRadius: 'var(--radius-control)',
               }}
             >
               <table className="varve-preview-table" aria-label="Preview">

@@ -22,9 +22,10 @@ interface MenubarSubmenuProps {
   parentLabel: string;
   open: boolean;
   activeSubmenuIndex: number;
-  anchorRef: React.RefObject<HTMLDivElement | null>;
+  anchorRef: React.RefObject<HTMLElement | null>;
   submenuRef: React.RefObject<HTMLDivElement | null>;
   currentTheme: string;
+  onKeyDown: React.KeyboardEventHandler<HTMLDivElement>;
   state: {
     canvasMode: string;
     workspaceMode: string;
@@ -65,9 +66,10 @@ function separatorKey(items: SubmenuDef[], current: SubmenuDef, parentLabel: str
 function itemAriaChecked(
   item: SubmenuDef,
   state: MenubarSubmenuProps['state'],
+  currentTheme: string,
 ): boolean | undefined {
   if (item.action?.startsWith('theme:')) {
-    return getTheme() === item.action.slice(6);
+    return currentTheme === item.action.slice(6);
   }
   if (item.action === 'canvasModeOutline') return state.canvasMode === 'outline';
   if (item.action === 'canvasModePreview') return state.canvasMode === 'preview';
@@ -89,14 +91,6 @@ function itemAriaChecked(
   return undefined;
 }
 
-function getTheme(): string {
-  try {
-    return document.documentElement.dataset.theme ?? 'light';
-  } catch {
-    return 'light';
-  }
-}
-
 export function MenubarSubmenu({
   items,
   parentLabel,
@@ -105,6 +99,7 @@ export function MenubarSubmenu({
   anchorRef,
   submenuRef,
   currentTheme,
+  onKeyDown,
   state,
   onClose,
   handleAction,
@@ -116,9 +111,25 @@ export function MenubarSubmenu({
       anchorRef={anchorRef}
       open
       onClose={onClose}
+      kind="submenu"
+      placement="right-start"
+      logicalPlacement={true}
+      fallbackPlacements={['left-start']}
+      offsetDistance={0}
+      dismissOnEscape={false}
       className="editor-menubar__submenu"
     >
-      <div ref={submenuRef} role="menu" aria-label={parentLabel}>
+      <div
+        ref={submenuRef}
+        role="menu"
+        aria-label={parentLabel}
+        onKeyDown={(event) => {
+          // A submenu is both a React descendant of the dropdown and a
+          // separately portaled surface. It owns its key event exactly once.
+          event.stopPropagation();
+          onKeyDown(event);
+        }}
+      >
         {items.map((subItem, subItemIdx) => {
           if (subItem.label === '---') {
             return (
@@ -130,7 +141,7 @@ export function MenubarSubmenu({
             );
           }
           const subRole = itemRole(subItem);
-          const subChecked = itemAriaChecked(subItem, state);
+          const subChecked = itemAriaChecked(subItem, state, currentTheme);
           const subActive =
             (subItem.action?.startsWith('theme:') && currentTheme === subItem.action.slice(6)) ||
             subChecked;

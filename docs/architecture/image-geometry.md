@@ -45,6 +45,12 @@ The engine image-placement module is the geometry owner. Canvas replay, crop
 interaction, raster masks, source-coordinate tools, SVG, and PDF must consume
 its forward/inverse mapping instead of recreating proportional math.
 
+Automatic object-bound suggestions follow the same rule: DETR rectangles are
+decoded in source-image pixels, then `sourceBoundsToViewportCrop` maps their
+visible intersection through `computeImagePlacement` and `sourcePixelToLocal`
+before `trimToSubject` commits the crop. A detector result never bypasses crop,
+rotation, flip, or nested object geometry with a fill-offset approximation.
+
 ## Document fields
 
 The persisted `ImageFillData` usage record has these responsibilities:

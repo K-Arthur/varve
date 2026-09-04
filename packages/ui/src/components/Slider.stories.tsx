@@ -11,6 +11,7 @@ const meta: Meta<typeof Slider> = {
     max: { control: 'number' },
     step: { control: 'number' },
     disabled: { control: 'boolean' },
+    size: { control: 'select', options: ['sm', 'md', 'lg'] },
   },
 };
 
@@ -74,4 +75,90 @@ export const Dark: Story = {
       </div>
     ),
   ],
+};
+
+export const WithInput: Story = {
+  render: () => {
+    const [value, setValue] = useState(42);
+    return (
+      <Slider
+        label="Threshold"
+        value={value}
+        min={0}
+        max={255}
+        onChange={setValue}
+        showInput
+        formatValue={(v) => `${v}`}
+      />
+    );
+  },
+};
+
+export const WithReset: Story = {
+  render: () => {
+    const [value, setValue] = useState(50);
+    return (
+      <Slider
+        label="Opacity"
+        value={value}
+        min={0}
+        max={100}
+        onChange={setValue}
+        onReset={() => setValue(50)}
+      />
+    );
+  },
+};
+
+export const WithInputAndReset: Story = {
+  render: () => {
+    const [value, setValue] = useState(72);
+    return (
+      <Slider
+        label="Quality"
+        value={value}
+        min={1}
+        max={100}
+        onChange={setValue}
+        showInput
+        onReset={() => setValue(72)}
+        formatValue={(v) => `${v}%`}
+      />
+    );
+  },
+};
+
+export const SmallSize: Story = {
+  render: () => {
+    const [value, setValue] = useState(30);
+    return (
+      <Slider
+        label="Spacing"
+        value={value}
+        min={0}
+        max={100}
+        onChange={setValue}
+        size="sm"
+        showInput
+      />
+    );
+  },
+};
+
+export const LargeSize: Story = {
+  render: () => {
+    const [value, setValue] = useState(60);
+    return (
+      <Slider
+        label="Scale"
+        value={value}
+        min={0}
+        max={200}
+        onChange={setValue}
+        size="lg"
+        showInput
+        formatValue={(v) => `${v}%`}
+      />
+    );
+  },
 };

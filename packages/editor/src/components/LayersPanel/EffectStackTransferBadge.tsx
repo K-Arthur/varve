@@ -22,6 +22,8 @@ export interface EffectStackTransferBadgeProps {
   statusLabel?: string;
   /** Keyboard/touch alternative: copy to the currently selected target layers. */
   onCopyToSelected: () => void;
+  /** Open the owning layer's editor. Normal activation takes this path when provided. */
+  onOpen?: () => void;
 }
 
 function stackLabel(kind: EffectStackKind, count: number): string {
@@ -42,6 +44,7 @@ export function EffectStackTransferBadge({
   children,
   statusLabel,
   onCopyToSelected,
+  onOpen,
 }: EffectStackTransferBadgeProps) {
   const didDragRef = useRef(false);
   const pointerOriginRef = useRef<{ x: number; y: number } | null>(null);
@@ -92,12 +95,18 @@ export function EffectStackTransferBadge({
         didDragRef.current = false;
         return;
       }
+      if (onOpen && !event.shiftKey) {
+        onOpen();
+        return;
+      }
       onCopyToSelected();
     },
-    [onCopyToSelected],
+    [onCopyToSelected, onOpen],
   );
 
-  const tooltip = `Drag to replace ${kind === 'layer-effects' ? 'Layer Effects' : 'Object Filters'} on another layer. Hold Alt/Option to append instead. Select target layers, then activate to copy without dragging.`;
+  const tooltip = onOpen
+    ? `Click to edit ${kind === 'layer-effects' ? 'Layer Effects' : 'Object Filters'}. Drag to replace the stack on another layer; hold Alt/Option to append. Shift-click to copy to selected layers without dragging.`
+    : `Drag to replace ${kind === 'layer-effects' ? 'Layer Effects' : 'Object Filters'} on another layer. Hold Alt/Option to append instead. Select target layers, then activate to copy without dragging.`;
 
   return (
     // The row needs to stop the pointer event from also activating its

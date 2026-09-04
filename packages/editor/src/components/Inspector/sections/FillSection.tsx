@@ -35,8 +35,8 @@ import {
   solidFill,
 } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
-import { Icon, Select, Tooltip } from '@varve/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Icon, Menu, Select, Tooltip } from '@varve/ui';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { GradientEditor } from '../color/GradientEditor';
@@ -207,7 +207,6 @@ export function FillSection({ nodes }: FillSectionProps) {
   const [fillModifierState, setFillModifierState] = useState<FillModifierState | null>(null);
   const modifierAnchorRef = useRef<HTMLButtonElement | null>(null);
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
-  const addMenuRef = useRef<HTMLDivElement>(null);
   const addTriggerRef = useRef<HTMLButtonElement>(null);
 
   const fills = useMemo(() => {
@@ -253,28 +252,18 @@ export function FillSection({ nodes }: FillSectionProps) {
     [beginTransaction, commitTransaction, reorderSelectedFill],
   );
 
-  // Close the add-fill menu on outside pointerdown or Escape.
-  useEffect(() => {
-    if (!addMenuOpen) return;
-    const onDown = (e: PointerEvent) => {
-      const target = e.target as Node;
-      if (!addMenuRef.current?.contains(target) && !addTriggerRef.current?.contains(target)) {
-        setAddMenuOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setAddMenuOpen(false);
-        addTriggerRef.current?.focus();
-      }
-    };
-    window.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [addMenuOpen]);
+  const addMenuItems = useMemo(
+    () =>
+      ADD_FILL_OPTIONS.map((option) => ({
+        id: option.kind,
+        label: option.label,
+        onAction: () => {
+          setAddMenuOpen(false);
+          addFill(option.kind);
+        },
+      })),
+    [addFill],
+  );
 
   return (
     <DisclosureSection title="Fill" sectionId="fills">
@@ -336,29 +325,13 @@ export function FillSection({ nodes }: FillSectionProps) {
             <Icon name="Plus" label={undefined} size="0.85em" />
             <span>Add fill</span>
           </button>
-          {addMenuOpen && (
-            <div ref={addMenuRef} role="menu" aria-label="Add fill" className="insp-fill-add__menu">
-              {ADD_FILL_OPTIONS.map((opt) => (
-                <button
-                  key={opt.kind}
-                  type="button"
-                  role="menuitem"
-                  className="insp-fill-add__menu-item"
-                  onClick={() => {
-                    setAddMenuOpen(false);
-                    addFill(opt.kind);
-                  }}
-                >
-                  <Icon
-                    name={opt.icon as import('@varve/ui').IconName}
-                    label={undefined}
-                    size="0.85em"
-                  />
-                  <span>{opt.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          <Menu
+            triggerRef={addTriggerRef}
+            open={addMenuOpen}
+            onClose={() => setAddMenuOpen(false)}
+            label="Add fill"
+            items={addMenuItems}
+          />
         </div>
       </div>
       {editor.bindingField === 'fill' && (
@@ -600,7 +573,7 @@ function FillRow({
             style={{
               fontSize: 11,
               padding: '2px 6px',
-              borderRadius: 4,
+              borderRadius: 'var(--radius-control-compact)',
               border:
                 '1px solid ' +
                 (bindingValid

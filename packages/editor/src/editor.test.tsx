@@ -22,7 +22,7 @@ describe('Shell', () => {
     // empty state is deliberately not a role=tree)
     expect(document.querySelector('.layers-panel')).toBeTruthy();
     // Inspector region present
-    expect(screen.getByRole('region', { name: /inspector/i })).toBeTruthy();
+    expect(screen.getByRole('region', { name: /^Inspector$/i })).toBeTruthy();
   });
 
   it('renders without canvas environment errors', async () => {

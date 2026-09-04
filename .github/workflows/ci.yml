@@ -11,7 +11,10 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # PR validation may cancel obsolete commits. Master, scheduled, and manual
+  # certification runs are evidence for a stable ref and must not be silently
+  # cancelled by a later push.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Explicit least privilege: the repo default is read-only, and this block
 # makes that durable against future settings changes. PR jobs never receive a
@@ -36,61 +39,62 @@ jobs:
       docs: ${{ steps.lanes.outputs.docs }}
       full: ${{ steps.lanes.outputs.full }}
       models: ${{ steps.lanes.outputs.models }}
+      wasm: ${{ steps.lanes.outputs.wasm }}
+      bench: ${{ steps.lanes.outputs.bench }}
+      global: ${{ steps.lanes.outputs.global }}
+      integration: ${{ steps.lanes.outputs.integration }}
+      candidate: ${{ steps.lanes.outputs.candidate }}
+      e2e_shards: ${{ steps.lanes.outputs.e2e_shards }}
+      e2e_shard_count: ${{ steps.lanes.outputs.e2e_shard_count }}
+      plan_hash: ${{ steps.lanes.outputs.plan_hash }}
+      policy_hash: ${{ steps.lanes.outputs.policy_hash }}
+      commit_sha: ${{ steps.lanes.outputs.commit_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - id: lanes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          EVENT_BEFORE: ${{ github.event.before }}
         run: |
-          # Default to full on scheduled runs and workflow_dispatch (safety net).
-          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "js=true" >> "$GITHUB_OUTPUT"
-            echo "rust=true" >> "$GITHUB_OUTPUT"
-            echo "desktop=true" >> "$GITHUB_OUTPUT"
-            echo "website=true" >> "$GITHUB_OUTPUT"
-            echo "e2e=true" >> "$GITHUB_OUTPUT"
-            echo "visual=true" >> "$GITHUB_OUTPUT"
-            echo "docs=true" >> "$GITHUB_OUTPUT"
-            echo "full=true" >> "$GITHUB_OUTPUT"
-            echo "models=true" >> "$GITHUB_OUTPUT"
-            exit 0
+          set -euo pipefail
+          HEAD="$(git rev-parse --verify HEAD^{commit})"
+          if [[ "$EVENT_NAME" == "schedule" || "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            # Scheduled/manual runs are deliberate certification runs. The
+            # canonical planner still writes the plan, but force-full makes
+            # every promised category explicit rather than relying on regexes.
+            node scripts/quality/ci-plan.mjs --base "$HEAD" --head "$HEAD" --force-full \
+              --profile integration --output ci-plan.json --github-output "$GITHUB_OUTPUT"
+          else
+            BASE="$PR_BASE"
+            if [[ -z "$BASE" || "$BASE" == "null" ]]; then BASE="$EVENT_BEFORE"; fi
+            if [[ -z "$BASE" || "$BASE" == "0000000000000000000000000000000000000000" ]]; then
+              echo "No safe event comparison base was supplied by GitHub." >&2
+              exit 2
+            fi
+            node scripts/quality/ci-plan.mjs --base "$BASE" --head "$HEAD" \
+              --profile integration --output ci-plan.json --github-output "$GITHUB_OUTPUT"
           fi
-          # PR / push: classify by changed paths.
-          BASE="${{ github.event.pull_request.base.sha }}"
-          if [[ -z "$BASE" || "$BASE" == "null" ]]; then BASE="${{ github.event.before }}"; fi
-          if [[ -z "$BASE" || "$BASE" == "0000000000000000000000000000000000000000" ]]; then BASE="$(git rev-list --max-parents=0 HEAD | tail -1)"; fi
-          CHANGED="$(git diff --name-only "$BASE"...HEAD || git diff --name-only "$BASE" HEAD)"
-          touch /tmp/changed.txt
-          echo "$CHANGED" | grep -v '^$' > /tmp/changed.txt
-          # Lanes (conservative: any hit enables the lane)
-          if grep -qE '^(packages/(engine|scene|shared|editor|ui|platform|import|codegen|print|prototype|layout|compositor|ai|collab|crash|help|history|home|tokens)/|apps/desktop/src/)' /tmp/changed.txt; then echo "js=true" >> "$GITHUB_OUTPUT"; fi
-          if grep -qE '^crates/|^apps/desktop/src-tauri/' /tmp/changed.txt; then echo "rust=true" >> "$GITHUB_OUTPUT"; echo "desktop=true" >> "$GITHUB_OUTPUT"; fi
-          # Native desktop test infrastructure compiles and launches the
-          # Tauri test binary even when the application source is unchanged.
-          # Keep its Rust prerequisite enabled so desktop-e2e cannot be
-          # silently skipped after a WDIO/configuration-only repair.
-          if grep -qE '^(tests/wdio/|wdio\.conf\.ts$|scripts/desktop/|apps/desktop/src-tauri/tauri\.test\.conf\.json$)' /tmp/changed.txt; then echo "rust=true" >> "$GITHUB_OUTPUT"; echo "desktop=true" >> "$GITHUB_OUTPUT"; fi
-          if grep -qE '^apps/website/' /tmp/changed.txt; then echo "website=true" >> "$GITHUB_OUTPUT"; fi
-          # The browser and visual lanes download the WASM artifact produced
-          # by the Rust job, so a test-only change must still select Rust.
-          # Shared fixtures/helpers and the Playwright config are browser
-          # infrastructure changes too; select the browser lane explicitly.
-          if grep -qE '^tests/e2e/(canvas|settings|export|menus|layers|motion|home|editor|startup|save|thumbnails|workspace|logo|effects|gradient-map|model-quality|icons|inspector|intelligence|crash|workflow|format|a11y|shared|helpers|fixtures)/|^tests/e2e/.*\.spec\.ts$|^playwright\.config\.ts$' /tmp/changed.txt; then echo "e2e=true" >> "$GITHUB_OUTPUT"; echo "rust=true" >> "$GITHUB_OUTPUT"; fi
-          if grep -qE '^tests/e2e/visual/|^tests/e2e/canvas/.*visual.*spec\.ts$|^packages/ui/src/tokens/' /tmp/changed.txt; then echo "visual=true" >> "$GITHUB_OUTPUT"; echo "rust=true" >> "$GITHUB_OUTPUT"; fi
-          if grep -qE '^docs/|\.md$' /tmp/changed.txt; then echo "docs=true" >> "$GITHUB_OUTPUT"; fi
-          if grep -qE '^(package.json|pnpm-lock.yaml|pnpm-workspace.yaml|tsconfig.base.json|vitest.config.ts|playwright.config.ts|Cargo.toml|Cargo.lock|biome.json|justfile|scripts/quality/|validation-impact.config.mjs)' /tmp/changed.txt; then echo "full=true" >> "$GITHUB_OUTPUT"; fi
-          if grep -qE '^apps/desktop/public/models/|^models-source/' /tmp/changed.txt; then echo "models=true" >> "$GITHUB_OUTPUT"; fi
-          # Log what we decided (agents/developers can see the classification)
-          echo "changed files: $(wc -l < /tmp/changed.txt)"
+      - name: Upload canonical CI plan
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-plan-${{ github.run_id }}
+          path: ci-plan.json
+          retention-days: 14
 
   attribution-check:
     name: AI attribution guard
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    needs: changes
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Scan PR commits for prohibited AI attribution
         run: |
@@ -127,7 +131,7 @@ jobs:
       checks: read
     name: Rust (${{ matrix.os }})
     timeout-minutes: 60
-    needs: changes
+    needs: [changes, pipeline-validate]
     if: ${{ needs.changes.outputs.rust == 'true' || needs.changes.outputs.full == 'true' }}
     strategy:
       fail-fast: false
@@ -139,6 +143,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
@@ -152,64 +158,77 @@ jobs:
             libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
             libfontconfig1-dev libglib2.0-dev cmake pkg-config
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-      - name: Setup pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+      - name: Download canonical CI plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          version: 11.9.0
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: 26
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-      - name: Install JS dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Fetch onnxruntime native libs
-        run: node scripts/fetch-onnxruntime.mjs
-      - name: Build frontend (required by tauri generate_context!)
-        run: pnpm build
-        working-directory: apps/desktop
-      - name: cargo fmt
-        run: cargo fmt --all -- --check
-      - name: cargo clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: cargo test
-        run: cargo test --workspace --all-targets
-      - name: cargo test (desktop)
-        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
+          name: varve-ci-plan-${{ github.run_id }}
+          path: ci-plan-artifact
+      - name: Run selected Rust crate lanes
+        run: node scripts/quality/ci-run-lanes.mjs --plan ci-plan-artifact/ci-plan.json --category rust --profile integration
       # One-shot diagnosis for STATUS_ENTRYPOINT_NOT_FOUND (0xc0000139) on the
       # Windows test harness: compares imports against runner DLL exports.
       - name: Diagnose Windows entry-point failure
         if: failure() && runner.os == 'Windows'
         shell: pwsh
         run: pwsh -File "$env:GITHUB_WORKSPACE/scripts/ci/diagnose-entrypoint.ps1"
-      - name: Install cargo-llvm-cov
-        if: runner.os == 'Linux'
+      - name: Install cargo-llvm-cov for full integration certification
+        if: runner.os == 'Linux' && needs.changes.outputs.full == 'true'
         uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
         with:
           tool: cargo-llvm-cov
+      - name: Rust coverage (ratchet floor)
+        if: runner.os == 'Linux' && needs.changes.outputs.full == 'true'
+        run: node scripts/audit-rust-coverage.mjs --ci
+      - name: Automated failure debug
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
+      - name: Upload debug report
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-debug-rust-${{ matrix.os }}-${{ github.run_id }}
+          path: ci-debug-report.md
+          if-no-files-found: ignore
+
+  # WASM is a first-class producer. Keeping it separate from the three-OS Rust
+  # matrix makes the artifact dependency explicit and lets browser/native jobs
+  # wait for the exact producer rather than relying on a Linux matrix cell's
+  # side effect.
+  wasm:
+    name: WASM
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [changes, pipeline-validate]
+    if: ${{ needs.changes.outputs.wasm == 'true' || needs.changes.outputs.e2e == 'true' || needs.changes.outputs.visual == 'true' || needs.changes.outputs.desktop == 'true' || needs.changes.outputs.full == 'true' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - name: Install just
-        if: runner.os == 'Linux'
         uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
         with:
           tool: just@1.54.0
-      - name: Rust coverage (ratchet floor)
-        if: runner.os == 'Linux'
-        run: node scripts/audit-rust-coverage.mjs --ci
-      - name: wasm check
-        if: runner.os == 'Linux'
+      - name: WASM check
         run: just wasm-check
       - name: Install wasm-pack
-        if: runner.os == 'Linux'
         run: |
+          set -euo pipefail
           if ! command -v wasm-pack >/dev/null 2>&1; then
-            curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+            curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+              https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
           fi
-      - name: wasm build (base + simd)
-        if: runner.os == 'Linux'
+          wasm-pack --version
+      - name: Build WASM (base + SIMD + colour)
         run: just wasm-build-all
-      - name: Upload wasm artifact
-        if: runner.os == 'Linux'
+      - name: Upload WASM artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: varve-wasm
@@ -224,15 +243,19 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: varve-debug-rust-${{ matrix.os }}-${{ github.run_id }}
+          name: varve-debug-wasm-${{ github.run_id }}
           path: ci-debug-report.md
           if-no-files-found: ignore
+
   pipeline-validate:
     name: Pipeline validation (workflow + SHA pins)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: changes
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
       # The workflow security policy audit parses YAML structurally (js-yaml,
       # a devDependency), so this job now installs once. The install is small
       # and cached; the job stays cheap.
@@ -246,6 +269,13 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install JS dependencies (frozen)
         run: pnpm install --frozen-lockfile
+      - name: Download canonical CI plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: varve-ci-plan-${{ github.run_id }}
+          path: ci-plan-artifact
+      - name: Fast exact-SHA preflight
+        run: node scripts/quality/ci-preflight.mjs --plan ci-plan-artifact/ci-plan.json
       # Pinned release + checksum rather than a third-party action: this job
       # is the workflow supply-chain gate, so it should not take on another
       # action dependency to do its work. validate-workflows.mjs runs
@@ -277,12 +307,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/pin-github-actions.mjs --verify
-      - name: Verify extractor logic
-        run: node scripts/ci-debug.test.mjs
-      - name: Verify simulated extractor scenario
-        run: node scripts/test-ci-debug.mjs
-      - name: Verify health classifier
-        run: node scripts/ci-health.test.mjs
+      - name: CI tooling regression suite
+        # This is the concrete consumer for the canonical `ci-tools` lane. It
+        # includes the push-plan, receipt, aggregator, release, workflow, and
+        # security regression tests without starting product/browser suites.
+        run: pnpm test:ci:tools
+      - name: Validation policy regression tests
+        # The policy lane is intentionally explicit: it is a TypeScript test
+        # and is not part of the dependency-light Node tooling suite above.
+        run: pnpm exec vitest run tests/unit/validationPolicy.test.ts --maxWorkers=1
       - name: Verify release version consistency
         # Version drift across all manifests (package.json x2,
         # tauri.conf.json, workspace + desktop Cargo.toml) must never land on
@@ -305,22 +338,12 @@ jobs:
         run: node scripts/secret-scan.test.mjs
       - name: Workflow security policy audit
         run: node scripts/security/workflow-policy.mjs
-      - name: Workflow security policy regression tests
-        run: node scripts/security/workflow-policy.test.mjs
       - name: Client environment guard (CI baseline)
         run: |
           node scripts/security/validate-client-env.mjs --app website
           node scripts/security/validate-client-env.mjs --app desktop
-      - name: Client environment guard regression tests
-        run: node scripts/security/validate-client-env.test.mjs
       - name: Import-boundary audit
         run: node scripts/security/import-boundaries.mjs
-      - name: Import-boundary regression tests
-        run: node scripts/security/import-boundaries.test.mjs
-      - name: Verify pin-table integrity
-        run: node scripts/pin-github-actions.test.mjs
-      - name: Verify CI shell scripts
-        run: bash scripts/test-ci-shell-scripts.sh
 
   js:
     permissions:
@@ -329,11 +352,13 @@ jobs:
       checks: read
     name: JS (pnpm)
     timeout-minutes: 30
-    needs: changes
+    needs: [changes, pipeline-validate]
     if: ${{ needs.changes.outputs.js == 'true' || needs.changes.outputs.full == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -344,18 +369,13 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
-      - name: typecheck
-        run: pnpm typecheck
-      - name: lint
-        run: pnpm lint
-      - name: token gate
-        run: pnpm audit:tokens
-      - name: emoji gate
-        run: pnpm audit:emoji
-      - name: test
-        run: pnpm test
-      - name: render-path perf gate (ratio-based, not absolute wall-clock)
-        run: node scripts/audit-render-perf.mjs --ci
+      - name: Download canonical CI plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: varve-ci-plan-${{ github.run_id }}
+          path: ci-plan-artifact
+      - name: Run selected JavaScript package lanes
+        run: node scripts/quality/ci-run-lanes.mjs --plan ci-plan-artifact/ci-plan.json --category js --profile integration
       - name: Automated failure debug
         if: failure()
         env:
@@ -372,8 +392,8 @@ jobs:
   website-e2e:
     name: Website E2E (dual deployment modes)
     timeout-minutes: 30
-    needs: changes
-    if: ${{ needs.changes.outputs.website == 'true' }}
+    needs: [changes, pipeline-validate]
+    if: ${{ needs.changes.outputs.website == 'true' || needs.changes.outputs.full == 'true' }}
     runs-on: ubuntu-latest
     env:
       # Trust-boundary canary: present on every build step in this job, then
@@ -382,6 +402,8 @@ jobs:
       VARVE_PRIVATE_TEST_CANARY: VARVE_PRIVATE_TEST_CANARY_DO_NOT_SHIP
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -392,6 +414,8 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
+      - name: Website unit tests
+        run: pnpm test:website
       # The website must build and pass its whole suite in BOTH deployment
       # modes from the same source: the /varve GitHub Pages project site and a
       # root custom domain. The e2e servers mount the project-site build beneath
@@ -427,7 +451,7 @@ jobs:
     # project is roughly 115 minutes of serial work. Eight shards puts each
     # leg near 15m of tests plus ~3m of setup, which leaves real headroom for
     # the retry cost of a failing test rather than sitting on the limit.
-    name: E2E (Playwright) ${{ matrix.shard }}/8
+    name: E2E (Playwright) ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_shard_count }}
     # 40, not 30: a test that exhausts the 180s per-test timeout costs 9
     # minutes with `retries: 2`, and Playwright shards by file rather than by
     # runtime, so one such test lands entirely in one shard. In run
@@ -438,14 +462,16 @@ jobs:
     # one known-broken test ate the budget.
     timeout-minutes: 40
     runs-on: ubuntu-latest
-    needs: [rust, changes]
-    if: ${{ needs.changes.outputs.e2e == 'true' || needs.changes.outputs.visual == 'true' }}
+    needs: [changes, pipeline-validate, wasm]
+    if: ${{ needs.changes.outputs.e2e == 'true' || needs.changes.outputs.full == 'true' }}
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: ${{ fromJSON(needs.changes.outputs.e2e_shards) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -463,8 +489,13 @@ jobs:
           path: apps/desktop/public/wasm/
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
+      - name: Download canonical CI plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: varve-ci-plan-${{ github.run_id }}
+          path: ci-plan-artifact
       - name: E2E (chromium)
-        run: pnpm exec playwright test --project=chromium --shard=${{ matrix.shard }}/8
+        run: node scripts/quality/ci-run-lanes.mjs --plan ci-plan-artifact/ci-plan.json --category e2e --profile integration --shard "${{ matrix.shard }}/${{ needs.changes.outputs.e2e_shard_count }}"
       # always(): a job that exceeds timeout-minutes is cancelled, not failed,
       # so `if: failure()` steps are skipped and a timed-out run used to leave
       # nothing at all behind to diagnose.
@@ -501,10 +532,12 @@ jobs:
     name: Visual regression (canvas replay)
     timeout-minutes: 30
     runs-on: ubuntu-latest
-    needs: [rust, changes]
-    if: ${{ needs.changes.outputs.e2e == 'true' || needs.changes.outputs.visual == 'true' }}
+    needs: [changes, pipeline-validate, wasm]
+    if: ${{ needs.changes.outputs.visual == 'true' || needs.changes.outputs.full == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -573,8 +606,8 @@ jobs:
     name: Native desktop E2E (${{ matrix.name }})
     timeout-minutes: 45
     runs-on: ${{ matrix.os }}
-    needs: [rust, changes]
-    if: ${{ needs.changes.outputs.desktop == 'true' }}
+    needs: [changes, pipeline-validate, wasm]
+    if: ${{ needs.changes.outputs.desktop == 'true' || needs.changes.outputs.full == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -590,6 +623,8 @@ jobs:
             xvfb: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
@@ -644,3 +679,96 @@ jobs:
           name: varve-native-artifacts-${{ matrix.name }}-${{ github.run_id }}
           path: artifacts/desktop/
           if-no-files-found: ignore
+
+  bench:
+    name: Render benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [changes, pipeline-validate]
+    if: ${{ needs.changes.outputs.bench == 'true' || needs.changes.outputs.full == 'true' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Render benchmark gate
+        run: pnpm bench:canvas
+      - name: Upload benchmark diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-bench-${{ github.run_id }}
+          path: |
+            reports/
+            test-results/
+          if-no-files-found: ignore
+
+  models:
+    name: Model manifest and checksum policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [changes, pipeline-validate]
+    if: ${{ needs.changes.outputs.models == 'true' || needs.changes.outputs.full == 'true' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+      - name: Validate model manifest and checksums
+        run: node scripts/models/validate-manifest.mjs
+
+  # This is the only required integration status. Dynamic jobs may be
+  # deliberately skipped by the canonical plan, but a selected job that is
+  # cancelled, timed out, missing, or failed is never flattened into green.
+  certification:
+    name: CI / certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ always() }}
+    needs:
+      - changes
+      - attribution-check
+      - pipeline-validate
+      - rust
+      - wasm
+      - js
+      - website-e2e
+      - e2e
+      - e2e-visual
+      - desktop-e2e
+      - bench
+      - models
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.changes.outputs.commit_sha }}
+          fetch-depth: 1
+      - name: Download canonical plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: varve-ci-plan-${{ github.run_id }}
+          path: ci-plan-artifact
+      - name: Aggregate certification evidence
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$NEEDS_JSON" > ci-needs.json
+          node scripts/quality/aggregate-ci.mjs \
+            --needs ci-needs.json \
+            --plan ci-plan-artifact/ci-plan.json \
+            --output ci-certification.json
+      - name: Upload certification summary
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-ci-certification-${{ needs.changes.outputs.commit_sha }}-${{ needs.changes.outputs.policy_hash }}
+          path: ci-certification.json
+          retention-days: 30

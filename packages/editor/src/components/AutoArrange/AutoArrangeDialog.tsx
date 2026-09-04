@@ -1,5 +1,5 @@
 import type { IconName } from '@varve/ui';
-import { Button, Dialog, Icon, NumberInput } from '@varve/ui';
+import { Button, Dialog, Icon, NumberInput, Switch } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import {
@@ -169,15 +169,12 @@ export function AutoArrangeDialog({ open, onClose, selectionBounds }: AutoArrang
                 onChange={setStartAngle}
               />
             </div>
-            <label className="auto-arrange__checkbox-label">
-              <input
-                type="checkbox"
-                checked={rotateItems}
-                onChange={(e) => setRotateItems(e.target.checked)}
-                className="auto-arrange__checkbox"
-              />
-              <span>Rotate items outward</span>
-            </label>
+            <Switch
+              className="auto-arrange__checkbox-label"
+              label="Rotate items outward"
+              checked={rotateItems}
+              onChange={(e) => setRotateItems(e.target.checked)}
+            />
           </fieldset>
         )}
 
@@ -207,7 +204,7 @@ export function AutoArrangeDialog({ open, onClose, selectionBounds }: AutoArrang
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleApply} disabled={selectedNodes.length === 0}>
+          <Button variant="default" onClick={handleApply} disabled={selectedNodes.length === 0}>
             Apply
           </Button>
         </div>

@@ -4,7 +4,7 @@ import { navigateToEditor } from '../shared';
 const VIEWPORT = { width: 1280, height: 800 };
 
 async function switchToPhotoWorkspace(page: import('@playwright/test').Page): Promise<void> {
-  const photo = page.locator('.workspace-tabs__tab[aria-label="Photo workspace"]');
+  const photo = page.locator('.workspace-dock__item[aria-label="Photo workspace"]');
   if (!(await photo.isVisible().catch(() => false))) {
     await page.getByRole('button', { name: 'More workspaces' }).click();
     await page.getByRole('menuitemradio', { name: 'Photo' }).click();
@@ -30,8 +30,8 @@ test.describe('pixel marquee selection', () => {
     await toolbar.screenshot({ path: testInfo.outputPath('marquee-toolbar.png') });
     const options = page.locator('[data-testid="marquee-options"]');
     await expect(options).toBeVisible();
-    await expect(options.getByRole('button', { name: 'replace selection' })).toHaveAttribute(
-      'aria-pressed',
+    await expect(options.getByRole('radio', { name: 'replace selection' })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
     await options.getByLabel('Selection style').selectOption('fixed-ratio');

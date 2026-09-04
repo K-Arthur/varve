@@ -33,11 +33,11 @@
 }
 
 .varve-thumbnail--radius-sm {
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-control-compact);
 }
 
 .varve-thumbnail--radius-md {
-  border-radius: var(--radius-md, 6px);
+  border-radius: var(--radius-control, 8px);
 }
 
 .varve-thumbnail__img {

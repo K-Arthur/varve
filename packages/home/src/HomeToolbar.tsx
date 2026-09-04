@@ -110,7 +110,7 @@ export function HomeToolbar({
         >
           <SemanticIcon name="Menu" size="sm" />
         </Button>
-        <Button variant="primary" onClick={onNewFile} data-testid="new-file-button">
+        <Button variant="default" onClick={onNewFile} data-testid="new-file-button">
           <SemanticIcon name="Add" size="sm" />
           New
         </Button>

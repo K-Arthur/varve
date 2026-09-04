@@ -12,7 +12,7 @@
  * workspace mode via the canonical `panelWidths` preference and clear on
  * workspace reset.
  */
-import { Tooltip } from '@varve/ui';
+import { ResizableHandle, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { subscribeWorkspaceReset } from '../../workspace/workspaceResetEvents';
@@ -108,6 +108,7 @@ export function PanelWidthDragEdge() {
         target.removeEventListener('pointermove', onMove);
         target.removeEventListener('pointerup', onUp);
         target.removeEventListener('pointercancel', onUp);
+        window.removeEventListener('blur', onUp);
         setDragging(false);
         const final = latestWidthRef.current ?? startWidth;
         persist(clampLibraryWidth(final));
@@ -115,6 +116,7 @@ export function PanelWidthDragEdge() {
       target.addEventListener('pointermove', onMove);
       target.addEventListener('pointerup', onUp);
       target.addEventListener('pointercancel', onUp);
+      window.addEventListener('blur', onUp);
     },
     [applyToContainer, persist, width],
   );
@@ -149,14 +151,16 @@ export function PanelWidthDragEdge() {
 
   return (
     <Tooltip label="Drag to resize — double-click to reset">
-      <hr
+      <ResizableHandle
+        role="separator"
         aria-orientation="vertical"
         aria-label="Resize resources panel"
         aria-valuenow={width ?? undefined}
         aria-valuemin={LIBRARY_PANEL_LIMITS.min}
         aria-valuemax={LIBRARY_PANEL_LIMITS.max}
         tabIndex={0}
-        className={`panel-width-edge${dragging ? ' panel-width-edge--active' : ''}`}
+        className="panel-width-edge"
+        active={dragging}
         onPointerDown={handlePointerDown}
         onKeyDown={handleKeyDown}
         onDoubleClick={() => {

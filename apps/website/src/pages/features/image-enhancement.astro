@@ -97,14 +97,14 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
   .page-hero h1 { margin: 1rem 0; font: 700 clamp(2.3rem, 6vw, 4rem)/1.05 var(--font-editorial); color: var(--text-primary); letter-spacing: -.025em; }
   .page-hero p { color: var(--text-secondary); font-size: 1.2rem; line-height: 1.7; }
   .eyebrow { color: var(--accent-primary); font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-  .workflow, .honesty { border: 1px solid var(--border-default); border-radius: 1rem; background: var(--surface-card); padding: clamp(1.5rem, 4vw, 3rem); }
+  .workflow, .honesty { border: 1px solid var(--border-default); border-radius: var(--website-radius-card); background: var(--surface-card); padding: clamp(1.5rem, 4vw, 3rem); }
   .workflow h2, .capabilities h2, .honesty h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
   .workflow p, .honesty p { color: var(--text-secondary); line-height: 1.75; }
   .enhance-shot { margin: 2rem 0 0; }
-  .enhance-shot img { width: 100%; height: auto; border: 1px solid var(--border-default); border-radius: .8rem; }
+  .enhance-shot img { width: 100%; height: auto; border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); }
   .enhance-shot figcaption { color: var(--text-tertiary); font-size: .8rem; margin-top: .5rem; }
   .pipeline { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: stretch; gap: .75rem; margin-top: 2rem; }
-  .pipeline-step { display: flex; flex-direction: column; gap: .45rem; padding: 1rem; border: 1px solid var(--border-default); border-radius: .7rem; }
+  .pipeline-step { display: flex; flex-direction: column; gap: .45rem; padding: 1rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); }
   .pipeline-step--accent { border-color: var(--border-accent); background: var(--surface-accent-soft); }
   .pipeline-step span { color: var(--text-tertiary); font-size: .7rem; }
   .pipeline-step strong { color: var(--text-primary); }

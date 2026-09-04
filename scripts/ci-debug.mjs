@@ -30,6 +30,7 @@ import { readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { buildFailureManifest, validateKnownFailures } from './ci/failure-manifest.mjs';
 
 const API_BASE = 'https://api.github.com';
 const API_TIMEOUT_MS = 30_000;
@@ -176,6 +177,8 @@ function parseArgs() {
     probe: false,
     context: 2,
     maxHits: 10,
+    manifest: 'ci-failure-manifest.json',
+    profile: process.env.VARVE_VALIDATION_PROFILE ?? 'integration',
   };
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -197,6 +200,12 @@ function parseArgs() {
       i += 1;
     } else if (arg === '--max-hits') {
       flags.maxHits = Math.max(1, Number.parseInt(args[i + 1] ?? '10', 10) || 1);
+      i += 1;
+    } else if (arg === '--manifest') {
+      flags.manifest = args[i + 1];
+      i += 1;
+    } else if (arg === '--profile') {
+      flags.profile = args[i + 1];
       i += 1;
     }
   }
@@ -235,6 +244,24 @@ function runQuiet(cmd, args) {
     // command not found
   }
   return '';
+}
+
+function loadKnownFailures(path = 'ci-known-failures.json') {
+  try {
+    const value = JSON.parse(readFileSync(path, 'utf8'));
+    const entries = Array.isArray(value) ? value : value.entries;
+    if (!Array.isArray(entries)) return [];
+    const errors = validateKnownFailures(entries);
+    if (errors.length) {
+      console.warn(
+        `Known-failure manifest is invalid; treating entries as new failures: ${errors.join('; ')}`,
+      );
+      return [];
+    }
+    return entries;
+  } catch {
+    return [];
+  }
 }
 
 function runCommand(cmd, args, options = {}) {
@@ -340,6 +367,21 @@ async function getJobs(repo, runId, token) {
   return jobs;
 }
 
+async function getRunArtifacts(repo, runId, token) {
+  const [owner, name] = repo.split('/');
+  const artifacts = [];
+  for (let page = 1; page <= 10; page += 1) {
+    const data = await githubJson(
+      `/repos/${owner}/${name}/actions/runs/${runId}/artifacts?per_page=100&page=${page}`,
+      token,
+    );
+    const pageArtifacts = Array.isArray(data.artifacts) ? data.artifacts : [];
+    artifacts.push(...pageArtifacts.map((artifact) => artifact.name).filter(Boolean));
+    if (pageArtifacts.length < 100) break;
+  }
+  return [...new Set(artifacts)].sort();
+}
+
 async function getJobAnnotations(job, token) {
   if (!job.check_run_url) return [];
   const data = await githubJson(`${job.check_run_url}/annotations`, token);
@@ -375,7 +417,8 @@ async function downloadJobLog(repo, jobId, token) {
 }
 
 function commandExists(cmd) {
-  return runQuiet('command', ['-v', cmd]).length > 0;
+  const result = spawnSync(cmd, ['--version'], { stdio: 'ignore' });
+  return !result.error && result.status === 0;
 }
 
 /**
@@ -699,6 +742,12 @@ async function main() {
 
   const run = await getRunMeta(args.repo, args.runId, token);
   const jobs = await getJobs(args.repo, args.runId, token);
+  let artifactNames = [];
+  try {
+    artifactNames = await getRunArtifacts(args.repo, args.runId, token);
+  } catch (error) {
+    console.warn(`Artifact listing unavailable: ${error.message}`);
+  }
 
   const annotationsByJob = new Map();
   const infraBlocks = [];
@@ -815,6 +864,16 @@ async function main() {
   });
   writeFileSync(args.output, report);
 
+  const manifest = buildFailureManifest({
+    run,
+    jobs,
+    failuresBySource,
+    profile: args.profile,
+    artifacts: artifactNames,
+    knownFailures: loadKnownFailures(),
+  });
+  writeFileSync(args.manifest, `${JSON.stringify(manifest, null, 2)}\n`);
+
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n${report}\n`);
   }
@@ -828,6 +887,7 @@ async function main() {
   }
 
   console.log(`\nDebug report written to ${args.output}`);
+  console.log(`Failure manifest written to ${args.manifest}`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

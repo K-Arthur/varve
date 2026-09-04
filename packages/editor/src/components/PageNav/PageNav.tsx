@@ -1,8 +1,14 @@
-import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import type { NodeId, Page } from '@varve/scene';
-import { ContextMenu, type MenuEntry } from '@varve/ui';
+import {
+  ContextMenu,
+  type MenuEntry,
+  type OverlayAnchor,
+  pointAnchor,
+  Sortable,
+  SortableItem,
+  SortableOverlay,
+  viewportPoint,
+} from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import {
@@ -59,30 +65,19 @@ function SortablePageTab({
   onContextMenu: (e: React.MouseEvent, id: NodeId) => void;
   onNavigate: (dir: 'next' | 'prev' | 'home' | 'end') => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: page.id,
-  });
   const thumbnail = usePageThumbnail(page.id);
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    touchAction: 'none',
-  };
-
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
+    <SortableItem
+      id={page.id}
+      dragFromItem
       className={`page-nav__item${isActive ? ' page-nav__item--active' : ''}`}
+      style={{ touchAction: 'none' }}
       aria-selected={isActive}
       aria-label={`Publishing page: ${page.name}`}
       data-page-id={page.id}
       onClick={() => onSelect(page.id)}
       onContextMenu={(e) => onContextMenu(e, page.id)}
-      {...attributes}
-      {...listeners}
       role="tab"
       tabIndex={isFocused ? 0 : -1}
       onKeyDown={(e) => {
@@ -119,7 +114,7 @@ function SortablePageTab({
         )}
       </div>
       <span className="page-nav__label">{page.name}</span>
-    </div>
+    </SortableItem>
   );
 }
 
@@ -130,7 +125,7 @@ export function PageNav() {
   const platformRef = useRef(platform);
   platformRef.current = platform;
 
-  const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
+  const [ctxAnchor, setCtxAnchor] = useState<OverlayAnchor | null>(null);
   const [ctxPageId, setCtxPageId] = useState<string | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   // Roving focus index: the page tab that owns tabindex=0. Follows focus
@@ -156,12 +151,6 @@ export function PageNav() {
       }
     },
     [pageEl],
-  );
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    }),
   );
 
   const handleAddPage = useCallback(() => {
@@ -226,7 +215,7 @@ export function PageNav() {
   }, [pages, focusId, currentId]);
 
   const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
+    (event: import('@dnd-kit/core').DragEndEvent) => {
       const { active, over } = event;
       if (!over) return;
       const reordered = computeReorderedPageIds(pages, active.id as NodeId, over.id as NodeId);
@@ -239,12 +228,19 @@ export function PageNav() {
   const handleContextMenu = useCallback((e: React.MouseEvent, pageId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setCtxPos({ x: e.clientX, y: e.clientY });
+    const contextElement = e.currentTarget as HTMLElement;
+    setCtxAnchor(
+      pointAnchor(
+        viewportPoint(e.clientX, e.clientY),
+        contextElement.ownerDocument,
+        contextElement,
+      ),
+    );
     setCtxPageId(pageId);
   }, []);
 
   const closeContextMenu = useCallback(() => {
-    setCtxPos(null);
+    setCtxAnchor(null);
     setCtxPageId(null);
   }, []);
 
@@ -357,26 +353,39 @@ export function PageNav() {
   if (pages.length === 0) return null;
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <Sortable
+      items={pages.map((p) => p.id)}
+      layout="horizontal"
+      onReorder={({ event }) => handleDragEnd(event)}
+      renderOverlay={(id) => {
+        const page = pages.find((candidate) => candidate.id === id);
+        return page ? (
+          <SortableOverlay className="page-nav__drag-overlay">
+            <div className="page-nav__thumbnail" style={pageThumbnailStyle(page)}>
+              <span className="page-nav__thumb-label">{page.name}</span>
+            </div>
+            <span className="page-nav__label">{page.name}</span>
+          </SortableOverlay>
+        ) : null;
+      }}
+    >
       <div
         className="page-nav"
         ref={stripRef}
         role="tablist"
         aria-label="Publishing page navigator"
       >
-        <SortableContext items={pages.map((p) => p.id)} strategy={horizontalListSortingStrategy}>
-          {pages.map((page) => (
-            <SortablePageTab
-              key={page.id}
-              page={page}
-              isActive={page.id === currentId}
-              isFocused={(focusId ?? currentId) === page.id}
-              onSelect={handleSelectPage}
-              onContextMenu={handleContextMenu}
-              onNavigate={handleNavigate}
-            />
-          ))}
-        </SortableContext>
+        {pages.map((page) => (
+          <SortablePageTab
+            key={page.id}
+            page={page}
+            isActive={page.id === currentId}
+            isFocused={(focusId ?? currentId) === page.id}
+            onSelect={handleSelectPage}
+            onContextMenu={handleContextMenu}
+            onNavigate={handleNavigate}
+          />
+        ))}
       </div>
       <button
         type="button"
@@ -388,10 +397,10 @@ export function PageNav() {
       </button>
       <ContextMenu
         items={ctxItems}
-        position={ctxPos}
+        anchor={ctxAnchor}
         onClose={closeContextMenu}
         label="Page context menu"
       />
-    </DndContext>
+    </Sortable>
   );
 }

@@ -1,7 +1,6 @@
-import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
 import {
   contentHash,
-  detectFileKind,
   type FileEntry,
   type Platform,
   type SavedSearch,
@@ -11,11 +10,21 @@ import { createNewDocument, type NewDocumentRequest, serializeDocument } from '@
 import {
   BLANK_DOCUMENT_PRESET,
   ENCRYPTED_PROJECT_PLACEHOLDER,
-  generateKeyBetween,
   nextUntitledName,
   type Preset,
 } from '@varve/shared';
-import { ContentSkeleton, Dialog, Icon, Tooltip } from '@varve/ui';
+import {
+  ContentSkeleton,
+  Dialog,
+  Icon,
+  type OverlayAnchor,
+  pointAnchor,
+  Sortable,
+  SortableOverlay,
+  ToastProvider,
+  Tooltip,
+  viewportPoint,
+} from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityFeed } from './ActivityFeed';
 import { AssetBrowser } from './AssetBrowser';
@@ -27,6 +36,7 @@ import { EmptyStates } from './EmptyStates';
 import { FileContextMenu, type FileMenuAction } from './FileContextMenu';
 import { FileGrid } from './FileGrid';
 import { FileList } from './FileList';
+import { planFileReorder } from './fileOrdering';
 import { HomeSearchPalette } from './HomeSearchPalette';
 import { HomeShortcutHelp } from './HomeShortcutHelp';
 import { HomeToolbar } from './HomeToolbar';
@@ -40,7 +50,7 @@ import { TemplatesGallery } from './TemplatesGallery';
 import { TrashSection } from './TrashSection';
 import { useFileActions } from './useFileActions';
 import { type HomeShortcutHandlers, useHomeShortcuts } from './useHomeShortcuts';
-import { useHomeView } from './useHomeView';
+import { ingestHomeFiles, useHomeImportNotifications, useHomeView } from './useHomeView';
 import { useThumbnailLoader } from './useThumbnailLoader';
 import { VersionHistory } from './VersionHistory';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -64,7 +74,15 @@ export interface HomeShellProps {
   onOpenSettings?: () => void;
 }
 
-export function HomeShell({
+export function HomeShell(props: HomeShellProps) {
+  return (
+    <ToastProvider>
+      <HomeShellContent {...props} />
+    </ToastProvider>
+  );
+}
+
+function HomeShellContent({
   platform,
   onOpenFile,
   onLocateFile,
@@ -74,6 +92,7 @@ export function HomeShell({
   onOpenSettings,
 }: HomeShellProps) {
   const view = useHomeView(platform);
+  const { finishHomeDrop, notifyImportComplete, startHomeDrop } = useHomeImportNotifications();
   const readyFired = useRef(false);
   const wasActiveRef = useRef(active);
   // Must be performance.now() (nav-relative), not Date.now() (epoch) —
@@ -115,8 +134,9 @@ export function HomeShell({
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
-  const [contextPos, setContextPos] = useState<{ x: number; y: number } | null>(null);
+  const [contextAnchor, setContextAnchor] = useState<OverlayAnchor | null>(null);
   const [contextFile, setContextFile] = useState<FileEntry | null>(null);
+  const [contextSelection, setContextSelection] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -244,6 +264,7 @@ export function HomeShell({
   }, [platform]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
     setIsDragOver(true);
@@ -270,40 +291,30 @@ export function HomeShell({
     async (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragOver(false);
+      if (!e.dataTransfer.types.includes('Files')) return;
       const files = Array.from(e.dataTransfer.files);
       if (files.length === 0) return;
-
-      for (const file of files) {
-        const name = file.name.replace(/\.[^.]+$/, '');
-        const kind = detectFileKind(file.name);
-        if (kind === 'unknown') continue;
-
-        const text = await file.text();
-        const id = crypto.randomUUID();
-        const now = Date.now();
-        const entry: FileEntry = {
-          id,
-          name,
-          kind,
-          projectId: null,
-          createdAt: now,
-          updatedAt: now,
-          openedAt: now,
-          size: text.length,
-          pinned: false,
-          trashedAt: null,
-          ordering: '',
-          contentHash: '',
-        };
-        await platform.upsertFile(entry, text);
-        if (files.length === 1) onOpenFile(entry);
+      const toastId = startHomeDrop(files.length);
+      let failures: string[];
+      try {
+        failures = await ingestHomeFiles(
+          files,
+          platform,
+          view.activeWorkspaceId ?? 'personal',
+          onOpenFile,
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        failures = files.map((file) => `${file.name}: ${message}`);
       }
-      view.refresh();
+      finishHomeDrop(toastId, files.length, failures.length);
+      if (failures.length > 0) setStorageError(failures.join(' '));
+      await view.refresh();
     },
-    [platform, onOpenFile, view],
+    [finishHomeDrop, onOpenFile, platform, startHomeDrop, view],
   );
 
-  const dialogOpen = newFileOpen || contextPos !== null;
+  const dialogOpen = newFileOpen || contextAnchor !== null;
 
   const shortcutHandlers: HomeShortcutHandlers = {
     newFile: useCallback(() => setNewFileOpen(true), []),
@@ -324,8 +335,9 @@ export function HomeShell({
     templates: useCallback(() => view.setSection('templates'), [view]),
     closeDialog: useCallback(() => {
       setNewFileOpen(false);
-      setContextPos(null);
+      setContextAnchor(null);
       setContextFile(null);
+      setContextSelection([]);
     }, []),
     selectAll: useCallback(() => {
       setSelectedIds(view.visibleFiles.map((f) => f.id));
@@ -390,9 +402,6 @@ export function HomeShell({
     trash: view.trashedFiles.length,
   };
 
-  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
-  const sensors = useSensors(pointerSensor);
-
   const filesByOrdering = useMemo(
     () =>
       [...view.files]
@@ -412,15 +421,16 @@ export function HomeShell({
   // immediately before overId's current position.
   const reorderFileNextTo = useCallback(
     (activeId: string, overId: string) => {
-      const remaining = filesByOrdering.filter((f) => f.id !== activeId);
-      const overIdx = remaining.findIndex((f) => f.id === overId);
-      if (overIdx === -1) return;
+      const writes = planFileReorder(filesByOrdering, activeId, overId);
+      if (!writes) return;
 
-      const prevKey = overIdx > 0 ? (remaining[overIdx - 1]?.ordering ?? null) : null;
-      const nextKey = remaining[overIdx]?.ordering ?? null;
-      const newKey = generateKeyBetween(prevKey, nextKey);
-
-      platform.reorderFile(activeId, newKey).then(() => view.refresh());
+      // A drag establishes the user's manual ordering mode. This makes the
+      // committed platform order visible even when Home started in Recent or
+      // another metadata sort.
+      view.setManualOrder();
+      void Promise.all(writes.map((write) => platform.reorderFile(write.id, write.ordering)))
+        .then(() => view.refresh())
+        .catch(() => view.refresh());
     },
     [filesByOrdering, platform, view],
   );
@@ -442,27 +452,27 @@ export function HomeShell({
     [reorderFileNextTo, actions],
   );
 
-  const handleFileDragStart = useCallback((e: React.DragEvent, entry: FileEntry) => {
-    e.dataTransfer.setData('text/strata-file-id', entry.id);
-    e.dataTransfer.effectAllowed = 'move';
-  }, []);
-
-  const handleDropOnProject = useCallback(
-    (fileId: string, projectId: string) => {
-      actions.moveToProject(fileId, projectId);
+  const handleFileContext = useCallback(
+    (e: React.MouseEvent, entry: FileEntry) => {
+      e.preventDefault();
+      // Desktop convention: right-clicking an unselected file selects it;
+      // right-clicking inside the current multi-selection keeps the selection
+      // so context actions apply to every selected file.
+      const selection = selectedIds.includes(entry.id) ? [...selectedIds] : [entry.id];
+      setSelectedIds(selection);
+      setContextSelection(selection);
+      setContextFile(entry);
+      const contextElement = e.currentTarget as HTMLElement;
+      setContextAnchor(
+        pointAnchor(
+          viewportPoint(e.clientX, e.clientY),
+          contextElement.ownerDocument,
+          contextElement,
+        ),
+      );
     },
-    [actions],
+    [selectedIds],
   );
-
-  const handleFileContext = useCallback((e: React.MouseEvent, entry: FileEntry) => {
-    e.preventDefault();
-    // Desktop convention: right-clicking an unselected file selects it;
-    // right-clicking inside the current multi-selection keeps the selection
-    // so context actions apply to every selected file.
-    setSelectedIds((prev) => (prev.includes(entry.id) ? prev : [entry.id]));
-    setContextFile(entry);
-    setContextPos({ x: e.clientX, y: e.clientY });
-  }, []);
 
   const handleStartRename = useCallback((id: string | null) => {
     setRenamingId(id);
@@ -475,8 +485,8 @@ export function HomeShell({
       // actions (favorite/pin/trash/restore/purge/remove/hide) apply to every
       // selected file; per-file actions (open/rename/duplicate/versions/
       // locate/reveal) always target the clicked file.
-      const selected = selectedIds.includes(contextFile.id)
-        ? selectedIds
+      const selected = contextSelection.includes(contextFile.id)
+        ? contextSelection
             .map((id) => view.files.find((f) => f.id === id))
             .filter((f): f is FileEntry => Boolean(f))
         : [contextFile];
@@ -507,7 +517,7 @@ export function HomeShell({
           const confirmed = await confirmDialog(
             'Permanently delete files',
             'Permanently delete these files? This cannot be undone.',
-            { confirmLabel: 'Delete permanently', variant: 'danger' },
+            { confirmLabel: 'Delete permanently', variant: 'destructive' },
           );
           if (confirmed) {
             for (const entry of selected) actions.purge(entry.id);
@@ -567,12 +577,13 @@ export function HomeShell({
           break;
         }
       }
-      setContextPos(null);
+      setContextAnchor(null);
       setContextFile(null);
+      setContextSelection([]);
     },
     [
       contextFile,
-      selectedIds,
+      contextSelection,
       view.files,
       actions,
       onOpenFile,
@@ -588,13 +599,24 @@ export function HomeShell({
   const handleMoveToProject = useCallback(
     (projectId: string | null) => {
       if (!contextFile) return;
-      const selected = selectedIds.includes(contextFile.id) ? selectedIds : [contextFile.id];
+      const selected = contextSelection.includes(contextFile.id)
+        ? contextSelection
+        : [contextFile.id];
       for (const id of selected) actions.moveToProject(id, projectId);
-      setContextPos(null);
+      setContextAnchor(null);
       setContextFile(null);
+      setContextSelection([]);
     },
-    [contextFile, selectedIds, actions],
+    [contextFile, contextSelection, actions],
   );
+
+  useEffect(() => {
+    if (contextFile && !view.files.some((entry) => entry.id === contextFile.id)) {
+      setContextAnchor(null);
+      setContextFile(null);
+      setContextSelection([]);
+    }
+  }, [contextFile, view.files]);
 
   const handleSelect = useCallback((id: string) => {
     setSelectedIds([id]);
@@ -842,7 +864,11 @@ export function HomeShell({
         );
       case 'assets':
         return (
-          <AssetBrowser platform={platform} workspaceId={view.activeWorkspaceId ?? 'personal'} />
+          <AssetBrowser
+            platform={platform}
+            workspaceId={view.activeWorkspaceId ?? 'personal'}
+            onImportComplete={(outcome) => notifyImportComplete(outcome, 'asset')}
+          />
         );
       default: {
         return (
@@ -862,7 +888,6 @@ export function HomeShell({
                 onLoadThumbnail={thumbnails.load}
                 onOpen={onOpenFile}
                 onContext={handleFileContext}
-                onFileDragStart={handleFileDragStart}
                 selectedIds={selectedIds}
                 onSelect={handleSelect}
                 onToggleSelect={handleToggleSelect}
@@ -904,7 +929,15 @@ export function HomeShell({
   };
 
   return (
-    <DndContext sensors={sensors} collisionDetection={undefined} onDragEnd={handleDragEnd}>
+    <Sortable
+      items={view.visibleFiles.filter((file) => !file.trashedAt).map((file) => file.id)}
+      layout="grid"
+      onReorder={({ event }) => handleDragEnd(event)}
+      renderOverlay={(id) => {
+        const entry = view.visibleFiles.find((file) => file.id === String(id));
+        return entry ? <SortableOverlay>{entry.name}</SortableOverlay> : null;
+      }}
+    >
       <ConfirmDialogProvider />
       <PromptDialogProvider />
       <section
@@ -1015,7 +1048,6 @@ export function HomeShell({
               const proj = view.projects.find((p) => p.id === id);
               if (proj) platform.setProjectPinned(proj.id, !proj.pinned);
             }}
-            onDropOnProject={handleDropOnProject}
             onCreateProject={async () => {
               setNewProjectOpen(true);
             }}
@@ -1157,15 +1189,16 @@ export function HomeShell({
           onDuplicateCustomPreset={(preset) => presetLibrary.duplicateCustomPreset(preset.id)}
           onDeleteCustomPreset={(preset) => presetLibrary.deleteCustomPreset(preset.id)}
         />
-        {contextPos && contextFile && (
+        {contextAnchor && contextFile && (
           <FileContextMenu
             file={contextFile}
-            position={contextPos}
+            anchor={contextAnchor}
             onAction={handleContextAction}
             onMoveToProject={handleMoveToProject}
             onClose={() => {
-              setContextPos(null);
+              setContextAnchor(null);
               setContextFile(null);
+              setContextSelection([]);
             }}
             projects={view.projects}
             isTrash={view.state.section === 'trash'}
@@ -1344,9 +1377,13 @@ export function HomeShell({
           open={importOpen}
           onClose={() => setImportOpen(false)}
           platform={platform}
-          onImportComplete={() => view.refresh()}
+          workspaceId={view.activeWorkspaceId ?? 'personal'}
+          onImportComplete={(outcome) => {
+            void view.refresh();
+            notifyImportComplete(outcome, 'file');
+          }}
         />
       </section>
-    </DndContext>
+    </Sortable>
   );
 }

@@ -113,7 +113,7 @@ export function FormatMigration({ open, onClose, results, onViewReport }: Format
         )}
 
         <div className="format-migration__actions">
-          <Button variant="primary" onClick={onClose}>
+          <Button variant="default" onClick={onClose}>
             Done
           </Button>
         </div>

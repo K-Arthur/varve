@@ -14,13 +14,17 @@
 /** Module-level bridge injected by Shell to forward toasts to @varve/ui ToastProvider. */
 interface EditorToastOptions {
   message: string;
-  type?: 'info' | 'success' | 'warning' | 'error';
+  title?: string;
+  description?: string;
+  type?: 'default' | 'info' | 'success' | 'warning' | 'error' | 'loading';
   duration?: number;
+  id?: string;
+  dedupeKey?: string;
 }
 
 let toastHandler: ((opts: EditorToastOptions) => void) | null = null;
 
-export function setToastHandler(fn: (opts: EditorToastOptions) => void): void {
+export function setToastHandler(fn: ((opts: EditorToastOptions) => void) | null): void {
   toastHandler = fn;
 }
 
@@ -388,6 +392,7 @@ import {
   bulkSetLayerColorDoc,
   bulkSetNodeLockedDoc,
   bulkSetNodeVisibleDoc,
+  collectLayerColorScope,
   findAllOfKindIds,
   findSameKindIds,
   findSameLayerColorIds,
@@ -970,7 +975,7 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   /** Set a draft rectangle for live feedback during gestures. */
   setDraft: (draft: DraftShape | null) => void;
   /** Remove all currently selected nodes. */
-  removeSelected: () => void;
+  removeSelected: (selection?: NodeId[]) => void;
   /** Rename the first selected node. */
   renameSelected: (name: string) => void;
   /** Rename a specific node, independent of the current selection. */
@@ -1633,6 +1638,8 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   toggleAutoKeyframe: () => void;
   toggleGraphEditor: () => void;
   toggleStateMachinePanel: () => void;
+  /** Open/close the document-scoped Variables and tokens dialog. */
+  toggleVariablesPanel: () => void;
   deleteKeyframe: (timelineId: string, trackId: string, progress: number) => void;
   moveKeyframe: (
     timelineId: string,
@@ -2558,6 +2565,10 @@ export function EditorProvider({
       // state machines are a document-wide prototyping workflow, opt-in via
       // its own toggle rather than something every selection surfaces.
       stateMachinePanelVisible: false,
+      // variables/tokens are a document-wide design-system workflow, opt-in
+      // via its own toggle (command palette) rather than permanent panel
+      // space.
+      variablesPanelVisible: false,
       selectedGraphProperty: null,
       pendingFormat: null,
       selectionRange: null,
@@ -3798,13 +3809,13 @@ export function EditorProvider({
         announcerRef.current?.announce(`Optional sections hidden`);
       },
       // Section ordering
-      moveSectionUp: (sectionId: SectionId) => {
-        const next = moveSectionUpDoc(state.sectionVisibility, sectionId);
+      moveSectionUp: (sectionId: SectionId, withinSectionIds?: readonly SectionId[]) => {
+        const next = moveSectionUpDoc(state.sectionVisibility, sectionId, withinSectionIds);
         patch({ sectionVisibility: next });
         updateSettings({ sections: { version: 1, sections: next } });
       },
-      moveSectionDown: (sectionId: SectionId) => {
-        const next = moveSectionDownDoc(state.sectionVisibility, sectionId);
+      moveSectionDown: (sectionId: SectionId, withinSectionIds?: readonly SectionId[]) => {
+        const next = moveSectionDownDoc(state.sectionVisibility, sectionId, withinSectionIds);
         patch({ sectionVisibility: next });
         updateSettings({ sections: { version: 1, sections: next } });
       },
@@ -4579,8 +4590,8 @@ export function EditorProvider({
         // value structure is always valid. CanvasArea overrides it.
       },
 
-      removeSelected: () => {
-        const sel = state.selection;
+      removeSelected: (selectionOverride) => {
+        const sel = selectionOverride ?? state.selection;
         if (sel.length === 0) return;
         const doRemove = () => {
           const parentIds = new Set(
@@ -4616,7 +4627,7 @@ export function EditorProvider({
               confirmDialog(
                 'Delete objects',
                 `Are you sure you want to delete ${sel.length} objects?`,
-                { confirmLabel: 'Delete', variant: 'danger' },
+                { confirmLabel: 'Delete', variant: 'destructive' },
               ),
             )
             .then((confirmed) => {
@@ -6018,6 +6029,7 @@ export function EditorProvider({
               rotation: original.rotation,
               visible: original.visible,
               locked: original.locked,
+              layerColor: original.layerColor,
             };
             next = removeNode(next, nodeId);
             next = parentId ? addChild(next, parentId, placed) : addNode(next, placed);
@@ -6076,6 +6088,7 @@ export function EditorProvider({
               rotation: original.rotation,
               visible: original.visible,
               locked: original.locked,
+              layerColor: original.layerColor,
               variant: assignment.variantName,
             };
 
@@ -6562,7 +6575,16 @@ export function EditorProvider({
       },
 
       selectAllWithSameLayerColor: () => {
-        const ids = findSameLayerColorIds(state.document, state.selection);
+        const ids = findSameLayerColorIds(
+          state.document,
+          state.selection,
+          collectLayerColorScope(state.document, {
+            designCanvasId:
+              state.workspaceMode === 'print' ? undefined : state.document.activeDesignCanvasId,
+            isolatedNodeId: state.isolatedNodeId,
+            masterEditId: state.masterEditId,
+          }),
+        );
         if (ids.length > 0) {
           patch({
             selection: ids,
@@ -6663,8 +6685,10 @@ export function EditorProvider({
         announcerRef.current?.announceOperation(op, result);
       },
       showToast: (opts) => {
-        announcerRef.current?.announce(opts.message);
-        toastHandler?.(opts);
+        // The canonical Toast component owns its live region. Announcing here
+        // as well would make a screen reader hear every notification twice.
+        if (toastHandler) toastHandler(opts);
+        else announcerRef.current?.announce(opts.message);
       },
 
       reparentNode: (id, newParentId, toIndex) => {
@@ -9607,6 +9631,10 @@ export function EditorProvider({
       // --- State machines ---
       toggleStateMachinePanel: () => {
         patch({ stateMachinePanelVisible: !stateRef.current.stateMachinePanelVisible });
+      },
+      // --- Variables and tokens ---
+      toggleVariablesPanel: () => {
+        patch({ variablesPanelVisible: !stateRef.current.variablesPanelVisible });
       },
       getStateMachines: () => {
         const sms = stateRef.current.document.stateMachines ?? {};

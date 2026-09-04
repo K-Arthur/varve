@@ -86,7 +86,7 @@ export function DesignCanvasPanel() {
         : `Remove “${canvas.name}”? Its artwork will move to the pasteboard.`;
       const confirmed = await confirmDialog('Remove Design Canvas', message, {
         confirmLabel: 'Remove Canvas',
-        variant: 'danger',
+        variant: 'destructive',
       });
       if (!confirmed) return;
       updateDoc((doc) =>

@@ -25,7 +25,7 @@ const CHIP_STYLE: React.CSSProperties = {
   fontSize: 'var(--font-size-xs)',
   height: 18,
   padding: '0 4px',
-  borderRadius: 'var(--radius-sm)',
+  borderRadius: 'var(--radius-control-compact)',
   background: 'var(--color-accent-subtle, rgba(57, 208, 198, 0.15))',
   color: 'var(--color-accent-default, #39d0c6)',
   border: '1px solid var(--color-accent-subtle, rgba(57, 208, 198, 0.3))',

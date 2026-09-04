@@ -103,6 +103,80 @@ describe('AssetBrowser', () => {
     });
   });
 
+  it('imports multiple assets in selection order and reports completion', async () => {
+    const platform = createMockPlatform([]);
+    const onImportComplete = vi.fn();
+    render(
+      <AssetBrowser platform={platform} workspaceId="ws-1" onImportComplete={onImportComplete} />,
+    );
+    const input = await screen.findByLabelText('Import');
+    const first = new File(['one'], 'first.png', { type: 'image/png' });
+    const second = new File(['two'], 'second.svg', { type: 'image/svg+xml' });
+
+    fireEvent.change(input, { target: { files: [first, second] } });
+
+    await waitFor(() => expect(platform.importAsset).toHaveBeenCalledTimes(2));
+    expect(platform.importAsset).toHaveBeenNthCalledWith(
+      1,
+      'ws-1',
+      'first.png',
+      expect.any(Uint8Array),
+      'image/png',
+    );
+    expect(platform.importAsset).toHaveBeenNthCalledWith(
+      2,
+      'ws-1',
+      'second.svg',
+      expect.any(Uint8Array),
+      'image/svg+xml',
+    );
+    await waitFor(() =>
+      expect(onImportComplete).toHaveBeenCalledWith({ success: 2, failed: 0, total: 2 }),
+    );
+    expect(screen.getByText('2 complete')).toBeDefined();
+  });
+
+  it('reports partial import failures for aggregated notifications', async () => {
+    const platform = createMockPlatform([]);
+    platform.importAsset = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Asset store unavailable'))
+      .mockResolvedValueOnce({ id: 'new-asset', name: 'second.svg' });
+    const onImportComplete = vi.fn();
+    render(
+      <AssetBrowser platform={platform} workspaceId="ws-1" onImportComplete={onImportComplete} />,
+    );
+    const input = await screen.findByLabelText('Import');
+
+    fireEvent.change(input, {
+      target: {
+        files: [
+          new File(['one'], 'first.png', { type: 'image/png' }),
+          new File(['two'], 'second.svg', { type: 'image/svg+xml' }),
+        ],
+      },
+    });
+
+    await waitFor(() =>
+      expect(onImportComplete).toHaveBeenCalledWith({ success: 1, failed: 1, total: 2 }),
+    );
+    expect(screen.getByText('1 complete · 1 failed')).toBeDefined();
+    expect(screen.getByText('Asset store unavailable')).toBeDefined();
+  });
+
+  it('shows a recoverable validation message for unsupported files', async () => {
+    const platform = createMockPlatform([]);
+    render(<AssetBrowser platform={platform} workspaceId="ws-1" />);
+    const input = await screen.findByLabelText('Import');
+
+    fireEvent.change(input, {
+      target: { files: [new File(['text'], 'notes.txt', { type: 'text/plain' })] },
+    });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/notes\.txt/i);
+    expect(platform.importAsset).not.toHaveBeenCalled();
+  });
+
   it('search filters assets', async () => {
     const platform = createMockPlatform();
     render(<AssetBrowser platform={platform} workspaceId="ws-1" />);

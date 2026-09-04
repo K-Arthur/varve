@@ -13,7 +13,7 @@ import {
   type SanitizeWarning,
   sanitizeSvg,
 } from '@varve/engine';
-import { Button, Icon } from '@varve/ui';
+import { Button, FilePickerButton, Icon } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { downloadPack, type PackDownloadProgress } from './iconAcquisition';
 import {
@@ -77,7 +77,6 @@ export function IconPackManager({
   const [integrity, setIntegrity] = useState<{ total: number; corrupt: number } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const abortRef = useRef<Map<string, AbortController>>(new Map());
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = useCallback(async () => {
     setStats(await getPackStats());
@@ -249,13 +248,13 @@ export function IconPackManager({
   }, [refresh, onStorageChanged]);
 
   const importCustomSvgs = useCallback(
-    async (files: FileList | null) => {
-      if (!files || files.length === 0) return;
+    async (files: File[]) => {
+      if (files.length === 0) return;
       const prefix = 'custom';
       let installed = 0;
       let failed = 0;
       setNotice(null);
-      for (const file of Array.from(files)) {
+      for (const file of files) {
         if (!file.name.toLowerCase().endsWith('.svg')) {
           failed++;
           continue;
@@ -308,9 +307,23 @@ export function IconPackManager({
       <div className="icon-pack-manager__header">
         <h3 className="icon-pack-manager__title">Icon packs</h3>
         <div className="icon-pack-manager__header-actions">
-          <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
-            <Icon name="Upload" size={14} /> Import SVG
-          </Button>
+          <FilePickerButton
+            variant="ghost"
+            size="sm"
+            accept=".svg,image/svg+xml"
+            multiple
+            actionLabel="Import SVG"
+            inputLabel="Import SVG files"
+            icon="FileImage"
+            onFiles={(files) => void importCustomSvgs(files)}
+            onReject={(rejections) =>
+              setNotice(
+                rejections
+                  .map((rejection) => `${rejection.file.name}: ${rejection.reason}`)
+                  .join(' '),
+              )
+            }
+          />
           <button
             type="button"
             className="icon-pack-manager__close"
@@ -320,14 +333,6 @@ export function IconPackManager({
             <Icon name="X" size={16} />
           </button>
         </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".svg"
-          multiple
-          style={{ display: 'none' }}
-          onChange={(e) => void importCustomSvgs(e.target.files)}
-        />
       </div>
 
       {notice && (
@@ -357,7 +362,7 @@ export function IconPackManager({
               offline use. Licences: Apache-2.0 and ISC.
             </p>
             <Button
-              variant={starterState === 'done' ? 'secondary' : 'primary'}
+              variant={starterState === 'done' ? 'secondary' : 'default'}
               size="sm"
               onClick={() => void installStarterPack()}
               disabled={starterState === 'installing'}

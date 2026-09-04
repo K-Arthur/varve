@@ -36,7 +36,7 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
                 width: '100%',
                 maxHeight: 80,
                 objectFit: 'contain',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 'var(--radius-control-compact)',
               }}
             />
             <span className="insp-hint">

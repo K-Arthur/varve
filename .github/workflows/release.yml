@@ -75,6 +75,8 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
+  checks: read
 
 env:
   PNPM_VERSION: '11.9.0'
@@ -93,6 +95,8 @@ jobs:
       channel: ${{ steps.resolve.outputs.channel }}
       build_windows: ${{ steps.resolve.outputs.build_windows }}
       build_macos: ${{ steps.resolve.outputs.build_macos }}
+      tag_sha: ${{ steps.certification.outputs.tag_sha }}
+      policy_hash: ${{ steps.certification.outputs.policy_hash }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -101,11 +105,20 @@ jobs:
           # the default branch, which needs real ancestry (a depth-1 clone
           # would reject every valid release tag).
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Resolve tag, version and channel
         id: resolve
+        env:
+          RELEASE_TAG_INPUT: ${{ inputs.tag || github.ref_name }}
+          RELEASE_PLATFORMS_INPUT: ${{ inputs.platforms || 'all' }}
         run: |
-          TAG="${{ inputs.tag || github.ref_name }}"
+          set -euo pipefail
+          TAG="$RELEASE_TAG_INPUT"
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Release tag '${TAG}' is not a valid vMAJOR.MINOR.PATCH tag."
+            exit 1
+          fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
           # Anything with a hyphen after the patch number is a prerelease
@@ -121,7 +134,7 @@ jobs:
           VERSION="$(node scripts/release/version.mjs get)"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
-          PLATFORMS="${{ inputs.platforms || 'all' }}"
+          PLATFORMS="$RELEASE_PLATFORMS_INPUT"
           BUILD_WINDOWS=true
           BUILD_MACOS=true
           if [[ "${PLATFORMS}" == "linux" ]]; then
@@ -136,7 +149,9 @@ jobs:
       - name: Verify tag matches application version
         # The whole point of the gate: a v0.1.0 tag must not produce installers
         # that identify themselves as 0.0.0 (audit RB-3).
-        run: node scripts/release/version.mjs verify "${{ steps.resolve.outputs.tag }}"
+        env:
+          RELEASE_TAG: ${{ steps.resolve.outputs.tag }}
+        run: node scripts/release/version.mjs verify "$RELEASE_TAG"
 
       - name: Verify tag points at an approved source commit
         # A version-looking tag is not sufficient to ship code. The tagged
@@ -144,18 +159,20 @@ jobs:
         # workflow_dispatch input can name any existing tag, and without this
         # gate it could release a commit that was never part of the default
         # branch history. Fail closed.
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'master' }}
+          RELEASE_TAG: ${{ steps.resolve.outputs.tag }}
         run: |
           set -euo pipefail
-          DEFAULT_BRANCH="${{ github.event.repository.default_branch || 'master' }}"
-          TAG_COMMIT="$(git rev-parse "${{ steps.resolve.outputs.tag }}^{commit}")"
+          TAG_COMMIT="$(git rev-parse "${RELEASE_TAG}^{commit}")"
           BASE_COMMIT="$(git rev-parse "origin/${DEFAULT_BRANCH}^{commit}")"
           if ! git merge-base --is-ancestor "${TAG_COMMIT}" "${BASE_COMMIT}"; then
-            echo "::error::Tag ${{ steps.resolve.outputs.tag }} points at commit ${TAG_COMMIT}, which is not reachable"
+            echo "::error::Tag ${RELEASE_TAG} points at commit ${TAG_COMMIT}, which is not reachable"
             echo "from the default branch (${DEFAULT_BRANCH} at ${BASE_COMMIT})."
             echo "Release tags must point at a commit in the protected default branch history."
             exit 1
           fi
-          echo "Tag ${{ steps.resolve.outputs.tag }} (${TAG_COMMIT}) is reachable from ${DEFAULT_BRANCH} — provenance OK."
+          echo "Tag ${RELEASE_TAG} (${TAG_COMMIT}) is reachable from ${DEFAULT_BRANCH} — provenance OK."
 
       - name: Verify changelog has an entry for this version
         # Uses the same extractor that generates the notes, so the gate cannot
@@ -163,93 +180,60 @@ jobs:
         # the commented-out `## [0.1.0]` template at the bottom of the file and
         # would have shipped bare "### Added" headings — and a stray "-->" — as
         # the public release notes.
+        env:
+          RELEASE_VERSION: ${{ steps.resolve.outputs.version }}
         run: |
           if [[ ! -f CHANGELOG.md ]]; then
             echo "::error::CHANGELOG.md is missing. Release notes are generated from it."
             exit 1
           fi
-          if ! node scripts/release/release-notes.mjs --check "${{ steps.resolve.outputs.version }}"; then
-            echo "::error::CHANGELOG.md has no usable '## [${{ steps.resolve.outputs.version }}]' section."
+          if ! node scripts/release/release-notes.mjs --check "$RELEASE_VERSION"; then
+            echo "::error::CHANGELOG.md has no usable '## [${RELEASE_VERSION}]' section."
             echo "Add one before tagging — release notes are generated from the changelog,"
             echo "not from commit messages."
             exit 1
           fi
 
-  # ── 2. Quality gate ─────────────────────────────────────────────────────────
+      # This is intentionally before pnpm/Rust setup and before any platform
+      # build. A tag is not a release candidate: the exact tag commit must have
+      # both required remote certifications and the matching policy hash.
+      - name: Verify exact-SHA integration and release-candidate certification
+        id: certification
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          TAG_SHA="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+          POLICY_HASH="$(node -e "import('./scripts/quality/validation-policy.mjs').then(({computePolicyHash}) => process.stdout.write(computePolicyHash()))")"
+          echo "tag_sha=${TAG_SHA}" >> "$GITHUB_OUTPUT"
+          echo "policy_hash=${POLICY_HASH}" >> "$GITHUB_OUTPUT"
+          node scripts/release/verify-certification.mjs --sha "${TAG_SHA}" --repo "${GITHUB_REPOSITORY}" --policy-hash "${POLICY_HASH}"
+
+  # ── 2. Certified-source gate ────────────────────────────────────────────────
   gate:
-    name: Quality Gate
+    name: Certified source gate
     needs: preflight
     # A publish-only dispatch operates on an already verified draft. Keep the
     # expensive build graph out of that path; tag pushes and normal build
     # dispatches still run the complete release validation.
     if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ needs.preflight.outputs.tag }}
-
-      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
-        with:
-          toolchain: 1.97.1
-          components: rustfmt, clippy
-
-      - name: Install Linux system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
-            libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
-            libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
-            cmake pkg-config
-
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          # Keyed by tag so a release build never reuses a cache entry produced
-          # by a different source tree. Stale generated artifacts leaking into a
-          # release are exactly the failure mode caching invites.
-          key: gate-${{ needs.preflight.outputs.tag }}
-
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: cargo fmt
-        run: cargo fmt --all -- --check
-      - name: cargo clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: cargo test
-        run: cargo test --workspace --all-targets
-      # Ordering is load-bearing: anything that compiles the desktop crate
-      # expands `tauri::generate_context!()`, which reads tauri.conf.json and
-      # hard-fails if `frontendDist` ("../dist") does not exist. The frontend
-      # must be built first — see build.yml for the original failure post-
-      # mortem. scripts/validate-workflows.mjs enforces this ordering so an
-      # edit cannot silently move desktop compilation ahead of it again.
-      - name: Build frontend (required by tauri generate_context!)
-        run: pnpm build
-        working-directory: apps/desktop
-      - name: cargo test (desktop)
-        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
-      - name: typecheck
-        run: pnpm typecheck
-      - name: lint
-        run: pnpm lint
-      - name: unit tests
-        run: pnpm test
-      - name: token gate
-        run: pnpm audit:tokens
-      - name: emoji gate
-        run: pnpm audit:emoji
+          persist-credentials: false
+      - name: Recheck exact certification identity
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/release/verify-certification.mjs \
+          --sha "$(git rev-parse "${{ needs.preflight.outputs.tag }}^{commit}")" \
+          --repo "${GITHUB_REPOSITORY}" \
+          --policy-hash "${{ needs.preflight.outputs.policy_hash }}"
 
   # ── 2b. Signing preflight: validate credentials BEFORE any build ────────────
   # The fail-closed principle, enforced before a single platform compiles:
@@ -821,6 +805,21 @@ jobs:
             bash scripts/release/verify-macos-signature.sh --dmg "${DMG}" --report dist/release/signing-report-macos.json
           fi
 
+      # Every platform upload carries a sidecar binding its bytes to the exact
+      # tagged commit and validation-policy hash. A later resume may reuse a
+      # successful platform artifact only when this identity and its digest
+      # still match; missing/failed platforms can then be rebuilt alone.
+      - name: Write exact-SHA artifact provenance
+        if: matrix.enabled
+        shell: bash
+        run: |
+          node scripts/release/write-artifact-provenance.mjs \
+            --dir dist/release \
+            --version '${{ needs.preflight.outputs.version }}' \
+            --sha '${{ needs.preflight.outputs.tag_sha }}' \
+            --policy-hash '${{ needs.preflight.outputs.policy_hash }}' \
+            --platform '${{ matrix.os_slug }}-${{ matrix.arch_slug }}'
+
       - name: Upload release artifacts
         if: matrix.enabled
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -1354,6 +1353,17 @@ jobs:
       - name: Publish the draft
         env:
           GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          RELEASE_SHA: ${{ needs.preflight.outputs.tag_sha }}
         run: |
-          gh release edit "${{ needs.preflight.outputs.tag }}" --draft=false
-          echo "::notice::Published ${{ needs.preflight.outputs.tag }}."
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" --draft=false
+          # Pages deployment is intentionally triggered only after the human
+          # publish action has completed. Draft-producing Release runs still
+          # emit workflow_run, but never emit this publication dispatch.
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/dispatches" \
+            -f event_type='varve-release-published' \
+            -f "client_payload[tag]=${RELEASE_TAG}" \
+            -f "client_payload[sha]=${RELEASE_SHA}"
+          echo "::notice::Published ${RELEASE_TAG}; release-data deployment dispatched."

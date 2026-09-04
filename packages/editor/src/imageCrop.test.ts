@@ -13,6 +13,7 @@ import {
   resetImageCrop,
   setImageFlip,
   setImageRotation,
+  sourceBoundsToViewportCrop,
   translateAffine,
   trimToSubject,
 } from './imageCrop';
@@ -25,6 +26,54 @@ describe('translateAffine', () => {
   it('respects scale/rotation components', () => {
     // 2x scale
     expect(translateAffine([2, 0, 0, 2, 0, 0], 3, 4)).toEqual([2, 0, 0, 2, 6, 8]);
+  });
+});
+
+describe('sourceBoundsToViewportCrop', () => {
+  it('maps detector pixels through crop, rotation, and flip placement', () => {
+    let doc = createDocument('trim', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 200,
+      h: 100,
+      imageWidth: 400,
+      imageHeight: 200,
+    });
+    const image = img.fills?.[0]?.image;
+    const originalFill = img.fills?.[0];
+    if (!image || !originalFill) throw new Error('expected image fill');
+    const transformed = {
+      ...img,
+      fills: [
+        {
+          ...originalFill,
+          image: {
+            ...image,
+            fit: 'fill' as const,
+            crop: { x: 50, y: 25, w: 300, h: 150 },
+            rotation: 90,
+            flipH: true,
+          },
+        },
+      ],
+    };
+    doc = { ...doc, nodes: { ...doc.nodes, i1: transformed }, rootChildren: ['i1'] };
+
+    const crop = sourceBoundsToViewportCrop(doc, 'i1', {
+      x: 180,
+      y: 50,
+      width: 50,
+      height: 80,
+    });
+
+    expect(crop).not.toBeNull();
+    if (!crop) throw new Error('expected detector bounds to map into the node');
+    expect(crop.x).toBeGreaterThanOrEqual(0);
+    expect(crop.y).toBeGreaterThanOrEqual(0);
+    expect(crop.x + crop.w).toBeLessThanOrEqual(200);
+    expect(crop.y + crop.h).toBeLessThanOrEqual(100);
+    expect(crop.w).toBeGreaterThan(0);
+    expect(crop.h).toBeGreaterThan(0);
   });
 });
 

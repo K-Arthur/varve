@@ -89,7 +89,7 @@ export function PromptDialogProvider() {
           <Button variant="ghost" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleConfirm}>
+          <Button variant="default" onClick={handleConfirm}>
             Confirm
           </Button>
         </div>

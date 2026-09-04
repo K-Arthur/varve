@@ -1,8 +1,8 @@
-import type { BlendMode } from '@varve/scene';
+import type { BlendMode, LayerColor } from '@varve/scene';
 import { SearchField, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
-import type { LayerFilterSpec } from './layerFilterTypes';
-import { DEFAULT_FILTER } from './layerFilterTypes';
+import { LayerColorTagPicker } from './LayerColorTagPicker';
+import { DEFAULT_FILTER, type LayerFilterSpec } from './layerFilterTypes';
 
 interface LayerFilterBarProps {
   filter: LayerFilterSpec;
@@ -90,6 +90,21 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
     },
     [filter, onChange],
   );
+
+  const setLayerColorFilter = useCallback(
+    (color: LayerColor) => {
+      onChange({
+        ...filter,
+        attributes: { ...filter.attributes, layerColor: color },
+      });
+    },
+    [filter, onChange],
+  );
+
+  const clearLayerColorFilter = useCallback(() => {
+    const { layerColor: _layerColor, ...attributes } = filter.attributes;
+    onChange({ ...filter, attributes });
+  }, [filter, onChange]);
 
   const clearAll = useCallback(() => {
     onChange(DEFAULT_FILTER);
@@ -209,6 +224,25 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
                 );
               })}
             </div>
+          </div>
+
+          <div className="layers-filter-bar__section">
+            <span className="layers-filter-bar__section-label">Color tag</span>
+            <LayerColorTagPicker
+              value={filter.attributes.layerColor}
+              includeNoTag
+              ariaLabel="Filter by color tag"
+              onChange={setLayerColorFilter}
+            />
+            {filter.attributes.layerColor !== undefined && (
+              <button
+                type="button"
+                className="layers-filter-bar__clear-tag"
+                onClick={clearLayerColorFilter}
+              >
+                Clear color tag filter
+              </button>
+            )}
           </div>
         </fieldset>
       )}

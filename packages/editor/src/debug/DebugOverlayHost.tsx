@@ -221,7 +221,7 @@ function renderPerformance(snapshot: DebugSnapshot): React.ReactNode {
           fontFamily: 'monospace',
           fontSize: 10,
           padding: '4px 8px',
-          borderRadius: 4,
+          borderRadius: 'var(--radius-control-compact)',
         }}
       >
         <div>{`F#${snapshot.frame}  ${p.hitTestMs.toFixed(1)}ms hit  ${p.boundsMs.toFixed(1)}ms bnd`}</div>

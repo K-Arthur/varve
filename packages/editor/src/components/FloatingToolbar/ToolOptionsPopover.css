@@ -10,7 +10,7 @@
   max-height: min(70vh, 40rem);
   overflow: auto;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   background: var(--color-surface-raised);
   box-shadow: var(--shadow-lg);
 }
@@ -53,7 +53,7 @@
   gap: 1px;
   overflow: hidden;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
 }
 
 .tool-options__segmented button {
@@ -88,14 +88,25 @@
 }
 
 .tool-options__field input,
-.tool-options__field select {
+.tool-options__field select,
+.tool-options__field .varve-native-select__control {
   inline-size: 7rem;
   min-block-size: 2rem;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   padding-inline: var(--space-2);
+}
+
+.tool-options__native-select {
+  flex-direction: row;
+}
+
+.tool-options__native-select .varve-native-select__label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
 }
 
 .tool-options__field-row input {

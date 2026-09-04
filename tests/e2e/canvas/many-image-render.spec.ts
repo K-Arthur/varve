@@ -139,7 +139,7 @@ async function importSpreadImages(
   page: import('@playwright/test').Page,
   files: readonly string[],
 ): Promise<void> {
-  const position = page.getByRole('group', { name: 'Position & Size' });
+  const position = page.getByRole('group', { name: 'Layout' });
   const xField = position.getByLabel('X (px)');
   const yField = position.getByLabel('Y (px)');
   for (const [index, file] of files.entries()) {

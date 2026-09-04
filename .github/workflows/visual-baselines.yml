@@ -10,12 +10,25 @@ on:
   # runner even for a visually identical site. Baselines must be produced by
   # the same platform that compares them.
   #
-  # Run it after any intentional visual change: dispatch → it commits the
-  # refreshed PNGs to master → the normal website-deploy flow re-runs.
+  # Run once in comparison mode, inspect expected/actual/diff artifacts, then
+  # dispatch again in explicit reviewed update mode. The workflow never pushes
+  # to master: the reviewed PNG artifact is committed by a human in a small,
+  # reviewable change.
   workflow_dispatch:
+    inputs:
+      reviewed:
+        description: "I inspected expected, actual, and diff images from a prior run"
+        required: true
+        type: boolean
+        default: false
+      update_snapshots:
+        description: "Write the reviewed baseline update into the artifact"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: visual-baselines
@@ -56,21 +69,30 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Regenerate visual baselines
+      - name: Compare or update visual baselines
+        env:
+          VARVE_REVIEWED: ${{ inputs.reviewed }}
+          VARVE_UPDATE_SNAPSHOTS: ${{ inputs.update_snapshots }}
         run: |
-          pnpm exec playwright test -c playwright.website.config.ts \
-            --project=ghpages apps/website/tests/e2e/visual.spec.ts \
-            --update-snapshots
-
-      - name: Commit refreshed baselines
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/website/tests/e2e/visual.spec.ts-snapshots/
-          if git diff --cached --quiet; then
-            echo "No baseline changes."
+          if [[ "$VARVE_REVIEWED" == "true" && "$VARVE_UPDATE_SNAPSHOTS" == "true" ]]; then
+            echo "Explicit reviewed update mode enabled. The resulting PNGs still require a human-reviewed commit."
+            pnpm exec playwright test -c playwright.website.config.ts \
+              --project=ghpages apps/website/tests/e2e/visual.spec.ts \
+              --update-snapshots
           else
-            git commit -m "chore(website): refresh visual baselines on runner infrastructure"
-            git push
-            echo "Baselines committed."
+            echo "Comparison mode: inspect expected, actual, and diff images before any update dispatch."
+            pnpm exec playwright test -c playwright.website.config.ts \
+              --project=ghpages apps/website/tests/e2e/visual.spec.ts
           fi
+
+      - name: Upload reviewed comparison/update artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: visual-baseline-review-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+            apps/website/tests/e2e/visual.spec.ts-snapshots/
+          if-no-files-found: ignore
+          retention-days: 14

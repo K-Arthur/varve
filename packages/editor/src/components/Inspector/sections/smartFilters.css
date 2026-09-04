@@ -46,7 +46,7 @@
   align-content: start;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   cursor: pointer;
   display: grid;
@@ -96,7 +96,7 @@
   align-items: center;
   background: transparent;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
   display: inline-flex;
@@ -129,7 +129,7 @@
 
 .smart-filters__advanced {
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   margin-top: var(--space-2);
 }
 
@@ -198,10 +198,10 @@
 .smart-filters__row {
   align-items: center;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   display: grid;
   gap: var(--space-1);
-  grid-template-columns: 24px 24px minmax(0, 1fr) 24px;
+  grid-template-columns: 28px 24px 24px minmax(0, 1fr) 24px;
   min-height: 2.125rem;
   min-width: 0;
   padding: 0 2px;
@@ -212,17 +212,16 @@
   background: var(--color-surface-selected);
 }
 
-.smart-filters__row[draggable="true"] {
-  cursor: grab;
+.smart-filters__drag-handle {
+  min-height: 2rem;
+  min-width: 1.75rem;
+  width: 1.75rem;
 }
 
-.smart-filters__row[draggable="true"]:active {
-  cursor: grabbing;
-}
-
-.smart-filters__row--drag-over {
-  border-color: var(--color-accent-primary);
-  box-shadow: inset 0 2px 0 var(--color-accent-primary);
+.smart-filters__drag-overlay {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
 }
 
 .smart-filters__reorder {
@@ -310,7 +309,7 @@
 .smart-filters__unavailable-panel {
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   display: grid;
   gap: var(--space-1);
   padding: var(--space-2);
@@ -352,7 +351,7 @@
 .smart-filters__blend .varve-select__trigger {
   min-height: 2rem;
   height: 2rem;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   font-size: var(--font-size-xs);
   padding: 0 var(--space-2);
 }
@@ -394,7 +393,7 @@
 .smart-filters__actions button {
   background: transparent;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   cursor: pointer;
   font-size: var(--font-size-xs);

@@ -52,7 +52,7 @@ import {
   legacyScaleToCanonical,
   type PlatformKind,
 } from '@varve/scene/export';
-import { FocusTrap, Select } from '@varve/ui';
+import { FocusTrap, Select, SwitchField } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { estimateExportBytes } from '../../export/estimateSize';
 import { applyExportBatchPaths } from '../../exportBatchPaths';
@@ -366,6 +366,7 @@ export function ExportDialog({
   const [videoExporting, setVideoExporting] = useState(false);
   const [videoProgress, setVideoProgress] = useState({ done: 0, total: 0 });
   const [lastReport, setLastReport] = useState<ExportReport | null>(null);
+  const [successEmphasisActive, setSuccessEmphasisActive] = useState(false);
   const [printSettings, setPrintSettings] = useState<PrintOptions>(() => {
     const settings = loadSettings().export;
     // Seed the export-job bleed from the document's canonical print
@@ -499,6 +500,7 @@ export function ExportDialog({
       setProgressDetail({ stage: 'preflight' });
       setAnnounceMsg('');
       setLastReport(null);
+      setSuccessEmphasisActive(false);
       setResolutionOverride(null);
       const allIds = new Set(jobs.map((job) => `${job.nodeId}-${job.presetId}`));
       setSelectedIds(allIds);
@@ -547,10 +549,12 @@ export function ExportDialog({
       const proceed = await confirmDialog(
         'Preflight errors found',
         `Preflight found ${blockingErrors.length} error${blockingErrors.length === 1 ? '' : 's'} that may make the exported file${blockingErrors.length === 1 ? '' : 's'} unusable (e.g. missing fonts, out-of-gamut colors). Export anyway?`,
-        { confirmLabel: 'Export anyway', variant: 'danger' },
+        { confirmLabel: 'Export anyway', variant: 'destructive' },
       );
       if (!proceed) return;
     }
+    setLastReport(null);
+    setSuccessEmphasisActive(false);
     setRunning(true);
     setProgress({ done: 0, errors: 0 });
     setProgressDetail({ stage: 'preflight' });
@@ -620,6 +624,12 @@ export function ExportDialog({
         setProgressDetail({ stage: event.stage, currentFile: event.currentFile });
       });
       if (report) {
+        setSuccessEmphasisActive(
+          !controller.signal.aborted &&
+            report.totalJobs > 0 &&
+            report.failureCount === 0 &&
+            report.successCount === report.totalJobs,
+        );
         setLastReport(report);
         setProgress({ done: report.successCount, errors: report.failureCount });
         if (controller.signal.aborted) {
@@ -679,6 +689,7 @@ export function ExportDialog({
     );
     if (failedJobs.length === 0) return;
     setLastReport(null);
+    setSuccessEmphasisActive(false);
     void (async () => {
       setRunning(true);
       setProgress({ done: 0, errors: 0 });
@@ -693,6 +704,12 @@ export function ExportDialog({
           setProgressDetail({ stage: event.stage, currentFile: event.currentFile });
         });
         if (report) {
+          setSuccessEmphasisActive(
+            !controller.signal.aborted &&
+              report.totalJobs > 0 &&
+              report.failureCount === 0 &&
+              report.successCount === report.totalJobs,
+          );
           setLastReport(report);
           setProgress({ done: report.successCount, errors: report.failureCount });
           setAnnounceMsg(
@@ -726,6 +743,7 @@ export function ExportDialog({
       return;
     }
     batchAbortRef.current?.abort();
+    setSuccessEmphasisActive(false);
     setRunning(false);
     setProgress({ done: 0, errors: 0 });
     setAnnounceMsg('Export cancelled');
@@ -1018,14 +1036,12 @@ export function ExportDialog({
 
             <section className="export-dialog__section" aria-label="Background">
               <h3 className="export-dialog__section-title">Background</h3>
-              <label className="export-dialog__checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={removeBgBeforeExport}
-                  onChange={(e) => setRemoveBgBeforeExport(e.target.checked)}
-                />
-                <span>Remove background before export</span>
-              </label>
+              <SwitchField
+                label="Remove background before export"
+                description="Preprocesses raster images before the export file is written."
+                checked={removeBgBeforeExport}
+                onChange={(e) => setRemoveBgBeforeExport(e.target.checked)}
+              />
               {removeBgBeforeExport && (
                 <div className="export-dialog__bg-method">
                   <label htmlFor="export-bg-method">Method</label>
@@ -1204,6 +1220,7 @@ export function ExportDialog({
                 <h3 className="export-dialog__section-title">Results</h3>
                 <ExportResultsList
                   files={lastReport.files}
+                  successEmphasisActive={successEmphasisActive}
                   onRetryFailed={handleRetryFailed}
                   onRevealOutput={onRevealOutput}
                   revealOutputLabel={revealOutputLabel}

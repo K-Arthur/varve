@@ -12,6 +12,8 @@ vi.mock('@floating-ui/dom', () => ({
   flip: vi.fn(),
   shift: vi.fn(),
   offset: vi.fn(),
+  size: vi.fn(),
+  hide: vi.fn(),
 }));
 
 const pointerEnter = (el: Element, init?: PointerEventInit) => {
@@ -33,6 +35,13 @@ const pointerDown = (el: Element, init?: PointerEventInit) => {
     return fireEvent.pointerDown(el, init);
   }
   return fireEvent.mouseDown(el);
+};
+
+const flushPlacement = async () => {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
 };
 
 describe('Tooltip', () => {
@@ -60,7 +69,7 @@ describe('Tooltip', () => {
     expect(tooltip).toHaveTextContent('Helpful tip');
   });
 
-  it('shows immediately on focus', () => {
+  it('shows immediately on focus', async () => {
     render(
       <Tooltip label="Helpful tip">
         <button type="button">Trigger</button>
@@ -68,11 +77,11 @@ describe('Tooltip', () => {
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
     fireEvent.focus(trigger);
-    const tooltip = screen.getByRole('tooltip');
+    const tooltip = await screen.findByRole('tooltip');
     expect(tooltip).toBeInTheDocument();
   });
 
-  it('hides on Escape', () => {
+  it('hides on Escape', async () => {
     render(
       <Tooltip label="Helpful tip">
         <button type="button">Trigger</button>
@@ -80,13 +89,13 @@ describe('Tooltip', () => {
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
     fireEvent.focus(trigger);
-    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    expect(await screen.findByRole('tooltip')).toBeInTheDocument();
 
     fireEvent.keyDown(trigger, { key: 'Escape' });
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
-  it('places aria-describedby on the trigger, not a wrapper', () => {
+  it('places aria-describedby on the trigger, not a wrapper', async () => {
     render(
       <Tooltip label="Helpful tip">
         <button type="button">Trigger</button>
@@ -94,7 +103,7 @@ describe('Tooltip', () => {
     );
     const button = screen.getByRole('button', { name: 'Trigger' });
     fireEvent.focus(button);
-    const tooltip = screen.getByRole('tooltip');
+    const tooltip = await screen.findByRole('tooltip');
     expect(tooltip).toHaveAttribute('id');
     expect(button).toHaveAttribute('aria-describedby', tooltip.id);
     expect(button.parentElement).not.toHaveAttribute('aria-describedby');
@@ -109,7 +118,7 @@ describe('Tooltip', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
-  it('renders shortcut badge when shortcut prop is provided', () => {
+  it('renders shortcut badge when shortcut prop is provided', async () => {
     render(
       <Tooltip label="Select" shortcut="V">
         <button type="button">Trigger</button>
@@ -117,13 +126,13 @@ describe('Tooltip', () => {
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
     fireEvent.focus(trigger);
-    const tooltip = screen.getByRole('tooltip');
+    const tooltip = await screen.findByRole('tooltip');
     const shortcut = tooltip.querySelector('.varve-tip__shortcut');
     expect(shortcut).toBeInTheDocument();
     expect(shortcut).toHaveTextContent('V');
   });
 
-  it('hides on pointer leave', () => {
+  it('hides on pointer leave', async () => {
     render(
       <Tooltip label="Helpful tip">
         <button type="button">Trigger</button>
@@ -131,13 +140,13 @@ describe('Tooltip', () => {
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
     fireEvent.focus(trigger);
-    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    expect(await screen.findByRole('tooltip')).toBeInTheDocument();
 
     pointerLeave(trigger);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
-  it('hides on blur', () => {
+  it('hides on blur', async () => {
     render(
       <Tooltip label="Helpful tip">
         <button type="button">Trigger</button>
@@ -145,7 +154,7 @@ describe('Tooltip', () => {
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
     fireEvent.focus(trigger);
-    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    expect(await screen.findByRole('tooltip')).toBeInTheDocument();
 
     fireEvent.blur(trigger);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
@@ -191,7 +200,7 @@ describe('Tooltip', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
-  it('closes and suppresses open on pointer down', () => {
+  it('closes and suppresses open on pointer down', async () => {
     render(
       <Tooltip label="Helpful tip">
         <button type="button">Trigger</button>
@@ -199,13 +208,13 @@ describe('Tooltip', () => {
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
     fireEvent.focus(trigger);
-    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    expect(await screen.findByRole('tooltip')).toBeInTheDocument();
 
     pointerDown(trigger);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
-  it('can be controlled', () => {
+  it('can be controlled', async () => {
     const { rerender } = render(
       <Tooltip label="Controlled" open={false} onOpenChange={() => {}}>
         <button type="button">Trigger</button>
@@ -218,7 +227,7 @@ describe('Tooltip', () => {
         <button type="button">Trigger</button>
       </Tooltip>,
     );
-    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    expect(await screen.findByRole('tooltip')).toBeInTheDocument();
   });
 });
 
@@ -242,6 +251,7 @@ describe('TooltipProvider warm-up timing', () => {
     act(() => {
       fireEvent.focus(buttonOne);
     });
+    await flushPlacement();
     expect(screen.getByRole('tooltip')).toHaveTextContent('First');
 
     act(() => {
@@ -253,6 +263,7 @@ describe('TooltipProvider warm-up timing', () => {
       pointerEnter(buttonTwo);
       vi.advanceTimersByTime(100);
     });
+    await flushPlacement();
     expect(screen.getByRole('tooltip')).toHaveTextContent('Second');
 
     vi.useRealTimers();
@@ -305,7 +316,7 @@ describe('Tooltip truncation-only mode', () => {
 });
 
 describe('Tooltip close delay', () => {
-  it('waits for closeDelay before hiding', () => {
+  it('waits for closeDelay before hiding', async () => {
     vi.useFakeTimers();
     render(
       <Tooltip label="Helpful tip" closeDelay={100}>
@@ -314,6 +325,7 @@ describe('Tooltip close delay', () => {
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
     fireEvent.focus(trigger);
+    await flushPlacement();
     expect(screen.getByRole('tooltip')).toBeInTheDocument();
 
     pointerLeave(trigger);
@@ -328,7 +340,7 @@ describe('Tooltip close delay', () => {
 });
 
 describe('Tooltip disabled wrapper', () => {
-  it('wraps a disabled trigger and shows disabledReason as tooltip content', () => {
+  it('wraps a disabled trigger and shows disabledReason as tooltip content', async () => {
     render(
       <Tooltip label="Default" disabledReason="Select 2+ shapes for boolean">
         <button type="button" disabled>
@@ -339,12 +351,12 @@ describe('Tooltip disabled wrapper', () => {
     const wrapper = screen.getByRole('button', { name: 'Boolean' }).parentElement;
     expect(wrapper).toHaveAttribute('tabIndex', '0');
     fireEvent.focus(wrapper!);
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Select 2+ shapes for boolean');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Select 2+ shapes for boolean');
   });
 });
 
 describe('Tooltip aria-describedby merging', () => {
-  it('merges with an existing aria-describedby on the trigger', () => {
+  it('merges with an existing aria-describedby on the trigger', async () => {
     render(
       <Tooltip label="Extra description">
         <button type="button" aria-describedby="existing-id">
@@ -354,7 +366,7 @@ describe('Tooltip aria-describedby merging', () => {
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
     fireEvent.focus(trigger);
-    const tooltip = screen.getByRole('tooltip');
+    const tooltip = await screen.findByRole('tooltip');
     expect(trigger).toHaveAttribute('aria-describedby', expect.stringContaining('existing-id'));
     expect(trigger).toHaveAttribute('aria-describedby', expect.stringContaining(tooltip.id));
   });

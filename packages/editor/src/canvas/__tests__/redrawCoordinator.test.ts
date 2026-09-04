@@ -25,6 +25,7 @@ function snapshot(overrides: Partial<FrameStateSnapshot> = {}): FrameStateSnapsh
     mediaStamp: 0,
     canvasMode: 'full',
     showOriginalBgNodeId: null,
+    editingTextNodeId: null,
     ...overrides,
   };
 }
@@ -189,6 +190,24 @@ describe('redraw coordinator', () => {
     expect(decision.kind).toBe('content');
     expect(decision.requiresFullRedraw).toBe(true);
     expect(decision.unsuppressedCause).toBe('explicit-requires-full-redraw');
+  });
+
+  it('forces a full redraw when the DOM text surface changes ownership', () => {
+    const coordinator = createRedrawCoordinator();
+    const first = coordinator.beginFrame(snapshot(), false);
+    coordinator.completeFrame(first, snapshot(), { contentDrawn: true, fullRedraw: false });
+
+    const editing = coordinator.beginFrame(snapshot({ editingTextNodeId: 'text-1' }), false);
+    expect(editing.kind).toBe('content');
+    expect(editing.editingTargetChanged).toBe(true);
+    coordinator.completeFrame(editing, snapshot({ editingTextNodeId: 'text-1' }), {
+      contentDrawn: true,
+      fullRedraw: true,
+    });
+
+    const finished = coordinator.beginFrame(snapshot(), false);
+    expect(finished.kind).toBe('content');
+    expect(finished.editingTargetChanged).toBe(true);
   });
 
   it('records full-redraw outcomes only for content frames', () => {

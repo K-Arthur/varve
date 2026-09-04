@@ -95,6 +95,27 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       </section>
 
       <section class="product-section">
+        <h2>Quiet feedback, honest progress</h2>
+        <p>
+          Varve keeps the interface calm while you work. Short actions stay quiet or use a
+          small, contextual activity indicator; structured content keeps its shape with
+          placeholders; and downloads, imports, and exports show real progress instead of
+          pretending that every wait is the same. Fast actions do not flash a loader, background
+          saves remain unobtrusive, and failures expose a clear recovery path.
+        </p>
+      </section>
+
+      <section class="product-section">
+        <h2>Controls that keep their meaning</h2>
+        <p>
+          Varve keeps an on/off switch for a real binary setting, uses peer selectors for choices
+          like theme and color space, and keeps multi-select work in checkboxes. That small
+          distinction makes dense panels easier to scan and keeps a control's visual state aligned
+          with what will actually happen to your document.
+        </p>
+      </section>
+
+      <section class="product-section">
         <h2>Cross-platform native performance</h2>
         <p>
           Varve runs natively on Linux (CachyOS, Arch, Ubuntu, Fedora — x86_64 and ARM64), macOS (Apple Silicon), and Windows (x86_64 and ARM64). The rendering architecture separates scene computation from display, using an intermediate representation that replays efficiently to the canvas. The same codebase powers both the native desktop and WASM web builds.
@@ -262,7 +283,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
     display: block;
     width: 100%;
     height: auto;
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     border: 1px solid var(--border-strong);
     background: var(--surface-card);
   }
@@ -299,7 +320,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
     position: relative;
     background: var(--surface-card);
     border: 1px solid var(--border-default);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     padding: 1.5rem;
     transition:
       transform var(--duration-fast) var(--ease-default),
@@ -324,7 +345,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
     justify-content: center;
     width: 2.25rem;
     height: 2.25rem;
-    border-radius: 0.625rem;
+    border-radius: var(--website-radius-control);
     margin-bottom: 1rem;
   }
 

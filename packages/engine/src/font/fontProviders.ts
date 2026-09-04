@@ -9,6 +9,7 @@
  */
 
 import type { ParsedAxis, ParsedFontMetadata } from './fontIdentity';
+import { getFontsourceCatalog } from './fontsourceCatalog';
 
 // ---------------------------------------------------------------------------
 // Provider option/result types
@@ -42,6 +43,13 @@ export interface FontProviderResult {
   languages: string[];
   /** Optional sample text for previews. */
   previewText?: string;
+  /** Exact provider package version represented by this result. */
+  packageVersion?: string;
+  /** Actual available static weights and styles. */
+  weights?: number[];
+  styles?: Array<'normal' | 'italic'>;
+  /** Source/provider identity for structured consumers. */
+  providerId?: string;
 }
 
 /** Extended family info returned by getDetails(). */
@@ -70,6 +78,13 @@ export interface FontProviderDownload {
   style: 'normal' | 'italic';
   /** File size in bytes, if known. */
   size?: number;
+  /** Exact versioned artifact identity. */
+  providerId?: string;
+  familyId?: string;
+  subset?: string;
+  variable?: boolean;
+  packageVersion?: string;
+  axes?: ParsedAxis[];
 }
 
 /** License metadata for a font family. */
@@ -236,7 +251,8 @@ export class GoogleFontsProvider implements FontProvider {
   readonly id = 'google-fonts';
   readonly name = 'Google Fonts';
   readonly kind = 'public-api' as const;
-  enabled = true;
+  /** Legacy adapter retained only to read old documents; never default-enabled. */
+  enabled = false;
 
   private apiKey: string | undefined;
   private cache: Map<string, GoogleFontsListItem> = new Map();
@@ -411,184 +427,102 @@ export class GoogleFontsProvider implements FontProvider {
 }
 
 // ---------------------------------------------------------------------------
-// Fontsource Provider (Fontsource CDN API v1)
+// Fontsource Provider (shipped catalog; no runtime metadata request)
 // ---------------------------------------------------------------------------
-
-const FONTSOURCE_API_BASE = 'https://api.fontsource.org/v1';
-
-interface FontsourceListItem {
-  id: string;
-  family: string;
-  category: string;
-  kind: string;
-  subsets: string[];
-  variants: string[];
-  version: string;
-  lastModified: string;
-  variable: boolean;
-  license: string;
-  type: string;
-}
-
-interface FontsourceDetails {
-  id: string;
-  family: string;
-  category: string;
-  subsets: string[];
-  variants: Array<{
-    id: string;
-    weight: number;
-    style: 'normal' | 'italic';
-  }>;
-  variableAxes?: Array<{
-    tag: string;
-    min: number;
-    max: number;
-    defaultValue: number;
-  }>;
-  version: string;
-  license: string;
-  type: string;
-}
-
-const FONTSOURCE_LICENSE_MAP: Record<string, FontLicense> = {
-  'OFL-1.1': {
-    name: 'SIL Open Font License 1.1',
-    url: 'https://scripts.sil.org/OFL',
-    permissions: { commercial: true, modification: true, redistribution: true, embedding: true },
-  },
-  'Apache-2.0': {
-    name: 'Apache License 2.0',
-    url: 'https://www.apache.org/licenses/LICENSE-2.0',
-    permissions: { commercial: true, modification: true, redistribution: true, embedding: true },
-  },
-  'UFL-1.0': {
-    name: 'Ubuntu Font License 1.0',
-    url: 'https://ubuntu.com/legal/font-licence',
-    permissions: { commercial: true, modification: true, redistribution: true, embedding: true },
-  },
-};
 
 export class FontsourceProvider implements FontProvider {
   readonly id = 'fontsource';
   readonly name = 'Fontsource';
-  readonly kind = 'public-api' as const;
+  readonly kind = 'local-filesystem' as const;
   enabled = true;
 
-  private listCache: FontsourceListItem[] | null = null;
-
-  private async fetchList(): Promise<FontsourceListItem[]> {
-    if (this.listCache) return this.listCache;
-    const res = await fetch(`${FONTSOURCE_API_BASE}/fonts`);
-    if (!res.ok) throw new Error(`Fontsource API returned ${res.status}`);
-    const data: FontsourceListItem[] = await res.json();
-    this.listCache = data;
-    return data;
-  }
-
   async search(query: string, options?: FontProviderSearchOptions): Promise<FontProviderResult[]> {
-    const list = await this.fetchList();
-    const limit = options?.limit ?? 20;
-    const offset = options?.offset ?? 0;
-
-    let filtered = list;
-    if (query) {
-      const q = query.toLowerCase();
-      filtered = filtered.filter((item) => item.family.toLowerCase().includes(q));
-    }
-    if (options?.category) {
-      filtered = filtered.filter((item) => item.category === options.category);
-    }
-    if (options?.sort === 'alphabetical') {
-      filtered = [...filtered].sort((a, b) => a.family.localeCompare(b.family));
-    }
-
-    return filtered.slice(offset, offset + limit).map((item) => ({
-      familyId: item.id,
-      familyName: item.family,
-      category: item.category || 'unknown',
-      variants: item.variants.length,
+    const results = getFontsourceCatalog().search({
+      query,
+      category: options?.category,
+      limit: options?.limit ?? 20,
+    });
+    return results.map((item) => ({
+      providerId: item.providerId,
+      familyId: item.familyId,
+      familyName: item.familyName,
+      category: item.category,
+      variants: item.weights.length * item.styles.length,
       isVariable: item.variable,
-      languages: item.subsets || [],
+      languages: item.subsets,
+      packageVersion: item.packageVersion,
+      weights: item.weights,
+      styles: item.styles,
     }));
   }
 
   async getDetails(familyId: string): Promise<FontProviderFamily | null> {
-    try {
-      const res = await fetch(`${FONTSOURCE_API_BASE}/fonts/${familyId}`);
-      if (!res.ok) return null;
-      const detail: FontsourceDetails = await res.json();
-
-      const license = FONTSOURCE_LICENSE_MAP[detail.license] ?? {
-        name: detail.license || 'Unknown',
+    const item = getFontsourceCatalog().get(familyId);
+    if (!item) return null;
+    return {
+      familyId: item.familyId,
+      familyName: item.familyName,
+      category: item.category,
+      variants: item.weights.length * item.styles.length,
+      isVariable: item.variable,
+      languages: item.subsets,
+      license: {
+        name: item.license.name,
+        url: item.license.url,
         permissions: {
-          commercial: false,
-          modification: false,
-          redistribution: false,
-          embedding: false,
+          commercial: item.license.commercial,
+          modification: item.license.modification,
+          redistribution: item.license.redistribution,
+          embedding: item.license.embedding,
         },
-      };
-
-      return {
-        familyId: detail.id,
-        familyName: detail.family,
-        category: detail.category || 'unknown',
-        variants: detail.variants.length,
-        isVariable: !!detail.variableAxes && detail.variableAxes.length > 0,
-        languages: detail.subsets || [],
-        license,
-        version: detail.version,
-      };
-    } catch {
-      return null;
-    }
+      },
+      version: item.packageVersion,
+    };
   }
 
-  async getDownloadUrls(familyId: string, _format?: string): Promise<FontProviderDownload[]> {
-    try {
-      const res = await fetch(`${FONTSOURCE_API_BASE}/fonts/${familyId}`);
-      if (!res.ok) return [];
-      const detail: FontsourceDetails = await res.json();
-
-      return detail.variants.map((v) => {
-        const styleSuffix = v.style === 'italic' ? 'italic' : 'normal';
-        return {
-          url: `https://cdn.jsdelivr.net/npm/@fontsource-variable/${familyId}@5.x/files/${familyId}-${v.weight}-${styleSuffix}.woff2`,
-          format: 'woff2' as const,
-          weight: v.weight,
-          style: v.style,
-        };
-      });
-    } catch {
-      return [];
-    }
+  async getDownloadUrls(familyId: string, format = 'woff2'): Promise<FontProviderDownload[]> {
+    const item = getFontsourceCatalog().get(familyId);
+    if (!item) return [];
+    const artifact = getFontsourceCatalog().resolve({
+      familyId,
+      weight: item.weights[0],
+      style: item.styles[0],
+      format: format === 'woff' || format === 'ttf' ? format : 'woff2',
+    });
+    return [
+      {
+        url: artifact.url,
+        format: artifact.format,
+        weight: artifact.weight ?? item.weights[0] ?? 400,
+        style: artifact.style,
+        providerId: artifact.providerId,
+        familyId: artifact.familyId,
+        subset: artifact.subset,
+        variable: artifact.variable,
+        packageVersion: artifact.packageVersion,
+      },
+    ];
   }
 
   async getMetadata(familyId: string): Promise<Partial<ParsedFontMetadata> | null> {
-    try {
-      const res = await fetch(`${FONTSOURCE_API_BASE}/fonts/${familyId}`);
-      if (!res.ok) return null;
-      const detail: FontsourceDetails = await res.json();
-
-      const axes: ParsedAxis[] = (detail.variableAxes ?? []).map((a) => ({
-        tag: a.tag,
-        name: axisTagToName(a.tag),
-        min: a.min,
-        default: a.defaultValue,
-        max: a.max,
-      }));
-
-      return {
-        isVariable: axes.length > 0,
-        axes,
-        category: (detail.category as ParsedFontMetadata['category']) || 'unknown',
-        source: 'remote',
-        sourceLocation: `https://fontsource.org/fonts/${familyId}`,
-        version: detail.version,
-      };
-    } catch {
-      return null;
-    }
+    const item = getFontsourceCatalog().get(familyId);
+    if (!item) return null;
+    const axes: ParsedAxis[] = item.axes.map((axis) => ({
+      tag: axis.tag,
+      name: axisTagToName(axis.tag),
+      min: axis.min,
+      default: axis.default,
+      max: axis.max,
+    }));
+    return {
+      isVariable: item.variable,
+      axes,
+      category: item.category as ParsedFontMetadata['category'],
+      source: 'remote',
+      sourceLocation: `https://fontsource.org/fonts/${item.familyId}`,
+      version: item.packageVersion,
+      languages: item.subsets,
+    };
   }
 }
 

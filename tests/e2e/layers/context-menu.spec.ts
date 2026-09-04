@@ -184,17 +184,55 @@ test.describe('Layers Panel - Context Menu', () => {
     const menu = page.locator('.varve-ctxmenu');
     await expect(menu).toBeVisible();
 
-    // Click the "Red" color tag button
-    const redBtn = menu.getByRole('menuitem', { name: /^Red$/i });
-    if ((await redBtn.count()) > 0) {
-      await redBtn.click();
-      await page.waitForTimeout(100);
+    await menu.getByRole('menuitem', { name: 'Color Tag' }).click();
+    const redBtn = page
+      .getByRole('menu', { name: 'Color Tag submenu' })
+      .getByRole('menuitem', { name: /^Red$/i });
+    await redBtn.click();
+    await page.waitForTimeout(100);
 
-      // The row should now have a color tag indicator
-      const colorDot = firstItem.locator('[data-layer-color]');
-      if ((await colorDot.count()) > 0) {
-        await expect(colorDot).toHaveAttribute('data-layer-color', 'red');
-      }
+    // The row carries the document label through its visible backdrop cue.
+    await expect(firstItem).toHaveAttribute('data-layer-color', 'red');
+    await expect(firstItem.locator('.layers-row__color-tag')).toHaveCount(0);
+  });
+
+  test('color tag targets the context row without changing layer order', async ({ page }) => {
+    const items = page.getByRole('treeitem');
+    const count = await items.count();
+    test.skip(count < 2, 'Need at least 2 layers for context-row color tagging');
+
+    const beforeOrder = await items.evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute('data-node-id')),
+    );
+    const target = items.nth(1);
+
+    // Right-click an unselected row. The menu must snapshot this row as its
+    // target before the asynchronous selection update settles.
+    await target.click({ button: 'right' });
+    await expect(target).toHaveAttribute('aria-selected', 'true');
+    const menu = page.locator('.varve-ctxmenu');
+    await expect(menu).toBeVisible();
+    await menu.getByRole('menuitem', { name: 'Color Tag' }).click();
+    await page.screenshot({
+      path: 'test-results/layers-colour-tag-submenu-open.png',
+    });
+    await page
+      .getByRole('menu', { name: 'Color Tag submenu' })
+      .getByRole('menuitem', { name: /^Blue$/i })
+      .click();
+
+    await expect(target).toHaveAttribute('data-layer-color', 'blue');
+    await expect(
+      items.evaluateAll((rows) => rows.map((row) => row.getAttribute('data-node-id'))),
+    ).resolves.toEqual(beforeOrder);
+    await items.nth(0).click();
+    await expect(target).not.toHaveAttribute('aria-selected', 'true');
+    await page.getByTestId('layers-panel').screenshot({
+      path: 'test-results/layers-colour-tag-stable-order.png',
+    });
+    for (const index of [0, 2]) {
+      if (index < count)
+        await expect(items.nth(index)).not.toHaveAttribute('data-layer-color', 'blue');
     }
   });
 
@@ -234,8 +272,9 @@ test.describe('Layers Panel - Context Menu', () => {
 
   test('select same color via context menu', async ({ page }) => {
     const firstItem = page.getByRole('treeitem').first();
+    const secondItem = page.getByRole('treeitem').nth(1);
     const count = await page.getByRole('treeitem').count();
-    test.skip(count < 1, 'Need at least 1 layer for select same color');
+    test.skip(count < 2, 'Need at least 2 layers for select same color');
 
     // First set a color tag on the first item
     await firstItem.click({ button: 'right' });
@@ -246,6 +285,14 @@ test.describe('Layers Panel - Context Menu', () => {
       await redBtn.click();
       await page.waitForTimeout(100);
 
+      // Give a second layer the same tag so this exercises the real selection
+      // path instead of passing when the command correctly no-ops for a
+      // uniquely tagged layer.
+      await secondItem.click({ button: 'right' });
+      await page.waitForTimeout(100);
+      await page.locator('.varve-ctxmenu').getByRole('menuitem', { name: /^Red$/i }).click();
+      await page.waitForTimeout(100);
+
       // Now right-click again and try "Select Same Color"
       await firstItem.click({ button: 'right' });
       await page.waitForTimeout(100);
@@ -253,10 +300,25 @@ test.describe('Layers Panel - Context Menu', () => {
       const selectSameColor = page
         .locator('.varve-ctxmenu')
         .getByRole('menuitem', { name: /^Select Same Color$/i });
-      if ((await selectSameColor.count()) > 0) {
-        await selectSameColor.click();
-        await page.waitForTimeout(200);
-      }
+      await expect(selectSameColor).toBeVisible();
+      await selectSameColor.click();
+      await expect
+        .poll(() =>
+          page
+            .getByRole('treeitem')
+            .evaluateAll(
+              (rows) => rows.filter((row) => row.getAttribute('aria-selected') === 'true').length,
+            ),
+        )
+        .toBeGreaterThanOrEqual(2);
+      const selectedTags = await page
+        .getByRole('treeitem')
+        .evaluateAll((rows) =>
+          rows
+            .filter((row) => row.getAttribute('aria-selected') === 'true')
+            .map((row) => row.getAttribute('data-layer-color')),
+        );
+      expect(selectedTags.every((tag) => tag === 'red')).toBe(true);
     }
   });
 });

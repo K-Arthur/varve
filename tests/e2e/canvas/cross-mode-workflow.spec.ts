@@ -4,7 +4,7 @@ import { navigateToEditor } from '../shared';
 const VIEWPORT = { width: 1280, height: 800 };
 
 async function switchTo(page: import('@playwright/test').Page, label: string) {
-  const tab = page.locator(`.workspace-tabs__tab[aria-label="${label} workspace"]`);
+  const tab = page.locator(`.workspace-dock__item[aria-label="${label} workspace"]`);
   if (await tab.isVisible().catch(() => false)) {
     await tab.click();
     return;
@@ -61,7 +61,7 @@ test.describe('Cross-mode workflow — safe switching preserves document state',
     for (const mode of ['Print', 'Draw', 'Photo', 'Design']) {
       await switchTo(page, mode);
       await expect(
-        page.locator(`.workspace-tabs__tab[aria-label="${mode} workspace"]`),
+        page.locator(`.workspace-dock__item[aria-label="${mode} workspace"]`),
       ).toHaveAttribute('aria-checked', 'true');
 
       // Document survives: Design Canvas container chrome may be visible in

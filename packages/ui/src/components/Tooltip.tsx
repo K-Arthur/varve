@@ -5,7 +5,8 @@
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/
  *
  * Design goals for Varve's dense professional canvas app:
- * - Portaled rendering to document.body to escape overflow:hidden ancestors.
+ * - Portaled rendering to the trigger's owner document to escape
+ *   overflow:hidden ancestors, including detached windows.
  * - Warm-up timing via TooltipProvider (faster adjacent tooltips in toolbars).
  * - aria-describedby is placed on the actual focusable trigger, not a wrapper.
  * - Pointer-aware delays: first hover waits, subsequent nearby tooltips warm.
@@ -16,7 +17,6 @@
  * - Reduced-motion and forced-colours safe by default.
  */
 
-import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
 import {
   Children,
   cloneElement,
@@ -33,7 +33,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { createPortal } from 'react-dom';
+import { FloatingPortal } from './FloatingPortal';
 
 export interface TooltipProps {
   children: ReactNode;
@@ -183,17 +183,24 @@ export function Tooltip({
 
   const triggerRef = useRef<HTMLElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openTimerRef = useRef<number | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
   const isTruncatedRef = useRef(false);
   const pointerDownRef = useRef(false);
   const suppressFocusShowUntilRef = useRef(0);
-  const [posStyle, setPosStyle] = useState<{ left: number; top: number } | null>(null);
+  const [positioned, setPositioned] = useState(false);
 
   const warmContext = useContext(TooltipContext);
 
   const actualOpenDelay = openDelay ?? delay ?? DEFAULT_DELAY;
+
+  const ownerWindow = useCallback(
+    () =>
+      triggerRef.current?.ownerDocument.defaultView ??
+      (typeof window !== 'undefined' ? window : undefined),
+    [],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -214,15 +221,16 @@ export function Tooltip({
   );
 
   const clearTimers = useCallback(() => {
-    if (openTimerRef.current) {
-      clearTimeout(openTimerRef.current);
+    const view = ownerWindow();
+    if (openTimerRef.current !== null) {
+      view?.clearTimeout(openTimerRef.current);
       openTimerRef.current = null;
     }
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
+    if (closeTimerRef.current !== null) {
+      view?.clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
     }
-  }, []);
+  }, [ownerWindow]);
 
   const openNow = useCallback(() => {
     if (!mountedRef.current) return;
@@ -248,31 +256,33 @@ export function Tooltip({
         }
       }
 
-      openTimerRef.current = setTimeout(() => {
+      const view = ownerWindow();
+      if (!view) return;
+      openTimerRef.current = view.setTimeout(() => {
         openTimerRef.current = null;
         openNow();
       }, effectiveDelay);
     },
-    [actualOpenDelay, clearTimers, openNow, truncationOnly, warmContext],
+    [actualOpenDelay, clearTimers, openNow, ownerWindow, truncationOnly, warmContext],
   );
 
   const scheduleClose = useCallback(() => {
-    if (closeTimerRef.current) return;
-    closeTimerRef.current = setTimeout(() => {
+    if (closeTimerRef.current !== null) return;
+    const view = ownerWindow();
+    if (!view) return;
+    closeTimerRef.current = view.setTimeout(() => {
       closeTimerRef.current = null;
       if (mountedRef.current) {
         setOpen(false);
-        setPosStyle(null);
       }
     }, closeDelay);
-  }, [closeDelay, setOpen]);
+  }, [closeDelay, ownerWindow, setOpen]);
 
   const handleClose = useCallback(() => {
     clearTimers();
     if (closeDelay <= 0) {
       if (mountedRef.current) {
         setOpen(false);
-        setPosStyle(null);
       }
     } else {
       scheduleClose();
@@ -285,34 +295,17 @@ export function Tooltip({
     };
   }, [clearTimers]);
 
-  useLayoutEffect(() => {
-    const triggerEl = triggerRef.current;
-    const tipEl = tooltipRef.current;
-    if (!visible || !triggerEl || !tipEl) return;
-
-    const updatePosition = () => {
-      void computePosition(triggerEl, tipEl, {
-        placement,
-        strategy: 'fixed',
-        middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 12 })],
-      }).then(({ x, y }) => {
-        setPosStyle({ left: x, top: y });
-      });
-    };
-
-    const cleanup = autoUpdate(triggerEl, tipEl, updatePosition);
-    updatePosition();
-
-    return () => {
-      cleanup();
-    };
-  }, [visible, placement]);
+  useEffect(() => {
+    if (!visible) setPositioned(false);
+  }, [visible]);
 
   useEffect(() => {
     if (!visible) return;
     const onScroll = () => handleClose();
-    document.addEventListener('scroll', onScroll, true);
-    return () => document.removeEventListener('scroll', onScroll, true);
+    const ownerDocument = triggerRef.current?.ownerDocument;
+    if (!ownerDocument) return;
+    ownerDocument.addEventListener('scroll', onScroll, true);
+    return () => ownerDocument.removeEventListener('scroll', onScroll, true);
   }, [visible, handleClose]);
 
   const checkTruncation = useCallback(() => {
@@ -358,7 +351,6 @@ export function Tooltip({
     clearTimers();
     if (!isControlled && mountedRef.current) {
       setInternalOpen(false);
-      setPosStyle(null);
     } else if (isControlled) {
       onOpenChange?.(false);
     }
@@ -385,25 +377,26 @@ export function Tooltip({
         e.stopPropagation?.();
         clearTimers();
         setOpen(false);
-        setPosStyle(null);
       }
     },
     [clearTimers, setOpen],
   );
 
   const onTooltipPointerEnter = useCallback(() => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
+    if (closeTimerRef.current !== null) {
+      ownerWindow()?.clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
     }
-  }, []);
+  }, [ownerWindow]);
 
   const onTooltipPointerLeave = useCallback(() => {
     handleClose();
   }, [handleClose]);
 
   const tooltipContent = disabledReason ?? label;
-  const describedBy = visible ? tooltipId : undefined;
+  // FloatingPortal deliberately keeps the first frame hidden while it measures
+  // the trigger. Do not reference an unpainted tooltip from aria-describedby.
+  const describedBy = visible && positioned ? tooltipId : undefined;
 
   const child = Children.toArray(children)[0];
   const childElement = isValidElement(child)
@@ -470,32 +463,52 @@ export function Tooltip({
     ref: undefined as React.Ref<HTMLElement> | undefined,
   };
 
-  const tooltipPortal = visible && (
-    <div
-      ref={tooltipRef}
-      id={tooltipId}
-      role="tooltip"
-      className="varve-tooltip"
-      data-varve-tooltip=""
-      style={{
-        left: posStyle?.left ?? 0,
-        top: posStyle?.top ?? 0,
-        maxWidth,
-      }}
-      onPointerEnter={onTooltipPointerEnter}
-      onPointerLeave={onTooltipPointerLeave}
+  const tooltipPortal = (
+    <FloatingPortal
+      anchorRef={triggerRef}
+      open={visible}
+      placement={placement}
+      fallbackPlacements={
+        placement === 'top'
+          ? ['bottom', 'right', 'left']
+          : placement === 'bottom'
+            ? ['top', 'right', 'left']
+            : placement === 'left'
+              ? ['right', 'top', 'bottom']
+              : ['left', 'top', 'bottom']
+      }
+      offsetDistance={8}
+      kind="tooltip"
+      className="varve-floating-layer"
+      zIndex="var(--z-popover)"
+      dismissOnPointerDown={false}
+      dismissOnEscape={false}
+      dismissOnWindowBlur
+      onClose={handleClose}
+      onPositionChange={() => setPositioned(true)}
     >
-      <span className="varve-tooltip__body">{tooltipContent}</span>
-      {shortcut && !disabledReason && (
-        <span
-          className="varve-tip__shortcut"
-          role="status"
-          aria-label={`Keyboard shortcut: ${shortcut}`}
-        >
-          {shortcut}
-        </span>
-      )}
-    </div>
+      <div
+        ref={tooltipRef}
+        id={tooltipId}
+        role="tooltip"
+        className="varve-tooltip"
+        data-varve-tooltip=""
+        style={{ maxWidth }}
+        onPointerEnter={onTooltipPointerEnter}
+        onPointerLeave={onTooltipPointerLeave}
+      >
+        <span className="varve-tooltip__body">{tooltipContent}</span>
+        {shortcut && !disabledReason && (
+          <span
+            className="varve-tip__shortcut"
+            role="status"
+            aria-label={`Keyboard shortcut: ${shortcut}`}
+          >
+            {shortcut}
+          </span>
+        )}
+      </div>
+    </FloatingPortal>
   );
 
   if (!label && !disabledReason) {
@@ -513,7 +526,7 @@ export function Tooltip({
         style={{ display: 'inline-flex' }}
       >
         {children}
-        {tooltipPortal && createPortal(tooltipPortal, document.body)}
+        {tooltipPortal}
       </span>
     );
   }
@@ -551,7 +564,7 @@ export function Tooltip({
     return (
       <>
         {cloneElement(childElement as ReactElement, composedProps as Record<string, unknown>)}
-        {tooltipPortal && createPortal(tooltipPortal, document.body)}
+        {tooltipPortal}
       </>
     );
   }
@@ -565,7 +578,7 @@ export function Tooltip({
       style={{ display: 'inline-flex' }}
     >
       {children}
-      {tooltipPortal && createPortal(tooltipPortal, document.body)}
+      {tooltipPortal}
     </span>
   );
 }

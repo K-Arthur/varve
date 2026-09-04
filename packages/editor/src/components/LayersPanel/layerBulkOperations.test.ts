@@ -12,6 +12,7 @@ import {
   bulkSetLayerColorDoc,
   bulkSetNodeLockedDoc,
   bulkSetNodeVisibleDoc,
+  collectLayerColorScope,
   findAllOfKindIds,
   findSameKindIds,
   findSameLayerColorIds,
@@ -135,12 +136,40 @@ describe('findSameLayerColorIds', () => {
     expect(result).toEqual([]);
   });
 
-  it('matches other untagged (null-color) nodes too', () => {
-    const { doc, rect1, rect2 } = setupDoc();
-    // rect1 and rect2 both have no layerColor (null) — they match each other.
-    const result = findSameLayerColorIds(doc, [rect1]);
-    expect(result).toContain(rect1);
-    expect(result).toContain(rect2);
+  it('does not treat untagged nodes as sharing a color tag', () => {
+    const { doc, rect1 } = setupDoc();
+    // Null is a first-class filter value, but it is not a tag to select.
+    expect(findSameLayerColorIds(doc, [rect1])).toEqual([]);
+  });
+
+  it('restricts same-tag selection to the supplied surface scope', () => {
+    const { doc, rect1, rect2, text1 } = setupDoc();
+    const tagged = withLayerColor(doc, [rect1, rect2, text1], 'red');
+    const scope = new Set([rect1, rect2]);
+
+    expect(findSameLayerColorIds(tagged, [rect1], scope)).toEqual([rect1, rect2]);
+  });
+
+  it('collects a surface and all of its descendants', () => {
+    const { doc, rect1, rect2, text1, frame1, hiddenRect, lockedRect } = setupDoc();
+    const nested = { ...doc.nodes[frame1]!, children: [rect2] };
+    const scopedDoc = { ...doc, nodes: { ...doc.nodes, [frame1]: nested } };
+
+    expect(collectLayerColorScope(scopedDoc)).toEqual(
+      new Set([rect1, text1, frame1, rect2, hiddenRect, lockedRect]),
+    );
+  });
+
+  it('keeps container tags independent from child tags', () => {
+    const { doc, rect1, rect2, frame1 } = setupDoc();
+    const nested = { ...doc.nodes[frame1]!, children: [rect2] };
+    let tagged = { ...doc, nodes: { ...doc.nodes, [frame1]: nested } };
+    tagged = withLayerColor(tagged, [frame1, rect1], 'red');
+    tagged = withLayerColor(tagged, [rect2], 'blue');
+
+    const scope = collectLayerColorScope(tagged);
+    expect(findSameLayerColorIds(tagged, [frame1], scope)).toEqual([frame1, rect1]);
+    expect(findSameLayerColorIds(tagged, [rect2], scope)).toEqual([]);
   });
 
   it('returns empty array for an empty selection', () => {

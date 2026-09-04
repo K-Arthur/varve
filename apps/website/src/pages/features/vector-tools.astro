@@ -43,7 +43,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           <li><strong>Node editing:</strong> Select and drag individual anchors and bezier handles on any path</li>
           <li><strong>Boolean operations:</strong> Union, subtract, intersect, exclude on selected shapes</li>
           <li><strong>Transformation:</strong> Move, rotate, scale with affine transforms and centroid-based scaling</li>
-          <li><strong>Layers:</strong> Virtualized layer tree with search, filter, thumbnails, drag-to-reorder, inline rename</li>
+          <li><strong>Layers:</strong> A dense, virtualized hierarchy with search, filters, thumbnails, compact drag handles, inline rename, and precise before/after/into reparenting</li>
           <li><strong>Groups and frames:</strong> Group/ungroup, spatial containers with flex and grid auto-layout</li>
           <li><strong>Snapping:</strong> Sticky snap to edges, centers, and other objects with configurable thresholds</li>
           <li><strong>Image trace:</strong> Convert a raster image to editable paths locally, in black and white, greyscale, colour, or pixel-art modes</li>
@@ -78,7 +78,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
 
       <div class="feature-cta">
         <h2>Ready to design?</h2>
-        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
       </div>
     </div>
   </div>
@@ -164,7 +164,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
     width: 100%;
     height: auto;
     border: 1px solid var(--border-default);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     box-shadow: var(--elevation-shadow-raised);
   }
 
@@ -178,7 +178,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
 
   .limitations {
     background: var(--surface-muted);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     padding: 1.5rem;
   }
 

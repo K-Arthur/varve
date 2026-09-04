@@ -1,4 +1,3 @@
-import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { FileEntry } from '@varve/platform';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
@@ -10,7 +9,6 @@ export interface FileGridProps {
   onLoadThumbnail: (entry: FileEntry) => void;
   onOpen: (entry: FileEntry) => void;
   onContext: (e: React.MouseEvent, entry: FileEntry) => void;
-  onFileDragStart?: (e: React.DragEvent, entry: FileEntry) => void;
   selectedIds: string[];
   onSelect: (id: string) => void;
   onToggleSelect: (id: string) => void;
@@ -33,7 +31,6 @@ export function FileGrid({
   onLoadThumbnail,
   onOpen,
   onContext,
-  onFileDragStart,
   selectedIds,
   onSelect,
   onToggleSelect,
@@ -228,8 +225,6 @@ export function FileGrid({
     if (idx >= 0) setFocusIdx(idx);
   }, [files]);
 
-  const sortableIds = files.filter((f) => !f.trashedAt).map((f) => f.id);
-
   return (
     <>
       {/* biome-ignore lint/a11y/useSemanticElements: ARIA grid role required for virtualized grid */}
@@ -247,66 +242,63 @@ export function FileGrid({
           position: 'relative',
         }}
       >
-        <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
-          {virtualizer.getVirtualItems().map((virtualRow) => {
-            const rowIdx = virtualRow.index;
-            const startIdx = rowIdx * columns;
-            return (
-              // biome-ignore lint/a11y/useSemanticElements: ARIA row role required for virtualized grid
-              <div
-                key={rowIdx}
-                role="row"
-                aria-rowindex={rowIdx + 1}
-                tabIndex={-1}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: virtualRow.size,
-                  transform: `translateY(${virtualRow.start}px)`,
-                  display: 'flex',
-                  gap: `${GAP}px`,
-                }}
-              >
-                {Array.from({ length: columns }, (_, colIdx) => {
-                  const fileIdx = startIdx + colIdx;
-                  const entry = files[fileIdx];
-                  if (!entry) return <div key={`empty-${fileIdx}`} style={{ flex: 1 }} />;
-                  const isSelected = selectedIds.includes(entry.id);
-                  const thumb = thumbnails.get(entry.id);
-                  const loading = thumb === undefined;
-                  return (
-                    <FileCard
-                      key={entry.id}
-                      entry={entry}
-                      thumbnail={thumb ?? null}
-                      thumbnailLoading={loading}
-                      selected={isSelected}
-                      onOpen={onOpen}
-                      onContext={onContext}
-                      onFileDragStart={onFileDragStart}
-                      onClick={(e) => handleCardClick(e, fileIdx)}
-                      onRename={onRename}
-                      isRenaming={renamingId === entry.id}
-                      onStartRename={onStartRename}
-                      isMissing={missingFiles.has(entry.id)}
-                      onToggleFavorite={onToggleFavorite}
-                      tabIndex={fileIdx === focusIdx ? 0 : -1}
-                      style={{
-                        flex: `0 0 ${COL_WIDTH}px`,
-                      }}
-                      onFocus={() => setFocusIdx(fileIdx)}
-                      ref={(el) => {
-                        if (fileIdx === focusIdx) focusedCardRef.current = el;
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            );
-          })}
-        </SortableContext>
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const rowIdx = virtualRow.index;
+          const startIdx = rowIdx * columns;
+          return (
+            // biome-ignore lint/a11y/useSemanticElements: ARIA row role required for virtualized grid
+            <div
+              key={rowIdx}
+              role="row"
+              aria-rowindex={rowIdx + 1}
+              tabIndex={-1}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: virtualRow.size,
+                transform: `translateY(${virtualRow.start}px)`,
+                display: 'flex',
+                gap: `${GAP}px`,
+              }}
+            >
+              {Array.from({ length: columns }, (_, colIdx) => {
+                const fileIdx = startIdx + colIdx;
+                const entry = files[fileIdx];
+                if (!entry) return <div key={`empty-${fileIdx}`} style={{ flex: 1 }} />;
+                const isSelected = selectedIds.includes(entry.id);
+                const thumb = thumbnails.get(entry.id);
+                const loading = thumb === undefined;
+                return (
+                  <FileCard
+                    key={entry.id}
+                    entry={entry}
+                    thumbnail={thumb ?? null}
+                    thumbnailLoading={loading}
+                    selected={isSelected}
+                    onOpen={onOpen}
+                    onContext={onContext}
+                    onClick={(e) => handleCardClick(e, fileIdx)}
+                    onRename={onRename}
+                    isRenaming={renamingId === entry.id}
+                    onStartRename={onStartRename}
+                    isMissing={missingFiles.has(entry.id)}
+                    onToggleFavorite={onToggleFavorite}
+                    tabIndex={fileIdx === focusIdx ? 0 : -1}
+                    style={{
+                      flex: `0 0 ${COL_WIDTH}px`,
+                    }}
+                    onFocus={() => setFocusIdx(fileIdx)}
+                    ref={(el) => {
+                      if (fileIdx === focusIdx) focusedCardRef.current = el;
+                    }}
+                  />
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
     </>
   );

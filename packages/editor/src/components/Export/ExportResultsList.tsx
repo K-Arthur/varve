@@ -9,7 +9,7 @@
  * nonfatal failures instead of leaving the user to guess which files landed.
  */
 
-import { Icon } from '@varve/ui';
+import { Icon, ShineBorder } from '@varve/ui';
 import { useState } from 'react';
 import type { ExportFileReport } from '../../exportService';
 
@@ -17,6 +17,8 @@ import './ExportResultsList.css';
 
 export interface ExportResultsListProps {
   files: ExportFileReport[];
+  /** Gate celebratory emphasis when the owning job was cancelled or otherwise stale. */
+  successEmphasisActive?: boolean;
   /** Show a Retry failed action when any file failed. */
   onRetryFailed?: () => void;
   /** Reveal the first successful saved output in the native file manager. */
@@ -37,6 +39,7 @@ function formatDuration(ms: number): string {
 
 export function ExportResultsList({
   files,
+  successEmphasisActive = true,
   onRetryFailed,
   onRevealOutput,
   revealOutputLabel = 'Reveal in Files',
@@ -45,6 +48,7 @@ export function ExportResultsList({
   const [revealing, setRevealing] = useState(false);
   const failed = files.filter((f) => f.status === 'failed');
   const succeeded = files.length - failed.length;
+  const allSucceeded = files.every((file) => file.status === 'success');
   const revealPath = files.find((file) => file.status === 'success' && file.savedPath)?.savedPath;
 
   if (files.length === 0) return null;
@@ -63,61 +67,63 @@ export function ExportResultsList({
   };
 
   return (
-    <section className="export-results" aria-label="Export results">
-      <div className="export-results__summary" role="status">
-        {succeeded} of {files.length} exported
-        {failed.length > 0 ? ` \u00b7 ${failed.length} failed` : ''}
-      </div>
-      <ul className="export-results__list">
-        {files.map((file) => (
-          <li
-            key={`${file.nodeId}-${file.fileName}`}
-            className={`export-results__item export-results__item--${file.status}`}
-          >
-            <Icon
-              name={file.status === 'success' ? 'CircleCheck' : 'TriangleAlert'}
-              size={14}
-              className={`export-results__status-icon export-results__status-icon--${file.status}`}
-              label={undefined}
-            />
-            <span className="export-results__file">{file.fileName}</span>
-            <span className="export-results__meta">
-              {file.status === 'success'
-                ? `${file.mimeType} \u00b7 ${formatBytes(file.byteCount)} \u00b7 ${formatDuration(file.durationMs)}`
-                : 'Failed'}
-            </span>
-            {file.status === 'failed' && file.error && (
-              <span className="export-results__error">{file.error}</span>
-            )}
-          </li>
-        ))}
-      </ul>
-      {((failed.length > 0 && onRetryFailed) || (revealPath && onRevealOutput)) && (
-        <div className="export-results__actions">
-          {failed.length > 0 && onRetryFailed && (
-            <button type="button" className="export-results__action" onClick={onRetryFailed}>
-              <Icon name="RotateCcw" size={14} label={undefined} />
-              Retry failed ({failed.length})
-            </button>
-          )}
-          {revealPath && onRevealOutput && (
-            <button
-              type="button"
-              className="export-results__action"
-              disabled={revealing}
-              onClick={() => void handleReveal(revealPath)}
-            >
-              <Icon name="FolderOpen" size={14} label={undefined} />
-              {revealing ? 'Opening…' : revealOutputLabel}
-            </button>
-          )}
+    <ShineBorder variant="beam" tone="success" active={successEmphasisActive && allSucceeded}>
+      <section className="export-results" aria-label="Export results">
+        <div className="export-results__summary" role="status">
+          {succeeded} of {files.length} exported
+          {failed.length > 0 ? ` \u00b7 ${failed.length} failed` : ''}
         </div>
-      )}
-      {revealError && (
-        <span className="export-results__error" role="alert">
-          Could not reveal output: {revealError}
-        </span>
-      )}
-    </section>
+        <ul className="export-results__list">
+          {files.map((file) => (
+            <li
+              key={`${file.nodeId}-${file.fileName}`}
+              className={`export-results__item export-results__item--${file.status}`}
+            >
+              <Icon
+                name={file.status === 'success' ? 'CircleCheck' : 'TriangleAlert'}
+                size={14}
+                className={`export-results__status-icon export-results__status-icon--${file.status}`}
+                label={undefined}
+              />
+              <span className="export-results__file">{file.fileName}</span>
+              <span className="export-results__meta">
+                {file.status === 'success'
+                  ? `${file.mimeType} \u00b7 ${formatBytes(file.byteCount)} \u00b7 ${formatDuration(file.durationMs)}`
+                  : 'Failed'}
+              </span>
+              {file.status === 'failed' && file.error && (
+                <span className="export-results__error">{file.error}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+        {((failed.length > 0 && onRetryFailed) || (revealPath && onRevealOutput)) && (
+          <div className="export-results__actions">
+            {failed.length > 0 && onRetryFailed && (
+              <button type="button" className="export-results__action" onClick={onRetryFailed}>
+                <Icon name="RotateCcw" size={14} label={undefined} />
+                Retry failed ({failed.length})
+              </button>
+            )}
+            {revealPath && onRevealOutput && (
+              <button
+                type="button"
+                className="export-results__action"
+                disabled={revealing}
+                onClick={() => void handleReveal(revealPath)}
+              >
+                <Icon name="FolderOpen" size={14} label={undefined} />
+                {revealing ? 'Opening…' : revealOutputLabel}
+              </button>
+            )}
+          </div>
+        )}
+        {revealError && (
+          <span className="export-results__error" role="alert">
+            Could not reveal output: {revealError}
+          </span>
+        )}
+      </section>
+    </ShineBorder>
   );
 }

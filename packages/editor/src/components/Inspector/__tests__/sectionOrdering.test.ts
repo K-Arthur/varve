@@ -53,8 +53,7 @@ describe('Section ordering', () => {
     const target = ordered[0]; // First section
     state = moveSectionDown(state, target);
     const newOrdered = getOrderedSectionIds(state);
-    // After moveSectionDown from index 0, section goes after index 1 → ends at index 2
-    expect(newOrdered.indexOf(target)).toBe(2);
+    expect(newOrdered.indexOf(target)).toBe(1);
     // The original second section is now first
     expect(newOrdered[0]).toBe(ordered[1]);
   });
@@ -95,6 +94,34 @@ describe('Section ordering', () => {
     state = moveSectionAfter(state, section, target);
     const newOrdered = getOrderedSectionIds(state);
     expect(newOrdered.indexOf(section)).toBeGreaterThan(newOrdered.indexOf(target));
+  });
+
+  it('moves a section after an earlier target without jumping to the end', () => {
+    const state = createDefaultSectionState();
+    const ordered = getOrderedSectionIds(state);
+    const section = ordered[2];
+    const target = ordered[0];
+    const result = moveSectionAfter(state, section, target);
+    const newOrdered = getOrderedSectionIds(result);
+    expect(newOrdered.slice(0, 3)).toEqual([target, section, ordered[1]]);
+  });
+
+  it('moves a section before a later target without jumping to the end', () => {
+    const state = createDefaultSectionState();
+    const ordered = getOrderedSectionIds(state);
+    const section = ordered[0];
+    const target = ordered[2];
+    const result = moveSectionBefore(state, section, target);
+    const newOrdered = getOrderedSectionIds(result);
+    expect(newOrdered.slice(0, 3)).toEqual([ordered[1], section, target]);
+  });
+
+  it('limits a move to the supplied section subset', () => {
+    const state = createDefaultSectionState();
+    const ordered = getOrderedSectionIds(state);
+    const subset = ordered.slice(0, 3);
+    const result = moveSectionDown(state, subset[0]!, subset);
+    expect(getOrderedSectionIds(result, subset)).toEqual([subset[1], subset[0], subset[2]]);
   });
 
   it('moveSectionBefore with same section is a no-op', () => {

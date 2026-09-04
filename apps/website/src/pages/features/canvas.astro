@@ -78,7 +78,7 @@ import { sitePath } from '../../lib/siteUrl';
 
       <div class="feature-cta">
         <h2>Ready to try it?</h2>
-        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
       </div>
     </div>
   </div>
@@ -164,7 +164,7 @@ import { sitePath } from '../../lib/siteUrl';
     width: 100%;
     height: auto;
     border: 1px solid var(--border-default);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     box-shadow: var(--elevation-shadow-raised);
   }
 
@@ -178,7 +178,7 @@ import { sitePath } from '../../lib/siteUrl';
 
   .limitations {
     background: var(--surface-muted);
-    border-radius: 0.75rem;
+    border-radius: var(--website-radius-card);
     padding: 1.5rem;
   }
   

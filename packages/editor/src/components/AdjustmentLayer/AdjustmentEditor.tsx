@@ -13,9 +13,9 @@ import {
 import type { Adjustment, Document, ManagedColor } from '@varve/scene';
 import { rgbFromTuple } from '@varve/scene';
 import { denormalizeChannel, managedColorToRgba, normalizeChannel } from '@varve/shared';
-import { Select } from '@varve/ui';
+import { FilePickerButton, Select, Switch } from '@varve/ui';
 import { ColorPicker } from '@varve/ui/components/ColorPicker';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { CurveEditor } from '../Inspector/controls/CurveEditor';
 import { GradientMapAdjustmentSection } from '../Inspector/controls/GradientMapAdjustmentSection';
 import { HistogramWidget } from '../Inspector/controls/HistogramWidget';
@@ -50,6 +50,30 @@ export interface AdjustmentEditorProps {
    * Used by Levels (HistogramWidget) and Curves (background display).
    */
   sourceHistogram?: import('@varve/engine').Histogram | null;
+}
+
+function BooleanRow({
+  label,
+  checked,
+  onChange,
+  ariaLabel,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  ariaLabel?: string;
+}) {
+  return (
+    <div className="adj-editor__row">
+      <Switch
+        className="adj-editor__checkbox-row"
+        label={label}
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        aria-label={ariaLabel ?? label}
+      />
+    </div>
+  );
 }
 
 export function AdjustmentEditor(props: AdjustmentEditorProps) {
@@ -633,83 +657,65 @@ function LegacyAdjustmentEditor({
 
   function LutEditor({ adjustment, onChange }: AdjustmentEditorProps) {
     const adj = adjustment as import('@varve/engine').LutAdjustment;
-    const fileRef = useRef<HTMLInputElement>(null);
     const [status, setStatus] = useState<string | null>(null);
     const [lutMeta, setLutMeta] = useState<{ name: string; format: string; size: number } | null>(
       null,
     );
 
-    const handleFileChange = useCallback(
-      (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
+    const handleFile = useCallback(
+      (file: File | undefined) => {
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          const text = typeof reader.result === 'string' ? reader.result : null;
-          if (!text) {
-            setStatus('Failed to read file');
-            return;
-          }
-          try {
-            const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-            if (ext === 'cube' || ext === '3dl') {
-              const result = parseLutFile(file.name, text);
-              const json = serializeLutForDocument(result.transform);
-              onChange({
-                lutJson: json,
-                originalFilename: file.name,
-                inputSpace: 'sRGB',
-                interpolation: 'tetrahedral',
-                intensity: 1,
-                linearize: false,
-              } as unknown as Partial<Adjustment>);
-              const kind = result.transform.kind;
-              const size =
-                kind === 'shaper3d' ? result.transform.lut3d.size : result.transform.size;
-              setLutMeta({
-                name: result.title ?? file.name,
-                format: result.format,
-                size,
-              });
-              const warning = result.warnings?.[0] ? `; ${result.warnings[0]}` : '';
-              setStatus(
-                `Imported ${result.format.toUpperCase()} (${kind === '1d' ? '1D' : '3D'} ${size}^${kind === '3d' ? '3' : '1'}${warning})`,
-              );
-            } else {
-              setStatus(`Unsupported format: .${ext}`);
+        void file
+          .text()
+          .then((text) => {
+            try {
+              const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+              if (ext === 'cube' || ext === '3dl') {
+                const result = parseLutFile(file.name, text);
+                const json = serializeLutForDocument(result.transform);
+                onChange({
+                  lutJson: json,
+                  originalFilename: file.name,
+                  inputSpace: 'sRGB',
+                  interpolation: 'tetrahedral',
+                  intensity: 1,
+                  linearize: false,
+                } as unknown as Partial<Adjustment>);
+                const kind = result.transform.kind;
+                const size =
+                  kind === 'shaper3d' ? result.transform.lut3d.size : result.transform.size;
+                setLutMeta({
+                  name: result.title ?? file.name,
+                  format: result.format,
+                  size,
+                });
+                const warning = result.warnings?.[0] ? `; ${result.warnings[0]}` : '';
+                setStatus(
+                  `Imported ${result.format.toUpperCase()} (${kind === '1d' ? '1D' : '3D'} ${size}^${kind === '3d' ? '3' : '1'}${warning})`,
+                );
+              } else {
+                setStatus(`Unsupported format: .${ext}`);
+              }
+            } catch (err) {
+              setStatus(`Parse error: ${err instanceof Error ? err.message : String(err)}`);
             }
-          } catch (err) {
-            setStatus(`Parse error: ${err instanceof Error ? err.message : String(err)}`);
-          }
-          e.target.value = '';
-        };
-        reader.readAsText(file);
+          })
+          .catch(() => setStatus('Failed to read file'));
       },
       [onChange],
     );
 
     return (
       <div className="adj-lut-editor">
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".cube,.3dl"
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-        />
-
-        <button
-          type="button"
+        <FilePickerButton
           className="adj-editor__row adj-lut-editor__import-btn"
-          onClick={() => fileRef.current?.click()}
-        >
-          <span
-            className="adj-editor__label"
-            style={{ minWidth: 'auto', flex: 1, textAlign: 'center' }}
-          >
-            {lutMeta ? 'Replace LUT File' : 'Import LUT File'}
-          </span>
-        </button>
+          variant="ghost"
+          accept=".cube,.3dl"
+          actionLabel={lutMeta ? 'Replace LUT File' : 'Import LUT File'}
+          inputLabel="Import LUT file"
+          onFiles={([file]) => handleFile(file)}
+          onReject={(rejections) => setStatus(rejections[0]?.reason ?? 'LUT file rejected.')}
+        />
 
         {status && (
           <div className="adj-lut-editor__status">
@@ -789,17 +795,12 @@ function LegacyAdjustmentEditor({
           />
         </div>
 
-        <div className="adj-editor__row">
-          <span className="adj-editor__label">Linearize</span>
-          <input
-            type="checkbox"
-            checked={adj.linearize ?? false}
-            onChange={(e) =>
-              onChange({ linearize: e.target.checked } as unknown as Partial<Adjustment>)
-            }
-            aria-label="Linearize before applying"
-          />
-        </div>
+        <BooleanRow
+          label="Linearize"
+          checked={adj.linearize ?? false}
+          onChange={(value) => onChange({ linearize: value } as unknown as Partial<Adjustment>)}
+          ariaLabel="Linearize before applying"
+        />
       </div>
     );
   }
@@ -973,17 +974,12 @@ function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleSelect('colorRange')}
         />
       </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Relative</span>
-        <input
-          type="checkbox"
-          checked={adj.relative}
-          onChange={(e) =>
-            onChange({ relative: e.target.checked } as unknown as Partial<Adjustment>)
-          }
-          aria-label="Relative adjustment"
-        />
-      </div>
+      <BooleanRow
+        label="Relative"
+        checked={adj.relative}
+        onChange={(value) => onChange({ relative: value } as unknown as Partial<Adjustment>)}
+        ariaLabel="Relative adjustment"
+      />
       {(['cyan', 'magenta', 'yellow', 'black'] as const).map((channel) => (
         <div key={channel} className="adj-editor__slider-row">
           <div className="adj-editor__slider-label">
@@ -1031,17 +1027,11 @@ function ChannelMixerEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleSelect('outputChannel')}
         />
       </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Monochrome</span>
-        <input
-          type="checkbox"
-          checked={adj.monochrome}
-          onChange={(e) =>
-            onChange({ monochrome: e.target.checked } as unknown as Partial<Adjustment>)
-          }
-          aria-label="Monochrome"
-        />
-      </div>
+      <BooleanRow
+        label="Monochrome"
+        checked={adj.monochrome}
+        onChange={(value) => onChange({ monochrome: value } as unknown as Partial<Adjustment>)}
+      />
       <div className="adj-editor__row">
         <span className="adj-editor__label">Red %</span>
         <input
@@ -1279,20 +1269,12 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           }
         />
       </div>
-      <div className="adj-editor__row">
-        <label className="adj-editor__label" htmlFor="halftone-invert">
-          <input
-            id="halftone-invert"
-            type="checkbox"
-            checked={adj.invert ?? false}
-            onChange={(e) =>
-              onChange({ invert: e.target.checked } as unknown as Partial<Adjustment>)
-            }
-            aria-label="Invert halftone output"
-          />
-          Invert
-        </label>
-      </div>
+      <BooleanRow
+        label="Invert"
+        checked={adj.invert ?? false}
+        onChange={(value) => onChange({ invert: value } as unknown as Partial<Adjustment>)}
+        ariaLabel="Invert halftone output"
+      />
       {isMonoChannel && (
         <>
           <div className="adj-editor__row">
@@ -1520,17 +1502,13 @@ function PhotoFilterEditor({
         onInteractionStart={onEditStart}
         onInteractionEnd={onEditEnd}
       />
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Preserve Luminosity</span>
-        <input
-          type="checkbox"
-          checked={adj.preserveLuminosity}
-          onChange={(e) =>
-            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
-          }
-          aria-label="Preserve luminosity"
-        />
-      </div>
+      <BooleanRow
+        label="Preserve Luminosity"
+        checked={adj.preserveLuminosity}
+        onChange={(value) =>
+          onChange({ preserveLuminosity: value } as unknown as Partial<Adjustment>)
+        }
+      />
     </div>
   );
 }
@@ -1717,16 +1695,13 @@ function DuotoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
           onInteractionEnd={onEditEnd}
         />
       </div>
-      <label className="adj-editor__checkbox-row">
-        <input
-          type="checkbox"
-          checked={adj.preserveLuminosity}
-          onChange={(e) =>
-            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
-          }
-        />
-        <span>Preserve Luminosity</span>
-      </label>
+      <BooleanRow
+        label="Preserve Luminosity"
+        checked={adj.preserveLuminosity}
+        onChange={(value) =>
+          onChange({ preserveLuminosity: value } as unknown as Partial<Adjustment>)
+        }
+      />
       <div className="adj-editor__row">
         <span className="adj-editor__label">Interpolation</span>
         <Select
@@ -1795,28 +1770,22 @@ function BlackAndWhiteEditor({
           onChange={(value) => onChange({ brightness: value } as unknown as Partial<Adjustment>)}
         />
       </div>
-      <label className="adj-editor__checkbox-row">
-        <input
-          type="checkbox"
-          checked={adj.preserveLuminosity}
-          onChange={(e) =>
-            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
-          }
-        />
-        <span>Preserve Luminosity</span>
-      </label>
-      <label className="adj-editor__checkbox-row">
-        <input
-          type="checkbox"
-          checked={adj.tintColor !== undefined}
-          onChange={(event) =>
-            onChange({
-              tintColor: event.target.checked ? ([190, 170, 140, 255] as Color) : undefined,
-            } as unknown as Partial<Adjustment>)
-          }
-        />
-        <span>Tint</span>
-      </label>
+      <BooleanRow
+        label="Preserve Luminosity"
+        checked={adj.preserveLuminosity}
+        onChange={(value) =>
+          onChange({ preserveLuminosity: value } as unknown as Partial<Adjustment>)
+        }
+      />
+      <BooleanRow
+        label="Tint"
+        checked={adj.tintColor !== undefined}
+        onChange={(value) =>
+          onChange({
+            tintColor: value ? ([190, 170, 140, 255] as Color) : undefined,
+          } as unknown as Partial<Adjustment>)
+        }
+      />
       {adj.tintColor && (
         <ColorPicker
           value={colorToManaged(adj.tintColor)}
@@ -1986,17 +1955,13 @@ function TritoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
           }
         />
       </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Preserve Luminosity</span>
-        <input
-          type="checkbox"
-          checked={adj.preserveLuminosity}
-          onChange={(e) =>
-            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
-          }
-          aria-label="Preserve luminosity"
-        />
-      </div>
+      <BooleanRow
+        label="Preserve Luminosity"
+        checked={adj.preserveLuminosity}
+        onChange={(value) =>
+          onChange({ preserveLuminosity: value } as unknown as Partial<Adjustment>)
+        }
+      />
       <div className="adj-editor__row">
         <span className="adj-editor__label">Interpolation</span>
         <Select

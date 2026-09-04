@@ -1,6 +1,6 @@
 .preflight-panel {
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background: var(--elevation-surface-default);
   overflow: hidden;
 }
@@ -39,7 +39,7 @@
 .preflight-panel__toggle:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
 }
 .preflight-panel__chevron {
   flex: none;
@@ -67,7 +67,7 @@
   align-items: flex-start;
   gap: var(--space-2);
   padding: var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-sunken);
 }
 .preflight-panel__severity-icon {
@@ -110,7 +110,7 @@
   min-height: 32px;
   padding: 0 var(--space-2);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--color-text-primary);
   font-family: var(--font-body);

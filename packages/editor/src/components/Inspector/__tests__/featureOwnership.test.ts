@@ -4,7 +4,7 @@ import {
   getFeaturesForSurface,
   type InspectorSurface,
 } from '../featureOwnership';
-import { getAllSectionIds } from '../sectionRegistry';
+import { getAllSectionIds, getSectionDefinition } from '../sectionRegistry';
 
 describe('Inspector feature ownership', () => {
   it('assigns every registered section to exactly one durable surface', () => {
@@ -21,7 +21,6 @@ describe('Inspector feature ownership', () => {
       'component',
       'icon',
       'corner-radius',
-      'constraints',
       'table',
       'table-cells',
       'layout',
@@ -93,6 +92,16 @@ describe('Inspector feature ownership', () => {
 
     for (const feature of Object.values(FEATURE_OWNERSHIP)) {
       expect(surfaces.has(feature.surface)).toBe(true);
+    }
+  });
+
+  it('keeps every ownership entry complete and linked to a registry definition', () => {
+    for (const [id, feature] of Object.entries(FEATURE_OWNERSHIP)) {
+      expect(getSectionDefinition(id as keyof typeof FEATURE_OWNERSHIP)).toBeDefined();
+      expect(feature.rationale.trim()).not.toBe('');
+      expect(['frequent', 'occasional', 'rare']).toContain(feature.frequency);
+      expect(['compact', 'moderate', 'large-editor']).toContain(feature.complexity);
+      expect(['functional', 'incomplete', 'disconnected']).toContain(feature.status);
     }
   });
 });

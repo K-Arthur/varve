@@ -1,13 +1,26 @@
 import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
+/** Locates the Layer Effects disclosure and expands it — the section is
+ * collapsed by default (progressive disclosure), and the effect-type
+ * combobox lives inside the disclosure content. */
+async function openEffectsSection(page: import('@playwright/test').Page) {
+  const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
+  await expect(effectsSection).toBeVisible({ timeout: 5000 });
+  const trigger = effectsSection.getByRole('button', { name: 'Layer Effects' });
+  if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
+    await trigger.click();
+  }
+  return effectsSection;
+}
+
 test.describe('Glass Material Effects', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
-    // Effects live in the unified Inspector's Appearance tab; the old test
-    // targeted the retired standalone disclosure on Properties.
-    await page.getByRole('tab', { name: 'Appearance', exact: true }).click();
+    // Effects live in the merged Design tab; the old test targeted the
+    // retired standalone Appearance tab.
+    await page.getByRole('tab', { name: 'Design', exact: true }).click();
   });
 
   test('applies glass material to a rectangle and verifies effect controls appear', async ({
@@ -21,8 +34,7 @@ test.describe('Glass Material Effects', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
     // Open the Effects disclosure section if collapsed, then add a new effect
-    const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
-    await expect(effectsSection).toBeVisible({ timeout: 5000 });
+    const effectsSection = await openEffectsSection(page);
 
     // The Select combobox for effect type uses aria-label "New effect type"
     const effectTypeSelect = effectsSection.locator(
@@ -62,8 +74,7 @@ test.describe('Glass Material Effects', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
     // Add glass material via Effects section
-    const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
-    await expect(effectsSection).toBeVisible({ timeout: 5000 });
+    const effectsSection = await openEffectsSection(page);
 
     const effectTypeSelect = effectsSection.locator(
       '.varve-select__trigger[aria-label="New effect type"]',
@@ -106,8 +117,7 @@ test.describe('Glass Material Effects', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
     // Add glass material
-    const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
-    await expect(effectsSection).toBeVisible({ timeout: 5000 });
+    const effectsSection = await openEffectsSection(page);
 
     const effectTypeSelect = effectsSection.locator(
       '.varve-select__trigger[aria-label="New effect type"]',
@@ -162,8 +172,7 @@ test.describe('Glass Material Effects', () => {
     await page.waitForTimeout(200);
 
     // Add glass material to the group
-    const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
-    await expect(effectsSection).toBeVisible({ timeout: 5000 });
+    const effectsSection = await openEffectsSection(page);
 
     const effectTypeSelect = effectsSection.locator(
       '.varve-select__trigger[aria-label="New effect type"]',

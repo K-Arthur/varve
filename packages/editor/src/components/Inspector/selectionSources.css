@@ -25,7 +25,7 @@
 .insp-selection-sources__rename-input,
 .insp-selection-sources__name-field input {
   border: 1px solid var(--color-border-subtle);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   color: var(--color-text-primary);
   background: var(--color-surface-raised);
   font: inherit;
@@ -63,7 +63,7 @@
   display: grid;
   gap: 6px;
   border: 1px solid var(--color-accent);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 8px;
 }
 

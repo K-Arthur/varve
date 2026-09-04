@@ -30,6 +30,29 @@ const navItems = [
   { href: '/contribute', label: 'Contribute' },
 ];
 
+const desktopNavGroups = [
+  {
+    id: 'learn-menu',
+    label: 'Learn',
+    items: [
+      { href: '/learn', label: 'Learning hub', description: 'Guides, tutorials, and examples' },
+      { href: '/docs', label: 'Docs', description: 'Product documentation and reference' },
+      { href: '/learn/tutorials', label: 'Tutorials', description: 'Build confidence with step-by-step lessons' },
+      { href: '/learn/examples', label: 'Examples', description: 'See Varve workflows in practice' },
+    ],
+  },
+  {
+    id: 'support-menu',
+    label: 'Support',
+    items: [
+      { href: '/support', label: 'Support home', description: 'Find answers and troubleshooting help' },
+      { href: '/support/faq', label: 'FAQ', description: 'Quick answers to common questions' },
+      { href: '/contact', label: 'Contact', description: 'Talk with the Varve team' },
+      { href: '/contribute', label: 'Contribute', description: 'Help shape the project' },
+    ],
+  },
+];
+
 const basePrefix = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
 const currentPath = Astro.url.pathname.startsWith(basePrefix)
   ? `/${Astro.url.pathname.slice(basePrefix.length)}`
@@ -59,7 +82,7 @@ const versionLabel = release.hasRelease && release.version
     </a>
 
     <ul class="nav-links" id="site-nav-links">
-      {navItems.map((item) => (
+      {navItems.slice(0, 2).map((item) => (
         <li>
           <a
             href={sitePath(item.href)}
@@ -71,6 +94,39 @@ const versionLabel = release.hasRelease && release.version
           </a>
         </li>
       ))}
+      {desktopNavGroups.map((group) => {
+        const groupIsCurrent = group.items.some((item) => isCurrent(item.href));
+        return (
+          <li class="nav-menu" data-desktop-nav-menu>
+            <button
+              class:list={['nav-menu-trigger', { 'nav-active': groupIsCurrent }]}
+              type="button"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls={group.id}
+            >
+              <span class="nav-link-text">{group.label}</span>
+              <svg class="nav-menu-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m4 6 4 4 4-4" />
+              </svg>
+              {groupIsCurrent && <span class="nav-active-marker" aria-hidden="true"></span>}
+            </button>
+            <div class="nav-menu-panel" id={group.id} role="menu" aria-label={`${group.label} menu`} hidden>
+              {group.items.map((item) => (
+                <a
+                  href={sitePath(item.href)}
+                  role="menuitem"
+                  class:list={[{ 'nav-menu-item-active': isCurrent(item.href) }]}
+                  aria-current={isCurrent(item.href) ? 'page' : undefined}
+                >
+                  <span class="nav-menu-item-label">{item.label}</span>
+                  <span class="nav-menu-item-description">{item.description}</span>
+                </a>
+              ))}
+            </div>
+          </li>
+        );
+      })}
     </ul>
 
     <div class="nav-actions">
@@ -84,7 +140,7 @@ const versionLabel = release.hasRelease && release.version
       >
         Try
       </a>
-      <DownloadCTA variant="primary" size="compact" label="Download" class="nav-download-cta" />
+      <DownloadCTA variant="default" size="compact" label="Download" class="nav-download-cta" />
       <button
         class="mobile-menu-toggle"
         aria-label="Open menu"
@@ -153,8 +209,76 @@ const versionLabel = release.hasRelease && release.version
   const closeBtn = document.querySelector<HTMLButtonElement>('.mobile-menu-close');
   const backdrop = panel?.querySelector<HTMLElement>('.mobile-nav-backdrop');
   const navLinks = panel?.querySelectorAll<HTMLAnchorElement>('.mobile-nav-link');
+  const desktopMenus = [...document.querySelectorAll<HTMLElement>('[data-desktop-nav-menu]')];
 
   let isOpen = false;
+
+  function closeDesktopMenus(returnFocus = false) {
+    for (const menu of desktopMenus) {
+      const trigger = menu.querySelector<HTMLButtonElement>('.nav-menu-trigger');
+      const panel = menu.querySelector<HTMLElement>('.nav-menu-panel');
+      if (!trigger || !panel) continue;
+      trigger.setAttribute('aria-expanded', 'false');
+      menu.classList.remove('is-open');
+      panel.hidden = true;
+      if (returnFocus && document.activeElement === panel) trigger.focus();
+    }
+  }
+
+  function openDesktopMenu(menu: HTMLElement, focusFirst = false) {
+    closeDesktopMenus();
+    const trigger = menu.querySelector<HTMLButtonElement>('.nav-menu-trigger');
+    const panel = menu.querySelector<HTMLElement>('.nav-menu-panel');
+    if (!trigger || !panel) return;
+    menu.classList.add('is-open');
+    trigger.setAttribute('aria-expanded', 'true');
+    panel.hidden = false;
+    if (focusFirst) panel.querySelector<HTMLAnchorElement>('[role="menuitem"]')?.focus();
+  }
+
+  for (const menu of desktopMenus) {
+    const trigger = menu.querySelector<HTMLButtonElement>('.nav-menu-trigger');
+    const menuPanel = menu.querySelector<HTMLElement>('.nav-menu-panel');
+    const menuItems = () => [...(menuPanel?.querySelectorAll<HTMLAnchorElement>('[role="menuitem"]') ?? [])];
+    trigger?.addEventListener('click', () => {
+      const expanded = trigger.getAttribute('aria-expanded') === 'true';
+      expanded ? closeDesktopMenus() : openDesktopMenu(menu);
+    });
+    trigger?.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openDesktopMenu(menu, true);
+      } else if (event.key === 'Escape') {
+        closeDesktopMenus();
+      }
+    });
+    menuPanel?.addEventListener('keydown', (event) => {
+      const items = menuItems();
+      const index = items.indexOf(document.activeElement as HTMLAnchorElement);
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const offset = event.key === 'ArrowDown' ? 1 : -1;
+        items[(index + offset + items.length) % items.length]?.focus();
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        items[0]?.focus();
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        items.at(-1)?.focus();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        closeDesktopMenus();
+        trigger?.focus();
+      }
+    });
+    menuPanel?.querySelectorAll<HTMLAnchorElement>('[role="menuitem"]').forEach((item) => {
+      item.addEventListener('click', () => closeDesktopMenus());
+    });
+  }
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!desktopMenus.some((menu) => menu.contains(event.target as Node))) closeDesktopMenus();
+  });
 
   function openMenu() {
     if (!panel || !toggle) return;
@@ -204,7 +328,7 @@ const versionLabel = release.hasRelease && release.version
 
   // Close on resize to desktop. Focus is returned to the toggle because the
   // panel (and whatever inside it had focus) becomes hidden at this breakpoint.
-  const desktopQuery = window.matchMedia('(min-width: 769px)');
+  const desktopQuery = window.matchMedia('(min-width: 961px)');
   desktopQuery.addEventListener('change', (e) => {
     if (e.matches && isOpen) {
       const focusWasInPanel = panel?.contains(document.activeElement) ?? false;
@@ -324,11 +448,12 @@ const versionLabel = release.hasRelease && release.version
   .site-nav {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0.65rem 1.5rem;
+    padding-block: var(--space-3);
+    padding-inline: var(--space-page-inline);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: var(--space-control-group);
     position: relative;
     z-index: 2;
   }
@@ -337,7 +462,7 @@ const versionLabel = release.hasRelease && release.version
   .site-logo {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--space-icon-label);
     color: var(--text-primary);
     text-decoration: none;
     flex: 0 0 auto;
@@ -368,7 +493,7 @@ const versionLabel = release.hasRelease && release.version
     font-weight: 600;
     letter-spacing: 0.02em;
     padding: 0.15em 0.45em;
-    border-radius: 0.25rem;
+    border-radius: var(--website-radius-control-compact);
     background: var(--surface-accent-soft);
     color: var(--accent-primary);
     line-height: 1;
@@ -401,39 +526,112 @@ const versionLabel = release.hasRelease && release.version
   .nav-links {
     display: flex;
     list-style: none;
-    gap: 0.25rem;
+    gap: var(--space-toolbar-item);
     margin: 0 auto;
+    align-items: center;
   }
 
-  .nav-links a {
+  .nav-menu {
+    position: relative;
+  }
+
+  .nav-links a,
+  .nav-menu-trigger {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: var(--space-icon-label);
     color: var(--text-secondary);
     font-weight: 500;
     font-size: 0.9375rem;
     text-decoration: none;
-    padding: 0.45rem 0.85rem;
-    border-radius: 0.375rem;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--website-radius-control-compact);
     position: relative;
     transition:
       color var(--duration-quick) var(--ease-default),
       background-color var(--duration-quick) var(--ease-default);
   }
 
+  .nav-menu-trigger {
+    border: 0;
+    font: inherit;
+    cursor: pointer;
+  }
+
   .nav-links a:visited {
     color: var(--text-secondary);
   }
 
-  .nav-links a:hover {
+  .nav-links a:hover,
+  .nav-menu-trigger:hover,
+  .nav-menu.is-open .nav-menu-trigger {
     color: var(--text-link);
     background: var(--surface-muted);
   }
 
-  .nav-links a.nav-active {
+  .nav-links a.nav-active,
+  .nav-menu-trigger.nav-active {
     color: var(--text-primary);
     background: var(--surface-selected);
     font-weight: 600;
+  }
+
+  .nav-menu-chevron {
+    transition: transform var(--duration-quick) var(--ease-default);
+  }
+
+  .nav-menu.is-open .nav-menu-chevron {
+    transform: rotate(180deg);
+  }
+
+  .nav-menu-panel {
+    position: absolute;
+    top: calc(100% + var(--space-2));
+    left: 50%;
+    z-index: 110;
+    display: grid;
+    width: 15rem;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    transform: translateX(-50%);
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    box-shadow: var(--elevation-shadow-overlay);
+  }
+
+  .nav-menu-panel[hidden] {
+    display: none;
+  }
+
+  .nav-menu-panel a {
+    display: grid;
+    gap: 0.15rem;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--website-radius-control-compact);
+    color: var(--text-primary);
+    text-decoration: none;
+  }
+
+  .nav-menu-panel a:visited {
+    color: var(--text-primary);
+  }
+
+  .nav-menu-panel a:hover,
+  .nav-menu-panel a:focus-visible,
+  .nav-menu-panel a.nav-menu-item-active {
+    background: var(--surface-selected);
+    color: var(--text-primary);
+  }
+
+  .nav-menu-item-label {
+    font-weight: 600;
+  }
+
+  .nav-menu-item-description {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.35;
   }
 
   /* Active marker: a small diamond below the active link — the vector
@@ -454,14 +652,14 @@ const versionLabel = release.hasRelease && release.version
   .nav-actions {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: var(--space-control-group);
     flex: 0 0 auto;
   }
 
   :global(.nav-download-cta) {
-    padding: 0.45rem 0.9rem;
+    padding: var(--space-2) var(--space-3);
     font-size: 0.875rem;
-    border-radius: 9999px;
+    border-radius: var(--website-radius-control);
     position: relative;
     transition:
       background-color var(--duration-quick) var(--ease-default),
@@ -476,10 +674,10 @@ const versionLabel = release.hasRelease && release.version
   :global(.nav-try-cta) {
     display: inline-flex;
     align-items: center;
-    padding: 0.45rem 0.9rem;
+    padding: var(--space-2) var(--space-3);
     font-size: 0.875rem;
     font-weight: 600;
-    border-radius: 9999px;
+    border-radius: var(--website-radius-control);
     text-decoration: none;
     color: var(--accent-primary);
     border: 1px solid currentColor;
@@ -499,9 +697,9 @@ const versionLabel = release.hasRelease && release.version
     background: none;
     border: none;
     cursor: pointer;
-    padding: 0.45rem;
+    padding: var(--space-2);
     color: var(--text-secondary);
-    border-radius: var(--radius-sm);
+    border-radius: var(--website-radius-control-compact);
     position: relative;
     width: 36px;
     height: 36px;
@@ -513,6 +711,13 @@ const versionLabel = release.hasRelease && release.version
   .mobile-menu-toggle:focus-visible {
     color: var(--text-primary);
     background: var(--surface-muted);
+  }
+
+  @media (pointer: coarse), (any-pointer: coarse) {
+    .mobile-menu-toggle {
+      width: var(--touch-target-min);
+      height: var(--touch-target-min);
+    }
   }
 
   .menu-icon-close {
@@ -532,7 +737,10 @@ const versionLabel = release.hasRelease && release.version
     display: none;
   }
 
-  @media (max-width: 768px) {
+  /* The full navigation needs roughly 920px once touch-safe controls and
+     readable link spacing are included. Switch to the mobile sheet before
+     the tablet/intermediate range can clip the persistent header. */
+  @media (max-width: 960px) {
     .nav-links {
       display: none;
     }
@@ -542,7 +750,7 @@ const versionLabel = release.hasRelease && release.version
     }
 
     .nav-actions {
-      gap: 0.4rem;
+      gap: var(--space-icon-label);
     }
 
     :global(.nav-download-cta .download-cta-beta) {
@@ -557,7 +765,8 @@ const versionLabel = release.hasRelease && release.version
     }
 
     .site-nav {
-      padding: 0.55rem 1rem;
+      padding-block: var(--space-2);
+      padding-inline: var(--space-page-inline);
     }
 
     /* Full-screen overlay */
@@ -634,14 +843,14 @@ const versionLabel = release.hasRelease && release.version
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 1rem 1.25rem;
+      padding: var(--space-4) var(--space-5);
       border-bottom: 1px solid var(--border-default);
     }
 
     .mobile-nav-logo {
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: var(--space-icon-label);
       color: var(--text-primary);
       text-decoration: none;
       font-family: var(--font-editorial);
@@ -669,12 +878,19 @@ const versionLabel = release.hasRelease && release.version
       background: none;
       border: none;
       cursor: pointer;
-      padding: 0.4rem;
+      padding: var(--space-2);
       color: var(--text-secondary);
-      border-radius: var(--radius-sm);
+      border-radius: var(--website-radius-control-compact);
       display: flex;
       align-items: center;
       justify-content: center;
+    }
+
+    @media (pointer: coarse), (any-pointer: coarse) {
+      .mobile-menu-close {
+        min-inline-size: var(--touch-target-min);
+        min-block-size: var(--touch-target-min);
+      }
     }
 
     .mobile-menu-close:hover,
@@ -687,21 +903,21 @@ const versionLabel = release.hasRelease && release.version
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 0.75rem;
-      gap: 0.15rem;
+      padding: var(--space-3);
+      gap: var(--space-toolbar-item);
       overflow-y: auto;
     }
 
     .mobile-nav-link {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.85rem 1rem;
+      gap: var(--space-icon-label);
+      padding: var(--space-4) var(--space-5);
       color: var(--text-secondary);
       font-weight: 500;
       font-size: 1.05rem;
       text-decoration: none;
-      border-radius: 0.5rem;
+      border-radius: var(--website-radius-control);
       transition:
         color var(--duration-quick) var(--ease-default),
         background-color var(--duration-quick) var(--ease-default);
@@ -724,7 +940,7 @@ const versionLabel = release.hasRelease && release.version
     }
 
     .mobile-nav-footer {
-      padding: 1rem 1.25rem;
+      padding: var(--space-4) var(--space-5);
       border-top: 1px solid var(--border-default);
     }
 
@@ -734,7 +950,10 @@ const versionLabel = release.hasRelease && release.version
     }
   }
 
-  @media (max-width: 420px) {
+  /* At standard phone widths, the compact header CTA competes with two
+     44px theme choices and the menu control. The full mobile sheet retains
+     Download, so remove only this duplicate entry from the persistent row. */
+  @media (max-width: 480px) {
     :global(.nav-download-cta) {
       display: none;
     }

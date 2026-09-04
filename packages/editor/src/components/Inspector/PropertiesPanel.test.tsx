@@ -27,13 +27,13 @@ function renderPanel() {
 /** Renders PropertiesPanel with one real rect node selected via the actual
  * editor context (not a mocked useEditor), so section-registry gating runs
  * through its real call path rather than being bypassed by a test double. */
-async function renderPanelWithSelectedRect(locked = false) {
+async function renderPanelWithSelectedRect(locked = false, visible = true) {
   const { createDocument, makeShapeNode, addChild } = await import('@varve/scene');
   let doc = createDocument('selection-test');
   const rect = makeShapeNode(
     'r1',
     { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
-    { name: 'Rect1', transform: [1, 0, 0, 1, 0, 0], locked },
+    { name: 'Rect1', transform: [1, 0, 0, 1, 0, 0], locked, visible },
   );
   doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, rect);
 
@@ -114,9 +114,13 @@ describe('PropertiesPanel canvas settings', () => {
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent?.trim());
     const tabLabels = tabs.filter(Boolean);
-    // Prototype and Fonts are contextual — they appear for a frame and a text
-    // selection respectively, so an empty selection shows neither.
-    expect(tabLabels).toEqual(['Properties', 'Appearance', 'Export', 'Audit']);
+    // Appearance and Audit are merged into the Design tab (single
+    // context-adaptive surface, Figma-style). Prototype and Fonts are
+    // contextual — they appear for a frame and a text selection
+    // respectively, so an empty selection shows neither.
+    expect(tabLabels).toEqual(['Design', 'Export']);
+    expect(screen.queryByRole('tab', { name: 'Appearance' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Audit' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Prototype' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Fonts' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Document' })).toBeNull();
@@ -127,19 +131,20 @@ describe('PropertiesPanel canvas settings', () => {
   it('implements APG roving focus for arrow, Home, and End keys across the tab row', () => {
     renderPanel();
     // Derived from what actually renders: the tab row is contextual, and the
-    // roving-focus contract applies to whichever tabs are present.
+    // roving-focus contract applies to whichever tabs are present. With
+    // Appearance and Audit merged into Design, an empty selection shows two
+    // tabs (Design, Export), so every arrow press wraps.
     const tabs = screen.getAllByRole('tab');
-    expect(tabs.length).toBeGreaterThanOrEqual(3);
+    expect(tabs.length).toBeGreaterThanOrEqual(2);
     const first = tabs[0]!;
     const second = tabs[1]!;
-    const third = tabs[2]!;
     const last = tabs[tabs.length - 1]!;
 
     second.focus();
     fireEvent.keyDown(second, { key: 'ArrowRight' });
-    expect(third).toHaveFocus();
+    expect(first).toHaveFocus();
 
-    fireEvent.keyDown(third, { key: 'End' });
+    fireEvent.keyDown(first, { key: 'End' });
     expect(last).toHaveFocus();
 
     fireEvent.keyDown(last, { key: 'Home' });
@@ -151,18 +156,19 @@ describe('PropertiesPanel canvas settings', () => {
 
   it('renders canvas settings inline in the Properties empty state', async () => {
     renderPanel();
+    expect(screen.getByLabelText(/Inspector context: (Document|Canvas)/)).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Canvas' })).toBeTruthy();
     expect(await screen.findByText(/^Background$/)).toBeTruthy();
   });
 
   it('renders real document colour settings without exposing storage-root node counts', async () => {
     renderPanel();
-    expect(await screen.findByRole('button', { name: 'RGB' })).toHaveAttribute(
-      'aria-pressed',
+    expect(await screen.findByRole('radio', { name: 'RGB' })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
-    expect(screen.getByRole('button', { name: 'CMYK' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Grayscale' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'CMYK' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Grayscale' })).toBeTruthy();
     expect(screen.queryByText(/nodes?/i)).toBeNull();
   });
 });
@@ -242,7 +248,39 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     await renderPanelWithSelectedRect(true);
 
     expect(screen.getByText(/selection is locked/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Position & Size' }).closest('[inert]')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Layout' }).closest('[inert]')).toBeTruthy();
+  });
+
+  it('explains the full scope when a mixed selection contains a locked node', async () => {
+    const { addChild, createDocument, makeShapeNode } = await import('@varve/scene');
+    let doc = createDocument('partial-lock-test');
+    const rootId = doc.pages?.[0]?.contentRoot as string;
+    const locked = makeShapeNode(
+      'locked',
+      { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      { name: 'Locked shape', locked: true },
+    );
+    const editable = makeShapeNode(
+      'editable',
+      { kind: 'rect', x: 60, y: 0, w: 50, h: 50 },
+      { name: 'Editable shape' },
+    );
+    doc = addChild(doc, rootId, locked);
+    doc = addChild(doc, rootId, editable);
+
+    await renderPanelWithSelectedNodes(JSON.stringify(doc), ['locked', 'editable']);
+
+    expect(screen.getByText(/1 of 2 selected layers are locked/i)).toBeTruthy();
+    expect(screen.getByText(/disabled until all selected layers are unlocked/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Layout' }).closest('[inert]')).toBeTruthy();
+  });
+
+  it('keeps a hidden selection inspectable and explains the missing canvas feedback', async () => {
+    await renderPanelWithSelectedRect(false, false);
+
+    expect(screen.getByText(/selection is hidden by Rect1/i)).toBeTruthy();
+    expect(screen.getByText(/canvas feedback is unavailable/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Layout' }).closest('[inert]')).toBeNull();
   });
 
   it('honors section-manager visibility for optional Properties sections', async () => {
@@ -250,7 +288,7 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     expect(screen.getByRole('button', { name: 'Corner Radius' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Customize sections' }));
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Corner Radius' }));
+    fireEvent.click(screen.getByLabelText('Corner Radius'));
 
     expect(screen.queryByRole('button', { name: 'Corner Radius' })).toBeNull();
   });
@@ -286,18 +324,18 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     }
   });
 
-  it('keeps Object Filter editing out of Properties and exposes the standalone Studio launcher', async () => {
+  it('hosts Object Filter editing in the merged Design surface and exposes the Studio launcher', async () => {
     await renderPanelWithSelectedRect();
 
-    expect(screen.queryByRole('button', { name: 'Object Filters' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Open Effect Studio' })).toHaveAttribute(
-      'data-testid',
-      'open-effect-studio',
-    );
-    expect(screen.getByRole('tab', { name: 'Appearance' })).toHaveAttribute(
-      'aria-selected',
-      'false',
-    );
+    // Appearance content — including Object Filters — is merged into the
+    // single context-adaptive Design tab; the Effect Studio dialog remains
+    // the focused surface for browsing curated treatment stacks. The merged
+    // panels are lazy-loaded; the generous timeout absorbs slow CI workers.
+    expect(
+      await screen.findByRole('button', { name: 'Object Filters' }, { timeout: 15000 }),
+    ).toBeTruthy();
+    expect(await screen.findByTestId('open-effect-studio', {}, { timeout: 15000 })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: 'Appearance' })).toBeNull();
   });
 
   it('does not render the State Machine section inline (moved to its own panel)', async () => {
@@ -322,6 +360,11 @@ describe('PropertiesPanel image-treatment tab gating', () => {
     await renderPanelWithSelectedNodes(JSON.stringify(doc), ['image-1', 'image-2']);
 
     expect(screen.getByRole('tab', { name: 'Adjustments' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent?.trim())).toEqual([
+      'Design',
+      'Adjustments',
+      'Export',
+    ]);
   });
 
   it('does not show Adjustments for a mixed image and non-image selection', async () => {
@@ -366,6 +409,29 @@ describe('PropertiesPanel export tab has merged export and code', () => {
 });
 
 describe('PropertiesPanel empty selection', () => {
+  it('does not present document settings while an active tool owns the context', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function ToolSelector() {
+      ctx = useEditor();
+      React.useEffect(() => {
+        ctx?.setTool('paint');
+      }, []);
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <ToolSelector />
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.state.tool).toBe('paint'));
+    expect(screen.getByLabelText('Inspector context: Tool options')).toBeInTheDocument();
+    expect(screen.getByText(/tool controls stay with the active tool/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Canvas' })).toBeNull();
+  });
+
   it('does not render the State Machine section inline', () => {
     renderPanel();
     expect(screen.queryByRole('button', { name: 'State Machine' })).toBeNull();

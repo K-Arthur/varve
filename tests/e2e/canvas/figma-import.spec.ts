@@ -6,6 +6,7 @@
  * browser file picker. JSON conversion remains covered by importer unit tests.
  */
 
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
@@ -214,5 +215,69 @@ test.describe('Figma import integration', () => {
     await dialog.getByRole('button', { name: 'Replace All' }).click();
     await expect(dialog).toHaveCount(0);
     await expect(page.locator('.layers-panel')).toContainText('Rich text');
+  });
+
+  test('offers and installs an exact Fontsource face for an imported missing family', async ({
+    page,
+  }, testInfo) => {
+    const fontPath = path.resolve(
+      'apps/desktop/node_modules/@fontsource-variable/fraunces/files/fraunces-latin-full-normal.woff2',
+    );
+    const fontBytes = await readFile(fontPath);
+    await page.route('https://cdn.jsdelivr.net/fontsource/fonts/**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'font/woff2', body: fontBytes });
+    });
+    await navigateToEditor(page);
+
+    const fixture = {
+      name: 'Exact Fontsource recovery',
+      document: {
+        type: 'DOCUMENT',
+        children: [
+          {
+            id: 'page:1',
+            type: 'CANVAS',
+            name: 'Typography',
+            children: [
+              {
+                id: 'text:1',
+                type: 'TEXT',
+                name: 'Fontsource text',
+                characters: 'An exact face can be recovered',
+                absoluteBoundingBox: { x: 56, y: 56, width: 388, height: 48 },
+                style: { fontFamily: 'Fraunces', fontSize: 28, fontWeight: 700 },
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'fontsource-recovery.fig',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(fixture), 'utf8'),
+    });
+
+    const dialog = page.getByRole('dialog', { name: 'Missing Fonts' });
+    await expect(dialog).toBeVisible({ timeout: 30000 });
+    await expect(dialog).toContainText('Exact family available from Fontsource');
+    await expect(dialog).toContainText('700');
+    await expect(dialog).toContainText('SIL Open Font License');
+    await page.screenshot({ path: testInfo.outputPath('fontsource-recovery-dialog.png') });
+
+    await dialog.getByRole('button', { name: 'Browse fonts' }).click();
+    const browserDialog = page.getByRole('dialog', { name: 'Browse fonts' });
+    await expect(browserDialog).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('fontsource-browser-from-recovery.png') });
+    await browserDialog.getByRole('button', { name: 'Close dialog' }).click();
+    await expect(dialog).toBeVisible();
+
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+    await page.screenshot({ path: testInfo.outputPath('fontsource-recovery-dialog-dark.png') });
+
+    await dialog.getByRole('button', { name: 'Install Fraunces 700' }).click();
+    await expect(dialog).toHaveCount(0, { timeout: 30000 });
+    await expect(page.locator('.layers-panel')).toContainText('Fontsource text');
   });
 });

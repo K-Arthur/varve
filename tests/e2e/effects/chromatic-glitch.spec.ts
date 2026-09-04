@@ -2,9 +2,15 @@ import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 async function openEffectsSection(page: import('@playwright/test').Page) {
-  await page.getByRole('tab', { name: 'Appearance' }).click();
+  await page.getByRole('tab', { name: 'Design' }).click();
   const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
   await expect(effectsSection).toBeVisible({ timeout: 5000 });
+  // Layer Effects is collapsed by default (progressive disclosure); the
+  // combobox lives inside the disclosure content.
+  const trigger = effectsSection.getByRole('button', { name: 'Layer Effects' });
+  if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
+    await trigger.click();
+  }
   return effectsSection;
 }
 

@@ -27,15 +27,6 @@
   user-select: none;
 }
 
-.spread-settings__toggle input {
-  cursor: pointer;
-}
-
-.spread-settings__toggle input:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
-}
-
 .spread-settings__info {
   display: flex;
   flex-direction: column;

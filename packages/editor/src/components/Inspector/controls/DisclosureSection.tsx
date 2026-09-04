@@ -11,10 +11,9 @@
  * - Registry (with sectionId): centralized EditorState + localStorage persistence
  *   with hide/show support, context menu, and management UI integration.
  */
-import { Icon } from '@varve/ui';
+import { ContextMenu, Icon, type OverlayAnchor, pointAnchor, viewportPoint } from '@varve/ui';
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import type { SectionId } from '../sectionRegistry';
 import { getSectionDefinition } from '../sectionRegistry';
@@ -120,45 +119,9 @@ function RegistryDisclosure({
   const visible = subsectionId
     ? !isSectionCollapsed(state.sectionVisibility, sectionId)
     : isSectionVisible(state.sectionVisibility, sectionId);
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    fromKeyboard: boolean;
-  } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const menuItemRef = useRef<HTMLButtonElement>(null);
+  const [contextMenu, setContextMenu] = useState<OverlayAnchor | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const def = getSectionDefinition(sectionId);
-
-  // Close context menu on outside click
-  useEffect(() => {
-    if (!contextMenu) return;
-    const handle = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setContextMenu(null);
-      }
-    };
-    document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
-  }, [contextMenu]);
-
-  // Close context menu on Escape; restore focus when it was keyboard-opened.
-  useEffect(() => {
-    if (!contextMenu) return;
-    const handle = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (contextMenu.fromKeyboard) triggerRef.current?.focus();
-        setContextMenu(null);
-      }
-    };
-    document.addEventListener('keydown', handle);
-    return () => document.removeEventListener('keydown', handle);
-  }, [contextMenu]);
-
-  // Focus the menu item when the menu was opened from the keyboard.
-  useEffect(() => {
-    if (contextMenu?.fromKeyboard) menuItemRef.current?.focus();
-  }, [contextMenu]);
 
   if (!visible) return null;
 
@@ -169,24 +132,26 @@ function RegistryDisclosure({
       toggleSectionCollapse(sectionId);
     }
   };
-  const openContextMenu = (x: number, y: number, fromKeyboard: boolean) => {
-    if (def && !def.canHide) return; // essential sections can't be hidden
-    setContextMenu({ x, y, fromKeyboard });
-  };
   const handleTriggerContextMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    const rect = e.currentTarget.getBoundingClientRect();
-    openContextMenu(rect.left, rect.bottom, false);
+    if (def && !def.canHide) return; // essential sections can't be hidden
+    const contextElement = e.currentTarget;
+    setContextMenu(
+      pointAnchor(
+        viewportPoint(e.clientX, e.clientY),
+        contextElement.ownerDocument,
+        contextElement,
+      ),
+    );
   };
   const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
       e.preventDefault();
-      const rect = e.currentTarget.getBoundingClientRect();
-      openContextMenu(rect.left, rect.bottom, true);
+      if (def && !def.canHide) return;
+      setContextMenu({ kind: 'element', element: e.currentTarget });
     }
   };
   const handleHide = () => {
-    if (contextMenu?.fromKeyboard) triggerRef.current?.focus();
     hideInspectorSection(sectionId);
     setContextMenu(null);
   };
@@ -218,27 +183,14 @@ function RegistryDisclosure({
           {children}
         </fieldset>
       )}
-      {contextMenu &&
-        def?.canHide &&
-        createPortal(
-          <div
-            ref={menuRef}
-            className="insp-disclosure__context-menu"
-            role="menu"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
-          >
-            <button
-              ref={menuItemRef}
-              type="button"
-              className="insp-disclosure__context-menu-item"
-              role="menuitem"
-              onClick={handleHide}
-            >
-              Hide section
-            </button>
-          </div>,
-          document.body,
-        )}
+      {contextMenu && def?.canHide && (
+        <ContextMenu
+          anchor={contextMenu}
+          items={[{ id: 'hide-section', label: 'Hide section', onAction: handleHide }]}
+          onClose={() => setContextMenu(null)}
+          label={`${title} section actions`}
+        />
+      )}
     </section>
   );
 }

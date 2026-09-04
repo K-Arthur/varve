@@ -42,7 +42,7 @@
     -4px 0;
   background-size: 8px 8px;
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
 }
 
 .brush-editor__preview-caption {
@@ -72,7 +72,23 @@
   font: inherit;
   background: var(--color-surface-sunken);
   border: var(--border-micro);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
+}
+
+.brush-editor__native-select {
+  flex: 1;
+  flex-direction: row;
+}
+
+.brush-editor__native-select .varve-native-select__control {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1);
+  color: var(--color-text-primary);
+  font: inherit;
+  background: var(--color-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-control-compact);
 }
 
 .brush-editor__checkbox {

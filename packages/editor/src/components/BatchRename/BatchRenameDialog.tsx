@@ -1,5 +1,5 @@
 import type { NodeId } from '@varve/scene';
-import { Tooltip } from '@varve/ui';
+import { Switch, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import {
@@ -186,30 +186,24 @@ export function BatchRenameDialog({
           </div>
 
           <div className="batch-rename-dialog__toggles">
-            <label className="batch-rename-dialog__checkbox">
-              <input
-                type="checkbox"
-                checked={useRegex}
-                onChange={(e) => setUseRegex(e.target.checked)}
-              />
-              <span>Regex</span>
-            </label>
-            <label className="batch-rename-dialog__checkbox">
-              <input
-                type="checkbox"
-                checked={caseSensitive}
-                onChange={(e) => setCaseSensitive(e.target.checked)}
-              />
-              <span>Case sensitive</span>
-            </label>
-            <label className="batch-rename-dialog__checkbox">
-              <input
-                type="checkbox"
-                checked={wholeWord}
-                onChange={(e) => setWholeWord(e.target.checked)}
-              />
-              <span>Whole word</span>
-            </label>
+            <Switch
+              className="batch-rename-dialog__checkbox"
+              label="Regex"
+              checked={useRegex}
+              onChange={(e) => setUseRegex(e.target.checked)}
+            />
+            <Switch
+              className="batch-rename-dialog__checkbox"
+              label="Case sensitive"
+              checked={caseSensitive}
+              onChange={(e) => setCaseSensitive(e.target.checked)}
+            />
+            <Switch
+              className="batch-rename-dialog__checkbox"
+              label="Whole word"
+              checked={wholeWord}
+              onChange={(e) => setWholeWord(e.target.checked)}
+            />
           </div>
 
           {scopeNodeIds && scopeNodeIds.length > 0 && (

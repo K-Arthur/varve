@@ -3,13 +3,20 @@
 import { VARVE_URLS } from '@varve/shared';
 import {
   AlertDialog,
+  closeAllOverlays,
   FloatingPortal,
   IconButton,
   SOLID_CHROME_ICONS,
   Tooltip,
   VarveLogo,
 } from '@varve/ui';
-import { getTheme, setTheme, type Theme } from '@varve/ui/tokens';
+import {
+  getThemePreference,
+  setThemePreference,
+  THEME_CHANGE_EVENT,
+  type ThemeChangeDetail,
+  type ThemePreference,
+} from '@varve/ui/tokens';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
 import { isCapabilityRestricted, isWorkspaceModeAllowed } from './capabilities/restrictions';
@@ -17,7 +24,7 @@ import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/Arc
 import { OfflineBanner } from './components/OfflineBanner';
 import { RasterizeDialog } from './components/Rasterize/RasterizeDialog';
 import { WorkspaceTabs } from './components/WorkspaceTabs';
-import { bumpThemeRevision, useEditor } from './context';
+import { useEditor } from './context';
 import { computeCapabilities, getNudgeCapability, useNativeMenu } from './menu';
 import { useMenubarFocusEffects } from './menu/menubarFocus';
 import { handleMenubarKey } from './menu/menubarKeynav';
@@ -41,7 +48,8 @@ export interface MenuItem {
   items?: MenuItem[];
 }
 
-const THEMES: { id: Theme; label: string }[] = [
+const THEMES: { id: ThemePreference; label: string }[] = [
+  { id: 'system', label: 'System' },
   { id: 'light', label: 'Light' },
   { id: 'dark', label: 'Dark' },
   { id: 'high-contrast', label: 'High Contrast' },
@@ -1555,7 +1563,7 @@ function itemAriaChecked(
 ): boolean | undefined {
   if (item.action === 'toggleLogoPanel') return state.logoPanelVisible;
   if (item.action?.startsWith('theme:')) {
-    return getTheme() === item.action.slice(6);
+    return getThemePreference() === item.action.slice(6);
   }
   if (item.action === 'canvasModeOutline') return state.canvasMode === 'outline';
   if (item.action === 'canvasModePreview') return state.canvasMode === 'preview';
@@ -1802,11 +1810,14 @@ export function Menubar({
 
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
-  const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
+  const [currentTheme, setCurrentTheme] = useState<ThemePreference>(getThemePreference);
   const menuRef = useRef<HTMLDivElement>(null);
   const dropdownMenuRef = useRef<HTMLDivElement>(null);
   const submenuRef = useRef<HTMLDivElement>(null);
   const topLevelRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Each submenu is anchored to its own parent item. A single dropdown ref
+  // makes every flyout originate from the menu's top-left corner.
+  const submenuAnchorRefs = useRef(new Map<string, { current: HTMLButtonElement | null }>());
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
   const [activeSubmenuIndex, setActiveSubmenuIndex] = useState(0);
@@ -1827,25 +1838,15 @@ export function Menubar({
   // Non-null when Tab/Shift+Tab closed the menu: restore must walk the tab
   // order past the anchor instead of returning focus to it.
   const tabWalkDirRef = useRef<1 | -1 | null>(null);
+  const menuContextRef = useRef({ workspaceMode: state.workspaceMode, activeId: state.activeId });
   const MENU_ITEM_SELECTOR = '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]';
 
   useEffect(() => {
-    const saved = (localStorage.getItem('varve-theme') ??
-      localStorage.getItem('strata-theme')) as Theme | null;
-    if (saved && saved !== getTheme()) {
-      setTheme(saved);
-      setCurrentTheme(saved);
-      bumpThemeRevision();
-    }
-    const observer = new MutationObserver(() => {
-      const current = getTheme();
-      if (current) setCurrentTheme(current);
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['data-theme'],
-    });
-    return () => observer.disconnect();
+    const handleChange = (event: Event) => {
+      setCurrentTheme((event as CustomEvent<ThemeChangeDetail>).detail.preference);
+    };
+    window.addEventListener(THEME_CHANGE_EVENT, handleChange);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, handleChange);
   }, []);
 
   useEffect(() => {
@@ -1886,13 +1887,19 @@ export function Menubar({
   });
 
   useEffect(() => {
-    if (openMenu) {
-      setOpenMenu(null);
-      setOpenSubmenu(null);
-      setActiveItemIndex(0);
-      setActiveSubmenuIndex(0);
-    }
-  }, [state.workspaceMode]);
+    const contextChanged =
+      menuContextRef.current.workspaceMode !== state.workspaceMode ||
+      menuContextRef.current.activeId !== state.activeId;
+    menuContextRef.current = { workspaceMode: state.workspaceMode, activeId: state.activeId };
+    if (!contextChanged || !openMenu) return;
+    const ownerDocument = dropdownMenuRef.current?.ownerDocument ?? menuRef.current?.ownerDocument;
+    if (!ownerDocument) return;
+    closeAllOverlays(ownerDocument, 'workspace-change');
+    setOpenMenu(null);
+    setOpenSubmenu(null);
+    setActiveItemIndex(0);
+    setActiveSubmenuIndex(0);
+  }, [state.workspaceMode, state.activeId, openMenu]);
 
   const openMenuIndex = openMenu ? menus.findIndex((m) => m.id === openMenu) : -1;
   const openMenuAnchorRef = useRef<HTMLButtonElement | null>(null);
@@ -2142,11 +2149,8 @@ export function Menubar({
         }
         default:
           if (action.startsWith('theme:')) {
-            const theme = action.slice(6) as Theme;
-            setTheme(theme);
-            setCurrentTheme(theme);
-            localStorage.setItem('varve-theme', theme);
-            bumpThemeRevision();
+            const theme = action.slice(6) as ThemePreference;
+            setThemePreference(theme);
             return;
           }
           if (action.startsWith('applyMaster:')) {
@@ -2197,7 +2201,7 @@ export function Menubar({
     workspaceMode: state.workspaceMode,
     platformKind: platform?.kind,
     runAction: handleAction,
-    getTheme: () => getTheme() ?? 'light',
+    getTheme: getThemePreference,
   });
 
   const handleZoomInput = useCallback(
@@ -2286,7 +2290,7 @@ export function Menubar({
               }}
               role="menuitem"
               className="editor-menubar__item"
-              aria-haspopup="true"
+              aria-haspopup="menu"
               aria-expanded={openMenu === menu.id}
               tabIndex={focusedIndex === i ? 0 : -1}
               type="button"
@@ -2312,6 +2316,8 @@ export function Menubar({
               anchorRef={openMenuAnchorRef}
               open
               insideRefs={[submenuRef]}
+              kind="menubar-menu"
+              dismissOnEscape={false}
               onClose={() => {
                 setOpenMenu(null);
                 setOpenSubmenu(null);
@@ -2320,7 +2326,19 @@ export function Menubar({
               }}
               className="editor-menubar__menu"
             >
-              <div ref={dropdownMenuRef} role="menu" aria-label={openMenu}>
+              <div
+                ref={dropdownMenuRef}
+                role="menu"
+                aria-label={openMenu}
+                onKeyDown={(event) => {
+                  // The portal remains a logical child of the menubar in
+                  // React's event tree. Stop here so a dropdown key is not
+                  // processed a second time by the menubar container (which
+                  // would turn `e` into `ee` for type-ahead).
+                  event.stopPropagation();
+                  handleMenuKeyDown(event);
+                }}
+              >
                 {/* activeItemIndex counts only focusable items (separators
                     excluded), matching menubarKeynav and the MENU_ITEM_SELECTOR
                     NodeList it focuses through. Comparing it against the raw
@@ -2349,6 +2367,12 @@ export function Menubar({
                       isChecked;
                     const hasSubmenu = !!item.items;
                     const isSubmenuOpen = openSubmenu === itemIdx;
+                    const submenuAnchorKey = `${openMenu}:${item.action ?? item.label}`;
+                    let submenuAnchorRef = submenuAnchorRefs.current.get(submenuAnchorKey);
+                    if (!submenuAnchorRef) {
+                      submenuAnchorRef = { current: null };
+                      submenuAnchorRefs.current.set(submenuAnchorKey, submenuAnchorRef);
+                    }
                     return (
                       <div
                         key={item.label}
@@ -2356,6 +2380,10 @@ export function Menubar({
                         className="editor-menubar__menu-item-wrapper"
                         onMouseEnter={() => {
                           if (hasSubmenu) {
+                            // Pointer-opening a flyout must still establish
+                            // the owning parent item for Escape/Left focus
+                            // restoration; hover must not itself steal focus.
+                            setActiveItemIndex(itemFocusableIdx);
                             setOpenSubmenu(itemIdx);
                             setActiveSubmenuIndex(0);
                           }
@@ -2363,9 +2391,10 @@ export function Menubar({
                       >
                         {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox */}
                         <button
+                          ref={hasSubmenu ? submenuAnchorRef : undefined}
                           role={hasSubmenu ? 'menuitem' : role}
                           type="button"
-                          aria-haspopup={hasSubmenu ? true : undefined}
+                          aria-haspopup={hasSubmenu ? 'menu' : undefined}
                           aria-expanded={hasSubmenu ? isSubmenuOpen : undefined}
                           aria-checked={
                             !hasSubmenu && (role === 'menuitemradio' || role === 'menuitemcheckbox')
@@ -2399,16 +2428,18 @@ export function Menubar({
                             parentLabel={item.label}
                             open
                             activeSubmenuIndex={activeSubmenuIndex}
-                            anchorRef={dropdownMenuRef}
+                            anchorRef={submenuAnchorRef}
                             submenuRef={submenuRef}
                             currentTheme={currentTheme}
                             state={state}
+                            onKeyDown={handleMenuKeyDown}
                             onClose={() => {
                               setOpenSubmenu(null);
                               setActiveSubmenuIndex(0);
                               // Return focus to the parent item when the submenu
                               // had it (outside-click close).
-                              const active = document.activeElement;
+                              const active =
+                                submenuRef.current?.ownerDocument.activeElement ?? null;
                               if (active && submenuRef.current?.contains(active)) {
                                 const parentItems =
                                   dropdownMenuRef.current?.querySelectorAll<HTMLButtonElement>(
@@ -2518,7 +2549,7 @@ export function Menubar({
         description={missingFileDialog?.message ?? ''}
         confirmLabel="Remove from List"
         cancelLabel="Keep in List"
-        variant="danger"
+        variant="destructive"
       />
 
       <RasterizeDialog

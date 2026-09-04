@@ -1,3 +1,4 @@
+import type { IconName } from '@varve/ui';
 import type { NudgeCapability } from './nudgeCapability';
 
 export type Accelerator = {
@@ -96,6 +97,9 @@ export interface MenuItemDef {
   enabled?: (ctx: MenuContext) => true | { reason: string };
   checked?: (ctx: MenuContext) => boolean;
   badge?: (ctx: MenuContext) => string | undefined;
+  icon?: IconName;
+  description?: string;
+  destructive?: boolean;
   run?: (ctx: MenuContext) => void | Promise<void>;
   capabilities?: Capability[];
   workspaces?: import('../workspace/workspaceTypes').WorkspaceMode[];
