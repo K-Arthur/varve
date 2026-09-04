@@ -36,13 +36,13 @@ async function activateRectangleTool(): Promise<void> {
   await moreTools.click();
 
   const shapesCategory = await browser.$(
-    '//div[contains(@class, "varve-ctxmenu")]//button[.//span[normalize-space()="Shapes"]]',
+    '//div[@role="menu" and @aria-label="More tools"]//button[@role="menuitem" and .//span[normalize-space()="Shapes"]]',
   );
   await shapesCategory.waitForDisplayed({ timeout: 5000 });
   await shapesCategory.click();
 
   const rectangleItem = await browser.$(
-    '//div[contains(@class, "varve-menu__submenu")]//button[.//span[normalize-space()="Rectangle"]]',
+    '//div[@role="menu" and contains(@aria-label, "submenu")]//button[@role="menuitem" and .//span[normalize-space()="Rectangle"]]',
   );
   await rectangleItem.waitForDisplayed({ timeout: 5000 });
   await rectangleItem.click();
@@ -157,6 +157,10 @@ describe('Tauri Desktop: Create and Edit Document', () => {
     // canvas, while the toolbar is the same user-facing path used by mouse
     // and touch input.
     await activateRectangleTool();
+    // React commits the tool change after the menu click. Give the toolbar
+    // state and the canvas input facade one event-loop turn before dispatching
+    // the synthetic native-driver pointer sequence.
+    await browser.pause(100);
 
     // Dispatch the same pointer sequence directly on the real canvas node.
     // This avoids WebKitGTK's embedded-driver coordinate translation, which
@@ -165,11 +169,11 @@ describe('Tauri Desktop: Create and Edit Document', () => {
     await browser.tauri.execute(() => {
       const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="editor-canvas"]');
       if (!canvas) throw new Error('editor canvas not found');
-      const rect = canvas.getBoundingClientRect();
-      const startX = Math.round(rect.left + rect.width / 2 - 50);
-      const startY = Math.round(rect.top + rect.height / 2 - 50);
-      const endX = Math.round(rect.left + rect.width / 2 + 50);
-      const endY = Math.round(rect.top + rect.height / 2 + 50);
+      const box = canvas.getBoundingClientRect();
+      const startX = box.left + box.width * 0.28;
+      const startY = box.top + box.height * 0.28;
+      const endX = box.left + box.width * 0.62;
+      const endY = box.top + box.height * 0.62;
       const dispatch = (type: string, clientX: number, clientY: number, buttons: number) =>
         canvas.dispatchEvent(
           new PointerEvent(type, {
@@ -181,7 +185,6 @@ describe('Tauri Desktop: Create and Edit Document', () => {
             pointerType: 'mouse',
             isPrimary: true,
             buttons,
-            button: type === 'pointerup' ? 0 : 0,
           }),
         );
       dispatch('pointerdown', startX, startY, 1);
@@ -189,7 +192,7 @@ describe('Tauri Desktop: Create and Edit Document', () => {
       dispatch('pointerup', endX, endY, 0);
     });
 
-    await browser.pause(500);
+    await browser.pause(900);
 
     // Verify a layer appeared in the layers tree
     const treeItems = await browser.$$('[role="treeitem"]');

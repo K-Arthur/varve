@@ -1177,6 +1177,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   .arch-chip {
     display: inline-flex;
     align-items: center;
+    /* Keep the chip compact and its text metrics deterministic so the
+       recommendation-to-download gap remains at least one spacing unit. */
+    line-height: 1rem;
     font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.05em;

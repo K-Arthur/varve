@@ -558,8 +558,18 @@ test.describe('focus and keyboard', () => {
     for (const t of THEMES) {
       await page.emulateMedia({ colorScheme: t.colorScheme });
       await freshPage(page);
-      const link = page.getByRole('link', { name: 'Docs', exact: true });
-      await link.focus();
+      const mainNav = page.getByRole('navigation', { name: 'Main' });
+      // Exercise the keyboard path so Chromium applies :focus-visible; a
+      // programmatic locator.focus() alone intentionally does not establish
+      // keyboard modality.
+      const learnTrigger = mainNav.getByRole('button', { name: 'Learn', exact: true });
+      await learnTrigger.focus();
+      await page.keyboard.press('Enter');
+      await page.keyboard.press('ArrowDown');
+      const link = mainNav
+        .getByRole('menu', { name: 'Learn menu' })
+        .getByRole('menuitem', { name: /^Docs\b/ });
+      await expect(link).toBeFocused();
       const outline = await link.evaluate((el) => {
         const cs = getComputedStyle(el);
         return { style: cs.outlineStyle, width: cs.outlineWidth, color: cs.outlineColor };

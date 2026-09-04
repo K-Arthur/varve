@@ -185,6 +185,21 @@ describe('validation infrastructure presence', () => {
     expect(validation.reasons.join('\n')).toMatch(/typecheck count/);
   });
 
+  it('does not send website Playwright specs to the Vitest direct-file lane', () => {
+    const validation = selectPushValidation(
+      {
+        tiers: { 0: [], 1: [], 2: [], 3: [], 4: ['website-e2e'] },
+        changed: { js: [], rust: [], other: [], app: [] },
+        full: false,
+        reasons: [],
+      },
+      { files: ['apps/website/tests/e2e/contact.spec.ts'] },
+    );
+    expect(validation.localBlocking).not.toContain(
+      'js-unit:file:apps/website/tests/e2e/contact.spec.ts',
+    );
+  });
+
   it('passes the bounded local checkpoint while explicitly deferring global certification', () => {
     const validation = selectPushValidation(
       {

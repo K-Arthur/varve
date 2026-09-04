@@ -426,7 +426,9 @@ export function selectPushValidation(plan, { files = pathList(plan), strict = fa
 
   const directTests = files.filter((file) => /\.(test|spec)\.(ts|tsx)$/.test(file));
   if (directTests.length <= PUSH_LIMITS.maxDirectTestFiles) {
-    for (const file of directTests.filter((file) => !file.startsWith('tests/e2e/')).sort()) {
+    for (const file of directTests
+      .filter((file) => !file.startsWith('tests/e2e/') && !file.includes('/tests/e2e/'))
+      .sort()) {
       localBlocking.push(`js-unit:file:${file}`);
       estimatedSeconds += LANE_COST_SECONDS['js-unit:file'];
     }
