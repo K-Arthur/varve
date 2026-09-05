@@ -280,6 +280,25 @@ the effect parameters, so export and reload never need the original file.
   expanded (bloom spill is inside the PNG but downstream placement uses the
   content rect).
 
+## 11.1 Spatial object filters
+
+The object-filter catalog includes four bounded CPU reference kernels:
+
+- **Motion Blur** integrates a finite bilinear line in object coordinates and
+  recomputes edge coverage. Its angle follows the object transform.
+- **Mosaic** averages premultiplied colour and coverage in a stable object-local
+  grid. It is a visual treatment and must not be used as secure redaction.
+- **Surface Smooth** is a separable joint-bilateral approximation guided by the
+  original encoded-sRGB image. It preserves source alpha and documents its axis
+  bias rather than presenting itself as an isotropic or AI denoiser.
+- **Edge Ink** uses a Sobel contour field over composited paper and supports
+  either paper-preserving output or transparent ink coverage.
+
+All four clamp their authored ranges, cap raster work, report expanded bounds,
+and share the same FilterIR, history, persistence, and raster-export path as
+the existing effects. They are intentionally software-only until a measured
+GPU/native implementation can be checked against these references.
+
 ## 12. Object Filters and adjustment-layer scope
 
 Varve has two complementary nondestructive adjustment surfaces. The product

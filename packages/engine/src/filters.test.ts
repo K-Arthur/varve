@@ -153,6 +153,34 @@ describe('new adjustment kinds', () => {
     });
   });
 
+  it('scales object-local spatial support when the capture raster has larger pixels per unit', () => {
+    expect(
+      effectPixelExpansion(
+        {
+          kind: 'motionBlur',
+          distance: 8,
+          angle: 0,
+          opacity: 1,
+          blendMode: 'normal',
+        },
+        2,
+      ),
+    ).toEqual([9, 9, 9, 9]);
+    expect(
+      effectPixelExpansion(
+        {
+          kind: 'mosaic',
+          blockSize: 4,
+          originX: 0,
+          originY: 0,
+          opacity: 1,
+          blendMode: 'normal',
+        },
+        2,
+      ),
+    ).toEqual([8, 8, 8, 8]);
+  });
+
   it('uses the same clear treatment names in menus and effect contracts', () => {
     const names = {
       microDetail: 'Fine Texture',

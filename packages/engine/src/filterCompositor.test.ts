@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
+import { filterToCss } from './filters';
 import { serializeLutForDocument } from './lut/lutService';
 import { makeIdentityLut1D } from './lut/types';
 import type { FilterIR } from './types';
@@ -160,6 +161,12 @@ describe('filter compositing', () => {
       applySoftwareFilter(context as unknown as OffscreenCanvasRenderingContext2D, filter, 1, 1);
       expect(Array.from(output!.data)).toEqual([17, 33, 49, 0]);
     }
+  });
+
+  it('does not substitute CSS saturation for vibrance', () => {
+    expect(
+      filterToCss({ kind: 'vibrance', value: 50, opacity: 1, blendMode: 'normal' }),
+    ).toBeNull();
   });
 
   it('dispatches Dehaze through the software compositor and preserves transparent pixels', () => {

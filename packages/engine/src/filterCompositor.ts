@@ -3,10 +3,10 @@
  * opacity and blend mode via offscreen canvas compositing.
  *
  * Architecture:
- *   CSS-compatible filters with opacity=1 and blendMode=normal are batched into
- *   ctx.filter for GPU-accelerated rendering. All other filters (non-CSS, or
- *   requiring opacity/blend compositing) are rendered via offscreen canvas:
- *   snapshot → apply filter → composite back with opacity × blendMode.
+ *   CSS-compatible kernels use ctx.filter where available; hardware acceleration
+ *   is browser-dependent. Other kernels use software. Both routes evaluate a
+ *   filter on an intermediate surface before strength/blend compositing:
+ *   snapshot → apply filter → mix with incoming pixels at the requested strength.
  *
  * Research basis: Photoshop adjustment layers, CSS Filter Effects spec,
  *   W3C Compositing and Blending spec.
@@ -51,12 +51,16 @@ import { applyBloom } from './liveEffects/bloom';
 import { applyCaustics } from './liveEffects/caustics';
 import { applyCrt } from './liveEffects/crt';
 import { applyDither, type CoordSpace } from './liveEffects/dither';
+import { applyEdgeInk } from './liveEffects/edgeInk';
 import { applyLensFlare } from './liveEffects/lensFlare';
 import { applyLightLeak } from './liveEffects/lightLeak';
 import { applyLightShafts } from './liveEffects/lightShafts';
+import { applyMosaic } from './liveEffects/mosaic';
+import { applyMotionBlur } from './liveEffects/motionBlur';
 import { applyPaletteSnap } from './liveEffects/paletteSnap';
 import type { EffectQuality } from './liveEffects/quality';
 import { applyRgbSplit } from './liveEffects/rgbSplit';
+import { applySurfaceSmooth } from './liveEffects/surfaceSmooth';
 import { applyVhs } from './liveEffects/vhs';
 import { applyLutToImageData } from './lut/apply';
 import { deserializeLutTransform } from './lut/codec';
@@ -119,6 +123,7 @@ export function applyFilterWithCompositing(
   current.context.drawImage(target.canvas, 0, 0);
 
   for (const f of filters) {
+    if ((f.opacity ?? 1) <= 0) continue;
     const css = filterToCss(f);
     let filtered: ReturnType<typeof createRasterSurface>;
     try {
@@ -142,18 +147,22 @@ export function applyFilterWithCompositing(
 
     try {
       const composed = createRasterSurface(width, height);
+      const normal = !f.blendMode || f.blendMode === 'normal';
+      // Add weighted premultiplied pixels. Source-over would deposit a second
+      // copy of the object's coverage, making even a neutral filter more opaque.
+      composed.context.globalAlpha = normal ? 1 - (f.opacity ?? 1) : 1;
       composed.context.drawImage(current.canvas, 0, 0);
       composed.context.globalAlpha = f.opacity ?? 1;
-      composed.context.globalCompositeOperation = mapBlendMode(
-        f.blendMode ?? 'normal',
-      ) as GlobalCompositeOperation;
+      composed.context.globalCompositeOperation = normal
+        ? 'lighter'
+        : (mapBlendMode(f.blendMode ?? 'normal') as GlobalCompositeOperation);
       composed.context.drawImage(filtered.canvas, 0, 0);
       current = composed;
     } catch {
       const backdrop = current.context.getImageData(0, 0, width, height);
       const source = filtered.context.getImageData(0, 0, width, height);
       current.context.putImageData(
-        blendPixels(backdrop, source, f.blendMode ?? 'normal', f.opacity ?? 1),
+        mixFilterPixels(backdrop, source, f.blendMode ?? 'normal', f.opacity ?? 1),
         0,
         0,
       );
@@ -183,12 +192,45 @@ function applySoftwareFilterWithCompositing(
   height: number,
   options: FilterRenderOptions,
 ): void {
+  if ((filter.opacity ?? 1) <= 0) return;
   const backdrop = target.getImageData(0, 0, width, height);
   applySoftwareFilter(target, filter, width, height, options);
   const opacity = filter.opacity ?? 1;
   if (opacity >= 1 && (!filter.blendMode || filter.blendMode === 'normal')) return;
   const source = target.getImageData(0, 0, width, height);
-  target.putImageData(blendPixels(backdrop, source, filter.blendMode ?? 'normal', opacity), 0, 0);
+  target.putImageData(
+    mixFilterPixels(backdrop, source, filter.blendMode ?? 'normal', opacity),
+    0,
+    0,
+  );
+}
+
+/** Normal strength cross-fades premultiplied RGBA; artistic modes retain their authored blend. */
+function mixFilterPixels(
+  input: ImageData,
+  filtered: ImageData,
+  mode: string,
+  strength: number,
+): ImageData {
+  if (mode !== 'normal') return blendPixels(input, filtered, mode, strength);
+  const mix = Math.max(0, Math.min(1, strength));
+  // Reuse the evaluated buffer: its pixels are no longer needed separately.
+  for (let i = 0; i < input.data.length; i += 4) {
+    const incomingWeight = input.data[i + 3]! * (1 - mix);
+    const filteredWeight = filtered.data[i + 3]! * mix;
+    const alpha = incomingWeight + filteredWeight;
+    for (let c = 0; c < 3; c++) {
+      filtered.data[i + c] =
+        alpha > 0
+          ? Math.round(
+              (input.data[i + c]! * incomingWeight + filtered.data[i + c]! * filteredWeight) /
+                alpha,
+            )
+          : 0;
+    }
+    filtered.data[i + 3] = Math.round(alpha);
+  }
+  return filtered;
 }
 
 /**
@@ -226,6 +268,33 @@ export function applySoftwareFilter(
         0,
         0,
       );
+      break;
+    }
+    case 'motionBlur': {
+      const mf = filter as { distance: number; angle: number };
+      ctx.putImageData(applyMotionBlur(imageData, mf, options.treatmentSpace), 0, 0);
+      break;
+    }
+    case 'mosaic': {
+      const mf = filter as { blockSize: number; originX: number; originY: number };
+      ctx.putImageData(applyMosaic(imageData, mf, options.treatmentSpace), 0, 0);
+      break;
+    }
+    case 'surfaceSmooth': {
+      const sf = filter as { radius: number; sensitivity: number };
+      ctx.putImageData(applySurfaceSmooth(imageData, sf, options.treatmentSpace), 0, 0);
+      break;
+    }
+    case 'edgeInk': {
+      const ef = filter as {
+        radius: number;
+        threshold: number;
+        softness: number;
+        foregroundColor: readonly [number, number, number];
+        backgroundColor: readonly [number, number, number];
+        transparentBackground: boolean;
+      };
+      ctx.putImageData(applyEdgeInk(imageData, ef, options.treatmentSpace), 0, 0);
       break;
     }
     case 'curves': {

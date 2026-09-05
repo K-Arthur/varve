@@ -228,7 +228,7 @@ export interface EffectDefinition {
   };
   rendering: {
     colourDomain: 'linear-light' | 'perceptual' | 'effect-specific';
-    alphaPolicy: 'preserve-source-alpha';
+    alphaPolicy: 'preserve-source-alpha' | 'coverage-recomputed';
     boundsPolicy: 'source' | 'expanded';
     deterministic: boolean;
     previewPolicy: 'exact' | 'quality-tier';
@@ -278,6 +278,10 @@ const CATEGORY_BY_KIND: Partial<Record<AdjustmentKind, EffectCategoryId>> = {
   lensFlare: 'atmosphere-light',
   lightLeak: 'atmosphere-light',
   caustics: 'atmosphere-light',
+  motionBlur: 'focus-detail',
+  mosaic: 'print-pattern',
+  surfaceSmooth: 'focus-detail',
+  edgeInk: 'edge-illustration',
   microDetail: 'focus-detail',
   definition: 'focus-detail',
   atmosphere: 'atmosphere-light',
@@ -299,6 +303,10 @@ const DESCRIPTION_BY_KIND: Partial<Record<AdjustmentKind, string>> = {
   rgbSplit: 'Separate colour channels for a controlled fringe.',
   edgeFalloff: 'Shape attention toward the centre with an editable falloff.',
   softBloom: 'Diffuse bright and mid-tone areas into a gentle glow.',
+  motionBlur: 'Spread an object along a finite, object-local direction.',
+  mosaic: 'Average pixels into a stable object-coordinate block grid.',
+  surfaceSmooth: 'Reduce surface noise while retaining strong luminance edges.',
+  edgeInk: 'Extract Sobel contours into an editable ink and paper treatment.',
 };
 
 const TAGS_BY_KIND: Partial<Record<AdjustmentKind, readonly string[]>> = {
@@ -312,6 +320,10 @@ const TAGS_BY_KIND: Partial<Record<AdjustmentKind, readonly string[]>> = {
   crt: ['screen', 'retro', 'scanlines'],
   vhs: ['tape', 'retro', 'glitch'],
   edgeFalloff: ['vignette', 'focus', 'edges'],
+  motionBlur: ['movement', 'directional', 'streak'],
+  mosaic: ['pixel', 'blocks', 'poster'],
+  surfaceSmooth: ['skin', 'noise', 'bilateral'],
+  edgeInk: ['outline', 'ink', 'contour'],
 };
 
 const COMMON_RANGES: Record<string, [number, number, EffectParameterDefinition['unit']?]> = {
@@ -321,6 +333,11 @@ const COMMON_RANGES: Record<string, [number, number, EffectParameterDefinition['
   intensity: [0, 1, 'number'],
   opacity: [0, 1, 'number'],
   radius: [0, 4096, 'pixels'],
+  distance: [0, 128, 'pixels'],
+  blockSize: [2, 128, 'pixels'],
+  sensitivity: [1, 128, 'number'],
+  originX: [-128, 128, 'pixels'],
+  originY: [-128, 128, 'pixels'],
   blur: [0, 4096, 'pixels'],
   angle: [-180, 180, 'degrees'],
   direction: [-180, 180, 'degrees'],
@@ -352,7 +369,15 @@ function parameterDefinitions(kind: AdjustmentKind): EffectParameterDefinition[]
         defaultValue,
         ...(range ? { min: range[0], max: range[1], unit: range[2] } : {}),
         animatable: key === 'time' || key === 'value' || key === 'amount',
-        changesBounds: ['radius', 'blur', 'size', 'streakLength', 'scale'].includes(key),
+        changesBounds: [
+          'radius',
+          'blur',
+          'size',
+          'streakLength',
+          'scale',
+          'distance',
+          'blockSize',
+        ].includes(key),
         expensive: contract?.hasApproximatePreview ?? false,
       };
     });
@@ -422,7 +447,7 @@ function definitionFor(kind: AdjustmentKind): EffectDefinition {
           : contract?.workingSpace === 'oklab'
             ? 'perceptual'
             : 'effect-specific',
-      alphaPolicy: 'preserve-source-alpha',
+      alphaPolicy: contract?.alphaPolicy ?? 'preserve-source-alpha',
       boundsPolicy: requiresExpandedBounds ? 'expanded' : 'source',
       deterministic: true,
       previewPolicy: contract?.hasApproximatePreview ? 'quality-tier' : 'exact',

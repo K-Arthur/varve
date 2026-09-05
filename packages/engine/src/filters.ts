@@ -52,6 +52,10 @@ export const ADJUSTMENT_KINDS = [
   'invert',
   'opacity',
   'blur',
+  'motionBlur',
+  'mosaic',
+  'surfaceSmooth',
+  'edgeInk',
   'sharpen',
   'temperature',
   'tint',
@@ -747,6 +751,35 @@ export interface SoftBloomAdjustment extends AdjustmentBase, SoftBloomParams {
   kind: 'softBloom';
 }
 
+export interface MotionBlurAdjustment extends AdjustmentBase {
+  kind: 'motionBlur';
+  distance: number;
+  angle: number;
+}
+
+export interface MosaicAdjustment extends AdjustmentBase {
+  kind: 'mosaic';
+  blockSize: number;
+  originX: number;
+  originY: number;
+}
+
+export interface SurfaceSmoothAdjustment extends AdjustmentBase {
+  kind: 'surfaceSmooth';
+  radius: number;
+  sensitivity: number;
+}
+
+export interface EdgeInkAdjustment extends AdjustmentBase {
+  kind: 'edgeInk';
+  radius: number;
+  threshold: number;
+  softness: number;
+  foregroundColor: readonly [number, number, number];
+  backgroundColor: readonly [number, number, number];
+  transparentBackground: boolean;
+}
+
 export type Adjustment =
   | BrightnessAdjustment
   | ContrastAdjustment
@@ -795,7 +828,11 @@ export type Adjustment =
   | DehazeAdjustment
   | EdgeFalloffAdjustment
   | GrainAdjustment
-  | SoftBloomAdjustment;
+  | SoftBloomAdjustment
+  | MotionBlurAdjustment
+  | MosaicAdjustment
+  | SurfaceSmoothAdjustment
+  | EdgeInkAdjustment;
 
 export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
   const base = { opacity: adjustment.opacity, blendMode: adjustment.blendMode };
@@ -828,6 +865,39 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
       return { kind: 'opacity', value: adjustment.value, ...base };
     case 'blur':
       return { kind: 'blur', radius: adjustment.radius, ...base };
+    case 'motionBlur':
+      return {
+        kind: 'motionBlur',
+        distance: adjustment.distance,
+        angle: adjustment.angle,
+        ...base,
+      };
+    case 'mosaic':
+      return {
+        kind: 'mosaic',
+        blockSize: adjustment.blockSize,
+        originX: adjustment.originX,
+        originY: adjustment.originY,
+        ...base,
+      };
+    case 'surfaceSmooth':
+      return {
+        kind: 'surfaceSmooth',
+        radius: adjustment.radius,
+        sensitivity: adjustment.sensitivity,
+        ...base,
+      };
+    case 'edgeInk':
+      return {
+        kind: 'edgeInk',
+        radius: adjustment.radius,
+        threshold: adjustment.threshold,
+        softness: adjustment.softness,
+        foregroundColor: adjustment.foregroundColor,
+        backgroundColor: adjustment.backgroundColor,
+        transparentBackground: adjustment.transparentBackground,
+        ...base,
+      };
     case 'sharpen':
       return {
         kind: 'sharpen',
@@ -1348,8 +1418,10 @@ export function filterToCss(filter: FilterIR): string | null {
     case 'blur':
       return `blur(${filter.radius}px)`;
     case 'vibrance':
-      // CSS has no vibrance; approximate with saturate
-      return `saturate(${100 + filter.value * 0.7}%)`;
+      // CSS has no vibrance equivalent. Returning an approximation here made
+      // preview depend on browser CSS semantics while export used the distinct
+      // software vibrance kernel, so this must take the reference path.
+      return null;
     case 'exposure':
     case 'sharpen':
     case 'hueSaturation':
@@ -1390,6 +1462,10 @@ export function filterToCss(filter: FilterIR): string | null {
     case 'edgeFalloff':
     case 'grain':
     case 'softBloom':
+    case 'motionBlur':
+    case 'mosaic':
+    case 'surfaceSmooth':
+    case 'edgeInk':
       return null; // Live effects are software kernels only; no CSS equivalent
     case 'chain':
       return filterChainToCss(filter.filters);
@@ -1471,6 +1547,14 @@ export function filterKindDisplayName(kind: AdjustmentKind): string {
       return 'Light Leak';
     case 'caustics':
       return 'Caustics';
+    case 'motionBlur':
+      return 'Motion Blur';
+    case 'mosaic':
+      return 'Mosaic';
+    case 'surfaceSmooth':
+      return 'Surface Smooth';
+    case 'edgeInk':
+      return 'Edge Ink';
     default:
       return kind.charAt(0).toUpperCase() + kind.slice(1);
   }
@@ -1509,6 +1593,22 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
       return { ...base, value: 100 } as Omit<Adjustment, 'id' | 'kind'>;
     case 'blur':
       return { ...base, radius: 0 } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'motionBlur':
+      return { ...base, distance: 16, angle: 0 } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'mosaic':
+      return { ...base, blockSize: 12, originX: 0, originY: 0 } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'surfaceSmooth':
+      return { ...base, radius: 3, sensitivity: 24 } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'edgeInk':
+      return {
+        ...base,
+        radius: 1,
+        threshold: 0.15,
+        softness: 0.15,
+        foregroundColor: [20, 30, 40],
+        backgroundColor: [250, 248, 240],
+        transparentBackground: false,
+      } as Omit<Adjustment, 'id' | 'kind'>;
     case 'sharpen':
       return { ...base, amount: 0, radius: 1, threshold: 0 } as Omit<Adjustment, 'id' | 'kind'>;
     case 'temperature':
