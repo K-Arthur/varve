@@ -142,12 +142,41 @@ because it is a pick-through selector, not a traditional context menu.
 
 ## Decisions
 
-### Radial bubble menu: REJECTED
-The radial/pie-style menu pattern was evaluated and rejected for Varve's
-context menus. It lacks: semantic menu roles, roving focus, keyboard
-navigation, screen-reader labeling, disabled/checkbox/radio support, submenus,
-viewport collision handling, and focus restoration. It may be reconsidered for
-a narrow touch/pen quick-action interface in the future.
+### Radial bubble menu: REJECTED (final evaluation)
+
+The radial/pie-style menu pattern was evaluated against the full production
+contract and rejected. Specific gaps identified:
+
+| Requirement | Status |
+|---|---|
+| Semantic menu roles (`role="menu"`, `role="menuitem"`) | Missing |
+| Roving tabindex keyboard navigation | Missing |
+| Keyboard invocation (ContextMenu key, Shift+F10) | Missing |
+| Screen-reader labeling | Missing |
+| Disabled items | Missing |
+| Checkbox and radio items | Missing |
+| Separators and group labels | Missing |
+| Submenus | Missing |
+| Viewport collision handling (flip, shift, clamp) | Missing |
+| Zero-item division (avoiding overlap) | Missing |
+| Duplicate-label React key handling | Not addressed |
+| Large item counts (>8 items) | Would cause overlap |
+| Small viewport clipping | Not handled |
+| RTL support | Not handled |
+| Reduced-motion respect | Not handled |
+| Owner-document and multi-window behavior | Not handled |
+| Focus restoration on close | Not handled |
+| Escape behavior (deepest-first) | Not handled |
+| Resize and scroll repositioning | Not handled |
+| Destructive action confirmations | Not handled |
+| Drag and long-press gesture conflicts | Not handled |
+| Platform shortcut metadata display | Not handled |
+
+The radial pattern may be reconsidered **only** if a narrow, high-value use
+case emerges (e.g., pen barrel-button quick actions with ≤6 stable items).
+If implemented, it must be a separate optional primitive with an equivalent
+conventional menu route, full keyboard/switch input support, and stable action
+IDs. It must not replace the standard context menu system.
 
 ### New menu system: NOT INTRODUCED
 All improvements use the existing shared `ContextMenu`/`Menu` primitives from
@@ -157,6 +186,10 @@ All improvements use the existing shared `ContextMenu`/`Menu` primitives from
 The native browser context menu is suppressed only within application surfaces
 that provide a complete Varve replacement. Text inputs, textareas, password
 fields, links, and debugging contexts retain native menus.
+
+### Marketing website: NO CHANGES NEEDED
+The marketing website (`apps/website/`) is Astro-based with native navigation
+and contains no context menus or right-click handlers. No changes required.
 
 ## Remaining deferred work
 

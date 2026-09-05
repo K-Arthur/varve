@@ -86,10 +86,13 @@ export function GradientMapPresetBrowser({
     if (!context) return [];
     const id = context.preset.id;
     const items: import('@varve/ui').MenuEntry[] = [];
+    items.push({ id: 'preset-label', label: 'Preset', type: 'label' });
     if (onToggleFavorite) {
+      const isFav = favoriteIds.has(id);
       items.push({
         id: 'favorite',
-        label: favoriteIds.has(id) ? 'Remove from favorites' : 'Add to favorites',
+        label: isFav ? 'Remove from favorites' : 'Add to favorites',
+        icon: isFav ? 'StarOff' : 'Star',
         onAction: () => onToggleFavorite(id),
       });
     }
@@ -97,6 +100,7 @@ export function GradientMapPresetBrowser({
       items.push({
         id: 'rename',
         label: 'Rename',
+        icon: 'Pencil',
         onAction: async () => {
           const name = await promptDialog('Rename preset', displayName(context.preset));
           if (name?.trim()) onRename(id, name.trim());
@@ -104,33 +108,44 @@ export function GradientMapPresetBrowser({
       });
     }
     if (onDuplicate) {
-      items.push({ id: 'duplicate', label: 'Duplicate', onAction: () => onDuplicate(id) });
+      items.push({
+        id: 'duplicate',
+        label: 'Duplicate',
+        icon: 'CopyPlus',
+        onAction: () => onDuplicate(id),
+      });
     }
     if (onExport) {
       items.push({
         id: 'export',
         label: 'Export preset',
+        icon: 'Download',
         onAction: () => onExport(context.preset),
       });
     }
     if (onDelete) {
-      items.push({
-        id: 'delete',
-        label: 'Delete',
-        onAction: async () => {
-          if (
-            await confirmDialog(
-              'Delete preset',
-              `Delete preset "${displayName(context.preset)}"?`,
-              {
-                confirmLabel: 'Delete',
-                variant: 'destructive',
-              },
+      items.push(
+        { id: 'danger-sep', separator: true },
+        {
+          id: 'delete',
+          label: 'Delete',
+          icon: 'Trash2',
+          destructive: true,
+          onAction: async () => {
+            if (
+              await confirmDialog(
+                'Delete preset',
+                `Delete preset "${displayName(context.preset)}"?`,
+                {
+                  confirmLabel: 'Delete',
+                  variant: 'destructive',
+                },
+              )
             )
-          )
-            onDelete(id);
+              onDelete(id);
+          },
         },
-      });
+      );
     }
     return items;
   }, [context, favoriteIds, onToggleFavorite, onRename, onDuplicate, onExport, onDelete]);

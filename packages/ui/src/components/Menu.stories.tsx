@@ -353,3 +353,166 @@ export const GroupedWithDanger: Story = {
     );
   },
 };
+
+const allDisabledItems: readonly MenuEntry[] = [
+  { id: 'cut', label: 'Cut', icon: 'Scissors', disabled: true, onAction: () => {} },
+  { id: 'copy', label: 'Copy', icon: 'Copy', disabled: true, onAction: () => {} },
+  { id: 'paste', label: 'Paste', icon: 'ClipboardPaste', disabled: true, onAction: () => {} },
+  { id: 'delete', label: 'Delete', icon: 'Trash2', disabled: true, onAction: () => {} },
+];
+
+export const AllDisabled: Story = {
+  render: () => {
+    const [open, setOpen] = useState(false);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
+    return (
+      <>
+        <MenuButton
+          ref={triggerRef}
+          label="Disabled"
+          menuId="disabled-menu"
+          expanded={open}
+          onClick={() => setOpen(!open)}
+        />
+        <Menu
+          items={allDisabledItems}
+          triggerRef={triggerRef}
+          open={open}
+          onClose={() => setOpen(false)}
+          label="All disabled menu"
+          id="disabled-menu"
+        />
+      </>
+    );
+  },
+};
+
+const emptyItems: readonly MenuEntry[] = [];
+
+export const Empty: Story = {
+  render: () => {
+    const [open, setOpen] = useState(false);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
+    return (
+      <>
+        <MenuButton
+          ref={triggerRef}
+          label="Empty"
+          menuId="empty-menu"
+          expanded={open}
+          onClick={() => setOpen(!open)}
+        />
+        <Menu
+          items={emptyItems}
+          triggerRef={triggerRef}
+          open={open}
+          onClose={() => setOpen(false)}
+          label="Empty menu"
+          id="empty-menu"
+        />
+      </>
+    );
+  },
+};
+
+const longLabelsItems: readonly MenuEntry[] = [
+  {
+    id: 'long1',
+    label: 'Use Selection as File Thumbnail',
+    icon: 'Image',
+    onAction: () => {},
+  },
+  {
+    id: 'long2',
+    label: 'Detect Duplicates in Selection',
+    icon: 'ScanSearch',
+    onAction: () => {},
+  },
+  {
+    id: 'long3',
+    label: 'Move to Trash',
+    icon: 'Trash2',
+    destructive: true,
+    onAction: () => {},
+  },
+];
+
+export const LongLabels: Story = {
+  render: () => {
+    const [open, setOpen] = useState(false);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
+    return (
+      <>
+        <MenuButton
+          ref={triggerRef}
+          label="Long Labels"
+          menuId="long-menu"
+          expanded={open}
+          onClick={() => setOpen(!open)}
+        />
+        <Menu
+          items={longLabelsItems}
+          triggerRef={triggerRef}
+          open={open}
+          onClose={() => setOpen(false)}
+          label="Long labels menu"
+          id="long-menu"
+          size="default"
+        />
+      </>
+    );
+  },
+};
+
+const homeFileItems: readonly MenuEntry[] = [
+  { id: 'file-label', type: 'label', label: 'File' },
+  { id: 'open', label: 'Open', icon: 'ExternalLink', onAction: () => {} },
+  { id: 'sep1', separator: true },
+  { id: 'rename', label: 'Rename', icon: 'Pencil', onAction: () => {} },
+  { id: 'duplicate', label: 'Duplicate', icon: 'CopyPlus', onAction: () => {} },
+  { id: 'org-label', type: 'label', label: 'Organization' },
+  { id: 'project1', label: 'My Project', icon: 'Folder', onAction: () => {} },
+  { id: 'unfiled', label: 'Unfiled', icon: 'FolderOpen', onAction: () => {} },
+  { id: 'sep2', separator: true },
+  { id: 'favorite', label: 'Add to Favorites', icon: 'Star', onAction: () => {} },
+  { id: 'pin', label: 'Pin', icon: 'Pin', onAction: () => {} },
+  { id: 'sep3', separator: true },
+  { id: 'versions', label: 'Version History…', icon: 'Clock', onAction: () => {} },
+  { id: 'reveal', label: 'Show in Folder', icon: 'FolderOpen', onAction: () => {} },
+  { id: 'danger-sep', separator: true },
+  { id: 'danger-label', type: 'label', label: 'Danger Zone', danger: true },
+  {
+    id: 'trash',
+    label: 'Move to Trash',
+    icon: 'Trash2',
+    destructive: true,
+    onAction: () => {},
+  },
+];
+
+export const HomeFileContextMenu: Story = {
+  render: () => {
+    const [open, setOpen] = useState(false);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
+    return (
+      <>
+        <MenuButton
+          ref={triggerRef}
+          label="File Card"
+          menuId="home-file-menu"
+          expanded={open}
+          onClick={() => setOpen(!open)}
+        />
+        <Menu
+          items={homeFileItems}
+          triggerRef={triggerRef}
+          open={open}
+          onClose={() => setOpen(false)}
+          label="File actions for design-v3.varve"
+          id="home-file-menu"
+          size="default"
+        />
+      </>
+    );
+  },
+};
