@@ -1,11 +1,10 @@
 /**
- * Persistent-history performance budgets (M17, spec §31/§35.14).
+ * Persistent-history diagnostic measurements (M17, spec §31/§35.14).
  *
  * Benchmarks the hot paths: semantic diff, three-way merge, canonical
- * serialization, and capture-replay round trips at 100 / 1k / 10k nodes.
+ * serialization at 100 / 1k / 10k nodes. Fixture construction is untimed.
  *
- * Budgets are generous CI-safe ceilings, not tight targets; regressions
- * beyond an order of magnitude indicate a real problem.
+ * These report measurements; they do not enforce latency or memory budgets.
  *
  * Run: pnpm bench (vitest bench mode) — excluded from pnpm test.
  */
@@ -27,7 +26,7 @@ registerBuiltinOperations();
 const DOC_ID = 'bench-doc';
 
 function docWithNodes(count: number): Document {
-  let doc = {
+  const doc = {
     ...createDocument(DOC_ID, { flat: true }),
     id: DOC_ID,
   } as Document;
@@ -43,69 +42,90 @@ function docWithNodes(count: number): Document {
       },
       { name: `Node ${i}` },
     );
-    doc = applyOperation(doc, 'node.create', { node });
+    // This flat fixture has no ownership, references or shared nodes to
+    // reconcile. Assemble it once: replaying N insertions here copies an
+    // ever-growing document N times before any timed benchmark can start.
+    doc.nodes[node.id] = node;
+    doc.rootChildren.push(node.id);
   }
   return doc;
 }
 
-function mutateOne(doc: Document): Document {
-  const id = Object.keys(doc.nodes)[0]!;
-  return applyOperation(doc, 'node.patch', { nodeId: id, path: 'opacity', value: 0.5 });
+function patchFixture(doc: Document, index: number, value: number): Document {
+  const id = Object.keys(doc.nodes)[index]!;
+  return { ...doc, nodes: { ...doc.nodes, [id]: { ...doc.nodes[id]!, opacity: value } } };
 }
 
 function mutateMany(doc: Document, count: number): Document {
-  let current = doc;
-  const ids = Object.keys(doc.nodes);
+  const nodes = { ...doc.nodes };
+  const ids = Object.keys(nodes);
   for (let i = 0; i < count; i++) {
     const id = ids[i % ids.length]!;
-    current = applyOperation(current, 'node.patch', {
-      nodeId: id,
+    nodes[id] = { ...nodes[id]!, opacity: (i % 100) / 100 };
+  }
+  return { ...doc, nodes };
+}
+
+/** Prove the batched setup matches the operation pipeline on a small fixture. */
+function verifyFixture(doc: Document): void {
+  let reference = { ...createDocument(DOC_ID, { flat: true }), id: DOC_ID } as Document;
+  for (const node of Object.values(doc.nodes)) {
+    reference = applyOperation(reference, 'node.create', { node });
+  }
+  if (canonicalHash(reference) !== canonicalHash(doc)) throw new Error('Invalid node fixture');
+  const ids = Object.keys(reference.nodes);
+  for (let index = 0; index < 50; index++) {
+    reference = applyOperation(reference, 'node.patch', {
+      nodeId: ids[index % ids.length]!,
       path: 'opacity',
-      value: (i % 100) / 100,
+      value: (index % 100) / 100,
     });
   }
-  return current;
+  if (canonicalHash(reference) !== canonicalHash(mutateMany(doc, 50))) {
+    throw new Error('Invalid edited fixture');
+  }
 }
 
 describe('history hot paths', () => {
-  const small = docWithNodes(100);
-  const medium = docWithNodes(1_000);
-  const large = docWithNodes(10_000);
-  const smallChanged = mutateOne(small);
-  const mediumChanged = mutateMany(medium, 50);
-  const largeChanged = mutateMany(large, 500);
-
-  bench('canonical hash: 100 nodes', () => {
-    canonicalHash(small);
-  });
-  bench('canonical hash: 1k nodes', () => {
-    canonicalHash(medium);
-  });
-  bench('canonical hash: 10k nodes', () => {
-    canonicalHash(large);
-  });
-
-  bench('diff: 100 nodes, 1 change', () => {
-    diffDocuments(small, smallChanged);
-  });
-  bench('diff: 1k nodes, 50 changes', () => {
-    diffDocuments(medium, mediumChanged);
-  });
-  bench('diff: 10k nodes, 500 changes', () => {
-    diffDocuments(large, largeChanged);
-  });
-
-  bench('merge: 100 nodes, disjoint edits', () => {
-    mergeDocuments(small, mutateOne(small), mutateOne(mutateOne(small)));
-  });
-  bench('merge: 1k nodes, disjoint edits', () => {
-    mergeDocuments(medium, mutateOne(medium), mutateOne(mutateOne(medium)));
-  });
-  bench('merge: 10k nodes, disjoint edits', () => {
-    mergeDocuments(large, mutateOne(large), mutateOne(mutateOne(large)));
-  });
-
-  bench('merge: 1k nodes, conflicting edits', () => {
-    mergeDocuments(medium, mutateMany(medium, 10), mutateMany(medium, 10));
-  });
+  verifyFixture(docWithNodes(100));
+  const measurement = { time: 100, iterations: 1, warmupTime: 0, warmupIterations: 0 };
+  for (const [name, count, changes] of [
+    ['100 nodes', 100, 1],
+    ['1k nodes', 1_000, 50],
+    ['10k nodes', 10_000, 500],
+  ] as const) {
+    const base = docWithNodes(count);
+    const changed = mutateMany(base, changes);
+    const ours = patchFixture(base, 0, 0.5);
+    const theirs = patchFixture(base, 1, 0.25);
+    const conflicting = patchFixture(base, 0, 0.25);
+    bench(
+      `canonical hash: ${name}`,
+      () => {
+        canonicalHash(base);
+      },
+      measurement,
+    );
+    bench(
+      `diff: ${name}, ${changes} changes`,
+      () => {
+        diffDocuments(base, changed);
+      },
+      measurement,
+    );
+    bench(
+      `merge: ${name}, disjoint edits`,
+      () => {
+        mergeDocuments(base, ours, theirs);
+      },
+      measurement,
+    );
+    bench(
+      `merge: ${name}, conflicting edits`,
+      () => {
+        mergeDocuments(base, ours, conflicting);
+      },
+      measurement,
+    );
+  }
 });

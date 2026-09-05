@@ -17,9 +17,9 @@ contain historical claims that require runtime verification.
 | Navigation moves the branch before loading the restored document | `EditorHistorySession.undo`, `redo`, `checkout`, `undoToRevision` | Reproduced failed checkout moving the cursor; target load now precedes publication; regression passes |
 | Watcher captures do not wait for attachment | `usePersistentHistory` document effect | Reproduced missing pre-attach edit; watcher now awaits attachment; regression passes |
 | Async navigation applies without checking session identity | `usePersistentHistory` navigation callbacks | Reproduced late result applied to another document; session/generation guards implemented; regression passes |
-| Persistent and fallback stacks both own editing state | `context.tsx` undo/redo callbacks and derived enabled state | Routing and genesis-boundary coverage needed |
+| Persistent and fallback stacks both own editing state | `context.tsx` undo/redo callbacks and derived enabled state | Extra Undo at genesis regression passes; broader routing ownership unverified |
 | Effect Studio uses a global preview transaction | `EffectStudioSection.previewTreatment` / `cancelPreview` | Unrelated edits, Save and recovery isolation unverified |
-| Website promises unlimited session undo | Getting-started first-project page; fallback stack is bounded | Copy correction prepared |
+| Website promises unlimited session undo | Getting-started first-project page; fallback stack is bounded | Corrected and visually inspected in both themes |
 
 ## Mutation coverage ledger
 
@@ -31,7 +31,7 @@ been verified. Authored state must round-trip with its binary dependencies.
 | Background removal | Quick bar, inspector, subject picker, refinement, trimap; native raster mask assets | One accepted result, no inference on redo | Branch identity regression; real Quick UI traversal passes with exact pixels |
 | Effects | EffectsSection, EffectStudioSection, smart filters, adjustment nodes, presets and batch routes | Discrete operation or complete gesture; preview cancelled without authoring | Static inspection begun; comprehensive runtime matrix outstanding |
 | Geometry and graph edits | Editor commands, canvas tools, layers; nodes, children, references | Command or pointer gesture | Prior session tests exist; entry-point audit outstanding |
-| Raster painting | Brush tools, tile Maps, content-addressed raster store | One stroke | Existing interleaved vector/raster and reload session tests; not yet rerun |
+| Raster painting | Brush tools, tile Maps, content-addressed raster store | One stroke | Interleaved vector/raster and memory-store reload session tests pass; browser reload outstanding |
 | Text | TextEditOverlay, inspector, rich runs | Typing burst and atomic IME composition | Prior coverage exists; real input routing unverified |
 | Pages, frames and settings | Editor commands, grid and page controls | Authored change only | Outstanding |
 | Components, styles, variables and bindings | Inspector, library and document operations | Coherent graph edit | Outstanding |
@@ -80,6 +80,9 @@ the committed ID and data URL. No new history stack or processing provider.
   replay-before-cursor-publication, accurate navigation labels, switch guards,
   preview dismissal and delayed-attachment capture. Commit checkpoint: 26 tests
   passed; no hook bypasses.
+- `6137c03fb`: serialized branch switching through the persistent-history
+  restoration boundary, saved-state dirty markers, and history-panel routing.
+  Commit checkpoint: 35 focused history tests passed.
 - Extra Undo at genesis did **not** reproduce resurrection in the added
   EditorProvider test. Four transaction regression tests passed. The broader
   fallback-routing audit remains open; the hypothesis is not a confirmed bug.
@@ -113,7 +116,11 @@ including new failing lifecycle tests, provider/renderer edits and marketing
 copy changes. Those files are preserved. The second commit uses explicit paths
 so other staged work is excluded. Package-suite output from this period is
 worktree evidence, not certification of a frozen commit. The broad editor /
-desktop run and diagnostic history benchmark are still in progress.
+desktop run completed with 657 passing files, one skipped file and three
+failing files (6,504 passed, eight failed, one skipped tests). All eight
+failures were in the three concurrently edited background-removal files;
+their targeted rerun passed all 46 tests. The diagnostic history benchmark
+was attempted but produced no completed timing samples.
 
 ## Agent validation report — milestone, not final certification
 
@@ -135,6 +142,8 @@ Commands actually run:
   pnpm --filter @varve/editor typecheck
   pnpm --filter @varve/desktop typecheck
   pnpm typecheck:e2e
+  VARVE_E2E_PORT=1450 pnpm exec playwright test tests/e2e/canvas/background-removal.spec.ts --project=chromium --grep 'saved mask history' --reporter=list --workers=1
+  VARVE_E2E_PORT=1451 pnpm exec playwright test tests/e2e/canvas/history-panel.spec.ts --project=chromium --grep 'checkpoint and branch|navigating a step' --reporter=list --workers=1
   pnpm audit:docs
   pnpm audit:emoji
   pnpm audit:tokens
@@ -165,3 +174,80 @@ Final scoped review checkpoint: `pnpm verify:plan --staged` and
 `pnpm verify:quick --staged` ran against a temporary index containing only the
 three review files (the shared index was preserved). Four transaction tests
 and all Tier 0 checks passed in 105.5 seconds. Desktop typecheck also passed.
+
+
+## Branch-switch follow-up
+
+Two additional regressions reproduce branch switching publishing an unreadable
+head and stale Undo availability at genesis (23 existing tests passed, two new
+tests failed; all 25 pass after repair). Branch switching now joins the capture/navigation queue, loads
+the target before publishing it, and updates availability and labels. This
+covers session navigation; branch metadata operations and merge scheduling
+remain a separate review item.
+
+The website guidance and genesis-boundary evidence were committed as
+`b12be110f`. A fresh real Quick-removal pixel round-trip passed on the current
+worktree using port 1444 (one test, 2.2 minutes including startup). Apply,
+Undo and Redo screenshots were personally inspected and retained outside the
+shared Playwright output directory:
+`reports/undo-redo-hardening-2026-09-05/canvas/`. The before/after buffers match
+exactly across two cycles. This is heuristic processing, not native or AI
+provider certification.
+
+The three background-removal files that failed during the broad package run
+were rerun against the concurrent session's latest changes: all 46 tests pass.
+Command: `pnpm exec vitest run
+packages/editor/src/backgroundRemoval/SubjectIsolationService.test.ts
+packages/editor/src/context/useBackgroundRemoval.test.tsx
+packages/editor/src/components/SelectionQuickBar/quickBarActions.test.ts
+--maxWorkers=2`. This closes all eight failures observed in the completed broad package run.
+
+History benchmark fixture construction now batches the flat node fixture and
+its preset edits, avoiding repeated whole-document operation replay before
+timing begins. A small reference fixture verifies canonical equivalence with
+the operation pipeline. History/CLI affected tests pass (199 tests, 15 files),
+as do both typechecks. The diagnostic benchmark does not establish editor
+Undo latency, low-memory budgets or native performance.
+
+
+History panel source inspection found two UI entry points discarding restored
+documents: step clicks and branch switches called the storage session directly
+and refreshed only panel metadata. Both now route through the editor's
+restoration hook, which applies document/selection/derived UI state and guards
+against a result arriving after a document switch. Browser coverage now checks
+layer restoration, not only movement of the HEAD marker. The saved-mask reload
+scenario also passes in the isolated validation copy and compares canvas pixel
+hashes after a forced full redraw.
+
+
+## Dirty-state restoration
+
+A provider regression reproduced Undo after Save leaving the document and tab
+clean (one failed, four passed). Restoration now retains the last observed
+clean document reference, compares canonical authored state, updates both
+dirty flags, and increments the recovery revision. Redo to that saved content
+returns both flags to clean. The combined provider/hook rerun passes all ten
+tests, including the four navigation/document-switch races. This marker is
+local to the current editing session; it does not add persisted schema fields.
+
+The shared-tree editor typecheck reported three concurrent errors in
+`commitRasterMask.ts`, `ExportDialog.tsx` and `TableAppearanceSection.tsx`;
+none involved the history changes. A later browser run was disrupted by
+concurrent minimap changes. To obtain stable evidence, validation continues
+in a separate local copy of `master`, with only the history changes applied.
+Development and commits remain in the user's `master` worktree; no feature
+branch was created.
+
+The saved-mask reload test confirms that the saved cutout reopens from Home,
+Undo restores the blue source and Redo restores the cutout. Its initial
+assertion about the status label was incorrect: the loaded app displays “Not
+saved”, although saving before reload had succeeded. The test now asserts the
+successful save before reload and uses a canvas pixel hash after each history
+operation. That label behavior is recorded separately from mask/history
+persistence.
+
+Benchmark labels now match their actual workloads: disjoint edits affect
+different nodes, and conflicts assign different values to the same property.
+All edit fixtures are prepared outside timed hash/diff/merge measurements.
+Earlier diagnostic runs were stopped without completed results while these
+fixture issues were corrected; no speedup is claimed from those runs.

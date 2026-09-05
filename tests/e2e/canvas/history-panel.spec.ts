@@ -86,6 +86,22 @@ test('checkpoint and branch creation flows', async ({ page }) => {
   await page.getByRole('tab', { name: 'Branches' }).click();
   await expect(page.locator('.history-panel__branch', { hasText: 'experiment' })).toBeVisible();
   await expect(page.locator('.history-panel__branch--current')).toContainText('main');
+  const branchLayers = await page.getByRole('treeitem').count();
+  await drawRect(page, 450, 150, 550, 250);
+  await expect(page.getByRole('treeitem')).toHaveCount(branchLayers + 1);
+  await page
+    .locator('.history-panel__branch')
+    .filter({ hasText: 'experiment' })
+    .getByRole('button', { name: 'Switch', exact: true })
+    .click();
+  await expect(page.locator('.history-panel__branch--current')).toContainText('experiment');
+  await expect(page.getByRole('treeitem')).toHaveCount(branchLayers);
+  await page
+    .locator('.history-panel__branch')
+    .filter({ hasText: 'main' })
+    .getByRole('button', { name: 'Switch', exact: true })
+    .click();
+  await expect(page.getByRole('treeitem')).toHaveCount(branchLayers + 1);
 });
 
 test('search filters history steps', async ({ page }) => {
@@ -104,6 +120,7 @@ test('search filters history steps', async ({ page }) => {
 
 test('navigating a step checks out that revision', async ({ page }) => {
   await navigateToEditor(page);
+  const initialLayers = await page.getByRole('treeitem').count();
   await drawRect(page, 200, 200, 400, 350);
   await openHistoryPanel(page);
   await expect(page.locator('.history-panel__step')).toHaveCount(2);
@@ -111,6 +128,7 @@ test('navigating a step checks out that revision', async ({ page }) => {
   // Click the Genesis step → head marker moves to it
   await page.locator('.history-panel__step', { hasText: 'Genesis' }).click();
   await page.waitForTimeout(1500);
-  const headText = await page.locator('.history-panel__step--head').textContent();
-  expect(headText).toContain('Genesis');
+  await expect(page.locator('.history-panel__step--head')).toContainText('Genesis');
+  // Moving the marker is insufficient: the restored document must reach the editor.
+  await expect(page.getByRole('treeitem')).toHaveCount(initialLayers);
 });
