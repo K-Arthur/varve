@@ -48,6 +48,12 @@ the render IR. The engine registry also accepts the prefixed form as an alias
 for an already-registered handle. This keeps a stale canonical reference from
 becoming a permanent grey loading/error placeholder.
 
+Inspector image previews follow the same rule: the source field may display
+the canonical token for diagnostics, but an embedded asset preview uses
+`DocumentAsset.dataUrl`, never `asset:<id>` as an `<img src>`. Editing the
+source field preserves the asset link only when the token resolves to the
+current document asset.
+
 ## Representation and ownership
 
 | Representation | Owner | Lifetime and invariant |

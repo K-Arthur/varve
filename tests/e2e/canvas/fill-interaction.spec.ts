@@ -360,6 +360,7 @@ test.describe('fill creation and conversion', () => {
     const dataUrl = await sourceInput.inputValue();
     await sourceInput.fill(`asset:${embeddedAssetId(dataUrl)}`);
     await expect(sourceInput).toHaveValue(/^asset:asset-[0-9a-f]{16}$/);
+    await expect(page.locator('.insp-image-fill__preview-img')).toHaveAttribute('src', dataUrl);
     await expectPixel(page, { x: box.x + 170, y: box.y + 190 }, [200, 30, 30, 255], 20);
     await expectPixel(page, { x: box.x + 430, y: box.y + 310 }, [30, 60, 200, 255], 20);
     await page.screenshot({ path: 'test-results/fill-visuals/canonical-asset-reference.png' });
