@@ -106,7 +106,7 @@ const faqSchema = {
       <section class="compare-section">
         <h2>Category facts at a glance</h2>
         <p class="compare-sub">Long-stable facts from each tool's public documentation. Pricing changes frequently — verify current details on each product's own site.</p>
-        <div class="compare-table-wrap" tabindex="0" role="region" aria-label="Design tool comparison">
+        <div class="compare-table-wrap scroll-x" tabindex="0" role="region" aria-label="Design tool comparison">
           <table class="compare-table">
             <thead>
               <tr>
@@ -434,8 +434,6 @@ const faqSchema = {
     margin-bottom: 1rem;
     border: 1px solid var(--border-default);
     border-radius: var(--website-radius-card);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
   }
 
   .compare-table {

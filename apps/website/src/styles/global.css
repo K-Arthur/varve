@@ -122,6 +122,8 @@
     border-radius: var(--website-radius-surface);
     padding: var(--space-5);
     overflow-x: auto;
+    scrollbar-color: var(--color-border-strong) transparent;
+    scrollbar-width: thin;
     font-family: var(--font-mono);
     font-size: var(--type-interface-body-size);
     line-height: var(--type-content-body-line-height);
@@ -776,4 +778,34 @@
       justify-content: center;
     }
   }
+}
+
+/* ── Horizontal scroll containers ──────────────────────────
+ * Apply .scroll-x to tables and strips that overflow on narrow viewports.
+ * Provides consistent scrollbar styling matching the editor's ScrollArea. */
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.scroll-x::-webkit-scrollbar {
+  height: 6px;
+}
+.scroll-x::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-x::-webkit-scrollbar-thumb {
+  min-width: 32px;
+  background: var(--color-border-strong);
+  border: 2px solid transparent;
+  border-radius: var(--radius-control-compact);
+  background-clip: padding-box;
+}
+.scroll-x::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
+  background-clip: padding-box;
+}
+.scroll-x::-webkit-scrollbar-corner {
+  background: transparent;
 }
