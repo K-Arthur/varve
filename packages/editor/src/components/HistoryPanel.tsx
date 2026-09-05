@@ -106,10 +106,10 @@ export function HistoryPanel() {
   const handleNavigate = useCallback(
     async (revisionId: string) => {
       if (!session) return;
-      await session.checkout(revisionId);
+      await persistentHistory.checkout(revisionId);
       await refresh();
     },
-    [session, refresh],
+    [session, persistentHistory, refresh],
   );
 
   const handleCreateBranch = useCallback(async () => {
@@ -139,10 +139,10 @@ export function HistoryPanel() {
   const handleSwitchBranch = useCallback(
     async (branchId: string) => {
       if (!session) return;
-      await session.switchBranch(branchId);
+      await persistentHistory.switchBranch(branchId);
       await refresh();
     },
-    [session, refresh],
+    [session, persistentHistory, refresh],
   );
 
   const handleCompare = useCallback(async () => {

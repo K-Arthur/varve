@@ -3463,6 +3463,7 @@ export function EditorProvider({
 
   const persistentHistory = usePersistentHistory({
     document: state.document,
+    stateRef,
     selection: state.selection,
     patch,
     inTransactionRef,

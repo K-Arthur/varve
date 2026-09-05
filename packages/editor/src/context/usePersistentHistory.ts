@@ -22,6 +22,7 @@ import {
 } from '@varve/history';
 import type { Document, NodeId } from '@varve/scene';
 import {
+  canonicalHistoryHash,
   createDefaultIsometricGrid,
   initializeDefaultGridSettings as sceneInitializeGridSettings,
 } from '@varve/scene';
@@ -40,6 +41,9 @@ import {
 interface UsePersistentHistoryOptions {
   document: Document | null;
   selection: NodeId[];
+  stateRef?: {
+    current: Pick<EditorState, 'document' | 'dirty' | 'revision' | 'sessions' | 'activeId'>;
+  };
   patch: (partial: Partial<EditorState>) => void;
   /** Transaction-open flag owned by context.tsx (skip mid-gesture diffs). */
   inTransactionRef: { current: boolean };
@@ -86,8 +90,15 @@ function syncGridFromDocument(document: Document) {
 }
 
 export function usePersistentHistory(options: UsePersistentHistoryOptions): PersistentHistoryApi {
-  const { document, selection, patch, inTransactionRef, historySkipRef, disabled } = options;
+  const { document, selection, patch, inTransactionRef, historySkipRef, disabled, stateRef } =
+    options;
   const documentId = document?.id ?? null;
+  const savedDocumentRef = useRef<Document | null>(null);
+  if (stateRef && !stateRef.current.dirty && !inTransactionRef.current) {
+    savedDocumentRef.current = stateRef.current.document;
+  }
+  const restoreStateRef = useRef(stateRef);
+  restoreStateRef.current = stateRef;
 
   const sessionRef = useRef<EditorHistorySession | null>(null);
   const activeDocumentRef = useRef(documentId);
@@ -128,6 +139,7 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
       redo: async () => false,
       undoTo: async () => false,
       checkout: async () => false,
+      switchBranch: async () => false,
       previewRevision: async () => null,
       steps: async () => [],
     } satisfies PersistentHistoryApi;
@@ -291,8 +303,24 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
     (result: { document: Document; selection: NodeId[] }, canUndo: boolean, canRedo: boolean) => {
       historySkipRef.current = true;
       const synced = syncGridFromDocument(result.document);
+      const current = restoreStateRef.current?.current;
+      const saved = savedDocumentRef.current;
+      const dirty =
+        !saved ||
+        saved.id !== result.document.id ||
+        canonicalHistoryHash(saved) !== canonicalHistoryHash(result.document);
+
       patchRef.current({
         document: result.document,
+        dirty,
+        ...(current
+          ? {
+              revision: current.revision + 1,
+              sessions: current.sessions.map((session) =>
+                session.id === current.activeId ? { ...session, dirty } : session,
+              ),
+            }
+          : {}),
         backgroundRemovalPreviewSession: null,
         subjectPickerSession: null,
         showOriginalBgNodeId: null,
@@ -399,6 +427,26 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
     [applyLoadedRevision],
   );
 
+  const switchBranch = useCallback(
+    async (branchId: string): Promise<boolean> => {
+      const session = sessionRef.current;
+      const generation = navigationGenerationRef.current;
+      if (!session?.attached) return false;
+      await attachPromiseRef.current;
+      const result = await session.switchBranch(branchId);
+      if (
+        !result ||
+        sessionRef.current !== session ||
+        activeDocumentRef.current !== session.documentId ||
+        generation !== navigationGenerationRef.current
+      )
+        return false;
+      applyLoadedRevision(result, session.canUndo, session.canRedo);
+      return true;
+    },
+    [applyLoadedRevision],
+  );
+
   const previewRevision = useCallback(async (revisionId: string): Promise<Document | null> => {
     const session = sessionRef.current;
     if (!session?.attached) return null;
@@ -422,6 +470,7 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
     redo,
     undoTo,
     checkout,
+    switchBranch,
     previewRevision,
     steps,
   };

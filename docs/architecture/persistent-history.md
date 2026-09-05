@@ -325,3 +325,17 @@ readable without a schema migration.
 See the [hardening evidence ledger](../audits/undo-redo-hardening-2026-09-05.md)
 for tested scenarios and unresolved coverage; these changes do not certify all
 editing routes or storage-failure behavior.
+
+
+Branch switching follows the same serialized restoration boundary as Undo,
+Redo and checkout: a failed target replay leaves the active branch unchanged.
+After a successful switch, Undo availability and its label reflect the target
+head, and the previous branch's transient redo path is cleared.
+
+
+History-panel step and branch navigation must use the `persistentHistory`
+restoration methods, rather than calling the storage session and discarding
+its returned document. Restoration also updates the active tab's dirty flag
+and the recovery revision. The hook remembers the last observed clean document
+for the active editing session; canonical authored-state equality lets Redo
+back to saved content become clean again without adding persisted metadata.

@@ -36,6 +36,46 @@ describe('EditorProvider transaction history ordering', () => {
     expect(editor!.state.document.nodes[firstId]).toBeUndefined();
   });
 
+  it('marks the document and its tab dirty when restoring history after Save', async () => {
+    let editor: ReturnType<typeof useEditor> | undefined;
+    function Consumer() {
+      editor = useEditor();
+      return null;
+    }
+    render(
+      <EditorProvider>
+        <Consumer />
+      </EditorProvider>,
+    );
+    await waitFor(() => expect(editor?.persistentHistory.attached).toBe(true));
+    act(() => {
+      editor!.setTool('rect');
+      editor!.createShapeAt({ x: 10, y: 10 }, { w: 100, h: 60 });
+    });
+    await waitFor(async () => expect(await editor!.persistentHistory.steps()).toHaveLength(2));
+    // The persistence coordinator publishes these flags after a successful save.
+    act(() =>
+      editor!.patch({
+        dirty: false,
+        sessions: editor!.state.sessions.map((session) => ({ ...session, dirty: false })),
+      }),
+    );
+    await act(async () => {
+      await editor!.persistentHistory.undo();
+    });
+    expect(editor!.state.dirty).toBe(true);
+    expect(
+      editor!.state.sessions.find((session) => session.id === editor!.state.activeId)?.dirty,
+    ).toBe(true);
+    await act(async () => {
+      await editor!.persistentHistory.redo();
+    });
+    expect(editor!.state.dirty).toBe(false);
+    expect(
+      editor!.state.sessions.find((session) => session.id === editor!.state.activeId)?.dirty,
+    ).toBe(false);
+  });
+
   it('undoes a transform on the first undo after commit', async () => {
     let editor: ReturnType<typeof useEditor> | undefined;
     function Consumer() {

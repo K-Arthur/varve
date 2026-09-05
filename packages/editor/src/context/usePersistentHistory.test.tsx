@@ -48,41 +48,47 @@ describe('persistent history session isolation', () => {
     }
   });
 
-  it('does not apply navigation completed after switching documents', async () => {
-    const first = createDocument('First', true);
-    const second = createDocument('Second', true);
-    let finish!: (result: { document: typeof first; selection: string[] }) => void;
-    const pending = new Promise<{ document: typeof first; selection: string[] }>((resolve) => {
-      finish = resolve;
-    });
-    const undo = vi.spyOn(EditorHistorySession.prototype, 'undo').mockReturnValue(pending);
-    const patch = vi.fn();
-    const inTransactionRef = { current: false };
-    const historySkipRef = { current: false };
-    const { result, rerender } = renderHook(
-      ({ document }) =>
-        usePersistentHistory({
-          document,
-          selection: [],
-          patch,
-          inTransactionRef,
-          historySkipRef,
-        }),
-      { initialProps: { document: first } },
-    );
-    try {
-      await waitFor(() => expect(result.current.attached).toBe(true));
-      const navigation = result.current.undo();
-      await waitFor(() => expect(undo).toHaveBeenCalledOnce());
-      rerender({ document: second });
-      await waitFor(() => expect(result.current.session?.documentId).toBe(second.id));
-      await act(async () => {
-        finish({ document: first, selection: [] });
-        await navigation;
+  it.each(['undo', 'redo', 'checkout', 'switchBranch'] as const)(
+    'does not apply %s completed after switching documents',
+    async (method) => {
+      const first = createDocument('First', true);
+      const second = createDocument('Second', true);
+      let finish!: (result: { document: typeof first; selection: string[] }) => void;
+      const pending = new Promise<{ document: typeof first; selection: string[] }>((resolve) => {
+        finish = resolve;
       });
-      expect(patch).not.toHaveBeenCalled();
-    } finally {
-      undo.mockRestore();
-    }
-  });
+      const undo = vi.spyOn(EditorHistorySession.prototype, method).mockReturnValue(pending);
+      const patch = vi.fn();
+      const inTransactionRef = { current: false };
+      const historySkipRef = { current: false };
+      const { result, rerender } = renderHook(
+        ({ document }) =>
+          usePersistentHistory({
+            document,
+            selection: [],
+            patch,
+            inTransactionRef,
+            historySkipRef,
+          }),
+        { initialProps: { document: first } },
+      );
+      try {
+        await waitFor(() => expect(result.current.attached).toBe(true));
+        const navigation =
+          method === 'undo' || method === 'redo'
+            ? result.current[method]()
+            : result.current[method]('target');
+        await waitFor(() => expect(undo).toHaveBeenCalledOnce());
+        rerender({ document: second });
+        await waitFor(() => expect(result.current.session?.documentId).toBe(second.id));
+        await act(async () => {
+          finish({ document: first, selection: [] });
+          await navigation;
+        });
+        expect(patch).not.toHaveBeenCalled();
+      } finally {
+        undo.mockRestore();
+      }
+    },
+  );
 });

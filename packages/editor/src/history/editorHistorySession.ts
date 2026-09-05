@@ -782,19 +782,21 @@ export class EditorHistorySession {
   }
 
   /** Switch the working branch: load its head document. */
-  async switchBranch(
-    branchId: string,
-  ): Promise<{ document: Document; selection: NodeId[] } | null> {
-    await this.lastCapturePromise;
-    const branch = await this.store.getBranch(this.documentId, branchId);
-    if (!branch) return null;
-    const head = await this.store.getRevision(this.documentId, branch.headRevisionId);
-    if (!head) return null;
-    this.attachedBranch = branch;
-    this.headRevisionId = branch.headRevisionId;
-    this.redoPath = [];
-    const document = await this.loadCachedDocument(branch.headRevisionId, head);
-    return { document, selection: this.selectionJournal.get(branch.headRevisionId) ?? [] };
+  switchBranch(branchId: string): Promise<{ document: Document; selection: NodeId[] } | null> {
+    return this.enqueue(async () => {
+      const branch = await this.store.getBranch(this.documentId, branchId);
+      if (!branch) return null;
+      const head = await this.store.getRevision(this.documentId, branch.headRevisionId);
+      if (!head) return null;
+      const document = await this.loadCachedDocument(branch.headRevisionId, head);
+      this.attachedBranch = branch;
+      this.headRevisionId = branch.headRevisionId;
+      this.redoPath = [];
+      this.undoableState = head.parentRevisionIds.length > 0;
+      this.lastUndoLabelState = head.semanticSummary.label;
+      this.lastRedoLabelState = 'Redo';
+      return { document, selection: this.selectionJournal.get(branch.headRevisionId) ?? [] };
+    });
   }
 
   async renameBranch(branchId: string, name: string): Promise<BranchRef | null> {

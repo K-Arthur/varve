@@ -151,6 +151,48 @@ describe('EditorHistorySession', () => {
     );
   });
 
+  it('preserves the active branch when switching to an unreadable revision', async () => {
+    const store = createMemoryHistoryStore();
+    const session = newSession(store);
+    const attached = await session.attach(baseDoc());
+    await store.putRevision({
+      ...attached.headRevision,
+      revisionId: 'broken-branch-head',
+      snapshotId: 'missing-snapshot',
+      parentRevisionIds: [],
+      canonicalDocumentHash: 'missing',
+    });
+    const broken = await session.createBranch('broken', 'broken-branch-head');
+    await expect(session.switchBranch(broken!.branchId)).rejects.toThrow();
+    expect(session.branch?.branchId).toBe(attached.branch.branchId);
+    expect(session.headRevisionId).toBe(attached.headRevision.revisionId);
+    expect(session.canUndo).toBe(false);
+  });
+
+  it('updates availability and serializes Undo after switching to genesis', async () => {
+    const store = createMemoryHistoryStore();
+    const session = newSession(store);
+    const before = baseDoc();
+    const attached = await session.attach(before);
+    const genesis = await session.createBranch('genesis', attached.headRevision.revisionId);
+    const after = applyOperation(before, 'node.patch', {
+      nodeId: 'n1_aaaa',
+      path: 'opacity',
+      value: 0.5,
+    });
+    await session.capture(before, after, [], { label: 'Opacity', kind: 'modify' });
+    const switching = session.switchBranch(genesis!.branchId);
+    const undoing = session.undo();
+    await switching;
+    expect(await undoing).toBeNull();
+    expect(session.canUndo).toBe(false);
+    expect(session.canRedo).toBe(false);
+    expect(session.undoLabel).toBe('Genesis');
+    expect((await store.getBranch(DOC_ID, attached.branch.branchId))?.headRevisionId).not.toBe(
+      attached.headRevision.revisionId,
+    );
+  });
+
   it('restores mask bytes and abandoned identities after recreating the session', async () => {
     const store = createMemoryHistoryStore();
     const session = newSession(store);
