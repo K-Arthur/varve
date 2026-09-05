@@ -140,7 +140,11 @@ export function IconDiscoverySections({
               <span className="icon-discovery__pack-name">
                 {pack.name}
                 {pack.brand && (
-                  <span className="icon-discovery__pack-brand" role="img" aria-label="Brand/trademark pack">
+                  <span
+                    className="icon-discovery__pack-brand"
+                    role="img"
+                    aria-label="Brand/trademark pack"
+                  >
                     TM
                   </span>
                 )}

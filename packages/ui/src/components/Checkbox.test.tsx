@@ -44,9 +44,7 @@ describe('Checkbox', () => {
     const checkbox = screen.getByRole('checkbox');
     const describedBy = checkbox.getAttribute('aria-describedby');
     expect(describedBy).toBeTruthy();
-    expect(document.getElementById(describedBy!)).toHaveTextContent(
-      'Help us improve the product.',
-    );
+    expect(document.getElementById(describedBy!)).toHaveTextContent('Help us improve the product.');
   });
 
   it('links error via aria-describedby and sets aria-invalid', () => {
@@ -62,9 +60,7 @@ describe('Checkbox', () => {
     expect(checkbox).toHaveAttribute('aria-invalid', 'true');
     const describedBy = checkbox.getAttribute('aria-describedby');
     expect(describedBy).toBeTruthy();
-    expect(document.getElementById(describedBy!)).toHaveTextContent(
-      'You must accept the terms.',
-    );
+    expect(document.getElementById(describedBy!)).toHaveTextContent('You must accept the terms.');
   });
 
   it('merges description and error in aria-describedby', () => {
@@ -97,14 +93,7 @@ describe('Checkbox', () => {
   });
 
   it('displays error text visually', () => {
-    render(
-      <Checkbox
-        label="Terms"
-        error="Required."
-        checked={false}
-        onChange={() => {}}
-      />,
-    );
+    render(<Checkbox label="Terms" error="Required." checked={false} onChange={() => {}} />);
     expect(screen.getByRole('alert')).toHaveTextContent('Required.');
   });
 

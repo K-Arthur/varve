@@ -312,17 +312,29 @@ function IconGridCard({
       </Tooltip>
       <div className="icon-card__badges">
         {item.isInDocument && (
-          <span className="icon-card__badge icon-card__badge--doc" role="img" aria-label="Already in document">
+          <span
+            className="icon-card__badge icon-card__badge--doc"
+            role="img"
+            aria-label="Already in document"
+          >
             <Icon name="Check" size={10} />
           </span>
         )}
         {item.isFavourite && (
-          <span className="icon-card__badge icon-card__badge--fav" role="img" aria-label="Favourite">
+          <span
+            className="icon-card__badge icon-card__badge--fav"
+            role="img"
+            aria-label="Favourite"
+          >
             <SolidIcon name="HeartFill" size={10} />
           </span>
         )}
         {brandWarning && (
-          <span className="icon-card__badge icon-card__badge--brand" role="img" aria-label="Brand/trademark icon">
+          <span
+            className="icon-card__badge icon-card__badge--brand"
+            role="img"
+            aria-label="Brand/trademark icon"
+          >
             TM
           </span>
         )}

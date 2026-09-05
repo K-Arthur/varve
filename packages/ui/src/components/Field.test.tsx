@@ -8,7 +8,6 @@ import {
   FieldLabel,
   useFieldIds,
 } from './Field';
-import { useId } from 'react';
 
 function TestFieldIds({ controlId }: { controlId?: string }) {
   const { id, errorId, descriptionId, hintId, mergeDescribedBy } = useFieldIds(controlId);
@@ -18,9 +17,7 @@ function TestFieldIds({ controlId }: { controlId?: string }) {
       <span data-testid="errorId">{errorId}</span>
       <span data-testid="descriptionId">{descriptionId}</span>
       <span data-testid="hintId">{hintId}</span>
-      <span data-testid="describedBy">
-        {mergeDescribedBy('caller-id', 'desc-id', 'error-id')}
-      </span>
+      <span data-testid="describedBy">{mergeDescribedBy('caller-id', 'desc-id', 'error-id')}</span>
       <span data-testid="describedByEmpty">
         {mergeDescribedBy(undefined, undefined, undefined) || 'empty'}
       </span>

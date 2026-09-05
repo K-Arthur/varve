@@ -13,7 +13,9 @@ type Story = StoryObj<typeof Field>;
 export const StandardField: Story = {
   render: () => (
     <Field>
-      <FieldLabel htmlFor="email" required>Email address</FieldLabel>
+      <FieldLabel htmlFor="email" required>
+        Email address
+      </FieldLabel>
       <input
         id="email"
         type="email"
@@ -59,7 +61,9 @@ export const WithError: Story = {
 export const WithDescriptionAndError: Story = {
   render: () => (
     <Field>
-      <FieldLabel htmlFor="pw" required>Password</FieldLabel>
+      <FieldLabel htmlFor="pw" required>
+        Password
+      </FieldLabel>
       <input
         id="pw"
         type="password"
@@ -83,7 +87,9 @@ export const WithDescriptionAndError: Story = {
 export const OptionalField: Story = {
   render: () => (
     <Field>
-      <FieldLabel htmlFor="phone" optional>Phone number</FieldLabel>
+      <FieldLabel htmlFor="phone" optional>
+        Phone number
+      </FieldLabel>
       <input
         id="phone"
         type="tel"
@@ -156,11 +162,7 @@ export const FieldsetGroup: Story = {
       <Field layout="row">
         <FieldLabel htmlFor="email-notif">Email</FieldLabel>
         <FieldControl>
-          <input
-            id="email-notif"
-            type="checkbox"
-            defaultChecked
-          />
+          <input id="email-notif" type="checkbox" defaultChecked />
         </FieldControl>
       </Field>
       <Field layout="row">
@@ -201,7 +203,9 @@ export const DarkMode: Story = {
   render: () => (
     <div data-theme="dark" style={{ background: '#10151f', padding: '24px' }}>
       <Field>
-        <FieldLabel htmlFor="dark-email" required>Email</FieldLabel>
+        <FieldLabel htmlFor="dark-email" required>
+          Email
+        </FieldLabel>
         <input
           id="dark-email"
           type="email"
@@ -214,9 +218,7 @@ export const DarkMode: Story = {
             width: '100%',
           }}
         />
-        <FieldDescription id="dark-desc">
-          We respect your privacy.
-        </FieldDescription>
+        <FieldDescription id="dark-desc">We respect your privacy.</FieldDescription>
       </Field>
     </div>
   ),
