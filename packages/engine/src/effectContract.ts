@@ -10,7 +10,7 @@
  * ────────────────────
  * Each effect declares its working space here rather than relying on an
  * implicit renderer default. Most effects operate in sRGB gamma-encoded space
- * (gamma ≈ 2.2); blur and bloom use linear-light stages for correct colour
+ * (the sRGB transfer function, not an exact gamma 2.2); blur and bloom use linear-light stages for colour
  * bleeding and highlight accumulation, while palette matching may use OKLab
  * according to its explicit metric. Document/profile conversion and soft
  * proofing are separate colour-management stages, described in
@@ -19,10 +19,11 @@
  * Alpha conventions
  * ─────────────────
  * Input to every effect kernel is straight (non-premultiplied) RGBA, 8-bit
- * per channel.  Kernels must preserve alpha — transparent input pixels
- * (a === 0) are skipped.  Semi-transparent pixels are transformed
- * proportionally.  Premultiplied alpha is an internal detail of specific
- * kernels (sharpen, blur) and must be undone before returning.
+ * per channel. Colour-only kernels preserve source coverage; opacity-changing
+ * and spatial kernels may change it. Normal filter strength interpolates the
+ * incoming and evaluated premultiplied RGBA instead of depositing a duplicate
+ * source over itself. Kernel-specific premultiplication must be undone before
+ * returning straight RGBA. Hidden RGB must not bleed into visible edges.
  *
  * Quality levels
  * ──────────────

@@ -39,16 +39,15 @@
  * Color and alpha rules
  * ─────────────────────
  * 1. Input to every filter kernel is straight (non-premultiplied) RGBA,
- *    sRGB-encoded (gamma ≈ 2.2).
+ *    sRGB-encoded (the piecewise sRGB transfer function).
  * 2. Kernels operate in sRGB-encoded space unless explicitly documented
  *    otherwise (e.g., blur uses linear-light internally for proper
  *    colour-bleeding, but converts back before returning).
- * 3. Per-stop opacity (gradientMap), per-filter opacity, and per-layer
- *    opacity compose multiplicatively: finalAlpha = sourceAlpha × stopOp ×
- *    filterOp × layerOp.
- * 4. Kernels must preserve the alpha channel — transparent input pixels
- *    (a === 0) are skipped; semi-transparent pixels are transformed
- *    proportionally.
+ * 3. Per-stop opacity belongs to the evaluated gradient-map result. Normal
+ *    filter strength mixes incoming/evaluated premultiplied RGBA; layer opacity
+ *    is applied when compositing the final object. Strength zero is bypass.
+ * 4. Colour-only kernels preserve source alpha. Opacity-changing and spatial
+ *    kernels have their own alpha behavior; source-over is not a strength mix.
  * 5. Premultiplied alpha is an internal implementation detail of specific
  *    kernels (sharpen, blur) and must be undone before returning.
  *
