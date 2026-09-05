@@ -12,6 +12,24 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+### Added
+
+- **Spatial Object Filters** — Motion Blur, Mosaic, Surface Smooth, and Edge
+  Ink are available in the ordered Object Filters stack with bounded CPU
+  replay, object-local coordinates, transparent-edge handling, expanded bounds,
+  save/reload support, and raster export.
+
+### Fixed
+
+- Partial-strength normal filters now interpolate premultiplied incoming and
+  filtered pixels, so neutral colour adjustments no longer increase the
+  coverage of semitransparent artwork.
+- Object Filter edits now own undoable transactions, and palette settings,
+  deterministic seeds, and explicit export quality survive normalization and
+  browser reopen.
+- Effect catalog metadata now uses operation-specific ranges and explicit
+  colour parameter keys instead of inferring semantics from array shape.
+
 ## [0.2.1] - 2026-08-24
 
 ### Added
