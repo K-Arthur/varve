@@ -8,7 +8,6 @@
  */
 
 import {
-  DEFAULT_PREVIEW_MAX_DIMENSION,
   getEnvironmentCapabilities,
   getImageCache,
   getModelLoaderReady,
@@ -18,20 +17,15 @@ import {
 } from '@varve/engine';
 import type {
   BackgroundRemovalMethod,
-  BackgroundRemovalState,
+  Document,
+  DocumentAsset,
+  ImageFillData,
   NodeId,
   SceneNode,
 } from '@varve/scene';
-import {
-  imageShapeH,
-  imageShapeSrc,
-  imageShapeW,
-  isImageShape,
-  shapeHeight,
-  shapeWidth,
-} from '@varve/scene';
+import { resolveNodePaints } from '@varve/scene';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
+import type { PreparedBackgroundRemoval } from '../backgroundRemoval/commitRasterMask';
 import { FocusTrap } from '../onboard/FocusTrap';
 import { ModelDownloadDialog } from './BackgroundRemoval/ModelDownloadDialog';
 import './BatchBgRemoveDialog.css';
@@ -44,6 +38,10 @@ type FileStatus = 'queued' | 'processing' | 'done' | 'error' | 'skipped';
 
 interface ProcessingFile {
   id: NodeId;
+  sourceNode: SceneNode;
+  sourceImage: ImageFillData;
+  sourceAsset?: DocumentAsset;
+  unsupported?: boolean;
   name: string;
   src: string;
   w: number;
@@ -56,7 +54,9 @@ export interface BatchBgRemoveDialogProps {
   open: boolean;
   onClose: () => void;
   nodes: SceneNode[];
-  onNodeUpdate: (id: NodeId, state: BackgroundRemovalState) => void;
+  documentId?: string;
+  document?: Document;
+  onNodeUpdate: (id: NodeId, state: PreparedBackgroundRemoval) => void;
 }
 
 const METHOD_OPTIONS: {
@@ -76,33 +76,30 @@ const METHOD_OPTIONS: {
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
-function nodeToFile(node: SceneNode): ProcessingFile | null {
-  // Shape node with an image fill
-  if (isImageShape(node) && node.kind === 'shape') {
-    return {
-      id: node.id,
-      name: node.name,
-      src: imageShapeSrc(node),
-      w: imageShapeW(node),
-      h: imageShapeH(node),
-      status: 'queued',
-    };
-  }
-  if (node.kind === 'shape') {
-    const imageFill = node.fills?.find((f) => f.type === 'image' && !!f.image?.src);
-    if (!imageFill?.image?.src) return null;
-    const w = shapeWidth(node.shape);
-    const h = shapeHeight(node.shape);
-    return {
-      id: node.id,
-      name: node.name,
-      src: imageFill.image.src,
-      w: w || 200,
-      h: h || 200,
-      status: 'queued',
-    };
-  }
-  return null;
+function nodeToFile(node: SceneNode, doc?: Document): ProcessingFile | null {
+  if (node.kind !== 'shape') return null;
+  const fills = (
+    doc
+      ? resolveNodePaints({ fills: node.fills, paintRefs: node.paintRefs }, doc)
+      : (node.fills ?? [])
+  ).filter((fill) => fill.type === 'image' && fill.image?.src);
+  if (fills.length === 0) return null;
+  const image = fills[0]!.image!;
+  return {
+    id: node.id,
+    sourceNode: node,
+    sourceImage: image,
+    sourceAsset: image.assetId ? doc?.assets?.[image.assetId] : undefined,
+    unsupported: fills.length !== 1,
+    name: node.name,
+    src: image.src,
+    w: image.imageWidth ?? 0,
+    h: image.imageHeight ?? 0,
+    status: fills.length === 1 ? 'queued' : 'error',
+    ...(fills.length === 1
+      ? {}
+      : { error: 'Choose a single image fill before removing its background' }),
+  };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -111,6 +108,8 @@ export function BatchBgRemoveDialog({
   open,
   onClose,
   nodes,
+  documentId,
+  document: sourceDocument,
   onNodeUpdate,
 }: BatchBgRemoveDialogProps) {
   const [stage, setStage] = useState<BgStage>('select');
@@ -125,7 +124,14 @@ export function BatchBgRemoveDialog({
   const [wasmModelSafe, setWasmModelSafe] = useState(true);
   const [hasGpuAccel, setHasGpuAccel] = useState(false);
 
-  const imageNodes = useMemo(() => nodes.filter((n) => isImageShape(n)), [nodes]);
+  const submittedNodesRef = useRef(nodes);
+  submittedNodesRef.current = nodes;
+  const submittedDocumentRef = useRef(sourceDocument);
+  submittedDocumentRef.current = sourceDocument;
+  const imageNodes = useMemo(
+    () => nodes.filter((node) => nodeToFile(node, sourceDocument)),
+    [nodes, sourceDocument],
+  );
 
   const requiredModelId = workerModelIdForMethod(method);
 
@@ -162,12 +168,16 @@ export function BatchBgRemoveDialog({
     if (open) {
       setStage('select');
       setMethod('quick');
-      setFiles(imageNodes.map(nodeToFile).filter((f): f is ProcessingFile => f !== null));
+      setFiles(
+        submittedNodesRef.current
+          .map((node) => nodeToFile(node, submittedDocumentRef.current))
+          .filter((f): f is ProcessingFile => f !== null),
+      );
       setProgress(0);
       cancelledRef.current = false;
       setAnnounceMsg('');
     }
-  }, [open, imageNodes]);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -199,6 +209,14 @@ export function BatchBgRemoveDialog({
 
   const runFile = useCallback(
     async (file: ProcessingFile): Promise<'done' | 'error'> => {
+      if (file.unsupported) {
+        updateFileStatus(
+          file.id,
+          'error',
+          'Choose a single image fill before removing its background',
+        );
+        return 'error';
+      }
       const cache = getImageCache();
 
       let img: import('@varve/engine').CachedImage;
@@ -209,10 +227,9 @@ export function BatchBgRemoveDialog({
         return 'error';
       }
 
-      const maxDim = DEFAULT_PREVIEW_MAX_DIMENSION;
-      const scale = Math.min(1, maxDim / Math.max(file.w, file.h));
-      const extractW = Math.ceil(file.w * scale);
-      const extractH = Math.ceil(file.h * scale);
+      if (cancelledRef.current || abortRef.current?.signal.aborted) return 'error';
+      const extractW = ('naturalWidth' in img ? img.naturalWidth : img.width) || file.w;
+      const extractH = ('naturalHeight' in img ? img.naturalHeight : img.height) || file.h;
       const canvas = document.createElement('canvas');
       canvas.width = extractW;
       canvas.height = extractH;
@@ -239,7 +256,7 @@ export function BatchBgRemoveDialog({
             method,
             feather: 2,
             smooth: 1,
-            decontaminate: true,
+            decontaminate: false,
           },
           abortRef.current?.signal,
         );
@@ -259,15 +276,28 @@ export function BatchBgRemoveDialog({
       }
 
       const { finalizeMaskResult } = await import('@varve/engine');
-      const finalized = await finalizeMaskResult(result);
+      const finalized = method === 'quick' ? result : await finalizeMaskResult(result);
+      if (cancelledRef.current || abortRef.current?.signal.aborted) return 'error';
 
-      const state: BackgroundRemovalState = {
+      const state: PreparedBackgroundRemoval = {
         maskDataUrl: finalized.maskDataUrl,
+        width: finalized.width,
+        height: finalized.height,
+        sourceNode: file.sourceNode,
+        sourceImage: file.sourceImage,
+        sourceAsset: file.sourceAsset,
+        sourceLocator: file.src,
+        documentId,
+        modelId: result.modelId,
+        runtime:
+          result.executionProvider === 'native'
+            ? 'native-cpu'
+            : (result.executionProvider ?? 'typescript'),
         method: finalized.method,
         confidence: finalized.confidence,
         appliedAt: Date.now(),
         feather: 2,
-        decontaminate: true,
+        decontaminate: false,
       };
       try {
         onNodeUpdate(file.id, state);
@@ -278,7 +308,7 @@ export function BatchBgRemoveDialog({
         return 'error';
       }
     },
-    [method, onNodeUpdate, updateFileStatus],
+    [method, onNodeUpdate, updateFileStatus, documentId],
   );
 
   const handleStart = useCallback(async () => {
@@ -410,6 +440,10 @@ export function BatchBgRemoveDialog({
           {stage === 'select' && (
             <>
               <div className="batch-bg-remove__body">
+                <p>
+                  Each completed image is applied separately and replaces its existing mask. Undo
+                  restores the previous mask.
+                </p>
                 {imageNodes.length === 0 ? (
                   <div className="batch-bg-remove__empty">
                     <p className="batch-bg-remove__empty-text">

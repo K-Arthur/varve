@@ -66,7 +66,7 @@ export async function dispatchQuickBarAction(
       deps.setTool('crop');
       return;
     case 'removeBg':
-      await deps.removeBackgroundWithOptions('quick', 0.5, true);
+      await deps.removeBackgroundWithOptions('quick', 0.5, false);
       return;
     case 'cancelBg':
       deps.cancelBackgroundRemoval();

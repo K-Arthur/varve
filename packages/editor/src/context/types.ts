@@ -12,10 +12,12 @@ import type {
   BackgroundRemovalMethod,
   ColorMode,
   Document,
+  DocumentAsset,
   DocumentGrid,
   Fill,
   GridItemPlacement,
   Guide,
+  ImageFillData,
   IsometricGrid,
   LayerColor,
   LayoutSizing,
@@ -147,6 +149,8 @@ export interface PersistentHistoryApi {
   undoTo: (revisionId: string) => Promise<boolean>;
   /** Checkout an arbitrary revision (explicit navigation). */
   checkout: (revisionId: string) => Promise<boolean>;
+  /** Switch branches and apply the loaded document through the restoration boundary. */
+  switchBranch: (branchId: string) => Promise<boolean>;
   /** Load a revision's document for preview (no head movement). */
   previewRevision: (revisionId: string) => Promise<Document | null>;
   /** Refresh step rows for the panel. */
@@ -195,14 +199,23 @@ export interface SubjectPickerSession {
   requestedMethod: BackgroundRemovalMethod;
   documentId: string;
   sourceLocator: string;
-  placementRevision: number;
+  placementRevision: string | number;
+  sourceIdentity?: BackgroundRemovalSourceIdentity;
+}
+
+/** Transient immutable dependencies; no decoded pixel buffer is retained by review. */
+export interface BackgroundRemovalSourceIdentity {
+  image: ImageFillData;
+  asset?: DocumentAsset;
+  mask?: SceneNode['mask'];
 }
 
 export interface BackgroundRemovalPreviewSession {
   nodeId: NodeId;
   documentId: string;
   sourceLocator: string;
-  placementRevision: number;
+  placementRevision: string | number;
+  sourceIdentity?: BackgroundRemovalSourceIdentity;
   maskDataUrl: string;
   width: number;
   height: number;
@@ -374,6 +387,8 @@ export interface EditorState {
   bleedGuidesVisible: boolean;
   /** Show layout grid overlays on canvas (distinct from document-level layout grids). */
   layoutGridVisible: boolean;
+  /** Show the canvas minimap; a global view preference, not a workspace panel. */
+  minimapVisible: boolean;
   findingsOverlayVisible: boolean;
   findingsProviderOverrides: Record<string, boolean | undefined>;
   canUndo: boolean;
@@ -531,6 +546,11 @@ export interface EditorState {
   /** Component ID being hovered/focused in the subject picker, for canvas highlighting. */
   subjectHighlightId: number | null;
   backgroundRemovalPreviewSession: BackgroundRemovalPreviewSession | null;
+  backgroundRemovalOperation?: {
+    nodeId: NodeId;
+    stage: 'decoding' | 'processing' | 'preparing-preview';
+    startedAt: number;
+  } | null;
   objectSelectionSession: ObjectSelectionSession | null;
   keyObjectId: string | null;
   alignToPage: boolean;
@@ -662,6 +682,8 @@ export interface EditorContextValue {
   toggleCodegenPanel: () => void;
   /** Toggle the Logo panel (workspace-config-backed, persisted). */
   toggleLogoPanel: () => void;
+  /** Toggle minimap visibility; persists to editor settings. */
+  toggleMinimap: () => void;
   toggleDistractionFreeMode: () => void;
   __setWorkspaceModeUnsafe: (mode: WorkspaceMode) => void;
   requestWorkspaceSwitch: (mode: WorkspaceMode, options?: { force?: boolean }) => Promise<boolean>;

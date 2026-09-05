@@ -1,12 +1,12 @@
-import type { BackgroundRemovalMethod, Document, NodeId, ShapeNode } from '@varve/scene';
-import { getImageFill, imageShapeSrc, isImageShape } from '@varve/scene';
+import type { BackgroundRemovalMethod, Document, NodeId } from '@varve/scene';
 import { useCallback, useEffect, useRef } from 'react';
-import { getDesktopAnalytics } from '../analytics/desktopAnalytics';
 import { commitRasterMask, hasNativeRasterMask } from '../backgroundRemoval/commitRasterMask';
 import { warmMaskRenderCache } from '../backgroundRemoval/maskRenderCache';
 import {
   computePlacementRevision,
   computeSourceFingerprint,
+  matchesIsolationSource,
+  resolveIsolationSource,
   SubjectIsolationService,
 } from '../backgroundRemoval/SubjectIsolationService';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
@@ -124,110 +124,13 @@ export function useBackgroundRemoval(
     };
   }, []);
 
-  const removeBackground = useCallback(
-    async (method: BackgroundRemovalMethod) => {
-      if (!enabled) {
-        announcerRef.current?.announce(
-          'Background removal is available in the main editor window.',
-        );
-        return;
-      }
-      const { getImageFill, isImageShape, imageShapeSrc } = await import('@varve/scene');
-      const imageNode = state.selection
-        .map((id) => state.document.nodes[id] as ShapeNode | undefined)
-        .find((n) => n && isImageShape(n)) as ShapeNode | undefined;
-      if (!imageNode) {
-        announcerRef.current?.announce('Select an image node first');
-        return;
-      }
-      const processingNodeId = imageNode.id;
-      const src = imageShapeSrc(imageNode);
-      announcerRef.current?.announce(`Removing background using ${method}...`);
-
-      const decoded = await decodeSource(src, announcerRef);
-      if (!decoded) return;
-
-      const service = serviceRef.current;
-      if (!service) return;
-      bgRemovalAbortRef.current?.abort();
-      bgRemovalAbortRef.current = new AbortController();
-      processingBgNodeRef.current = processingNodeId;
-
-      const sourceFingerprint = await computeSourceFingerprint(src, decoded.imageData);
-
-      const request = {
-        requestId: `si-${Date.now()}-${processingNodeId}`,
-        documentId: state.document.id,
-        documentRevision: 1,
-        nodeId: processingNodeId,
-        sourceFingerprint,
-        sourceLocator: src,
-        sourcePixelRevision: 1,
-        placementRevision: computePlacementRevision(getImageFill(imageNode)?.image ?? null),
-        sourceWidth: decoded.extractW,
-        sourceHeight: decoded.extractH,
-        imageData: decoded.imageData,
-        options: { method, feather: 0.5, decontaminate: true },
-      };
-
-      try {
-        const result = await service.isolate(request, bgRemovalAbortRef.current.signal);
-
-        if (service.isStale(request, stateRef.current).stale) {
-          announcerRef.current?.announce(
-            'Background removal completed but the image state changed',
-          );
-          return;
-        }
-
-        const { getImageCache } = await import('@varve/engine');
-        await warmMaskRenderCache(
-          getImageCache(),
-          result.maskDataUrl,
-          result.maskWidth,
-          result.maskHeight,
-        );
-        patch({
-          backgroundRemovalPreviewSession: {
-            nodeId: processingNodeId,
-            documentId: request.documentId,
-            sourceLocator: request.sourceLocator,
-            placementRevision: request.placementRevision,
-            maskDataUrl: result.maskDataUrl,
-            width: result.maskWidth,
-            height: result.maskHeight,
-            sourceWidth: decoded.extractW,
-            sourceHeight: decoded.extractH,
-            requestedMethod: method,
-            actualMethod: result.provenance.method as BackgroundRemovalMethod,
-            confidence: result.confidence,
-            feather: 0.5,
-            decontaminate: true,
-            executionProvider: result.provenance.executionProvider,
-            modelId: result.provenance.modelId,
-          },
-        });
-        announcerRef.current?.announce('Background removal preview ready');
-        getDesktopAnalytics().track('feature_used', { feature: 'background_removal' });
-      } catch (e) {
-        if ((e as Error).message === 'cancelled') return;
-        announcerRef.current?.announce(`Background removal failed: ${(e as Error).message}`);
-      } finally {
-        if (processingBgNodeRef.current === processingNodeId) {
-          bgRemovalAbortRef.current = null;
-          processingBgNodeRef.current = null;
-        }
-      }
-    },
-    [enabled, state, announcerRef, bgRemovalAbortRef, processingBgNodeRef, stateRef, patch],
-  );
-
   const cancelBackgroundRemoval = useCallback(() => {
     bgRemovalAbortRef.current?.abort();
     bgRemovalAbortRef.current = null;
     processingBgNodeRef.current = null;
     serviceRef.current?.cancel();
-  }, [bgRemovalAbortRef, processingBgNodeRef]);
+    patch({ backgroundRemovalOperation: null });
+  }, [bgRemovalAbortRef, processingBgNodeRef, patch]);
 
   const removeBackgroundWithOptions = useCallback(
     async (method: BackgroundRemovalMethod, feather: number, decontaminate: boolean) => {
@@ -237,48 +140,59 @@ export function useBackgroundRemoval(
         );
         return;
       }
-      const { getImageFill, isImageShape, imageShapeSrc } = await import('@varve/scene');
-      const imageNode = state.selection
-        .map((id) => state.document.nodes[id] as ShapeNode | undefined)
-        .find((n) => n && isImageShape(n)) as ShapeNode | undefined;
-      if (!imageNode) {
-        announcerRef.current?.announce('Select an image node first');
+      const captured = stateRef.current;
+      const source = captured.selection
+        .map((id) => resolveIsolationSource(captured.document, id))
+        .find(Boolean);
+      if (!source) {
+        announcerRef.current?.announce('Select a shape with one image fill first');
         return;
       }
-      const processingNodeId = imageNode.id;
-      const src = imageShapeSrc(imageNode);
-      announcerRef.current?.announce(`Removing background using ${method}...`);
-
-      const decoded = await decodeSource(src, announcerRef);
-      if (!decoded) return;
-
       const service = serviceRef.current;
       if (!service) return;
+      const processingNodeId = source.node.id;
+      const src = source.image.src;
+      const sourceIdentity = { image: source.image, asset: source.asset, mask: source.mask };
       bgRemovalAbortRef.current?.abort();
-      bgRemovalAbortRef.current = new AbortController();
+      const controller = new AbortController();
+      bgRemovalAbortRef.current = controller;
       processingBgNodeRef.current = processingNodeId;
-
-      const sourceFingerprint = await computeSourceFingerprint(src, decoded.imageData);
-
-      const request = {
-        requestId: `si-${Date.now()}-${processingNodeId}`,
-        documentId: state.document.id,
-        documentRevision: 1,
-        nodeId: processingNodeId,
-        sourceFingerprint,
-        sourceLocator: src,
-        sourcePixelRevision: 1,
-        placementRevision: computePlacementRevision(getImageFill(imageNode)?.image ?? null),
-        sourceWidth: decoded.extractW,
-        sourceHeight: decoded.extractH,
-        imageData: decoded.imageData,
-        options: { method, feather, decontaminate },
-      };
-
+      const startedAt = Date.now();
+      patch({
+        backgroundRemovalPreviewSession: null,
+        subjectPickerSession: null,
+        backgroundRemovalOperation: { nodeId: processingNodeId, stage: 'decoding', startedAt },
+      });
+      announcerRef.current?.announce(`Removing background using ${method}...`);
       try {
-        const isoResult = await service.isolate(request, bgRemovalAbortRef.current.signal);
+        const decoded = await decodeSource(src, announcerRef);
+        if (!decoded || controller.signal.aborted) return;
+        const sourceFingerprint = await computeSourceFingerprint(src, decoded.imageData);
+        if (controller.signal.aborted) return;
+        const request = {
+          requestId: `si-${sourceFingerprint}-${processingNodeId}`,
+          documentId: captured.document.id,
+          nodeId: processingNodeId,
+          sourceFingerprint,
+          sourceIdentity,
+          sourceLocator: src,
+          placementRevision: computePlacementRevision(source.image),
+          sourceWidth: decoded.extractW,
+          sourceHeight: decoded.extractH,
+          imageData: decoded.imageData,
+          options: { method, feather, decontaminate },
+        };
+        const isCurrent = () =>
+          !controller.signal.aborted &&
+          bgRemovalAbortRef.current === controller &&
+          !service.isStale(request, stateRef.current).stale;
+        if (!isCurrent()) return;
+        patch({
+          backgroundRemovalOperation: { nodeId: processingNodeId, stage: 'processing', startedAt },
+        });
+        const isoResult = await service.isolate(request, controller.signal);
 
-        if (service.isStale(request, stateRef.current).stale) {
+        if (!isCurrent()) {
           announcerRef.current?.announce(
             'Background removal completed but the image state changed',
           );
@@ -287,13 +201,20 @@ export function useBackgroundRemoval(
 
         const engineResult = {
           maskDataUrl: isoResult.maskDataUrl,
-          confidence: 0.95,
+          confidence: isoResult.confidence,
           method: isoResult.provenance.method as 'quick' | 'ai-balanced' | 'ai-quality',
           processingTimeMs: parseInt(isoResult.provenance.runtime, 10) || 0,
           width: isoResult.maskWidth,
           height: isoResult.maskHeight,
         };
 
+        patch({
+          backgroundRemovalOperation: {
+            nodeId: processingNodeId,
+            stage: 'preparing-preview',
+            startedAt,
+          },
+        });
         const { finalizeMaskResult } = await import('@varve/engine');
         // Quick is the one-click path. Its heuristic can legitimately produce
         // several disconnected foreground regions (for example, a person and
@@ -304,6 +225,7 @@ export function useBackgroundRemoval(
             ? { ...engineResult, components: undefined, needsSubjectPicker: false as const }
             : await finalizeMaskResult(engineResult, { promptIfMultiple: true });
 
+        if (!isCurrent()) return;
         if (finalized.needsSubjectPicker && finalized.components) {
           patch({
             subjectPickerSession: {
@@ -324,6 +246,7 @@ export function useBackgroundRemoval(
               documentId: request.documentId,
               sourceLocator: request.sourceLocator,
               placementRevision: request.placementRevision,
+              sourceIdentity,
             },
           });
           announcerRef.current?.announce('Multiple subjects detected — pick which regions to keep');
@@ -337,6 +260,7 @@ export function useBackgroundRemoval(
           finalized.width,
           finalized.height,
         );
+        if (!isCurrent()) return;
         // The review region lives inside the Inspector's Background Removal
         // disclosure (registry-collapsed by default) on the Adjustments tab.
         // Opening both here makes every entry point (quick bar in any
@@ -344,7 +268,11 @@ export function useBackgroundRemoval(
         // instead of a silently mounted but unreachable one.
         requestInspectorTab('adjustments');
         patch({
-          sectionVisibility: setCollapsed(state.sectionVisibility, 'background-removal', false),
+          sectionVisibility: setCollapsed(
+            stateRef.current.sectionVisibility,
+            'background-removal',
+            false,
+          ),
         });
         patch({
           backgroundRemovalPreviewSession: {
@@ -352,6 +280,7 @@ export function useBackgroundRemoval(
             documentId: request.documentId,
             sourceLocator: request.sourceLocator,
             placementRevision: request.placementRevision,
+            sourceIdentity,
             maskDataUrl: finalized.maskDataUrl,
             width: finalized.width,
             height: finalized.height,
@@ -368,13 +297,14 @@ export function useBackgroundRemoval(
         });
         announcerRef.current?.announce('Background removal preview ready');
       } catch (e) {
-        if ((e as Error).message === 'cancelled') return;
+        if (controller.signal.aborted || (e as Error).message === 'cancelled') return;
         announcerRef.current?.announce(`Background removal failed: ${(e as Error).message}`);
         throw e;
       } finally {
-        if (processingBgNodeRef.current === processingNodeId) {
+        if (bgRemovalAbortRef.current === controller) {
           bgRemovalAbortRef.current = null;
           processingBgNodeRef.current = null;
+          patch({ backgroundRemovalOperation: null });
         }
       }
     },
@@ -388,6 +318,11 @@ export function useBackgroundRemoval(
       stateRef,
       updateDoc,
     ],
+  );
+
+  const removeBackground = useCallback(
+    (method: BackgroundRemovalMethod) => removeBackgroundWithOptions(method, 0.5, false),
+    [removeBackgroundWithOptions],
   );
 
   const setShowOriginalBg = useCallback(
@@ -405,15 +340,19 @@ export function useBackgroundRemoval(
     const preview = stateRef.current.backgroundRemovalPreviewSession;
     if (!preview) return;
     const currentState = stateRef.current;
-    const currentNode = currentState.document.nodes[preview.nodeId] as ShapeNode | undefined;
+    const currentSource = resolveIsolationSource(currentState.document, preview.nodeId);
+    const currentNode = currentSource?.node;
     if (
       currentState.document.id !== preview.documentId ||
       !currentState.selection.includes(preview.nodeId) ||
       !currentNode ||
-      !isImageShape(currentNode) ||
-      imageShapeSrc(currentNode) !== preview.sourceLocator ||
-      computePlacementRevision(getImageFill(currentNode)?.image ?? null) !==
-        preview.placementRevision
+      !currentSource ||
+      currentSource.image.src !== preview.sourceLocator ||
+      (preview.sourceIdentity &&
+        (preview.sourceIdentity.image !== currentSource.image ||
+          preview.sourceIdentity.asset !== currentSource.asset ||
+          preview.sourceIdentity.mask !== currentSource.mask)) ||
+      computePlacementRevision(currentSource.image) !== preview.placementRevision
     ) {
       patch({ backgroundRemovalPreviewSession: null });
       announcerRef.current?.announce('Preview discarded because the selected image changed');
@@ -431,6 +370,7 @@ export function useBackgroundRemoval(
       height: preview.height,
       sourceLocator: preview.sourceLocator,
       method: preview.actualMethod,
+      modelId: preview.modelId,
       generatedAt: Date.now(),
       confidence: preview.confidence,
       decontaminate: preview.decontaminate,
@@ -451,7 +391,9 @@ export function useBackgroundRemoval(
       // unrelated changes, and refuse a replaced target or document.
       if (
         document.id !== currentState.document.id ||
-        document.nodes[preview.nodeId] !== currentNode
+        document.nodes[preview.nodeId] !== currentNode ||
+        (preview.sourceIdentity &&
+          !matchesIsolationSource(document, preview.nodeId, preview.sourceIdentity))
       ) {
         return document;
       }
@@ -535,6 +477,26 @@ export function useBackgroundRemoval(
         const filtered = filterMaskByComponents(mask, width, height, new Set(keepIds));
         const maskDataUrl = maskArrayToDataUrl(filtered, width, height);
         await warmMaskRenderCache(getImageCache(), maskDataUrl, width, height);
+        if (
+          stateRef.current.subjectPickerSession !== session ||
+          stateRef.current.document.id !== session.documentId ||
+          !stateRef.current.selection.includes(session.nodeId) ||
+          (session.sourceIdentity &&
+            !matchesIsolationSource(
+              stateRef.current.document,
+              session.nodeId,
+              session.sourceIdentity,
+            ))
+        )
+          return;
+        requestInspectorTab('adjustments');
+        patch({
+          sectionVisibility: setCollapsed(
+            stateRef.current.sectionVisibility,
+            'background-removal',
+            false,
+          ),
+        });
         patch({
           subjectPickerSession: null,
           backgroundRemovalPreviewSession: {
@@ -542,6 +504,7 @@ export function useBackgroundRemoval(
             documentId: session.documentId,
             sourceLocator: session.sourceLocator,
             placementRevision: session.placementRevision,
+            sourceIdentity: session.sourceIdentity,
             maskDataUrl,
             width,
             height,
@@ -557,7 +520,13 @@ export function useBackgroundRemoval(
         announcerRef.current?.announce(
           `Kept ${keepIds.length} subject(s); background removal preview ready`,
         );
-      })();
+      })().catch((error) => {
+        if (stateRef.current.subjectPickerSession === session) {
+          announcerRef.current?.announce(
+            `Could not prepare the selected regions: ${String(error)}`,
+          );
+        }
+      });
     },
     [enabled, stateRef, patch, announcerRef],
   );
@@ -572,31 +541,22 @@ export function useBackgroundRemoval(
       announcerRef.current?.announce('Background removal is available in the main editor window.');
       return;
     }
-    const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import('@varve/scene');
-    const doc = state.document;
-    const imageNode = state.selection
-      .map((id) => doc.nodes[id] as ShapeNode | undefined)
-      .find((n) => n && isImageShape(n) && hasNativeRasterMask(doc, n.id)) as ShapeNode | undefined;
-    if (!imageNode || !hasNativeRasterMask(doc, imageNode.id)) {
+    const captured = stateRef.current;
+    const doc = captured.document;
+    const source = captured.selection
+      .map((id) => resolveIsolationSource(doc, id))
+      .find((item) => item && hasNativeRasterMask(doc, item.node.id));
+    if (!source) {
       announcerRef.current?.announce('Apply background removal first');
       return;
     }
+    const imageNode = source.node;
     try {
       const { decodeMaskDataUrl, getImageCache, maskArrayToDataUrl, refineHairMatting } =
         await import('@varve/engine');
-      const w = imageShapeW(imageNode);
-      const h = imageShapeH(imageNode);
-      const img = await getImageCache().load(imageShapeSrc(imageNode));
-      if (!img) {
-        announcerRef.current?.announce('Could not load image');
-        return;
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0, w, h);
-      const imageData = ctx.getImageData(0, 0, w, h);
+      const decoded = await decodeSource(source.image.src, announcerRef);
+      if (!decoded) return;
+      const { imageData, extractW: w, extractH: h } = decoded;
       const assetId = imageNode.mask!.rasterMask!.assetId;
       const asset = doc.rasterMaskAssets?.[assetId];
       const maskUrl = asset?.dataUrl;
@@ -604,22 +564,32 @@ export function useBackgroundRemoval(
         announcerRef.current?.announce('Could not resolve mask asset');
         return;
       }
-      const { mask } = await decodeMaskDataUrl(maskUrl);
+      const { mask, width, height } = await decodeMaskDataUrl(maskUrl);
+      if (width !== w || height !== h || mask.length !== w * h) {
+        throw new Error('Mask dimensions do not match the source image');
+      }
       const refined = refineHairMatting(imageData, mask);
       const maskDataUrl = maskArrayToDataUrl(refined, w, h);
       await warmMaskRenderCache(getImageCache(), maskDataUrl, w, h);
+      if (
+        stateRef.current.document.id !== doc.id ||
+        !matchesIsolationSource(stateRef.current.document, imageNode.id, source)
+      )
+        return;
       updateDoc((d) =>
-        commitRasterMask(d, imageNode.id, {
-          dataUrl: maskDataUrl,
-          width: w,
-          height: h,
-        }),
+        d.id === doc.id && matchesIsolationSource(d, imageNode.id, source)
+          ? commitRasterMask(d, imageNode.id, {
+              dataUrl: maskDataUrl,
+              width: w,
+              height: h,
+            })
+          : d,
       );
       announcerRef.current?.announce('Hair/fur edges refined');
     } catch (e) {
       announcerRef.current?.announce(`Edge refinement failed: ${(e as Error).message}`);
     }
-  }, [enabled, state, announcerRef, updateDoc]);
+  }, [enabled, stateRef, announcerRef, updateDoc]);
 
   const startTrimapEdit = useCallback(() => {
     if (!enabled) {
@@ -642,45 +612,47 @@ export function useBackgroundRemoval(
       announcerRef.current?.announce('Background removal is available in the main editor window.');
       return;
     }
-    const nodeId = state.selection[0];
+    const captured = stateRef.current;
+    const nodeId = captured.selection[0];
     if (!nodeId) return;
     const trimapEntry = trimapStoreRef.current.get(nodeId);
-    const doc = state.document;
-    const node = doc.nodes[nodeId] as ShapeNode | undefined;
-    if (!trimapEntry || !node || !hasNativeRasterMask(doc, nodeId)) {
+    const doc = captured.document;
+    const source = resolveIsolationSource(doc, nodeId);
+    if (!trimapEntry || !source || !hasNativeRasterMask(doc, nodeId)) {
       announcerRef.current?.announce('Paint a trimap first');
       return;
     }
     try {
-      const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
-        '@varve/scene'
-      );
-      if (!isImageShape(node)) return;
       const { getImageCache, maskArrayToDataUrl, solveTrimapMatting } = await import(
         '@varve/engine'
       );
-      const w = imageShapeW(node);
-      const h = imageShapeH(node);
-      const img = await getImageCache().load(imageShapeSrc(node));
-      if (!img) {
-        announcerRef.current?.announce('Could not load image');
-        return;
+      const decoded = await decodeSource(source.image.src, announcerRef);
+      if (!decoded) return;
+      const { imageData, extractW: w, extractH: h } = decoded;
+      if (
+        trimapEntry.width !== w ||
+        trimapEntry.height !== h ||
+        trimapEntry.data.length !== w * h
+      ) {
+        throw new Error('Trimap dimensions do not match the source image');
       }
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0, w, h);
-      const imageData = ctx.getImageData(0, 0, w, h);
       const matte = solveTrimapMatting(imageData, trimapEntry.data);
       const maskDataUrl = maskArrayToDataUrl(matte, w, h);
       await warmMaskRenderCache(getImageCache(), maskDataUrl, w, h);
+      if (
+        stateRef.current.document.id !== doc.id ||
+        !matchesIsolationSource(stateRef.current.document, nodeId, source) ||
+        trimapStoreRef.current.get(nodeId) !== trimapEntry
+      )
+        return;
       updateDoc((d) =>
-        commitRasterMask(d, nodeId, {
-          dataUrl: maskDataUrl,
-          width: w,
-          height: h,
-        }),
+        d.id === doc.id && matchesIsolationSource(d, nodeId, source)
+          ? commitRasterMask(d, nodeId, {
+              dataUrl: maskDataUrl,
+              width: w,
+              height: h,
+            })
+          : d,
       );
       trimapStoreRef.current.delete(nodeId);
       patch({ tool: 'select' });
@@ -688,7 +660,7 @@ export function useBackgroundRemoval(
     } catch (e) {
       announcerRef.current?.announce(`Trimap matting failed: ${(e as Error).message}`);
     }
-  }, [enabled, state, trimapStoreRef, announcerRef, updateDoc, patch]);
+  }, [enabled, stateRef, trimapStoreRef, announcerRef, updateDoc, patch]);
 
   const getTrimapData = useCallback(
     (nodeId: NodeId) => trimapStoreRef.current.get(nodeId) ?? null,

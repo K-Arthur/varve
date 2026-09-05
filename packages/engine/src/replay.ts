@@ -1201,6 +1201,7 @@ function paintImageFill(
       }
     }
     if (maskImg) {
+      const maskScale = maskSourceScale(maskImg, fullSourceWidth, fullSourceHeight);
       try {
         const masked = renderMaskedImageSample(
           image,
@@ -1210,6 +1211,7 @@ function paintImageFill(
           fill.src,
           fill.alphaMask,
           sourceScale,
+          maskScale,
         );
         if (masked) {
           target.drawImage(masked, bounds.x, bounds.y, bounds.w, bounds.h);
@@ -1328,6 +1330,20 @@ function maskedImageSourceId(source: CanvasImageSource): number {
   return id;
 }
 
+/** Map original source pixels into a bounded mask proxy's pixel grid. */
+function maskSourceScale(mask: CanvasImageSource, sourceWidth: number, sourceHeight: number) {
+  const sized = mask as {
+    naturalWidth?: number;
+    naturalHeight?: number;
+    width?: number;
+    height?: number;
+  };
+  return {
+    x: (sized.naturalWidth || sized.width || sourceWidth) / sourceWidth,
+    y: (sized.naturalHeight || sized.height || sourceHeight) / sourceHeight,
+  };
+}
+
 function renderMaskedImageSample(
   image: CanvasImageSource,
   mask: CanvasImageSource,
@@ -1336,6 +1352,7 @@ function renderMaskedImageSample(
   imageKey: string,
   maskKey: string,
   sourceScale = { x: 1, y: 1 },
+  maskScale = { x: 1, y: 1 },
 ): HTMLCanvasElement | null {
   if (typeof document === 'undefined' || typeof document.createElement !== 'function') return null;
   const width = Math.max(1, Math.ceil(bounds.w));
@@ -1366,6 +1383,8 @@ function renderMaskedImageSample(
     placement.sourceRect.h,
     sourceScale.x,
     sourceScale.y,
+    maskScale.x,
+    maskScale.y,
     placement.rotation,
     placement.flipH,
     placement.flipV,
@@ -1398,6 +1417,7 @@ function renderMaskedImageSample(
     placement,
     placement.drawRect,
     placement.sampleDrawRect,
+    maskScale,
   );
 
   maskedImageCache.set(key, canvas);

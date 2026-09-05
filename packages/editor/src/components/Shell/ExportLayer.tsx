@@ -1,10 +1,14 @@
 import { createEngine, type Engine, getFontRegistry } from '@varve/engine';
 import { FontCatalog } from '@varve/engine/font';
 import type { Platform } from '@varve/platform';
-import type { ExportBatch, ExportFormat, SceneNode, ShapeNode } from '@varve/scene';
-import { isExportRegion, isImageShape } from '@varve/scene';
+import type { Document, ExportBatch, ExportFormat, SceneNode, ShapeNode } from '@varve/scene';
+import { isExportRegion, resolveNodePaints } from '@varve/scene';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { durationBucket, getDesktopAnalytics } from '../../analytics/desktopAnalytics';
+import {
+  commitPreparedBackgroundRemoval,
+  type PreparedBackgroundRemoval,
+} from '../../backgroundRemoval/commitRasterMask';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
 import { useEditor } from '../../context';
 import {
@@ -34,9 +38,15 @@ function isRasterExport(format: ExportFormat): boolean {
  * exists only to be exported, so one whose presets were all removed should
  * still be visible here rather than silently dropping out of the dialog.
  */
-function exportableNodes(doc: { nodes: Record<string, SceneNode> }): SceneNode[] {
+function exportableNodes(doc: Document): SceneNode[] {
   return Object.values(doc.nodes).filter(
-    (node) => (node.presets?.length ?? 0) > 0 || isExportRegion(node) || isImageShape(node),
+    (node) =>
+      (node.presets?.length ?? 0) > 0 ||
+      isExportRegion(node) ||
+      (node.kind === 'shape' &&
+        resolveNodePaints({ fills: node.fills, paintRefs: node.paintRefs }, doc).some(
+          (fill) => fill.type === 'image' && fill.image,
+        )),
   );
 }
 
@@ -53,6 +63,18 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
   ref,
 ) {
   const editor = useEditor();
+  const editorRef = useRef(editor);
+  editorRef.current = editor;
+  const applyPreparedCutout = useCallback((id: string, prepared: PreparedBackgroundRemoval) => {
+    const current = editorRef.current;
+    const snapshot = current.state.document;
+    const committed = commitPreparedBackgroundRemoval(snapshot, id, prepared);
+    if (committed === snapshot)
+      throw new Error('The image changed while processing; this cutout was not applied.');
+    current.updateDoc((doc) =>
+      doc === snapshot ? committed : commitPreparedBackgroundRemoval(doc, id, prepared),
+    );
+  }, []);
   const exportEngineRef = useRef<Promise<Engine> | null>(null);
   const saveExportFile = useMemo(() => createExportSaveFile(platform), [platform]);
   const [batchBgRemoveOpen, setBatchBgRemoveOpen] = useState(false);
@@ -79,6 +101,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
       batch: ExportBatch,
       signal?: AbortSignal,
       onProgress?: (event: ExportProgressEvent) => void,
+      preparedDocument?: Document,
     ) => {
       const needsEngine = batch.jobs.some((job) => isRasterExport(job.format));
       const engine = needsEngine ? await getExportEngine() : null;
@@ -91,7 +114,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
       const report = await ExportService.run(
         batch,
         {
-          document: editor.state.document,
+          document: preparedDocument ?? editor.state.document,
           engine,
           saveFile: archive?.saveFile ?? folderSaveFile ?? saveExportFile,
           onProgress,
@@ -184,20 +207,18 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
         onPackageExport={handlePackageExport}
         onExportMotion={handleExportMotion}
         onSaveVideoFile={handleSaveVideoFile}
-        onApplyBackgroundRemoval={(id, state) => {
-          editor.updateNode(id, (n) => ({ ...n, backgroundRemoval: state }));
-        }}
+        onApplyBackgroundRemoval={applyPreparedCutout}
       />
 
       <BatchBgRemoveDialog
         open={batchBgRemoveOpen}
+        documentId={editor.state.document.id}
+        document={editor.state.document}
         onClose={() => setBatchBgRemoveOpen(false)}
         nodes={editor.state.selection
           .map((id) => editor.state.document.nodes[id])
-          .filter((n): n is ShapeNode => !!n && isImageShape(n))}
-        onNodeUpdate={(id, state) => {
-          editor.updateNode(id, (n) => ({ ...n, backgroundRemoval: state }));
-        }}
+          .filter((n): n is ShapeNode => n?.kind === 'shape')}
+        onNodeUpdate={applyPreparedCutout}
       />
     </>
   );

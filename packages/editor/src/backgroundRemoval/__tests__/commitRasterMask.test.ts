@@ -12,6 +12,7 @@ import type { Document } from '@varve/scene';
 import { addNode, createDocument, makeImageShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
+  commitPreparedBackgroundRemoval,
   commitRasterMask,
   hasNativeRasterMask,
   removeRasterMaskFromNode,
@@ -212,5 +213,66 @@ describe('commitRasterMask', () => {
       height: 1,
     });
     expect(hasNativeRasterMask(committed, 'img-1')).toBe(true);
+  });
+});
+
+it('reprocessing replaces provenance while brush edits preserve it', () => {
+  const first = commitRasterMask(makeDoc(), 'img-1', {
+    dataUrl: PNG_WHITE,
+    width: 1,
+    height: 1,
+    method: 'quick',
+    generatedAt: 1,
+  });
+  const next = commitRasterMask(first, 'img-1', {
+    dataUrl: PNG_WHITE,
+    width: 1,
+    height: 1,
+    method: 'ai-balanced',
+    modelId: 'u2netp',
+    generatedAt: 2,
+  });
+  expect(next.nodes['img-1']!.mask!.rasterMask!.provenance).toMatchObject({
+    method: 'ai-balanced',
+    modelId: 'u2netp',
+    generatedAt: 2,
+  });
+  const painted = commitRasterMask(next, 'img-1', {
+    dataUrl: PNG_WHITE,
+    width: 1,
+    height: 1,
+  });
+  expect(painted.nodes['img-1']!.mask!.rasterMask!.provenance).toEqual(
+    next.nodes['img-1']!.mask!.rasterMask!.provenance,
+  );
+});
+
+describe('prepared batch/export cutouts', () => {
+  it('uses native assets and preserves unrelated current-document edits', () => {
+    const doc = makeDoc();
+    const prepared = {
+      sourceNode: doc.nodes['img-1']!,
+      sourceLocator: 'test-src',
+      documentId: doc.id,
+      width: 1,
+      height: 1,
+      maskDataUrl: PNG_WHITE,
+      method: 'quick' as const,
+      confidence: 1,
+      appliedAt: 1,
+    };
+    const result = commitPreparedBackgroundRemoval(
+      { ...doc, name: 'Later edit' },
+      'img-1',
+      prepared,
+    );
+    expect(result.name).toBe('Later edit');
+    expect(result.nodes['img-1']!.mask?.rasterMask).toBeDefined();
+    expect('backgroundRemoval' in result.nodes['img-1']!).toBe(false);
+    const replaced = {
+      ...doc,
+      nodes: { ...doc.nodes, 'img-1': { ...prepared.sourceNode, name: 'Replaced' } },
+    };
+    expect(commitPreparedBackgroundRemoval(replaced, 'img-1', prepared)).toBe(replaced);
   });
 });

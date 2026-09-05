@@ -63,7 +63,7 @@ describe('dispatchQuickBarAction', () => {
   it('wires removeBg to removeBackgroundWithOptions quick', async () => {
     const deps = makeDeps();
     await dispatchQuickBarAction('removeBg', deps);
-    expect(deps.removeBackgroundWithOptions).toHaveBeenCalledWith('quick', 0.5, true);
+    expect(deps.removeBackgroundWithOptions).toHaveBeenCalledWith('quick', 0.5, false);
   });
 
   it('wires upscale to openUpscaleDialog', async () => {

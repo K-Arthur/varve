@@ -16,7 +16,7 @@ import {
   workerModelIdForMethod,
 } from '@varve/engine';
 import type { SceneNode, ShapeNode } from '@varve/scene';
-import { imageShapeSrc, isImageShape } from '@varve/scene';
+import { imageShapeSrc, isImageShape, resolveNodePaints } from '@varve/scene';
 import { Button, Select, ShineBorder, Switch } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { removeRasterMaskFromNode } from '../../../backgroundRemoval/commitRasterMask';
@@ -30,6 +30,9 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   const message = e instanceof Error ? e.message : String(e);
   if (message === 'cancelled' || message === 'AbortError' || message.includes('aborted')) {
     return 'Cancelled';
+  }
+  if (message.includes('request deadline')) {
+    return 'AI processing reached its time limit. Try Fast for a simple background, or choose a smaller local model in Settings, Offline Models.';
   }
   if (message.includes('timed out')) {
     return 'Timed out while waiting for the AI model. Switch to Quick mode or try again.';
@@ -111,7 +114,13 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     applyTrimapMatting,
     setTrimapEditOptions,
   } = useEditor();
-  const node = nodes[0] as ShapeNode | undefined;
+  const selectedNode = nodes[0] as ShapeNode | undefined;
+  const node = selectedNode?.paintRefs?.length
+    ? {
+        ...selectedNode,
+        fills: resolveNodePaints({ paintRefs: selectedNode.paintRefs }, state.document),
+      }
+    : selectedNode;
   const decontaminateId = useId();
   const hasMask = Boolean(
     node && (isImageShape(node) || node.mask?.rasterMask || node.backgroundRemoval),
@@ -129,7 +138,10 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const [method, setMethod] = useState<RemovalMethod>(
     (maskProvenance as { method?: RemovalMethod })?.method ?? 'quick',
   );
-  const [pending, setPending] = useState(false);
+  const [localPending, setPending] = useState(false);
+  const operation =
+    state.backgroundRemovalOperation?.nodeId === node?.id ? state.backgroundRemovalOperation : null;
+  const pending = localPending || Boolean(operation);
   const [elapsedMs, setElapsedMs] = useState(0);
   const elapsedRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -143,8 +155,15 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   );
   const [feather, setFeather] = useState((maskProvenance as { feather?: number })?.feather ?? 0.5);
   const [decontaminate, setDecontaminate] = useState(
-    (maskProvenance as { decontaminate?: boolean })?.decontaminate ?? true,
+    (maskProvenance as { decontaminate?: boolean })?.decontaminate ?? false,
   );
+  useEffect(() => {
+    setMethod(maskProvenance?.method ?? 'quick');
+    setFeather((maskProvenance as { feather?: number })?.feather ?? 0.5);
+    setDecontaminate(maskProvenance?.decontaminate ?? false);
+    setError(null);
+  }, [node?.id, maskProvenance]);
+
   const [modelState, setModelState] = useState<'unavailable' | 'downloading' | 'ready' | 'error'>(
     'unavailable',
   );
@@ -278,7 +297,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   useEffect(() => {
     if (pending) {
       setElapsedMs(0);
-      const start = Date.now();
+      const start = operation?.startedAt ?? Date.now();
       elapsedRef.current = window.setInterval(() => {
         setElapsedMs(Date.now() - start);
       }, 250);
@@ -292,7 +311,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         elapsedRef.current = null;
       }
     };
-  }, [pending]);
+  }, [pending, operation?.startedAt]);
 
   if (isCapabilityRestricted('inference')) return null;
   if (!eligible || !node) return null;
@@ -714,7 +733,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           {maskProvenance && (
             <p className="insp-meta-row">
               <span>
-                Confidence{' '}
+                Mask score{' '}
                 {Math.round(((maskProvenance as { confidence?: number }).confidence ?? 0) * 100)}%
               </span>
               <span className="insp-meta-row__sep" aria-hidden>
@@ -778,20 +797,26 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
 
           <Switch
             id={decontaminateId}
-            label="Reduce colour fringe"
+            label="Contract soft edges"
             className="insp-switch"
             checked={decontaminate}
             onChange={(e) => setDecontaminate(e.target.checked)}
           />
           <p className="insp-hint">
-            Pulls background colour out of semi-transparent edge pixels after masking.
+            Contracts the semi-transparent mask boundary by about one pixel. This can reduce halos,
+            but may remove fine detail; it does not recolour the source.
           </p>
 
           <div className="insp-actions">
             {pending ? (
               <>
                 <span className="insp-hint" aria-live="polite">
-                  Creating mask preview… {Math.round(elapsedMs / 1000)}s
+                  {operation?.stage === 'decoding'
+                    ? 'Reading source image'
+                    : operation?.stage === 'processing'
+                      ? 'Processing image'
+                      : 'Preparing preview'}
+                  … {Math.round(elapsedMs / 1000)}s
                 </span>
                 <Button
                   type="button"
@@ -830,7 +855,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                   className="insp-mask-review"
                   style={{
                     backgroundImage:
-                      'linear-gradient(45deg, var(--color-surface-sunken) 25%, transparent 25%), linear-gradient(-45deg, var(--color-surface-sunken) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--color-surface-sunken) 75%), linear-gradient(-45deg, transparent 75%, var(--color-surface-sunken) 75%)',
+                      'conic-gradient(var(--color-surface-raised) 25%, var(--color-border-default) 0 50%, var(--color-surface-raised) 0 75%, var(--color-border-default) 0)',
                     backgroundSize: '16px 16px',
                   }}
                 >
@@ -870,16 +895,15 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                   Nothing has been added to the document yet.
                 </p>
                 <div className="insp-field">
-                  <span className="insp-field__label">Mask confidence</span>
+                  <span className="insp-field__label">Mask score</span>
                   <div className="insp-field__control">
-                    <progress
-                      max={1}
-                      value={previewSession.confidence}
-                      aria-label="Mask confidence"
-                    />
+                    <progress max={1} value={previewSession.confidence} aria-label="Mask score" />
                     <span>{Math.round(previewSession.confidence * 100)}%</span>
                   </div>
                 </div>
+                <p className="insp-hint">
+                  Algorithm score, not a probability of accuracy. Inspect edges before applying.
+                </p>
                 {previewSession.confidence < 0.55 && (
                   <p className="insp-hint insp-hint--warn" role="status">
                     The subject boundary is uncertain. Cancel and choose AI Balanced, or apply then

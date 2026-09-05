@@ -20,7 +20,6 @@ import {
 import { prefersReducedMotion } from '@varve/prototype';
 import type {
   BackgroundRemovalMethod,
-  BackgroundRemovalState,
   Document,
   ExportBatch,
   ExportJob,
@@ -29,16 +28,14 @@ import type {
   NodeId,
   PrintOptions,
   SceneNode,
-  ShapeNode,
   Timeline,
 } from '@varve/scene';
 import {
   documentBleedMm,
   imageShapeH,
-  imageShapeSrc,
   imageShapeW,
-  isImageShape,
   pageBleedMm,
+  resolveNodePaints,
   textNodeLocalBounds,
 } from '@varve/scene';
 import {
@@ -54,6 +51,8 @@ import {
 } from '@varve/scene/export';
 import { FocusTrap, Select, SwitchField } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { PreparedBackgroundRemoval } from '../../backgroundRemoval/commitRasterMask';
+import { prepareExportCutouts } from '../../backgroundRemoval/prepareExportCutouts';
 import { estimateExportBytes } from '../../export/estimateSize';
 import { applyExportBatchPaths } from '../../exportBatchPaths';
 import {
@@ -86,9 +85,10 @@ export interface ExportDialogProps {
     batch: ExportBatch,
     signal?: AbortSignal,
     onProgress?: (event: ExportProgressEvent) => void,
+    preparedDocument?: Document,
   ) => Promise<ExportReport | undefined>;
   onPackageExport?: () => Promise<void>;
-  onApplyBackgroundRemoval?: (nodeId: NodeId, state: BackgroundRemovalState) => void;
+  onApplyBackgroundRemoval?: (nodeId: NodeId, state: PreparedBackgroundRemoval) => void;
   onExportMotion?: (format: 'css' | 'lottie' | 'svg', fileName: string, content: string) => void;
   onSaveVideoFile?: (fileName: string, bytes: Uint8Array, mimeType: string) => Promise<void>;
   selectionIds?: NodeId[];
@@ -560,69 +560,49 @@ export function ExportDialog({
     setProgressDetail({ stage: 'preflight' });
     const selectedJobs = jobs.filter((job) => selectedIds.has(`${job.nodeId}-${job.presetId}`));
 
+    batchAbortRef.current?.abort();
+    const controller = new AbortController();
+    batchAbortRef.current = controller;
+    let preparedDocument = document;
+    let preparedMasks: PreparedBackgroundRemoval[] = [];
     if (removeBgBeforeExport) {
       if (bgMethod !== 'quick' && !aiAvailable) {
-        setAnnounceMsg('Download the AI model first, or switch to Quick mode.');
+        setAnnounceMsg('Download the AI model first, or switch to Fast mode.');
         setShowDownloadDialog(true);
         setRunning(false);
         return;
       }
-
-      const imageNodes = nodes.filter((n): n is ShapeNode => isImageShape(n));
-      const pendingImages = imageNodes.filter((n) => !n.backgroundRemoval);
-      if (pendingImages.length > 0 && onApplyBackgroundRemoval) {
-        setAnnounceMsg(`Removing background from ${pendingImages.length} image(s)...`);
-        const { removeBackground: removeBgFn } = await import('@varve/engine');
-        const { getImageCache } = await import('@varve/engine');
-        const cache = getImageCache();
-        for (const imgNode of pendingImages) {
-          try {
-            const src = imageShapeSrc(imgNode);
-            const w = imageShapeW(imgNode);
-            const h = imageShapeH(imgNode);
-            const img = await cache.load(src);
-            if (!img) throw new Error(`Could not load ${imgNode.name}`);
-            const c = globalThis.document.createElement('canvas');
-            c.width = w;
-            c.height = h;
-            const ctx = c.getContext('2d');
-            if (!ctx) throw new Error('Canvas rendering is unavailable');
-            ctx.drawImage(img, 0, 0, w, h);
-            const imageData = ctx.getImageData(0, 0, w, h);
-            const result = await removeBgFn(imageData, {
-              method: bgMethod,
-              feather: 0.5,
-              decontaminate: true,
-            });
-            if (bgMethod !== 'quick' && result.method === 'quick') {
-              throw new Error('the provider returned a Quick result');
-            }
-            onApplyBackgroundRemoval(imgNode.id, {
-              maskDataUrl: result.maskDataUrl,
-              method: result.method,
-              confidence: result.confidence,
-              appliedAt: Date.now(),
-              feather: 0.5,
-              decontaminate: true,
-            });
-          } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            setAnnounceMsg(`AI background removal failed: ${message}`);
-            setRunning(false);
-            return;
-          }
+      if (onApplyBackgroundRemoval) {
+        setAnnounceMsg('Preparing cutouts for export...');
+        try {
+          ({ preparedDocument, preparedMasks } = await prepareExportCutouts(
+            document,
+            nodes,
+            bgMethod,
+            controller.signal,
+          ));
+        } catch (error) {
+          setRunning(false);
+          if (!controller.signal.aborted)
+            setAnnounceMsg(`Background removal failed: ${String(error)}`);
+          return;
         }
       }
     }
-
-    batchAbortRef.current?.abort();
-    const controller = new AbortController();
-    batchAbortRef.current = controller;
     try {
-      const report = await onExport(exportBatch, controller.signal, (event) => {
-        setProgress({ done: event.completed, errors: event.failed });
-        setProgressDetail({ stage: event.stage, currentFile: event.currentFile });
-      });
+      const report = await onExport(
+        exportBatch,
+        controller.signal,
+        (event) => {
+          setProgress({ done: event.completed, errors: event.failed });
+          setProgressDetail({ stage: event.stage, currentFile: event.currentFile });
+        },
+        preparedDocument,
+      );
+      if (!controller.signal.aborted) {
+        for (const prepared of preparedMasks)
+          onApplyBackgroundRemoval?.(prepared.sourceNode.id, prepared);
+      }
       if (report) {
         setSuccessEmphasisActive(
           !controller.signal.aborted &&
@@ -1084,7 +1064,14 @@ export function ExportDialog({
               {removeBgBeforeExport &&
                 (() => {
                   const imageCount = nodes.filter(
-                    (n) => isImageShape(n) && !(n as ShapeNode).backgroundRemoval,
+                    (n) =>
+                      n.kind === 'shape' &&
+                      !n.backgroundRemoval &&
+                      !n.mask?.rasterMask &&
+                      (document
+                        ? resolveNodePaints({ fills: n.fills, paintRefs: n.paintRefs }, document)
+                        : (n.fills ?? [])
+                      ).some((fill) => fill.type === 'image' && fill.image),
                   ).length;
                   return imageCount > 0 ? (
                     <p className="export-dialog__note">

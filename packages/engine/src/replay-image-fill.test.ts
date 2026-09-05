@@ -506,6 +506,46 @@ describe('image fill modes', () => {
     expect(draw.length).toBeGreaterThan(0);
   });
 
+  it('maps source crop coordinates into a reduced-resolution mask proxy', () => {
+    const maskUrl = 'mask-half-resolution';
+    getImageCache().setLoaded(maskUrl, mockImage(maskUrl, 100, 50));
+    const draws: number[][] = [];
+    const context = {
+      translate() {},
+      save() {},
+      restore() {},
+      rotate() {},
+      scale() {},
+      drawImage(_source: CanvasImageSource, ...args: number[]) {
+        draws.push(args);
+      },
+      globalCompositeOperation: 'source-over',
+    };
+    global.document = {
+      createElement: () => ({ width: 0, height: 0, getContext: () => context }),
+    } as unknown as Document;
+    const { target } = makeRecorder();
+    replayIr(target, [
+      rectItem(
+        100,
+        100,
+        imageFill({
+          type: 'image',
+          src: 'img2',
+          fit: 'fill',
+          alphaMask: maskUrl,
+          imageWidth: 200,
+          imageHeight: 100,
+          crop: { x: 50, y: 20, w: 100, h: 50 },
+        }),
+      ),
+    ]);
+    expect(draws[0]?.slice(0, 4)).toEqual([50, 20, 100, 50]);
+    expect(draws[1]?.slice(0, 4)).toEqual([25, 10, 50, 25]);
+    expect(draws[1]?.slice(4)).toEqual(draws[0]?.slice(4));
+    delete (global as unknown as { document?: Document }).document;
+  });
+
   it('uses the identical crop and content transform for image and alpha mask', () => {
     const maskUrl = 'mask-aligned';
     getImageCache().setLoaded(maskUrl, mockImage(maskUrl, 200, 100));

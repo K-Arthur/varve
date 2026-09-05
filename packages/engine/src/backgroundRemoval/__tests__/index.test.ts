@@ -173,6 +173,47 @@ describe('removeBackground dispatch', () => {
     expect(mockMaskToDataUrl).toHaveBeenCalledWith(expect.any(Uint8Array), 8, 2);
   });
 
+  it('keeps reconstructed coverage separate from source transparency', async () => {
+    const source = makeImage(8, 2);
+    for (let i = 0; i < 16; i++) source.data[i * 4 + 3] = 128;
+    mockHeuristic.mockResolvedValue({
+      ...HEURISTIC_RESULT,
+      width: 4,
+      height: 1,
+      rawMask: new Uint8Array(4).fill(255),
+    });
+    const { removeBackground } = await import('../index');
+    const result = await removeBackground(source, { method: 'quick', previewMaxDimension: 4 });
+    expect([...result.rawMask!]).toEqual(Array(16).fill(255));
+    expect([...result.sourceAlpha!]).toEqual(Array(16).fill(128));
+    expect(mockMaskToDataUrl).toHaveBeenCalledWith(new Uint8Array(16).fill(255), 8, 2);
+  });
+
+  it('decodes and resizes PNG-only output instead of relabelling its dimensions', async () => {
+    mockHeuristic.mockResolvedValue({ ...HEURISTIC_RESULT, width: 4, height: 1 });
+    mockDecodeMaskDataUrl.mockResolvedValue({
+      mask: new Uint8Array(4).fill(255),
+      width: 4,
+      height: 1,
+    });
+    const { removeBackground } = await import('../index');
+    const result = await removeBackground(makeImage(8, 2), {
+      method: 'quick',
+      previewMaxDimension: 4,
+    });
+    expect(mockDecodeMaskDataUrl).toHaveBeenCalledWith(HEURISTIC_RESULT.maskDataUrl);
+    expect(result.rawMask).toHaveLength(16);
+    expect(mockMaskToDataUrl).toHaveBeenCalledWith(expect.any(Uint8Array), 8, 2);
+  });
+
+  it('rejects truncated provider masks before reconstruction', async () => {
+    mockHeuristic.mockResolvedValue({ ...HEURISTIC_RESULT, rawMask: new Uint8Array(3) });
+    const { removeBackground } = await import('../index');
+    await expect(removeBackground(makeImage(), { method: 'quick' })).rejects.toThrow(
+      /mask.*dimensions/i,
+    );
+  });
+
   it('probes native AI then uses the Web Worker when native AI is not ready', async () => {
     (window as unknown as { __TAURI__?: unknown }).__TAURI__ = {};
     vi.stubGlobal('Worker', class {});

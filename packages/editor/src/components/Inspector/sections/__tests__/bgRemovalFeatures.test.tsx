@@ -401,28 +401,28 @@ describe('BackgroundRemovalSection - Feather slider', () => {
 });
 
 describe('BackgroundRemovalSection - Decontaminate switch', () => {
-  it('renders decontaminate switch checked by default', () => {
+  it('leaves edge contraction off by default', () => {
     const node = makeImageNode();
     render(<BackgroundRemovalSection nodes={[node]} />);
-    expect(screen.getByRole('switch', { name: 'Reduce colour fringe' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Contract soft edges' })).not.toBeChecked();
   });
 
-  it('toggles decontaminate off', () => {
+  it('opts into edge contraction', () => {
     const node = makeImageNode();
     render(<BackgroundRemovalSection nodes={[node]} />);
-    const control = screen.getByRole('switch', { name: 'Reduce colour fringe' });
-    fireEvent.click(control);
-    expect(control).not.toBeChecked();
-  });
-
-  it('toggles decontaminate on after off', () => {
-    const node = makeImageNode();
-    render(<BackgroundRemovalSection nodes={[node]} />);
-    const control = screen.getByRole('switch', { name: 'Reduce colour fringe' });
-    fireEvent.click(control);
-    expect(control).not.toBeChecked();
+    const control = screen.getByRole('switch', { name: 'Contract soft edges' });
     fireEvent.click(control);
     expect(control).toBeChecked();
+  });
+
+  it('can disable edge contraction after opting in', () => {
+    const node = makeImageNode();
+    render(<BackgroundRemovalSection nodes={[node]} />);
+    const control = screen.getByRole('switch', { name: 'Contract soft edges' });
+    fireEvent.click(control);
+    expect(control).toBeChecked();
+    fireEvent.click(control);
+    expect(control).not.toBeChecked();
   });
 });
 
@@ -547,7 +547,7 @@ describe('ExportDialog - Remove background toggle', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /export \(1\)/i }));
     await vi.waitFor(() => {
-      expect(screen.getByText(/AI background removal failed/i)).toBeTruthy();
+      expect(screen.getByText(/background removal failed/i)).toBeTruthy();
     });
     expect(onApplyBackgroundRemoval).not.toHaveBeenCalled();
     expect(onExport).not.toHaveBeenCalled();

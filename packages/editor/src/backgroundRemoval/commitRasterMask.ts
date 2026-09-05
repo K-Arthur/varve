@@ -11,7 +11,16 @@
  * Research basis: Figma non-destructive pixel masks, ADR-0005 offline-first
  * asset model, immutable Document pattern.
  */
-import type { BackgroundRemovalProvenance, Document, NodeId, RasterMaskAsset } from '@varve/scene';
+import type {
+  BackgroundRemovalProvenance,
+  BackgroundRemovalState,
+  Document,
+  DocumentAsset,
+  ImageFillData,
+  NodeId,
+  RasterMaskAsset,
+  SceneNode,
+} from '@varve/scene';
 import {
   addRasterMaskAsset,
   cryptoId,
@@ -149,7 +158,25 @@ export function commitRasterMask(
   const asset = makeAsset(`mask-${cryptoId()}`, fields);
   if (existingMask) {
     const updated = updateRasterMaskAsset(sourceAlignedDoc, nodeId, asset);
-    return updated === sourceAlignedDoc ? doc : updated;
+    if (updated === sourceAlignedDoc) return doc;
+    const provenance = makeProvenance(fields);
+    if (!provenance) return updated;
+    const updatedNode = updated.nodes[nodeId]!;
+    const updatedMask = updatedNode.mask;
+    if (!updatedMask?.rasterMask) return updated;
+    return {
+      ...updated,
+      nodes: {
+        ...updated.nodes,
+        [nodeId]: {
+          ...updatedNode,
+          mask: {
+            ...updatedMask,
+            rasterMask: { ...updatedMask.rasterMask, provenance },
+          },
+        },
+      },
+    };
   }
 
   const updated = addRasterMaskAsset(
@@ -178,4 +205,52 @@ export function removeRasterMaskFromNode(doc: Document, nodeId: NodeId): Documen
 export function hasNativeRasterMask(doc: Document, nodeId: NodeId): boolean {
   const node = doc.nodes[nodeId];
   return Boolean(node?.mask?.rasterMask);
+}
+
+/** Completed noninteractive job, bound to its submission-time target. */
+export interface PreparedBackgroundRemoval extends BackgroundRemovalState {
+  width: number;
+  height: number;
+  sourceNode: SceneNode;
+  sourceLocator: string;
+  sourceImage?: ImageFillData;
+  sourceAsset?: DocumentAsset;
+  documentId?: string;
+  modelId?: string;
+  runtime?: BackgroundRemovalProvenance['runtime'];
+}
+
+export function commitPreparedBackgroundRemoval(
+  doc: Document,
+  nodeId: NodeId,
+  prepared: PreparedBackgroundRemoval,
+): Document {
+  if (
+    (prepared.documentId && doc.id !== prepared.documentId) ||
+    doc.nodes[nodeId] !== prepared.sourceNode
+  )
+    return doc;
+  if (prepared.sourceImage && prepared.sourceNode.kind === 'shape') {
+    const fills = resolveNodePaints(
+      { fills: prepared.sourceNode.fills, paintRefs: prepared.sourceNode.paintRefs },
+      doc,
+    ).filter((fill) => fill.type === 'image' && fill.image);
+    if (fills.length !== 1 || fills[0]?.image !== prepared.sourceImage) return doc;
+    const asset = prepared.sourceImage.assetId
+      ? doc.assets?.[prepared.sourceImage.assetId]
+      : undefined;
+    if (asset !== prepared.sourceAsset) return doc;
+  }
+  return commitRasterMask(doc, nodeId, {
+    dataUrl: prepared.maskDataUrl,
+    width: prepared.width,
+    height: prepared.height,
+    sourceLocator: prepared.sourceLocator,
+    method: prepared.method,
+    generatedAt: prepared.appliedAt,
+    confidence: prepared.confidence,
+    decontaminate: prepared.decontaminate,
+    modelId: prepared.modelId,
+    runtime: prepared.runtime,
+  });
 }

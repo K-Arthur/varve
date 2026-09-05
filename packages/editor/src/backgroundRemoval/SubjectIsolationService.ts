@@ -6,19 +6,20 @@
  * subject-selection pipeline with stateful invalidation guards.
  */
 
-import type { EditorState } from '../context/types';
+import type { Document } from '@varve/scene';
+import { resolveNodePaints } from '@varve/scene';
+import type { BackgroundRemovalSourceIdentity, EditorState } from '../context/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export interface SubjectIsolationRequest {
   requestId: string;
   documentId: string;
-  documentRevision: number;
   nodeId: string;
   sourceFingerprint: string;
+  sourceIdentity?: BackgroundRemovalSourceIdentity;
   sourceLocator: string;
-  sourcePixelRevision: number;
-  placementRevision: number;
+  placementRevision: string | number;
   sourceWidth: number;
   sourceHeight: number;
   imageData: ImageData;
@@ -58,9 +59,11 @@ export type StaleReason =
 
 /**
  * Compute a content-addressed source fingerprint (SHA-256 hex prefix) from
- * source image data. Falls back to a length-based marker when SubtleCrypto
- * is unavailable (e.g. some non-secure-context test environments).
+ * source image data. Without SubtleCrypto, use a unique non-coalescing token;
+ * never mistake equal dimensions or locator lengths for equal content.
  */
+let unverifiedFingerprintGeneration = 0;
+
 export async function computeSourceFingerprint(
   src: string,
   imageData?: ImageData,
@@ -72,9 +75,9 @@ export async function computeSourceFingerprint(
     const hex = Array.from(new Uint8Array(hash))
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
-    return `${src.length}:${imageData?.width ?? 0}x${imageData?.height ?? 0}:${hex.slice(0, 16)}`;
+    return `${src.length}:${imageData?.width ?? 0}x${imageData?.height ?? 0}:${hex}`;
   } catch {
-    return `fp:${src.length}:${imageData?.width ?? 0}:${imageData?.height ?? 0}`;
+    return `fp:unverified:${++unverifiedFingerprintGeneration}`;
   }
 }
 
@@ -83,15 +86,55 @@ export async function computeSourceFingerprint(
  * in crop/placement that should invalidate a previous isolation result.
  */
 export function computePlacementRevision(
-  imageFill: { x?: number; y?: number; scale?: number; fit?: string } | null,
-): number {
+  imageFill: {
+    x?: number;
+    y?: number;
+    scale?: number;
+    fit?: string;
+    rotation?: number;
+    flipH?: boolean;
+    flipV?: boolean;
+    crop?: { x: number; y: number; w: number; h: number };
+  } | null,
+): string | number {
   if (!imageFill) return 0;
-  let hash = 5381;
-  hash = ((hash << 5) + hash + Math.round((imageFill.x ?? 0) * 100)) | 0;
-  hash = ((hash << 5) + hash + Math.round((imageFill.y ?? 0) * 100)) | 0;
-  hash = ((hash << 5) + hash + Math.round((imageFill.scale ?? 1) * 1000)) | 0;
-  hash = ((hash << 5) + hash + (imageFill.fit ?? '').length) | 0;
-  return Math.abs(hash);
+  const { crop } = imageFill;
+  return JSON.stringify([
+    imageFill.x ?? 0,
+    imageFill.y ?? 0,
+    imageFill.scale ?? 1,
+    imageFill.fit ?? '',
+    imageFill.rotation ?? 0,
+    imageFill.flipH ?? false,
+    imageFill.flipV ?? false,
+    crop ? [crop.x, crop.y, crop.w, crop.h] : null,
+  ]);
+}
+
+/** A node-wide mask must not silently choose one of several image fills. */
+export function resolveIsolationSource(doc: Document, nodeId: string) {
+  const node = doc.nodes[nodeId];
+  if (node?.kind !== 'shape') return null;
+  const fills = resolveNodePaints({ fills: node.fills, paintRefs: node.paintRefs }, doc);
+  const images = fills.filter((fill) => fill.type === 'image' && fill.image);
+  if (images.length !== 1) return null;
+  const image = images[0]!.image!;
+  const asset = image.assetId ? doc.assets?.[image.assetId] : undefined;
+  return { node, image, asset, mask: node.mask };
+}
+
+export function matchesIsolationSource(
+  doc: Document,
+  nodeId: string,
+  identity: BackgroundRemovalSourceIdentity,
+): boolean {
+  const source = resolveIsolationSource(doc, nodeId);
+  return Boolean(
+    source &&
+      source.image === identity.image &&
+      source.asset === identity.asset &&
+      source.mask === identity.mask,
+  );
 }
 
 // ── Service ────────────────────────────────────────────────────────────────
@@ -160,10 +203,12 @@ export class SubjectIsolationService {
       this.currentRequest &&
       this.currentRequest.nodeId === request.nodeId &&
       this.currentRequest.sourceFingerprint === request.sourceFingerprint &&
-      this.currentRequest.sourcePixelRevision === request.sourcePixelRevision &&
+      this.currentRequest.sourceLocator === request.sourceLocator &&
+      this.currentRequest.sourceIdentity?.image === request.sourceIdentity?.image &&
+      this.currentRequest.sourceIdentity?.asset === request.sourceIdentity?.asset &&
+      this.currentRequest.sourceIdentity?.mask === request.sourceIdentity?.mask &&
       this.currentRequest.placementRevision === request.placementRevision &&
       this.currentRequest.documentId === request.documentId &&
-      this.currentRequest.documentRevision === request.documentRevision &&
       this.currentRequest.options.method === request.options.method &&
       this.currentRequest.options.feather === request.options.feather &&
       this.currentRequest.options.decontaminate === request.options.decontaminate
@@ -237,11 +282,19 @@ export class SubjectIsolationService {
     if (!currentState.selection.includes(request.nodeId)) {
       return { stale: true, reason: 'not-selected' };
     }
-    const imageFill = node.fills?.find((fill) => fill.type === 'image' && fill.image)?.image;
-    if (!imageFill || imageFill.src !== request.sourceLocator) {
+    const source = resolveIsolationSource(currentState.document, request.nodeId);
+    if (!source || source.image.src !== request.sourceLocator) {
       return { stale: true, reason: 'source-replaced' };
     }
-    if (computePlacementRevision(imageFill) !== request.placementRevision) {
+    if (
+      request.sourceIdentity &&
+      (request.sourceIdentity.image !== source.image ||
+        request.sourceIdentity.asset !== source.asset ||
+        request.sourceIdentity.mask !== source.mask)
+    ) {
+      return { stale: true, reason: 'source-pixels-changed' };
+    }
+    if (computePlacementRevision(source.image) !== request.placementRevision) {
       return { stale: true, reason: 'placement-changed' };
     }
     return { stale: false };
@@ -256,6 +309,7 @@ export class SubjectIsolationService {
   ): Promise<void> {
     try {
       const engine = await this.getEngine();
+      if (signal.aborted) return;
       const result = await engine.removeBackground(
         request.imageData,
         {
@@ -284,16 +338,16 @@ export class SubjectIsolationService {
         confidence: result.confidence,
       };
 
-      if (this.currentRequest?.requestId === request.requestId && !signal.aborted) {
+      if (this.currentAbortController?.signal === signal && !signal.aborted) {
         this.currentResolve?.(isolationResult);
       }
     } catch (e) {
       if (signal.aborted) return;
-      if (this.currentRequest?.requestId === request.requestId) {
+      if (this.currentAbortController?.signal === signal) {
         this.currentReject?.(e instanceof Error ? e : new Error(String(e)));
       }
     } finally {
-      if (this.currentRequest?.requestId === request.requestId) {
+      if (this.currentAbortController?.signal === signal) {
         this.clear();
       }
     }

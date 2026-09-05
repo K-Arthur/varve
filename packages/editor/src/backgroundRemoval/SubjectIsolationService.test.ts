@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   computePlacementRevision,
   computeSourceFingerprint,
+  resolveIsolationSource,
   type SubjectIsolationEngine,
   type SubjectIsolationRequest,
   SubjectIsolationService,
@@ -23,11 +24,9 @@ function makeRequest(overrides: Partial<SubjectIsolationRequest> = {}): SubjectI
   return {
     requestId: `req-${Date.now()}`,
     documentId: 'doc-1',
-    documentRevision: 1,
     nodeId: 'node-1',
     sourceFingerprint: 'fp1234567890abcdef',
     sourceLocator: 'data:image/png;base64,source',
-    sourcePixelRevision: 1,
     placementRevision: computePlacementRevision({ x: 0, y: 0, scale: 1, fit: 'fill' }),
     sourceWidth: 100,
     sourceHeight: 80,
@@ -153,6 +152,17 @@ describe('computeSourceFingerprint', () => {
     expect(a).not.toBe(b);
   });
 
+  it('does not coalesce equal-sized sources when crypto is unavailable', async () => {
+    const digest = vi.spyOn(crypto.subtle, 'digest').mockRejectedValue(new Error('unavailable'));
+    try {
+      const a = await computeSourceFingerprint('img-a.png', makeImageData());
+      const b = await computeSourceFingerprint('img-b.png', makeImageData());
+      expect(a).not.toBe(b);
+    } finally {
+      digest.mockRestore();
+    }
+  });
+
   it('incorporates image dimensions when ImageData provided', async () => {
     const a = await computeSourceFingerprint('img.png', makeImageData(100, 80));
     const b = await computeSourceFingerprint('img.png', makeImageData(200, 160));
@@ -180,6 +190,19 @@ describe('computePlacementRevision', () => {
     const a = computePlacementRevision({ x: 0, y: 0, scale: 1, fit: 'fill' });
     const b = computePlacementRevision({ x: 10, y: 20, scale: 1, fit: 'fill' });
     expect(a).not.toBe(b);
+  });
+
+  it('distinguishes subpixel movement, same-length fit names, crop and rotation', () => {
+    expect(computePlacementRevision({ x: 0.001 })).not.toBe(computePlacementRevision({ x: 0.002 }));
+    expect(computePlacementRevision({ fit: 'fill' })).not.toBe(
+      computePlacementRevision({ fit: 'tile' }),
+    );
+    expect(computePlacementRevision({ rotation: 1 })).not.toBe(
+      computePlacementRevision({ rotation: 2 }),
+    );
+    expect(computePlacementRevision({ crop: { x: 0, y: 0, w: 10, h: 10 } })).not.toBe(
+      computePlacementRevision(null),
+    );
   });
 
   it('changes when scale changes', () => {
@@ -234,12 +257,78 @@ describe('SubjectIsolationService', () => {
     p.catch(() => {});
   }
 
+  it('does not start inference after cancellation during engine acquisition', async () => {
+    const result = service.isolate(makeRequest());
+    service.cancel();
+    await expect(result).rejects.toThrow('cancelled');
+    await Promise.resolve();
+    expect(mockEngine.removeBackground).not.toHaveBeenCalled();
+  });
+
+  it('a cancelled request cannot clear a newer request with the same id', async () => {
+    let finishFirst!: (result: unknown) => void;
+    vi.mocked(mockEngine.removeBackground).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishFirst = resolve as (result: unknown) => void;
+        }),
+    );
+    const first = service.isolate(makeRequest({ requestId: 'same' }));
+    silenceRejection(first);
+    await Promise.resolve();
+    const second = service.isolate(makeRequest({ requestId: 'same', sourceFingerprint: 'new' }));
+    finishFirst({});
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(service.isBusy).toBe(true);
+    await expect(second).resolves.toMatchObject({ maskWidth: 100 });
+  });
+
   describe('isStale', () => {
     it('returns not stale when state matches request', () => {
       const request = makeRequest();
       const state = makeState();
       const result = service.isStale(request, state);
       expect(result.stale).toBe(false);
+    });
+
+    it('resolves shared paints instead of stale inline fills', () => {
+      const state = makeState();
+      const node = state.document.nodes['node-1']!;
+      if (node.kind !== 'shape') throw new Error('Fixture must be a shape');
+      const fill = node.fills![0]!;
+      state.document.paints = { shared: { id: 'shared', name: 'Shared image', fill } };
+      node.paintRefs = ['shared'];
+      node.fills = [];
+      expect(service.isStale(makeRequest(), state).stale).toBe(false);
+    });
+
+    it('rejects ambiguous stacked image fills', () => {
+      const state = makeState();
+      const node = state.document.nodes['node-1']!;
+      if (node.kind !== 'shape') throw new Error('Fixture must be a shape');
+      node.fills = [node.fills![0]!, node.fills![0]!];
+      expect(resolveIsolationSource(state.document, node.id)).toBeNull();
+      expect(service.isStale(makeRequest(), state).stale).toBe(true);
+    });
+
+    it('rejects a changed immutable source even when its locator is unchanged', () => {
+      const state = makeState();
+      const source = resolveIsolationSource(state.document, 'node-1')!;
+      const request = makeRequest({ sourceIdentity: source });
+      source.node.fills = [{ ...source.node.fills![0]!, image: { ...source.image } }];
+      expect(service.isStale(request, state)).toEqual({
+        stale: true,
+        reason: 'source-pixels-changed',
+      });
+    });
+
+    it('retains a source-space result across unrelated document edits', () => {
+      const state = makeState();
+      const source = resolveIsolationSource(state.document, 'node-1')!;
+      const request = makeRequest({ sourceIdentity: source });
+      state.document = { ...state.document, name: 'An unrelated rename' };
+      expect(service.isStale(request, state).stale).toBe(false);
     });
 
     it('rejects when document switched', () => {
@@ -298,10 +387,8 @@ describe('SubjectIsolationService', () => {
       // before returning.
       const req2 = makeRequest({
         sourceFingerprint: req1.sourceFingerprint,
-        sourcePixelRevision: req1.sourcePixelRevision,
         placementRevision: req1.placementRevision,
         documentId: req1.documentId,
-        documentRevision: req1.documentRevision,
         nodeId: req1.nodeId,
       });
       const p2 = service.isolate(req2);

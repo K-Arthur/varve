@@ -1,4 +1,5 @@
 import { maskToDataUrl } from './heuristic';
+import { decodeMaskDataUrl } from './maskDecode';
 import { resizeMaskBilinear } from './maskOps';
 import { downscaleImageData } from './previewDownscale';
 import { dispatchBackgroundRemoval } from './providers/dispatch';
@@ -204,10 +205,19 @@ export async function removeBackground(
     sourceHeight: srcH,
   };
 
-  const previewMask = result.rawMask;
-  const canReconstruct = needsDownscale && previewMask && previewMask.length > 0;
+  if (
+    !Number.isSafeInteger(result.width) ||
+    result.width <= 0 ||
+    !Number.isSafeInteger(result.height) ||
+    result.height <= 0 ||
+    (result.rawMask && result.rawMask.length !== result.width * result.height)
+  ) {
+    throw new Error('Background removal mask has invalid dimensions or buffer length');
+  }
+  if (signal?.aborted) throw new Error('cancelled');
 
-  if (!canReconstruct) {
+  const needsReconstruction = result.width !== srcW || result.height !== srcH;
+  if (!needsReconstruction) {
     return {
       ...result,
       width: srcW,
@@ -216,6 +226,18 @@ export async function removeBackground(
       sourceHeight: srcH,
       sourceResolutionInfo: sourceInfo,
     };
+  }
+
+  // PNG-only providers must be decoded before resizing. Metadata alone
+  // cannot turn a preview-sized PNG into a source-resolution mask.
+  const decoded = result.rawMask ? null : await decodeMaskDataUrl(result.maskDataUrl);
+  if (signal?.aborted) throw new Error('cancelled');
+  if (decoded && (decoded.width !== result.width || decoded.height !== result.height)) {
+    throw new Error('Background removal mask PNG dimensions disagree with its metadata');
+  }
+  const previewMask = result.rawMask ?? decoded!.mask;
+  if (previewMask.length !== result.width * result.height) {
+    throw new Error('Background removal mask has invalid dimensions or buffer length');
   }
 
   // Providers return a mask already aligned to the working image buffer.
@@ -240,8 +262,10 @@ export async function removeBackground(
 
   return {
     ...result,
-    maskDataUrl: maskToDataUrl(finalAlpha, srcW, srcH),
-    rawMask: finalAlpha,
+    // A document mask stores subject coverage. Rendering/export multiplies
+    // it by source alpha once; sourceAlpha is a separate derived output.
+    maskDataUrl: maskToDataUrl(reconstructedAlpha, srcW, srcH),
+    rawMask: reconstructedAlpha,
     width: srcW,
     height: srcH,
     sourceAlpha: finalAlpha,
