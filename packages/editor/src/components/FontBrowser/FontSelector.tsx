@@ -373,7 +373,8 @@ export function FontSelector({
                       {record.variable && (
                         <span
                           className="font-selector__badge font-selector__badge--var"
-                          title="Variable font"
+                          role="img"
+                          aria-label="Variable font"
                         >
                           w
                         </span>

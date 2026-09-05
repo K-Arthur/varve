@@ -392,7 +392,7 @@ export function IconPackManager({
                       <span className="icon-pack-manager__pack-name">
                         {pack.name}
                         {pack.brand && (
-                          <span className="icon-pack-manager__tm" title="Brand/trademark pack">
+                          <span className="icon-pack-manager__tm" role="img" aria-label="Brand/trademark pack">
                             TM
                           </span>
                         )}

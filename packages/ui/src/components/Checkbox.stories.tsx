@@ -10,6 +10,8 @@ const meta: Meta<typeof Checkbox> = {
     disabled: { control: 'boolean' },
     checked: { control: 'boolean' },
     label: { control: 'text' },
+    description: { control: 'text' },
+    error: { control: 'text' },
   },
 };
 
@@ -34,6 +36,36 @@ export const Disabled: Story = {
 
 export const DisabledChecked: Story = {
   args: { label: 'Locked feature', checked: true, disabled: true, onChange: () => {} },
+};
+
+export const WithDescription: Story = {
+  args: {
+    label: 'Enable analytics',
+    description: 'Help us improve the product by sharing usage data.',
+    checked: false,
+    onChange: () => {},
+  },
+};
+
+export const WithError: Story = {
+  args: {
+    label: 'Accept terms',
+    error: 'You must accept the terms to continue.',
+    checked: false,
+    onChange: () => {},
+  },
+};
+
+export const WithDescriptionAndError: Story = {
+  render: () => (
+    <Checkbox
+      label="Accept terms"
+      description="Required for account creation."
+      error="You must accept the terms to continue."
+      checked={false}
+      onChange={() => {}}
+    />
+  ),
 };
 
 export const Dark: Story = {
