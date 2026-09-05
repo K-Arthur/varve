@@ -91,6 +91,15 @@ export function BrushBrowser({
     return [...present].sort();
   }, [allItems]);
 
+  const filterOptions = useMemo<Filter[]>(
+    () => ['all', 'favorites', 'recent', ...categories],
+    [categories],
+  );
+
+  useEffect(() => {
+    if (!filterOptions.includes(filter)) setFilter('all');
+  }, [filter, filterOptions]);
+
   const visible = useMemo(() => {
     let items = allItems;
     if (filter === 'favorites') items = items.filter((i) => favoriteIds.has(i.id));
@@ -120,16 +129,15 @@ export function BrushBrowser({
           ) : null)}
       </div>
 
-      <div className="brush-browser__filters" role="tablist" aria-label="Brush categories">
-        <FilterChip current={filter} value="all" label="All" onSelect={setFilter} />
-        <FilterChip current={filter} value="favorites" label="Favorites" onSelect={setFilter} />
-        <FilterChip current={filter} value="recent" label="Recent" onSelect={setFilter} />
-        {categories.map((category) => (
+      <div className="brush-browser__filters" role="radiogroup" aria-label="Brush category filter">
+        {filterOptions.map((value, index) => (
           <FilterChip
-            key={category}
+            key={value}
             current={filter}
-            value={category}
-            label={category[0]!.toUpperCase() + category.slice(1)}
+            value={value}
+            label={value[0]!.toUpperCase() + value.slice(1)}
+            options={filterOptions}
+            index={index}
             onSelect={setFilter}
           />
         ))}
@@ -182,24 +190,54 @@ function FilterChip({
   current,
   value,
   label,
+  options,
+  index,
   onSelect,
 }: {
   current: Filter;
   value: Filter;
   label: string;
+  options: readonly Filter[];
+  index: number;
   onSelect: (v: Filter) => void;
 }) {
   const active = current === value;
+  const selectedIndex = options.indexOf(current);
+  const focusIndex = selectedIndex >= 0 ? selectedIndex : 0;
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    let nextIndex: number | undefined;
+    if (event.key === 'ArrowRight') nextIndex = (index + 1) % options.length;
+    if (event.key === 'ArrowLeft') nextIndex = (index - 1 + options.length) % options.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = options.length - 1;
+    if (nextIndex === undefined) return;
+    event.preventDefault();
+    const next = options[nextIndex];
+    if (!next) return;
+    onSelect(next);
+    (
+      event.currentTarget
+        .closest('[role="radiogroup"]')
+        ?.querySelectorAll<HTMLInputElement>('input[type="radio"]')[nextIndex] as
+        | HTMLElement
+        | undefined
+    )?.focus();
+  };
+
   return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      className={`brush-browser__chip${active ? ' is-active' : ''}`}
-      onClick={() => onSelect(value)}
-    >
-      {label}
-    </button>
+    <label className={`brush-browser__chip${active ? ' is-active' : ''}`}>
+      <input
+        type="radio"
+        name="brush-category-filter"
+        checked={active}
+        tabIndex={index === focusIndex ? 0 : -1}
+        className="sr-only"
+        onChange={() => onSelect(value)}
+        onKeyDown={handleKeyDown}
+      />
+      <span>{label}</span>
+    </label>
   );
 }
 

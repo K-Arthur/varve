@@ -195,71 +195,75 @@ function CodegenTab({ doc, selection }: CodePanelProps) {
           tabs={CODE_TABS}
           activeTab={activeTarget}
           onTabChange={setActiveTarget}
-        >
-          {CODE_TABS.map((tab) => (
-            <div key={tab.value} />
-          ))}
-        </Tabs>
-      </div>
+          variant="compact"
+          renderPanel={() => (
+            <div className="code-panel__framework-content">
+              <div
+                className="code-panel__preview-sizes"
+                role="radiogroup"
+                aria-label="Preview width"
+              >
+                {PREVIEW_SIZES.map((size) => (
+                  <label
+                    key={size.value}
+                    className={`code-panel__size-btn${previewSize === size.value ? ' code-panel__size-btn--active' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="code-preview-size"
+                      checked={previewSize === size.value}
+                      onChange={() => setPreviewSize(size.value)}
+                      className="sr-only"
+                    />
+                    {size.label}
+                    {size.width && <span className="code-panel__size-unit">px</span>}
+                  </label>
+                ))}
+              </div>
 
-      <div className="code-panel__preview-sizes" role="radiogroup" aria-label="Preview width">
-        {PREVIEW_SIZES.map((size) => (
-          <label
-            key={size.value}
-            className={`code-panel__size-btn${previewSize === size.value ? ' code-panel__size-btn--active' : ''}`}
-          >
-            <input
-              type="radio"
-              name="code-preview-size"
-              checked={previewSize === size.value}
-              onChange={() => setPreviewSize(size.value)}
-              className="sr-only"
-            />
-            {size.label}
-            {size.width && <span className="code-panel__size-unit">px</span>}
-          </label>
-        ))}
-      </div>
+              <div className="code-panel__actions">
+                <CopyButton
+                  value={code}
+                  label={`${activeTarget} code`}
+                  className="code-panel__action-btn"
+                />
+                <button
+                  type="button"
+                  className="code-panel__action-btn code-panel__action-btn--download"
+                  onClick={handleDownload}
+                  disabled={!code}
+                >
+                  <Icon name="Download" label={undefined} size="0.95em" />
+                  Download
+                </button>
+              </div>
 
-      <div className="code-panel__actions">
-        <CopyButton
-          value={code}
-          label={`${activeTarget} code`}
-          className="code-panel__action-btn"
+              <div
+                className="code-panel__preview-wrap"
+                style={previewWidth ? { maxWidth: previewWidth } : undefined}
+              >
+                <section className="code-panel__pre" aria-label={`${activeTarget} generated code`}>
+                  <pre>
+                    <code>
+                      {highlightedLines.map((html, i) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: line-numbered code; position in the rendered block is the identity (index = line number)
+                        <span key={i} className="code-panel__line">
+                          <span className="code-panel__line-num">
+                            {String(i + 1).padStart(String(lineCount).length, ' ')}
+                          </span>
+                          <span
+                            className="code-panel__line-text"
+                            dangerouslySetInnerHTML={{ __html: html || ' ' }}
+                          />
+                        </span>
+                      ))}
+                    </code>
+                  </pre>
+                </section>
+              </div>
+            </div>
+          )}
         />
-        <button
-          type="button"
-          className="code-panel__action-btn code-panel__action-btn--download"
-          onClick={handleDownload}
-          disabled={!code}
-        >
-          <Icon name="Download" label={undefined} size="0.95em" />
-          Download
-        </button>
-      </div>
-
-      <div
-        className="code-panel__preview-wrap"
-        style={previewWidth ? { maxWidth: previewWidth } : undefined}
-      >
-        <section className="code-panel__pre" aria-label={`${activeTarget} generated code`}>
-          <pre>
-            <code>
-              {highlightedLines.map((html, i) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: line-numbered code; position in the rendered block is the identity (index = line number)
-                <span key={i} className="code-panel__line">
-                  <span className="code-panel__line-num">
-                    {String(i + 1).padStart(String(lineCount).length, ' ')}
-                  </span>
-                  <span
-                    className="code-panel__line-text"
-                    dangerouslySetInnerHTML={{ __html: html || ' ' }}
-                  />
-                </span>
-              ))}
-            </code>
-          </pre>
-        </section>
       </div>
     </div>
   );
@@ -503,26 +507,23 @@ export function CodePanel({ doc, selection }: CodePanelProps) {
         </div>
       </PanelDragHandle>
 
-      <div className="code-panel__tabs" role="tablist" aria-label="Code panel tabs">
-        {PRIMARY_TABS.map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            role="tab"
-            className={`code-panel__tab${activeTab === t.value ? ' code-panel__tab--active' : ''}`}
-            aria-selected={activeTab === t.value}
-            onClick={() => setActiveTab(t.value)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="code-panel__body">
-        {activeTab === 'codegen' && <CodegenTab doc={doc} selection={selection} />}
-        {activeTab === 'audit' && <AuditTab doc={doc} />}
-        {activeTab === 'readiness' && <ReadinessTab doc={doc} selection={selection} />}
-      </div>
+      <Tabs
+        label="Code panel views"
+        tabs={PRIMARY_TABS}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        size="sm"
+        tabListClassName="code-panel__tabs"
+        panelClassName="code-panel__primary-panel"
+        className="code-panel__views"
+        renderPanel={(tab) => (
+          <div className="code-panel__body">
+            {tab.value === 'codegen' && <CodegenTab doc={doc} selection={selection} />}
+            {tab.value === 'audit' && <AuditTab doc={doc} />}
+            {tab.value === 'readiness' && <ReadinessTab doc={doc} selection={selection} />}
+          </div>
+        )}
+      />
     </div>
   );
 }

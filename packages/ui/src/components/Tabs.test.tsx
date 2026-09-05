@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Tabs } from './Tabs';
 
@@ -123,5 +123,91 @@ describe('Tabs', () => {
     const tablist = container.querySelector('[role="tablist"]') as HTMLElement;
     fireKey(tablist, 'Home');
     expect(onChange).toHaveBeenCalledWith('css');
+  });
+
+  it('falls back to the first enabled tab when a controlled value is stale', () => {
+    const { container } = render(
+      <Tabs label="Code language" tabs={tabs} activeTab={'removed' as 'css'} onTabChange={() => {}}>
+        <div>CSS content</div>
+        <div>Tailwind content</div>
+        <div>SVG content</div>
+      </Tabs>,
+    );
+    const tabButtons = container.querySelectorAll('[role="tab"]');
+    expect(tabButtons[0]).toHaveAttribute('aria-selected', 'true');
+    expect(tabButtons[0]).toHaveAttribute('tabindex', '0');
+    expect(container.querySelectorAll('[role="tabpanel"]')[0]).not.toHaveAttribute('hidden');
+  });
+
+  it('uses stable value-based panel ids and value-keyed renderers', () => {
+    render(
+      <Tabs
+        label="Code language"
+        tabs={tabs}
+        activeTab="tailwind"
+        onTabChange={() => {}}
+        renderPanel={(tab) => <div>{tab.value} panel</div>}
+      />,
+    );
+    const activeTab = screen.getByRole('tab', { name: 'Tailwind' });
+    const panel = document.getElementById(activeTab.getAttribute('aria-controls') ?? '');
+    expect(panel).toHaveTextContent('tailwind panel');
+    expect(panel).toHaveAttribute('aria-labelledby', activeTab.id);
+  });
+
+  it('supports manual activation without consuming arrow focus', () => {
+    const onChange = vi.fn();
+    render(
+      <Tabs
+        label="Code language"
+        tabs={tabs}
+        activeTab="css"
+        onTabChange={onChange}
+        activation="manual"
+      >
+        <div>CSS content</div>
+        <div>Tailwind content</div>
+        <div>SVG content</div>
+      </Tabs>,
+    );
+    const css = screen.getByRole('tab', { name: 'CSS' });
+    const tailwind = screen.getByRole('tab', { name: 'Tailwind' });
+    css.focus();
+    fireEvent.keyDown(css, { key: 'ArrowRight' });
+    expect(tailwind).toHaveFocus();
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(tailwind, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledWith('tailwind');
+  });
+
+  it('only consumes arrow keys on the tablist axis and skips disabled tabs', () => {
+    const onChange = vi.fn();
+    const verticalTabs = [
+      { value: 'one', label: 'One' },
+      { value: 'two', label: 'Two', disabled: true },
+      { value: 'three', label: 'Three' },
+    ] as const;
+    render(
+      <Tabs
+        label="Sections"
+        tabs={verticalTabs}
+        activeTab="one"
+        onTabChange={onChange}
+        orientation="vertical"
+      >
+        <div>One content</div>
+        <div>Two content</div>
+        <div>Three content</div>
+      </Tabs>,
+    );
+    const tablist = screen.getByRole('tablist', { name: 'Sections' });
+    expect(tablist).toHaveAttribute('aria-orientation', 'vertical');
+    const one = screen.getByRole('tab', { name: 'One' });
+    one.focus();
+    fireEvent.keyDown(one, { key: 'ArrowDown' });
+    expect(screen.getByRole('tab', { name: 'Three' })).toHaveFocus();
+    expect(onChange).toHaveBeenCalledWith('three');
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Three' }), { key: 'ArrowRight' });
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 });

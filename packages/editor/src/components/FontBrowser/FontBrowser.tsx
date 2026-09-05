@@ -273,18 +273,51 @@ export function FontBrowser({
         </div>
       )}
 
-      <div className="font-browser__filters" role="tablist" aria-label="Font source filter">
-        {SOURCE_FILTERS.map((filter) => (
-          <button
+      <div className="font-browser__filters" role="radiogroup" aria-label="Font source filter">
+        {SOURCE_FILTERS.map((filter, index) => (
+          <label
             key={filter.key}
-            type="button"
-            role="tab"
-            aria-selected={activeFilter === filter.key}
             className={`font-browser__filter-btn${activeFilter === filter.key ? ' font-browser__filter-btn--active' : ''}`}
-            onClick={() => setActiveFilter(filter.key)}
           >
-            {filter.label}
-          </button>
+            <input
+              type="radio"
+              name="font-source-filter"
+              checked={activeFilter === filter.key}
+              aria-label={filter.label}
+              className="sr-only"
+              tabIndex={
+                index ===
+                Math.max(
+                  0,
+                  SOURCE_FILTERS.findIndex((item) => item.key === activeFilter),
+                )
+                  ? 0
+                  : -1
+              }
+              onChange={() => setActiveFilter(filter.key)}
+              onKeyDown={(event) => {
+                let nextIndex: number | undefined;
+                if (event.key === 'ArrowRight') nextIndex = (index + 1) % SOURCE_FILTERS.length;
+                if (event.key === 'ArrowLeft')
+                  nextIndex = (index - 1 + SOURCE_FILTERS.length) % SOURCE_FILTERS.length;
+                if (event.key === 'Home') nextIndex = 0;
+                if (event.key === 'End') nextIndex = SOURCE_FILTERS.length - 1;
+                if (nextIndex === undefined) return;
+                event.preventDefault();
+                const next = SOURCE_FILTERS[nextIndex];
+                if (!next) return;
+                setActiveFilter(next.key);
+                (
+                  event.currentTarget
+                    .closest('[role="radiogroup"]')
+                    ?.querySelectorAll<HTMLInputElement>('input[type="radio"]')[nextIndex] as
+                    | HTMLElement
+                    | undefined
+                )?.focus();
+              }}
+            />
+            <span>{filter.label}</span>
+          </label>
         ))}
       </div>
 

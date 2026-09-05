@@ -68,17 +68,28 @@ describe('BrushBrowser', () => {
 
   it('filters to favourites', () => {
     renderBrowser({ favoriteIds: new Set(['c1']) });
-    fireEvent.click(screen.getByRole('tab', { name: 'Favorites' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Favorites' }));
     expect(screen.getByRole('button', { name: 'Charcoal Stick' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Wet Wash' })).toBeNull();
   });
 
   it('orders the recent filter by recency', () => {
     renderBrowser({ recentIds: ['c2', 'c1'] });
-    fireEvent.click(screen.getByRole('tab', { name: 'Recent' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Recent' }));
     const names = screen.getAllByRole('listitem').map((o) => o.textContent);
     expect(names[0]).toContain('Wet Wash');
     expect(names[1]).toContain('Charcoal Stick');
+  });
+
+  it('uses radiogroup keyboard semantics for category filters', () => {
+    renderBrowser();
+    const all = screen.getByRole('radio', { name: 'All' });
+    expect(all).toBeChecked();
+    expect(all).toHaveAttribute('tabindex', '0');
+
+    fireEvent.keyDown(all, { key: 'ArrowRight' });
+    expect(screen.getByRole('radio', { name: 'Favorites' })).toHaveFocus();
+    expect(screen.getByRole('radio', { name: 'Favorites' })).toBeChecked();
   });
 
   it('selects a brush on click', () => {

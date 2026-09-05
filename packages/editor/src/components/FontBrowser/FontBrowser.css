@@ -53,7 +53,10 @@
 }
 
 .font-browser__filter-btn {
-  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
   padding: var(--space-1) var(--space-2);
   background: none;
   border: none;
@@ -64,7 +67,8 @@
   text-transform: capitalize;
   cursor: pointer;
   white-space: nowrap;
-  min-width: 0;
+  min-height: var(--component-compact-height);
+  user-select: none;
 }
 
 .font-browser__filter-btn:hover {
@@ -76,7 +80,7 @@
   border-bottom-color: var(--color-interactive-default);
 }
 
-.font-browser__filter-btn:focus-visible {
+.font-browser__filter-btn:has(input:focus-visible) {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }

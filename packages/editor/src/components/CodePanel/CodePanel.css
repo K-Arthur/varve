@@ -29,47 +29,56 @@
   font-weight: var(--font-weight-semibold);
 }
 
-/* ── Primary tabs ────────────────────── */
+/* ── Shared Tabs integration ─────────── */
+.code-panel__views {
+  flex: 1;
+  min-height: 0;
+}
+
 .code-panel__tabs {
   display: flex;
   align-items: stretch;
   border-bottom: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
-.code-panel__tab {
+.code-panel__tabs .varve-tab {
   flex: 1;
-  padding: var(--space-1) var(--space-2);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: var(--font-size-xs);
-  text-transform: capitalize;
-  cursor: pointer;
   min-width: 0;
-  white-space: nowrap;
-  transition:
-    color var(--duration-quick) var(--ease-standard),
-    border-color var(--duration-quick) var(--ease-standard);
+  text-transform: capitalize;
 }
 
-.code-panel__tab--active,
-.code-panel__tab[aria-selected="true"] {
-  color: var(--color-text-primary);
-  border-bottom-color: var(--color-interactive-default);
+.code-panel__primary-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
 }
 
-.code-panel__tab:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -2px;
+.code-panel__framework-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
-.code-panel__tab:hover:not(.code-panel__tab--active) {
-  color: var(--color-text-secondary);
-  background: var(--color-surface-sunken);
+.code-panel__toolbar-row .varve-tabs {
+  min-width: 0;
+}
+
+.code-panel__toolbar-row .varve-tablist {
+  overflow-x: auto;
+}
+
+.code-panel__toolbar-row .varve-tab {
+  flex: 0 0 auto;
+}
+
+/* The shared primitive owns focus and selected-state styling. These local
+ * rules only preserve the code panel's dense geometry. */
+.code-panel__toolbar-row .varve-tabpanel {
+  padding-inline: 0;
 }
 
 /* ── Scrollable body ─────────────────── */

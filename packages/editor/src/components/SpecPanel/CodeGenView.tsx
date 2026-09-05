@@ -93,9 +93,14 @@ export function CodeGenView({ node, doc, variableStore }: CodeGenViewProps) {
   return (
     <section className="spec-panel__section" aria-labelledby="spec-code-heading">
       <h3 id="spec-code-heading">Code</h3>
-      <Tabs label="Code language" tabs={CODE_TABS} activeTab={activeTab} onTabChange={setActiveTab}>
-        {CODE_TABS.map((tab) => (
-          <div key={tab.value} className="spec-codegen__content">
+      <Tabs
+        label="Code language"
+        tabs={CODE_TABS}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        variant="compact"
+        renderPanel={(tab) => (
+          <div className="spec-codegen__content">
             <div className="spec-codegen__toolbar">
               <CopyButton value={code} label={`${tab.label} code`} className="spec-row__copy" />
               {diffSummary && (
@@ -128,8 +133,8 @@ export function CodeGenView({ node, doc, variableStore }: CodeGenViewProps) {
               </pre>
             </section>
           </div>
-        ))}
-      </Tabs>
+        )}
+      />
     </section>
   );
 }

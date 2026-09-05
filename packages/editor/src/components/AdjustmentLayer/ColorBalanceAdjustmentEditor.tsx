@@ -1,12 +1,12 @@
 import type { Adjustment, ColorBalanceAdjustment, ColorBalanceTriplet } from '@varve/scene';
-import { Switch } from '@varve/ui';
+import { Switch, type Tab, Tabs } from '@varve/ui';
 import { useState } from 'react';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
 
 type TonalRange = 'shadows' | 'midtones' | 'highlights';
 type Axis = keyof ColorBalanceTriplet;
 
-const RANGES: { value: TonalRange; label: string }[] = [
+const RANGES: readonly Tab<TonalRange>[] = [
   { value: 'shadows', label: 'Shadows' },
   { value: 'midtones', label: 'Midtones' },
   { value: 'highlights', label: 'Highlights' },
@@ -32,11 +32,9 @@ export function ColorBalanceAdjustmentEditor({
   onEditEnd?: () => void;
 }) {
   const [activeRange, setActiveRange] = useState<TonalRange>('shadows');
-  const active = adjustment[activeRange];
-
-  const setAxis = (axis: Axis) => (value: number) => {
+  const setAxis = (range: TonalRange, axis: Axis) => (value: number) => {
     onChange({
-      [activeRange]: { ...active, [axis]: value },
+      [range]: { ...adjustment[range], [axis]: value },
     } as unknown as Partial<Adjustment>);
   };
 
@@ -46,46 +44,46 @@ export function ColorBalanceAdjustmentEditor({
 
   return (
     <div className="color-balance-editor">
-      <div className="color-balance-editor__tabs" role="tablist" aria-label="Tonal range">
-        {RANGES.map((range) => (
-          <button
-            key={range.value}
-            type="button"
-            role="tab"
-            aria-selected={activeRange === range.value}
-            className={`color-balance-editor__tab${activeRange === range.value ? ' is-active' : ''}`}
-            onClick={() => setActiveRange(range.value)}
-          >
-            {range.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="color-balance-editor__axes">
-        {AXES.map((axis) => (
-          <div className="color-balance-editor__axis" key={axis.key}>
-            <div className="color-balance-editor__axis-labels">
-              <span>{axis.left}</span>
-              <output aria-label={`${axis.label} value`}>{active[axis.key]}</output>
-              <span className="color-balance-editor__axis-label--right">{axis.right}</span>
+      <Tabs
+        label="Tonal range"
+        tabs={RANGES}
+        activeTab={activeRange}
+        onTabChange={setActiveRange}
+        variant="soft"
+        size="sm"
+        tabListClassName="color-balance-editor__tabs"
+        panelClassName="color-balance-editor__range-panel"
+        renderPanel={(range) => {
+          const active = adjustment[range.value];
+          return (
+            <div className="color-balance-editor__axes">
+              {AXES.map((axis) => (
+                <div className="color-balance-editor__axis" key={axis.key}>
+                  <div className="color-balance-editor__axis-labels">
+                    <span>{axis.left}</span>
+                    <output aria-label={`${axis.label} value`}>{active[axis.key]}</output>
+                    <span className="color-balance-editor__axis-label--right">{axis.right}</span>
+                  </div>
+                  <RangeValueControl
+                    label={`${range.label} ${axis.label}`}
+                    rangeAriaLabel={`${range.label} ${axis.label}`}
+                    rangeClassName="adj-editor__slider"
+                    min={-100}
+                    max={100}
+                    value={active[axis.key]}
+                    onChange={setAxis(range.value, axis.key)}
+                    onRangePointerDown={onEditStart}
+                    onRangePointerUp={onEditEnd}
+                    onRangePointerCancel={onEditEnd}
+                    onRangeKeyDown={onEditStart}
+                    onRangeKeyUp={onEditEnd}
+                  />
+                </div>
+              ))}
             </div>
-            <RangeValueControl
-              label={`${RANGES.find((range) => range.value === activeRange)!.label} ${axis.label}`}
-              rangeAriaLabel={`${RANGES.find((range) => range.value === activeRange)!.label} ${axis.label}`}
-              rangeClassName="adj-editor__slider"
-              min={-100}
-              max={100}
-              value={active[axis.key]}
-              onChange={setAxis(axis.key)}
-              onRangePointerDown={onEditStart}
-              onRangePointerUp={onEditEnd}
-              onRangePointerCancel={onEditEnd}
-              onRangeKeyDown={onEditStart}
-              onRangeKeyUp={onEditEnd}
-            />
-          </div>
-        ))}
-      </div>
+          );
+        }}
+      />
 
       <Switch
         className="adj-editor__checkbox-row"

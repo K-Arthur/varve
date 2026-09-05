@@ -1339,19 +1339,24 @@
 .varve-tabs {
   display: flex;
   flex-direction: column;
+  min-inline-size: 0;
   gap: 0;
 }
 .varve-tablist {
   display: flex;
-  gap: 0;
+  min-inline-size: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
   border-bottom: 1px solid var(--color-border-subtle);
 }
 .varve-tab {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
   min-block-size: var(--tab-min-height);
+  flex: 0 0 auto;
   box-sizing: border-box;
   background: transparent;
   border: none;
@@ -1365,28 +1370,142 @@
   white-space: nowrap;
   transition:
     color var(--duration-quick) var(--ease-standard),
-    border-color var(--duration-quick) var(--ease-standard);
+    border-color var(--duration-quick) var(--ease-standard),
+    background-color var(--duration-quick) var(--ease-standard);
 }
 .varve-tab[aria-selected="true"] {
   color: var(--color-text-primary);
   border-bottom-color: var(--color-interactive-default);
+  font-weight: var(--font-weight-semibold);
 }
 .varve-tab:hover:not([aria-selected="true"]) {
   color: var(--color-text-primary);
   background: var(--color-surface-sunken);
 }
+.varve-tab:disabled {
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
 .varve-tab:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
+.varve-tab__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.varve-tab__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 1.25rem;
+  min-block-size: 1.25rem;
+  padding-inline: var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs, 0.6875rem);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+}
+.varve-tab[aria-selected="true"] .varve-tab__badge {
+  border-color: var(--color-interactive-default);
+  color: var(--color-interactive-default);
+}
+.varve-tab--icon-only {
+  min-inline-size: var(--tab-min-height);
+  padding-inline: var(--space-2);
+}
 .varve-tabpanel {
   padding: var(--space-3);
+}
+.varve-tabs--compact .varve-tab {
+  min-block-size: var(--component-compact-height);
+  padding-block: var(--space-1);
+  padding-inline: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+.varve-tabs--sm .varve-tab {
+  min-block-size: var(--component-compact-height);
+  padding-block: var(--space-1);
+  padding-inline: var(--space-2);
+}
+.varve-tabs--lg .varve-tab {
+  min-block-size: var(--component-large-height);
+  padding-inline: var(--space-4);
+}
+.varve-tabs--soft .varve-tablist,
+.varve-tabs--pill .varve-tablist {
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-sunken);
+}
+.varve-tabs--soft .varve-tab,
+.varve-tabs--pill .varve-tab {
+  border: 1px solid transparent;
+  border-radius: var(--radius-control-compact);
+}
+.varve-tabs--soft .varve-tab[aria-selected="true"],
+.varve-tabs--pill .varve-tab[aria-selected="true"] {
+  border-color: var(--color-border-subtle);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+.varve-tabs--pill .varve-tablist {
+  border-radius: var(--radius-full);
+}
+.varve-tabs--pill .varve-tab {
+  border-radius: var(--radius-full);
+}
+.varve-tabs--panel {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--color-surface-raised);
+}
+.varve-tabs--panel .varve-tablist {
+  padding-inline: var(--space-1);
+  border-bottom-color: var(--color-border-subtle);
+}
+.varve-tabs--panel .varve-tabpanel {
+  padding: var(--space-3);
+}
+.varve-tabs--vertical {
+  flex-direction: row;
+  align-items: stretch;
+}
+.varve-tabs--vertical .varve-tablist {
+  flex-direction: column;
+  align-items: stretch;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-bottom: none;
+  border-inline-end: 1px solid var(--color-border-subtle);
+}
+.varve-tabs--vertical .varve-tab {
+  justify-content: flex-start;
+  border-bottom: none;
+  border-inline-end: 2px solid transparent;
+  text-align: start;
+}
+.varve-tabs--vertical .varve-tab[aria-selected="true"] {
+  border-inline-end-color: var(--color-interactive-default);
+}
+.varve-tabs--vertical .varve-tabpanel {
+  flex: 1;
+  min-inline-size: 0;
 }
 /* U17 (2026-08-10): the old `.varve-tabpanel:focus { outline: none }` was a
  * trap for future focusable panels — a visible ring replaces it. */
 .varve-tabpanel:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .varve-tab {
+    transition: none;
+  }
 }
 
 .varve-panel {
