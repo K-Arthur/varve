@@ -838,6 +838,8 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   toggleCodegenPanel: () => void;
   /** Toggle Logo panel visibility; persists to editor settings. */
   toggleLogoPanel: () => void;
+  /** Toggle minimap visibility; persists as a global view preference. */
+  toggleMinimap: () => void;
   /** Toggle distraction-free canvas mode (hides chrome, keeps canvas/toolbar). */
   toggleDistractionFreeMode: () => void;
   /** Toggle before/after comparison for the selected image. */
@@ -2468,7 +2470,8 @@ export function EditorProvider({
     const docGrid = doc.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
     const isoGrid =
       Object.values(doc.gridSettings?.isometricGrids ?? {})[0] ?? createDefaultIsometricGrid();
-    const vpDefaults = loadSettings().viewport;
+    const settingsDefaults = loadSettings();
+    const vpDefaults = settingsDefaults.viewport;
     return {
       tool: 'select',
       zoom: 1,
@@ -2518,6 +2521,7 @@ export function EditorProvider({
       dotGridEnabled: false,
       bleedGuidesVisible: vpDefaults.bleedGuidesVisible ?? false,
       layoutGridVisible: vpDefaults.layoutGridVisible ?? false,
+      minimapVisible: settingsDefaults.panel.minimapVisible,
       findingsOverlayVisible: false,
       findingsProviderOverrides: {},
       canUndo: false,
@@ -3714,6 +3718,11 @@ export function EditorProvider({
         recordPanelVisibilityOverride(state.workspaceMode, 'logo', next);
         updateSettings({ panel: { logoPanelVisible: next } });
       },
+      toggleMinimap: () => {
+        const next = !state.minimapVisible;
+        patch({ minimapVisible: next });
+        updateSettings({ panel: { minimapVisible: next } });
+      },
       toggleHistoryPanel: () => {
         const next = !state.historyPanelVisible;
         patch({ historyPanelVisible: next });
@@ -3731,6 +3740,7 @@ export function EditorProvider({
           codegenPanelVisible: true,
           logoPanelVisible: true,
           historyPanelVisible: true,
+          minimapVisible: true,
         };
         patch(patchObj);
         const mode = state.workspaceMode;
@@ -3746,6 +3756,7 @@ export function EditorProvider({
         for (const panelId of panelIds) {
           recordPanelVisibilityOverride(mode, panelId, true);
         }
+        updateSettings({ panel: { minimapVisible: true } });
         announcerRef.current?.announce('All panels restored');
       },
       toggleDistractionFreeMode: () => {
