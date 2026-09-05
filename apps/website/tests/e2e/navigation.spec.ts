@@ -139,6 +139,39 @@ test('platform selector: tablist semantics and arrow-key navigation', async ({ p
   void baseURL;
 });
 
+test('discipline tabs switch panels and follow responsive orientation', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/');
+  const tablist = page.getByRole('tablist', { name: 'Design disciplines' });
+  const tabs = tablist.getByRole('tab');
+  await tablist.scrollIntoViewIfNeeded();
+  await expect(tablist).toHaveAttribute('aria-orientation', 'vertical');
+  await tabs.first().focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(tabs.nth(1)).toBeFocused();
+  await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#discipline-panel-vector')).toBeHidden();
+  await expect(page.locator('#discipline-panel-layout')).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('discipline-tabs-desktop.png'),
+    fullPage: false,
+  });
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  await tablist.scrollIntoViewIfNeeded();
+  await expect(tablist).toHaveAttribute('aria-orientation', 'horizontal');
+  await tabs.nth(1).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(tabs.nth(2)).toBeFocused();
+  await expect(tabs.nth(2)).toHaveAttribute('aria-selected', 'true');
+  await page.screenshot({
+    path: testInfo.outputPath('discipline-tabs-mobile.png'),
+    fullPage: false,
+  });
+});
+
 test('no horizontal overflow at 320px', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 700 });
   for (const route of ['/', '/download', '/docs', '/features']) {

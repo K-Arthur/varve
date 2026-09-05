@@ -91,7 +91,12 @@ const disciplines: Discipline[] = [
     </div>
 
     <div class="disciplines-body" data-reveal>
-      <div class="disciplines-tabs" role="tablist" aria-label="Design disciplines">
+      <div
+        class="disciplines-tabs"
+        role="tablist"
+        aria-label="Design disciplines"
+        aria-orientation="vertical"
+      >
         {disciplines.map((d, i) => (
           <button
             type="button"
@@ -156,6 +161,7 @@ const disciplines: Discipline[] = [
           role="tabpanel"
           aria-labelledby={`discipline-tab-${d.id}`}
           tabindex="0"
+          hidden={i !== 0}
           data-discipline-panel={d.id}
         >
           <div class="discipline-panel-head">
@@ -181,6 +187,14 @@ const disciplines: Discipline[] = [
 <script>
   const tabs = [...document.querySelectorAll<HTMLButtonElement>('[data-discipline-tab]')];
   const panels = [...document.querySelectorAll<HTMLElement>('[data-discipline-panel]')];
+  const tabList = document.querySelector<HTMLElement>('.disciplines-tabs');
+
+  function syncOrientation() {
+    tabList?.setAttribute(
+      'aria-orientation',
+      window.matchMedia('(max-width: 720px)').matches ? 'horizontal' : 'vertical',
+    );
+  }
 
   function activate(tab: HTMLButtonElement) {
     const id = tab.dataset.disciplineTab ?? '';
@@ -190,25 +204,39 @@ const disciplines: Discipline[] = [
       t.tabIndex = active ? 0 : -1;
     }
     for (const panel of panels) {
-      panel.classList.toggle('active', panel.dataset.disciplinePanel === id);
+      const active = panel.dataset.disciplinePanel === id;
+      panel.classList.toggle('active', active);
+      panel.hidden = !active;
     }
   }
+
+  syncOrientation();
+  const orientationQuery = window.matchMedia('(max-width: 720px)');
+  orientationQuery.addEventListener('change', syncOrientation);
 
   for (const tab of tabs) {
     tab.addEventListener('click', () => activate(tab));
     tab.addEventListener('keydown', (e) => {
-      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+      const horizontal = orientationQuery.matches;
+      const navigationKeys = horizontal
+        ? ['ArrowLeft', 'ArrowRight', 'Home', 'End']
+        : ['ArrowUp', 'ArrowDown', 'Home', 'End'];
+      if (!navigationKeys.includes(e.key)) return;
       e.preventDefault();
       const index = tabs.indexOf(tab);
       let next: HTMLButtonElement;
       if (e.key === 'Home') next = tabs[0];
       else if (e.key === 'End') next = tabs[tabs.length - 1];
-      else if (e.key === 'ArrowLeft') next = tabs[(index - 1 + tabs.length) % tabs.length];
+      else if (e.key === (horizontal ? 'ArrowLeft' : 'ArrowUp')) next = tabs[(index - 1 + tabs.length) % tabs.length];
       else next = tabs[(index + 1) % tabs.length];
       activate(next);
       next.focus();
     });
   }
+
+  window.addEventListener('pagehide', () => orientationQuery.removeEventListener('change', syncOrientation), {
+    once: true,
+  });
 </script>
 
 <style>
@@ -273,6 +301,7 @@ const disciplines: Discipline[] = [
     gap: 0.6rem;
     padding: 0.65rem 0.8rem;
     border: none;
+    border-inline-start: 2px solid transparent;
     border-radius: var(--website-radius-control);
     background: transparent;
     color: var(--text-secondary);
@@ -310,6 +339,12 @@ const disciplines: Discipline[] = [
   .disciplines-tabs [role='tab'][aria-selected='true'] {
     background: var(--surface-accent-soft);
     color: var(--accent-primary);
+    border-inline-start-color: var(--accent-primary);
+  }
+
+  .disciplines-tabs [role='tab']:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: -2px;
   }
 
   .discipline-glyph {
@@ -408,10 +443,22 @@ const disciplines: Discipline[] = [
 
     .disciplines-tabs [role='tab'] {
       white-space: nowrap;
+      border-inline-start: none;
+      border-block-end: 2px solid transparent;
+    }
+
+    .disciplines-tabs [role='tab'][aria-selected='true'] {
+      border-block-end-color: var(--accent-primary);
     }
 
     .discipline-panel {
       padding: 1rem 0.5rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .disciplines-tabs [role='tab'] {
+      transition: none;
     }
   }
 </style>

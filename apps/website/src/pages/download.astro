@@ -549,6 +549,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               role="tabpanel"
               aria-labelledby={`platform-tab-${p.id}`}
               tabindex="0"
+              hidden={p.id !== first}
             >
               <h2>{p.label}</h2>
 
@@ -1568,13 +1569,15 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
   .platform-selector {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
     gap: 0;
     margin-bottom: 2rem;
     border-bottom: 2px solid var(--border-default);
   }
   
   .platform-tab {
+    flex: 0 0 auto;
     padding: 0.85rem 1.75rem;
     background: none;
     border: none;
@@ -1594,6 +1597,11 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   .platform-tab:hover {
     color: var(--text-link);
   }
+
+  .platform-tab:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: -2px;
+  }
   
   .platform-tab.active {
     color: var(--text-link);
@@ -1606,6 +1614,16 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   
   .platform-section.active {
     display: block;
+  }
+
+  .platform-section[hidden] {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .platform-tab {
+      transition: none;
+    }
   }
   
   .platform-section h2 {
@@ -1956,6 +1974,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
   function activatePlatform(tab: HTMLButtonElement) {
     const platform = tab.getAttribute('data-platform');
+    if (!platform) return;
     platformTabs.forEach(function (t) {
       const active = t === tab;
       t.classList.toggle('active', active);
@@ -1965,6 +1984,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     platformSections.forEach(function (section) {
       const active = section.id === 'platform-' + platform;
       section.classList.toggle('active', active);
+      section.hidden = !active;
     });
   }
 
@@ -1972,6 +1992,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     // A click on a platform tab is an explicit choice: remember it (local
     // only) so the recommendation follows the visitor, not the other way.
     tab.addEventListener('click', function () {
+      activatePlatform(tab);
       writeChoice({ platform: tab.getAttribute('data-platform') ?? undefined });
     });
 
@@ -1987,8 +2008,10 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
       else if (event.key === 'End') next = platformTabs[platformTabs.length - 1];
       else if (event.key === 'ArrowLeft') next = platformTabs[(index - 1 + platformTabs.length) % platformTabs.length];
       else next = platformTabs[(index + 1) % platformTabs.length];
-      activatePlatform(next);
-      next.focus();
+      if (next) {
+        activatePlatform(next);
+        next.focus();
+      }
     });
   });
 
