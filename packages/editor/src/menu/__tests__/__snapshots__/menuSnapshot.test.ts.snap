@@ -2302,6 +2302,19 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
         "separator": true,
       },
       {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "bringAllPanelsToCurrentDisplay",
@@ -3885,6 +3898,19 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
       },
       {
         "id": "sep-after-guides",
+        "separator": true,
+      },
+      {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
         "separator": true,
       },
       {
@@ -5627,6 +5653,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
         "label": "State Machine Panel",
         "onAction": [Function],
         "shortcut": "Ctrl+Alt+K",
+      },
+      {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
       },
       {
         "id": "sep-after-panels",
@@ -7731,6 +7766,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
         "shortcut": "Ctrl+Alt+K",
       },
       {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -9784,6 +9828,19 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
         "separator": true,
       },
       {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "bringAllPanelsToCurrentDisplay",
@@ -11758,6 +11815,19 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
       },
       {
         "id": "sep-after-guides",
+        "separator": true,
+      },
+      {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
         "separator": true,
       },
       {
@@ -13740,6 +13810,19 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
         "separator": true,
       },
       {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "bringAllPanelsToCurrentDisplay",
@@ -15608,6 +15691,19 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
       },
       {
         "id": "sep-after-print",
+        "separator": true,
+      },
+      {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
         "separator": true,
       },
       {
@@ -17496,6 +17592,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
         "shortcut": "Ctrl+Alt+K",
       },
       {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -19206,6 +19311,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
         "label": "State Machine Panel",
         "onAction": [Function],
         "shortcut": "Ctrl+Alt+K",
+      },
+      {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
       },
       {
         "id": "sep-after-panels",
@@ -20950,6 +21064,19 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
       },
       {
         "id": "sep-after-print",
+        "separator": true,
+      },
+      {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
         "separator": true,
       },
       {
@@ -23028,6 +23155,19 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
         "separator": true,
       },
       {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "bringAllPanelsToCurrentDisplay",
@@ -24948,6 +25088,19 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen emp
         "separator": true,
       },
       {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "bringAllPanelsToCurrentDisplay",
@@ -26531,6 +26684,19 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen wit
       },
       {
         "id": "sep-after-guides",
+        "separator": true,
+      },
+      {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
         "separator": true,
       },
       {
@@ -28273,6 +28439,15 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
         "label": "State Machine Panel",
         "onAction": [Function],
         "shortcut": "Ctrl+Alt+K",
+      },
+      {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
       },
       {
         "id": "sep-after-panels",
@@ -30377,6 +30552,15 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
         "shortcut": "Ctrl+Alt+K",
       },
       {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -32430,6 +32614,19 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
         "separator": true,
       },
       {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "bringAllPanelsToCurrentDisplay",
@@ -34404,6 +34601,19 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
       },
       {
         "id": "sep-after-guides",
+        "separator": true,
+      },
+      {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
         "separator": true,
       },
       {
@@ -36386,6 +36596,19 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image empty
         "separator": true,
       },
       {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "bringAllPanelsToCurrentDisplay",
@@ -38254,6 +38477,19 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image with 
       },
       {
         "id": "sep-after-print",
+        "separator": true,
+      },
+      {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
         "separator": true,
       },
       {
@@ -40142,6 +40378,15 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion empt
         "shortcut": "Ctrl+Alt+K",
       },
       {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -41852,6 +42097,15 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion with
         "label": "State Machine Panel",
         "onAction": [Function],
         "shortcut": "Ctrl+Alt+K",
+      },
+      {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
       },
       {
         "id": "sep-after-panels",
@@ -43596,6 +43850,19 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
       },
       {
         "id": "sep-after-print",
+        "separator": true,
+      },
+      {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
         "separator": true,
       },
       {
@@ -45671,6 +45938,19 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
       },
       {
         "id": "sep-after-print",
+        "separator": true,
+      },
+      {
+        "ariaKeyshortcuts": "Control+Shift+M",
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleMinimap",
+        "label": "Minimap",
+        "onAction": [Function],
+        "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "id": "sep-after-panels",
         "separator": true,
       },
       {
