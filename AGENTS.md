@@ -586,18 +586,22 @@ Shared primitives for collapsible sections. Canonical components:
 
 **Editor-specific wrappers:**
 - `DisclosureSection` (`Inspector/controls/DisclosureSection.tsx`) — Inspector
-  panel sections with registry mode (centralized EditorState + localStorage)
-  and legacy mode (sessionStorage). Not yet migrated to shared primitives
-  due to `<fieldset>` semantics and deep registry coupling.
+  panel sections. **Legacy mode** (no sectionId) uses shared `Disclosure`
+  with sessionStorage persistence. **Registry mode** (with sectionId)
+  retains custom implementation for centralized EditorState + context menu
+  integration.
 - `SectionCollapseToggle` (`components/SectionCollapseToggle.tsx`) — Left sidebar
   section headers. Chevron SVG unified with shared component.
 
 **Migrated surfaces:** NewDesignDialog advanced settings, FormatMigration
-per-file report, PreflightFindingsPanel findings list.
+per-file report, PreflightFindingsPanel findings list, SidebarNav
+Projects section, DisclosureSection legacy mode, website FAQ page (15
+items), website compare page FAQ section (4 items).
 
-**Migration status:** Experimental API. Inspector DisclosureSection and 7
-sidebar panels still use local implementations with shared visual language
-(chevron, tokens). Full migration planned.
+**Migration status:** Beta API. Inspector DisclosureSection registry mode
+and 7 sidebar panels still use local implementations with shared visual
+language (chevron, tokens). Full migration planned for remaining sidebar
+panels.
 
 ## Layout — what each package/crate now contains
 
