@@ -61,7 +61,13 @@ export const BothAxes: Story = {
       <div style={{ padding: 'var(--space-3)', minWidth: '30rem', minHeight: '30rem' }}>
         {Array.from({ length: 40 }, (_, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: static grid
-          <div key={i} style={{ padding: 'var(--space-1)', borderBlockEnd: '1px solid var(--color-border-subtle)' }}>
+          <div
+            key={i}
+            style={{
+              padding: 'var(--space-1)',
+              borderBlockEnd: '1px solid var(--color-border-subtle)',
+            }}
+          >
             Row {i + 1} — wide content to force both axes
           </div>
         ))}
@@ -87,7 +93,14 @@ export const NoOverflow: Story = {
 export const ExactFit: Story = {
   render: (args) => (
     <ScrollArea {...args} style={{ blockSize: '6rem' }}>
-      <div style={{ padding: 'var(--space-2)', blockSize: '6rem', display: 'flex', alignItems: 'center' }}>
+      <div
+        style={{
+          padding: 'var(--space-2)',
+          blockSize: '6rem',
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
         Content that exactly matches the viewport height.
       </div>
     </ScrollArea>
@@ -177,7 +190,14 @@ export const WideTable: Story = {
           <tr style={{ position: 'sticky', top: 0, background: 'var(--color-surface-raised)' }}>
             {Array.from({ length: 10 }, (_, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: static headers
-              <th key={i} style={{ padding: 'var(--space-1) var(--space-2)', border: '1px solid var(--color-border-subtle)', textAlign: 'left' }}>
+              <th
+                key={i}
+                style={{
+                  padding: 'var(--space-1) var(--space-2)',
+                  border: '1px solid var(--color-border-subtle)',
+                  textAlign: 'left',
+                }}
+              >
                 Column {i + 1}
               </th>
             ))}
@@ -189,7 +209,13 @@ export const WideTable: Story = {
             <tr key={row}>
               {Array.from({ length: 10 }, (_, col) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: static cells
-                <td key={col} style={{ padding: 'var(--space-1) var(--space-2)', border: '1px solid var(--color-border-subtle)' }}>
+                <td
+                  key={col}
+                  style={{
+                    padding: 'var(--space-1) var(--space-2)',
+                    border: '1px solid var(--color-border-subtle)',
+                  }}
+                >
                   R{row + 1}C{col + 1}
                 </td>
               ))}
@@ -207,7 +233,14 @@ export const WideTable: Story = {
 export const HorizontalMediaStrip: Story = {
   render: (args) => (
     <ScrollArea {...args} style={{ inlineSize: '24rem' }}>
-      <div style={{ display: 'flex', gap: 'var(--space-2)', padding: 'var(--space-2)', inlineSize: 'max-content' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--space-2)',
+          padding: 'var(--space-2)',
+          inlineSize: 'max-content',
+        }}
+      >
         {Array.from({ length: 8 }, (_, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: static gallery items
           <div
@@ -240,7 +273,14 @@ export const DynamicContent: Story = {
   render: () => {
     const [count, setCount] = useState(5);
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', blockSize: '16rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--space-2)',
+          blockSize: '16rem',
+        }}
+      >
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <button type="button" onClick={() => setCount((c) => c + 5)}>
             Add 5 items
@@ -253,12 +293,24 @@ export const DynamicContent: Story = {
           <div style={{ padding: 'var(--space-2)' }}>
             {Array.from({ length: count }, (_, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: dynamic list
-              <div key={i} style={{ padding: 'var(--space-1)', borderBlockEnd: '1px solid var(--color-border-subtle)' }}>
+              <div
+                key={i}
+                style={{
+                  padding: 'var(--space-1)',
+                  borderBlockEnd: '1px solid var(--color-border-subtle)',
+                }}
+              >
                 Item {i + 1}
               </div>
             ))}
             {count === 0 && (
-              <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+              <div
+                style={{
+                  padding: 'var(--space-4)',
+                  textAlign: 'center',
+                  color: 'var(--color-text-muted)',
+                }}
+              >
                 No items — click Add to populate
               </div>
             )}
@@ -273,19 +325,46 @@ export const DynamicContent: Story = {
 
 export const NestedScrolling: Story = {
   render: () => (
-    <div style={{ blockSize: '16rem', inlineSize: '20rem', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+    <div
+      style={{
+        blockSize: '16rem',
+        inlineSize: '20rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-2)',
+      }}
+    >
       <div style={{ fontWeight: 600, fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
         Outer scrolls vertically, inner scrolls horizontally
       </div>
       <ScrollArea orientation="vertical" style={{ flex: 1 }}>
         {Array.from({ length: 10 }, (_, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: static rows
-          <div key={i} style={{ padding: 'var(--space-2)', borderBlockEnd: '1px solid var(--color-border-subtle)' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-1)' }}>
+          <div
+            key={i}
+            style={{
+              padding: 'var(--space-2)',
+              borderBlockEnd: '1px solid var(--color-border-subtle)',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--color-text-secondary)',
+                marginBottom: 'var(--space-1)',
+              }}
+            >
               Row {i + 1}
             </div>
             <ScrollArea orientation="horizontal" style={{ blockSize: '2rem' }}>
-              <div style={{ display: 'flex', gap: 'var(--space-2)', inlineSize: 'max-content', padding: 'var(--space-1)' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 'var(--space-2)',
+                  inlineSize: 'max-content',
+                  padding: 'var(--space-1)',
+                }}
+              >
                 {Array.from({ length: 8 }, (_, j) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: static cells
                   <span key={j} style={{ fontSize: '0.625rem', whiteSpace: 'nowrap' }}>
@@ -327,7 +406,14 @@ export const ProgressOnly: Story = {
   render: () => {
     const viewportRef = useRef<HTMLDivElement>(null);
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', blockSize: '14rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--space-2)',
+          blockSize: '14rem',
+        }}
+      >
         <ScrollProgress viewportRef={viewportRef} aria-label="Reading progress" />
         <ScrollArea viewportRef={viewportRef} orientation="vertical">
           <div style={{ padding: 'var(--space-3)' }}>
