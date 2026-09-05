@@ -54,8 +54,20 @@ export const AI_PROVIDER_CHAIN: RemovalProvider[] = [
  * selected native model is absent, dispatch continues to the worker fallback
  * (U²-Net Light for Balanced).
  */
-async function getProviderOrder(options: BackgroundRemovalOptions): Promise<RemovalProvider[]> {
-  if (options.method !== 'quick' && (await isNativeAiReady())) {
+async function getProviderOrder(
+  options: BackgroundRemovalOptions,
+  deadline: number,
+  signal?: AbortSignal,
+): Promise<RemovalProvider[]> {
+  const nativeReady = await withTimeout(
+    () => isNativeAiReady(),
+    Math.max(0, Math.min(5_000, deadline - performance.now())),
+    signal,
+  ).catch((error) => {
+    if (signal?.aborted) throw error;
+    return false;
+  });
+  if (options.method !== 'quick' && nativeReady) {
     return [
       tauriRemovalProvider,
       workerRemovalProvider,
@@ -83,11 +95,11 @@ function withTimeout<T>(
 
     const controller = new AbortController();
     const onCallerAbort = () => {
-      controller.abort();
+      cleanup();
       reject(new Error('cancelled'));
     };
     const timeout = setTimeout(() => {
-      controller.abort();
+      cleanup();
       reject(new Error('Provider timed out'));
     }, timeoutMs);
 
@@ -127,6 +139,7 @@ function withTimeout<T>(
 async function tryProviderChain(
   imageData: ImageData,
   options: BackgroundRemovalOptions,
+  deadline: number,
   signal?: AbortSignal,
 ): Promise<BackgroundRemovalResult | null> {
   const providerTimeout =
@@ -134,17 +147,20 @@ async function tryProviderChain(
   const errors: string[] = [];
   let attempted = false;
 
-  const providers = await getProviderOrder(options);
+  const providers = await getProviderOrder(options, deadline, signal);
   for (const provider of providers) {
     if (signal?.aborted) {
       throw new Error('cancelled');
     }
 
+    const remaining = () => Math.max(0, deadline - performance.now());
+    if (remaining() === 0) throw requestDeadlineError();
+
     let available: boolean;
     try {
       available = await withTimeout(
         (attemptSignal) => Promise.resolve(provider.isAvailable(options, attemptSignal)),
-        providerTimeout,
+        Math.min(5_000, remaining()),
         signal,
       );
     } catch (e) {
@@ -152,13 +168,14 @@ async function tryProviderChain(
       continue;
     }
     if (!available) continue;
+    if (remaining() === 0) throw requestDeadlineError();
     attempted = true;
 
     try {
       const clonedImage = cloneImageData(imageData);
       return await withTimeout(
         (attemptSignal) => provider.remove(clonedImage, options, attemptSignal),
-        providerTimeout,
+        Math.min(providerTimeout, remaining()),
         signal,
       );
     } catch (e) {
@@ -172,7 +189,14 @@ async function tryProviderChain(
     console.warn(`[bg-removal] All providers failed for ${options.method}:`, errors.join('; '));
   }
 
+  if (performance.now() >= deadline) throw requestDeadlineError();
   return null; // All providers failed or none available
+}
+
+function requestDeadlineError(): Error {
+  return new Error(
+    'AI background removal reached its request deadline. Try Fast mode for a simple background, or use a smaller local model in Settings, Offline Models.',
+  );
 }
 
 export async function dispatchBackgroundRemoval(
@@ -188,8 +212,12 @@ export async function dispatchBackgroundRemoval(
     return removeBackgroundHeuristic(imageData, options);
   }
 
-  // Try the requested method first.
-  const result = await tryProviderChain(imageData, options, signal);
+  // Every availability check, provider, and reduced-quality fallback shares
+  // one budget. A stalled runtime cannot multiply the wait by chain length.
+  const deadline =
+    performance.now() +
+    (options.method === 'ai-quality' ? QUALITY_PROVIDER_TIMEOUT : BALANCED_PROVIDER_TIMEOUT);
+  const result = await tryProviderChain(imageData, options, deadline, signal);
   if (result) return result;
 
   // Failed at the requested quality. If this was ai-quality, automatically
@@ -205,7 +233,7 @@ export async function dispatchBackgroundRemoval(
       method: 'ai-balanced',
     };
 
-    const fallbackResult = await tryProviderChain(imageData, fallbackOptions, signal);
+    const fallbackResult = await tryProviderChain(imageData, fallbackOptions, deadline, signal);
     if (fallbackResult) {
       return {
         ...fallbackResult,
@@ -220,6 +248,6 @@ export async function dispatchBackgroundRemoval(
 
   // For ai-balanced that failed, give a clear error.
   throw new Error(
-    'AI background removal is unavailable. The bundled model (u2netp) could not run. Try Quick mode, or check the developer console for details.',
+    'AI background removal is unavailable. The bundled model (u2netp) could not run. Try Fast mode for a simple background, or manage local models in Settings, Offline Models.',
   );
 }
