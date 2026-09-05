@@ -117,5 +117,8 @@ describe('Effect Studio registry', () => {
     expect(
       definition('opacity').parameters.find((parameter) => parameter.key === 'value'),
     ).toMatchObject({ min: 0, max: 100, unit: 'percent' });
+    for (const id of ['motionBlur', 'mosaic', 'surfaceSmooth', 'edgeInk']) {
+      expect(definition(id).rendering.boundsPolicy).toBe('expanded');
+    }
   });
 });

@@ -436,7 +436,7 @@ function definitionFor(kind: AdjustmentKind): EffectDefinition {
     DESCRIPTION_BY_KIND[kind] ?? `Apply an editable ${name.toLocaleLowerCase()} treatment.`;
   const tags = [...new Set([kind, name.toLocaleLowerCase(), ...(TAGS_BY_KIND[kind] ?? [])])];
   const requiresExpandedBounds = parameterDefinitions(kind).some((parameter) =>
-    ['radius', 'blur', 'size', 'streakLength'].includes(parameter.key),
+    ['radius', 'blur', 'size', 'streakLength', 'distance', 'blockSize'].includes(parameter.key),
   );
   const estimatedCost = contract?.hasApproximatePreview
     ? 'high'
