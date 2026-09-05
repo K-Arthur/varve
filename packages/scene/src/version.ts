@@ -831,11 +831,19 @@ export function rehydrateEmbeddedAssetSrc(raw: Record<string, unknown>): Record<
     const fill = fillValue as Record<string, unknown>;
     if (fill.type !== 'image' || !fill.image || typeof fill.image !== 'object') return fill;
     const image = fill.image as Record<string, unknown>;
-    const assetId = image.assetId;
-    if (typeof assetId !== 'string') return fill;
+    // Canonical hashes use `asset:<id>` in place of binary payloads. That
+    // reference is not a browser image URL, so repair it when a document
+    // boundary accidentally feeds the canonical form into live scene state.
+    const assetId =
+      typeof image.assetId === 'string'
+        ? image.assetId
+        : typeof image.src === 'string' && image.src.startsWith('asset:')
+          ? image.src.slice('asset:'.length)
+          : undefined;
+    if (!assetId) return fill;
     const asset = assets[assetId];
     if (!asset || typeof asset.dataUrl !== 'string' || image.src === asset.dataUrl) return fill;
-    return { ...fill, image: { ...image, src: asset.dataUrl } };
+    return { ...fill, image: { ...image, src: asset.dataUrl, assetId } };
   };
 
   const nodes = raw.nodes as Record<string, Record<string, unknown>> | undefined;

@@ -104,6 +104,24 @@ describe('sceneToEngine resource handles', () => {
     expect(imageResourceRegistrySize()).toBe(0);
   });
 
+  it('repairs a canonical asset reference even when assetId was omitted', () => {
+    const { doc, assetId } = assetDocument();
+    const source = doc.nodes.n1!;
+    const node = {
+      ...source,
+      fills: source.fills?.map((fill) =>
+        fill.type === 'image' && fill.image
+          ? { ...fill, image: { ...fill.image, src: `asset:${assetId}`, assetId: undefined } }
+          : fill,
+      ),
+    };
+    const engineNode = sceneNodeToEngineNode(node, {}, doc);
+    const fill = engineNode.fills?.find((candidate) => candidate.type === 'image');
+    expect(fill?.image?.src).toBe(assetId);
+    expect(fill?.image?.assetId).toBe(assetId);
+    expect(resolveImageResourceHandle(`asset:${assetId}`)).toBe(PNG_DATA_URL);
+  });
+
   it('resolves shared paints through the same handle path', () => {
     const { doc, assetId } = assetDocument();
     const node = doc.nodes.n1!;

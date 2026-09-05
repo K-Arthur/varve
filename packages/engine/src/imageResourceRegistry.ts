@@ -26,6 +26,10 @@ import type { RenderItem } from './types';
 /** Map handle -> loadable source string. */
 const registry = new Map<string, string>();
 
+function resourceHandle(value: string): string {
+  return value.startsWith('asset:') ? value.slice('asset:'.length) : value;
+}
+
 /**
  * Register (or confirm) the source for a canonical resource handle.
  * Idempotent; re-registering the same handle with the same source is a
@@ -45,7 +49,7 @@ export function registerImageResourceHandle(handle: string, source: string): str
 
 /** True when `value` is a registered resource handle. */
 export function isImageResourceHandle(value: string): boolean {
-  return registry.has(value);
+  return registry.has(value) || registry.has(resourceHandle(value));
 }
 
 /**
@@ -53,7 +57,7 @@ export function isImageResourceHandle(value: string): boolean {
  * resolve through the registry; legacy raw sources pass through unchanged.
  */
 export function resolveImageResourceHandle(value: string): string {
-  return registry.get(value) ?? value;
+  return registry.get(value) ?? registry.get(resourceHandle(value)) ?? value;
 }
 
 /** Deregister a handle (document close / test isolation). */

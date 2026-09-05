@@ -198,7 +198,9 @@ function rewriteImageFillSource(
   options?: SceneNodeConversionOptions,
 ): import('@varve/scene').Fill {
   if (fill.type !== 'image' || !fill.image) return fill;
-  const assetId = fill.image.assetId;
+  const assetId =
+    fill.image.assetId ??
+    (fill.image.src.startsWith('asset:') ? fill.image.src.slice('asset:'.length) : undefined);
   if (!assetId || !doc?.assets) return fill;
   const asset = doc.assets[assetId];
   if (asset?.storage !== 'embedded') return fill;
@@ -208,7 +210,8 @@ function rewriteImageFillSource(
     const resolver = options?.mediaFrameResolver ?? defaultMediaFrameResolver;
     frame = resolver?.(node ?? ({} as import('@varve/scene').SceneNode), fill, doc);
   }
-  if (fill.image.src === assetId && frame === undefined) return fill;
+  if (fill.image.src === assetId && fill.image.assetId === assetId && frame === undefined)
+    return fill;
   const image: import('@varve/scene').ImageFillData & { frame?: number } = {
     ...fill.image,
     src: assetId,

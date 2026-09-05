@@ -87,6 +87,19 @@ const TILE_PNG = png(8, 8, (x, y) => {
   return black ? [20, 20, 20, 255] : [235, 235, 235, 255];
 });
 
+function embeddedAssetId(dataUrl: string): string {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x9e3779b9;
+  for (let index = 0; index < dataUrl.length; index += 1) {
+    const code = dataUrl.charCodeAt(index);
+    h1 = Math.imul(h1 ^ code, 0x01000193);
+    h2 = Math.imul(h2 ^ code, 0x85ebca6b);
+  }
+  return `asset-${(h1 >>> 0).toString(16).padStart(8, '0')}${(h2 >>> 0)
+    .toString(16)
+    .padStart(8, '0')}`;
+}
+
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 async function createRect(page: Page): Promise<{ box: { x: number; y: number } }> {
@@ -321,6 +334,35 @@ test.describe('fill creation and conversion', () => {
     await page.keyboard.press('Control+Shift+z');
     await page.waitForTimeout(600);
     await expectPixel(page, { x: box.x + 170, y: box.y + 190 }, [200, 30, 30, 255], 20);
+  });
+
+  test('canonical asset references do not regress to grey placeholders', async ({ page }) => {
+    test.setTimeout(180000);
+    await navigateToCleanEditor(page);
+    const { box } = await createRect(page);
+    await switchFillType(page, 'Image');
+
+    const chooserPromise = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: /choose image/i }).click();
+    const chooser = await chooserPromise;
+    await chooser.setFiles({
+      name: 'canonical-reference-fixture.png',
+      mimeType: 'image/png',
+      buffer: IMAGE_PNG,
+    });
+    await expectPixel(page, { x: box.x + 170, y: box.y + 190 }, [200, 30, 30, 255], 20);
+
+    // Canonical document hashes use asset:<id> as a payload-free reference.
+    // Simulate that reference reaching a live fill while retaining the
+    // document-level asset table; the renderer must resolve it back to the
+    // embedded bytes instead of treating it as a URL and painting grey.
+    const sourceInput = page.locator('input[aria-label="Image source URL"]').first();
+    const dataUrl = await sourceInput.inputValue();
+    await sourceInput.fill(`asset:${embeddedAssetId(dataUrl)}`);
+    await expect(sourceInput).toHaveValue(/^asset:asset-[0-9a-f]{16}$/);
+    await expectPixel(page, { x: box.x + 170, y: box.y + 190 }, [200, 30, 30, 255], 20);
+    await expectPixel(page, { x: box.x + 430, y: box.y + 310 }, [30, 60, 200, 255], 20);
+    await page.screenshot({ path: 'test-results/fill-visuals/canonical-asset-reference.png' });
   });
 
   test('choose tile file → repeating pattern pixels appear', async ({ page }) => {

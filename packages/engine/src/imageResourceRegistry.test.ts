@@ -18,6 +18,12 @@ describe('imageResourceRegistry', () => {
     expect(isImageResourceHandle('asset-abc123')).toBe(true);
   });
 
+  it('accepts canonical asset references as aliases for registered handles', () => {
+    registerImageResourceHandle('asset-abc123', 'data:image/png;base64,AAA');
+    expect(resolveImageResourceHandle('asset:asset-abc123')).toBe('data:image/png;base64,AAA');
+    expect(isImageResourceHandle('asset:asset-abc123')).toBe(true);
+  });
+
   it('passes legacy raw sources through unchanged', () => {
     expect(resolveImageResourceHandle('data:image/png;base64,AAA')).toBe(
       'data:image/png;base64,AAA',

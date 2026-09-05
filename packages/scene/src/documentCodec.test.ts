@@ -274,6 +274,26 @@ describe('DocumentCodec', () => {
       expect(decoded.document.assets?.[image?.assetId as string]?.dataUrl).toBe(DATA_URL);
     });
 
+    it('rehydrates canonical asset references before they reach live rendering', () => {
+      const { doc, asset } = docWithAsset();
+      const serialized = JSON.parse(DocumentCodec.encode(doc)) as {
+        nodes: Record<string, { fills?: Array<{ image?: Record<string, unknown> }> }>;
+      };
+      const image = serialized.nodes.s1?.fills?.[0]?.image;
+      if (!image) throw new Error('expected image fill');
+      delete image.assetId;
+      image.src = `asset:${asset.id}`;
+
+      const decoded = DocumentCodec.decode(JSON.stringify(serialized));
+
+      expect(decoded.ok).toBe(true);
+      if (!decoded.ok) return;
+      expect(decoded.document.nodes.s1?.fills?.[0]?.image).toMatchObject({
+        src: DATA_URL,
+        assetId: asset.id,
+      });
+    });
+
     it('serializes the asset payload once, not once per referencing fill', () => {
       const { doc: base, asset } = docWithAsset();
       const shape2 = makeShapeNode('s2', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
