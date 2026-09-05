@@ -152,23 +152,6 @@ async function navigateWithSeededModel(page: import('@playwright/test').Page) {
   await page.waitForTimeout(800);
 }
 
-/** Click the first visible match of a regex against button labels. */
-async function clickButton(page: import('@playwright/test').Page, pattern: RegExp) {
-  const clicked = await page.evaluate(
-    (sourceAndFlags) => {
-      const re = new RegExp(sourceAndFlags.source, sourceAndFlags.flags);
-      const btn = [...document.querySelectorAll('button')].find((b) =>
-        re.test(b.textContent ?? ''),
-      ) as HTMLButtonElement | undefined;
-      if (!btn) return false;
-      btn.click();
-      return true;
-    },
-    { source: pattern.source, flags: pattern.flags },
-  );
-  expect(clicked).toBe(true);
-}
-
 async function importTestImage(page: import('@playwright/test').Page) {
   const imageDataUrl = await page.evaluate(() => {
     const c = document.createElement('canvas');
@@ -204,6 +187,16 @@ async function openDepthBlurSection(page: import('@playwright/test').Page) {
   return page.getByRole('group', { name: 'Depth Blur' });
 }
 
+async function generateDepthMap(section: import('@playwright/test').Locator) {
+  const enableButton = section.getByRole('button', { name: /enable depth blur/i });
+  if (await enableButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await enableButton.click();
+  }
+  const generateButton = section.getByRole('button', { name: /generate depth map/i });
+  await expect(generateButton).toBeVisible({ timeout: 30000 });
+  await generateButton.click();
+}
+
 test.describe('Depth Blur workflow', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(installWorkerStub);
@@ -225,15 +218,9 @@ test.describe('Depth Blur workflow', () => {
     await page.locator('.layers-panel').getByRole('treeitem').click();
     const section = await openDepthBlurSection(page);
 
-    // The model store is seeded, so the section should be ready at
-    // "Generate Depth Map"; handle the download-first path as a fallback.
-    await expect(
-      section
-        .getByRole('button')
-        .filter({ hasText: /enable depth blur|generate depth map/i })
-        .first(),
-    ).toBeVisible({ timeout: 20000 });
-    await clickButton(page, /generate depth map/i);
+    // The model store is seeded, but the app can briefly render the
+    // download-first state while its cached-model check settles.
+    await generateDepthMap(section);
     await expect(section.getByRole('button', { name: /save depth blur/i })).toBeVisible({
       timeout: 30000,
     });
@@ -276,13 +263,7 @@ test.describe('Depth Blur workflow', () => {
     await page.locator('.layers-panel').getByRole('treeitem').click();
     const section = await openDepthBlurSection(page);
 
-    await expect(
-      section
-        .getByRole('button')
-        .filter({ hasText: /enable depth blur|generate depth map/i })
-        .first(),
-    ).toBeVisible({ timeout: 20000 });
-    await clickButton(page, /generate depth map/i);
+    await generateDepthMap(section);
     await expect(section.getByRole('button', { name: /create depth mask/i })).toBeVisible({
       timeout: 30000,
     });
