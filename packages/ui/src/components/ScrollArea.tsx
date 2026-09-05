@@ -20,6 +20,14 @@ function joinClasses(...classes: Array<string | undefined>): string | undefined 
   return result || undefined;
 }
 
+/** Check whether the viewport has scrollable overflow and set data-overflow on the root. */
+function updateOverflowState(root: HTMLElement | null, viewport: HTMLElement | null) {
+  if (!root || !viewport) return;
+  const hasOverflow =
+    viewport.scrollHeight > viewport.clientHeight || viewport.scrollWidth > viewport.clientWidth;
+  root.toggleAttribute('data-overflow', hasOverflow);
+}
+
 export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(function ScrollArea(
   {
     orientation = 'vertical',
@@ -33,6 +41,8 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(function S
   ref,
 ) {
   const localViewportRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
   const setViewportRef = (element: HTMLDivElement | null) => {
     localViewportRef.current = element;
     if (!viewportRef) return;
@@ -43,10 +53,39 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(function S
     }
   };
 
+  // Track overflow state via ResizeObserver + scroll events (passive, rAF-scheduled).
+  useEffect(() => {
+    const root = rootRef.current;
+    const viewport = localViewportRef.current;
+    if (!root || !viewport) return;
+
+    let frame = 0;
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => updateOverflowState(root, viewport));
+    };
+
+    updateOverflowState(root, viewport);
+
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
+    observer?.observe(viewport);
+    viewport.addEventListener('scroll', schedule, { passive: true });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+      viewport.removeEventListener('scroll', schedule);
+    };
+  }, []);
+
   return (
     <div
       {...rootProps}
-      ref={ref}
+      ref={(node) => {
+        (rootRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+        if (typeof ref === 'function') ref(node);
+        else if (ref) ref.current = node;
+      }}
       className={joinClasses('varve-scroll-area', className)}
       data-orientation={orientation}
       data-slot="scroll-area"
@@ -75,7 +114,9 @@ export interface ScrollProgressProps {
   'aria-label'?: string;
 }
 
-/** A deliberately separate, low-cost progress indicator for long-form content. */
+/** A deliberately separate, low-cost progress indicator for long-form content.
+ *  The parent ScrollArea handles data-overflow; this component only renders the
+ *  visual progress bar and its progressbar role. */
 export function ScrollProgress({
   viewportRef,
   className,
@@ -94,7 +135,6 @@ export function ScrollProgress({
       const value = range > 0 ? Math.min(1, Math.max(0, viewport.scrollTop / range)) : 0;
       progress.style.transform = `scaleX(${value})`;
       progress.setAttribute('aria-valuenow', String(Math.round(value * 100)));
-      progress.parentElement?.toggleAttribute('data-overflow', range > 0);
     };
     const schedule = () => {
       cancelAnimationFrame(frame);
