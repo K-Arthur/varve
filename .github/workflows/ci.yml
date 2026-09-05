@@ -148,7 +148,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0
         with:
           toolchain: 1.97.1
           components: rustfmt, clippy
@@ -175,7 +175,7 @@ jobs:
         run: pwsh -File "$env:GITHUB_WORKSPACE/scripts/ci/diagnose-entrypoint.ps1"
       - name: Install cargo-llvm-cov for full integration certification
         if: runner.os == 'Linux' && needs.changes.outputs.full == 'true'
-        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
+        uses: taiki-e/install-action@e67fa11c4b9316fa714ddf0abed07a0c3143b95b
         with:
           tool: cargo-llvm-cov
       - name: Stage ONNX Runtime for desktop coverage
@@ -212,12 +212,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0
         with:
           toolchain: 1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - name: Install just
-        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
+        uses: taiki-e/install-action@e67fa11c4b9316fa714ddf0abed07a0c3143b95b
         with:
           tool: just@1.54.0
       - name: WASM check
@@ -641,7 +641,7 @@ jobs:
             libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
             libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
             cmake pkg-config patchelf xvfb dbus-x11 at-spi2-core mesa-utils
-      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0
         with:
           toolchain: 1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
