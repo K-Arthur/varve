@@ -38,7 +38,10 @@ describe('minimapRenderer', () => {
       fillRect: vi.fn(),
       setTransform: vi.fn(),
     } as unknown as CanvasRenderingContext2D;
-    canvas.getContext = vi.fn(() => context);
+    Object.defineProperty(canvas, 'getContext', {
+      configurable: true,
+      value: vi.fn(() => context),
+    });
     let width = 0;
     let height = 0;
     let widthAssignments = 0;

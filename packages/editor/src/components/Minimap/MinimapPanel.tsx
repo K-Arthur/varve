@@ -15,6 +15,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -98,6 +99,8 @@ function releasePointerCapture(canvas: HTMLCanvasElement | null, pointerId: numb
 
 export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
   const editor = useEditor();
+  const minimapVisible = (editor.state as typeof editor.state & { minimapVisible?: boolean })
+    .minimapVisible;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -216,9 +219,9 @@ export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
     renderMinimapToCanvas(canvas, scene, transform, viewportFootprint, colors);
   }, [colors, scene, transform, viewportFootprint]);
 
-  useEffect(() => {
-    draw();
-  }, [draw]);
+  useLayoutEffect(() => {
+    if (minimapVisible !== false) draw();
+  }, [draw, minimapVisible]);
 
   const navigateToWorld = useCallback(
     (world: [number, number], navigationViewport: { width: number; height: number }) => {
@@ -345,8 +348,6 @@ export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
     [editor, endDrag, panByScreen],
   );
 
-  const minimapVisible = (editor.state as typeof editor.state & { minimapVisible?: boolean })
-    .minimapVisible;
   if (minimapVisible === false) return null;
 
   const nodeCount = scene.entries.length;

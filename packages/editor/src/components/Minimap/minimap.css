@@ -10,7 +10,7 @@
   align-items: stretch;
   min-width: 0;
   max-width: calc(100% - var(--space-4));
-  flex: 0 1 auto;
+  flex: 0 0 auto;
 }
 
 .minimap-panel__header {
