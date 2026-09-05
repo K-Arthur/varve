@@ -346,12 +346,26 @@ const COMMON_RANGES: Record<string, [number, number, EffectParameterDefinition['
   seed: [0, 4_294_967_295, 'number'],
 };
 
-function parameterType(value: unknown): EffectParameterType {
+const COLOUR_PARAMETER_KEYS = new Set([
+  'color',
+  'foregroundColor',
+  'backgroundColor',
+  'shadowColor',
+  'midtoneColor',
+  'highlightColor',
+]);
+
+function parameterType(key: string, value: unknown): EffectParameterType {
   if (typeof value === 'boolean') return 'boolean';
   if (typeof value === 'number') return 'number';
   if (typeof value === 'string') return 'enum';
-  if (Array.isArray(value) && value.every((channel) => typeof channel === 'number')) {
-    return value.length >= 3 ? 'colour' : 'structured';
+  if (
+    COLOUR_PARAMETER_KEYS.has(key) &&
+    Array.isArray(value) &&
+    value.length >= 3 &&
+    value.every((channel) => typeof channel === 'number')
+  ) {
+    return 'colour';
   }
   return 'structured';
 }
@@ -365,7 +379,7 @@ function parameterDefinitions(kind: AdjustmentKind): EffectParameterDefinition[]
       const range = COMMON_RANGES[key];
       return {
         key,
-        type: parameterType(defaultValue),
+        type: parameterType(key, defaultValue),
         defaultValue,
         ...(range ? { min: range[0], max: range[1], unit: range[2] } : {}),
         animatable: key === 'time' || key === 'value' || key === 'amount',

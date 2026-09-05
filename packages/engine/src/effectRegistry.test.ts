@@ -95,4 +95,21 @@ describe('Effect Studio registry', () => {
     expect(EFFECT_SURFACE_GUIDANCE['image-tuning'].vectorBehavior).toMatch(/not offered/i);
     expect(EFFECT_SURFACE_GUIDANCE['effect-studio'].vectorBehavior).toMatch(/editable/i);
   });
+
+  it('uses explicit parameter keys for colours instead of guessing from array shape', () => {
+    const definition = (id: string) => EFFECT_REGISTRY[id as keyof typeof EFFECT_REGISTRY];
+    expect(
+      definition('photoFilter').parameters.find((parameter) => parameter.key === 'color'),
+    ).toMatchObject({
+      type: 'colour',
+    });
+    expect(
+      definition('paletteSnap').parameters.find((parameter) => parameter.key === 'colors'),
+    ).toMatchObject({ type: 'structured' });
+    expect(
+      definition('gradientMap').parameters.find((parameter) => parameter.key === 'stops'),
+    ).toMatchObject({
+      type: 'structured',
+    });
+  });
 });
