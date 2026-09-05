@@ -155,6 +155,21 @@ describe('Tabs', () => {
     expect(panel).toHaveAttribute('aria-labelledby', activeTab.id);
   });
 
+  it('only renders the active panel callback when inactive panels unmount', () => {
+    const renderPanel = vi.fn((tab: (typeof tabs)[number]) => <div>{tab.label} panel</div>);
+    render(
+      <Tabs
+        label="Code language"
+        tabs={tabs}
+        activeTab="tailwind"
+        onTabChange={() => {}}
+        renderPanel={renderPanel}
+      />,
+    );
+    expect(renderPanel).toHaveBeenCalledTimes(1);
+    expect(renderPanel).toHaveBeenCalledWith(tabs[1], 1);
+  });
+
   it('supports manual activation without consuming arrow focus', () => {
     const onChange = vi.fn();
     render(

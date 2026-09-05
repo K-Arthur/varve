@@ -220,7 +220,6 @@ function TabsInner<T extends string>({
         const isActive = tab.value === activeValue;
         const panelId = `${baseId}-panel-${tabIdPart(tab.value)}`;
         const tabId = `${baseId}-tab-${tabIdPart(tab.value)}`;
-        const content = renderPanel ? renderPanel(tab, index) : (childrenArray[index] ?? null);
         return (
           <div
             key={tab.value}
@@ -231,7 +230,11 @@ function TabsInner<T extends string>({
             tabIndex={isActive ? 0 : -1}
             className={`varve-tabpanel${panelClassName ? ` ${panelClassName}` : ''}`}
           >
-            {(isActive || !unmountInactivePanels) && !tab.disabled ? content : null}
+            {(isActive || !unmountInactivePanels) && !tab.disabled
+              ? renderPanel
+                ? renderPanel(tab, index)
+                : (childrenArray[index] ?? null)
+              : null}
           </div>
         );
       })}
