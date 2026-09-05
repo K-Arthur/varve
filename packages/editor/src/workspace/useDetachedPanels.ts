@@ -8,6 +8,7 @@
  */
 
 import { type DisplayInfo, getWindowService, type NativeWindowService } from '@varve/platform';
+import { DocumentCodec } from '@varve/scene';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditorContextValue } from '../context';
 import {
@@ -43,6 +44,15 @@ const PLACEMENT_DEBOUNCE_MS = 400;
 
 function recordsForSession(sessionId: string) {
   return getDetachedPanels().filter((record) => record.sessionId === sessionId);
+}
+
+export function decodeDetachedDocument(documentJson: string) {
+  try {
+    const decoded = DocumentCodec.decode(documentJson);
+    return decoded.ok ? decoded.document : null;
+  } catch {
+    return null;
+  }
 }
 
 function restorePrimaryPanelFocus(panelTypeId: PanelTypeId): void {
@@ -241,12 +251,9 @@ export function useDetachedPanels(editor: EditorContextValue): DetachedPanelsCon
       getSessionId: () => sessionId,
       getSnapshot,
       applyExternalDocument: (documentJson) => {
-        try {
-          editorRef.current.updateDoc(() => JSON.parse(documentJson));
-        } catch {
-          // Runtime protocol validation protects the payload boundary; retain
-          // this final guard because document decoding is still fallible.
-        }
+        const document = decodeDetachedDocument(documentJson);
+        if (!document) return;
+        editorRef.current.updateDoc(() => document);
       },
       applyExternalSelection: (selection) => {
         editorRef.current.setSelection(selection[0] ?? null, 'api');

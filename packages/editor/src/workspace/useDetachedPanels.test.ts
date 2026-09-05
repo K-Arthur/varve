@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
 import { createMemoryWindowService, type NativeWindowService } from '@varve/platform';
+import {
+  createDocument,
+  createEmbeddedAsset,
+  DocumentCodec,
+  imageFill,
+  makeShapeNode,
+} from '@varve/scene';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { markPanelDetached, resetDetachedPanelsStore } from './detachedPanelsStore';
 import {
@@ -8,7 +15,7 @@ import {
   getPanelWindowDiagnostics,
   setPanelWindowDiagnosticsEnabledForTest,
 } from './panelWindowDiagnostics';
-import { reconcileDetachedPanelWindowTopology } from './useDetachedPanels';
+import { decodeDetachedDocument, reconcileDetachedPanelWindowTopology } from './useDetachedPanels';
 import { savePanelPlacement } from './workspaceManager';
 
 type MutableMemoryWindowService = NativeWindowService & {
@@ -110,5 +117,40 @@ describe('detached panel topology reconciliation', () => {
     );
     setPanelWindowDiagnosticsEnabledForTest(null);
     clearPanelWindowDiagnostics();
+  });
+});
+
+describe('detached panel document decoding', () => {
+  it('rehydrates canonical image asset references before applying a session document', () => {
+    const dataUrl = 'data:image/png;base64,aGVsbG8=';
+    const asset = createEmbeddedAsset({
+      dataUrl,
+      mimeType: 'image/png',
+      naturalWidth: 10,
+      naturalHeight: 10,
+    });
+    const shape = makeShapeNode('image', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    shape.fills = [imageFill(dataUrl, { assetId: asset.id })];
+    const document = {
+      ...createDocument('Detached image', true),
+      nodes: { image: shape },
+      assets: { [asset.id]: asset },
+    };
+    const serialized = JSON.parse(DocumentCodec.encode(document)) as {
+      nodes: Record<string, { fills?: Array<{ image?: Record<string, unknown> }> }>;
+    };
+    const image = serialized.nodes.image?.fills?.[0]?.image;
+    if (!image) throw new Error('expected image fill');
+    delete image.assetId;
+    image.src = `asset:${asset.id}`;
+
+    const decoded = decodeDetachedDocument(JSON.stringify(serialized));
+
+    expect(decoded?.nodes.image?.kind).toBe('shape');
+    if (decoded?.nodes.image?.kind !== 'shape') return;
+    expect(decoded.nodes.image.fills?.[0]?.image).toMatchObject({
+      src: dataUrl,
+      assetId: asset.id,
+    });
   });
 });
