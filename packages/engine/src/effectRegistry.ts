@@ -346,6 +346,36 @@ const COMMON_RANGES: Record<string, [number, number, EffectParameterDefinition['
   seed: [0, 4_294_967_295, 'number'],
 };
 
+/** Ranges whose meaning depends on the owning operation, not just its key. */
+const KIND_PARAMETER_RANGES: Partial<
+  Record<AdjustmentKind, Record<string, [number, number, EffectParameterDefinition['unit']?]>>
+> = {
+  hueRotate: { value: [-180, 180, 'degrees'] },
+  sepia: { value: [0, 100, 'percent'] },
+  grayscale: { value: [0, 100, 'percent'] },
+  invert: { value: [0, 100, 'percent'] },
+  opacity: { value: [0, 100, 'percent'] },
+  exposure: {
+    value: [-32, 32, 'number'],
+    offset: [-1, 1, 'number'],
+    gammaCorrection: [0.01, 10, 'number'],
+  },
+  sharpen: {
+    amount: [0, 4096, 'number'],
+    radius: [0, 4096, 'pixels'],
+    threshold: [0, 255, 'number'],
+  },
+  posterize: { levels: [2, 256, 'number'] },
+  threshold: { level: [0, 255, 'number'] },
+  levels: {
+    inputShadows: [0, 255, 'number'],
+    inputMidtones: [0.01, 10, 'number'],
+    inputHighlights: [0, 255, 'number'],
+    outputShadows: [0, 255, 'number'],
+    outputHighlights: [0, 255, 'number'],
+  },
+};
+
 const COLOUR_PARAMETER_KEYS = new Set([
   'color',
   'foregroundColor',
@@ -376,7 +406,7 @@ function parameterDefinitions(kind: AdjustmentKind): EffectParameterDefinition[]
   return Object.entries(defaults)
     .filter(([key]) => key !== 'visible' && key !== 'opacity' && key !== 'blendMode')
     .map(([key, defaultValue]) => {
-      const range = COMMON_RANGES[key];
+      const range = KIND_PARAMETER_RANGES[kind]?.[key] ?? COMMON_RANGES[key];
       return {
         key,
         type: parameterType(key, defaultValue),

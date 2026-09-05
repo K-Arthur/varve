@@ -111,5 +111,11 @@ describe('Effect Studio registry', () => {
     ).toMatchObject({
       type: 'structured',
     });
+    expect(
+      definition('hueRotate').parameters.find((parameter) => parameter.key === 'value'),
+    ).toMatchObject({ min: -180, max: 180, unit: 'degrees' });
+    expect(
+      definition('opacity').parameters.find((parameter) => parameter.key === 'value'),
+    ).toMatchObject({ min: 0, max: 100, unit: 'percent' });
   });
 });
