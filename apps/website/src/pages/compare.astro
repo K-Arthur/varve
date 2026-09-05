@@ -224,10 +224,17 @@ const faqSchema = {
         <h2>Frequently asked questions</h2>
         <div class="faq-list">
           {faqs.map(({ q, a }) => (
-            <div class="faq-item">
-              <h3>{q}</h3>
-              <p>{a}</p>
-            </div>
+            <details class="faq-item">
+              <summary class="faq-item__question">
+                <span class="faq-item__chevron" aria-hidden="true">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+                {q}
+              </summary>
+              <div class="faq-item__answer">
+                <p>{a}</p>
+              </div>
+            </details>
           ))}
         </div>
       </section>
@@ -363,17 +370,62 @@ const faqSchema = {
 
   .faq-list {
     display: grid;
-    gap: 1.75rem;
+    gap: 0;
   }
 
-  .faq-item h3 {
+  .faq-item {
+    border-bottom: 1px solid var(--border-default);
+  }
+  .faq-item:last-child {
+    border-bottom: none;
+  }
+
+  .faq-item__question {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 0;
     font-size: 1.0625rem;
     font-weight: 600;
-    margin-bottom: 0.5rem;
     color: var(--text-primary);
+    cursor: pointer;
+    list-style: none;
+    line-height: 1.4;
+  }
+  .faq-item__question::-webkit-details-marker,
+  .faq-item__question::marker {
+    display: none;
+    content: '';
+  }
+  .faq-item__question:hover {
+    color: var(--text-link);
+  }
+  .faq-item__question:focus-visible {
+    outline: 2px solid var(--text-link);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 
-  .faq-item p {
+  .faq-item__chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--text-muted, #888);
+    transition: transform 0.2s ease;
+  }
+  .faq-item[open] .faq-item__chevron {
+    transform: rotate(90deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .faq-item__chevron {
+      transition: none;
+    }
+  }
+
+  .faq-item__answer {
+    padding: 0 0 1rem 1.75rem;
     color: var(--text-secondary);
     line-height: 1.7;
   }

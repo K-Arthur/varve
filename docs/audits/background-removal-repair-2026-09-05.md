@@ -146,3 +146,23 @@ still required before claiming the panorama path visually verified.
 The synthetic corpus contains exact binary labels and one genuine soft-alpha
 fixture. Its real-provider benchmark has not been completed on an isolated
 machine; no quality or latency improvement is claimed from the fixture set.
+
+## Quick benchmark snapshot
+
+On 2026-09-05, Chromium ran the Quick route three times per case over four
+licensed JPEGs and eight procedurally generated fixtures (12/12 passed). The
+run used the TypeScript Quick provider, not ONNX; warm p50 timings were
+110–169 ms for the four JPEGs and 43–364 ms for synthetic images. Synthetic
+binary IoU ranged from 0.000 (tiny subject) to 1.000 (grayscale); hair was
+0.706 IoU / 0.660 boundary F, while thin spokes, low contrast and extreme
+aspect ratios were materially lower. The genuine soft-alpha glass fixture
+scored 0.285 IoU because Quick is a segmentation heuristic, not a physical
+matting reference. These results are a baseline and limitation report, not a
+claim of universal quality improvement. The full JSON and generated masks are
+in the temporary benchmark directory used for this run and are not project
+assets.
+
+Visual inspection of the generated hair and glass masks confirmed the numeric
+result: hair strands are retained unevenly and the translucent pane is treated
+as an opaque region. Those cases remain candidates for explicit manual
+refinement or a verified matting provider.
