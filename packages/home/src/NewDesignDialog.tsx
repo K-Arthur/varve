@@ -386,7 +386,6 @@ export function NewDesignDialog({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={defaultName ?? 'Untitled 1'}
-            aria-label="Document name"
             maxLength={240}
           />
         </div>
@@ -468,7 +467,6 @@ export function NewDesignDialog({
                     onChange={handleWidthChange}
                     min={1}
                     max={100000}
-                    label="Width"
                     id="custom-width"
                   />
                   <label htmlFor="custom-height" className="new-design__field-label">
@@ -479,7 +477,6 @@ export function NewDesignDialog({
                     onChange={handleHeightChange}
                     min={1}
                     max={100000}
-                    label="Height"
                     id="custom-height"
                   />
                   <span className="new-design__field-label new-design__field-label--unit">
@@ -570,12 +567,29 @@ export function NewDesignDialog({
               </p>
               {intent === 'print' && (
                 <div className="new-design__field-row">
-                  <span className="new-design__field-label">DPI</span>
-                  <NumberInput value={dpi} onChange={setDpi} min={72} max={600} label="DPI" />
-                  <span className="new-design__field-label new-design__field-label--gap">
+                  <label htmlFor="new-design-dpi" className="new-design__field-label">
+                    DPI
+                  </label>
+                  <NumberInput
+                    value={dpi}
+                    onChange={setDpi}
+                    min={72}
+                    max={600}
+                    id="new-design-dpi"
+                  />
+                  <label
+                    htmlFor="new-design-bleed"
+                    className="new-design__field-label new-design__field-label--gap"
+                  >
                     Bleed
-                  </span>
-                  <NumberInput value={bleed} onChange={setBleed} min={0} max={50} label="Bleed" />
+                  </label>
+                  <NumberInput
+                    value={bleed}
+                    onChange={setBleed}
+                    min={0}
+                    max={50}
+                    id="new-design-bleed"
+                  />
                   <span className="new-design__field-hint">{unit}</span>
                 </div>
               )}

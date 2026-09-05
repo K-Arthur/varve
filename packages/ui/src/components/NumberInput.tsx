@@ -7,7 +7,8 @@ export interface NumberInputProps {
   altStep?: number;
   min?: number;
   max?: number;
-  label: string;
+  /** Accessible name. When omitted, an external <label htmlFor> must provide the name. */
+  label?: string;
   onChange: (value: number) => void;
   id?: string;
 }

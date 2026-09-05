@@ -256,7 +256,6 @@ export function NewFileDialog({
                 onChange={handleWidthChange}
                 min={1}
                 max={10000}
-                label="Width"
                 id="custom-width"
               />
               <label htmlFor="custom-height" className="new-file__field-label">
@@ -267,7 +266,6 @@ export function NewFileDialog({
                 onChange={handleHeightChange}
                 min={1}
                 max={10000}
-                label="Height"
                 id="custom-height"
               />
             </div>
@@ -310,15 +308,25 @@ export function NewFileDialog({
             </div>
             {colorMode === 'cmyk' && (
               <div className="new-file__field-row">
-                <span className="new-file__field-label">Bleed</span>
-                <NumberInput value={bleed} onChange={setBleed} min={0} max={50} label="Bleed" />
+                <label htmlFor="new-file-bleed" className="new-file__field-label">
+                  Bleed
+                </label>
+                <NumberInput
+                  value={bleed}
+                  onChange={setBleed}
+                  min={0}
+                  max={50}
+                  id="new-file-bleed"
+                />
                 <span className="new-file__field-hint">{unit}</span>
               </div>
             )}
             {colorMode === 'cmyk' && (
               <div className="new-file__field-row">
-                <span className="new-file__field-label">DPI</span>
-                <NumberInput value={dpi} onChange={setDpi} min={72} max={600} label="DPI" />
+                <label htmlFor="new-file-dpi" className="new-file__field-label">
+                  DPI
+                </label>
+                <NumberInput value={dpi} onChange={setDpi} min={72} max={600} id="new-file-dpi" />
                 <span className="new-file__field-hint">resolution</span>
               </div>
             )}
