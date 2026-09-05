@@ -1,13 +1,19 @@
 // @ts-nocheck
+
 import type { Document, NodeId } from '@varve/scene';
+import { addPage, createDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   buildMinimapScene,
   computeMinimapSize,
   computeMinimapTransform,
+  computeViewportMinimapFootprint,
   computeViewportMinimapRect,
+  computeViewportWorldCenter,
   computeViewportWorldRect,
   minimapToWorld,
+  panForViewportCenter,
+  pointInMinimapFootprint,
   worldRectToMinimap,
   worldToMinimap,
 } from './minimapLayout';
@@ -214,9 +220,10 @@ describe('buildMinimapScene', () => {
     const doc = makeDoc({ r1, r2, r3, outlier }, ['r1', 'r2', 'r3', 'outlier']);
     const scene = buildMinimapScene(doc, new Set(), { outlierFactor: 2 });
 
-    // The outlier should be in outliers, not contentBounds
+    // The outlier is flagged for discovery but remains in contentBounds.
     expect(scene.outliers.length).toBeGreaterThanOrEqual(1);
     expect(scene.outliers.some((e) => e.id === 'outlier')).toBe(true);
+    expect(scene.contentBounds.w).toBe(50000);
   });
 
   it('handles negative coordinates', () => {
@@ -250,6 +257,35 @@ describe('buildMinimapScene', () => {
     // outer, mid, inner, leaf = 4
     expect(scene.entries).toHaveLength(4);
     expect(scene.entries.map((e) => e.depth)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('includes every placed page in the pasteboard overview', () => {
+    let doc = createDocument('pages', false);
+    doc = addPage(doc, { width: 320, height: 240 });
+    doc = {
+      ...doc,
+      pages: doc.pages!.map((page, index) => ({
+        ...page,
+        placement: { x: index * 420, y: index * 60 },
+      })),
+      activePageId: doc.pages![0]!.id,
+    };
+
+    const scene = buildMinimapScene(doc, new Set(), { scope: 'pasteboard' });
+
+    expect(scene.pages).toHaveLength(2);
+    expect(scene.pages[0]!.active).toBe(true);
+    expect(scene.pages[1]!.bounds.x).toBe(420);
+    expect(scene.contentBounds.x).toBe(0);
+    expect(scene.contentBounds.w).toBeGreaterThanOrEqual(740);
+  });
+
+  it('keeps a degenerate line discoverable without producing invalid bounds', () => {
+    const line = makeRectShape('line', 42, -8, 0, 0);
+    const scene = buildMinimapScene(makeDoc({ line }, ['line']), new Set());
+
+    expect(scene.entries[0]!.bounds).toEqual({ x: 42, y: -8, w: 1, h: 1 });
+    expect(Object.values(scene.contentBounds).every(Number.isFinite)).toBe(true);
   });
 });
 
@@ -371,6 +407,33 @@ describe('computeViewportMinimapRect', () => {
     const mmRect = computeViewportMinimapRect({ x: 0, y: 0 }, 1, 800, 600, tf);
     expect(mmRect.w).toBeGreaterThan(0);
     expect(mmRect.h).toBeGreaterThan(0);
+  });
+});
+
+describe('computeViewportMinimapFootprint', () => {
+  it('projects the rotated canvas corners and round-trips its center', () => {
+    const tf = computeMinimapTransform({ x: -500, y: -400, w: 1200, h: 1000 }, 160, 120);
+    const camera = { pan: { x: -100, y: 40 }, zoom: 1.5, rotation: Math.PI / 4 };
+    const viewport = { width: 800, height: 600 };
+    const footprint = computeViewportMinimapFootprint(camera, viewport, tf);
+    const center = computeViewportWorldCenter(camera, viewport);
+    const centerMm = worldToMinimap(center[0], center[1], tf);
+
+    expect(footprint.points).toHaveLength(4);
+    expect(pointInMinimapFootprint([centerMm.x, centerMm.y], footprint)).toBe(true);
+    expect(footprint.bounds.w).toBeGreaterThan(0);
+    expect(footprint.bounds.h).toBeGreaterThan(0);
+  });
+
+  it('computes a pan that puts the requested world point at viewport center', () => {
+    const camera = { pan: { x: 20, y: -30 }, zoom: 2, rotation: Math.PI / 6 };
+    const viewport = { width: 900, height: 700 };
+    const target: [number, number] = [125, -80];
+    const nextPan = panForViewportCenter(camera, viewport, target);
+    const nextCenter = computeViewportWorldCenter({ ...camera, pan: nextPan }, viewport);
+
+    expect(nextCenter[0]).toBeCloseTo(target[0], 6);
+    expect(nextCenter[1]).toBeCloseTo(target[1], 6);
   });
 });
 

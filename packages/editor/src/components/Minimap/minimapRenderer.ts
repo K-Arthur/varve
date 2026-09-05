@@ -16,7 +16,13 @@
  * - Frame labels: rendered above frame outlines when space permits
  */
 
-import type { MinimapEntry, MinimapScene, MinimapTransform } from './minimapLayout';
+import type {
+  MinimapEntry,
+  MinimapFootprint,
+  MinimapPage,
+  MinimapScene,
+  MinimapTransform,
+} from './minimapLayout';
 import { worldRectToMinimap } from './minimapLayout';
 
 /* -------------------------------------------------------------------------- */
@@ -52,6 +58,12 @@ export interface MinimapColors {
   outlierStroke: string;
   /** Frame label text. */
   labelFill: string;
+  /** Publishing page fill. */
+  pageFill: string;
+  /** Publishing page outline. */
+  pageStroke: string;
+  /** Active publishing page outline. */
+  activePageStroke: string;
 }
 
 /** Resolve minimap colors from CSS custom properties, falling back to defaults. */
@@ -73,6 +85,9 @@ export function resolveMinimapColors(
     lockedStroke: '#666',
     outlierStroke: '#ff6b6b',
     labelFill: getVar('--color-text-muted', '#999'),
+    pageFill: getVar('--color-surface-default', '#2a2a2a'),
+    pageStroke: getVar('--color-border-strong', '#777'),
+    activePageStroke: getVar('--color-interactive-default', '#39d0c6'),
   };
 }
 
@@ -192,6 +207,37 @@ function drawFrameLabel(
   ctx.restore();
 }
 
+function drawPage(
+  ctx: CanvasRenderingContext2D,
+  page: MinimapPage,
+  tf: MinimapTransform,
+  colors: MinimapColors,
+): void {
+  const mm = worldRectToMinimap(page.bounds, tf);
+  ctx.fillStyle = colors.pageFill;
+  ctx.globalAlpha = 0.28;
+  ctx.fillRect(mm.x, mm.y, mm.w, mm.h);
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = page.active ? colors.activePageStroke : colors.pageStroke;
+  ctx.lineWidth = page.active ? 1.5 : 1;
+  ctx.setLineDash(page.active ? [] : [2, 2]);
+  ctx.strokeRect(mm.x, mm.y, mm.w, mm.h);
+  ctx.setLineDash([]);
+
+  if (page.name && mm.w >= 28 && mm.h >= 10) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(mm.x + 2, mm.y + 2, Math.max(0, mm.w - 4), Math.max(0, mm.h - 4));
+    ctx.clip();
+    ctx.fillStyle = colors.labelFill;
+    ctx.font = '6px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(page.name, mm.x + 3, mm.y + 3);
+    ctx.restore();
+  }
+}
+
 function drawOutlierMarker(
   ctx: CanvasRenderingContext2D,
   entry: MinimapEntry,
@@ -220,23 +266,29 @@ function drawOutlierMarker(
 
 function drawViewportIndicator(
   ctx: CanvasRenderingContext2D,
-  viewportRect: { x: number; y: number; w: number; h: number },
+  footprint: MinimapFootprint | null,
   colors: MinimapColors,
 ): void {
-  const { x, y, w, h } = viewportRect;
+  if (!footprint || footprint.points.length < 3) return;
 
-  // Fill with semi-transparent accent
-  const r = parseInt(colors.viewportStroke.slice(1, 3), 16) || 57;
-  const g = parseInt(colors.viewportStroke.slice(3, 5), 16) || 208;
-  const b = parseInt(colors.viewportStroke.slice(5, 7), 16) || 198;
-  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.12)`;
-  ctx.fillRect(x, y, w, h);
+  // Use the resolved CSS color directly. Parsing only six-digit hex made
+  // theme tokens such as rgb(), hsl(), and zero-valued channels incorrect.
+  ctx.beginPath();
+  ctx.moveTo(footprint.points[0]![0], footprint.points[0]![1]);
+  for (const point of footprint.points.slice(1)) ctx.lineTo(point[0], point[1]);
+  ctx.closePath();
+  ctx.fillStyle = colors.viewportFill;
+  ctx.globalAlpha = 0.12;
+  ctx.fill();
+  ctx.globalAlpha = 1;
 
   // Stroke
-  ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.6)`;
+  ctx.strokeStyle = colors.viewportStroke;
+  ctx.globalAlpha = 0.72;
   ctx.lineWidth = 1.5;
   ctx.setLineDash([]);
-  ctx.strokeRect(x, y, w, h);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -248,7 +300,7 @@ export function renderMinimap(
   ctx: CanvasRenderingContext2D,
   scene: MinimapScene,
   tf: MinimapTransform,
-  viewportRect: { x: number; y: number; w: number; h: number },
+  viewportFootprint: MinimapFootprint | null,
   colors: MinimapColors,
   dpr: number = 1,
 ): void {
@@ -259,6 +311,10 @@ export function renderMinimap(
   ctx.clearRect(0, 0, mmWidth, mmHeight);
   ctx.fillStyle = colors.background;
   ctx.fillRect(0, 0, mmWidth, mmHeight);
+
+  // Page trim is the backplate for the shared pasteboard. Content remains
+  // separately simplified so page gaps and empty pages stay visible.
+  for (const page of scene.pages) drawPage(ctx, page, tf, colors);
 
   // Draw entries back-to-front (last entries are on top in paint order)
   // We draw in reverse for proper visual stacking
@@ -314,7 +370,7 @@ export function renderMinimap(
   }
 
   // Draw viewport indicator last (on top of everything)
-  drawViewportIndicator(ctx, viewportRect, colors);
+  drawViewportIndicator(ctx, viewportFootprint, colors);
 }
 
 /** Render at a specific DPR. Handles canvas sizing. */
@@ -322,17 +378,23 @@ export function renderMinimapToCanvas(
   canvas: HTMLCanvasElement,
   scene: MinimapScene,
   tf: MinimapTransform,
-  viewportRect: { x: number; y: number; w: number; h: number },
+  viewportFootprint: MinimapFootprint | null,
   colors: MinimapColors,
 ): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = tf.mmWidth * dpr;
-  canvas.height = tf.mmHeight * dpr;
-  canvas.style.width = `${tf.mmWidth}px`;
-  canvas.style.height = `${tf.mmHeight}px`;
+  const view = canvas.ownerDocument.defaultView;
+  const rawDpr = view?.devicePixelRatio ?? 1;
+  const dpr = Number.isFinite(rawDpr) && rawDpr > 0 ? rawDpr : 1;
+  const width = Math.max(1, Math.round(tf.mmWidth * dpr));
+  const height = Math.max(1, Math.round(tf.mmHeight * dpr));
+  if (canvas.width !== width) canvas.width = width;
+  if (canvas.height !== height) canvas.height = height;
+  const cssWidth = `${tf.mmWidth}px`;
+  const cssHeight = `${tf.mmHeight}px`;
+  if (canvas.style.width !== cssWidth) canvas.style.width = cssWidth;
+  if (canvas.style.height !== cssHeight) canvas.style.height = cssHeight;
 
-  renderMinimap(ctx, scene, tf, viewportRect, colors, dpr);
+  renderMinimap(ctx, scene, tf, viewportFootprint, colors, dpr);
 }

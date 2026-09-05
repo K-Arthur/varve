@@ -1,30 +1,59 @@
 /**
  * MinimapPanel — interactive canvas minimap for document navigation.
  *
- * Architecture:
- * - Uses `buildMinimapScene` for canonical document-bounds computation.
- * - Uses `computeMinimapTransform` for world→minimap coordinate mapping.
- * - Uses `renderMinimapToCanvas` for Canvas2D rendering.
- * - Click/drag navigates the main canvas viewport.
- * - Selection state is synchronized from the editor context.
- * - Page-aware: shows the active page's content when pages exist.
- * - Outlier-culled: distant objects are marked, not stretched.
- * - Keyboard accessible: focus, Enter to fit, arrow keys to pan.
+ * The minimap is a projection of the live editor surface. Its scene is
+ * document-derived, its viewport footprint is camera-derived, and its
+ * navigation uses the explicitly supplied canvas owner rather than a global
+ * DOM selector. Artwork, selection, history, and dirty state are never
+ * mutated by minimap interaction.
  */
 
 import { Tooltip } from '@varve/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useEditor } from '../../context';
 import {
   buildMinimapScene,
   computeMinimapSize,
   computeMinimapTransform,
-  computeViewportMinimapRect,
+  computeViewportMinimapFootprint,
+  computeViewportWorldCenter,
+  type MinimapFootprint,
+  type MinimapTransform,
   minimapToWorld,
+  panForViewportCenter,
+  pointInMinimapFootprint,
 } from './minimapLayout';
 import type { MinimapColors } from './minimapRenderer';
 import { renderMinimapToCanvas, resolveMinimapColors } from './minimapRenderer';
 import './minimap.css';
+
+interface MinimapPanelProps {
+  /** The actual `.editor-canvas` element that owns the viewport. */
+  canvasOwnerRef?: RefObject<HTMLElement | null>;
+}
+
+interface PanelMeasurement {
+  width: number;
+  height: number;
+  viewportWidth: number;
+  viewportHeight: number;
+}
+
+interface DragState {
+  pointerId: number;
+  transform: MinimapTransform;
+  viewport: { width: number; height: number };
+  offset: [number, number];
+}
 
 /** Resolve CSS variable with fallback. */
 function resolveCssVar(name: string, fallback: string): string {
@@ -33,202 +62,297 @@ function resolveCssVar(name: string, fallback: string): string {
   return val || fallback;
 }
 
-export function MinimapPanel() {
+function measuredSize(element: HTMLElement | null): { width: number; height: number } {
+  if (!element) return { width: 0, height: 0 };
+  const rect = element.getBoundingClientRect();
+  return {
+    width: element.clientWidth || rect.width || 0,
+    height: element.clientHeight || rect.height || 0,
+  };
+}
+
+function isUsableViewport(width: number, height: number): boolean {
+  return Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0;
+}
+
+function pointerToMinimap(
+  event: ReactPointerEvent<HTMLCanvasElement>,
+  transform: MinimapTransform,
+): { x: number; y: number } | null {
+  const rect = event.currentTarget.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  return {
+    x: ((event.clientX - rect.left) / rect.width) * transform.mmWidth,
+    y: ((event.clientY - rect.top) / rect.height) * transform.mmHeight,
+  };
+}
+
+function releasePointerCapture(canvas: HTMLCanvasElement | null, pointerId: number): void {
+  if (!canvas?.releasePointerCapture) return;
+  try {
+    canvas.releasePointerCapture(pointerId);
+  } catch {
+    // The browser may already have released capture during cancellation.
+  }
+}
+
+export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
   const editor = useEditor();
-  const { selectedNodes } = useEditor();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
-  const lastPanRef = useRef<{ x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLElement>(null);
+  const dragRef = useRef<DragState | null>(null);
   const [collapsed, setCollapsed] = useState(false);
-  const [containerWidth, setContainerWidth] = useState(0);
+  const [measurement, setMeasurement] = useState<PanelMeasurement>({
+    width: 0,
+    height: 0,
+    viewportWidth: 0,
+    viewportHeight: 0,
+  });
 
-  // Measure container width for responsive minimap sizing
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const obs = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width;
-      if (w) setContainerWidth(w);
+  const measure = useCallback(() => {
+    const container = containerRef.current;
+    const owner = canvasOwnerRef?.current;
+    const panel = measuredSize(container);
+    const available = measuredSize(container?.parentElement ?? container);
+    const viewport = measuredSize(owner ?? null);
+    setMeasurement((previous) => {
+      const next = {
+        width: panel.width,
+        height: available.height,
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
+      };
+      return previous.width === next.width &&
+        previous.height === next.height &&
+        previous.viewportWidth === next.viewportWidth &&
+        previous.viewportHeight === next.viewportHeight
+        ? previous
+        : next;
     });
-    obs.observe(containerRef.current);
-    return () => obs.disconnect();
-  }, []);
+  }, [canvasOwnerRef]);
 
-  // Selected node IDs as a stable Set
-  const sel = selectedNodes();
-  const selectedIds = useMemo(() => new Set(sel.map((n) => n.id)), [sel]);
+  // Observe both the minimap's layout slot and the real canvas owner. This
+  // catches sidebars, timeline, display, and window changes even when the
+  // window itself did not resize. Zero-size states are recorded as zero.
+  useEffect(() => {
+    measure();
+    const observed = [
+      containerRef.current,
+      containerRef.current?.parentElement,
+      canvasOwnerRef?.current,
+    ].filter(
+      (element, index, all): element is HTMLElement =>
+        Boolean(element) && all.indexOf(element) === index,
+    );
+    const observer =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            measure();
+          });
+    for (const element of observed) observer?.observe(element);
 
-  // Build the minimap scene (pure computation, memoized on document + selection)
+    const onResize = () => measure();
+    window.addEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('resize', onResize);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', onResize);
+      window.visualViewport?.removeEventListener('resize', onResize);
+    };
+  }, [canvasOwnerRef, collapsed, measure]);
+
+  const selectedIds = useMemo(() => new Set(editor.state.selection), [editor.state.selection]);
+  const designCanvasId =
+    editor.state.workspaceMode === 'print'
+      ? null
+      : (editor.state.document.activeDesignCanvasId ?? null);
   const scene = useMemo(
-    () => buildMinimapScene(editor.state.document, selectedIds),
-    [editor.state.document, selectedIds],
+    () =>
+      buildMinimapScene(editor.state.document, selectedIds, {
+        scope: 'canvas',
+        designCanvasId,
+      }),
+    [editor.state.document, selectedIds, designCanvasId],
   );
 
-  // Compute minimap canvas dimensions — use container width for responsive sizing
+  const maxWidth =
+    measurement.width > 0 ? Math.max(40, Math.min(160, measurement.width - 16)) : 160;
+  const maxHeight =
+    measurement.height > 0 ? Math.max(30, Math.min(120, measurement.height * 0.3)) : 120;
   const mmSize = useMemo(
-    () => computeMinimapSize(scene.contentBounds, containerWidth || 160),
-    [scene.contentBounds, containerWidth],
+    () => computeMinimapSize(scene.contentBounds, maxWidth, maxHeight),
+    [scene.contentBounds, maxHeight, maxWidth],
   );
-
-  // Compute the world→minimap transform
-  const tf = useMemo(
+  const transform = useMemo(
     () => computeMinimapTransform(scene.contentBounds, mmSize.width, mmSize.height),
     [scene.contentBounds, mmSize],
   );
 
-  // Resolve theme colors — re-resolve when themeRevision bumps
   const colors: MinimapColors = useMemo(
     () => resolveMinimapColors(resolveCssVar),
     [editor.state.themeRevision],
   );
+  const camera = useMemo(
+    () => ({
+      pan: editor.state.pan,
+      zoom: editor.state.zoom,
+      rotation: editor.state.cameraRotation ?? 0,
+    }),
+    [editor.state.cameraRotation, editor.state.pan, editor.state.zoom],
+  );
+  const viewport = useMemo(() => {
+    if (!isUsableViewport(measurement.viewportWidth, measurement.viewportHeight)) return null;
+    return { width: measurement.viewportWidth, height: measurement.viewportHeight };
+  }, [measurement.viewportHeight, measurement.viewportWidth]);
+  const viewportFootprint: MinimapFootprint | null = useMemo(
+    () => (viewport ? computeViewportMinimapFootprint(camera, viewport, transform) : null),
+    [camera, transform, viewport],
+  );
 
-  // Get main canvas dimensions (avoid DOM queries during render)
-  const getCanvasSize = useCallback(() => {
-    const canvasEl = document.querySelector('.editor-canvas canvas') as HTMLCanvasElement | null;
-    return {
-      w: canvasEl?.clientWidth ?? 800,
-      h: canvasEl?.clientHeight ?? 600,
-    };
-  }, []);
-
-  // Compute viewport indicator in minimap coordinates
-  const viewportRect = useMemo(() => {
-    const vp = getCanvasSize();
-    return computeViewportMinimapRect(editor.state.pan, editor.state.zoom, vp.w, vp.h, tf);
-  }, [editor.state.pan, editor.state.zoom, tf, getCanvasSize]);
-
-  // Draw the minimap
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    renderMinimapToCanvas(canvas, scene, tf, viewportRect, colors);
-  }, [scene, tf, viewportRect, colors]);
+    renderMinimapToCanvas(canvas, scene, transform, viewportFootprint, colors);
+  }, [colors, scene, transform, viewportFootprint]);
 
-  // Redraw whenever dependencies change
   useEffect(() => {
     draw();
   }, [draw]);
 
-  // Also redraw on window resize (main canvas size changes)
-  useEffect(() => {
-    const onResize = () => draw();
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [draw]);
-
-  // --- Navigation ---
-
-  /** Center the main canvas on a world-space point. */
   const navigateToWorld = useCallback(
-    (worldX: number, worldY: number) => {
-      const vp = getCanvasSize();
-      editor.setPan({
-        x: vp.w / 2 - worldX * editor.state.zoom,
-        y: vp.h / 2 - worldY * editor.state.zoom,
-      });
+    (world: [number, number], navigationViewport: { width: number; height: number }) => {
+      if (!isUsableViewport(navigationViewport.width, navigationViewport.height)) return;
+      const pan = panForViewportCenter(camera, navigationViewport, world);
+      if (Number.isFinite(pan.x) && Number.isFinite(pan.y)) editor.setPan(pan);
     },
-    [editor, getCanvasSize],
+    [camera, editor],
   );
 
-  /** Convert a pointer event's client coords to minimap-local coords. */
-  const pointerToMinimap = useCallback(
-    (e: React.PointerEvent | PointerEvent): { x: number; y: number } | null => {
-      const canvas = canvasRef.current;
-      if (!canvas) return null;
-      const rect = canvas.getBoundingClientRect();
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    },
-    [],
-  );
+  const endDrag = useCallback((pointerId?: number) => {
+    const drag = dragRef.current;
+    if (!drag || (pointerId !== undefined && pointerId !== drag.pointerId)) return;
+    releasePointerCapture(canvasRef.current, drag.pointerId);
+    dragRef.current = null;
+  }, []);
 
   const handlePointerDown = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>) => {
-      isDragging.current = true;
-      const mm = pointerToMinimap(e);
+    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+      if (event.button !== 0 || !viewport) return;
+      const mm = pointerToMinimap(event, transform);
       if (!mm) return;
-      const world = minimapToWorld(mm.x, mm.y, tf);
-      navigateToWorld(world.x, world.y);
-      lastPanRef.current = { x: e.clientX, y: e.clientY };
-      canvasRef.current?.setPointerCapture(e.pointerId);
+      const world = minimapToWorld(mm.x, mm.y, transform);
+      const center = computeViewportWorldCenter(camera, viewport);
+      const inside = viewportFootprint
+        ? pointInMinimapFootprint([mm.x, mm.y], viewportFootprint)
+        : false;
+      const offset: [number, number] = inside ? [world.x - center[0], world.y - center[1]] : [0, 0];
+      dragRef.current = { pointerId: event.pointerId, transform, viewport, offset };
+      event.preventDefault();
+      event.stopPropagation();
+      navigateToWorld([world.x - offset[0], world.y - offset[1]], viewport);
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture is unavailable in some test/browser embeddings;
+        // the drag still works while the pointer remains over the canvas.
+      }
     },
-    [tf, navigateToWorld, pointerToMinimap],
+    [camera, navigateToWorld, transform, viewport, viewportFootprint],
   );
 
   const handlePointerMove = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (!isDragging.current) return;
-      const mm = pointerToMinimap(e);
+    (event: ReactPointerEvent<HTMLCanvasElement>) => {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      const mm = pointerToMinimap(event, drag.transform);
       if (!mm) return;
-      const world = minimapToWorld(mm.x, mm.y, tf);
-      navigateToWorld(world.x, world.y);
+      const world = minimapToWorld(mm.x, mm.y, drag.transform);
+      event.preventDefault();
+      event.stopPropagation();
+      navigateToWorld([world.x - drag.offset[0], world.y - drag.offset[1]], drag.viewport);
     },
-    [tf, navigateToWorld, pointerToMinimap],
+    [navigateToWorld],
   );
 
-  const handlePointerUp = useCallback(() => {
-    isDragging.current = false;
-    lastPanRef.current = null;
-  }, []);
+  useEffect(() => {
+    const cancel = () => endDrag();
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') cancel();
+    };
+    window.addEventListener('blur', cancel);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('blur', cancel);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      cancel();
+    };
+  }, [endDrag]);
 
-  /** Double-click: fit all content in viewport. */
+  // A document/workspace switch must not leave a pointer session from the
+  // previous surface applying camera writes to the new one.
+  useEffect(() => {
+    endDrag();
+  }, [editor.state.activeId, editor.state.document.id, editor.state.workspaceMode, endDrag]);
+
+  const panByScreen = useCallback(
+    (dx: number, dy: number) => {
+      if (typeof editor.panBy === 'function') {
+        editor.panBy(dx, dy);
+      } else {
+        editor.setPan({ x: editor.state.pan.x + dx, y: editor.state.pan.y + dy });
+      }
+    },
+    [editor],
+  );
+
   const handleDoubleClick = useCallback(() => {
-    if (scene.entries.length === 0) return;
-    editor.fitAll();
-  }, [editor, scene.entries.length]);
+    if (scene.entries.length > 0 || scene.pages.length > 0) editor.fitAll();
+  }, [editor, scene.entries.length, scene.pages.length]);
 
-  /** Keyboard navigation. */
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLCanvasElement>) => {
-      const panStep = 50; // world units per arrow key
-
-      switch (e.key) {
+    (event: ReactKeyboardEvent<HTMLCanvasElement>) => {
+      switch (event.key) {
         case 'ArrowLeft':
-          e.preventDefault();
-          editor.setPan({
-            x: editor.state.pan.x + panStep * editor.state.zoom,
-            y: editor.state.pan.y,
-          });
+          event.preventDefault();
+          panByScreen(50, 0);
           break;
         case 'ArrowRight':
-          e.preventDefault();
-          editor.setPan({
-            x: editor.state.pan.x - panStep * editor.state.zoom,
-            y: editor.state.pan.y,
-          });
+          event.preventDefault();
+          panByScreen(-50, 0);
           break;
         case 'ArrowUp':
-          e.preventDefault();
-          editor.setPan({
-            x: editor.state.pan.x,
-            y: editor.state.pan.y + panStep * editor.state.zoom,
-          });
+          event.preventDefault();
+          panByScreen(0, 50);
           break;
         case 'ArrowDown':
-          e.preventDefault();
-          editor.setPan({
-            x: editor.state.pan.x,
-            y: editor.state.pan.y - panStep * editor.state.zoom,
-          });
+          event.preventDefault();
+          panByScreen(0, -50);
           break;
         case 'Enter':
         case ' ':
-          e.preventDefault();
-          editor.fitAll();
-          break;
         case 'Home':
-          e.preventDefault();
+          event.preventDefault();
           editor.fitAll();
           break;
         case 'Escape':
-          e.preventDefault();
+          event.preventDefault();
+          endDrag();
           setCollapsed(true);
           break;
       }
     },
-    [editor, getCanvasSize],
+    [editor, endDrag, panByScreen],
   );
 
-  // Don't render if collapsed
+  const minimapVisible = (editor.state as typeof editor.state & { minimapVisible?: boolean })
+    .minimapVisible;
+  if (minimapVisible === false) return null;
+
+  const nodeCount = scene.entries.length;
+  const outlierCount = scene.outliers.length;
+  const pageCount = scene.pages.length;
+
   if (collapsed) {
     return (
       <Tooltip label="Show minimap">
@@ -257,16 +381,33 @@ export function MinimapPanel() {
     );
   }
 
-  const nodeCount = scene.entries.length;
-  const outlierCount = scene.outliers.length;
-
   return (
     <section
       ref={containerRef}
       className="minimap-panel"
-      aria-label={`Minimap: ${nodeCount} objects`}
+      data-testid="minimap-panel"
+      aria-label={`Minimap: ${nodeCount} objects${pageCount ? `, ${pageCount} pages` : ''}`}
     >
       <div className="minimap-panel__header">
+        <span className="minimap-panel__title">
+          {nodeCount} object{nodeCount !== 1 ? 's' : ''}
+          {pageCount > 0 && ` · ${pageCount} page${pageCount !== 1 ? 's' : ''}`}
+          {outlierCount > 0 && (
+            <Tooltip
+              label={`${outlierCount} exceptional object(s) remain included in the overview`}
+            >
+              <span className="minimap-panel__outlier-badge"> {outlierCount} flagged</span>
+            </Tooltip>
+          )}
+        </span>
+        <button
+          type="button"
+          className="minimap-panel__fit-btn"
+          onClick={handleDoubleClick}
+          aria-label="Fit whole document in canvas"
+        >
+          Fit
+        </button>
         <Tooltip label="Hide minimap">
           <button
             type="button"
@@ -284,17 +425,6 @@ export function MinimapPanel() {
             </svg>
           </button>
         </Tooltip>
-        <span className="minimap-panel__title">
-          {nodeCount} object{nodeCount !== 1 ? 's' : ''}
-          {outlierCount > 0 && (
-            <Tooltip label={`${outlierCount} outlier(s) excluded from overview`}>
-              <span className="minimap-panel__outlier-badge">
-                {' '}
-                {outlierCount} outlier{outlierCount !== 1 ? 's' : ''}
-              </span>
-            </Tooltip>
-          )}
-        </span>
       </div>
       <canvas
         ref={canvasRef}
@@ -303,11 +433,12 @@ export function MinimapPanel() {
         height={mmSize.height}
         tabIndex={0}
         role="img"
-        aria-label={`Document minimap showing ${nodeCount} objects. Double-click or press Enter to fit the whole document; arrow keys pan.`}
+        aria-label={`Document minimap showing ${nodeCount} objects. Click or drag to navigate; double-click or press Enter to fit the whole document; arrow keys pan.`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
+        onPointerUp={(event) => endDrag(event.pointerId)}
+        onPointerCancel={(event) => endDrag(event.pointerId)}
+        onLostPointerCapture={() => endDrag()}
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
       />

@@ -8,6 +8,9 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  min-width: 0;
+  max-width: calc(100% - var(--space-4));
+  flex: 0 1 auto;
 }
 
 .minimap-panel__header {
@@ -44,6 +47,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
 }
 
 .minimap-panel__outlier-badge {
@@ -58,6 +63,33 @@
   border-radius: var(--radius-control-compact);
   cursor: pointer;
   outline: none;
+  max-width: 100%;
+  touch-action: none;
+  user-select: none;
+}
+
+.minimap-panel__fit-btn {
+  border: 0;
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  padding: var(--space-1) var(--space-2);
+  flex-shrink: 0;
+}
+
+.minimap-panel__fit-btn:hover,
+.minimap-panel__fit-btn:focus-visible {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.minimap-panel__fit-btn:focus-visible,
+.minimap-panel__collapse-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 
 .minimap-panel__canvas:focus-visible {

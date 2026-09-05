@@ -7,8 +7,8 @@
  *
  * Design decisions:
  * - Recursive DFS traversal of the scene tree (not just rootChildren).
- * - Outlier culling: objects > 100× the median bounds are excluded from the
- *   overview and flagged, so a single distant object doesn't shrink everything.
+ * - Exceptional objects are flagged for discovery but remain in the overview;
+ *   the minimap never silently hides legitimate pasteboard content.
  * - Groups use the union of their children's world bounds (not a hardcoded box).
  * - Frames, shapes, text, images, adjustments, and raster layers all have
  *   proper bounds via nodeWorldBounds from the canonical world module.
@@ -16,8 +16,23 @@
  *   a immutable snapshot that the renderer consumes.
  */
 
-import { buildParentIndexMap, type Document, type NodeId, type SceneNode } from '@varve/scene';
-import type { Rect } from '@varve/shared';
+import {
+  buildParentIndexMap,
+  buildPlacedScene,
+  type Document,
+  multipageRootNodes,
+  type NodeId,
+  type SceneNode,
+} from '@varve/scene';
+import {
+  type Camera,
+  computeFloatingOrigin,
+  type Point,
+  type Rect,
+  screenToWorld,
+  type Viewport,
+  worldToScreen,
+} from '@varve/shared';
 import { nodeWorldBounds } from '../../scene/world';
 
 /* -------------------------------------------------------------------------- */
@@ -50,12 +65,22 @@ export interface MinimapEntry {
 export interface MinimapScene {
   /** All entries, sorted in paint order (depth-first). */
   entries: MinimapEntry[];
-  /** Union of all entry bounds (after outlier culling). */
+  /** Union of all entry and page bounds. */
   contentBounds: Rect;
-  /** Outlier entries that were excluded from contentBounds. */
+  /** Entries whose scale is exceptional relative to their siblings. */
   outliers: MinimapEntry[];
+  /** Placed publishing pages visible in the overview. */
+  pages: MinimapPage[];
   /** Number of total nodes traversed. */
   totalNodes: number;
+}
+
+/** A publishing page outline. Pages are not selectable scene objects. */
+export interface MinimapPage {
+  id: NodeId;
+  name: string;
+  bounds: Rect;
+  active: boolean;
 }
 
 /** Options for computing the minimap layout. */
@@ -66,8 +91,12 @@ export interface MinimapLayoutOptions {
   includeLocked?: boolean;
   /** Maximum depth to traverse. Infinity = unlimited. Default: Infinity. */
   maxDepth?: number;
-  /** Outlier multiplier: nodes whose area > median × this are excluded. Default: 100. */
+  /** Outlier multiplier used for diagnostics/markers. Default: 100. */
   outlierFactor?: number;
+  /** Overview scope. The rendered canvas is the default. */
+  scope?: 'canvas' | 'activePage' | 'pasteboard';
+  /** Active design canvas, or null to force publishing-pasteboard traversal. */
+  designCanvasId?: NodeId | null;
 }
 
 /** The minimap's transform state: maps world coords to minimap-local coords. */
@@ -86,6 +115,14 @@ export interface MinimapTransform {
   mmHeight: number;
 }
 
+/** The exact visible canvas footprint projected into minimap CSS pixels. */
+export interface MinimapFootprint {
+  /** Four corners in clockwise screen order, expressed in minimap CSS px. */
+  points: Point[];
+  /** AABB retained for diagnostics and coarse hit testing. */
+  bounds: Rect;
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Constants                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -93,7 +130,7 @@ export interface MinimapTransform {
 const MAX_MM_WIDTH = 160;
 const MAX_MM_HEIGHT = 120;
 const CONTENT_PADDING = 24;
-const OUTLIER_MIN_AREA = 1e8;
+const DEGENERATE_WORLD_SIZE = 1;
 
 /* -------------------------------------------------------------------------- */
 /*  Minimap scene builder                                                     */
@@ -129,15 +166,15 @@ function collectEntries(
     // scan (getParent) per call when no parentIndex is passed; called once
     // per node in this recursive traversal, that made the whole minimap
     // rebuild O(n^2) in node count.
-    const bounds = nodeWorldBounds(doc, id, parentIndex);
-    if (!bounds || bounds.w === 0 || bounds.h === 0) {
-      // Skip zero-area nodes (e.g. adjustment nodes with no geometry)
-      // unless they're containers — containers may have children
+    const rawBounds = nodeWorldBounds(doc, id, parentIndex);
+    if (!rawBounds) {
+      // Containers may have no own geometry, but a container without a
+      // computed child union has nothing useful to show in the overview.
       if (node.kind !== 'frame' && node.kind !== 'group') continue;
-      // For containers with no computed bounds, skip if they have no children
-      if (node.kind === 'group' && (!('children' in node) || !node.children.length)) continue;
-      if (node.kind === 'frame' && (!('children' in node) || !node.children.length)) continue;
+      if (!('children' in node) || !node.children.length) continue;
     }
+    const bounds = normalizeBounds(rawBounds);
+    if (!bounds) continue;
 
     const isFrame = node.kind === 'frame';
     const isContainer = isFrame || node.kind === 'group';
@@ -164,6 +201,21 @@ function collectEntries(
       collectEntries(doc, children, selectedIds, entries, depth + 1, opts, parentIndex);
     }
   }
+}
+
+/** Keep lines and point-like paths discoverable without distorting normal
+ * geometry. The one-unit minimum is a display affordance in world units; it
+ * is never used for navigation or document bounds outside the minimap. */
+function normalizeBounds(bounds: Rect | null): Rect | null {
+  if (!bounds) return null;
+  if (![bounds.x, bounds.y, bounds.w, bounds.h].every(Number.isFinite)) return null;
+  if (bounds.w < 0 || bounds.h < 0) return null;
+  return {
+    x: bounds.x,
+    y: bounds.y,
+    w: Math.max(bounds.w, DEGENERATE_WORLD_SIZE),
+    h: Math.max(bounds.h, DEGENERATE_WORLD_SIZE),
+  };
 }
 
 /**
@@ -196,31 +248,38 @@ export function buildMinimapScene(
     includeLocked: true,
     maxDepth: Infinity,
     outlierFactor: 100,
+    scope: 'canvas',
+    designCanvasId: null,
     ...opts,
   };
 
-  // Determine which root IDs to traverse
+  // The editor renderer uses the shared multipage scene. Traversing the same
+  // roots keeps the minimap and canvas in agreement about page placement,
+  // pasteboard objects, globals, and design-canvas ownership.
+  const placedScene = buildPlacedScene(doc);
+  const resolvedDesignCanvasId =
+    options.scope === 'activePage' || options.scope === 'pasteboard'
+      ? null
+      : options.designCanvasId;
   let rootIds: NodeId[];
-  if (doc.pages && doc.pages.length > 0 && doc.activePageId) {
+  if (options.scope === 'activePage' && doc.pages?.length && doc.activePageId) {
     const activePage = doc.pages.find((p) => p.id === doc.activePageId);
-    if (activePage) {
-      // Use the active page's contentRoot + globalChildren
-      rootIds = [...(doc.globalChildren ?? []), activePage.contentRoot];
-    } else {
-      rootIds = doc.rootChildren;
-    }
+    rootIds = activePage
+      ? [...(doc.globalChildren ?? []), activePage.contentRoot]
+      : multipageRootNodes(doc, { designCanvasId: null });
   } else {
-    rootIds = doc.rootChildren;
+    rootIds = multipageRootNodes(doc, { designCanvasId: resolvedDesignCanvasId });
   }
 
   const entries: MinimapEntry[] = [];
   const parentIndex = buildParentIndexMap(doc);
   collectEntries(doc, rootIds, selectedIds, entries, 0, options, parentIndex);
 
-  // Compute content bounds and detect outliers
+  // Compute content bounds and detect exceptional scale. Outlier detection is
+  // informational only: excluding a legitimate large frame made a distant
+  // small object appear navigable while the frame itself disappeared.
   const median = medianArea(entries);
   const outlierThreshold = median * options.outlierFactor;
-  const outlierMinArea = Math.max(outlierThreshold, OUTLIER_MIN_AREA);
 
   let minX = Infinity;
   let minY = Infinity;
@@ -230,16 +289,37 @@ export function buildMinimapScene(
 
   for (const entry of entries) {
     const area = entry.bounds.w * entry.bounds.h;
-    if (area > outlierMinArea && entry.depth === 0) {
+    if (Number.isFinite(area) && area > outlierThreshold && entry.depth === 0) {
       outliers.push(entry);
-      continue;
     }
-    if (entry.bounds.w > 0 && entry.bounds.h > 0) {
+    if (
+      Number.isFinite(entry.bounds.x) &&
+      Number.isFinite(entry.bounds.y) &&
+      Number.isFinite(entry.bounds.w) &&
+      Number.isFinite(entry.bounds.h) &&
+      entry.bounds.w >= 0 &&
+      entry.bounds.h >= 0
+    ) {
       minX = Math.min(minX, entry.bounds.x);
       minY = Math.min(minY, entry.bounds.y);
       maxX = Math.max(maxX, entry.bounds.x + entry.bounds.w);
       maxY = Math.max(maxY, entry.bounds.y + entry.bounds.h);
     }
+  }
+
+  // A page itself is visible even when it has no content. Add placed trim
+  // boxes to the overview so empty pages and page gaps remain honest.
+  const placedPages =
+    options.scope === 'activePage'
+      ? placedScene.pages.filter((page) => page.page.id === doc.activePageId)
+      : resolvedDesignCanvasId === null
+        ? placedScene.pages
+        : [];
+  for (const page of placedPages) {
+    minX = Math.min(minX, page.bounds.x);
+    minY = Math.min(minY, page.bounds.y);
+    maxX = Math.max(maxX, page.bounds.x + page.bounds.w);
+    maxY = Math.max(maxY, page.bounds.y + page.bounds.h);
   }
 
   // Empty document fallback
@@ -254,6 +334,12 @@ export function buildMinimapScene(
     entries,
     contentBounds: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
     outliers,
+    pages: placedPages.map((page) => ({
+      id: page.page.id,
+      name: page.page.name,
+      bounds: page.bounds,
+      active: page.page.id === doc.activePageId,
+    })),
     totalNodes: Object.keys(doc.nodes).length,
   };
 }
@@ -272,14 +358,27 @@ export function computeMinimapTransform(
   mmHeight: number,
   padding: number = CONTENT_PADDING,
 ): MinimapTransform {
-  if (contentBounds.w <= 0 || contentBounds.h <= 0) {
+  const safeWidth = Number.isFinite(mmWidth) && mmWidth > 0 ? mmWidth : 1;
+  const safeHeight = Number.isFinite(mmHeight) && mmHeight > 0 ? mmHeight : 1;
+  if (
+    !Number.isFinite(contentBounds.x) ||
+    !Number.isFinite(contentBounds.y) ||
+    !Number.isFinite(contentBounds.w) ||
+    !Number.isFinite(contentBounds.h) ||
+    contentBounds.w <= 0 ||
+    contentBounds.h <= 0 ||
+    !Number.isFinite(mmWidth) ||
+    !Number.isFinite(mmHeight) ||
+    mmWidth <= 0 ||
+    mmHeight <= 0
+  ) {
     return {
       scale: 1,
-      offsetX: mmWidth / 2,
-      offsetY: mmHeight / 2,
+      offsetX: safeWidth / 2,
+      offsetY: safeHeight / 2,
       contentBounds,
-      mmWidth,
-      mmHeight,
+      mmWidth: safeWidth,
+      mmHeight: safeHeight,
     };
   }
 
@@ -287,6 +386,16 @@ export function computeMinimapTransform(
   const paddedH = contentBounds.h + padding * 2;
 
   const scale = Math.min(mmWidth / paddedW, mmHeight / paddedH) * 0.92;
+  if (!Number.isFinite(scale) || scale <= 0) {
+    return {
+      scale: 1,
+      offsetX: safeWidth / 2,
+      offsetY: safeHeight / 2,
+      contentBounds,
+      mmWidth: safeWidth,
+      mmHeight: safeHeight,
+    };
+  }
   const offsetX = (mmWidth - contentBounds.w * scale) / 2;
   const offsetY = (mmHeight - contentBounds.h * scale) / 2;
 
@@ -299,6 +408,9 @@ export function worldToMinimap(
   wy: number,
   tf: MinimapTransform,
 ): { x: number; y: number } {
+  if (![wx, wy, tf.scale, tf.offsetX, tf.offsetY].every(Number.isFinite)) {
+    return { x: tf.mmWidth / 2, y: tf.mmHeight / 2 };
+  }
   return {
     x: tf.offsetX + (wx - tf.contentBounds.x) * tf.scale,
     y: tf.offsetY + (wy - tf.contentBounds.y) * tf.scale,
@@ -311,6 +423,9 @@ export function minimapToWorld(
   mmY: number,
   tf: MinimapTransform,
 ): { x: number; y: number } {
+  if (!Number.isFinite(tf.scale) || tf.scale <= 0) {
+    return { x: tf.contentBounds.x, y: tf.contentBounds.y };
+  }
   return {
     x: (mmX - tf.offsetX) / tf.scale + tf.contentBounds.x,
     y: (mmY - tf.offsetY) / tf.scale + tf.contentBounds.y,
@@ -335,22 +450,28 @@ export function computeMinimapSize(
   maxWidth: number = MAX_MM_WIDTH,
   maxHeight: number = MAX_MM_HEIGHT,
 ): { width: number; height: number } {
-  if (contentBounds.w <= 0 || contentBounds.h <= 0) {
-    return { width: maxWidth, height: maxHeight };
+  const safeMaxWidth = Number.isFinite(maxWidth) && maxWidth > 0 ? maxWidth : MAX_MM_WIDTH;
+  const safeMaxHeight = Number.isFinite(maxHeight) && maxHeight > 0 ? maxHeight : MAX_MM_HEIGHT;
+  if (
+    ![contentBounds.x, contentBounds.y, contentBounds.w, contentBounds.h].every(Number.isFinite) ||
+    contentBounds.w <= 0 ||
+    contentBounds.h <= 0
+  ) {
+    return { width: safeMaxWidth, height: safeMaxHeight };
   }
 
   const paddedW = contentBounds.w + CONTENT_PADDING * 2;
   const paddedH = contentBounds.h + CONTENT_PADDING * 2;
 
   if (paddedW <= 0 || paddedH <= 0) {
-    return { width: maxWidth, height: maxHeight };
+    return { width: safeMaxWidth, height: safeMaxHeight };
   }
 
   const aspect = paddedW / paddedH;
-  let mmW = maxWidth;
+  let mmW = safeMaxWidth;
   let mmH = mmW / aspect;
-  if (mmH > maxHeight) {
-    mmH = maxHeight;
+  if (mmH > safeMaxHeight) {
+    mmH = safeMaxHeight;
     mmW = mmH * aspect;
   }
 
@@ -364,16 +485,10 @@ export function computeViewportWorldRect(
   canvasWidth: number,
   canvasHeight: number,
 ): Rect {
-  const vpW = canvasWidth / zoom;
-  const vpH = canvasHeight / zoom;
-  const x = -pan.x / zoom;
-  const y = -pan.y / zoom;
-  return {
-    x: x === 0 ? 0 : x,
-    y: y === 0 ? 0 : y,
-    w: vpW,
-    h: vpH,
-  };
+  return viewportWorldAabb(
+    { pan, zoom, rotation: 0 },
+    { width: canvasWidth, height: canvasHeight },
+  );
 }
 
 /** Compute the viewport indicator rect in minimap-local coordinates. */
@@ -384,6 +499,93 @@ export function computeViewportMinimapRect(
   canvasHeight: number,
   tf: MinimapTransform,
 ): Rect {
-  const worldRect = computeViewportWorldRect(pan, zoom, canvasWidth, canvasHeight);
-  return worldRectToMinimap(worldRect, tf);
+  return computeViewportMinimapFootprint(
+    { pan, zoom, rotation: 0 },
+    { width: canvasWidth, height: canvasHeight },
+    tf,
+  ).bounds;
+}
+
+/** Compute the world-space AABB of the actual canvas corners. */
+function viewportWorldAabb(camera: Camera, viewport: Viewport): Rect {
+  const corners = viewportCornersToWorld(camera, viewport);
+  const xs = corners.map(([x]) => x);
+  const ys = corners.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  return {
+    x: minX,
+    y: minY,
+    w: Math.max(...xs) - minX,
+    h: Math.max(...ys) - minY,
+  };
+}
+
+function viewportCornersToWorld(camera: Camera, viewport: Viewport): Point[] {
+  const origin = computeFloatingOrigin(camera, viewport);
+  return [
+    screenToWorld(camera, 0, 0, viewport, origin),
+    screenToWorld(camera, viewport.width, 0, viewport, origin),
+    screenToWorld(camera, viewport.width, viewport.height, viewport, origin),
+    screenToWorld(camera, 0, viewport.height, viewport, origin),
+  ];
+}
+
+/** Project the exact four canvas corners into minimap CSS coordinates. */
+export function computeViewportMinimapFootprint(
+  camera: Camera,
+  viewport: Viewport,
+  tf: MinimapTransform,
+): MinimapFootprint {
+  const worldCorners = viewportCornersToWorld(camera, viewport);
+  const points = worldCorners.map(([x, y]) => {
+    const mm = worldToMinimap(x, y, tf);
+    return [mm.x, mm.y] as Point;
+  });
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  return {
+    points,
+    bounds: {
+      x: minX,
+      y: minY,
+      w: Math.max(...xs) - minX,
+      h: Math.max(...ys) - minY,
+    },
+  };
+}
+
+/** World coordinate at the center of the canvas viewport. */
+export function computeViewportWorldCenter(camera: Camera, viewport: Viewport): Point {
+  const origin = computeFloatingOrigin(camera, viewport);
+  return screenToWorld(camera, viewport.width / 2, viewport.height / 2, viewport, origin);
+}
+
+/** Pan that places a world point at the viewport's screen center. */
+export function panForViewportCenter(
+  camera: Camera,
+  viewport: Viewport,
+  world: Point,
+): { x: number; y: number } {
+  const base = worldToScreen({ ...camera, pan: { x: 0, y: 0 } }, world[0], world[1], viewport);
+  return {
+    x: viewport.width / 2 - base[0],
+    y: viewport.height / 2 - base[1],
+  };
+}
+
+/** Independent point-in-polygon test for the minimap interaction surface. */
+export function pointInMinimapFootprint(point: Point, footprint: MinimapFootprint): boolean {
+  let inside = false;
+  for (let i = 0, j = footprint.points.length - 1; i < footprint.points.length; j = i++) {
+    const a = footprint.points[i]!;
+    const b = footprint.points[j]!;
+    const crosses = a[1] > point[1] !== b[1] > point[1];
+    if (crosses && point[0] < ((b[0] - a[0]) * (point[1] - a[1])) / (b[1] - a[1]) + a[0]) {
+      inside = !inside;
+    }
+  }
+  return inside;
 }

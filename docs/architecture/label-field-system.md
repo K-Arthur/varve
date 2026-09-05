@@ -148,10 +148,45 @@ ensuring CSS selectors `[aria-invalid="true"]` work correctly.
 | `Select` | ✅ Fixed | `aria-invalid` now uses string `'true'` |
 | `Combobox` | ✅ Fixed | `aria-invalid` now uses string `'true'` |
 | `MultiSelect` | ✅ Fixed | `aria-invalid` now uses string `'true'` |
+| `NumberInput` | ✅ Fixed | `label` prop now optional; external `<label htmlFor>` supported |
+| Home `NewDesignDialog` | ✅ Fixed | Removed duplicate labels, associated DPI/Bleed via `htmlFor` |
+| Home `NewFileDialog` | ✅ Fixed | Removed duplicate labels, associated DPI/Bleed via `htmlFor` |
+| Home `ShareDialog` | ✅ OK | Proper `<label htmlFor>` on email input |
+| Home `VersionHistory` | ✅ OK | Proper `<label htmlFor>` on naming input |
+| Home `FilterDropdown` | ✅ OK | Wrapping `<label>` for checkboxes, proper a11y |
 | Editor `FieldRow` | ✅ Retained | Specialized for dense inspector layout |
 | Editor `NumberField` | ✅ Retained | Specialized for scrub/undo/wheel |
-| Home `NewDesignDialog` | ✅ Retained | Specialized grid layout |
 | Marketing website | ✅ N/A | No form fields to migrate |
+
+## Home Screen Fixes
+
+The home screen had several label association issues:
+
+### Duplicate Labels (fixed)
+Both `NewDesignDialog` and `NewFileDialog` had duplicate accessible names on
+width/height NumberInputs: a visible `<label htmlFor>` AND a `label="Width"` prop
+on NumberInput (which renders as `aria-label`). The `label` prop was removed from
+NumberInput in these contexts, leaving the visible `<label>` as the sole accessible
+name.
+
+### Redundant aria-label (fixed)
+`NewDesignDialog`'s name input had both `aria-label="Document name"` AND a
+`<label htmlFor="new-design-name">`. The redundant `aria-label` was removed.
+
+### Unassociated labels (fixed)
+"DPI" and "Bleed" labels in both `NewDesignDialog` and `NewFileDialog` were
+`<span>` elements with no programmatic association to their NumberInputs. Converted
+to `<label htmlFor>` with matching `id` props on the NumberInputs.
+
+### NumberInput label prop (changed)
+Made the `label` prop optional (was required). When an external `<label htmlFor>`
+provides the accessible name, the `label` prop should be omitted to avoid
+duplication. Existing callers that pass `label` continue to work unchanged.
+
+### FilterDropdown (retained)
+Uses wrapping `<label>` elements around native checkboxes with `accent-color`.
+This is a valid a11y pattern. The native checkboxes are intentionally used for
+their compact appearance in the filter popover.
 
 ## Specialized Patterns Retained
 
